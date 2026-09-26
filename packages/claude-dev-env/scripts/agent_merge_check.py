@@ -32,7 +32,9 @@ from dataclasses import dataclass
 
 from dev_env_scripts_constants.agent_merge_check_constants import (
     ACCEPT_HEADER,
+    ALL_HEAD_COMMIT_NODE_KEYS,
     ALL_HOLD_REASONS_BY_STATE,
+    ALL_MERGE_QUEUE_REMOVAL_NODE_KEYS,
     ALL_PASSING_CHECK_CONCLUSIONS,
     ALL_OUTDATED_KEYS,
     ALL_RESOLVED_KEYS,
@@ -58,12 +60,16 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     CHECK_RUNS_KEY,
     COMBINED_STATUS_ENDPOINT_TEMPLATE,
     COMMAND_DESCRIPTION,
+    COMMIT_KEY,
+    COMMITTED_DATE_KEY,
     COMPARE_ENDPOINT_TEMPLATE,
     CONTENT_TYPE_HEADER,
     CONTEXT_KEY,
+    CREATED_AT_KEY,
     DRAFT_HOLD_REASON,
     DRAFT_KEY,
     ERROR_EXIT_CODE,
+    FAILED_CHECKS_REMOVAL_REASON,
     FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE,
     GITHUB_ACCEPT_TYPE,
     GITHUB_API_ROOT,
@@ -74,6 +80,9 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     INTEGRATION_ID_KEY,
     JSON_CONTENT_TYPE,
     MERGE_EXIT_CODE,
+    MERGE_QUEUE_EJECTION_HOLD_TEMPLATE,
+    MERGE_QUEUE_REMOVAL_PAGE_SIZE,
+    MERGE_QUEUE_REMOVAL_QUERY,
     MERGE_QUEUE_RULE_TYPE,
     MERGE_VERDICT_LABEL,
     MERGEABLE_STATE_BLOCKED,
@@ -95,6 +104,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     QUERY_KEY,
     READY_DETAIL,
     REF_KEY,
+    REMOVAL_REASON_KEY,
     REQUIRED_CHECK_SEPARATOR,
     REQUIRED_CHECK_STATE_TEMPLATE,
     REQUIRED_STATUS_CHECKS_KEY,
@@ -181,6 +191,7 @@ def hold_reason(
     all_pull_request_fields: Mapping[str, object],
     unresolved_thread_count: int,
     blocked_evidence: BlockedEvidence | None = None,
+    is_ejected_from_merge_queue: bool = False,
 ) -> str | None:
     """Return why this pull request stays open, or None when it may merge.
 
@@ -190,11 +201,14 @@ def hold_reason(
         unresolved_thread_count: How many review threads are open on it.
         blocked_evidence: What was read behind a ``blocked`` merge state, or
             None when nothing was read.
+        is_ejected_from_merge_queue: Whether the merge queue ejected the
+            current head for failed checks.
 
     Returns:
-        The reason text for a draft, for a merge state other than clean, and
-        for an open review thread. None when the pull request is ready for
-        the agent that drives it to merge it.
+        The reason text for a draft, for a merge state other than clean, for
+        a head the merge queue ejected, and for an open review thread. None
+        when the pull request is ready for the agent that drives it to merge
+        it.
     """
     if all_pull_request_fields.get(DRAFT_KEY):
         return DRAFT_HOLD_REASON
@@ -206,9 +220,25 @@ def hold_reason(
             merge_state,
             UNKNOWN_STATE_HOLD_TEMPLATE.format(state=merge_state),
         )
+    if is_ejected_from_merge_queue:
+        return MERGE_QUEUE_EJECTION_HOLD_TEMPLATE.format(
+            base=_optional_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY),
+            number=all_pull_request_fields.get(NUMBER_KEY),
+        )
     if unresolved_thread_count > 0:
         return UNRESOLVED_THREADS_HOLD_TEMPLATE.format(count=unresolved_thread_count)
     return None
+
+
+def _optional_nested_field(
+    all_fields: Mapping[str, object],
+    outer_key: str,
+    inner_key: str,
+) -> object:
+    all_inner_fields = all_fields.get(outer_key)
+    if not isinstance(all_inner_fields, Mapping):
+        return None
+    return all_inner_fields.get(inner_key)
 
 
 def required_contexts(all_rules: Sequence[object]) -> tuple[RequiredContext, ...]:
@@ -403,6 +433,27 @@ def count_unresolved_threads(all_thread_records: Sequence[object]) -> int:
         if isinstance(each_thread, Mapping)
         and not _any_flag(each_thread, ALL_RESOLVED_KEYS)
         and not _any_flag(each_thread, ALL_OUTDATED_KEYS)
+    )
+
+
+def _is_ejected_on_head(
+    all_removal_records: Sequence[object],
+    head_committed_at: str,
+) -> bool:
+    """Report whether a ``failed_checks`` removal is newer than the head.
+
+    A commit that lands after the merge queue ejected the pull request
+    carries a fix the queue has not seen yet, so an older removal holds
+    nothing back.
+    """
+    all_failed_check_times = [
+        str(each_removal.get(CREATED_AT_KEY))
+        for each_removal in all_removal_records
+        if isinstance(each_removal, Mapping)
+        and each_removal.get(REMOVAL_REASON_KEY) == FAILED_CHECKS_REMOVAL_REASON
+    ]
+    return (
+        bool(all_failed_check_times) and max(all_failed_check_times) > head_committed_at
     )
 
 
@@ -648,14 +699,20 @@ def _thread_records_over_rest(
     return document if isinstance(document, list) else None
 
 
-def _thread_query_payload(owner: str, name: str, number: int) -> dict[str, object]:
+def _pull_request_query_payload(
+    query: str,
+    page_size: int,
+    slug: str,
+    number: int,
+) -> dict[str, object]:
+    owner, _, name = slug.partition(SLUG_SEPARATOR)
     return {
-        QUERY_KEY: UNRESOLVED_THREAD_QUERY,
+        QUERY_KEY: query,
         VARIABLES_KEY: {
             OWNER_VARIABLE: owner,
             NAME_VARIABLE: name,
             NUMBER_VARIABLE: number,
-            PAGE_SIZE_VARIABLE: REVIEW_THREAD_PAGE_SIZE,
+            PAGE_SIZE_VARIABLE: page_size,
         },
     }
 
@@ -665,11 +722,12 @@ def _read_unresolved_thread_count_over_graphql(
     number: int,
     token: str,
 ) -> int:
-    owner, _, name = slug.partition(SLUG_SEPARATOR)
     document = _request_json(
         GITHUB_GRAPHQL_ENDPOINT,
         token,
-        _thread_query_payload(owner, name, number),
+        _pull_request_query_payload(
+            UNRESOLVED_THREAD_QUERY, REVIEW_THREAD_PAGE_SIZE, slug, number
+        ),
     )
     all_thread_records = functools.reduce(
         functools.partial(_field_at, document),
@@ -685,6 +743,59 @@ def _field_at(document: object, all_fields: object, key: str) -> object:
     if not isinstance(all_fields, Mapping):
         raise MergeCheckError(str(document))
     return all_fields.get(key)
+
+
+def read_merge_queue_ejection(slug: str, number: int, token: str) -> bool:
+    """Read whether the merge queue ejected the pull request's current head.
+
+    Only GraphQL reports why a pull request left the merge queue. A
+    repository with no merge queue reports no removal events.
+
+    Args:
+        slug: The repository as ``owner/name``.
+        number: The pull request number.
+        token: The GitHub token the request authenticates with.
+
+    Returns:
+        True when a ``failed_checks`` removal is newer than the head commit.
+
+    Raises:
+        MergeCheckError: The query failed, or answered with another shape.
+    """
+    document = _request_json(
+        GITHUB_GRAPHQL_ENDPOINT,
+        token,
+        _pull_request_query_payload(
+            MERGE_QUEUE_REMOVAL_QUERY, MERGE_QUEUE_REMOVAL_PAGE_SIZE, slug, number
+        ),
+    )
+    return _is_ejected_on_head(
+        _list_along(document, ALL_MERGE_QUEUE_REMOVAL_NODE_KEYS),
+        _head_committed_at(document),
+    )
+
+
+def _list_along(document: object, all_keys: Sequence[str]) -> list[object]:
+    all_records = functools.reduce(
+        functools.partial(_field_at, document), all_keys, document
+    )
+    if not isinstance(all_records, list):
+        raise MergeCheckError(str(document))
+    return all_records
+
+
+def _head_committed_at(document: object) -> str:
+    all_head_commits = _list_along(document, ALL_HEAD_COMMIT_NODE_KEYS)
+    if not all_head_commits:
+        raise MergeCheckError(str(document))
+    head_committed_at = functools.reduce(
+        functools.partial(_field_at, document),
+        (COMMIT_KEY, COMMITTED_DATE_KEY),
+        all_head_commits[-1],
+    )
+    if not isinstance(head_committed_at, str):
+        raise MergeCheckError(str(document))
+    return head_committed_at
 
 
 def read_settled_pull_request(
@@ -741,6 +852,9 @@ def main(all_arguments: Sequence[str]) -> int:
         unresolved_thread_count = read_unresolved_thread_count(
             parsed.slug, parsed.number, token
         )
+        is_ejected_from_merge_queue = read_merge_queue_ejection(
+            parsed.slug, parsed.number, token
+        )
     except MergeCheckError as failure:
         print(failure, file=sys.stderr)
         return ERROR_EXIT_CODE
@@ -753,7 +867,10 @@ def main(all_arguments: Sequence[str]) -> int:
         except MergeCheckError as failure:
             print(failure, file=sys.stderr)
     reason = hold_reason(
-        all_pull_request_fields, unresolved_thread_count, blocked_evidence
+        all_pull_request_fields,
+        unresolved_thread_count,
+        blocked_evidence,
+        is_ejected_from_merge_queue,
     )
     print(verdict_line(parsed.slug, all_pull_request_fields, reason))
     return HOLD_EXIT_CODE if reason else MERGE_EXIT_CODE

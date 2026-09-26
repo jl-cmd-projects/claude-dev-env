@@ -24,7 +24,7 @@ One command prints the verdict:
 python packages/claude-dev-env/scripts/agent_merge_check.py <owner>/<name> <number>
 ```
 
-It prints `MERGE` and exits 0 when the pull request is ready. It prints `HOLD` with the reason and exits 1 for a draft, for a head behind or conflicting with the base, for a required check that is not passing, for a check still running or red, and for an open review thread. It exits 2 when the state could not be read.
+It prints `MERGE` and exits 0 when the pull request is ready. It prints `HOLD` with the reason and exits 1 for a draft, for a head behind or conflicting with the base, for a required check that is not passing, for a check still running or red, for a head the merge queue ejected for failed checks, and for an open review thread. It exits 2 when the state could not be read.
 
 Each hold reason names its own repair, and each repair belongs to the agent:
 
@@ -35,6 +35,7 @@ Each hold reason names its own repair, and each repair belongs to the agent:
 | A required check is red | Read the failing check, fix it, push |
 | A check is red or still running | Fix it, or wait for it, then read the verdict again |
 | A review thread is open | Answer it, push the fix, resolve the thread |
+| Ejected from the merge queue for failed checks on this head | Read the merge_group run, fix the failure, push, then read the verdict again |
 | The pull request is a draft | Mark it ready once the checks pass |
 
 ## When a gate elsewhere holds the merge command
