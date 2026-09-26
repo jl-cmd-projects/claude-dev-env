@@ -24,7 +24,43 @@ MERGEABLE_STATE_KEY = "mergeable_state"
 NUMBER_KEY = "number"
 TITLE_KEY = "title"
 HEAD_KEY = "head"
+BASE_KEY = "base"
+REF_KEY = "ref"
 SHA_KEY = "sha"
+
+BRANCH_RULES_ENDPOINT_TEMPLATE = "{api_root}/repos/{slug}/rules/branches/{branch}"
+CHECK_RUNS_ENDPOINT_TEMPLATE = (
+    "{api_root}/repos/{slug}/commits/{sha}/check-runs?{query}"
+)
+COMBINED_STATUS_ENDPOINT_TEMPLATE = (
+    "{api_root}/repos/{slug}/commits/{sha}/status?{query}"
+)
+COMPARE_ENDPOINT_TEMPLATE = "{api_root}/repos/{slug}/compare/{base}...{head}"
+CHECK_NAME_PARAMETER = "check_name"
+PER_PAGE_PARAMETER = "per_page"
+CHECK_PAGE_SIZE = 100
+
+RULE_TYPE_KEY = "type"
+RULE_PARAMETERS_KEY = "parameters"
+REQUIRED_STATUS_CHECKS_RULE_TYPE = "required_status_checks"
+MERGE_QUEUE_RULE_TYPE = "merge_queue"
+REQUIRED_STATUS_CHECKS_KEY = "required_status_checks"
+CONTEXT_KEY = "context"
+INTEGRATION_ID_KEY = "integration_id"
+CHECK_RUNS_KEY = "check_runs"
+CHECK_RUN_NAME_KEY = "name"
+CHECK_RUN_ID_KEY = "id"
+CHECK_RUN_APP_KEY = "app"
+CHECK_RUN_APP_ID_KEY = "id"
+CHECK_RUN_STATUS_KEY = "status"
+CHECK_RUN_CONCLUSION_KEY = "conclusion"
+CHECK_RUN_COMPLETED_STATUS = "completed"
+ALL_PASSING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+STATUSES_KEY = "statuses"
+STATUS_STATE_KEY = "state"
+SUCCESS_STATUS_STATE = "success"
+PENDING_STATUS_STATE = "pending"
+BEHIND_BY_KEY = "behind_by"
 
 MERGEABLE_STATE_CLEAN = "clean"
 MERGEABLE_STATE_BEHIND = "behind"
@@ -61,6 +97,19 @@ ALL_HOLD_REASONS_BY_STATE = {
     MERGEABLE_STATE_BLOCKED: BLOCKED_HOLD_REASON,
     MERGEABLE_STATE_UNSTABLE: UNSTABLE_HOLD_REASON,
 }
+FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE = (
+    "A required check is not passing on this head: {checks}. Read the "
+    "failing check, fix it, and push."
+)
+REQUIRED_CHECK_STATE_TEMPLATE = "{context} ({state})"
+REQUIRED_CHECK_SEPARATOR = ", "
+MISSING_CHECK_STATE = "missing"
+PENDING_CHECK_STATE = "pending"
+BEHIND_MERGE_QUEUE_HOLD_TEMPLATE = (
+    "Every required check passes, but the head is {count} commit(s) behind "
+    "the base branch and the merge queue will not take it. Merge the base "
+    "branch into this one and push."
+)
 UNKNOWN_STATE_HOLD_TEMPLATE = (
     "GitHub reports the merge state as {state}, which this check does not "
     "treat as ready. Read the pull request page."

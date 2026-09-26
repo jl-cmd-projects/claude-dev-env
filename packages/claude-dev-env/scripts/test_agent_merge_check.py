@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ if str(_SCRIPTS_DIRECTORY) not in sys.path:
 import agent_merge_check
 from dev_env_scripts_constants.agent_merge_check_constants import (
     BEHIND_HOLD_REASON,
+    BEHIND_MERGE_QUEUE_HOLD_TEMPLATE,
     BLOCKED_HOLD_REASON,
     DIRTY_HOLD_REASON,
     DRAFT_HOLD_REASON,
@@ -315,3 +317,296 @@ def test_an_unreadable_pull_request_exits_two(
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setattr(agent_merge_check, "read_pull_request", _fail)
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 2
+
+
+PULL_REQUEST_4922_HEAD_SHA = "06bc18a1a8761a16e92c1419693a42f22dd4ae7c"
+REQUIRED_CHECK_APP_ID = 15368
+PULL_REQUEST_4922 = {
+    "number": 4922,
+    "draft": False,
+    "mergeable_state": "blocked",
+    "base": {"ref": "main"},
+    "head": {"sha": PULL_REQUEST_4922_HEAD_SHA},
+}
+MAIN_BRANCH_RULES = [
+    {
+        "type": "required_status_checks",
+        "parameters": {
+            "strict_required_status_checks_policy": False,
+            "required_status_checks": [
+                {"context": "Ruff", "integration_id": REQUIRED_CHECK_APP_ID},
+                {"context": "Tip Local green", "integration_id": REQUIRED_CHECK_APP_ID},
+            ],
+        },
+    },
+    {"type": "merge_queue", "parameters": {"merge_method": "MERGE"}},
+]
+
+
+def _check_run(
+    name: str,
+    conclusion: str | None,
+    run_id: int = 1,
+    app_id: int = REQUIRED_CHECK_APP_ID,
+    status: str = "completed",
+) -> dict[str, object]:
+    return {
+        "id": run_id,
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "app": {"id": app_id},
+    }
+
+
+def _github_answers(
+    all_rules: list[object],
+    all_check_runs: list[dict[str, object]],
+    behind_by: int,
+    all_statuses: list[object] | None = None,
+) -> object:
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.path.endswith("/pulls/4922"):
+            return PULL_REQUEST_4922
+        if parsed.path.endswith("/ccr/review_threads"):
+            return []
+        if "/rules/branches/" in parsed.path:
+            return all_rules
+        if parsed.path.endswith("/check-runs"):
+            check_name = urllib.parse.parse_qs(parsed.query)["check_name"][0]
+            return {
+                "check_runs": [
+                    each_run
+                    for each_run in all_check_runs
+                    if each_run["name"] == check_name
+                ]
+            }
+        if parsed.path.endswith("/status"):
+            return {"statuses": all_statuses or []}
+        if "/compare/" in parsed.path:
+            return {"behind_by": behind_by, "ahead_by": 1}
+        raise AssertionError(url)
+
+    return _answer
+
+
+def _run_main(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    answer: object,
+) -> tuple[int, str]:
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(agent_merge_check, "_request_json", answer)
+    exit_code = agent_merge_check.main(["jl-cmd/claude-dev-env", "4922"])
+    return exit_code, capsys.readouterr().out
+
+
+def test_a_green_head_behind_a_merge_queue_base_reports_the_behind_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_main(
+        monkeypatch,
+        capsys,
+        _github_answers(
+            MAIN_BRANCH_RULES,
+            [
+                _check_run("Ruff", "success", run_id=11),
+                _check_run("Tip Local green", "success", run_id=12),
+            ],
+            behind_by=225,
+        ),
+    )
+    assert exit_code == 1
+    assert BEHIND_MERGE_QUEUE_HOLD_TEMPLATE.format(count=225) in line
+    assert BLOCKED_HOLD_REASON not in line
+    assert "06bc18a" in line
+
+
+def test_a_red_required_check_is_named_ahead_of_the_behind_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_main(
+        monkeypatch,
+        capsys,
+        _github_answers(
+            MAIN_BRANCH_RULES,
+            [
+                _check_run("Ruff", "success", run_id=11),
+                _check_run("Tip Local green", "failure", run_id=12),
+            ],
+            behind_by=225,
+        ),
+    )
+    assert exit_code == 1
+    assert "Tip Local green (failure)" in line
+    assert "Ruff" not in line
+    assert "behind" not in line
+
+
+def test_an_unreadable_branch_rule_keeps_the_generic_blocked_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    routed_answer = _github_answers(MAIN_BRANCH_RULES, [], behind_by=225)
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if "/rules/branches/" in url:
+            raise agent_merge_check.MergeCheckError("HTTP Error 403: Forbidden")
+        return routed_answer(url, token, all_payload_fields)
+
+    exit_code, line = _run_main(monkeypatch, capsys, _answer)
+    assert exit_code == 1
+    assert BLOCKED_HOLD_REASON in line
+
+
+def _evidence(
+    all_unmet_checks: tuple[str, ...] = (),
+    behind_by: int = 0,
+    has_merge_queue: bool = True,
+) -> agent_merge_check.BlockedEvidence:
+    return agent_merge_check.BlockedEvidence(
+        all_unmet_checks=all_unmet_checks,
+        behind_by=behind_by,
+        has_merge_queue=has_merge_queue,
+    )
+
+
+@pytest.mark.parametrize(
+    ("evidence", "expected_reason"),
+    [
+        (_evidence(behind_by=0), BLOCKED_HOLD_REASON),
+        (_evidence(behind_by=3, has_merge_queue=False), BLOCKED_HOLD_REASON),
+        (
+            _evidence(behind_by=3),
+            BEHIND_MERGE_QUEUE_HOLD_TEMPLATE.format(count=3),
+        ),
+    ],
+)
+def test_a_blocked_head_with_every_required_check_green_reads_its_reason(
+    evidence: agent_merge_check.BlockedEvidence,
+    expected_reason: str,
+) -> None:
+    assert (
+        agent_merge_check.hold_reason(
+            _pull_request(mergeable_state="blocked"), 0, evidence
+        )
+        == expected_reason
+    )
+
+
+def test_blocked_evidence_is_ignored_for_a_draft() -> None:
+    assert (
+        agent_merge_check.hold_reason(
+            _pull_request(mergeable_state="blocked", draft=True),
+            0,
+            _evidence(behind_by=3),
+        )
+        == DRAFT_HOLD_REASON
+    )
+
+
+def test_required_contexts_merge_every_required_status_checks_rule() -> None:
+    all_rules = [
+        *MAIN_BRANCH_RULES,
+        {
+            "type": "required_status_checks",
+            "parameters": {
+                "required_status_checks": [
+                    {"context": "Ruff", "integration_id": REQUIRED_CHECK_APP_ID},
+                    {"context": "Semgrep"},
+                ]
+            },
+        },
+    ]
+    assert agent_merge_check.required_contexts(all_rules) == (
+        agent_merge_check.RequiredContext("Ruff", REQUIRED_CHECK_APP_ID),
+        agent_merge_check.RequiredContext("Tip Local green", REQUIRED_CHECK_APP_ID),
+        agent_merge_check.RequiredContext("Semgrep", None),
+    )
+
+
+def test_a_rule_set_without_a_merge_queue_rule_reports_none() -> None:
+    assert agent_merge_check.has_merge_queue_rule(MAIN_BRANCH_RULES)
+    assert not agent_merge_check.has_merge_queue_rule(MAIN_BRANCH_RULES[:1])
+
+
+RUFF_FROM_REQUIRED_APP = agent_merge_check.RequiredContext(
+    "Ruff", REQUIRED_CHECK_APP_ID
+)
+
+
+@pytest.mark.parametrize(
+    ("all_check_runs", "all_statuses", "expected_state"),
+    [
+        ([_check_run("Ruff", "success")], [], None),
+        ([_check_run("Ruff", "skipped")], [], None),
+        ([_check_run("Ruff", "failure")], [], "failure"),
+        ([_check_run("Ruff", None, status="in_progress")], [], "pending"),
+        (
+            [
+                _check_run("Ruff", "failure", run_id=1),
+                _check_run("Ruff", "success", run_id=2),
+            ],
+            [],
+            None,
+        ),
+        (
+            [
+                _check_run("Ruff", "success", run_id=2),
+                _check_run("Ruff", "failure", run_id=3),
+            ],
+            [],
+            "failure",
+        ),
+        ([_check_run("Ruff", "success", app_id=1)], [], "missing"),
+        ([], [{"context": "Ruff", "state": "success"}], None),
+        ([], [{"context": "Ruff", "state": "pending"}], "pending"),
+        ([], [{"context": "Ruff", "state": "error"}], "error"),
+        ([], [], "missing"),
+    ],
+)
+def test_unmet_check_state_reads_the_newest_report_of_the_required_check(
+    all_check_runs: list[object],
+    all_statuses: list[object],
+    expected_state: str | None,
+) -> None:
+    assert (
+        agent_merge_check.unmet_check_state(
+            RUFF_FROM_REQUIRED_APP, all_check_runs, all_statuses
+        )
+        == expected_state
+    )
+
+
+def test_read_blocked_evidence_reads_the_pull_request_4922_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        agent_merge_check,
+        "_request_json",
+        _github_answers(
+            MAIN_BRANCH_RULES,
+            [
+                _check_run("Ruff", "success", run_id=11),
+                _check_run("Tip Local green", "success", run_id=12),
+            ],
+            behind_by=225,
+        ),
+    )
+    assert agent_merge_check.read_blocked_evidence(
+        "jl-cmd/claude-dev-env", PULL_REQUEST_4922, "token"
+    ) == _evidence(behind_by=225)
+
+
+def test_blocked_hold_reason_names_every_unmet_required_check() -> None:
+    reason = agent_merge_check.blocked_hold_reason(
+        _evidence(
+            all_unmet_checks=("Ruff (failure)", "Tip Local green (missing)"),
+            behind_by=225,
+        )
+    )
+    assert "Ruff (failure), Tip Local green (missing)" in reason
+    assert "behind" not in reason

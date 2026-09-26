@@ -25,35 +25,62 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 
 from dev_env_scripts_constants.agent_merge_check_constants import (
     ACCEPT_HEADER,
     ALL_HOLD_REASONS_BY_STATE,
+    ALL_PASSING_CHECK_CONCLUSIONS,
     ALL_OUTDATED_KEYS,
     ALL_RESOLVED_KEYS,
     ALL_THREAD_NODE_KEYS,
     ALL_TOKEN_ENVIRONMENT_VARIABLES,
     AUTHORIZATION_HEADER,
+    BASE_KEY,
     BEARER_PREFIX,
+    BEHIND_BY_KEY,
+    BEHIND_MERGE_QUEUE_HOLD_TEMPLATE,
+    BLOCKED_HOLD_REASON,
+    BRANCH_RULES_ENDPOINT_TEMPLATE,
+    CHECK_NAME_PARAMETER,
+    CHECK_PAGE_SIZE,
+    CHECK_RUN_APP_ID_KEY,
+    CHECK_RUN_APP_KEY,
+    CHECK_RUN_COMPLETED_STATUS,
+    CHECK_RUN_CONCLUSION_KEY,
+    CHECK_RUN_ID_KEY,
+    CHECK_RUN_NAME_KEY,
+    CHECK_RUN_STATUS_KEY,
+    CHECK_RUNS_ENDPOINT_TEMPLATE,
+    CHECK_RUNS_KEY,
+    COMBINED_STATUS_ENDPOINT_TEMPLATE,
     COMMAND_DESCRIPTION,
+    COMPARE_ENDPOINT_TEMPLATE,
     CONTENT_TYPE_HEADER,
+    CONTEXT_KEY,
     DRAFT_HOLD_REASON,
     DRAFT_KEY,
     ERROR_EXIT_CODE,
+    FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE,
     GITHUB_ACCEPT_TYPE,
     GITHUB_API_ROOT,
     GITHUB_GRAPHQL_ENDPOINT,
     HEAD_KEY,
     HOLD_EXIT_CODE,
     HOLD_VERDICT_LABEL,
+    INTEGRATION_ID_KEY,
     JSON_CONTENT_TYPE,
     MERGE_EXIT_CODE,
+    MERGE_QUEUE_RULE_TYPE,
     MERGE_VERDICT_LABEL,
+    MERGEABLE_STATE_BLOCKED,
     MERGEABLE_STATE_CLEAN,
     MERGEABLE_STATE_KEY,
     MERGEABLE_STATE_UNKNOWN,
+    MISSING_CHECK_STATE,
     NAME_VARIABLE,
     NO_SIGN_IN_MESSAGE,
     NUMBER_ARGUMENT_HELP,
@@ -61,18 +88,31 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     NUMBER_VARIABLE,
     OWNER_VARIABLE,
     PAGE_SIZE_VARIABLE,
+    PENDING_CHECK_STATE,
+    PENDING_STATUS_STATE,
+    PER_PAGE_PARAMETER,
     PULL_REQUEST_ENDPOINT_TEMPLATE,
     QUERY_KEY,
     READY_DETAIL,
+    REF_KEY,
+    REQUIRED_CHECK_SEPARATOR,
+    REQUIRED_CHECK_STATE_TEMPLATE,
+    REQUIRED_STATUS_CHECKS_KEY,
+    REQUIRED_STATUS_CHECKS_RULE_TYPE,
     REQUEST_TIMEOUT_SECONDS,
     REVIEW_THREAD_PAGE_SIZE,
     REVIEW_THREADS_ENDPOINT_TEMPLATE,
+    RULE_PARAMETERS_KEY,
+    RULE_TYPE_KEY,
     SETTLE_ATTEMPT_COUNT,
     SETTLE_WAIT_SECONDS,
     SHA_KEY,
     SHORT_SHA_LENGTH,
     SLUG_ARGUMENT_HELP,
     SLUG_SEPARATOR,
+    STATUS_STATE_KEY,
+    STATUSES_KEY,
+    SUCCESS_STATUS_STATE,
     UNKNOWN_STATE_HOLD_TEMPLATE,
     UNRESOLVED_THREAD_QUERY,
     UNRESOLVED_THREADS_HOLD_TEMPLATE,
@@ -86,9 +126,61 @@ class MergeCheckError(Exception):
     """Raised when the pull request state could not be read."""
 
 
+@dataclass(frozen=True)
+class RequiredContext:
+    """One status check a branch rule requires before a merge.
+
+    Attributes:
+        context: The check name the rule requires.
+        integration_id: The app that must report it, or None for any app.
+    """
+
+    context: str
+    integration_id: int | None
+
+
+@dataclass(frozen=True)
+class BlockedEvidence:
+    """What GitHub reports behind a ``blocked`` merge state.
+
+    Attributes:
+        all_unmet_checks: Each required check not passing on the head, as
+            its name and state, such as ``Ruff (failure)``.
+        behind_by: How many base commits the head lacks.
+        has_merge_queue: Whether a branch rule sends merges through a queue.
+    """
+
+    all_unmet_checks: tuple[str, ...]
+    behind_by: int
+    has_merge_queue: bool
+
+
+def blocked_hold_reason(evidence: BlockedEvidence) -> str:
+    """Name what blocks a pull request GitHub reports as ``blocked``.
+
+    Args:
+        evidence: The required checks, the distance behind the base, and the
+            merge queue rule read for the pull request.
+
+    Returns:
+        The failing required checks by name when any is not passing. The
+        behind reason when every required check passes and a merge queue
+        refuses a head that lacks base commits. The generic blocked reason
+        otherwise.
+    """
+    if evidence.all_unmet_checks:
+        return FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE.format(
+            checks=REQUIRED_CHECK_SEPARATOR.join(evidence.all_unmet_checks)
+        )
+    if evidence.has_merge_queue and evidence.behind_by > 0:
+        return BEHIND_MERGE_QUEUE_HOLD_TEMPLATE.format(count=evidence.behind_by)
+    return BLOCKED_HOLD_REASON
+
+
 def hold_reason(
     all_pull_request_fields: Mapping[str, object],
     unresolved_thread_count: int,
+    blocked_evidence: BlockedEvidence | None = None,
 ) -> str | None:
     """Return why this pull request stays open, or None when it may merge.
 
@@ -96,6 +188,8 @@ def hold_reason(
         all_pull_request_fields: The pull request as the GitHub API reports
             it, carrying its draft flag and its merge state.
         unresolved_thread_count: How many review threads are open on it.
+        blocked_evidence: What was read behind a ``blocked`` merge state, or
+            None when nothing was read.
 
     Returns:
         The reason text for a draft, for a merge state other than clean, and
@@ -105,6 +199,8 @@ def hold_reason(
     if all_pull_request_fields.get(DRAFT_KEY):
         return DRAFT_HOLD_REASON
     merge_state = all_pull_request_fields.get(MERGEABLE_STATE_KEY)
+    if merge_state == MERGEABLE_STATE_BLOCKED and blocked_evidence is not None:
+        return blocked_hold_reason(blocked_evidence)
     if merge_state != MERGEABLE_STATE_CLEAN:
         return ALL_HOLD_REASONS_BY_STATE.get(
             merge_state,
@@ -113,6 +209,151 @@ def hold_reason(
     if unresolved_thread_count > 0:
         return UNRESOLVED_THREADS_HOLD_TEMPLATE.format(count=unresolved_thread_count)
     return None
+
+
+def required_contexts(all_rules: Sequence[object]) -> tuple[RequiredContext, ...]:
+    """Collect each status check the branch rules require, once, in order.
+
+    Args:
+        all_rules: The rules GitHub reports as active on the base branch.
+
+    Returns:
+        The required checks across every required status checks rule.
+    """
+    all_contexts: dict[RequiredContext, None] = {}
+    for each_rule in _rules_of_type(all_rules, REQUIRED_STATUS_CHECKS_RULE_TYPE):
+        for each_check in _required_check_records(each_rule):
+            all_contexts[_required_context(each_check)] = None
+    return tuple(all_contexts)
+
+
+def has_merge_queue_rule(all_rules: Sequence[object]) -> bool:
+    """Report whether a branch rule sends merges through a merge queue.
+
+    Args:
+        all_rules: The rules GitHub reports as active on the base branch.
+
+    Returns:
+        True when any rule is a merge queue rule.
+    """
+    return any(_rules_of_type(all_rules, MERGE_QUEUE_RULE_TYPE))
+
+
+def _rules_of_type(
+    all_rules: Sequence[object],
+    rule_type: str,
+) -> list[Mapping[str, object]]:
+    return [
+        each_rule
+        for each_rule in all_rules
+        if isinstance(each_rule, Mapping) and each_rule.get(RULE_TYPE_KEY) == rule_type
+    ]
+
+
+def _required_check_records(
+    all_rule_fields: Mapping[str, object],
+) -> list[Mapping[str, object]]:
+    all_parameters = all_rule_fields.get(RULE_PARAMETERS_KEY)
+    if not isinstance(all_parameters, Mapping):
+        return []
+    all_checks = all_parameters.get(REQUIRED_STATUS_CHECKS_KEY)
+    if not isinstance(all_checks, list):
+        return []
+    return [
+        each_check
+        for each_check in all_checks
+        if isinstance(each_check, Mapping) and each_check.get(CONTEXT_KEY)
+    ]
+
+
+def _required_context(all_check_fields: Mapping[str, object]) -> RequiredContext:
+    integration_id = all_check_fields.get(INTEGRATION_ID_KEY)
+    return RequiredContext(
+        context=str(all_check_fields[CONTEXT_KEY]),
+        integration_id=integration_id if isinstance(integration_id, int) else None,
+    )
+
+
+def unmet_check_state(
+    required: RequiredContext,
+    all_check_runs: Sequence[object],
+    all_statuses: Sequence[object],
+) -> str | None:
+    """Return the state of a required check that is not passing on the head.
+
+    Args:
+        required: The check the branch rule requires.
+        all_check_runs: The check runs reported on the head commit.
+        all_statuses: The latest commit status per context on the head.
+
+    Returns:
+        None when the newest matching check run, or failing that the commit
+        status of that name, passes. Otherwise its conclusion, ``pending``,
+        or ``missing`` when nothing of that name reported.
+    """
+    newest_run = _newest_matching_run(required, all_check_runs)
+    if newest_run is not None:
+        return _check_run_state(newest_run)
+    status = _matching_status(required.context, all_statuses)
+    if status is not None:
+        return _status_state(status)
+    return MISSING_CHECK_STATE
+
+
+def _newest_matching_run(
+    required: RequiredContext,
+    all_check_runs: Sequence[object],
+) -> Mapping[str, object] | None:
+    all_matching_runs = [
+        each_run
+        for each_run in all_check_runs
+        if isinstance(each_run, Mapping)
+        and each_run.get(CHECK_RUN_NAME_KEY) == required.context
+        and required.integration_id in (None, _check_run_app_id(each_run))
+    ]
+    if not all_matching_runs:
+        return None
+    return max(all_matching_runs, key=_check_run_id)
+
+
+def _check_run_id(all_run_fields: Mapping[str, object]) -> int:
+    run_id = all_run_fields.get(CHECK_RUN_ID_KEY)
+    return run_id if isinstance(run_id, int) else 0
+
+
+def _check_run_app_id(all_run_fields: Mapping[str, object]) -> object:
+    all_app_fields = all_run_fields.get(CHECK_RUN_APP_KEY)
+    if not isinstance(all_app_fields, Mapping):
+        return None
+    return all_app_fields.get(CHECK_RUN_APP_ID_KEY)
+
+
+def _check_run_state(all_run_fields: Mapping[str, object]) -> str | None:
+    if all_run_fields.get(CHECK_RUN_STATUS_KEY) != CHECK_RUN_COMPLETED_STATUS:
+        return PENDING_CHECK_STATE
+    conclusion = all_run_fields.get(CHECK_RUN_CONCLUSION_KEY)
+    if conclusion in ALL_PASSING_CHECK_CONCLUSIONS:
+        return None
+    return str(conclusion)
+
+
+def _matching_status(
+    context: str,
+    all_statuses: Sequence[object],
+) -> Mapping[str, object] | None:
+    for each_status in all_statuses:
+        if isinstance(each_status, Mapping) and each_status.get(CONTEXT_KEY) == context:
+            return each_status
+    return None
+
+
+def _status_state(all_status_fields: Mapping[str, object]) -> str | None:
+    state = all_status_fields.get(STATUS_STATE_KEY)
+    if state == SUCCESS_STATUS_STATE:
+        return None
+    if state == PENDING_STATUS_STATE:
+        return PENDING_CHECK_STATE
+    return str(state)
 
 
 def verdict_line(
@@ -228,6 +469,137 @@ def read_pull_request(slug: str, number: int, token: str) -> Mapping[str, object
     if not isinstance(document, Mapping):
         raise MergeCheckError(str(document))
     return document
+
+
+def read_blocked_evidence(
+    slug: str,
+    all_pull_request_fields: Mapping[str, object],
+    token: str,
+) -> BlockedEvidence:
+    """Read what stands behind a ``blocked`` merge state.
+
+    Args:
+        slug: The repository as ``owner/name``.
+        all_pull_request_fields: The pull request, carrying its base branch
+            and its head commit.
+        token: The GitHub token the requests authenticate with.
+
+    Returns:
+        The required checks not passing on the head, how far the head is
+        behind the base, and whether a merge queue rule applies.
+
+    Raises:
+        MergeCheckError: A read failed, or answered with another shape.
+    """
+    base_ref = urllib.parse.quote(
+        str(_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY))
+    )
+    head_sha = str(_nested_field(all_pull_request_fields, HEAD_KEY, SHA_KEY))
+    all_rules = _read_branch_rules(slug, base_ref, token)
+    return BlockedEvidence(
+        all_unmet_checks=_read_unmet_checks(slug, head_sha, all_rules, token),
+        behind_by=_read_behind_by(slug, base_ref, head_sha, token),
+        has_merge_queue=has_merge_queue_rule(all_rules),
+    )
+
+
+def _read_branch_rules(slug: str, base_ref: str, token: str) -> list[object]:
+    return _request_list(
+        BRANCH_RULES_ENDPOINT_TEMPLATE.format(
+            api_root=GITHUB_API_ROOT, slug=slug, branch=base_ref
+        ),
+        token,
+    )
+
+
+def _read_unmet_checks(
+    slug: str,
+    head_sha: str,
+    all_rules: Sequence[object],
+    token: str,
+) -> tuple[str, ...]:
+    all_statuses = _request_list_field(
+        COMBINED_STATUS_ENDPOINT_TEMPLATE.format(
+            api_root=GITHUB_API_ROOT,
+            slug=slug,
+            sha=head_sha,
+            query=urllib.parse.urlencode({PER_PAGE_PARAMETER: CHECK_PAGE_SIZE}),
+        ),
+        token,
+        STATUSES_KEY,
+    )
+    all_unmet_checks: list[str] = []
+    for each_required in required_contexts(all_rules):
+        all_check_runs = _read_check_runs(slug, head_sha, each_required.context, token)
+        state = unmet_check_state(each_required, all_check_runs, all_statuses)
+        if state is not None:
+            all_unmet_checks.append(
+                REQUIRED_CHECK_STATE_TEMPLATE.format(
+                    context=each_required.context, state=state
+                )
+            )
+    return tuple(all_unmet_checks)
+
+
+def _read_check_runs(
+    slug: str,
+    head_sha: str,
+    context: str,
+    token: str,
+) -> list[object]:
+    query = urllib.parse.urlencode(
+        {CHECK_NAME_PARAMETER: context, PER_PAGE_PARAMETER: CHECK_PAGE_SIZE}
+    )
+    return _request_list_field(
+        CHECK_RUNS_ENDPOINT_TEMPLATE.format(
+            api_root=GITHUB_API_ROOT, slug=slug, sha=head_sha, query=query
+        ),
+        token,
+        CHECK_RUNS_KEY,
+    )
+
+
+def _read_behind_by(slug: str, base_ref: str, head_sha: str, token: str) -> int:
+    behind_by = _request_field(
+        COMPARE_ENDPOINT_TEMPLATE.format(
+            api_root=GITHUB_API_ROOT, slug=slug, base=base_ref, head=head_sha
+        ),
+        token,
+        BEHIND_BY_KEY,
+    )
+    return behind_by if isinstance(behind_by, int) else 0
+
+
+def _nested_field(
+    all_fields: Mapping[str, object],
+    outer_key: str,
+    inner_key: str,
+) -> object:
+    all_inner_fields = all_fields.get(outer_key)
+    if not isinstance(all_inner_fields, Mapping) or not all_inner_fields.get(inner_key):
+        raise MergeCheckError(f"The pull request carries no {outer_key}.{inner_key}.")
+    return all_inner_fields[inner_key]
+
+
+def _request_list(url: str, token: str) -> list[object]:
+    document = _request_json(url, token, None)
+    if not isinstance(document, list):
+        raise MergeCheckError(str(document))
+    return document
+
+
+def _request_field(url: str, token: str, key: str) -> object:
+    document = _request_json(url, token, None)
+    if not isinstance(document, Mapping) or key not in document:
+        raise MergeCheckError(str(document))
+    return document[key]
+
+
+def _request_list_field(url: str, token: str, key: str) -> list[object]:
+    all_records = _request_field(url, token, key)
+    if not isinstance(all_records, list):
+        raise MergeCheckError(str(all_records))
+    return all_records
 
 
 def read_unresolved_thread_count(slug: str, number: int, token: str) -> int:
@@ -372,7 +744,17 @@ def main(all_arguments: Sequence[str]) -> int:
     except MergeCheckError as failure:
         print(failure, file=sys.stderr)
         return ERROR_EXIT_CODE
-    reason = hold_reason(all_pull_request_fields, unresolved_thread_count)
+    blocked_evidence = None
+    if all_pull_request_fields.get(MERGEABLE_STATE_KEY) == MERGEABLE_STATE_BLOCKED:
+        try:
+            blocked_evidence = read_blocked_evidence(
+                parsed.slug, all_pull_request_fields, token
+            )
+        except MergeCheckError as failure:
+            print(failure, file=sys.stderr)
+    reason = hold_reason(
+        all_pull_request_fields, unresolved_thread_count, blocked_evidence
+    )
     print(verdict_line(parsed.slug, all_pull_request_fields, reason))
     return HOLD_EXIT_CODE if reason else MERGE_EXIT_CODE
 
