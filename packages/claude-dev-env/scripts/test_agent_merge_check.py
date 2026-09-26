@@ -290,6 +290,11 @@ def test_a_ready_pull_request_exits_zero(monkeypatch: pytest.MonkeyPatch) -> Non
         "read_unresolved_thread_count",
         lambda slug, number, token: 0,
     )
+    monkeypatch.setattr(
+        agent_merge_check,
+        "read_merge_queue_ejection",
+        lambda slug, number, token: False,
+    )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 0
 
 
@@ -305,6 +310,11 @@ def test_a_held_pull_request_exits_one(monkeypatch: pytest.MonkeyPatch) -> None:
         "read_unresolved_thread_count",
         lambda slug, number, token: 0,
     )
+    monkeypatch.setattr(
+        agent_merge_check,
+        "read_merge_queue_ejection",
+        lambda slug, number, token: False,
+    )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 1
 
 
@@ -319,6 +329,7 @@ def test_an_unreadable_pull_request_exits_two(
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 2
 
 
+HEAD_COMMITTED_AT = "2026-09-26T16:00:00Z"
 PULL_REQUEST_4922_HEAD_SHA = "06bc18a1a8761a16e92c1419693a42f22dd4ae7c"
 REQUIRED_CHECK_APP_ID = 15368
 PULL_REQUEST_4922 = {
@@ -386,9 +397,26 @@ def _github_answers(
             return {"statuses": all_statuses or []}
         if "/compare/" in parsed.path:
             return {"behind_by": behind_by, "ahead_by": 1}
+        if parsed.path.endswith("/graphql"):
+            return _merge_queue_document([])
         raise AssertionError(url)
 
     return _answer
+
+
+def _merge_queue_document(all_removals: list[dict[str, object]]) -> object:
+    return {
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "commits": {
+                        "nodes": [{"commit": {"committedDate": HEAD_COMMITTED_AT}}]
+                    },
+                    "timelineItems": {"nodes": all_removals},
+                }
+            }
+        }
+    }
 
 
 def _run_main(
@@ -610,3 +638,147 @@ def test_blocked_hold_reason_names_every_unmet_required_check() -> None:
     )
     assert "Ruff (failure), Tip Local green (missing)" in reason
     assert "behind" not in reason
+
+
+QUEUED_PULL_REQUEST = {
+    "number": 1442,
+    "draft": False,
+    "mergeable_state": "clean",
+    "base": {"ref": "main"},
+    "head": {"sha": "ab845eb6945650055ebe852312a9057b9f067d6a"},
+}
+
+
+def _removal(created_at: str, reason: str) -> dict[str, object]:
+    return {"createdAt": created_at, "reason": reason}
+
+
+def _merge_queue_answers(
+    all_removals: list[dict[str, object]],
+) -> object:
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if url.endswith("/pulls/1442"):
+            return QUEUED_PULL_REQUEST
+        if url.endswith("/ccr/review_threads"):
+            return []
+        if url.endswith("/graphql"):
+            return _merge_queue_document(all_removals)
+        raise AssertionError(url)
+
+    return _answer
+
+
+def _run_queued_main(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    all_removals: list[dict[str, object]],
+) -> tuple[int, str]:
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(
+        agent_merge_check, "_request_json", _merge_queue_answers(all_removals)
+    )
+    exit_code = agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"])
+    return exit_code, capsys.readouterr().out
+
+
+def test_a_head_ejected_from_the_merge_queue_for_failed_checks_holds(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_queued_main(
+        monkeypatch,
+        capsys,
+        [
+            _removal("2026-09-26T15:09:20Z", "failed_checks"),
+            _removal("2026-09-26T17:11:35Z", "failed_checks"),
+        ],
+    )
+    assert exit_code == 1
+    assert line.startswith(HOLD_VERDICT_LABEL)
+    assert "merge queue" in line
+    assert "failed checks" in line
+    assert "merge_group" in line
+    assert "gh-readonly-queue/main/pr-1442-<sha>" in line
+    assert "before you enqueue it again" in line
+
+
+def test_a_fix_pushed_after_the_merge_queue_ejection_clears_the_hold(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_queued_main(
+        monkeypatch,
+        capsys,
+        [_removal("2026-09-26T15:09:20Z", "failed_checks")],
+    )
+    assert exit_code == 0
+    assert line.startswith(MERGE_VERDICT_LABEL)
+
+
+def test_a_manual_merge_queue_removal_does_not_hold(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_queued_main(
+        monkeypatch,
+        capsys,
+        [
+            _removal("2026-09-26T15:09:20Z", "failed_checks"),
+            _removal("2026-09-26T17:58:17Z", "manual"),
+        ],
+    )
+    assert exit_code == 0
+    assert line.startswith(MERGE_VERDICT_LABEL)
+
+
+def test_a_repository_with_no_merge_queue_removal_may_merge(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_queued_main(monkeypatch, capsys, [])
+    assert exit_code == 0
+    assert line.startswith(MERGE_VERDICT_LABEL)
+
+
+def test_a_merge_queue_answer_of_another_shape_exits_two(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    routed_answer = _merge_queue_answers([])
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if url.endswith("/graphql"):
+            return {"errors": [{"message": "Bad credentials"}]}
+        return routed_answer(url, token, all_payload_fields)
+
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(agent_merge_check, "_request_json", _answer)
+    assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 2
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    ("all_removals", "expected_ejection"),
+    [
+        ([_removal("2026-09-26T17:11:35Z", "failed_checks")], True),
+        ([_removal("2026-09-26T15:09:20Z", "failed_checks")], False),
+        ([_removal("2026-09-26T17:58:17Z", "manual")], False),
+        ([], False),
+    ],
+)
+def test_read_merge_queue_ejection_compares_failed_checks_removals_to_the_head(
+    monkeypatch: pytest.MonkeyPatch,
+    all_removals: list[dict[str, object]],
+    expected_ejection: bool,
+) -> None:
+    monkeypatch.setattr(
+        agent_merge_check,
+        "_request_json",
+        lambda url, token, all_payload_fields: _merge_queue_document(all_removals),
+    )
+    assert (
+        agent_merge_check.read_merge_queue_ejection(
+            "jl-cmd/claude-dev-env", 1442, "token"
+        )
+        is expected_ejection
+    )

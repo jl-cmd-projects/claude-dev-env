@@ -117,6 +117,13 @@ UNKNOWN_STATE_HOLD_TEMPLATE = (
 UNRESOLVED_THREADS_HOLD_TEMPLATE = (
     "{count} review thread(s) are open. Answer each one and resolve it."
 )
+MERGE_QUEUE_EJECTION_HOLD_TEMPLATE = (
+    "The merge queue ejected this head for failed checks, and no commit has "
+    "landed since. Read the merge_group run for the "
+    "gh-readonly-queue/{base}/pr-{number}-<sha> branch, fix the failure, and "
+    "push before you enqueue it again."
+)
+FAILED_CHECKS_REMOVAL_REASON = "failed_checks"
 
 MERGE_VERDICT_LABEL = "MERGE"
 HOLD_VERDICT_LABEL = "HOLD"
@@ -148,6 +155,19 @@ query($owner: String!, $name: String!, $number: Int!, $pageSize: Int!) {
   }
 }
 """
+MERGE_QUEUE_REMOVAL_PAGE_SIZE = 100
+MERGE_QUEUE_REMOVAL_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $pageSize: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      commits(last: 1) { nodes { commit { committedDate } } }
+      timelineItems(last: $pageSize, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+        nodes { ... on RemovedFromMergeQueueEvent { createdAt reason } }
+      }
+    }
+  }
+}
+"""
 QUERY_KEY = "query"
 VARIABLES_KEY = "variables"
 OWNER_VARIABLE = "owner"
@@ -164,6 +184,26 @@ ALL_THREAD_NODE_KEYS = (
     REPOSITORY_KEY,
     PULL_REQUEST_KEY,
     REVIEW_THREADS_KEY,
+    NODES_KEY,
+)
+COMMITS_KEY = "commits"
+COMMIT_KEY = "commit"
+COMMITTED_DATE_KEY = "committedDate"
+TIMELINE_ITEMS_KEY = "timelineItems"
+CREATED_AT_KEY = "createdAt"
+REMOVAL_REASON_KEY = "reason"
+ALL_MERGE_QUEUE_REMOVAL_NODE_KEYS = (
+    DATA_KEY,
+    REPOSITORY_KEY,
+    PULL_REQUEST_KEY,
+    TIMELINE_ITEMS_KEY,
+    NODES_KEY,
+)
+ALL_HEAD_COMMIT_NODE_KEYS = (
+    DATA_KEY,
+    REPOSITORY_KEY,
+    PULL_REQUEST_KEY,
+    COMMITS_KEY,
     NODES_KEY,
 )
 ALL_RESOLVED_KEYS = ("isResolved", "is_resolved", "resolved")
