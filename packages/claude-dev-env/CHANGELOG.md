@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.19.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.19.1...claude-dev-env-v8.19.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **agent-merge-check:** name what blocks a blocked pull request ([979eec4](https://github.com/jl-cmd/claude-dev-env/commit/979eec4edfdc919e999351fc38ceb835f8950229))
+* **agent-merge-check:** name what blocks a blocked pull request ([6f76c5a](https://github.com/jl-cmd/claude-dev-env/commit/6f76c5a917783a0df29cab7c542200e39e2bd740))
+
 ## [8.19.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.19.0...claude-dev-env-v8.19.1) (2026-09-26)
 
 
