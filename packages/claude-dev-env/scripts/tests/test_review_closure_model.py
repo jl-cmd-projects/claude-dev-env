@@ -4,6 +4,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 SCRIPTS_DIRECTORY = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIRECTORY))
@@ -315,11 +317,13 @@ def top_level_comment(
     edited_minute: int | None = None,
     url: str = BOT_SUMMARY_URL,
     is_bot: bool = True,
+    is_notice: bool = False,
 ) -> model.TopLevelComment:
     return model.TopLevelComment(
         identifier=posted_minute,
         author_login=author_login,
         is_bot=is_bot,
+        is_notice=is_notice,
         created_at=at_minute(posted_minute),
         updated_at=at_minute(posted_minute if edited_minute is None else edited_minute),
         url=url,
@@ -443,6 +447,56 @@ def should_open_a_bot_comment_posted_after_the_driver_time() -> None:
         subject=BOT_SUMMARY_URL,
         reason=TOP_LEVEL_OPEN_REASON_TEMPLATE.format(author=REVIEW_BOT),
     )
+
+
+def should_close_a_bot_notice_posted_after_the_driver_time() -> None:
+    comment = top_level_comment(REVIEW_BOT, 5, is_notice=True)
+
+    assert model.top_level_finding(comment, DRIVING_AGENT, at_minute(4)) is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "No code changes since the last review \u2014 review skipped",
+        "[Code review](https://example.test/pull/7#issuecomment-1) by qodo was "
+        "updated up to the latest commit https://example.test/commit/abc",
+        "<!-- graphite-review-comment -->\n\n### Graphite AI review",
+    ],
+)
+def should_read_a_bot_notice_as_a_notice(body: str) -> None:
+    comment = model.parse_top_level_comment(notice_record(body, "Bot"))
+
+    assert comment.is_notice
+    assert model.top_level_findings((comment,), DRIVING_AGENT) == ()
+
+
+def should_read_a_person_pasting_notice_text_as_a_comment() -> None:
+    comment = model.parse_top_level_comment(
+        notice_record("No code changes since the last review", "User")
+    )
+
+    assert not comment.is_notice
+    assert len(model.top_level_findings((comment,), DRIVING_AGENT)) == 1
+
+
+def should_read_a_bot_finding_as_a_comment() -> None:
+    comment = model.parse_top_level_comment(
+        notice_record("A finding: the loop never ends.", "Bot")
+    )
+
+    assert not comment.is_notice
+
+
+def notice_record(body: str, user_type: str) -> dict[str, object]:
+    return {
+        "id": 1,
+        "user": {"login": REVIEW_BOT, "type": user_type},
+        "body": body,
+        "created_at": "2026-09-26T12:05:00+00:00",
+        "updated_at": "2026-09-26T12:05:00+00:00",
+        "html_url": BOT_SUMMARY_URL,
+    }
 
 
 def should_count_waiting_top_level_comments_among_the_findings() -> None:
