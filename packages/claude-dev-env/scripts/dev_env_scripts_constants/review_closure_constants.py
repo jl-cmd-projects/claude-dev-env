@@ -137,6 +137,14 @@ USER_TYPE_KEY: str = "type"
 BOT_USER_TYPE: str = "Bot"
 """The user type GitHub reports for an app account such as a review bot."""
 
+ALL_NOTICE_COMMENT_MARKERS: tuple[str, ...] = (
+    "No code changes since the last review",
+    "was updated up to the latest commit",
+    "<!-- graphite-review-comment -->",
+)
+"""Text a bot notice carries: a Qodo skip note, a Qodo pointer to its updated
+summary, and a Graphite verdict mirror whose findings arrive as review threads."""
+
 SHORT_SHA_LENGTH: int = 7
 """How much of a commit identifier the verdict line prints."""
 
