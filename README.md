@@ -222,6 +222,7 @@ that carry them.
 | `second-account-workers` | Run local Claude workers through the second-account picker |
 | `skill-builder` | Author a skill package to the house conventions |
 | `step-notes` | Turn the step-note gate on or off |
+| `sync-dev-env` | Install claude-dev-env, link plugin skills into a running session, and schedule a daily re-sync |
 | `syncing-submodules` | Record a submodule's current commit in its parent repository |
 | `task-build` | Gather open session tasks and register them on the task list |
 | `team-advisor` | Standing reviewer for a session and the subagents it spawns |
