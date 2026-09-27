@@ -15,12 +15,14 @@ and the approvals conclusion, and name what waits.
     top-level: a bot comment, then an agent one -> closed
     top-level: the bot edits after that reply   -> closed
     top-level: a person edits after that reply  -> open
+    top-level: a bot notice with no finding     -> closed
 
 A red circle marks a finding a review states as blocking, so resolution alone
 leaves it open. The reply says what changed, or why the finding stands.
 A review bot rewrites its summary comment on each pass, and any new finding it
 has arrives as a review thread or a new comment, so its edit alone reopens
-nothing.
+nothing. A bot notice carries a skip note, a pointer to an updated summary, or
+a verdict mirror, and never a finding, so it waits on nobody.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ from dev_env_scripts_constants.review_closure_constants import (
     ALL_BLOCKING_CONCLUSIONS,
     ALL_COMMENT_AUTHOR_KEYS,
     ALL_COMMENT_LIST_KEYS,
+    ALL_NOTICE_COMMENT_MARKERS,
     ALL_OUTDATED_KEYS,
     ALL_RESOLVED_KEYS,
     APPROVALS_CHECK_NAME,
@@ -93,6 +96,7 @@ class TopLevelComment:
     identifier: object
     author_login: str
     is_bot: bool
+    is_notice: bool
     created_at: datetime
     updated_at: datetime
     url: str
@@ -217,7 +221,7 @@ def top_level_finding(
     Returns:
         The finding this comment leaves open, or None when it is answered.
     """
-    if comment.author_login in all_driver_logins:
+    if comment.author_login in all_driver_logins or comment.is_notice:
         return None
     last_counted_at = comment.created_at if comment.is_bot else comment.updated_at
     if latest_driver_time is not None and last_counted_at <= latest_driver_time:
@@ -423,6 +427,9 @@ def parse_top_level_comment(
 ) -> TopLevelComment:
     """Read one top-level comment from the REST answer.
 
+    A bot comment whose body carries a notice marker is a notice. A person's
+    comment carrying the same text still counts, since anyone can paste it.
+
     Args:
         all_comment_fields: The comment as the issue comments route reports it.
 
@@ -432,10 +439,14 @@ def parse_top_level_comment(
     Raises:
         ValueError: A timestamp is missing or does not parse.
     """
+    is_bot = _is_bot_author(all_comment_fields)
+    body = str(all_comment_fields.get(COMMENT_BODY_KEY) or "")
     return TopLevelComment(
         identifier=all_comment_fields.get(COMMENT_IDENTIFIER_KEY),
         author_login=_comment_author_login(all_comment_fields),
-        is_bot=_is_bot_author(all_comment_fields),
+        is_bot=is_bot,
+        is_notice=is_bot
+        and any(each_marker in body for each_marker in ALL_NOTICE_COMMENT_MARKERS),
         created_at=datetime.fromisoformat(str(all_comment_fields.get(CREATED_AT_KEY))),
         updated_at=datetime.fromisoformat(str(all_comment_fields.get(UPDATED_AT_KEY))),
         url=str(all_comment_fields.get(HTML_URL_KEY) or ""),

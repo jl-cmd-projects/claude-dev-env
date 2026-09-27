@@ -140,6 +140,7 @@ def should_print_the_url_of_a_waiting_top_level_comment(
         identifier=1,
         author_login="qodo-merge-pro[bot]",
         is_bot=True,
+        is_notice=False,
         created_at=posted,
         updated_at=posted,
         url=summary_url,
