@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -41,8 +42,10 @@ sys.path[:] = [
 ]
 sys.path[:0] = [_scripts_directory]
 
+from shared_tree_paths import resolve_shared_advisor_scripts_directory
+
 _advisor_scripts_path = str(
-    _scripts_directory_path.parent / "_shared" / "advisor" / "scripts"
+    resolve_shared_advisor_scripts_directory(__file__, all_environment=os.environ)
 )
 sys.path[:] = [
     each_existing_entry
