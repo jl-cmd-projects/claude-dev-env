@@ -21,6 +21,7 @@ from dev_env_scripts_constants.review_closure_constants import (
 
 DRIVING_AGENT = frozenset({"claude[bot]"})
 REVIEW_BOT = "qodo-merge-pro[bot]"
+REVIEWER = "maintainer"
 
 
 def thread(
@@ -313,10 +314,12 @@ def top_level_comment(
     posted_minute: int,
     edited_minute: int | None = None,
     url: str = BOT_SUMMARY_URL,
+    is_bot: bool = True,
 ) -> model.TopLevelComment:
     return model.TopLevelComment(
         identifier=posted_minute,
         author_login=author_login,
+        is_bot=is_bot,
         created_at=at_minute(posted_minute),
         updated_at=at_minute(posted_minute if edited_minute is None else edited_minute),
         url=url,
@@ -355,15 +358,24 @@ def should_close_every_earlier_comment_with_one_driver_comment() -> None:
     assert model.top_level_findings(all_comments, DRIVING_AGENT) == ()
 
 
-def should_reopen_a_bot_comment_edited_after_the_driver_reply() -> None:
+def should_reopen_a_person_comment_edited_after_the_driver_reply() -> None:
     all_comments = (
-        top_level_comment(REVIEW_BOT, 1, edited_minute=5),
+        top_level_comment(REVIEWER, 1, edited_minute=5, is_bot=False),
         top_level_comment("claude[bot]", 2),
     )
 
     all_findings = model.top_level_findings(all_comments, DRIVING_AGENT)
 
     assert [each.subject for each in all_findings] == [BOT_SUMMARY_URL]
+
+
+def should_keep_a_bot_summary_closed_when_edited_after_the_driver_reply() -> None:
+    all_comments = (
+        top_level_comment(REVIEW_BOT, 1, edited_minute=5),
+        top_level_comment("claude[bot]", 2),
+    )
+
+    assert model.top_level_findings(all_comments, DRIVING_AGENT) == ()
 
 
 def should_leave_a_bot_comment_posted_after_the_driver_open() -> None:
@@ -403,8 +415,27 @@ def should_close_a_bot_comment_last_edited_at_the_driver_time() -> None:
     assert model.top_level_finding(comment, DRIVING_AGENT, at_minute(4)) is None
 
 
-def should_open_a_bot_comment_edited_after_the_driver_time() -> None:
+def should_open_a_person_comment_edited_after_the_driver_time() -> None:
+    comment = top_level_comment(REVIEWER, 1, edited_minute=5, is_bot=False)
+
+    assert model.top_level_finding(
+        comment, DRIVING_AGENT, at_minute(4)
+    ) == model.OpenFinding(
+        subject=BOT_SUMMARY_URL,
+        reason=TOP_LEVEL_OPEN_REASON_TEMPLATE.format(author=REVIEWER),
+    )
+
+
+def should_close_a_bot_comment_posted_before_and_edited_after_the_driver_time() -> (
+    None
+):
     comment = top_level_comment(REVIEW_BOT, 1, edited_minute=5)
+
+    assert model.top_level_finding(comment, DRIVING_AGENT, at_minute(4)) is None
+
+
+def should_open_a_bot_comment_posted_after_the_driver_time() -> None:
+    comment = top_level_comment(REVIEW_BOT, 5)
 
     assert model.top_level_finding(
         comment, DRIVING_AGENT, at_minute(4)
@@ -426,7 +457,7 @@ def should_read_a_top_level_comment_record() -> None:
     comment = model.parse_top_level_comment(
         {
             "id": 1,
-            "user": {"login": REVIEW_BOT},
+            "user": {"login": REVIEW_BOT, "type": "Bot"},
             "created_at": "2026-09-26T12:01:00Z",
             "updated_at": "2026-09-26T12:05:00Z",
             "html_url": BOT_SUMMARY_URL,
@@ -434,3 +465,17 @@ def should_read_a_top_level_comment_record() -> None:
     )
 
     assert comment == top_level_comment(REVIEW_BOT, 1, edited_minute=5)
+
+
+def should_read_a_person_top_level_comment_record() -> None:
+    comment = model.parse_top_level_comment(
+        {
+            "id": 1,
+            "user": {"login": REVIEWER, "type": "User"},
+            "created_at": "2026-09-26T12:01:00Z",
+            "updated_at": "2026-09-26T12:05:00Z",
+            "html_url": BOT_SUMMARY_URL,
+        }
+    )
+
+    assert comment == top_level_comment(REVIEWER, 1, edited_minute=5, is_bot=False)

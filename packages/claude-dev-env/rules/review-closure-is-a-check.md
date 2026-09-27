@@ -26,6 +26,8 @@ It prints `CLOSED` and exits 0 when every finding on the head is answered. It pr
 | A blocking `Claude Approvals` row | A push, which moves the head the check reports on |
 | A top-level comment on the pull request | A later top-level comment from the driving account |
 
+A review bot rewrites its summary comment on each pass. Its edit leaves an answered summary closed, because each new finding it has arrives as a review thread or a new comment. An edit from a person reopens the comment.
+
 A red circle marks a finding a review states as blocking, so resolution in silence leaves it open. The reply says what changed or why the finding stands, and the reviewer reads it beside the diff.
 
 The driving account is the one that opened the pull request. Where the agent comments under a second login, `--driver-login <login>` names it, repeatably.

@@ -139,6 +139,7 @@ def should_print_the_url_of_a_waiting_top_level_comment(
     bot_summary = model.TopLevelComment(
         identifier=1,
         author_login="qodo-merge-pro[bot]",
+        is_bot=True,
         created_at=posted,
         updated_at=posted,
         url=summary_url,

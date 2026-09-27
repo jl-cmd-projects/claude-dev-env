@@ -131,6 +131,12 @@ NUMBER_KEY: str = "number"
 USER_KEY: str = "user"
 """Field carrying the account that opened a pull request."""
 
+USER_TYPE_KEY: str = "type"
+"""Field on a REST user naming whether the account is a person or a bot."""
+
+BOT_USER_TYPE: str = "Bot"
+"""The user type GitHub reports for an app account such as a review bot."""
+
 SHORT_SHA_LENGTH: int = 7
 """How much of a commit identifier the verdict line prints."""
 
