@@ -21,6 +21,10 @@ import {
     mergeManagedPermissionsIntoSettings,
     pruneManagedPermissionsFromSettings,
 } from './merge_managed_permissions.mjs';
+import {
+    mergeMissingSettingsDefaults,
+    settingsDefaultsFromPackageSettings,
+} from './merge_settings_defaults.mjs';
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_SETTINGS_PATH = join(PACKAGE_ROOT, 'settings.json');
@@ -247,6 +251,42 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
         assert.ok(denyAfter.includes('Bash(rm -rf /)'), 'user deny preserved');
         assert.ok((after.permissions?.allow ?? []).includes('Bash(git status)'), 'user allow preserved');
         assert.ok((after.permissions?.ask ?? []).includes('Edit(./**)'), 'user ask preserved');
+    } finally {
+        rmSync(sandboxHome, { recursive: true, force: true });
+    }
+});
+
+test('package settings.json publishes the advisor model default', () => {
+    const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
+    assert.deepEqual(settingsDefaultsFromPackageSettings(packageSettings), { advisorModel: 'opus' });
+});
+
+test('a missing default is added and a user-set value is kept', () => {
+    const emptySettings = {};
+    assert.deepEqual(mergeMissingSettingsDefaults(emptySettings, { advisorModel: 'opus' }), {
+        addedKeys: ['advisorModel'],
+    });
+    assert.equal(emptySettings.advisorModel, 'opus');
+    const userSettings = { advisorModel: 'sonnet' };
+    assert.deepEqual(mergeMissingSettingsDefaults(userSettings, { advisorModel: 'opus' }), {
+        addedKeys: [],
+    });
+    assert.equal(userSettings.advisorModel, 'sonnet');
+});
+
+test('install adds advisorModel when missing and keeps a user choice on rerun', () => {
+    const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
+    try {
+        const firstRun = runInstallerInSandbox(sandboxHome);
+        assert.equal(firstRun.status, 0, firstRun.stderr);
+        const settingsPath = join(sandboxHome, '.claude', 'settings.json');
+        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).advisorModel, 'opus');
+        const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
+        userChoice.advisorModel = 'sonnet';
+        writeFileSync(settingsPath, JSON.stringify(userChoice, null, 4) + '\n');
+        const secondRun = runInstallerInSandbox(sandboxHome);
+        assert.equal(secondRun.status, 0, secondRun.stderr);
+        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).advisorModel, 'sonnet');
     } finally {
         rmSync(sandboxHome, { recursive: true, force: true });
     }
