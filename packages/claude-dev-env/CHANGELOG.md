@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.21.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.20.0...claude-dev-env-v8.21.0) (2026-09-27)
+
+
+### Features
+
+* **install:** default the advisor to fable for every main model ([9a70513](https://github.com/jl-cmd/claude-dev-env/commit/9a70513ef7b79d368f14a45408a41a2ae15336ac))
+* **install:** default the advisor to fable for every main model ([e7df91d](https://github.com/jl-cmd/claude-dev-env/commit/e7df91d666d74d40857a45b638eed774096c6afe))
+
 ## [8.20.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.19.2...claude-dev-env-v8.20.0) (2026-09-27)
 
 
