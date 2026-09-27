@@ -274,6 +274,19 @@ test('a missing default is added and a user-set value is kept', () => {
     assert.equal(userSettings.advisorModel, 'sonnet');
 });
 
+test('a Fable main model gets no advisor default', () => {
+    for (const fableModel of ['fable', 'claude-fable-5-1']) {
+        const fableSettings = { model: fableModel };
+        assert.deepEqual(mergeMissingSettingsDefaults(fableSettings, { advisorModel: 'opus' }), {
+            addedKeys: [],
+        });
+        assert.equal(Object.hasOwn(fableSettings, 'advisorModel'), false);
+    }
+    const opusSettings = { model: 'opus' };
+    mergeMissingSettingsDefaults(opusSettings, { advisorModel: 'opus' });
+    assert.equal(opusSettings.advisorModel, 'opus');
+});
+
 test('install adds advisorModel when missing and keeps a user choice on rerun', () => {
     const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
     try {
