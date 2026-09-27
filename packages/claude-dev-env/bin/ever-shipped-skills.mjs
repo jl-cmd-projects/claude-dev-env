@@ -104,6 +104,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'split-pr',
     'step-notes',
     'structure-prompt',
+    'sync-dev-env',
     'syncing-submodules',
     'task-build',
     'team-advisor',
