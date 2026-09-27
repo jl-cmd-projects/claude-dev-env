@@ -13,10 +13,14 @@ and the approvals conclusion, and name what waits.
     thread: a red circle, resolved in silence   -> open
     top-level: a bot comment, no agent comment  -> open
     top-level: a bot comment, then an agent one -> closed
-    top-level: the bot edits after that reply   -> open
+    top-level: the bot edits after that reply   -> closed
+    top-level: a person edits after that reply  -> open
 
 A red circle marks a finding a review states as blocking, so resolution alone
 leaves it open. The reply says what changed, or why the finding stands.
+A review bot rewrites its summary comment on each pass, and any new finding it
+has arrives as a review thread or a new comment, so its edit alone reopens
+nothing.
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ from dev_env_scripts_constants.review_closure_constants import (
     APPROVALS_CHECK_NAME,
     APPROVALS_OPEN_REASON,
     AUTHOR_LOGIN_KEY,
+    BOT_USER_TYPE,
     CHECK_RUN_CONCLUSION_KEY,
     CHECK_RUN_NAME_KEY,
     CLOSED_DETAIL,
@@ -58,6 +63,7 @@ from dev_env_scripts_constants.review_closure_constants import (
     UNNAMED_THREAD_SUBJECT,
     UPDATED_AT_KEY,
     USER_KEY,
+    USER_TYPE_KEY,
     VERDICT_LINE_TEMPLATE,
 )
 
@@ -86,6 +92,7 @@ class TopLevelComment:
 
     identifier: object
     author_login: str
+    is_bot: bool
     created_at: datetime
     updated_at: datetime
     url: str
@@ -212,7 +219,8 @@ def top_level_finding(
     """
     if comment.author_login in all_driver_logins:
         return None
-    if latest_driver_time is not None and comment.updated_at <= latest_driver_time:
+    last_counted_at = comment.created_at if comment.is_bot else comment.updated_at
+    if latest_driver_time is not None and last_counted_at <= latest_driver_time:
         return None
     return OpenFinding(
         subject=comment.url,
@@ -228,15 +236,18 @@ def top_level_findings(
 
     The driving agent answers a top-level comment by posting a top-level
     comment of its own. Its latest one answers every comment last touched
-    before it, and a comment edited after it waits again.
+    before it. A person's comment edited after it waits again. A bot's edit
+    leaves its comment answered, since a bot posts each new finding as a
+    review thread or a new comment.
 
     Args:
         all_comments: The top-level comments on the pull request.
         all_driver_logins: The logins whose comments count as the answer.
 
     Returns:
-        One finding per comment from another account that was posted or
-        edited after the driving agent's latest top-level comment.
+        One finding per comment from another account posted after the
+        driving agent's latest top-level comment, and one per person's
+        comment edited after it.
     """
     all_listed_comments = tuple(all_comments)
     latest_driver_time = latest_driver_comment_time(
@@ -424,6 +435,7 @@ def parse_top_level_comment(
     return TopLevelComment(
         identifier=all_comment_fields.get(COMMENT_IDENTIFIER_KEY),
         author_login=_comment_author_login(all_comment_fields),
+        is_bot=_is_bot_author(all_comment_fields),
         created_at=datetime.fromisoformat(str(all_comment_fields.get(CREATED_AT_KEY))),
         updated_at=datetime.fromisoformat(str(all_comment_fields.get(UPDATED_AT_KEY))),
         url=str(all_comment_fields.get(HTML_URL_KEY) or ""),
@@ -474,6 +486,14 @@ def _parse_comment(all_comment_fields: Mapping[str, object]) -> ReviewComment:
     return ReviewComment(
         author_login=_comment_author_login(all_comment_fields),
         body=str(all_comment_fields.get(COMMENT_BODY_KEY) or ""),
+    )
+
+
+def _is_bot_author(all_comment_fields: Mapping[str, object]) -> bool:
+    all_author_fields = all_comment_fields.get(USER_KEY)
+    return (
+        isinstance(all_author_fields, Mapping)
+        and all_author_fields.get(USER_TYPE_KEY) == BOT_USER_TYPE
     )
 
 
