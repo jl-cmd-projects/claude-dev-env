@@ -128,6 +128,8 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
         hooks/blocking/bash_pre_tool_use_dispatcher.py   -> exempt
         hooks/blocking/step_note_gate.py                 -> exempt
+        hooks/blocking/reply_length_gate.py              -> exempt
+        hooks/blocking/edit_marker_gate.py               -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -136,6 +138,12 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The step-note gate allows every call until the user runs ``/step-notes on``.
     It asks for a readable status line and decides no code or safety policy.
+
+    The reply length gate caps the sentences in a chat reply to the user. It
+    decides the shape of prose and no code or safety policy.
+
+    The edit marker gate keeps strikethrough and edit notes out of an edited
+    chat message. It decides the shape of prose and no code or safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

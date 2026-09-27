@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""PreToolUse hook that caps the length of a chat reply before it posts.
+
+The gate reads the ``text`` field of the chat tools that post to the user.
+It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
+sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
+Each non-empty line counts as its own sentence, so a list counts one
+sentence per item. URLs, markdown link targets, inline code spans, and
+fenced blocks carry no words.
+
+A length limit is a smell elsewhere in this package, recorded and fixed in a
+later pass. A posted reply reaches the user the moment it sends and has no
+later pass, so this gate denies it and the model resends a shorter one.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+hooks_root_directory = str(Path(__file__).resolve().parent.parent)
+if hooks_root_directory not in sys.path:
+    sys.path.insert(0, hooks_root_directory)
+
+from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.reply_length_gate_constants import (
+    ALL_CHECKED_TOOL_NAMES,
+    ALLOW_EXIT_CODE,
+    BLOCK_EXIT_CODE,
+    FENCED_BLOCK_PATTERN,
+    HOOK_EVENT_NAME,
+    INLINE_CODE_PATTERN,
+    LINE_BREAK_PATTERN,
+    LINK_TARGET_PATTERN,
+    LONG_SENTENCE_MESSAGE,
+    MAXIMUM_SENTENCE_COUNT,
+    MAXIMUM_WORDS_PER_SENTENCE,
+    RETRY_INSTRUCTION,
+    SENTENCE_END_PATTERN,
+    SENTENCE_PREVIEW_SUFFIX,
+    SENTENCE_PREVIEW_WORD_COUNT,
+    TEXT_KEY,
+    TOO_MANY_SENTENCES_MESSAGE,
+    TOOL_INPUT_KEY,
+    TOOL_NAME_KEY,
+    URL_PATTERN,
+    WORD_PATTERN,
+    WORD_SEPARATOR,
+)
+
+
+def countable_text(reply_text: str) -> str:
+    """Remove the spans that carry no words: fenced blocks, code, link targets, URLs."""
+    without_fences = FENCED_BLOCK_PATTERN.sub(" ", reply_text)
+    without_code = INLINE_CODE_PATTERN.sub(" ", without_fences)
+    without_link_targets = LINK_TARGET_PATTERN.sub("]", without_code)
+    return URL_PATTERN.sub(" ", without_link_targets)
+
+
+def sentence_word_lists(reply_text: str) -> list[list[str]]:
+    """Split the text into sentences, one per line or terminal mark, as word lists."""
+    all_sentence_texts = [
+        each_sentence
+        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
+        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    ]
+    all_word_lists = [WORD_PATTERN.findall(each_sentence) for each_sentence in all_sentence_texts]
+    return [each_word_list for each_word_list in all_word_lists if each_word_list]
+
+
+def length_violation(reply_text: str) -> str | None:
+    """Return the deny reason for an over-long reply, or None when it fits."""
+    all_sentences = sentence_word_lists(reply_text)
+    if len(all_sentences) > MAXIMUM_SENTENCE_COUNT:
+        return TOO_MANY_SENTENCES_MESSAGE.format(
+            sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
+        )
+    for each_sentence in all_sentences:
+        if len(each_sentence) > MAXIMUM_WORDS_PER_SENTENCE:
+            sentence_preview = WORD_SEPARATOR.join(each_sentence[:SENTENCE_PREVIEW_WORD_COUNT])
+            return LONG_SENTENCE_MESSAGE.format(
+                word_count=len(each_sentence),
+                word_limit=MAXIMUM_WORDS_PER_SENTENCE,
+                sentence_preview=sentence_preview + SENTENCE_PREVIEW_SUFFIX,
+            )
+    return None
+
+
+def main() -> int:
+    hook_input = read_hook_input_dictionary_from_stdin()
+    if hook_input is None:
+        return ALLOW_EXIT_CODE
+    tool_name = hook_input.get(TOOL_NAME_KEY)
+    if tool_name not in ALL_CHECKED_TOOL_NAMES:
+        return ALLOW_EXIT_CODE
+    tool_input = hook_input.get(TOOL_INPUT_KEY)
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT_CODE
+    reply_text = tool_input.get(TEXT_KEY)
+    if not isinstance(reply_text, str):
+        return ALLOW_EXIT_CODE
+    violation = length_violation(reply_text)
+    if violation is None:
+        return ALLOW_EXIT_CODE
+    block_reason = violation + RETRY_INSTRUCTION
+    log_hook_block(
+        Path(__file__).name,
+        HOOK_EVENT_NAME,
+        block_reason,
+        tool_name=str(tool_name),
+        offending_input_preview=reply_text,
+    )
+    sys.stderr.write(block_reason)
+    return BLOCK_EXIT_CODE
+
+
+if __name__ == "__main__":
+    sys.exit(main())
