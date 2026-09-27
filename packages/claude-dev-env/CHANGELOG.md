@@ -1,5 +1,21 @@
 # Changelog
 
+## [8.20.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.19.2...claude-dev-env-v8.20.0) (2026-09-27)
+
+
+### Features
+
+* **install:** add advisorModel to user settings when missing ([a0263ff](https://github.com/jl-cmd/claude-dev-env/commit/a0263ff3e0d2b575cbb299b0d65dede671883673))
+* **install:** add advisorModel to user settings when missing ([2bb70d3](https://github.com/jl-cmd/claude-dev-env/commit/2bb70d3a0d54264bc7126ffb15d82cebbe245f1b))
+
+
+### Bug Fixes
+
+* **agent-merge-check:** hold a head the merge queue ejected ([c81736b](https://github.com/jl-cmd/claude-dev-env/commit/c81736b831d47818aeb88c1115ba8d13a74e4ae6))
+* **install:** skip the advisor default when settings name a Fable model ([a54445d](https://github.com/jl-cmd/claude-dev-env/commit/a54445d69c4667ca926bdf727572bade7b86d1dc))
+* **review-closure:** keep a bot summary closed when the bot edits it ([25dfcd2](https://github.com/jl-cmd/claude-dev-env/commit/25dfcd2b965dbfaeb6477127b57ca8a0067240b8))
+* **review-closure:** keep a bot summary closed when the bot edits it ([506eebc](https://github.com/jl-cmd/claude-dev-env/commit/506eebcd2ad5be974f9613c3aac3f4d1f1778895))
+
 ## [8.19.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.19.1...claude-dev-env-v8.19.2) (2026-09-26)
 
 
