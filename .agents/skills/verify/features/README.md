@@ -12,3 +12,4 @@ Use the feature file that matches the changed user path:
 - [Second Claude account](second-claude-account.md)
 - [Codex accounts](codex-accounts.md)
 - [Follow-up ledger](follow-up-ledger.md)
+- [Release and publish](release-publish.md)

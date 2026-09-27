@@ -63,6 +63,16 @@
         ]
       },
       {
+        "matcher": "mcp__.*__update_message",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/edit_marker_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {
