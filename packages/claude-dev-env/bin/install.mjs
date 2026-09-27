@@ -26,6 +26,10 @@ import {
     retiredManagedPermissions,
 } from './merge_managed_permissions.mjs';
 import {
+    mergeMissingSettingsDefaults,
+    settingsDefaultsFromPackageSettings,
+} from './merge_settings_defaults.mjs';
+import {
     SKIPPED_SOURCE_ENTRY_NAMES,
     SKIPPED_SOURCE_FILE_EXTENSIONS,
     RUN_BACKUP_DIRECTORY_NAME_PATTERN,
@@ -2177,6 +2181,26 @@ function mergeManagedPermissions() {
 }
 
 /**
+ * Add each package setting default that ~/.claude/settings.json lacks.
+ *
+ * @returns {{addedKeys: string[]}}
+ */
+function mergePackageSettingsDefaults() {
+    const packageSettingsPath = join(PACKAGE_ROOT, SETTINGS_FILE_NAME);
+    if (!existsSync(packageSettingsPath)) return { addedKeys: [] };
+    const settingsDefaults = settingsDefaultsFromPackageSettings(
+        JSON.parse(readFileSync(packageSettingsPath, 'utf8')),
+    );
+    const settingsPath = join(CLAUDE_HOME, SETTINGS_FILE_NAME);
+    const settings = loadClaudeSettingsObject(settingsPath);
+    const mergeOutcome = mergeMissingSettingsDefaults(settings, settingsDefaults);
+    if (mergeOutcome.addedKeys.length > 0) {
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 4) + '\n');
+    }
+    return mergeOutcome;
+}
+
+/**
  * Merge two path lists into one, keyed on `comparisonKeyForPath`, with the
  * current run's spelling winning a collision.
  *
@@ -2862,6 +2886,11 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             + `${permissionMerge.alreadyPresentCount} already present `
             + `(${managedRuleCount} package-owned)`,
         );
+    }
+
+    const settingsDefaultsMerge = mergePackageSettingsDefaults();
+    if (settingsDefaultsMerge.addedKeys.length > 0) {
+        console.log(`  Settings: added ${settingsDefaultsMerge.addedKeys.join(', ')}`);
     }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');

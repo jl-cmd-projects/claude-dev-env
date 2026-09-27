@@ -3,5 +3,6 @@
         "allow": [
             "WebFetch(domain:docs.github.com)"
         ]
-    }
+    },
+    "advisorModel": "opus"
 }
