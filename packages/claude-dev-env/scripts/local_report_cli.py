@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
 from local_report_core import PublicationOutcome, publish_local_report
 from local_verification.config import SUCCESS_EXIT_CODE
 from pr_verification.config.constants import GIT_BARE_SUFFIX, GITHUB_API_URL
-from pr_verification.github import GitHubAppAuthenticator, GitHubError
+from pr_verification.github import GitHubApi, GitHubAppAuthenticator, GitHubError
 from pr_verification.model import RepositorySettings
 
 
@@ -34,8 +34,7 @@ def main(
     parser = _build_parser()
     parsed_arguments = parser.parse_args(list(all_arguments))
     try:
-        settings = _load_settings(parsed_arguments)
-        outcome = _publish_from_settings(settings, parsed_arguments)
+        outcome = _publish_from_arguments(parsed_arguments)
     except (OSError, TypeError, ValueError, GitHubError) as error:
         stderr.write(f"{error}\n")
         return 3
@@ -43,29 +42,55 @@ def main(
     return SUCCESS_EXIT_CODE
 
 
-def _publish_from_settings(
-    settings: _PublisherSettings, parsed_arguments: argparse.Namespace
-) -> PublicationOutcome:
-    repository = RepositorySettings(
-        settings.repository, settings.repository + GIT_BARE_SUFFIX
+def _publish_from_arguments(parsed_arguments: argparse.Namespace) -> PublicationOutcome:
+    all_settings = _read_settings_file(parsed_arguments.settings)
+    api_url = _required_setting(
+        parsed_arguments.api_url, all_settings, "api_url", GITHUB_API_URL
     )
-    authenticator = GitHubAppAuthenticator(
-        settings.api_url,
-        settings.app_id,
-        settings.installation_id,
-        settings.private_key_path,
+    repository_slug = _required_repository_setting(
+        parsed_arguments.repository, all_settings
     )
-    github = authenticator.issue_repository_api(
-        repository, should_write_issue_labels=True
+    pull_request_number = _required_integer_setting(
+        parsed_arguments.pull_number, all_settings, "pull_number"
     )
+    repository = RepositorySettings(repository_slug, repository_slug + GIT_BARE_SUFFIX)
+    github = _issue_repository_api(parsed_arguments, all_settings, api_url, repository)
     return publish_local_report(
         github,
         repository,
-        settings.pull_request_number,
+        pull_request_number,
         parsed_arguments.local_repo,
         parsed_arguments.manifest,
         parsed_arguments.report,
     )
+
+
+def _issue_repository_api(
+    parsed_arguments: argparse.Namespace,
+    all_settings: Mapping[str, object],
+    api_url: str,
+    repository: RepositorySettings,
+) -> GitHubApi:
+    if parsed_arguments.token_environment is not None:
+        return GitHubApi(api_url, _environment_token(parsed_arguments.token_environment))
+    authenticator = GitHubAppAuthenticator(
+        api_url,
+        _required_integer_setting(parsed_arguments.app_id, all_settings, "app_id"),
+        _required_integer_setting(
+            parsed_arguments.installation_id, all_settings, "installation_id"
+        ),
+        _required_path_setting(parsed_arguments.private_key_path, all_settings),
+    )
+    return authenticator.issue_repository_api(
+        repository, should_write_issue_labels=True
+    )
+
+
+def _environment_token(variable_name: str) -> str:
+    token = os.environ.get(variable_name)
+    if not token:
+        raise TypeError(f"Missing publisher token in environment variable: {variable_name}")
+    return token
 
 
 def _outcome_mapping(outcome: PublicationOutcome) -> dict[str, object]:
@@ -76,16 +101,6 @@ def _outcome_mapping(outcome: PublicationOutcome) -> dict[str, object]:
     }
 
 
-@dataclass(frozen=True)
-class _PublisherSettings:
-    api_url: str
-    app_id: int
-    installation_id: int
-    private_key_path: Path
-    repository: str
-    pull_request_number: int
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cde publish-local-report")
     parser.add_argument("--settings", type=Path)
@@ -93,6 +108,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--app-id", type=int)
     parser.add_argument("--installation-id", type=int)
     parser.add_argument("--private-key-path", type=Path)
+    parser.add_argument("--token-environment")
     parser.add_argument("--repository")
     parser.add_argument("--pull-number", type=int)
     parser.add_argument("--local-repo", type=Path, required=True)
@@ -101,32 +117,13 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_settings(parsed_arguments: argparse.Namespace) -> _PublisherSettings:
-    all_settings: Mapping[str, object] = {}
-    if parsed_arguments.settings is not None:
-        parsed_settings = json.loads(
-            parsed_arguments.settings.read_text(encoding="utf-8")
-        )
-        if not isinstance(parsed_settings, Mapping):
-            raise ValueError("Publisher settings must be an object")
-        all_settings = parsed_settings
-    return _PublisherSettings(
-        _required_setting(
-            parsed_arguments.api_url,
-            all_settings,
-            "api_url",
-            GITHUB_API_URL,
-        ),
-        _required_integer_setting(parsed_arguments.app_id, all_settings, "app_id"),
-        _required_integer_setting(
-            parsed_arguments.installation_id, all_settings, "installation_id"
-        ),
-        _required_path_setting(parsed_arguments.private_key_path, all_settings),
-        _required_repository_setting(parsed_arguments.repository, all_settings),
-        _required_integer_setting(
-            parsed_arguments.pull_number, all_settings, "pull_number"
-        ),
-    )
+def _read_settings_file(settings_path: Path | None) -> Mapping[str, object]:
+    if settings_path is None:
+        return {}
+    parsed_settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    if not isinstance(parsed_settings, Mapping):
+        raise ValueError("Publisher settings must be an object")
+    return parsed_settings
 
 
 def _required_setting(

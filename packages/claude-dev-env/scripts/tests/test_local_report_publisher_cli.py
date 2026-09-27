@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPTS_DIRECTORY = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIRECTORY))
@@ -83,3 +85,55 @@ def test_publisher_script_displays_help_without_authentication() -> None:
 
     assert completed_process.returncode == 0
     assert "usage:" in completed_process.stdout
+
+
+def _token_arguments(tmp_path: Path, variable_name: str) -> list[str]:
+    return [
+        "--api-url",
+        "http://127.0.0.1:9",
+        "--token-environment",
+        variable_name,
+        "--repository",
+        "owner/repository",
+        "--pull-number",
+        "7",
+        "--local-repo",
+        str(tmp_path),
+        "--manifest",
+        str(tmp_path / "manifest.json"),
+        "--report",
+        str(tmp_path / "report.json"),
+    ]
+
+
+def test_cli_names_missing_token_variable_without_network_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("PUBLISHER_TEST_TOKEN", raising=False)
+    standard_output = io.StringIO()
+    standard_error = io.StringIO()
+
+    exit_code = main(
+        _token_arguments(tmp_path, "PUBLISHER_TEST_TOKEN"),
+        stdout=standard_output,
+        stderr=standard_error,
+    )
+
+    assert exit_code == 3
+    assert standard_output.getvalue() == ""
+    assert "PUBLISHER_TEST_TOKEN" in standard_error.getvalue()
+
+
+def test_cli_token_path_reaches_the_api_without_app_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PUBLISHER_TEST_TOKEN", "token")
+    standard_error = io.StringIO()
+
+    exit_code = main(
+        _token_arguments(tmp_path, "PUBLISHER_TEST_TOKEN"), stderr=standard_error
+    )
+
+    assert exit_code == 3
+    assert "Missing publisher setting" not in standard_error.getvalue()
+    assert "refused" in standard_error.getvalue().lower()

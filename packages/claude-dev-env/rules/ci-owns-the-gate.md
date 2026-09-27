@@ -64,6 +64,34 @@ A cache stays available on one condition. CI derives the key itself from the
 tree it is about to test, looks for a previous run under that key, and
 republishes that result. CI computes, CI verifies, CI decides.
 
+## A repository that runs no CI
+
+An owner can rule that a repository spends no CI minutes. There the local gate
+is the gate, and the agent that drives the pull request runs it on every head
+it asks to merge. The repository carries the gate as a `cde verify` manifest at
+`.claude/local-gate.json`: tests with collection floors, and lint.
+
+1. Check out the pull request head with a clean tree and fetch its base.
+2. Run the manifest against the base commit the pull request names:
+
+   ```
+   python <cde>/scripts/local_verification/cli.py --manifest .claude/local-gate.json --repo . --base <base sha> --output <outside the repository>/report.json
+   ```
+
+3. Publish the report:
+
+   ```
+   python <cde>/scripts/local_report_publisher.py --token-environment GH_TOKEN --repository <owner>/<name> --pull-number <number> --local-repo . --manifest .claude/local-gate.json --report <outside the repository>/report.json
+   ```
+
+The publisher checks the report against the manifest digest, the clean tree,
+and the live head and base, then posts the `local-checks` commit status. A
+report that fails any of those posts a failure or an error. The branch ruleset
+lists `local-checks` as a required status check, so the host refuses a merge
+until a passing report covers the head, and `agent_merge_check.py` prints
+`HOLD` on the same requirement. A push moves the head and leaves the status
+behind, so each new head runs the gate again.
+
 ## Sibling rules
 
 | Rule | Role |
