@@ -21,6 +21,10 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     SCRIPTS_DIRECTORY_NAME,
     SHARED_PACKAGE_DIRECTORY_NAME,
 )
+from dev_env_scripts_constants.shared_tree_constants import (
+    ADVISOR_DIRECTORY_NAME,
+    TIER_MODEL_IDS_MODULE_FILENAME,
+)
 
 
 def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
@@ -141,6 +145,29 @@ def test_missing_module_returns_unresolved_candidate(tmp_path: Path) -> None:
     assert not (
         expected_scripts_directory / PROCESS_TREE_KILL_MODULE_FILENAME
     ).is_file()
+
+
+def test_junction_scripts_dir_finds_advisor_scripts_on_unresolved_parent(
+    tmp_path: Path,
+) -> None:
+    module_file = _build_junction_scripts_layout(tmp_path)
+    expected_scripts_directory = (
+        tmp_path
+        / "root"
+        / SHARED_PACKAGE_DIRECTORY_NAME
+        / ADVISOR_DIRECTORY_NAME
+        / SCRIPTS_DIRECTORY_NAME
+    )
+    expected_scripts_directory.mkdir(parents=True)
+    (expected_scripts_directory / TIER_MODEL_IDS_MODULE_FILENAME).write_text(
+        "", encoding="utf-8"
+    )
+    resolved_scripts_directory = (
+        shared_tree_paths.resolve_shared_advisor_scripts_directory(
+            module_file, all_environment={}
+        )
+    )
+    assert resolved_scripts_directory == expected_scripts_directory
 
 
 def test_generalized_resolver_serves_a_deeper_anchor(tmp_path: Path) -> None:
