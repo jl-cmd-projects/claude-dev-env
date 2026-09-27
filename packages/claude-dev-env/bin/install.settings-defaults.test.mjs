@@ -258,33 +258,20 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
 
 test('package settings.json publishes the advisor model default', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
-    assert.deepEqual(settingsDefaultsFromPackageSettings(packageSettings), { advisorModel: 'opus' });
+    assert.deepEqual(settingsDefaultsFromPackageSettings(packageSettings), { advisorModel: 'fable' });
 });
 
 test('a missing default is added and a user-set value is kept', () => {
     const emptySettings = {};
-    assert.deepEqual(mergeMissingSettingsDefaults(emptySettings, { advisorModel: 'opus' }), {
+    assert.deepEqual(mergeMissingSettingsDefaults(emptySettings, { advisorModel: 'fable' }), {
         addedKeys: ['advisorModel'],
     });
-    assert.equal(emptySettings.advisorModel, 'opus');
+    assert.equal(emptySettings.advisorModel, 'fable');
     const userSettings = { advisorModel: 'sonnet' };
-    assert.deepEqual(mergeMissingSettingsDefaults(userSettings, { advisorModel: 'opus' }), {
+    assert.deepEqual(mergeMissingSettingsDefaults(userSettings, { advisorModel: 'fable' }), {
         addedKeys: [],
     });
     assert.equal(userSettings.advisorModel, 'sonnet');
-});
-
-test('a Fable main model gets no advisor default', () => {
-    for (const fableModel of ['fable', 'claude-fable-5-1']) {
-        const fableSettings = { model: fableModel };
-        assert.deepEqual(mergeMissingSettingsDefaults(fableSettings, { advisorModel: 'opus' }), {
-            addedKeys: [],
-        });
-        assert.equal(Object.hasOwn(fableSettings, 'advisorModel'), false);
-    }
-    const opusSettings = { model: 'opus' };
-    mergeMissingSettingsDefaults(opusSettings, { advisorModel: 'opus' });
-    assert.equal(opusSettings.advisorModel, 'opus');
 });
 
 test('install adds advisorModel when missing and keeps a user choice on rerun', () => {
@@ -293,7 +280,7 @@ test('install adds advisorModel when missing and keeps a user choice on rerun', 
         const firstRun = runInstallerInSandbox(sandboxHome);
         assert.equal(firstRun.status, 0, firstRun.stderr);
         const settingsPath = join(sandboxHome, '.claude', 'settings.json');
-        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).advisorModel, 'opus');
+        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).advisorModel, 'fable');
         const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
         userChoice.advisorModel = 'sonnet';
         writeFileSync(settingsPath, JSON.stringify(userChoice, null, 4) + '\n');
