@@ -76,10 +76,6 @@ class TestAdvisorRulesPrompt:
         monkeypatch.setenv(ADVISOR_DISABLE_ENV_VAR, "1")
         assert _run_main() == ""
 
-    def test_should_state_the_consult_before_first_write(self) -> None:
-        assert "must be preceded by an advisor call" in ADVISOR_RULES_PROMPT
-        assert "It applies to one-line edits too." in ADVISOR_RULES_PROMPT
-
 
 class TestAdvisorRulesMatchTheDoc:
     @pytest.mark.parametrize("each_rule_sentence", ALL_ADVISOR_RULE_SENTENCES)

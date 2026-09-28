@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""SessionStart hook: inject the advisor consult rules when the advisor is on.
+"""SessionStart hook: inject open advisor consult guidance when the advisor is on.
 
 The built-in advisor tool brings its own guidance on when to call it. This hook
-adds the rules the team-advisor skill layers on top, such as a consult before
-the first write of a task. It emits them only when the user settings carry an
+adds the team-advisor starting points, such as a consult on a design question,
+and leaves each call to the session's judgment. It emits them only when the user settings carry an
 ``advisorModel`` value and ``CLAUDE_CODE_DISABLE_ADVISOR_TOOL`` is not set, so a
 session without the advisor is never told to call it.
 The hook writes nothing and runs no tools itself.
@@ -58,7 +58,7 @@ def is_advisor_configured(settings_path: Path) -> bool:
 
 
 def main() -> None:
-    """Emit the advisor rules as SessionStart additionalContext when the advisor is on."""
+    """Emit the advisor guidance as SessionStart additionalContext when the advisor is on."""
     if is_advisor_disabled_by_environment():
         return
     if not is_advisor_configured(user_settings_path()):
