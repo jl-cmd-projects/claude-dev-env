@@ -27,7 +27,7 @@ DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME = ".claude"
 USER_SETTINGS_FILE_NAME = "settings.json"
 
 ADVISOR_RULES_HEADER = (
-    "ADVISOR RULES (from ~/.claude/docs/references/advisor-tool.md, which holds the full text):"
+    "ADVISOR RULES, when `advisor` is in your tool list (full text in ~/.claude/docs/references/advisor-tool.md):"
 )
 
 ALL_ADVISOR_RULE_SENTENCES = (
