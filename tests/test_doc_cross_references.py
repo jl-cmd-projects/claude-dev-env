@@ -36,6 +36,7 @@ ALLOWED_MISSING_PATHS: frozenset[str] = frozenset(
         "config/constants.py",
         "config/selectors.py",
         ".claude/CLAUDE.md",
+        ".claude/local-gate.json",
         ".claude/plain-language-allow.json",
         ".claude/rules/reuse-existing-tooling.md",
         ".claude/settings.json",
