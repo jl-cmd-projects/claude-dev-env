@@ -5,8 +5,9 @@ the start of the ELI5 process.
 
 1. Resolve the active HTML artifact path and preserve the stable path.
 2. Create the artifact when no active path exists and keep it self-contained.
-3. Apply the ASD-STE100 rule to page and response sentences.
-4. Add the concise beginner explanation and useful large visual in place.
-5. Run `digest_check.py` on a digest with every source id until it prints
+3. List each case the user named, with each variant as its own case.
+4. Apply the ASD-STE100 rule to page and response sentences.
+5. Add the concise beginner explanation and useful large visual in place.
+6. Run `digest_check.py` on a digest with every source id until it prints
    `CLEAN`.
-6. Share the updated artifact with the user.
+7. Share the updated artifact with the user.

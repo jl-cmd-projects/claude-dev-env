@@ -90,11 +90,15 @@ Process steps in order.
    artifact, preserve an explicit user path, or create a clear self-contained
    browser-ready HTML artifact when no path exists. Keep the chosen path for the
    rest of the active task or conversation.
-2. **Borderline — add the current explanation to that artifact.** Read and apply
+2. **Deterministic — list the cases the user named.** When the request lists
+   cases, count each variant as its own case and keep the user's numbering,
+   such as 3a and 3b for a case that holds a draft and a ready variant. Give
+   each case its own card and its own visual.
+3. **Borderline — add the current explanation to that artifact.** Read and apply
    `~/.claude/rules/asd-ste100-language.md` to every sentence. Frame the topic
    for a beginner, use a large useful visual, keep the text minimal, and update
    the same artifact in place.
-3. **Deterministic — run the digest check on a summary of many changes.** A
+4. **Deterministic — run the digest check on a summary of many changes.** A
    summary of a set of changes, such as the pull requests merged in a day, is a
    digest. Give each change one card marked `data-digest-card="<id>"` that holds
    its picture and its one-line change. Pass every source id to the check:
@@ -106,7 +110,7 @@ Process steps in order.
    The check reports each source id with no card, each card over 25 words, each
    card without a picture, and more than 40 words outside the cards. Fix every
    finding and run it again until it prints `CLEAN`.
-4. **Judgment — share the updated artifact with the user.**
+5. **Judgment — share the updated artifact with the user.**
 
 ### Examples
 
