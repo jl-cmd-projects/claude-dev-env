@@ -37,24 +37,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: write
       checks: write
-      contents: read
-      pull-requests: read
+      contents: write
+      pull-requests: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       RELEASE_BRANCH: release-please--branches--main--components--claude-dev-env
+      RELEASE_FILES: |
+        .release-please-manifest.json
+        packages/claude-dev-env/CHANGELOG.md
+        packages/claude-dev-env/package.json
     steps:
-      - name: Post a passing check run for each required context
+      - name: Find the release pull request
+        id: release_pr
         run: |
           set -euo pipefail
-          head_sha="$(gh pr list --head "${RELEASE_BRANCH}" --state open \
-            --json headRefOid,isCrossRepository,author \
-            --jq 'map(select(.author.login == "app/github-actions" and (.isCrossRepository | not))) | .[0].headRefOid // empty')"
-          if [ -z "${head_sha}" ]; then
+          release_pr="$(gh pr list --head "${RELEASE_BRANCH}" --state open \
+            --json number,headRefOid,isCrossRepository,author \
+            --jq 'map(select(.author.login == "app/github-actions" and (.isCrossRepository | not))) | .[0] // empty | "\(.number) \(.headRefOid)"')"
+          if [ -z "${release_pr}" ]; then
             echo "No open release pull request on ${RELEASE_BRANCH}."
             exit 0
           fi
+          read -r pr_number head_sha <<< "${release_pr}"
+          echo "number=${pr_number}" >> "${GITHUB_OUTPUT}"
+          echo "head_sha=${head_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Post a passing check run for each required context
+        if: ${{ steps.release_pr.outputs.head_sha != '' }}
+        env:
+          head_sha: ${{ steps.release_pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
           mapfile -t required_contexts < <(gh api "repos/${GH_REPO}/rules/branches/main" \
             --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context')
           if [ "${#required_contexts[@]}" -eq 0 ]; then
@@ -72,6 +88,27 @@ jobs:
               --silent
             echo "Passed ${each_context} on ${head_sha}"
           done
+
+      - name: Merge the release pull request and start the release run
+        if: ${{ steps.release_pr.outputs.head_sha != '' }}
+        env:
+          pr_number: ${{ steps.release_pr.outputs.number }}
+          head_sha: ${{ steps.release_pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          unexpected_files="$(gh pr diff "${pr_number}" --name-only \
+            | grep -vxF -f <(printf '%s' "${RELEASE_FILES}" | sed '/^$/d') || true)"
+          if [ -n "${unexpected_files}" ]; then
+            echo "::notice::Release pull request #${pr_number} changes files beyond the version bump, so it waits for a maintainer:"
+            echo "${unexpected_files}"
+            exit 0
+          fi
+          if ! gh pr merge "${pr_number}" --merge --match-head-commit "${head_sha}"; then
+            echo "::notice::The main branch rules refused the merge of release pull request #${pr_number}, so it waits for a maintainer."
+            exit 0
+          fi
+          gh workflow run publish.yml --ref main
+          echo "Merged release pull request #${pr_number} and started the release run on main."
 
   publish:
     needs: release

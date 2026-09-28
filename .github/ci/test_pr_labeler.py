@@ -1339,9 +1339,10 @@ class TestReleasePullRequestChecks:
         release_checks_run_text = _job_run_text(release_checks_job)
         assert release_checks_job["needs"] == "release"
         assert release_checks_job["permissions"] == {
+            "actions": "write",
             "checks": "write",
-            "contents": "read",
-            "pull-requests": "read",
+            "contents": "write",
+            "pull-requests": "write",
         }
         assert "rules/branches/main" in release_checks_run_text
         assert "required_status_checks" in release_checks_run_text
@@ -1359,6 +1360,91 @@ class TestReleasePullRequestChecks:
         assert release_checks_job["env"]["RELEASE_BRANCH"] == (
             "release-please--branches--main--components--claude-dev-env"
         )
+
+    def should_merge_a_version_bump_and_dispatch_the_release_run(
+        self, tmp_path: Path
+    ) -> None:
+        gh_calls = _run_release_merge_step(
+            tmp_path,
+            changed_files=(
+                ".release-please-manifest.json\n"
+                "packages/claude-dev-env/CHANGELOG.md\n"
+                "packages/claude-dev-env/package.json\n"
+            ),
+            merge_exit_code=0,
+        )
+        assert "pr merge 1553 --merge --match-head-commit abc123" in gh_calls
+        assert "workflow run publish.yml --ref main" in gh_calls
+
+    def should_leave_a_release_pull_request_with_other_files_for_a_maintainer(
+        self, tmp_path: Path
+    ) -> None:
+        gh_calls = _run_release_merge_step(
+            tmp_path,
+            changed_files=(
+                "packages/claude-dev-env/package.json\n"
+                "packages/claude-dev-env/hooks/extra.py\n"
+            ),
+            merge_exit_code=0,
+        )
+        assert all("pr merge" not in each_call for each_call in gh_calls)
+        assert all("workflow run" not in each_call for each_call in gh_calls)
+
+    def should_skip_the_release_run_when_the_rules_refuse_the_merge(
+        self, tmp_path: Path
+    ) -> None:
+        gh_calls = _run_release_merge_step(
+            tmp_path,
+            changed_files="packages/claude-dev-env/package.json\n",
+            merge_exit_code=1,
+        )
+        assert "pr merge 1553 --merge --match-head-commit abc123" in gh_calls
+        assert all("workflow run" not in each_call for each_call in gh_calls)
+
+
+def _run_release_merge_step(
+    tmp_path: Path, *, changed_files: str, merge_exit_code: int
+) -> list[str]:
+    _workflow_text, parsed_workflow = _load_workflow("publish.yml")
+    release_checks_job = _workflow_job(parsed_workflow, "release-pr-checks")
+    all_steps = release_checks_job["steps"]
+    assert isinstance(all_steps, list)
+    merge_step = next(
+        each_step
+        for each_step in all_steps
+        if each_step.get("name") == "Merge the release pull request and start the release run"
+    )
+    gh_log_path = tmp_path / "gh-calls.log"
+    fake_bin_path = tmp_path / "bin"
+    fake_bin_path.mkdir()
+    fake_gh_path = fake_bin_path / "gh"
+    fake_gh_path.write_text(
+        "#!/usr/bin/env bash\n"
+        'echo "$*" >> "${GH_CALL_LOG}"\n'
+        'if [ "$1 $2" = "pr diff" ]; then printf "%s" "${FAKE_CHANGED_FILES}"; fi\n'
+        'if [ "$1 $2" = "pr merge" ]; then exit "${FAKE_MERGE_EXIT}"; fi\n'
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    fake_gh_path.chmod(0o755)
+    step_environment = {
+        "PATH": f"{fake_bin_path}:/usr/bin:/bin",
+        "GH_CALL_LOG": str(gh_log_path),
+        "FAKE_CHANGED_FILES": changed_files,
+        "FAKE_MERGE_EXIT": str(merge_exit_code),
+        "RELEASE_FILES": release_checks_job["env"]["RELEASE_FILES"],
+        "pr_number": "1553",
+        "head_sha": "abc123",
+    }
+    completed_step = subprocess.run(
+        ["bash", "-c", merge_step["run"]],
+        env=step_environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed_step.returncode == 0, completed_step.stderr
+    return gh_log_path.read_text(encoding="utf-8").splitlines()
 
 
 def _declared_label_names() -> frozenset[str]:
