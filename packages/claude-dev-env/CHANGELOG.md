@@ -1,5 +1,29 @@
 # Changelog
 
+## [8.23.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.22.0...claude-dev-env-v8.23.0) (2026-09-28)
+
+
+### Features
+
+* **hooks:** inject advisor consult rules at session start ([007b606](https://github.com/jl-cmd/claude-dev-env/commit/007b606010157943a790d7c0b7c28a06294d948b))
+* **hooks:** inject advisor consult rules at session start ([cc72a19](https://github.com/jl-cmd/claude-dev-env/commit/cc72a1914bf5b044f483ca193786db5adc832578))
+* **hooks:** keep the injected advisor guidance open to the session's judgment ([5982e34](https://github.com/jl-cmd/claude-dev-env/commit/5982e348741cd64a8e605b097eaadf556c941c05))
+
+
+### Bug Fixes
+
+* **hooks:** scope advisor rules header to sessions with the advisor tool ([e19efa3](https://github.com/jl-cmd/claude-dev-env/commit/e19efa3a08745a661bb62a8d9346be83960afc5d))
+
+
+### Documentation
+
+* **eli5:** count each variant the user names as its own case ([2e7f6f3](https://github.com/jl-cmd/claude-dev-env/commit/2e7f6f30a5cf219775021572c683f56071e663cd))
+
+
+### Style
+
+* **hooks:** format advisor rules constants ([7dbef13](https://github.com/jl-cmd/claude-dev-env/commit/7dbef133e9b971049a4399c1daf69d65e101f14e))
+
 ## [8.22.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.21.0...claude-dev-env-v8.22.0) (2026-09-28)
 
 
