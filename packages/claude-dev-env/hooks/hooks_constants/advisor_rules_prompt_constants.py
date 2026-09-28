@@ -26,9 +26,7 @@ CLAUDE_CONFIG_DIR_ENV_VAR = "CLAUDE_CONFIG_DIR"
 DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME = ".claude"
 USER_SETTINGS_FILE_NAME = "settings.json"
 
-ADVISOR_RULES_HEADER = (
-    "ADVISOR RULES, when `advisor` is in your tool list (full text in ~/.claude/docs/references/advisor-tool.md):"
-)
+ADVISOR_RULES_HEADER = "ADVISOR RULES, when `advisor` is in your tool list (full text in ~/.claude/docs/references/advisor-tool.md):"
 
 ALL_ADVISOR_RULE_SENTENCES = (
     "Your first write, edit, or state-changing shell call on a task must be preceded by an advisor call in the same or an earlier turn.",
