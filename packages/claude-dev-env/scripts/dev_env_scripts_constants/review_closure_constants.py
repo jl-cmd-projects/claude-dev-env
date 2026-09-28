@@ -141,9 +141,14 @@ ALL_NOTICE_COMMENT_MARKERS: tuple[str, ...] = (
     "No code changes since the last review",
     "was updated up to the latest commit",
     "<!-- graphite-review-comment -->",
+    "<h3>PR Summary by Qodo</h3>",
+    "<h3>Qodo is busy working</h3>",
+    "<h3>Great, no issues found!</h3>",
 )
 """Text a bot notice carries: a Qodo skip note, a Qodo pointer to its updated
-summary, and a Graphite verdict mirror whose findings arrive as review threads."""
+summary, a Graphite verdict mirror whose findings arrive as review threads, a
+Qodo description of the change, a Qodo placeholder posted while it reviews, and
+a Qodo review that found nothing."""
 
 SHORT_SHA_LENGTH: int = 7
 """How much of a commit identifier the verdict line prints."""

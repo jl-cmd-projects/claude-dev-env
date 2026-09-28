@@ -21,8 +21,10 @@ A red circle marks a finding a review states as blocking, so resolution alone
 leaves it open. The reply says what changed, or why the finding stands.
 A review bot rewrites its summary comment on each pass, and any new finding it
 has arrives as a review thread or a new comment, so its edit alone reopens
-nothing. A bot notice carries a skip note, a pointer to an updated summary, or
-a verdict mirror, and never a finding, so it waits on nobody.
+nothing. A bot notice carries a skip note, a pointer to an updated summary, a
+verdict mirror, a description of the change, a placeholder posted while the bot
+reviews, or a review that found nothing, and never a finding, so it waits on
+nobody.
 """
 
 from __future__ import annotations
