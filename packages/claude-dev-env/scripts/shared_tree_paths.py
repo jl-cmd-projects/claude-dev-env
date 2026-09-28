@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from dev_env_scripts_constants.shared_tree_constants import (
+    ADVISOR_DIRECTORY_NAME,
     AGENTS_DIRECTORY_SUFFIX,
     CLAUDE_CONFIG_DIR_ENV_VAR,
     DEFAULT_MANAGED_ROOT_NAME,
@@ -18,6 +19,7 @@ from dev_env_scripts_constants.shared_tree_constants import (
     PROCESS_TREE_KILL_MODULE_FILENAME,
     SCRIPTS_DIRECTORY_NAME,
     SHARED_PACKAGE_DIRECTORY_NAME,
+    TIER_MODEL_IDS_MODULE_FILENAME,
 )
 
 
@@ -129,5 +131,30 @@ def resolve_shared_process_tree_scripts_directory(
         all_environment,
         PROCESS_TREE_DIRECTORY_NAME,
         PROCESS_TREE_KILL_MODULE_FILENAME,
+        1,
+    )
+
+
+def resolve_shared_advisor_scripts_directory(
+    module_file: str | Path,
+    all_environment: Mapping[str, str],
+) -> Path:
+    """Return the advisor scripts directory that holds the tier model ids.
+
+    Names the advisor sub-package for a caller sitting one level under the
+    installed root, such as a dispatcher in the managed ``scripts`` directory.
+
+    Args:
+        module_file: Path of the importing module (``__file__``).
+        all_environment: Mapping that may hold ``CLAUDE_CONFIG_DIR``.
+
+    Returns:
+        Directory that should hold ``tier_model_ids.py``.
+    """
+    return resolve_shared_scripts_directory(
+        module_file,
+        all_environment,
+        ADVISOR_DIRECTORY_NAME,
+        TIER_MODEL_IDS_MODULE_FILENAME,
         1,
     )
