@@ -462,6 +462,10 @@ def should_close_a_bot_notice_posted_after_the_driver_time() -> None:
         "[Code review](https://example.test/pull/7#issuecomment-1) by qodo was "
         "updated up to the latest commit https://example.test/commit/abc",
         "<!-- graphite-review-comment -->\n\n### Graphite AI review",
+        "<h3>PR Summary by Qodo</h3>\n\nBuild the default map per instance",
+        "\n<h3>Qodo is busy working</h3>\n\nCheck back in a few minutes.",
+        "\n<h3>Code Review by Qodo</h3>\n<code>\U0001f41e Bugs (0)</code>\n\n"
+        "<h3>Great, no issues found!</h3>\nQodo reviewed your code",
     ],
 )
 def should_read_a_bot_notice_as_a_notice(body: str) -> None:
@@ -483,6 +487,18 @@ def should_read_a_person_pasting_notice_text_as_a_comment() -> None:
 def should_read_a_bot_finding_as_a_comment() -> None:
     comment = model.parse_top_level_comment(
         notice_record("A finding: the loop never ends.", "Bot")
+    )
+
+    assert not comment.is_notice
+
+
+def should_read_a_qodo_review_with_bugs_as_a_comment() -> None:
+    comment = model.parse_top_level_comment(
+        notice_record(
+            "\n<h3>Code Review by Qodo</h3>\n<code>\U0001f41e Bugs (2)</code>\n\n"
+            "1. The loop never ends.",
+            "Bot",
+        )
     )
 
     assert not comment.is_notice

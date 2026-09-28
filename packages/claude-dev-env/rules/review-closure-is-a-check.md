@@ -25,7 +25,7 @@ It prints `CLOSED` and exits 0 when every finding on the head is answered. It pr
 | A thread the driving account opened | Itself |
 | A blocking `Claude Approvals` row | A push, which moves the head the check reports on |
 | A top-level comment on the pull request | A later top-level comment from the driving account |
-| A bot notice: a review-skipped note, a pointer to an updated summary, or a Graphite verdict mirror | Itself |
+| A bot notice: a review-skipped note, a pointer to an updated summary, a Graphite verdict mirror, a Qodo change summary, a Qodo in-progress placeholder, or a Qodo review that found no issues | Itself |
 
 A review bot rewrites its summary comment on each pass. Its edit leaves an answered summary closed, because each new finding it has arrives as a review thread or a new comment. An edit from a person reopens the comment.
 
