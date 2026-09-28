@@ -1,5 +1,45 @@
 # Changelog
 
+## [8.22.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.21.0...claude-dev-env-v8.22.0) (2026-09-28)
+
+
+### Features
+
+* **hooks:** cap chat replies at three sentences of fifteen words ([5ca4080](https://github.com/jl-cmd/claude-dev-env/commit/5ca40802320f5cecaababe6cd2f0067617bd94d0))
+* **hooks:** cap chat replies at three sentences of fifteen words ([5fe2fb2](https://github.com/jl-cmd/claude-dev-env/commit/5fe2fb232a29585825c04236fc6997be9f3be035))
+* **hooks:** keep edit markers out of edited chat messages ([0b71ae9](https://github.com/jl-cmd/claude-dev-env/commit/0b71ae975d6d02bafbbf95d6ecf85c5faae9d19f))
+* **hooks:** keep edit markers out of edited chat messages ([0d099f2](https://github.com/jl-cmd/claude-dev-env/commit/0d099f2ef6f8761e1c59e5d27eafd74c6fa4e2d9))
+* **skills:** add sync-dev-env to link plugin skills into a running session ([501837a](https://github.com/jl-cmd/claude-dev-env/commit/501837a26fc653bc0b55557c00ce94a2291d9474))
+* **skills:** add sync-dev-env to link plugin skills into a running session ([c275635](https://github.com/jl-cmd/claude-dev-env/commit/c2756350dce1bf72929805bf2ea953c4059d7c0f))
+* **verify:** publish a local gate report with a plain token ([1861573](https://github.com/jl-cmd/claude-dev-env/commit/1861573282f9cc8c0f2f8632a8d706051af9ecc6))
+
+
+### Bug Fixes
+
+* **review-closure:** close bot notices that carry no finding ([662c338](https://github.com/jl-cmd/claude-dev-env/commit/662c338096e911604aa45d820b15641057a91299))
+* **review-closure:** tier 2, treat Qodo summaries and clean reviews as notices ([08c5706](https://github.com/jl-cmd/claude-dev-env/commit/08c57069466508b53c0fc14073f7f48aaa18fbf6))
+* **review-closure:** treat Qodo summaries and clean reviews as notices ([0a8785e](https://github.com/jl-cmd/claude-dev-env/commit/0a8785e515a33323d87946797204037c89603a4c))
+* **scripts:** resolve the advisor scripts across the junction and add the translator role ([3186ca3](https://github.com/jl-cmd/claude-dev-env/commit/3186ca37b717d0e8f6415025719167c1a669df87))
+* **scripts:** resolve the advisor scripts across the junction and add the translator role ([b64f534](https://github.com/jl-cmd/claude-dev-env/commit/b64f534adea7ebe63377f65b37bc7b1e03b5360b))
+
+
+### Documentation
+
+* **rules:** keep no-op and routing lines out of replies ([81b5a6f](https://github.com/jl-cmd/claude-dev-env/commit/81b5a6f1e32b848ab34c201be16741e568508a83))
+* **rules:** save only durable facts as memories ([34d31e9](https://github.com/jl-cmd/claude-dev-env/commit/34d31e930851d29448bb169c86baadd47c8d198d))
+* **rules:** save only durable facts as memories ([a17d30e](https://github.com/jl-cmd/claude-dev-env/commit/a17d30ea7cd4ca2a0d3a41a0437810e868ec01ee))
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1535](https://github.com/jl-cmd/claude-dev-env/issues/1535), [#1536](https://github.com/jl-cmd/claude-dev-env/issues/1536) ([c7c1503](https://github.com/jl-cmd/claude-dev-env/commit/c7c15030c8c360d41c12f24999569cead1ff90a9))
+* fix advisory findings from merged pull requests [#1544](https://github.com/jl-cmd/claude-dev-env/issues/1544) ([b87dc31](https://github.com/jl-cmd/claude-dev-env/commit/b87dc313ae1806ebe549f43b618eb0650cd23f64))
+
+
+### Tests
+
+* **scripts:** pin the advisor path across a junction and the translator role ([4460825](https://github.com/jl-cmd/claude-dev-env/commit/4460825e2fee1a1728b463ee5905634d3fd92823))
+
 ## [8.21.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.20.0...claude-dev-env-v8.21.0) (2026-09-27)
 
 
