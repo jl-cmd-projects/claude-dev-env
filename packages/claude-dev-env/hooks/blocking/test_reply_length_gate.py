@@ -191,3 +191,47 @@ def test_should_allow_a_call_without_text(
 def test_should_allow_empty_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"")))
     assert reply_length_gate.main() == 0
+
+
+def test_should_deny_a_pr_number_with_no_link_and_name_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Both land in PR 5256."}
+    )
+    assert exit_code == 2
+    assert "PR 5256" in stderr_text
+
+
+def test_should_deny_a_bare_hash_number(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": "It merged in #4347."}
+    )
+    assert exit_code == 2
+    assert "#4347" in stderr_text
+
+
+def test_should_allow_a_pr_number_inside_its_link(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        REPLY_TOOL_NAME,
+        {"text": "Both land in [PR 5256](https://github.com/owner/repo/pull/5256)."},
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_allow_a_bare_pull_request_url(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, _ = run_gate(
+        monkeypatch,
+        capsys,
+        REPLY_TOOL_NAME,
+        {"text": "Pull request: https://github.com/owner/repo/pull/5256"},
+    )
+    assert exit_code == 0
