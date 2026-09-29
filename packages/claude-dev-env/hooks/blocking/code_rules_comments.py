@@ -159,7 +159,7 @@ def _python_comment_occurrences(
     return all_occurrences, True
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _repository_keep_markers(repository_root: Path) -> tuple[str, ...]:
     settings_path = repository_root / REPOSITORY_LINT_SETTINGS_RELATIVE_PATH
     try:
