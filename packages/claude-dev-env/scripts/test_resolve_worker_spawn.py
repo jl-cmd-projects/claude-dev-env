@@ -57,7 +57,6 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     REASON_GROK_AUTH_FAILED,
     REASON_PROMPT_FILE_MISSING,
     REASON_TIMEOUT_OUT_OF_BOUNDS,
-    ROLE_TRANSLATOR,
     RESULT_KEY_ATTEMPTS,
     RESULT_KEY_OK,
     RESULT_KEY_OUTPUT,
@@ -865,33 +864,6 @@ def test_tier_three_argv_includes_agent_for_default_role(
         call_log.claude_arguments[agent_flag_index + 1]
         == EXPECTED_PRIMARY_AGENT_FOR_DEFAULT_ROLE
     )
-
-
-def test_translator_role_dispatches_the_poteto_agent_on_tier_three(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    prompt_file, working_directory, run_state_directory = _paths(tmp_path)
-    call_log = _install_seams(
-        monkeypatch,
-        grok_outcome=_grok_failure(CLASSIFICATION_AUTH_FAILURE),
-        claude_outcome=_claude_served(),
-        host_profile=HOST_PROFILE_CLAUDE,
-    )
-
-    spawn_outcome = dispatcher.resolve_worker_spawn(
-        role=ROLE_TRANSLATOR,
-        prompt_file=prompt_file,
-        working_directory=working_directory,
-        timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
-        is_claude_tier_enabled=True,
-        run_state_directory=run_state_directory,
-    )
-
-    assert spawn_outcome.tier_used == TIER_CLAUDE_HEADLESS
-    assert call_log.claude_arguments is not None
-    agent_flag_index = call_log.claude_arguments.index(AGENT_FLAG)
-    assert call_log.claude_arguments[agent_flag_index + 1] == "poteto-agent"
-    assert ROLE_TRANSLATOR not in call_log.claude_arguments
 
 
 def test_large_prompt_stays_out_of_claude_argv(

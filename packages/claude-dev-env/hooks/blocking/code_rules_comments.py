@@ -36,7 +36,6 @@ from hooks_constants.code_rules_enforcer_constants import (  # noqa: E402
     REPOSITORY_LINT_SETTINGS_RELATIVE_PATH,
     REPOSITORY_ROOT_MARKER_NAME,
     SETTINGS_TEXT_ENCODING,
-    STEALTH_KEEP_COMMENT_MARKER,
 )
 _javascript_comment_scanner = importlib.import_module("javascript_comment_scanner")
 extract_javascript_comment_occurrences = (
@@ -180,26 +179,22 @@ def comment_keep_markers(file_path: str) -> tuple[str, ...]:
     ::
 
         repo/.claude/policy-lint.json  {"comment_keep_markers": ["VENDOR: Keep"]}
-        repo/app/main.py               ("STEALTH: Keep", "VENDOR: Keep")
-        no settings file               ("STEALTH: Keep",)
+        repo/app/main.py               ("VENDOR: Keep",)
+        no settings file               ()
 
     The repository that holds the file names its own markers. A missing or
-    unreadable settings file adds none.
+    unreadable settings file names none.
 
     Args:
         file_path: The path of the file under check.
 
     Returns:
-        The package's built-in marker, then the markers the file's repository
-        adds.
+        The markers the file's repository names.
     """
     for each_directory in Path(file_path).resolve().parents:
         if (each_directory / REPOSITORY_ROOT_MARKER_NAME).exists():
-            return (
-                STEALTH_KEEP_COMMENT_MARKER,
-                *_repository_keep_markers(each_directory),
-            )
-    return (STEALTH_KEEP_COMMENT_MARKER,)
+            return _repository_keep_markers(each_directory)
+    return ()
 
 
 def _is_keep_occurrence(comment_text: str, all_keep_markers: tuple[str, ...]) -> bool:
@@ -230,10 +225,9 @@ def check_comment_changes(old_content: str, new_content: str, file_path: str) ->
     """Check for comment additions or removals between old and new content.
 
     Inline and standalone comments are blocking findings when added, except
-    keep-marker occurrences (``STEALTH: Keep`` and any marker the file's
-    repository names in ``.claude/policy-lint.json``), which are excluded
-    entirely so the marker can be added and can persist across edits to its
-    line.
+    keep-marker occurrences (a marker the file's repository names in
+    ``.claude/policy-lint.json``), which are excluded entirely so the marker
+    can be added and can persist across edits to its line.
     Existing comments can be removed when the touched code no longer needs them.
 
     When the file is Python and either *old_content* or *new_content* cannot
@@ -431,14 +425,11 @@ def _is_exempt_python_comment(comment_token: tokenize.TokenInfo) -> bool:
     token-anchored directive body never legitimately carries a ``#``
     (noqa codes, pylint symbols, and pragma directives contain none), so
     any inner ``#`` reliably marks chained prose. Free-form markers
-    (``type:``, ``TODO``, ``FIXME``, ``HACK``, ``XXX``, ``STEALTH: Keep``)
-    accept any trailing prose:
-    ``# type:`` participates in the documented justification
-    convention enforced by ``check_type_escape_hatches`` (which
-    requires a trailing reason), the TODO-family markers carry
-    annotation text by convention, and ``STEALTH: Keep`` is the
-    acknowledged-bypass marker the CDP runtime-usage scanner reads
-    from the flagged line together with its reason.
+    (``type:``, ``TODO``, ``FIXME``, ``HACK``, ``XXX``) accept any
+    trailing prose: ``# type:`` participates in the documented
+    justification convention enforced by ``check_type_escape_hatches``
+    (which requires a trailing reason), and the TODO-family markers carry
+    annotation text by convention.
     """
     comment_string = comment_token.string
     if comment_string.startswith("#!") and comment_token.start == (1, 0):

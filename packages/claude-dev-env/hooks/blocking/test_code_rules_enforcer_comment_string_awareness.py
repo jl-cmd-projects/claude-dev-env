@@ -134,18 +134,15 @@ def test_check_comment_changes_allows_comment_removal_without_advisory(
     assert captured.err == ""
 
 
-def test_check_comment_changes_does_not_flag_added_stealth_keep_marker() -> None:
-    old_content = "x = 1\n"
-    new_content = "x = 1  # STEALTH: Keep -- reason\n"
-    issues = code_rules_enforcer.check_comment_changes(old_content, new_content, "foo.py")
-    assert issues == []
-
-
-def test_check_comment_changes_does_not_flag_stealth_keep_retained_on_touched_line() -> None:
-    old_content = "x = 1  # STEALTH: Keep -- reason\n"
-    new_content = "x = 2  # STEALTH: Keep -- reason\n"
-    issues = code_rules_enforcer.check_comment_changes(old_content, new_content, "foo.py")
-    assert issues == []
+def test_check_comment_changes_flags_stealth_keep_in_a_repository_that_names_no_marker(
+    tmp_path: Path,
+) -> None:
+    file_path = _repository_file(tmp_path, None)
+    issues = code_rules_enforcer.check_comment_changes(
+        "x = 1\n", "x = 1  # STEALTH: Keep -- reason\n", file_path
+    )
+    assert len(issues) == 1
+    assert "comment added" in issues[0]
 
 
 @pytest.mark.parametrize(
