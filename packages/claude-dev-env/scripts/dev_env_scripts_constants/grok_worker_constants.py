@@ -131,6 +131,12 @@ EXIT_FALLTHROUGH: int = 1
 CLI_ROLE_FLAG: str = "--role"
 """CLI flag naming the role whose agent definition set must be present."""
 
+CLI_AGENT_FLAG: str = "--agent"
+"""CLI flag naming the agent definition stem that serves an unregistered role."""
+
+AGENT_DEFINITION_SUFFIX: str = ".md"
+"""File suffix of an agent definition under ``agents/``."""
+
 CLI_PING_FLAG: str = "--ping"
 """CLI flag that enables the opt-in cached live single-turn ping."""
 

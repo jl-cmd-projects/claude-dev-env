@@ -1,8 +1,10 @@
 """Comment-presence and comment-change checks for Python and JavaScript sources."""
 
 import difflib
+import functools
 import importlib
 import io
+import json
 import sys
 import tokenize
 from collections import Counter
@@ -29,7 +31,11 @@ from hooks_constants.code_rules_enforcer_constants import (  # noqa: E402
     ALL_TOKEN_ANCHORED_DIRECTIVE_BOUNDARY_CHARACTERS,
     ALL_TOKEN_ANCHORED_EXEMPT_COMMENT_BODIES,
     CHAINED_INLINE_COMMENT_PATTERN,
+    COMMENT_KEEP_MARKERS_KEY,
     MAX_COMMENT_ISSUES,
+    REPOSITORY_LINT_SETTINGS_RELATIVE_PATH,
+    REPOSITORY_ROOT_MARKER_NAME,
+    SETTINGS_TEXT_ENCODING,
     STEALTH_KEEP_COMMENT_MARKER,
 )
 _javascript_comment_scanner = importlib.import_module("javascript_comment_scanner")
@@ -153,27 +159,70 @@ def _python_comment_occurrences(
     return all_occurrences, True
 
 
-def _is_stealth_keep_occurrence(comment_text: str) -> bool:
-    """Return True for a ``# STEALTH: Keep`` occurrence.
+@functools.cache
+def _repository_keep_markers(repository_root: Path) -> tuple[str, ...]:
+    settings_path = repository_root / REPOSITORY_LINT_SETTINGS_RELATIVE_PATH
+    try:
+        all_settings = json.loads(settings_path.read_text(encoding=SETTINGS_TEXT_ENCODING))
+    except (OSError, ValueError):
+        return ()
+    if not isinstance(all_settings, dict):
+        return ()
+    all_markers = all_settings.get(COMMENT_KEEP_MARKERS_KEY)
+    if not isinstance(all_markers, list):
+        return ()
+    return tuple(each for each in all_markers if isinstance(each, str) and each)
 
-    ``STEALTH: Keep`` is meant to be freely added and to survive edits to
-    the line it sits on, unlike ``noqa`` or ``TODO``, which AGENTS.md
-    requires to be removed rather than added or justified. It is excluded
-    here rather than through the shared exempt-marker set that
-    ``check_comment_changes`` deliberately still blocks on add.
+
+def comment_keep_markers(file_path: str) -> tuple[str, ...]:
+    """Return the comment prefixes the comment-change check accepts for a file.
+
+    ::
+
+        repo/.claude/policy-lint.json  {"comment_keep_markers": ["VENDOR: Keep"]}
+        repo/app/main.py               ("STEALTH: Keep", "VENDOR: Keep")
+        no settings file               ("STEALTH: Keep",)
+
+    The repository that holds the file names its own markers. A missing or
+    unreadable settings file adds none.
+
+    Args:
+        file_path: The path of the file under check.
+
+    Returns:
+        The package's built-in marker, then the markers the file's repository
+        adds.
+    """
+    for each_directory in Path(file_path).resolve().parents:
+        if (each_directory / REPOSITORY_ROOT_MARKER_NAME).exists():
+            return (
+                STEALTH_KEEP_COMMENT_MARKER,
+                *_repository_keep_markers(each_directory),
+            )
+    return (STEALTH_KEEP_COMMENT_MARKER,)
+
+
+def _is_keep_occurrence(comment_text: str, all_keep_markers: tuple[str, ...]) -> bool:
+    """Return True for a comment that opens with an accepted keep marker.
+
+    A keep marker is meant to be freely added and to survive edits to the
+    line it sits on, unlike ``noqa`` or ``TODO``, which AGENTS.md requires to
+    be removed rather than added or justified. It is excluded here rather
+    than through the shared exempt-marker set that ``check_comment_changes``
+    deliberately still blocks on add.
     """
     return comment_text.startswith("#") and comment_text[1:].lstrip().startswith(
-        STEALTH_KEEP_COMMENT_MARKER
+        all_keep_markers
     )
 
 
-def _without_stealth_keep_occurrences(
-    all_occurrences: list[tuple[str, int, bool]]
+def _without_keep_occurrences(
+    all_occurrences: list[tuple[str, int, bool]], all_keep_markers: tuple[str, ...]
 ) -> list[tuple[str, int, bool]]:
     return [
         each_occurrence
         for each_occurrence in all_occurrences
-        if not _is_stealth_keep_occurrence(each_occurrence[0])
+        if not _is_keep_occurrence(each_occurrence[0], all_keep_markers)
     ]
 
 
@@ -181,8 +230,10 @@ def check_comment_changes(old_content: str, new_content: str, file_path: str) ->
     """Check for comment additions or removals between old and new content.
 
     Inline and standalone comments are blocking findings when added, except
-    ``STEALTH: Keep`` occurrences, which are excluded entirely so the marker
-    can be added and can persist across edits to its line.
+    keep-marker occurrences (``STEALTH: Keep`` and any marker the file's
+    repository names in ``.claude/policy-lint.json``), which are excluded
+    entirely so the marker can be added and can persist across edits to its
+    line.
     Existing comments can be removed when the touched code no longer needs them.
 
     When the file is Python and either *old_content* or *new_content* cannot
@@ -205,8 +256,9 @@ def check_comment_changes(old_content: str, new_content: str, file_path: str) ->
         old_occurrences = extract_javascript_comment_occurrences(old_content, True)
         new_occurrences = extract_javascript_comment_occurrences(new_content, True)
 
-    old_occurrences = _without_stealth_keep_occurrences(old_occurrences)
-    new_occurrences = _without_stealth_keep_occurrences(new_occurrences)
+    all_keep_markers = comment_keep_markers(file_path)
+    old_occurrences = _without_keep_occurrences(old_occurrences, all_keep_markers)
+    new_occurrences = _without_keep_occurrences(new_occurrences, all_keep_markers)
 
     old_occurrence_counts = Counter(
         (each_text, is_inline)
@@ -294,8 +346,9 @@ def _retained_comment_issues(
     (old_occurrences, old_tokenize_ok), (new_occurrences, new_tokenize_ok) = (_comment_occurrences(old_content, file_path, True), _comment_occurrences(new_content, file_path, True))
     if not (old_tokenize_ok and new_tokenize_ok):
         return []
-    old_occurrences = _without_stealth_keep_occurrences(old_occurrences)
-    new_occurrences = _without_stealth_keep_occurrences(new_occurrences)
+    all_keep_markers = comment_keep_markers(file_path)
+    old_occurrences = _without_keep_occurrences(old_occurrences, all_keep_markers)
+    new_occurrences = _without_keep_occurrences(new_occurrences, all_keep_markers)
     all_changed_lines, all_deleted_lines, old_line_by_new_line = _line_diff_data(old_content, new_content)
     old_line_by_key = {
         each_key: [each_line for each_text, each_line, each_is_inline in old_occurrences if (each_text, each_is_inline) == each_key]

@@ -289,3 +289,23 @@ def should_report_a_top_level_comment_without_timestamps(
 
     with pytest.raises(GitHubError):
         reader.read_top_level_comments("jl-cmd/claude-dev-env", 7, TOKEN)
+
+
+def should_read_a_bot_comment_carrying_a_passed_marker_as_a_notice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notice_record = {
+        **top_level_record(1),
+        "user": {"login": "qodo-code-review[bot]", "type": "Bot"},
+        "body": "<!-- vendor:trial-expiring -->\n\nYour trial ends soon.",
+    }
+    answer_with(
+        monkeypatch,
+        {"issues/7/comments?per_page=100&page=1": (200, [notice_record])},
+    )
+
+    all_comments = reader.read_top_level_comments(
+        "jl-cmd/claude-dev-env", 7, TOKEN, ("<!-- vendor:trial-expiring -->",)
+    )
+
+    assert [each.is_notice for each in all_comments] == [True]

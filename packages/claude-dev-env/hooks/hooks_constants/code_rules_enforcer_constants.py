@@ -136,6 +136,10 @@ ALL_TOKEN_ANCHORED_EXEMPT_COMMENT_BODIES: tuple[str, ...] = (
 )
 ALL_TOKEN_ANCHORED_DIRECTIVE_BOUNDARY_CHARACTERS: frozenset[str] = frozenset({":"})
 STEALTH_KEEP_COMMENT_MARKER: str = "STEALTH: Keep"
+REPOSITORY_LINT_SETTINGS_RELATIVE_PATH: str = ".claude/policy-lint.json"
+COMMENT_KEEP_MARKERS_KEY: str = "comment_keep_markers"
+REPOSITORY_ROOT_MARKER_NAME: str = ".git"
+SETTINGS_TEXT_ENCODING: str = "utf-8"
 ALL_FREE_FORM_EXEMPT_COMMENT_BODIES: tuple[str, ...] = (
     "type:",
     "TODO",

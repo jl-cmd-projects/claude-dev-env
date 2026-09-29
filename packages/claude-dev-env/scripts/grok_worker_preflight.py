@@ -12,7 +12,8 @@ Checks run in order and stop at the first failure:
    running workers.
 3. ``claude-dev-env`` is installed for the requested role: the install manifest
    exists in the user Claude config directory, and every agent definition file
-   that role needs is present under ``agents/``.
+   that role needs is present under ``agents/``. A caller that names its own
+   agent needs that one definition file.
 
 Opt-in ``--ping`` runs one cached live single-turn call with a run-scoped TTL.
 The cache file lives under the caller-supplied run state directory. Auth failure
@@ -54,6 +55,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dev_env_scripts_constants.grok_worker_constants import (
+    AGENT_DEFINITION_SUFFIX,
     AGENTS_SUBDIRECTORY,
     ALL_AGENT_FILENAMES_BY_ROLE,
     ALL_AUTH_FAILURE_SIGNATURES,
@@ -277,14 +279,20 @@ def _is_grok_binary_resolvable() -> bool:
     return preflight_which(GROK_BINARY_NAME) is not None
 
 
-def _is_claude_dev_env_config_present(role: str) -> bool:
+def _required_agent_filenames(role: str, agent: str | None) -> tuple[str, ...] | None:
+    if agent is not None:
+        return (f"{agent}{AGENT_DEFINITION_SUFFIX}",)
+    return ALL_AGENT_FILENAMES_BY_ROLE.get(role)
+
+
+def _is_claude_dev_env_config_present(role: str, agent: str | None = None) -> bool:
     if not _install_manifest_path().is_file():
         return False
     try:
         poteto_mode_skill_path()
     except OSError:
         return False
-    all_agent_filenames = ALL_AGENT_FILENAMES_BY_ROLE.get(role)
+    all_agent_filenames = _required_agent_filenames(role, agent)
     if all_agent_filenames is None:
         return False
     agents_root = _agents_directory()
@@ -390,6 +398,7 @@ def run_preflight(
     role: str,
     should_ping: bool,
     run_state_directory: Path,
+    agent: str | None = None,
 ) -> PreflightOutcome:
     """Evaluate whether tier 1 (grok headless) is usable.
 
@@ -398,6 +407,9 @@ def run_preflight(
         should_ping: When True, run the opt-in cached live single-turn ping.
         run_state_directory: Run-scoped directory for leader sockets and cache.
             Best-effort mkdir when missing; callers need not create it first.
+        agent: The agent definition stem a caller names for its own role.
+            When set, that one definition file must be installed in place of
+            the role's registered set.
 
     Returns:
         The soft-gate outcome. Callers treat a non-usable outcome as fallthrough,
@@ -412,7 +424,7 @@ def run_preflight(
     auth_outcome = _probe_grok_auth(run_state_directory)
     if not auth_outcome.is_usable:
         return auth_outcome
-    if not _is_claude_dev_env_config_present(role):
+    if not _is_claude_dev_env_config_present(role, agent):
         return _fallthrough(REASON_CLAUDE_DEV_ENV_CONFIG_MISSING)
     if should_ping:
         return _probe_grok_ping(run_state_directory)

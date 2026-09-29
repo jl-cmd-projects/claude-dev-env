@@ -203,6 +203,12 @@ DRIVER_LOGIN_ARGUMENT_HELP: str = (
 )
 """Help text for the driver login argument."""
 
+NOTICE_MARKER_ARGUMENT_HELP: str = (
+    "Text that marks a bot comment as a notice on this repository, beside the "
+    "built-in markers. Repeatable."
+)
+"""Help text for the notice marker argument."""
+
 CLOSED_VERDICT_LABEL: str = "CLOSED"
 """Verdict label for a pull request with every finding answered."""
 

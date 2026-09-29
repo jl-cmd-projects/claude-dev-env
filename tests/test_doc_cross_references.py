@@ -38,6 +38,7 @@ ALLOWED_MISSING_PATHS: frozenset[str] = frozenset(
         ".claude/CLAUDE.md",
         ".claude/local-gate.json",
         ".claude/plain-language-allow.json",
+        ".claude/policy-lint.json",
         ".claude/rules/reuse-existing-tooling.md",
         ".claude/settings.json",
         ".claude/settings.local.json",

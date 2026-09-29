@@ -33,6 +33,8 @@ A red circle marks a finding a review states as blocking, so resolution in silen
 
 The driving account is the one that opened the pull request. Where the agent comments under a second login, `--driver-login <login>` names it, repeatably.
 
+A repository whose review bots post notices this package does not know passes each one's marker text with `--notice-marker <text>`, repeatably. A bot comment carrying that text closes itself, like the built-in notices above.
+
 ## Where the check runs
 
 `.github/workflows/review-closure.yml` runs it here on a push to a pull request, on a submitted or dismissed review, on a review comment, and on a top-level comment posted or edited on a pull request. Each run reports on the pull request's head commit, so a finding posted after the last push still turns the check red.
