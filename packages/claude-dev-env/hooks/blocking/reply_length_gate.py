@@ -4,6 +4,11 @@
 The gate reads the ``text`` field of the chat tools that post to the user.
 It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
 sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
+It also denies a pull request number the reader cannot open::
+
+    flag: Both land in PR 5256.
+    flag: It merged in #4347.
+    ok:   Both land in [PR 5256](https://github.com/owner/repo/pull/5256).
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
 fenced blocks carry no words.
@@ -34,6 +39,7 @@ from hooks_constants.reply_length_gate_constants import (
     LINE_BREAK_PATTERN,
     LINK_TARGET_PATTERN,
     LONG_SENTENCE_MESSAGE,
+    MARKDOWN_LINK_PATTERN,
     MAXIMUM_SENTENCE_COUNT,
     MAXIMUM_WORDS_PER_SENTENCE,
     RETRY_INSTRUCTION,
@@ -44,6 +50,8 @@ from hooks_constants.reply_length_gate_constants import (
     TOO_MANY_SENTENCES_MESSAGE,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
+    UNLINKED_PULL_REQUEST_MESSAGE,
+    UNLINKED_PULL_REQUEST_PATTERN,
     URL_PATTERN,
     WORD_PATTERN,
     WORD_SEPARATOR,
@@ -87,6 +95,17 @@ def length_violation(reply_text: str) -> str | None:
     return None
 
 
+def unlinked_pull_request_violation(reply_text: str) -> str | None:
+    """Return the deny reason for a pull request number outside a link, or None."""
+    without_fences = FENCED_BLOCK_PATTERN.sub(" ", reply_text)
+    without_code = INLINE_CODE_PATTERN.sub(" ", without_fences)
+    without_links = MARKDOWN_LINK_PATTERN.sub(" ", without_code)
+    unlinked_match = UNLINKED_PULL_REQUEST_PATTERN.search(URL_PATTERN.sub(" ", without_links))
+    if unlinked_match is None:
+        return None
+    return UNLINKED_PULL_REQUEST_MESSAGE.format(reference=unlinked_match.group(0))
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
@@ -100,7 +119,7 @@ def main() -> int:
     reply_text = tool_input.get(TEXT_KEY)
     if not isinstance(reply_text, str):
         return ALLOW_EXIT_CODE
-    violation = length_violation(reply_text)
+    violation = length_violation(reply_text) or unlinked_pull_request_violation(reply_text)
     if violation is None:
         return ALLOW_EXIT_CODE
     block_reason = violation + RETRY_INSTRUCTION
