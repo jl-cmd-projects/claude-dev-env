@@ -15,9 +15,9 @@ Walk order:
 
 Import ``resolve_worker_spawn`` for the outcome object, or run as a CLI::
 
-    python resolve_worker_spawn.py --role <role> --prompt-file <path>
-        --cwd <dir> --timeout-seconds N --run-temp-dir <dir>
-        [--enable-claude-tier]
+    python resolve_worker_spawn.py --role <role> [--agent <stem>]
+        --prompt-file <path> --cwd <dir> --timeout-seconds N
+        --run-temp-dir <dir> [--enable-claude-tier]
 """
 
 from __future__ import annotations
@@ -72,6 +72,7 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     ATTEMPT_KEY_OK,
     ATTEMPT_KEY_REASON,
     ATTEMPT_KEY_TIER,
+    CLI_AGENT_FLAG,
     CLI_ENABLE_CLAUDE_TIER_FLAG,
     CLI_ROLE_FLAG,
     CLI_RUN_STATE_DIR_FLAG,
@@ -284,13 +285,12 @@ def _served_claude_outcome(
 
 def _run_tier_claude_headless(
     *,
-    role: str,
+    agent_name: str,
     prompt_file: Path,
     working_directory: Path,
     timeout_seconds: int,
     all_attempts: list[SpawnAttempt],
 ) -> SpawnOutcome:
-    agent_name = _primary_agent_name_for_role(role)
     all_claude_arguments = _build_claude_arguments(agent_name=agent_name)
     try:
         prompt_stdin = prompt_file.open(encoding=UTF8_ENCODING)
@@ -310,7 +310,7 @@ def _run_tier_claude_headless(
 
 def _after_grok_fallthrough(
     *,
-    role: str,
+    agent_name: str,
     prompt_file: Path,
     working_directory: Path,
     timeout_seconds: int,
@@ -325,7 +325,7 @@ def _after_grok_fallthrough(
             all_attempts, returncode=fallthrough_returncode
         )
     return _run_tier_claude_headless(
-        role=role,
+        agent_name=agent_name,
         prompt_file=prompt_file,
         working_directory=working_directory,
         timeout_seconds=timeout_seconds,
@@ -335,13 +335,12 @@ def _after_grok_fallthrough(
 
 def _run_tier_grok(
     *,
-    role: str,
+    agent_name: str,
     prompt_file: Path,
     working_directory: Path,
     run_state_directory: Path,
     timeout_seconds: int,
 ) -> GrokRunnerOutcome:
-    agent_name = _primary_agent_name_for_role(role)
     return spawn_grok_runner(
         prompt_file=prompt_file,
         working_directory=working_directory,
@@ -354,7 +353,7 @@ def _run_tier_grok(
 def _record_preflight_fallthrough(
     preflight_outcome: PreflightOutcome,
     *,
-    role: str,
+    agent_name: str,
     prompt_file: Path,
     working_directory: Path,
     timeout_seconds: int,
@@ -362,7 +361,7 @@ def _record_preflight_fallthrough(
 ) -> SpawnOutcome:
     all_attempts = [_attempt(TIER_GROK, is_ok=False, reason=preflight_outcome.reason)]
     return _after_grok_fallthrough(
-        role=role,
+        agent_name=agent_name,
         prompt_file=prompt_file,
         working_directory=working_directory,
         timeout_seconds=timeout_seconds,
@@ -387,7 +386,7 @@ def _record_grok_success(
 def _record_grok_fallthrough(
     grok_outcome: GrokRunnerOutcome,
     *,
-    role: str,
+    agent_name: str,
     prompt_file: Path,
     working_directory: Path,
     timeout_seconds: int,
@@ -401,7 +400,7 @@ def _record_grok_fallthrough(
         )
     ]
     return _after_grok_fallthrough(
-        role=role,
+        agent_name=agent_name,
         prompt_file=prompt_file,
         working_directory=working_directory,
         timeout_seconds=timeout_seconds,
@@ -419,6 +418,7 @@ def resolve_worker_spawn(
     timeout_seconds: int,
     is_claude_tier_enabled: bool,
     run_state_directory: Path,
+    agent: str | None = None,
 ) -> SpawnOutcome:
     """Walk the worker-spawn tiers and return the structured outcome.
 
@@ -433,6 +433,9 @@ def resolve_worker_spawn(
         timeout_seconds: Timeout applied to each tier invocation.
         is_claude_tier_enabled: When True, allow tier 3 on a Claude host.
         run_state_directory: Run-scoped directory for leader sockets and cache.
+        agent: The agent definition stem that serves ``role``, named by a
+            caller whose role this package does not register. None maps
+            ``role`` through the package's own role table.
 
     Returns:
         The dispatcher outcome including the ordered attempts trail.
@@ -443,15 +446,17 @@ def resolve_worker_spawn(
             config-error exit code.
     """
     require_timeout_within_bounds(timeout_seconds)
+    agent_name = agent or _primary_agent_name_for_role(role)
     preflight_outcome: PreflightOutcome = spawn_preflight_runner(
         role=role,
         should_ping=False,
         run_state_directory=run_state_directory,
+        agent=agent,
     )
     if not preflight_outcome.is_usable:
         return _record_preflight_fallthrough(
             preflight_outcome,
-            role=role,
+            agent_name=agent_name,
             prompt_file=prompt_file,
             working_directory=working_directory,
             timeout_seconds=timeout_seconds,
@@ -459,7 +464,7 @@ def resolve_worker_spawn(
         )
 
     grok_outcome = _run_tier_grok(
-        role=role,
+        agent_name=agent_name,
         prompt_file=prompt_file,
         working_directory=working_directory,
         run_state_directory=run_state_directory,
@@ -469,7 +474,7 @@ def resolve_worker_spawn(
         return _record_grok_success(grok_outcome)
     return _record_grok_fallthrough(
         grok_outcome,
-        role=role,
+        agent_name=agent_name,
         prompt_file=prompt_file,
         working_directory=working_directory,
         timeout_seconds=timeout_seconds,
@@ -511,6 +516,14 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         CLI_ROLE_FLAG,
         default=DEFAULT_ROLE,
         help="Worker role name for preflight; mapped to a primary agent for grok.",
+    )
+    parser.add_argument(
+        CLI_AGENT_FLAG,
+        default=None,
+        help=(
+            "Agent definition stem that serves the role, for a role this "
+            "package does not register."
+        ),
     )
     parser.add_argument(
         PROMPT_FILE_FLAG,
@@ -654,6 +667,7 @@ def main(all_command_arguments: list[str]) -> int:
             timeout_seconds=parsed_arguments.timeout_seconds,
             is_claude_tier_enabled=parsed_arguments.is_claude_tier_enabled,
             run_state_directory=run_state_directory,
+            agent=parsed_arguments.agent,
         )
     except WorkerTimeoutOutOfBoundsError as bounds_error:
         is_config_error = True

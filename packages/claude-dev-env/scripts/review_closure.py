@@ -26,6 +26,7 @@ from dev_env_scripts_constants.review_closure_constants import (
     DRIVER_LOGIN_ARGUMENT_HELP,
     ERROR_EXIT_CODE,
     FINDING_LINE_TEMPLATE,
+    NOTICE_MARKER_ARGUMENT_HELP,
     NUMBER_ARGUMENT_HELP,
     OPEN_EXIT_CODE,
     SLUG_ARGUMENT_HELP,
@@ -60,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     Returns:
         A parser taking a repository slug, a pull request number, and any
-        number of extra driver logins.
+        number of extra driver logins and notice markers.
     """
     parser = argparse.ArgumentParser(description=COMMAND_DESCRIPTION)
     parser.add_argument("slug", help=SLUG_ARGUMENT_HELP)
@@ -71,11 +72,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help=DRIVER_LOGIN_ARGUMENT_HELP,
     )
+    parser.add_argument(
+        "--notice-marker",
+        action="append",
+        default=[],
+        help=NOTICE_MARKER_ARGUMENT_HELP,
+    )
     return parser
 
 
 def closure_report(
-    slug: str, number: int, all_extra_logins: Sequence[str], token: str
+    slug: str,
+    number: int,
+    all_extra_logins: Sequence[str],
+    token: str,
+    all_extra_notice_markers: Sequence[str] = (),
 ) -> ClosureReport:
     """Read one pull request and judge the findings on its head.
 
@@ -85,6 +96,8 @@ def closure_report(
         all_extra_logins: Logins that count as the driving agent beside the
             account that opened the pull request.
         token: The GitHub token the reads authenticate with.
+        all_extra_notice_markers: Text that marks a bot comment as a notice on
+            this repository, beside the built-in markers.
 
     Returns:
         The verdict line and each finding that waits.
@@ -95,7 +108,7 @@ def closure_report(
     all_pull_request_fields = read_pull_request(slug, number, token)
     all_findings = all_open_findings(
         read_review_threads(slug, number, token),
-        read_top_level_comments(slug, number, token),
+        read_top_level_comments(slug, number, token, all_extra_notice_markers),
         driver_logins(all_pull_request_fields, all_extra_logins),
         read_approvals_conclusion(slug, head_sha(all_pull_request_fields), token),
     )
@@ -118,7 +131,11 @@ def main(all_arguments: Sequence[str]) -> int:
     parsed = build_parser().parse_args(all_arguments)
     try:
         report = closure_report(
-            parsed.slug, parsed.number, parsed.driver_login, github_token()
+            parsed.slug,
+            parsed.number,
+            parsed.driver_login,
+            github_token(),
+            parsed.notice_marker,
         )
     except GitHubError as failure:
         print(failure, file=sys.stderr)

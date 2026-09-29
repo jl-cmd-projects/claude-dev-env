@@ -151,3 +151,25 @@ def should_print_the_url_of_a_waiting_top_level_comment(
 
     assert status == 1
     assert summary_url in capsys.readouterr().out
+
+
+def should_pass_each_notice_marker_to_the_top_level_comment_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_reads(monkeypatch, (answered_thread(),))
+    all_received_markers: list[list[str]] = []
+
+    def read_comments(
+        slug: str, number: int, token: str, all_extra_notice_markers: list[str]
+    ) -> tuple[model.TopLevelComment, ...]:
+        all_received_markers.append(all_extra_notice_markers)
+        return ()
+
+    monkeypatch.setattr(command, "read_top_level_comments", read_comments)
+
+    status = command.main(
+        [SLUG, "7", "--notice-marker", "<!-- a -->", "--notice-marker", "<!-- b -->"]
+    )
+
+    assert status == 0
+    assert all_received_markers == [["<!-- a -->", "<!-- b -->"]]

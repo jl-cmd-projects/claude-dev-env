@@ -1125,3 +1125,19 @@ def test_ping_incidental_credit_and_port_429_are_not_usage_exhaustion(
     assert outcome.is_usable is False
     assert outcome.reason == REASON_GROK_AUTH_FAILED
     assert outcome.reason != REASON_GROK_USAGE_EXHAUSTED
+
+
+def test_caller_named_agent_needs_its_own_definition_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _write_install_layout(tmp_path)
+    monkeypatch.setattr(preflight, "claude_config_home", lambda: tmp_path)
+
+    assert not preflight._is_claude_dev_env_config_present("vendor-role")
+    assert not preflight._is_claude_dev_env_config_present(
+        "vendor-role", "vendor-agent"
+    )
+    (tmp_path / AGENTS_SUBDIRECTORY / "vendor-agent.md").write_text(
+        "# vendor-agent\n", encoding=UTF8_ENCODING
+    )
+    assert preflight._is_claude_dev_env_config_present("vendor-role", "vendor-agent")

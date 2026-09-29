@@ -13,6 +13,7 @@ a string still flag.
 
 from __future__ import annotations
 
+import json
 import sys
 import importlib
 from pathlib import Path
@@ -413,3 +414,46 @@ def test_check_comment_changes_accepts_distant_untouched_comment() -> None:
     new_content = "# TODO #999: distant note\n\ntotal = 2\n"
     issues = code_rules_enforcer.check_comment_changes(old_content, new_content, "totals.py")
     assert not any("still on the changed lines" in each_issue for each_issue in issues)
+
+
+def _repository_file(tmp_path: Path, all_keep_markers: list[str] | None) -> str:
+    (tmp_path / ".git").mkdir()
+    if all_keep_markers is not None:
+        (tmp_path / ".claude").mkdir()
+        (tmp_path / ".claude" / "policy-lint.json").write_text(
+            json.dumps({"comment_keep_markers": all_keep_markers}), encoding="utf-8"
+        )
+    return str(tmp_path / "app" / "main.py")
+
+
+def test_check_comment_changes_accepts_a_marker_the_repository_names(
+    tmp_path: Path,
+) -> None:
+    file_path = _repository_file(tmp_path, ["VENDOR: Keep"])
+    issues = code_rules_enforcer.check_comment_changes(
+        "x = 1\n", "x = 1  # VENDOR: Keep -- reason\n", file_path
+    )
+    assert issues == []
+
+
+def test_check_comment_changes_flags_that_marker_in_a_repository_without_it(
+    tmp_path: Path,
+) -> None:
+    file_path = _repository_file(tmp_path, None)
+    issues = code_rules_enforcer.check_comment_changes(
+        "x = 1\n", "x = 1  # VENDOR: Keep -- reason\n", file_path
+    )
+    assert len(issues) == 1
+    assert "comment added" in issues[0]
+
+
+def test_check_comment_changes_accepts_a_retained_repository_marker_on_a_touched_line(
+    tmp_path: Path,
+) -> None:
+    file_path = _repository_file(tmp_path, ["VENDOR: Keep"])
+    issues = code_rules_enforcer.check_comment_changes(
+        "x = 1  # VENDOR: Keep -- reason\n",
+        "x = 2  # VENDOR: Keep -- reason\n",
+        file_path,
+    )
+    assert issues == []

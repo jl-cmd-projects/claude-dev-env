@@ -426,6 +426,7 @@ def comment_records_by_id(
 
 def parse_top_level_comment(
     all_comment_fields: Mapping[str, object],
+    all_extra_notice_markers: Sequence[str] = (),
 ) -> TopLevelComment:
     """Read one top-level comment from the REST answer.
 
@@ -434,6 +435,8 @@ def parse_top_level_comment(
 
     Args:
         all_comment_fields: The comment as the issue comments route reports it.
+        all_extra_notice_markers: Markers the calling repository adds to the
+            built-in ones.
 
     Returns:
         The comment in the shape the closure decision reads.
@@ -448,7 +451,10 @@ def parse_top_level_comment(
         author_login=_comment_author_login(all_comment_fields),
         is_bot=is_bot,
         is_notice=is_bot
-        and any(each_marker in body for each_marker in ALL_NOTICE_COMMENT_MARKERS),
+        and any(
+            each_marker in body
+            for each_marker in (*ALL_NOTICE_COMMENT_MARKERS, *all_extra_notice_markers)
+        ),
         created_at=datetime.fromisoformat(str(all_comment_fields.get(CREATED_AT_KEY))),
         updated_at=datetime.fromisoformat(str(all_comment_fields.get(UPDATED_AT_KEY))),
         url=str(all_comment_fields.get(HTML_URL_KEY) or ""),

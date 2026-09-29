@@ -32,6 +32,7 @@ from dev_env_scripts_constants.claude_chain_constants import (  # noqa: E402
 )
 from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     AGENT_FLAG,
+    CLI_AGENT_FLAG,
     ALL_AGENT_FILENAMES_BY_ROLE,
     ATTEMPT_KEY_OK,
     ATTEMPT_KEY_REASON,
@@ -1328,3 +1329,49 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_binary(
     assert prompt_text_by_command["claude-profile-c"] == FIXTURE_PROMPT_TEXT
     assert outcome.tier_used == TIER_CLAUDE_HEADLESS
     assert outcome.is_ok is True
+
+
+def test_caller_named_agent_serves_an_unregistered_role(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    prompt_file, working_directory, run_state_directory = _paths(tmp_path)
+    call_log = _install_seams(
+        monkeypatch,
+        grok_outcome=_grok_failure(CLASSIFICATION_AUTH_FAILURE),
+        claude_outcome=_claude_served(),
+        host_profile=HOST_PROFILE_CLAUDE,
+    )
+    all_preflight_keyword_arguments: list[dict[str, object]] = []
+
+    def recording_preflight(**keyword_arguments: object) -> PreflightOutcome:
+        all_preflight_keyword_arguments.append(dict(keyword_arguments))
+        return _usable_preflight()
+
+    monkeypatch.setattr(dispatcher, "spawn_preflight_runner", recording_preflight)
+
+    exit_code = dispatcher.main(
+        [
+            CLI_ROLE_FLAG,
+            "vendor-role",
+            CLI_AGENT_FLAG,
+            "vendor-agent",
+            PROMPT_FILE_FLAG,
+            str(prompt_file),
+            CWD_FLAG,
+            str(working_directory),
+            CLI_RUN_STATE_DIR_FLAG,
+            str(run_state_directory),
+            CLI_ENABLE_CLAUDE_TIER_FLAG,
+        ]
+    )
+    capsys.readouterr()
+
+    assert exit_code == 0
+    assert all_preflight_keyword_arguments[0]["agent"] == "vendor-agent"
+    assert call_log.grok_keyword_arguments is not None
+    assert call_log.grok_keyword_arguments["agent_name"] == "vendor-agent"
+    assert call_log.claude_arguments is not None
+    agent_flag_index = call_log.claude_arguments.index(AGENT_FLAG)
+    assert call_log.claude_arguments[agent_flag_index + 1] == "vendor-agent"

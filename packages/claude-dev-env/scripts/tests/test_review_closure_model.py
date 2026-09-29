@@ -549,3 +549,21 @@ def should_read_a_person_top_level_comment_record() -> None:
     )
 
     assert comment == top_level_comment(REVIEWER, 1, edited_minute=5, is_bot=False)
+
+
+def should_read_a_bot_comment_carrying_a_repository_marker_as_a_notice() -> None:
+    body = "<!-- vendor:trial-expiring -->\n\nYour trial ends soon."
+
+    assert not model.parse_top_level_comment(notice_record(body, "Bot")).is_notice
+    assert model.parse_top_level_comment(
+        notice_record(body, "Bot"), ("<!-- vendor:trial-expiring -->",)
+    ).is_notice
+
+
+def should_read_a_person_carrying_a_repository_marker_as_a_comment() -> None:
+    comment = model.parse_top_level_comment(
+        notice_record("<!-- vendor:trial-expiring -->", "User"),
+        ("<!-- vendor:trial-expiring -->",),
+    )
+
+    assert not comment.is_notice

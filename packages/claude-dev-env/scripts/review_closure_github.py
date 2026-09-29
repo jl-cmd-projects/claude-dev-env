@@ -23,7 +23,7 @@ import json
 import os
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from dev_env_scripts_constants.review_closure_constants import (
     ALL_THREAD_NODE_KEYS,
@@ -202,7 +202,10 @@ def read_review_comments_by_id(
 
 
 def read_top_level_comments(
-    slug: str, number: int, token: str
+    slug: str,
+    number: int,
+    token: str,
+    all_extra_notice_markers: Sequence[str] = (),
 ) -> tuple[TopLevelComment, ...]:
     """Read every top-level comment on a pull request.
 
@@ -210,6 +213,8 @@ def read_top_level_comments(
         slug: The repository as ``owner/name``.
         number: The pull request number.
         token: The GitHub token the request authenticates with.
+        all_extra_notice_markers: Markers the calling repository adds to the
+            built-in notice markers.
 
     Returns:
         Each comment posted on the pull request itself, outside any review
@@ -223,7 +228,7 @@ def read_top_level_comments(
         TOP_LEVEL_COMMENTS_ENDPOINT_TEMPLATE, slug, number, token
     )
     return tuple(
-        _parsed_top_level_comment(each_record)
+        _parsed_top_level_comment(each_record, all_extra_notice_markers)
         for each_record in all_records
         if isinstance(each_record, Mapping)
     )
@@ -231,9 +236,10 @@ def read_top_level_comments(
 
 def _parsed_top_level_comment(
     all_comment_fields: Mapping[str, object],
+    all_extra_notice_markers: Sequence[str],
 ) -> TopLevelComment:
     try:
-        return parse_top_level_comment(all_comment_fields)
+        return parse_top_level_comment(all_comment_fields, all_extra_notice_markers)
     except ValueError as failure:
         raise GitHubError(
             UNREADABLE_TOP_LEVEL_COMMENT_TEMPLATE.format(record=all_comment_fields)
