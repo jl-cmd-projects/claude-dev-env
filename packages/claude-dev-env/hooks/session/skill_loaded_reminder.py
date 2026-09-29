@@ -60,7 +60,7 @@ def subagent_input_with_poteto_mode(
         Agent        {"prompt": "Reply leaf."}   -> {"prompt": "Before any ...\\n\\nReply leaf."}
         spawn_agent  {"message": "Fix it."}      -> {"message": "$poteto-mode\\n\\nFix it."}
         Agent        {"prompt": "Invoke poteto-mode, then ..."}  -> None
-        Agent        {"subagent_type": "pstack:poteto-agent", ...}      -> None, it loads the skill
+        Agent        {"subagent_type": "poteto-agent", ...}      -> None, it loads the skill
 
     Claude Code spawns through Agent or Task and Codex through spawn_agent, so
     each tool name carries its own prompt field and invocation text.

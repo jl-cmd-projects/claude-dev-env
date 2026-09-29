@@ -67,7 +67,7 @@ NOT_LOADED_REMINDER = (
 )
 
 COMPACTION_REMINDER = (
-    "The context was just compacted and the poteto-mode skill rules were dropped. "
+    "The context was just compacted and the poteto-mode skill rules may have been dropped. "
     "Your next tool call is the Skill tool with skill poteto-mode, before any other "
     "tool call. Then re-read the request that started this session and continue."
 )
