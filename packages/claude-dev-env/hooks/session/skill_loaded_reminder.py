@@ -3,10 +3,10 @@
 
 ::
 
-    Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke pstack:poteto-mode"
-    Workflow script helper starts               -> "invoke pstack:poteto-mode now"
-    context compacted mid-run                    -> "invoke pstack:poteto-mode again"
-    user turn, skill not loaded since compacting -> "invoke pstack:poteto-mode now"
+    Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke poteto-mode"
+    Workflow script helper starts               -> "invoke poteto-mode now"
+    context compacted mid-run                    -> "invoke poteto-mode again"
+    user turn, skill not loaded since compacting -> "invoke poteto-mode now"
     user turn, skill already loaded              -> nothing
 
 A session that loaded the skill hears nothing more until a compaction drops it.
@@ -58,9 +58,9 @@ def subagent_input_with_poteto_mode(
     ::
 
         Agent        {"prompt": "Reply leaf."}   -> {"prompt": "Before any ...\\n\\nReply leaf."}
-        spawn_agent  {"message": "Fix it."}      -> {"message": "$pstack:poteto-mode\\n\\nFix it."}
-        Agent        {"prompt": "Invoke pstack:poteto-mode, then ..."}  -> None
-        Agent        {"subagent_type": "pstack:poteto-agent", ...}      -> None, it loads the skill
+        spawn_agent  {"message": "Fix it."}      -> {"message": "$poteto-mode\\n\\nFix it."}
+        Agent        {"prompt": "Invoke poteto-mode, then ..."}  -> None
+        Agent        {"subagent_type": "poteto-agent", ...}      -> None, it loads the skill
 
     Claude Code spawns through Agent or Task and Codex through spawn_agent, so
     each tool name carries its own prompt field and invocation text.
@@ -121,9 +121,9 @@ def is_poteto_mode_loaded(all_transcript_lines: Iterable[str]) -> bool:
 
     ::
 
-        Skill(pstack:poteto-mode) ... Read ... Edit               -> True
-        /pstack:poteto-mode typed as a command ... Read           -> True
-        Skill(pstack:poteto-mode) ... compact_boundary ... Read   -> False
+        Skill(poteto-mode) ... Read ... Edit               -> True
+        /poteto-mode typed as a command ... Read           -> True
+        Skill(poteto-mode) ... compact_boundary ... Read   -> False
         Read ... Edit                                             -> False
 
     Only lines naming the skill or a compaction are parsed, so a long transcript
