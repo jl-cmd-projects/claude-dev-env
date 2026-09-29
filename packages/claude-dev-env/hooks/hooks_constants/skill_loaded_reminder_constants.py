@@ -9,12 +9,12 @@ __all__ = [
     "COMPACTION_REMINDER",
     "COMPACTION_SOURCE",
     "NOT_LOADED_REMINDER",
-    "POTETO_MODE_SKILL_NAME",
+    "ALL_POTETO_MODE_SKILL_NAMES",
     "PRE_TOOL_USE_EVENT_NAME",
     "PROMPT_SEPARATOR",
     "SESSION_START_EVENT_NAME",
     "SKILL_TOOL_NAME",
-    "SLASH_COMMAND_MARKER",
+    "ALL_SLASH_COMMAND_MARKERS",
     "SUBAGENT_START_EVENT_NAME",
     "CLAUDE_SUBAGENT_PROMPT_PREFIX",
     "CODEX_SUBAGENT_PROMPT_PREFIX",
@@ -34,9 +34,12 @@ WORKFLOW_SUBAGENT_TYPE = "workflow-subagent"
 
 ALL_SELF_LOADING_SUBAGENT_TYPES = frozenset({"pstack:poteto-agent", "poteto-agent"})
 
-POTETO_MODE_SKILL_NAME = "pstack:poteto-mode"
+ALL_POTETO_MODE_SKILL_NAMES = ("poteto-mode", "pstack:poteto-mode")
 SKILL_TOOL_NAME = "Skill"
-SLASH_COMMAND_MARKER = "<command-name>/pstack:poteto-mode</command-name>"
+ALL_SLASH_COMMAND_MARKERS = (
+    "<command-name>/poteto-mode</command-name>",
+    "<command-name>/pstack:poteto-mode</command-name>",
+)
 PROMPT_SEPARATOR = "\n\n"
 
 ASSISTANT_ENTRY_TYPE = "assistant"
@@ -45,11 +48,11 @@ TOOL_USE_BLOCK_TYPE = "tool_use"
 COMPACT_BOUNDARY_SUBTYPE = "compact_boundary"
 
 CLAUDE_SUBAGENT_PROMPT_PREFIX = (
-    "Before any other work, invoke the pstack:poteto-mode skill with the Skill tool. "
+    "Before any other work, invoke the poteto-mode skill with the Skill tool. "
     "Every prompt you write for a subagent opens with the same instruction."
 )
 
-CODEX_SUBAGENT_PROMPT_PREFIX = "$pstack:poteto-mode"
+CODEX_SUBAGENT_PROMPT_PREFIX = "$poteto-mode"
 
 ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME = {
     "Agent": ("prompt", CLAUDE_SUBAGENT_PROMPT_PREFIX),
@@ -58,13 +61,13 @@ ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME = {
 }
 
 NOT_LOADED_REMINDER = (
-    "The pstack:poteto-mode skill is not loaded in this context. "
-    "Your next tool call is the Skill tool with skill pstack:poteto-mode, before any other "
+    "The poteto-mode skill is not loaded in this context. "
+    "Your next tool call is the Skill tool with skill poteto-mode, before any other "
     "tool call."
 )
 
 COMPACTION_REMINDER = (
-    "The context was just compacted and the pstack:poteto-mode skill rules were dropped. "
-    "Your next tool call is the Skill tool with skill pstack:poteto-mode, before any other "
+    "The context was just compacted and the poteto-mode skill rules were dropped. "
+    "Your next tool call is the Skill tool with skill poteto-mode, before any other "
     "tool call. Then re-read the request that started this session and continue."
 )

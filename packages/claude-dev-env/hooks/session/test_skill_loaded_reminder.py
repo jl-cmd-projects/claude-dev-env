@@ -27,7 +27,7 @@ SKILL_CALL_LINE = json.dumps(
                 {
                     "type": "tool_use",
                     "name": "Skill",
-                    "input": {"skill": "pstack:poteto-mode"},
+                    "input": {"skill": "poteto-mode"},
                 }
             ],
         },
@@ -38,7 +38,7 @@ TYPED_COMMAND_LINE = json.dumps(
         "type": "user",
         "message": {
             "role": "user",
-            "content": "<command-name>/pstack:poteto-mode</command-name>",
+            "content": "<command-name>/poteto-mode</command-name>",
         },
     }
 )
@@ -58,7 +58,7 @@ TOOL_RESULT_QUOTING_THE_SKILL_LINE = json.dumps(
             "content": [
                 {
                     "type": "tool_result",
-                    "content": 'SKILL = "pstack:poteto-mode" and <command-name>/pstack:poteto-mode</command-name>',
+                    "content": 'SKILL = "poteto-mode" and <command-name>/poteto-mode</command-name>',
                 }
             ]
         },
@@ -107,7 +107,7 @@ class TestSubagentSpawn:
         rewritten_input = hook_output["updatedInput"]
         assert hook_output["permissionDecision"] == "allow"
         assert rewritten_input["prompt"].startswith(
-            "Before any other work, invoke the pstack:poteto-mode skill with the Skill tool."
+            "Before any other work, invoke the poteto-mode skill with the Skill tool."
         )
         assert rewritten_input["prompt"].endswith("\n\nList every caller of main.")
         assert rewritten_input["subagent_type"] == "Explore"
@@ -115,10 +115,10 @@ class TestSubagentSpawn:
 
     def test_the_legacy_task_tool_name_is_rewritten_too(self) -> None:
         emitted = json.loads(_run_main(_agent_call({"prompt": "Go."}, tool_name="Task")))
-        assert "pstack:poteto-mode" in emitted["hookSpecificOutput"]["updatedInput"]["prompt"]
+        assert "poteto-mode" in emitted["hookSpecificOutput"]["updatedInput"]["prompt"]
 
     def test_a_prompt_that_already_names_the_skill_is_left_alone(self) -> None:
-        assert _run_main(_agent_call({"prompt": "Invoke pstack:poteto-mode first. Then go."})) == ""
+        assert _run_main(_agent_call({"prompt": "Invoke poteto-mode first. Then go."})) == ""
 
     def test_a_poteto_agent_is_left_alone_because_it_loads_the_skill_itself(self) -> None:
         assert (
@@ -161,14 +161,14 @@ class TestCodexSpawn:
             )
         )
         rewritten_input = emitted["hookSpecificOutput"]["updatedInput"]
-        assert rewritten_input["message"] == "$pstack:poteto-mode\n\nFix the failing test."
+        assert rewritten_input["message"] == "$poteto-mode\n\nFix the failing test."
         assert rewritten_input["model"] == "gpt-6-luna"
         assert "prompt" not in rewritten_input
 
     def test_a_codex_spawn_message_that_already_mentions_the_skill_is_left_alone(self) -> None:
         assert (
             _run_main(
-                _agent_call({"message": "$pstack:poteto-mode\n\nFix it."}, tool_name="spawn_agent")
+                _agent_call({"message": "$poteto-mode\n\nFix it."}, tool_name="spawn_agent")
             )
             == ""
         )
@@ -180,6 +180,14 @@ class TestIsPotetoModeLoaded:
 
     def test_a_typed_slash_command_loads_it(self) -> None:
         assert reminder.is_poteto_mode_loaded([TYPED_COMMAND_LINE, READ_CALL_LINE])
+
+    def test_a_prefixed_skill_call_loads_it(self) -> None:
+        prefixed_skill_call_line = SKILL_CALL_LINE.replace("poteto-mode", "pstack:poteto-mode")
+        assert reminder.is_poteto_mode_loaded([prefixed_skill_call_line])
+
+    def test_a_prefixed_typed_command_loads_it(self) -> None:
+        prefixed_command_line = TYPED_COMMAND_LINE.replace("/poteto-mode", "/pstack:poteto-mode")
+        assert reminder.is_poteto_mode_loaded([prefixed_command_line])
 
     def test_a_compaction_after_the_skill_call_drops_it(self) -> None:
         assert not reminder.is_poteto_mode_loaded(
@@ -193,7 +201,7 @@ class TestIsPotetoModeLoaded:
 
     def test_a_plain_user_prompt_does_not_load_it(self) -> None:
         plain_prompt_line = json.dumps(
-            {"type": "user", "message": {"content": "Read pstack:poteto-mode docs."}}
+            {"type": "user", "message": {"content": "Read poteto-mode docs."}}
         )
         assert not reminder.is_poteto_mode_loaded([plain_prompt_line])
 
@@ -210,7 +218,7 @@ class TestReminderFor:
         hook_output = emitted["hookSpecificOutput"]
         assert hook_output["hookEventName"] == "UserPromptSubmit"
         assert hook_output["additionalContext"] == NOT_LOADED_REMINDER
-        assert "pstack:poteto-mode" in NOT_LOADED_REMINDER
+        assert "poteto-mode" in NOT_LOADED_REMINDER
 
     def test_a_user_turn_in_a_session_that_loaded_the_skill_prints_nothing(
         self, tmp_path: Path
@@ -229,7 +237,7 @@ class TestReminderFor:
         hook_output = emitted["hookSpecificOutput"]
         assert hook_output["hookEventName"] == "SessionStart"
         assert hook_output["additionalContext"] == COMPACTION_REMINDER
-        assert "pstack:poteto-mode" in COMPACTION_REMINDER
+        assert "poteto-mode" in COMPACTION_REMINDER
 
     def test_a_resumed_session_keeps_its_context_and_prints_nothing(self) -> None:
         assert _run_main({"hook_event_name": "SessionStart", "source": "resume"}) == ""

@@ -3,10 +3,10 @@
 
 ::
 
-    Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke pstack:poteto-mode"
-    Workflow script helper starts               -> "invoke pstack:poteto-mode now"
-    context compacted mid-run                    -> "invoke pstack:poteto-mode again"
-    user turn, skill not loaded since compacting -> "invoke pstack:poteto-mode now"
+    Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke poteto-mode"
+    Workflow script helper starts               -> "invoke poteto-mode now"
+    context compacted mid-run                    -> "invoke poteto-mode again"
+    user turn, skill not loaded since compacting -> "invoke poteto-mode now"
     user turn, skill already loaded              -> nothing
 
 A session that loaded the skill hears nothing more until a compaction drops it.
@@ -31,12 +31,12 @@ from hooks_constants.skill_loaded_reminder_constants import (
     COMPACTION_REMINDER,
     COMPACTION_SOURCE,
     NOT_LOADED_REMINDER,
-    POTETO_MODE_SKILL_NAME,
+    ALL_POTETO_MODE_SKILL_NAMES,
     PRE_TOOL_USE_EVENT_NAME,
     PROMPT_SEPARATOR,
     SESSION_START_EVENT_NAME,
     SKILL_TOOL_NAME,
-    SLASH_COMMAND_MARKER,
+    ALL_SLASH_COMMAND_MARKERS,
     SUBAGENT_START_EVENT_NAME,
     ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME,
     TOOL_USE_BLOCK_TYPE,
@@ -58,8 +58,8 @@ def subagent_input_with_poteto_mode(
     ::
 
         Agent        {"prompt": "Reply leaf."}   -> {"prompt": "Before any ...\\n\\nReply leaf."}
-        spawn_agent  {"message": "Fix it."}      -> {"message": "$pstack:poteto-mode\\n\\nFix it."}
-        Agent        {"prompt": "Invoke pstack:poteto-mode, then ..."}  -> None
+        spawn_agent  {"message": "Fix it."}      -> {"message": "$poteto-mode\\n\\nFix it."}
+        Agent        {"prompt": "Invoke poteto-mode, then ..."}  -> None
         Agent        {"subagent_type": "pstack:poteto-agent", ...}      -> None, it loads the skill
 
     Claude Code spawns through Agent or Task and Codex through spawn_agent, so
@@ -71,7 +71,7 @@ def subagent_input_with_poteto_mode(
     """
     field_name, invocation_prefix = ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME[tool_name]
     prompt = all_tool_input_fields.get(field_name)
-    if not isinstance(prompt, str) or POTETO_MODE_SKILL_NAME in prompt:
+    if not isinstance(prompt, str) or ALL_POTETO_MODE_SKILL_NAMES[0] in prompt:
         return None
     if all_tool_input_fields.get("subagent_type") in ALL_SELF_LOADING_SUBAGENT_TYPES:
         return None
@@ -84,7 +84,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
         return False
     content_blocks = message.get("content")
     if all_entry_fields.get("type") == USER_ENTRY_TYPE and isinstance(content_blocks, str):
-        return SLASH_COMMAND_MARKER in content_blocks
+        return any(each_marker in content_blocks for each_marker in ALL_SLASH_COMMAND_MARKERS)
     if all_entry_fields.get("type") != ASSISTANT_ENTRY_TYPE or not isinstance(content_blocks, list):
         return False
     return any(
@@ -92,7 +92,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
         and each_block.get("type") == TOOL_USE_BLOCK_TYPE
         and each_block.get("name") == SKILL_TOOL_NAME
         and isinstance(each_block.get("input"), dict)
-        and each_block["input"].get("skill") == POTETO_MODE_SKILL_NAME
+        and each_block["input"].get("skill") in ALL_POTETO_MODE_SKILL_NAMES
         for each_block in content_blocks
     )
 
@@ -100,7 +100,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
 def _marker_entry(transcript_line: str) -> dict[str, object] | None:
     if (
         COMPACT_BOUNDARY_SUBTYPE not in transcript_line
-        and POTETO_MODE_SKILL_NAME not in transcript_line
+        and ALL_POTETO_MODE_SKILL_NAMES[0] not in transcript_line
     ):
         return None
     try:
@@ -121,9 +121,9 @@ def is_poteto_mode_loaded(all_transcript_lines: Iterable[str]) -> bool:
 
     ::
 
-        Skill(pstack:poteto-mode) ... Read ... Edit               -> True
-        /pstack:poteto-mode typed as a command ... Read           -> True
-        Skill(pstack:poteto-mode) ... compact_boundary ... Read   -> False
+        Skill(poteto-mode) ... Read ... Edit               -> True
+        /poteto-mode typed as a command ... Read           -> True
+        Skill(poteto-mode) ... compact_boundary ... Read   -> False
         Read ... Edit                                             -> False
 
     Only lines naming the skill or a compaction are parsed, so a long transcript
