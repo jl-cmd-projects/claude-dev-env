@@ -31,12 +31,12 @@ from hooks_constants.skill_loaded_reminder_constants import (
     COMPACTION_REMINDER,
     COMPACTION_SOURCE,
     NOT_LOADED_REMINDER,
-    POTETO_MODE_SKILL_NAME,
+    ALL_POTETO_MODE_SKILL_NAMES,
     PRE_TOOL_USE_EVENT_NAME,
     PROMPT_SEPARATOR,
     SESSION_START_EVENT_NAME,
     SKILL_TOOL_NAME,
-    SLASH_COMMAND_MARKER,
+    ALL_SLASH_COMMAND_MARKERS,
     SUBAGENT_START_EVENT_NAME,
     ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME,
     TOOL_USE_BLOCK_TYPE,
@@ -71,7 +71,7 @@ def subagent_input_with_poteto_mode(
     """
     field_name, invocation_prefix = ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME[tool_name]
     prompt = all_tool_input_fields.get(field_name)
-    if not isinstance(prompt, str) or POTETO_MODE_SKILL_NAME in prompt:
+    if not isinstance(prompt, str) or ALL_POTETO_MODE_SKILL_NAMES[0] in prompt:
         return None
     if all_tool_input_fields.get("subagent_type") in ALL_SELF_LOADING_SUBAGENT_TYPES:
         return None
@@ -84,7 +84,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
         return False
     content_blocks = message.get("content")
     if all_entry_fields.get("type") == USER_ENTRY_TYPE and isinstance(content_blocks, str):
-        return SLASH_COMMAND_MARKER in content_blocks
+        return any(each_marker in content_blocks for each_marker in ALL_SLASH_COMMAND_MARKERS)
     if all_entry_fields.get("type") != ASSISTANT_ENTRY_TYPE or not isinstance(content_blocks, list):
         return False
     return any(
@@ -92,7 +92,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
         and each_block.get("type") == TOOL_USE_BLOCK_TYPE
         and each_block.get("name") == SKILL_TOOL_NAME
         and isinstance(each_block.get("input"), dict)
-        and each_block["input"].get("skill") == POTETO_MODE_SKILL_NAME
+        and each_block["input"].get("skill") in ALL_POTETO_MODE_SKILL_NAMES
         for each_block in content_blocks
     )
 
@@ -100,7 +100,7 @@ def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
 def _marker_entry(transcript_line: str) -> dict[str, object] | None:
     if (
         COMPACT_BOUNDARY_SUBTYPE not in transcript_line
-        and POTETO_MODE_SKILL_NAME not in transcript_line
+        and ALL_POTETO_MODE_SKILL_NAMES[0] not in transcript_line
     ):
         return None
     try:
