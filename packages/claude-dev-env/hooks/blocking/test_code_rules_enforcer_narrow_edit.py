@@ -49,7 +49,6 @@ ALL_SCOPE_AWARE_RULE_NAMES = frozenset(
         "check_docstring_runon_sentence",
         "check_docstring_prose_wall_without_illustration",
         "check_boolean_naming",
-        "check_ignored_must_check_return",
         "check_tests_use_isolated_filesystem_paths",
         "check_return_annotations",
         "check_function_length",
@@ -70,7 +69,6 @@ NARROW_EDIT_ACCEPTED_RULE_NAMES = frozenset(
         "check_join_separator_string_magic",
         "check_banned_noun_word_boundary",
         "check_boolean_naming",
-        "check_ignored_must_check_return",
     }
 )
 
@@ -80,7 +78,6 @@ EXPECTED_RULE_TEXT_BY_NAME = {
     "check_join_separator_string_magic": "string separator",
     "check_banned_noun_word_boundary": "Identifier",
     "check_boolean_naming": "Boolean",
-    "check_ignored_must_check_return": "return value",
 }
 
 
@@ -138,19 +135,6 @@ ALL_REQUIRED_RULE_FIXTURES = (
         ),
         expected_marker="ready",
         rule_name="check_boolean_naming",
-    ),
-    NarrowEditFixture(
-        old_fragment=(
-            "def submit_form() -> None:\n"
-            "    if find_and_click('#submit'):\n"
-            "        return\n"
-        ),
-        new_fragment=(
-            "def submit_form() -> None:\n"
-            "    find_and_click('#submit')\n"
-        ),
-        expected_marker="find_and_click",
-        rule_name="check_ignored_must_check_return",
     ),
 )
 

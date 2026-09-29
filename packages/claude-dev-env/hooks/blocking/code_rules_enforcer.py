@@ -46,7 +46,6 @@ from code_rules_blast_radius import (  # noqa: E402
 )
 from code_rules_boolean_mustcheck import (  # noqa: E402
     check_boolean_naming,
-    check_ignored_must_check_return,
 )
 from code_rules_command_dispatch import (  # noqa: E402
     check_unanchored_command_dispatch,
@@ -86,7 +85,6 @@ from code_rules_imports_logging import (  # noqa: E402
     check_library_print,
     check_logging_adjacent_string_literals,
     check_logging_fstrings,
-    check_logging_printf_tokens,
     check_naive_datetime_construction,
     check_windows_api_none,
 )
@@ -329,7 +327,6 @@ def _python_comment_and_logging_issues(context: _ValidationContext) -> list[str]
         all_issues.extend(check_comment_changes(old_content, content, file_path))
     all_issues.extend(check_imports_at_top(content))
     all_issues.extend(check_logging_fstrings(content))
-    all_issues.extend(check_logging_printf_tokens(content, file_path))
     all_issues.extend(check_logging_adjacent_string_literals(content, file_path))
     all_issues.extend(check_windows_api_none(content))
     all_issues.extend(check_naive_datetime_construction(content, file_path))
@@ -450,9 +447,6 @@ def _python_boolean_and_test_assertion_issues(context: _ValidationContext) -> li
     )
     changed, defer = context.all_changed_lines, context.defer_scope_to_caller
     all_issues = check_boolean_naming(effective_content, file_path, changed, defer)
-    all_issues.extend(
-        check_ignored_must_check_return(effective_content, file_path, changed, defer)
-    )
     all_issues.extend(check_skip_decorators_in_tests(content, file_path))
     all_issues.extend(
         check_tests_use_isolated_filesystem_paths(
