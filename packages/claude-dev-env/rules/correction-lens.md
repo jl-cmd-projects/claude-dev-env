@@ -63,10 +63,13 @@ Count the repetitions.
 
 ## Where the control lands
 
-A control lands in this package, so every session that loads this environment
-carries it, on any machine, under any model. A control written into one
-project's instructions reaches that project alone, and a control written into a
-chat reply reaches that conversation alone.
+A control lands in the repository whose code, CI, or pipeline it guards. A
+control for one repository's workflows, review bots, pipelines, or agents lands
+in that repository. This package takes only repo-agnostic controls, the
+environment and development pieces any repository could use, so every session
+that loads this environment carries them. A control written into one project's
+instructions reaches that project alone, and a control written into a chat reply
+reaches that conversation alone.
 
 Memory holds the decision. The control holds the behavior. A correction that
 produced a memory file and nothing else has been recorded and never encoded, so
@@ -120,8 +123,9 @@ Effort rules out no layer; a missing capability does, and you name which one.
 The same correction arriving twice means the layer was too low. Move it up one
 layer and say so.
 
-Land the control in the shared environment package, so every session carries
-it. A memory file records the decision and encodes nothing.
+Land the control in the repository whose code, CI, or pipeline it guards. The
+shared environment package takes only repo-agnostic controls that any
+repository could use. A memory file records the decision and encodes nothing.
 ```
 
 ## Sibling rules

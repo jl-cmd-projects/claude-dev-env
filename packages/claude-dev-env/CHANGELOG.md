@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.23.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.1...claude-dev-env-v8.23.2) (2026-09-29)
+
+
+### Documentation
+
+* **rules:** land a repo-specific control in the repository it guards ([3faa81f](https://github.com/jl-cmd/claude-dev-env/commit/3faa81ffafd07d0e9a1c2af90bfe5b4be1ceeacd))
+
 ## [8.23.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.0...claude-dev-env-v8.23.1) (2026-09-29)
 
 
