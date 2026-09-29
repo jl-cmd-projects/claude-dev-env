@@ -11,7 +11,7 @@ Every check below reads live state or packs the tarball locally. None of them pu
 - `release-pr-merge` merges the release pull request when its diff touches only the manifest, `package.json`, and `CHANGELOG.md`, then dispatches `publish.yml` on `main`. A merge made with the workflow token starts no push run, so the dispatch cuts the tag and publishes.
 - `tag-and-release` runs when the release pull request merges. The `release` job sets `packages/claude-dev-env--release_created` to `true`, and GitHub holds the tag and release at the merge commit.
 - `npm-publish` runs `npm publish --access public` with the `id-token: write` permission. It runs after a release, or on a manual `workflow_dispatch`.
-- `registry-wait` polls `https://registry.npmjs.org/claude-dev-env/<version>` every 10 seconds, 30 times.
+- `registry-wait` polls `https://registry.npmjs.org/claude-dev-env/<version>` every 10 seconds, 60 times.
 - `daily-schedule` runs the whole workflow at 12:00 UTC.
 
 ## How to get to it (user POV)
@@ -68,7 +68,7 @@ Preconditions:
 
 ## Gotchas
 
-- `registry-wait` gives up after 300 seconds, and the registry can take longer to serve the version document. The 8.21.0 run failed at 11:42:49 UTC, and npm records 8.21.0 at 11:42:50 UTC. A red `publish` job at that step with the version on npm afterwards is a published release. Read `npm view claude-dev-env@<version> version` before any retry.
+- `registry-wait` gives up after 600 seconds. The registry has taken over 300 seconds to serve the version document. The 8.21.0 run failed at 11:42:49 UTC, and npm records 8.21.0 at 11:42:50 UTC. A red `publish` job at that step with the version on npm afterwards is a published release. Read `npm view claude-dev-env@<version> version` before any retry.
 - A second `npm publish` of a version already on npm fails. Rerun `publish` only when `npm view` reports the version missing.
 - The release pull request body is input for release-please. Editing its body or title stops release-please from recognizing the merge, so no tag is cut and nothing publishes.
 - The branch rules can require an extra approving review for changes without an attributed author. With that setting on, the bot-authored release pull request waits on a maintainer approval, and `release-pr-merge` logs a notice and leaves it open.
