@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.25.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.25.0...claude-dev-env-v8.25.1) (2026-09-29)
+
+
+### Refactoring
+
+* remove checks and the NAS rule that served one private repository ([bf030c0](https://github.com/jl-cmd/claude-dev-env/commit/bf030c08661aa38008f9a3b70b9c8ab6d3fe48eb))
+
 ## [8.25.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.24.0...claude-dev-env-v8.25.0) (2026-09-29)
 
 
