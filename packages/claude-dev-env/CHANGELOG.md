@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.24.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.2...claude-dev-env-v8.24.0) (2026-09-29)
+
+
+### Features
+
+* let a repository name its own notice markers, keep markers, and worker agent ([1201cb4](https://github.com/jl-cmd/claude-dev-env/commit/1201cb456f24ce0565ee4af57c257f7dc22be9e1))
+* let a repository pass its own notice markers, keep markers, and worker agent ([2b0b524](https://github.com/jl-cmd/claude-dev-env/commit/2b0b52485f07e007a697b75be4ac82482c20b741))
+
+
+### Bug Fixes
+
+* use functools.cache and allow the consumer-side policy-lint path ([4422091](https://github.com/jl-cmd/claude-dev-env/commit/4422091acdc01f0bc4579638443caf1805ec28b0))
+
 ## [8.23.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.1...claude-dev-env-v8.23.2) (2026-09-29)
 
 
