@@ -6,12 +6,13 @@
     python usage_pace.py
     {"over_pace": true, "checked_at": "2026-09-29T13:57:40+00:00",
      "windows": [{"window": "five_hour", "used_percent": 3.0,
-                  "elapsed_percent": 2.6, "resets_at": "...", "over_pace": true},
+                  "elapsed_percent": 2.6, "resets_at": "...", "over_pace": false},
                  {"window": "seven_day", "used_percent": 93.0,
                   "elapsed_percent": 39.3, "resets_at": "...", "over_pace": true}]}
 
-A window is over pace when its used percent exceeds the percent of the window
-already elapsed. The account is over pace when any window is. The script reads
+A window is over pace when at least 10% of it has elapsed and its used percent
+exceeds the percent already elapsed. The floor keeps a window's first minutes,
+where any spend outruns the clock, from reading as over pace. The account is over pace when any window is. The script reads
 the OAuth usage endpoint with the session ingress bearer token, the same probe
 the usage-pause skill's ``resolve_usage_window.py`` uses. It never prints or
 stores the token.
@@ -51,6 +52,7 @@ from hooks_constants.usage_pace_constants import (
     INGRESS_BEARER_FILE_ENV_VAR,
     ISO_UTC_OFFSET,
     ISO_UTC_SUFFIX,
+    MINIMUM_ELAPSED_PERCENT_FOR_PACE,
     PERCENT_DECIMAL_PLACES,
     PERCENT_SCALE,
     PROBE_TIMEOUT_SECONDS,
@@ -93,8 +95,18 @@ class WindowPace:
 
     @property
     def over_pace(self) -> bool:
-        """True when spend runs ahead of the clock in this window."""
-        return self.used_percent > self.elapsed_percent
+        """True when spend runs ahead of the clock past the window's opening stretch.
+
+        ::
+
+            elapsed 2.6%,  used 3.0%   -> False  (under the 10% floor)
+            elapsed 39.3%, used 93.0%  -> True
+            elapsed 39.3%, used 20.0%  -> False
+        """
+        return (
+            self.elapsed_percent >= MINIMUM_ELAPSED_PERCENT_FOR_PACE
+            and self.used_percent > self.elapsed_percent
+        )
 
 
 def _parse_resets_at(raw_resets_at: object, window_name: str) -> datetime:

@@ -45,7 +45,7 @@ def _run_script(tmp_path: Path, payload: object) -> tuple[int, dict[str, object]
     return completed.returncode, json.loads(completed.stdout)
 
 
-def test_should_flag_a_window_whose_spend_runs_ahead_of_the_clock() -> None:
+def test_should_hold_a_window_clear_before_ten_percent_of_it_has_elapsed() -> None:
     pace = measure_window_pace(
         "five_hour",
         timedelta(hours=5),
@@ -53,6 +53,19 @@ def test_should_flag_a_window_whose_spend_runs_ahead_of_the_clock() -> None:
         NOW,
     )
     assert pace.elapsed_percent == 2.6
+    assert pace.over_pace is False
+
+
+def test_should_flag_a_window_whose_spend_runs_ahead_of_the_clock_past_the_floor() -> (
+    None
+):
+    pace = measure_window_pace(
+        "five_hour",
+        timedelta(hours=5),
+        {"utilization": 50.0, "resets_at": "2026-09-29T17:00:00+00:00"},
+        NOW,
+    )
+    assert pace.elapsed_percent == 39.2
     assert pace.over_pace is True
 
 
