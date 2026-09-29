@@ -1,5 +1,15 @@
 # Changelog
 
+## [8.26.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.25.1...claude-dev-env-v8.26.0) (2026-09-29)
+
+
+### Features
+
+* **hooks:** have an over-pace thread bind its advisor through /team-advisor ([8428b0e](https://github.com/jl-cmd/claude-dev-env/commit/8428b0e483ff4b89d5f699d5e8c09996ff66fa89))
+* **hooks:** hold the pace check until 10% of a usage window has passed ([fafc0d6](https://github.com/jl-cmd/claude-dev-env/commit/fafc0d6f3b0e65ba0ca2f8d23cb97c63c769a6de))
+* **hooks:** move thread spawns to Sonnet with a Fable advisor when usage runs ahead of pace ([0836a3e](https://github.com/jl-cmd/claude-dev-env/commit/0836a3e1d81a4671983732385eccbc94a81d19f9))
+* **hooks:** move thread spawns to Sonnet with a Fable advisor when usage runs ahead of pace ([818b5e7](https://github.com/jl-cmd/claude-dev-env/commit/818b5e706edd2dfa69d6fa11aa523544e3dfe06c))
+
 ## [8.25.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.25.0...claude-dev-env-v8.25.1) (2026-09-29)
 
 
