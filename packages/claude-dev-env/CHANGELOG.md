@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.25.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.24.0...claude-dev-env-v8.25.0) (2026-09-29)
+
+
+### Features
+
+* **hooks:** deny a chat reply that names a pull request without a link ([e7142fc](https://github.com/jl-cmd/claude-dev-env/commit/e7142fc909813c3bea16704f52b68471317f7336))
+* **hooks:** deny a chat reply that names a pull request without a link ([c3cc25a](https://github.com/jl-cmd/claude-dev-env/commit/c3cc25a902375d6f2eb7e7ac4785ba767d376d4d))
+
 ## [8.24.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.2...claude-dev-env-v8.24.0) (2026-09-29)
 
 
