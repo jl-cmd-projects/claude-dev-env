@@ -125,7 +125,6 @@ Behavioral rules loaded into every session.
 | `gh-cli-conventions` | Body content travels by file; paginated reads slurp before they filter |
 | `git-workflow` | Draft PRs, stacked PR patterns, review-response protocol |
 | `long-horizon-autonomy` | Carry a long or unwatched run to completion |
-| `nas-ssh-invocation` | Reach the NAS through its runner script |
 | `no-contrast-framing` | State what is true; the rejected reading stays out |
 | `no-cross-skill-duplicate-helpers` | A helper copied between two skill folders is a deliberate choice |
 | `orphan-css-class` | Every class name in generated markup has a matching selector |
@@ -173,7 +172,6 @@ Reference documents that rules and agents point to for detailed standards.
 | `codex-compatibility.md` | The bridge from this source tree to Codex-compatible output |
 | `high-trust-agent-delivery.md` | The layered-controls model behind the correction lens |
 | `host-pool-health-monitor.md` | Kernel pool counters and handle pressure on a Windows host |
-| `nas-ssh-invocation.md` | Full detail behind the NAS ssh rule |
 | `worker-completion-gate.md` | Full detail behind the worker completion rule |
 | `wsl-docker-cowork-starter-matrix.md` | Host memory attribution under WSL2 and Docker Desktop |
 

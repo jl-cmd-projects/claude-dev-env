@@ -72,8 +72,6 @@ ALL_POLARITY_ANTONYM_TOKEN_PAIRS: tuple[tuple[str, str], ...] = (
 )
 POLARITY_TOKEN_BOUNDARY_PATTERN: str = r"(?:^|_)%s(?:_|$)"
 
-ALL_MUST_CHECK_RETURN_FUNCTION_NAMES: frozenset[str] = frozenset({"find_and_click", "write_outcome"})
-
 DOCSTRING_ARG_ENTRY_PATTERN: re.Pattern[str] = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*[:(]")
 DOCSTRING_PLURAL_FAMILY_STOP_PATTERN: re.Pattern[str] = re.compile(
     r"\bthe\s+([a-z][a-z]+)\s+stops\b"
@@ -211,14 +209,10 @@ LOGGING_FSTRING_PATTERN = re.compile(
     r'|(?:logger|logging|log)\.(?:debug|info|warning|error|critical|exception))'
     r'\s*\(\s*(?:[rR][fF]|[fF][rR]?)["\']'
 )
-LOGGING_PRINTF_TOKEN_PATTERN: re.Pattern[str] = re.compile(
-    r"(?<!%)%[#0\- +]?[0-9.*]*[sdrixfgeEcoX](?![a-zA-Z])"
-)
 ADJACENT_STRING_LITERAL_PATTERN: re.Pattern[str] = re.compile(
     r'(?<!["\'])[rRbBfFuU]{0,2}(?:"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\')'
     r'\s*[rRbBfFuU]{0,2}(?:"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\')(?!["\'])'
 )
-MINIMUM_FORMAT_LOGGER_ARGUMENT_COUNT = 2
 ALL_LOGGING_CALL_METHOD_NAMES: frozenset[str] = frozenset(
     {"debug", "info", "warning", "error", "critical", "exception"}
 )
