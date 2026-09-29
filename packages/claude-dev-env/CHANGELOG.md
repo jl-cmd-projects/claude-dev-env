@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.26.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.0...claude-dev-env-v8.26.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **hooks:** drop the STEALTH: Keep marker and translator role built-ins ([97b025a](https://github.com/jl-cmd/claude-dev-env/commit/97b025ae659a7fbdc9f7d9dbd76844cf986f7c76))
+* **hooks:** drop the STEALTH: Keep marker and translator role built-ins ([c0ffabe](https://github.com/jl-cmd/claude-dev-env/commit/c0ffabe4e6b2d32f93b08bd3f9698cc5717aded0))
+
 ## [8.26.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.25.1...claude-dev-env-v8.26.0) (2026-09-29)
 
 
