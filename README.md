@@ -252,6 +252,7 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Bash | `test-preflight-check` | Validates server health and database before test runs |
 | Task\|Agent | `parallel-task-blocker` | Limits concurrent Task/Agent delegations |
 | AskUserQuestion | `attention-needed-notify` | Desktop notification when Claude needs your input |
+| mcp__hearthbot__start_thread_session | `thread_spawn_pace_hook` | When the five-hour or seven-day usage window runs ahead of its clock, or usage cannot be read, moves the thread to Sonnet 5.5 at medium effort with a mandatory Fable advisor line |
 | * | `step_note_gate` | Off by default; after `/step-notes on`, asks for a short status line before each tool call |
 
 #### Other Events
