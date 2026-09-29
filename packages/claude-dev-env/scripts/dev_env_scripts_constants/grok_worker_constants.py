@@ -87,16 +87,12 @@ ROLE_BUGTEAM: str = "bugteam"
 ROLE_CLEAN_CODER: str = "clean-coder"
 """Compatibility role for FIX and standards-fix using poteto-agent."""
 
-ROLE_TRANSLATOR: str = "translator"
-"""Role the shared_utils translation chain dispatches, served by poteto-agent."""
-
 DEFAULT_ROLE: str = ROLE_BUGTEAM
 """Role applied when the caller does not pass ``--role``."""
 
 ALL_AGENT_FILENAMES_BY_ROLE: dict[str, tuple[str, ...]] = {
     ROLE_BUGTEAM: ("poteto-agent.md",),
     ROLE_CLEAN_CODER: ("poteto-agent.md",),
-    ROLE_TRANSLATOR: ("poteto-agent.md",),
 }
 """Agent definition filenames required under ``agents/`` for each known role."""
 
