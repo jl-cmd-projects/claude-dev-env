@@ -15,6 +15,10 @@ FENCED_BLOCK_PATTERN = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 INLINE_CODE_PATTERN = re.compile(r"`[^`\n]*`")
 LINK_TARGET_PATTERN = re.compile(r"\]\([^)\s]*\)")
 URL_PATTERN = re.compile(r"(?:https?://|www\.)\S+")
+MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]\n]*\]\([^)\s]*\)")
+UNLINKED_PULL_REQUEST_PATTERN = re.compile(
+    r"\b(?:PRs?|pull requests?)\s*#?\d+|(?<![\w/&])#\d+", re.IGNORECASE
+)
 LINE_BREAK_PATTERN = re.compile(r"\n+")
 SENTENCE_END_PATTERN = re.compile(r"(?<=[.!?])\s+")
 WORD_PATTERN = re.compile(r"[A-Za-z0-9]+(?:['.,-][A-Za-z0-9]+)*")
@@ -23,6 +27,7 @@ WORD_SEPARATOR = " "
 SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
+UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
 LONG_SENTENCE_MESSAGE = (
     'Sentence too long: {word_count} words, limit {word_limit}: "{sentence_preview}".'
 )
