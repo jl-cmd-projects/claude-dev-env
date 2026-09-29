@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.23.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.23.0...claude-dev-env-v8.23.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* accept the bare poteto-mode name in the skill-loaded reminder hook ([3b01d81](https://github.com/jl-cmd/claude-dev-env/commit/3b01d81bb8c565a2dda0beb7885c49c9852983b6))
+
 ## [8.23.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.22.0...claude-dev-env-v8.23.0) (2026-09-28)
 
 
