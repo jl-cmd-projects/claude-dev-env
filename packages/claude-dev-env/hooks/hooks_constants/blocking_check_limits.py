@@ -22,12 +22,10 @@ MAX_DOCSTRING_FORMAT_ISSUES: int = 5
 MAX_DOCSTRING_ARGS_SIGNATURE_ISSUES: int = 5
 MAX_CLASS_DOCSTRING_PUBLIC_METHOD_ISSUES: int = 5
 MINIMUM_PUBLIC_METHODS_FOR_CLASS_DOCSTRING_BREADTH: int = 2
-MAX_IGNORED_MUST_CHECK_RETURN_ISSUES: int = 5
 MAX_TYPE_ESCAPE_HATCH_ISSUES: int = 5
 MAX_THIN_WRAPPER_ISSUES: int = 1
 MAX_ZERO_PAYLOAD_ALIAS_ISSUES: int = 3
 MAX_LOGGING_FSTRING_ISSUES: int = 3
-MAX_LOGGING_PRINTF_TOKEN_ISSUES: int = 3
 MAX_LOGGING_ADJACENT_LITERAL_ISSUES: int = 3
 MAX_CONFIG_DUPLICATE_PATH_ANCHOR_ISSUES: int = 3
 MAX_WINDOWS_API_NONE_ISSUES: int = 3
@@ -203,17 +201,6 @@ ALL_DOCSTRING_FILE_REFERENCE_SUFFIXES: tuple[str, ...] = (
 DOCSTRING_REFERENCE_MARKER_WINDOW: int = 2
 ALL_GENERIC_CHECK_NAME_TOKENS: frozenset[str] = frozenset(
     {"check", "checks", "test", "tests", "in", "for", "and", "the"}
-)
-ALL_FORMAT_LOGGER_FUNCTION_NAMES: frozenset[str] = frozenset(
-    {
-        "log_debug",
-        "log_info",
-        "log_ok",
-        "log_error",
-        "log_warning",
-        "log_batch",
-        "log_background",
-    }
 )
 DOCSTRING_RUNON_SENTENCE_WORD_LIMIT: int = 30
 MAX_DOCSTRING_RUNON_SENTENCE_ISSUES: int = 5

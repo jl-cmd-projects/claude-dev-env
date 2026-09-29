@@ -1,4 +1,4 @@
-"""Boolean naming-prefix and ignored must-check-return checks."""
+"""Boolean naming-prefix checks."""
 
 import ast
 import sys
@@ -21,12 +21,8 @@ from code_rules_shared import (  # noqa: E402
     is_workflow_registry_file,
 )
 
-from hooks_constants.blocking_check_limits import (  # noqa: E402
-    MAX_IGNORED_MUST_CHECK_RETURN_ISSUES,
-)
 from hooks_constants.code_rules_enforcer_constants import (  # noqa: E402
     ALL_BOOLEAN_NAME_PREFIXES,
-    ALL_MUST_CHECK_RETURN_FUNCTION_NAMES,
     ALL_SELF_AND_CLS_PARAMETER_NAMES,
     UPPER_SNAKE_CONSTANT_PATTERN,
 )
@@ -271,80 +267,3 @@ def _called_terminal_name(call_node: ast.Call) -> str | None:
     if isinstance(callee, ast.Attribute):
         return callee.attr
     return None
-
-
-def check_ignored_must_check_return(
-    content: str,
-    file_path: str,
-    all_changed_lines: set[int] | None = None,
-    defer_scope_to_caller: bool = False,
-) -> list[str]:
-    """Flag bare-expression calls whose discarded return is the only failure signal.
-
-    Functions in ``ALL_MUST_CHECK_RETURN_FUNCTION_NAMES`` report success or failure
-    solely through their return value. A bare-statement call discards that value,
-    so the caller silently proceeds on failure. Bare ``ast.Expr`` calls are flagged,
-    including a bare ``await``-wrapped call (``await find_and_click(...)`` as a
-    statement); an assigned or branched-on call is exempt.
-
-    The caller passes the reconstructed full file as *content* so ``ast.parse``
-    sees a complete module rather than an Edit's ``new_string`` fragment, which is
-    rarely valid standalone Python (a bare ``await find_and_click(...)`` line is a
-    SyntaxError on its own). Findings are then scoped to *all_changed_lines* so an
-    Edit blocks on the discarded return it just introduced while a pre-existing
-    violation on an untouched line does not block the edit.
-
-    Args:
-        content: The source text to inspect — the reconstructed full file on an
-            Edit so the parse succeeds.
-        file_path: The path the source will be written to, used for exemptions.
-        all_changed_lines: Post-edit line numbers the current edit touched, or
-            None to treat the whole file as in scope. When provided, a violation
-            blocks only when the bare call's line intersects the changed lines.
-        defer_scope_to_caller: When True, return every violation so the
-            commit/push gate's ``split_violations_by_scope`` can scope by added
-            line.
-
-    Returns:
-        One issue per discarded must-check return, scoped to the changed lines
-        unless *defer_scope_to_caller* is True or *all_changed_lines* is None. When
-        *defer_scope_to_caller* is True every violation is returned uncapped so the
-        gate can scope by added line and apply its own ceiling; otherwise the
-        terminal result is capped at the module limit.
-    """
-    if is_test_file(file_path):
-        return []
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return []
-    all_violations_in_walk_order: list[tuple[range, str]] = []
-    for each_node in ast.walk(tree):
-        if not isinstance(each_node, ast.Expr):
-            continue
-        expression_value = each_node.value
-        call_node = (
-            expression_value.value
-            if isinstance(expression_value, ast.Await)
-            else expression_value
-        )
-        if not isinstance(call_node, ast.Call):
-            continue
-        called_name = _called_terminal_name(call_node)
-        if called_name is None or called_name not in ALL_MUST_CHECK_RETURN_FUNCTION_NAMES:
-            continue
-        end_line_number = each_node.end_lineno or each_node.lineno
-        line_span = range(each_node.lineno, end_line_number + 1)
-        message = (
-            f"Line {each_node.lineno}: return value of {called_name}() is discarded - "
-            "assign and check it (the boolean/outcome is the only failure signal)"
-        )
-        all_violations_in_walk_order.append((line_span, message))
-    scoped_issues = _scope_violations_to_changed_lines(
-        all_violations_in_walk_order,
-        all_changed_lines,
-        defer_scope_to_caller,
-    )
-    if defer_scope_to_caller:
-        return scoped_issues
-    return scoped_issues[:MAX_IGNORED_MUST_CHECK_RETURN_ISSUES]

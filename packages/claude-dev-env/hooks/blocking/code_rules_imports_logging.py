@@ -1,4 +1,4 @@
-"""Import and logging convention checks: check_imports_at_top, check_logging_fstrings, check_logging_printf_tokens, check_logging_adjacent_string_literals, check_windows_api_none, check_naive_datetime_construction, check_e2e_test_naming, check_js_resume_task_enumeration_coverage, check_js_returns_object_schemaless_branch, check_js_sibling_return_object_key_drift, check_js_bare_flag_return_directive, and check_library_print."""
+"""Import and logging convention checks: check_imports_at_top, check_logging_fstrings, check_logging_adjacent_string_literals, check_windows_api_none, check_naive_datetime_construction, check_e2e_test_naming, check_js_resume_task_enumeration_coverage, check_js_returns_object_schemaless_branch, check_js_sibling_return_object_key_drift, check_js_bare_flag_return_directive, and check_library_print."""
 
 import ast
 import re
@@ -25,7 +25,6 @@ from code_rules_shared import (  # noqa: E402
 
 from hooks_constants.blocking_check_limits import (  # noqa: E402
     ALL_ALWAYS_NAIVE_DATETIME_CONSTRUCTORS,
-    ALL_FORMAT_LOGGER_FUNCTION_NAMES,
     DATETIME_CLASS_ATTRIBUTE_NAME,
     FROMTIMESTAMP_POSITIONAL_TIMEZONE_ARGUMENT_COUNT,
     MAX_E2E_TEST_NAMING_ISSUES,
@@ -35,7 +34,6 @@ from hooks_constants.blocking_check_limits import (  # noqa: E402
     MAX_JS_SIBLING_RETURN_OBJECT_KEY_DRIFT_ISSUES,
     MAX_LOGGING_ADJACENT_LITERAL_ISSUES,
     MAX_LOGGING_FSTRING_ISSUES,
-    MAX_LOGGING_PRINTF_TOKEN_ISSUES,
     MAX_NAIVE_DATETIME_ISSUES,
     MAX_WINDOWS_API_NONE_ISSUES,
     MINIMUM_RESUME_TASK_ENUMERATION_ITEMS,
@@ -87,9 +85,7 @@ from hooks_constants.code_rules_enforcer_constants import (  # noqa: E402
     JSDOC_RETURNS_STRUCTURED_OBJECT_PROMISE_PATTERN,
     LOGGING_FSTRING_PATTERN,
     LOGGING_HELPER_FUNCTION_NAME_PATTERN,
-    LOGGING_PRINTF_TOKEN_PATTERN,
     LOGGING_RECEIVER_NAME_PATTERN,
-    MINIMUM_FORMAT_LOGGER_ARGUMENT_COUNT,
     NOT_INSIDE_TYPE_CHECKING_BLOCK,
     RESUME_TASK_ENUMERATION_PATTERN,
     RETURN_CALL_OPENING_PARENTHESIS_PATTERN,
@@ -277,121 +273,6 @@ def check_logging_fstrings(content: str) -> list[str]:
         if len(issues) >= maximum_issues:
             break
 
-    return issues
-
-
-def _format_logger_names_imported(tree: ast.Module) -> set[str]:
-    """Return the local names bound to automation_logging log helpers.
-
-    Scans every ``from ... import ...`` statement for an import whose module
-    path contains ``automation_logging`` and collects the local binding of each
-    imported ``log_*`` helper (the alias when ``as`` is present, otherwise the
-    imported name). Only these names identify a str.format-logger call; a
-    ``log_*`` helper from any other module is not collected, because a
-    ``%``-style logger formats its tokens correctly.
-
-    Args:
-        tree: The parsed module to scan for logger imports.
-
-    Returns:
-        The set of local names bound to automation_logging log helpers.
-    """
-    bound_names: set[str] = set()
-    for each_node in ast.walk(tree):
-        if not isinstance(each_node, ast.ImportFrom):
-            continue
-        if each_node.module is None or "automation_logging" not in each_node.module:
-            continue
-        for each_alias in each_node.names:
-            if each_alias.name in ALL_FORMAT_LOGGER_FUNCTION_NAMES:
-                bound_names.add(each_alias.asname or each_alias.name)
-    return bound_names
-
-
-def _printf_token_log_call_line(
-    node: ast.AST, all_format_logger_names: set[str]
-) -> int | None:
-    """Return the line of a format-logger call carrying a printf token, else None.
-
-    Args:
-        node: The AST node to inspect.
-        all_format_logger_names: Local names bound to automation_logging log
-            helpers.
-
-    Returns:
-        The 1-based line number when ``node`` is a bare-name call to a format
-        logger that has at least one format argument after the message and
-        whose first string-literal argument carries a printf token; otherwise
-        None. A call with only the message and no format arguments never runs
-        ``.format(*args)``, so its token prints intact and is not flagged.
-    """
-    if not isinstance(node, ast.Call):
-        return None
-    function_reference = node.func
-    if (
-        not isinstance(function_reference, ast.Name)
-        or function_reference.id not in all_format_logger_names
-    ):
-        return None
-    if len(node.args) < MINIMUM_FORMAT_LOGGER_ARGUMENT_COUNT:
-        return None
-    message_argument = node.args[0]
-    if not isinstance(message_argument, ast.Constant) or not isinstance(
-        message_argument.value, str
-    ):
-        return None
-    if not LOGGING_PRINTF_TOKEN_PATTERN.search(message_argument.value):
-        return None
-    return node.lineno
-
-
-def check_logging_printf_tokens(content: str, file_path: str) -> list[str]:
-    """Flag printf tokens in a str.format-logger (automation_logging) message.
-
-    The ``shared_utils.automation_logging`` helpers (``log_info``, ``log_error``,
-    ...) format with ``str.format`` (``{}`` placeholders) only when format
-    arguments follow the message (``message.format(*args) if args else
-    message``), so a printf-style token such as ``%s`` in the message literal is
-    never substituted: the format arguments are dropped and the literal token
-    prints. The check fires only in a file that imports one of those helpers
-    from an ``automation_logging`` module, and only for a bare-name call to such
-    a helper that passes at least one format argument after the message and
-    whose first argument is a string literal carrying a token. A call with only
-    the message and no format arguments never runs ``.format``, so its token
-    prints intact and is left alone. An attribute call (``logger.info``) or a
-    ``log_*`` helper from any other module formats ``%``-tokens correctly and is
-    left alone. Test files are exempt so a test may exercise the malformed shape.
-
-    Args:
-        content: The Python source under validation.
-        file_path: The destination path, used to skip test files and non-Python.
-
-    Returns:
-        One issue line per offending call, capped at the configured maximum.
-    """
-    if is_test_file(file_path):
-        return []
-    if get_file_extension(file_path) not in ALL_PYTHON_EXTENSIONS:
-        return []
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return []
-    all_format_logger_names = _format_logger_names_imported(tree)
-    if not all_format_logger_names:
-        return []
-    issues: list[str] = []
-    for each_node in ast.walk(tree):
-        offending_line = _printf_token_log_call_line(each_node, all_format_logger_names)
-        if offending_line is None:
-            continue
-        issues.append(
-            f"Line {offending_line}: printf token in a str.format logger "
-            "message - the automation_logging helpers format with str.format; "
-            "use {} placeholders (the %-arguments are silently dropped)"
-        )
-        if len(issues) >= MAX_LOGGING_PRINTF_TOKEN_ISSUES:
-            break
     return issues
 
 
