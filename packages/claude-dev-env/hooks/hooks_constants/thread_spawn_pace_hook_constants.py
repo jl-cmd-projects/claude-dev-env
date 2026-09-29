@@ -21,9 +21,9 @@ INSTRUCTIONS_SEPARATOR = "\n\n"
 INSTRUCTIONS_ENCODING = "utf-8"
 FABLE_ADVISOR_LINE = (
     "Mandatory Fable advisor: usage is over pace, so this thread runs on "
-    "Sonnet 5.5 at medium effort. Before substantive work and again before "
-    "you report done, consult an Agent subagent with model fable as your "
-    "advisor, and name its verdict in your report."
+    "Sonnet 5.5 at medium effort. Invoke /team-advisor before substantive "
+    "work and bind a Fable advisor through it. Consult that advisor again "
+    "before you report done, and name its verdict in your report."
 )
 
 PERMISSION_DENY = "deny"
