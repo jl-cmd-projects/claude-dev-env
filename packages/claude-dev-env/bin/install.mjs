@@ -2039,6 +2039,7 @@ function mergeHooksAtPath(
     pythonCommand,
     selectHooksConfig = hooksConfig => hooksConfig,
     pluginRootDir = CLAUDE_HOME,
+    shouldPruneSourceHooks = false,
 ) {
     const hooksSource = resolvePackageManagedDirectory(
         hooksSourceRoot,
@@ -2046,8 +2047,17 @@ function mergeHooksAtPath(
     );
     const hooksJsonPath = join(hooksSource, 'hooks.json');
     if (!existsSync(hooksJsonPath)) return 0;
-    const hooksConfig = selectHooksConfig(JSON.parse(readFileSync(hooksJsonPath, 'utf8')));
+    const sourceHooksConfig = JSON.parse(readFileSync(hooksJsonPath, 'utf8'));
     const settings = loadClaudeSettingsObject(settingsPath);
+    if (shouldPruneSourceHooks && settings.hooks && typeof settings.hooks === 'object') {
+        stripRetiredHookEntries(
+            settings,
+            managedHookScriptRelativePaths(sourceHooksConfig),
+            retiredHookOwnership(),
+        );
+        pruneManagedHooksFromSettings(settings, new Set());
+    }
+    const hooksConfig = selectHooksConfig(sourceHooksConfig);
     const groupCount = mergeHooksIntoSettings(settings, hooksConfig, pluginRootDir, pythonCommand);
     writeFileSync(settingsPath, JSON.stringify(settings, null, indentation) + '\n');
     return groupCount;
@@ -2082,6 +2092,7 @@ function mergeCodexHooks(hooksSourceRoot, pythonCommand) {
         pythonCommand,
         selectCodexNativeHooksConfig,
         dirname(CODEX_HOOKS_CONFIGURATION_PATH),
+        true,
     );
 }
 
