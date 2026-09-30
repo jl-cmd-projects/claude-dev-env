@@ -179,7 +179,7 @@ def _stable_observation(
 ) -> ReviewObservation:
     all_reviews = _read_collection(pull_url + REVIEWS_SUFFIX, read)
     observation = _review_observation(candidate, all_reviews)
-    if observation.reason is HoldReason.MISSING_REVIEW:
+    if observation.reason in (HoldReason.MISSING_REVIEW, HoldReason.STALE_REVIEW):
         comments_url = COMMENTS_URL.format(
             repository=candidate.repository, number=candidate.pull_request
         )

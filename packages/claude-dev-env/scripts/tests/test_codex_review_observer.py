@@ -274,3 +274,23 @@ def test_quota_comment_read_failure_holds(
         return {"number": 7, "head": {"sha": HEAD}}
 
     assert observer.observe_codex_review(CANDIDATE, read).reason is reason
+
+
+def test_quota_after_stale_review_remains_diagnostic_hold() -> None:
+    comment = json.loads(
+        (Path(__file__).parent / "fixtures/codex-quota-credits-comment.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+
+    def read(url: str) -> object:
+        if "/reviews?" in url:
+            return [{"id": 1, "commit_id": NEXT_HEAD}]
+        if "/comments?" in url:
+            return [comment]
+        return {"number": 7, "head": {"sha": HEAD}}
+
+    observed = observer.observe_codex_review(CANDIDATE, read)
+    assert observed.reason is observer.HoldReason.QUOTA_NOTICE
+    assert observed.evidence_ids == ()
+    assert observed.quota_notice_ids == (5902483341,)
