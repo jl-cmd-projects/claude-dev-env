@@ -14,8 +14,10 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from urllib.error import URLError
 
 from dev_env_scripts_constants.codex_review_observer_constants import (
+    CODEX_FINDINGS_HEADING,
     CODEX_FINDINGS_PREFIX,
     CODEX_QUOTA_PREFIX,
     CODEX_REVIEWER_LOGIN,
@@ -92,7 +94,7 @@ def _is_submitted_codex_findings(all_review: Mapping[str, object]) -> bool:
         and author.get("login") == CODEX_REVIEWER_LOGIN
         and all_review.get("state") == "COMMENTED"
         and isinstance(body, str)
-        and body.startswith(CODEX_FINDINGS_PREFIX)
+        and body.lstrip().startswith((CODEX_FINDINGS_PREFIX, CODEX_FINDINGS_HEADING))
         and isinstance(submitted_at, str)
     ):
         return False
@@ -189,6 +191,15 @@ def _stable_observation(
     return observation
 
 
+def _transport_failure_reason(failure: BaseException) -> HoldReason:
+    cause = failure.__cause__
+    if isinstance(failure, TimeoutError) or isinstance(cause, TimeoutError):
+        return HoldReason.READ_TIMEOUT
+    if isinstance(cause, URLError) and isinstance(cause.reason, TimeoutError):
+        return HoldReason.READ_TIMEOUT
+    return HoldReason.READ_UNAVAILABLE
+
+
 def observe_codex_review(candidate: Candidate, read: GitHubRead) -> ReviewObservation:
     """Read evidence for a stable full head and return its admission hold.
 
@@ -214,8 +225,8 @@ def observe_codex_review(candidate: Candidate, read: GitHubRead) -> ReviewObserv
             return ReviewObservation(candidate, HoldReason.HEAD_CHANGED)
     except TimeoutError:
         return ReviewObservation(candidate, HoldReason.READ_TIMEOUT)
-    except (GitHubError, OSError):
-        return ReviewObservation(candidate, HoldReason.READ_UNAVAILABLE)
+    except (GitHubError, OSError) as failure:
+        return ReviewObservation(candidate, _transport_failure_reason(failure))
     return observation
 
 

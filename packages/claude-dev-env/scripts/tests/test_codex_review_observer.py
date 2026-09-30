@@ -13,6 +13,7 @@ if str(SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIRECTORY))
 
 import codex_review_observer as observer
+import review_closure_github
 from pr_verification.github_parsing import GitHubError
 
 HEAD = "a" * 40
@@ -171,6 +172,40 @@ def test_parent_verified_submitted_findings_hold() -> None:
     observed = observer.observe_codex_review(candidate, lambda url: next(all_reads))
     assert observed.reason is observer.HoldReason.REVIEW_FINDINGS
     assert observed.evidence_ids == (5322799208,)
+
+
+def test_native_pilot_heading_preserves_findings_hold() -> None:
+    captured = json.loads(
+        (Path(__file__).parent / "fixtures/codex-pilot-findings.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    review = captured["review"]
+    candidate = observer.Candidate(
+        captured["repository"], captured["pull_request"], review["commit_id"]
+    )
+    all_reads = iter(
+        [
+            {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
+            [review],
+            {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
+        ]
+    )
+    observed = observer.observe_codex_review(candidate, lambda url: next(all_reads))
+    assert observed.reason is observer.HoldReason.REVIEW_FINDINGS
+    assert observed.evidence_ids == (5360553725,)
+
+
+def test_cli_production_transport_preserves_timeout(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def timed_out(*args: object, **kwargs: object) -> object:
+        raise TimeoutError("socket read timed out")
+
+    monkeypatch.setattr(observer, "github_token", lambda: "test-token")
+    monkeypatch.setattr(review_closure_github.urllib.request, "urlopen", timed_out)
+    assert observer.main(["owner/repository", "7", HEAD]) == 2
+    assert json.loads(capsys.readouterr().out)["reason"] == "read_timeout"
 
 
 def test_findings_text_from_wrong_actor_stays_unsupported() -> None:
