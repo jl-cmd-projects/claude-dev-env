@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.27.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.6...claude-dev-env-v8.27.0) (2026-09-30)
+
+
+### Features
+
+* **orchestrator:** guard recovery lifecycle ([1244240](https://github.com/jl-cmd/claude-dev-env/commit/1244240bccd32c632df1f9a6a334a4a936d2d9b2))
+* **orchestrator:** track goals across context loss ([3c499ef](https://github.com/jl-cmd/claude-dev-env/commit/3c499ef945747adaa77c7504060321757943cec3))
+
+
+### Bug Fixes
+
+* Protect local orchestrator state ([72cca13](https://github.com/jl-cmd/claude-dev-env/commit/72cca13a2c5de80b1e5931bf73c0ee4633bb97f3))
+
+## [8.26.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.5...claude-dev-env-v8.26.6) (2026-09-30)
+
+
+### Bug Fixes
+
+* **codex:** prune obsolete managed hook registrations ([905fe5a](https://github.com/jl-cmd/claude-dev-env/commit/905fe5a4a0a31d45700ad33350e7b553aa5f830d))
+* **codex:** Prune obsolete managed hooks ([76e1780](https://github.com/jl-cmd/claude-dev-env/commit/76e1780fccaf50b765ee2b4d3ac5e94bcc2eeb33))
+
 ## [8.26.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.4...claude-dev-env-v8.26.5) (2026-09-30)
 
 
