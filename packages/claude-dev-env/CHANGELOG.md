@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.28.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.28.0...claude-dev-env-v8.28.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **questions:** present a chat brief before choices ([cfb39b6](https://github.com/jl-cmd/claude-dev-env/commit/cfb39b65f1620e608b1166795900a7d321b56c6a))
+* **questions:** remove guidance during uninstall ([0e8a475](https://github.com/jl-cmd/claude-dev-env/commit/0e8a4755f0a05bd4f16917d8808cfcef1c0da1b9))
+
 ## [8.28.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.27.0...claude-dev-env-v8.28.0) (2026-09-30)
 
 
