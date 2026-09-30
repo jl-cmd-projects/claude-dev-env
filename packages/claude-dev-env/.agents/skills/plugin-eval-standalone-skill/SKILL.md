@@ -9,6 +9,7 @@ description: >-
 
 # Plugin eval for a standalone skill
 
+For building an evaluation of an AI workflow, follow [the design process](reference/build-evaluation.md).
 For a direct Codex output-quality evaluation, use [the review suite](evals/review/README.md).
 It includes labeled cases, executable witnesses, related-group holdouts, a bounded
 `codex exec` adapter, stored replay, trace capture and deterministic precision/recall

@@ -24,8 +24,8 @@ From the repository root:
 $suite = 'packages/claude-dev-env/.agents/skills/plugin-eval-standalone-skill/evals/review/run.py'
 python $suite validate
 python -m pytest packages/claude-dev-env/.agents/skills/plugin-eval-standalone-skill/evals/review/test_run.py -q
-python $suite live --limit 2 --timeout 90 --model gpt-6.1 --effort low --output review-smoke
-python $suite live --split heldout --limit 6 --timeout 90 --model gpt-6.1 --effort low --output review-heldout
+python $suite live --limit 2 --timeout 90 --model gpt-6.1-sol --effort low --output review-smoke
+python $suite live --split heldout --limit 6 --timeout 90 --model gpt-6.1-sol --effort low --output review-heldout
 ```
 
 On Windows, pass `--codex <absolute-path-to-codex.exe>` when the shell launcher cannot run through `subprocess`. The adapter uses the existing login, `codex exec --json --output-schema`, ignores user config, and preserves account authentication. It never installs a service or creates credentials. Choose the account's supported model explicitly.
