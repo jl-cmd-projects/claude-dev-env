@@ -2,6 +2,8 @@
 
 Four fresh Codex calls passed four synthetic review cases. This measures the adapted low-effort recipe with fixture inputs. It does not measure installed skill discovery, repository review, review fixes or production performance.
 
+After the repository policy gate required smaller typed functions and separate configuration, the refactored runner repeated the two development cases with fresh model calls. Both passed again. The bug case took 9.676 seconds with 25,435 input tokens and 80 output tokens. The clean case took 9.339 seconds with 24,888 input tokens and 41 output tokens, including 22,144 cached input tokens. The repeat used the same model, effort, dataset and recipe. It adds two fresh attempts on existing cases, so unique case coverage stays at four. Across the initial baseline and integration repeat, six calls passed with 51.684 seconds of summed model-call latency, 150,412 reported input tokens and 375 reported output tokens. The final smoke's entry-point SHA-256 is `f9529e3be3561dec2ad5f0c07e18b5f8c35596bb87ed2b3da9bf08ddf25914d9`. Its working tree included the policy refactor before that refactor was committed.
+
 | Case | Split | Expected | Model response | Seconds | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
 | zero-bug | development | falsy-zero at line 2 | falsy-zero at line 2 | 8.897 | 25,431 | 73 |
@@ -9,7 +11,7 @@ Four fresh Codex calls passed four synthetic review cases. This measures the ada
 | catch-bug | heldout | swallowed-error at line 5 | swallowed-error at line 5 | 9.578 | 24,884 | 83 |
 | catch-clean | heldout | no findings | no findings | 6.869 | 24,890 | 51 |
 
-The bug scenarios were "Calling retries(0) returns 3 instead of 0, enabling three retries when the configured count disables retries" and "Calling parse(\"abc\") makes int(value) raise ValueError, but the catch returns 0 instead of propagating ValueError as the contract requires." Manual inspection agrees with the executable witnesses for these two responses. This is not a calibrated semantic grader.
+The two bug scenarios name concrete inputs and consequences. The preserved model text is in [baseline-responses.json](baseline-responses.json). Manual inspection agrees with the executable witnesses for these two replies. Semantic scenario grading remains uncalibrated.
 
 Development precision and recall are 1/1. Clean specificity is 1/1 and false-positive rate is 0/1. Held-out precision and recall are 1/1. Clean specificity is 1/1 and false-positive rate is 0/1. Each split's exact-case pass rate is 2/2, with a 95% Wilson interval of 34.2% to 100%. Small related pairs make these numbers insufficient for a release decision. No repeated-run variance or with/without-skill comparison was measured.
 
@@ -21,7 +23,7 @@ All 16 cases have passing before/after executable witness checks. All 16 known-g
 
 Dataset SHA-256 is `698a370de7aebb4051e7a02fd4f3dfff623d879a69970538e62f79535ca82cbe`. Recipe SHA-256 is `556fd92a7a0d60c5584adc48c3b0093ff2fb092f773a5011e9aa68720bd8de34`. The source checkout was isolated from `jl-cmd/claude-dev-env` and the proposal was moved onto main commit `0beb80ca` after the first smoke. The review recipe and dataset hashes stayed unchanged. Final harness hardening adds trace/output identity validation and before-state witness checks. The four saved traces pass the final trace checks without another model call.
 
-The fresh traces, stderr, captured replies and JSONL results remain in the task workspace under `evidence/smoke-4` and `evidence/heldout-smoke`. They are separate from the proposal repository. Account and thread metadata are not published in the draft. Twelve cases remain unrun. Four held-out cases remain unopened by model execution. Human label review, historical cases, independent scenario grading and an installed-skill invocation evaluation remain outstanding.
+The fresh traces, stderr, captured replies and JSONL results remain in the task workspace under `evidence/smoke-4`, `evidence/heldout-smoke` and `evidence/final-refactored-smoke`. They are separate from the proposal repository. Account and thread metadata are not published in the draft. Twelve cases remain unrun. Four held-out cases remain unopened by model execution. Human label review, historical cases, independent scenario grading and an installed-skill invocation evaluation remain outstanding.
 
 ## Coverage inventory
 
@@ -39,4 +41,4 @@ This inventory is bounded by the files inspected. It does not assert the absence
 
 The exact command's published source is [claude-api/shared/evals/build-eval.md](https://github.com/anthropics/skills/blob/main/skills/claude-api/shared/evals/build-eval.md). It builds inputs, an application runner and graders, obtains review of the inputs and grading, pilots examples, then records metrics and traces. Local plugin caches contain `skill-creator` evaluation scripts and the installed standalone plugin-eval skill. A local `claude-api` skill file was not found in the inspected skill/cache locations. The Claude launcher also fails at module startup because `ACTIVE_GUARD_DESKTOP_PROCESS_NAME_PATTERN` is missing from its constants module. No exploratory Claude agent was needed to read the published source.
 
-The direct implementation follows [OpenAI's skill evaluation guide](https://developers.openai.com/blog/eval-skills), using `codex exec --json --output-schema`. It adds the output-quality suite to the existing evaluation skill instead of introducing a second framework. Existing Claude plugin ablation remains useful for contribution and trigger behavior. [OpenAI's hosted evaluation migration guidance](https://developers.openai.com/cookbook/examples/evaluation/moving-from-openai-evals-to-promptfoo) supports keeping cases and scoring portable. This proposal adds no hosted Evals API dependency.
+The direct implementation follows [OpenAI's skill evaluation guide](https://developers.openai.com/blog/eval-skills), using `codex exec --json --output-schema`. It adds the output-quality suite to the existing evaluation skill. The proposal adds no second framework. Existing Claude plugin ablation remains useful for contribution and trigger behavior. [OpenAI's hosted evaluation migration guidance](https://developers.openai.com/cookbook/examples/evaluation/moving-from-openai-evals-to-promptfoo) supports keeping cases and scoring portable. This proposal adds no hosted Evals API dependency.

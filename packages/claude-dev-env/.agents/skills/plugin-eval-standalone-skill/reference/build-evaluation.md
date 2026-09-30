@@ -1,6 +1,6 @@
 # Build an application evaluation
 
-Use this process when an AI workflow needs measured output quality. Keep the existing application entry point and evaluation infrastructure. The review suite is an executable example, not a requirement to reshape every task into a classifier.
+Use this process when an AI workflow needs measured output quality. Keep the existing application entry point and evaluation infrastructure. The review suite demonstrates a classification task. Choose grading that fits each workflow's output.
 
 1. Name the decision the evaluation supports. Identify the application entry point, prompt/skill sources, model settings, tools, persistent state and outputs. Write a coverage boundary. A recipe supplied as text, a discovered installed skill and a tool-using workflow answer different questions.
 2. Inspect existing cases, saved runs and graders. Record which checks execute a model, replay stored outputs, exercise code with mocked providers or verify an environment end state. Reuse trustworthy components. A test name containing "eval" is not execution evidence.
