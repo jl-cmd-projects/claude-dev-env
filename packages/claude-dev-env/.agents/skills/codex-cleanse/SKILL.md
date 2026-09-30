@@ -23,4 +23,6 @@ The default cutoff is seven days. `--inactive-days <number>` changes it. When th
 
 The command reads the selected home's state database through `thread/list`, including all local source kinds. It re-reads each candidate, checks its rollout file modification time and unarchived descendants, and calls `thread/archive` for eligible leaves before parents. It confirms archived IDs through a final archived listing. It writes one JSON report to stdout and progress to stderr. A failed archive or readback exits with a nonzero status.
 
+After a successful apply run archives sessions, refresh the active task exclusions and run again. Stop when a successful run reports zero archives.
+
 Run the archive task on the local machine with the app and selected account available. A cloud task cannot read this machine's Codex home. Codex session archiving leaves managed worktrees in place. The desktop setting at Settings > Worktrees > General > Automatically delete old worktrees controls separate worktree cleanup by retained count.
