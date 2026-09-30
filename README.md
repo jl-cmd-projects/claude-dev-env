@@ -208,6 +208,7 @@ that carry them.
 | Skill | Purpose |
 |-------|---------|
 | `build-eval` | Evaluate skills with a direct Codex review suite or `claude plugin eval` |
+| `codex-cleanse` | [Preview or archive local Codex sessions on demand after seven days without activity](packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md) |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
 | `eli5` | Beginner-friendly presentation with large visuals and minimal text |
