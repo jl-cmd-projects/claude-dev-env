@@ -1,11 +1,12 @@
 {
-  "source_url": "https://api.github.com/repos/Echo-Visuals-Inc/python-automation/pulls/4743/reviews/5322799208",
-  "provenance": "Fields verified by the parent coordinator from the raw authenticated API. Body contains only the verified prefix.",
-  "repository": "Echo-Visuals-Inc/python-automation",
+  "provenance": "Fields verified by the parent coordinator from the raw authenticated API. Body contains only the verified prefix. Repository identity is anonymized for the shared package; review fields are unchanged.",
+  "repository": "owner/repository",
   "pull_request": 4743,
   "review": {
     "id": 5322799208,
-    "user": {"login": "chatgpt-codex-connector[bot]"},
+    "user": {
+      "login": "chatgpt-codex-connector[bot]"
+    },
     "state": "COMMENTED",
     "commit_id": "bed23717ab2ea352113c8f2058fbc959464bdf43",
     "submitted_at": "2026-09-25T21:15:07Z",
