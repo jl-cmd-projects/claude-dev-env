@@ -193,6 +193,7 @@ export const CORE_INCLUDE_DIRECTORIES = [
 export const CORE_SKILLS = [
     'orchestrator', 'orchestrator-refresh', 'team-advisor',
     'grok-spawn',
+    'codex-cleanse',
     'everything-search',
     'test-runner',
     'privacy-hygiene',
