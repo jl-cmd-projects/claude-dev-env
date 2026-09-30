@@ -112,6 +112,8 @@ Keep the parent follow-up task open while any goal, worker, approval, or require
 When one goal finishes, continue the remaining goals and update their next actions.
 Finish the run only after all goals are satisfied or explicitly cancelled and worker ownership is reconciled.
 If this run owns a scheduled wake, follow [optional scheduling](reference/scheduling.md) to retire only that wake.
+After all tasks, workers, approvals, and required delivery are resolved, persist the run's closure and evidence.
+Archive only this run's locator as described in [run state](reference/run-state.md), preserving other roots and their wakes.
 Report the result, evidence, and any remaining limit.
 
 ## Sub-skills

@@ -114,3 +114,173 @@ def test_completed_records_acceptance_and_head(tmp_path: Path) -> None:
     assert record.status == TASK_STATUS_COMPLETED
     assert record.reviewed_head == "head"
     assert record.changed_paths == ("a.py",)
+
+
+def test_release_terminated_owner_allows_same_base_reassignment_after_reload(
+    tmp_path: Path,
+) -> None:
+    ledger = GrokRunLedger(tmp_path)
+    ledger.register_task(task_id="task", all_dependencies=())
+    ledger.mark_in_progress(
+        task_id="task",
+        owner_id="old-owner",
+        advisor_session_id="old-session",
+        base_sha="base",
+    )
+
+    released_record = ledger.release_terminated_owner(
+        task_id="task",
+        expected_owner_id="old-owner",
+        expected_advisor_session_id="old-session",
+    )
+
+    assert released_record.status == TASK_STATUS_PENDING_REVIEW
+    assert released_record.owner_id is None
+    assert released_record.advisor_session_id == "old-session"
+    assert released_record.base_sha == "base"
+
+    reloaded_ledger = GrokRunLedger(tmp_path)
+    replacement_record = reloaded_ledger.mark_in_progress(
+        task_id="task",
+        owner_id="new-owner",
+        advisor_session_id="new-session",
+        base_sha="base",
+    )
+    persisted_record = GrokRunLedger(tmp_path).get_task("task")
+
+    assert replacement_record.base_sha == "base"
+    assert persisted_record.status == "in_progress"
+    assert persisted_record.owner_id == "new-owner"
+    assert persisted_record.advisor_session_id == "new-session"
+    assert persisted_record.base_sha == "base"
+
+
+@pytest.mark.parametrize(
+    (
+        "expected_owner_id",
+        "expected_advisor_session_id",
+        "persisted_owner_id",
+        "persisted_advisor_session_id",
+        "should_complete",
+    ),
+    [
+        ("different-owner", "session", "owner", "session", False),
+        ("owner", "different-session", "owner", "session", False),
+        ("", "session", "", "session", False),
+        ("owner", "", "owner", "", False),
+        ("owner", "session", "owner", "session", True),
+    ],
+)
+def test_release_terminated_owner_rejects_stale_identity_and_illegal_status(
+    tmp_path: Path,
+    expected_owner_id: str,
+    expected_advisor_session_id: str,
+    persisted_owner_id: str,
+    persisted_advisor_session_id: str,
+    should_complete: bool,
+) -> None:
+    ledger = GrokRunLedger(tmp_path)
+    ledger.register_task(task_id="task", all_dependencies=())
+    ledger.mark_in_progress(
+        task_id="task",
+        owner_id=persisted_owner_id,
+        advisor_session_id=persisted_advisor_session_id,
+        base_sha="base",
+    )
+    ledger_path = tmp_path / "grok-run-ledger.json"
+    if should_complete:
+        ledger.mark_completed(
+            task_id="task",
+            reviewed_head="head",
+            all_changed_paths=(),
+            advisor_verdict="ENDORSE",
+            all_acceptance_mapping={},
+            all_test_evidence=["pytest -q"],
+        )
+
+    task_before = ledger.get_task("task")
+    task_state_before = (
+        task_before.status,
+        task_before.owner_id,
+        task_before.advisor_session_id,
+        task_before.base_sha,
+    )
+    persisted_bytes_before = ledger_path.read_bytes()
+
+    with pytest.raises(ValueError):
+        ledger.release_terminated_owner(
+            task_id="task",
+            expected_owner_id=expected_owner_id,
+            expected_advisor_session_id=expected_advisor_session_id,
+        )
+
+    task_after = ledger.get_task("task")
+    assert ledger_path.read_bytes() == persisted_bytes_before
+    assert (
+        task_after.status,
+        task_after.owner_id,
+        task_after.advisor_session_id,
+        task_after.base_sha,
+    ) == task_state_before
+
+
+def test_release_terminated_owner_preserves_dependencies_and_evidence(
+    tmp_path: Path,
+) -> None:
+    ledger = GrokRunLedger(tmp_path)
+    ledger.register_task(task_id="dependency", all_dependencies=())
+    ledger.mark_in_progress(
+        task_id="dependency",
+        owner_id="dependency-owner",
+        advisor_session_id="dependency-session",
+        base_sha="base",
+    )
+    ledger.mark_completed(
+        task_id="dependency",
+        reviewed_head="dependency-head",
+        all_changed_paths=(),
+        advisor_verdict="ENDORSE",
+        all_acceptance_mapping={},
+        all_test_evidence=["dependency passed"],
+    )
+    ledger.register_task(task_id="task", all_dependencies=("dependency",))
+    ledger.mark_in_progress(
+        task_id="task",
+        owner_id="owner",
+        advisor_session_id="session",
+        base_sha="base",
+    )
+    ledger_path = tmp_path / "grok-run-ledger.json"
+    ledger_document = json.loads(ledger_path.read_text(encoding="utf-8"))
+    target_task = next(
+        each_task
+        for each_task in ledger_document["tasks"]
+        if each_task["task_id"] == "task"
+    )
+    target_task["advisor_verdict"] = "ENDORSE"
+    target_task["reviewed_head"] = "reviewed-head"
+    target_task["changed_paths"] = ["source.py"]
+    target_task["acceptance_mapping"] = {"criterion": "evidence"}
+    target_task["test_evidence"] = ["pytest -q"]
+    ledger_path.write_text(
+        json.dumps(ledger_document, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    reloaded_ledger = GrokRunLedger(tmp_path)
+    reloaded_ledger.release_terminated_owner(
+        task_id="task",
+        expected_owner_id="owner",
+        expected_advisor_session_id="session",
+    )
+    persisted_record = GrokRunLedger(tmp_path).get_task("task")
+
+    assert persisted_record.dependencies == ("dependency",)
+    assert persisted_record.advisor_session_id == "session"
+    assert persisted_record.base_sha == "base"
+    assert persisted_record.advisor_verdict == "ENDORSE"
+    assert persisted_record.reviewed_head == "reviewed-head"
+    assert persisted_record.changed_paths == ("source.py",)
+    assert persisted_record.acceptance_mapping == {"criterion": "evidence"}
+    assert persisted_record.test_evidence == ["pytest -q"]
+    assert reloaded_ledger.can_dispatch("task") is True

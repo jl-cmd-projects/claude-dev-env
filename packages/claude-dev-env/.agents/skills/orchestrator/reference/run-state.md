@@ -31,6 +31,12 @@ Establish a missing pointer only within authorized scope. Keep hook settings and
 If no pointer can be established, record that cold-start loading is unverified and provide the explicit resume locator.
 A pstack latest-checkpoint pointer can be overwritten by another root. Keep each stable locator independently.
 
+After the completion predicates hold, save the closure time and accepted evidence in the run record.
+Confirm root ownership, then move only its locator to `<project-dir>/.orchestrator/completed-runs/<run-id>.md`.
+Verify the archived locator and its absence from `active-runs/`. Preserve every other root's locator and wake.
+Retain the run record, task authority, and evidence for an explicit resume request.
+Resume an archived run only after reconciling ownership and scope, then restore its active locator.
+
 ## Choose one task authority
 
 Use the exposed host task tool and record its namespace and persistent list ID.
@@ -45,6 +51,7 @@ It exposes only the Python `GrokRunLedger` API.
 Use its existing supported caller or Python API and preserve its schema and transition rules.
 Its tests are `scripts/test_grok_run_ledger.py` in the package.
 The API covers task IDs, dependencies, ownership, review evidence, and completion.
+Use `release_terminated_owner` for a confirmed terminated owner, following the [recovery checks](recovery.md#reconcile-before-writing-or-dispatch).
 Keep unsupported descriptive fields in the run record keyed by task ID.
 If no callable tool or working adapter exists, report that limit and stop new tracked dispatch.
 

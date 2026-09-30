@@ -7,6 +7,7 @@ Re-read current instructions. A summary helps locate evidence but cannot replace
 
 Start with the supplied project directory and loaded orchestrator instructions.
 Read its `.orchestrator/active-runs/` locator files, or the explicitly configured registry home.
+Limit active-root discovery to that registry. Read `.orchestrator/completed-runs/` only for an explicit archived-run lookup or resume.
 Read every locator's run ID and owner before selecting a root.
 A supplied run ID selects its matching record. With several roots and no selected ID, inspect each without taking ownership.
 Continue only work whose run and authority are unambiguous.
@@ -38,6 +39,14 @@ Continue independent work that cannot overlap the uncertain owner.
 Replace a writer only after its termination is confirmed or a supported exclusive takeover establishes ownership.
 Preserve partial work and give the replacement its original assignment plus checked partial results.
 Parent takeover follows the same rule. Context loss alone does not end the previous parent's process.
+
+For `GrokRunLedger`, freshly load the ledger under single-writer ownership and verify termination through the host.
+Save the prior owner and advisor session, termination evidence, and partial artifact locators in durable recovery history.
+Call `release_terminated_owner(task_id=..., expected_owner_id=..., expected_advisor_session_id=...)` with those saved identities.
+It moves `in_progress` to `pending_review` and clears only the owner, preserving the base and evidence.
+Expected identities detect a stale assignment in the loaded ledger. The caller owns cross-process write exclusion.
+Reconcile and review partial work, then use `mark_in_progress` to assign the replacement.
+Unknown liveness keeps the owner assigned and leaves this release pending.
 
 Restore pending approvals with their source, scope, and pending action.
 Keep an unanswered decision pending even when a checkpoint suggests a default.
@@ -72,4 +81,7 @@ Include an overwritten latest pointer, a stale snapshot, an unknown worker, and 
 Include two goals in one root and the parent's own follow-up task.
 Check that it preserves ownership and pending approval while naming independent work it can continue.
 Ask a status question, then provide evidence completing one goal. Check that the remaining goal stays open.
-Use isolated fixtures and permitted read-only tools. Report fixture behavior separately from runtime hook activation.
+Then supply evidence satisfying every completion predicate for one root and retire its locator in the fixture.
+Verify that only its locator enters `completed-runs/` and its run record, task authority, and evidence remain readable.
+Start a fresh recovery and confirm that the other root remains discoverable with its locator and wake unchanged.
+Limit verification writes to isolated fixtures. Report fixture behavior separately from runtime hook activation.

@@ -229,6 +229,36 @@ class GrokRunLedger:
         self._atomic_write()
         return record
 
+    def release_terminated_owner(
+        self,
+        *,
+        task_id: str,
+        expected_owner_id: str,
+        expected_advisor_session_id: str,
+    ) -> LedgerTaskRecord:
+        """Release after caller verifies death and saves assignment/artifact history.
+        Args:
+            task_id: Task to release under freshly loaded single-writer ownership.
+            expected_owner_id: Nonempty owner identity from the assignment.
+            expected_advisor_session_id: Nonempty session from the assignment.
+        Returns:
+            Pending-review task retaining its base, session, and evidence.
+        Raises:
+            ValueError: When status or either current identity does not match.
+        """
+        record = self.get_task(task_id)
+        if record.status != TASK_STATUS_IN_PROGRESS:
+            raise ValueError(f"cannot release task from status {record.status}")
+        if not expected_owner_id or record.owner_id != expected_owner_id:
+            raise ValueError(f"owner identity changed for {task_id}")
+        session_matches = record.advisor_session_id == expected_advisor_session_id
+        if not expected_advisor_session_id or not session_matches:
+            raise ValueError(f"advisor session changed for {task_id}")
+        record.status = TASK_STATUS_PENDING_REVIEW
+        record.owner_id = None
+        self._atomic_write()
+        return record
+
     def mark_completed(
         self,
         *,
