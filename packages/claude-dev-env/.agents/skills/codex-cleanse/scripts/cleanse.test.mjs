@@ -4,6 +4,7 @@ import { chmodSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, uti
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { assertSelectedHome, cleanseSessions, parseOptions } from './cleanse.mjs';
 import * as cleanse from './cleanse.mjs';
@@ -11,6 +12,23 @@ import * as cleanse from './cleanse.mjs';
 const now = Date.parse('2026-09-30T12:00:00.000Z');
 const cutoff = Math.floor((now - 7 * 86_400_000) / 1_000);
 const threadId = number => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
+
+test('CLI starts through a directory link and reports a missing executable', () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-entry-'));
+    try {
+        const linkedDirectory = join(home, 'scripts');
+        symlinkSync(dirname(fileURLToPath(import.meta.url)), linkedDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+        const execution = spawnSync(process.execPath, [join(linkedDirectory, 'cleanse.mjs'),
+            '--codex-home', home, '--codex-path', join(home, 'missing')], { encoding: 'utf8', timeout: 10_000 });
+        assert.equal(execution.status, 1, execution.stderr);
+        const report = JSON.parse(execution.stdout);
+        assert.equal(report.archived, 0);
+        assert.equal(report.scanned, 0);
+        assert.match(report.failed[0].error, /executable not found/);
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
 
 function makeThread(number, updatedAt, overrides = {}) {
     return {
@@ -121,6 +139,39 @@ test('preview protects running sessions, excluded IDs, and parents with recent c
     const report = await cleanseSessions(fixture.request, options, now);
     assert.equal(report.eligible, 0);
     assert.equal(report.skipped, 5);
+});
+
+for (const eachProtection of ['recent', 'excluded']) {
+    test(`preview protects ancestors of a ${eachProtection} child with a source parent link`, async () => {
+        const allThreads = [makeThread(1, cutoff - 1),
+            makeThread(2, cutoff - 1, { source: { subAgent: { thread_spawn: { parent_thread_id: threadId(1) } } } }),
+            makeThread(3, eachProtection === 'recent' ? cutoff + 1 : cutoff - 1,
+                { source: { subAgent: { thread_spawn: { parent_thread_id: threadId(2) } } } })];
+        const fixture = makeRequest(allThreads);
+        const excludedThreadIds = new Set(eachProtection === 'excluded' ? [threadId(3)] : []);
+        const report = await cleanseSessions(fixture.request, makeOptions({ excludedThreadIds }), now);
+        assert.equal(report.eligible, 0);
+        assert.equal(report.skippedReasons.descendant, 2);
+        assert.equal(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/archive').length, 0);
+    });
+}
+
+test('apply orders a stale child with a source parent link before its parent', async () => {
+    const fixture = makeRequest([makeThread(1, cutoff - 1), makeThread(2, cutoff - 1,
+        { source: { subAgent: { thread_spawn: { parent_thread_id: threadId(1) } } } })]);
+    const report = await cleanseSessions(fixture.request, makeOptions({ apply: true }), now);
+    assert.equal(report.archived, 2);
+    assert.deepEqual(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/archive')
+        .map(eachCall => eachCall.params.threadId), [threadId(2), threadId(1)]);
+});
+
+test('preview prefers the top-level parent over a conflicting source parent link', async () => {
+    const fixture = makeRequest([makeThread(1, cutoff - 1), makeThread(2, cutoff - 1),
+        makeThread(3, cutoff + 1, { parentThreadId: threadId(1),
+            source: { subAgent: { thread_spawn: { parent_thread_id: threadId(2) } } } })]);
+    const report = await cleanseSessions(fixture.request, makeOptions(), now);
+    assert.equal(report.eligible, 1);
+    assert.equal(report.skippedReasons.descendant, 1);
 });
 
 test('apply archives a stale leaf and confirms archived listing', async () => {

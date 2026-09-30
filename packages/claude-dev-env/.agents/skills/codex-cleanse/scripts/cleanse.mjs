@@ -299,6 +299,10 @@ function candidateReason(thread, cutoffSeconds, excludedThreadIds) {
         || rolloutWriteReason(thread, cutoffSeconds * MILLISECONDS_PER_SECOND);
 }
 
+function parentThreadId(thread) {
+    return thread.parentThreadId || thread.source?.subAgent?.thread_spawn?.parent_thread_id;
+}
+
 function sortChildrenBeforeParents(allThreads) {
     const threadById = new Map(allThreads.map(eachThread => [eachThread.id, eachThread]));
     const depthById = new Map();
@@ -306,7 +310,7 @@ function sortChildrenBeforeParents(allThreads) {
         if (depthById.has(thread.id)) return depthById.get(thread.id);
         if (visited.has(thread.id)) throw new Error('Thread parent cycle');
         visited.add(thread.id);
-        const parent = threadById.get(thread.parentThreadId);
+        const parent = threadById.get(parentThreadId(thread));
         const depth = parent ? depthOf(parent, visited) + 1 : 0;
         depthById.set(thread.id, depth);
         visited.delete(thread.id);
@@ -320,10 +324,11 @@ function findProtectedAncestors(allThreads, cutoffSeconds, excludedThreadIds) {
     const protectedIds = new Set();
     for (const eachThread of allThreads) {
         if (!candidateReason(eachThread, cutoffSeconds, excludedThreadIds)) continue;
-        let parentId = eachThread.parentThreadId;
+        let parentId = parentThreadId(eachThread);
         while (parentId && !protectedIds.has(parentId)) {
             protectedIds.add(parentId);
-            parentId = threadById.get(parentId)?.parentThreadId;
+            const parent = threadById.get(parentId);
+            parentId = parent && parentThreadId(parent);
         }
     }
     return protectedIds;
@@ -445,7 +450,7 @@ async function main() {
     if (report.failed.length) process.exitCode = 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
+if (process.argv[1] && existsSync(process.argv[1]) && isSameCanonicalPath(process.argv[1], scriptPath)) {
     main().catch(error => {
         process.stderr.write(`${error.message || error}\n`);
         process.exitCode = 1;
