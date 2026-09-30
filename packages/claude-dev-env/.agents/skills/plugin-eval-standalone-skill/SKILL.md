@@ -1,10 +1,20 @@
 ---
 name: plugin-eval-standalone-skill
 description: >-
-  Run `claude plugin eval` against a standalone skill that is not a plugin, by wrapping the skill in a plugin folder, writing trigger and must-not-trigger cases, and reading the with-skill minus without-skill delta. Use when the user asks to eval or test a skill.
+  Evaluate skills with a bounded direct Codex review suite or `claude plugin eval`.
+  Use labeled inputs and deterministic grading for output correctness; use a plugin
+  wrapper and with/without-plugin comparisons for discovery and contribution.
+  Use when the user asks to eval or test a skill.
 ---
 
 # Plugin eval for a standalone skill
+
+For a direct Codex output-quality evaluation, use [the review suite](evals/review/README.md).
+It includes labeled cases, executable witnesses, related-group holdouts, a bounded
+`codex exec` adapter, stored replay, trace capture and deterministic precision/recall
+grading. Start with its validation command and two-case smoke. Preserve the distinction
+between grader validation, stored replay, a fresh recipe run and a complete workflow run.
+Use the plugin process below when measuring skill discovery or with/without-plugin contribution.
 
 ## Contents
 
