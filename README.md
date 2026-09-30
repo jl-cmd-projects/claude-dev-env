@@ -48,6 +48,10 @@ with `--target DIR`, `--profile ID`, or the `CLAUDE_CONFIG_DIR` environment vari
 
 Start a new Claude Code session. You should see hook activity on your first prompt (code-rules-reminder, hook-structure-context). Run `/sr-loop` to confirm commands loaded.
 
+For ChatGPT Work Cloud, use the [cloud pstack startup verification](docs/references/cloud-pstack-startup.md).
+The local installer does not register skills with the cloud catalog or enable
+plugin shell hooks in cloud orchestration.
+
 ### Update
 
 Run the same command again. It overwrites existing files and updates hook entries in place:
