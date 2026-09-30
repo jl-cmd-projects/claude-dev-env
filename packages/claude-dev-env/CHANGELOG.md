@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.26.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.5...claude-dev-env-v8.26.6) (2026-09-30)
+
+
+### Bug Fixes
+
+* **codex:** prune obsolete managed hook registrations ([905fe5a](https://github.com/jl-cmd/claude-dev-env/commit/905fe5a4a0a31d45700ad33350e7b553aa5f830d))
+* **codex:** Prune obsolete managed hooks ([76e1780](https://github.com/jl-cmd/claude-dev-env/commit/76e1780fccaf50b765ee2b4d3ac5e94bcc2eeb33))
+
 ## [8.26.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.4...claude-dev-env-v8.26.5) (2026-09-30)
 
 
