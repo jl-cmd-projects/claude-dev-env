@@ -119,3 +119,23 @@ export function hasOnlyQuestionPresentationBlock(guidanceText) {
         guidanceText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, '',
     ) === '';
 }
+
+/**
+ * Remove the managed question block while keeping surrounding guidance bytes.
+ *
+ * @param {string} codexHome
+ * @returns {string|null} The changed path, or null when no block was removed.
+ */
+export function removeCodexQuestionGuidance(codexHome) {
+    const agentsPath = join(codexHome, 'AGENTS.md');
+    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (!agentsEntry?.isFile()) return null;
+    const currentText = readFileSync(agentsPath, 'utf8');
+    const updatedText = withBlockReplaced(
+        currentText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, '',
+    );
+    if (updatedText === null) return null;
+    if (updatedText === '') unlinkSync(agentsPath);
+    if (updatedText !== '') writeFileSync(agentsPath, updatedText, 'utf8');
+    return agentsPath;
+}

@@ -69,6 +69,56 @@ test('full install preserves custom Codex notes and keeps the question block sta
     assert.equal(readFileSync(codexGuidancePath, 'utf8'), firstGuidance);
 });
 
+test('uninstall removes question-only Codex guidance', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+
+    const removal = installInScratchHome(homeDirectory, ['--uninstall']);
+
+    assert.equal(removal.status, 0, removal.stdout + removal.stderr);
+    assert.equal(existsSync(codexGuidancePath), false);
+});
+
+test('uninstall removes the question block and preserves surrounding custom guidance', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
+    mkdirSync(dirname(codexGuidancePath), { recursive: true });
+    const customGuidance = '# My notes\n\nKeep this line.\n';
+    writeFileSync(codexGuidancePath, customGuidance);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    writeFileSync(codexGuidancePath, `${readFileSync(codexGuidancePath, 'utf8')}Trailing notes\n`);
+
+    const removal = installInScratchHome(homeDirectory, ['--uninstall']);
+
+    assert.equal(removal.status, 0, removal.stdout + removal.stderr);
+    assert.equal(readFileSync(codexGuidancePath, 'utf8'), `${customGuidance}\nTrailing notes\n`);
+});
+
+for (const eachPriorGuidance of [null, '# Personal guidance\n']) {
+    test(`an uninstall staging fault restores ${eachPriorGuidance ? 'custom' : 'question-only'} Codex guidance`, (context) => {
+        const homeDirectory = makeScratchHome(context);
+        const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
+        if (eachPriorGuidance !== null) {
+            mkdirSync(dirname(codexGuidancePath), { recursive: true });
+            writeFileSync(codexGuidancePath, eachPriorGuidance);
+        }
+        const installation = installInScratchHome(homeDirectory);
+        assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+        const installedGuidance = readFileSync(codexGuidancePath, 'utf8');
+
+        const failedRemoval = installInScratchHome(homeDirectory, ['--uninstall'], {
+            CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
+        });
+
+        assert.notEqual(failedRemoval.status, 0, failedRemoval.stdout + failedRemoval.stderr);
+        assert.match(failedRemoval.stderr, /after_file_staging/);
+        assert.equal(readFileSync(codexGuidancePath, 'utf8'), installedGuidance);
+    });
+}
+
 test('full install leaves linked Codex guidance and its target unchanged', (context) => {
     const homeDirectory = makeScratchHome(context);
     const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');

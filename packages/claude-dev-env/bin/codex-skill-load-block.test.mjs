@@ -11,6 +11,7 @@ import {
     SKILL_LOAD_BLOCK_END,
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
+    removeCodexQuestionGuidance,
     withSkillLoadBlock,
     writeCodexAgentsGuidance,
     writeCodexQuestionGuidance,
@@ -204,4 +205,49 @@ test('a stray question start marker does not consume notes on repeat writes', (c
     assert.ok(firstGuidance.startsWith(customNotes));
     assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), null);
     assert.equal(readFileSync(homes.agentsPath, 'utf8'), firstGuidance);
+});
+
+for (const eachGuidance of [
+    'Custom guidance\n',
+    `${QUESTION_PRESENTATION_BLOCK_START}\nUnfinished policy\nCustom notes\n`,
+]) {
+    test(`question removal preserves guidance without a complete block ${JSON.stringify(eachGuidance)}`, (context) => {
+        const homes = makeHomes(context);
+        mkdirSync(homes.codexHome, { recursive: true });
+        writeFileSync(homes.agentsPath, eachGuidance);
+
+        assert.equal(removeCodexQuestionGuidance(homes.codexHome), null);
+        assert.equal(readFileSync(homes.agentsPath, 'utf8'), eachGuidance);
+    });
+}
+
+test('question removal preserves a linked file even when its target holds a managed block', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome, { recursive: true });
+    const linkedGuidance = `${QUESTION_PRESENTATION_BLOCK_START}\n${QUESTION_POLICY}${QUESTION_PRESENTATION_BLOCK_END}\n`;
+    mkdirSync(dirname(homes.sharedGuidancePath), { recursive: true });
+    writeFileSync(homes.sharedGuidancePath, linkedGuidance);
+    symlinkSync(homes.sharedGuidancePath, homes.agentsPath);
+
+    assert.equal(removeCodexQuestionGuidance(homes.codexHome), null);
+    assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
+    assert.equal(readFileSync(homes.sharedGuidancePath, 'utf8'), linkedGuidance);
+});
+
+test('question removal preserves a guidance directory and its notes', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.agentsPath, { recursive: true });
+    const notesPath = join(homes.agentsPath, 'notes.md');
+    writeFileSync(notesPath, 'Directory notes\n');
+
+    assert.equal(removeCodexQuestionGuidance(homes.codexHome), null);
+    assert.equal(lstatSync(homes.agentsPath).isDirectory(), true);
+    assert.equal(readFileSync(notesPath, 'utf8'), 'Directory notes\n');
+});
+
+test('question removal leaves a missing guidance file absent', (context) => {
+    const homes = makeHomes(context);
+
+    assert.equal(removeCodexQuestionGuidance(homes.codexHome), null);
+    assert.equal(lstatSync(homes.agentsPath, { throwIfNoEntry: false }), undefined);
 });

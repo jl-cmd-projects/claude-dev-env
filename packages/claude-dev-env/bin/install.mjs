@@ -52,7 +52,11 @@ import {
     shouldInstallPstackPlugin,
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
-import { writeCodexAgentsGuidance, writeCodexQuestionGuidance } from './codex-skill-load-block.mjs';
+import {
+    removeCodexQuestionGuidance,
+    writeCodexAgentsGuidance,
+    writeCodexQuestionGuidance,
+} from './codex-skill-load-block.mjs';
 import {
     continuityHostConfigurationPaths,
     removeContinuityHooks,
@@ -3138,6 +3142,7 @@ function executeUninstallPlan(plan, helpers = {}) {
             `  ${plan.skippedFiles.length} manifest record(s) skipped — each names a path outside ${CLAUDE_HOME}, outside ${MYPY_INI_INSTALL_PATH}, outside ${INSTALL_ROOT_RESOLUTION.codexRulesInstallDirectory}, outside ${INSTALL_ROOT_RESOLUTION.cursorInstallDirectory}, and outside ${AGENTS_HOME}`,
         );
     }
+    removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 
     if (existsSync(plan.settingsPath)) {
@@ -3250,7 +3255,10 @@ function uninstall() {
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
         additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
-        priorManifestFiles: plan.removableFiles,
+        priorManifestFiles: [
+            ...plan.removableFiles,
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
+        ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
 
