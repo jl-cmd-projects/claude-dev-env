@@ -62,6 +62,7 @@ packages/claude-dev-env/.agents/skills/self-improve-pr-converge/scripts/self-imp
 
 # Local working documents — never committed per git-workflow rule
 docs/plans/
+.orchestrator/
 
 # setuptools editable-install build artifacts
 *.egg-info/

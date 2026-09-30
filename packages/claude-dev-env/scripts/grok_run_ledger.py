@@ -27,11 +27,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from dev_env_scripts_constants.grok_run_ledger_constants import (
+    ALL_CANCELLABLE_TASK_STATUSES,
     ALL_LEGAL_TASK_STATUSES,
     JSON_INDENT,
     LEDGER_FILENAME,
     LEDGER_SCHEMA_VERSION,
     TASK_STATUS_ADVISOR_BLOCKED,
+    TASK_STATUS_CANCELLED,
     TASK_STATUS_COMPLETED,
     TASK_STATUS_IN_PROGRESS,
     TASK_STATUS_PENDING,
@@ -40,7 +42,6 @@ from dev_env_scripts_constants.grok_run_ledger_constants import (
     TEMPORARY_LEDGER_SUFFIX,
     UTF8_ENCODING,
 )
-
 
 @dataclass
 class LedgerTaskRecord:
@@ -163,15 +164,17 @@ class GrokRunLedger:
         return self._task_by_id[task_id]
 
     def can_dispatch(self, task_id: str) -> bool:
-        """Return whether every dependency has completed successfully.
+        """Return whether an uncancelled task has completed dependencies.
 
         Args:
             task_id: Task to evaluate.
 
         Returns:
-            True when every dependency is ``completed``.
+            Whether the task is uncancelled and every dependency is completed.
         """
         record = self.get_task(task_id)
+        if record.status == TASK_STATUS_CANCELLED:
+            return False
         for each_dependency in record.dependencies:
             dependency_record = self._task_by_id.get(each_dependency)
             if dependency_record is None:
@@ -229,6 +232,92 @@ class GrokRunLedger:
         self._atomic_write()
         return record
 
+    def release_terminated_owner(
+        self,
+        *,
+        task_id: str,
+        expected_owner_id: str,
+        expected_advisor_session_id: str,
+    ) -> LedgerTaskRecord:
+        """Release after caller verifies death and saves assignment/artifact history.
+        Args:
+            task_id: Task to release under freshly loaded single-writer ownership.
+            expected_owner_id: Nonempty owner identity from the assignment.
+            expected_advisor_session_id: Nonempty session from the assignment.
+        Returns:
+            Pending-review task retaining its base, session, and evidence.
+        Raises:
+            ValueError: When status or either current identity does not match.
+        """
+        record = self.get_task(task_id)
+        if record.status != TASK_STATUS_IN_PROGRESS:
+            raise ValueError(f"cannot release task from status {record.status}")
+        if not expected_owner_id or record.owner_id != expected_owner_id:
+            raise ValueError(f"owner identity changed for {task_id}")
+        session_matches = record.advisor_session_id == expected_advisor_session_id
+        if not expected_advisor_session_id or not session_matches:
+            raise ValueError(f"advisor session changed for {task_id}")
+        record.status = TASK_STATUS_PENDING_REVIEW
+        record.owner_id = None
+        self._atomic_write()
+        return record
+
+    def mark_cancelled(
+        self,
+        *,
+        task_id: str,
+        expected_owner_id: str | None,
+        expected_advisor_session_id: str | None,
+        reason: str,
+    ) -> LedgerTaskRecord:
+        """Cancel after the caller saves authorization and confirms owner termination.
+        Args:
+            task_id: Task under freshly loaded single-writer ownership.
+            expected_owner_id: Current owner, or None for an unassigned task.
+            expected_advisor_session_id: Current advisor session, or None.
+            reason: Nonempty cancellation evidence to append.
+        Returns:
+            Cancelled record retaining evidence and session; retries do not write.
+        """
+        record = self.get_task(task_id)
+        self._require_cancellation_request(
+            record, expected_owner_id, expected_advisor_session_id, reason
+        )
+        if record.status == TASK_STATUS_CANCELLED:
+            return record
+        record.status = TASK_STATUS_CANCELLED
+        record.owner_id = None
+        record.test_evidence.append(reason)
+        self._atomic_write()
+        return record
+
+    def _require_cancellation_request(
+        self,
+        record: LedgerTaskRecord,
+        expected_owner_id: str | None,
+        expected_advisor_session_id: str | None,
+        reason: str,
+    ) -> None:
+        """Compare both identities before changing cancellation state."""
+        if expected_owner_id == "" or record.owner_id != expected_owner_id:
+            raise ValueError(f"owner identity changed for {record.task_id}")
+        if (
+            expected_advisor_session_id == ""
+            or record.advisor_session_id != expected_advisor_session_id
+        ):
+            raise ValueError(f"advisor session changed for {record.task_id}")
+        if record.status == TASK_STATUS_IN_PROGRESS and (
+            expected_owner_id is None or expected_advisor_session_id is None
+        ):
+            raise ValueError("in-progress cancellation requires owner and session")
+        if not reason.strip():
+            raise ValueError("cancellation reason must be nonempty")
+        if (
+            record.status != TASK_STATUS_CANCELLED
+            and record.status not in ALL_CANCELLABLE_TASK_STATUSES
+        ):
+            raise ValueError(f"cannot cancel task from status {record.status}")
+
     def mark_completed(
         self,
         *,
@@ -278,6 +367,8 @@ class GrokRunLedger:
             The blocked task record.
         """
         record = self.get_task(task_id)
+        if record.status == TASK_STATUS_CANCELLED:
+            raise ValueError(f"cannot block task from status {record.status}")
         record.status = TASK_STATUS_ADVISOR_BLOCKED
         record.test_evidence = [reason]
         self._atomic_write()
@@ -299,6 +390,8 @@ class GrokRunLedger:
             The updated task record (unchanged when SHAs match).
         """
         record = self.get_task(task_id)
+        if record.status == TASK_STATUS_CANCELLED:
+            return record
         if record.base_sha is None or record.base_sha == current_sha:
             return record
         record.status = TASK_STATUS_PENDING_REVIEW

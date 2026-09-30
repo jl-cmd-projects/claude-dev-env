@@ -437,3 +437,168 @@ class TestResolveAndCli:
 @pytest.fixture
 def temporary_directory(tmp_path: Path) -> Path:
     return tmp_path
+
+
+@pytest.mark.parametrize("stored_slug", ["owner-a", ""])
+@pytest.mark.parametrize(
+    "run_status,is_rearm_pending",
+    [("active", False), ("active", True), ("done", False)],
+)
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "decide_should_reschedule",
+        "begin_firing",
+        "claim_rearm_slot",
+        "release_rearm_slot",
+    ],
+)
+def test_scoped_api_rejects_foreign_or_missing_owner(
+    tmp_path: Path,
+    stored_slug: str,
+    operation: str,
+    run_status: str,
+    is_rearm_pending: bool,
+) -> None:
+    status_gate = load_status_gate_module()
+    status_path = tmp_path / "status.json"
+    status_gate.write_status_file(
+        status_path, run_status, stored_slug, is_rearm_pending=is_rearm_pending
+    )
+    previous_bytes = status_path.read_bytes()
+    decision = getattr(status_gate, operation)(status_path, run_slug="caller-b")
+    assert decision[:2] == (False, "run_slug_mismatch")
+    assert status_path.read_bytes() == previous_bytes
+
+
+@pytest.mark.parametrize(
+    "stored_text",
+    ['{"status":"active","run_slug":"owner-a"}', '{"status":"active"}', "{broken"],
+)
+def test_scoped_write_rejects_unowned_existing_file(
+    tmp_path: Path, stored_text: str
+) -> None:
+    status_gate = load_status_gate_module()
+    status_path = tmp_path / "status.json"
+    status_path.write_text(stored_text, encoding="utf-8")
+    previous_bytes = status_path.read_bytes()
+    with pytest.raises(ValueError):
+        status_gate.write_status_file(
+            status_path, "done", "caller-b", is_rearm_pending=False
+        )
+    assert status_path.read_bytes() == previous_bytes
+    assert sorted(each_path.name for each_path in tmp_path.iterdir()) == ["status.json"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["set", "should-reschedule", "begin-firing", "claim-rearm", "release-rearm"],
+)
+@pytest.mark.parametrize("scope_source", ["argument", "environment", "empty_argument"])
+def test_scoped_cli_rejects_other_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+    scope_source: str,
+) -> None:
+    status_gate = load_status_gate_module()
+    status_path = tmp_path / "status.json"
+    status_gate.write_status_file(
+        status_path, "active", "owner-a", is_rearm_pending=False
+    )
+    previous_bytes = status_path.read_bytes()
+    all_arguments = ["status_gate.py", command, "--status-file", str(status_path)]
+    if command == "set":
+        all_arguments.extend(["--status", "done"])
+    if scope_source == "argument":
+        all_arguments.extend(["--run-slug", "caller-b"])
+    if scope_source in ("environment", "empty_argument"):
+        monkeypatch.setenv("ORCHESTRATOR_RUN_SLUG", "caller-b")
+    if scope_source == "empty_argument":
+        all_arguments.extend(["--run-slug", ""])
+    monkeypatch.setattr(sys, "argv", all_arguments)
+    assert status_gate.main() == EXIT_CODE_STOP
+    assert json.loads(capsys.readouterr().out)["reason"] == "run_slug_mismatch"
+    assert status_path.read_bytes() == previous_bytes
+
+
+@pytest.mark.parametrize("run_status", ["active", "done"])
+def test_scoped_cli_set_rejects_malformed_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    run_status: str,
+) -> None:
+    status_gate = load_status_gate_module()
+    status_path = tmp_path / "status.json"
+    status_path.write_text("{broken", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "status_gate.py",
+            "set",
+            "--status",
+            run_status,
+            "--status-file",
+            str(status_path),
+            "--run-slug",
+            "scope",
+        ],
+    )
+    assert status_gate.main() == EXIT_CODE_STOP
+    assert json.loads(capsys.readouterr().out)["reason"] == "invalid_status_file"
+    assert status_path.read_text(encoding="utf-8") == "{broken"
+
+
+def test_environment_scope_initializes_and_runs_matching_lifecycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    status_gate = load_status_gate_module()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(STATUS_FILE_ENV_VAR, raising=False)
+    monkeypatch.setenv("ORCHESTRATOR_RUN_SLUG", "scope")
+    monkeypatch.setattr(sys, "argv", ["status_gate.py", "set", "--status", "active"])
+    assert status_gate.main() == EXIT_CODE_SUCCESS
+    status_path = status_gate.resolve_status_file_path(None, tmp_path, "scope")
+    assert json.loads(status_path.read_text(encoding="utf-8"))["run_slug"] == "scope"
+    for each_command in [
+        "should-reschedule",
+        "claim-rearm",
+        "begin-firing",
+        "claim-rearm",
+        "release-rearm",
+    ]:
+        monkeypatch.setattr(sys, "argv", ["status_gate.py", each_command])
+        assert status_gate.main() == EXIT_CODE_SUCCESS
+    assert status_gate.decide_should_reschedule(status_path, run_slug="scope") == (
+        True,
+        "active",
+    )
+
+
+def test_cli_argument_scope_overrides_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    status_gate = load_status_gate_module()
+    status_path = tmp_path / "status.json"
+    monkeypatch.setenv("ORCHESTRATOR_RUN_SLUG", "environment")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "status_gate.py",
+            "set",
+            "--status",
+            "active",
+            "--status-file",
+            str(status_path),
+            "--run-slug",
+            "argument",
+        ],
+    )
+    assert status_gate.main() == EXIT_CODE_SUCCESS
+    assert json.loads(status_path.read_text(encoding="utf-8"))["run_slug"] == "argument"

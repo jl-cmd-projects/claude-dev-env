@@ -48,6 +48,7 @@ from status_gate_constants.config.constants import (
     REASON_REARM_ALREADY_PENDING,
     REASON_REARM_SLOT_CLAIMED,
     REASON_REARM_SLOT_RELEASED,
+    REASON_RUN_SLUG_MISMATCH,
     REASON_STATUS_NOT_ACTIVE,
     RESCHEDULE_FIELD_NAME,
     RUN_SLUG_ENV_VAR,
@@ -61,7 +62,6 @@ from status_gate_constants.config.constants import (
     UPDATED_AT_FIELD_NAME,
     UTF8_ENCODING,
 )
-
 
 class StatusFilePayload(TypedDict, total=False):
     """On-disk orchestrator run status JSON shape."""
@@ -192,10 +192,12 @@ def write_status_file(
         The payload written to disk.
 
     Raises:
-        ValueError: When ``run_status`` is not a valid status token.
+        ValueError: When status is invalid or scoped existing state is unowned.
     """
     if run_status not in ALL_VALID_RUN_STATUSES:
         raise ValueError(f"invalid status: {run_status}")
+    if run_slug:
+        _require_status_file_owner(status_file_path, run_slug)
     all_status_fields = _encode_status_file_payload(
         run_status=run_status,
         run_slug=run_slug,
@@ -229,11 +231,13 @@ def _atomic_write_payload(
 
 def _load_status_payload(
     status_file_path: Path,
+    run_slug: str = "",
 ) -> tuple[StatusFilePayload | None, str | None]:
     """Load and validate the status file payload.
 
     Args:
         status_file_path: Path to the run status file.
+        run_slug: Expected owner when nonempty; empty accepts legacy state.
 
     Returns:
         ``(payload, None)`` on success, or ``(None, reason_code)`` on failure.
@@ -249,7 +253,16 @@ def _load_status_payload(
     all_status_fields = _decode_status_file_payload(loaded_payload)
     if all_status_fields is None:
         return None, REASON_INVALID_STATUS_FILE
+    if run_slug and all_status_fields.get(RUN_SLUG_FIELD_NAME) != run_slug:
+        return None, REASON_RUN_SLUG_MISMATCH
     return all_status_fields, None
+
+
+def _require_status_file_owner(status_file_path: Path, run_slug: str) -> None:
+    """Require matching scope before overwriting an existing status file."""
+    _existing_fields, failure_reason = _load_status_payload(status_file_path, run_slug)
+    if failure_reason is not None and failure_reason != REASON_MISSING_STATUS_FILE:
+        raise ValueError(failure_reason)
 
 
 def _is_rearm_pending(all_status_fields: StatusFilePayload) -> bool:
@@ -285,17 +298,21 @@ def _status_file_run_slug(
 
 def _load_active_status(
     status_file_path: Path,
+    run_slug: str = "",
 ) -> tuple[StatusFilePayload | None, str | None]:
     """Load the status payload and require an active run.
 
     Args:
         status_file_path: Path to the run status file.
+        run_slug: Expected owner when nonempty; empty accepts legacy state.
 
     Returns:
         ``(payload, None)`` when the file loads and status is ``active``;
         ``(None, reason_code)`` on a missing/invalid file or inactive status.
     """
-    all_status_fields, load_failure_reason = _load_status_payload(status_file_path)
+    all_status_fields, load_failure_reason = _load_status_payload(
+        status_file_path, run_slug
+    )
     if all_status_fields is None:
         return None, load_failure_reason
     if all_status_fields.get(STATUS_FIELD_NAME) != RUN_STATUS_ACTIVE:
@@ -303,17 +320,22 @@ def _load_active_status(
     return all_status_fields, None
 
 
-def decide_should_reschedule(status_file_path: Path) -> tuple[bool, str]:
+def decide_should_reschedule(
+    status_file_path: Path, run_slug: str = ""
+) -> tuple[bool, str]:
     """Decide whether the orchestrator refresh loop may re-arm.
 
     Args:
         status_file_path: Path to the run status file.
+        run_slug: Expected owner when nonempty; empty accepts legacy state.
 
     Returns:
         ``(is_reschedule_allowed, reason_code)``. Fail closed on missing/invalid
         status, inactive status, or an already-pending re-arm slot.
     """
-    all_status_fields, load_failure_reason = _load_active_status(status_file_path)
+    all_status_fields, load_failure_reason = _load_active_status(
+        status_file_path, run_slug
+    )
     if all_status_fields is None:
         assert load_failure_reason is not None
         return False, load_failure_reason
@@ -336,14 +358,16 @@ def _apply_rearm_latch(
 
     Args:
         status_file_path: Path to the run status file.
-        run_slug: Fallback slug when the file has none.
+        run_slug: Expected owner when nonempty; empty preserves the stored owner.
         is_rearm_pending: Latch value to write.
         success_reason: Reason code returned when the rewrite lands.
 
     Returns:
         ``(is_applied, reason_code, payload_or_none)``.
     """
-    all_status_fields, load_failure_reason = _load_active_status(status_file_path)
+    all_status_fields, load_failure_reason = _load_active_status(
+        status_file_path, run_slug
+    )
     if all_status_fields is None:
         assert load_failure_reason is not None
         return False, load_failure_reason, None
@@ -366,7 +390,7 @@ def begin_firing(
 
     Args:
         status_file_path: Path to the run status file.
-        run_slug: Fallback slug when the file has none.
+        run_slug: Expected owner when nonempty; empty preserves the stored owner.
 
     Returns:
         ``(is_allowed, reason_code, payload_or_none)``.
@@ -387,7 +411,7 @@ def claim_rearm_slot(
 
     Args:
         status_file_path: Path to the run status file.
-        run_slug: Fallback slug when the file has none.
+        run_slug: Expected owner when nonempty; empty preserves the stored owner.
 
     Returns:
         ``(is_claimed, reason_code, payload_or_none)``.
@@ -408,7 +432,7 @@ def release_rearm_slot(
 
     Args:
         status_file_path: Path to the run status file.
-        run_slug: Fallback slug when the file has none.
+        run_slug: Expected owner when nonempty; empty preserves the stored owner.
 
     Returns:
         ``(is_released, reason_code, payload_or_none)``.
@@ -511,22 +535,26 @@ def _run_set_command(
         Process exit code.
     """
     status_file_path = resolve_status_file_path(status_file, None, run_slug)
-    is_rearm_pending = False
-    if run_status == RUN_STATUS_ACTIVE:
-        all_existing_fields, _load_failure_reason = _load_status_payload(
-            status_file_path
-        )
-        if (
-            all_existing_fields is not None
-            and all_existing_fields.get(STATUS_FIELD_NAME) == RUN_STATUS_ACTIVE
-        ):
-            is_rearm_pending = _is_rearm_pending(all_existing_fields)
-    written_status = write_status_file(
-        status_file_path=status_file_path,
-        run_status=run_status,
-        run_slug=run_slug,
-        is_rearm_pending=is_rearm_pending,
+    all_existing_fields, failure_reason = _load_status_payload(
+        status_file_path, run_slug
     )
+    if run_slug and failure_reason not in (None, REASON_MISSING_STATUS_FILE):
+        return _report_and_exit(False, failure_reason, status_file_path)
+    is_rearm_pending = (
+        run_status == RUN_STATUS_ACTIVE
+        and all_existing_fields is not None
+        and all_existing_fields.get(STATUS_FIELD_NAME) == RUN_STATUS_ACTIVE
+        and _is_rearm_pending(all_existing_fields)
+    )
+    try:
+        written_status = write_status_file(
+            status_file_path=status_file_path,
+            run_status=run_status,
+            run_slug=run_slug,
+            is_rearm_pending=is_rearm_pending,
+        )
+    except ValueError as error:
+        return _report_and_exit(False, str(error), status_file_path)
     print(json.dumps(written_status, indent=JSON_INDENT_SPACES))
     return EXIT_CODE_SUCCESS
 
@@ -566,7 +594,9 @@ def _run_should_reschedule_command(
         Exit 0 when active and free; exit 1 when the loop must not re-arm.
     """
     status_file_path = resolve_status_file_path(status_file, None, run_slug)
-    is_reschedule_allowed, reason_code = decide_should_reschedule(status_file_path)
+    is_reschedule_allowed, reason_code = decide_should_reschedule(
+        status_file_path, run_slug
+    )
     return _report_and_exit(is_reschedule_allowed, reason_code, status_file_path)
 
 
@@ -597,7 +627,9 @@ def main() -> int:
         Process exit code.
     """
     parsed_arguments = _build_argument_parser().parse_args()
-    selected_run_slug = parsed_arguments.run_slug or ""
+    selected_run_slug = parsed_arguments.run_slug or os.environ.get(
+        RUN_SLUG_ENV_VAR, ""
+    )
     if parsed_arguments.command == COMMAND_SET:
         return _run_set_command(
             status_file=parsed_arguments.status_file,
