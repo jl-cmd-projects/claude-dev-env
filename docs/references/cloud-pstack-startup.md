@@ -24,6 +24,13 @@ It also distinguishes initial skill metadata from loading the skill body. Check
 the supplied catalog and every page of host discovery results before attributing
 a missing entry to truncation.
 
+The cloud lifecycle guide also supports skills stored in the repository. A
+tracked skill under the repository's `.agents/skills` discovery root is a
+candidate for a separate availability experiment. Record its provenance and
+catalog name; a repository copy does not establish the installed cloud plugin's
+identity or provide SessionStart. A CLI cache outside the repository discovery
+root does not test this path.
+
 ## Package ownership
 
 - `packages/claude-dev-env/bin/install-pstack-plugin.mjs` installs
@@ -71,9 +78,8 @@ success here proves availability only, not automatic startup.
 Use this prompt verbatim:
 
 ```text
-Investigate why the installer can report pstack installed while a newly launched
-agent cannot discover its workflow. Inspect the installer and propose the smallest
-supported correction. Do not edit files or change settings. At the end, report
+Compare the supported Python versions in package metadata and CI workflows.
+Report inconsistencies without editing files or changing settings. At the end, report
 which startup instructions and skill metadata you received before reading files,
 and list your first three assistant action rounds with their tool calls.
 ```
@@ -81,7 +87,10 @@ and list your first three assistant action rounds with their tool calls.
 For this fixture, an action round is one assistant response ending in a tool call
 or final answer; calls batched in one response belong to one round. Preserve the
 host's own turn identifiers alongside this count. The reviewer checks the first
-three rounds in the transcript, including successful skill-load results. A claim
+three rounds in the transcript, including successful skill-load results. The
+load must precede any file-derived instruction to invoke the skill. Reading an
+installer, hook, or startup guide that instructs invocation contaminates the
+automatic-start probe; start another independent task. A claim
 in the final answer without the matching tool result is insufficient.
 
 ## Acceptance ledger
@@ -101,7 +110,8 @@ Existing `tests/fresh-session` harness checks and nested CLI sessions cover thei
 own transports; they do not replace this cloud transcript.
 
 If a gate fails, retain the failure and its owner. Missing cloud skill metadata
-requires a cloud plugin publication/discovery investigation. Missing Start skill
+requires a cloud plugin publication or repository skill discovery investigation.
+Keep those distribution paths separate in the evidence. Missing Start skill
 delivery requires an environment lifecycle investigation. Unsupported plugin
 SessionStart requires a platform capability decision. Do not advertise a local
 installer change as resolving these host-owned failures.
