@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
@@ -41,7 +41,21 @@ test('EVER_SHIPPED_SKILL_NAMES includes the windows scheduled task skill', () =>
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('windows-scheduled-task'), true);
 });
 
-test('EVER_SHIPPED_SKILL_NAMES includes the plugin eval standalone skill', () => {
+test('build-eval ships under its matching name without the retired active directory', () => {
+    const sourceSkillsDirectory = join(
+        PACKAGE_DIRECTORY,
+        PACKAGE_AGENTS_HOME_DIRECTORY_NAME,
+        MANAGED_SKILLS_DIRECTORY_NAME,
+    );
+    assert.ok(EVER_SHIPPED_SKILL_NAMES.has('build-eval'));
+    assert.match(
+        readFileSync(join(sourceSkillsDirectory, 'build-eval', 'SKILL.md'), 'utf8'),
+        /^---\r?\nname: build-eval\r?\n/,
+    );
+    assert.equal(existsSync(join(sourceSkillsDirectory, 'plugin-eval-standalone-skill')), false);
+});
+
+test('EVER_SHIPPED_SKILL_NAMES retains the retired plugin eval standalone skill', () => {
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('plugin-eval-standalone-skill'), true);
 });
 
