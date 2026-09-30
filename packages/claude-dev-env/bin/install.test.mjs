@@ -56,6 +56,7 @@ import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
 import {
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
+    QUESTION_PRESENTATION_BLOCK_START,
     withSkillLoadBlock,
 } from './codex-skill-load-block.mjs';
 
@@ -3094,10 +3095,9 @@ test('a repeat install preserves Codex pstack configuration', t => {
 
     runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
 
-    assert.equal(
-        readFileSync(join(codexHome, 'AGENTS.md'), 'utf8'),
-        withSkillLoadBlock('Custom Codex guidance\n'),
-    );
+    const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
+    assert.ok(codexGuidance.startsWith(withSkillLoadBlock('Custom Codex guidance\n')));
+    assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
     assert.equal(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), 'session hook: off\n');
 });
 
@@ -3140,10 +3140,13 @@ test('an absent host command is reported and leaves the other host installed', t
         [],
     );
     assert.equal(existsSync(join(sandbox.homeDirectory, '.codex', 'pstack-models.md')), false);
-    assert.equal(existsSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md')), false);
+    assert.match(
+        readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8'),
+        /<!-- claude-dev-env question presentation: start -->/,
+    );
 });
 
-test('--no-pstack leaves both hosts untouched', t => {
+test('--no-pstack skips the plugin and delivers Codex question guidance', t => {
     const sandbox = pstackPluginSandbox(t);
 
     const installerOutput = runPstackInstaller(
@@ -3153,7 +3156,10 @@ test('--no-pstack leaves both hosts untouched', t => {
     assert.deepEqual(sandbox.recordedCommands(), []);
     assert.doesNotMatch(installerOutput, /Pstack \(/);
     assert.equal(existsSync(join(sandbox.homeDirectory, '.codex', 'pstack-models.md')), false);
-    assert.equal(existsSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md')), false);
+    assert.match(
+        readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8'),
+        /<!-- claude-dev-env question presentation: start -->/,
+    );
 });
 
 function continuityCommandCount(configurationPath) {

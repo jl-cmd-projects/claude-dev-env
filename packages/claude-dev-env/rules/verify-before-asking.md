@@ -8,7 +8,7 @@ If a question can be answered by inspecting files, running a command, querying a
 
 ## Decision Checklist
 
-Before writing any AskUserQuestion or asking a clarifying question in chat, evaluate:
+Before using the current session's native question tool or asking a clarifying question in chat, evaluate:
 
 | Check | Action |
 |---|---|
@@ -21,14 +21,14 @@ Before writing any AskUserQuestion or asking a clarifying question in chat, eval
 | Is the answer retrievable from any available MCP tool? | Use the tool. |
 | Did the user already state a criterion, standard, or line that decides this? | Apply it, state the call and the reason, and keep going. |
 
-Only after confirming the answer cannot be obtained through any available tool, ask the user.
+Only after confirming the answer cannot be obtained through any available tool, ask the user. Present the question using [Present questions clearly](question-presentation.md).
 
 ## Prior-session facts expire
 
 A path, port, branch name, or config value you recall from an earlier session counts as unanswered until a tool re-checks it this session. Memory records what was true when it was written; the file may have moved, the port may be down, the branch may have merged. Treat every recalled fact as a claim to re-ground, not an answer to reuse.
 
 - When a tool can settle it, re-check in silence and act on the fresh result — no question to the user.
-- When no tool can settle it and the user has a stake in the answer, ask through `AskUserQuestion`.
+- When no tool can settle it and the user has a stake in the answer, use the current session's native question tool when available.
 
 ## Questions That Belong to the User
 
