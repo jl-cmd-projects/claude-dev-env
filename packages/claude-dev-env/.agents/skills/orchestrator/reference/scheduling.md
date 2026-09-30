@@ -11,7 +11,8 @@ Do not substitute another scheduling mechanism when the runtime prescribes one.
 Use this adapter only when a supported one-shot wake and the existing gate are part of the run.
 Resolve `scripts/status_gate.py` relative to the installed orchestrator skill directory.
 Pass this run's explicit absolute `--status-file` path on every command.
-Keep `--run-slug` consistent and include the stable run locator in the wake prompt.
+Pass this run's nonempty expected ID as `--run-slug` and include the stable run locator in the wake prompt.
+Every scoped read or write requires the stored run ID to match. A missing or mismatched identity rejects the attempt and preserves the gate data.
 An unscoped default path can collide with another root.
 
 The gate owns only optional wake state. The selected task authority owns task state.
@@ -30,7 +31,7 @@ python <status_gate.py> set --status done --run-slug <run-id> --status-file <pat
 | Command | Exit 0 | Exit 1 |
 |---|---|---|
 | `set` | State written. Reasserting active preserves the pending latch. Done clears it. | Inspect the command error. |
-| `begin-firing` | Active run's latch cleared. | Missing, invalid, or inactive state. End this gate firing. |
+| `begin-firing` | Active run's latch cleared. | Missing, invalid, inactive, or mismatched state. End this gate firing. |
 | `should-reschedule` | Active with an available slot. Read-only. | End this re-arm attempt. |
 | `claim-rearm` | Pending slot recorded after successful creation. | Cancel only the wake just created and end this re-arm attempt. |
 | `release-rearm` | Pending latch cleared for recovery. | Missing, invalid, or inactive state. End latch recovery. |
@@ -42,8 +43,10 @@ A missing or inactive gate ends the scheduled gate firing; recover unresolved wo
 ## Preserve one pending wake
 
 Only the current root owner operates its gate. The gate does not arbitrate competing parent ownership.
-Register applicable scheduling work in the task authority before changing a wake.
-At a verified firing, run `begin-firing` for the recorded gate before attempting a new one-shot wake.
+At refresh entry, minimally locate the run record and verify the invocation matches its recorded one-shot wake and root owner.
+Immediately run `begin-firing` with that record's explicit `--status-file` and `--run-slug`, before recovery or task-authority steps can exit.
+Unknown wake identity or root ownership leaves the latch intact.
+Register creation and re-arm work in the task authority before changing a wake.
 A manual refresh leaves an outstanding wake's latch intact.
 
 For a re-arm, run `should-reschedule` first. Exit 1 creates no wake.

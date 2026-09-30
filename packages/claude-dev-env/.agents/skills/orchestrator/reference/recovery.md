@@ -48,6 +48,14 @@ Expected identities detect a stale assignment in the loaded ledger. The caller o
 Reconcile and review partial work, then use `mark_in_progress` to assign the replacement.
 Unknown liveness keeps the owner assigned and leaves this release pending.
 
+For a scoped user cancellation, save its source, assignment, and partial evidence before changing task state.
+For `GrokRunLedger`, freshly load under single-writer ownership and confirm termination of any retained owner, including blocked or review records.
+Call `mark_cancelled(task_id=..., expected_owner_id=..., expected_advisor_session_id=..., reason=...)` with the loaded identities, using `None` for absent identities and a nonempty reason.
+It records terminal `cancelled`, clears the owner, preserves the base, session, dependencies, artifacts, and acceptance evidence, and appends the reason.
+Cancelled tasks remain terminal through drift and advisor blocking. They leave dependent tasks' prerequisites unsatisfied.
+Unknown liveness retains ownership and keeps the parent's follow-up open while cancellation remains pending.
+Cancel only tasks within the user's scope. Keep remaining goals open and require every run closure predicate before retiring its locator.
+
 Restore pending approvals with their source, scope, and pending action.
 Keep an unanswered decision pending even when a checkpoint suggests a default.
 Granted authorization carries forward only within its recorded scope and current rules.

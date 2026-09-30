@@ -29,6 +29,11 @@ Keep current authorization and configured model routing when restoring work.
 
 1. Read the current message and loaded instructions. Load the orchestrator entrypoint.
 2. Resolve the run from its supplied locator or `.orchestrator/active-runs/` under the project directory.
+   Read the run record's owner and optional wake metadata first.
+   For a recorded one-shot firing, confirm both the invocation's wake identity and current root ownership.
+   Immediately run `begin-firing` with its explicit `--status-file` and `--run-slug` through [optional scheduling](../orchestrator/reference/scheduling.md).
+   Do this before recovery or task-authority steps can exit. Unknown ownership leaves the latch intact.
+   A gate mismatch or missing or invalid state ends that gate attempt. Continue ordinary unresolved work within confirmed ownership.
    Read [recovery](../orchestrator/reference/recovery.md) and reconcile before dispatch.
    Register applicable recovery task seeds once the task authority is accessible.
 3. Restore every goal and the parent's follow-up task. Rebuild the short follow list from the task authority.
@@ -38,8 +43,6 @@ Keep current authorization and configured model routing when restoring work.
 5. Save the updated recovery record. Complete only goals whose acceptance and delivery evidence is present.
    Keep remaining goals open and assign the parent's next action.
 
-For a verified firing of an existing one-shot gate adapter, follow
-[optional scheduling](../orchestrator/reference/scheduling.md), including `begin-firing` for that run's status file.
 A manual refresh does not consume an outstanding wake's latch.
 Scheduling remains optional and follows the current runtime's supported automation rules.
 Retire only this run's owned wake after the run's completion predicates hold.

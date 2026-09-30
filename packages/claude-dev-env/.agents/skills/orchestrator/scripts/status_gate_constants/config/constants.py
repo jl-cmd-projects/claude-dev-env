@@ -36,6 +36,7 @@ EXIT_CODE_STOP = 1
 
 REASON_MISSING_STATUS_FILE = "missing_status_file"
 REASON_INVALID_STATUS_FILE = "invalid_status_file"
+REASON_RUN_SLUG_MISMATCH = "run_slug_mismatch"
 REASON_STATUS_NOT_ACTIVE = "status_not_active"
 REASON_ACTIVE = "active"
 REASON_REARM_ALREADY_PENDING = "rearm_already_pending"

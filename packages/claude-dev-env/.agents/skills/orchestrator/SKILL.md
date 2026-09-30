@@ -59,8 +59,8 @@ Read [run state](reference/run-state.md) before opening or changing a durable ru
 Read [recovery](reference/recovery.md) after compaction, handoff, replacement, or uncertain ownership.
 
 Register the applicable task seeds in [run state](reference/run-state.md#task-seeds) through the host task tool.
-Prefer `TaskCreate`, then `TodoWrite`, then the runtime's equivalent.
-When absent, use the existing file-ledger adapter described there as the sole task authority.
+Select a host task tool only after verifying its required fields and recovery support as described there.
+When the host surface is absent or inadequate, use the working file-ledger adapter as the sole task authority.
 If neither is usable, preserve the recovery record, report the missing tracker, and stop new tracked dispatch.
 
 Keep each user goal's source wording, constraints, acceptance evidence, priority, and linked task IDs.

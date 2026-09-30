@@ -284,3 +284,206 @@ def test_release_terminated_owner_preserves_dependencies_and_evidence(
     assert persisted_record.acceptance_mapping == {"criterion": "evidence"}
     assert persisted_record.test_evidence == ["pytest -q"]
     assert reloaded_ledger.can_dispatch("task") is True
+
+
+def _seed_cancellation_ledger(tmp_path: Path, status: str) -> GrokRunLedger:
+    ledger = GrokRunLedger(tmp_path)
+    ledger.register_task(task_id="task", all_dependencies=("dependency",))
+    ledger_path = tmp_path / "grok-run-ledger.json"
+    ledger_document = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger_document["tasks"][0].update(
+        status=status,
+        owner_id="owner",
+        advisor_session_id="session",
+        base_sha="base",
+        reviewed_head="head",
+        changed_paths=["source.py"],
+        advisor_verdict="ENDORSE",
+        acceptance_mapping={"criterion": "proof"},
+        test_evidence=["pytest passed"],
+    )
+    ledger_path.write_text(json.dumps(ledger_document), encoding="utf-8")
+    return GrokRunLedger(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "status", ["pending", "pending_review", "advisor_blocked", "in_progress"]
+)
+def test_mark_cancelled_preserves_assignment_and_evidence(
+    tmp_path: Path, status: str
+) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, status)
+    previous_document = json.loads(ledger.ledger_path.read_text(encoding="utf-8"))
+    ledger.mark_cancelled(
+        task_id="task",
+        expected_owner_id="owner",
+        expected_advisor_session_id="session",
+        reason="User cancelled; owner stopped",
+    )
+    expected_document = previous_document
+    expected_document["tasks"][0].update(
+        status="cancelled",
+        owner_id=None,
+        test_evidence=["pytest passed", "User cancelled; owner stopped"],
+    )
+    assert (
+        json.loads(ledger.ledger_path.read_text(encoding="utf-8")) == expected_document
+    )
+    reloaded = GrokRunLedger(tmp_path)
+    assert reloaded.get_task("task").status == "cancelled"
+    assert is_legal_status(reloaded.get_task("task").status)
+    assert reloaded.can_dispatch("task") is False
+
+
+@pytest.mark.parametrize(
+    "expected_owner_id,expected_session,reason",
+    [
+        ("other", "session", "cancel"),
+        ("owner", "other", "cancel"),
+        ("", "session", "cancel"),
+        ("owner", "", "cancel"),
+        (None, "session", "cancel"),
+        ("owner", None, "cancel"),
+        ("owner", "session", ""),
+        ("owner", "session", "   "),
+    ],
+)
+def test_mark_cancelled_rejects_invalid_request_without_changes(
+    tmp_path: Path,
+    expected_owner_id: str | None,
+    expected_session: str | None,
+    reason: str,
+) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, "in_progress")
+    previous_bytes = ledger.ledger_path.read_bytes()
+    with pytest.raises(ValueError):
+        ledger.mark_cancelled(
+            task_id="task",
+            expected_owner_id=expected_owner_id,
+            expected_advisor_session_id=expected_session,
+            reason=reason,
+        )
+    assert ledger.ledger_path.read_bytes() == previous_bytes
+    assert ledger.get_task("task").status == "in_progress"
+    assert ledger.get_task("task").owner_id == "owner"
+
+
+def test_mark_cancelled_rejects_completed_task(tmp_path: Path) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, "completed")
+    previous_bytes = ledger.ledger_path.read_bytes()
+    with pytest.raises(ValueError):
+        ledger.mark_cancelled(
+            task_id="task",
+            expected_owner_id="owner",
+            expected_advisor_session_id="session",
+            reason="cancel",
+        )
+    assert ledger.ledger_path.read_bytes() == previous_bytes
+
+
+@pytest.mark.parametrize(
+    "owner_id,session_id",
+    [(None, None), (None, "session"), ("owner", None), ("", "session"), ("owner", "")],
+)
+def test_mark_cancelled_rejects_incomplete_live_assignment(
+    tmp_path: Path,
+    owner_id: str | None,
+    session_id: str | None,
+) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, "in_progress")
+    ledger_document = json.loads(ledger.ledger_path.read_text(encoding="utf-8"))
+    ledger_document["tasks"][0].update(owner_id=owner_id, advisor_session_id=session_id)
+    ledger.ledger_path.write_text(json.dumps(ledger_document), encoding="utf-8")
+    previous_bytes = ledger.ledger_path.read_bytes()
+    reloaded = GrokRunLedger(tmp_path)
+    with pytest.raises(ValueError):
+        reloaded.mark_cancelled(
+            task_id="task",
+            expected_owner_id=owner_id,
+            expected_advisor_session_id=session_id,
+            reason="cancel",
+        )
+    assert ledger.ledger_path.read_bytes() == previous_bytes
+    assert reloaded.get_task("task").status == "in_progress"
+
+
+def test_mark_cancelled_accepts_unassigned_task_and_blocks_dependents(
+    tmp_path: Path,
+) -> None:
+    ledger = GrokRunLedger(tmp_path)
+    ledger.register_task(task_id="task")
+    ledger.register_task(task_id="child", all_dependencies=("task",))
+    ledger.mark_cancelled(
+        task_id="task",
+        expected_owner_id=None,
+        expected_advisor_session_id=None,
+        reason="User cancelled before dispatch",
+    )
+    assert ledger.get_task("task").status == "cancelled"
+    assert ledger.get_task("task").owner_id is None
+    assert ledger.can_dispatch("task") is False
+    assert ledger.can_dispatch("child") is False
+
+
+def test_mark_cancelled_retry_requires_current_identity_and_leaves_bytes_unchanged(
+    tmp_path: Path,
+) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, "in_progress")
+    ledger.mark_cancelled(
+        task_id="task",
+        expected_owner_id="owner",
+        expected_advisor_session_id="session",
+        reason="User cancelled; owner stopped",
+    )
+    previous_bytes = ledger.ledger_path.read_bytes()
+    previous_modified = ledger.ledger_path.stat().st_mtime_ns
+    reloaded = GrokRunLedger(tmp_path)
+    with pytest.raises(ValueError):
+        reloaded.mark_cancelled(
+            task_id="task",
+            expected_owner_id="owner",
+            expected_advisor_session_id="session",
+            reason="retry",
+        )
+    reloaded.mark_cancelled(
+        task_id="task",
+        expected_owner_id=None,
+        expected_advisor_session_id="session",
+        reason="retry after readback",
+    )
+    assert ledger.ledger_path.read_bytes() == previous_bytes
+    assert ledger.ledger_path.stat().st_mtime_ns == previous_modified
+
+
+def test_cancelled_task_stays_terminal_across_other_mutations(tmp_path: Path) -> None:
+    ledger = _seed_cancellation_ledger(tmp_path, "in_progress")
+    ledger.mark_cancelled(
+        task_id="task",
+        expected_owner_id="owner",
+        expected_advisor_session_id="session",
+        reason="User cancelled; owner stopped",
+    )
+    previous_bytes = ledger.ledger_path.read_bytes()
+    assert (
+        ledger.invalidate_on_snapshot_drift(task_id="task", current_sha="new").status
+        == "cancelled"
+    )
+    with pytest.raises(ValueError):
+        ledger.mark_advisor_blocked(task_id="task", reason="advisor unavailable")
+    with pytest.raises(ValueError):
+        ledger.mark_in_progress(
+            task_id="task",
+            owner_id="new-owner",
+            advisor_session_id="new-session",
+            base_sha="base",
+        )
+    with pytest.raises(ValueError):
+        ledger.mark_completed(
+            task_id="task",
+            reviewed_head="head",
+            all_changed_paths=(),
+            advisor_verdict="ENDORSE",
+            all_acceptance_mapping={},
+            all_test_evidence=[],
+        )
+    assert ledger.ledger_path.read_bytes() == previous_bytes

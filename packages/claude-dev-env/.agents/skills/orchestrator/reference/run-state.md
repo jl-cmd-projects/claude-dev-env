@@ -51,12 +51,14 @@ Resume an archived run only after reconciling ownership and scope, then restore 
 
 ## Choose one task authority
 
-Use the exposed host task tool and record its namespace and persistent list ID.
-Verify whether a replacement session can reopen that list.
+Select a host task tool only when it records task IDs, status, owners, and dependencies.
+Verify that a replacement session can reopen its durable authority or recover it through checked snapshots.
+Record its namespace, list ID, and verified recovery method.
+Check the exposed implementation's capabilities. A step-and-status plan surface such as the current `update_plan` bridge needs the file-ledger fallback.
 Task status, ownership, and dependencies live only in this authority.
 Record the parent's coordination task there alongside implementation, review, and delivery tasks.
 
-When host task tools are absent, reuse the configured file-ledger adapter.
+When host task tools are absent or inadequate, use the working configured file-ledger adapter.
 This package provides `scripts/grok_run_ledger.py`; the installed shared copy is `.agents/scripts/grok_run_ledger.py`.
 Locate that file in the current installation before selecting it.
 It exposes only the Python `GrokRunLedger` API.
@@ -64,6 +66,7 @@ Use its existing supported caller or Python API and preserve its schema and tran
 Its tests are `scripts/test_grok_run_ledger.py` in the package.
 The API covers task IDs, dependencies, ownership, review evidence, and completion.
 Use `release_terminated_owner` for a confirmed terminated owner, following the [recovery checks](recovery.md#reconcile-before-writing-or-dispatch).
+Use `mark_cancelled` for scoped user cancellation after the same ownership checks and saved cancellation evidence.
 Keep unsupported descriptive fields in the run record keyed by task ID.
 If no callable tool or working adapter exists, report that limit and stop new tracked dispatch.
 
