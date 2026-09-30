@@ -17,13 +17,16 @@ from enum import Enum
 
 from dev_env_scripts_constants.codex_review_observer_constants import (
     CODEX_FINDINGS_PREFIX,
+    CODEX_QUOTA_PREFIX,
     CODEX_REVIEWER_LOGIN,
+    COMMENTS_URL,
     COMMIT_PATTERN,
-    GITHUB_API_ROOT,
     HOLD_EXIT_CODE,
     MAX_PAGES,
     PAGE_SIZE,
+    PULL_URL,
     REPOSITORY_PATTERN,
+    REVIEWS_SUFFIX,
     UNAVAILABLE_EXIT_CODE,
 )
 from pr_verification.github_parsing import GitHubError
@@ -80,14 +83,14 @@ def _matches_candidate(document: object, candidate: Candidate) -> bool:
     )
 
 
-def _is_submitted_codex_findings(review: Mapping[str, object]) -> bool:
-    author = review.get("user")
-    body = review.get("body")
-    submitted_at = review.get("submitted_at")
+def _is_submitted_codex_findings(all_review: Mapping[str, object]) -> bool:
+    author = all_review.get("user")
+    body = all_review.get("body")
+    submitted_at = all_review.get("submitted_at")
     if not (
         isinstance(author, Mapping)
         and author.get("login") == CODEX_REVIEWER_LOGIN
-        and review.get("state") == "COMMENTED"
+        and all_review.get("state") == "COMMENTED"
         and isinstance(body, str)
         and body.startswith(CODEX_FINDINGS_PREFIX)
         and isinstance(submitted_at, str)
@@ -99,124 +102,143 @@ def _is_submitted_codex_findings(review: Mapping[str, object]) -> bool:
         return False
 
 
+class _EvidenceReadRunFatal(Exception):
+    def __init__(self, reason: HoldReason) -> None:
+        super().__init__(reason.value)
+        self.reason = reason
+
+
+def _merge_page(all_records: dict[int, Mapping[str, object]], all_page: object) -> int:
+    if not isinstance(all_page, list):
+        raise _EvidenceReadRunFatal(HoldReason.INCOMPLETE_READ)
+    for each_record in all_page:
+        if not isinstance(each_record, Mapping):
+            raise _EvidenceReadRunFatal(HoldReason.INCOMPLETE_READ)
+        record_id = each_record.get("id")
+        if type(record_id) is not int or record_id <= 0:
+            raise _EvidenceReadRunFatal(HoldReason.INCOMPLETE_READ)
+        if record_id in all_records and all_records[record_id] != each_record:
+            raise _EvidenceReadRunFatal(HoldReason.CONFLICTING_EVIDENCE)
+        all_records[record_id] = each_record
+    return len(all_page)
+
+
+def _read_collection(url: str, read: GitHubRead) -> dict[int, Mapping[str, object]]:
+    all_records: dict[int, Mapping[str, object]] = {}
+    for each_page in range(1, MAX_PAGES + 1):
+        count = _merge_page(
+            all_records, read(f"{url}?per_page={PAGE_SIZE}&page={each_page}")
+        )
+        if count < PAGE_SIZE:
+            return all_records
+    raise _EvidenceReadRunFatal(HoldReason.INCOMPLETE_READ)
+
+
+def _quota_notice_ids(
+    all_comments: Mapping[int, Mapping[str, object]],
+) -> tuple[int, ...]:
+    all_ids: list[int] = []
+    for each_id, each_comment in all_comments.items():
+        author = each_comment.get("user")
+        body = each_comment.get("body")
+        if (
+            isinstance(author, Mapping)
+            and author.get("login") == CODEX_REVIEWER_LOGIN
+            and isinstance(body, str)
+            and body.startswith(CODEX_QUOTA_PREFIX)
+        ):
+            all_ids.append(each_id)
+    return tuple(sorted(all_ids))
+
+
+def _review_observation(
+    candidate: Candidate, all_reviews: Mapping[int, Mapping[str, object]]
+) -> ReviewObservation:
+    all_current = {
+        each_id: each_review
+        for each_id, each_review in all_reviews.items()
+        if each_review.get("commit_id") == candidate.head_sha
+    }
+    reason = HoldReason.MISSING_REVIEW
+    if all_reviews:
+        reason = HoldReason.STALE_REVIEW
+    if all_current:
+        reason = HoldReason.NATIVE_FORMAT_UNVERIFIED
+    if any(
+        _is_submitted_codex_findings(each_review)
+        for each_review in all_current.values()
+    ):
+        reason = HoldReason.REVIEW_FINDINGS
+    return ReviewObservation(candidate, reason, tuple(sorted(all_current)))
+
+
+def _stable_observation(
+    candidate: Candidate, read: GitHubRead, pull_url: str
+) -> ReviewObservation:
+    all_reviews = _read_collection(pull_url + REVIEWS_SUFFIX, read)
+    observation = _review_observation(candidate, all_reviews)
+    if observation.reason is HoldReason.MISSING_REVIEW:
+        comments_url = COMMENTS_URL.format(
+            repository=candidate.repository, number=candidate.pull_request
+        )
+        all_quota_ids = _quota_notice_ids(_read_collection(comments_url, read))
+        if all_quota_ids:
+            observation = ReviewObservation(
+                candidate, HoldReason.QUOTA_NOTICE, (), all_quota_ids
+            )
+    return observation
+
+
 def observe_codex_review(candidate: Candidate, read: GitHubRead) -> ReviewObservation:
-    """Read a stable candidate and return a hold for unsupported native evidence.
+    """Read evidence for a stable full head and return its admission hold.
 
     Args:
         candidate: The repository, pull request, and requested full head.
-        read: An authenticated read-only transport returning decoded JSON.
+        read: Authenticated read-only JSON transport.
 
     Returns:
-        A hold reason and the current-head review identifiers inspected.
+        The observed hold and evidence identifiers.
     """
-    pull_url = (
-        f"{GITHUB_API_ROOT}/repos/{candidate.repository}/pulls/{candidate.pull_request}"
+    pull_url = PULL_URL.format(
+        repository=candidate.repository, number=candidate.pull_request
     )
-    reason = HoldReason.MISSING_REVIEW
-    review_by_id: dict[int, Mapping[str, object]] = {}
-    all_current_ids: set[int] = set()
-    has_codex_findings = False
-    quota_ids: set[int] = set()
+    observation = ReviewObservation(candidate, HoldReason.MISSING_REVIEW)
     try:
         if not _matches_candidate(read(pull_url), candidate):
             return ReviewObservation(candidate, HoldReason.HEAD_CHANGED)
-        for each_page in range(1, MAX_PAGES + 1):
-            all_reviews = read(
-                f"{pull_url}/reviews?per_page={PAGE_SIZE}&page={each_page}"
-            )
-            if not isinstance(all_reviews, list):
-                reason = HoldReason.INCOMPLETE_READ
-                break
-            for each_review in all_reviews:
-                if not isinstance(each_review, Mapping):
-                    reason = HoldReason.INCOMPLETE_READ
-                    break
-                review_id = each_review.get("id")
-                commit_id = each_review.get("commit_id")
-                if type(review_id) is not int or review_id <= 0:
-                    reason = HoldReason.INCOMPLETE_READ
-                    break
-                if review_id in review_by_id and review_by_id[review_id] != each_review:
-                    reason = HoldReason.CONFLICTING_EVIDENCE
-                    break
-                review_by_id[review_id] = each_review
-                if commit_id == candidate.head_sha:
-                    all_current_ids.add(review_id)
-                    has_codex_findings = (
-                        has_codex_findings or _is_submitted_codex_findings(each_review)
-                    )
-            if reason in (HoldReason.INCOMPLETE_READ, HoldReason.CONFLICTING_EVIDENCE):
-                break
-            if len(all_reviews) < PAGE_SIZE:
-                reason = (
-                    HoldReason.REVIEW_FINDINGS
-                    if has_codex_findings
-                    else HoldReason.NATIVE_FORMAT_UNVERIFIED
-                    if all_current_ids
-                    else HoldReason.STALE_REVIEW
-                    if review_by_id
-                    else HoldReason.MISSING_REVIEW
-                )
-                break
-        else:
-            reason = HoldReason.INCOMPLETE_READ
-        if reason is HoldReason.MISSING_REVIEW:
-            comments_url = (
-                f"{GITHUB_API_ROOT}/repos/{candidate.repository}/issues/"
-                f"{candidate.pull_request}/comments"
-            )
-            seen_comments: dict[int, Mapping[str, object]] = {}
-            for page in range(1, MAX_PAGES + 1):
-                comments = read(f"{comments_url}?per_page={PAGE_SIZE}&page={page}")
-                if not isinstance(comments, list):
-                    reason = HoldReason.INCOMPLETE_READ
-                    break
-                for comment in comments:
-                    if not isinstance(comment, Mapping):
-                        reason = HoldReason.INCOMPLETE_READ
-                        break
-                    comment_id = comment.get("id")
-                    if type(comment_id) is not int or comment_id <= 0:
-                        reason = HoldReason.INCOMPLETE_READ
-                        break
-                    if (
-                        comment_id in seen_comments
-                        and seen_comments[comment_id] != comment
-                    ):
-                        reason = HoldReason.CONFLICTING_EVIDENCE
-                        break
-                    seen_comments[comment_id] = comment
-                if reason in (
-                    HoldReason.INCOMPLETE_READ,
-                    HoldReason.CONFLICTING_EVIDENCE,
-                ):
-                    break
-                if len(comments) < PAGE_SIZE:
-                    for comment in seen_comments.values():
-                        author = comment.get("user")
-                        body = comment.get("body")
-                        if (
-                            isinstance(author, Mapping)
-                            and author.get("login") == CODEX_REVIEWER_LOGIN
-                            and isinstance(body, str)
-                            and body.startswith(
-                                "You have reached your Codex usage limits for code reviews."
-                            )
-                        ):
-                            reason = HoldReason.QUOTA_NOTICE
-                            quota_ids.add(comment["id"])
-                    break
-            else:
-                reason = HoldReason.INCOMPLETE_READ
+        try:
+            observation = _stable_observation(candidate, read, pull_url)
+        except _EvidenceReadRunFatal as failure:
+            observation = ReviewObservation(candidate, failure.reason)
         if not _matches_candidate(read(pull_url), candidate):
-            reason = HoldReason.HEAD_CHANGED
+            return ReviewObservation(candidate, HoldReason.HEAD_CHANGED)
     except TimeoutError:
-        reason = HoldReason.READ_TIMEOUT
+        return ReviewObservation(candidate, HoldReason.READ_TIMEOUT)
     except (GitHubError, OSError):
-        reason = HoldReason.READ_UNAVAILABLE
-    return ReviewObservation(
-        candidate, reason, tuple(sorted(all_current_ids)), tuple(sorted(quota_ids))
-    )
+        return ReviewObservation(candidate, HoldReason.READ_UNAVAILABLE)
+    return observation
+
+
+def _observation_document(observation: ReviewObservation) -> dict[str, object]:
+    candidate = observation.candidate
+    return {
+        "repository": candidate.repository,
+        "pull_request": candidate.pull_request,
+        "head_sha": candidate.head_sha,
+        "admission": "hold",
+        "reason": observation.reason.value,
+        "evidence_ids": observation.evidence_ids,
+        "quota_notice_ids": observation.quota_notice_ids,
+    }
+
+
+def _parse_candidate(all_arguments: Sequence[str]) -> Candidate:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("repository")
+    parser.add_argument("pull_request", type=int)
+    parser.add_argument("head_sha")
+    parsed = parser.parse_args(all_arguments)
+    return Candidate(parsed.repository, parsed.pull_request, parsed.head_sha)
 
 
 def main(all_arguments: Sequence[str]) -> int:
@@ -228,13 +250,8 @@ def main(all_arguments: Sequence[str]) -> int:
     Returns:
         One for a hold, or two when the read is unavailable.
     """
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("repository")
-    parser.add_argument("pull_request", type=int)
-    parser.add_argument("head_sha")
-    parsed = parser.parse_args(all_arguments)
     try:
-        candidate = Candidate(parsed.repository, parsed.pull_request, parsed.head_sha)
+        candidate = _parse_candidate(all_arguments)
         token = github_token()
     except (ValueError, GitHubError) as failure:
         print(str(failure), file=sys.stderr)
@@ -244,19 +261,7 @@ def main(all_arguments: Sequence[str]) -> int:
         return request_json("GET", url, token, None)
 
     observation = observe_codex_review(candidate, read)
-    print(
-        json.dumps(
-            {
-                "repository": candidate.repository,
-                "pull_request": candidate.pull_request,
-                "head_sha": candidate.head_sha,
-                "admission": "hold",
-                "reason": observation.reason.value,
-                "evidence_ids": observation.evidence_ids,
-                "quota_notice_ids": observation.quota_notice_ids,
-            }
-        )
-    )
+    print(json.dumps(_observation_document(observation)))
     return (
         UNAVAILABLE_EXIT_CODE
         if observation.reason in (HoldReason.READ_TIMEOUT, HoldReason.READ_UNAVAILABLE)

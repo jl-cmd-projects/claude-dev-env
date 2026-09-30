@@ -9,3 +9,8 @@ HOLD_EXIT_CODE = 1
 UNAVAILABLE_EXIT_CODE = 2
 CODEX_REVIEWER_LOGIN = "chatgpt-codex-connector[bot]"
 CODEX_FINDINGS_PREFIX = "Here are some automated review suggestions"
+
+PULL_URL = GITHUB_API_ROOT + "/repos/{repository}/pulls/{number}"
+COMMENTS_URL = GITHUB_API_ROOT + "/repos/{repository}/issues/{number}/comments"
+REVIEWS_SUFFIX = "/reviews"
+CODEX_QUOTA_PREFIX = "You have reached your Codex usage limits for code reviews."
