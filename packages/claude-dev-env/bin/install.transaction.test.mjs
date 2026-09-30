@@ -373,7 +373,13 @@ test('installer fault after_settings_write restores prior settings and files', (
         const { claudeDirectory, rulesFile } = seedPriorInstall(homeDirectory);
         const priorSettings = readFileSync(join(claudeDirectory, 'settings.json'), 'utf8');
         const codexHooksPath = join(homeDirectory, '.codex', 'hooks.json');
-        writeFileWithParents(codexHooksPath, '{"hooks":{"PreToolUse":[{"matcher":"custom"}]}}\n');
+        writeFileWithParents(codexHooksPath, JSON.stringify({
+            enabled: false,
+            hooks: {
+                PreToolUse: [{ matcher: 'custom' }],
+                SessionEnd: [{ hooks: [{ type: 'command', command: `python "${join(homeDirectory, '.codex', 'hooks', 'lifecycle', 'session_end_cleanup.py')}"` }] }],
+            },
+        }) + '\n');
         const priorCodexHooks = readFileSync(codexHooksPath, 'utf8');
 
         const failedRun = runInstaller(homeDirectory, [], {
