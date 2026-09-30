@@ -147,6 +147,7 @@ def test_cli_returns_nonzero_with_plausible_success(
         [
             {"number": 7, "head": {"sha": HEAD}},
             [{"id": 1, "commit_id": HEAD, "state": "APPROVED"}],
+            [],
             {"number": 7, "head": {"sha": HEAD}},
         ]
     )
@@ -166,6 +167,7 @@ def test_parent_verified_submitted_findings_hold() -> None:
         [
             {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
             [review],
+            [],
             {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
         ]
     )
@@ -188,6 +190,7 @@ def test_native_pilot_heading_preserves_findings_hold() -> None:
         [
             {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
             [review],
+            [],
             {"number": candidate.pull_request, "head": {"sha": candidate.head_sha}},
         ]
     )
@@ -259,21 +262,79 @@ def test_authentic_quota_comment_is_diagnostic_only(
         ({}, observer.HoldReason.INCOMPLETE_READ),
         ([None], observer.HoldReason.INCOMPLETE_READ),
         (TimeoutError(), observer.HoldReason.READ_TIMEOUT),
+        (GitHubError("comments unavailable"), observer.HoldReason.READ_UNAVAILABLE),
+        (OSError(), observer.HoldReason.READ_UNAVAILABLE),
     ],
 )
+@pytest.mark.parametrize("has_current_review", [False, True])
 def test_quota_comment_read_failure_holds(
-    response: object, reason: observer.HoldReason
+    response: object, reason: observer.HoldReason, has_current_review: bool
 ) -> None:
     def read(url: str) -> object:
         if "/reviews?" in url:
-            return []
+            return [{"id": 1, "commit_id": HEAD}] if has_current_review else []
         if "/comments?" in url:
             if isinstance(response, Exception):
                 raise response
             return response
         return {"number": 7, "head": {"sha": HEAD}}
 
-    assert observer.observe_codex_review(CANDIDATE, read).reason is reason
+    observed = observer.observe_codex_review(CANDIDATE, read)
+    assert observed.reason is reason
+    assert observed.evidence_ids == ()
+    assert observed.quota_notice_ids == ()
+
+
+@pytest.mark.parametrize("has_findings", [False, True])
+@pytest.mark.parametrize("head_changes", [False, True])
+def test_current_review_preserves_historical_quota_notices(
+    has_findings: bool, head_changes: bool
+) -> None:
+    captured = json.loads(
+        (Path(__file__).parent / "fixtures/codex-pilot-findings.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    review = captured["review"]
+    if not has_findings:
+        review = {
+            "id": 42,
+            "commit_id": review["commit_id"],
+            "state": "APPROVED",
+            "user": {"login": "human-reviewer"},
+        }
+    candidate = observer.Candidate(
+        captured["repository"], captured["pull_request"], review["commit_id"]
+    )
+    comment = json.loads(
+        (Path(__file__).parent / "fixtures/codex-quota-credits-comment.json").read_text(
+            encoding="utf-8-sig"
+        )
+    )
+    all_heads = iter(
+        [candidate.head_sha, NEXT_HEAD if head_changes else candidate.head_sha]
+    )
+
+    def read(url: str) -> object:
+        if "/reviews?" in url:
+            return [review]
+        if "/comments?" in url:
+            return [comment]
+        return {"number": candidate.pull_request, "head": {"sha": next(all_heads)}}
+
+    observed = observer.observe_codex_review(candidate, read)
+    if head_changes:
+        assert observed.reason is observer.HoldReason.HEAD_CHANGED
+        assert observed.evidence_ids == ()
+        assert observed.quota_notice_ids == ()
+    else:
+        assert observed.reason is (
+            observer.HoldReason.REVIEW_FINDINGS
+            if has_findings
+            else observer.HoldReason.NATIVE_FORMAT_UNVERIFIED
+        )
+        assert observed.evidence_ids == (review["id"],)
+        assert observed.quota_notice_ids == (5902483341,)
 
 
 def test_quota_after_stale_review_remains_diagnostic_hold() -> None:
