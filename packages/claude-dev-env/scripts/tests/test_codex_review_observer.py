@@ -186,9 +186,14 @@ def test_findings_text_from_wrong_actor_stays_unsupported() -> None:
 
 
 @pytest.mark.parametrize("actor", [observer.CODEX_REVIEWER_LOGIN, "other-user"])
-def test_authentic_quota_comment_is_diagnostic_only(actor: str) -> None:
+@pytest.mark.parametrize(
+    "fixture_name", ["codex-quota-comment.json", "codex-quota-credits-comment.json"]
+)
+def test_authentic_quota_comment_is_diagnostic_only(
+    actor: str, fixture_name: str
+) -> None:
     comment = json.loads(
-        (Path(__file__).parent / "fixtures/codex-quota-comment.json").read_text(
+        (Path(__file__).parent / "fixtures" / fixture_name).read_text(
             encoding="utf-8-sig"
         )
     )
@@ -209,7 +214,7 @@ def test_authentic_quota_comment_is_diagnostic_only(actor: str) -> None:
     )
     assert observed.evidence_ids == ()
     assert observed.quota_notice_ids == (
-        (5901476928,) if actor == observer.CODEX_REVIEWER_LOGIN else ()
+        (comment["id"],) if actor == observer.CODEX_REVIEWER_LOGIN else ()
     )
 
 
