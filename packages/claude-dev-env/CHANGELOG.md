@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.26.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.3...claude-dev-env-v8.26.4) (2026-09-30)
+
+
+### Documentation
+
+* **skills:** write diff-grounded PR descriptions ([255c698](https://github.com/jl-cmd/claude-dev-env/commit/255c698268844018dc06750bde399f8f7402dec0))
+
+## [8.26.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.2...claude-dev-env-v8.26.3) (2026-09-30)
+
+
+### Tests
+
+* add bounded review evaluation suite ([108ab8a](https://github.com/jl-cmd/claude-dev-env/commit/108ab8a45a066d7415560c140a14f33960d9f16a))
+
 ## [8.26.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.1...claude-dev-env-v8.26.2) (2026-09-29)
 
 

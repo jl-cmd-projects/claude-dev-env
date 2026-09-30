@@ -105,6 +105,20 @@ Check each behavior claim against the final diff and verification evidence.
 Preserve whether a rule is added, removed, or narrowed, and distinguish tests
 added from tests run. Refresh these claims after a rebase or correction.
 
+Open with the concrete problem and resulting behavior in one or two short
+paragraphs of plain prose. Write for a reviewer who has not read the worker's
+conversation. Include only claims supported by the final diff. State commands,
+results, and material limits under `## Verification`.
+
+Keep substantive review and test evidence. Put extensive logs, raw diffs, token
+counts, and agent transcripts in an existing linked artifact or a closed
+`<details>` section after the primary explanation. Let justified evidence grow
+without a total-length cap. A collapsed transcript still needs a useful opening.
+
+Load a repository's PR-description skill and run the checker command it supplies.
+Apply these steps to automated publishers too. A green code check proves no
+description claim by itself.
+
 ### 3. Run the local linter
 
 Resolve the active managed root (`CLAUDE_CONFIG_DIR` when set, `~/.claude`
@@ -158,6 +172,8 @@ without exposing author values.
 
 Confirm the published claims still describe the verified head and preserve the
 scope of its evidence, including whether checks used saved artifacts or a new run.
+Read the remote opening with evidence sections collapsed. Confirm that it explains
+the change on its own and that the evidence links lead to the cited results.
 
 ## Exit handling
 

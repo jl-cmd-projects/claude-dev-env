@@ -1,0 +1,6 @@
+{
+  "zero-bug": {"findings": [{"line": 2, "category": "falsy-zero", "failure_scenario": "Calling retries(0) returns 3 instead of 0, enabling three retries when the configured count disables retries."}]},
+  "zero-clean": {"findings": []},
+  "catch-bug": {"findings": [{"line": 5, "category": "swallowed-error", "failure_scenario": "Calling parse(\"abc\") makes int(value) raise ValueError, but the catch returns 0 instead of propagating ValueError as the contract requires."}]},
+  "catch-clean": {"findings": []}
+}
