@@ -98,3 +98,16 @@ def test_trace_and_saved_response_must_match():
     RUN.validate_trace(events, {"findings": []})
     with pytest.raises(ValueError):
         RUN.validate_trace(events, {"findings": [finding()]})
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [],
+        [{"status": "infra_error"}],
+        [{"status": "output_error"}],
+        [{"status": "scored", "grade": {"pass": False}}],
+    ],
+)
+def test_unsuccessful_evaluation_exits_nonzero(rows):
+    assert RUN.evaluation_exit_code(rows) == 1

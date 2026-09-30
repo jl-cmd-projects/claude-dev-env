@@ -295,6 +295,7 @@ def main():
     )
     parser.add_argument("--limit", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--max-seconds", type=int, default=180)
     parser.add_argument("--model", default="gpt-6.1-sol")
     parser.add_argument("--effort", default="low")
     parser.add_argument("--codex", default="codex")
@@ -339,8 +340,14 @@ def main():
             )
         )
         return
-    if args.limit < 1 or args.limit > 16 or args.timeout < 1 or args.timeout > 180:
-        parser.error("limit must be 1..16 and timeout 1..180")
+    if (
+        args.limit < 1
+        or args.limit > 16
+        or args.timeout < 1
+        or args.timeout > 180
+        or not 1 <= args.max_seconds <= 600
+    ):
+        parser.error("limit must be 1..16, timeout 1..180, and max-seconds 1..600")
     if args.output.exists():
         parser.error("output must be a new directory; avoid mixing runs")
     recipe = (ROOT.parents[2] / "e-code-review" / "reference" / "low.md").read_text(
@@ -358,9 +365,22 @@ def main():
     )
     if args.mode == "replay" and responses is None:
         parser.error("replay requires --responses")
+    deadline = time.monotonic() + args.max_seconds
     for case in selected:
         if args.mode == "live":
-            row = execute(case, args, args.output, recipe)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                row = {
+                    "id": case["id"],
+                    "split": case["split"],
+                    "mode": "fresh_recipe_with_fixture",
+                    "status": "infra_error",
+                    "failure": "batch_timeout",
+                }
+            else:
+                case_args = argparse.Namespace(**vars(args))
+                case_args.timeout = min(args.timeout, remaining)
+                row = execute(case, case_args, args.output, recipe)
         else:
             row = {"id": case["id"], "split": case["split"], "mode": "stored_replay"}
             try:
@@ -375,6 +395,7 @@ def main():
     summary = {
         "mode": args.mode,
         "dataset_sha256": digest((ROOT / "cases.json").read_bytes()),
+        "runner_sha256": digest(Path(__file__).read_bytes()),
         "recipe_sha256": digest(recipe.encode()),
         "summary": summarize(rows),
         "by_split": {
@@ -387,6 +408,15 @@ def main():
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "cost_usd": None,
     }
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    summary["environment"]["source_revision"] = revision.stdout.strip()
     if args.mode == "live":
         version = subprocess.run(
             [args.codex, "--version"],
@@ -400,7 +430,17 @@ def main():
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(summary, indent=2))
+    return evaluation_exit_code(rows)
+
+
+def evaluation_exit_code(rows):
+    return (
+        0
+        if rows
+        and all(row["status"] == "scored" and row["grade"]["pass"] for row in rows)
+        else 1
+    )
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
