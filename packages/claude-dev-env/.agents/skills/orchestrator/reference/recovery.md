@@ -14,7 +14,7 @@ Keep each root's goals, workers, approvals, and schedules separate.
 
 Read the selected run record, task authority, and referenced assignments or evidence needed for the next decision.
 Use the stable run path even when a pstack latest pointer names another root.
-An optional pstack checkpoint is a dated snapshot, not an active-root registry or task authority.
+An optional pstack checkpoint is a dated snapshot. Use the registry and task authority for current state.
 
 If the locator is missing, use an exact run path in current instructions, the user message, or verified runtime startup data.
 Inspect existing project run directories for recovery evidence before creating a new run.
@@ -30,7 +30,7 @@ An import into a replacement store requires evidence that two parents will not w
 Check the current checkout, artifact revisions, worker listings, and pending actions through available read tools.
 Record observation times. Reconcile mismatches in the task authority, then refresh the derived follow list.
 Completed worker output still needs the parent's acceptance review.
-Reopen a stale completion claim when its evidence no longer covers the current artifact.
+Reopen a stale completion claim when its evidence fails to cover the current artifact.
 
 Unknown liveness keeps the existing owner and its path reservation.
 Use available status or contact tools within their authorization limits to seek evidence.
@@ -41,7 +41,7 @@ Parent takeover follows the same rule. Context loss alone does not end the previ
 
 Restore pending approvals with their source, scope, and pending action.
 Keep an unanswered decision pending even when a checkpoint suggests a default.
-Previously granted authorization carries forward only within its recorded scope and current rules.
+Granted authorization carries forward only within its recorded scope and current rules.
 When the source is unavailable, continue independent preparation and recover the source before the dependent action.
 
 Compare every goal's acceptance conditions with its task evidence.

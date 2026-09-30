@@ -41,7 +41,7 @@ Record the parent's coordination task there alongside implementation, review, an
 When host task tools are absent, reuse the configured file-ledger adapter.
 This package provides `scripts/grok_run_ledger.py`; the installed shared copy is `.agents/scripts/grok_run_ledger.py`.
 Locate that file in the current installation before selecting it.
-It exposes the Python `GrokRunLedger` API, not a command-line task manager.
+It exposes only the Python `GrokRunLedger` API.
 Use its existing supported caller or Python API and preserve its schema and transition rules.
 Its tests are `scripts/test_grok_run_ledger.py` in the package.
 The API covers task IDs, dependencies, ownership, review evidence, and completion.

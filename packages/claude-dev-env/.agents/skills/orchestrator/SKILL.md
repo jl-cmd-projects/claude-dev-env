@@ -66,7 +66,7 @@ If neither is usable, preserve the recovery record, report the missing tracker, 
 Keep each user goal's source wording, constraints, acceptance evidence, priority, and linked task IDs.
 Give the parent its own task and follow-up entry with a next action and waiting condition.
 Derive the short follow list from the task authority and linked run metadata.
-Include the parent, active workers, dependencies, and evidence pointers. It is a view, not another writable task store.
+Include the parent, active workers, dependencies, and evidence pointers. Keep this view read-only.
 
 ### Sort each input
 
