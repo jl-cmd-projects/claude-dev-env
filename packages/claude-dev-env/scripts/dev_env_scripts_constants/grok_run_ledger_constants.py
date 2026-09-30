@@ -20,6 +20,9 @@ TASK_STATUS_IN_PROGRESS: str = "in_progress"
 TASK_STATUS_COMPLETED: str = "completed"
 """Task reached a successful terminal state."""
 
+TASK_STATUS_CANCELLED: str = "cancelled"
+"""Task stopped after caller-authorized cancellation and owner termination."""
+
 TASK_STATUS_ADVISOR_BLOCKED: str = "advisor_blocked"
 """Task stopped because the advisor bind or verdict failed closed."""
 
@@ -31,11 +34,22 @@ ALL_LEGAL_TASK_STATUSES: frozenset[str] = frozenset(
         TASK_STATUS_PENDING,
         TASK_STATUS_IN_PROGRESS,
         TASK_STATUS_COMPLETED,
+        TASK_STATUS_CANCELLED,
         TASK_STATUS_ADVISOR_BLOCKED,
         TASK_STATUS_PENDING_REVIEW,
     }
 )
 """Every legal task status the ledger accepts."""
+
+ALL_CANCELLABLE_TASK_STATUSES: frozenset[str] = frozenset(
+    {
+        TASK_STATUS_PENDING,
+        TASK_STATUS_IN_PROGRESS,
+        TASK_STATUS_ADVISOR_BLOCKED,
+        TASK_STATUS_PENDING_REVIEW,
+    }
+)
+"""Task states that permit terminal cancellation."""
 
 UTF8_ENCODING: str = "utf-8"
 """Text encoding for ledger and patch-manifest files."""

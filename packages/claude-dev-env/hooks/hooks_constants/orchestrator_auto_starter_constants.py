@@ -16,7 +16,8 @@ ALL_ORCHESTRATOR_STARTER_ENABLED_ENV_VALUES: frozenset[str] = frozenset(
 ORCHESTRATOR_STARTER_TIMEOUT_MILLISECONDS: int = 50
 
 ORCHESTRATOR_SESSION_START_DIRECTIVE: str = (
-    "SessionStart orchestrator opt-in is active. Load the orchestrator skill "
-    "and run in executor-advisor mode for this session's multi-step work. "
-    "Do not invent a second orchestrator path; follow the skill."
+    "SessionStart orchestrator opt-in is active. Load the orchestrator skill. "
+    "Track this session's goals across inline and delegated work. "
+    "Recover saved state at startup, resume, and after compaction. "
+    "Keep context small by delegating bulky work when useful."
 )

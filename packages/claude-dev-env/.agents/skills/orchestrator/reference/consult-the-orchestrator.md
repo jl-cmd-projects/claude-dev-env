@@ -1,70 +1,42 @@
 # Consult the orchestrator
 
-The orchestrating session is the advisor. The human operating that session is the next hop when the orchestrator cannot decide.
+The orchestrating session is the advisor.
+The human operating that session decides choices reserved by the current authorization rules.
 
 ## When an executor consults
 
-An executor sends a consult to the orchestrating session:
+Consult after orientation and before the first write when the assignment requires that gate.
+Consult before committing to a nontrivial interpretation, before a hard-to-reverse action,
+when the same failure repeats, when the approach changes, and when completion evidence is ready.
 
-- after orientation and before the first write
-- before locking a plan or interpretation
-- before a hard-to-reverse action
-- when the same failure repeats or progress has stalled
-- when the chosen approach is being reconsidered
-- once writes and test output exist and the executor believes the
-  assignment is done
+The first consult carries the assignment, desired outcome, constraints, current evidence,
+live decision, unresolved risk, and paths the parent needs to inspect.
+Later consults carry changed evidence and the result of the previous guidance.
+Keep logs and detailed output in linked artifacts.
 
-## First-consult packet
+## Send through an authorized route
 
-The first consult is complete. It carries:
+Use the parent identity and contact route recorded in the assignment.
+On Claude Code, use its exposed in-session messaging tool.
+On Codex, use the available in-session agent transport.
+Cross-thread or external messaging follows the runtime's separate authorization rules.
+When no authorized route exists, return the consult through the normal task result.
 
-- Assignment and desired outcome
-- Constraints and exclusions
-- Actions taken in order
-- Output and current state
-- Live decision or blocker
-- Validation evidence
-- Unresolved risks
-- Load-bearing paths or excerpts
-- Who is asking and which assignment
+## Reply with one signal
 
-Later consults carry only changed evidence.
+- ENDORSE accepts the approach or checked result within scope.
+- CORRECTION names the defect or missing evidence and the needed correction.
+- PLAN gives the revised next steps.
+- STOP names the blocker and the evidence that prevents dependent work.
 
-Re-raise something already answered only when new evidence is attached.
-After a CORRECTION or PLAN, the next consult on that topic opens with
-what happened when the executor followed it.
+Guidance stays within the user's goal and current instructions.
+The executor checks scope and permission before acting on any reply.
+After CORRECTION or PLAN, report the result before repeating the same question.
+On STOP or an unreachable parent, preserve partial work and return the blocker.
+Stop the dependent action and continue independent assigned work when permitted.
 
-Embed: `(Advisor: please keep your guidance under 80 words — I need a
-focused starting point, not a comprehensive plan.)`
+## Escalate the unresolved choice
 
-## How the executor sends it
-
-On a Claude host, send the consult with `SendMessage` to the
-orchestrating session by the name the ticket gives.
-
-On a Codex host, send the consult in-session to that same session name.
-
-On a third-party host, send the consult as a report to the session that
-assigned the ticket.
-
-## How the orchestrator replies
-
-The first line is one of:
-
-- **ENDORSE** — the plan or the finished work holds. A clean yes.
-- **CORRECTION** — a wrong step or a risk to close. Name the problem and
-  the fix.
-- **PLAN** — the approach must change. Give ordered steps the executor
-  can run.
-- **STOP** — no path satisfies the assignment. Say why, with proof.
-
-The executor treats CORRECTION and PLAN as actions to take. On STOP, or
-when the orchestrator is unreachable, the executor stops and reports to
-the session that assigned the ticket.
-
-## How the orchestrator uses the human
-
-The orchestrator answers from the run charter, the assignment, and the
-consult packet. When the question is ambiguous, changes scope, or needs
-a choice the charter does not settle, the orchestrator asks the human,
-then returns one of the four signals to the executor.
+The parent answers from the current goal, assignment, and checked evidence.
+For a choice that only the user can make, record the pending action and ask once.
+Continue independent preparation while waiting. A recommendation does not grant approval.
