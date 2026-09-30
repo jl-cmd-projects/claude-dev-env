@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +46,9 @@ export function parseOptions(allArguments, environment = process.env) {
     if (!Number.isFinite(options.inactiveDays) || options.inactiveDays < 0) {
         throw new Error('--inactive-days must be a nonnegative number');
     }
+    if (Number.isNaN(new Date(Date.now() - options.inactiveDays * MILLISECONDS_PER_DAY).getTime())) {
+        throw new Error('--inactive-days must produce a valid cutoff date');
+    }
     for (const eachThreadId of options.excludedThreadIds) {
         if (!THREAD_ID_PATTERN.test(eachThreadId)) throw new Error('Invalid excluded thread ID');
     }
@@ -61,7 +64,17 @@ export function assertSelectedHome(serverHome, selectedHome) {
     throw new Error('Codex server home differs from selected home');
 }
 
-function findCodexPath(options, environment = process.env) {
+function isExecutableFile(executablePath) {
+    try {
+        if (!statSync(executablePath).isFile()) return false;
+        accessSync(executablePath, constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function findCodexPath(options, environment = process.env) {
     if (options.codexPath) {
         if (!existsSync(options.codexPath)) throw new Error(`Codex executable not found: ${options.codexPath}`);
         return options.codexPath;
@@ -73,7 +86,16 @@ function findCodexPath(options, environment = process.env) {
         join(options.home, 'packages', 'standalone', 'current', 'bin', executableName),
         environment.LOCALAPPDATA && join(environment.LOCALAPPDATA, 'Programs', 'OpenAI', 'Codex', 'bin', executableName),
     ].filter(Boolean);
-    const codexPath = allCandidates.find(eachPath => existsSync(eachPath));
+    const pathKey = process.platform === 'win32'
+        ? Object.keys(environment).find(eachKey => eachKey.toUpperCase() === 'PATH') : 'PATH';
+    for (const eachDirectory of (environment[pathKey] || '').split(delimiter).filter(Boolean)) {
+        allCandidates.push(join(eachDirectory, executableName));
+        if (process.platform === 'win32') {
+            allCandidates.push(join(eachDirectory, 'node_modules', '@openai', 'codex',
+                'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', executableName));
+        }
+    }
+    const codexPath = allCandidates.find(isExecutableFile);
     if (!codexPath) throw new Error('Codex executable not found; pass --codex-path');
     return codexPath;
 }
@@ -307,9 +329,8 @@ function findProtectedAncestors(allThreads, cutoffSeconds, excludedThreadIds) {
     return protectedIds;
 }
 
-export async function cleanseSessions(request, options, now = Date.now(), isHealthy = () => true) {
-    const cutoffSeconds = Math.floor((now - options.inactiveDays * MILLISECONDS_PER_DAY) / MILLISECONDS_PER_SECOND);
-    const report = {
+function createReport(options, cutoffSeconds) {
+    return {
         home: options.home,
         cutoff: new Date(cutoffSeconds * MILLISECONDS_PER_SECOND).toISOString(),
         scanned: 0,
@@ -319,6 +340,11 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
         skippedReasons: {},
         failed: [],
     };
+}
+
+export async function cleanseSessions(request, options, now = Date.now(), isHealthy = () => true) {
+    const cutoffSeconds = Math.floor((now - options.inactiveDays * MILLISECONDS_PER_DAY) / MILLISECONDS_PER_SECOND);
+    const report = createReport(options, cutoffSeconds);
     let listedThreads;
     try {
         listedThreads = await listThreads(request, false);
@@ -403,15 +429,20 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
 
 async function main() {
     const options = parseOptions(process.argv.slice(2));
-    const daemon = openDaemon(options);
+    const now = Date.now();
+    let daemon;
+    let report = createReport(options, Math.floor((now - options.inactiveDays * MILLISECONDS_PER_DAY) / MILLISECONDS_PER_SECOND));
     try {
+        daemon = openDaemon(options);
         await daemon.initialize();
-        const report = await cleanseSessions(daemon.request, options, Date.now(), daemon.isHealthy);
-        process.stdout.write(`${JSON.stringify(report)}\n`);
-        if (report.failed.length) process.exitCode = 1;
+        report = await cleanseSessions(daemon.request, options, now, daemon.isHealthy);
+    } catch (error) {
+        report.failed.push({ id: null, error: String(error.message || error) });
     } finally {
-        daemon.close();
+        daemon?.close();
     }
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+    if (report.failed.length) process.exitCode = 1;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {

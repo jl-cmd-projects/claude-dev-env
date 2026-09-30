@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { assertSelectedHome, cleanseSessions, parseOptions } from './cleanse.mjs';
+import * as cleanse from './cleanse.mjs';
 
 const now = Date.parse('2026-09-30T12:00:00.000Z');
 const cutoff = Math.floor((now - 7 * 86_400_000) / 1_000);
@@ -291,22 +292,24 @@ function assertCliTransportFailure(failureMethod) {
                 child.stdin = new Writable({ write(chunk, encoding, done) {
                     const message = JSON.parse(chunk.toString());
                     if (!message.id) return done();
-                    if (message.method === ${JSON.stringify(failureMethod)} && (message.method === 'thread/list' || message.params.threadId === allThreads[1].id)) {
+                    if (message.method === ${JSON.stringify(failureMethod)} && (message.method !== 'thread/archive' || message.params.threadId === allThreads[1].id)) {
                         child.exitCode = 7;
                         child.emit('exit', 7);
                         return done();
                     }
                     let reply = {};
-                    if (message.method === 'initialize') reply = { codexHome: ${JSON.stringify(home)} };
+                    if (message.method === 'initialize') reply = { codexHome: ${JSON.stringify(failureMethod === 'wrong-home' ? tmpdir() : home)} };
+                    if (message.method === 'thread/archive') process.stderr.write('archive attempted\\n');
                     if (message.method === 'thread/list') reply = { data: message.params.ancestorThreadId ? [] : allThreads };
                     if (message.method === 'thread/read') reply = { thread: allThreads.find(eachThread => eachThread.id === message.params.threadId) };
                     child.stdout.write(JSON.stringify({ id: message.id, result: reply }) + '\\n');
                     done();
                 }});
+                child.stdin.on('finish', () => process.stderr.write('daemon closed\\n'));
                 return child;
             };
             syncBuiltinESMExports();
-            process.argv = [process.execPath, fileURLToPath(${JSON.stringify(scriptUrl)}), '--apply', '--codex-home', ${JSON.stringify(home)}, '--codex-path', process.execPath];
+            process.argv = [process.execPath, fileURLToPath(${JSON.stringify(scriptUrl)}), '--apply', '--codex-home', ${JSON.stringify(home)}, '--codex-path', ${failureMethod === 'missing-binary' ? JSON.stringify(join(home, 'missing')) : 'process.execPath'}];
             await import(${JSON.stringify(scriptUrl)});
         `;
         const execution = spawnSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8', timeout: 10_000 });
@@ -314,19 +317,59 @@ function assertCliTransportFailure(failureMethod) {
         const allLines = execution.stdout.trim().split('\n');
         assert.equal(allLines.length, 1);
         const report = JSON.parse(allLines[0]);
-        assert.deepEqual([report.scanned, report.eligible, report.archived], failureMethod === 'thread/list' ? [0, 0, 0] : [3, 2, 0]);
-        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), failureMethod === 'thread/list' ? [null] : [threadId(2), null, threadId(1), threadId(2)]);
-        assert.ok(report.failed.every(eachFailure => /exited with code 7/.test(eachFailure.error)));
+        const isArchiveFailure = failureMethod === 'thread/archive';
+        assert.deepEqual([report.scanned, report.eligible, report.archived], isArchiveFailure ? [3, 2, 0] : [0, 0, 0]);
+        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), isArchiveFailure ? [threadId(2), null, threadId(1), threadId(2)] : [null]);
+        const expectedError = failureMethod === 'wrong-home' ? /differs from selected home/ : failureMethod === 'missing-binary' ? /executable not found/ : /exited with code 7/;
+        assert.ok(report.failed.every(eachFailure => expectedError.test(eachFailure.error)));
+        if (!isArchiveFailure) assert.doesNotMatch(execution.stderr, /archive attempted/);
+        if (failureMethod !== 'missing-binary') assert.match(execution.stderr, /daemon closed/);
     } finally {
         rmSync(home, { recursive: true, force: true });
     }
 }
 
-for (const eachFailureMethod of ['thread/archive', 'thread/list']) {
+for (const eachFailureMethod of ['thread/archive', 'thread/list', 'initialize', 'wrong-home', 'missing-binary']) {
     test(`CLI emits one JSON report and exits unsuccessfully after ${eachFailureMethod} transport loss`, () => {
         assertCliTransportFailure(eachFailureMethod);
     });
 }
+
+test('native PATH discovery keeps explicit overrides and rejects missing explicit executables', () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-path-'));
+    try {
+        const executableName = process.platform === 'win32' ? 'codex.exe' : 'codex';
+        const binaryPath = join(home, executableName);
+        writeFileSync(binaryPath, 'fixture');
+        chmodSync(binaryPath, 0o755);
+        const environment = { [process.platform === 'win32' ? 'Path' : 'PATH']: home };
+        assert.equal(cleanse.findCodexPath(makeOptions({ home }), environment), binaryPath);
+        const standalonePath = join(home, 'packages', 'standalone', 'current', 'bin', executableName);
+        mkdirSync(dirname(standalonePath), { recursive: true });
+        writeFileSync(standalonePath, 'fixture');
+        chmodSync(standalonePath, 0o755);
+        assert.equal(cleanse.findCodexPath(makeOptions({ home }), environment), standalonePath);
+        rmSync(standalonePath);
+        assert.equal(cleanse.findCodexPath(makeOptions({ home, codexPath: process.execPath }), environment), process.execPath);
+        assert.throws(() => cleanse.findCodexPath(makeOptions({ home, codexPath: join(home, 'missing') }), environment), /executable not found/);
+        if (process.platform !== 'win32') {
+            chmodSync(binaryPath, 0o644);
+            assert.throws(() => cleanse.findCodexPath(makeOptions({ home }), environment), /executable not found/);
+        }
+        rmSync(binaryPath);
+        writeFileSync(join(home, 'codex.cmd'), 'fixture');
+        assert.throws(() => cleanse.findCodexPath(makeOptions({ home }), environment), /executable not found/);
+        if (process.platform === 'win32') {
+            const vendorPath = join(home, 'node_modules', '@openai', 'codex', 'node_modules', '@openai',
+                'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', executableName);
+            mkdirSync(dirname(vendorPath), { recursive: true });
+            writeFileSync(vendorPath, 'fixture');
+            assert.equal(cleanse.findCodexPath(makeOptions({ home }), environment), vendorPath);
+        }
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
 
 test('initial listing failure returns a report without archive requests', async () => {
     const allMethods = [];
@@ -378,6 +421,14 @@ test('hidden discovery transport failure retains the listed count and returns a 
     } finally {
         rmSync(home, { recursive: true, force: true });
     }
+});
+
+test('inactivity days reject cutoffs outside the supported date range', () => {
+    for (const eachInactiveDays of ['1e308', '1e9']) {
+        assert.throws(() => parseOptions(['--inactive-days', eachInactiveDays]), /valid cutoff date/);
+    }
+    assert.equal(parseOptions(['--inactive-days', '7']).inactiveDays, 7);
+    assert.equal(parseOptions(['--inactive-days', '0']).inactiveDays, 0);
 });
 
 test('every value-taking option rejects a following flag or end of arguments', () => {
