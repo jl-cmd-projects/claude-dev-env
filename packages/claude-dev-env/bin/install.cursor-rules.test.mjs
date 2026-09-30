@@ -239,6 +239,66 @@ test('reinstall moves the old routing hook and keeps user hooks', () => {
     }
 });
 
+test('Codex reinstall removes omitted package hooks and preserves user configuration', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-codex-migration-'));
+    try {
+        const codexHome = join(homeDirectory, 'custom-codex');
+        const codexHooksPath = join(codexHome, 'hooks.json');
+        const configPath = join(codexHome, 'config.toml');
+        const disabledConfig = '[features]\nhooks = false\n';
+        const allLegacyRegistrations = [
+            ['PreToolUse', 'Edit', '.claude', 'blocking/pre_tool_use_dispatcher.py'],
+            ['PreToolUse', 'Bash', '.agents', 'blocking/bash_pre_tool_use_dispatcher.py'],
+            ['SessionStart', '*', 'custom-codex', 'session/issue_tracker_session_starter.py'],
+            ['Stop', '*', '.claude', 'session/skill_loaded_reminder.py'],
+            ['SessionEnd', '*', 'custom-codex', 'lifecycle/session_end_cleanup.py'],
+        ];
+        const hooksByEvent = {};
+        for (const [event, matcher, root, script] of allLegacyRegistrations) {
+            hooksByEvent[event] ??= [];
+            hooksByEvent[event].push({
+                matcher,
+                metadata: 'keep-group',
+                hooks: [
+                    { type: 'command', command: `python "${join(homeDirectory, root, 'hooks', script)}"` },
+                    { type: 'command', command: `user-${event}-${matcher}`, timeout: 7 },
+                ],
+            });
+        }
+        const foreignCommand = `python "${join(homeDirectory, 'foreign', '.claude', 'hooks', 'blocking', 'pre_tool_use_dispatcher.py')}"`;
+        hooksByEvent.PreToolUse.push({ matcher: 'foreign', hooks: [{ type: 'command', command: foreignCommand }] });
+        const suffixCommand = `python "${join(codexHome, 'hooks', 'blocking', 'pre_tool_use_dispatcher.py.backup')}"`;
+        hooksByEvent.PreToolUse.push({ matcher: 'suffix', hooks: [{ type: 'command', command: suffixCommand }] });
+        hooksByEvent.CustomEvent = { metadata: 'keep-event' };
+        const expectedUserHooks = JSON.parse(JSON.stringify(hooksByEvent));
+        for (const eachGroup of Object.values(expectedUserHooks).flat()) {
+            if (eachGroup.hooks && eachGroup.metadata) eachGroup.hooks.shift();
+        }
+        hooksByEvent.LegacyValidator = [{ hooks: [{ type: 'command', command: 'python -c "sys.path.insert(0, __claude_dev_env_managed_hooks__); from validators.run_all_validators import main; main()"' }] }];
+        mkdirSync(codexHome, { recursive: true });
+        writeFileSync(configPath, disabledConfig);
+        writeFileSync(codexHooksPath, JSON.stringify({ enabled: false, metadata: 'keep-file', hooks: hooksByEvent }));
+
+        runInstaller(homeDirectory, ['--only', 'core'], { CODEX_HOME: codexHome });
+
+        const migratedHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
+        const allSpawnGroups = migratedHooks.hooks.PreToolUse.filter(eachGroup =>
+            ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
+        assert.equal(allSpawnGroups.length, 2);
+        migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
+        assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
+        assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
+        const firstInstall = readFileSync(codexHooksPath, 'utf8');
+        runInstaller(homeDirectory, ['--only', 'core'], { CODEX_HOME: codexHome });
+        assert.equal(readFileSync(codexHooksPath, 'utf8'), firstInstall);
+        const claudeSettings = JSON.parse(readFileSync(join(homeDirectory, '.claude', 'settings.json'), 'utf8'));
+        assert.ok(claudeSettings.hooks.SessionStart.length > 0);
+        assert.ok(claudeSettings.hooks.PreToolUse.some(eachGroup => eachGroup.matcher === 'Bash'));
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
 test('uninstall removes the routing hook and keeps a Codex user hook', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-routing-uninstall-'));
     try {
