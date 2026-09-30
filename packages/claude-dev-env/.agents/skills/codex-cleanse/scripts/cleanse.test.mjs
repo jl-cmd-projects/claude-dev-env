@@ -155,7 +155,7 @@ test('apply reads back earlier archives and stops after a rejected archive', asy
         const fixture = makeRequest(allThreads, new Set([threadId(2)]), new Set([threadId(1)]));
         const report = await cleanseSessions(fixture.request, makeOptions({ apply: true }), now);
         assert.equal(report.archived, 0);
-        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [threadId(2), threadId(1)]);
+        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [threadId(2), threadId(1), threadId(2)]);
         assert.deepEqual(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/archive')
             .map(eachCall => eachCall.params.threadId), [threadId(1), threadId(2)]);
         assert.equal(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/read'
@@ -251,6 +251,8 @@ test('transport loss preserves acknowledged archives as unverified and stops lat
     assert.deepEqual(allAttempts.filter(eachCall => eachCall.method === 'thread/archive')
         .map(eachCall => eachCall.params.threadId), [threadId(1), threadId(2)]);
     assert.ok(allAttempts.some(eachCall => eachCall.method === 'thread/list' && eachCall.params.archived));
+    assert.deepEqual(allAttempts.filter(eachCall => eachCall.method === 'thread/read')
+        .map(eachCall => eachCall.params.threadId), [threadId(1), threadId(2), threadId(1), threadId(2)]);
 });
 
 test('archived listing failure retains its error and verifies available per-thread readback', async () => {
@@ -270,7 +272,7 @@ test('archived listing failure retains its error and verifies available per-thre
     }
 });
 
-test('CLI emits one JSON report and exits unsuccessfully after an archive transport loss', () => {
+function assertCliTransportFailure(failureMethod) {
     const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-cli-'));
     try {
         const scriptUrl = new URL('./cleanse.mjs', import.meta.url).href;
@@ -289,7 +291,7 @@ test('CLI emits one JSON report and exits unsuccessfully after an archive transp
                 child.stdin = new Writable({ write(chunk, encoding, done) {
                     const message = JSON.parse(chunk.toString());
                     if (!message.id) return done();
-                    if (message.method === 'thread/archive' && message.params.threadId === allThreads[1].id) {
+                    if (message.method === ${JSON.stringify(failureMethod)} && (message.method === 'thread/list' || message.params.threadId === allThreads[1].id)) {
                         child.exitCode = 7;
                         child.emit('exit', 7);
                         return done();
@@ -312,9 +314,67 @@ test('CLI emits one JSON report and exits unsuccessfully after an archive transp
         const allLines = execution.stdout.trim().split('\n');
         assert.equal(allLines.length, 1);
         const report = JSON.parse(allLines[0]);
-        assert.deepEqual([report.scanned, report.eligible, report.archived], [3, 2, 0]);
-        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [threadId(2), null, threadId(1)]);
+        assert.deepEqual([report.scanned, report.eligible, report.archived], failureMethod === 'thread/list' ? [0, 0, 0] : [3, 2, 0]);
+        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), failureMethod === 'thread/list' ? [null] : [threadId(2), null, threadId(1), threadId(2)]);
         assert.ok(report.failed.every(eachFailure => /exited with code 7/.test(eachFailure.error)));
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+}
+
+for (const eachFailureMethod of ['thread/archive', 'thread/list']) {
+    test(`CLI emits one JSON report and exits unsuccessfully after ${eachFailureMethod} transport loss`, () => {
+        assertCliTransportFailure(eachFailureMethod);
+    });
+}
+
+test('initial listing failure returns a report without archive requests', async () => {
+    const allMethods = [];
+    const request = async method => {
+        allMethods.push(method);
+        throw new Error('initial listing failed');
+    };
+    const report = await cleanseSessions(request, makeOptions({ apply: true }), now);
+    assert.deepEqual([report.scanned, report.eligible, report.archived], [0, 0, 0]);
+    assert.deepEqual(report.failed, [{ id: null, error: 'initial listing failed' }]);
+    assert.deepEqual(allMethods, ['thread/list']);
+});
+
+test('lost archive reply still verifies the moved rollout and stops later writes', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-lost-reply-'));
+    try {
+        const allThreads = [1, 2].map(number => makeThread(number, cutoff - 1, { path: makeRollout(home, number) }));
+        const fixture = makeHiddenRequest(home, allThreads, new Set());
+        const request = async (method, params) => {
+            const reply = await fixture.request(method, params);
+            if (method === 'thread/archive') throw new Error('archive reply lost');
+            return reply;
+        };
+        const report = await cleanseSessions(request, makeOptions({ home, apply: true }), now);
+        assert.equal(report.archived, 1);
+        assert.deepEqual(report.failed, [{ id: threadId(1), error: 'archive reply lost' }]);
+        assert.deepEqual(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/archive')
+            .map(eachCall => eachCall.params.threadId), [threadId(1)]);
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test('hidden discovery transport failure retains the listed count and returns a failure report', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-discovery-'));
+    try {
+        makeRollout(home, 1);
+        const allMethods = [];
+        const request = async method => {
+            allMethods.push(method);
+            if (method === 'thread/read') throw new Error('discovery transport lost');
+            return { data: [makeThread(2, cutoff - 1)] };
+        };
+        const report = await cleanseSessions(request, makeOptions({ home, apply: true }), now, () => false);
+        assert.equal(report.scanned, 1);
+        assert.equal(report.archived, 0);
+        assert.deepEqual(report.failed, [{ id: threadId(1), error: 'discovery transport lost' }]);
+        assert.deepEqual(allMethods, ['thread/list', 'thread/read']);
     } finally {
         rmSync(home, { recursive: true, force: true });
     }
@@ -478,7 +538,7 @@ test('a hidden child archive failure stops its listed parent with an incomplete 
         };
         const report = await cleanseSessions(request, makeOptions({ home, apply: true }), now);
         assert.equal(report.archived, 0);
-        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [child.id]);
+        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [child.id, child.id]);
         assert.deepEqual(fixture.allCalls.filter(eachCall => eachCall.method === 'thread/archive')
             .map(eachCall => eachCall.params.threadId), [child.id]);
     } finally {

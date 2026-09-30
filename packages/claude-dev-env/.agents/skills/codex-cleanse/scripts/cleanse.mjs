@@ -228,8 +228,8 @@ async function discoverHiddenThreads(request, home, listedThreads, isHealthy) {
             }
             hiddenThreads.push(thread);
         } catch (error) {
-            if (!isHealthy()) throw error;
             failures.push({ id: eachThreadId, error: String(error.message || error) });
+            if (!isHealthy()) break;
         }
     }
     return { hiddenThreads, failures, emptyRolloutCount };
@@ -309,20 +309,30 @@ function findProtectedAncestors(allThreads, cutoffSeconds, excludedThreadIds) {
 
 export async function cleanseSessions(request, options, now = Date.now(), isHealthy = () => true) {
     const cutoffSeconds = Math.floor((now - options.inactiveDays * MILLISECONDS_PER_DAY) / MILLISECONDS_PER_SECOND);
-    const listedThreads = await listThreads(request, false);
-    const { hiddenThreads, failures, emptyRolloutCount } = await discoverHiddenThreads(
-        request, options.home, listedThreads, isHealthy);
-    const allThreads = [...hiddenThreads, ...listedThreads];
     const report = {
         home: options.home,
         cutoff: new Date(cutoffSeconds * MILLISECONDS_PER_SECOND).toISOString(),
-        scanned: allThreads.length + emptyRolloutCount,
+        scanned: 0,
         eligible: 0,
         archived: 0,
-        skipped: emptyRolloutCount,
-        skippedReasons: emptyRolloutCount ? { emptyRollout: emptyRolloutCount } : {},
-        failed: failures,
+        skipped: 0,
+        skippedReasons: {},
+        failed: [],
     };
+    let listedThreads;
+    try {
+        listedThreads = await listThreads(request, false);
+    } catch (error) {
+        report.failed.push({ id: null, error: String(error.message || error) });
+        return report;
+    }
+    const { hiddenThreads, failures, emptyRolloutCount } = await discoverHiddenThreads(
+        request, options.home, listedThreads, isHealthy);
+    const allThreads = [...hiddenThreads, ...listedThreads];
+    report.scanned = allThreads.length + emptyRolloutCount;
+    report.skipped = emptyRolloutCount;
+    report.skippedReasons = emptyRolloutCount ? { emptyRollout: emptyRolloutCount } : {};
+    report.failed = failures;
     const recordSkip = reason => {
         report.skipped += 1;
         report.skippedReasons[reason] = (report.skippedReasons[reason] || 0) + 1;
@@ -337,7 +347,7 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
         return report;
     }
     if (report.failed.length) return report;
-    const allArchivedIds = [];
+    const allAttemptedArchiveIds = [];
     for (const eachThread of sortChildrenBeforeParents(allThreads)) {
         if (report.failed.length) break;
         const reason = candidateReason(eachThread, cutoffSeconds, options.excludedThreadIds);
@@ -359,23 +369,23 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
                 continue;
             }
             report.eligible += 1;
+            allAttemptedArchiveIds.push(eachThread.id);
             await request('thread/archive', { threadId: eachThread.id });
-            allArchivedIds.push(eachThread.id);
-            if (allArchivedIds.length % 250 === 0) {
-                process.stderr.write(`Sent ${allArchivedIds.length} archive requests\n`);
+            if (allAttemptedArchiveIds.length % 250 === 0) {
+                process.stderr.write(`Sent ${allAttemptedArchiveIds.length} archive requests\n`);
             }
         } catch (error) {
             report.failed.push({ id: eachThread.id, error: String(error.message || error) });
         }
     }
-    if (allArchivedIds.length) {
+    if (allAttemptedArchiveIds.length) {
         const archivedIds = new Set();
         try {
             for (const eachThread of await listThreads(request, true)) archivedIds.add(eachThread.id);
         } catch (error) {
             report.failed.push({ id: null, error: String(error.message || error) });
         }
-        for (const eachThreadId of allArchivedIds) {
+        for (const eachThreadId of allAttemptedArchiveIds) {
             if (archivedIds.has(eachThreadId)) report.archived += 1;
             else {
                 try {
