@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,7 @@ import {
     MILLISECONDS_PER_SECOND,
     PAGE_SIZE,
     REQUEST_TIMEOUT_MILLISECONDS,
+    ROLLOUT_FILENAME_PATTERN,
     SOURCE_KINDS,
     THREAD_ID_PATTERN,
 } from '../config/constants.mjs';
@@ -39,7 +40,7 @@ export function parseOptions(allArguments, environment = process.env) {
         if (argument === '--inactive-days') options.inactiveDays = Number(argumentValue);
         else if (argument === '--codex-home') options.home = resolve(argumentValue);
         else if (argument === '--codex-path') options.codexPath = resolve(argumentValue);
-        else if (argument === '--exclude-thread-id') options.excludedThreadIds.add(argumentValue);
+        else if (argument === '--exclude-thread-id') options.excludedThreadIds.add(argumentValue.toLowerCase());
         else throw new Error(`Unknown option: ${argument}`);
     }
     if (!Number.isFinite(options.inactiveDays) || options.inactiveDays < 0) {
@@ -163,9 +164,92 @@ async function listThreads(request, archived, filters = {}) {
     return allThreads;
 }
 
+function discoverRolloutPaths(home) {
+    const sessionsDirectory = join(home, 'sessions');
+    const pathById = new Map();
+    const failures = [];
+    const allDirectories = [sessionsDirectory];
+    try {
+        if (!lstatSync(sessionsDirectory).isDirectory()) throw new Error('Sessions path is not a directory');
+    } catch (error) {
+        if (error.code === 'ENOENT') return { pathById, failures };
+        return { pathById, failures: [{ id: null, error: String(error.message || error) }] };
+    }
+    while (allDirectories.length) {
+        const directory = allDirectories.pop();
+        let allEntries;
+        try { allEntries = readdirSync(directory, { withFileTypes: true }); }
+        catch (error) {
+            failures.push({ id: null, error: String(error.message || error) });
+            continue;
+        }
+        for (const eachEntry of allEntries) {
+            if (eachEntry.isSymbolicLink()) continue;
+            const entryPath = join(directory, eachEntry.name);
+            if (eachEntry.isDirectory()) allDirectories.push(entryPath);
+            if (!eachEntry.isFile()) continue;
+            const threadId = ROLLOUT_FILENAME_PATTERN.exec(eachEntry.name)?.[1]?.toLowerCase();
+            if (!threadId) continue;
+            if (pathById.has(threadId)) {
+                failures.push({ id: threadId, error: 'Duplicate rollout ID under sessions' });
+                continue;
+            }
+            pathById.set(threadId, entryPath);
+        }
+    }
+    return { pathById, failures };
+}
+
+function isSameCanonicalPath(leftPath, rightPath) {
+    const left = realpathSync.native(leftPath);
+    const right = realpathSync.native(rightPath);
+    return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+async function discoverHiddenThreads(request, home, listedThreads, isHealthy) {
+    const { pathById, failures } = discoverRolloutPaths(home);
+    const listedIds = new Set(listedThreads.map(eachThread => eachThread.id.toLowerCase()));
+    const hiddenThreads = [];
+    let emptyRolloutCount = 0;
+    for (const [eachThreadId, rolloutPath] of pathById) {
+        if (listedIds.has(eachThreadId)) continue;
+        try {
+            if (statSync(rolloutPath).size === 0) {
+                emptyRolloutCount += 1;
+                continue;
+            }
+            const thread = (await request('thread/read', { threadId: eachThreadId, includeTurns: false })).thread;
+            if (thread?.id?.toLowerCase() !== eachThreadId || !thread.path
+                || !isSameCanonicalPath(thread.path, rolloutPath)) {
+                throw new Error('Native thread metadata differs from discovered rollout');
+            }
+            hiddenThreads.push(thread);
+        } catch (error) {
+            if (!isHealthy()) throw error;
+            failures.push({ id: eachThreadId, error: String(error.message || error) });
+        }
+    }
+    return { hiddenThreads, failures, emptyRolloutCount };
+}
+
+function isArchivedReadback(thread, threadId, home) {
+    if (thread?.id !== threadId || !thread.path) return false;
+    if (ROLLOUT_FILENAME_PATTERN.exec(basename(thread.path))?.[1]?.toLowerCase() !== threadId.toLowerCase()) return false;
+    try {
+        const archiveDirectory = realpathSync.native(join(home, 'archived_sessions'));
+        const archivedPath = realpathSync.native(thread.path);
+        const pathWithinArchive = relative(archiveDirectory, archivedPath);
+        return pathWithinArchive !== '' && pathWithinArchive !== '..'
+            && !pathWithinArchive.startsWith(`..${sep}`) && !isAbsolute(pathWithinArchive)
+            && statSync(archivedPath).isFile();
+    } catch {
+        return false;
+    }
+}
+
 function ineligibilityReason(thread, cutoffSeconds, excludedThreadIds) {
     if (!THREAD_ID_PATTERN.test(thread?.id)) return 'invalidId';
-    if (excludedThreadIds.has(thread.id)) return 'excluded';
+    if (excludedThreadIds.has(thread.id.toLowerCase())) return 'excluded';
     if (thread.ephemeral) return 'ephemeral';
     if (!Number.isSafeInteger(thread.updatedAt) || thread.updatedAt <= 0) return 'unknownActivity';
     if (thread.updatedAt > cutoffSeconds) return 'recent';
@@ -174,17 +258,20 @@ function ineligibilityReason(thread, cutoffSeconds, excludedThreadIds) {
     return null;
 }
 
-function isEligible(thread, cutoffSeconds, excludedThreadIds) {
-    return ineligibilityReason(thread, cutoffSeconds, excludedThreadIds) === null;
-}
-
 function rolloutWriteReason(thread, cutoffMilliseconds) {
     if (!thread.path) return null;
     try {
-        return statSync(thread.path).mtimeMs > cutoffMilliseconds ? 'recentRolloutWrite' : null;
+        const fileStatus = statSync(thread.path);
+        if (fileStatus.size === 0) return 'emptyRollout';
+        return fileStatus.mtimeMs > cutoffMilliseconds ? 'recentRolloutWrite' : null;
     } catch {
         return 'missingRollout';
     }
+}
+
+function candidateReason(thread, cutoffSeconds, excludedThreadIds) {
+    return ineligibilityReason(thread, cutoffSeconds, excludedThreadIds)
+        || rolloutWriteReason(thread, cutoffSeconds * MILLISECONDS_PER_SECOND);
 }
 
 function sortChildrenBeforeParents(allThreads) {
@@ -207,7 +294,7 @@ function findProtectedAncestors(allThreads, cutoffSeconds, excludedThreadIds) {
     const threadById = new Map(allThreads.map(eachThread => [eachThread.id, eachThread]));
     const protectedIds = new Set();
     for (const eachThread of allThreads) {
-        if (isEligible(eachThread, cutoffSeconds, excludedThreadIds)) continue;
+        if (!candidateReason(eachThread, cutoffSeconds, excludedThreadIds)) continue;
         let parentId = eachThread.parentThreadId;
         while (parentId && !protectedIds.has(parentId)) {
             protectedIds.add(parentId);
@@ -219,16 +306,19 @@ function findProtectedAncestors(allThreads, cutoffSeconds, excludedThreadIds) {
 
 export async function cleanseSessions(request, options, now = Date.now(), isHealthy = () => true) {
     const cutoffSeconds = Math.floor((now - options.inactiveDays * MILLISECONDS_PER_DAY) / MILLISECONDS_PER_SECOND);
-    const allThreads = await listThreads(request, false);
+    const listedThreads = await listThreads(request, false);
+    const { hiddenThreads, failures, emptyRolloutCount } = await discoverHiddenThreads(
+        request, options.home, listedThreads, isHealthy);
+    const allThreads = [...hiddenThreads, ...listedThreads];
     const report = {
         home: options.home,
         cutoff: new Date(cutoffSeconds * MILLISECONDS_PER_SECOND).toISOString(),
-        scanned: allThreads.length,
+        scanned: allThreads.length + emptyRolloutCount,
         eligible: 0,
         archived: 0,
-        skipped: 0,
-        skippedReasons: {},
-        failed: [],
+        skipped: emptyRolloutCount,
+        skippedReasons: emptyRolloutCount ? { emptyRollout: emptyRolloutCount } : {},
+        failed: failures,
     };
     const recordSkip = reason => {
         report.skipped += 1;
@@ -237,15 +327,17 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
     const protectedIds = findProtectedAncestors(allThreads, cutoffSeconds, options.excludedThreadIds);
     if (!options.apply) {
         for (const eachThread of allThreads) {
-            const reason = ineligibilityReason(eachThread, cutoffSeconds, options.excludedThreadIds);
+            const reason = candidateReason(eachThread, cutoffSeconds, options.excludedThreadIds);
             if (reason || protectedIds.has(eachThread.id)) recordSkip(reason || 'descendant');
             else report.eligible += 1;
         }
         return report;
     }
+    if (report.failed.length) return report;
     const allArchivedIds = [];
     for (const eachThread of sortChildrenBeforeParents(allThreads)) {
-        const reason = ineligibilityReason(eachThread, cutoffSeconds, options.excludedThreadIds);
+        if (report.failed.length) break;
+        const reason = candidateReason(eachThread, cutoffSeconds, options.excludedThreadIds);
         if (reason || protectedIds.has(eachThread.id)) {
             recordSkip(reason || 'descendant');
             continue;
@@ -278,7 +370,16 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
         const archivedIds = new Set((await listThreads(request, true)).map(eachThread => eachThread.id));
         for (const eachThreadId of allArchivedIds) {
             if (archivedIds.has(eachThreadId)) report.archived += 1;
-            else report.failed.push({ id: eachThreadId, error: 'Archive readback missing' });
+            else {
+                try {
+                    const thread = (await request('thread/read', { threadId: eachThreadId, includeTurns: false })).thread;
+                    if (isArchivedReadback(thread, eachThreadId, options.home)) report.archived += 1;
+                    else report.failed.push({ id: eachThreadId, error: 'Archive readback missing' });
+                } catch (error) {
+                    if (!isHealthy()) throw error;
+                    report.failed.push({ id: eachThreadId, error: String(error.message || error) });
+                }
+            }
         }
     }
     return report;

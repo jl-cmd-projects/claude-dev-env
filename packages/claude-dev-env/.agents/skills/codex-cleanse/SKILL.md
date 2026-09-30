@@ -21,7 +21,15 @@ node scripts/cleanse.mjs --stdio --codex-home <absolute path> --apply
 
 The default cutoff is seven days. `--inactive-days <number>` changes it. When the local Codex app's task listing is available, repeat `--exclude-thread-id <UUID>` for the current task and each active desktop task. Run the command on demand when the user requests archiving. The command starts a separate local app-server process and cannot see other clients' runtime status. It checks the stored activity time and rollout file modification time before each archive request.
 
-The command reads the selected home's state database through `thread/list`, including all local source kinds. It re-reads each candidate, checks its rollout file modification time and unarchived descendants, and calls `thread/archive` for eligible leaves before parents. It confirms archived IDs through a final archived listing. It writes one JSON report to stdout and progress to stderr. A failed archive or readback exits with a nonzero status.
+The command lists indexed sessions through `thread/list` and discovers other session IDs from rollout filenames under the selected home's `sessions` directory.
+It reads their metadata through `thread/read` without opening conversation content.
+It re-reads each candidate, checks its activity time, rollout file modification time, exclusions, and unarchived descendants, then calls `thread/archive` for eligible leaves before parents.
+It confirms archived IDs through a final archived listing or a native read of the archived path for sessions omitted from that listing.
+It writes one JSON report to stdout and progress to stderr.
+Zero-byte rollout files count as `emptyRollout` skips because the native API cannot read their metadata.
+Discovery failures stop archive writes and exit with a nonzero status.
+An archive candidate failure stops later archive requests. Earlier requests still receive readback.
+Archive and readback failures remain in the report and produce a nonzero exit status.
 
 After a successful apply run archives sessions, refresh the active task exclusions and run again. Stop when a successful run reports zero archives.
 
