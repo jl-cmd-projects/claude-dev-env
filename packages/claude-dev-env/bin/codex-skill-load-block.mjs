@@ -8,6 +8,8 @@ export const SKILL_LOAD_INSTRUCTION = 'Load the pstack:poteto-mode skill before 
     + 'including a helper started with spawn_agent, whatever its task message says.';
 export const PACKAGE_GUIDANCE_BLOCK_START = '<!-- claude-dev-env package guidance: start -->';
 export const PACKAGE_GUIDANCE_BLOCK_END = '<!-- claude-dev-env package guidance: end -->';
+export const QUESTION_PRESENTATION_BLOCK_START = '<!-- claude-dev-env question presentation: start -->';
+export const QUESTION_PRESENTATION_BLOCK_END = '<!-- claude-dev-env question presentation: end -->';
 
 const WINDOWS_LONG_PATH_PREFIX = '\\\\?\\';
 
@@ -17,9 +19,10 @@ function managedBlock(blockStart, blockBody, blockEnd) {
 }
 
 function withBlockReplaced(guidanceText, blockStart, blockEnd, block) {
-    const startIndex = guidanceText.indexOf(blockStart);
-    const endIndex = startIndex === -1 ? -1 : guidanceText.indexOf(blockEnd, startIndex);
+    const firstStartIndex = guidanceText.indexOf(blockStart);
+    const endIndex = firstStartIndex === -1 ? -1 : guidanceText.indexOf(blockEnd, firstStartIndex);
     if (endIndex === -1) return null;
+    const startIndex = guidanceText.lastIndexOf(blockStart, endIndex);
     let afterBlockIndex = endIndex + blockEnd.length;
     if (guidanceText[afterBlockIndex] === '\n') afterBlockIndex += 1;
     return guidanceText.slice(0, startIndex) + block + guidanceText.slice(afterBlockIndex);
@@ -90,4 +93,29 @@ export function writeCodexAgentsGuidance(codexHome, packageGuidanceText, allPack
     if (isPackageGuidanceLink) unlinkSync(agentsPath);
     writeFileSync(agentsPath, updatedText, 'utf8');
     return agentsPath;
+}
+
+export function writeCodexQuestionGuidance(codexHome, policyText) {
+    const agentsPath = join(codexHome, 'AGENTS.md');
+    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (agentsEntry && !agentsEntry.isFile()) return null;
+    const currentText = agentsEntry ? readFileSync(agentsPath, 'utf8') : '';
+    const block = managedBlock(QUESTION_PRESENTATION_BLOCK_START, policyText, QUESTION_PRESENTATION_BLOCK_END);
+    const replacedText = withBlockReplaced(
+        currentText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, block,
+    );
+    const separator = currentText && !currentText.endsWith('\n') ? '\n\n' : currentText ? '\n' : '';
+    const updatedText = replacedText ?? `${currentText}${separator}${block}`;
+    if (updatedText === currentText) return null;
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(agentsPath, updatedText, 'utf8');
+    return agentsPath;
+}
+
+export function hasOnlyQuestionPresentationBlock(guidanceText) {
+    if (!guidanceText.startsWith(`${QUESTION_PRESENTATION_BLOCK_START}\n`)) return false;
+    if (!guidanceText.endsWith(`${QUESTION_PRESENTATION_BLOCK_END}\n`)) return false;
+    return withBlockReplaced(
+        guidanceText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, '',
+    ) === '';
 }

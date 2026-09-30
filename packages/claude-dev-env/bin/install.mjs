@@ -52,7 +52,7 @@ import {
     shouldInstallPstackPlugin,
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
-import { writeCodexAgentsGuidance } from './codex-skill-load-block.mjs';
+import { writeCodexAgentsGuidance, writeCodexQuestionGuidance } from './codex-skill-load-block.mjs';
 import {
     continuityHostConfigurationPaths,
     removeContinuityHooks,
@@ -2493,15 +2493,6 @@ function install(selectedGroups, options = {}) {
     executeInstallPlan(plan);
 }
 
-/**
- * Apply one preflighted installation plan inside a snapshot/restore transaction.
- *
- * Captures the prior managed installation before any purge or write, then
- * restores settings, manifest, managed files, and core.hooksPath on failure.
- *
- * @param {ReturnType<typeof buildInstallPlan>} plan
- * @returns {void}
- */
 function executeInstallPlan(plan) {
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
@@ -2509,7 +2500,10 @@ function executeInstallPlan(plan) {
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
         additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
-        priorManifestFiles: plan.priorManifest.files,
+        priorManifestFiles: [
+            ...(plan.priorManifest.files || []),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
+        ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
 
@@ -2536,16 +2530,6 @@ function executeInstallPlan(plan) {
     }
 }
 
-/**
- * Mutation body for one preflighted plan. Invoked inside the transaction wrapper.
- *
- * @param {ReturnType<typeof buildInstallPlan>} plan
- * @param {{
- *   throwIfFault: (phase: string) => void,
- *   syncWrittenPaths: (allPaths: string[]) => void,
- * }} transactionHelpers
- * @returns {void}
- */
 function executeInstallPlanMutations(plan, transactionHelpers) {
     const { throwIfFault, syncWrittenPaths } = transactionHelpers;
     const priorSettingsHookCommands = [
@@ -2606,6 +2590,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     ];
 
     const allInstalledFiles = [];
+    const allQuestionGuidancePaths = [];
     const allUserOwnedPreferencePaths = new Set();
     const summary = {};
     for (const directory of CONTENT_DIRECTORIES) {
@@ -2785,7 +2770,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 : `  Pstack (${eachHost.host}): ${eachHost.status}`);
         }
     }
-    syncWrittenPaths([...allInstalledFiles, ...publishedPointerPaths]);
+    if (!selectedGroups) {
+        const questionGuidancePath = writeCodexQuestionGuidance(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
+        );
+        if (questionGuidancePath) allQuestionGuidancePaths.push(questionGuidancePath);
+    }
+    syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
     throwIfFault(FAULT_PHASES.BEFORE_DURABLE_PROMOTION);
     const shouldInstallAnyHooks = shouldInstallAllHooks || (allowedHookFiles && allowedHookFiles.size > 0);
@@ -2826,7 +2818,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         summary.hookGroups = totalHookGroups;
         summary.codexHookGroups = totalCodexHookGroups;
         console.log(`  Hook groups: ${totalHookGroups} merged into settings.json, ${totalCodexHookGroups} merged into hooks.json`);
-        syncWrittenPaths([...allInstalledFiles, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
         console.warn(
@@ -2848,7 +2840,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.warn(`  Git hooks: ${gitHookInstallationResult.hooksPathConfigurationResult.reason}`);
         }
         console.log(`  Git hook shims: ${gitHookInstallationResult.createdShimPaths.length} files (${KNOWN_GIT_HOOK_NAMES.join(', ')})`);
-        syncWrittenPaths([...allInstalledFiles, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_GIT_CONFIG);
         throwIfFault(FAULT_PHASES.AFTER_LINK_PUBLICATION);
 
@@ -2868,7 +2860,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.warn(`      ${mypyIniInstallResult.expectedLine}`);
         }
     } else {
-        syncWrittenPaths([...allInstalledFiles, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
         throwIfFault(FAULT_PHASES.AFTER_GIT_CONFIG);
         throwIfFault(FAULT_PHASES.AFTER_LINK_PUBLICATION);
@@ -2956,7 +2948,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         ? manifestFilesWithFailedPrunes(allManagedInstalledFiles, failedPrunePaths)
         : unionOnComparisonKey(priorManifestFiles || [], allManagedInstalledFiles);
     writeManifest(manifestFiles, manifestSkillNames, summary.managedPermissions.managedPermissions);
-    syncWrittenPaths([...allInstalledFiles, MANIFEST_FILE, plan.settingsPath, ...publishedPointerPaths]);
+    syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, MANIFEST_FILE, plan.settingsPath, ...publishedPointerPaths]);
     throwIfFault(FAULT_PHASES.AFTER_MANIFEST_WRITE);
     console.log(`\nInstalled ${PACKAGE_NAME}:`);
     for (const directory of CONTENT_DIRECTORIES) {

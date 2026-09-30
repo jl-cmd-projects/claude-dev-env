@@ -2,19 +2,23 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import {
     PACKAGE_GUIDANCE_BLOCK_END,
     PACKAGE_GUIDANCE_BLOCK_START,
+    QUESTION_PRESENTATION_BLOCK_END,
+    QUESTION_PRESENTATION_BLOCK_START,
     SKILL_LOAD_BLOCK_END,
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
     withSkillLoadBlock,
     writeCodexAgentsGuidance,
+    writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
 
 const EXPECTED_BLOCK = `${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n${SKILL_LOAD_BLOCK_END}\n`;
 const PACKAGE_GUIDANCE = 'Status\n\nChanged / proof / blocked.\n';
+const QUESTION_POLICY = '# Present questions clearly\n\nAsk one question.\n';
 
 function guidanceBlock(guidanceText) {
     return `${PACKAGE_GUIDANCE_BLOCK_START}\n${guidanceText}${PACKAGE_GUIDANCE_BLOCK_END}\n`;
@@ -131,4 +135,73 @@ test('a link to a file the package does not own is left alone', (context) => {
     assert.equal(writeGuidance(homes), null);
     assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
     assert.equal(readFileSync(ownGuidancePath, 'utf8'), 'My own Codex notes\n');
+});
+
+test('question guidance creates a missing Codex file and repeat writes preserve bytes', (context) => {
+    const homes = makeHomes(context);
+    const expectedBlock = `${QUESTION_PRESENTATION_BLOCK_START}\n${QUESTION_POLICY}${QUESTION_PRESENTATION_BLOCK_END}\n`;
+
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), homes.agentsPath);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), expectedBlock);
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), null);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), expectedBlock);
+});
+
+test('question guidance preserves custom text and replaces only its block', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    const oldBlock = `${QUESTION_PRESENTATION_BLOCK_START}\nOld policy\n${QUESTION_PRESENTATION_BLOCK_END}\n`;
+    writeFileSync(homes.agentsPath, `Before\n${oldBlock}After\n`);
+
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), homes.agentsPath);
+    assert.equal(
+        readFileSync(homes.agentsPath, 'utf8'),
+        `Before\n${QUESTION_PRESENTATION_BLOCK_START}\n${QUESTION_POLICY}${QUESTION_PRESENTATION_BLOCK_END}\nAfter\n`,
+    );
+});
+
+test('question guidance appends after custom notes without changing them', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    writeFileSync(homes.agentsPath, 'My notes without a final newline');
+
+    writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY);
+
+    assert.ok(readFileSync(homes.agentsPath, 'utf8').startsWith('My notes without a final newline\n\n'));
+});
+
+test('question guidance leaves every symlink and its target unchanged', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    mkdirSync(dirname(homes.sharedGuidancePath), { recursive: true });
+    writeFileSync(homes.sharedGuidancePath, 'Shared notes\n');
+    symlinkSync(homes.sharedGuidancePath, homes.agentsPath);
+
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), null);
+    assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
+    assert.equal(readFileSync(homes.sharedGuidancePath, 'utf8'), 'Shared notes\n');
+});
+
+test('question guidance leaves an existing directory and its notes unchanged', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.agentsPath, { recursive: true });
+    const notesPath = join(homes.agentsPath, 'notes.md');
+    writeFileSync(notesPath, 'Directory notes\n');
+
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), null);
+    assert.equal(lstatSync(homes.agentsPath).isDirectory(), true);
+    assert.equal(readFileSync(notesPath, 'utf8'), 'Directory notes\n');
+});
+
+test('a stray question start marker does not consume notes on repeat writes', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    const customNotes = `${QUESTION_PRESENTATION_BLOCK_START}\nIncomplete block\nMy notes\n`;
+    writeFileSync(homes.agentsPath, customNotes);
+
+    writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY);
+    const firstGuidance = readFileSync(homes.agentsPath, 'utf8');
+    assert.ok(firstGuidance.startsWith(customNotes));
+    assert.equal(writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY), null);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), firstGuidance);
 });
