@@ -179,16 +179,17 @@ def _stable_observation(
 ) -> ReviewObservation:
     all_reviews = _read_collection(pull_url + REVIEWS_SUFFIX, read)
     observation = _review_observation(candidate, all_reviews)
-    if observation.reason in (HoldReason.MISSING_REVIEW, HoldReason.STALE_REVIEW):
-        comments_url = COMMENTS_URL.format(
-            repository=candidate.repository, number=candidate.pull_request
-        )
-        all_quota_ids = _quota_notice_ids(_read_collection(comments_url, read))
-        if all_quota_ids:
-            observation = ReviewObservation(
-                candidate, HoldReason.QUOTA_NOTICE, (), all_quota_ids
-            )
-    return observation
+    comments_url = COMMENTS_URL.format(
+        repository=candidate.repository, number=candidate.pull_request
+    )
+    all_quota_ids = _quota_notice_ids(_read_collection(comments_url, read))
+    reason = observation.reason
+    if all_quota_ids and reason in (
+        HoldReason.MISSING_REVIEW,
+        HoldReason.STALE_REVIEW,
+    ):
+        reason = HoldReason.QUOTA_NOTICE
+    return ReviewObservation(candidate, reason, observation.evidence_ids, all_quota_ids)
 
 
 def _transport_failure_reason(failure: BaseException) -> HoldReason:
