@@ -26,8 +26,17 @@ Run `codex-compat bridge --surface <name> --payload '<json-object>'`. The bridge
 
 The package installer seeds `subagent-model-policy.json` in the agents-home
 `rules/` directory when the file is absent. It registers one `PreToolUse` group
-for `multi_agent_v1__spawn_agent` in `$CODEX_HOME/hooks.json`. Existing Codex
-hook groups stay in place. Claude-only hook groups do not enter the Codex file.
+for `multi_agent_v1__spawn_agent` and one for `Agent|Task` in `$CODEX_HOME/hooks.json`.
+Before adding these groups, the installer removes obsolete package-owned hook
+registrations from every event. Custom hook entries and Codex's enabled or
+disabled hook settings stay unchanged. Claude-only hook groups do not enter the
+Codex file.
+
+A detached Windows Codex daemon can open a console for each background command.
+If this happens, run local interactive sessions with `codex --no-daemon` and keep
+`codex exec` commands unchanged. [Codex issue #44768](https://github.com/openai/codex/issues/44768)
+describes the symptom. [PR #49164](https://github.com/openai/codex/pull/49164)
+adds the upstream console fix.
 
 Edit the installed policy file to change the next routing decision. The resolver
 loads that path for each invocation.
