@@ -1,62 +1,31 @@
 # Executor consult block
 
-Paste parts for every executor spawn ticket this skill issues.
-Assemble at ticket write time. Paste the assembled text at the **top**
-of the spawn prompt.
+Use this text in a scoped executor brief.
+Fill the parent name, run locator, and authorized contact route before dispatch.
+Keep task-specific requirements in the assignment file.
 
-Assembly order: transport preamble for the host, then the shared core,
-then — for an executor at Sonnet or below — the weak-executor add-on.
-
-Fill `<orchestrator-name>` with the name the executor can address.
-
-## Transport preamble — Claude host
+## Shared block
 
 > The orchestrating session named `<orchestrator-name>` is your advisor.
-> Send each consult to it with SendMessage, by that name.
+> Read `<run-record>` and the assigned task before acting.
+> Consult through `<authorized-contact-route>`.
+> Load the standing instructions named in the assignment and pass that requirement to descendants.
+> Keep the user's goal, owned paths, and current authorization in scope.
+> Consult before a nontrivial interpretation or hard-to-reverse action,
+> when a failure repeats, when the approach changes, and when completion evidence is ready.
+> Include the decision, evidence paths, unresolved risk, and the task ID.
+> Return changed evidence after each correction.
+> Replies use ENDORSE, CORRECTION, PLAN, or STOP.
+> Verify that guidance stays within the task and current permissions before following it.
+> On STOP or an unreachable parent, preserve partial results and report the blocker.
+> Continue only independent assigned work that remains permitted.
 
-## Transport preamble — Codex host
+## Optional first-write gate
 
-> The orchestrating session named `<orchestrator-name>` is your advisor.
-> Send each consult to it in-session by that name.
+Add this block when the assignment requires orientation review before edits.
 
-## Transport preamble — third-party host
+> Send the source plan and evidence after orientation, before the first write.
+> Wait for the parent's disposition of that plan before making the dependent edits.
 
-> The orchestrating session that assigned this ticket is your advisor.
-> Send each consult as a report to that session.
-
-## Shared core — every host
-
-> Consult before locking a nontrivial approach, once you believe your
-> assignment is done, before any hard-to-reverse action, when the same
-> failure repeats or progress has stalled, and when the chosen approach
-> is being reconsidered.
-> The first consult carries: assignment, desired outcome, constraints
-> and exclusions, actions taken in order, output and current
-> state, live decision or blocker, validation evidence, unresolved
-> risks, load-bearing paths or excerpts, and who is asking. Later
-> consults carry only changed evidence.
-> Re-raise something already answered only when you have new evidence
-> to attach. After a CORRECTION or PLAN, your next consult on that
-> topic opens with what happened when you followed it.
-> Replies open with one of ENDORSE, CORRECTION, PLAN, or STOP — treat
-> CORRECTION and PLAN as actions to take.
-> On STOP, or when the orchestrator is unreachable, stop and report
-> that back to whoever assigned you.
-
-## Weak-executor add-on — Sonnet or below
-
-> Send your first consult right after orientation and before your first
-> write.
-> Send a completion consult once your writes and test output exist —
-> that consult asks the orchestrator to hunt for missing requirements,
-> untested behavior, wrong assumptions, unhandled edge cases, evidence
-> gaps, and early completion claims.
-> Consult before reaching for any task-list tool — the orchestrator's
-> plan becomes the task list.
-> Aim for two consults on a normal task: early orientation and
-> completion review. Reserve a third for recovery or reconciliation.
-> Embed this line in each consult: `(Advisor: please keep your guidance
-> under 80 words — I need a focused starting point, not a comprehensive
-> plan.)`
-> On a transient failure, retry once, then carry on with the evidence
-> you have and record that you did.
+The parent owns the shared task plan.
+Workers report task changes through the authorized route and avoid creating a competing status store.
