@@ -53,9 +53,12 @@ export function parseOptions(allArguments, environment = process.env) {
 }
 
 export function assertSelectedHome(serverHome, selectedHome) {
-    if (resolve(serverHome || '') !== resolve(selectedHome)) {
-        throw new Error('Codex server home differs from selected home');
+    try {
+        if (serverHome && isSameCanonicalPath(serverHome, selectedHome)) return;
+    } catch (error) {
+        throw new Error('Codex server home differs from selected home', { cause: error });
     }
+    throw new Error('Codex server home differs from selected home');
 }
 
 function findCodexPath(options, environment = process.env) {
@@ -362,12 +365,16 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
                 process.stderr.write(`Sent ${allArchivedIds.length} archive requests\n`);
             }
         } catch (error) {
-            if (!isHealthy()) throw error;
             report.failed.push({ id: eachThread.id, error: String(error.message || error) });
         }
     }
     if (allArchivedIds.length) {
-        const archivedIds = new Set((await listThreads(request, true)).map(eachThread => eachThread.id));
+        const archivedIds = new Set();
+        try {
+            for (const eachThread of await listThreads(request, true)) archivedIds.add(eachThread.id);
+        } catch (error) {
+            report.failed.push({ id: null, error: String(error.message || error) });
+        }
         for (const eachThreadId of allArchivedIds) {
             if (archivedIds.has(eachThreadId)) report.archived += 1;
             else {
@@ -376,7 +383,6 @@ export async function cleanseSessions(request, options, now = Date.now(), isHeal
                     if (isArchivedReadback(thread, eachThreadId, options.home)) report.archived += 1;
                     else report.failed.push({ id: eachThreadId, error: 'Archive readback missing' });
                 } catch (error) {
-                    if (!isHealthy()) throw error;
                     report.failed.push({ id: eachThreadId, error: String(error.message || error) });
                 }
             }

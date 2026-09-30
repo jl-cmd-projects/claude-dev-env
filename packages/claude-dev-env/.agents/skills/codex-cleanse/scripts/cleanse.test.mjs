@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
@@ -208,8 +209,115 @@ test('selected Codex home follows the flag before the environment and rejects a 
     const homeFromFlag = join(tmpdir(), 'account-b');
     const options = parseOptions(['--codex-home', homeFromFlag], { CODEX_HOME: homeFromEnvironment });
     assert.equal(options.home, homeFromFlag);
-    assert.doesNotThrow(() => assertSelectedHome(homeFromFlag, options.home));
     assert.throws(() => assertSelectedHome(homeFromEnvironment, options.home), /differs from selected home/);
+});
+
+test('selected home accepts a directory alias and rejects missing or different homes', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'codex-cleanse-home-'));
+    try {
+        const home = join(directory, 'account');
+        const alias = join(directory, 'alias');
+        const otherHome = join(directory, 'other');
+        mkdirSync(home);
+        mkdirSync(otherHome);
+        symlinkSync(home, alias, process.platform === 'win32' ? 'junction' : 'dir');
+        assert.doesNotThrow(() => assertSelectedHome(home, alias));
+        assert.doesNotThrow(() => assertSelectedHome(alias, home));
+        if (process.platform === 'win32') {
+            assert.doesNotThrow(() => assertSelectedHome(home.toUpperCase(), alias));
+        }
+        assert.throws(() => assertSelectedHome(otherHome, alias), /differs from selected home/);
+        assert.throws(() => assertSelectedHome(undefined, home));
+        assert.throws(() => assertSelectedHome(join(directory, 'missing'), home));
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('transport loss preserves acknowledged archives as unverified and stops later writes', async () => {
+    const fixture = makeRequest([1, 2, 3].map(number => makeThread(number, cutoff - 1)));
+    const allAttempts = [];
+    let isHealthy = true;
+    const request = async (method, params) => {
+        allAttempts.push({ method, params });
+        if (method === 'thread/archive' && params.threadId === threadId(2)) isHealthy = false;
+        if (!isHealthy) throw new Error('daemon exited');
+        return fixture.request(method, params);
+    };
+    const report = await cleanseSessions(request, makeOptions({ apply: true }), now, () => isHealthy);
+    assert.deepEqual([report.scanned, report.eligible, report.archived], [3, 2, 0]);
+    assert.ok(report.failed.some(eachFailure => eachFailure.id === threadId(2) && /daemon exited/.test(eachFailure.error)));
+    assert.ok(report.failed.some(eachFailure => eachFailure.id === threadId(1) && /daemon exited/.test(eachFailure.error)));
+    assert.deepEqual(allAttempts.filter(eachCall => eachCall.method === 'thread/archive')
+        .map(eachCall => eachCall.params.threadId), [threadId(1), threadId(2)]);
+    assert.ok(allAttempts.some(eachCall => eachCall.method === 'thread/list' && eachCall.params.archived));
+});
+
+test('archived listing failure retains its error and verifies available per-thread readback', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-readback-'));
+    try {
+        const orphan = makeThread(1, cutoff - 1, { path: makeRollout(home, 1) });
+        const fixture = makeHiddenRequest(home, [orphan], new Set());
+        const request = async (method, params) => {
+            if (method === 'thread/list' && params.archived) throw new Error('archived listing failed');
+            return fixture.request(method, params);
+        };
+        const report = await cleanseSessions(request, makeOptions({ home, apply: true }), now);
+        assert.equal(report.archived, 1);
+        assert.deepEqual(report.failed, [{ id: null, error: 'archived listing failed' }]);
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test('CLI emits one JSON report and exits unsuccessfully after an archive transport loss', () => {
+    const home = mkdtempSync(join(tmpdir(), 'codex-cleanse-cli-'));
+    try {
+        const scriptUrl = new URL('./cleanse.mjs', import.meta.url).href;
+        const program = `
+            import childProcess from 'node:child_process';
+            import { EventEmitter } from 'node:events';
+            import { syncBuiltinESMExports } from 'node:module';
+            import { PassThrough, Writable } from 'node:stream';
+            import { fileURLToPath } from 'node:url';
+            const allThreads = ${JSON.stringify([1, 2, 3].map(number => makeThread(number, 1)))};
+            childProcess.spawn = () => {
+                const child = new EventEmitter();
+                child.stdout = new PassThrough();
+                child.stderr = new PassThrough();
+                child.exitCode = null;
+                child.stdin = new Writable({ write(chunk, encoding, done) {
+                    const message = JSON.parse(chunk.toString());
+                    if (!message.id) return done();
+                    if (message.method === 'thread/archive' && message.params.threadId === allThreads[1].id) {
+                        child.exitCode = 7;
+                        child.emit('exit', 7);
+                        return done();
+                    }
+                    let reply = {};
+                    if (message.method === 'initialize') reply = { codexHome: ${JSON.stringify(home)} };
+                    if (message.method === 'thread/list') reply = { data: message.params.ancestorThreadId ? [] : allThreads };
+                    if (message.method === 'thread/read') reply = { thread: allThreads.find(eachThread => eachThread.id === message.params.threadId) };
+                    child.stdout.write(JSON.stringify({ id: message.id, result: reply }) + '\\n');
+                    done();
+                }});
+                return child;
+            };
+            syncBuiltinESMExports();
+            process.argv = [process.execPath, fileURLToPath(${JSON.stringify(scriptUrl)}), '--apply', '--codex-home', ${JSON.stringify(home)}, '--codex-path', process.execPath];
+            await import(${JSON.stringify(scriptUrl)});
+        `;
+        const execution = spawnSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8', timeout: 10_000 });
+        assert.equal(execution.status, 1, execution.stderr);
+        const allLines = execution.stdout.trim().split('\n');
+        assert.equal(allLines.length, 1);
+        const report = JSON.parse(allLines[0]);
+        assert.deepEqual([report.scanned, report.eligible, report.archived], [3, 2, 0]);
+        assert.deepEqual(report.failed.map(eachFailure => eachFailure.id), [threadId(2), null, threadId(1)]);
+        assert.ok(report.failed.every(eachFailure => /exited with code 7/.test(eachFailure.error)));
+    } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
 });
 
 test('every value-taking option rejects a following flag or end of arguments', () => {
