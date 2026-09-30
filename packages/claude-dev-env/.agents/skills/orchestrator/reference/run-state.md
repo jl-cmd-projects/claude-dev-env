@@ -1,5 +1,12 @@
 # Keep a recoverable run
 
+## Contents
+
+- [Discover every active root](#discover-every-active-root)
+- [Choose one task authority](#choose-one-task-authority)
+- [Preserve intent and follow-up metadata](#preserve-intent-and-follow-up-metadata)
+- [Task seeds](#task-seeds)
+
 ## Discover every active root
 
 Use the supplied project directory as the discovery root, even when workers use separate worktrees.
@@ -8,6 +15,11 @@ Each root owns one `<run-id>.md` locator there and one stable run directory.
 Choose a unique run ID before writing. Reuse an existing ID only after confirming ownership.
 The default run record is `<project-dir>/docs/plans/<run-id>/run.md`.
 Keep private run records out of published source and commits.
+In any Git checkout, verify both active and archived registry paths and run-state paths before writing private metadata.
+For each path inside the checkout, require `git check-ignore --no-index -- <path>` to confirm exclusion and `git ls-files -- <path>` to return no tracked files.
+If repository ignore rules are unavailable, use permitted exclusions in the file resolved by `git rev-parse --git-path info/exclude`.
+Alternatively, choose an ignored or external state location and record its exact pointer in loaded instructions.
+Tracked state requires an explicit disposition before further private writes. Ignore rules leave tracked files tracked.
 
 Each locator records these fields:
 
