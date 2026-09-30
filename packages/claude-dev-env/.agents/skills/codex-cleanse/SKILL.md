@@ -25,7 +25,7 @@ The command lists indexed sessions through `thread/list` and discovers other ses
 It reads their metadata through `thread/read` without opening conversation content.
 It re-reads each candidate, checks its activity time, rollout file modification time, exclusions, and unarchived descendants, then calls `thread/archive` for eligible leaves before parents.
 It confirms archived IDs through a final archived listing or a native read of the archived path for sessions omitted from that listing.
-It writes one JSON report to stdout and progress to stderr.
+After option parsing succeeds, the command writes one JSON report to stdout and progress to stderr. Option-parsing errors produce a stderr diagnostic and exit with code 1 before starting the Codex server.
 Zero-byte rollout files count as `emptyRollout` skips because the native API cannot read their metadata.
 Discovery failures stop archive writes and exit with a nonzero status.
 An archive candidate failure stops later archive requests. Earlier requests still receive readback.
