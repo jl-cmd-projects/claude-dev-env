@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.26.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.4...claude-dev-env-v8.26.5) (2026-09-30)
+
+
+### Refactoring
+
+* **skills:** rename evaluation skill to build-eval ([2300900](https://github.com/jl-cmd/claude-dev-env/commit/23009003ab8fc28e0f33f6b7b3f4a48605431b44))
+* **skills:** rename evaluation skill to build-eval ([6989f45](https://github.com/jl-cmd/claude-dev-env/commit/6989f45f2b60c5d51da10b74047ad6997827a992))
+
 ## [8.26.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.3...claude-dev-env-v8.26.4) (2026-09-30)
 
 
