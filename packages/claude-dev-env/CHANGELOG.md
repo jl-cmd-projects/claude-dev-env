@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.29.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.28.1...claude-dev-env-v8.29.0) (2026-09-30)
+
+
+### Features
+
+* **codex-cleanse:** archive inactive sessions ([581bacf](https://github.com/jl-cmd/claude-dev-env/commit/581bacf97c7cf763f39fab6202cc147930b1bb6c))
+
 ## [8.28.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.28.0...claude-dev-env-v8.28.1) (2026-09-30)
 
 
