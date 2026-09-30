@@ -40,6 +40,8 @@ Each level file reports through the ReportFindings tool. When the host has no Re
 
 Keep one coordinator responsible for native review requests. Record the request comment and full candidate head. Read raw GitHub review records to retain commit_id; normalized connector output can omit it. Completed reviews can contain findings. The quota_notice_ids field records historical usage-limit comments. Driver replies and resolved threads provide no clean completion proof.
 
+Use process-local GITHUB_TOKEN or GH_TOKEN authentication without printing credentials. A code-review usage-limit response stops further triggers until capacity is verified. Preserve the hold; review permission changes and credit purchases require separate authorization. Capture API bytes as UTF-8 before decoding them so Windows shell output encoding preserves review headings.
+
 Inspect a candidate from the shared source checkout:
 
 ```powershell
