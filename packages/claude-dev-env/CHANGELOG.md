@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.28.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.27.0...claude-dev-env-v8.28.0) (2026-09-30)
+
+
+### Features
+
+* export pstack skills for cloud repository discovery ([050c4c0](https://github.com/jl-cmd/claude-dev-env/commit/050c4c01e6d2fcb8e2bb223a96fcaa79b40cee00))
+
 ## [8.27.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.6...claude-dev-env-v8.27.0) (2026-09-30)
 
 
