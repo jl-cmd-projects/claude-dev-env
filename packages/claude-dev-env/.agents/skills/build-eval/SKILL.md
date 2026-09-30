@@ -1,5 +1,5 @@
 ---
-name: plugin-eval-standalone-skill
+name: build-eval
 description: >-
   Evaluate skills with a bounded direct Codex review suite or `claude plugin eval`.
   Use labeled inputs and deterministic grading for output correctness; use a plugin
@@ -7,7 +7,7 @@ description: >-
   Use when the user asks to eval or test a skill.
 ---
 
-# Plugin eval for a standalone skill
+# Build eval
 
 For building an evaluation of an AI workflow, follow [the design process](reference/build-evaluation.md).
 For a direct Codex output-quality evaluation, use [the review suite](evals/review/README.md).
@@ -100,7 +100,7 @@ Otherwise work the steps in order.
   and the `claude -p` recipe for flag-gated features.
 
 ```text
-plugin-eval-standalone-skill/
+build-eval/
 ├── SKILL.md
 └── reference/
     └── graders-and-commands.md

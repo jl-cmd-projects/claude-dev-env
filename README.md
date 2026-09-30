@@ -203,6 +203,7 @@ that carry them.
 
 | Skill | Purpose |
 |-------|---------|
+| `build-eval` | Evaluate skills with a direct Codex review suite or `claude plugin eval` |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
 | `eli5` | Beginner-friendly presentation with large visuals and minimal text |
@@ -212,7 +213,6 @@ that carry them.
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
-| `plugin-eval-standalone-skill` | Run `claude plugin eval` against a skill that is not a plugin |
 | `privacy-hygiene` | Full-repo sweep for personal data and secrets before a commit or post |
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |

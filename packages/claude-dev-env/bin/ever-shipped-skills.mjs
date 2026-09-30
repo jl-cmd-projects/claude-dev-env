@@ -7,6 +7,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'bdd-protocol',
     'beat-sheet',
     'bg-agent',
+    'build-eval',
     'build-goal-prompt',
     'bugteam',
     'caveman',
