@@ -48,6 +48,10 @@ with `--target DIR`, `--profile ID`, or the `CLAUDE_CONFIG_DIR` environment vari
 
 Start a new Claude Code session. You should see hook activity on your first prompt (code-rules-reminder, hook-structure-context). Run `/sr-loop` to confirm commands loaded.
 
+For ChatGPT Work Cloud, use the [cloud pstack startup verification](docs/references/cloud-pstack-startup.md).
+The local installer does not register skills with the cloud catalog or enable
+plugin shell hooks in cloud orchestration.
+
 ### Update
 
 Run the same command again. It overwrites existing files and updates hook entries in place:
@@ -203,6 +207,8 @@ that carry them.
 
 | Skill | Purpose |
 |-------|---------|
+| `build-eval` | Evaluate skills with a direct Codex review suite or `claude plugin eval` |
+| `codex-cleanse` | [Preview or archive local Codex sessions on demand after seven days without activity](packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md) |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
 | `eli5` | Beginner-friendly presentation with large visuals and minimal text |
@@ -212,7 +218,6 @@ that carry them.
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
-| `plugin-eval-standalone-skill` | Run `claude plugin eval` against a skill that is not a plugin |
 | `privacy-hygiene` | Full-repo sweep for personal data and secrets before a commit or post |
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |

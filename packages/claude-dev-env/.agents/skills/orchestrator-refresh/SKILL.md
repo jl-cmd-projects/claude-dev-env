@@ -1,135 +1,64 @@
 ---
 name: orchestrator-refresh
 description: >-
-  Refresh a running orchestrator loop when its one-shot delayed wake fires,
-  or when the user asks to refresh or re-arm the orchestrator. Terminates
-  when the status gate says stop.
+  Recover an existing orchestrator's goals, task ownership, and next actions.
+  Triggers: /orchestrator-refresh, refresh the orchestrator, resume coordination,
+  recover after compaction, recover an orchestration run.
 ---
 
-# Orchestrator Refresh
+# Refresh an orchestrator
 
-Name the session identity first (see
-[`../orchestrator/reference/host-detect.md`](../orchestrator/reference/host-detect.md)).
-Re-assert the discipline for that host only.
+## Principle
 
-## 0. status_gate first (deterministic)
-
-Script home (prefer install path, else package checkout):
-
-- `%USERPROFILE%/.claude/skills/orchestrator/scripts/status_gate.py`
-- `~/.claude/skills/orchestrator/scripts/status_gate.py`
-- `skills/orchestrator/scripts/status_gate.py`
-
-Pass the same `--run-slug` used at activate, if any.
-
-### 0a. begin-firing (consume prior re-arm)
-
-```
-python <status_gate.py> begin-firing [--run-slug SLUG]
-```
-
-| Exit | Action |
-|---|---|
-| **1** | End the refresh. Cancel matching host schedules for `/orchestrator-refresh` if the host allows. Report inactive/done. **Do not** re-arm. Do not spawn. Any work already in flight keeps running. |
-| **0** | Latch cleared. Continue with steps 1–6. |
-
-### 0b. Done after ledger (step 1)
-
-After ledger reconcile: if every task is completed/cancelled and no
-executor is running:
-
-```
-python <status_gate.py> set --status done [--run-slug SLUG]
-```
-
-Cancel matching host schedules; stop without re-arming.
-
-## The refresh never interrupts the run
-
-A refresh firing reinforces discipline alongside work already in flight.
-It never pauses, cancels, or waits on a running executor. Reconcile the
-ledger, re-assert the routing, re-arm once, and hand control straight back
-to the work in progress.
-
-Inside the re-arm protocol (step 6), every "stop" ends the *re-arm* and
-nothing else. A `should-reschedule` exit 1 means no schedule is created this
-firing, and a `claim-rearm` exit 1 means the schedule just created is
-cancelled; either way the session keeps orchestrating in the same turn.
-
-Two stops end the whole firing, and both leave running executors alone:
-`begin-firing` exit 1 (step 0a) and the done branch (step 0b). Each means the
-run is finished, not active, or has no readable status file, so the refresh
-reports and adds nothing further.
-
-## Discipline steps
-
-1. **Reconcile the task ledger first.** Read the ledger after the gate.
-   Use `TaskList` when the host exposes task tools, and the file-backed
-   `scripts/grok_run_ledger.py` ledger the orchestrator skill names otherwise.
-   The ledger is stale when any of these holds: a running or finished
-   executor has no `in_progress` task naming it as owner; a finished
-   executor's task is still open (or was closed without its result
-   merged); the next phase you will dispatch has no pending task; a
-   `blockedBy` link contradicts the run order. Fix every mismatch
-   in that same ledger during this firing.
-2. **You are the orchestrator.** Orchestrate and hold the user
-   conversation; spawn executor subagents for every code edit and build
-   or test run.
-   - **Worker model.** Every coding spawn sets `model: sonnet` on a
-     Claude host, or the resolver-printed sonnet-equivalent id on a
-     third-party host, and fails closed — see Workflow Agent Routing in
-     [`skills/orchestrator/SKILL.md`](../orchestrator/SKILL.md#workflow-agent-routing).
-     Advisor spawns use `flags: ["--advisor"]` only when they intentionally
-     select Astra.
-   - **Focused tickets.** One mechanical done-check per ticket; resume a
-     warm agent with a thin next-slice ticket rather than a fresh cold
-     spawn, and keep thick context in the assignment file.
-3. **This session is the advisor.** Executors consult here. Follow
-   [`../orchestrator/reference/consult-the-orchestrator.md`](../orchestrator/reference/consult-the-orchestrator.md).
-   Reply with ENDORSE / CORRECTION / PLAN / STOP. When this session
-   cannot settle a question, ask the human, then reply. Keep tool use
-   to orchestration and light verification reads.
-4. **Resume before you spawn.** `SendMessage` an existing *executor* by
-   name or `agentId` before a cold spawn.
-5. **Fresh spawn only for a task switch.** Never tell an agent
-   to compact for a clean context.
-6. **Single-pending re-arm only.** Same protocol as the orchestrator
-   skill (host-agnostic; **create then claim**):
-
-   1. Cancel matching schedules only when the host can list/cancel by
-      prompt (`/orchestrator-refresh` + `--run-slug` if used). On Claude,
-      skip selective cancel — the latch is the sole stacking enforcement.
-   2. `python <status_gate.py> should-reschedule [--run-slug SLUG]`
-      - Exit **1** → stop; do not schedule.
-      - Exit **0** → continue.
-   3. Create **exactly one** non-recurring delayed wake (~1200–2700s)
-      with prompt `/orchestrator-refresh` (plus `--run-slug` when used).
-      Host one-shot tool only (on Claude: `ScheduleWakeup`). Never
-      recurring / never cadence / never a second create this firing.
-   4. `python <status_gate.py> claim-rearm [--run-slug SLUG]` right
-      after a successful create. Exit 1 → cancel that schedule and stop.
-   5. If create fails: do not claim; stop or retry once from cancel.
+Recover the ordinary-agent role in [orchestrator](../orchestrator/SKILL.md).
+This session is the advisor. The parent remains responsible for its own tasks and every open user goal.
+An ordinary refresh works without a scheduler or a gate status file.
 
 ## Gotchas
 
-- **Stacking loops.** A second schedule create while one is already
-  queued multiplies firings. Cancel → `should-reschedule` → one create
-  → `claim-rearm`. Never claim before create on Claude (PreToolUse
-  denies `ScheduleWakeup` when pending).
-- **Skipping `begin-firing`.** Prior `rearm_pending` stays set; re-arm
-  stays denied. Always run step 0a first.
-- **Create without claim.** Skip claim after create and a second create
-  can stack. Claim immediately after success.
+- A supplied run locator selects one root. Another root's latest checkpoint cannot replace it.
+- Unknown liveness leaves ownership intact until evidence supports a takeover.
+- A missing scheduling gate stops re-arming. It does not prove that the user's goals are complete.
 
-## File Index
+## When this applies
+
+Use for a manual refresh, lost context, a handoff, or a supported wake for an existing run.
+Keep current authorization and configured model routing when restoring work.
+
+## Process
+
+1. Read the current message and loaded instructions. Load the orchestrator entrypoint.
+2. Resolve the run from its supplied locator or `.orchestrator/active-runs/` under the project directory.
+   Read the run record's owner and optional wake metadata first.
+   For a recorded one-shot firing, confirm both the invocation's wake identity and current root ownership.
+   Immediately run `begin-firing` with its explicit `--status-file` and `--run-slug` through [optional scheduling](../orchestrator/reference/scheduling.md).
+   Do this before recovery or task-authority steps can exit. Unknown ownership leaves the latch intact.
+   A gate mismatch or missing or invalid state ends that gate attempt. Continue ordinary unresolved work within confirmed ownership.
+   Read [recovery](../orchestrator/reference/recovery.md) and reconcile before dispatch.
+   Register applicable recovery task seeds once the task authority is accessible.
+3. Restore every goal and the parent's follow-up task. Rebuild the short follow list from the task authority.
+   Inspect results and live workers. Keep pending approvals and unknown owners visible.
+4. Continue permitted next actions. Send consult replies through the [local contract](../orchestrator/reference/consult-the-orchestrator.md).
+   Reuse a reachable owner where appropriate. Resolve writer ownership before replacement.
+5. Save the updated recovery record. Complete only goals whose acceptance and delivery evidence is present.
+   Keep remaining goals open and assign the parent's next action.
+
+A manual refresh does not consume an outstanding wake's latch.
+Scheduling remains optional and follows the current runtime's supported automation rules.
+Retire only this run's owned wake after the run's completion predicates hold.
+
+## Sub-skills
+
+| Skill | When | Produces | If unavailable |
+|---|---|---|---|
+| `orchestrator` | Every refresh | Current role and completion predicates | Report the missing entrypoint and stop new dispatch. |
+
+## File index
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Refresh firing steps; points at orchestrator `status_gate.py`. |
+| `SKILL.md` | Refresh entrypoint. |
 
-## Folder Map
+## Folder map
 
-- `SKILL.md` — this skill (thin); gate implementation lives under
-  `skills/orchestrator/scripts/`.
-- Consult contract:
-  [`../orchestrator/reference/consult-the-orchestrator.md`](../orchestrator/reference/consult-the-orchestrator.md).
+This skill uses the sibling orchestrator's recovery, consult, and optional scheduling references.

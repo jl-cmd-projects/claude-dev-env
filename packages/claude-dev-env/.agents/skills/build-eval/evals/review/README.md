@@ -21,9 +21,9 @@ Report finding precision and recall, clean-case specificity and false-positive r
 From the repository root:
 
 ```powershell
-$suite = 'packages/claude-dev-env/.agents/skills/plugin-eval-standalone-skill/evals/review/run.py'
+$suite = 'packages/claude-dev-env/.agents/skills/build-eval/evals/review/run.py'
 python $suite validate
-python -m pytest packages/claude-dev-env/.agents/skills/plugin-eval-standalone-skill/evals/review/test_run.py -q
+python -m pytest packages/claude-dev-env/.agents/skills/build-eval/evals/review/test_run.py -q
 python $suite live --limit 2 --timeout 90 --model gpt-6.1-sol --effort low --output review-smoke
 python $suite live --split heldout --limit 6 --timeout 90 --model gpt-6.1-sol --effort low --output review-heldout
 ```

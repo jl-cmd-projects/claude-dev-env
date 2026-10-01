@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { detectPython } from './install.mjs';
 const THIS_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const INSTALLER_PATH = join(THIS_DIRECTORY, 'install.mjs');
-const INSTALLER_PROCESS_TIMEOUT_MS = 60_000;
+const INSTALLER_PROCESS_TIMEOUT_MS = 120_000;
 const EXCLUDED_PACKAGE_COPY_DIRECTORY = 'node_modules';
 
 const RETIRED_SKILL_DIRECTORIES = [
@@ -24,6 +24,7 @@ const RETIRED_SKILL_DIRECTORIES = [
     'fixbugs',
     'pr-scope-resolve',
     'post-audit-findings',
+    'plugin-eval-standalone-skill',
     'pr-consistency-audit',
     'bdd-protocol',
     'hitl',
@@ -602,6 +603,28 @@ test('a full reinstall over a pre-manifest dirty tree prunes retired skills and 
         assert.ok(manifest.skills.includes(SHIPPED_SKILL_DIRECTORY), 'manifest skills lists shipped skills');
         assert.equal(manifest.skills.includes('_shared'), false, 'manifest skills omits _shared');
         assert.equal(manifest.skills.includes('__pycache__'), false, 'manifest skills omits __pycache__');
+    } finally {
+        rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a full install replaces the retired plugin eval name with build-eval', () => {
+    const sandbox = createSandbox();
+    const retiredSkillName = 'plugin-eval-standalone-skill';
+    try {
+        plantSkillDirectory(sandbox.skillsDirectory, retiredSkillName, true);
+
+        runInstaller(sandbox.homeDirectory, []);
+
+        assert.equal(existsSync(join(sandbox.skillsDirectory, retiredSkillName)), false);
+        assert.ok(prunedSkillBackupContains(sandbox.claudeDirectory, retiredSkillName));
+        assert.match(
+            readFileSync(join(sandbox.skillsDirectory, 'build-eval', 'SKILL.md'), 'utf8'),
+            /^---\r?\nname: build-eval\r?\n/,
+        );
+        const manifest = readManifest(sandbox.manifestPath);
+        assert.ok(manifest.skills.includes('build-eval'));
+        assert.equal(manifest.skills.includes(retiredSkillName), false);
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
     }

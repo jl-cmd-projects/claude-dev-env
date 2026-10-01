@@ -1,5 +1,63 @@
 # Changelog
 
+## [8.29.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.29.0...claude-dev-env-v8.29.1) (2026-10-01)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1585](https://github.com/jl-cmd/claude-dev-env/issues/1585) ([04daddd](https://github.com/jl-cmd/claude-dev-env/commit/04daddd8cc16ed64780e5c52d30545ef458862c6))
+
+## [8.29.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.28.1...claude-dev-env-v8.29.0) (2026-09-30)
+
+
+### Features
+
+* **codex-cleanse:** archive inactive sessions ([581bacf](https://github.com/jl-cmd/claude-dev-env/commit/581bacf97c7cf763f39fab6202cc147930b1bb6c))
+
+## [8.28.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.28.0...claude-dev-env-v8.28.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **questions:** present a chat brief before choices ([cfb39b6](https://github.com/jl-cmd/claude-dev-env/commit/cfb39b65f1620e608b1166795900a7d321b56c6a))
+* **questions:** remove guidance during uninstall ([0e8a475](https://github.com/jl-cmd/claude-dev-env/commit/0e8a4755f0a05bd4f16917d8808cfcef1c0da1b9))
+
+## [8.28.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.27.0...claude-dev-env-v8.28.0) (2026-09-30)
+
+
+### Features
+
+* export pstack skills for cloud repository discovery ([050c4c0](https://github.com/jl-cmd/claude-dev-env/commit/050c4c01e6d2fcb8e2bb223a96fcaa79b40cee00))
+
+## [8.27.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.6...claude-dev-env-v8.27.0) (2026-09-30)
+
+
+### Features
+
+* **orchestrator:** guard recovery lifecycle ([1244240](https://github.com/jl-cmd/claude-dev-env/commit/1244240bccd32c632df1f9a6a334a4a936d2d9b2))
+* **orchestrator:** track goals across context loss ([3c499ef](https://github.com/jl-cmd/claude-dev-env/commit/3c499ef945747adaa77c7504060321757943cec3))
+
+
+### Bug Fixes
+
+* Protect local orchestrator state ([72cca13](https://github.com/jl-cmd/claude-dev-env/commit/72cca13a2c5de80b1e5931bf73c0ee4633bb97f3))
+
+## [8.26.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.5...claude-dev-env-v8.26.6) (2026-09-30)
+
+
+### Bug Fixes
+
+* **codex:** prune obsolete managed hook registrations ([905fe5a](https://github.com/jl-cmd/claude-dev-env/commit/905fe5a4a0a31d45700ad33350e7b553aa5f830d))
+* **codex:** Prune obsolete managed hooks ([76e1780](https://github.com/jl-cmd/claude-dev-env/commit/76e1780fccaf50b765ee2b4d3ac5e94bcc2eeb33))
+
+## [8.26.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.4...claude-dev-env-v8.26.5) (2026-09-30)
+
+
+### Refactoring
+
+* **skills:** rename evaluation skill to build-eval ([2300900](https://github.com/jl-cmd/claude-dev-env/commit/23009003ab8fc28e0f33f6b7b3f4a48605431b44))
+* **skills:** rename evaluation skill to build-eval ([6989f45](https://github.com/jl-cmd/claude-dev-env/commit/6989f45f2b60c5d51da10b74047ad6997827a992))
+
 ## [8.26.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.26.3...claude-dev-env-v8.26.4) (2026-09-30)
 
 
