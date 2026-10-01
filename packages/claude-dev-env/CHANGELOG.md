@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.30.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.29.1...claude-dev-env-v8.30.0) (2026-10-01)
+
+
+### Features
+
+* add inactive native Codex review observer and quota diagnostics ([a65465a](https://github.com/jl-cmd/claude-dev-env/commit/a65465a34c7d480a638cc1ec36ef13aedb43a0e5))
+
 ## [8.29.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.29.0...claude-dev-env-v8.29.1) (2026-10-01)
 
 
