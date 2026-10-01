@@ -36,6 +36,21 @@ Each level file reports through the ReportFindings tool. When the host has no Re
 
 ## The process
 
+### Native GitHub evidence pilot
+
+Keep one coordinator responsible for native review requests. Record the request comment and full candidate head. Read raw GitHub review records to retain commit_id; normalized connector output can omit it. Completed reviews can contain findings. The quota_notice_ids field records historical usage-limit comments. Driver replies and resolved threads provide no clean completion proof.
+
+Use process-local GITHUB_TOKEN or GH_TOKEN authentication without printing credentials. A code-review usage-limit response stops further triggers until capacity is verified. Preserve the hold; review permission changes and credit purchases require separate authorization. Capture API bytes as UTF-8 before decoding them so Windows shell output encoding preserves review headings.
+
+Inspect a candidate from the shared source checkout:
+
+```powershell
+python packages/claude-dev-env/scripts/codex_review_observer.py <owner/repository> <pull-request> <full-head>
+python -m pytest packages/claude-dev-env/scripts/tests/test_codex_review_observer.py packages/claude-dev-env/scripts/tests/test_codex_review_guidance.py -q --override-ini="addopts=" -p no:cacheprovider
+```
+
+The current observer holds admission for every supported diagnostic. Require captured successful native completion with full-head and attempt coverage before adding a clean verdict. After a repair push, review the new head and preserve all existing checks. Keep current repository contracts authoritative over copied hosted policy.
+
 1. Read the level and the optional `--fix` flag. Load the level file.
 2. Run it end to end, ending in its ReportFindings call.
 3. With `--fix`, load `reference/fix.md` and run it on those findings.

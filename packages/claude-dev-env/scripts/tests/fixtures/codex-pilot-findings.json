@@ -1,0 +1,14 @@
+{
+  "repository": "jl-cmd/claude-dev-env",
+  "pull_request": 1576,
+  "review": {
+    "id": 5360553725,
+    "state": "COMMENTED",
+    "commit_id": "d66450a145554778c9938c310cae61cca5927884",
+    "submitted_at": "2026-09-30T01:50:30Z",
+    "body": "\n### \ud83d\udca1 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `d66450a145`\n    \n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with \ud83d\udc4d.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+    "user": {
+      "login": "chatgpt-codex-connector[bot]"
+    }
+  }
+}
