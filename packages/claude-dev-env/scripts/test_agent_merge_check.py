@@ -846,6 +846,22 @@ def test_superseded_cancelled_runs_leave_no_unmet_newest_check() -> None:
             ],
             ("Semgrep (failure)",),
         ),
+        (
+            PULL_REQUEST_5330_CHECK_RUNS,
+            [
+                {"context": "Semgrep", "state": "success"},
+                {"context": "Semgrep", "state": "failure"},
+            ],
+            (),
+        ),
+        (
+            PULL_REQUEST_5330_CHECK_RUNS,
+            [
+                {"context": "Semgrep", "state": "pending"},
+                {"context": "Semgrep", "state": "success"},
+            ],
+            ("Semgrep (pending)",),
+        ),
     ],
 )
 def test_unmet_newest_checks_names_each_check_whose_newest_report_is_not_passing(

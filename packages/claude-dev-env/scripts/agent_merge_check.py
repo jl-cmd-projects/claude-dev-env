@@ -377,11 +377,12 @@ def unmet_newest_checks(
         flag: ("Review closure (cancelled)",)     the newest run is cancelled
 
     Runs of one name from one app collapse to the run with the highest id,
-    so the latest re-run or workflow run decides the check.
+    so the latest re-run or workflow run decides the check. Statuses arrive
+    newest first, so the first status of each context decides it.
 
     Args:
         all_check_runs: Every check run reported on the head commit.
-        all_statuses: The latest commit status per context on the head.
+        all_statuses: The commit statuses on the head, newest first.
 
     Returns:
         Each non-passing check as its name and state, such as
@@ -401,13 +402,14 @@ def _unmet_run_states(all_check_runs: Sequence[object]) -> list[str]:
 
 
 def _unmet_status_states(all_statuses: Sequence[object]) -> list[str]:
+    all_newest_statuses: dict[object, Mapping[str, object]] = {}
+    for each_status in all_statuses:
+        if isinstance(each_status, Mapping):
+            all_newest_statuses.setdefault(each_status.get(CONTEXT_KEY), each_status)
     return [
-        REQUIRED_CHECK_STATE_TEMPLATE.format(
-            context=each_status.get(CONTEXT_KEY), state=state
-        )
-        for each_status in all_statuses
-        if isinstance(each_status, Mapping)
-        and (state := _status_state(each_status)) is not None
+        REQUIRED_CHECK_STATE_TEMPLATE.format(context=context, state=state)
+        for context, each_status in all_newest_statuses.items()
+        if (state := _status_state(each_status)) is not None
     ]
 
 
