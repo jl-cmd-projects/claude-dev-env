@@ -17,7 +17,6 @@ exclude = [
     "validators/test_files/",
     "test_",
     "abbreviation_checks.py",
-    "git_checks.py",
     "exempt_paths.py",
     "code_rules_typeddict_stub.py",
 ]

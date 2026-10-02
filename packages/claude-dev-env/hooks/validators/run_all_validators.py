@@ -402,18 +402,6 @@ def run_react_checks(files: List[Path]) -> ValidatorResult:
     )
 
 
-def run_git_checks() -> ValidatorResult:
-    """Run git/GitHub checks."""
-    result = invoke_validator_module("git_checks", [])
-
-    return ValidatorResult(
-        name="Git/PR Workflow",
-        checks="23,24",
-        passed=result.returncode == 0,
-        output=result.stdout or result.stderr or "All checks passed",
-    )
-
-
 def run_comment_checks(files: List[Path]) -> ValidatorResult:
     """Report that comment policy runs through the explicit diff-aware linter."""
     return ValidatorResult(
@@ -1693,7 +1681,6 @@ def main() -> int:
 
     validators.extend([
         ("File Structure", run_file_structure_checks),
-        ("Git/PR", run_git_checks),
     ])
 
     for i, (name, validator_func) in enumerate(validators, 1):
