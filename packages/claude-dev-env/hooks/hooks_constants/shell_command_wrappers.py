@@ -15,6 +15,7 @@ composes it into the two answers a hook asks about any program.
 
 from __future__ import annotations
 
+from hooks_constants.piped_pytest_blocker_constants import WINDOWS_EXECUTABLE_SUFFIX
 from hooks_constants.pytest_invocation import (
     all_tokens_after_wrappers,
     string_exec_inner_command,
@@ -35,6 +36,7 @@ __all__ = [
 def segment_program_and_arguments(all_segment_tokens: list[str]) -> tuple[str, list[str]]:
     """Return a segment's program basename past its wrappers and the tokens after it.
 
+    The basename drops a ``.exe`` suffix, so ``git.exe push`` reads as ``git``.
     Returns an empty pair when the segment names no program.
     """
     all_unwrapped_tokens = all_tokens_after_wrappers(all_segment_tokens)
@@ -42,7 +44,10 @@ def segment_program_and_arguments(all_segment_tokens: list[str]) -> tuple[str, l
     if program_token is None:
         return "", []
     program_index = all_unwrapped_tokens.index(program_token)
-    return token_basename(unquoted_token(program_token)), all_unwrapped_tokens[program_index + 1 :]
+    program_name = token_basename(unquoted_token(program_token)).removesuffix(
+        WINDOWS_EXECUTABLE_SUFFIX
+    )
+    return program_name, all_unwrapped_tokens[program_index + 1 :]
 
 
 def all_wrapped_command_texts(command: str) -> list[str]:

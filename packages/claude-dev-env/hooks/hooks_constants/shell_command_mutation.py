@@ -39,12 +39,15 @@ from hooks_constants.verify_before_acting_constants import (
     ALL_POWERSHELL_WRITE_CMDLET_NAMES,
     ALL_PULL_REQUEST_SCRIPT_WRITE_ACTIONS,
     ALL_WRITE_REDIRECTION_OPERATORS,
+    DESCRIPTOR_CLOSE_TARGET,
+    DESCRIPTOR_DUPLICATION_OPERATOR,
     GH_API_ATTACHED_METHOD_PATTERN,
     GH_API_FIELD_OPTION_PATTERN,
     GH_API_SUBCOMMAND,
     GH_PROGRAM_NAME,
     GH_SUBCOMMAND_DEPTH,
     GIT_PROGRAM_NAME,
+    POWERSHELL_SCRIPT_BLOCK_OPENER,
     POWERSHELL_WORD_BRACKETS,
     PULL_REQUEST_SCRIPT_NAME,
     REDIRECTION_TARGET_QUOTES,
@@ -64,9 +67,9 @@ def _is_mutating_git_arguments(all_arguments: list[str]) -> bool:
 
 
 def _gh_api_method(all_api_arguments: list[str]) -> str | None:
-    for each_option, each_value in itertools.pairwise(all_api_arguments):
+    for each_option, each_method_argument in itertools.pairwise(all_api_arguments):
         if each_option in ALL_GH_API_METHOD_OPTIONS:
-            return each_value.upper()
+            return each_method_argument.upper()
     for each_argument in all_api_arguments:
         attached_match = GH_API_ATTACHED_METHOD_PATTERN.fullmatch(each_argument)
         if attached_match is not None:
@@ -75,7 +78,7 @@ def _gh_api_method(all_api_arguments: list[str]) -> str | None:
 
 
 def _is_mutating_gh_api(all_api_arguments: list[str]) -> bool:
-    """Return True when ``gh api`` sends a write method, or fields with no method named."""
+    """Return True when ``gh api`` sends a write method, or fields or ``--input`` with no method named."""
     method = _gh_api_method(all_api_arguments)
     if method is not None:
         return method in ALL_HTTP_WRITE_METHODS
@@ -112,21 +115,53 @@ def _runs_a_pull_request_script_write(all_segment_tokens: list[str]) -> bool:
     return False
 
 
-def _names_a_powershell_write_cmdlet(all_segment_tokens: list[str]) -> bool:
-    return any(
-        each_token.strip(POWERSHELL_WORD_BRACKETS).lower() in ALL_POWERSHELL_WRITE_CMDLET_NAMES
+def _powershell_command_words(program_name: str, all_segment_tokens: list[str]) -> list[str]:
+    """Return the words a segment runs as commands: its program and each script block's first word.
+
+    ``ForEach-Object { Remove-Item $_ }`` runs ``Remove-Item`` as a command, while
+    ``Get-Command Remove-Item`` passes it as an argument.
+    """
+    all_command_words = [program_name]
+    for each_previous_token, each_token in itertools.pairwise(all_segment_tokens):
+        if each_previous_token.endswith(POWERSHELL_SCRIPT_BLOCK_OPENER):
+            all_command_words.append(each_token)
+    all_command_words.extend(
+        each_token.rpartition(POWERSHELL_SCRIPT_BLOCK_OPENER)[2]
         for each_token in all_segment_tokens
+        if POWERSHELL_SCRIPT_BLOCK_OPENER in each_token
+    )
+    return all_command_words
+
+
+def _runs_a_powershell_write_cmdlet(program_name: str, all_segment_tokens: list[str]) -> bool:
+    return any(
+        each_word.strip(POWERSHELL_WORD_BRACKETS).lower() in ALL_POWERSHELL_WRITE_CMDLET_NAMES
+        for each_word in _powershell_command_words(program_name, all_segment_tokens)
+    )
+
+
+def _redirect_target_is_a_file(operator: str, target: str) -> bool:
+    """Return True when a redirect writes a file.
+
+    A digit or ``-`` after ``>&`` duplicates or closes a descriptor, as in
+    ``2>&1`` and ``>&-``. After any other operator it names a file, so
+    ``echo hi > 1`` writes one.
+    """
+    target_text = target.strip(REDIRECTION_TARGET_QUOTES).lower()
+    if target_text in ALL_NON_FILE_REDIRECTION_TARGETS:
+        return False
+    return not (
+        operator == DESCRIPTOR_DUPLICATION_OPERATOR
+        and (target_text.isdigit() or target_text == DESCRIPTOR_CLOSE_TARGET)
     )
 
 
 def _segment_redirects_into_a_file(all_segment_tokens: list[str]) -> bool:
-    for each_operator, each_target in itertools.pairwise(all_segment_tokens):
-        if each_operator not in ALL_WRITE_REDIRECTION_OPERATORS:
-            continue
-        target_text = each_target.strip(REDIRECTION_TARGET_QUOTES).lower()
-        if target_text not in ALL_NON_FILE_REDIRECTION_TARGETS and not target_text.isdigit():
-            return True
-    return False
+    return any(
+        each_operator in ALL_WRITE_REDIRECTION_OPERATORS
+        and _redirect_target_is_a_file(each_operator, each_target)
+        for each_operator, each_target in itertools.pairwise(all_segment_tokens)
+    )
 
 
 def _segment_is_mutating(all_segment_tokens: list[str]) -> bool:
@@ -134,7 +169,7 @@ def _segment_is_mutating(all_segment_tokens: list[str]) -> bool:
     return (
         _program_mutates(program_name, all_arguments)
         or _runs_a_pull_request_script_write(all_segment_tokens)
-        or _names_a_powershell_write_cmdlet(all_segment_tokens)
+        or _runs_a_powershell_write_cmdlet(program_name, all_segment_tokens)
         or _segment_redirects_into_a_file(all_segment_tokens)
     )
 

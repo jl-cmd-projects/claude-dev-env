@@ -109,6 +109,10 @@ def _additional_context(stdout_text: str) -> str:
         "bash -lc 'gh pr create --draft --fill'",
         "env VAR=x git push",
         "echo origin | xargs git push",
+        "git.exe push origin HEAD",
+        "env -u HOME git push",
+        "timeout --signal KILL 5 git push",
+        "echo origin | xargs -n 1 git push",
     ],
 )
 def test_should_wake_on_git_push_and_gh_pr_create(command: str) -> None:

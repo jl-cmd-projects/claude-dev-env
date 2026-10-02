@@ -18,9 +18,12 @@ parsing lives in ``shell_command_pipeline``. Pytest invocation classification
 that consumes these program, wrapper, and option constants lives in
 ``pytest_invocation``.
 
-Two wrapper shapes reach the program behind them differently. ``sudo`` and
-``uvx`` take their own option flags and then the command, so the step-over drops
-the flags. ``uv``, ``poetry``, ``pipenv``, ``pdm``, ``hatch``, ``rye``, and
+Two wrapper shapes reach the program behind them differently. ``sudo``,
+``uvx``, ``xargs``, ``env``, and ``timeout`` take their own options and then the
+command, and ``ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME`` names each one's
+value-taking options, its flag-only options, and the operands it reads before
+the command, so ``xargs -I {} rm {}`` and ``timeout --signal KILL 5 git push``
+both reach the program. ``uv``, ``poetry``, ``pipenv``, ``pdm``, ``hatch``, ``rye``, and
 ``coverage`` take the literal ``run`` subcommand first, so the step-over reads
 that word and passes only when it is there — ``uv sync`` and ``coverage report``
 keep the wrapper as its own program. ``uv`` spells the same pass-through as
@@ -110,6 +113,7 @@ the blocker's own lexer.
 from __future__ import annotations
 
 import re
+from typing import NamedTuple
 
 from hooks_constants.shell_command_segments import ALL_SHELL_CONTROL_OPERATOR_TOKENS
 from hooks_constants.unscoped_search_blocker_constants import (
@@ -142,7 +146,10 @@ __all__ = [
     "ALL_VALUE_TAKING_WRAPPER_OPTION_FLAGS",
     "ALL_VALUE_TAKING_SHELL_OPTION_FLAGS",
     "ALL_VALUE_TAKING_INTERPRETER_OPTION_FLAGS",
-    "ALL_FLAG_TAKING_WRAPPER_COMMANDS",
+    "WrapperOptionGrammar",
+    "WINDOWS_EXECUTABLE_SUFFIX",
+    "RUN_SUBCOMMAND_OPTION_GRAMMAR",
+    "ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME",
     "ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS",
     "RUN_SUBCOMMAND_NAME",
     "TOOL_SUBCOMMAND_NAME",
@@ -291,9 +298,74 @@ ALL_VALUE_TAKING_SHELL_OPTION_FLAGS: frozenset[str] = frozenset(
     }
 )
 
-ALL_FLAG_TAKING_WRAPPER_COMMANDS: frozenset[str] = frozenset(
-    {"sudo", "sudo.exe", "uvx", "uvx.exe", "xargs", "xargs.exe"}
+class WrapperOptionGrammar(NamedTuple):
+    """The options one wrapper reads before the command it runs."""
+
+    all_value_taking_options: frozenset[str]
+    all_flag_options: frozenset[str]
+    leading_operand_count: int
+
+
+WINDOWS_EXECUTABLE_SUFFIX = ".exe"
+RUN_SUBCOMMAND_OPTION_GRAMMAR = WrapperOptionGrammar(
+    all_value_taking_options=ALL_VALUE_TAKING_WRAPPER_OPTION_FLAGS,
+    all_flag_options=frozenset(),
+    leading_operand_count=0,
 )
+ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME: dict[str, WrapperOptionGrammar] = {
+    "sudo": WrapperOptionGrammar(
+        all_value_taking_options=frozenset(
+            {
+                "-u",
+                "-g",
+                "-C",
+                "-h",
+                "-p",
+                "-D",
+                "-R",
+                "-T",
+                "-U",
+                "-r",
+                "-t",
+                "--user",
+                "--group",
+                "--close-from",
+                "--host",
+                "--prompt",
+                "--chdir",
+                "--chroot",
+                "--command-timeout",
+                "--other-user",
+                "--role",
+                "--type",
+            }
+        ),
+        all_flag_options=frozenset({"-E", "-H", "-i", "-k", "-n", "-S", "-s", "-b", "-P"}),
+        leading_operand_count=0,
+    ),
+    "uvx": RUN_SUBCOMMAND_OPTION_GRAMMAR,
+    "xargs": WrapperOptionGrammar(
+        all_value_taking_options=frozenset(
+            {"-I", "-n", "-L", "-P", "-d", "-a", "-s", "-E", "--max-args", "--max-procs"}
+        ),
+        all_flag_options=frozenset(
+            {"-r", "-0", "-t", "-p", "-x", "-i", "-e", "-l", "--null", "--no-run-if-empty"}
+        ),
+        leading_operand_count=0,
+    ),
+    "env": WrapperOptionGrammar(
+        all_value_taking_options=frozenset(
+            {"-u", "-C", "-S", "--unset", "--chdir", "--split-string"}
+        ),
+        all_flag_options=frozenset({"-i", "-0", "-v", "--ignore-environment", "--null"}),
+        leading_operand_count=0,
+    ),
+    "timeout": WrapperOptionGrammar(
+        all_value_taking_options=frozenset({"-s", "-k", "--signal", "--kill-after"}),
+        all_flag_options=frozenset({"-v", "--verbose", "--preserve-status", "--foreground"}),
+        leading_operand_count=1,
+    ),
+}
 ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS: frozenset[str] = frozenset(
     {
         "uv",

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from hooks_constants.piped_pytest_blocker_constants import (
     ALL_CLUSTERED_STRING_EXEC_OPTION_LETTERS,
-    ALL_FLAG_TAKING_WRAPPER_COMMANDS,
     ALL_PYTEST_PROGRAM_BASENAMES,
     ALL_QUOTE_CHARACTERS,
     ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS,
@@ -30,23 +29,27 @@ from hooks_constants.piped_pytest_blocker_constants import (
     ALL_STRING_EXECUTING_SHELL_BASENAMES,
     ALL_VALUE_TAKING_INTERPRETER_OPTION_FLAGS,
     ALL_VALUE_TAKING_SHELL_OPTION_FLAGS,
-    ALL_VALUE_TAKING_WRAPPER_OPTION_FLAGS,
+    ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME,
     COMMAND_OPTION_TOKEN_PATTERN,
     END_OF_OPTIONS_TOKEN,
     MODULE_RUN_FLAG,
     PYTEST_MODULE_NAME,
     PYTHON_INTERPRETER_BASENAME_PATTERN,
     RUN_SUBCOMMAND_NAME,
+    RUN_SUBCOMMAND_OPTION_GRAMMAR,
     SHORT_OPTION_CLUSTER_PATTERN,
     SHORT_OPTION_PREFIX,
     TOOL_SUBCOMMAND_NAME,
+    WINDOWS_EXECUTABLE_SUFFIX,
     WRAPPED_COMMAND_TOKEN_JOIN,
+    WrapperOptionGrammar,
 )
 from hooks_constants.shell_command_pipeline import (
     all_operator_aware_tokenizations,
     segments_with_following_operator,
 )
 from hooks_constants.shell_command_segments import (
+    LEADING_ASSIGNMENT_PATTERN,
     effective_leading_program,
     token_basename,
 )
@@ -154,8 +157,17 @@ def _runs_pytest_as_a_module(all_interpreter_argument_tokens: list[str]) -> bool
     return _some_module_run_flag_names_pytest(all_module_tokens)
 
 
-def _all_tokens_from_the_first_operand(all_tokens: list[str]) -> list[str]:
-    """Return the tokens from the first non-option one on, dropping option flags."""
+def _option_token_count(stripped_token: str, grammar: WrapperOptionGrammar) -> int:
+    """Return how many tokens one wrapper option spans, counting its separate value."""
+    if stripped_token in grammar.all_flag_options:
+        return 1
+    return 1 + _option_value_token_count(stripped_token, grammar.all_value_taking_options)
+
+
+def _all_tokens_from_the_first_operand(
+    all_tokens: list[str], grammar: WrapperOptionGrammar
+) -> list[str]:
+    """Return the tokens from the first non-option one on, dropping the wrapper's options."""
     all_remaining_tokens = all_tokens
     while all_remaining_tokens:
         stripped_token = unquoted_token(all_remaining_tokens[0])
@@ -163,32 +175,57 @@ def _all_tokens_from_the_first_operand(all_tokens: list[str]) -> list[str]:
             return all_remaining_tokens[1:]
         if COMMAND_OPTION_TOKEN_PATTERN.match(stripped_token) is None:
             return all_remaining_tokens
-        flag_value_token_count = _option_value_token_count(
-            stripped_token, ALL_VALUE_TAKING_WRAPPER_OPTION_FLAGS
-        )
-        all_remaining_tokens = all_remaining_tokens[1 + flag_value_token_count :]
+        all_remaining_tokens = all_remaining_tokens[_option_token_count(stripped_token, grammar) :]
     return []
+
+
+def _wrapper_basename(token: str) -> str:
+    return token_basename(unquoted_token(token)).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
+
+
+def _wrapper_program_index(all_segment_tokens: list[str]) -> int | None:
+    """Return the index of the program a wrapper step reads.
+
+    A wrapper with its own option grammar is read where it stands, so the
+    ``-u HOME`` behind ``env`` stays an option. Any other leading program is
+    found past assignments and plain launchers such as ``time`` and ``nohup``.
+    """
+    for each_index, each_token in enumerate(all_segment_tokens):
+        if LEADING_ASSIGNMENT_PATTERN.match(each_token) is not None:
+            continue
+        if _wrapper_basename(each_token) in ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME:
+            return each_index
+        break
+    leading_program = effective_leading_program(all_segment_tokens)
+    if leading_program is None:
+        return None
+    return all_segment_tokens.index(leading_program)
 
 
 def _all_tokens_after_one_wrapper(all_segment_tokens: list[str]) -> list[str] | None:
     """Return the tokens a single leading pass-through wrapper runs, else None."""
-    leading_program = effective_leading_program(all_segment_tokens)
-    if leading_program is None:
+    leading_index = _wrapper_program_index(all_segment_tokens)
+    if leading_index is None:
         return None
-    program_basename = token_basename(unquoted_token(leading_program))
-    leading_index = all_segment_tokens.index(leading_program)
-    all_argument_tokens = _all_tokens_from_the_first_operand(
-        all_segment_tokens[leading_index + 1 :]
-    )
-    if program_basename in ALL_FLAG_TAKING_WRAPPER_COMMANDS:
-        return all_argument_tokens
+    program_basename = _wrapper_basename(all_segment_tokens[leading_index])
+    grammar = ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME.get(program_basename)
+    if grammar is not None:
+        all_operand_tokens = _all_tokens_from_the_first_operand(
+            all_segment_tokens[leading_index + 1 :], grammar
+        )
+        return all_operand_tokens[grammar.leading_operand_count :]
     if program_basename not in ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS:
         return None
+    all_argument_tokens = _all_tokens_from_the_first_operand(
+        all_segment_tokens[leading_index + 1 :], RUN_SUBCOMMAND_OPTION_GRAMMAR
+    )
     if all_argument_tokens and unquoted_token(all_argument_tokens[0]) == TOOL_SUBCOMMAND_NAME:
-        all_argument_tokens = _all_tokens_from_the_first_operand(all_argument_tokens[1:])
+        all_argument_tokens = _all_tokens_from_the_first_operand(
+            all_argument_tokens[1:], RUN_SUBCOMMAND_OPTION_GRAMMAR
+        )
     if not all_argument_tokens or unquoted_token(all_argument_tokens[0]) != RUN_SUBCOMMAND_NAME:
         return None
-    return _all_tokens_from_the_first_operand(all_argument_tokens[1:])
+    return _all_tokens_from_the_first_operand(all_argument_tokens[1:], RUN_SUBCOMMAND_OPTION_GRAMMAR)
 
 
 def all_tokens_after_wrappers(all_segment_tokens: list[str]) -> list[str]:

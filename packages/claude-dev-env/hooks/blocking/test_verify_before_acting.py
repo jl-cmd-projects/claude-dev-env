@@ -1,6 +1,7 @@
 import io
 import json
 import re
+import threading
 from pathlib import Path
 
 import pytest
@@ -123,6 +124,42 @@ def expected_block(tool_name: str, quoted_sentence: str) -> dict[str, object]:
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setattr(verify_before_acting, "TRANSCRIPT_POLL_LIMIT_SECONDS", 0.3)
+
+
+def test_should_block_a_hedged_write_whose_record_lands_after_the_hook_starts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(tmp_path, [thinking_record(EARLIER_MESSAGE_ID, "Start.")])
+    late_lines = "".join(
+        json.dumps(each_record) + "\n"
+        for each_record in (
+            thinking_record(ACTING_MESSAGE_ID, HEDGED_SENTENCE),
+            tool_use_record(ACTING_MESSAGE_ID, TOOL_USE_ID, "Write", WRITE_INPUT),
+        )
+    )
+
+    def append_late_lines() -> None:
+        with transcript_path.open("a", encoding="utf-8") as transcript_file:
+            transcript_file.write(late_lines)
+
+    writer = threading.Timer(0.15, append_late_lines)
+    writer.start()
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Write", WRITE_INPUT, transcript_path)
+    writer.join()
+
+    assert exit_code == 0
+    assert json.loads(stdout_text) == expected_block("Write", HEDGED_SENTENCE)
+    assert logged_outcomes(tmp_path) == ["blocked"]
+
+
+def test_should_allow_and_log_unseen_when_the_record_never_lands(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(tmp_path, [thinking_record(EARLIER_MESSAGE_ID, "Start.")])
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Write", WRITE_INPUT, transcript_path)
+    assert (exit_code, stdout_text) == (0, "")
+    assert logged_outcomes(tmp_path) == ["reasoning_unseen"]
 
 
 def test_should_block_a_write_after_hedged_reasoning(
@@ -214,6 +251,16 @@ def test_should_allow_a_write_after_clean_reasoning(
         ("Bash", "echo HEAD | xargs git show"),
         ("Bash", "pwsh -Command git status"),
         ("Bash", "pwsh -Command Get-Content notes.md"),
+        ("Bash", "env -u HOME git status"),
+        ("Bash", "timeout --signal KILL 5 git status"),
+        ("Bash", "printf x | xargs -I {} cat {}"),
+        ("Bash", "printf x | xargs -n 1 git show"),
+        ("PowerShell", "Get-Command Remove-Item"),
+        ("PowerShell", "Get-Help Set-Content -Full"),
+        ("Bash", "echo hi >&-"),
+        ("Bash", "echo hi 1>&2"),
+        ("Bash", "git.exe status"),
+        ("Bash", "gh pr view 8 --json reviews"),
     ],
 )
 def test_should_pass_a_read_only_command_untouched(
@@ -285,6 +332,22 @@ def test_should_pass_a_read_only_command_untouched(
         ("Bash", "sudo gh api repos/o/r/issues -X POST"),
         ("Bash", "gh api repos/o/r/issues -XPOST"),
         ("Bash", "gh api repos/o/r/pulls/12 --method=PATCH"),
+        ("Bash", "printf x | xargs -r rm"),
+        ("Bash", "printf x | xargs -I {} rm {}"),
+        ("Bash", "printf x | xargs -i rm {}"),
+        ("Bash", "printf x | xargs -n 1 rm"),
+        ("Bash", "find . -name '*.tmp' -print0 | xargs -0 rm"),
+        ("Bash", "gh api repos/o/r/issues --input payload.json"),
+        ("Bash", "gh api repos/o/r/issues --input=payload.json"),
+        ("Bash", "git.exe push origin HEAD"),
+        ("Bash", "gh.exe pr merge 12 --squash"),
+        ("PowerShell", "& 'C:/Program Files/Git/cmd/git.exe' commit -F message.txt"),
+        ("Bash", "echo hi > 1"),
+        ("Bash", "echo hi > -"),
+        ("Bash", "echo hi >| notes.txt"),
+        ("Bash", "echo hi>|notes.txt"),
+        ("Bash", "gh pr review 8 --approve"),
+        ("PowerShell", "Get-ChildItem *.tmp | % {Remove-Item $_}"),
     ],
 )
 def test_should_block_a_mutating_command_after_hedged_reasoning(
@@ -343,6 +406,15 @@ def test_should_block_a_git_change_behind_global_options(
         "echo origin | xargs git {subcommand}",
         "pwsh -Command git {subcommand}",
         "sudo bash -c 'git {subcommand}'",
+        "env -u HOME git {subcommand}",
+        "env -C /repo git {subcommand}",
+        "timeout --signal KILL 5 git {subcommand}",
+        "timeout -k 2 5 git {subcommand}",
+        "timeout 5 git {subcommand}",
+        "echo origin | xargs -n 1 git {subcommand}",
+        "echo origin | xargs -r git {subcommand}",
+        "echo origin | xargs -I {{}} git {subcommand}",
+        "echo origin | xargs -0 -P 4 git {subcommand}",
     ],
 )
 @pytest.mark.parametrize("subcommand", ["push origin HEAD", "commit -F message.txt"])

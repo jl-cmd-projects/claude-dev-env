@@ -21,6 +21,8 @@ TOOL_USE_BLOCK_TYPE = "tool_use"
 TRANSCRIPT_ENCODING = "utf-8"
 TRANSCRIPT_DECODE_ERRORS = "replace"
 THINKING_JOINER = "\n"
+TRANSCRIPT_POLL_INTERVAL_SECONDS = 0.05
+TRANSCRIPT_POLL_LIMIT_SECONDS = 5.0
 
 ALL_ALWAYS_MUTATING_TOOL_NAMES = frozenset(
     {"Write", "Edit", "MultiEdit", "NotebookEdit", "Agent", "Task", APPLY_PATCH_TOOL_NAME}
@@ -63,8 +65,10 @@ ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES = frozenset(
         ("worktree", "add"),
     }
 )
-ALL_WRITE_REDIRECTION_OPERATORS = frozenset({">", ">>", "&>", "&>>", ">&"})
-ALL_NON_FILE_REDIRECTION_TARGETS = frozenset({"/dev/null", "$null", "nul", "-"})
+ALL_WRITE_REDIRECTION_OPERATORS = frozenset({">", ">>", "&>", "&>>", ">&", ">|"})
+ALL_NON_FILE_REDIRECTION_TARGETS = frozenset({"/dev/null", "$null", "nul"})
+DESCRIPTOR_DUPLICATION_OPERATOR = ">&"
+DESCRIPTOR_CLOSE_TARGET = "-"
 REDIRECTION_TARGET_QUOTES = "'\""
 
 ALL_FILE_WRITING_PROGRAM_NAMES = frozenset(
@@ -82,6 +86,7 @@ ALL_MUTATING_GH_SUBCOMMANDS = frozenset(
         ("pr", "comment"),
         ("pr", "ready"),
         ("pr", "close"),
+        ("pr", "review"),
         ("issue", "create"),
         ("issue", "edit"),
         ("issue", "comment"),
@@ -93,7 +98,7 @@ ALL_MUTATING_GH_SUBCOMMANDS = frozenset(
 GH_API_SUBCOMMAND = "api"
 ALL_GH_API_METHOD_OPTIONS = frozenset({"-X", "--method"})
 GH_API_ATTACHED_METHOD_PATTERN = re.compile(r"(?:-X|--method=)(?P<method>.+)")
-GH_API_FIELD_OPTION_PATTERN = re.compile(r"-[fF].*|--(?:field|raw-field)(?:=.*)?")
+GH_API_FIELD_OPTION_PATTERN = re.compile(r"-[fF].*|--(?:field|raw-field|input)(?:=.*)?")
 ALL_HTTP_WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 ALL_PULL_REQUEST_SCRIPT_WRITE_ACTIONS = frozenset({"create", "edit", "comment", "review"})
@@ -110,6 +115,7 @@ ALL_POWERSHELL_WRITE_CMDLET_NAMES = frozenset(
     }
 )
 POWERSHELL_WORD_BRACKETS = "{}();"
+POWERSHELL_SCRIPT_BLOCK_OPENER = "{"
 
 ALL_HEDGE_PHRASES = (
     "probably",

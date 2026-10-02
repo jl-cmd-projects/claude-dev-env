@@ -34,6 +34,7 @@ from __future__ import annotations
 import datetime
 import json
 import sys
+import time
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -93,6 +94,8 @@ from hooks_constants.verify_before_acting_constants import (
     TRANSCRIPT_DECODE_ERRORS,
     TRANSCRIPT_ENCODING,
     TRANSCRIPT_PATH_KEY,
+    TRANSCRIPT_POLL_INTERVAL_SECONDS,
+    TRANSCRIPT_POLL_LIMIT_SECONDS,
     TRIM_MARKER,
     WHITESPACE_RUN_PATTERN,
     WORD_SEPARATOR,
@@ -257,13 +260,23 @@ def _log_decision(
 
 
 def _call_reasoning(all_hook_fields: dict[str, object]) -> str | None:
+    """Return the call's reasoning, polling to a deadline while its record is unwritten.
+
+    PostToolUse can start before the harness appends the tool-use record, so a
+    missing record is read again until TRANSCRIPT_POLL_LIMIT_SECONDS passes.
+    """
     tool_use_id = all_hook_fields.get(TOOL_USE_ID_KEY)
     if not isinstance(tool_use_id, str) or not tool_use_id:
         return None
-    all_transcript_lines = _transcript_lines(all_hook_fields.get(TRANSCRIPT_PATH_KEY))
-    if all_transcript_lines is None:
-        return None
-    return acting_reasoning(all_transcript_lines, tool_use_id)
+    deadline = time.monotonic() + TRANSCRIPT_POLL_LIMIT_SECONDS
+    while True:
+        all_transcript_lines = _transcript_lines(all_hook_fields.get(TRANSCRIPT_PATH_KEY))
+        if all_transcript_lines is None:
+            return None
+        reasoning = acting_reasoning(all_transcript_lines, tool_use_id)
+        if reasoning is not None or time.monotonic() >= deadline:
+            return reasoning
+        time.sleep(TRANSCRIPT_POLL_INTERVAL_SECONDS)
 
 
 def _emit_block(tool_name: str, tool_use_id: object, hedge_sentence: str) -> None:
