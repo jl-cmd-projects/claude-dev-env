@@ -30,6 +30,7 @@ declare module 'claude-code' {
       offeredAgents: readonly string[]
       pinnedEfforts: PinnedEfforts
       isBarOpen: boolean
+      isAgentsOpen: boolean
     }
   }
 }

@@ -30,7 +30,7 @@ const pinnedEfforts = atom({ plugin: 'subagent-models', key: 'pinnedEfforts' } a
 
 const isBarOpen = atom({ plugin: 'subagent-models', key: 'isBarOpen' } as const, true)
 
-const AGENTS_SUMMARY = '__summary'
+const isAgentsOpen = atom({ plugin: 'subagent-models', key: 'isAgentsOpen' } as const, false)
 
 const MORE_SUMMARY = '__more'
 
@@ -142,6 +142,14 @@ async function setAgent($: EngineInterface, defaults: Defaults, agent: string, a
   return `agent ${agent} ${agentSwitch} for this session.`
 }
 
+async function setAllAgents($: EngineInterface, agents: readonly string[], agentSwitch: Switch): Promise<string> {
+  await update($, overrides, current => ({
+    ...current,
+    agents: { ...current.agents, ...Object.fromEntries(agents.map(agent => [agent, agentSwitch])) },
+  }))
+  return `${agents.length} agent type${agents.length === 1 ? '' : 's'} ${agentSwitch} for this session.`
+}
+
 async function resetSession($: EngineInterface, defaults: Defaults): Promise<string> {
   await update($, overrides, () => ({}))
   return 'Session values cleared. The /config defaults apply again.'
@@ -233,6 +241,7 @@ export const register: Register = (on, options: PluginOptions) => {
     const { settings } = state
     const allAgents = knownAgentsOf(state, await read($, offeredAgents), defaults)
     const turnedOffCount = allAgents.filter(agent => state.agentSwitchOf(agent) === 'off').length
+    const isAgentsPanelOpen = await read($, isAgentsOpen)
     const runningCount = (await runningAgentIdsOf($)).length
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
 
@@ -293,18 +302,13 @@ export const register: Register = (on, options: PluginOptions) => {
             value={settings.offAction}
             onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
           />
-          <Select
+          <Button
             key="agents"
-            label="agents"
-            options={[
-              { value: AGENTS_SUMMARY, label: turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off` },
-              ...allAgents.map(agent => ({ value: agent, label: `${agent}: ${state.agentSwitchOf(agent)}` })),
-            ]}
-            value={AGENTS_SUMMARY}
-            onSelect={agent => {
-              if (agent !== AGENTS_SUMMARY) void toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))
-            }}
-          />
+            variant={isAgentsPanelOpen ? 'primary' : 'secondary'}
+            onPress={() => update($, isAgentsOpen, current => !current)}
+          >
+            {`agents ${turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off`} ${isAgentsPanelOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
+          </Button>
           <Select
             key="applyToRunning"
             label={`running ${runningCount}`}
@@ -319,6 +323,35 @@ export const register: Register = (on, options: PluginOptions) => {
             apply
           </Button>
         </Box>
+        {isAgentsPanelOpen && (
+          <Box flexDirection="column" gap={1}>
+            <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
+              <Text bold color={ACCENT}>Agent types</Text>
+              <Text dimColor>{`${allAgents.length - turnedOffCount} of ${allAgents.length} on`}</Text>
+              <Button key="agents-enable-all" dimColor onPress={() => toastAfter($, setAllAgents($, allAgents, 'on'))}>
+                enable all
+              </Button>
+              <Button key="agents-disable-all" dimColor onPress={() => toastAfter($, setAllAgents($, allAgents, 'off'))}>
+                disable all
+              </Button>
+            </Box>
+            {allAgents.length === 0 ? (
+              <Text dimColor>No agent types offered yet. They appear after the first spawn.</Text>
+            ) : (
+              <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1}>
+                {allAgents.map(agent => (
+                  <Button
+                    key={`agent-${agent}`}
+                    variant={state.agentSwitchOf(agent) === 'on' ? 'primary' : 'secondary'}
+                    onPress={() => toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))}
+                  >
+                    {`${state.agentSwitchOf(agent) === 'on' ? ON_MARK : OFF_MARK} ${agent}`}
+                  </Button>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
     )
   })
