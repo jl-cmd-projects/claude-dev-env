@@ -34,6 +34,10 @@ const AGENTS_SUMMARY = '__summary'
 
 const MORE_SUMMARY = '__more'
 
+const ON_MARK = '●'
+
+const OFF_MARK = '○'
+
 type Defaults = { settings: Settings; agents: AgentSwitches }
 
 type State = { sessionOverrides: SessionOverrides; settings: Settings; agentSwitchOf: (agent: string) => Switch }
@@ -183,6 +187,11 @@ async function effortFor($: StateDollar, settings: Settings, agentId: string, re
 }
 
 
+async function hideBar($: EngineInterface): Promise<string> {
+  await update($, isBarOpen, () => false)
+  return 'Subagent bar hidden. /subagent-models bar brings it back.'
+}
+
 async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
@@ -238,78 +247,88 @@ export const register: Register = (on, options: PluginOptions) => {
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
 
     return (
-      <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
-        <Text bold>Subagents</Text>
-        {ALL_FAMILIES.map(family => (
-          <Button
-            key={`model-${family}`}
-            variant={settings[family] === 'on' ? 'primary' : 'secondary'}
-            onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
-          >
-            {family}
+      <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+        <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center" justifyContent="space-between">
+          <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+            <Text bold>Subagents</Text>
+            <Text dimColor>models</Text>
+            {ALL_FAMILIES.map(family => (
+              <Button
+                key={`model-${family}`}
+                variant={settings[family] === 'on' ? 'primary' : 'secondary'}
+                onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
+              >
+                {`${settings[family] === 'on' ? ON_MARK : OFF_MARK} ${family}`}
+              </Button>
+            ))}
+          </Box>
+          <Box flexDirection="row" columnGap={1} alignItems="center">
+            <Select
+              key="more"
+              options={[
+                { value: MORE_SUMMARY, label: 'more' },
+                { value: 'save', label: 'save as defaults' },
+                { value: 'reset', label: 'reset session' },
+              ]}
+              value={MORE_SUMMARY}
+              onSelect={choice => {
+                if (choice === 'save') void toastAfter($, saveDefaults($, defaults))
+                if (choice === 'reset') void toastAfter($, resetSession($, defaults))
+              }}
+            />
+            <Button key="hide" role="dismiss" dimColor onPress={() => toastAfter($, hideBar($))}>
+              hide
+            </Button>
+          </Box>
+        </Box>
+        <Box flexDirection="row" flexWrap="wrap" columnGap={2} alignItems="center">
+          <Select
+            key="defaultModel"
+            label="default"
+            options={optionsOf('defaultModel')}
+            value={settings.defaultModel}
+            onSelect={choice => toastAfter($, setField($, defaults, 'defaultModel', choice))}
+          />
+          <Select
+            key="effort"
+            label="effort"
+            options={optionsOf('effort')}
+            value={settings.effort}
+            onSelect={choice => toastAfter($, setField($, defaults, 'effort', choice))}
+          />
+          <Select
+            key="offAction"
+            label="off models"
+            options={optionsOf('offAction')}
+            value={settings.offAction}
+            onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
+          />
+          <Select
+            key="agents"
+            label="agents"
+            options={[
+              { value: AGENTS_SUMMARY, label: turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off` },
+              ...allAgents.map(agent => ({ value: agent, label: `${agent}: ${state.agentSwitchOf(agent)}` })),
+            ]}
+            value={AGENTS_SUMMARY}
+            onSelect={agent => {
+              if (agent !== AGENTS_SUMMARY) void toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))
+            }}
+          />
+          <Select
+            key="applyToRunning"
+            label={`running ${runningCount}`}
+            options={[
+              { value: 'on', label: 'follow effort' },
+              { value: 'off', label: 'keep start effort' },
+            ]}
+            value={settings.applyToRunning}
+            onSelect={choice => toastAfter($, setField($, defaults, 'applyToRunning', choice))}
+          />
+          <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
+            apply now
           </Button>
-        ))}
-        <Select
-          key="defaultModel"
-          label="default"
-          options={optionsOf('defaultModel')}
-          value={settings.defaultModel}
-          onSelect={choice => toastAfter($, setField($, defaults, 'defaultModel', choice))}
-        />
-        <Select
-          key="effort"
-          label="effort"
-          options={optionsOf('effort')}
-          value={settings.effort}
-          onSelect={choice => toastAfter($, setField($, defaults, 'effort', choice))}
-        />
-        <Select
-          key="offAction"
-          label="off models"
-          options={optionsOf('offAction')}
-          value={settings.offAction}
-          onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
-        />
-        <Select
-          key="agents"
-          label="agents"
-          options={[
-            { value: AGENTS_SUMMARY, label: turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off` },
-            ...allAgents.map(agent => ({ value: agent, label: `${agent}: ${state.agentSwitchOf(agent)}` })),
-          ]}
-          value={AGENTS_SUMMARY}
-          onSelect={agent => {
-            if (agent !== AGENTS_SUMMARY) void toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))
-          }}
-        />
-        <Select
-          key="applyToRunning"
-          label={`running ${runningCount}`}
-          options={[
-            { value: 'on', label: 'follow effort' },
-            { value: 'off', label: 'keep start effort' },
-          ]}
-          value={settings.applyToRunning}
-          onSelect={choice => toastAfter($, setField($, defaults, 'applyToRunning', choice))}
-        />
-        <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
-          apply now
-        </Button>
-        <Select
-          key="more"
-          options={[
-            { value: MORE_SUMMARY, label: 'more' },
-            { value: 'save', label: 'save as defaults' },
-            { value: 'reset', label: 'reset session' },
-            { value: 'hide', label: 'hide bar' },
-          ]}
-          value={MORE_SUMMARY}
-          onSelect={choice => {
-            if (choice === 'save') void toastAfter($, saveDefaults($, defaults))
-            if (choice === 'reset') void toastAfter($, resetSession($, defaults))
-            if (choice === 'hide') void update($, isBarOpen, () => false)
-          }}
-        />
+        </Box>
       </Box>
     )
   })

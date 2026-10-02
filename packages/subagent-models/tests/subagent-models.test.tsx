@@ -375,9 +375,10 @@ test('hide removes the bar and the bar command brings it back', async ($, on) =>
     const { Text } = $.ui.resolve(e)
     return <Text>engine band</Text>
   })
-  engine(on)
+  const world = engine(on)
   const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'terminal' })
-  await ui.select({ key: 'more', value: 'hide' })
+  await ui.press({ key: 'hide' })
+  expect(world.toasts).toContain('Subagent bar hidden. /subagent-models bar brings it back.')
   expect(await ui.find({ key: 'effort' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: 'engine band' })).toBeDefined()
   expect((await command($ as never, 'bar')).text).toBe('Subagent bar shown above the prompt.')

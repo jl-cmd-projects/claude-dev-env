@@ -40,7 +40,7 @@ The command refuses to turn off the default model, and refuses a default model t
 - `/subagent-models fable on` sets one value for this session. Any setting name works, with one of its options.
 - `/subagent-models agents` lists the agent types offered so far in this session, each with its switch.
 - `/subagent-models agent Explore off` turns one agent type off for this session. `on` turns it back on.
-- A bar above the prompt holds every setting: a chip per model, then dropdowns for the default model, effort, the turned-off action, agent types, and running subagents. A pick applies at once and a toast says what changed. Its `more` menu saves, resets, or hides the bar.
+- A framed bar above the prompt holds every setting. The top row has a chip per model (a filled dot is on, an empty dot is off), a `more` menu that saves or resets, and a `hide` button. The second row has dropdowns for the default model, effort, the turned-off action, agent types, and running subagents, plus `apply now`. A pick applies at once and a toast says what changed.
 - `/subagent-models bar` shows or hides the bar.
 - `/subagent-models apply` moves every running subagent to the current effort now.
 - `/subagent-models save` writes this session's values to the `/config` defaults.
