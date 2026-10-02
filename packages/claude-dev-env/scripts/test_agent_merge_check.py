@@ -1027,3 +1027,24 @@ def test_read_unstable_checks_reads_every_page_of_commit_statuses(
     assert agent_merge_check.read_unstable_checks(
         "jl-cmd/claude-dev-env", PULL_REQUEST_5330_HEAD_SHA, "token"
     ) == ("Gate 121 (failure)",)
+
+
+def test_an_unstable_head_with_no_reported_check_keeps_the_generic_hold(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_unstable_main(monkeypatch, capsys, _unstable_answers([]))
+    assert exit_code == 1
+    assert UNSTABLE_HOLD_REASON in line
+
+
+def test_read_unstable_checks_reports_nothing_read_for_an_empty_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(agent_merge_check, "_request_json", _unstable_answers([]))
+    assert (
+        agent_merge_check.read_unstable_checks(
+            "jl-cmd/claude-dev-env", PULL_REQUEST_5330_HEAD_SHA, "token"
+        )
+        is None
+    )

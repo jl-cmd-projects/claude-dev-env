@@ -644,7 +644,9 @@ def _read_branch_rules(slug: str, base_ref: str, token: str) -> list[object]:
     )
 
 
-def read_unstable_checks(slug: str, head_sha: str, token: str) -> tuple[str, ...]:
+def read_unstable_checks(
+    slug: str, head_sha: str, token: str
+) -> tuple[str, ...] | None:
     """Read which checks hold an ``unstable`` head back by their newest report.
 
     Args:
@@ -654,17 +656,20 @@ def read_unstable_checks(slug: str, head_sha: str, token: str) -> tuple[str, ...
 
     Returns:
         Each check whose newest run or latest status on the head is not
-        passing, read across every page of check runs and of statuses.
+        passing, read across every page of check runs and of statuses. None
+        when the head reports no check run and no status, so nothing
+        explains why GitHub calls it unstable.
 
     Raises:
         MergeCheckError: A read failed, or answered with another shape.
     """
-    return unmet_newest_checks(
-        _read_every_page(
-            CHECK_RUNS_ENDPOINT_TEMPLATE, slug, head_sha, token, CHECK_RUNS_KEY
-        ),
-        _read_statuses(slug, head_sha, token),
+    all_check_runs = _read_every_page(
+        CHECK_RUNS_ENDPOINT_TEMPLATE, slug, head_sha, token, CHECK_RUNS_KEY
     )
+    all_statuses = _read_statuses(slug, head_sha, token)
+    if not all_check_runs and not all_statuses:
+        return None
+    return unmet_newest_checks(all_check_runs, all_statuses)
 
 
 def _read_every_page(
