@@ -31,6 +31,7 @@ __all__ = [
     "REMINDER_FOOTER",
     "REMINDER_LINE_SEPARATOR",
     "ALL_REMINDER_HINTS_BY_MERGEABLE",
+    "CHECKS_NOT_REPORTED_TEXT",
     "VERDICT_DONE",
     "VERDICT_NOT_DONE",
     "NO_PULL_REQUEST_REMINDER",
@@ -83,6 +84,9 @@ ALL_REMINDER_HINTS_BY_MERGEABLE: dict[str, str] = {
     ),
     MERGEABLE_UNKNOWN_VALUE: "GitHub is still computing. Re-run the re-check command in a minute.",
 }
+CHECKS_NOT_REPORTED_TEXT: str = (
+    "none reported yet on this head. Wait for the checks, then run the re-check command."
+)
 VERDICT_DONE: str = "DONE. Add the label now:"
 VERDICT_NOT_DONE: str = "NOT DONE. Do not add the done label yet."
 NO_PULL_REQUEST_REMINDER: str = (
