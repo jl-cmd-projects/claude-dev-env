@@ -370,39 +370,16 @@ test('the bar applies effort to running subagents and shows their count', async 
   expect(world.toasts).toContain('effort xhigh applied to 2 running subagents.')
 })
 
-const HINT_TARGET = {
-  plugin: 'subagent-models',
-  component: 'PromptHint',
-  props: { isDraft: false, isWorking: false, hint: '? for shortcuts' } as never,
-} as const
-
-test('the hint line pill opens the bar and the bar minimizes again', async ($, on) => {
-  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine band</Text>
-  })
+test('minimize collapses the bar to a pill that expands it, and the bar command toggles', async ($, on) => {
   engine(on)
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const bar = await $.ui.mount({ ...BAR_TARGET, surface })
-    const hint = await $.ui.mount({ ...HINT_TARGET, surface })
-    await hint.press({ key: 'pill' })
-    expect(await bar.find({ key: 'effort' })).toBeUndefined()
-    await hint.press({ key: 'pill' })
-    expect(await bar.find({ key: 'effort' })).toBeDefined()
-    await bar.press({ key: 'minimize' })
-    expect(await bar.find({ key: 'effort' })).toBeUndefined()
-    await hint.press({ key: 'pill' })
-    expect(await bar.find({ key: 'effort' })).toBeDefined()
-    await bar.unmount()
-    await hint.unmount()
-  }
-})
-
-test('the bar command toggles the bar and the hint line keeps the engine text', async ($, on) => {
-  engine(on)
-  const hint = await $.ui.mount({ ...HINT_TARGET, surface: 'terminal' })
-  expect(await hint.find({ type: 'Text', text: '? for shortcuts' })).toBeDefined()
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'terminal' })
+  await ui.press({ key: 'minimize' })
+  expect(await ui.find({ key: 'effort' })).toBeUndefined()
+  expect(await ui.find({ key: 'expand' })).toBeDefined()
+  await ui.press({ key: 'expand' })
+  expect(await ui.find({ key: 'effort' })).toBeDefined()
   expect((await command($ as never, 'bar')).text).toBe('Subagent bar minimized.')
+  expect(await ui.find({ key: 'expand' })).toBeDefined()
   expect((await command($ as never, 'bar')).text).toBe('Subagent bar expanded.')
 })
 
