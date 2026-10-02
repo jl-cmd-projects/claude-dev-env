@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.34.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.2...claude-dev-env-v8.34.0) (2026-10-02)
+
+
+### Features
+
+* **install:** install the usage-wrapup plugin on a full Claude install ([027ef56](https://github.com/jl-cmd/claude-dev-env/commit/027ef56a16fa213b06a4b18dd32060e08b9bdf2b))
+* **install:** pin usage-wrapup 0.2.0, which compacts near the usage limit ([6d34ce8](https://github.com/jl-cmd/claude-dev-env/commit/6d34ce8737617d4f8fc20e51ff963af945d34d4f))
+
 ## [8.33.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.1...claude-dev-env-v8.33.2) (2026-10-02)
 
 
