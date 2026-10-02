@@ -99,7 +99,8 @@ if (-not $?) {
 $Target = (Resolve-Path $Target).Path
 $Target = [System.IO.Path]::TrimEndingDirectorySeparator($Target)
 
-$Action = New-ScheduledTaskAction -Execute $PythonPath -Argument """$ScriptPath"" --once --age $AgeSeconds ""$Target"""
+$ConhostPath = Join-Path -Path $env:SystemRoot -ChildPath 'System32\conhost.exe'
+$Action = New-ScheduledTaskAction -Execute $ConhostPath -Argument "--headless ""$PythonPath"" ""$ScriptPath"" --once --age $AgeSeconds ""$Target"""
 $Trigger = New-ScheduledTaskTrigger -Once -At $StartAt -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 31)
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 

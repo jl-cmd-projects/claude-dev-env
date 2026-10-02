@@ -39,6 +39,7 @@ prove the task by the artifact it changes.
 - `LastTaskResult: 0` from a run that took the idle branch says nothing about the branch that acts.
 - A `#Requires -RunAsAdministrator` line pasted at a prompt checks nothing. It applies only to a script file.
 - An elevated window opens in `C:\WINDOWS\system32`. A prompt in the user's home folder is usually unelevated.
+- An Interactive task that starts `pwsh.exe -WindowStyle Hidden` still flashes a console window on the signed-in desktop. Windows draws the console before PowerShell reads the flag. `conhost.exe --headless` in front of the executable starts it with no window.
 
 ## When this applies
 
@@ -49,7 +50,7 @@ module. Register the task in an elevated shell when the task must run while the 
 
 1. Resolve every executable in the action with `Get-Command <name>` and read `.Source`.
 2. Read `files[]` in `~/.claude/.claude-dev-env-manifest.json` and pick a directory that list omits.
-3. Build the action with the absolute executable path and `-WindowStyle Hidden` inside the argument string.
+3. Build the action with `conhost.exe --headless` as the executable, followed by the absolute path of the program it starts.
 4. Build a `-Once` trigger with a repetition interval and no duration, then clear the duration on the trigger object.
 5. Build the settings set.
 6. Register with an S4U principal, catch the registration failure, and register with an Interactive principal.
@@ -83,18 +84,21 @@ try {
 ```
 
 S4U runs the task with no window whether or not the user is signed in, and its registration needs an
-elevated shell. The Interactive principal with `-WindowStyle Hidden` in the action runs windowless
-while the user is signed in. Report `$PrincipalKind` so the operator knows which one the task holds.
+elevated shell. The Interactive principal runs the task on the signed-in desktop, so its action goes
+through `conhost.exe --headless` to stay windowless. Report `$PrincipalKind` so the operator knows
+which one the task holds.
 
 ## Absolute paths in the action
 
 ```powershell
+$ConhostPath = Join-Path -Path $env:SystemRoot -ChildPath 'System32\conhost.exe'
 $PwshPath = (Get-Command pwsh).Source
-$Action = New-ScheduledTaskAction -Execute $PwshPath -Argument "-NoProfile -WindowStyle Hidden -File ""$ScriptPath"""
+$Action = New-ScheduledTaskAction -Execute $ConhostPath -Argument "--headless ""$PwshPath"" -NoProfile -File ""$ScriptPath"""
 ```
 
 Resolve each executable at registration time and store the absolute path in the action. Give the
-script an absolute path too.
+script an absolute path too. The same `--headless` front works for any console program, such as
+`python.exe` or `cmd.exe`.
 
 ## Settings
 
