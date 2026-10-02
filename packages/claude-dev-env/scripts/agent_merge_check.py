@@ -70,6 +70,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     DRAFT_KEY,
     ERROR_EXIT_CODE,
     FAILED_CHECKS_REMOVAL_REASON,
+    FIRST_PAGE_NUMBER,
     FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE,
     GITHUB_ACCEPT_TYPE,
     GITHUB_API_ROOT,
@@ -89,6 +90,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     MERGEABLE_STATE_CLEAN,
     MERGEABLE_STATE_KEY,
     MERGEABLE_STATE_UNKNOWN,
+    MERGEABLE_STATE_UNSTABLE,
     MISSING_CHECK_STATE,
     NAME_VARIABLE,
     NO_SIGN_IN_MESSAGE,
@@ -96,6 +98,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     NUMBER_KEY,
     NUMBER_VARIABLE,
     OWNER_VARIABLE,
+    PAGE_PARAMETER,
     PAGE_SIZE_VARIABLE,
     PENDING_CHECK_STATE,
     PENDING_STATUS_STATE,
@@ -126,6 +129,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     UNKNOWN_STATE_HOLD_TEMPLATE,
     UNRESOLVED_THREAD_QUERY,
     UNRESOLVED_THREADS_HOLD_TEMPLATE,
+    UNSTABLE_CHECKS_HOLD_TEMPLATE,
     UTF8_ENCODING,
     VARIABLES_KEY,
     VERDICT_LINE_TEMPLATE,
@@ -192,6 +196,7 @@ def hold_reason(
     unresolved_thread_count: int,
     blocked_evidence: BlockedEvidence | None = None,
     is_ejected_from_merge_queue: bool = False,
+    all_unstable_checks: tuple[str, ...] | None = None,
 ) -> str | None:
     """Return why this pull request stays open, or None when it may merge.
 
@@ -203,19 +208,31 @@ def hold_reason(
             None when nothing was read.
         is_ejected_from_merge_queue: Whether the merge queue ejected the
             current head for failed checks.
+        all_unstable_checks: Each check whose newest report on the head is
+            not passing, read behind an ``unstable`` merge state, or None
+            when nothing was read.
 
     Returns:
         The reason text for a draft, for a merge state other than clean, for
-        a head the merge queue ejected, and for an open review thread. None
-        when the pull request is ready for the agent that drives it to merge
-        it.
+        a head the merge queue ejected, and for an open review thread. An
+        ``unstable`` head whose newest reports all pass reads as clean,
+        because GitHub also counts the older runs those reports replaced.
+        None when the pull request is ready for the agent that drives it to
+        merge it.
     """
     if all_pull_request_fields.get(DRAFT_KEY):
         return DRAFT_HOLD_REASON
     merge_state = all_pull_request_fields.get(MERGEABLE_STATE_KEY)
     if merge_state == MERGEABLE_STATE_BLOCKED and blocked_evidence is not None:
         return blocked_hold_reason(blocked_evidence)
-    if merge_state != MERGEABLE_STATE_CLEAN:
+    if merge_state == MERGEABLE_STATE_UNSTABLE and all_unstable_checks:
+        return UNSTABLE_CHECKS_HOLD_TEMPLATE.format(
+            checks=REQUIRED_CHECK_SEPARATOR.join(all_unstable_checks)
+        )
+    is_superseded_unstable = (
+        merge_state == MERGEABLE_STATE_UNSTABLE and all_unstable_checks == ()
+    )
+    if merge_state != MERGEABLE_STATE_CLEAN and not is_superseded_unstable:
         return ALL_HOLD_REASONS_BY_STATE.get(
             merge_state,
             UNKNOWN_STATE_HOLD_TEMPLATE.format(state=merge_state),
@@ -344,6 +361,68 @@ def _newest_matching_run(
     if not all_matching_runs:
         return None
     return max(all_matching_runs, key=_check_run_id)
+
+
+def unmet_newest_checks(
+    all_check_runs: Sequence[object],
+    all_statuses: Sequence[object],
+) -> tuple[str, ...]:
+    """Name each check whose newest report on the head is not passing.
+
+    ::
+
+        Review closure   run 409 cancelled, run 412 cancelled, run 874 success
+                                                               newest ^
+        ok:   ()                                  every newest run passes
+        flag: ("Review closure (cancelled)",)     the newest run is cancelled
+
+    Runs of one name from one app collapse to the run with the highest id,
+    so the latest re-run or workflow run decides the check.
+
+    Args:
+        all_check_runs: Every check run reported on the head commit.
+        all_statuses: The latest commit status per context on the head.
+
+    Returns:
+        Each non-passing check as its name and state, such as
+        ``Ruff (failure)``, check runs first and then commit statuses.
+    """
+    return (*_unmet_run_states(all_check_runs), *_unmet_status_states(all_statuses))
+
+
+def _unmet_run_states(all_check_runs: Sequence[object]) -> list[str]:
+    return [
+        REQUIRED_CHECK_STATE_TEMPLATE.format(
+            context=each_run.get(CHECK_RUN_NAME_KEY), state=state
+        )
+        for each_run in _newest_run_per_check(all_check_runs)
+        if (state := _check_run_state(each_run)) is not None
+    ]
+
+
+def _unmet_status_states(all_statuses: Sequence[object]) -> list[str]:
+    return [
+        REQUIRED_CHECK_STATE_TEMPLATE.format(
+            context=each_status.get(CONTEXT_KEY), state=state
+        )
+        for each_status in all_statuses
+        if isinstance(each_status, Mapping)
+        and (state := _status_state(each_status)) is not None
+    ]
+
+
+def _newest_run_per_check(
+    all_check_runs: Sequence[object],
+) -> list[Mapping[str, object]]:
+    all_newest_runs: dict[tuple[object, object], Mapping[str, object]] = {}
+    for each_run in all_check_runs:
+        if not isinstance(each_run, Mapping):
+            continue
+        run_key = (each_run.get(CHECK_RUN_NAME_KEY), _check_run_app_id(each_run))
+        newest_run = all_newest_runs.get(run_key)
+        if newest_run is None or _check_run_id(each_run) > _check_run_id(newest_run):
+            all_newest_runs[run_key] = each_run
+    return list(all_newest_runs.values())
 
 
 def _check_run_id(all_run_fields: Mapping[str, object]) -> int:
@@ -563,13 +642,50 @@ def _read_branch_rules(slug: str, base_ref: str, token: str) -> list[object]:
     )
 
 
-def _read_unmet_checks(
-    slug: str,
-    head_sha: str,
-    all_rules: Sequence[object],
-    token: str,
-) -> tuple[str, ...]:
-    all_statuses = _request_list_field(
+def read_unstable_checks(slug: str, head_sha: str, token: str) -> tuple[str, ...]:
+    """Read which checks hold an ``unstable`` head back by their newest report.
+
+    Args:
+        slug: The repository as ``owner/name``.
+        head_sha: The pull request's head commit.
+        token: The GitHub token the requests authenticate with.
+
+    Returns:
+        Each check whose newest run or latest status on the head is not
+        passing, read across every page of check runs.
+
+    Raises:
+        MergeCheckError: A read failed, or answered with another shape.
+    """
+    return unmet_newest_checks(
+        _read_all_check_runs(slug, head_sha, token),
+        _read_statuses(slug, head_sha, token),
+    )
+
+
+def _read_all_check_runs(slug: str, head_sha: str, token: str) -> list[object]:
+    all_check_runs: list[object] = []
+    page_number = FIRST_PAGE_NUMBER
+    while True:
+        query = urllib.parse.urlencode(
+            {PER_PAGE_PARAMETER: CHECK_PAGE_SIZE, PAGE_PARAMETER: page_number}
+        )
+        all_page_runs = _request_list_field(
+            CHECK_RUNS_ENDPOINT_TEMPLATE.format(
+                api_root=GITHUB_API_ROOT, slug=slug, sha=head_sha, query=query
+            ),
+            token,
+            CHECK_RUNS_KEY,
+        )
+        all_check_runs.extend(all_page_runs)
+        if len(all_page_runs) < CHECK_PAGE_SIZE:
+            break
+        page_number += 1
+    return all_check_runs
+
+
+def _read_statuses(slug: str, head_sha: str, token: str) -> list[object]:
+    return _request_list_field(
         COMBINED_STATUS_ENDPOINT_TEMPLATE.format(
             api_root=GITHUB_API_ROOT,
             slug=slug,
@@ -579,6 +695,15 @@ def _read_unmet_checks(
         token,
         STATUSES_KEY,
     )
+
+
+def _read_unmet_checks(
+    slug: str,
+    head_sha: str,
+    all_rules: Sequence[object],
+    token: str,
+) -> tuple[str, ...]:
+    all_statuses = _read_statuses(slug, head_sha, token)
     all_unmet_checks: list[str] = []
     for each_required in required_contexts(all_rules):
         all_check_runs = _read_check_runs(slug, head_sha, each_required.context, token)
@@ -866,11 +991,22 @@ def main(all_arguments: Sequence[str]) -> int:
             )
         except MergeCheckError as failure:
             print(failure, file=sys.stderr)
+    all_unstable_checks = None
+    if all_pull_request_fields.get(MERGEABLE_STATE_KEY) == MERGEABLE_STATE_UNSTABLE:
+        try:
+            all_unstable_checks = read_unstable_checks(
+                parsed.slug,
+                str(_nested_field(all_pull_request_fields, HEAD_KEY, SHA_KEY)),
+                token,
+            )
+        except MergeCheckError as failure:
+            print(failure, file=sys.stderr)
     reason = hold_reason(
         all_pull_request_fields,
         unresolved_thread_count,
         blocked_evidence,
         is_ejected_from_merge_queue,
+        all_unstable_checks,
     )
     print(verdict_line(parsed.slug, all_pull_request_fields, reason))
     return HOLD_EXIT_CODE if reason else MERGE_EXIT_CODE

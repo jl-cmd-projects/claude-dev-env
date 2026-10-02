@@ -782,3 +782,206 @@ def test_read_merge_queue_ejection_compares_failed_checks_removals_to_the_head(
         )
         is expected_ejection
     )
+
+
+PULL_REQUEST_5330_HEAD_SHA = "bd616254075d6d2bbe58acadca3d6a30bf8ee814"
+PULL_REQUEST_5330 = {
+    "number": 5330,
+    "draft": False,
+    "mergeable_state": "unstable",
+    "base": {"ref": "main"},
+    "head": {"sha": PULL_REQUEST_5330_HEAD_SHA},
+}
+COPILOT_REVIEWER_APP_ID = 946600
+PULL_REQUEST_5330_CHECK_RUNS = [
+    _check_run("Review closure", "success", run_id=110871328668),
+    _check_run("Review closure", "cancelled", run_id=110871409317),
+    _check_run("Review closure", "cancelled", run_id=110871412010),
+    _check_run("Review closure", "cancelled", run_id=110871418946),
+    _check_run("Review closure", "cancelled", run_id=110871420919),
+    _check_run("Review closure", "success", run_id=110874389252),
+    _check_run("Ruff", "cancelled", run_id=110871770000),
+    _check_run("Ruff", "success", run_id=110887099099),
+    _check_run("Tip Local green", "success", run_id=110873242269),
+    _check_run("Merge queue build verdict", "skipped", run_id=110887297809),
+    _check_run(
+        "copilot-pull-request-reviewer",
+        "success",
+        run_id=110871360430,
+        app_id=COPILOT_REVIEWER_APP_ID,
+    ),
+]
+NEWEST_REVIEW_CLOSURE_CANCELLED = [
+    *PULL_REQUEST_5330_CHECK_RUNS,
+    _check_run("Review closure", "cancelled", run_id=110890000000),
+]
+
+
+def test_superseded_cancelled_runs_leave_no_unmet_newest_check() -> None:
+    assert agent_merge_check.unmet_newest_checks(PULL_REQUEST_5330_CHECK_RUNS, []) == ()
+
+
+@pytest.mark.parametrize(
+    ("all_check_runs", "all_statuses", "expected_checks"),
+    [
+        (NEWEST_REVIEW_CLOSURE_CANCELLED, [], ("Review closure (cancelled)",)),
+        (
+            [_check_run("Ruff", None, run_id=2, status="in_progress")],
+            [],
+            ("Ruff (pending)",),
+        ),
+        (
+            [
+                _check_run("Ruff", "success", run_id=2),
+                _check_run("Ruff", "failure", run_id=5, app_id=1),
+            ],
+            [],
+            ("Ruff (failure)",),
+        ),
+        (
+            PULL_REQUEST_5330_CHECK_RUNS,
+            [
+                {"context": "local-checks", "state": "success"},
+                {"context": "Semgrep", "state": "failure"},
+            ],
+            ("Semgrep (failure)",),
+        ),
+    ],
+)
+def test_unmet_newest_checks_names_each_check_whose_newest_report_is_not_passing(
+    all_check_runs: list[object],
+    all_statuses: list[object],
+    expected_checks: tuple[str, ...],
+) -> None:
+    assert (
+        agent_merge_check.unmet_newest_checks(all_check_runs, all_statuses)
+        == expected_checks
+    )
+
+
+def test_an_unstable_head_whose_newest_runs_pass_may_merge() -> None:
+    assert (
+        agent_merge_check.hold_reason(
+            _pull_request(mergeable_state="unstable"), 0, all_unstable_checks=()
+        )
+        is None
+    )
+
+
+def test_an_unstable_head_whose_newest_runs_pass_still_holds_on_an_open_thread() -> (
+    None
+):
+    reason = agent_merge_check.hold_reason(
+        _pull_request(mergeable_state="unstable"), 1, all_unstable_checks=()
+    )
+    assert reason is not None
+    assert "1 review thread" in reason
+
+
+def test_an_unstable_head_names_the_check_whose_newest_run_failed() -> None:
+    reason = agent_merge_check.hold_reason(
+        _pull_request(mergeable_state="unstable"),
+        0,
+        all_unstable_checks=("Review closure (cancelled)",),
+    )
+    assert reason is not None
+    assert "Review closure (cancelled)" in reason
+
+
+def _unstable_answers(
+    all_check_runs: list[dict[str, object]],
+    all_threads: list[object] | None = None,
+) -> object:
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.path.endswith("/pulls/5330"):
+            return PULL_REQUEST_5330
+        if parsed.path.endswith("/ccr/review_threads"):
+            return all_threads or []
+        if parsed.path.endswith("/graphql"):
+            return _merge_queue_document([])
+        if parsed.path.endswith("/check-runs"):
+            all_parameters = urllib.parse.parse_qs(parsed.query)
+            page_size = int(all_parameters["per_page"][0])
+            page_number = int(all_parameters["page"][0])
+            first_index = (page_number - 1) * page_size
+            return {
+                "check_runs": all_check_runs[first_index : first_index + page_size]
+            }
+        if parsed.path.endswith("/status"):
+            return {"statuses": []}
+        raise AssertionError(url)
+
+    return _answer
+
+
+def _run_unstable_main(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    answer: object,
+) -> tuple[int, str]:
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(agent_merge_check, "_request_json", answer)
+    exit_code = agent_merge_check.main(["Echo-Visuals-Inc/python-automation", "5330"])
+    return exit_code, capsys.readouterr().out
+
+
+def test_the_pull_request_5330_shape_reads_merge(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_unstable_main(
+        monkeypatch, capsys, _unstable_answers(PULL_REQUEST_5330_CHECK_RUNS)
+    )
+    assert exit_code == 0
+    assert line.startswith(MERGE_VERDICT_LABEL)
+    assert "bd61625" in line
+
+
+def test_a_newest_run_cancellation_on_an_unstable_head_holds(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code, line = _run_unstable_main(
+        monkeypatch, capsys, _unstable_answers(NEWEST_REVIEW_CLOSURE_CANCELLED)
+    )
+    assert exit_code == 1
+    assert line.startswith(HOLD_VERDICT_LABEL)
+    assert "Review closure (cancelled)" in line
+
+
+def test_an_unreadable_check_listing_keeps_the_generic_unstable_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    routed_answer = _unstable_answers(PULL_REQUEST_5330_CHECK_RUNS)
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if "/check-runs" in url:
+            raise agent_merge_check.MergeCheckError("HTTP Error 403: Forbidden")
+        return routed_answer(url, token, all_payload_fields)
+
+    exit_code, line = _run_unstable_main(monkeypatch, capsys, _answer)
+    assert exit_code == 1
+    assert UNSTABLE_HOLD_REASON in line
+
+
+def test_read_unstable_checks_reads_every_page_of_check_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_passing_runs = [
+        _check_run(f"Shard {each_index}", "success", run_id=each_index)
+        for each_index in range(1, 151)
+    ]
+    all_runs_with_late_failure = [
+        *all_passing_runs,
+        _check_run("Shard 150", "failure", run_id=151),
+    ]
+    monkeypatch.setattr(
+        agent_merge_check,
+        "_request_json",
+        _unstable_answers(all_runs_with_late_failure),
+    )
+    assert agent_merge_check.read_unstable_checks(
+        "Echo-Visuals-Inc/python-automation", PULL_REQUEST_5330_HEAD_SHA, "token"
+    ) == ("Shard 150 (failure)",)
