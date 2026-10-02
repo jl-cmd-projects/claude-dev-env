@@ -9,9 +9,9 @@ Source: the repository owner's policy, recorded in [jl-cmd/claude-dev-env#1607](
 
 Never state a claim without a credible source. Don't guess. Don't infer.
 
-Before an answer depends on an unsettled fact, list every tool that could settle it: repository files, `gh api` contents and code search, workflow files, a live run, another repository. Run each one. The answer states the fact with its source.
+Before an answer depends on an unsettled fact, list every tool that could settle it: repository files, `gh api` contents and code search, workflow files, a live run, another repository. Run each one that reads state or that current permissions already allow. The answer states the fact with its source.
 
-When no tool can reach the fact, name the exact check that would settle it and who can run it. "I don't know" alone is never the answer.
+When no permitted tool can reach the fact, name the exact check that would settle it and who can run or approve it. A probe that changes state, or that needs confirmation first, goes here. "I don't know" alone is never the answer.
 
 ## 2. Verify with citations
 Every recommendation, claim, or piece of advice must cite a specific source:
