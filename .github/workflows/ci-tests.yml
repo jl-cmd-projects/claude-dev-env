@@ -53,6 +53,7 @@ jobs:
       package_suite: ${{ steps.filter.outputs.package_suite }}
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
+      subagent_models: ${{ steps.filter.outputs.subagent_models }}
     steps:
       - uses: actions/checkout@v5
 
@@ -83,6 +84,9 @@ jobs:
             javascript:
               - 'packages/claude-dev-env/**'
               - 'package.json'
+              - '.github/workflows/ci-tests.yml'
+            subagent_models:
+              - 'packages/subagent-models/**'
               - '.github/workflows/ci-tests.yml'
 
   python:
@@ -233,6 +237,26 @@ jobs:
         run: |
           npm install
           npm test
+
+  subagent-models:
+    name: subagent-models mod (ubuntu)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.subagent_models == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate and test the mod
+        working-directory: packages/subagent-models
+        run: |
+          npm install --global @anthropic-ai/claude-code@2.1.288
+          claude plugin validate .
+          claude plugin test .
 
   install-playtest:
     name: Install playtest (ubuntu)
