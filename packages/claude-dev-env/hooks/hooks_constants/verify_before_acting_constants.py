@@ -49,18 +49,32 @@ ALL_MCP_MUTATING_VERBS = frozenset(
 )
 ALL_MCP_READ_VERBS = frozenset({"get", "list", "search", "read", "view", "fetch", "find", "query"})
 
-_GIT_GLOBAL_OPTIONS = r"""(?:\s+-[cC]\s+(?:"[^"]*"|'[^']*'|\S+))*"""
+GIT_PROGRAM_NAME = "git"
+ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES = frozenset(
+    {
+        ("commit",),
+        ("push",),
+        ("merge",),
+        ("rebase",),
+        ("reset",),
+        ("checkout", "-b"),
+        ("switch", "-c"),
+        ("worktree", "add"),
+    }
+)
+ALL_WRITE_REDIRECTION_OPERATORS = frozenset({">", ">>", "&>", "&>>", ">&"})
+ALL_NON_FILE_REDIRECTION_TARGETS = frozenset({"/dev/null", "$null", "nul", "-"})
+REDIRECTION_TARGET_QUOTES = "'\""
+
 _HTTP_WRITE_METHODS = r"(?:POST|PATCH|PUT|DELETE)"
+_EXPLICIT_GET_METHOD = r"(?![^\n;|&]*?\s(?:-X\s*|--method[\s=]+)GET\b)"
 ALL_MUTATING_COMMAND_PATTERNS = (
-    re.compile(
-        r"\bgit"
-        + _GIT_GLOBAL_OPTIONS
-        + r"\s+(?:commit|push|merge|rebase|reset|checkout\s+-b|switch\s+-c|worktree\s+add)\b"
-    ),
     re.compile(r"\bgh\s+pr\s+(?:create|edit|merge|comment|ready|close)\b"),
     re.compile(r"\bgh\s+issue\s+(?:create|edit|comment|close)\b"),
     re.compile(
-        r"\bgh\s+api\b[^\n;|&]*?(?:\s-X\s*"
+        r"\bgh\s+api\b"
+        + _EXPLICIT_GET_METHOD
+        + r"[^\n;|&]*?(?:\s-X\s*"
         + _HTTP_WRITE_METHODS
         + r"\b|\s--method[\s=]+"
         + _HTTP_WRITE_METHODS
@@ -73,9 +87,6 @@ ALL_MUTATING_COMMAND_PATTERNS = (
     re.compile(
         r"\b(?:Remove-Item|Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item|Rename-Item)\b",
         re.IGNORECASE,
-    ),
-    re.compile(
-        r"(?<![<>=-])\d?>{1,2}(?![>&=])\s*(?!/dev/null\b|\$null\b|nul\b)(?=\S)", re.IGNORECASE
     ),
     re.compile(
         r"(?:^|[;&|(\n`])\s*(?:sudo\s+)?(?:xargs(?:\s+-\S+)*\s+)?(?:\S*/)?"

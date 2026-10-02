@@ -182,6 +182,20 @@ def test_should_allow_a_write_after_clean_reasoning(
         ("Bash", "sed --silent 1p notes.txt"),
         ("Bash", "git log --oneline -- rm.py"),
         ("Bash", "python pull_request.py --help"),
+        ("Bash", "awk '$1 > 5' notes.txt"),
+        ("Bash", "jq '.count > 3' data.json"),
+        ("Bash", "gh pr list --json number --jq 'map(select(.number > 5))'"),
+        ("Bash", 'python -c "print(1 > 0)"'),
+        ("Bash", "grep -c '>' notes.txt"),
+        ("Bash", "git log --format='%h > %s'"),
+        ("Bash", "gh api -X GET search/issues -f q=repo:o/r"),
+        ("Bash", "gh api --method GET repos/o/r/pulls -f state=open"),
+        ("Bash", "git --no-pager log"),
+        ("Bash", "git --git-dir=/repo/.git log --oneline"),
+        ("Bash", "git -C /repo stash list"),
+        ("Bash", "git -c core.pager=cat diff"),
+        ("Bash", 'pwsh -NoProfile -Command "git status"'),
+        ("PowerShell", "Get-Content x.txt > $null"),
     ],
 )
 def test_should_pass_a_read_only_command_untouched(
@@ -237,6 +251,12 @@ def test_should_pass_a_read_only_command_untouched(
         ("Bash", "python pull_request.py edit --repo o/r --number 12 --body-file body.md"),
         ("Bash", "python pull_request.py comment --repo o/r --number 12 --body-file body.md"),
         ("Bash", "python pull_request.py review --repo o/r --number 12 --event approve"),
+        ("Bash", 'pwsh -NoProfile -Command "git push origin HEAD"'),
+        ("Bash", "cd repo && git checkout -b feat/x"),
+        ("Bash", "echo hi>notes.txt"),
+        ("Bash", "echo hi >> notes.txt"),
+        ("Bash", "make 2> errors.log"),
+        ("Bash", "make &> out.log"),
         ("PowerShell", "rm C:/scratch/x.txt"),
         ("PowerShell", "mkdir out"),
     ],
@@ -253,6 +273,36 @@ def test_should_block_a_mutating_command_after_hedged_reasoning(
     exit_code, stdout_text = run_hook(monkeypatch, capsys, tool_name, tool_input, transcript_path)
     assert exit_code == 0
     assert json.loads(stdout_text) == expected_block(tool_name, HEDGED_SENTENCE)
+
+
+@pytest.mark.parametrize(
+    "global_options",
+    [
+        "--git-dir=/repo/.git",
+        "--git-dir /repo/.git",
+        "--work-tree=/repo",
+        "--work-tree /repo",
+        "-C /repo",
+        "-c user.name=x",
+        "--no-pager",
+        "--namespace=n",
+        "--namespace n",
+        "-c user.name=x -C /repo",
+    ],
+)
+@pytest.mark.parametrize("subcommand", ["push origin HEAD", "commit -F message.txt"])
+def test_should_block_a_git_change_behind_global_options(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    global_options: str,
+    subcommand: str,
+) -> None:
+    tool_input = {"command": f"git {global_options} {subcommand}"}
+    transcript_path = acting_transcript(tmp_path, HEDGED_SENTENCE, "Bash", tool_input)
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Bash", tool_input, transcript_path)
+    assert exit_code == 0
+    assert json.loads(stdout_text) == expected_block("Bash", HEDGED_SENTENCE)
 
 
 @pytest.mark.parametrize(
