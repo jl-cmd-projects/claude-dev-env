@@ -66,7 +66,8 @@ jobs:
             -r packages/claude-dev-env/scripts/pr_verification/requirements.txt \
             pytest \
             pyyaml \
-            Pillow
+            Pillow \
+            ruff
 
       - name: Configure git identity for test repos
         run: |
