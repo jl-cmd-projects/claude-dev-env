@@ -296,6 +296,19 @@ test('a malformed agent command prints the usage', async ($, on) => {
   engine(on)
   expect((await command($ as never, 'agent Explore maybe')).text).toMatch(/^Usage:/)
   expect((await command($ as never, 'agent')).text).toMatch(/^Usage:/)
+  const lines = (await command($ as never, 'off')).text?.split('\n') ?? []
+  expect(lines[0]).toBe('Usage: /subagent-models <command>')
+  expect(lines.filter(line => line.startsWith('- ')).map(line => line.split(':')[0])).toEqual([
+    '- <field> <value>',
+    '- agents',
+    '- agent <type> on|off',
+    '- skills',
+    '- skill <name> on|off',
+    '- bar',
+    '- apply',
+    '- save',
+    '- reset',
+  ])
 })
 
 test('with applyToRunning on, a running subagent moves to a new effort', async ($, on) => {

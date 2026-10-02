@@ -394,7 +394,19 @@ function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: re
   )
 }
 
-const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | skills | agent <type> on|off | skill <name> on|off | bar | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
+const USAGE = [
+  `Usage: /${PLUGIN} <command>`,
+  `- <field> <value>: set one value for this session. Fields: ${ALL_FIELDS.join(', ')}`,
+  '- agents: list the agent types, each with its switch',
+  '- agent <type> on|off: switch one agent type',
+  '- skills: list the skills, each with its switch',
+  '- skill <name> on|off: switch one skill',
+  '- bar: minimize or expand the bar',
+  '- apply: move running subagents to the current effort',
+  '- save: write this session to the defaults',
+  '- reset: drop the values this session set',
+  'With no command, it prints the values in force.',
+].join('\n')
 
 export const register: Register = (on, options: PluginOptions) => {
   const defaults: Defaults = {
