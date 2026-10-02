@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.35.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.1...claude-dev-env-v8.35.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([565e841](https://github.com/jl-cmd/claude-dev-env/commit/565e8411abe598bdbe42a67b20caa8d480df5099))
+* **install:** a failed install keeps the lookup pointers a prior install published ([63c9c86](https://github.com/jl-cmd/claude-dev-env/commit/63c9c861d376773e401e23efba24158cff3cb1fd))
+
+
+### Tests
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([3653d20](https://github.com/jl-cmd/claude-dev-env/commit/3653d204256e344a6f8496ea3b8cef1cad032806))
+* **install:** cover the Codex hooks pointer in the rollback test ([e807832](https://github.com/jl-cmd/claude-dev-env/commit/e807832afce5db19025d3483a5bc05f8e8b7bf9a))
+
 ## [8.35.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.0...claude-dev-env-v8.35.1) (2026-10-02)
 
 
