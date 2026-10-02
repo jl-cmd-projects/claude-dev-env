@@ -4,7 +4,7 @@
 
 ## Rule
 
-The agent that drives a pull request merges it. A pull request that is green, carries no open review thread, and sits at a merge state of `clean` is merged in the same run that brought it there. Waiting for the owner to type "merge" parks finished work on the person the work was done for.
+The agent that drives a pull request merges it. A pull request that is green, carries no open review thread, and sits at a merge state of `clean` is merged in the same run that brought it there. A merge state of `unstable` counts as `clean` when every check's newest report on the head passes. GitHub also counts the older runs of a check that ran again, so a cancelled run followed by a passing re-run still reads `unstable`. Waiting for the owner to type "merge" parks finished work on the person the work was done for.
 
 Three things stay with the owner, and nothing else does:
 
@@ -24,7 +24,7 @@ One command prints the verdict:
 python packages/claude-dev-env/scripts/agent_merge_check.py <owner>/<name> <number>
 ```
 
-It prints `MERGE` and exits 0 when the pull request is ready. It prints `HOLD` with the reason and exits 1 for a draft, for a head behind or conflicting with the base, for a required check that is not passing, for a check still running or red, for a head the merge queue ejected for failed checks, and for an open review thread. It exits 2 when the state could not be read.
+It prints `MERGE` and exits 0 when the pull request is ready. It prints `HOLD` with the reason and exits 1 for a draft, for a head behind or conflicting with the base, for a required check that is not passing, for a check whose newest report on the head is still running, cancelled, or red, for a head the merge queue ejected for failed checks, and for an open review thread. It exits 2 when the state could not be read.
 
 Each hold reason names its own repair, and each repair belongs to the agent:
 
@@ -33,7 +33,7 @@ Each hold reason names its own repair, and each repair belongs to the agent:
 | Head behind the base | Merge the base branch in and push |
 | Head conflicts with the base | Merge the base branch in, resolve, push |
 | A required check is red | Read the failing check, fix it, push |
-| A check is red or still running | Fix it, or wait for it, then read the verdict again |
+| A check is red, cancelled, or still running | Fix a red one, re-run a cancelled one, or wait for a running one, then read the verdict again |
 | A review thread is open | Answer it, push the fix, resolve the thread |
 | Ejected from the merge queue for failed checks on this head | Read the merge_group run, fix the failure, push, then read the verdict again |
 | The pull request is a draft | Mark it ready once the checks pass |
