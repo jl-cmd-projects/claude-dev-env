@@ -922,7 +922,7 @@ def _run_unstable_main(
 ) -> tuple[int, str]:
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setattr(agent_merge_check, "_request_json", answer)
-    exit_code = agent_merge_check.main(["Echo-Visuals-Inc/python-automation", "5330"])
+    exit_code = agent_merge_check.main(["jl-cmd/claude-dev-env", "5330"])
     return exit_code, capsys.readouterr().out
 
 
@@ -983,5 +983,5 @@ def test_read_unstable_checks_reads_every_page_of_check_runs(
         _unstable_answers(all_runs_with_late_failure),
     )
     assert agent_merge_check.read_unstable_checks(
-        "Echo-Visuals-Inc/python-automation", PULL_REQUEST_5330_HEAD_SHA, "token"
+        "jl-cmd/claude-dev-env", PULL_REQUEST_5330_HEAD_SHA, "token"
     ) == ("Shard 150 (failure)",)
