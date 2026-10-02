@@ -324,12 +324,12 @@ jobs:
       - name: Resolve the event merge base
         id: event-merge-base
         env:
-          EVENT_BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_BASE_REVISION: ${{ github.event.before }}
         run: |
           set -euo pipefail
           event_base_revision="${EVENT_BASE_REVISION}"
           zero_revision="0000000000000000000000000000000000000000"
-          if [ -z "${event_base_revision}" ] || [ "${event_base_revision}" = "${zero_revision}" ]; then
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ -z "${event_base_revision}" ] || [ "${event_base_revision}" = "${zero_revision}" ]; then
             event_base_revision="$(git rev-parse HEAD^1)"
           fi
           echo "comparison_revision=$(git merge-base HEAD "${event_base_revision}")" >> "${GITHUB_OUTPUT}"
