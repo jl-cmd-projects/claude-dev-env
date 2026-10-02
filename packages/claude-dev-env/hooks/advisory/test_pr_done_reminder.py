@@ -152,6 +152,58 @@ def test_should_say_done_when_mergeable_and_checks_pass() -> None:
     assert "NOT DONE" not in context
 
 
+def test_should_say_not_done_when_no_check_has_reported_on_the_head() -> None:
+    no_checks_yet = {**_CLEAN_PR_OBJECT, "statusCheckRollup": []}
+
+    context = pr_done_reminder.build_reminder_context(no_checks_yet)
+
+    assert "CI checks:   none reported yet on this head." in context
+    assert "NOT DONE" in context
+    assert "gh pr edit 42 --add-label" not in context
+
+
+def test_should_say_not_done_when_the_rollup_is_missing() -> None:
+    no_rollup = {key: value for key, value in _CLEAN_PR_OBJECT.items() if key != "statusCheckRollup"}
+
+    context = pr_done_reminder.build_reminder_context(no_rollup)
+
+    assert "none reported yet on this head." in context
+    assert "NOT DONE" in context
+
+
+def test_should_say_not_done_while_a_check_is_pending_on_an_otherwise_green_head() -> None:
+    one_pending = {
+        **_CLEAN_PR_OBJECT,
+        "statusCheckRollup": [
+            {"name": "pytest", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"name": "mypy", "status": "QUEUED", "conclusion": ""},
+        ],
+    }
+
+    context = pr_done_reminder.build_reminder_context(one_pending)
+
+    assert "1 pending" in context
+    assert "NOT DONE" in context
+    assert "gh pr edit 42 --add-label" not in context
+
+
+def test_should_say_done_when_every_reported_check_passed() -> None:
+    all_green = {
+        **_CLEAN_PR_OBJECT,
+        "statusCheckRollup": [
+            {"name": "pytest", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"name": "docs", "status": "COMPLETED", "conclusion": "SKIPPED"},
+            {"context": "lint", "state": "SUCCESS"},
+        ],
+    }
+
+    context = pr_done_reminder.build_reminder_context(all_green)
+
+    assert "CI checks:   0 failing, 0 pending, 3 total" in context
+    assert "Verdict:     DONE. Add the label now:" in context
+    assert "NOT DONE" not in context
+
+
 def test_should_keep_the_checklist_order_verdict_then_recheck_then_footer() -> None:
     all_lines = pr_done_reminder.build_reminder_context(_CLEAN_PR_OBJECT).split("\n")
 

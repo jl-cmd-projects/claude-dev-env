@@ -59,6 +59,7 @@ try:
         ALL_FAILING_CHECK_CONCLUSIONS,
         ALL_PASSING_CHECK_CONCLUSIONS,
         CHECK_COMPLETED_STATUS,
+        CHECKS_NOT_REPORTED_TEXT,
         DONE_LABEL_NAME,
         GH_PR_CREATE_ACTION,
         GH_PR_SUBCOMMAND,
@@ -164,7 +165,7 @@ def _check_counts(all_pr_fields: dict[str, object]) -> dict[str, int]:
 
 def _checks_line(all_check_counts: dict[str, int]) -> str:
     if all_check_counts["total"] == 0:
-        return "none reported"
+        return CHECKS_NOT_REPORTED_TEXT
     return (
         f"{all_check_counts['failing']} failing, "
         f"{all_check_counts['pending']} pending, "
@@ -185,6 +186,7 @@ def _has_done_label(all_pr_fields: dict[str, object]) -> bool:
 def _is_done(mergeable_value: str, all_check_counts: dict[str, int]) -> bool:
     return (
         mergeable_value == MERGEABLE_CLEAN_VALUE
+        and all_check_counts["total"] > 0
         and all_check_counts["failing"] == 0
         and all_check_counts["pending"] == 0
     )
