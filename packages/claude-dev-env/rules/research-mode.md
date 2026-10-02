@@ -11,7 +11,6 @@ Before an answer depends on an unsettled fact, list every tool that could settle
 
 When no tool can reach the fact, name the exact check that would settle it and who can run it. "I don't know" alone is never the answer.
 
-An agent once answered "I don't know" when asked whether a downstream repository picks up a fix on its own or needs a pin change. A workflow file in that repository held the answer, two `gh api` reads away.
 ## 2. Verify with citations
 Every recommendation, claim, or piece of advice must cite a specific source:
 - A file in the current project
