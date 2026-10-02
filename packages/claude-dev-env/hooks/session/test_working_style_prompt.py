@@ -57,7 +57,7 @@ class TestWorkingStylePrompt:
 
     def test_prompt_limits_replies_to_what_the_user_must_act_on_or_know(self) -> None:
         assert "Send the user only what they must act on or need to know." in WORKING_STYLE_PROMPT
-        assert "ends with no text when nothing in it needs the user" in WORKING_STYLE_PROMPT
+        assert "starts a turn and nothing in it needs the user, end the turn with no text." in WORKING_STYLE_PROMPT
         assert "On a typed request, state your next action in one sentence" in WORKING_STYLE_PROMPT
         assert "Before your first tool call, state your next action" not in WORKING_STYLE_PROMPT
         assert (
