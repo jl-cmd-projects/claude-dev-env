@@ -184,3 +184,54 @@ def test_a_node_fix_whose_changed_test_fails_on_head_fails(
 
     assert _run_check(repository_root, "fix(bin): sum operands", base_revision) == 1
     assert "fails on the head" in capsys.readouterr().err
+
+
+BUGGY_GREETING_TEXT = 'def greet() -> str:\n    return "helo"\n'
+FIXED_GREETING_TEXT = 'def greet() -> str:\n    return "hello"\n'
+GREETING_TEST_TEXT = (
+    "from greet import greet\n\n\ndef test_greet_spells_hello() -> None:\n"
+    '    assert greet() == "hello"\n'
+)
+MERGE_REF_FIRST_PARENT = "HEAD^1"
+
+
+def _merge_ref_after_base_moved(
+    tmp_path: Path, all_pull_request_files: dict[str, str]
+) -> Path:
+    repository_root = repository_with_root_pytest_config(tmp_path)
+    _commit_files(
+        repository_root,
+        {"pkg/calc.py": BUGGY_PRODUCTION_TEXT, "other/greet.py": BUGGY_GREETING_TEXT},
+    )
+    run_git(repository_root, "checkout", "-b", "pull-request")
+    _commit_files(repository_root, all_pull_request_files)
+    run_git(repository_root, "checkout", "main")
+    _commit_files(
+        repository_root,
+        {"other/greet.py": FIXED_GREETING_TEXT, "other/test_greet.py": GREETING_TEST_TEXT},
+    )
+    run_git(repository_root, "merge", "--no-ff", "--no-edit", "pull-request")
+    return repository_root
+
+
+def test_a_fix_without_its_own_test_fails_when_the_base_branch_moved_with_a_test(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root = _merge_ref_after_base_moved(
+        tmp_path, {"pkg/calc.py": FIXED_PRODUCTION_TEXT}
+    )
+
+    assert _run_check(repository_root, "fix: sum operands", MERGE_REF_FIRST_PARENT) == 1
+    assert "no Python or Node test" in capsys.readouterr().err
+
+
+def test_a_fix_on_a_moved_base_branch_judges_only_its_own_test(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root = _merge_ref_after_base_moved(
+        tmp_path,
+        {"pkg/calc.py": FIXED_PRODUCTION_TEXT, "pkg/test_calc.py": PROOF_TEST_TEXT},
+    )
+
+    assert _run_check(repository_root, "fix: sum operands", MERGE_REF_FIRST_PARENT) == 0
+    assert "fix_pr_test_proof: 1 changed test(s)" in capsys.readouterr().out
