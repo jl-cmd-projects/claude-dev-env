@@ -1,5 +1,14 @@
 # Changelog
 
+## [8.31.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.31.0...claude-dev-env-v8.31.1) (2026-10-02)
+
+
+### Documentation
+
+* **agents:** act only on what was checked ([96f1604](https://github.com/jl-cmd/claude-dev-env/commit/96f16048abb37360eec2cbd8d6f0e747aece3120))
+* **agents:** act only on what was checked ([5b62416](https://github.com/jl-cmd/claude-dev-env/commit/5b6241697cb18e62edbb7165b2a25164be1c7468))
+* **agents:** name the check an agent cannot run ([c51018b](https://github.com/jl-cmd/claude-dev-env/commit/c51018b73aaf4885ffdf380dcd4209cc89c2c1e1))
+
 ## [8.31.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.30.1...claude-dev-env-v8.31.0) (2026-10-02)
 
 
