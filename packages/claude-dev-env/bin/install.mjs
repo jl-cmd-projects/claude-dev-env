@@ -76,6 +76,7 @@ import {
 } from './resolve-package-managed-directory.mjs';
 import {
     ensureDirectoryPointer,
+    POINTER_ACTION_CREATED,
 } from './publish-directory-pointer.mjs';
 import {
     parseInstallTargetSelectionFromArgv,
@@ -872,7 +873,11 @@ function owningManagedRoot(installedFilePath) {
  * so those two paths are pointers. A real directory from an older install at a
  * lookup path is merged into the agents home before the pointer is written.
  *
- * @returns {string[]} The lookup paths this run published.
+ * A pointer that already aimed at its target is left out of the result, so a
+ * rollback that removes this run's written paths keeps the pointer a prior
+ * install published.
+ *
+ * @returns {string[]} The lookup paths this run created.
  */
 function publishManagedLookupPointers() {
     const pointerPairs = [
@@ -897,10 +902,10 @@ function publishManagedLookupPointers() {
             INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
         ],
     ];
-    for (const [pointerPath, targetPath] of pointerPairs) {
-        ensureDirectoryPointer(pointerPath, targetPath);
-    }
-    return pointerPairs.map(([pointerPath]) => pointerPath);
+    return pointerPairs
+        .map(([pointerPath, targetPath]) => ensureDirectoryPointer(pointerPath, targetPath))
+        .filter((pointerResult) => pointerResult.action === POINTER_ACTION_CREATED)
+        .map((pointerResult) => pointerResult.pointerPath);
 }
 
 /**
