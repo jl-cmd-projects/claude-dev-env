@@ -4,7 +4,14 @@ import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, sy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
-import { QUESTION_PRESENTATION_BLOCK_END, QUESTION_PRESENTATION_BLOCK_START } from './codex-skill-load-block.mjs';
+import {
+    PACKAGE_GUIDANCE_BLOCK_END,
+    PACKAGE_GUIDANCE_BLOCK_START,
+    QUESTION_PRESENTATION_BLOCK_END,
+    QUESTION_PRESENTATION_BLOCK_START,
+    SKILL_LOAD_BLOCK_END,
+    SKILL_LOAD_BLOCK_START,
+} from './codex-skill-load-block.mjs';
 
 const QUESTION_GUIDANCE = `${QUESTION_PRESENTATION_BLOCK_START}\nAsk one question.\n${QUESTION_PRESENTATION_BLOCK_END}\n`;
 
@@ -114,3 +121,47 @@ test('a linked question-only Codex file does not trigger model seeding', (contex
     assert.equal(lstatSync(join(codexHome, 'AGENTS.md')).isSymbolicLink(), true);
     assert.equal(readFileSync(linkedGuidancePath, 'utf8'), QUESTION_GUIDANCE);
 });
+
+const PACKAGE_GUIDANCE = `${PACKAGE_GUIDANCE_BLOCK_START}\nStatus\n${PACKAGE_GUIDANCE_BLOCK_END}\n`;
+const SKILL_LOAD_GUIDANCE = `${SKILL_LOAD_BLOCK_START}\nLoad the skill.\n${SKILL_LOAD_BLOCK_END}\n`;
+
+function codexHomeHolding(context, existingGuidance) {
+    const root = mkdtempSync(join(tmpdir(), 'cde-pstack-models-'));
+    context.after(() => rmSync(root, { recursive: true, force: true }));
+    const codexHome = join(root, '.codex');
+    mkdirSync(codexHome);
+    writeFileSync(join(codexHome, 'AGENTS.md'), existingGuidance);
+    return codexHome;
+}
+
+for (const [label, existingGuidance] of [
+    ['package block', PACKAGE_GUIDANCE],
+    ['package then question blocks', `${PACKAGE_GUIDANCE}\n${QUESTION_GUIDANCE}`],
+    ['question then package blocks', `${QUESTION_GUIDANCE}\n${PACKAGE_GUIDANCE}`],
+    ['all three managed blocks', `${SKILL_LOAD_GUIDANCE}\n${PACKAGE_GUIDANCE}\n${QUESTION_GUIDANCE}`],
+]) {
+    test(`a Codex file holding only the ${label} receives model defaults and keeps its blocks`, (context) => {
+        const codexHome = codexHomeHolding(context, existingGuidance);
+
+        const paths = seedCodexPstackModels(codexHome);
+
+        assert.deepEqual(paths, [join(codexHome, 'pstack-models.md'), join(codexHome, 'AGENTS.md')]);
+        const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
+        assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
+        assert.ok(agents.endsWith(existingGuidance));
+    });
+}
+
+for (const [label, existingGuidance] of [
+    ['an empty file', ''],
+    ['a package block with personal notes', `${PACKAGE_GUIDANCE}My notes\n`],
+    ['personal notes before managed blocks', `My notes\n${PACKAGE_GUIDANCE}\n${QUESTION_GUIDANCE}`],
+]) {
+    test(`${label} does not trigger model seeding`, (context) => {
+        const codexHome = codexHomeHolding(context, existingGuidance);
+
+        assert.equal(seedCodexPstackModels(codexHome), null);
+        assert.equal(existsSync(join(codexHome, 'pstack-models.md')), false);
+        assert.equal(readFileSync(join(codexHome, 'AGENTS.md'), 'utf8'), existingGuidance);
+    });
+}

@@ -1,7 +1,7 @@
 import { copyFileSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, constants as filesystemConstants } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hasOnlyQuestionPresentationBlock } from './codex-skill-load-block.mjs';
+import { hasOnlyPackageManagedBlocks } from './codex-skill-load-block.mjs';
 
 const CODEX_PRESET_PATH = fileURLToPath(new URL('../pstack-codex-models.md', import.meta.url));
 
@@ -16,7 +16,7 @@ export function seedCodexPstackModels(codexHome, writeAgentGuidance = writeFileS
     const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
     if (agentsEntry && !agentsEntry.isFile()) return null;
     const existingGuidance = agentsEntry ? readFileSync(agentsPath, 'utf8') : '';
-    if (agentsEntry && !hasOnlyQuestionPresentationBlock(existingGuidance)) return null;
+    if (agentsEntry && !hasOnlyPackageManagedBlocks(existingGuidance)) return null;
 
     const preset = readFileSync(CODEX_PRESET_PATH, 'utf8');
     const agentGuidance = preset.replace(/^session hook: on\n?$/m, '');
