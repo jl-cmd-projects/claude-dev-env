@@ -487,3 +487,65 @@ test('save writes the turned-off skills to the defaults', async ($, on) => {
   await command($ as never, 'save')
   expect(world.configWrites).toContainEqual({ key: 'subagent-models.disabledSkills', value: 'simplify' })
 })
+
+async function offerMany($: unknown, count: number) {
+  for (let index = 0; index < count; index += 1) await offer($ as never, `team:agent-${String(index).padStart(2, '0')}`)
+}
+
+function paneEngine(on: On) {
+  const panes = { opened: [] as string[], closed: [] as string[] }
+  on('ui.open', (_$, e) => (panes.opened.push(e.id), { value: { isPlaced: true } }) as never)
+  on('ui.close', (_$, e) => (panes.closed.push(e.id), { value: undefined }) as never)
+  return panes
+}
+
+const PANE_TARGET = {
+  plugin: 'subagent-models',
+  component: 'Pane',
+  requestId: 'subagent-agents',
+  props: { title: 'Agent types', isFocused: false, bodyColumns: 100, placement: 'dock' } as never,
+} as const
+
+test('a list of 16 stays in the bar and opens no pane', async ($, on) => {
+  engine(on)
+  const panes = paneEngine(on)
+  await command($ as never, 'reset')
+  await offerMany($, 16)
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  await ui.press({ key: 'agents' })
+  expect(await ui.find({ key: 'agent-team:agent-15' })).toBeDefined()
+  expect(panes.opened).toEqual([])
+  await ui.press({ key: 'agents' })
+})
+
+test('a list of 17 opens a side pane, and the pane chips drive the same switches', async ($, on) => {
+  const world = engine(on)
+  const panes = paneEngine(on)
+  await command($ as never, 'reset')
+  await offerMany($, 17)
+  const bar = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  await bar.press({ key: 'agents' })
+  expect(panes.opened).toEqual(['subagent-agents'])
+  expect(await bar.find({ key: 'agent-team:agent-16' })).toBeUndefined()
+  const pane = await $.ui.mount({ ...PANE_TARGET, surface: 'desktop' })
+  expect(await pane.find({ key: 'agent-team:agent-16' })).toBeDefined()
+  await pane.press({ key: 'agent-team:agent-16' })
+  expect(world.toasts).toContain('agent team:agent-16 off for this session.')
+  expect((await offer($ as never, 'team:agent-16')).isOffered).toBe(false)
+  await pane.press({ key: 'agents-disable-all' })
+  expect(world.toasts).toContain('17 agent types off for this session.')
+  await bar.press({ key: 'agents' })
+  expect(panes.closed).toEqual(['subagent-agents'])
+  await pane.unmount()
+  await bar.unmount()
+})
+
+test('the bar buttons sit in four equal columns', async ($, on) => {
+  engine(on)
+  await command($ as never, 'reset')
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  const keys = ['model-opus', 'model-fable', 'model-sonnet', 'model-haiku', 'agents', 'skills', 'apply']
+  const labels = await Promise.all(keys.map(async key => (await ui.find({ key }))?.text))
+  expect(labels.every(label => typeof label === 'string' && label.length > 0)).toBe(true)
+  expect(new Set(labels.map(label => label?.length)).size).toBe(1)
+})

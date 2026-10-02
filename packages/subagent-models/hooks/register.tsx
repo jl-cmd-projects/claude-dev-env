@@ -71,7 +71,23 @@ const MINIMIZE_MARK = '▾'
 
 const EXPAND_MARK = '▴'
 
-const GROUP_WIDTH = 18
+const SIDE_OPEN_MARK = '◂'
+
+const SIDE_CLOSED_MARK = '▸'
+
+const CELL_CHARS = 20
+
+const CELL_PADDING = 2
+
+const COLUMN_GAP = 2
+
+const BAR_COLUMNS = 4
+
+const INLINE_LIMIT = 16
+
+const PANE_IDS: { readonly [K in Kind]: string } = { agents: 'subagent-agents', skills: 'subagent-skills' }
+
+type Ui = ReturnType<EngineInterface['ui']['resolve']>
 
 type Defaults = { settings: Settings; switches: Record<Kind, AgentSwitches> }
 
@@ -138,6 +154,18 @@ function groupsOf(names: readonly string[], coreTitle: string): Group[] {
   return [...itemsByTitle.entries()]
     .sort(([first], [second]) => (first === coreTitle ? -1 : second === coreTitle ? 1 : first.localeCompare(second)))
     .map(([title, items]) => ({ title, items }))
+}
+
+function cellText(text: string): string {
+  return text.length > CELL_CHARS ? `${text.slice(0, CELL_CHARS - 1)}…` : text.padEnd(CELL_CHARS)
+}
+
+function rowsOf<T>(items: readonly T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size))
+}
+
+function columnsFor(bodyColumns: number): number {
+  return Math.max(1, Math.floor((bodyColumns + COLUMN_GAP) / (CELL_CHARS + CELL_PADDING + COLUMN_GAP)))
 }
 
 function denyTextOf(model: string, settings: Settings): string {
@@ -219,13 +247,29 @@ async function refreshSkills($: EngineInterface): Promise<void> {
   await update($, knownSkills, current => [...new Set([...current, ...names])].sort())
 }
 
-async function togglePanel($: EngineInterface, kind: Kind): Promise<void> {
-  if (kind === 'agents') {
-    await update($, isAgentsOpen, current => !current)
-    return
-  }
-  if (!(await read($, isSkillsOpen))) await refreshSkills($)
-  await update($, isSkillsOpen, current => !current)
+async function panelNamesOf($: StateDollar, defaults: Defaults, kind: Kind): Promise<string[]> {
+  const { merged } = await sessionState($, defaults)
+  const allSeen = kind === 'agents' ? await read($, offeredAgents) : await read($, knownSkills)
+  return knownNamesOf(merged[kind], allSeen)
+}
+
+async function isPanelOpenOf($: StateDollar, kind: Kind): Promise<boolean> {
+  return kind === 'agents' ? read($, isAgentsOpen) : read($, isSkillsOpen)
+}
+
+async function setPanelOpen($: StateDollar, kind: Kind, isOpen: boolean): Promise<void> {
+  if (kind === 'agents') await update($, isAgentsOpen, () => isOpen)
+  else await update($, isSkillsOpen, () => isOpen)
+}
+
+async function togglePanel($: EngineInterface, defaults: Defaults, kind: Kind): Promise<void> {
+  const wasOpen = await isPanelOpenOf($, kind)
+  if (!wasOpen && kind === 'skills') await refreshSkills($)
+  const isSide = (await panelNamesOf($, defaults, kind)).length > INLINE_LIMIT
+  await setPanelOpen($, kind, !wasOpen)
+  if (!isSide) return
+  if (wasOpen) await $.ui.close({ id: PANE_IDS[kind] })
+  else await $.ui.open({ id: PANE_IDS[kind], title: KIND_DETAILS[kind].title })
 }
 
 async function resetSession($: EngineInterface): Promise<string> {
@@ -271,6 +315,48 @@ async function effortFor($: StateDollar, settings: Settings, agentId: string, re
 
 async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
+}
+
+function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: readonly string[], columns: number) {
+  const { Box, Text, Button } = ui
+  const { word, title, core, empty } = KIND_DETAILS[kind]
+  const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Box flexDirection="row" flexWrap="wrap" columnGap={COLUMN_GAP} alignItems="center">
+        <Text bold color={ACCENT}>{title}</Text>
+        <Text dimColor>{`${onCount} of ${names.length} on`}</Text>
+        <Button key={`${kind}-enable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'on'))}>
+          enable all
+        </Button>
+        <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
+          disable all
+        </Button>
+      </Box>
+      {names.length === 0 ? (
+        <Text dimColor>{empty}</Text>
+      ) : (
+        groupsOf(names, core).map(group => (
+          <Box key={`group-${group.title}`} flexDirection="column">
+            <Text dimColor>{group.title}</Text>
+            {rowsOf(group.items, columns).map(row => (
+              <Box key={`row-${row[0].name}`} flexDirection="row" columnGap={COLUMN_GAP}>
+                {row.map(item => (
+                  <Button
+                    key={`${word}-${item.name}`}
+                    variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
+                    onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
+                  >
+                    {cellText(`${state.switchOf(kind, item.name) === 'on' ? ON_MARK : OFF_MARK} ${item.label}`)}
+                  </Button>
+                ))}
+              </Box>
+            ))}
+          </Box>
+        ))
+      )}
+    </Box>
+  )
 }
 
 const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | skills | agent <type> on|off | skill <name> on|off | bar | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
@@ -322,83 +408,93 @@ export const register: Register = (on, options: PluginOptions) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey || e.surface === 'mobile' || !(await read($, isBarOpen))) return next(e)
-    const { Box, Text, Button, Select } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text, Button, Select } = ui
     const state = await sessionState($, defaults)
     const { settings } = state
-    const allSeen = { agents: await read($, offeredAgents), skills: await read($, knownSkills) }
-    const allNames = {
-      agents: knownNamesOf(state.merged.agents, allSeen.agents),
-      skills: knownNamesOf(state.merged.skills, allSeen.skills),
-    }
-    const isPanelOpen = { agents: await read($, isAgentsOpen), skills: await read($, isSkillsOpen) }
+    const allNames = { agents: await panelNamesOf($, defaults, 'agents'), skills: await panelNamesOf($, defaults, 'skills') }
+    const isPanelOpen = { agents: await isPanelOpenOf($, 'agents'), skills: await isPanelOpenOf($, 'skills') }
+    const isSide = { agents: allNames.agents.length > INLINE_LIMIT, skills: allNames.skills.length > INLINE_LIMIT }
     const turnedOffCountOf = (kind: Kind) => allNames[kind].filter(name => state.switchOf(kind, name) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
-
-    const panelButtonOf = (kind: Kind) => (
-      <Button key={kind} variant={isPanelOpen[kind] ? 'primary' : 'secondary'} onPress={() => togglePanel($, kind)}>
-        {`${kind} ${turnedOffCountOf(kind) === 0 ? 'all on' : `${turnedOffCountOf(kind)} off`} ${isPanelOpen[kind] ? MINIMIZE_MARK : EXPAND_MARK}`}
-      </Button>
+    const cellOf = (key: string, child: unknown) => (
+      <Box key={key} width={CELL_CHARS + CELL_PADDING}>
+        {child}
+      </Box>
+    )
+    const gridRowOf = (key: string, cells: unknown[]) => (
+      <Box key={key} flexDirection="row" columnGap={COLUMN_GAP}>
+        {cells}
+      </Box>
     )
 
-    const panelOf = (kind: Kind) => {
-      const { word, title, core, empty } = KIND_DETAILS[kind]
-      const names = allNames[kind]
+    const panelButtonOf = (kind: Kind) => {
+      const mark = isSide[kind] ? (isPanelOpen[kind] ? SIDE_OPEN_MARK : SIDE_CLOSED_MARK) : isPanelOpen[kind] ? MINIMIZE_MARK : EXPAND_MARK
+      const count = turnedOffCountOf(kind)
       return (
-        <Box flexDirection="column" gap={1}>
-          <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
-            <Text bold color={ACCENT}>{title}</Text>
-            <Text dimColor>{`${names.length - turnedOffCountOf(kind)} of ${names.length} on`}</Text>
-            <Button key={`${kind}-enable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'on'))}>
-              enable all
-            </Button>
-            <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
-              disable all
-            </Button>
-          </Box>
-          {names.length === 0 ? (
-            <Text dimColor>{empty}</Text>
-          ) : (
-            groupsOf(names, core).map(group => (
-              <Box flexDirection="row" columnGap={2} alignItems="flex-start">
-                <Box width={GROUP_WIDTH}>
-                  <Text dimColor wrap="truncate">{group.title}</Text>
-                </Box>
-                <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} flexGrow={1}>
-                  {group.items.map(item => (
-                    <Button
-                      key={`${word}-${item.name}`}
-                      variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
-                      onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
-                    >
-                      {`${state.switchOf(kind, item.name) === 'on' ? ON_MARK : OFF_MARK} ${item.label}`}
-                    </Button>
-                  ))}
-                </Box>
-              </Box>
-            ))
-          )}
-        </Box>
+        <Button key={kind} variant={isPanelOpen[kind] ? 'primary' : 'secondary'} onPress={() => togglePanel($, defaults, kind)}>
+          {cellText(`${kind} ${count === 0 ? 'all on' : `${count} off`} ${mark}`)}
+        </Button>
       )
     }
 
+    const selectOf = (field: keyof Settings, label: string, choices?: { value: string; label: string }[]) => (
+      <Select
+        key={field}
+        label={label}
+        options={choices ?? optionsOf(field)}
+        value={settings[field]}
+        onSelect={choice => toastAfter($, setField($, defaults, field, choice))}
+      />
+    )
+
     return (
       <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={2} gap={1}>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={3} rowGap={1} alignItems="center" justifyContent="space-between">
-          <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
-            <Text bold color={ACCENT}>{`${ICON_MARK} Subagents`}</Text>
-            <Text dimColor>models</Text>
-            {ALL_FAMILIES.map(family => (
+        <Box flexDirection="row" columnGap={COLUMN_GAP} alignItems="center" justifyContent="space-between">
+          <Text bold color={ACCENT}>{`${ICON_MARK} Subagents`}</Text>
+          <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
+            {`${MINIMIZE_MARK} minimize`}
+          </Button>
+        </Box>
+        {gridRowOf(
+          'models',
+          ALL_FAMILIES.map(family =>
+            cellOf(
+              `model-${family}`,
               <Button
                 key={`model-${family}`}
                 variant={settings[family] === 'on' ? 'primary' : 'secondary'}
                 onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
               >
-                {`${settings[family] === 'on' ? ON_MARK : OFF_MARK} ${family}`}
-              </Button>
-            ))}
-          </Box>
-          <Box flexDirection="row" columnGap={2} alignItems="center">
+                {cellText(`${settings[family] === 'on' ? ON_MARK : OFF_MARK} ${family}`)}
+              </Button>,
+            ),
+          ),
+        )}
+        {gridRowOf('settings', [
+          cellOf('cell-defaultModel', selectOf('defaultModel', 'default')),
+          cellOf('cell-effort', selectOf('effort', 'effort')),
+          cellOf('cell-offAction', selectOf('offAction', 'if off')),
+          cellOf(
+            'cell-applyToRunning',
+            selectOf('applyToRunning', `running ${runningCount}`, [
+              { value: 'on', label: 'follow' },
+              { value: 'off', label: 'pinned' },
+            ]),
+          ),
+        ])}
+        {gridRowOf('actions', [
+          cellOf('cell-agents', panelButtonOf('agents')),
+          cellOf('cell-skills', panelButtonOf('skills')),
+          cellOf(
+            'cell-apply',
+            <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
+              {cellText('apply to running')}
+            </Button>,
+          ),
+          cellOf(
+            'cell-more',
             <Select
               key="more"
               options={[
@@ -411,54 +507,31 @@ export const register: Register = (on, options: PluginOptions) => {
                 if (choice === 'save') void toastAfter($, saveDefaults($, defaults))
                 if (choice === 'reset') void toastAfter($, resetSession($))
               }}
-            />
-            <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
-              {`${MINIMIZE_MARK} minimize`}
-            </Button>
-          </Box>
-        </Box>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={3} rowGap={1} alignItems="center">
-          <Select
-            key="defaultModel"
-            label="default"
-            options={optionsOf('defaultModel')}
-            value={settings.defaultModel}
-            onSelect={choice => toastAfter($, setField($, defaults, 'defaultModel', choice))}
-          />
-          <Select
-            key="effort"
-            label="effort"
-            options={optionsOf('effort')}
-            value={settings.effort}
-            onSelect={choice => toastAfter($, setField($, defaults, 'effort', choice))}
-          />
-          <Select
-            key="offAction"
-            label="if off"
-            options={optionsOf('offAction')}
-            value={settings.offAction}
-            onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
-          />
-          {panelButtonOf('agents')}
-          {panelButtonOf('skills')}
-          <Select
-            key="applyToRunning"
-            label={`running ${runningCount}`}
-            options={[
-              { value: 'on', label: 'follow' },
-              { value: 'off', label: 'pinned' },
-            ]}
-            value={settings.applyToRunning}
-            onSelect={choice => toastAfter($, setField($, defaults, 'applyToRunning', choice))}
-          />
-          <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
-            apply
-          </Button>
-        </Box>
-        {isPanelOpen.agents && panelOf('agents')}
-        {isPanelOpen.skills && panelOf('skills')}
+            />,
+          ),
+        ])}
+        {ALL_KINDS.map(kind =>
+          isPanelOpen[kind] && !isSide[kind] ? (
+            <Box key={`panel-${kind}`} flexDirection="column">
+              {panelOf($, ui, state, kind, allNames[kind], BAR_COLUMNS)}
+            </Box>
+          ) : null,
+        )}
       </Box>
     )
+  })
+
+  for (const kind of ALL_KINDS) {
+    on('ui.render', { component: 'Pane', requestId: PANE_IDS[kind] }, async ($, e) => {
+      const state = await sessionState($, defaults)
+      return panelOf($, $.ui.resolve(e), state, kind, await panelNamesOf($, defaults, kind), columnsFor(e.props.bodyColumns))
+    })
+  }
+
+  on('ui.close', async ($, e, next) => {
+    const kind = ALL_KINDS.find(each => PANE_IDS[each] === e.id)
+    if (kind !== undefined) await setPanelOpen($, kind, false)
+    return next(e)
   })
 
   on('ui.render', { component: 'SessionMode' }, async ($, e) => {
