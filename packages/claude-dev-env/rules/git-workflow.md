@@ -15,7 +15,8 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ## Pull request submission rules
 
-**Create every pull request as a draft.** Use `gh pr create --draft`.
+**Open every pull request ready for review.** Pass `--draft` only when the owner asks
+for a draft.
 
 **A release bot's PR body is machine input. Leave it alone.** Release automation reads
 back the body of its own merged pull request to decide it owns that merge. Rewriting the
@@ -44,12 +45,6 @@ Use `.agents/skills/pull-request/scripts/recover_legacy_author.py
 <exact-state-file> --confirm-inactive` only for one explicitly selected legacy
 author record. Do not infer a record from age alone. Keep every other record
 untouched.
-
-## Git golden rules
-
-1. **Draft before push.** Put a pull request in draft state before you push to it.
-   - Before push: `gh pr ready --undo`
-   - After review approved: `gh pr ready`
 
 ## Confirm the required checks fired, and let CI run them
 
