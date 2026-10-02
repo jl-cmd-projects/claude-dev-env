@@ -8,6 +8,8 @@ type World = {
   steps: TurnStepInput[]
   statuses: (string | undefined)[]
   configWrites: { key: string; value: unknown }[]
+  store: Record<string, unknown>
+  files: Record<string, string>
 }
 
 const LISTED_SKILLS = [
@@ -17,7 +19,7 @@ const LISTED_SKILLS = [
 ]
 
 function engine(on: On): World {
-  const world: World = { running: [], toasts: [], spawnedModels: [], steps: [], statuses: [], configWrites: [] }
+  const world: World = { running: [], toasts: [], spawnedModels: [], steps: [], statuses: [], configWrites: [], store: {}, files: {} }
   on('agent.spawn', (_$, e) => {
     world.spawnedModels.push(e.model)
     return { model: e.model ?? e.parentModel, agentId: 'agent-1' }
@@ -33,6 +35,13 @@ function engine(on: On): World {
   on('ui.toast', (_$, e) => (world.toasts.push(typeof e === 'string' ? e : (e as { text: string }).text), { value: undefined }) as never)
   on('ui.status', (_$, e) => (world.statuses.push((e as { text?: string }).text), { value: undefined }) as never)
   on('config.set', (_$, e: ConfigSetInput) => (world.configWrites.push({ key: e.key, value: e.value }), { value: e.value }))
+  on('store.get', (_$, e) => ({ value: world.store[e.key] }) as never)
+  on('store.set', (_$, e) => ((world.store[e.key] = e.value), { value: undefined }) as never)
+  on('fs.read', (_$, e) => {
+    const text = Object.entries(world.files).find(([name]) => e.path.endsWith(name))?.[1]
+    if (text === undefined) throw new Error(`missing ${e.path}`)
+    return { value: text } as never
+  })
   return world
 }
 
@@ -304,6 +313,7 @@ test('a malformed agent command prints the usage', async ($, on) => {
     '- agent <type> on|off',
     '- skills',
     '- skill <name> on|off',
+    '- seed <file>',
     '- bar',
     '- apply',
     '- save',
@@ -589,4 +599,74 @@ test('one very long name keeps its suffix and cannot widen every cell past the c
   expect(cells[0].props?.width).toBeLessThanOrEqual(34)
   expect(JSON.stringify(await ui.drawn())).toMatch(/…[^"]*-tail/)
   await ui.press({ key: 'agents' })
+})
+
+const DAY = 86_400_000
+
+const DATES = () => {
+  const now = Date.now()
+  return { tdd: now - 2 * DAY, 'pstack:why': now - 30 * DAY }
+}
+
+async function openSkillsPanel($: { ui: { mount: (target: never) => Promise<any> } }) {
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' } as never)
+  await ui.press({ key: 'skills' })
+  return ui
+}
+
+test('a skill run records its time and the skills listing shows its age', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  await skillText($ as never, 'pstack:tdd')
+  expect(Date.now() - (world.store.lastUsed as Record<string, number>)['pstack:tdd']).toBeLessThan(5_000)
+  const listing = (await command($ as never, 'skills')).text ?? ''
+  expect(listing).toMatch(/pstack:tdd on · today/)
+  expect(listing).toMatch(/pstack:why on · never seen/)
+})
+
+test('a stored date survives a later run of a different skill and is never replaced by an older one', async ($, on) => {
+  const world = engine(on)
+  const newest = Date.now() + 1_000_000
+  world.store.lastUsed = { simplify: newest, tdd: 5 }
+  await skillText($ as never, 'pstack:why')
+  const stored = world.store.lastUsed as Record<string, number>
+  expect(stored.simplify).toBe(newest)
+  expect(stored['pstack:why']).toBeGreaterThan(0)
+})
+
+test('seed merges the newest dates from a backfill file and reports what was newer', async ($, on) => {
+  const world = engine(on)
+  const now = Date.now()
+  world.store.lastUsed = { tdd: now - DAY }
+  world.files['seed.json'] = JSON.stringify({ lastUsed: { tdd: now - 10 * DAY, simplify: now - 3 * DAY } })
+  const answer = await command($ as never, 'seed seed.json')
+  expect(answer.text).toBe('Seeded 2 names from seed.json. 1 newer than what was stored.')
+  const stored = world.store.lastUsed as Record<string, number>
+  expect(stored.tdd).toBe(now - DAY)
+  expect(stored.simplify).toBe(now - 3 * DAY)
+  expect((await command($ as never, 'seed nope.json')).text).toMatch(/^Could not read nope.json/)
+  world.files['bad.json'] = '{"lastUsed": {"tdd": "soon"}}'
+  expect((await command($ as never, 'seed bad.json')).text).toMatch(/holds no lastUsed dates/)
+})
+
+test('sorting by recent groups the skills by age and the stale button turns off only dated old skills', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  world.files['dates.json'] = JSON.stringify({ lastUsed: DATES() })
+  await command($ as never, 'seed dates.json')
+  const ui = await openSkillsPanel($ as never)
+  await ui.press({ key: 'skills-sort' })
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).toContain('used in the last 14 days')
+  expect(drawn).toContain('unused 14+ days')
+  expect(drawn).toContain('never seen')
+  expect(drawn).toContain('tdd 2d')
+  expect((await ui.find({ key: 'skills-turn-off-stale' }))?.text).toBe('turn off unused 14d+ (1)')
+  await ui.press({ key: 'skills-turn-off-stale' })
+  expect(world.toasts).toContain('1 skill off for this session.')
+  expect(await skillText($ as never, 'pstack:why')).toMatch(/turned off/)
+  expect(await skillText($ as never, 'simplify')).toBe('skill body')
+  expect(await skillText($ as never, 'pstack:tdd')).toBe('skill body')
+  expect((await ui.find({ key: 'skills-turn-off-stale' }))?.text).toBe('turn off unused 14d+ (0)')
+  await ui.press({ key: 'skills' })
 })

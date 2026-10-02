@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, StateDollar } from 'claude-code'
 
-import type { AgentSwitches, Effort, Family, Kind, PinnedEfforts, SessionOverrides, Settings, Switch } from '../types'
+import type { AgentSwitches, Effort, Family, Kind, LastUsed, PinnedEfforts, SessionOverrides, Settings, Switch } from '../types'
 
 const PLUGIN = 'subagent-models'
 
@@ -57,6 +57,18 @@ const isAgentsOpen = atom({ plugin: 'subagent-models', key: 'isAgentsOpen' } as 
 
 const isSkillsOpen = atom({ plugin: 'subagent-models', key: 'isSkillsOpen' } as const, false)
 
+const lastUsedDates = atom({ plugin: 'subagent-models', key: 'lastUsed' } as const, {} as LastUsed)
+
+const isSortedByRecent = atom({ plugin: 'subagent-models', key: 'isSortedByRecent' } as const, false)
+
+const LAST_USED_KEY = 'lastUsed'
+
+const DAY_MS = 86_400_000
+
+const DEFAULT_STALE_DAYS = 14
+
+const BACKFILL_COMMAND = 'node packages/subagent-models/scripts/backfill-last-used.mjs --out <file>'
+
 const MORE_SUMMARY = '__more'
 
 const ON_MARK = '●'
@@ -105,6 +117,10 @@ type State = {
 }
 
 type Group = { title: string; items: { name: string; label: string }[] }
+
+type SkillsView = { isRecent: boolean; staleNames: string[]; staleDays: number }
+
+type PanelData = { state: State; kind: Kind; names: string[]; groups: Group[]; skillsView?: SkillsView }
 
 function familyOf(model: string | undefined): Family | undefined {
   if (model === undefined) return undefined
@@ -162,6 +178,59 @@ function groupsOf(names: readonly string[], coreTitle: string): Group[] {
     .map(([title, items]) => ({ title, items }))
 }
 
+function isDates(value: unknown): value is LastUsed {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.values(value).every(when => typeof when === 'number' && Number.isFinite(when))
+}
+
+function mergedDates(first: LastUsed, second: LastUsed): LastUsed {
+  const merged: Record<string, number> = { ...first }
+  for (const [name, when] of Object.entries(second)) {
+    if (when > (merged[name] ?? 0)) merged[name] = when
+  }
+  return merged
+}
+
+function lastUsedOf(lastUsed: LastUsed, skill: string): number | undefined {
+  const dates = Object.entries(lastUsed)
+    .filter(([name]) => name === skill || name.endsWith(`:${skill}`) || skill.endsWith(`:${name}`))
+    .map(([, when]) => when)
+  return dates.length === 0 ? undefined : Math.max(...dates)
+}
+
+function ageDaysOf(when: number, now: number): number {
+  return Math.max(0, Math.floor((now - when) / DAY_MS))
+}
+
+function ageTextOf(when: number | undefined, now: number): string {
+  if (when === undefined) return 'never seen'
+  const days = ageDaysOf(when, now)
+  return days === 0 ? 'today' : `${days}d ago`
+}
+
+function staleNamesOf(names: readonly string[], lastUsed: LastUsed, now: number, staleDays: number): string[] {
+  return names.filter(name => {
+    const when = lastUsedOf(lastUsed, name)
+    return when !== undefined && ageDaysOf(when, now) > staleDays
+  })
+}
+
+function recentGroupsOf(names: readonly string[], lastUsed: LastUsed, now: number, staleDays: number): Group[] {
+  const dated = names.map(name => ({ name, when: lastUsedOf(lastUsed, name) }))
+  const newestFirst = (first: { when?: number; name: string }, second: { when?: number; name: string }) =>
+    (second.when ?? 0) - (first.when ?? 0) || first.name.localeCompare(second.name)
+  const itemOf = ({ name, when }: { name: string; when?: number }) => ({
+    name,
+    label: when === undefined ? name : `${name} ${ageDaysOf(when, now)}d`,
+  })
+  const isFresh = ({ when }: { when?: number }) => when !== undefined && ageDaysOf(when, now) <= staleDays
+  const isStale = ({ when }: { when?: number }) => when !== undefined && ageDaysOf(when, now) > staleDays
+  return [
+    { title: `used in the last ${staleDays} days`, items: dated.filter(isFresh).sort(newestFirst).map(itemOf) },
+    { title: `unused ${staleDays}+ days`, items: dated.filter(isStale).sort(newestFirst).map(itemOf) },
+    { title: 'never seen', items: dated.filter(({ when }) => when === undefined).sort(newestFirst).map(itemOf) },
+  ].filter(group => group.items.length > 0)
+}
+
 function chipLabelOf(isOn: boolean, label: string): string {
   return `${isOn ? ON_MARK : OFF_MARK} ${label}`
 }
@@ -213,11 +282,16 @@ function listingOf(settings: Settings, sessionOverrides: SessionOverrides, merge
   return [...fieldLines, ...kindLines].join('\n')
 }
 
-function kindListingOf(kind: Kind, state: State, allSeen: readonly string[]): string {
+function kindListingOf(kind: Kind, state: State, allSeen: readonly string[], lastUsed?: LastUsed): string {
   const names = knownNamesOf(state.merged[kind], allSeen)
   if (names.length === 0) return KIND_DETAILS[kind].empty
+  const now = Date.now()
   return names
-    .map(name => `${name} ${state.switchOf(kind, name)}${state.sessionOverrides[kind]?.[name] === undefined ? '' : ' (this session)'}`)
+    .map(name => {
+      const sessionMark = state.sessionOverrides[kind]?.[name] === undefined ? '' : ' (this session)'
+      const usedMark = lastUsed === undefined ? '' : ` · ${ageTextOf(lastUsedOf(lastUsed, name), now)}`
+      return `${name} ${state.switchOf(kind, name)}${sessionMark}${usedMark}`
+    })
     .join('\n')
 }
 
@@ -271,6 +345,48 @@ async function refreshSkills($: EngineInterface): Promise<void> {
   const listed = usage.context.breakdown?.skills?.skillFrontmatter ?? []
   const names = listed.map(skill => (skill.pluginName !== undefined && !skill.name.includes(':') ? `${skill.pluginName}:${skill.name}` : skill.name))
   await update($, knownSkills, current => [...new Set([...current, ...names])].sort())
+}
+
+async function loadLastUsed($: EngineInterface): Promise<void> {
+  const stored = await $.store.get(LAST_USED_KEY)
+  if (isDates(stored)) await update($, lastUsedDates, current => mergedDates(current, stored))
+}
+
+async function recordUse($: EngineInterface, skill: string): Promise<void> {
+  const used = { [skill]: Date.now() }
+  const stored = await $.store.get(LAST_USED_KEY)
+  await $.store.set(LAST_USED_KEY, mergedDates(isDates(stored) ? stored : {}, used))
+  await update($, lastUsedDates, current => mergedDates(current, used))
+}
+
+async function seedFrom($: EngineInterface, path: string): Promise<string> {
+  let incoming: unknown
+  try {
+    incoming = JSON.parse(String(await $.fs.read(path))).lastUsed
+  } catch {
+    return `Could not read ${path} as JSON. Make it with: ${BACKFILL_COMMAND}`
+  }
+  if (!isDates(incoming) || Object.keys(incoming).length === 0) return `${path} holds no lastUsed dates. Make it with: ${BACKFILL_COMMAND}`
+  const stored = await $.store.get(LAST_USED_KEY)
+  const before = isDates(stored) ? stored : {}
+  const newer = Object.keys(incoming).filter(name => incoming[name] > (before[name] ?? 0)).length
+  const merged = mergedDates(before, incoming)
+  await $.store.set(LAST_USED_KEY, merged)
+  await update($, lastUsedDates, current => mergedDates(current, merged))
+  return `Seeded ${Object.keys(incoming).length} names from ${path}. ${newer} newer than what was stored.`
+}
+
+async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, staleDays: number): Promise<PanelData> {
+  const state = await sessionState($, defaults)
+  const names = await panelNamesOf($, defaults, kind)
+  const { core } = KIND_DETAILS[kind]
+  if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core) }
+  const lastUsed = await read($, lastUsedDates)
+  const isRecent = await read($, isSortedByRecent)
+  const now = Date.now()
+  const staleNames = staleNamesOf(names, lastUsed, now, staleDays).filter(name => state.switchOf(kind, name) === 'on')
+  const groups = isRecent ? recentGroupsOf(names, lastUsed, now, staleDays) : groupsOf(names, core)
+  return { state, kind, names, groups, skillsView: { isRecent, staleNames, staleDays } }
 }
 
 async function panelNamesOf($: StateDollar, defaults: Defaults, kind: Kind): Promise<string[]> {
@@ -343,11 +459,11 @@ async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
 
-function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: readonly string[], columnsOf: (cellChars: number) => number, hasTitle: boolean, debugText?: string) {
+function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellChars: number) => number, hasTitle: boolean, debugText?: string) {
   const { Box, Text, Button } = ui
-  const { word, title, core, empty } = KIND_DETAILS[kind]
+  const { state, kind, names, groups, skillsView } = data
+  const { word, title, empty } = KIND_DETAILS[kind]
   const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
-  const groups = groupsOf(names, core)
   const cellChars = cellCharsOf(groups.flatMap(group => group.items.map(item => item.label)))
   const columns = columnsOf(cellChars)
   return (
@@ -361,6 +477,16 @@ function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: re
         <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
           disable all
         </Button>
+        {skillsView !== undefined && (
+          <Button key="skills-sort" dimColor onPress={() => update($, isSortedByRecent, current => !current)}>
+            {skillsView.isRecent ? 'sort: recent' : 'sort: name'}
+          </Button>
+        )}
+        {skillsView !== undefined && (
+          <Button key="skills-turn-off-stale" dimColor onPress={() => toastAfter($, setAllSwitches($, kind, skillsView.staleNames, 'off'))}>
+            {`turn off unused ${skillsView.staleDays}d+ (${skillsView.staleNames.length})`}
+          </Button>
+        )}
         {debugText !== undefined && <Text dimColor>{debugText}</Text>}
       </Box>
       {names.length === 0 ? (
@@ -401,6 +527,7 @@ const USAGE = [
   '- agent <type> on|off: switch one agent type',
   '- skills: list the skills, each with its switch',
   '- skill <name> on|off: switch one skill',
+  `- seed <file>: load last-used dates, made by ${BACKFILL_COMMAND}`,
   '- bar: minimize or expand the bar',
   '- apply: move running subagents to the current effort',
   '- save: write this session to the defaults',
@@ -417,7 +544,11 @@ export const register: Register = (on, options: PluginOptions) => {
     },
   }
 
+  const configuredStaleDays = Number(options.staleDays)
+  const staleDays = Number.isInteger(configuredStaleDays) && configuredStaleDays > 0 ? configuredStaleDays : DEFAULT_STALE_DAYS
+
   on('session.start', async ($, e, next) => {
+    await loadLastUsed($)
     await $.command.register({
       name: PLUGIN,
       description: 'Show or change which models, agent types and skills subagents may use, and their effort, for this session',
@@ -437,13 +568,14 @@ export const register: Register = (on, options: PluginOptions) => {
       if (word === 'agents') return { text: kindListingOf('agents', state, await read($, offeredAgents)) }
       if (word === 'skills') {
         await refreshSkills($)
-        return { text: kindListingOf('skills', state, await read($, knownSkills)) }
+        return { text: kindListingOf('skills', state, await read($, knownSkills), await read($, lastUsedDates)) }
       }
       if (word === 'bar') {
         const isOpen = await update($, isBarOpen, current => !current)
         return { text: isOpen ? 'Subagent bar expanded.' : 'Subagent bar minimized.' }
       }
     }
+    if (word === 'seed') return { text: rest.length === 0 && value !== undefined ? await seedFrom($, value) : USAGE }
     if (word === 'agent' || word === 'skill') {
       const [nameSwitch, ...extra] = rest
       if (value === undefined || nameSwitch === undefined || !isSwitch(nameSwitch) || extra.length > 0) return { text: USAGE }
@@ -460,6 +592,10 @@ export const register: Register = (on, options: PluginOptions) => {
     const state = await sessionState($, defaults)
     const { settings } = state
     const allNames = { agents: await panelNamesOf($, defaults, 'agents'), skills: await panelNamesOf($, defaults, 'skills') }
+    const inlineData = {
+      agents: await panelDataOf($, defaults, 'agents', staleDays),
+      skills: await panelDataOf($, defaults, 'skills', staleDays),
+    }
     const isPanelOpen = { agents: await isPanelOpenOf($, 'agents'), skills: await isPanelOpenOf($, 'skills') }
     const isSide = { agents: allNames.agents.length > INLINE_LIMIT, skills: allNames.skills.length > INLINE_LIMIT }
     const turnedOffCountOf = (kind: Kind) => allNames[kind].filter(name => state.switchOf(kind, name) === 'off').length
@@ -556,7 +692,7 @@ export const register: Register = (on, options: PluginOptions) => {
         {ALL_KINDS.map(kind =>
           isPanelOpen[kind] && !isSide[kind] ? (
             <Box key={`panel-${kind}`} flexDirection="column">
-              {panelOf($, ui, state, kind, allNames[kind], () => BAR_COLUMNS, true)}
+              {panelOf($, ui, inlineData[kind], () => BAR_COLUMNS, true)}
             </Box>
           ) : null,
         )}
@@ -566,8 +702,8 @@ export const register: Register = (on, options: PluginOptions) => {
 
   for (const kind of ALL_KINDS) {
     on('ui.render', { component: 'Pane', requestId: PANE_IDS[kind] }, async ($, e) => {
-      const state = await sessionState($, defaults)
-      return panelOf($, $.ui.resolve(e), state, kind, await panelNamesOf($, defaults, kind), cellChars => columnsFor(e.props.bodyColumns, cellChars), false, `${e.props.bodyColumns} columns`)
+      const data = await panelDataOf($, defaults, kind, staleDays)
+      return panelOf($, $.ui.resolve(e), data, cellChars => columnsFor(e.props.bodyColumns, cellChars), false, `${e.props.bodyColumns} columns`)
     })
   }
 
@@ -612,6 +748,7 @@ export const register: Register = (on, options: PluginOptions) => {
   on('skill.prompt', async ($, e, next) => {
     const allSeen = await read($, knownSkills)
     if (!allSeen.includes(e.skill)) await update($, knownSkills, current => [...current, e.skill].sort())
+    await recordUse($, e.skill)
     const { merged } = await sessionState($, defaults)
     if (isSkillOff(merged.skills, e.skill)) return { text: skillOffTextOf(e.skill) }
     return next(e)
