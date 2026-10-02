@@ -207,7 +207,12 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
     roster_path = profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME
     if not roster_path.is_file():
         return ()
-    document = json.loads(roster_path.read_text(encoding=TEXT_ENCODING))
+    try:
+        document = json.loads(roster_path.read_text(encoding=TEXT_ENCODING))
+    except json.JSONDecodeError as error:
+        raise CodexAccountNameError(
+            ROSTER_NOT_A_LIST_TEMPLATE.format(source=roster_path)
+        ) from error
     if not isinstance(document, list) or not all(
         isinstance(each_name, str) for each_name in document
     ):

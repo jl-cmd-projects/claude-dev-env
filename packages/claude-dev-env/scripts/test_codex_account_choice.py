@@ -382,6 +382,15 @@ class TestAccountRoster:
         with pytest.raises(ValueError, match="account-launchers.json"):
             choice.saved_codex_account_names(tmp_path)
 
+    def should_refuse_a_saved_file_that_is_not_json(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "account-launchers.json").write_text('["alpha",', encoding="utf-8")
+        with pytest.raises(SystemExit) as exit_info:
+            choice.main(["--profiles-root", str(tmp_path), "check", "alpha"])
+        assert exit_info.value.code == 2
+        assert "account-launchers.json" in capsys.readouterr().err
+
     def should_drop_duplicates_and_keep_the_first_order(self, tmp_path: Path) -> None:
         save_roster(tmp_path, ["beta", "alpha", "beta", "gamma", "alpha"])
         assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha", "gamma")
