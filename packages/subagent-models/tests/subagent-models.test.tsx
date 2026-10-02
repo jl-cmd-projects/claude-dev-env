@@ -540,12 +540,26 @@ test('a list of 17 opens a side pane, and the pane chips drive the same switches
   await bar.unmount()
 })
 
-test('the bar buttons sit in four equal columns', async ($, on) => {
+type DrawnNode = { type?: string; props?: { key?: string; width?: number; children?: unknown }; children?: DrawnNode[] }
+
+function cellsHolding(node: DrawnNode, keyPrefix: string): DrawnNode[] {
+  const own = node.type === 'Box' && (node.children ?? []).some(child => child.props?.key?.startsWith(keyPrefix)) ? [node] : []
+  return [...own, ...(node.children ?? []).flatMap(child => cellsHolding(child, keyPrefix))]
+}
+
+test('every panel chip sits in a cell of one width, wide enough for the longest name', async ($, on) => {
   engine(on)
   await command($ as never, 'reset')
+  await offer($ as never, 'Explore')
+  await offer($ as never, 'brand-voice:conversation-analysis-and-extra')
   const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
-  const keys = ['model-opus', 'model-fable', 'model-sonnet', 'model-haiku', 'agents', 'skills', 'apply']
-  const labels = await Promise.all(keys.map(async key => (await ui.find({ key }))?.text))
-  expect(labels.every(label => typeof label === 'string' && label.length > 0)).toBe(true)
-  expect(new Set(labels.map(label => label?.length)).size).toBe(1)
+  await ui.press({ key: 'agents' })
+  const cells = cellsHolding((await ui.drawn()) as DrawnNode, 'agent-')
+  const widths = new Set(cells.map(cell => cell.props?.width))
+  expect(cells.length).toBe(2)
+  expect(widths.size).toBe(1)
+  expect([...widths][0]).toBeGreaterThanOrEqual('● conversation-analysis-and-extra'.length)
+  expect(JSON.stringify(await ui.drawn())).toContain('conversation-analysis-and-extra')
+  expect(JSON.stringify(await ui.drawn())).not.toContain('…')
+  await ui.press({ key: 'agents' })
 })

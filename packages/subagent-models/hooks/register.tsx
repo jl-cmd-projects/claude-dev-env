@@ -75,13 +75,15 @@ const SIDE_OPEN_MARK = '◂'
 
 const SIDE_CLOSED_MARK = '▸'
 
-const CELL_CHARS = 20
+const MIN_CELL_CHARS = 14
 
 const CELL_PADDING = 2
 
 const COLUMN_GAP = 2
 
 const BAR_COLUMNS = 4
+
+const BAR_CELL_CHARS = 22
 
 const INLINE_LIMIT = 16
 
@@ -156,16 +158,29 @@ function groupsOf(names: readonly string[], coreTitle: string): Group[] {
     .map(([title, items]) => ({ title, items }))
 }
 
-function cellText(text: string): string {
-  return text.length > CELL_CHARS ? `${text.slice(0, CELL_CHARS - 1)}…` : text.padEnd(CELL_CHARS)
+function chipLabelOf(isOn: boolean, label: string): string {
+  return `${isOn ? ON_MARK : OFF_MARK} ${label}`
+}
+
+function cellCharsOf(labels: readonly string[]): number {
+  return Math.max(MIN_CELL_CHARS, ...labels.map(label => chipLabelOf(true, label).length)) + CELL_PADDING
+}
+
+function cellOf(ui: Ui, key: string, cellChars: number, child: unknown) {
+  const { Box } = ui
+  return (
+    <Box key={key} width={cellChars}>
+      {child}
+    </Box>
+  )
 }
 
 function rowsOf<T>(items: readonly T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size))
 }
 
-function columnsFor(bodyColumns: number): number {
-  return Math.max(1, Math.floor((bodyColumns + COLUMN_GAP) / (CELL_CHARS + CELL_PADDING + COLUMN_GAP)))
+function columnsFor(bodyColumns: number, cellChars: number): number {
+  return Math.max(1, Math.floor((bodyColumns + COLUMN_GAP) / (cellChars + COLUMN_GAP)))
 }
 
 function denyTextOf(model: string, settings: Settings): string {
@@ -317,14 +332,17 @@ async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
 
-function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: readonly string[], columns: number) {
+function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: readonly string[], columnsOf: (cellChars: number) => number, hasTitle: boolean, debugText?: string) {
   const { Box, Text, Button } = ui
   const { word, title, core, empty } = KIND_DETAILS[kind]
   const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
+  const groups = groupsOf(names, core)
+  const cellChars = cellCharsOf(groups.flatMap(group => group.items.map(item => item.label)))
+  const columns = columnsOf(cellChars)
   return (
     <Box flexDirection="column" gap={1}>
       <Box flexDirection="row" flexWrap="wrap" columnGap={COLUMN_GAP} alignItems="center">
-        <Text bold color={ACCENT}>{title}</Text>
+        {hasTitle && <Text bold color={ACCENT}>{title}</Text>}
         <Text dimColor>{`${onCount} of ${names.length} on`}</Text>
         <Button key={`${kind}-enable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'on'))}>
           enable all
@@ -332,24 +350,30 @@ function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: re
         <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
           disable all
         </Button>
+        {debugText !== undefined && <Text dimColor>{debugText}</Text>}
       </Box>
       {names.length === 0 ? (
         <Text dimColor>{empty}</Text>
       ) : (
-        groupsOf(names, core).map(group => (
-          <Box key={`group-${group.title}`} flexDirection="column">
+        groups.map(group => (
+          <Box key={`group-${group.title}`} flexDirection="column" gap={1}>
             <Text dimColor>{group.title}</Text>
             {rowsOf(group.items, columns).map(row => (
               <Box key={`row-${row[0].name}`} flexDirection="row" columnGap={COLUMN_GAP}>
-                {row.map(item => (
-                  <Button
-                    key={`${word}-${item.name}`}
-                    variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
-                    onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
-                  >
-                    {cellText(`${state.switchOf(kind, item.name) === 'on' ? ON_MARK : OFF_MARK} ${item.label}`)}
-                  </Button>
-                ))}
+                {row.map(item =>
+                  cellOf(
+                    ui,
+                    `cell-${word}-${item.name}`,
+                    cellChars,
+                    <Button
+                      key={`${word}-${item.name}`}
+                      variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
+                      onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
+                    >
+                      {chipLabelOf(state.switchOf(kind, item.name) === 'on', item.label)}
+                    </Button>,
+                  ),
+                )}
               </Box>
             ))}
           </Box>
@@ -418,11 +442,7 @@ export const register: Register = (on, options: PluginOptions) => {
     const turnedOffCountOf = (kind: Kind) => allNames[kind].filter(name => state.switchOf(kind, name) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
-    const cellOf = (key: string, child: unknown) => (
-      <Box key={key} width={CELL_CHARS + CELL_PADDING}>
-        {child}
-      </Box>
-    )
+    const barCell = (key: string, child: unknown) => cellOf(ui, key, BAR_CELL_CHARS, child)
     const gridRowOf = (key: string, cells: unknown[]) => (
       <Box key={key} flexDirection="row" columnGap={COLUMN_GAP}>
         {cells}
@@ -434,7 +454,7 @@ export const register: Register = (on, options: PluginOptions) => {
       const count = turnedOffCountOf(kind)
       return (
         <Button key={kind} variant={isPanelOpen[kind] ? 'primary' : 'secondary'} onPress={() => togglePanel($, defaults, kind)}>
-          {cellText(`${kind} ${count === 0 ? 'all on' : `${count} off`} ${mark}`)}
+          {`${kind} ${count === 0 ? 'all on' : `${count} off`} ${mark}`}
         </Button>
       )
     }
@@ -460,23 +480,23 @@ export const register: Register = (on, options: PluginOptions) => {
         {gridRowOf(
           'models',
           ALL_FAMILIES.map(family =>
-            cellOf(
+            barCell(
               `model-${family}`,
               <Button
                 key={`model-${family}`}
                 variant={settings[family] === 'on' ? 'primary' : 'secondary'}
                 onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
               >
-                {cellText(`${settings[family] === 'on' ? ON_MARK : OFF_MARK} ${family}`)}
+                {chipLabelOf(settings[family] === 'on', family)}
               </Button>,
             ),
           ),
         )}
         {gridRowOf('settings', [
-          cellOf('cell-defaultModel', selectOf('defaultModel', 'default')),
-          cellOf('cell-effort', selectOf('effort', 'effort')),
-          cellOf('cell-offAction', selectOf('offAction', 'if off')),
-          cellOf(
+          barCell('cell-defaultModel', selectOf('defaultModel', 'default')),
+          barCell('cell-effort', selectOf('effort', 'effort')),
+          barCell('cell-offAction', selectOf('offAction', 'if off')),
+          barCell(
             'cell-applyToRunning',
             selectOf('applyToRunning', `running ${runningCount}`, [
               { value: 'on', label: 'follow' },
@@ -485,15 +505,15 @@ export const register: Register = (on, options: PluginOptions) => {
           ),
         ])}
         {gridRowOf('actions', [
-          cellOf('cell-agents', panelButtonOf('agents')),
-          cellOf('cell-skills', panelButtonOf('skills')),
-          cellOf(
+          barCell('cell-agents', panelButtonOf('agents')),
+          barCell('cell-skills', panelButtonOf('skills')),
+          barCell(
             'cell-apply',
             <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
-              {cellText('apply to running')}
+              apply to running
             </Button>,
           ),
-          cellOf(
+          barCell(
             'cell-more',
             <Select
               key="more"
@@ -513,7 +533,7 @@ export const register: Register = (on, options: PluginOptions) => {
         {ALL_KINDS.map(kind =>
           isPanelOpen[kind] && !isSide[kind] ? (
             <Box key={`panel-${kind}`} flexDirection="column">
-              {panelOf($, ui, state, kind, allNames[kind], BAR_COLUMNS)}
+              {panelOf($, ui, state, kind, allNames[kind], () => BAR_COLUMNS, true)}
             </Box>
           ) : null,
         )}
@@ -524,7 +544,7 @@ export const register: Register = (on, options: PluginOptions) => {
   for (const kind of ALL_KINDS) {
     on('ui.render', { component: 'Pane', requestId: PANE_IDS[kind] }, async ($, e) => {
       const state = await sessionState($, defaults)
-      return panelOf($, $.ui.resolve(e), state, kind, await panelNamesOf($, defaults, kind), columnsFor(e.props.bodyColumns))
+      return panelOf($, $.ui.resolve(e), state, kind, await panelNamesOf($, defaults, kind), cellChars => columnsFor(e.props.bodyColumns, cellChars), false, `${e.props.bodyColumns} columns`)
     })
   }
 
