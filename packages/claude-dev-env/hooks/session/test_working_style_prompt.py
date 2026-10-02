@@ -50,11 +50,24 @@ class TestWorkingStylePrompt:
         assert "update-in-place continuity, and sharing" in prompt_text
         assert "Apply ~/.claude/rules/asd-ste100-language.md for user-facing word choice" in prompt_text
         assert "Use current, immediately relevant context." in prompt_text
-        assert "Name each action, fact, reason, and outcome." in prompt_text
         assert "Use full terms and specific names for repository work." in prompt_text
         assert "When a request has multiple reasonable interpretations" in prompt_text
         assert "Ask one focused clarification question" in prompt_text
         assert "Pause for the user's choice before making a high-impact decision." in prompt_text
+
+    def test_prompt_limits_replies_to_what_the_user_must_act_on_or_know(self) -> None:
+        assert "Send the user only what they must act on or need to know." in WORKING_STYLE_PROMPT
+        assert "ends with no text when nothing in it needs the user" in WORKING_STYLE_PROMPT
+        assert (
+            "A report that a fix is done carries three lines: the fix acknowledged, "
+            "what changed, and the proof that it works."
+        ) in WORKING_STYLE_PROMPT
+        assert "Put the rest of the detail in the pull request or a linked file." in WORKING_STYLE_PROMPT
+
+    def test_prompt_drops_the_clauses_that_invite_surplus_detail(self) -> None:
+        assert "supporting detail for readers who want it" not in WORKING_STYLE_PROMPT
+        assert "give brief updates when you find important information" not in WORKING_STYLE_PROMPT
+        assert "Name each action, fact, reason, and outcome." not in WORKING_STYLE_PROMPT
 
     def test_build_session_directive_returns_the_shared_constant(self) -> None:
         assert starter.build_session_directive() == WORKING_STYLE_PROMPT
