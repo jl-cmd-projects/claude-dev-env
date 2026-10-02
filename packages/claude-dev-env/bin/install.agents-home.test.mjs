@@ -51,6 +51,7 @@ function runInstaller(homeDirectory, extraArguments, environmentOverrides = {}) 
     const installerEnvironment = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),

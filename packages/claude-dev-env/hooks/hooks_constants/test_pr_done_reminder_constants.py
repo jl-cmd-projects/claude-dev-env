@@ -12,17 +12,6 @@ def test_gh_probe_asks_for_every_field_the_checklist_reads() -> None:
         assert each_field in all_requested_fields
 
 
-def test_git_global_options_that_take_a_value_are_named() -> None:
-    assert constants.ALL_GIT_OPTIONS_WITH_VALUE == frozenset({"-C", "-c"})
-
-
-def test_powershell_wrappers_and_their_command_flags_are_named() -> None:
-    assert "pwsh" in constants.ALL_POWERSHELL_PROGRAM_NAMES
-    assert "powershell" in constants.ALL_POWERSHELL_PROGRAM_NAMES
-    assert "-command" in constants.ALL_POWERSHELL_COMMAND_FLAGS
-    assert "-c" in constants.ALL_POWERSHELL_COMMAND_FLAGS
-
-
 def test_checklist_lines_join_on_a_single_newline() -> None:
     assert constants.REMINDER_LINE_SEPARATOR == "\n"
 

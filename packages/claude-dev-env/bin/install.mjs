@@ -48,8 +48,10 @@ import {
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
 } from './install-constants.mjs';
 import {
-    installPstackPlugin,
-    shouldInstallPstackPlugin,
+    PSTACK_PLUGIN_SPEC,
+    USAGE_WRAPUP_PLUGIN_SPEC,
+    installMarketplacePlugin,
+    shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
@@ -404,10 +406,18 @@ export function pythonFileAndPrefixArguments(pythonCommand) {
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome.
  */
 export function installPstackPluginForHosts() {
-    return installPstackPlugin({
+    return installMarketplacePlugin(PSTACK_PLUGIN_SPEC, {
         claudeRoot: CLAUDE_HOME,
         codexHome: INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
     });
+}
+
+function printPluginHostOutcomes(spec, pluginOutcome) {
+    for (const eachHost of pluginOutcome.hosts) {
+        console.log(eachHost.warning
+            ? `  ${spec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
+            : `  ${spec.label} (${eachHost.host}): ${eachHost.status}`);
+    }
 }
 
 function seedSubagentModelPolicy() {
@@ -2762,7 +2772,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     }
     const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
     const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
-    if (!selectedGroups && shouldInstallPstackPlugin()) {
+    if (!selectedGroups && shouldInstallMarketplacePlugin(PSTACK_PLUGIN_SPEC)) {
         const pstackPlugin = installPstackPluginForHosts();
         summary.pstackPlugin = pstackPlugin;
         if (pstackPlugin.hosts.some(host => host.host === 'codex' && host.status === 'installed')) {
@@ -2784,11 +2794,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
             }
         }
-        for (const eachHost of pstackPlugin.hosts) {
-            console.log(eachHost.warning
-                ? `  Pstack (${eachHost.host}): ${eachHost.status} \u2014 ${eachHost.warning}`
-                : `  Pstack (${eachHost.host}): ${eachHost.status}`);
-        }
+        printPluginHostOutcomes(PSTACK_PLUGIN_SPEC, pstackPlugin);
+    }
+    if (!selectedGroups && shouldInstallMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC)) {
+        const usageWrapupPlugin = installMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, {
+            claudeRoot: CLAUDE_HOME,
+        });
+        summary.usageWrapupPlugin = usageWrapupPlugin;
+        printPluginHostOutcomes(USAGE_WRAPUP_PLUGIN_SPEC, usageWrapupPlugin);
     }
     if (!selectedGroups) {
         const packageGuidancePath = writeCodexPackageGuidance(
@@ -3324,6 +3337,7 @@ Usage:
   npx ${PACKAGE_NAME} --profile ID Install into one named profile root (under the profiles root)
   npx ${PACKAGE_NAME} --profiles A,B  Install into each selected profile (one ownership manifest per target)
   npx ${PACKAGE_NAME} --no-pstack  Full install without the pstack plugin (also CDE_INSTALL_PSTACK=0)
+  npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

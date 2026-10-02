@@ -38,6 +38,8 @@ COMBINED_STATUS_ENDPOINT_TEMPLATE = (
 COMPARE_ENDPOINT_TEMPLATE = "{api_root}/repos/{slug}/compare/{base}...{head}"
 CHECK_NAME_PARAMETER = "check_name"
 PER_PAGE_PARAMETER = "per_page"
+PAGE_PARAMETER = "page"
+FIRST_PAGE_NUMBER = 1
 CHECK_PAGE_SIZE = 100
 
 RULE_TYPE_KEY = "type"
@@ -100,6 +102,10 @@ ALL_HOLD_REASONS_BY_STATE = {
 FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE = (
     "A required check is not passing on this head: {checks}. Read the "
     "failing check, fix it, and push."
+)
+UNSTABLE_CHECKS_HOLD_TEMPLATE = (
+    "A check on this head is not passing: {checks}. Wait for a pending "
+    "check, re-run a cancelled one, and fix a failing one."
 )
 REQUIRED_CHECK_STATE_TEMPLATE = "{context} ({state})"
 REQUIRED_CHECK_SEPARATOR = ", "

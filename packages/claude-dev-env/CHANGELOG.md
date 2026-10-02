@@ -1,5 +1,34 @@
 # Changelog
 
+## [8.34.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.2...claude-dev-env-v8.34.0) (2026-10-02)
+
+
+### Features
+
+* **install:** install the usage-wrapup plugin on a full Claude install ([027ef56](https://github.com/jl-cmd/claude-dev-env/commit/027ef56a16fa213b06a4b18dd32060e08b9bdf2b))
+* **install:** pin usage-wrapup 0.2.0, which compacts near the usage limit ([6d34ce8](https://github.com/jl-cmd/claude-dev-env/commit/6d34ce8737617d4f8fc20e51ff963af945d34d4f))
+
+## [8.33.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.1...claude-dev-env-v8.33.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **hooks:** read a head with no reported checks as not done ([307edd4](https://github.com/jl-cmd/claude-dev-env/commit/307edd4a6ca96a2e0e37166020487b6496445fe8))
+
+## [8.33.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.0...claude-dev-env-v8.33.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **agent-merge-check:** judge an unstable head by each check's newest run ([f34c3e3](https://github.com/jl-cmd/claude-dev-env/commit/f34c3e3e959311f9e74e02302c93422ef29c987d))
+
+## [8.33.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.2...claude-dev-env-v8.33.0) (2026-10-02)
+
+
+### Features
+
+* **hooks:** block a change made on a hedged claim ([d756aeb](https://github.com/jl-cmd/claude-dev-env/commit/d756aeb0d8d600f0f4261453062e22d7c51e9417))
+
 ## [8.32.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.1...claude-dev-env-v8.32.2) (2026-10-02)
 
 

@@ -72,6 +72,7 @@ function runInstaller(homeDirectory, extraArguments, options = {}) {
     const childEnvironment = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -305,6 +306,7 @@ test('uninstall fault after_git_config restores prior core.hooksPath', () => {
             env: {
                 ...process.env,
                 CDE_INSTALL_PSTACK: '0',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,

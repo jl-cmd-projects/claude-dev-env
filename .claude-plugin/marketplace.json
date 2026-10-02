@@ -14,6 +14,19 @@
       "version": "1.0.0",
       "category": "development",
       "tags": ["code-standards", "hooks", "agents", "tdd", "quality"]
+    },
+    {
+      "name": "usage-wrapup",
+      "source": {
+        "source": "github",
+        "repo": "jl-cmd/usage-wrapup",
+        "ref": "main",
+        "sha": "d78c314e5787786e866bf5c4967107365854dc78"
+      },
+      "description": "Tells every running agent to wrap up when plan usage gets low, and compacts the conversation when usage is nearly gone",
+      "version": "0.2.0",
+      "license": "MIT",
+      "category": "productivity"
     }
   ]
 }
