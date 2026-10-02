@@ -14,7 +14,6 @@ The checks live in `python_style_checks.py`. Shared source-line splitting, funct
 | `exempt_paths.py` | Shared config, test, and hook-infrastructure path exemptions |
 | `fast_save_validators.py` | In-process Write/Edit save-path validator roster |
 | `file_structure_checks.py` | File structure checks for pre-PR validation |
-| `git_checks.py` | Git and GitHub checks for pre-push review |
 | `health_check.py` | Validator availability, dependency, and version checks |
 | `hook_timing_harness.py` | Hook runtime measurement and threshold report |
 | `magic_value_checks.py` | Hardcoded magic-number checks |

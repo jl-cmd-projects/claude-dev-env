@@ -50,6 +50,6 @@ Delete nothing by hand. The repository deletes the head branch on merge.
 
 | Rule | Role |
 |---|---|
-| [`git-workflow.md`](git-workflow.md) | Draft first, and confirm each required context fired after the push |
+| [`git-workflow.md`](git-workflow.md) | Open ready for review, and confirm each required context fired after the push |
 | [`ci-owns-the-gate.md`](ci-owns-the-gate.md) | The gate runs once, and it runs on CI |
 | [`correction-lens.md`](correction-lens.md) | A correction becomes a control at the highest layer that can hold it |

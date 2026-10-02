@@ -23,7 +23,6 @@ VALIDATOR_FILES = [
     "test_safety_checks.py",
     "file_structure_checks.py",
     "react_checks.py",
-    "git_checks.py",
     "comment_checks.py",
 ]
 

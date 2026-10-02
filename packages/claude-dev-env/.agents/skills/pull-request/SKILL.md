@@ -32,7 +32,7 @@ process-local author value. Keep the parent environment unchanged.
 
 Use this skill for one pull request action:
 
-- Create a draft pull request.
+- Create a pull request, ready for review by default or a draft with `--draft`.
 - Edit a pull request title or body.
 - Add a pull request comment.
 - Submit a pull request review.
@@ -91,7 +91,8 @@ Process steps in order.
 
 Resolve the repository, action, and selected GitHub author. For create, resolve
 the source branch, base, and head. For other actions, resolve one existing pull
-request target. Create actions publish drafts. Record the target before any write.
+request target. Create publishes a ready pull request, and `--draft` publishes a
+draft. Record the target before any write.
 
 ### 2. Author the title and body
 
@@ -185,7 +186,7 @@ only after remote readback proves the requested state.
 ## Examples
 
 Create example: the writer produces `pr-body.md`. The linter exits `0` for
-`pr-create`. `pull_request.py create` publishes one draft pull request. The
+`pr-create`. `pull_request.py create` publishes one ready pull request. The
 readback matches the title, body, head SHA, and draft state.
 
 Rejected comment example: the comment body names a worktree file. The linter

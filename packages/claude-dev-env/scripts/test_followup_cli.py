@@ -130,7 +130,8 @@ def test_brief_names_every_recorded_finding_and_the_repository(tmp_path: Path) -
     assert exit_code == 0
     assert "instruction-git-mode" in output_text
     assert "wrong mode" in output_text
-    assert "draft pull request" in output_text
+    assert "open a pull request for it" in output_text
+    assert "draft pull request" not in output_text
 
 
 def test_brief_asks_for_no_work_on_an_empty_ledger(tmp_path: Path) -> None:
