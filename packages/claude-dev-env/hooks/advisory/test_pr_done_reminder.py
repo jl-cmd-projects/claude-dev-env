@@ -257,7 +257,8 @@ def test_main_should_remind_to_open_a_pr_when_the_branch_has_none(
     context = _additional_context(_run_main(monkeypatch, capsys, _payload("git push"), no_pr))
 
     assert "No open pull request found" in context
-    assert "gh pr create --draft" in context
+    assert "Open a pull request with gh pr create." in context
+    assert "--draft" not in context
 
 
 def test_main_should_stay_quiet_on_any_other_gh_failure(

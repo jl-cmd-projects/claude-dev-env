@@ -8,8 +8,8 @@ report only, says who performs the merge, and states the rollback path.
 
 | Order | Gate | Holds the merge | Where it runs |
 |---|---|---|---|
-| 1 | The pull request opens as a draft with a Before and an After in its body | yes | the agent that opens it |
-| 2 | The full Python and JavaScript suites run on the draft | yes | GitHub Actions |
+| 1 | The pull request opens ready for review with a Before and an After in its body | yes | the agent that opens it |
+| 2 | The full Python and JavaScript suites run on the pull request | yes | GitHub Actions |
 | 3 | The install playtest installs the package into a scratch home and reads the envelopes a session-start hook and a blocking hook return | yes | GitHub Actions |
 | 4 | The required status check reports green on the head commit | yes | GitHub Actions |
 | 5 | The head is up to date with `main`, because the branch rule is strict | yes | GitHub Actions |
