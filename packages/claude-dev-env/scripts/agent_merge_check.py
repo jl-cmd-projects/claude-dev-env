@@ -652,48 +652,48 @@ def read_unstable_checks(slug: str, head_sha: str, token: str) -> tuple[str, ...
 
     Returns:
         Each check whose newest run or latest status on the head is not
-        passing, read across every page of check runs.
+        passing, read across every page of check runs and of statuses.
 
     Raises:
         MergeCheckError: A read failed, or answered with another shape.
     """
     return unmet_newest_checks(
-        _read_all_check_runs(slug, head_sha, token),
+        _read_every_page(
+            CHECK_RUNS_ENDPOINT_TEMPLATE, slug, head_sha, token, CHECK_RUNS_KEY
+        ),
         _read_statuses(slug, head_sha, token),
     )
 
 
-def _read_all_check_runs(slug: str, head_sha: str, token: str) -> list[object]:
-    all_check_runs: list[object] = []
+def _read_every_page(
+    endpoint_template: str,
+    slug: str,
+    head_sha: str,
+    token: str,
+    key: str,
+) -> list[object]:
+    all_records: list[object] = []
     page_number = FIRST_PAGE_NUMBER
     while True:
         query = urllib.parse.urlencode(
             {PER_PAGE_PARAMETER: CHECK_PAGE_SIZE, PAGE_PARAMETER: page_number}
         )
-        all_page_runs = _request_list_field(
-            CHECK_RUNS_ENDPOINT_TEMPLATE.format(
+        all_page_records = _request_list_field(
+            endpoint_template.format(
                 api_root=GITHUB_API_ROOT, slug=slug, sha=head_sha, query=query
             ),
             token,
-            CHECK_RUNS_KEY,
+            key,
         )
-        all_check_runs.extend(all_page_runs)
-        if len(all_page_runs) < CHECK_PAGE_SIZE:
-            break
+        all_records.extend(all_page_records)
+        if len(all_page_records) < CHECK_PAGE_SIZE:
+            return all_records
         page_number += 1
-    return all_check_runs
 
 
 def _read_statuses(slug: str, head_sha: str, token: str) -> list[object]:
-    return _request_list_field(
-        COMBINED_STATUS_ENDPOINT_TEMPLATE.format(
-            api_root=GITHUB_API_ROOT,
-            slug=slug,
-            sha=head_sha,
-            query=urllib.parse.urlencode({PER_PAGE_PARAMETER: CHECK_PAGE_SIZE}),
-        ),
-        token,
-        STATUSES_KEY,
+    return _read_every_page(
+        COMBINED_STATUS_ENDPOINT_TEMPLATE, slug, head_sha, token, STATUSES_KEY
     )
 
 

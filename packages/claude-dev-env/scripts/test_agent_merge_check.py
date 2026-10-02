@@ -891,6 +891,7 @@ def test_an_unstable_head_names_the_check_whose_newest_run_failed() -> None:
 def _unstable_answers(
     all_check_runs: list[dict[str, object]],
     all_threads: list[object] | None = None,
+    all_statuses: list[object] | None = None,
 ) -> object:
     def _answer(url: str, token: str, all_payload_fields: object) -> object:
         parsed = urllib.parse.urlparse(url)
@@ -901,18 +902,20 @@ def _unstable_answers(
         if parsed.path.endswith("/graphql"):
             return _merge_queue_document([])
         if parsed.path.endswith("/check-runs"):
-            all_parameters = urllib.parse.parse_qs(parsed.query)
-            page_size = int(all_parameters["per_page"][0])
-            page_number = int(all_parameters["page"][0])
-            first_index = (page_number - 1) * page_size
-            return {
-                "check_runs": all_check_runs[first_index : first_index + page_size]
-            }
+            return {"check_runs": _requested_page(parsed.query, all_check_runs)}
         if parsed.path.endswith("/status"):
-            return {"statuses": []}
+            return {"statuses": _requested_page(parsed.query, all_statuses or [])}
         raise AssertionError(url)
 
     return _answer
+
+
+def _requested_page(query: str, all_records: list[object]) -> list[object]:
+    all_parameters = urllib.parse.parse_qs(query)
+    page_size = int(all_parameters["per_page"][0])
+    page_number = int(all_parameters["page"][0])
+    first_index = (page_number - 1) * page_size
+    return all_records[first_index : first_index + page_size]
 
 
 def _run_unstable_main(
@@ -985,3 +988,26 @@ def test_read_unstable_checks_reads_every_page_of_check_runs(
     assert agent_merge_check.read_unstable_checks(
         "jl-cmd/claude-dev-env", PULL_REQUEST_5330_HEAD_SHA, "token"
     ) == ("Shard 150 (failure)",)
+
+
+def test_read_unstable_checks_reads_every_page_of_commit_statuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_statuses_with_late_failure = [
+        *(
+            {"context": f"Gate {each_index}", "state": "success"}
+            for each_index in range(1, 121)
+        ),
+        {"context": "Gate 121", "state": "failure"},
+    ]
+    monkeypatch.setattr(
+        agent_merge_check,
+        "_request_json",
+        _unstable_answers(
+            PULL_REQUEST_5330_CHECK_RUNS,
+            all_statuses=all_statuses_with_late_failure,
+        ),
+    )
+    assert agent_merge_check.read_unstable_checks(
+        "jl-cmd/claude-dev-env", PULL_REQUEST_5330_HEAD_SHA, "token"
+    ) == ("Gate 121 (failure)",)
