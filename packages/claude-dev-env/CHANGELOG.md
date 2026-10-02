@@ -1,5 +1,23 @@
 # Changelog
 
+## [8.31.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.30.1...claude-dev-env-v8.31.0) (2026-10-02)
+
+
+### Features
+
+* **hooks:** send the user only what they must act on or know ([9f86108](https://github.com/jl-cmd/claude-dev-env/commit/9f861085df78cfe683da1f51748ef290266f128c))
+
+
+### Bug Fixes
+
+* **hooks:** limit the next-action line to typed requests ([50bf0fd](https://github.com/jl-cmd/claude-dev-env/commit/50bf0fd6995ba5e771b1009ae1f59e3257ad857f))
+* **hooks:** say plainly that a background event starts the silent turn ([5b59676](https://github.com/jl-cmd/claude-dev-env/commit/5b5967639ad17ec542c33083dd862bd088adcc71))
+
+
+### Documentation
+
+* **hooks:** describe the scoped narration and silent background turns ([678e559](https://github.com/jl-cmd/claude-dev-env/commit/678e5592edd124780599350756e39c8a14800270))
+
 ## [8.30.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.30.0...claude-dev-env-v8.30.1) (2026-10-02)
 
 
