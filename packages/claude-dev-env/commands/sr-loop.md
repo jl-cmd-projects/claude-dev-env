@@ -39,7 +39,7 @@ stack's design, intent, and changes.
    code, not the full repo suite), commit once (`git commit -F <file>`, body
    written with the Write tool, Co-Authored-By line, 10-minute timeout — the
    pre-commit gate runs its own tests), and push to the PR head branch. The PR
-   stays draft.
+   keeps its draft or ready state.
 3. Repeat the invocation only after substantive findings or a user request.
    **Skips are sticky:** carry every adjudicated skip
    forward into the next pass as "already adjudicated — do not re-report: ..."
@@ -64,8 +64,9 @@ stack's design, intent, and changes.
 
 ## Finish
 
-When both phases are clean, or only fixed nits remain, mark the target PR ready
-with `gh pr ready`. Confirm that it is no longer a draft.
+When both phases are clean, or only fixed nits remain, a target PR that is a
+draft goes ready with `gh pr ready`. Confirm that it now reads ready. A
+ready target PR stays as it is.
 
 Report: passes run per phase, commits pushed with hashes, fixes applied, and
 the standing skip list with reasons.

@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.32.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.31.1...claude-dev-env-v8.32.0) (2026-10-02)
+
+
+### Features
+
+* **pull-request:** open ready by default, draft on --draft ([716e5cd](https://github.com/jl-cmd/claude-dev-env/commit/716e5cd26cbb24fffb2af8d7e3e43ff16b0b438f))
+
+
+### Documentation
+
+* keep merge policy and sr-loop on ready-by-default pull requests ([9e0bf20](https://github.com/jl-cmd/claude-dev-env/commit/9e0bf2072af83c48742c0cd87c78208ab0ab8d2c))
+* **sr-loop:** state the ready check as what it reads ([26ed4ac](https://github.com/jl-cmd/claude-dev-env/commit/26ed4ac6893006d35710b2b813cbef9644c3c227))
+
 ## [8.31.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.31.0...claude-dev-env-v8.31.1) (2026-10-02)
 
 

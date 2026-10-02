@@ -5,7 +5,7 @@ Every GitHub post passes a local linter before it leaves the machine. CI scans e
 ## Sub-features
 
 - `packages/claude-dev-env/scripts/durable_post_lint.py` checks one post before publication. It checks the Conventional Commit title, the `## Why` and `## Verification` headings on a pull request description, contrast framing, volatile local paths, private organization names, and a rewritten release body.
-- `packages/claude-dev-env/.agents/skills/pull-request/scripts/pull_request.py` runs that linter first and calls `gh` only on a clean result. It creates every pull request as a draft.
+- `packages/claude-dev-env/.agents/skills/pull-request/scripts/pull_request.py` runs that linter first and calls `gh` only on a clean result. It opens each pull request ready for review, or as a draft with `--draft`.
 - `packages/claude-dev-env/scripts/private_term_scan.py` runs in `.github/workflows/private-terms.yml`. It scans the event text and, on a pull request, every commit message and author identity in `base..head`.
 - `packages/claude-dev-env/scripts/private_terms.py` holds the matcher. It compares SHA-256 digests of normalized text windows, so no file stores the names.
 - `packages/claude-dev-env/scripts/repository_policy.py` runs the `tracked-private-terms` and `tracked-secrets` checks. Both are breaking. A repository whose github.com origin owner is itself a private organization passes `tracked-private-terms`, because that organization may name itself.

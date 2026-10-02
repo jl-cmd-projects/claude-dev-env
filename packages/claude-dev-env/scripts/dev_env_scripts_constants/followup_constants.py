@@ -72,7 +72,7 @@ USAGE_TEXT: str = (
 )
 
 BRIEF_HEADER: str = (
-    "Fix every finding below in one change, then open a draft pull request "
+    "Fix every finding below in one change, then open a pull request "
     "for it. Each finding is non-breaking, so the change that raised it "
     "already shipped. Keep the fixes mechanical, touch no behavior, and run "
     "the repository's own checks before pushing."

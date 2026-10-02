@@ -152,7 +152,7 @@ session before the first `mcp__github__*` call (Section 5).
 | Resolve / unresolve a thread | `gh api graphql resolveReviewThread` | `mcp__github__pull_request_review_write(method="resolve_thread"/"unresolve_thread", threadId="PRRT_...")` |
 | Request the Copilot reviewer | `gh api POST pulls/N/requested_reviewers` | `mcp__github__request_copilot_review`. The call completes with no output in both draft and ready states, with no in-band confirmation either way; confirm by a Copilot review landing on the PR. |
 | Mark ready / send to draft | `gh pr ready`, `gh pr ready --undo` | `mcp__github__update_pull_request(draft=false / draft=true)`. A probe verified both directions, with a read-back confirming the draft state each way. |
-| Create a PR | `gh pr create --draft` | `mcp__github__create_pull_request(draft=true)` |
+| Create a PR | `gh pr create` | `mcp__github__create_pull_request(draft=false)` |
 | Edit a PR body or title | `gh pr edit` | `mcp__github__update_pull_request(body=..., title=...)` |
 | Cross-repo PR search | `gh search prs --owner X --state open` | `mcp__github__search_pull_requests(query="user:X is:open", perPage=30)`. Always pass `perPage`: an unpaginated owner-wide search overflows the tool-result limit. |
 | Check runs on a SHA | `gh api commits/SHA/check-runs` | `mcp__github__pull_request_read(method="get_check_runs")`, or REST for owners with the app connected |
