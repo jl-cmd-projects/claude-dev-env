@@ -513,10 +513,16 @@ test('installer fault keeps the lookup pointers a prior install published', () =
             environment: homeOnlyEnvironment,
         });
         assert.equal(okRun.status, 0, okRun.stdout + okRun.stderr);
-        const allPointerTargets = ['skills', 'agents', 'hooks', 'scripts'].map((name) => ({
-            pointerPath: join(homeDirectory, '.claude', name),
-            targetPath: realpathSync(join(homeDirectory, '.agents', name)),
-        }));
+        const allPointerTargets = [
+            ...['skills', 'agents', 'hooks', 'scripts'].map((name) => ({
+                pointerPath: join(homeDirectory, '.claude', name),
+                targetPath: realpathSync(join(homeDirectory, '.agents', name)),
+            })),
+            {
+                pointerPath: join(homeDirectory, '.codex', 'hooks'),
+                targetPath: realpathSync(join(homeDirectory, '.agents', 'hooks')),
+            },
+        ];
 
         for (const faultPhase of [FAULT_PHASES.AFTER_FILE_STAGING, FAULT_PHASES.AFTER_MANIFEST_WRITE]) {
             const failedRun = runInstaller(homeDirectory, ['--only', 'core'], {
