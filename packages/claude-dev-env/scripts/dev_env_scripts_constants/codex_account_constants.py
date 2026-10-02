@@ -2,13 +2,75 @@
 
 Each account signs in under its own Codex home. The picker reads every
 account's rate-limit windows through ``codex app-server`` and names the account
-a job runs on, trying the accounts in one fixed order.
+a job runs on, trying the accounts in roster order.
 """
 
 from __future__ import annotations
 
 ALL_CODEX_ACCOUNT_NAMES: tuple[str, ...] = ("codex-1", "codex-2", "codex-3", "codex-4")
-"""Codex accounts in the order jobs try them. The names say nothing about a plan."""
+"""Fallback Codex accounts, in try order, when no account roster is saved or set."""
+
+CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE: str = "CODEX_ACCOUNT_PROFILES"
+"""Environment variable naming the account roster, comma-separated, over the saved file."""
+
+CODEX_ACCOUNT_LAUNCHERS_FILE_NAME: str = "account-launchers.json"
+"""File under the profiles root that holds the saved account roster as a JSON list."""
+
+CODEX_ACCOUNT_NAME_SEPARATOR: str = ","
+"""Separator between account names in the roster environment variable."""
+
+CODEX_LAUNCHER_FILE_NAME_TEMPLATE: str = "codex-{profile_name}.cmd"
+"""File name pattern for one account's Codex launcher."""
+
+CODEX_LAUNCHER_TEXT_TEMPLATE: str = (
+    "@echo off\r\n"
+    "setlocal\r\n"
+    'set "CODEX_HOME={profile_home}"\r\n'
+    "call codex %*\r\n"
+    "exit /b %ERRORLEVEL%\r\n"
+)
+"""Launcher body: point Codex at the account's home and pass every argument through.
+
+``codex`` resolves to npm's ``codex.cmd``, whose last line runs ``endLocal`` and a
+``goto`` to a missing label. Chained into without ``call``, that line ends this
+launcher's ``setlocal`` too, and Codex starts without ``CODEX_HOME``.
+"""
+
+SETUP_PROMPT_TEXT: str = "Name for this Codex account launcher (blank to finish): "
+"""Prompt the setup command shows for each account name."""
+
+SETUP_SAVED_NAMES_TEMPLATE: str = "Saved Codex account launchers: {names}"
+"""Line the setup command prints first, naming the saved roster."""
+
+SETUP_NO_SAVED_NAMES_TEXT: str = "none"
+"""Saved-roster text when no account launcher is saved."""
+
+SETUP_NAMES_SEPARATOR: str = ", "
+"""Separator between names on the setup command's saved-roster line."""
+
+INVALID_ACCOUNT_ROSTER_TEMPLATE: str = "{source} names {name!r}: {reason}"
+"""Error when the roster environment variable or file names an invalid account."""
+
+ROSTER_NOT_A_LIST_TEMPLATE: str = "{source} must hold a JSON list of account names"
+"""Error when the roster JSON is anything other than a list of names."""
+
+ROSTER_JSON_INDENT: int = 2
+"""Indent of the saved roster JSON, one name per line."""
+
+COMMAND_SETUP: str = "setup"
+"""Command that asks for the roster, saves it, and installs every launcher."""
+
+COMMAND_INSTALL: str = "install"
+"""Command that installs every saved roster account without asking."""
+
+UNKNOWN_ACCOUNT_TEMPLATE: str = "unknown Codex account {name!r}; known: {known}"
+"""Error when ``check`` names an account outside the roster."""
+
+JSON_INSTALLED_KEY: str = "installed"
+"""Setup JSON key holding the install report for every roster account."""
+
+JSON_RETIRED_KEY: str = "retired"
+"""Setup JSON key holding each dropped account and where its launcher moved."""
 
 CODEX_PROFILES_ROOT_DIRECTORY_NAME: str = ".codex-profiles"
 """Directory under the user home that holds one Codex home per account."""
@@ -28,6 +90,7 @@ CODEX_AUTH_FILE_NAME: str = "auth.json"
 ALL_SHARED_CODEX_HOME_NAMES: frozenset[str] = frozenset(
     {
         "AGENTS.md",
+        "agents",
         "config.toml",
         "hooks",
         "hooks.json",
