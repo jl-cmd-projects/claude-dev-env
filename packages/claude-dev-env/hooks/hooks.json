@@ -9,6 +9,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/skill_loaded_reminder.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/subagent_model_gate.py",
+            "timeout": 10
           }
         ]
       },

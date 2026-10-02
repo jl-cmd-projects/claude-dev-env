@@ -131,6 +131,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/reply_length_gate.py              -> exempt
         hooks/blocking/edit_marker_gate.py               -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt
+        hooks/blocking/subagent_model_gate.py            -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -148,6 +149,9 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The verify-before-acting hook runs after a mutating call has finished. It
     asks the model to check a hedged claim, and the call it reads stays in place.
+
+    The subagent model gate carries the owner's ruling on which model a spawned
+    agent runs. It decides no code or safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.
