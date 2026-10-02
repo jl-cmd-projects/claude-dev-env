@@ -8,64 +8,94 @@ export const PSTACK_PLUGIN_HOSTS = Object.freeze(['claude', 'codex']);
 export const PSTACK_PLUGIN_OPT_OUT_FLAG = '--no-pstack';
 export const PSTACK_PLUGIN_OPT_OUT_VARIABLE = 'CDE_INSTALL_PSTACK';
 
-const HOST_PLANS = Object.freeze({
+export const PSTACK_PLUGIN_SPEC = Object.freeze({
+    name: 'pstack',
+    label: 'Pstack',
+    marketplaceRepository: PSTACK_MARKETPLACE_REPOSITORY,
+    marketplaceAddArguments: Object.freeze([]),
+    pluginIdentifier: PSTACK_PLUGIN_IDENTIFIER,
+    hosts: PSTACK_PLUGIN_HOSTS,
+    optOutFlag: PSTACK_PLUGIN_OPT_OUT_FLAG,
+    optOutVariable: PSTACK_PLUGIN_OPT_OUT_VARIABLE,
+});
+
+export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
+    name: 'usage-wrapup',
+    label: 'Usage-wrapup',
+    marketplaceRepository: 'jl-cmd/claude-dev-env',
+    marketplaceAddArguments: Object.freeze(['--sparse', '.claude-plugin']),
+    pluginIdentifier: 'usage-wrapup@claude-dev-env',
+    hosts: Object.freeze(['claude']),
+    optOutFlag: '--no-usage-wrapup',
+    optOutVariable: 'CDE_INSTALL_USAGE_WRAPUP',
+});
+
+const HOST_DEFINITIONS = Object.freeze({
     claude: Object.freeze({
         executable: 'claude',
         executableVariable: 'CDE_CLAUDE_EXECUTABLE',
         homeVariable: 'CLAUDE_CONFIG_DIR',
-        commands: Object.freeze([
-            Object.freeze(['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY]),
-            Object.freeze(['plugin', 'install', PSTACK_PLUGIN_IDENTIFIER]),
-        ]),
+        installVerb: 'install',
     }),
     codex: Object.freeze({
         executable: 'codex',
         executableVariable: 'CDE_CODEX_EXECUTABLE',
         homeVariable: 'CODEX_HOME',
-        commands: Object.freeze([
-            Object.freeze(['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY]),
-            Object.freeze(['plugin', 'add', PSTACK_PLUGIN_IDENTIFIER]),
-        ]),
+        installVerb: 'add',
     }),
 });
 
 /**
- * Read the marketplace and plugin commands one host installs pstack with.
+ * Read the marketplace and plugin commands one host installs a plugin with.
  *
- * Claude Code and Codex publish the same marketplace under different plugin
- * verbs, so the command list belongs to the host rather than to the caller.
+ * Claude Code and Codex publish a marketplace under different plugin verbs, so
+ * the install verb belongs to the host and the marketplace and identifier
+ * belong to the plugin spec. A spec whose marketplace is a large repository
+ * passes `--sparse .claude-plugin` among its marketplace add arguments, so the
+ * clone holds only the catalog and stays clear of Windows path-length limits.
  *
- * @param {string} host Either `claude` or `codex`.
+ * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
+ * @param {string} host A host the spec names, `claude` or `codex`.
  * @returns {{executable: string, executableVariable: string, homeVariable: string,
  *   commands: ReadonlyArray<ReadonlyArray<string>>}} The host's install plan.
  */
-export function pstackPluginPlan(host) {
-    const plan = HOST_PLANS[host];
-    if (!plan) {
+export function marketplacePluginPlan(spec, host) {
+    const hostDefinition = HOST_DEFINITIONS[host];
+    if (!hostDefinition || !spec.hosts.includes(host)) {
         throw new Error(
-            `Unsupported pstack plugin host ${host}: this installer knows ${PSTACK_PLUGIN_HOSTS.join(', ')}.`,
+            `Unsupported ${spec.name} plugin host ${host}: this installer knows ${spec.hosts.join(', ')}.`,
         );
     }
-    return plan;
+    return {
+        executable: hostDefinition.executable,
+        executableVariable: hostDefinition.executableVariable,
+        homeVariable: hostDefinition.homeVariable,
+        commands: [
+            ['plugin', 'marketplace', 'add', spec.marketplaceRepository, ...spec.marketplaceAddArguments],
+            ['plugin', hostDefinition.installVerb, spec.pluginIdentifier],
+        ],
+    };
 }
 
 /**
- * Decide whether a full install also installs the pstack plugin.
+ * Decide whether a full install also installs one marketplace plugin.
  *
- * The step reaches the network for the marketplace repository. `--no-pstack`
- * on the command line, or `CDE_INSTALL_PSTACK=0` in the environment, turns it
- * off for an air-gapped or offline run.
+ * The step reaches the network for the marketplace repository. The spec's
+ * opt-out flag on the command line, or its opt-out variable set to `0` in the
+ * environment, turns it off for an air-gapped or offline run.
  *
+ * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
  * @param {string[]} [argumentList] The command-line arguments after the script.
  * @param {Record<string, string|undefined>} [environment] The process environment.
- * @returns {boolean} True when this run installs the pstack plugin.
+ * @returns {boolean} True when this run installs the plugin.
  */
-export function shouldInstallPstackPlugin(
+export function shouldInstallMarketplacePlugin(
+    spec,
     argumentList = process.argv.slice(2),
     environment = process.env,
 ) {
-    if (argumentList.includes(PSTACK_PLUGIN_OPT_OUT_FLAG)) return false;
-    return environment[PSTACK_PLUGIN_OPT_OUT_VARIABLE] !== '0';
+    if (argumentList.includes(spec.optOutFlag)) return false;
+    return environment[spec.optOutVariable] !== '0';
 }
 
 /**
@@ -126,8 +156,8 @@ function firstLine(text) {
     return trimmed.split(/\r?\n/).filter(Boolean).at(-1);
 }
 
-function installForHost(host, homeDirectory, environment, runCommand) {
-    const plan = pstackPluginPlan(host);
+function installForHost(spec, host, homeDirectory, environment, runCommand) {
+    const plan = marketplacePluginPlan(spec, host);
     const executable = environment[plan.executableVariable] || plan.executable;
     const commandEnvironment = { [plan.homeVariable]: homeDirectory };
     for (const commandArguments of plan.commands) {
@@ -139,7 +169,7 @@ function installForHost(host, homeDirectory, environment, runCommand) {
                 host,
                 executable,
                 status: 'skipped',
-                warning: `${executable} is not on PATH, so pstack was not installed for ${host}.`,
+                warning: `${executable} is not on PATH, so ${spec.name} was not installed for ${host}.`,
             };
         }
         if (outcome.status !== 0 || outcome.error) {
@@ -156,7 +186,7 @@ function installForHost(host, homeDirectory, environment, runCommand) {
 }
 
 /**
- * Install the pstack plugin from its marketplace into each host's own home.
+ * Install one plugin from its marketplace into each host's own home.
  *
  * Each host is one member of the batch. A host without its command-line tool
  * is skipped and a host whose command fails is reported, so the rules, hooks,
@@ -165,20 +195,22 @@ function installForHost(host, homeDirectory, environment, runCommand) {
  * `cmd.exe`'s command-not-found exit code on Windows, and both read as
  * skipped.
  *
+ * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
  * @param {object} [options] Install targets.
  * @param {string} [options.claudeRoot] The managed Claude root to install into.
  * @param {string} [options.codexHome] The Codex home to install into.
- * @param {string[]} [options.hosts] The hosts to install. Defaults to both.
+ * @param {string[]} [options.hosts] The hosts to install. Defaults to the spec's hosts.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
  * @param {object} [dependencies] Seams for the command runner.
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome per host.
  */
-export function installPstackPlugin(options = {}, dependencies = {}) {
+export function installMarketplacePlugin(spec, options = {}, dependencies = {}) {
     const environment = options.environment ?? process.env;
     const runCommand = dependencies.runCommand ?? runHostCommand;
     const homeDirectories = { claude: options.claudeRoot, codex: options.codexHome };
-    const hosts = options.hosts ?? PSTACK_PLUGIN_HOSTS;
+    const hosts = options.hosts ?? spec.hosts;
     const hostOutcomes = hosts.map(host => installForHost(
+        spec,
         host,
         homeDirectories[host],
         environment,
