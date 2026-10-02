@@ -184,7 +184,7 @@ test('a non-zero exit that is not command-not-found still reads as a failure', (
     assert.match(outcome.hosts[0].warning, /rejected the catalog/);
 });
 
-const USAGE_WRAPUP_PINNED_COMMIT = 'c94766d10b1a32e97e4ff14c094c7c2007d1575b';
+const USAGE_WRAPUP_PINNED_COMMIT = 'd78c314e5787786e866bf5c4967107365854dc78';
 
 test('the usage-wrapup plan adds this repository marketplace and installs the plugin on Claude', () => {
     const plan = marketplacePluginPlan(USAGE_WRAPUP_PLUGIN_SPEC, 'claude');

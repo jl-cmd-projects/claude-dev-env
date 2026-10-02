@@ -21,10 +21,10 @@
         "source": "github",
         "repo": "jl-cmd/usage-wrapup",
         "ref": "main",
-        "sha": "c94766d10b1a32e97e4ff14c094c7c2007d1575b"
+        "sha": "d78c314e5787786e866bf5c4967107365854dc78"
       },
-      "description": "Tells every running agent to wrap up when plan usage gets low, before the limit cuts it off",
-      "version": "0.1.0",
+      "description": "Tells every running agent to wrap up when plan usage gets low, and compacts the conversation when usage is nearly gone",
+      "version": "0.2.0",
       "license": "MIT",
       "category": "productivity"
     }
