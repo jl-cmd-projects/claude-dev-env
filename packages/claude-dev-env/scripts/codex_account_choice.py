@@ -71,8 +71,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     CODEX_ACCOUNT_NAME_SEPARATOR,
     CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
     CODEX_AUTH_FILE_NAME,
-    CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
-    CODEX_LAUNCHER_TEXT_TEMPLATE,
+    CODEX_LAUNCHER_PROGRAM,
     CODEX_PROFILES_ROOT_DIRECTORY_NAME,
     CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     COMMAND_INSTALL,
@@ -285,8 +284,7 @@ def _install_account(
         profile_home=profiles_root / name,
         now=now,
         profile_name=name,
-        launcher_file_name_template=CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
-        launcher_text_template=CODEX_LAUNCHER_TEXT_TEMPLATE,
+        launcher_program=CODEX_LAUNCHER_PROGRAM,
     )
     return {**sync_payload, JSON_LAUNCHER_KEY: str(launcher_path)}
 
@@ -338,9 +336,7 @@ def _retire_codex_account_launchers(
     """
     all_retired: dict[str, str] = {}
     for each_name in all_names:
-        retired_path = launcher_path(
-            launcher_directory, each_name, CODEX_LAUNCHER_FILE_NAME_TEMPLATE
-        )
+        retired_path = launcher_path(launcher_directory, each_name, CODEX_LAUNCHER_PROGRAM)
         if retired_path.is_file():
             all_retired[each_name] = str(move_launcher_aside(retired_path, now))
     return all_retired

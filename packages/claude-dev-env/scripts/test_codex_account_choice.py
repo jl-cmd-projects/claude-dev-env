@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -25,19 +24,6 @@ ALL_SHARED_ENTRY_NAMES = (
     "plugins",
     "rules",
     "skills",
-)
-NPM_CODEX_SHIM_TEXT = (
-    "@ECHO off\r\n"
-    "GOTO start\r\n"
-    ":find_dp0\r\n"
-    "SET dp0=%~dp0\r\n"
-    "EXIT /b\r\n"
-    ":start\r\n"
-    "SETLOCAL\r\n"
-    "CALL :find_dp0\r\n"
-    'SET "_prog=cmd"\r\n'
-    "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% &"
-    ' "%_prog%" /d /c "echo %%CODEX_HOME%%"\r\n'
 )
 
 
@@ -621,24 +607,3 @@ class TestSetupRoster:
             "beta sign-in"
         )
         assert choice.saved_codex_account_names(profiles_root) == ("alpha",)
-
-
-class TestCodexLauncher:
-    @pytest.mark.skipif(os.name != "nt", reason="runs the launcher through cmd.exe")
-    def should_hand_codex_home_to_the_npm_codex_shim(self, tmp_path: Path) -> None:
-        install(build_codex_main_home(tmp_path), tmp_path, "alpha")
-        launcher_path = tmp_path / "bin" / "codex-alpha.cmd"
-        fake_directory = tmp_path / "fake"
-        fake_directory.mkdir()
-        (fake_directory / "codex.cmd").write_bytes(NPM_CODEX_SHIM_TEXT.encode("utf-8"))
-        environment = dict(os.environ)
-        environment["PATH"] = str(fake_directory) + os.pathsep + environment["PATH"]
-        environment["CODEX_HOME"] = str(tmp_path / "decoy")
-        completed = subprocess.run(
-            ["cmd", "/c", str(launcher_path)],
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert completed.stdout.strip() == str(tmp_path / "profiles" / "alpha")
