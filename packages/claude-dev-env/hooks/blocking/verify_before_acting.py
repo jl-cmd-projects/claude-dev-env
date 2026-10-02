@@ -15,8 +15,8 @@ contradicts it.
 
 A call counts as mutating when its tool always writes (Write, Edit, Agent),
 when its shell command matches ALL_MUTATING_COMMAND_PATTERNS, or when an MCP
-tool's last name segment starts with a write verb. Every other call is a check
-and passes with no log line.
+tool's last name segment holds a write verb as one of its words and no read
+verb. Every other call is a check and passes with no log line.
 
 Each mutating call writes one JSON line to DECISION_LOG_RELATIVE_PATH under
 the home directory: blocked, allowed_clean, or reasoning_unseen when the
@@ -44,7 +44,8 @@ from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.verify_before_acting_constants import (
     ALL_ALWAYS_MUTATING_TOOL_NAMES,
-    ALL_MCP_MUTATING_VERB_PREFIXES,
+    ALL_MCP_MUTATING_VERBS,
+    ALL_MCP_READ_VERBS,
     ALL_MUTATING_COMMAND_PATTERNS,
     ALL_SHELL_TOOL_NAMES,
     ALLOW_EXIT_CODE,
@@ -65,6 +66,7 @@ from hooks_constants.verify_before_acting_constants import (
     LOG_TOOL_NAME_KEY,
     LOG_TOOL_USE_ID_KEY,
     MAXIMUM_QUOTE_LENGTH,
+    MCP_ACTION_WORD_SPLIT_PATTERN,
     MCP_SEGMENT_SEPARATOR,
     MCP_TOOL_PREFIX,
     MESSAGE_ID_KEY,
@@ -100,8 +102,15 @@ def is_mutating_call(tool_name: str, tool_input: object) -> bool:
             each_pattern.search(command) for each_pattern in ALL_MUTATING_COMMAND_PATTERNS
         )
     if tool_name.startswith(MCP_TOOL_PREFIX):
-        last_segment = tool_name.rsplit(MCP_SEGMENT_SEPARATOR, maxsplit=1)[-1].lower()
-        return last_segment.startswith(ALL_MCP_MUTATING_VERB_PREFIXES)
+        last_segment = tool_name.rsplit(MCP_SEGMENT_SEPARATOR, maxsplit=1)[-1]
+        all_action_words = {
+            each_word.lower()
+            for each_word in MCP_ACTION_WORD_SPLIT_PATTERN.split(last_segment)
+            if each_word
+        }
+        return bool(all_action_words & ALL_MCP_MUTATING_VERBS) and not (
+            all_action_words & ALL_MCP_READ_VERBS
+        )
     return False
 
 

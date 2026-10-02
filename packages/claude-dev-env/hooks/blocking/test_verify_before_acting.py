@@ -181,6 +181,7 @@ def test_should_allow_a_write_after_clean_reasoning(
         ("Bash", "sed -n 1,5p notes.txt"),
         ("Bash", "sed --silent 1p notes.txt"),
         ("Bash", "git log --oneline -- rm.py"),
+        ("Bash", "python pull_request.py --help"),
     ],
 )
 def test_should_pass_a_read_only_command_untouched(
@@ -232,6 +233,10 @@ def test_should_pass_a_read_only_command_untouched(
         ("Bash", "sudo rm notes.txt"),
         ("Bash", "find . -name '*.tmp' | xargs rm"),
         ("Bash", "/bin/rm notes.txt"),
+        ("Bash", "python ~/.agents/skills/pull-request/scripts/pull_request.py create --repo o/r"),
+        ("Bash", "python pull_request.py edit --repo o/r --number 12 --body-file body.md"),
+        ("Bash", "python pull_request.py comment --repo o/r --number 12 --body-file body.md"),
+        ("Bash", "python pull_request.py review --repo o/r --number 12 --event approve"),
         ("PowerShell", "rm C:/scratch/x.txt"),
         ("PowerShell", "mkdir out"),
     ],
@@ -260,6 +265,12 @@ def test_should_block_a_mutating_command_after_hedged_reasoning(
         "Task",
         "apply_patch",
         "mcp__gmail__send_message",
+        "mcp__github__issue_write",
+        "mcp__github__sub_issue_write",
+        "mcp__github__pull_request_review_write",
+        "mcp__github__add_issue_comment",
+        "mcp__atlassian__createJiraIssue",
+        "mcp__trello__trelloWriteCard",
     ],
 )
 def test_should_block_each_always_mutating_tool_after_hedged_reasoning(
@@ -296,7 +307,20 @@ def test_should_register_a_matcher_covering_every_mutating_tool_name() -> None:
     } == set()
 
 
-@pytest.mark.parametrize("tool_name", ["TodoWrite", "TaskUpdate", "Read", "mcp__gmail__get_thread"])
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "TodoWrite",
+        "TaskUpdate",
+        "Read",
+        "mcp__gmail__get_thread",
+        "mcp__github__issue_read",
+        "mcp__github__list_pull_requests",
+        "mcp__github__search_issues",
+        "mcp__github__get_post",
+        "mcp__trello__trelloReadCard",
+    ],
+)
 def test_should_pass_a_tool_the_matcher_over_reaches_untouched(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

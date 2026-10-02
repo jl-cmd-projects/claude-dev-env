@@ -28,22 +28,26 @@ ALL_ALWAYS_MUTATING_TOOL_NAMES = frozenset(
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 MCP_TOOL_PREFIX = "mcp__"
 MCP_SEGMENT_SEPARATOR = "__"
-ALL_MCP_MUTATING_VERB_PREFIXES = (
-    "create",
-    "update",
-    "delete",
-    "send",
-    "post",
-    "reply",
-    "write",
-    "merge",
-    "set",
-    "add",
-    "remove",
-    "edit",
-    "trash",
-    "archive",
+MCP_ACTION_WORD_SPLIT_PATTERN = re.compile(r"_+|(?<=[a-z0-9])(?=[A-Z])")
+ALL_MCP_MUTATING_VERBS = frozenset(
+    {
+        "create",
+        "update",
+        "delete",
+        "send",
+        "post",
+        "reply",
+        "write",
+        "merge",
+        "set",
+        "add",
+        "remove",
+        "edit",
+        "trash",
+        "archive",
+    }
 )
+ALL_MCP_READ_VERBS = frozenset({"get", "list", "search", "read", "view", "fetch", "find", "query"})
 
 _GIT_GLOBAL_OPTIONS = r"""(?:\s+-[cC]\s+(?:"[^"]*"|'[^']*'|\S+))*"""
 _HTTP_WRITE_METHODS = r"(?:POST|PATCH|PUT|DELETE)"
@@ -63,6 +67,7 @@ ALL_MUTATING_COMMAND_PATTERNS = (
         + r"\b|\s(?:-f|-F|--field|--raw-field)[\s=])",
         re.IGNORECASE,
     ),
+    re.compile(r"\bpull_request\.py\b[^\n;|&]*?\s(?:create|edit|comment|review)\b"),
     re.compile(r"\bgh\s+run\s+rerun\b"),
     re.compile(r"\bgh\s+workflow\s+run\b"),
     re.compile(
