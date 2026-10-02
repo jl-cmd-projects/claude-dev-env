@@ -36,6 +36,8 @@ def _first_segment_tokens(command: str) -> list[str]:
         ["sudo", "pytest", "tests"],
         ["sudo", "-u", "ci", "pytest", "tests"],
         ["sudo", "-nu", "ci", "pytest", "tests"],
+        ["xargs", "pytest"],
+        ["xargs", "-0", "pytest"],
         ["uv", "run", "pytest", "tests"],
         ["uv", "run", "--frozen", "pytest", "tests"],
         ["uv", "tool", "run", "pytest", "tests"],

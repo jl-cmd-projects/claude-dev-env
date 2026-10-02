@@ -52,6 +52,7 @@ from hooks_constants.shell_command_segments import (
 )
 
 __all__ = [
+    "all_tokens_after_wrappers",
     "segment_reports_a_pytest_exit_code",
     "segment_runs_pytest",
     "string_exec_inner_command",
@@ -190,7 +191,7 @@ def _all_tokens_after_one_wrapper(all_segment_tokens: list[str]) -> list[str] | 
     return _all_tokens_from_the_first_operand(all_argument_tokens[1:])
 
 
-def _all_tokens_after_wrappers(all_segment_tokens: list[str]) -> list[str]:
+def all_tokens_after_wrappers(all_segment_tokens: list[str]) -> list[str]:
     """Return the segment tokens with every leading pass-through wrapper stepped over."""
     all_remaining_tokens = all_segment_tokens
     while True:
@@ -225,7 +226,7 @@ def segment_runs_pytest(all_segment_tokens: list[str]) -> bool:
         True when the segment's program is pytest or a Python interpreter
         running the pytest module, including through pass-through wrappers.
     """
-    all_unwrapped_tokens = _all_tokens_after_wrappers(all_segment_tokens)
+    all_unwrapped_tokens = all_tokens_after_wrappers(all_segment_tokens)
     leading_program = effective_leading_program(all_unwrapped_tokens)
     if leading_program is None:
         return False
@@ -297,7 +298,7 @@ def string_exec_inner_command(all_segment_tokens: list[str]) -> str | None:
         The inner command string the shell executes, or None when the segment
         is not a string-executing shell wrapper with a command string.
     """
-    all_unwrapped_tokens = _all_tokens_after_wrappers(all_segment_tokens)
+    all_unwrapped_tokens = all_tokens_after_wrappers(all_segment_tokens)
     leading_program = effective_leading_program(all_unwrapped_tokens)
     if leading_program is None:
         return None

@@ -48,6 +48,7 @@ ALL_MCP_MUTATING_VERBS = frozenset(
     }
 )
 ALL_MCP_READ_VERBS = frozenset({"get", "list", "search", "read", "view", "fetch", "find", "query"})
+ALL_MCP_MUTATING_ACTION_NAMES = frozenset({"request_copilot_review"})
 
 GIT_PROGRAM_NAME = "git"
 ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES = frozenset(
@@ -66,34 +67,49 @@ ALL_WRITE_REDIRECTION_OPERATORS = frozenset({">", ">>", "&>", "&>>", ">&"})
 ALL_NON_FILE_REDIRECTION_TARGETS = frozenset({"/dev/null", "$null", "nul", "-"})
 REDIRECTION_TARGET_QUOTES = "'\""
 
-_HTTP_WRITE_METHODS = r"(?:POST|PATCH|PUT|DELETE)"
-_EXPLICIT_GET_METHOD = r"(?![^\n;|&]*?\s(?:-X\s*|--method[\s=]+)GET\b)"
-ALL_MUTATING_COMMAND_PATTERNS = (
-    re.compile(r"\bgh\s+pr\s+(?:create|edit|merge|comment|ready|close)\b"),
-    re.compile(r"\bgh\s+issue\s+(?:create|edit|comment|close)\b"),
-    re.compile(
-        r"\bgh\s+api\b"
-        + _EXPLICIT_GET_METHOD
-        + r"[^\n;|&]*?(?:\s-X\s*"
-        + _HTTP_WRITE_METHODS
-        + r"\b|\s--method[\s=]+"
-        + _HTTP_WRITE_METHODS
-        + r"\b|\s(?:-f|-F|--field|--raw-field)[\s=])",
-        re.IGNORECASE,
-    ),
-    re.compile(r"\bpull_request\.py\b[^\n;|&]*?\s(?:create|edit|comment|review)\b"),
-    re.compile(r"\bgh\s+run\s+rerun\b"),
-    re.compile(r"\bgh\s+workflow\s+run\b"),
-    re.compile(
-        r"\b(?:Remove-Item|Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item|Rename-Item)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"(?:^|[;&|(\n`])\s*(?:sudo\s+)?(?:xargs(?:\s+-\S+)*\s+)?(?:\S*/)?"
-        r"(?:rm|rmdir|unlink|touch|cp|mv|mkdir|tee|ln)(?=\s|$)"
-    ),
-    re.compile(r"\bsed\b[^\n;|&]*?\s(?:-[a-zA-Z]*i\S*|--in-place\b)"),
+ALL_FILE_WRITING_PROGRAM_NAMES = frozenset(
+    {"rm", "rmdir", "unlink", "touch", "cp", "mv", "mkdir", "tee", "ln"}
 )
+SED_PROGRAM_NAME = "sed"
+SED_IN_PLACE_OPTION_PATTERN = re.compile(r"-[a-zA-Z]*i.*|--in-place(?:=.*)?")
+GH_PROGRAM_NAME = "gh"
+GH_SUBCOMMAND_DEPTH = 2
+ALL_MUTATING_GH_SUBCOMMANDS = frozenset(
+    {
+        ("pr", "create"),
+        ("pr", "edit"),
+        ("pr", "merge"),
+        ("pr", "comment"),
+        ("pr", "ready"),
+        ("pr", "close"),
+        ("issue", "create"),
+        ("issue", "edit"),
+        ("issue", "comment"),
+        ("issue", "close"),
+        ("run", "rerun"),
+        ("workflow", "run"),
+    }
+)
+GH_API_SUBCOMMAND = "api"
+ALL_GH_API_METHOD_OPTIONS = frozenset({"-X", "--method"})
+GH_API_ATTACHED_METHOD_PATTERN = re.compile(r"(?:-X|--method=)(?P<method>.+)")
+GH_API_FIELD_OPTION_PATTERN = re.compile(r"-[fF].*|--(?:field|raw-field)(?:=.*)?")
+ALL_HTTP_WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
+PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
+ALL_PULL_REQUEST_SCRIPT_WRITE_ACTIONS = frozenset({"create", "edit", "comment", "review"})
+ALL_POWERSHELL_WRITE_CMDLET_NAMES = frozenset(
+    {
+        "remove-item",
+        "set-content",
+        "add-content",
+        "out-file",
+        "copy-item",
+        "move-item",
+        "new-item",
+        "rename-item",
+    }
+)
+POWERSHELL_WORD_BRACKETS = "{}();"
 
 ALL_HEDGE_PHRASES = (
     "probably",

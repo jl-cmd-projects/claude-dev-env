@@ -101,6 +101,14 @@ def _additional_context(stdout_text: str) -> str:
         'pwsh -NoProfile -Command "git push -u origin feat/x"',
         "pwsh -NoProfile -Command 'gh pr create --draft --fill'",
         'powershell -Command "git add -A; git push"',
+        "pwsh -Command git push origin HEAD",
+        "pwsh -Command git push origin HEAD; echo done",
+        "sudo git push",
+        'bash -c "git push"',
+        "sh -c 'git push'",
+        "bash -lc 'gh pr create --draft --fill'",
+        "env VAR=x git push",
+        "echo origin | xargs git push",
     ],
 )
 def test_should_wake_on_git_push_and_gh_pr_create(command: str) -> None:
@@ -119,6 +127,10 @@ def test_should_wake_on_git_push_and_gh_pr_create(command: str) -> None:
         "gh pr ready --undo",
         "echo git push",
         'pwsh -NoProfile -Command "git status"',
+        "pwsh -Command git status",
+        'bash -c "git status"',
+        "sudo cat notes.txt",
+        "rg 'git push' docs",
         "pytest tests/",
     ],
 )

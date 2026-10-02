@@ -292,7 +292,7 @@ ALL_VALUE_TAKING_SHELL_OPTION_FLAGS: frozenset[str] = frozenset(
 )
 
 ALL_FLAG_TAKING_WRAPPER_COMMANDS: frozenset[str] = frozenset(
-    {"sudo", "sudo.exe", "uvx", "uvx.exe"}
+    {"sudo", "sudo.exe", "uvx", "uvx.exe", "xargs", "xargs.exe"}
 )
 ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS: frozenset[str] = frozenset(
     {

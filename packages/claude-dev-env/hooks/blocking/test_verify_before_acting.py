@@ -196,6 +196,24 @@ def test_should_allow_a_write_after_clean_reasoning(
         ("Bash", "git -c core.pager=cat diff"),
         ("Bash", 'pwsh -NoProfile -Command "git status"'),
         ("PowerShell", "Get-Content x.txt > $null"),
+        ("Bash", "rg 'gh pr merge' docs"),
+        ("Bash", 'grep -rn "gh issue comment" docs'),
+        ("Bash", "rg 'gh api repos/o/r/issues -f title=x' docs"),
+        ("Bash", "rg 'gh workflow run' .github"),
+        ("Bash", "rg 'Remove-Item' docs"),
+        ("PowerShell", "Select-String -Pattern 'Set-Content' -Path notes.md"),
+        ("Bash", 'grep "a|cp b" notes.md'),
+        ("Bash", "grep 'x; rm y' notes.md"),
+        ("Bash", "rg 'sed -i' docs"),
+        ("Bash", "rg 'pull_request.py create' docs"),
+        ("Bash", "sudo cat notes.txt"),
+        ("Bash", 'bash -c "git status"'),
+        ("Bash", "sh -c ls"),
+        ("Bash", "bash -lc 'git log --oneline'"),
+        ("Bash", "env VAR=x git status"),
+        ("Bash", "echo HEAD | xargs git show"),
+        ("Bash", "pwsh -Command git status"),
+        ("Bash", "pwsh -Command Get-Content notes.md"),
     ],
 )
 def test_should_pass_a_read_only_command_untouched(
@@ -259,6 +277,14 @@ def test_should_pass_a_read_only_command_untouched(
         ("Bash", "make &> out.log"),
         ("PowerShell", "rm C:/scratch/x.txt"),
         ("PowerShell", "mkdir out"),
+        ("Bash", "pwsh -Command git push origin HEAD"),
+        ("Bash", "pwsh -Command git push origin HEAD; echo done"),
+        ("Bash", 'pwsh -NoProfile -Command "Get-ChildItem *.tmp | Remove-Item"'),
+        ("PowerShell", "Get-ChildItem *.tmp | ForEach-Object { Remove-Item $_ }"),
+        ("Bash", "bash -c 'gh pr merge 12 --squash'"),
+        ("Bash", "sudo gh api repos/o/r/issues -X POST"),
+        ("Bash", "gh api repos/o/r/issues -XPOST"),
+        ("Bash", "gh api repos/o/r/pulls/12 --method=PATCH"),
     ],
 )
 def test_should_block_a_mutating_command_after_hedged_reasoning(
@@ -306,6 +332,35 @@ def test_should_block_a_git_change_behind_global_options(
 
 
 @pytest.mark.parametrize(
+    "command_template",
+    [
+        "sudo git {subcommand}",
+        "sudo -u root git {subcommand}",
+        'bash -c "git {subcommand}"',
+        "sh -c 'git {subcommand}'",
+        "bash -lc 'git {subcommand}'",
+        "env VAR=x git {subcommand}",
+        "echo origin | xargs git {subcommand}",
+        "pwsh -Command git {subcommand}",
+        "sudo bash -c 'git {subcommand}'",
+    ],
+)
+@pytest.mark.parametrize("subcommand", ["push origin HEAD", "commit -F message.txt"])
+def test_should_block_a_git_change_behind_a_wrapper(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    command_template: str,
+    subcommand: str,
+) -> None:
+    tool_input = {"command": command_template.format(subcommand=subcommand)}
+    transcript_path = acting_transcript(tmp_path, HEDGED_SENTENCE, "Bash", tool_input)
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Bash", tool_input, transcript_path)
+    assert exit_code == 0
+    assert json.loads(stdout_text) == expected_block("Bash", HEDGED_SENTENCE)
+
+
+@pytest.mark.parametrize(
     "tool_name",
     [
         "Edit",
@@ -321,6 +376,7 @@ def test_should_block_a_git_change_behind_global_options(
         "mcp__github__add_issue_comment",
         "mcp__atlassian__createJiraIssue",
         "mcp__trello__trelloWriteCard",
+        "mcp__github__request_copilot_review",
     ],
 )
 def test_should_block_each_always_mutating_tool_after_hedged_reasoning(
@@ -369,6 +425,9 @@ def test_should_register_a_matcher_covering_every_mutating_tool_name() -> None:
         "mcp__github__search_issues",
         "mcp__github__get_post",
         "mcp__trello__trelloReadCard",
+        "mcp__github__pull_request_read",
+        "mcp__jira__get_request",
+        "mcp__servicedesk__request_status",
     ],
 )
 def test_should_pass_a_tool_the_matcher_over_reaches_untouched(

@@ -82,11 +82,13 @@ try:
     )
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
     from hooks_constants.shell_command_segments import (
-        all_wrapped_command_texts,
         command_tokens,
         git_subcommand_tokens,
-        segment_program_and_arguments,
         split_into_segments,
+    )
+    from hooks_constants.shell_command_wrappers import (
+        all_wrapped_command_texts,
+        segment_program_and_arguments,
     )
 except ImportError as import_error:
     raise ImportError(

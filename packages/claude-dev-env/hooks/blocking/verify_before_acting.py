@@ -14,11 +14,14 @@ claim now with a read-only tool and to undo the change when the check
 contradicts it.
 
 A call counts as mutating when its tool is in ALL_ALWAYS_MUTATING_TOOL_NAMES
-(Write, Edit, MultiEdit, NotebookEdit, apply_patch, Agent, Task), when its
-shell command matches ALL_MUTATING_COMMAND_PATTERNS, runs a git subcommand in
-ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES, or redirects output into a file, or when an MCP
-tool's last name segment holds a write verb as one of its words and no read
-verb. Every other call is a check and passes with no log line.
+(Write, Edit, MultiEdit, NotebookEdit, apply_patch, Agent, Task), when a
+segment of its shell command runs a writing program, a git or gh write, an
+in-place sed, or a PowerShell write cmdlet, or redirects output into a file,
+or when an MCP tool's last name segment is in ALL_MCP_MUTATING_ACTION_NAMES or
+holds a write verb as one of its words and no read verb. Shell segments come
+from the quote-aware parser after every wrapper is stepped over, so
+``rg 'gh pr merge' docs`` reads and ``sudo git push`` writes. Every other call
+is a check and passes with no log line.
 
 Each mutating call writes one JSON line to DECISION_LOG_RELATIVE_PATH under
 the home directory: blocked, allowed_clean, or reasoning_unseen when the
@@ -29,7 +32,6 @@ unreadable input always allows, so the hook never fails closed.
 from __future__ import annotations
 
 import datetime
-import itertools
 import json
 import sys
 from pathlib import Path
@@ -45,29 +47,13 @@ from hooks_constants.bash_post_call_dispatcher_constants import (
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from hooks_constants.shell_command_pipeline import (
-    all_operator_aware_tokenizations,
-    join_line_continuations,
-    pipeline_segments_for_command,
-    scannable_command_lines,
-    segments_with_following_operator,
-)
-from hooks_constants.shell_command_segments import (
-    all_wrapped_command_texts,
-    git_subcommand_tokens,
-    segment_program_and_arguments,
-)
+from hooks_constants.shell_command_mutation import is_mutating_shell_command
 from hooks_constants.verify_before_acting_constants import (
     ALL_ALWAYS_MUTATING_TOOL_NAMES,
+    ALL_MCP_MUTATING_ACTION_NAMES,
     ALL_MCP_MUTATING_VERBS,
     ALL_MCP_READ_VERBS,
-    ALL_MUTATING_COMMAND_PATTERNS,
-    ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES,
-    ALL_NON_FILE_REDIRECTION_TARGETS,
     ALL_SHELL_TOOL_NAMES,
-    ALL_WRITE_REDIRECTION_OPERATORS,
-    GIT_PROGRAM_NAME,
-    REDIRECTION_TARGET_QUOTES,
     ALLOW_EXIT_CODE,
     BLOCK_DECISION,
     BLOCK_ID_KEY,
@@ -112,76 +98,17 @@ from hooks_constants.verify_before_acting_constants import (
     WORD_SEPARATOR,
 )
 
-def _is_mutating_git_segment(all_segment_tokens: list[str]) -> bool:
-    program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    if program_name != GIT_PROGRAM_NAME:
-        return False
-    all_subcommand_tokens = git_subcommand_tokens(all_arguments)
-    return any(
-        tuple(all_subcommand_tokens[: len(each_prefix)]) == each_prefix
-        for each_prefix in ALL_MUTATING_GIT_SUBCOMMAND_PREFIXES
-    )
-
-
-def _segment_redirects_into_a_file(all_segment_tokens: list[str]) -> bool:
-    for each_operator, each_target in itertools.pairwise(all_segment_tokens):
-        if each_operator not in ALL_WRITE_REDIRECTION_OPERATORS:
-            continue
-        target_text = each_target.strip(REDIRECTION_TARGET_QUOTES).lower()
-        if target_text not in ALL_NON_FILE_REDIRECTION_TARGETS and not target_text.isdigit():
-            return True
-    return False
-
-
-def _line_redirects_into_a_file(command_line: str) -> bool:
-    """Return True when every quote-aware tokenization of the line writes through a redirect.
-
-    The POSIX tokenization strips the quotes from ``grep '>' notes.txt`` and the
-    raw one splits ``--format='%h > %s'`` mid-quote, so a redirect counts only
-    when both spellings agree on it.
-    """
-    all_tokenizations = all_operator_aware_tokenizations(command_line)
-    return bool(all_tokenizations) and all(
-        any(
-            _segment_redirects_into_a_file(each_segment)
-            for each_segment, _following_operator in segments_with_following_operator(
-                each_tokenization
-            )
-        )
-        for each_tokenization in all_tokenizations
-    )
-
-
-def _command_text_is_mutating(command_text: str) -> bool:
-    if any(
-        _is_mutating_git_segment(each_segment)
-        for each_segment, _following_operator in pipeline_segments_for_command(command_text)
-    ):
-        return True
-    return any(
-        _line_redirects_into_a_file(each_line)
-        for each_line in scannable_command_lines(join_line_continuations(command_text))
-    )
-
-
-def _is_mutating_shell_command(command: str) -> bool:
-    if any(each_pattern.search(command) for each_pattern in ALL_MUTATING_COMMAND_PATTERNS):
-        return True
-    return any(
-        _command_text_is_mutating(each_command_text)
-        for each_command_text in all_wrapped_command_texts(command)
-    )
-
-
 def is_mutating_call(tool_name: str, tool_input: object) -> bool:
     """Return True when the call writes, sends, or spawns rather than reads."""
     if tool_name in ALL_ALWAYS_MUTATING_TOOL_NAMES:
         return True
     if tool_name in ALL_SHELL_TOOL_NAMES:
         command = tool_input.get(COMMAND_KEY) if isinstance(tool_input, dict) else None
-        return isinstance(command, str) and _is_mutating_shell_command(command)
+        return isinstance(command, str) and is_mutating_shell_command(command)
     if tool_name.startswith(MCP_TOOL_PREFIX):
         last_segment = tool_name.rsplit(MCP_SEGMENT_SEPARATOR, maxsplit=1)[-1]
+        if last_segment in ALL_MCP_MUTATING_ACTION_NAMES:
+            return True
         all_action_words = {
             each_word.lower()
             for each_word in MCP_ACTION_WORD_SPLIT_PATTERN.split(last_segment)
