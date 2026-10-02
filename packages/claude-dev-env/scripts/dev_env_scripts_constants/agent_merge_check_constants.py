@@ -104,8 +104,8 @@ FAILING_REQUIRED_CHECKS_HOLD_TEMPLATE = (
     "failing check, fix it, and push."
 )
 UNSTABLE_CHECKS_HOLD_TEMPLATE = (
-    "A check on this head is failing or still running: {checks}. Wait for "
-    "it, and fix it when it comes back red."
+    "A check on this head is not passing: {checks}. Wait for a pending "
+    "check, re-run a cancelled one, and fix a failing one."
 )
 REQUIRED_CHECK_STATE_TEMPLATE = "{context} ({state})"
 REQUIRED_CHECK_SEPARATOR = ", "
