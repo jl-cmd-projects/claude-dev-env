@@ -4,8 +4,9 @@
 At session start this hook emits an ``additionalContext`` block carrying a fixed
 working-style prompt: use ELI5 for the beginner presentation envelope, follow
 ``~/.claude/rules/asd-ste100-language.md`` for sentence prose, keep a running
-ledger, narrate before the first tool call, lead with the outcome, and stay at
-the asked scope.
+ledger, narrate before the first tool call on a typed request, lead with the
+outcome, send only what the user must act on or know, stay silent on a
+background-event turn that needs nothing, and stay at the asked scope.
 The hook writes nothing and runs no tools itself.
 """
 
