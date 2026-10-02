@@ -19,7 +19,9 @@ export type Settings = {
 
 export type AgentSwitches = Readonly<Record<string, Switch>>
 
-export type SessionOverrides = Partial<Settings> & { agents?: AgentSwitches }
+export type Kind = 'agents' | 'skills'
+
+export type SessionOverrides = Partial<Settings> & { agents?: AgentSwitches; skills?: AgentSwitches }
 
 export type PinnedEfforts = Readonly<Record<string, Effort>>
 
@@ -31,6 +33,8 @@ declare module 'claude-code' {
       pinnedEfforts: PinnedEfforts
       isBarOpen: boolean
       isAgentsOpen: boolean
+      isSkillsOpen: boolean
+      knownSkills: readonly string[]
     }
   }
 }

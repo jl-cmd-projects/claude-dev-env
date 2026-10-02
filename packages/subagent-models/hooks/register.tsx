@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register, StateDollar } from 'claude-code'
 
-import type { AgentSwitches, Effort, Family, PinnedEfforts, SessionOverrides, Settings, Switch } from '../types'
+import type { AgentSwitches, Effort, Family, Kind, PinnedEfforts, SessionOverrides, Settings, Switch } from '../types'
 
 const PLUGIN = 'subagent-models'
 
@@ -22,15 +22,40 @@ const ALL_FAMILIES: readonly Family[] = ['opus', 'sonnet', 'haiku', 'fable']
 
 const ALL_SWITCHES: readonly Switch[] = ['on', 'off']
 
+const ALL_KINDS: readonly Kind[] = ['agents', 'skills']
+
+const KIND_DETAILS: { readonly [K in Kind]: { word: string; noun: string; title: string; core: string; empty: string; configKey: string } } = {
+  agents: {
+    word: 'agent',
+    noun: 'agent type',
+    title: 'Agent types',
+    core: 'core',
+    empty: 'No agent types offered yet. They appear after the first spawn.',
+    configKey: 'disabledAgents',
+  },
+  skills: {
+    word: 'skill',
+    noun: 'skill',
+    title: 'Skills',
+    core: 'local',
+    empty: 'No skills listed yet. Press skills again once the session has started.',
+    configKey: 'disabledSkills',
+  },
+}
+
 const overrides = atom({ plugin: 'subagent-models', key: 'overrides' } as const, {} as SessionOverrides)
 
 const offeredAgents = atom({ plugin: 'subagent-models', key: 'offeredAgents' } as const, [] as readonly string[])
+
+const knownSkills = atom({ plugin: 'subagent-models', key: 'knownSkills' } as const, [] as readonly string[])
 
 const pinnedEfforts = atom({ plugin: 'subagent-models', key: 'pinnedEfforts' } as const, {} as PinnedEfforts)
 
 const isBarOpen = atom({ plugin: 'subagent-models', key: 'isBarOpen' } as const, true)
 
 const isAgentsOpen = atom({ plugin: 'subagent-models', key: 'isAgentsOpen' } as const, false)
+
+const isSkillsOpen = atom({ plugin: 'subagent-models', key: 'isSkillsOpen' } as const, false)
 
 const MORE_SUMMARY = '__more'
 
@@ -46,9 +71,18 @@ const MINIMIZE_MARK = '▾'
 
 const EXPAND_MARK = '▴'
 
-type Defaults = { settings: Settings; agents: AgentSwitches }
+const GROUP_WIDTH = 18
 
-type State = { sessionOverrides: SessionOverrides; settings: Settings; agentSwitchOf: (agent: string) => Switch }
+type Defaults = { settings: Settings; switches: Record<Kind, AgentSwitches> }
+
+type State = {
+  sessionOverrides: SessionOverrides
+  settings: Settings
+  merged: Record<Kind, AgentSwitches>
+  switchOf: (kind: Kind, name: string) => Switch
+}
+
+type Group = { title: string; items: { name: string; label: string }[] }
 
 function familyOf(model: string | undefined): Family | undefined {
   if (model === undefined) return undefined
@@ -76,17 +110,34 @@ function flipped(value: Switch): Switch {
   return value === 'on' ? 'off' : 'on'
 }
 
-function agentSwitchesOf(text: string): AgentSwitches {
-  return Object.fromEntries(text.split(',').map(agent => agent.trim()).filter(Boolean).map(agent => [agent, 'off' as Switch]))
+function switchesOf(text: string): AgentSwitches {
+  return Object.fromEntries(text.split(',').map(name => name.trim()).filter(Boolean).map(name => [name, 'off' as Switch]))
 }
 
-function turnedOffAgentsOf(defaults: AgentSwitches, sessionAgents: AgentSwitches): string[] {
-  const merged = { ...defaults, ...sessionAgents }
-  return Object.keys(merged).filter(agent => merged[agent] === 'off').sort()
+function turnedOffOf(merged: AgentSwitches): string[] {
+  return Object.keys(merged).filter(name => merged[name] === 'off').sort()
 }
 
-function knownAgentsOf(state: State, allOffered: readonly string[], defaults: Defaults): string[] {
-  return [...new Set([...allOffered, ...turnedOffAgentsOf(defaults.agents, state.sessionOverrides.agents ?? {})])].sort()
+function knownNamesOf(merged: AgentSwitches, allSeen: readonly string[]): string[] {
+  return [...new Set([...allSeen, ...Object.keys(merged)])].sort()
+}
+
+function isSkillOff(merged: AgentSwitches, skill: string): boolean {
+  if (merged[skill] !== undefined) return merged[skill] === 'off'
+  return Object.entries(merged).some(([name, value]) => value === 'off' && (name.endsWith(`:${skill}`) || skill.endsWith(`:${name}`)))
+}
+
+function groupsOf(names: readonly string[], coreTitle: string): Group[] {
+  const itemsByTitle = new Map<string, Group['items']>()
+  for (const name of names) {
+    const cut = name.indexOf(':')
+    const title = cut === -1 ? coreTitle : name.slice(0, cut)
+    const label = cut === -1 ? name : name.slice(cut + 1)
+    itemsByTitle.set(title, [...(itemsByTitle.get(title) ?? []), { name, label }])
+  }
+  return [...itemsByTitle.entries()]
+    .sort(([first], [second]) => (first === coreTitle ? -1 : second === coreTitle ? 1 : first.localeCompare(second)))
+    .map(([title, items]) => ({ title, items }))
 }
 
 function denyTextOf(model: string, settings: Settings): string {
@@ -94,18 +145,25 @@ function denyTextOf(model: string, settings: Settings): string {
   return `Subagent model ${model} is turned off. Spawn subagents on ${settings.defaultModel}${effortAsk}.`
 }
 
-function listingOf(settings: Settings, sessionOverrides: SessionOverrides, defaults: Defaults): string {
-  const fieldLines = ALL_FIELDS.map(field => `${field} ${settings[field]}${field in sessionOverrides ? ' (this session)' : ''}`)
-  const turnedOff = turnedOffAgentsOf(defaults.agents, sessionOverrides.agents ?? {})
-  const agentMark = sessionOverrides.agents === undefined ? '' : ' (this session)'
-  return [...fieldLines, `agents off: ${turnedOff.length > 0 ? turnedOff.join(', ') : 'none'}${agentMark}`].join('\n')
+function skillOffTextOf(skill: string): string {
+  return `The ${skill} skill is turned off for this session. Do not follow it. Tell the user it is off and continue without it.`
 }
 
-function agentListingOf(state: State, allOffered: readonly string[], defaults: Defaults): string {
-  const allAgents = knownAgentsOf(state, allOffered, defaults)
-  if (allAgents.length === 0) return 'No agent types offered yet in this session.'
-  return allAgents
-    .map(agent => `${agent} ${state.agentSwitchOf(agent)}${state.sessionOverrides.agents?.[agent] === undefined ? '' : ' (this session)'}`)
+function listingOf(settings: Settings, sessionOverrides: SessionOverrides, merged: Record<Kind, AgentSwitches>): string {
+  const fieldLines = ALL_FIELDS.map(field => `${field} ${settings[field]}${field in sessionOverrides ? ' (this session)' : ''}`)
+  const kindLines = [...ALL_KINDS].reverse().map(kind => {
+    const turnedOff = turnedOffOf(merged[kind])
+    const sessionMark = sessionOverrides[kind] === undefined ? '' : ' (this session)'
+    return `${kind} off: ${turnedOff.length > 0 ? turnedOff.join(', ') : 'none'}${sessionMark}`
+  })
+  return [...fieldLines, ...kindLines].join('\n')
+}
+
+function kindListingOf(kind: Kind, state: State, allSeen: readonly string[]): string {
+  const names = knownNamesOf(state.merged[kind], allSeen)
+  if (names.length === 0) return KIND_DETAILS[kind].empty
+  return names
+    .map(name => `${name} ${state.switchOf(kind, name)}${state.sessionOverrides[kind]?.[name] === undefined ? '' : ' (this session)'}`)
     .join('\n')
 }
 
@@ -121,10 +179,14 @@ function refusalOf(field: keyof Settings, value: string, settings: Settings): st
 
 async function sessionState($: StateDollar, defaults: Defaults): Promise<State> {
   const sessionOverrides = await read($, overrides)
-  const { agents: sessionAgents = {}, ...sessionSettings } = sessionOverrides
+  const { agents: sessionAgents = {}, skills: sessionSkills = {}, ...sessionSettings } = sessionOverrides
   const settings = { ...defaults.settings, ...sessionSettings } as Settings
-  const agentSwitchOf = (agent: string): Switch => sessionAgents[agent] ?? defaults.agents[agent] ?? 'on'
-  return { sessionOverrides, settings, agentSwitchOf }
+  const merged = {
+    agents: { ...defaults.switches.agents, ...sessionAgents },
+    skills: { ...defaults.switches.skills, ...sessionSkills },
+  }
+  const switchOf = (kind: Kind, name: string): Switch => merged[kind][name] ?? 'on'
+  return { sessionOverrides, settings, merged, switchOf }
 }
 
 async function setField($: EngineInterface, defaults: Defaults, field: keyof Settings, value: string): Promise<string> {
@@ -137,34 +199,52 @@ async function setField($: EngineInterface, defaults: Defaults, field: keyof Set
   return `${field} ${value} for this session.`
 }
 
-async function setAgent($: EngineInterface, defaults: Defaults, agent: string, agentSwitch: Switch): Promise<string> {
-  await update($, overrides, current => ({ ...current, agents: { ...current.agents, [agent]: agentSwitch } }))
-  return `agent ${agent} ${agentSwitch} for this session.`
+async function setSwitch($: EngineInterface, kind: Kind, name: string, nameSwitch: Switch): Promise<string> {
+  await update($, overrides, current => ({ ...current, [kind]: { ...current[kind], [name]: nameSwitch } }))
+  return `${KIND_DETAILS[kind].word} ${name} ${nameSwitch} for this session.`
 }
 
-async function setAllAgents($: EngineInterface, agents: readonly string[], agentSwitch: Switch): Promise<string> {
+async function setAllSwitches($: EngineInterface, kind: Kind, names: readonly string[], nameSwitch: Switch): Promise<string> {
   await update($, overrides, current => ({
     ...current,
-    agents: { ...current.agents, ...Object.fromEntries(agents.map(agent => [agent, agentSwitch])) },
+    [kind]: { ...current[kind], ...Object.fromEntries(names.map(name => [name, nameSwitch])) },
   }))
-  return `${agents.length} agent type${agents.length === 1 ? '' : 's'} ${agentSwitch} for this session.`
+  return `${names.length} ${KIND_DETAILS[kind].noun}${names.length === 1 ? '' : 's'} ${nameSwitch} for this session.`
 }
 
-async function resetSession($: EngineInterface, defaults: Defaults): Promise<string> {
+async function refreshSkills($: EngineInterface): Promise<void> {
+  const usage = await $.session.usage({ breakdown: 'summary' })
+  const listed = usage.context.breakdown?.skills?.skillFrontmatter ?? []
+  const names = listed.map(skill => (skill.pluginName !== undefined && !skill.name.includes(':') ? `${skill.pluginName}:${skill.name}` : skill.name))
+  await update($, knownSkills, current => [...new Set([...current, ...names])].sort())
+}
+
+async function togglePanel($: EngineInterface, kind: Kind): Promise<void> {
+  if (kind === 'agents') {
+    await update($, isAgentsOpen, current => !current)
+    return
+  }
+  if (!(await read($, isSkillsOpen))) await refreshSkills($)
+  await update($, isSkillsOpen, current => !current)
+}
+
+async function resetSession($: EngineInterface): Promise<string> {
   await update($, overrides, () => ({}))
   return 'Session values cleared. The /config defaults apply again.'
 }
 
 async function saveDefaults($: EngineInterface, defaults: Defaults): Promise<string> {
-  const { settings, sessionOverrides } = await sessionState($, defaults)
-  const { agents: sessionAgents, ...sessionSettings } = sessionOverrides
+  const { settings, sessionOverrides, merged } = await sessionState($, defaults)
+  const { agents: _sessionAgents, skills: _sessionSkills, ...sessionSettings } = sessionOverrides
   for (const field of Object.keys(sessionSettings) as (keyof Settings)[]) {
     await $.config.set({ key: `${PLUGIN}.${field}`, value: settings[field] })
   }
-  if (sessionAgents !== undefined) {
-    await $.config.set({ key: `${PLUGIN}.disabledAgents`, value: turnedOffAgentsOf(defaults.agents, sessionAgents).join(', ') })
+  for (const kind of ALL_KINDS) {
+    if (sessionOverrides[kind] !== undefined) {
+      await $.config.set({ key: `${PLUGIN}.${KIND_DETAILS[kind].configKey}`, value: turnedOffOf(merged[kind]).join(', ') })
+    }
   }
-  return `Saved as defaults:\n${listingOf(settings, {}, { ...defaults, agents: { ...defaults.agents, ...sessionAgents } })}`
+  return `Saved as defaults:\n${listingOf(settings, {}, merged)}`
 }
 
 async function runningAgentIdsOf($: EngineInterface): Promise<string[]> {
@@ -189,23 +269,25 @@ async function effortFor($: StateDollar, settings: Settings, agentId: string, re
   return target === 'inherit' ? requestEffort : target
 }
 
-
 async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
 
-const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | agent <type> on|off | bar | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
+const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | skills | agent <type> on|off | skill <name> on|off | bar | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
 
 export const register: Register = (on, options: PluginOptions) => {
   const defaults: Defaults = {
     settings: Object.fromEntries(ALL_FIELDS.map(field => [field, String(options[field])])) as Settings,
-    agents: agentSwitchesOf(String(options.disabledAgents ?? '')),
+    switches: {
+      agents: switchesOf(String(options.disabledAgents ?? '')),
+      skills: switchesOf(String(options.disabledSkills ?? '')),
+    },
   }
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: PLUGIN,
-      description: 'Show or change which models and agent types subagents may run as, and their effort, for this session',
+      description: 'Show or change which models, agent types and skills subagents may use, and their effort, for this session',
     })
     $.ui.status(undefined)
     return next(e)
@@ -214,21 +296,25 @@ export const register: Register = (on, options: PluginOptions) => {
   on('command.run', { command: PLUGIN }, async ($, e) => {
     const [word = '', value, ...rest] = e.args.trim().split(/\s+/).filter(Boolean)
     const state = await sessionState($, defaults)
-    if (word === '') return { text: listingOf(state.settings, state.sessionOverrides, defaults) }
+    if (word === '') return { text: listingOf(state.settings, state.sessionOverrides, state.merged) }
     if (value === undefined) {
-      if (word === 'reset') return { text: await resetSession($, defaults) }
+      if (word === 'reset') return { text: await resetSession($) }
       if (word === 'save') return { text: await saveDefaults($, defaults) }
       if (word === 'apply') return { text: await applyNow($, defaults) }
-      if (word === 'agents') return { text: agentListingOf(state, await read($, offeredAgents), defaults) }
+      if (word === 'agents') return { text: kindListingOf('agents', state, await read($, offeredAgents)) }
+      if (word === 'skills') {
+        await refreshSkills($)
+        return { text: kindListingOf('skills', state, await read($, knownSkills)) }
+      }
       if (word === 'bar') {
         const isOpen = await update($, isBarOpen, current => !current)
         return { text: isOpen ? 'Subagent bar expanded.' : 'Subagent bar minimized.' }
       }
     }
-    if (word === 'agent') {
-      const [agentSwitch, ...extra] = rest
-      if (value === undefined || agentSwitch === undefined || !isSwitch(agentSwitch) || extra.length > 0) return { text: USAGE }
-      return { text: await setAgent($, defaults, value, agentSwitch) }
+    if (word === 'agent' || word === 'skill') {
+      const [nameSwitch, ...extra] = rest
+      if (value === undefined || nameSwitch === undefined || !isSwitch(nameSwitch) || extra.length > 0) return { text: USAGE }
+      return { text: await setSwitch($, word === 'agent' ? 'agents' : 'skills', value, nameSwitch) }
     }
     if (!isField(word) || value === undefined || rest.length > 0) return { text: USAGE }
     return { text: await setField($, defaults, word, value) }
@@ -239,11 +325,62 @@ export const register: Register = (on, options: PluginOptions) => {
     const { Box, Text, Button, Select } = $.ui.resolve(e)
     const state = await sessionState($, defaults)
     const { settings } = state
-    const allAgents = knownAgentsOf(state, await read($, offeredAgents), defaults)
-    const turnedOffCount = allAgents.filter(agent => state.agentSwitchOf(agent) === 'off').length
-    const isAgentsPanelOpen = await read($, isAgentsOpen)
+    const allSeen = { agents: await read($, offeredAgents), skills: await read($, knownSkills) }
+    const allNames = {
+      agents: knownNamesOf(state.merged.agents, allSeen.agents),
+      skills: knownNamesOf(state.merged.skills, allSeen.skills),
+    }
+    const isPanelOpen = { agents: await read($, isAgentsOpen), skills: await read($, isSkillsOpen) }
+    const turnedOffCountOf = (kind: Kind) => allNames[kind].filter(name => state.switchOf(kind, name) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
+
+    const panelButtonOf = (kind: Kind) => (
+      <Button key={kind} variant={isPanelOpen[kind] ? 'primary' : 'secondary'} onPress={() => togglePanel($, kind)}>
+        {`${kind} ${turnedOffCountOf(kind) === 0 ? 'all on' : `${turnedOffCountOf(kind)} off`} ${isPanelOpen[kind] ? MINIMIZE_MARK : EXPAND_MARK}`}
+      </Button>
+    )
+
+    const panelOf = (kind: Kind) => {
+      const { word, title, core, empty } = KIND_DETAILS[kind]
+      const names = allNames[kind]
+      return (
+        <Box flexDirection="column" gap={1}>
+          <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
+            <Text bold color={ACCENT}>{title}</Text>
+            <Text dimColor>{`${names.length - turnedOffCountOf(kind)} of ${names.length} on`}</Text>
+            <Button key={`${kind}-enable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'on'))}>
+              enable all
+            </Button>
+            <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
+              disable all
+            </Button>
+          </Box>
+          {names.length === 0 ? (
+            <Text dimColor>{empty}</Text>
+          ) : (
+            groupsOf(names, core).map(group => (
+              <Box flexDirection="row" columnGap={2} alignItems="flex-start">
+                <Box width={GROUP_WIDTH}>
+                  <Text dimColor wrap="truncate">{group.title}</Text>
+                </Box>
+                <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} flexGrow={1}>
+                  {group.items.map(item => (
+                    <Button
+                      key={`${word}-${item.name}`}
+                      variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
+                      onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
+                    >
+                      {`${state.switchOf(kind, item.name) === 'on' ? ON_MARK : OFF_MARK} ${item.label}`}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+            ))
+          )}
+        </Box>
+      )
+    }
 
     return (
       <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={2} gap={1}>
@@ -272,7 +409,7 @@ export const register: Register = (on, options: PluginOptions) => {
               value={MORE_SUMMARY}
               onSelect={choice => {
                 if (choice === 'save') void toastAfter($, saveDefaults($, defaults))
-                if (choice === 'reset') void toastAfter($, resetSession($, defaults))
+                if (choice === 'reset') void toastAfter($, resetSession($))
               }}
             />
             <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
@@ -302,13 +439,8 @@ export const register: Register = (on, options: PluginOptions) => {
             value={settings.offAction}
             onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
           />
-          <Button
-            key="agents"
-            variant={isAgentsPanelOpen ? 'primary' : 'secondary'}
-            onPress={() => update($, isAgentsOpen, current => !current)}
-          >
-            {`agents ${turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off`} ${isAgentsPanelOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
-          </Button>
+          {panelButtonOf('agents')}
+          {panelButtonOf('skills')}
           <Select
             key="applyToRunning"
             label={`running ${runningCount}`}
@@ -323,35 +455,8 @@ export const register: Register = (on, options: PluginOptions) => {
             apply
           </Button>
         </Box>
-        {isAgentsPanelOpen && (
-          <Box flexDirection="column" gap={1}>
-            <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
-              <Text bold color={ACCENT}>Agent types</Text>
-              <Text dimColor>{`${allAgents.length - turnedOffCount} of ${allAgents.length} on`}</Text>
-              <Button key="agents-enable-all" dimColor onPress={() => toastAfter($, setAllAgents($, allAgents, 'on'))}>
-                enable all
-              </Button>
-              <Button key="agents-disable-all" dimColor onPress={() => toastAfter($, setAllAgents($, allAgents, 'off'))}>
-                disable all
-              </Button>
-            </Box>
-            {allAgents.length === 0 ? (
-              <Text dimColor>No agent types offered yet. They appear after the first spawn.</Text>
-            ) : (
-              <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1}>
-                {allAgents.map(agent => (
-                  <Button
-                    key={`agent-${agent}`}
-                    variant={state.agentSwitchOf(agent) === 'on' ? 'primary' : 'secondary'}
-                    onPress={() => toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))}
-                  >
-                    {`${state.agentSwitchOf(agent) === 'on' ? ON_MARK : OFF_MARK} ${agent}`}
-                  </Button>
-                ))}
-              </Box>
-            )}
-          </Box>
-        )}
+        {isPanelOpen.agents && panelOf('agents')}
+        {isPanelOpen.skills && panelOf('skills')}
       </Box>
     )
   })
@@ -374,18 +479,26 @@ export const register: Register = (on, options: PluginOptions) => {
   on('agent.offer', async ($, e, next) => {
     const allOffered = await read($, offeredAgents)
     if (!allOffered.includes(e.agent)) await update($, offeredAgents, current => [...current, e.agent])
-    const { agentSwitchOf } = await sessionState($, defaults)
-    if (agentSwitchOf(e.agent) === 'off') return { isOffered: false }
+    const { switchOf } = await sessionState($, defaults)
+    if (switchOf('agents', e.agent) === 'off') return { isOffered: false }
     return next(e)
   })
 
   on('agent.spawn', async ($, e, next) => {
     if (e.fork) return next(e)
-    const { settings, agentSwitchOf } = await sessionState($, defaults)
-    if (agentSwitchOf(e.subagentType) === 'off') return { deny: `Subagent type ${e.subagentType} is turned off. Pick another subagent_type.` }
+    const { settings, switchOf } = await sessionState($, defaults)
+    if (switchOf('agents', e.subagentType) === 'off') return { deny: `Subagent type ${e.subagentType} is turned off. Pick another subagent_type.` }
     if (e.model === undefined || isAllowed(settings, familyOf(e.model))) return next(e)
     if (settings.offAction === 'deny') return { deny: denyTextOf(e.model, settings) }
     return next({ ...e, model: settings.defaultModel })
+  })
+
+  on('skill.prompt', async ($, e, next) => {
+    const allSeen = await read($, knownSkills)
+    if (!allSeen.includes(e.skill)) await update($, knownSkills, current => [...current, e.skill].sort())
+    const { merged } = await sessionState($, defaults)
+    if (isSkillOff(merged.skills, e.skill)) return { text: skillOffTextOf(e.skill) }
+    return next(e)
   })
 
   on('turn.step', async function* ($, e, next) {

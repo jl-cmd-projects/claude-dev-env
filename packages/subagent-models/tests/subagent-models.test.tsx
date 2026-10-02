@@ -10,6 +10,12 @@ type World = {
   configWrites: { key: string; value: unknown }[]
 }
 
+const LISTED_SKILLS = [
+  { name: 'simplify', source: 'built-in', tokens: 10 },
+  { name: 'tdd', source: 'plugin', pluginName: 'pstack', tokens: 10 },
+  { name: 'pstack:why', source: 'plugin', pluginName: 'pstack', tokens: 10 },
+]
+
 function engine(on: On): World {
   const world: World = { running: [], toasts: [], spawnedModels: [], steps: [], statuses: [], configWrites: [] }
   on('agent.spawn', (_$, e) => {
@@ -21,6 +27,8 @@ function engine(on: On): World {
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn' as never, usage: null }
   })
   on('agent.offer', () => ({ isOffered: true }))
+  on('skill.prompt', (_$, e) => ({ text: e.text }))
+  on('session.usage', () => ({ value: { context: { breakdown: { skills: { skillFrontmatter: LISTED_SKILLS } } } } }) as never)
   on('agent.list', () => ({ value: world.running.map(id => ({ id, description: id, type: 'general-purpose', status: 'running' })) }) as never)
   on('ui.toast', (_$, e) => (world.toasts.push(typeof e === 'string' ? e : (e as { text: string }).text), { value: undefined }) as never)
   on('ui.status', (_$, e) => (world.statuses.push((e as { text?: string }).text), { value: undefined }) as never)
@@ -431,4 +439,51 @@ test('the more menu saves the session values as defaults', async ($, on) => {
   await ui.select({ key: 'effort', value: 'max' })
   await ui.select({ key: 'more', value: 'save' })
   expect(world.configWrites).toContainEqual({ key: 'subagent-models.effort', value: 'max' })
+})
+
+async function skillText($: { skill: { prompt: (e: never) => Promise<{ text: string }> } }, skill: string) {
+  return (await $.skill.prompt({ skill, text: 'skill body' } as never)).text
+}
+
+test('the skills panel loads the session skills and its chips turn a skill off and on', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  expect(await ui.find({ key: 'skill-pstack:tdd' })).toBeUndefined()
+  await ui.press({ key: 'skills' })
+  expect(await ui.find({ key: 'skill-simplify' })).toBeDefined()
+  expect(await ui.find({ key: 'skill-pstack:tdd' })).toBeDefined()
+  expect(await skillText($ as never, 'pstack:tdd')).toBe('skill body')
+  await ui.press({ key: 'skill-pstack:tdd' })
+  expect(world.toasts).toContain('skill pstack:tdd off for this session.')
+  expect(await skillText($ as never, 'pstack:tdd')).toMatch(/turned off/)
+  expect(await skillText($ as never, 'simplify')).toBe('skill body')
+  await ui.press({ key: 'skill-pstack:tdd' })
+  expect(await skillText($ as never, 'pstack:tdd')).toBe('skill body')
+  await ui.press({ key: 'skills-disable-all' })
+  expect(world.toasts).toContain('3 skills off for this session.')
+  expect(await skillText($ as never, 'simplify')).toMatch(/turned off/)
+  await ui.press({ key: 'skills-enable-all' })
+  expect(await skillText($ as never, 'simplify')).toBe('skill body')
+  await ui.press({ key: 'skills' })
+  expect(await ui.find({ key: 'skill-simplify' })).toBeUndefined()
+})
+
+test('a skill command matches a namespaced skill by its short name and lists the skills', async ($, on) => {
+  engine(on)
+  await command($ as never, 'reset')
+  await command($ as never, 'skill tdd off')
+  expect(await skillText($ as never, 'pstack:tdd')).toMatch(/turned off/)
+  expect(await skillText($ as never, 'pstack:why')).toBe('skill body')
+  const listing = await command($ as never, 'skills')
+  expect(listing.text).toMatch(/pstack:tdd on/)
+  expect(listing.text).toMatch(/tdd off \(this session\)/)
+})
+
+test('save writes the turned-off skills to the defaults', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  await command($ as never, 'skill simplify off')
+  await command($ as never, 'save')
+  expect(world.configWrites).toContainEqual({ key: 'subagent-models.disabledSkills', value: 'simplify' })
 })

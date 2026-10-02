@@ -91,6 +91,12 @@
       "title": "Turned-off agent types",
       "description": "Comma-separated agent types subagents may not run as, such as Explore, Plan",
       "default": ""
+    },
+    "disabledSkills": {
+      "type": "string",
+      "title": "Turned-off skills",
+      "description": "Comma-separated skills the model may not follow, such as pstack:tdd, simplify",
+      "default": ""
     }
   },
   "author": {

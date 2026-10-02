@@ -7,6 +7,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 - A spawn that names a turned-off model runs on the default model instead. With `offAction` set to `deny`, the spawn is refused with a message that names the model to use.
 - A full model id counts by its family. `claude-fable-5-1` is fable.
 - A turned-off agent type leaves the model's agent listing, and a spawn that names it is refused.
+- A turned-off skill still appears in the model's skill listing. When the model or you run it, the skill's text is replaced with a note that says it is off, so the model skips it. A short name such as `tdd` also matches `pstack:tdd`.
 - The default model is always allowed, so a turned-off model always has somewhere to move.
 - Every request a subagent makes runs at the effort you set. The main conversation keeps its own model and effort.
 - With `applyToRunning` on, an effort change reaches running subagents on their next request. With it off, each subagent keeps the effort it started with until `apply`, or the bar's `apply now` button, moves them all.
@@ -29,6 +30,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 | When a spawn names a turned-off model | move, deny | move |
 | Effort changes reach running subagents | on, off | on |
 | Turned-off agent types | comma-separated agent types, such as `Explore, Plan` | none |
+| Turned-off skills | comma-separated skills, such as `pstack:tdd, simplify` | none |
 
 The command refuses to turn off the default model, and refuses a default model that is turned off.
 
@@ -40,7 +42,8 @@ The command refuses to turn off the default model, and refuses a default model t
 - `/subagent-models fable on` sets one value for this session. Any setting name works, with one of its options.
 - `/subagent-models agents` lists the agent types offered so far in this session, each with its switch.
 - `/subagent-models agent Explore off` turns one agent type off for this session. `on` turns it back on.
-- A framed bar above the prompt holds every setting. The top row has a chip per model (a filled dot is on, an empty dot is off), a `more` menu that saves or resets, and a `minimize` button. A pill in the footer, `◈ opus/medium ▴`, opens and closes the bar with one click. The second row has dropdowns for the default model, effort, the turned-off action, and running subagents, an `agents` button, and `apply`. The `agents` button opens a panel with a chip per agent type, `enable all`, and `disable all`. The panel stays open across picks until you press `agents` again. A pick applies at once and a toast says what changed.
+- `/subagent-models skills` lists the skills the session has, each with its switch. `/subagent-models skill pstack:tdd off` turns one skill off for this session.
+- A framed bar above the prompt holds every setting. The top row has a chip per model (a filled dot is on, an empty dot is off), a `more` menu that saves or resets, and a `minimize` button. A pill in the footer, `◈ opus/medium ▴`, opens and closes the bar with one click. The second row has dropdowns for the default model, effort, the turned-off action, and running subagents, `agents` and `skills` buttons, and `apply`. Each button opens a panel with `enable all`, `disable all`, and a chip per agent type or skill. The chips sit in rows grouped by namespace, such as `pstack` or `brand-voice`, with the namespace in a left column. A panel stays open across picks until you press its button again. A pick applies at once and a toast says what changed.
 - `/subagent-models bar` minimizes the bar or expands it.
 - `/subagent-models apply` moves every running subagent to the current effort now.
 - `/subagent-models save` writes this session's values to the `/config` defaults.
