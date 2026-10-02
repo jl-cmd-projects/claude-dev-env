@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.33.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.1...claude-dev-env-v8.33.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **hooks:** read a head with no reported checks as not done ([307edd4](https://github.com/jl-cmd/claude-dev-env/commit/307edd4a6ca96a2e0e37166020487b6496445fe8))
+
 ## [8.33.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.0...claude-dev-env-v8.33.1) (2026-10-02)
 
 
