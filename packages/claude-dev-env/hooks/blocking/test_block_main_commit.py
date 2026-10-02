@@ -74,6 +74,19 @@ def test_blocks_commit_on_protected_branch_from_hook_event_cwd(tmp_path: Path) -
     assert str(repository) in hook_response["hookSpecificOutput"]["permissionDecisionReason"]
 
 
+def test_denial_should_open_a_ready_pull_request(tmp_path: Path) -> None:
+    repository = _create_repository(tmp_path, "main")
+    process_repository = _create_repository(tmp_path, "agent-owned-change")
+
+    completed_process = _run_commit_gate(repository, process_repository)
+
+    denial_reason = json.loads(completed_process.stdout)["hookSpecificOutput"][
+        "permissionDecisionReason"
+    ]
+    assert "open a pull request with `gh pr create`" in denial_reason
+    assert "--draft" not in denial_reason
+
+
 def test_allows_commit_on_owned_branch_from_hook_event_cwd(tmp_path: Path) -> None:
     repository = _create_repository(tmp_path, "agent-owned-change")
     process_repository = _create_repository(tmp_path, "main")

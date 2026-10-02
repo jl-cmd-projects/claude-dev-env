@@ -1,10 +1,10 @@
 ---
-description: Fix every non-breaking finding the follow-up ledger holds and open a draft PR for it
+description: Fix every non-breaking finding the follow-up ledger holds and open a PR for it
 argument-hint: [repository root, or blank for the current repository]
 ---
 
 Fix the non-breaking findings a local gate recorded rather than blocked on,
-and deliver them as one draft pull request.
+and deliver them as one pull request.
 
 The repository root is `$ARGUMENTS`, or the current repository when that is
 blank.
@@ -50,7 +50,7 @@ finding names a generated file, regenerate it with the repository's tooling.
 Branch from the repository's default branch. Commit each group on its own,
 with a message naming the check identifier and the files.
 
-Open the pull request as a draft. Write the body as:
+Open the pull request ready for review. Write the body as:
 
 - One `Before:` paragraph saying which findings stood open.
 - One `After:` paragraph saying what the tree now holds.

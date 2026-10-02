@@ -3,7 +3,7 @@
 When the session exposes a task tool, register each line as one session task
 before starting the process. This file is a task seed catalog.
 
-1. Resolve one repository, action, and selected author. For create, resolve the source branch, base, and head. For other actions, resolve one existing pull request target. Create actions publish drafts.
+1. Resolve one repository, action, and selected author. For create, resolve the source branch, base, and head. For other actions, resolve one existing pull request target. Create publishes a ready pull request, and `--draft` publishes a draft.
 2. Record the title and body file for create or full body rewrite, written by you or drafted by `pstack:poteto-agent` with a PR-writing brief. Mark `N/A` for comment or review bodies that do not rewrite the pull request description.
 3. Validate every title, body, artifact, and local path input. Reject inline body input.
 4. Resolve the active managed root and run `<managed-root>/scripts/durable_post_lint.py` for the matching action. Record exit code `0` before credential lookup or network work.

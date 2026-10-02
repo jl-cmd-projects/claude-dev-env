@@ -50,5 +50,5 @@ A repository that merges through a merge queue also runs the check on `merge_gro
 | Rule | Role |
 |---|---|
 | [`agent-merges-its-own-green-pull-request.md`](agent-merges-its-own-green-pull-request.md) | The agent that drives a pull request merges it once its gate passes |
-| [`git-workflow.md`](git-workflow.md) | Draft first, and confirm each required context fired after the push |
+| [`git-workflow.md`](git-workflow.md) | Open ready for review, and confirm each required context fired after the push |
 | [`correction-lens.md`](correction-lens.md) | A correction becomes a control at the highest layer that can hold it |

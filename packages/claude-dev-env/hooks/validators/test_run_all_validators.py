@@ -19,7 +19,6 @@ from .run_all_validators import (
     format_timing_report,
     main,
     print_header,
-    run_git_checks,
     run_python_style_checks,
     run_with_fallback,
     validate_proposed_file,
@@ -164,11 +163,9 @@ class TestFixFlag:
     def test_fix_flag_is_accepted(self) -> None:
         """Verify --fix flag is recognized without error."""
         with patch("validators.run_all_validators.get_changed_files") as mock_get_files, \
-             patch("validators.run_all_validators.run_file_structure_checks") as mock_file, \
-             patch("validators.run_all_validators.run_git_checks") as mock_git:
+             patch("validators.run_all_validators.run_file_structure_checks") as mock_file:
             mock_get_files.return_value = []
             mock_file.return_value = _passing_mock_result()
-            mock_git.return_value = _passing_mock_result()
 
             assert _run_main_with_argv(["run_all_validators.py", "--fix"]) == 0
 
@@ -180,11 +177,10 @@ class TestFixFlag:
              patch("validators.run_all_validators.run_test_safety_checks") as mock_test, \
              patch("validators.run_all_validators.run_react_checks") as mock_react, \
              patch("validators.run_all_validators.run_comment_checks") as mock_comment, \
-             patch("validators.run_all_validators.run_file_structure_checks") as mock_file, \
-             patch("validators.run_all_validators.run_git_checks") as mock_git:
+             patch("validators.run_all_validators.run_file_structure_checks") as mock_file:
             mock_get_files.return_value = [Path("test.py")]
             mock_fix.return_value = ["test.py"]
-            for each_mock in (mock_style, mock_test, mock_react, mock_comment, mock_file, mock_git):
+            for each_mock in (mock_style, mock_test, mock_react, mock_comment, mock_file):
                 each_mock.return_value = _passing_mock_result()
 
             _run_main_with_argv(["run_all_validators.py", "--fix"])
@@ -199,10 +195,9 @@ class TestFixFlag:
              patch("validators.run_all_validators.run_test_safety_checks") as mock_test, \
              patch("validators.run_all_validators.run_react_checks") as mock_react, \
              patch("validators.run_all_validators.run_comment_checks") as mock_comment, \
-             patch("validators.run_all_validators.run_file_structure_checks") as mock_file, \
-             patch("validators.run_all_validators.run_git_checks") as mock_git:
+             patch("validators.run_all_validators.run_file_structure_checks") as mock_file:
             mock_get_files.return_value = [Path("test.py")]
-            for each_mock in (mock_style, mock_test, mock_react, mock_comment, mock_file, mock_git):
+            for each_mock in (mock_style, mock_test, mock_react, mock_comment, mock_file):
                 each_mock.return_value = _passing_mock_result()
 
             _run_main_with_argv(["run_all_validators.py"])
@@ -301,32 +296,6 @@ class TestStderrSurfacing:
             validator_result = run_python_style_checks([Path("foo.py")])
 
             assert "ImportError" in validator_result.output
-
-    def test_git_check_surfaces_stderr_when_stdout_empty(self) -> None:
-        """When git validator crashes with no stdout, stderr must appear in output."""
-        with patch("validators.run_all_validators.invoke_validator_module") as mock_invoke:
-            crashed_result = MagicMock()
-            crashed_result.returncode = 1
-            crashed_result.stdout = ""
-            crashed_result.stderr = "SyntaxError: invalid syntax in git_checks.py"
-            mock_invoke.return_value = crashed_result
-
-            validator_result = run_git_checks()
-
-            assert "SyntaxError" in validator_result.output
-
-    def test_output_falls_back_to_all_checks_passed_when_both_empty(self) -> None:
-        """When both stdout and stderr are empty and returncode is 0, use fallback."""
-        with patch("validators.run_all_validators.invoke_validator_module") as mock_invoke:
-            clean_result = MagicMock()
-            clean_result.returncode = 0
-            clean_result.stdout = ""
-            clean_result.stderr = ""
-            mock_invoke.return_value = clean_result
-
-            validator_result = run_git_checks()
-
-            assert validator_result.output == "All checks passed"
 
 
 class TestTimingMetrics:

@@ -8,7 +8,7 @@ A local gate that finds a non-breaking smell records it in a per-checkout ledger
 - The gates that write to it. `scripts/validate_instruction_pairs.py` records `instruction-filename` and `instruction-git-mode` and exits 0. `scripts/repository_policy.py` records its `package-inventory` finding through `scripts/repository_checks/followups.py`.
 - `cde followup list`, `ingest REPORT`, `brief`, `count`, and `clear`, run by `scripts/followup_cli.py`. Each takes `--repository-root PATH`.
 - The `check_id` field of `cde lint --format json`, which `ingest` copies into each record.
-- The `/fix-followups` command in `commands/fix-followups.md`, which reads `brief`, fixes each check group, opens a draft pull request, and runs `clear`.
+- The `/fix-followups` command in `commands/fix-followups.md`, which reads `brief`, fixes each check group, opens a pull request, and runs `clear`.
 
 ## How to get to it (user POV)
 
