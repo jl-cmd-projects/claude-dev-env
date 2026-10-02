@@ -23,6 +23,7 @@ if _hooks_dir not in sys.path:
 
 from hooks_constants.hook_block_logger import log_hook_block  # noqa: E402
 
+from hooks_constants.block_main_commit_constants import PULL_REQUEST_INSTRUCTION
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 
 GIT_COMMAND_TIMEOUT_SECONDS = 5
@@ -162,15 +163,6 @@ def parse_bash_command_from_stdin() -> str:
     """Return the Bash command from the hook payload on standard input."""
     bash_command, _ = parse_hook_context_from_stdin()
     return bash_command
-
-
-PULL_REQUEST_INSTRUCTION = (
-    " Instead: (1) create a feature branch with `git checkout -b <descriptive-branch-name>`, "
-    "(2) commit your changes there, "
-    "(3) push with `git push -u origin <branch-name>`, "
-    "(4) open a pull request with `gh pr create`. "
-    "If you must commit to main, the user needs to approve explicitly."
-)
 
 
 def build_denial_response(branch_name: str, repo_dir: str | None) -> dict:

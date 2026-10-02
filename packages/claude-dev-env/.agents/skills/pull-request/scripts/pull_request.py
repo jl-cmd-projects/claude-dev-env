@@ -44,7 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
     create.add_argument("--title", required=True)
     create.add_argument("--body-file", required=True, type=Path)
     create.add_argument("--draft", dest="is_draft", action="store_true")
-    edit =all_actions.add_parser(ACTION_EDIT, allow_abbrev=False)
+    edit = all_actions.add_parser(ACTION_EDIT, allow_abbrev=False)
     edit.add_argument("--repo", required=True)
     edit.add_argument("--number", required=True)
     edit.add_argument("--title")
