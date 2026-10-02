@@ -65,7 +65,7 @@ stack's design, intent, and changes.
 ## Finish
 
 When both phases are clean, or only fixed nits remain, a target PR that is a
-draft goes ready with `gh pr ready`. Confirm that it is no longer a draft. A
+draft goes ready with `gh pr ready`. Confirm that it now reads ready. A
 ready target PR stays as it is.
 
 Report: passes run per phase, commits pushed with hashes, fixes applied, and
