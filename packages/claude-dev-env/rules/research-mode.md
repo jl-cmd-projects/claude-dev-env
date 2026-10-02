@@ -5,7 +5,7 @@ Three anti-hallucination constraints are always active.
 Source: [Anthropic - Reduce Hallucinations](https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)
 
 ## 1. Settle the fact, then cite it
-Source: the repository owner's policy, set on 2026-10-02. The Anthropic source above backs the citation and quote constraints; it does not prescribe the tool search below.
+Source: the repository owner's policy, recorded in [jl-cmd/claude-dev-env#1607](https://github.com/jl-cmd/claude-dev-env/pull/1607). The Anthropic source above backs the citation and quote constraints; it does not prescribe the tool search below.
 
 Never state a claim without a credible source. Don't guess. Don't infer.
 
