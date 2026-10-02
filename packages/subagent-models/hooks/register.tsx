@@ -236,19 +236,10 @@ export const register: Register = (on, options: PluginOptions) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey || e.surface === 'mobile') return next(e)
+    if (e.props.hasSurvey || e.surface === 'mobile' || !(await read($, isBarOpen))) return next(e)
     const { Box, Text, Button, Select } = $.ui.resolve(e)
     const state = await sessionState($, defaults)
     const { settings } = state
-    if (!(await read($, isBarOpen))) {
-      return (
-        <Box flexDirection="row" paddingX={1}>
-          <Button key="expand" dimColor onPress={() => update($, isBarOpen, () => true)}>
-            {`${EXPAND_MARK} Subagents ${settings.defaultModel}/${settings.effort}${Object.keys(state.sessionOverrides).length > 0 ? ' (session)' : ''}`}
-          </Button>
-        </Box>
-      )
-    }
     const allAgents = knownAgentsOf(state, await read($, offeredAgents), defaults)
     const turnedOffCount = allAgents.filter(agent => state.agentSwitchOf(agent) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
@@ -337,6 +328,21 @@ export const register: Register = (on, options: PluginOptions) => {
             apply now
           </Button>
         </Box>
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'PromptHint' }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const { settings, sessionOverrides } = await sessionState($, defaults)
+    const isOpen = await read($, isBarOpen)
+    const sessionMark = Object.keys(sessionOverrides).length > 0 ? ' (session)' : ''
+    return (
+      <Box flexDirection="row" columnGap={2}>
+        <Button key="pill" dimColor onPress={() => update($, isBarOpen, current => !current)}>
+          {`${isOpen ? MINIMIZE_MARK : EXPAND_MARK} Subagents ${settings.defaultModel}/${settings.effort}${sessionMark}`}
+        </Button>
+        <Text dimColor>{e.props.hint}</Text>
       </Box>
     )
   })
