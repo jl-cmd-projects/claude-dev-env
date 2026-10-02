@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.35.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.34.0...claude-dev-env-v8.35.0) (2026-10-02)
+
+
+### Features
+
+* **codex:** named per-account Codex launchers ([#1620](https://github.com/jl-cmd/claude-dev-env/issues/1620)) ([83d6eb0](https://github.com/jl-cmd/claude-dev-env/commit/83d6eb0e76cf9413940e3afefc5d5e870812773f))
+
 ## [8.34.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.2...claude-dev-env-v8.34.0) (2026-10-02)
 
 
