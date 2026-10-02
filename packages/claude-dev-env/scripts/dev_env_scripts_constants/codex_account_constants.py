@@ -7,6 +7,8 @@ a job runs on, trying the accounts in roster order.
 
 from __future__ import annotations
 
+from dev_env_scripts_constants.claude_account_constants import LauncherProgram
+
 ALL_CODEX_ACCOUNT_NAMES: tuple[str, ...] = ("codex-1", "codex-2", "codex-3", "codex-4")
 """Fallback Codex accounts, in try order, when no account roster is saved or set."""
 
@@ -21,20 +23,6 @@ CODEX_ACCOUNT_NAME_SEPARATOR: str = ","
 
 CODEX_LAUNCHER_FILE_NAME_TEMPLATE: str = "codex-{profile_name}.cmd"
 """File name pattern for one account's Codex launcher."""
-
-CODEX_LAUNCHER_TEXT_TEMPLATE: str = (
-    "@echo off\r\n"
-    "setlocal\r\n"
-    'set "CODEX_HOME={profile_home}"\r\n'
-    "call codex %*\r\n"
-    "exit /b %ERRORLEVEL%\r\n"
-)
-"""Launcher body: point Codex at the account's home and pass every argument through.
-
-``codex`` resolves to npm's ``codex.cmd``, whose last line runs ``endLocal`` and a
-``goto`` to a missing label. Chained into without ``call``, that line ends this
-launcher's ``setlocal`` too, and Codex starts without ``CODEX_HOME``.
-"""
 
 SETUP_PROMPT_TEXT: str = "Name for this Codex account launcher (blank to finish): "
 """Prompt the setup command shows for each account name."""
@@ -133,6 +121,13 @@ ALL_CODEX_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
 
 CODEX_BINARY_NAME: str = "codex"
 """Codex command name looked up on PATH."""
+
+CODEX_LAUNCHER_PROGRAM: LauncherProgram = LauncherProgram(
+    program=CODEX_BINARY_NAME,
+    environment_variable=CODEX_HOME_ENVIRONMENT_VARIABLE,
+    file_name_template=CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
+)
+"""Launcher that runs Codex with ``CODEX_HOME`` set to the account's home."""
 
 ALL_APP_SERVER_ARGUMENTS: tuple[str, ...] = ("app-server", "--listen", "stdio://")
 """Arguments that start Codex as a JSON-RPC server on standard input and output."""

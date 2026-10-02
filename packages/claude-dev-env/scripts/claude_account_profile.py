@@ -28,14 +28,15 @@ from dev_env_scripts_constants.claude_account_constants import (
     ALL_WINDOWS_JUNCTION_COMMAND_PREFIX,
     CHOICE_MAIN,
     CHOICE_WAIT,
+    CLAUDE_LAUNCHER_PROGRAM,
     JSON_LAUNCHER_KEY,
     JSON_LINKED_KEY,
     JSON_MOVED_ASIDE_KEY,
     JSON_UNLINKED_KEY,
     ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS,
-    LAUNCHER_FILE_NAME_TEMPLATE,
+    LAUNCHER_BODY_TEMPLATE,
     LAUNCHER_REPLACED_SUFFIX,
-    LAUNCHER_TEXT_TEMPLATE,
+    LauncherProgram,
     MAIN_CLAUDE_HOME_DIRECTORY_NAME,
     PROFILES_ROOT_DIRECTORY_NAME,
     PROFILES_ROOT_ENVIRONMENT_VARIABLE,
@@ -343,16 +344,14 @@ def move_launcher_aside(launcher_path: Path, now: datetime) -> Path:
 
 
 def launcher_path(
-    launcher_directory: Path,
-    profile_name: str,
-    launcher_file_name_template: str = LAUNCHER_FILE_NAME_TEMPLATE,
+    launcher_directory: Path, profile_name: str, launcher_program: LauncherProgram
 ) -> Path:
     """Name the launcher file for a profile.
 
     Args:
         launcher_directory: The directory on PATH that holds the launcher.
         profile_name: The name used in the launcher file name.
-        launcher_file_name_template: The launcher file name, with ``{profile_name}``.
+        launcher_program: The program the launcher runs, which names the file.
 
     Returns:
         The launcher path.
@@ -360,7 +359,7 @@ def launcher_path(
     Raises:
         ValueError: When the profile name is not a valid profile name.
     """
-    return launcher_directory / launcher_file_name_template.format(
+    return launcher_directory / launcher_program.file_name_template.format(
         profile_name=validate_profile_name(profile_name)
     )
 
@@ -370,33 +369,33 @@ def write_launcher(
     launcher_directory: Path,
     profile_home: Path,
     now: datetime,
-    profile_name: str = SECOND_ACCOUNT_PROFILE_NAME,
-    launcher_file_name_template: str = LAUNCHER_FILE_NAME_TEMPLATE,
-    launcher_text_template: str = LAUNCHER_TEXT_TEMPLATE,
+    profile_name: str,
+    launcher_program: LauncherProgram,
 ) -> Path:
-    """Write the launcher that runs Claude under a named profile.
+    """Write the launcher that runs a program under a named profile.
 
     ::
 
         claude-NAME -p "fix the test"
-        -> CLAUDE_CONFIG_DIR=<profile home>, then claude -p "fix the test"
+        -> CLAUDE_CONFIG_DIR=<profile home>, then call claude -p "fix the test"
         an older claude-NAME.cmd -> claude-NAME.cmd.replaced-<time>
 
     Args:
         launcher_directory: The directory on PATH that holds the launcher.
-        profile_home: The named account's Claude home.
+        profile_home: The named account's home for the program.
         now: The run time that names a moved older launcher.
         profile_name: The name used in the launcher file name.
-        launcher_file_name_template: The launcher file name, with ``{profile_name}``.
-        launcher_text_template: The launcher body, with ``{profile_home}``.
+        launcher_program: The program to run and the variable naming its home.
 
     Returns:
         The launcher path.
     """
-    target_path = launcher_path(
-        launcher_directory, profile_name, launcher_file_name_template
+    target_path = launcher_path(launcher_directory, profile_name, launcher_program)
+    launcher_text = LAUNCHER_BODY_TEMPLATE.format(
+        environment_variable=launcher_program.environment_variable,
+        profile_home=profile_home,
+        program=launcher_program.program,
     )
-    launcher_text = launcher_text_template.format(profile_home=profile_home)
     launcher_bytes = launcher_text.encode(TEXT_ENCODING)
     if target_path.is_file() and target_path.read_bytes() == launcher_bytes:
         return target_path
@@ -454,6 +453,7 @@ def _sync_named_profile(arguments: argparse.Namespace) -> dict[str, object]:
         profile_home=profile_home,
         now=now,
         profile_name=arguments.profile_name,
+        launcher_program=CLAUDE_LAUNCHER_PROGRAM,
     )
     return {**sync_report_payload(report), JSON_LAUNCHER_KEY: str(launcher_path)}
 

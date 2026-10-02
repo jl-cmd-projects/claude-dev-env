@@ -22,10 +22,10 @@ A user runs `setup` once, or `sync` with `CODEX_ACCOUNT_PROFILES` set, then sign
 Run the unit tests from the repository root:
 
 ```powershell
-python -m pytest packages/claude-dev-env/scripts/test_codex_account_choice.py packages/claude-dev-env/scripts/test_codex_account_meters.py -q
+python -m pytest packages/claude-dev-env/scripts/test_codex_account_choice.py packages/claude-dev-env/scripts/test_codex_account_meters.py packages/claude-dev-env/scripts/test_claude_account_profile.py -q
 ```
 
-On Windows the run includes `TestCodexLauncher`, which runs a launcher through `cmd` against an npm-shaped `codex.cmd` and reads back `CODEX_HOME`.
+On Windows the run includes `TestNpmShimLauncher`, which runs the Claude and Codex launchers through `cmd` against an npm-shaped shim and reads back `CLAUDE_CONFIG_DIR` or `CODEX_HOME`.
 
 Drive the picker against an empty profiles root:
 

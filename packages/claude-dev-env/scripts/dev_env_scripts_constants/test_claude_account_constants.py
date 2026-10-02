@@ -11,7 +11,7 @@ from dev_env_scripts_constants.claude_account_constants import (
     JSON_SESSION_USED_PERCENT_KEY,
     JSON_WEEKLY_RESETS_AT_KEY,
     JSON_WEEKLY_USED_PERCENT_KEY,
-    LAUNCHER_TEXT_TEMPLATE,
+    LAUNCHER_BODY_TEMPLATE,
     MAIN_SESSION_USED_CEILING_PERCENT,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
     SECOND_SESSION_USED_CEILING_PERCENT,
@@ -25,8 +25,8 @@ def test_main_ceilings_sit_below_the_second_account_ceilings() -> None:
 
 
 def test_launcher_names_the_profile_and_passes_every_argument() -> None:
-    assert "{profile_home}" in LAUNCHER_TEXT_TEMPLATE
-    assert "claude %*" in LAUNCHER_TEXT_TEMPLATE
+    assert '"{environment_variable}={profile_home}"' in LAUNCHER_BODY_TEMPLATE
+    assert "call {program} %*" in LAUNCHER_BODY_TEMPLATE
 
 
 def test_picker_report_keys_never_collide() -> None:

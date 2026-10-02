@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 import claude_account_profile as profile
+from dev_env_scripts_constants.claude_account_constants import (
+    CLAUDE_LAUNCHER_PROGRAM,
+    LauncherProgram,
+)
+from dev_env_scripts_constants.codex_account_constants import CODEX_LAUNCHER_PROGRAM
 
 NOW = datetime(2026, 9, 22, 21, 0, tzinfo=timezone.utc)
 
@@ -201,11 +207,15 @@ class TestWriteLauncher:
     ) -> None:
         profile_home = tmp_path / "ev"
         launcher_path = profile.write_launcher(
-            launcher_directory=tmp_path / "bin", profile_home=profile_home, now=NOW
+            launcher_directory=tmp_path / "bin",
+            profile_home=profile_home,
+            now=NOW,
+            profile_name="ev",
+            launcher_program=CLAUDE_LAUNCHER_PROGRAM,
         )
         launcher_text = launcher_path.read_text(encoding="utf-8")
         assert f'set "CLAUDE_CONFIG_DIR={profile_home}"' in launcher_text
-        assert "claude %*" in launcher_text
+        assert "call claude %*" in launcher_text
 
     def test_should_move_an_older_launcher_aside(self, tmp_path: Path) -> None:
         launcher_directory = tmp_path / "bin"
@@ -214,14 +224,18 @@ class TestWriteLauncher:
             "old launcher", encoding="utf-8"
         )
         profile.write_launcher(
-            launcher_directory=launcher_directory, profile_home=tmp_path / "ev", now=NOW
+            launcher_directory=launcher_directory,
+            profile_home=tmp_path / "ev",
+            now=NOW,
+            profile_name="ev",
+            launcher_program=CLAUDE_LAUNCHER_PROGRAM,
         )
         moved_launcher = launcher_directory / (
             "claude-ev.cmd.replaced-" + NOW.strftime("%Y%m%dT%H%M%SZ")
         )
         assert moved_launcher.read_text(encoding="utf-8") == "old launcher"
 
-    def test_should_write_the_launcher_from_the_callers_templates(
+    def test_should_write_the_launcher_for_the_callers_program(
         self, tmp_path: Path
     ) -> None:
         launcher_path = profile.write_launcher(
@@ -229,11 +243,75 @@ class TestWriteLauncher:
             profile_home=tmp_path / "alpha",
             now=NOW,
             profile_name="alpha",
-            launcher_file_name_template="tool-{profile_name}.cmd",
-            launcher_text_template="home={profile_home}",
+            launcher_program=LauncherProgram(
+                program="tool",
+                environment_variable="TOOL_HOME",
+                file_name_template="tool-{profile_name}.cmd",
+            ),
         )
         assert launcher_path == tmp_path / "bin" / "tool-alpha.cmd"
-        assert launcher_path.read_text(encoding="utf-8") == f"home={tmp_path / 'alpha'}"
+        assert launcher_path.read_bytes() == (
+            "@echo off\r\n"
+            "setlocal\r\n"
+            f'set "TOOL_HOME={tmp_path / "alpha"}"\r\n'
+            "call tool %*\r\n"
+            "exit /b %ERRORLEVEL%\r\n"
+        ).encode()
+
+
+NPM_SHIM_TEXT_TEMPLATE = (
+    "@ECHO off\r\n"
+    "GOTO start\r\n"
+    ":find_dp0\r\n"
+    "SET dp0=%~dp0\r\n"
+    "EXIT /b\r\n"
+    ":start\r\n"
+    "SETLOCAL\r\n"
+    "CALL :find_dp0\r\n"
+    'SET "_prog=cmd"\r\n'
+    "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% &"
+    ' "%_prog%" /d /c "echo %%{environment_variable}%%"\r\n'
+)
+
+
+class TestNpmShimLauncher:
+    @pytest.mark.skipif(os.name != "nt", reason="runs the launcher through cmd.exe")
+    @pytest.mark.parametrize(
+        "launcher_program",
+        [
+            pytest.param(CLAUDE_LAUNCHER_PROGRAM, id="claude"),
+            pytest.param(CODEX_LAUNCHER_PROGRAM, id="codex"),
+        ],
+    )
+    def should_hand_the_profile_home_to_the_npm_shim(
+        self, tmp_path: Path, launcher_program: LauncherProgram
+    ) -> None:
+        profile_home = tmp_path / "profiles" / "alpha"
+        launcher_path = profile.write_launcher(
+            launcher_directory=tmp_path / "bin",
+            profile_home=profile_home,
+            now=NOW,
+            profile_name="alpha",
+            launcher_program=launcher_program,
+        )
+        fake_directory = tmp_path / "fake"
+        fake_directory.mkdir()
+        (fake_directory / f"{launcher_program.program}.cmd").write_bytes(
+            NPM_SHIM_TEXT_TEMPLATE.format(
+                environment_variable=launcher_program.environment_variable
+            ).encode("utf-8")
+        )
+        environment = dict(os.environ)
+        environment["PATH"] = str(fake_directory) + os.pathsep + environment["PATH"]
+        environment[launcher_program.environment_variable] = str(tmp_path / "decoy")
+        completed = subprocess.run(
+            ["cmd", "/c", str(launcher_path)],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.stdout.strip() == str(profile_home)
 
 
 class TestMoveLauncherAside:
