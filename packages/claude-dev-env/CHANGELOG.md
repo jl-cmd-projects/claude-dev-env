@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.35.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.0...claude-dev-env-v8.35.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([6f2f5e9](https://github.com/jl-cmd/claude-dev-env/commit/6f2f5e967528989b3375b8432f4c0fd687f4bcae))
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([b697183](https://github.com/jl-cmd/claude-dev-env/commit/b697183caa04cb8266b8e72ec741439cb43ddd22))
+
+
+### Refactoring
+
+* **launchers:** name each launcher file only on its LauncherProgram ([0e80d39](https://github.com/jl-cmd/claude-dev-env/commit/0e80d391deee0a1af3f784991f3f6b5ab11e39f2))
+
 ## [8.35.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.34.0...claude-dev-env-v8.35.0) (2026-10-02)
 
 
