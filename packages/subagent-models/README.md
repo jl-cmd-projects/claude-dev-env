@@ -9,6 +9,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 - A turned-off agent type leaves the model's agent listing, and a spawn that names it is refused.
 - The default model is always allowed, so a turned-off model always has somewhere to move.
 - Every request a subagent makes runs at the effort you set. The main conversation keeps its own model and effort.
+- With `applyToRunning` on, an effort change reaches running subagents on their next request. With it off, each subagent keeps the effort it started with until `apply`, or the picker's apply button, moves them all.
 - A subagent whose model comes from its agent definition is caught on its first request and moved the same way.
 - A fork inherits its parent and passes untouched. So does a spawn that names no model.
 - The status line shows the default model and effort, as `subagents: opus/medium`. It adds `(session)` while this session differs from the defaults.
@@ -26,6 +27,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 | Default subagent model | opus, sonnet, haiku, fable | opus |
 | Subagent effort | inherit, low, medium, high, xhigh, max | medium |
 | When a spawn names a turned-off model | move, deny | move |
+| Effort changes reach running subagents | on, off | on |
 | Turned-off agent types | comma-separated agent types, such as `Explore, Plan` | none |
 
 The command refuses to turn off the default model, and refuses a default model that is turned off.
@@ -38,6 +40,8 @@ The command refuses to turn off the default model, and refuses a default model t
 - `/subagent-models fable on` sets one value for this session. Any setting name works, with one of its options.
 - `/subagent-models agents` lists the agent types offered so far in this session, each with its switch.
 - `/subagent-models agent Explore off` turns one agent type off for this session. `on` turns it back on.
+- `/subagent-models picker` opens a pane with a button for every setting and agent type. A press applies at once and shows what changed.
+- `/subagent-models apply` moves every running subagent to the current effort now.
 - `/subagent-models save` writes this session's values to the `/config` defaults.
 - `/subagent-models reset` drops this session's values, so the defaults apply again.
 

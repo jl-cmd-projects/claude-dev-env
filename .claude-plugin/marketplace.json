@@ -32,7 +32,7 @@
       "name": "subagent-models",
       "source": "./packages/subagent-models",
       "description": "Turn subagent models and agent types on or off and set the effort subagents run at",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "MIT",
       "category": "development"
     }

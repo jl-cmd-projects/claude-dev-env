@@ -14,14 +14,21 @@ export type Settings = {
   defaultModel: Family
   effort: Effort
   offAction: OffAction
+  applyToRunning: Switch
 }
 
 export type AgentSwitches = Readonly<Record<string, Switch>>
 
 export type SessionOverrides = Partial<Settings> & { agents?: AgentSwitches }
 
+export type PinnedEfforts = Readonly<Record<string, Effort>>
+
 declare module 'claude-code' {
   interface PluginState {
-    'subagent-models': { overrides: SessionOverrides; offeredAgents: readonly string[] }
+    'subagent-models': {
+      overrides: SessionOverrides
+      offeredAgents: readonly string[]
+      pinnedEfforts: PinnedEfforts
+    }
   }
 }
