@@ -50,7 +50,8 @@ function withPackageGuidanceBlock(guidanceText, packageGuidanceText) {
         PACKAGE_GUIDANCE_BLOCK_END,
         block,
     );
-    return replacedText ?? `${guidanceText}\n${block}`;
+    if (replacedText !== null) return replacedText;
+    return guidanceText ? `${guidanceText}\n${block}` : block;
 }
 
 function comparablePath(filePath) {
@@ -66,33 +67,52 @@ function linksToPackageGuidance(agentsPath, allPackageGuidancePaths) {
     return allPackageGuidancePaths.some(eachPath => comparablePath(eachPath) === linkTarget);
 }
 
-/**
- * Keep CODEX_HOME/AGENTS.md carrying the skill-load block.
- *
- * A symbolic link that points at the package guidance (the shared agents-home
- * copy, or the retired copy under the Claude home) is replaced by a regular
- * file holding the skill-load block and a package-guidance block, so Codex
- * keeps both after the package moves its guidance. A file that already holds
- * the package-guidance block gets the current guidance text. A link to any
- * other file is left alone.
- *
- * Returns the file path when the file changed, and null otherwise.
- */
-export function writeCodexAgentsGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths) {
+function writeCodexGuidanceFile(codexHome, allPackageGuidancePaths, transformGuidance) {
     const agentsPath = join(codexHome, 'AGENTS.md');
     const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (agentsEntry && !agentsEntry.isFile() && !agentsEntry.isSymbolicLink()) return null;
     const isPackageGuidanceLink = agentsEntry?.isSymbolicLink() ?? false;
     if (isPackageGuidanceLink && !linksToPackageGuidance(agentsPath, allPackageGuidancePaths)) return null;
     const currentText = agentsEntry && !isPackageGuidanceLink ? readFileSync(agentsPath, 'utf8') : '';
-    let updatedText = withSkillLoadBlock(currentText);
-    if (isPackageGuidanceLink || updatedText.includes(PACKAGE_GUIDANCE_BLOCK_START)) {
-        updatedText = withPackageGuidanceBlock(updatedText, packageGuidanceText);
-    }
+    const updatedText = transformGuidance(currentText);
     if (!isPackageGuidanceLink && updatedText === currentText) return null;
     mkdirSync(codexHome, { recursive: true });
     if (isPackageGuidanceLink) unlinkSync(agentsPath);
     writeFileSync(agentsPath, updatedText, 'utf8');
     return agentsPath;
+}
+
+/**
+ * Keep CODEX_HOME/AGENTS.md carrying the skill-load block and the package guidance.
+ *
+ * The skill-load block goes first, and the package-guidance block holds the
+ * current guidance text. A symbolic link that points at the package guidance
+ * (the shared agents-home copy, or the retired copy under the Claude home) is
+ * replaced by a regular file holding both blocks, so Codex keeps both after
+ * the package moves its guidance. A link to any other file is left alone.
+ *
+ * Returns the file path when the file changed, and null otherwise.
+ */
+export function writeCodexAgentsGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths) {
+    return writeCodexGuidanceFile(
+        codexHome,
+        allPackageGuidancePaths,
+        currentText => withPackageGuidanceBlock(withSkillLoadBlock(currentText), packageGuidanceText),
+    );
+}
+
+/**
+ * Keep CODEX_HOME/AGENTS.md carrying the package guidance, with no skill-load block.
+ *
+ * Links follow the same rule as writeCodexAgentsGuidance. Returns the file
+ * path when the file changed, and null otherwise.
+ */
+export function writeCodexPackageGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths) {
+    return writeCodexGuidanceFile(
+        codexHome,
+        allPackageGuidancePaths,
+        currentText => withPackageGuidanceBlock(currentText, packageGuidanceText),
+    );
 }
 
 export function writeCodexQuestionGuidance(codexHome, policyText) {
@@ -112,30 +132,63 @@ export function writeCodexQuestionGuidance(codexHome, policyText) {
     return agentsPath;
 }
 
-export function hasOnlyQuestionPresentationBlock(guidanceText) {
-    if (!guidanceText.startsWith(`${QUESTION_PRESENTATION_BLOCK_START}\n`)) return false;
-    if (!guidanceText.endsWith(`${QUESTION_PRESENTATION_BLOCK_END}\n`)) return false;
-    return withBlockReplaced(
-        guidanceText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, '',
-    ) === '';
+const ALL_PACKAGE_MANAGED_BLOCK_MARKERS = [
+    [SKILL_LOAD_BLOCK_START, SKILL_LOAD_BLOCK_END],
+    [PACKAGE_GUIDANCE_BLOCK_START, PACKAGE_GUIDANCE_BLOCK_END],
+    [QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END],
+];
+
+/**
+ * Report whether the guidance holds at least one package-managed block and
+ * nothing else but blank lines.
+ */
+export function hasOnlyPackageManagedBlocks(guidanceText) {
+    let remainingText = guidanceText;
+    let removedBlockCount = 0;
+    for (const [blockStart, blockEnd] of ALL_PACKAGE_MANAGED_BLOCK_MARKERS) {
+        const withoutBlock = withBlockReplaced(remainingText, blockStart, blockEnd, '');
+        if (withoutBlock === null) continue;
+        remainingText = withoutBlock;
+        removedBlockCount += 1;
+    }
+    return removedBlockCount > 0 && remainingText.trim() === '';
+}
+
+function removeCodexGuidanceBlock(codexHome, blockStart, blockEnd) {
+    const agentsPath = join(codexHome, 'AGENTS.md');
+    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (!agentsEntry?.isFile()) return null;
+    const currentText = readFileSync(agentsPath, 'utf8');
+    const updatedText = withBlockReplaced(currentText, blockStart, blockEnd, '');
+    if (updatedText === null) return null;
+    const isLeftEmpty = updatedText.trim() === '';
+    if (isLeftEmpty) unlinkSync(agentsPath);
+    if (!isLeftEmpty) writeFileSync(agentsPath, updatedText, 'utf8');
+    return agentsPath;
 }
 
 /**
  * Remove the managed question block while keeping surrounding guidance bytes.
  *
+ * A file left holding only blank lines is deleted.
+ *
  * @param {string} codexHome
  * @returns {string|null} The changed path, or null when no block was removed.
  */
 export function removeCodexQuestionGuidance(codexHome) {
-    const agentsPath = join(codexHome, 'AGENTS.md');
-    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
-    if (!agentsEntry?.isFile()) return null;
-    const currentText = readFileSync(agentsPath, 'utf8');
-    const updatedText = withBlockReplaced(
-        currentText, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END, '',
+    return removeCodexGuidanceBlock(
+        codexHome, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END,
     );
-    if (updatedText === null) return null;
-    if (updatedText === '') unlinkSync(agentsPath);
-    if (updatedText !== '') writeFileSync(agentsPath, updatedText, 'utf8');
-    return agentsPath;
+}
+
+/**
+ * Remove the managed package-guidance block while keeping surrounding guidance bytes.
+ *
+ * A file left holding only blank lines is deleted.
+ *
+ * @param {string} codexHome
+ * @returns {string|null} The changed path, or null when no block was removed.
+ */
+export function removeCodexPackageGuidance(codexHome) {
+    return removeCodexGuidanceBlock(codexHome, PACKAGE_GUIDANCE_BLOCK_START, PACKAGE_GUIDANCE_BLOCK_END);
 }

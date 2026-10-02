@@ -11,9 +11,11 @@ import {
     SKILL_LOAD_BLOCK_END,
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
+    removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     withSkillLoadBlock,
     writeCodexAgentsGuidance,
+    writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
 
@@ -50,16 +52,19 @@ test('the instruction names the skill and binds spawned helpers', () => {
     assert.match(SKILL_LOAD_INSTRUCTION, /spawn_agent/);
 });
 
-test('a missing Codex guidance file is created holding only the skill-load block', (context) => {
+test('a missing Codex guidance file is created holding the skill-load block and the package guidance', (context) => {
     const homes = makeHomes(context);
 
     const writtenPath = writeGuidance(homes);
 
     assert.equal(writtenPath, homes.agentsPath);
-    assert.equal(readFileSync(homes.agentsPath, 'utf8'), EXPECTED_BLOCK);
+    assert.equal(
+        readFileSync(homes.agentsPath, 'utf8'),
+        `${EXPECTED_BLOCK}\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
+    );
 });
 
-test('existing guidance keeps every line and gains the skill-load block first', (context) => {
+test('existing guidance keeps every line between the skill-load block and the package guidance', (context) => {
     const homes = makeHomes(context);
     mkdirSync(homes.codexHome);
     writeFileSync(homes.agentsPath, '# pstack model configuration\n\nbug-fix: gpt-6-astra\n');
@@ -68,7 +73,7 @@ test('existing guidance keeps every line and gains the skill-load block first', 
 
     assert.equal(
         readFileSync(homes.agentsPath, 'utf8'),
-        `${EXPECTED_BLOCK}\n# pstack model configuration\n\nbug-fix: gpt-6-astra\n`,
+        `${EXPECTED_BLOCK}\n# pstack model configuration\n\nbug-fix: gpt-6-astra\n\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
     );
 });
 
@@ -136,6 +141,78 @@ test('a link to a file the package does not own is left alone', (context) => {
     assert.equal(writeGuidance(homes), null);
     assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
     assert.equal(readFileSync(ownGuidancePath, 'utf8'), 'My own Codex notes\n');
+});
+
+function writePackageGuidance(homes) {
+    return writeCodexPackageGuidance(homes.codexHome, PACKAGE_GUIDANCE, homes.allPackageGuidancePaths);
+}
+
+test('package guidance creates a missing Codex file holding only the package block', (context) => {
+    const homes = makeHomes(context);
+
+    assert.equal(writePackageGuidance(homes), homes.agentsPath);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), guidanceBlock(PACKAGE_GUIDANCE));
+});
+
+test('package guidance replaces its block in place and a repeat write changes nothing', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    writeFileSync(homes.agentsPath, `Before\n${guidanceBlock('Old guidance\n')}After\n`);
+
+    assert.equal(writePackageGuidance(homes), homes.agentsPath);
+    const expectedGuidance = `Before\n${guidanceBlock(PACKAGE_GUIDANCE)}After\n`;
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), expectedGuidance);
+    assert.equal(writePackageGuidance(homes), null);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), expectedGuidance);
+});
+
+test('package guidance appends its block after custom notes', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    writeFileSync(homes.agentsPath, 'Custom agents\n');
+
+    writePackageGuidance(homes);
+
+    assert.equal(
+        readFileSync(homes.agentsPath, 'utf8'),
+        `Custom agents\n\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
+    );
+});
+
+for (const linkName of ['retiredGuidancePath', 'sharedGuidancePath']) {
+    test(`package guidance turns a link at ${linkName} into a file with only the package block`, (context) => {
+        const homes = makeHomes(context);
+        mkdirSync(homes.codexHome);
+        symlinkSync(homes[linkName], homes.agentsPath);
+
+        assert.equal(writePackageGuidance(homes), homes.agentsPath);
+        assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), false);
+        assert.equal(readFileSync(homes.agentsPath, 'utf8'), guidanceBlock(PACKAGE_GUIDANCE));
+    });
+}
+
+test('package guidance leaves a link to a file the package does not own unchanged', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    const ownGuidancePath = join(homes.root, 'notes', 'codex.md');
+    mkdirSync(join(homes.root, 'notes'));
+    writeFileSync(ownGuidancePath, 'My own Codex notes\n');
+    symlinkSync(ownGuidancePath, homes.agentsPath);
+
+    assert.equal(writePackageGuidance(homes), null);
+    assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
+    assert.equal(readFileSync(ownGuidancePath, 'utf8'), 'My own Codex notes\n');
+});
+
+test('package guidance leaves an existing directory and its notes unchanged', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.agentsPath, { recursive: true });
+    const notesPath = join(homes.agentsPath, 'notes.md');
+    writeFileSync(notesPath, 'Directory notes\n');
+
+    assert.equal(writePackageGuidance(homes), null);
+    assert.equal(lstatSync(homes.agentsPath).isDirectory(), true);
+    assert.equal(readFileSync(notesPath, 'utf8'), 'Directory notes\n');
 });
 
 test('question guidance creates a missing Codex file and repeat writes preserve bytes', (context) => {
@@ -243,6 +320,37 @@ test('question removal preserves a guidance directory and its notes', (context) 
     assert.equal(removeCodexQuestionGuidance(homes.codexHome), null);
     assert.equal(lstatSync(homes.agentsPath).isDirectory(), true);
     assert.equal(readFileSync(notesPath, 'utf8'), 'Directory notes\n');
+});
+
+test('package and question removal delete a file left with only blank lines', (context) => {
+    const homes = makeHomes(context);
+    writePackageGuidance(homes);
+    writeCodexQuestionGuidance(homes.codexHome, QUESTION_POLICY);
+
+    assert.equal(removeCodexPackageGuidance(homes.codexHome), homes.agentsPath);
+    assert.equal(removeCodexQuestionGuidance(homes.codexHome), homes.agentsPath);
+    assert.equal(lstatSync(homes.agentsPath, { throwIfNoEntry: false }), undefined);
+});
+
+test('package removal keeps the custom text around its block', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    writeFileSync(homes.agentsPath, `Before\n${guidanceBlock(PACKAGE_GUIDANCE)}After\n`);
+
+    assert.equal(removeCodexPackageGuidance(homes.codexHome), homes.agentsPath);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), 'Before\nAfter\n');
+});
+
+test('package removal leaves a linked file and its target unchanged', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    mkdirSync(dirname(homes.sharedGuidancePath), { recursive: true });
+    writeFileSync(homes.sharedGuidancePath, guidanceBlock(PACKAGE_GUIDANCE));
+    symlinkSync(homes.sharedGuidancePath, homes.agentsPath);
+
+    assert.equal(removeCodexPackageGuidance(homes.codexHome), null);
+    assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), true);
+    assert.equal(readFileSync(homes.sharedGuidancePath, 'utf8'), guidanceBlock(PACKAGE_GUIDANCE));
 });
 
 test('question removal leaves a missing guidance file absent', (context) => {

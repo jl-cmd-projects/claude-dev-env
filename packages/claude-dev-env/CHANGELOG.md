@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.32.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.0...claude-dev-env-v8.32.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **install:** write package guidance into Codex AGENTS.md on every full install ([409e587](https://github.com/jl-cmd/claude-dev-env/commit/409e5878a67e6a5bebcb56d12c3aa926c67538d6))
+
 ## [8.32.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.31.1...claude-dev-env-v8.32.0) (2026-10-02)
 
 
