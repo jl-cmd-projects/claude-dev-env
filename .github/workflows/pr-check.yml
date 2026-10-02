@@ -77,10 +77,9 @@ jobs:
       - name: Require a fix to carry a test that fails on the base
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PYTHONPATH: packages/claude-dev-env/_shared/pr-loop/scripts
         run: |
           python packages/claude-dev-env/_shared/pr-loop/scripts/fix_pr_test_proof.py \
             --title "$PR_TITLE" \
-            --base "$BASE_SHA" \
+            --base HEAD^1 \
             --repository-root .
