@@ -89,11 +89,6 @@ function knownAgentsOf(state: State, allOffered: readonly string[], defaults: De
   return [...new Set([...allOffered, ...turnedOffAgentsOf(defaults.agents, state.sessionOverrides.agents ?? {})])].sort()
 }
 
-function statusOf(settings: Settings, sessionOverrides: SessionOverrides): string {
-  const sessionMark = Object.keys(sessionOverrides).length > 0 ? ' (session)' : ''
-  return `subagents: ${settings.defaultModel}/${settings.effort}${sessionMark}`
-}
-
 function denyTextOf(model: string, settings: Settings): string {
   const effortAsk = settings.effort === 'inherit' ? '' : ` and ask for ${settings.effort} effort in the brief`
   return `Subagent model ${model} is turned off. Spawn subagents on ${settings.defaultModel}${effortAsk}.`
@@ -132,11 +127,6 @@ async function sessionState($: StateDollar, defaults: Defaults): Promise<State> 
   return { sessionOverrides, settings, agentSwitchOf }
 }
 
-async function showStatus($: EngineInterface, defaults: Defaults) {
-  const { settings, sessionOverrides } = await sessionState($, defaults)
-  $.ui.status(statusOf(settings, sessionOverrides))
-}
-
 async function setField($: EngineInterface, defaults: Defaults, field: keyof Settings, value: string): Promise<string> {
   const allChoices = ALL_CHOICES[field] as readonly string[]
   if (!allChoices.includes(value)) return `${field} takes ${allChoices.join(', ')}.`
@@ -144,19 +134,16 @@ async function setField($: EngineInterface, defaults: Defaults, field: keyof Set
   const refusal = refusalOf(field, value, settings)
   if (refusal !== undefined) return refusal
   await update($, overrides, current => ({ ...current, [field]: value }))
-  await showStatus($, defaults)
   return `${field} ${value} for this session.`
 }
 
 async function setAgent($: EngineInterface, defaults: Defaults, agent: string, agentSwitch: Switch): Promise<string> {
   await update($, overrides, current => ({ ...current, agents: { ...current.agents, [agent]: agentSwitch } }))
-  await showStatus($, defaults)
   return `agent ${agent} ${agentSwitch} for this session.`
 }
 
 async function resetSession($: EngineInterface, defaults: Defaults): Promise<string> {
   await update($, overrides, () => ({}))
-  await showStatus($, defaults)
   return 'Session values cleared. The /config defaults apply again.'
 }
 
@@ -212,7 +199,7 @@ export const register: Register = (on, options: PluginOptions) => {
       name: PLUGIN,
       description: 'Show or change which models and agent types subagents may run as, and their effort, for this session',
     })
-    await showStatus($, defaults)
+    $.ui.status(undefined)
     return next(e)
   })
 
@@ -250,7 +237,7 @@ export const register: Register = (on, options: PluginOptions) => {
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
 
     return (
-      <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={2} paddingY={1} gap={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={2} gap={1}>
         <Box flexDirection="row" flexWrap="wrap" columnGap={3} rowGap={1} alignItems="center" justifyContent="space-between">
           <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
             <Text bold color={ACCENT}>{`${ICON_MARK} Subagents`}</Text>
@@ -284,7 +271,7 @@ export const register: Register = (on, options: PluginOptions) => {
             </Button>
           </Box>
         </Box>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={4} rowGap={1} alignItems="center">
+        <Box flexDirection="row" flexWrap="wrap" columnGap={3} rowGap={1} alignItems="center">
           <Select
             key="defaultModel"
             label="default"
@@ -301,7 +288,7 @@ export const register: Register = (on, options: PluginOptions) => {
           />
           <Select
             key="offAction"
-            label="off models"
+            label="if off"
             options={optionsOf('offAction')}
             value={settings.offAction}
             onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
@@ -322,14 +309,14 @@ export const register: Register = (on, options: PluginOptions) => {
             key="applyToRunning"
             label={`running ${runningCount}`}
             options={[
-              { value: 'on', label: 'follow effort' },
-              { value: 'off', label: 'keep start effort' },
+              { value: 'on', label: 'follow' },
+              { value: 'off', label: 'pinned' },
             ]}
             value={settings.applyToRunning}
             onSelect={choice => toastAfter($, setField($, defaults, 'applyToRunning', choice))}
           />
           <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
-            apply now
+            apply
           </Button>
         </Box>
       </Box>

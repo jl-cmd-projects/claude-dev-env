@@ -202,10 +202,12 @@ test('no arguments prints the values in force', async ($, on) => {
   expect(answer.text).toMatch(/effort medium/)
 })
 
-test('the status line shows the default model and effort', async ($, on) => {
+test('no command leaves text on the status line', async ($, on) => {
   const world = engine(on)
   await command($ as never, 'effort low')
-  expect(world.statuses.at(-1)).toBe('subagents: opus/low (session)')
+  await command($ as never, 'agent Explore off')
+  await command($ as never, 'reset')
+  expect(world.statuses.filter(text => text !== undefined)).toEqual([])
 })
 
 test('turning an agent type off hides it from the model', async ($, on) => {

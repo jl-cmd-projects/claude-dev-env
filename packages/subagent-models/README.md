@@ -12,7 +12,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 - With `applyToRunning` on, an effort change reaches running subagents on their next request. With it off, each subagent keeps the effort it started with until `apply`, or the bar's `apply now` button, moves them all.
 - A subagent whose model comes from its agent definition is caught on its first request and moved the same way.
 - A fork inherits its parent and passes untouched. So does a spawn that names no model.
-- The status line shows the default model and effort, as `subagents: opus/medium`. It adds `(session)` while this session differs from the defaults.
+- The footer pill shows the default model and effort, as `opus/medium`. A `*` marks a session that differs from the defaults. Clicking it opens or closes the bar.
 
 ## Settings
 
