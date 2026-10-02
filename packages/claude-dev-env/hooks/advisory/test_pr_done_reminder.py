@@ -95,9 +95,24 @@ def _additional_context(stdout_text: str) -> str:
         "git add -A && git commit -F m.txt && git push",
         "git -c push.default=current push",
         "git --git-dir=C:/repo/.git push",
+        "git --git-dir C:/repo/.git push",
+        "git --work-tree C:/repo push",
+        "git --namespace n push",
         'pwsh -NoProfile -Command "git push -u origin feat/x"',
         "pwsh -NoProfile -Command 'gh pr create --draft --fill'",
         'powershell -Command "git add -A; git push"',
+        "pwsh -Command git push origin HEAD",
+        "pwsh -Command git push origin HEAD; echo done",
+        "sudo git push",
+        'bash -c "git push"',
+        "sh -c 'git push'",
+        "bash -lc 'gh pr create --draft --fill'",
+        "env VAR=x git push",
+        "echo origin | xargs git push",
+        "git.exe push origin HEAD",
+        "env -u HOME git push",
+        "timeout --signal KILL 5 git push",
+        "echo origin | xargs -n 1 git push",
     ],
 )
 def test_should_wake_on_git_push_and_gh_pr_create(command: str) -> None:
@@ -116,6 +131,10 @@ def test_should_wake_on_git_push_and_gh_pr_create(command: str) -> None:
         "gh pr ready --undo",
         "echo git push",
         'pwsh -NoProfile -Command "git status"',
+        "pwsh -Command git status",
+        'bash -c "git status"',
+        "sudo cat notes.txt",
+        "rg 'git push' docs",
         "pytest tests/",
     ],
 )
@@ -130,6 +149,58 @@ def test_should_say_done_when_mergeable_and_checks_pass() -> None:
     assert "never a block" in context
     assert "DONE. Add the label now:" in context
     assert "gh pr edit 42 --add-label done" in context
+    assert "NOT DONE" not in context
+
+
+def test_should_say_not_done_when_no_check_has_reported_on_the_head() -> None:
+    no_checks_yet = {**_CLEAN_PR_OBJECT, "statusCheckRollup": []}
+
+    context = pr_done_reminder.build_reminder_context(no_checks_yet)
+
+    assert "CI checks:   none reported yet on this head." in context
+    assert "NOT DONE" in context
+    assert "gh pr edit 42 --add-label" not in context
+
+
+def test_should_say_not_done_when_the_rollup_is_missing() -> None:
+    no_rollup = {key: value for key, value in _CLEAN_PR_OBJECT.items() if key != "statusCheckRollup"}
+
+    context = pr_done_reminder.build_reminder_context(no_rollup)
+
+    assert "none reported yet on this head." in context
+    assert "NOT DONE" in context
+
+
+def test_should_say_not_done_while_a_check_is_pending_on_an_otherwise_green_head() -> None:
+    one_pending = {
+        **_CLEAN_PR_OBJECT,
+        "statusCheckRollup": [
+            {"name": "pytest", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"name": "mypy", "status": "QUEUED", "conclusion": ""},
+        ],
+    }
+
+    context = pr_done_reminder.build_reminder_context(one_pending)
+
+    assert "1 pending" in context
+    assert "NOT DONE" in context
+    assert "gh pr edit 42 --add-label" not in context
+
+
+def test_should_say_done_when_every_reported_check_passed() -> None:
+    all_green = {
+        **_CLEAN_PR_OBJECT,
+        "statusCheckRollup": [
+            {"name": "pytest", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"name": "docs", "status": "COMPLETED", "conclusion": "SKIPPED"},
+            {"context": "lint", "state": "SUCCESS"},
+        ],
+    }
+
+    context = pr_done_reminder.build_reminder_context(all_green)
+
+    assert "CI checks:   0 failing, 0 pending, 3 total" in context
+    assert "Verdict:     DONE. Add the label now:" in context
     assert "NOT DONE" not in context
 
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## [8.33.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.1...claude-dev-env-v8.33.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **hooks:** read a head with no reported checks as not done ([307edd4](https://github.com/jl-cmd/claude-dev-env/commit/307edd4a6ca96a2e0e37166020487b6496445fe8))
+
+## [8.33.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.0...claude-dev-env-v8.33.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **agent-merge-check:** judge an unstable head by each check's newest run ([f34c3e3](https://github.com/jl-cmd/claude-dev-env/commit/f34c3e3e959311f9e74e02302c93422ef29c987d))
+
+## [8.33.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.2...claude-dev-env-v8.33.0) (2026-10-02)
+
+
+### Features
+
+* **hooks:** block a change made on a hedged claim ([d756aeb](https://github.com/jl-cmd/claude-dev-env/commit/d756aeb0d8d600f0f4261453062e22d7c51e9417))
+
+## [8.32.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.1...claude-dev-env-v8.32.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **ci:** judge only the pull request's own tests in Fix test proof ([04c1c1b](https://github.com/jl-cmd/claude-dev-env/commit/04c1c1bd9670b8fcf0ec5860fa4936273afeed48))
+* **ci:** judge only the pull request's own tests in Fix test proof ([fb79e33](https://github.com/jl-cmd/claude-dev-env/commit/fb79e33b5218fd33f8ea1de29e3e7556f4d8bb98))
+
 ## [8.32.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.0...claude-dev-env-v8.32.1) (2026-10-02)
 
 
