@@ -1,10 +1,12 @@
 # Codex accounts
 
-The codex_account_choice picker reads the rate-limit windows of up to four Codex accounts, each signed in under its own Codex home, and names the account and tier a job runs on. [The guide](../../../../packages/claude-dev-env/docs/codex-accounts.md) states the design.
+The codex_account_choice picker reads the rate-limit windows of the roster's Codex accounts, each signed in under its own Codex home, and names the account and tier a job runs on. [The guide](../../../../packages/claude-dev-env/docs/codex-accounts.md) states the design.
 
 ## Sub-features
 
-- Home sync. `scripts/codex_account_choice.py sync` links the shared entries of `~/.codex` into `~/.codex-profiles/codex-1` through `codex-4`.
+- Roster. `CODEX_ACCOUNT_PROFILES`, comma-separated, else `account-launchers.json` under the profiles root, names the accounts in try order. With neither, the accounts are `codex-1` through `codex-4`. `choose`, `sync` and `check` all use it.
+- Home sync. `scripts/codex_account_choice.py sync` links the shared entries of `~/.codex`, `agents` among them, into each roster account's home.
+- Named launchers. `setup` asks for names, saves the roster, and writes `codex-<name>.cmd` with `call codex %*`. `install` reruns it without asking. A name left out at setup has its launcher renamed with a `.replaced-<time>` suffix, and its home stays.
 - Per-account state. Every entry outside `ALL_SHARED_CODEX_HOME_NAMES` stays in each home and is never linked.
 - Meter read. `scripts/codex_account_meters.py` starts `codex app-server` with `CODEX_HOME` set, sends the handshake and `account/rateLimits/read`, and keeps standard input open until the reply lands.
 - Picker. `choose` prints `tier`, `account`, `codex_home`, `percent_left`, `stop_below_percent`, `reason`, and every account's reading.
@@ -13,7 +15,7 @@ The codex_account_choice picker reads the rate-limit windows of up to four Codex
 
 ## How to get to it (user POV)
 
-A user runs `sync` once, then signs each account in with `CODEX_HOME` set to its home and `codex login`. A runner job calls `choose` before it starts Codex, and runs under the `codex_home` it prints.
+A user runs `setup` once, or `sync` with `CODEX_ACCOUNT_PROFILES` set, then signs each account in with `CODEX_HOME` set to its home and `codex login`. A runner job calls `choose` before it starts Codex, and runs under the `codex_home` it prints.
 
 ## Driving it with Python
 
@@ -23,13 +25,15 @@ Run the unit tests from the repository root:
 python -m pytest packages/claude-dev-env/scripts/test_codex_account_choice.py packages/claude-dev-env/scripts/test_codex_account_meters.py -q
 ```
 
+On Windows the run includes `TestCodexLauncher`, which runs a launcher through `cmd` against an npm-shaped `codex.cmd` and reads back `CODEX_HOME`.
+
 Drive the picker against an empty profiles root:
 
 ```powershell
 python packages/claude-dev-env/scripts/codex_account_choice.py --profiles-root <tmp>/profiles choose
 ```
 
-It exits 0 and prints `"tier": "wait"`, the reason `no account meter could be read`, and `not signed in` for all four accounts. That run starts no Codex process.
+With no roster set or saved, it exits 0 and prints `"tier": "wait"`, the reason `no account meter could be read`, and `not signed in` for `codex-1` through `codex-4`. That run starts no Codex process.
 
 Drive the sync against a disposable home:
 
@@ -38,6 +42,15 @@ python packages/claude-dev-env/scripts/codex_account_choice.py --profiles-root <
 ```
 
 Each account lists its shared entries under `linked`. A second run prints empty lists.
+
+Drive the launchers against a disposable home that holds a few shared entries:
+
+```powershell
+$env:CODEX_ACCOUNT_PROFILES = "alpha,beta"
+python packages/claude-dev-env/scripts/codex_account_choice.py --profiles-root <tmp>/profiles install --main-home <tmp>/main --launcher-directory <tmp>/bin
+```
+
+It prints `linked` and `launcher` for `alpha` and `beta`, and writes `codex-alpha.cmd` and `codex-beta.cmd`. A second run prints empty lists. Pipe names into `setup` with the variable unset, one per line, and it prints the saved names, then an `installed` report and a `retired` map naming each dropped launcher.
 
 ## Live meters
 

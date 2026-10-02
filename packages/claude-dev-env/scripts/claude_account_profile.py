@@ -309,8 +309,21 @@ def sync_profile(
     )
 
 
-def _moved_launcher_name(launcher_file_name: str, now: datetime) -> str:
-    return f"{launcher_file_name}{LAUNCHER_REPLACED_SUFFIX}{_stamp(now)}"
+def move_launcher_aside(launcher_path: Path, now: datetime) -> Path:
+    """Rename a launcher to ``<name>.replaced-<time>`` beside it.
+
+    Args:
+        launcher_path: The launcher to move.
+        now: The run time that names the moved launcher.
+
+    Returns:
+        The moved launcher's path.
+    """
+    moved_path = launcher_path.with_name(
+        f"{launcher_path.name}{LAUNCHER_REPLACED_SUFFIX}{_stamp(now)}"
+    )
+    os.replace(launcher_path, moved_path)
+    return moved_path
 
 
 def write_launcher(
@@ -319,6 +332,8 @@ def write_launcher(
     profile_home: Path,
     now: datetime,
     profile_name: str = SECOND_ACCOUNT_PROFILE_NAME,
+    launcher_file_name_template: str = LAUNCHER_FILE_NAME_TEMPLATE,
+    launcher_text_template: str = LAUNCHER_TEXT_TEMPLATE,
 ) -> Path:
     """Write the launcher that runs Claude under a named profile.
 
@@ -333,23 +348,21 @@ def write_launcher(
         profile_home: The named account's Claude home.
         now: The run time that names a moved older launcher.
         profile_name: The name used in the launcher file name.
+        launcher_file_name_template: The launcher file name, with ``{profile_name}``.
+        launcher_text_template: The launcher body, with ``{profile_home}``.
 
     Returns:
         The launcher path.
     """
-    launcher_file_name = LAUNCHER_FILE_NAME_TEMPLATE.format(
+    launcher_path = launcher_directory / launcher_file_name_template.format(
         profile_name=validate_profile_name(profile_name)
     )
-    launcher_path = launcher_directory / launcher_file_name
-    launcher_text = LAUNCHER_TEXT_TEMPLATE.format(profile_home=profile_home)
+    launcher_text = launcher_text_template.format(profile_home=profile_home)
     launcher_bytes = launcher_text.encode(TEXT_ENCODING)
     if launcher_path.is_file() and launcher_path.read_bytes() == launcher_bytes:
         return launcher_path
     if launcher_path.is_file():
-        os.replace(
-            launcher_path,
-            launcher_path.with_name(_moved_launcher_name(launcher_file_name, now)),
-        )
+        move_launcher_aside(launcher_path, now)
     launcher_directory.mkdir(parents=True, exist_ok=True)
     launcher_path.write_bytes(launcher_bytes)
     return launcher_path

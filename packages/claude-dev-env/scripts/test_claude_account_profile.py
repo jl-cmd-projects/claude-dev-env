@@ -46,6 +46,16 @@ class TestDefaultProfileHome:
         assert profile.default_profile_home() == tmp_path / ".claude-profiles" / "ev"
 
 
+class TestValidateProfileName:
+    def test_should_accept_letters_digits_hyphens_and_underscores(self) -> None:
+        assert profile.validate_profile_name("alpha_2-b") == "alpha_2-b"
+
+    @pytest.mark.parametrize("profile_name", ["bad name", "-alpha", "CON", "main", "wait"])
+    def test_should_refuse_an_unsafe_or_reserved_name(self, profile_name: str) -> None:
+        with pytest.raises(ValueError):
+            profile.validate_profile_name(profile_name)
+
+
 class TestIsAccountLocal:
     def test_should_keep_sign_in_state_and_history_local(self) -> None:
         for each_name in (
@@ -210,6 +220,30 @@ class TestWriteLauncher:
             "claude-ev.cmd.replaced-" + NOW.strftime("%Y%m%dT%H%M%SZ")
         )
         assert moved_launcher.read_text(encoding="utf-8") == "old launcher"
+
+    def test_should_write_the_launcher_from_the_callers_templates(
+        self, tmp_path: Path
+    ) -> None:
+        launcher_path = profile.write_launcher(
+            launcher_directory=tmp_path / "bin",
+            profile_home=tmp_path / "alpha",
+            now=NOW,
+            profile_name="alpha",
+            launcher_file_name_template="tool-{profile_name}.cmd",
+            launcher_text_template="home={profile_home}",
+        )
+        assert launcher_path == tmp_path / "bin" / "tool-alpha.cmd"
+        assert launcher_path.read_text(encoding="utf-8") == f"home={tmp_path / 'alpha'}"
+
+
+class TestMoveLauncherAside:
+    def test_should_rename_the_launcher_with_the_run_time(self, tmp_path: Path) -> None:
+        launcher_path = tmp_path / "tool-alpha.cmd"
+        launcher_path.write_text("launcher", encoding="utf-8")
+        moved_path = profile.move_launcher_aside(launcher_path, NOW)
+        assert moved_path == tmp_path / "tool-alpha.cmd.replaced-20260922T210000Z"
+        assert moved_path.read_text(encoding="utf-8") == "launcher"
+        assert not launcher_path.exists()
 
 
 class TestMain:
