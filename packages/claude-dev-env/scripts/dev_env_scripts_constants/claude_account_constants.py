@@ -41,14 +41,6 @@ ALL_WINDOWS_RESERVED_PROFILE_NAMES: frozenset[str] = frozenset(
 ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS: tuple[str, ...] = (".local", "bin")
 """Path parts under the user home of the directory on PATH that holds the launcher."""
 
-LAUNCHER_FILE_NAME_TEMPLATE: str = "claude-{profile_name}.cmd"
-"""File name pattern for a named profile launcher."""
-
-LAUNCHER_FILE_NAME: str = LAUNCHER_FILE_NAME_TEMPLATE.format(
-    profile_name=SECOND_ACCOUNT_PROFILE_NAME
-)
-"""File name of the launcher that runs Claude under the second account."""
-
 CLAUDE_BINARY_NAME: str = "claude"
 """Claude command name looked up on PATH."""
 
@@ -79,7 +71,7 @@ class LauncherProgram:
 CLAUDE_LAUNCHER_PROGRAM: LauncherProgram = LauncherProgram(
     program=CLAUDE_BINARY_NAME,
     environment_variable=CLAUDE_CONFIG_DIR_ENV_VAR,
-    file_name_template=LAUNCHER_FILE_NAME_TEMPLATE,
+    file_name_template="claude-{profile_name}.cmd",
 )
 """Launcher that runs Claude with ``CLAUDE_CONFIG_DIR`` set to the profile home."""
 

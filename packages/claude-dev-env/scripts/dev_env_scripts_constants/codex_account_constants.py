@@ -21,9 +21,6 @@ CODEX_ACCOUNT_LAUNCHERS_FILE_NAME: str = "account-launchers.json"
 CODEX_ACCOUNT_NAME_SEPARATOR: str = ","
 """Separator between account names in the roster environment variable."""
 
-CODEX_LAUNCHER_FILE_NAME_TEMPLATE: str = "codex-{profile_name}.cmd"
-"""File name pattern for one account's Codex launcher."""
-
 SETUP_PROMPT_TEXT: str = "Name for this Codex account launcher (blank to finish): "
 """Prompt the setup command shows for each account name."""
 
@@ -125,7 +122,7 @@ CODEX_BINARY_NAME: str = "codex"
 CODEX_LAUNCHER_PROGRAM: LauncherProgram = LauncherProgram(
     program=CODEX_BINARY_NAME,
     environment_variable=CODEX_HOME_ENVIRONMENT_VARIABLE,
-    file_name_template=CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
+    file_name_template="codex-{profile_name}.cmd",
 )
 """Launcher that runs Codex with ``CODEX_HOME`` set to the account's home."""
 
