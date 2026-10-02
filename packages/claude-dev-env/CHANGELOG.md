@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.33.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.0...claude-dev-env-v8.33.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **agent-merge-check:** judge an unstable head by each check's newest run ([f34c3e3](https://github.com/jl-cmd/claude-dev-env/commit/f34c3e3e959311f9e74e02302c93422ef29c987d))
+
 ## [8.33.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.2...claude-dev-env-v8.33.0) (2026-10-02)
 
 
