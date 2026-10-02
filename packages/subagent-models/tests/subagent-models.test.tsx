@@ -670,3 +670,47 @@ test('sorting by recent groups the skills by age and the stale button turns off 
   expect((await ui.find({ key: 'skills-turn-off-stale' }))?.text).toBe('turn off unused 14d+ (0)')
   await ui.press({ key: 'skills' })
 })
+
+test('dates stored by an earlier session show in the skills listing and the panel without a seed', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  world.store.lastUsed = { tdd: Date.now() - 4 * DAY }
+  expect((await command($ as never, 'skills')).text).toMatch(/pstack:tdd on · 4d ago/)
+  const ui = await openSkillsPanel($ as never)
+  await ui.press({ key: 'skills-sort' })
+  expect(JSON.stringify(await ui.drawn())).toContain('pstack:tdd 4d')
+  await ui.press({ key: 'skills' })
+})
+
+test('a refused skill run does not count as a use', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  await command($ as never, 'skill pstack:why off')
+  expect(await skillText($ as never, 'pstack:why')).toMatch(/turned off/)
+  expect((world.store.lastUsed as Record<string, number> | undefined)?.['pstack:why']).toBeUndefined()
+  expect(await skillText($ as never, 'pstack:tdd')).toBe('skill body')
+  expect((world.store.lastUsed as Record<string, number>)['pstack:tdd']).toBeGreaterThan(0)
+})
+
+test('the unused-after menu offers 14, 28 and 56 days and the stale count follows it', async ($, on) => {
+  const world = engine(on)
+  await command($ as never, 'reset')
+  const now = Date.now()
+  world.files['dates.json'] = JSON.stringify({ lastUsed: { tdd: now - 2 * DAY, simplify: now - 20 * DAY, 'pstack:why': now - 30 * DAY } })
+  await command($ as never, 'seed dates.json')
+  const ui = await openSkillsPanel($ as never)
+  const menu = await ui.find({ key: 'skills-stale-days' })
+  expect(menu?.props.options.map((option: { value: string }) => option.value)).toEqual(['14', '28', '56'])
+  expect(menu?.props.value).toBe('14')
+  const staleLabel = async () => (await ui.find({ key: 'skills-turn-off-stale' }))?.text
+  expect(await staleLabel()).toBe('turn off unused 14d+ (2)')
+  await ui.select({ key: 'skills-stale-days', value: '28' })
+  expect(await staleLabel()).toBe('turn off unused 28d+ (1)')
+  await ui.select({ key: 'skills-stale-days', value: '56' })
+  expect(await staleLabel()).toBe('turn off unused 56d+ (0)')
+  await ui.select({ key: 'skills-stale-days', value: '28' })
+  await ui.press({ key: 'skills-turn-off-stale' })
+  expect(await skillText($ as never, 'pstack:why')).toMatch(/turned off/)
+  expect(await skillText($ as never, 'simplify')).toBe('skill body')
+  await ui.press({ key: 'skills' })
+})

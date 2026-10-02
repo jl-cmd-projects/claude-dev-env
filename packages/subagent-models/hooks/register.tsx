@@ -61,6 +61,10 @@ const lastUsedDates = atom({ plugin: 'subagent-models', key: 'lastUsed' } as con
 
 const isSortedByRecent = atom({ plugin: 'subagent-models', key: 'isSortedByRecent' } as const, false)
 
+const staleDaysPick = atom({ plugin: 'subagent-models', key: 'staleDaysPick' } as const, 0)
+
+const STALE_CHOICES: readonly number[] = [14, 28, 56]
+
 const LAST_USED_KEY = 'lastUsed'
 
 const DAY_MS = 86_400_000
@@ -118,7 +122,7 @@ type State = {
 
 type Group = { title: string; items: { name: string; label: string }[] }
 
-type SkillsView = { isRecent: boolean; staleNames: string[]; staleDays: number }
+type SkillsView = { isRecent: boolean; staleNames: string[]; staleDays: number; staleChoices: number[] }
 
 type PanelData = { state: State; kind: Kind; names: string[]; groups: Group[]; skillsView?: SkillsView }
 
@@ -376,17 +380,20 @@ async function seedFrom($: EngineInterface, path: string): Promise<string> {
   return `Seeded ${Object.keys(incoming).length} names from ${path}. ${newer} newer than what was stored.`
 }
 
-async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, staleDays: number): Promise<PanelData> {
+async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, defaultStaleDays: number): Promise<PanelData> {
   const state = await sessionState($, defaults)
   const names = await panelNamesOf($, defaults, kind)
   const { core } = KIND_DETAILS[kind]
   if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core) }
   const lastUsed = await read($, lastUsedDates)
   const isRecent = await read($, isSortedByRecent)
+  const pick = await read($, staleDaysPick)
+  const staleDays = pick > 0 ? pick : defaultStaleDays
+  const staleChoices = [...new Set([...STALE_CHOICES, defaultStaleDays])].sort((first, second) => first - second)
   const now = Date.now()
   const staleNames = staleNamesOf(names, lastUsed, now, staleDays).filter(name => state.switchOf(kind, name) === 'on')
   const groups = isRecent ? recentGroupsOf(names, lastUsed, now, staleDays) : groupsOf(names, core)
-  return { state, kind, names, groups, skillsView: { isRecent, staleNames, staleDays } }
+  return { state, kind, names, groups, skillsView: { isRecent, staleNames, staleDays, staleChoices } }
 }
 
 async function panelNamesOf($: StateDollar, defaults: Defaults, kind: Kind): Promise<string[]> {
@@ -406,7 +413,10 @@ async function setPanelOpen($: StateDollar, kind: Kind, isOpen: boolean): Promis
 
 async function togglePanel($: EngineInterface, defaults: Defaults, kind: Kind): Promise<void> {
   const wasOpen = await isPanelOpenOf($, kind)
-  if (!wasOpen && kind === 'skills') await refreshSkills($)
+  if (!wasOpen && kind === 'skills') {
+    await refreshSkills($)
+    await loadLastUsed($)
+  }
   const isSide = (await panelNamesOf($, defaults, kind)).length > INLINE_LIMIT
   await setPanelOpen($, kind, !wasOpen)
   if (!isSide) return
@@ -460,7 +470,7 @@ async function toastAfter($: EngineInterface, action: Promise<string>) {
 }
 
 function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellChars: number) => number, hasTitle: boolean, debugText?: string) {
-  const { Box, Text, Button } = ui
+  const { Box, Text, Button, Select } = ui
   const { state, kind, names, groups, skillsView } = data
   const { word, title, empty } = KIND_DETAILS[kind]
   const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
@@ -481,6 +491,15 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
           <Button key="skills-sort" dimColor onPress={() => update($, isSortedByRecent, current => !current)}>
             {skillsView.isRecent ? 'sort: recent' : 'sort: name'}
           </Button>
+        )}
+        {skillsView !== undefined && (
+          <Select
+            key="skills-stale-days"
+            label="unused after"
+            options={skillsView.staleChoices.map(days => ({ value: String(days), label: `${days} days` }))}
+            value={String(skillsView.staleDays)}
+            onSelect={choice => update($, staleDaysPick, () => Number(choice))}
+          />
         )}
         {skillsView !== undefined && (
           <Button key="skills-turn-off-stale" dimColor onPress={() => toastAfter($, setAllSwitches($, kind, skillsView.staleNames, 'off'))}>
@@ -548,7 +567,6 @@ export const register: Register = (on, options: PluginOptions) => {
   const staleDays = Number.isInteger(configuredStaleDays) && configuredStaleDays > 0 ? configuredStaleDays : DEFAULT_STALE_DAYS
 
   on('session.start', async ($, e, next) => {
-    await loadLastUsed($)
     await $.command.register({
       name: PLUGIN,
       description: 'Show or change which models, agent types and skills subagents may use, and their effort, for this session',
@@ -568,6 +586,7 @@ export const register: Register = (on, options: PluginOptions) => {
       if (word === 'agents') return { text: kindListingOf('agents', state, await read($, offeredAgents)) }
       if (word === 'skills') {
         await refreshSkills($)
+        await loadLastUsed($)
         return { text: kindListingOf('skills', state, await read($, knownSkills), await read($, lastUsedDates)) }
       }
       if (word === 'bar') {
@@ -748,9 +767,9 @@ export const register: Register = (on, options: PluginOptions) => {
   on('skill.prompt', async ($, e, next) => {
     const allSeen = await read($, knownSkills)
     if (!allSeen.includes(e.skill)) await update($, knownSkills, current => [...current, e.skill].sort())
-    await recordUse($, e.skill)
     const { merged } = await sessionState($, defaults)
     if (isSkillOff(merged.skills, e.skill)) return { text: skillOffTextOf(e.skill) }
+    await recordUse($, e.skill)
     return next(e)
   })
 

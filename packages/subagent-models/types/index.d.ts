@@ -39,6 +39,7 @@ declare module 'claude-code' {
       knownSkills: readonly string[]
       lastUsed: LastUsed
       isSortedByRecent: boolean
+      staleDaysPick: number
     }
   }
 }
