@@ -401,18 +401,15 @@ jobs:
         run: |
           $windowsSemanticsListPath = '.github/ci/windows-semantics-node-ids.txt'
           $allSelectedNodeIds = [System.Collections.Generic.List[string]]::new()
-          $expectedSelectedCount = 0
           foreach ($eachRawLine in Get-Content -LiteralPath $windowsSemanticsListPath) {
             $eachNodeId = $eachRawLine -replace "`r", ''
             if ([string]::IsNullOrWhiteSpace($eachNodeId)) { continue }
             if ($eachNodeId.StartsWith('#')) { continue }
             $allSelectedNodeIds.Add($eachNodeId)
-            $expectedSelectedCount++
           }
           $selectedCount = $allSelectedNodeIds.Count
-          Write-Host "selected count=$selectedCount expected non-comment lines=$expectedSelectedCount"
-          if ($selectedCount -ne $expectedSelectedCount) {
-            throw "selected count ($selectedCount) != expected non-comment line count ($expectedSelectedCount)"
+          if ($selectedCount -eq 0) {
+            throw "$windowsSemanticsListPath lists no node IDs"
           }
           Write-Host "selected count=$selectedCount"
           & python -m pytest @($allSelectedNodeIds.ToArray()) -q
