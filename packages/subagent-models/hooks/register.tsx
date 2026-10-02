@@ -38,6 +38,10 @@ const ON_MARK = '●'
 
 const OFF_MARK = '○'
 
+const MINIMIZE_MARK = '▾'
+
+const EXPAND_MARK = '▴'
+
 type Defaults = { settings: Settings; agents: AgentSwitches }
 
 type State = { sessionOverrides: SessionOverrides; settings: Settings; agentSwitchOf: (agent: string) => Switch }
@@ -187,11 +191,6 @@ async function effortFor($: StateDollar, settings: Settings, agentId: string, re
 }
 
 
-async function hideBar($: EngineInterface): Promise<string> {
-  await update($, isBarOpen, () => false)
-  return 'Subagent bar hidden. /subagent-models bar brings it back.'
-}
-
 async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
@@ -224,7 +223,7 @@ export const register: Register = (on, options: PluginOptions) => {
       if (word === 'agents') return { text: agentListingOf(state, await read($, offeredAgents), defaults) }
       if (word === 'bar') {
         const isOpen = await update($, isBarOpen, current => !current)
-        return { text: isOpen ? 'Subagent bar shown above the prompt.' : 'Subagent bar hidden.' }
+        return { text: isOpen ? 'Subagent bar expanded.' : 'Subagent bar minimized.' }
       }
     }
     if (word === 'agent') {
@@ -237,19 +236,28 @@ export const register: Register = (on, options: PluginOptions) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey || e.surface === 'mobile' || !(await read($, isBarOpen))) return next(e)
+    if (e.props.hasSurvey || e.surface === 'mobile') return next(e)
     const { Box, Text, Button, Select } = $.ui.resolve(e)
     const state = await sessionState($, defaults)
     const { settings } = state
+    if (!(await read($, isBarOpen))) {
+      return (
+        <Box flexDirection="row" paddingX={1}>
+          <Button key="expand" dimColor onPress={() => update($, isBarOpen, () => true)}>
+            {`${EXPAND_MARK} Subagents ${settings.defaultModel}/${settings.effort}${Object.keys(state.sessionOverrides).length > 0 ? ' (session)' : ''}`}
+          </Button>
+        </Box>
+      )
+    }
     const allAgents = knownAgentsOf(state, await read($, offeredAgents), defaults)
     const turnedOffCount = allAgents.filter(agent => state.agentSwitchOf(agent) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
 
     return (
-      <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center" justifyContent="space-between">
-          <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+      <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={2} paddingY={1} gap={1}>
+        <Box flexDirection="row" flexWrap="wrap" columnGap={3} rowGap={1} alignItems="center" justifyContent="space-between">
+          <Box flexDirection="row" flexWrap="wrap" columnGap={2} rowGap={1} alignItems="center">
             <Text bold>Subagents</Text>
             <Text dimColor>models</Text>
             {ALL_FAMILIES.map(family => (
@@ -262,7 +270,7 @@ export const register: Register = (on, options: PluginOptions) => {
               </Button>
             ))}
           </Box>
-          <Box flexDirection="row" columnGap={1} alignItems="center">
+          <Box flexDirection="row" columnGap={2} alignItems="center">
             <Select
               key="more"
               options={[
@@ -276,12 +284,12 @@ export const register: Register = (on, options: PluginOptions) => {
                 if (choice === 'reset') void toastAfter($, resetSession($, defaults))
               }}
             />
-            <Button key="hide" role="dismiss" dimColor onPress={() => toastAfter($, hideBar($))}>
-              hide
+            <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
+              {`${MINIMIZE_MARK} minimize`}
             </Button>
           </Box>
         </Box>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={2} alignItems="center">
+        <Box flexDirection="row" flexWrap="wrap" columnGap={4} rowGap={1} alignItems="center">
           <Select
             key="defaultModel"
             label="default"
