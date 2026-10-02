@@ -77,13 +77,17 @@ const SIDE_CLOSED_MARK = '▸'
 
 const MIN_CELL_CHARS = 14
 
+const MAX_CELL_CHARS = 34
+
 const CELL_PADDING = 2
 
 const COLUMN_GAP = 2
 
 const BAR_COLUMNS = 4
 
-const BAR_CELL_CHARS = 22
+const BAR_CELL_CHARS = 18
+
+const BAR_COLUMN_GAP = 1
 
 const INLINE_LIMIT = 16
 
@@ -163,7 +167,14 @@ function chipLabelOf(isOn: boolean, label: string): string {
 }
 
 function cellCharsOf(labels: readonly string[]): number {
-  return Math.max(MIN_CELL_CHARS, ...labels.map(label => chipLabelOf(true, label).length)) + CELL_PADDING
+  return Math.min(MAX_CELL_CHARS, Math.max(MIN_CELL_CHARS, ...labels.map(label => chipLabelOf(true, label).length)) + CELL_PADDING)
+}
+
+function fitLabelOf(label: string, cellChars: number): string {
+  const room = cellChars - CELL_PADDING - chipLabelOf(true, '').length
+  if (label.length <= room) return label
+  const tail = Math.ceil((room - 1) * 0.6)
+  return `${label.slice(0, room - 1 - tail)}…${label.slice(label.length - tail)}`
 }
 
 function cellOf(ui: Ui, key: string, cellChars: number, child: unknown) {
@@ -370,7 +381,7 @@ function panelOf($: EngineInterface, ui: Ui, state: State, kind: Kind, names: re
                       variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
                       onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
                     >
-                      {chipLabelOf(state.switchOf(kind, item.name) === 'on', item.label)}
+                      {chipLabelOf(state.switchOf(kind, item.name) === 'on', fitLabelOf(item.label, cellChars))}
                     </Button>,
                   ),
                 )}
@@ -444,7 +455,7 @@ export const register: Register = (on, options: PluginOptions) => {
     const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
     const barCell = (key: string, child: unknown) => cellOf(ui, key, BAR_CELL_CHARS, child)
     const gridRowOf = (key: string, cells: unknown[]) => (
-      <Box key={key} flexDirection="row" columnGap={COLUMN_GAP}>
+      <Box key={key} flexDirection="row" columnGap={BAR_COLUMN_GAP}>
         {cells}
       </Box>
     )
