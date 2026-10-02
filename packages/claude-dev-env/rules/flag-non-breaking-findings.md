@@ -84,7 +84,7 @@ escalates rather than opening one more quiet pull request. The number is the
 repository's setting, and raising or lowering it is one edit there.
 
 The `/fix-followups` command drives the whole pass: it reads the brief, fixes
-each rule group, opens a draft pull request, and clears the ledger.
+each rule group, opens a pull request, and clears the ledger.
 
 ## Worked example
 

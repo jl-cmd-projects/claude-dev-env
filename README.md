@@ -127,7 +127,7 @@ Behavioral rules loaded into every session.
 | `falsify-before-green` | A check's green counts once that check ran red on a named break |
 | `filesystem-search` | Every filesystem search names a scope |
 | `gh-cli-conventions` | Body content travels by file; paginated reads slurp before they filter |
-| `git-workflow` | Draft PRs, stacked PR patterns, review-response protocol |
+| `git-workflow` | Ready-for-review PRs, stacked PR patterns, review-response protocol |
 | `long-horizon-autonomy` | Carry a long or unwatched run to completion |
 | `no-contrast-framing` | State what is true; the rejected reading stays out |
 | `no-cross-skill-duplicate-helpers` | A helper copied between two skill folders is a deliberate choice |
