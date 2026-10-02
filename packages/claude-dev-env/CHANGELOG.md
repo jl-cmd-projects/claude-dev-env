@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.32.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.1...claude-dev-env-v8.32.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **ci:** judge only the pull request's own tests in Fix test proof ([04c1c1b](https://github.com/jl-cmd/claude-dev-env/commit/04c1c1bd9670b8fcf0ec5860fa4936273afeed48))
+* **ci:** judge only the pull request's own tests in Fix test proof ([fb79e33](https://github.com/jl-cmd/claude-dev-env/commit/fb79e33b5218fd33f8ea1de29e3e7556f4d8bb98))
+
 ## [8.32.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.0...claude-dev-env-v8.32.1) (2026-10-02)
 
 
