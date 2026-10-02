@@ -1,5 +1,6 @@
 import io
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -167,6 +168,19 @@ def test_should_allow_a_write_after_clean_reasoning(
         ("Bash", "gh api repos/o/r/pulls/12"),
         ("Bash", "git status 2>&1"),
         ("Bash", "git log --oneline > /dev/null"),
+        ("Bash", "cat notes.txt"),
+        ("Bash", "cat touch.txt"),
+        ("Bash", "ls -la"),
+        ("Bash", "ls mkdir_notes"),
+        ("Bash", "grep -rn rm src"),
+        ("Bash", 'grep -n "cp " notes.md'),
+        ("Bash", "git status"),
+        ("Bash", "git diff"),
+        ("Bash", "git diff -- cp.py"),
+        ("Bash", "gh pr view 12"),
+        ("Bash", "sed -n 1,5p notes.txt"),
+        ("Bash", "sed --silent 1p notes.txt"),
+        ("Bash", "git log --oneline -- rm.py"),
     ],
 )
 def test_should_pass_a_read_only_command_untouched(
@@ -198,6 +212,28 @@ def test_should_pass_a_read_only_command_untouched(
         ("PowerShell", "Remove-Item -Force C:/scratch/x.txt"),
         ("PowerShell", "set-content x.txt 'y'"),
         ("Bash", "echo hi > notes.txt"),
+        ("Bash", "rm notes.txt"),
+        ("Bash", "rm -rf build"),
+        ("Bash", "rmdir out"),
+        ("Bash", "unlink link.txt"),
+        ("Bash", "touch notes.txt"),
+        ("Bash", "cp source.txt notes.txt"),
+        ("Bash", "mv old.txt new.txt"),
+        ("Bash", "mkdir -p out"),
+        ("Bash", "echo hi | tee notes.txt"),
+        ("Bash", "sed -i 's/a/b/' notes.txt"),
+        ("Bash", "sed -i.bak 's/a/b/' notes.txt"),
+        ("Bash", "sed -e 's/a/b/' -i notes.txt"),
+        ("Bash", "sed --in-place 's/a/b/' notes.txt"),
+        ("Bash", "ln notes.txt link.txt"),
+        ("Bash", "ln -s target link"),
+        ("Bash", "ln -sf target link"),
+        ("Bash", "git status && rm notes.txt"),
+        ("Bash", "sudo rm notes.txt"),
+        ("Bash", "find . -name '*.tmp' | xargs rm"),
+        ("Bash", "/bin/rm notes.txt"),
+        ("PowerShell", "rm C:/scratch/x.txt"),
+        ("PowerShell", "mkdir out"),
     ],
 )
 def test_should_block_a_mutating_command_after_hedged_reasoning(
@@ -216,7 +252,15 @@ def test_should_block_a_mutating_command_after_hedged_reasoning(
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["Edit", "MultiEdit", "NotebookEdit", "Agent", "Task", "mcp__gmail__send_message"],
+    [
+        "Edit",
+        "MultiEdit",
+        "NotebookEdit",
+        "Agent",
+        "Task",
+        "apply_patch",
+        "mcp__gmail__send_message",
+    ],
 )
 def test_should_block_each_always_mutating_tool_after_hedged_reasoning(
     monkeypatch: pytest.MonkeyPatch,
@@ -228,6 +272,28 @@ def test_should_block_each_always_mutating_tool_after_hedged_reasoning(
     exit_code, stdout_text = run_hook(monkeypatch, capsys, tool_name, {}, transcript_path)
     assert exit_code == 0
     assert json.loads(stdout_text)["decision"] == "block"
+
+
+def test_should_register_a_matcher_covering_every_mutating_tool_name() -> None:
+    hooks_configuration = json.loads(
+        (Path(__file__).resolve().parent.parent / "hooks.json").read_text(encoding="utf-8")
+    )
+    all_matchers = [
+        each_entry["matcher"]
+        for each_entry in hooks_configuration["hooks"]["PostToolUse"]
+        if any(
+            "verify_before_acting.py" in each_hook["command"] for each_hook in each_entry["hooks"]
+        )
+    ]
+    assert len(all_matchers) == 1
+    matcher_pattern = re.compile(all_matchers[0])
+    all_expected_names = (
+        verify_before_acting.ALL_ALWAYS_MUTATING_TOOL_NAMES
+        | verify_before_acting.ALL_SHELL_TOOL_NAMES
+    )
+    assert {
+        each_name for each_name in all_expected_names if not matcher_pattern.fullmatch(each_name)
+    } == set()
 
 
 @pytest.mark.parametrize("tool_name", ["TodoWrite", "TaskUpdate", "Read", "mcp__gmail__get_thread"])

@@ -72,6 +72,7 @@ from hooks_constants.verify_before_acting_constants import (
     OUTCOME_ALLOWED_CLEAN,
     OUTCOME_BLOCKED,
     OUTCOME_REASONING_UNSEEN,
+    QUOTE_LEAD_LENGTH,
     REASON_KEY,
     SENTENCE_SPLIT_PATTERN,
     THINKING_BLOCK_TYPE,
@@ -112,25 +113,25 @@ def _parsed_record(transcript_line: str) -> dict[str, object] | None:
     return parsed_line if isinstance(parsed_line, dict) else None
 
 
-def _message_of(record: dict[str, object] | None) -> dict[str, object]:
-    message = record.get(MESSAGE_KEY) if record is not None else None
+def _message_of(all_record_fields: dict[str, object] | None) -> dict[str, object]:
+    message = all_record_fields.get(MESSAGE_KEY) if all_record_fields is not None else None
     return message if isinstance(message, dict) else {}
 
 
-def _content_blocks(record: dict[str, object] | None) -> list[dict[str, object]]:
-    all_content = _message_of(record).get(CONTENT_KEY)
+def _content_blocks(all_record_fields: dict[str, object] | None) -> list[dict[str, object]]:
+    all_content = _message_of(all_record_fields).get(CONTENT_KEY)
     if not isinstance(all_content, list):
         return []
     return [each_block for each_block in all_content if isinstance(each_block, dict)]
 
 
 def _thinking_texts(all_blocks: list[dict[str, object]]) -> list[str]:
-    return [
-        each_block[THINKING_TEXT_KEY]
+    all_thinking_values = [
+        each_block.get(THINKING_TEXT_KEY)
         for each_block in all_blocks
         if each_block.get(BLOCK_TYPE_KEY) == THINKING_BLOCK_TYPE
-        and isinstance(each_block.get(THINKING_TEXT_KEY), str)
     ]
+    return [each_value for each_value in all_thinking_values if isinstance(each_value, str)]
 
 
 def _tool_use_position(all_blocks: list[dict[str, object]], tool_use_id: str) -> int | None:
@@ -199,7 +200,7 @@ def _quoted_excerpt(sentence: str, hedge_start: int) -> str:
     if len(sentence) <= MAXIMUM_QUOTE_LENGTH:
         return sentence
     window_start = max(
-        0, min(hedge_start - MAXIMUM_QUOTE_LENGTH // 2, len(sentence) - MAXIMUM_QUOTE_LENGTH)
+        0, min(hedge_start - QUOTE_LEAD_LENGTH, len(sentence) - MAXIMUM_QUOTE_LENGTH)
     )
     window_end = window_start + MAXIMUM_QUOTE_LENGTH
     leading_marker = TRIM_MARKER if window_start > 0 else ""
@@ -208,7 +209,7 @@ def _quoted_excerpt(sentence: str, hedge_start: int) -> str:
 
 
 def first_hedge_sentence(reasoning: str) -> str | None:
-    """Return the sentence holding the first hedge, trimmed around it, or None."""
+    """Return the first hedge sentence, trimmed around its hedge phrase, or None."""
     for each_sentence in SENTENCE_SPLIT_PATTERN.split(reasoning):
         normalized_sentence = WHITESPACE_RUN_PATTERN.sub(WORD_SEPARATOR, each_sentence).strip()
         hedge_match = HEDGE_PATTERN.search(normalized_sentence)
@@ -218,7 +219,7 @@ def first_hedge_sentence(reasoning: str) -> str | None:
 
 
 def _log_decision(
-    tool_name: str, tool_use_id: object, outcome: str, hedge_sentence: str | None = None
+    tool_name: str, tool_use_id: object, outcome: str, hedge_sentence: str | None
 ) -> None:
     try:
         log_path = Path.home() / DECISION_LOG_RELATIVE_PATH
@@ -240,34 +241,17 @@ def _log_decision(
         pass
 
 
-def _call_reasoning(hook_input: dict[str, object]) -> str | None:
-    tool_use_id = hook_input.get(TOOL_USE_ID_KEY)
+def _call_reasoning(all_hook_fields: dict[str, object]) -> str | None:
+    tool_use_id = all_hook_fields.get(TOOL_USE_ID_KEY)
     if not isinstance(tool_use_id, str) or not tool_use_id:
         return None
-    all_transcript_lines = _transcript_lines(hook_input.get(TRANSCRIPT_PATH_KEY))
+    all_transcript_lines = _transcript_lines(all_hook_fields.get(TRANSCRIPT_PATH_KEY))
     if all_transcript_lines is None:
         return None
     return acting_reasoning(all_transcript_lines, tool_use_id)
 
 
-def main() -> int:
-    hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None:
-        return ALLOW_EXIT_CODE
-    tool_name = hook_input.get(TOOL_NAME_KEY)
-    if not isinstance(tool_name, str) or not is_mutating_call(
-        tool_name, hook_input.get(TOOL_INPUT_KEY)
-    ):
-        return ALLOW_EXIT_CODE
-    tool_use_id = hook_input.get(TOOL_USE_ID_KEY)
-    reasoning = _call_reasoning(hook_input)
-    if reasoning is None or not reasoning.strip():
-        _log_decision(tool_name, tool_use_id, OUTCOME_REASONING_UNSEEN)
-        return ALLOW_EXIT_CODE
-    hedge_sentence = first_hedge_sentence(reasoning)
-    if hedge_sentence is None:
-        _log_decision(tool_name, tool_use_id, OUTCOME_ALLOWED_CLEAN)
-        return ALLOW_EXIT_CODE
+def _emit_block(tool_name: str, tool_use_id: object, hedge_sentence: str) -> None:
     block_reason = BLOCK_REASON_TEMPLATE.format(tool_name=tool_name, hedge_sentence=hedge_sentence)
     _log_decision(tool_name, tool_use_id, OUTCOME_BLOCKED, hedge_sentence)
     log_hook_block(
@@ -283,6 +267,27 @@ def main() -> int:
         HOOK_SPECIFIC_OUTPUT_KEY: {HOOK_EVENT_NAME_KEY: POST_TOOL_USE_HOOK_EVENT_NAME},
     }
     sys.stdout.write(json.dumps(block_payload))
+
+
+def main() -> int:
+    hook_input = read_hook_input_dictionary_from_stdin()
+    if hook_input is None:
+        return ALLOW_EXIT_CODE
+    tool_name = hook_input.get(TOOL_NAME_KEY)
+    if not isinstance(tool_name, str) or not is_mutating_call(
+        tool_name, hook_input.get(TOOL_INPUT_KEY)
+    ):
+        return ALLOW_EXIT_CODE
+    tool_use_id = hook_input.get(TOOL_USE_ID_KEY)
+    reasoning = _call_reasoning(hook_input)
+    if reasoning is None or not reasoning.strip():
+        _log_decision(tool_name, tool_use_id, OUTCOME_REASONING_UNSEEN, None)
+        return ALLOW_EXIT_CODE
+    hedge_sentence = first_hedge_sentence(reasoning)
+    if hedge_sentence is None:
+        _log_decision(tool_name, tool_use_id, OUTCOME_ALLOWED_CLEAN, None)
+        return ALLOW_EXIT_CODE
+    _emit_block(tool_name, tool_use_id, hedge_sentence)
     return ALLOW_EXIT_CODE
 
 

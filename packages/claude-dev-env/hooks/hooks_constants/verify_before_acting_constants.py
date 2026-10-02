@@ -2,6 +2,8 @@
 
 import re
 
+from hooks_constants.tool_names import APPLY_PATCH_TOOL_NAME
+
 ALLOW_EXIT_CODE = 0
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
@@ -21,7 +23,7 @@ TRANSCRIPT_DECODE_ERRORS = "replace"
 THINKING_JOINER = "\n"
 
 ALL_ALWAYS_MUTATING_TOOL_NAMES = frozenset(
-    {"Write", "Edit", "MultiEdit", "NotebookEdit", "Agent", "Task"}
+    {"Write", "Edit", "MultiEdit", "NotebookEdit", "Agent", "Task", APPLY_PATCH_TOOL_NAME}
 )
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 MCP_TOOL_PREFIX = "mcp__"
@@ -70,6 +72,11 @@ ALL_MUTATING_COMMAND_PATTERNS = (
     re.compile(
         r"(?<![<>=-])\d?>{1,2}(?![>&=])\s*(?!/dev/null\b|\$null\b|nul\b)(?=\S)", re.IGNORECASE
     ),
+    re.compile(
+        r"(?:^|[;&|(\n`])\s*(?:sudo\s+)?(?:xargs(?:\s+-\S+)*\s+)?(?:\S*/)?"
+        r"(?:rm|rmdir|unlink|touch|cp|mv|mkdir|tee|ln)(?=\s|$)"
+    ),
+    re.compile(r"\bsed\b[^\n;|&]*?\s(?:-[a-zA-Z]*i\S*|--in-place\b)"),
 )
 
 ALL_HEDGE_PHRASES = (
@@ -100,6 +107,7 @@ SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+|\n+")
 WHITESPACE_RUN_PATTERN = re.compile(r"\s+")
 WORD_SEPARATOR = " "
 MAXIMUM_QUOTE_LENGTH = 160
+QUOTE_LEAD_LENGTH = MAXIMUM_QUOTE_LENGTH // 2
 TRIM_MARKER = "..."
 
 DECISION_KEY = "decision"
