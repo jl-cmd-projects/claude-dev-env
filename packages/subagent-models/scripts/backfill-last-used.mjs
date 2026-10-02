@@ -9,6 +9,10 @@ const COMMAND_PREFIXES = ['<command-message>', '<command-name>']
 
 const COMMAND_NAME_PATTERN = /<command-name>\/?([^<\s]+)<\/command-name>/
 
+function withoutLeadingSlash(name) {
+  return name.startsWith('/') ? name.slice(1) : name
+}
+
 export function skillNameOf(line) {
   if (!line.includes('"name":"Skill"') && !line.includes('<command-name>')) return undefined
   let entry
@@ -20,7 +24,7 @@ export function skillNameOf(line) {
   const content = entry?.message?.content
   if (entry.type === 'assistant' && Array.isArray(content)) {
     const call = content.find(block => block?.type === 'tool_use' && block.name === 'Skill' && typeof block.input?.skill === 'string')
-    return call?.input.skill.replace(/^\//, '')
+    return call === undefined ? undefined : withoutLeadingSlash(call.input.skill)
   }
   if (entry.type === 'user' && !entry.isMeta) {
     const text = typeof content === 'string' ? content : Array.isArray(content) && content[0]?.type === 'text' ? content[0].text : ''
@@ -102,10 +106,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(2)
   }
   const chosen = (roots.length > 0 ? roots : defaultRoots()).filter(root => !excluded.some(text => root.toLowerCase().includes(text)))
-  const result = await backfill(chosen)
-  writeFileSync(out, `${JSON.stringify(result, null, 2)}\n`)
-  for (const { root, files, uses, aliasOf } of result.roots) {
+  const summary = await backfill(chosen)
+  writeFileSync(out, `${JSON.stringify(summary, null, 2)}\n`)
+  for (const { root, files, uses, aliasOf } of summary.roots) {
     console.log(aliasOf === undefined ? `${root}: ${files} transcripts, ${uses} skill runs` : `${root}: same folder as ${aliasOf}, skipped`)
   }
-  console.log(`${Object.keys(result.lastUsed).length} names written to ${out}`)
+  console.log(`${Object.keys(summary.lastUsed).length} names written to ${out}`)
 }

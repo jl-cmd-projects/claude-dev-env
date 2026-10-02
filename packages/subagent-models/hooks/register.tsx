@@ -384,7 +384,7 @@ async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, defau
   const state = await sessionState($, defaults)
   const names = await panelNamesOf($, defaults, kind)
   const { core } = KIND_DETAILS[kind]
-  if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core) }
+  if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core), skillsView: undefined }
   const lastUsed = await read($, lastUsedDates)
   const isRecent = await read($, isSortedByRecent)
   const pick = await read($, staleDaysPick)
