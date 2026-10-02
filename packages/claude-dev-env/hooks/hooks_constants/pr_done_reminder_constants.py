@@ -87,7 +87,7 @@ VERDICT_DONE: str = "DONE. Add the label now:"
 VERDICT_NOT_DONE: str = "NOT DONE. Do not add the done label yet."
 NO_PULL_REQUEST_REMINDER: str = (
     "=== PR DONE CHECKLIST (context reminder, never a block) ===\n"
-    "No open pull request found for this branch. Open a draft PR with gh pr create --draft.\n"
+    "No open pull request found for this branch. Open a pull request with gh pr create.\n"
     "A branch is done only when its PR has clean CI, no merge conflicts, and the done label."
 )
 RECHECK_COMMAND_TEMPLATE: str = (

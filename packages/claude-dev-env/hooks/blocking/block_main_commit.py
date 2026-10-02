@@ -164,11 +164,11 @@ def parse_bash_command_from_stdin() -> str:
     return bash_command
 
 
-DRAFT_PR_INSTRUCTION = (
+PULL_REQUEST_INSTRUCTION = (
     " Instead: (1) create a feature branch with `git checkout -b <descriptive-branch-name>`, "
     "(2) commit your changes there, "
     "(3) push with `git push -u origin <branch-name>`, "
-    "(4) create a draft PR with `gh pr create --draft`. "
+    "(4) open a pull request with `gh pr create`. "
     "If you must commit to main, the user needs to approve explicitly."
 )
 
@@ -177,7 +177,7 @@ def build_denial_response(branch_name: str, repo_dir: str | None) -> dict:
     location = f" in {repo_dir}" if repo_dir else ""
     denial_reason = (
         f"BLOCKED: Direct commit to '{branch_name}'{location} is not allowed."
-        + DRAFT_PR_INSTRUCTION
+        + PULL_REQUEST_INSTRUCTION
     )
 
     return {
