@@ -81,7 +81,7 @@ test('uninstall removes question-only Codex guidance', (context) => {
     assert.equal(existsSync(codexGuidancePath), false);
 });
 
-test('uninstall removes the question block and preserves surrounding custom guidance', (context) => {
+test('uninstall removes the managed blocks and preserves surrounding custom guidance', (context) => {
     const homeDirectory = makeScratchHome(context);
     const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
     mkdirSync(dirname(codexGuidancePath), { recursive: true });
@@ -94,7 +94,7 @@ test('uninstall removes the question block and preserves surrounding custom guid
     const removal = installInScratchHome(homeDirectory, ['--uninstall']);
 
     assert.equal(removal.status, 0, removal.stdout + removal.stderr);
-    assert.equal(readFileSync(codexGuidancePath, 'utf8'), `${customGuidance}\nTrailing notes\n`);
+    assert.equal(readFileSync(codexGuidancePath, 'utf8'), `${customGuidance}\n\nTrailing notes\n`);
 });
 
 for (const eachPriorGuidance of [null, '# Personal guidance\n']) {

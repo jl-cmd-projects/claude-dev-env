@@ -53,8 +53,10 @@ import {
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
+    removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     writeCodexAgentsGuidance,
+    writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
 import {
@@ -2606,7 +2608,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     ];
 
     const allInstalledFiles = [];
-    const allQuestionGuidancePaths = [];
+    const allCodexGuidancePaths = [];
     const allUserOwnedPreferencePaths = new Set();
     const summary = {};
     for (const directory of CONTENT_DIRECTORIES) {
@@ -2758,6 +2760,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.log(`  Pstack: retired release store removed from ${retiredPstack.removedStorePath}`);
         }
     }
+    const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
+    const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
     if (!selectedGroups && shouldInstallPstackPlugin()) {
         const pstackPlugin = installPstackPluginForHosts();
         summary.pstackPlugin = pstackPlugin;
@@ -2773,8 +2777,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             }
             const skillLoadGuidancePath = writeCodexAgentsGuidance(
                 INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-                readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8'),
-                [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')],
+                packageGuidanceText,
+                allPackageGuidancePaths,
             );
             if (skillLoadGuidancePath) {
                 console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
@@ -2787,13 +2791,22 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         }
     }
     if (!selectedGroups) {
+        const packageGuidancePath = writeCodexPackageGuidance(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            packageGuidanceText,
+            allPackageGuidancePaths,
+        );
+        if (packageGuidancePath) {
+            allCodexGuidancePaths.push(packageGuidancePath);
+            console.log(`  \u2713 ${packageGuidancePath} (Codex package guidance)`);
+        }
         const questionGuidancePath = writeCodexQuestionGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
         );
-        if (questionGuidancePath) allQuestionGuidancePaths.push(questionGuidancePath);
+        if (questionGuidancePath) allCodexGuidancePaths.push(questionGuidancePath);
     }
-    syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
+    syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
     throwIfFault(FAULT_PHASES.BEFORE_DURABLE_PROMOTION);
     const shouldInstallAnyHooks = shouldInstallAllHooks || (allowedHookFiles && allowedHookFiles.size > 0);
@@ -2834,7 +2847,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         summary.hookGroups = totalHookGroups;
         summary.codexHookGroups = totalCodexHookGroups;
         console.log(`  Hook groups: ${totalHookGroups} merged into settings.json, ${totalCodexHookGroups} merged into hooks.json`);
-        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
         console.warn(
@@ -2856,7 +2869,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.warn(`  Git hooks: ${gitHookInstallationResult.hooksPathConfigurationResult.reason}`);
         }
         console.log(`  Git hook shims: ${gitHookInstallationResult.createdShimPaths.length} files (${KNOWN_GIT_HOOK_NAMES.join(', ')})`);
-        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_GIT_CONFIG);
         throwIfFault(FAULT_PHASES.AFTER_LINK_PUBLICATION);
 
@@ -2876,7 +2889,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.warn(`      ${mypyIniInstallResult.expectedLine}`);
         }
     } else {
-        syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, ...publishedPointerPaths]);
+        syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
         throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
         throwIfFault(FAULT_PHASES.AFTER_GIT_CONFIG);
         throwIfFault(FAULT_PHASES.AFTER_LINK_PUBLICATION);
@@ -2964,7 +2977,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         ? manifestFilesWithFailedPrunes(allManagedInstalledFiles, failedPrunePaths)
         : unionOnComparisonKey(priorManifestFiles || [], allManagedInstalledFiles);
     writeManifest(manifestFiles, manifestSkillNames, summary.managedPermissions.managedPermissions);
-    syncWrittenPaths([...allInstalledFiles, ...allQuestionGuidancePaths, MANIFEST_FILE, plan.settingsPath, ...publishedPointerPaths]);
+    syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, MANIFEST_FILE, plan.settingsPath, ...publishedPointerPaths]);
     throwIfFault(FAULT_PHASES.AFTER_MANIFEST_WRITE);
     console.log(`\nInstalled ${PACKAGE_NAME}:`);
     for (const directory of CONTENT_DIRECTORIES) {
@@ -3143,6 +3156,7 @@ function executeUninstallPlan(plan, helpers = {}) {
             `  ${plan.skippedFiles.length} manifest record(s) skipped — each names a path outside ${CLAUDE_HOME}, outside ${MYPY_INI_INSTALL_PATH}, outside ${INSTALL_ROOT_RESOLUTION.codexRulesInstallDirectory}, outside ${INSTALL_ROOT_RESOLUTION.cursorInstallDirectory}, and outside ${AGENTS_HOME}`,
         );
     }
+    removeCodexPackageGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 
