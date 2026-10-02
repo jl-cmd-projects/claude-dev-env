@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from claude_account_profile import (
+    launcher_path,
     move_launcher_aside,
     sync_profile,
     sync_report_payload,
@@ -337,11 +338,11 @@ def _retire_codex_account_launchers(
     """
     all_retired: dict[str, str] = {}
     for each_name in all_names:
-        launcher_path = launcher_directory / CODEX_LAUNCHER_FILE_NAME_TEMPLATE.format(
-            profile_name=each_name
+        retired_path = launcher_path(
+            launcher_directory, each_name, CODEX_LAUNCHER_FILE_NAME_TEMPLATE
         )
-        if launcher_path.is_file():
-            all_retired[each_name] = str(move_launcher_aside(launcher_path, now))
+        if retired_path.is_file():
+            all_retired[each_name] = str(move_launcher_aside(retired_path, now))
     return all_retired
 
 
@@ -377,7 +378,7 @@ def _prompt_codex_account_names(
     return tuple(dict.fromkeys(all_names))
 
 
-def _ask_and_save_roster(
+def _ask_roster(
     profiles_root: Path, read_line: LineReader, write_line: LineWriter
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     all_saved = _saved_roster_file_names(profiles_root)
@@ -387,7 +388,6 @@ def _ask_and_save_roster(
         )
     )
     all_names = _prompt_codex_account_names(read_line, write_line)
-    save_codex_account_names(profiles_root, all_names)
     all_dropped = tuple(
         each_name for each_name in all_saved if each_name not in all_names
     )
@@ -414,10 +414,12 @@ def update_codex_account_roster(
     Returns:
         The new roster, and per dropped name, the moved launcher's path.
     """
-    all_names, all_dropped = _ask_and_save_roster(profiles_root, read_line, write_line)
-    return all_names, _retire_codex_account_launchers(
+    all_names, all_dropped = _ask_roster(profiles_root, read_line, write_line)
+    all_retired = _retire_codex_account_launchers(
         launcher_directory=launcher_directory, all_names=all_dropped, now=now
     )
+    save_codex_account_names(profiles_root, all_names)
+    return all_names, all_retired
 
 
 def read_account(

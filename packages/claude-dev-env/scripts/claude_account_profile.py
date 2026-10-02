@@ -342,6 +342,29 @@ def move_launcher_aside(launcher_path: Path, now: datetime) -> Path:
     return moved_path
 
 
+def launcher_path(
+    launcher_directory: Path,
+    profile_name: str,
+    launcher_file_name_template: str = LAUNCHER_FILE_NAME_TEMPLATE,
+) -> Path:
+    """Name the launcher file for a profile.
+
+    Args:
+        launcher_directory: The directory on PATH that holds the launcher.
+        profile_name: The name used in the launcher file name.
+        launcher_file_name_template: The launcher file name, with ``{profile_name}``.
+
+    Returns:
+        The launcher path.
+
+    Raises:
+        ValueError: When the profile name is not a valid profile name.
+    """
+    return launcher_directory / launcher_file_name_template.format(
+        profile_name=validate_profile_name(profile_name)
+    )
+
+
 def write_launcher(
     *,
     launcher_directory: Path,
@@ -370,18 +393,18 @@ def write_launcher(
     Returns:
         The launcher path.
     """
-    launcher_path = launcher_directory / launcher_file_name_template.format(
-        profile_name=validate_profile_name(profile_name)
+    target_path = launcher_path(
+        launcher_directory, profile_name, launcher_file_name_template
     )
     launcher_text = launcher_text_template.format(profile_home=profile_home)
     launcher_bytes = launcher_text.encode(TEXT_ENCODING)
-    if launcher_path.is_file() and launcher_path.read_bytes() == launcher_bytes:
-        return launcher_path
-    if launcher_path.is_file():
-        move_launcher_aside(launcher_path, now)
+    if target_path.is_file() and target_path.read_bytes() == launcher_bytes:
+        return target_path
+    if target_path.is_file():
+        move_launcher_aside(target_path, now)
     launcher_directory.mkdir(parents=True, exist_ok=True)
-    launcher_path.write_bytes(launcher_bytes)
-    return launcher_path
+    target_path.write_bytes(launcher_bytes)
+    return target_path
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
