@@ -1,5 +1,39 @@
 # Changelog
 
+## [8.35.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.1...claude-dev-env-v8.35.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([565e841](https://github.com/jl-cmd/claude-dev-env/commit/565e8411abe598bdbe42a67b20caa8d480df5099))
+* **install:** a failed install keeps the lookup pointers a prior install published ([63c9c86](https://github.com/jl-cmd/claude-dev-env/commit/63c9c861d376773e401e23efba24158cff3cb1fd))
+
+
+### Tests
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([3653d20](https://github.com/jl-cmd/claude-dev-env/commit/3653d204256e344a6f8496ea3b8cef1cad032806))
+* **install:** cover the Codex hooks pointer in the rollback test ([e807832](https://github.com/jl-cmd/claude-dev-env/commit/e807832afce5db19025d3483a5bc05f8e8b7bf9a))
+
+## [8.35.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.0...claude-dev-env-v8.35.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([6f2f5e9](https://github.com/jl-cmd/claude-dev-env/commit/6f2f5e967528989b3375b8432f4c0fd687f4bcae))
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([b697183](https://github.com/jl-cmd/claude-dev-env/commit/b697183caa04cb8266b8e72ec741439cb43ddd22))
+
+
+### Refactoring
+
+* **launchers:** name each launcher file only on its LauncherProgram ([0e80d39](https://github.com/jl-cmd/claude-dev-env/commit/0e80d391deee0a1af3f784991f3f6b5ab11e39f2))
+
+## [8.35.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.34.0...claude-dev-env-v8.35.0) (2026-10-02)
+
+
+### Features
+
+* **codex:** named per-account Codex launchers ([#1620](https://github.com/jl-cmd/claude-dev-env/issues/1620)) ([83d6eb0](https://github.com/jl-cmd/claude-dev-env/commit/83d6eb0e76cf9413940e3afefc5d5e870812773f))
+
 ## [8.34.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.2...claude-dev-env-v8.34.0) (2026-10-02)
 
 
