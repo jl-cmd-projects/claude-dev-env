@@ -1,6 +1,6 @@
 {
   "name": "subagent-models",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Turn subagent models and agent types on or off and set the effort subagents run at, as defaults in /config or live for one session with /subagent-models.",
   "userConfig": {
     "opus": {
@@ -78,6 +78,13 @@
         "deny"
       ],
       "default": "move"
+    },
+    "applyToRunning": {
+      "type": "string",
+      "title": "Effort changes reach running subagents",
+      "description": "on moves running subagents to a new effort on their next request; off keeps each one at the effort it started with until you apply it",
+      "options": ["on", "off"],
+      "default": "on"
     },
     "disabledAgents": {
       "type": "string",
