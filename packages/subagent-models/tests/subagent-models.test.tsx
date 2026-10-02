@@ -370,17 +370,33 @@ test('the bar applies effort to running subagents and shows their count', async 
   expect(world.toasts).toContain('effort xhigh applied to 2 running subagents.')
 })
 
-test('minimize collapses the bar to a pill that expands it, and the bar command toggles', async ($, on) => {
+const MODE_TARGET = {
+  plugin: 'subagent-models',
+  component: 'SessionMode',
+  props: { modes: ['focus'] } as never,
+} as const
+
+test('the footer pill opens the bar, the minimize button closes it, and the bar command toggles', async ($, on) => {
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine band</Text>
+  })
   engine(on)
-  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'terminal' })
-  await ui.press({ key: 'minimize' })
-  expect(await ui.find({ key: 'effort' })).toBeUndefined()
-  expect(await ui.find({ key: 'expand' })).toBeDefined()
-  await ui.press({ key: 'expand' })
-  expect(await ui.find({ key: 'effort' })).toBeDefined()
-  expect((await command($ as never, 'bar')).text).toBe('Subagent bar minimized.')
-  expect(await ui.find({ key: 'expand' })).toBeDefined()
-  expect((await command($ as never, 'bar')).text).toBe('Subagent bar expanded.')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    await command($ as never, 'reset')
+    const bar = await $.ui.mount({ ...BAR_TARGET, surface })
+    const footer = await $.ui.mount({ ...MODE_TARGET, surface })
+    expect(await footer.find({ type: 'Text', text: 'focus' })).toBeDefined()
+    await bar.press({ key: 'minimize' })
+    expect(await bar.find({ key: 'effort' })).toBeUndefined()
+    expect(await bar.find({ type: 'Text', text: 'engine band' })).toBeDefined()
+    await footer.press({ key: 'pill' })
+    expect(await bar.find({ key: 'effort' })).toBeDefined()
+    expect((await command($ as never, 'bar')).text).toBe('Subagent bar minimized.')
+    expect((await command($ as never, 'bar')).text).toBe('Subagent bar expanded.')
+    await bar.unmount()
+    await footer.unmount()
+  }
 })
 
 test('the more menu saves the session values as defaults', async ($, on) => {
