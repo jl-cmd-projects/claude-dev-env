@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.30.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.30.0...claude-dev-env-v8.30.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **windows:** start interactive scheduled tasks through conhost --headless ([f2c2a7d](https://github.com/jl-cmd/claude-dev-env/commit/f2c2a7d3cbe46ff7054ed9147cab5d276e137587))
+* **windows:** start interactive scheduled tasks through conhost --headless ([ee86bcf](https://github.com/jl-cmd/claude-dev-env/commit/ee86bcff5a018cce464eb645a13c24baef8a7152))
+
+
+### Tests
+
+* **windows:** pin the sweep task to a conhost --headless action ([29c912d](https://github.com/jl-cmd/claude-dev-env/commit/29c912d998ef630eb7536a028bd170631a6b518e))
+
 ## [8.30.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.29.1...claude-dev-env-v8.30.0) (2026-10-01)
 
 
