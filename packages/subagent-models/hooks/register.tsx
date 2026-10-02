@@ -5,8 +5,6 @@ import type { AgentSwitches, Effort, Family, PinnedEfforts, SessionOverrides, Se
 
 const PLUGIN = 'subagent-models'
 
-const PANE = 'subagent-models'
-
 const ALL_CHOICES: { readonly [Field in keyof Settings]: readonly Settings[Field][] } = {
   opus: ['on', 'off'],
   fable: ['on', 'off'],
@@ -29,6 +27,12 @@ const overrides = atom({ plugin: 'subagent-models', key: 'overrides' } as const,
 const offeredAgents = atom({ plugin: 'subagent-models', key: 'offeredAgents' } as const, [] as readonly string[])
 
 const pinnedEfforts = atom({ plugin: 'subagent-models', key: 'pinnedEfforts' } as const, {} as PinnedEfforts)
+
+const isBarOpen = atom({ plugin: 'subagent-models', key: 'isBarOpen' } as const, true)
+
+const AGENTS_SUMMARY = '__summary'
+
+const MORE_SUMMARY = '__more'
 
 type Defaults = { settings: Settings; agents: AgentSwitches }
 
@@ -178,15 +182,12 @@ async function effortFor($: StateDollar, settings: Settings, agentId: string, re
   return target === 'inherit' ? requestEffort : target
 }
 
-async function openPicker($: EngineInterface) {
-  await $.ui.open({ id: PANE, title: 'Subagent models', focus: true })
-}
 
 async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
 
-const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | agent <type> on|off | picker | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
+const USAGE = `Usage: /${PLUGIN} [<field> <value> | agents | agent <type> on|off | bar | apply | save | reset]. Fields: ${ALL_FIELDS.join(', ')}.`
 
 export const register: Register = (on, options: PluginOptions) => {
   const defaults: Defaults = {
@@ -212,9 +213,9 @@ export const register: Register = (on, options: PluginOptions) => {
       if (word === 'save') return { text: await saveDefaults($, defaults) }
       if (word === 'apply') return { text: await applyNow($, defaults) }
       if (word === 'agents') return { text: agentListingOf(state, await read($, offeredAgents), defaults) }
-      if (word === 'picker') {
-        await openPicker($)
-        return { text: 'Subagent models picker opened.' }
+      if (word === 'bar') {
+        const isOpen = await update($, isBarOpen, current => !current)
+        return { text: isOpen ? 'Subagent bar shown above the prompt.' : 'Subagent bar hidden.' }
       }
     }
     if (word === 'agent') {
@@ -226,87 +227,89 @@ export const register: Register = (on, options: PluginOptions) => {
     return { text: await setField($, defaults, word, value) }
   })
 
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey || e.surface === 'mobile' || !(await read($, isBarOpen))) return next(e)
+    const { Box, Text, Button, Select } = $.ui.resolve(e)
     const state = await sessionState($, defaults)
     const { settings } = state
     const allAgents = knownAgentsOf(state, await read($, offeredAgents), defaults)
+    const turnedOffCount = allAgents.filter(agent => state.agentSwitchOf(agent) === 'off').length
     const runningCount = (await runningAgentIdsOf($)).length
-    const choiceRow = (field: keyof Settings, label: string) => (
-      <Box flexDirection="column">
-        <Text bold>{`${label}: ${settings[field]}`}</Text>
-        <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-          {(ALL_CHOICES[field] as readonly string[]).map(choice => (
-            <Button
-              key={`${field}-${choice}`}
-              variant={settings[field] === choice ? 'primary' : 'secondary'}
-              onPress={() => toastAfter($, setField($, defaults, field, choice))}
-            >
-              {choice}
-            </Button>
-          ))}
-        </Box>
-      </Box>
-    )
+    const optionsOf = (field: keyof Settings) => (ALL_CHOICES[field] as readonly string[]).map(choice => ({ value: choice }))
 
     return (
-      <Box flexDirection="column" gap={1}>
-        <Text>{statusOf(settings, state.sessionOverrides)}</Text>
-        <Box flexDirection="column">
-          <Text bold>Models</Text>
-          <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-            {ALL_FAMILIES.map(family => (
-              <Button
-                key={`model-${family}`}
-                variant={settings[family] === 'on' ? 'primary' : 'secondary'}
-                onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
-              >
-                {`${family} ${settings[family]}`}
-              </Button>
-            ))}
-          </Box>
-        </Box>
-        {choiceRow('defaultModel', 'Default model')}
-        {choiceRow('effort', 'Effort')}
-        {choiceRow('offAction', 'When a spawn names a turned-off model')}
-        <Box flexDirection="column">
-          <Text bold>Agent types</Text>
-          {allAgents.length === 0 && <Text dimColor>No agent types offered yet in this session.</Text>}
-          <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-            {allAgents.map(agent => (
-              <Button
-                key={`agent-${agent}`}
-                variant={state.agentSwitchOf(agent) === 'on' ? 'primary' : 'secondary'}
-                onPress={() => toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))}
-              >
-                {`${agent} ${state.agentSwitchOf(agent)}`}
-              </Button>
-            ))}
-          </Box>
-        </Box>
-        <Box flexDirection="column">
-          <Text bold>{`Running subagents: ${runningCount}`}</Text>
-          <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-            <Button
-              key="applyToRunning"
-              variant={settings.applyToRunning === 'on' ? 'primary' : 'secondary'}
-              onPress={() => toastAfter($, setField($, defaults, 'applyToRunning', flipped(settings.applyToRunning)))}
-            >
-              {`Effort changes reach running subagents: ${settings.applyToRunning}`}
-            </Button>
-            <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
-              Apply effort to running subagents now
-            </Button>
-          </Box>
-        </Box>
-        <Box flexDirection="row" columnGap={1}>
-          <Button key="save" onPress={() => toastAfter($, saveDefaults($, defaults))}>
-            Save as defaults
+      <Box flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+        <Text bold>Subagents</Text>
+        {ALL_FAMILIES.map(family => (
+          <Button
+            key={`model-${family}`}
+            variant={settings[family] === 'on' ? 'primary' : 'secondary'}
+            onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
+          >
+            {family}
           </Button>
-          <Button key="reset" onPress={() => toastAfter($, resetSession($, defaults))}>
-            Reset session
-          </Button>
-        </Box>
+        ))}
+        <Select
+          key="defaultModel"
+          label="default"
+          options={optionsOf('defaultModel')}
+          value={settings.defaultModel}
+          onSelect={choice => toastAfter($, setField($, defaults, 'defaultModel', choice))}
+        />
+        <Select
+          key="effort"
+          label="effort"
+          options={optionsOf('effort')}
+          value={settings.effort}
+          onSelect={choice => toastAfter($, setField($, defaults, 'effort', choice))}
+        />
+        <Select
+          key="offAction"
+          label="off models"
+          options={optionsOf('offAction')}
+          value={settings.offAction}
+          onSelect={choice => toastAfter($, setField($, defaults, 'offAction', choice))}
+        />
+        <Select
+          key="agents"
+          label="agents"
+          options={[
+            { value: AGENTS_SUMMARY, label: turnedOffCount === 0 ? 'all on' : `${turnedOffCount} off` },
+            ...allAgents.map(agent => ({ value: agent, label: `${agent}: ${state.agentSwitchOf(agent)}` })),
+          ]}
+          value={AGENTS_SUMMARY}
+          onSelect={agent => {
+            if (agent !== AGENTS_SUMMARY) void toastAfter($, setAgent($, defaults, agent, flipped(state.agentSwitchOf(agent))))
+          }}
+        />
+        <Select
+          key="applyToRunning"
+          label={`running ${runningCount}`}
+          options={[
+            { value: 'on', label: 'follow effort' },
+            { value: 'off', label: 'keep start effort' },
+          ]}
+          value={settings.applyToRunning}
+          onSelect={choice => toastAfter($, setField($, defaults, 'applyToRunning', choice))}
+        />
+        <Button key="apply" onPress={() => toastAfter($, applyNow($, defaults))}>
+          apply now
+        </Button>
+        <Select
+          key="more"
+          options={[
+            { value: MORE_SUMMARY, label: 'more' },
+            { value: 'save', label: 'save as defaults' },
+            { value: 'reset', label: 'reset session' },
+            { value: 'hide', label: 'hide bar' },
+          ]}
+          value={MORE_SUMMARY}
+          onSelect={choice => {
+            if (choice === 'save') void toastAfter($, saveDefaults($, defaults))
+            if (choice === 'reset') void toastAfter($, resetSession($, defaults))
+            if (choice === 'hide') void update($, isBarOpen, () => false)
+          }}
+        />
       </Box>
     )
   })

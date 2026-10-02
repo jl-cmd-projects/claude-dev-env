@@ -318,53 +318,76 @@ test('apply moves every running subagent to the current effort', async ($, on) =
   expect(world.steps.map(step => step.effort)).toEqual(['medium', 'max'])
 })
 
-const PANE_TARGET = {
+const BAR_TARGET = {
   plugin: 'subagent-models',
-  component: 'Pane',
-  requestId: 'subagent-models',
-  props: { title: 'Subagent models', isFocused: true, bodyColumns: 80, placement: 'dock' } as never,
+  component: 'AbovePrompt',
+  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 120 } as never,
 } as const
 
-test('the picker sets effort, models and agent types on every surface', async ($, on) => {
+test('the bar sets effort, models and agent types on every surface', async ($, on) => {
   const world = engine(on)
   for (const surface of ['terminal', 'desktop'] as const) {
     await command($ as never, 'reset')
     world.spawnedModels = []
     await offer($ as never, 'Explore')
-    const ui = await $.ui.mount({ ...PANE_TARGET, surface })
-    expect((await ui.find({ type: 'Text', text: /^subagents:/ }))?.text).toBe('subagents: opus/medium')
-    await ui.press({ key: 'effort-high' })
-    expect((await ui.find({ type: 'Text', text: /^subagents:/ }))?.text).toBe('subagents: opus/high (session)')
+    const ui = await $.ui.mount({ ...BAR_TARGET, surface })
+    expect((await ui.find({ key: 'effort' }))?.props.value).toBe('medium')
+    await ui.select({ key: 'effort', value: 'high' })
+    expect((await ui.find({ key: 'effort' }))?.props.value).toBe('high')
     await ui.press({ key: 'model-fable' })
     await $.agent.spawn(spawnOf('fable'))
     expect(world.spawnedModels).toEqual(['fable'])
-    await ui.press({ key: 'agent-Explore' })
+    await ui.select({ key: 'agents', value: 'Explore' })
     expect((await offer($ as never, 'Explore')).isOffered).toBe(false)
     expect(world.toasts).toContain('agent Explore off for this session.')
+    await ui.select({ key: 'agents', value: 'Explore' })
+    expect((await offer($ as never, 'Explore')).isOffered).toBe(true)
     await ui.unmount()
   }
 })
 
-test('the picker refuses turning off the default model', async ($, on) => {
+test('the bar refuses turning off the default model', async ($, on) => {
   const world = engine(on)
-  const ui = await $.ui.mount({ ...PANE_TARGET, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'terminal' })
   await ui.press({ key: 'model-opus' })
   expect(world.toasts).toContain('opus is the default model. Pick another defaultModel before turning opus off.')
   await $.agent.spawn(spawnOf('opus'))
   expect(world.spawnedModels).toEqual(['opus'])
 })
 
-test('the picker applies effort to running subagents and shows their count', async ($, on) => {
+test('the bar applies effort to running subagents and shows their count', async ($, on) => {
   const world = engine(on)
   world.running = ['agent-1', 'agent-2']
-  const ui = await $.ui.mount({ ...PANE_TARGET, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /^Running subagents/ }))?.text).toBe('Running subagents: 2')
-  await ui.press({ key: 'applyToRunning' })
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  expect((await ui.find({ key: 'applyToRunning' }))?.props.label).toBe('running 2')
+  await ui.select({ key: 'applyToRunning', value: 'off' })
   await runStep($ as never, stepOf('claude-opus-5-5', 'agent-1', 'low'))
-  await ui.press({ key: 'effort-xhigh' })
+  await ui.select({ key: 'effort', value: 'xhigh' })
   await runStep($ as never, stepOf('claude-opus-5-5', 'agent-1', 'low'))
   await ui.press({ key: 'apply' })
   await runStep($ as never, stepOf('claude-opus-5-5', 'agent-1', 'low'))
   expect(world.steps.map(step => step.effort)).toEqual(['medium', 'medium', 'xhigh'])
   expect(world.toasts).toContain('effort xhigh applied to 2 running subagents.')
+})
+
+test('hide removes the bar and the bar command brings it back', async ($, on) => {
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine band</Text>
+  })
+  engine(on)
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'terminal' })
+  await ui.select({ key: 'more', value: 'hide' })
+  expect(await ui.find({ key: 'effort' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: 'engine band' })).toBeDefined()
+  expect((await command($ as never, 'bar')).text).toBe('Subagent bar shown above the prompt.')
+  expect(await ui.find({ key: 'effort' })).toBeDefined()
+})
+
+test('the more menu saves the session values as defaults', async ($, on) => {
+  const world = engine(on)
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  await ui.select({ key: 'effort', value: 'max' })
+  await ui.select({ key: 'more', value: 'save' })
+  expect(world.configWrites).toContainEqual({ key: 'subagent-models.effort', value: 'max' })
 })

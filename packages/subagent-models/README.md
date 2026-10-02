@@ -9,7 +9,7 @@ A Claude Code mod that decides which models and agent types subagents may run as
 - A turned-off agent type leaves the model's agent listing, and a spawn that names it is refused.
 - The default model is always allowed, so a turned-off model always has somewhere to move.
 - Every request a subagent makes runs at the effort you set. The main conversation keeps its own model and effort.
-- With `applyToRunning` on, an effort change reaches running subagents on their next request. With it off, each subagent keeps the effort it started with until `apply`, or the picker's apply button, moves them all.
+- With `applyToRunning` on, an effort change reaches running subagents on their next request. With it off, each subagent keeps the effort it started with until `apply`, or the bar's `apply now` button, moves them all.
 - A subagent whose model comes from its agent definition is caught on its first request and moved the same way.
 - A fork inherits its parent and passes untouched. So does a spawn that names no model.
 - The status line shows the default model and effort, as `subagents: opus/medium`. It adds `(session)` while this session differs from the defaults.
@@ -40,7 +40,8 @@ The command refuses to turn off the default model, and refuses a default model t
 - `/subagent-models fable on` sets one value for this session. Any setting name works, with one of its options.
 - `/subagent-models agents` lists the agent types offered so far in this session, each with its switch.
 - `/subagent-models agent Explore off` turns one agent type off for this session. `on` turns it back on.
-- `/subagent-models picker` opens a pane with a button for every setting and agent type. A press applies at once and shows what changed.
+- A bar above the prompt holds every setting: a chip per model, then dropdowns for the default model, effort, the turned-off action, agent types, and running subagents. A pick applies at once and a toast says what changed. Its `more` menu saves, resets, or hides the bar.
+- `/subagent-models bar` shows or hides the bar.
 - `/subagent-models apply` moves every running subagent to the current effort now.
 - `/subagent-models save` writes this session's values to the `/config` defaults.
 - `/subagent-models reset` drops this session's values, so the defaults apply again.

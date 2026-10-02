@@ -29,6 +29,7 @@ declare module 'claude-code' {
       overrides: SessionOverrides
       offeredAgents: readonly string[]
       pinnedEfforts: PinnedEfforts
+      isBarOpen: boolean
     }
   }
 }
