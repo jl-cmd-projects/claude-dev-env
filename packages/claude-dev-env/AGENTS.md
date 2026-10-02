@@ -10,6 +10,10 @@ Verdicts
 
 One line. Read files first. Quote file:line. Code beats brief. No flip-flops.
 
+Evidence
+
+Act and state only on what you or your workers saw, ran, or tested. Unsure → run the check first. Can't run the check → say "I don't know" and name the check that would settle it.
+
 Writes
 
 Write/Edit only. LF. After: git diff --check, file <path>. ASCII unless the file already isn't.
