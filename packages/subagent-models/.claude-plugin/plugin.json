@@ -1,0 +1,94 @@
+{
+  "name": "subagent-models",
+  "version": "0.2.0",
+  "description": "Turn subagent models and agent types on or off and set the effort subagents run at, as defaults in /config or live for one session with /subagent-models.",
+  "userConfig": {
+    "opus": {
+      "type": "string",
+      "title": "Opus subagents",
+      "description": "on lets a subagent run on opus; off moves it to the default model",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "on"
+    },
+    "fable": {
+      "type": "string",
+      "title": "Fable subagents",
+      "description": "on lets a subagent run on fable; off moves it to the default model",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "off"
+    },
+    "sonnet": {
+      "type": "string",
+      "title": "Sonnet subagents",
+      "description": "on lets a subagent run on sonnet; off moves it to the default model",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "off"
+    },
+    "haiku": {
+      "type": "string",
+      "title": "Haiku subagents",
+      "description": "on lets a subagent run on haiku; off moves it to the default model",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "on"
+    },
+    "defaultModel": {
+      "type": "string",
+      "title": "Default subagent model",
+      "description": "The model a turned-off model moves to",
+      "options": [
+        "opus",
+        "sonnet",
+        "haiku",
+        "fable"
+      ],
+      "default": "opus"
+    },
+    "effort": {
+      "type": "string",
+      "title": "Subagent effort",
+      "description": "The effort every subagent request runs at; inherit keeps the request's own",
+      "options": [
+        "inherit",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default": "medium"
+    },
+    "offAction": {
+      "type": "string",
+      "title": "When a spawn names a turned-off model",
+      "description": "move runs it on the default model; deny refuses the spawn",
+      "options": [
+        "move",
+        "deny"
+      ],
+      "default": "move"
+    },
+    "disabledAgents": {
+      "type": "string",
+      "title": "Turned-off agent types",
+      "description": "Comma-separated agent types subagents may not run as, such as Explore, Plan",
+      "default": ""
+    }
+  },
+  "author": {
+    "name": "jl-cmd"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

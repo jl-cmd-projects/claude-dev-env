@@ -75,3 +75,6 @@ pytestdebug.log
 # backslash path passes through Git Bash (separators eaten, colon encoded)
 *AppDataLocalTemp*
 
+
+# Engine type declarations the subagent-models mod is typed against, written by /plugin-types
+packages/subagent-models/.claude-plugin/types/
