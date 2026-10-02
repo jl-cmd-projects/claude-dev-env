@@ -53,8 +53,10 @@ import {
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
+    removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     writeCodexAgentsGuidance,
+    writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
 import {
@@ -2758,6 +2760,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.log(`  Pstack: retired release store removed from ${retiredPstack.removedStorePath}`);
         }
     }
+    const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
+    const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
     if (!selectedGroups && shouldInstallPstackPlugin()) {
         const pstackPlugin = installPstackPluginForHosts();
         summary.pstackPlugin = pstackPlugin;
@@ -2773,8 +2777,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             }
             const skillLoadGuidancePath = writeCodexAgentsGuidance(
                 INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-                readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8'),
-                [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')],
+                packageGuidanceText,
+                allPackageGuidancePaths,
             );
             if (skillLoadGuidancePath) {
                 console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
@@ -2787,6 +2791,15 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         }
     }
     if (!selectedGroups) {
+        const packageGuidancePath = writeCodexPackageGuidance(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            packageGuidanceText,
+            allPackageGuidancePaths,
+        );
+        if (packageGuidancePath) {
+            allQuestionGuidancePaths.push(packageGuidancePath);
+            console.log(`  \u2713 ${packageGuidancePath} (Codex package guidance)`);
+        }
         const questionGuidancePath = writeCodexQuestionGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
@@ -3143,6 +3156,7 @@ function executeUninstallPlan(plan, helpers = {}) {
             `  ${plan.skippedFiles.length} manifest record(s) skipped — each names a path outside ${CLAUDE_HOME}, outside ${MYPY_INI_INSTALL_PATH}, outside ${INSTALL_ROOT_RESOLUTION.codexRulesInstallDirectory}, outside ${INSTALL_ROOT_RESOLUTION.cursorInstallDirectory}, and outside ${AGENTS_HOME}`,
         );
     }
+    removeCodexPackageGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 

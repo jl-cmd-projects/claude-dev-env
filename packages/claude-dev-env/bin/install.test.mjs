@@ -54,6 +54,8 @@ import {
 } from './install.mjs';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
 import {
+    PACKAGE_GUIDANCE_BLOCK_END,
+    PACKAGE_GUIDANCE_BLOCK_START,
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
     QUESTION_PRESENTATION_BLOCK_START,
@@ -3160,6 +3162,109 @@ test('--no-pstack skips the plugin and delivers Codex question guidance', t => {
         readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8'),
         /<!-- claude-dev-env question presentation: start -->/,
     );
+});
+
+const PSTACK_TEST_PACKAGE_GUIDANCE = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'AGENTS.md'),
+    'utf8',
+);
+
+function assertHoldsPackageGuidance(codexGuidance) {
+    assert.ok(codexGuidance.includes(`${PACKAGE_GUIDANCE_BLOCK_START}\n${PSTACK_TEST_PACKAGE_GUIDANCE}`));
+    assert.ok(codexGuidance.includes(PACKAGE_GUIDANCE_BLOCK_END));
+}
+
+test('a fresh full install writes the package guidance into Codex AGENTS.md', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
+
+    const codexGuidance = readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8');
+    assertHoldsPackageGuidance(codexGuidance);
+    assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+});
+
+test('--no-pstack writes package and question guidance without the skill-load block', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], sandbox.environment);
+
+    assert.deepEqual(
+        sandbox.recordedCommands().filter(eachCommand => eachCommand.startsWith('codex plugin')),
+        [],
+    );
+    const codexGuidance = readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8');
+    assertHoldsPackageGuidance(codexGuidance);
+    assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+    assert.equal(codexGuidance.includes(SKILL_LOAD_BLOCK_START), false);
+});
+
+test('--no-pstack replaces an outdated package block and keeps the text around it', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const codexHome = join(sandbox.homeDirectory, '.codex');
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(
+        join(codexHome, 'AGENTS.md'),
+        `My notes\n${PACKAGE_GUIDANCE_BLOCK_START}\nOld guidance\n${PACKAGE_GUIDANCE_BLOCK_END}\nMore notes\n`,
+    );
+
+    runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], sandbox.environment);
+
+    const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
+    assert.ok(codexGuidance.startsWith(`My notes\n${PACKAGE_GUIDANCE_BLOCK_START}\n${PSTACK_TEST_PACKAGE_GUIDANCE}`));
+    assert.ok(codexGuidance.includes(`${PACKAGE_GUIDANCE_BLOCK_END}\nMore notes\n`));
+    assert.equal(codexGuidance.includes('Old guidance'), false);
+    assert.equal(codexGuidance.includes(SKILL_LOAD_BLOCK_START), false);
+});
+
+for (const linkTargetDirectory of ['.claude', '.agents']) {
+    test(`--no-pstack turns a Codex link to the ${linkTargetDirectory} package guidance into a file`, t => {
+        const sandbox = pstackPluginSandbox(t);
+        const codexHome = join(sandbox.homeDirectory, '.codex');
+        const codexAgentsPath = join(codexHome, 'AGENTS.md');
+        mkdirSync(codexHome, { recursive: true });
+        symlinkSync(join(sandbox.homeDirectory, linkTargetDirectory, 'AGENTS.md'), codexAgentsPath);
+
+        runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], sandbox.environment);
+
+        assert.equal(lstatSync(codexAgentsPath).isSymbolicLink(), false);
+        const codexGuidance = readFileSync(codexAgentsPath, 'utf8');
+        assertHoldsPackageGuidance(codexGuidance);
+        assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+        assert.equal(codexGuidance.includes(SKILL_LOAD_BLOCK_START), false);
+    });
+}
+
+test('--no-pstack leaves a Codex link to a file the package does not own unchanged', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const codexHome = join(sandbox.homeDirectory, '.codex');
+    const codexAgentsPath = join(codexHome, 'AGENTS.md');
+    const ownGuidancePath = join(sandbox.homeDirectory, 'notes', 'codex.md');
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(dirname(ownGuidancePath), { recursive: true });
+    writeFileSync(ownGuidancePath, 'My own Codex notes\n');
+    symlinkSync(ownGuidancePath, codexAgentsPath);
+
+    runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], sandbox.environment);
+
+    assert.equal(lstatSync(codexAgentsPath).isSymbolicLink(), true);
+    assert.equal(readFileSync(ownGuidancePath, 'utf8'), 'My own Codex notes\n');
+});
+
+test('a pstack install after a --no-pstack install seeds the Codex model sheet', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const codexHome = join(sandbox.homeDirectory, '.codex');
+    runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], sandbox.environment);
+
+    runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
+
+    assert.match(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
+    const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
+    assert.match(codexGuidance, /^feature, refactoring: gpt-6-sol$/m);
+    assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assertHoldsPackageGuidance(codexGuidance);
+    assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
 });
 
 function continuityCommandCount(configurationPath) {
