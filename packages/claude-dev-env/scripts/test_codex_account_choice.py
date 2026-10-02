@@ -12,12 +12,8 @@ from pathlib import Path
 import pytest
 
 import codex_account_choice as choice
-from claude_account_profile import links_to, write_launcher
+from claude_account_profile import links_to
 from codex_account_meters import CodexAccountMeters, CodexMeterUnreadError, UsageWindow
-from dev_env_scripts_constants.codex_account_constants import (
-    CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
-    CODEX_LAUNCHER_TEXT_TEMPLATE,
-)
 
 NOW = datetime(2026, 9, 23, 17, 0, tzinfo=timezone.utc)
 ALL_SHARED_ENTRY_NAMES = (
@@ -630,15 +626,8 @@ class TestSetupRoster:
 class TestCodexLauncher:
     @pytest.mark.skipif(os.name != "nt", reason="runs the launcher through cmd.exe")
     def should_hand_codex_home_to_the_npm_codex_shim(self, tmp_path: Path) -> None:
-        profile_home = tmp_path / "profiles" / "alpha"
-        launcher_path = write_launcher(
-            launcher_directory=tmp_path / "bin",
-            profile_home=profile_home,
-            now=NOW,
-            profile_name="alpha",
-            launcher_file_name_template=CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
-            launcher_text_template=CODEX_LAUNCHER_TEXT_TEMPLATE,
-        )
+        install(build_codex_main_home(tmp_path), tmp_path, "alpha")
+        launcher_path = tmp_path / "bin" / "codex-alpha.cmd"
         fake_directory = tmp_path / "fake"
         fake_directory.mkdir()
         (fake_directory / "codex.cmd").write_bytes(NPM_CODEX_SHIM_TEXT.encode("utf-8"))
@@ -652,4 +641,4 @@ class TestCodexLauncher:
             text=True,
             check=False,
         )
-        assert completed.stdout.strip() == str(profile_home)
+        assert completed.stdout.strip() == str(tmp_path / "profiles" / "alpha")

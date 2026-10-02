@@ -47,9 +47,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from claude_account_profile import (
-    ProfileSyncReport,
     move_launcher_aside,
     sync_profile,
+    sync_report_payload,
     validate_profile_name,
     write_launcher,
 )
@@ -62,9 +62,6 @@ from codex_account_meters import (
 from dev_env_scripts_constants.claude_account_constants import (
     ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS,
     JSON_LAUNCHER_KEY,
-    JSON_LINKED_KEY,
-    JSON_MOVED_ASIDE_KEY,
-    JSON_UNLINKED_KEY,
 )
 from dev_env_scripts_constants.codex_account_constants import (
     ALL_CODEX_ACCOUNT_NAMES,
@@ -184,11 +181,10 @@ def _roster(all_raw_names: Sequence[str], source: str) -> tuple[str, ...]:
 
 def _environment_roster() -> tuple[str, ...]:
     raw_roster = os.environ.get(CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE, "")
-    all_raw_names = [
-        each_name.strip()
-        for each_name in raw_roster.split(CODEX_ACCOUNT_NAME_SEPARATOR)
-        if each_name.strip()
-    ]
+    all_stripped = (
+        each_part.strip() for each_part in raw_roster.split(CODEX_ACCOUNT_NAME_SEPARATOR)
+    )
+    all_raw_names = [each_name for each_name in all_stripped if each_name]
     return _roster(all_raw_names, CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE)
 
 
@@ -209,10 +205,8 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
         return ()
     try:
         document = json.loads(roster_path.read_text(encoding=TEXT_ENCODING))
-    except json.JSONDecodeError as error:
-        raise CodexAccountNameError(
-            ROSTER_NOT_A_LIST_TEMPLATE.format(source=roster_path)
-        ) from error
+    except json.JSONDecodeError:
+        document = None
     if not isinstance(document, list) or not all(
         isinstance(each_name, str) for each_name in document
     ):
@@ -267,33 +261,33 @@ def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> N
     )
 
 
-def _sync_payload(report: ProfileSyncReport) -> dict[str, object]:
-    return {
-        JSON_LINKED_KEY: list(report.all_linked),
-        JSON_MOVED_ASIDE_KEY: list(report.all_moved_aside),
-        JSON_UNLINKED_KEY: list(report.all_unlinked),
-    }
+def _sync_account(
+    *, main_home: Path, profiles_root: Path, name: str, now: datetime
+) -> dict[str, object]:
+    report = sync_profile(
+        main_home=main_home,
+        profile_home=profiles_root / name,
+        now=now,
+        is_local=is_account_local_codex_entry,
+    )
+    return sync_report_payload(report)
 
 
 def _install_account(
     *, main_home: Path, profiles_root: Path, launcher_directory: Path, name: str, now: datetime
 ) -> dict[str, object]:
-    profile_home = profiles_root / name
-    report = sync_profile(
-        main_home=main_home,
-        profile_home=profile_home,
-        now=now,
-        is_local=is_account_local_codex_entry,
+    sync_payload = _sync_account(
+        main_home=main_home, profiles_root=profiles_root, name=name, now=now
     )
     launcher_path = write_launcher(
         launcher_directory=launcher_directory,
-        profile_home=profile_home,
+        profile_home=profiles_root / name,
         now=now,
         profile_name=name,
         launcher_file_name_template=CODEX_LAUNCHER_FILE_NAME_TEMPLATE,
         launcher_text_template=CODEX_LAUNCHER_TEXT_TEMPLATE,
     )
-    return {**_sync_payload(report), JSON_LAUNCHER_KEY: str(launcher_path)}
+    return {**sync_payload, JSON_LAUNCHER_KEY: str(launcher_path)}
 
 
 def install_codex_account_launchers(
@@ -658,13 +652,11 @@ def _run_check(arguments: argparse.Namespace) -> int:
 def _run_sync(arguments: argparse.Namespace) -> int:
     now = datetime.now(timezone.utc)
     all_reports = {
-        each_name: _sync_payload(
-            sync_profile(
-                main_home=arguments.main_home,
-                profile_home=arguments.profiles_root / each_name,
-                now=now,
-                is_local=is_account_local_codex_entry,
-            )
+        each_name: _sync_account(
+            main_home=arguments.main_home,
+            profiles_root=arguments.profiles_root,
+            name=each_name,
+            now=now,
         )
         for each_name in codex_account_names(arguments.profiles_root)
     }
