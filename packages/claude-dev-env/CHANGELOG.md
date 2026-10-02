@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.33.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.2...claude-dev-env-v8.33.0) (2026-10-02)
+
+
+### Features
+
+* **hooks:** block a change made on a hedged claim ([d756aeb](https://github.com/jl-cmd/claude-dev-env/commit/d756aeb0d8d600f0f4261453062e22d7c51e9417))
+
 ## [8.32.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.1...claude-dev-env-v8.32.2) (2026-10-02)
 
 

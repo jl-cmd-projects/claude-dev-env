@@ -1,6 +1,6 @@
 # Hook lifecycle
 
-The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, and InstructionsLoaded hooks, and no Stop hook. A hook adds context or rewrites a tool input. Policy checks run as linters and continuous-integration jobs.
+The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, and InstructionsLoaded hooks, and no Stop hook. A hook adds context or rewrites a tool input. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
 
 ## Sub-features
 
@@ -10,6 +10,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - `poteto-spawn` opens an `Agent` or `Task` prompt with the poteto-mode invocation.
 - `poteto-codex-spawn` opens a Codex `spawn_agent` message with `$poteto-mode`.
 - `poteto-reminder` tells a session to load poteto-mode after a compaction, at a workflow helper start, and on a user turn before the skill loads.
+- `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call.
 - `policy-lint-timing` runs policy checks from `cde lint` and CI only.
 
 ## How to get to it (user POV)
@@ -18,6 +19,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - Spawn a subagent through `Agent`, `Task`, or Codex `spawn_agent`.
 - Compact a session, start a Workflow helper, or submit a prompt.
 - Run a Bash `git show` command with a `<rev>:<path>` argument.
+- Make a `Write`, `Edit`, `apply_patch`, shell, or MCP write call after reasoning that hedges.
 
 ## Driving it with the install playtest
 
@@ -34,11 +36,12 @@ Preconditions:
 - **Compaction reminder.** Pipe `{"hook_event_name":"SessionStart","source":"compact"}`. The `SessionStart` envelope's `additionalContext` starts `The context was just compacted`. The same payload with `"source":"startup"` prints nothing.
 - **Workflow helper.** Pipe `{"hook_event_name":"SubagentStart","agent_type":"workflow-subagent"}`. The `SubagentStart` envelope's `additionalContext` starts `The poteto-mode skill is not loaded`.
 - **User turn.** Pipe `{"hook_event_name":"UserPromptSubmit","transcript_path":"<file>"}`. A transcript without a `Skill` call for `poteto-mode` returns the not-loaded reminder. A transcript whose last such call follows its last `compact_boundary` prints nothing.
+- **Hedged write.** Write `<scratch>/transcript.jsonl` with two assistant records that share `message.id` `m1`. The first holds a `thinking` block reading `The config probably lives in settings.json.`, and the second holds a `tool_use` block with `id` `t1`. Set `HOME` and `USERPROFILE` to `<scratch>`, then pipe `{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{},"tool_use_id":"t1","transcript_path":"<scratch>/transcript.jsonl"}` into `python3 <scratch>/.claude/hooks/blocking/verify_before_acting.py`. Stdout is one envelope with `decision` `block` and a `reason` that quotes the hedge sentence. `<scratch>/.claude/logs/verify-before-acting.jsonl` gains a `blocked` line. The same payload with `tool_name` `Read` prints nothing and logs nothing.
 - **Proof.** Keep `<scratch>-evidence`, the three playtest lines, and the stdout of each piped payload. Remove `<scratch>` after the run.
 
 ## Gotchas
 
-- A hook never returns `deny`, `block`, or `ask`. A rewrite is `allow` with `updatedInput`. A linter fails only its own command.
+- No hook returns `deny` or `ask`. A rewrite is `allow` with `updatedInput`. The one `block` comes from `verify_before_acting.py` after the tool has run, so the change stays on disk until the model undoes it. A linter fails only its own command.
 - Empty stdout with exit `0` is the pass for a quiet branch. Check the exit code before you read silence as a pass.
 - A missing or unreadable transcript counts as not loaded, so `UserPromptSubmit` prints the reminder.
 - `--home` keeps the scratch home after the run. Without `--home`, the playtest removes its own scratch home.

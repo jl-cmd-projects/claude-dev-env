@@ -66,6 +66,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/step_note_gate.py",
     "blocking/reply_length_gate.py",
     "blocking/edit_marker_gate.py",
+    "blocking/verify_before_acting.py",
 )
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests"})
 ALL_TEST_FILE_PREFIXES = ("test_",)
