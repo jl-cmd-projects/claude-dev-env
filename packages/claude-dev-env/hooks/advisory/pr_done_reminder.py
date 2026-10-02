@@ -31,7 +31,6 @@ Hosted by ``blocking/bash_post_call_dispatcher.py``, which forwards the
 from __future__ import annotations
 
 import json
-import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -65,9 +64,6 @@ try:
         GH_PR_CREATE_ACTION,
         GH_PR_SUBCOMMAND,
         ALL_GH_PR_VIEW_ARGUMENTS,
-        ALL_GIT_OPTIONS_WITH_VALUE,
-        ALL_POWERSHELL_COMMAND_FLAGS,
-        ALL_POWERSHELL_PROGRAM_NAMES,
         GH_PR_VIEW_TIMEOUT_SECONDS,
         GH_PROGRAM_NAME,
         GIT_PROGRAM_NAME,
@@ -87,9 +83,13 @@ try:
     )
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
     from hooks_constants.shell_command_segments import (
-        effective_leading_program,
+        command_tokens,
+        git_subcommand_tokens,
         split_into_segments,
-        token_basename,
+    )
+    from hooks_constants.shell_command_wrappers import (
+        all_wrapped_command_texts,
+        segment_program_and_arguments,
     )
 except ImportError as import_error:
     raise ImportError(
@@ -98,47 +98,10 @@ except ImportError as import_error:
     ) from import_error
 
 
-def _command_tokens(command: str) -> list[str]:
-    try:
-        return shlex.split(command, posix=True)
-    except ValueError:
-        return command.split()
-
-
-def _segment_program_and_arguments(all_segment_tokens: list[str]) -> tuple[str, list[str]]:
-    program_token = effective_leading_program(all_segment_tokens)
-    if program_token is None:
-        return "", []
-    program_index = all_segment_tokens.index(program_token)
-    return token_basename(program_token), all_segment_tokens[program_index + 1 :]
-
-
-def _git_subcommand(all_arguments: list[str]) -> str | None:
-    """Return git's subcommand after its global options.
-
-    ``git -C <path> push`` and ``git -c <key=value> push`` carry an option
-    value before the subcommand; ``--git-dir=<path>`` carries none. The first
-    token left after those is the subcommand, so ``git stash push`` yields
-    ``stash`` and ``git log --grep push`` yields ``log``.
-    """
-    should_skip_next_token = False
-    for each_argument in all_arguments:
-        if should_skip_next_token:
-            should_skip_next_token = False
-            continue
-        if each_argument in ALL_GIT_OPTIONS_WITH_VALUE:
-            should_skip_next_token = True
-            continue
-        if each_argument.startswith("-"):
-            continue
-        return each_argument
-    return None
-
-
 def _is_git_push(program_name: str, all_arguments: list[str]) -> bool:
-    return (
-        program_name == GIT_PROGRAM_NAME and _git_subcommand(all_arguments) == GIT_PUSH_SUBCOMMAND
-    )
+    return program_name == GIT_PROGRAM_NAME and git_subcommand_tokens(all_arguments)[:1] == [
+        GIT_PUSH_SUBCOMMAND
+    ]
 
 
 def _is_gh_pr_create(program_name: str, all_arguments: list[str]) -> bool:
@@ -146,25 +109,6 @@ def _is_gh_pr_create(program_name: str, all_arguments: list[str]) -> bool:
         GH_PR_SUBCOMMAND,
         GH_PR_CREATE_ACTION,
     ]
-
-
-def _powershell_inner_commands(all_command_tokens: list[str]) -> list[str]:
-    """Return the script texts every ``pwsh -Command "..."`` wrapper runs.
-
-    Read from the raw shlex tokens, before segment splitting: the quoted
-    script is one token here, and splitting it on ``;`` first would cut a
-    ``git add -A; git push`` script in half.
-    """
-    all_inner_commands: list[str] = []
-    has_seen_powershell_program = False
-    for each_token_index, each_token in enumerate(all_command_tokens[:-1]):
-        if token_basename(each_token) in ALL_POWERSHELL_PROGRAM_NAMES:
-            has_seen_powershell_program = True
-            continue
-        if has_seen_powershell_program and each_token.lower() in ALL_POWERSHELL_COMMAND_FLAGS:
-            all_inner_commands.append(all_command_tokens[each_token_index + 1])
-            has_seen_powershell_program = False
-    return all_inner_commands
 
 
 def command_triggers_reminder(command: str) -> bool:
@@ -176,16 +120,13 @@ def command_triggers_reminder(command: str) -> bool:
     Args:
         command: The Bash command text the agent ran.
     """
-    all_command_tokens = _command_tokens(command)
-    for each_inner_command in _powershell_inner_commands(all_command_tokens):
-        if command_triggers_reminder(each_inner_command):
-            return True
-    for each_segment in split_into_segments(all_command_tokens):
-        program_name, all_arguments = _segment_program_and_arguments(each_segment)
-        if _is_git_push(program_name, all_arguments) or _is_gh_pr_create(
-            program_name, all_arguments
-        ):
-            return True
+    for each_command_text in all_wrapped_command_texts(command):
+        for each_segment in split_into_segments(command_tokens(each_command_text)):
+            program_name, all_arguments = segment_program_and_arguments(each_segment)
+            if _is_git_push(program_name, all_arguments) or _is_gh_pr_create(
+                program_name, all_arguments
+            ):
+                return True
     return False
 
 
