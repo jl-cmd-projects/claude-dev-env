@@ -4,9 +4,14 @@ Three anti-hallucination constraints are always active.
 
 Source: [Anthropic - Reduce Hallucinations](https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)
 
-## 1. Say "I don't know"
-If you don't have a credible source for a claim, say so. Don't guess. Don't infer. "I don't have data on this" is always a valid answer.
+## 1. Settle the fact, then cite it
+Never state a claim without a credible source. Don't guess. Don't infer.
 
+Before an answer depends on an unsettled fact, list every tool that could settle it: repository files, `gh api` contents and code search, workflow files, a live run, another repository. Run each one. The answer states the fact with its source.
+
+When no tool can reach the fact, name the exact check that would settle it and who can run it. "I don't know" alone is never the answer.
+
+An agent once answered "I don't know" when asked whether a downstream repository picks up a fix on its own or needs a pin change. A workflow file in that repository held the answer, two `gh api` reads away.
 ## 2. Verify with citations
 Every recommendation, claim, or piece of advice must cite a specific source:
 - A file in the current project
