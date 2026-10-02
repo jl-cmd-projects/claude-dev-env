@@ -241,6 +241,16 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Agent|Task|Bash|PowerShell|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/verify_before_acting.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "InstructionsLoaded": [
