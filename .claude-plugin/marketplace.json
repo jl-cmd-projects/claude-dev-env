@@ -14,6 +14,19 @@
       "version": "1.0.0",
       "category": "development",
       "tags": ["code-standards", "hooks", "agents", "tdd", "quality"]
+    },
+    {
+      "name": "usage-wrapup",
+      "source": {
+        "source": "github",
+        "repo": "jl-cmd/usage-wrapup",
+        "ref": "main",
+        "sha": "c94766d10b1a32e97e4ff14c094c7c2007d1575b"
+      },
+      "description": "Tells every running agent to wrap up when plan usage gets low, before the limit cuts it off",
+      "version": "0.1.0",
+      "license": "MIT",
+      "category": "productivity"
     }
   ]
 }

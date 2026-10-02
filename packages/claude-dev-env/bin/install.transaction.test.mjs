@@ -84,6 +84,7 @@ test('capture and restore recover settings, manifest, files, and hooksPath', () 
     const env = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -145,6 +146,7 @@ test('capture and restore recover an additional host settings file', () => {
         env: {
             ...process.env,
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -179,6 +181,7 @@ test('runWithInstallTransaction restores prior state on injected fault', () => {
     const env = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -232,6 +235,7 @@ test('runWithInstallTransaction commits and discards journal on success', () => 
         env: {
             ...process.env,
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -274,6 +278,7 @@ function runInstaller(homeDirectory, extraArguments, options = {}) {
     const childEnvironment = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -308,6 +313,7 @@ test('a later install fault removes newly seeded Codex pstack files', () => {
             faultPhase: FAULT_PHASES.AFTER_MANIFEST_WRITE,
             environment: {
                 CDE_INSTALL_PSTACK: '1',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 CDE_CODEX_EXECUTABLE: codexCommandPath,
             },
         });
@@ -450,6 +456,7 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
             env: {
                 ...process.env,
                 CDE_INSTALL_PSTACK: '0',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -466,6 +473,7 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
             env: {
                 ...process.env,
                 CDE_INSTALL_PSTACK: '0',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,
