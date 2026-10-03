@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.36.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.3...claude-dev-env-v8.36.0) (2026-10-03)
+
+
+### Features
+
+* **rules:** load code and orchestrator rules only when they apply ([#1635](https://github.com/jl-cmd/claude-dev-env/issues/1635)) ([4f7d3a2](https://github.com/jl-cmd/claude-dev-env/commit/4f7d3a24086622ba3d4cacee6bcaa6e3d49a57f1))
+
 ## [8.35.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.2...claude-dev-env-v8.35.3) (2026-10-03)
 
 
