@@ -8,8 +8,17 @@ from pathlib import Path
 SCRIPTS_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(SCRIPTS_ROOT / "config"))
 sys.path.insert(0, str(SCRIPTS_ROOT))
+sys.path.insert(0, str(SCRIPTS_ROOT.parents[2] / "scripts"))
 
+from account_broker import decision_payload, readings_payload
 from codex_astra_preflight import run_astra_preflight
+from dev_env_scripts_constants.account_broker_constants import (
+    Account,
+    Decision,
+    Meters,
+    Product,
+    Reading,
+)
 
 
 def test_should_accept_broker_normal_answer_and_use_tighter_meter(tmp_path: Path) -> None:
@@ -26,9 +35,9 @@ def test_should_accept_broker_normal_answer_and_use_tighter_meter(tmp_path: Path
         },
         "accounts": [
             {
-                "account": "codex-2",
+                "name": "codex-2",
                 "home": str(home),
-                "main": False,
+                "is_main": False,
                 "meters": {
                     "session_percent_left": 72,
                     "session_resets_at": None,
@@ -98,3 +107,19 @@ def test_should_reject_broker_failure(tmp_path: Path) -> None:
 
     assert not preflight.eligible
     assert preflight.fallback_kind == "broken"
+
+
+def test_should_accept_the_answer_the_broker_serializes(tmp_path: Path) -> None:
+    account = Account(Product.CODEX, "codex-2", tmp_path / "codex-2")
+    reading = Reading(account, Meters(72.0, None, 42.0, None))
+    decision = Decision("run", account, None, "codex-2 has 42% left", "normal")
+    answer = {"decision": decision_payload(decision), "accounts": readings_payload([reading])}
+
+    def process_runner(arguments: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(arguments, 0, json.dumps(answer), "")
+
+    preflight = run_astra_preflight(tmp_path / "account_broker.py", process_runner)
+
+    assert preflight.eligible
+    assert preflight.percent_left == 42
+    assert preflight.codex_home == tmp_path / "codex-2"

@@ -43,9 +43,9 @@ NORMAL_ANSWER = {
         "reason": "codex-2 has 90% left",
     },
     "accounts": [{
-        "account": "codex-2",
+        "name": "codex-2",
         "home": str(PICKED_CODEX_HOME),
-        "main": False,
+        "is_main": False,
         "meters": {
             "session_percent_left": 90,
             "session_resets_at": None,
@@ -227,7 +227,7 @@ def test_should_decline_a_tier_without_room(tier: str) -> None:
         {
             **NORMAL_ANSWER,
             "accounts": [{
-                "account": "codex-2",
+                "name": "codex-2",
                 "home": str(PICKED_CODEX_HOME),
                 "meters": {"session_percent_left": "90"},
             }],

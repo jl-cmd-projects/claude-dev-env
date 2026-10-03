@@ -68,7 +68,7 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
             entry
             for entry in accounts
             if isinstance(entry, dict)
-            and entry.get("account") == account
+            and entry.get("name") == account
             and entry.get("home") == codex_home
         ),
         None,

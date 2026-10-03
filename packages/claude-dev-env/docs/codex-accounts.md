@@ -100,7 +100,7 @@ Room is the smaller of an account's two windows: the 5-hour window and the week.
 python packages/claude-dev-env/scripts/account_broker.py choose --product codex
 {"decision": {"action": "run", "account": "codex-1", "home": "...\\codex-1",
  "resets_at": null, "reason": "codex-1 has 62% left", "tier": "normal"},
- "accounts": [{"account": "codex-1", "home": "...\\codex-1", "main": false,
+ "accounts": [{"name": "codex-1", "home": "...\\codex-1", "is_main": false,
  "meters": {"session_percent_left": 62.0, "session_resets_at": null,
  "weekly_percent_left": 70.0, "weekly_resets_at": null}}]}
 ```
