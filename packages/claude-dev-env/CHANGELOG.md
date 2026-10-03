@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.36.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.2...claude-dev-env-v8.36.3) (2026-10-03)
+
+
+### Maintenance
+
+* **privacy:** drop host-specific names and an archived access note ([2e88683](https://github.com/jl-cmd/claude-dev-env/commit/2e88683c625a3bc50df9c8b924a43610055ee65d))
+* **privacy:** drop host-specific names and an archived access note ([f82761b](https://github.com/jl-cmd/claude-dev-env/commit/f82761b25da3f8814b3ef09ed7e8800bd58c6b2a))
+
 ## [8.36.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.1...claude-dev-env-v8.36.2) (2026-10-03)
 
 
