@@ -18,7 +18,7 @@ ALL_GITHUB_MCP_TOOL_SUFFIXES = (
     "__update_pull_request",
 )
 ALL_TRANSCRIPT_PATH_FIELDS = ("transcript_path", "agent_transcript_path")
-COMMAND_SEPARATORS = ";|&\n"
+COMMAND_SEPARATORS = ";|&\n()"
 COMMAND_WHITESPACE = " \t\r"
 OPTION_AND_VALUE_WORD_COUNT = 2
 GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
@@ -28,3 +28,6 @@ GH_PULL_REQUEST_COMMAND = "pr"
 GH_API_COMMAND = "api"
 MERGE_PATH_SUFFIX = "/merge"
 ALL_API_ACTION_NAMES = ("auto-merge", "enablePullRequestAutoMerge")
+ALL_COMMAND_PREFIX_WORDS = frozenset({"env", "sudo", "command", "exec", "nohup", "time"})
+ALL_PREFIX_OPTIONS_WITH_VALUE = frozenset({"-u", "--unset", "-C", "--chdir", "-g", "--group", "--user"})
+ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="

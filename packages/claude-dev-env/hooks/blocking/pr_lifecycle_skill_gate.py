@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shlex
 import sys
 from pathlib import Path
@@ -13,13 +14,16 @@ if hooks_directory not in sys.path:
 
 from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_API_ACTION_NAMES,
+    ALL_COMMAND_PREFIX_WORDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
+    ALL_PREFIX_OPTIONS_WITH_VALUE,
     ALL_SLASH_COMMAND_MARKERS,
     ALL_TRANSCRIPT_PATH_FIELDS,
     COMMAND_SEPARATORS,
     COMMAND_WHITESPACE,
     DENY_DECISION,
     DENY_REASON,
+    ENVIRONMENT_ASSIGNMENT_PATTERN,
     GH_API_COMMAND,
     GH_OPTIONS_WITH_VALUE,
     GH_PULL_REQUEST_COMMAND,
@@ -97,12 +101,31 @@ def _is_gh_action(all_words: list[str]) -> bool:
     )
 
 
+def _words_from_executable(all_words: list[str]) -> list[str]:
+    index = 0
+    while index < len(all_words):
+        each_word = all_words[index]
+        if re.match(ENVIRONMENT_ASSIGNMENT_PATTERN, each_word):
+            index += 1
+            continue
+        if each_word not in ALL_COMMAND_PREFIX_WORDS:
+            return all_words[index:]
+        index += 1
+        while index < len(all_words) and all_words[index].startswith("-"):
+            is_valued = all_words[index] in ALL_PREFIX_OPTIONS_WITH_VALUE
+            index += OPTION_AND_VALUE_WORD_COUNT if is_valued else 1
+    return []
+
+
 def _matches_shell_command(command: str) -> bool:
     for each_segment in _command_segments(command):
-        executable = each_segment[0].lower()
-        if executable in {"git", "git.exe"} and _is_git_action(each_segment):
+        all_command_words = _words_from_executable(each_segment)
+        if not all_command_words:
+            continue
+        executable = all_command_words[0].lower()
+        if executable in {"git", "git.exe"} and _is_git_action(all_command_words):
             return True
-        if executable in {"gh", "gh.exe"} and _is_gh_action(each_segment):
+        if executable in {"gh", "gh.exe"} and _is_gh_action(all_command_words):
             return True
     return False
 
