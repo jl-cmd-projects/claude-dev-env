@@ -28,7 +28,7 @@ python ~/.claude/scripts/account_broker.py choose --product codex
 
 The shared entry point is `~/.claude/_shared/advisor/scripts/codex_astra_advisor.py`. It runs the broker and owns Astra bind or resume parsing. Bind with `python ~/.claude/_shared/advisor/scripts/codex_astra_advisor.py --bind --enable-astra --cwd <repo-root>` and pipe the charter on stdin. Resume with `--resume <session_id>` and pipe the delta consult on stdin.
 
-The gate passes only when the broker exits 0 and answers `decision.tier: normal` with a `decision.home` and finite session or weekly room in the matching `accounts` entry. The helper then runs Codex with `CODEX_HOME` set to `decision.home`. A `luna` or `wait` answer, including exit 3 with a wait answer, declines the preflight when Opus did not bind.
+The gate passes only when the broker exits 0 and answers `decision.tier: normal` with a `decision.home` and finite session or weekly room in the `accounts` entry whose `name` and `home` match. With no roster configured, `accounts` is empty and the gate passes on `decision.home` alone. The helper then runs Codex with `CODEX_HOME` set to `decision.home`. A `luna` or `wait` answer, including exit 3 with a wait answer, declines the preflight when Opus did not bind.
 
 ## Branches
 

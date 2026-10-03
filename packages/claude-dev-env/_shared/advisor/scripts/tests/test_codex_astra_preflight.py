@@ -3,14 +3,17 @@
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+
+import pytest
 
 SCRIPTS_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(SCRIPTS_ROOT / "config"))
 sys.path.insert(0, str(SCRIPTS_ROOT))
 sys.path.insert(0, str(SCRIPTS_ROOT.parents[2] / "scripts"))
 
-from account_broker import decision_payload, readings_payload
+from account_broker import choose_from_readings, decision_payload, readings_payload
 from codex_astra_preflight import run_astra_preflight
 from dev_env_scripts_constants.account_broker_constants import (
     Account,
@@ -123,3 +126,21 @@ def test_should_accept_the_answer_the_broker_serializes(tmp_path: Path) -> None:
     assert preflight.eligible
     assert preflight.percent_left == 42
     assert preflight.codex_home == tmp_path / "codex-2"
+
+
+def test_should_bind_the_default_home_when_no_roster_is_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    default_home = tmp_path / ".codex"
+    monkeypatch.setenv("CODEX_HOME", str(default_home))
+    decision = choose_from_readings(Product.CODEX, [], now=datetime.now(timezone.utc))
+    answer = {"decision": decision_payload(decision), "accounts": readings_payload([])}
+
+    def process_runner(arguments: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(arguments, 0, json.dumps(answer), "")
+
+    preflight = run_astra_preflight(tmp_path / "account_broker.py", process_runner)
+
+    assert preflight.eligible
+    assert preflight.percent_left is None
+    assert preflight.codex_home == default_home.resolve()

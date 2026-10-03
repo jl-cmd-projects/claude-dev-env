@@ -61,8 +61,13 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
     codex_home = decision.get("home")
     account = decision.get("account")
     accounts = field_by_name.get("accounts")
+    reason = decision.get("reason")
     if not isinstance(codex_home, str) or not codex_home or not isinstance(account, str) or not isinstance(accounts, list):
         return _broken("broker answer names no Codex home with room")
+    if not isinstance(reason, str):
+        return _broken("broker answer is malformed")
+    if not accounts:
+        return AstraPreflight(True, None, reason, codex_home=Path(codex_home))
     chosen = next(
         (
             entry
@@ -83,11 +88,7 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
     ]
     if not all_percent_left:
         return _broken("broker answer names no Codex home with room")
-    percent_left = min(all_percent_left)
-    reason = decision.get("reason")
-    if not isinstance(reason, str):
-        return _broken("broker answer is malformed")
-    return AstraPreflight(True, percent_left, reason, codex_home=Path(codex_home))
+    return AstraPreflight(True, min(all_percent_left), reason, codex_home=Path(codex_home))
 
 
 def _run_broker(
