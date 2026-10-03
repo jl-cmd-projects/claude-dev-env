@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.36.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.3...claude-dev-env-v8.36.4) (2026-10-03)
+
+
+### Documentation
+
+* **rules:** shrink path-scoped code rules to the rule and its pointers ([3a12498](https://github.com/jl-cmd/claude-dev-env/commit/3a12498086da86ee3fa0ce4e15ad997716697458))
+* **rules:** shrink path-scoped code rules to the rule and its pointers ([3b8a70c](https://github.com/jl-cmd/claude-dev-env/commit/3b8a70c37b0bd4f62d9db25e01b9a711f30cf8fd))
+
 ## [8.36.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.2...claude-dev-env-v8.36.3) (2026-10-03)
 
 
