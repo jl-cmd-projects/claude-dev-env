@@ -52,7 +52,7 @@ For Claude Projects facts or reported coordinator mechanisms, read [platform evi
 ### Orient and retain the goals
 
 Read the current user message and applicable project instructions.
-Read `~/.claude/rules/long-horizon-autonomy.md` and `~/.claude/rules/workers-done-before-complete.md` before the first dispatch. Those two rules load only through this read.
+Read `~/.claude/rules/long-horizon-autonomy.md` and `~/.claude/rules/workers-done-before-complete.md` before the first dispatch. Invoking this skill does not load those two rules, so this read does.
 At startup or after context loss, inspect `.orchestrator/active-runs/` under the supplied project directory.
 Use an alternate registry only when loaded instructions or the runtime provide its exact locator.
 Verify the startup loader pointer described in run state before claiming recovery from a cold session.
