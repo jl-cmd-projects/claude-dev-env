@@ -1,5 +1,41 @@
 # Changelog
 
+## [8.37.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.2...claude-dev-env-v8.37.3) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** settle a fact with every tool before answering ([#1607](https://github.com/jl-cmd/claude-dev-env/issues/1607)) ([d24ed35](https://github.com/jl-cmd/claude-dev-env/commit/d24ed351c95362ff76f1cac10b56124ec2bbba7a))
+
+## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** state each rule once in the package AGENTS.md ([bebce38](https://github.com/jl-cmd/claude-dev-env/commit/bebce38ca524910f0769764993cf394f8066acd9))
+
+## [8.37.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.0...claude-dev-env-v8.37.1) (2026-10-03)
+
+
+### Documentation
+
+* **rule-guides:** state seven moved sentences directly ([7f116ff](https://github.com/jl-cmd/claude-dev-env/commit/7f116ff603074aa0c9a868ae38e6cc9d8777f123))
+* **rules:** shrink the eleven always-on rules to index entries ([112adea](https://github.com/jl-cmd/claude-dev-env/commit/112adea563b3b2673852613adda0ee6d4540affe))
+* **rules:** shrink the eleven always-on rules to index entries ([0853f8a](https://github.com/jl-cmd/claude-dev-env/commit/0853f8ac84574a13b321cba08cb022572c65caca))
+
+## [8.37.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.4...claude-dev-env-v8.37.0) (2026-10-03)
+
+
+### Features
+
+* **hooks:** hold agent spawns until the session has read and asked ([16f7ce5](https://github.com/jl-cmd/claude-dev-env/commit/16f7ce5c01258603b1bb982d747cbc016ff35d42))
+* **hooks:** hold agent spawns until the session has read and asked ([f366bdf](https://github.com/jl-cmd/claude-dev-env/commit/f366bdf48f9ff8cc09bc38a1fce594122e7669b9))
+
+
+### Bug Fixes
+
+* **hooks:** count only interactive prompts as the spawn interview ([7fb3ec8](https://github.com/jl-cmd/claude-dev-env/commit/7fb3ec880d7dad53b9c699297e1fd78a8bb0492f))
+
 ## [8.36.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.3...claude-dev-env-v8.36.4) (2026-10-03)
 
 
