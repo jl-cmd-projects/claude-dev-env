@@ -7,14 +7,19 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = REPOSITORY_ROOT / "packages" / "claude-dev-env"
 CANONICAL_RULE_PATH = PACKAGE_ROOT / "rules" / "asd-ste100-language.md"
+CANONICAL_GUIDE_PATH = PACKAGE_ROOT / "docs" / "rule-guides" / "asd-ste100-language.md"
 
 
 def _read(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
+def _read_rule_with_guide() -> str:
+    return _read(CANONICAL_RULE_PATH) + _read(CANONICAL_GUIDE_PATH)
+
+
 def test_canonical_rule_owns_general_language_contract() -> None:
-    canonical_text = _read(CANONICAL_RULE_PATH)
+    canonical_text = _read_rule_with_guide()
     lowered_text = canonical_text.lower()
 
     assert "asd-ste100 simplified technical english, issue 9 (2025-01-15)" in lowered_text
