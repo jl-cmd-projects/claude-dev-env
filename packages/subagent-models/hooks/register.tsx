@@ -786,8 +786,10 @@ export const register: Register = (on, options: PluginOptions) => {
           ))}
         </Box>
         <Button key="pill" onPress={() => update($, isBarOpen, current => !current)}>
-          {`${ICON_MARK} ${settings.defaultModel} · ${settings.effort}${sessionMark} ${isOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
+          {`${ICON_MARK} ${isOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
         </Button>
+        <Text key="footer-model" bold color={FAMILY_COLORS[settings.defaultModel as Family] ?? ACCENT}>{settings.defaultModel}</Text>
+        <Text key="footer-effort" color={ACCENT}>{`${settings.effort}${sessionMark}`}</Text>
         <Text color={ACCENT}>{e.props.modes.join(' & ')}</Text>
       </Box>
     )

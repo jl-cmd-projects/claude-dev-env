@@ -488,6 +488,7 @@ test('the strip, the model rows and the footer dots run from haiku to fable', as
   expect(dots).toHaveLength(4)
   expect(dots[0]).toContain('#9ece6a')
   expect(dots[2]).toContain('#bb9af7')
+  expect(JSON.stringify(await footer.drawn())).toMatch(/"color":"#bb9af7"[^}]*\},"children":\["opus"\]/)
   await bar.unmount()
   await footer.unmount()
 })
