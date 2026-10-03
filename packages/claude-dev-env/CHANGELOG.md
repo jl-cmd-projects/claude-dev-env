@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** state each rule once in the package AGENTS.md ([bebce38](https://github.com/jl-cmd/claude-dev-env/commit/bebce38ca524910f0769764993cf394f8066acd9))
+
 ## [8.37.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.0...claude-dev-env-v8.37.1) (2026-10-03)
 
 
