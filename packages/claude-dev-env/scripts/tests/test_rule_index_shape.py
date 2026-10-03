@@ -25,7 +25,7 @@ TITLE_PATTERN = re.compile(r"^# \S", re.MULTILINE)
 
 MAXIMUM_ENTRY_BYTES = 2_000
 MAXIMUM_ALWAYS_ON_BYTES = 40_000
-POINTER_ENTRY_NAMES: frozenset[str] = frozenset()
+POINTER_ENTRY_NAMES = frozenset({"skill-pointers.md"})
 CODEX_MATERIALIZED_GUIDE_NAMES = frozenset(
     Path(each_path).name for each_path in codex_instruction_rule_relative_paths
 )
