@@ -85,6 +85,10 @@ const ICON_MARK = '◈'
 
 const ACCENT = '#7aa2f7'
 
+const STRIP_OFF_COLOR = '#3b4261'
+
+const FAMILY_COLORS: Record<Family, string> = { opus: '#bb9af7', sonnet: '#7aa2f7', haiku: '#9ece6a', fable: '#e0af68' }
+
 const MINIMIZE_MARK = '▾'
 
 const EXPAND_MARK = '▴'
@@ -677,24 +681,35 @@ export const register: Register = (on, options: PluginOptions) => {
       <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={2} gap={1}>
         <Box flexDirection="row" columnGap={COLUMN_GAP} alignItems="center" justifyContent="space-between">
           <Text bold color={ACCENT}>{`${ICON_MARK} Subagents`}</Text>
-          <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
-            {`${MINIMIZE_MARK} minimize`}
-          </Button>
+          <Box flexDirection="row" columnGap={COLUMN_GAP} alignItems="center">
+            <Text dimColor>{`${settings.defaultModel} · ${settings.effort} · ${ALL_FAMILIES.filter(family => settings[family] === 'on').length} of ${ALL_FAMILIES.length} models on`}</Text>
+            <Button key="minimize" dimColor onPress={() => update($, isBarOpen, () => false)}>
+              {`${MINIMIZE_MARK} minimize`}
+            </Button>
+          </Box>
+        </Box>
+        <Box key="strip" flexDirection="row" columnGap={BAR_COLUMN_GAP}>
+          {ALL_FAMILIES.map(family => (
+            <Box key={`strip-${family}`} flexGrow={1} height={1} backgroundColor={settings[family] === 'on' ? FAMILY_COLORS[family] : STRIP_OFF_COLOR} />
+          ))}
         </Box>
         {gridRowOf(
           'models',
-          ALL_FAMILIES.map(family =>
-            barCell(
-              `model-${family}`,
+          ALL_FAMILIES.map(family => (
+            <Box key={`cell-model-${family}`} width={BAR_CELL_CHARS} flexDirection="row" justifyContent="space-between" alignItems="center">
+              <Box flexDirection="row" columnGap={1}>
+                <Text color={settings[family] === 'on' ? FAMILY_COLORS[family] : undefined} dimColor={settings[family] !== 'on'}>{ON_MARK}</Text>
+                <Text dimColor={settings[family] !== 'on'}>{family}</Text>
+              </Box>
               <Button
                 key={`model-${family}`}
-                variant={settings[family] === 'on' ? 'primary' : 'secondary'}
+                dimColor
                 onPress={() => toastAfter($, setField($, defaults, family, flipped(settings[family])))}
               >
-                {chipLabelOf(settings[family] === 'on', family)}
-              </Button>,
-            ),
-          ),
+                {settings[family] === 'on' ? 'on' : 'off'}
+              </Button>
+            </Box>
+          )),
         )}
         {gridRowOf('settings', [
           barCell('cell-defaultModel', selectOf('defaultModel', 'default')),

@@ -760,3 +760,18 @@ test('a group of 16 or fewer shows every row with no toggle needed', async ($, o
   expect((await pane.find({ key: 'group-toggle-agents:team' }))?.text).toBe('▾ TEAM · 16')
   await pane.unmount()
 })
+
+test('the model strip and the header summary follow each model switch', async ($, on) => {
+  engine(on)
+  await command($ as never, 'reset')
+  const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  const stripColor = async (family: string) => (await ui.find({ key: `strip-${family}` }))?.props.backgroundColor
+  expect(await stripColor('opus')).toBe('#bb9af7')
+  expect(await stripColor('fable')).toBe('#3b4261')
+  expect(JSON.stringify(await ui.drawn())).toContain('opus · medium · 2 of 4 models on')
+  await ui.press({ key: 'model-fable' })
+  expect(await stripColor('fable')).toBe('#e0af68')
+  expect(JSON.stringify(await ui.drawn())).toContain('opus · medium · 3 of 4 models on')
+  await ui.press({ key: 'model-fable' })
+  await ui.unmount()
+})
