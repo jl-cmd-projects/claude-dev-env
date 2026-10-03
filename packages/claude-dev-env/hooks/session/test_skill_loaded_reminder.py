@@ -189,6 +189,10 @@ class TestIsPotetoModeLoaded:
         prefixed_command_line = TYPED_COMMAND_LINE.replace("/poteto-mode", "/pstack:poteto-mode")
         assert reminder.is_poteto_mode_loaded([prefixed_command_line])
 
+    def test_a_different_skill_call_does_not_load_it(self) -> None:
+        other_skill_call_line = SKILL_CALL_LINE.replace("poteto-mode", "pr-lifecycle")
+        assert not reminder.is_poteto_mode_loaded([other_skill_call_line])
+
     def test_a_compaction_after_the_skill_call_drops_it(self) -> None:
         assert not reminder.is_poteto_mode_loaded(
             [SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, READ_CALL_LINE]
