@@ -5,7 +5,7 @@
 
     Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke poteto-mode"
     Workflow script helper starts               -> "invoke poteto-mode now"
-    compact SessionStart, skill invoked before   -> "invoke poteto-mode again"
+    compact SessionStart, skill invoked before   -> "invoke the skill again"
     compact SessionStart, no prior invocation
     or transcript unavailable                    -> nothing
     user turn, skill invoked then compacted      -> "invoke poteto-mode now"
