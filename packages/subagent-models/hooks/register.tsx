@@ -91,13 +91,15 @@ const SIDE_OPEN_MARK = '◂'
 
 const SIDE_CLOSED_MARK = '▸'
 
-const MIN_CELL_CHARS = 14
+const MIN_CELL_CHARS = 24
 
-const MAX_CELL_CHARS = 34
+const MAX_CELL_CHARS = 44
 
-const CELL_PADDING = 2
+const DOT_CHARS = 2
 
-const COLUMN_GAP = 2
+const TOGGLE_CHARS = 8
+
+const COLUMN_GAP = 4
 
 const BAR_COLUMNS = 4
 
@@ -240,11 +242,11 @@ function chipLabelOf(isOn: boolean, label: string): string {
 }
 
 function cellCharsOf(labels: readonly string[]): number {
-  return Math.min(MAX_CELL_CHARS, Math.max(MIN_CELL_CHARS, ...labels.map(label => chipLabelOf(true, label).length)) + CELL_PADDING)
+  return Math.min(MAX_CELL_CHARS, Math.max(MIN_CELL_CHARS, ...labels.map(label => label.length + DOT_CHARS + TOGGLE_CHARS)))
 }
 
 function fitLabelOf(label: string, cellChars: number): string {
-  const room = cellChars - CELL_PADDING - chipLabelOf(true, '').length
+  const room = cellChars - DOT_CHARS - TOGGLE_CHARS
   if (label.length <= room) return label
   const tail = Math.ceil((room - 1) * 0.6)
   return `${label.slice(0, room - 1 - tail)}…${label.slice(label.length - tail)}`
@@ -476,22 +478,22 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
   const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
   const cellChars = cellCharsOf(groups.flatMap(group => group.items.map(item => item.label)))
   const columns = columnsOf(cellChars)
+  const toolbarButton = (key: string, label: string, onPress: () => void) => (
+    <Button key={key} dimColor onPress={onPress}>
+      {label}
+    </Button>
+  )
   return (
     <Box flexDirection="column" gap={1}>
-      <Box flexDirection="row" flexWrap="wrap" columnGap={COLUMN_GAP} alignItems="center">
-        {hasTitle && <Text bold color={ACCENT}>{title}</Text>}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        {hasTitle ? <Text bold color={ACCENT}>{title}</Text> : <Text dimColor>{word}</Text>}
         <Text dimColor>{`${onCount} of ${names.length} on`}</Text>
-        <Button key={`${kind}-enable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'on'))}>
-          enable all
-        </Button>
-        <Button key={`${kind}-disable-all`} dimColor onPress={() => toastAfter($, setAllSwitches($, kind, names, 'off'))}>
-          disable all
-        </Button>
-        {skillsView !== undefined && (
-          <Button key="skills-sort" dimColor onPress={() => update($, isSortedByRecent, current => !current)}>
-            {skillsView.isRecent ? 'sort: recent' : 'sort: name'}
-          </Button>
-        )}
+      </Box>
+      <Box flexDirection="row" flexWrap="wrap" columnGap={2} alignItems="center">
+        {toolbarButton(`${kind}-enable-all`, 'enable all', () => toastAfter($, setAllSwitches($, kind, names, 'on')))}
+        {toolbarButton(`${kind}-disable-all`, 'disable all', () => toastAfter($, setAllSwitches($, kind, names, 'off')))}
+        {skillsView !== undefined &&
+          toolbarButton('skills-sort', skillsView.isRecent ? 'sort: recent' : 'sort: name', () => update($, isSortedByRecent, current => !current))}
         {skillsView !== undefined && (
           <Select
             key="skills-stale-days"
@@ -501,11 +503,10 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
             onSelect={choice => update($, staleDaysPick, () => Number(choice))}
           />
         )}
-        {skillsView !== undefined && (
-          <Button key="skills-turn-off-stale" dimColor onPress={() => toastAfter($, setAllSwitches($, kind, skillsView.staleNames, 'off'))}>
-            {`turn off unused ${skillsView.staleDays}d+ (${skillsView.staleNames.length})`}
-          </Button>
-        )}
+        {skillsView !== undefined &&
+          toolbarButton('skills-turn-off-stale', `turn off unused ${skillsView.staleDays}d+ (${skillsView.staleNames.length})`, () =>
+            toastAfter($, setAllSwitches($, kind, skillsView.staleNames, 'off')),
+          )}
         {debugText !== undefined && <Text dimColor>{debugText}</Text>}
       </Box>
       {names.length === 0 ? (
@@ -513,23 +514,30 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
       ) : (
         groups.map(group => (
           <Box key={`group-${group.title}`} flexDirection="column" gap={1}>
-            <Text dimColor>{group.title}</Text>
+            <Box flexDirection="row" columnGap={2}>
+              <Text bold dimColor>{group.title.toUpperCase()}</Text>
+              <Text dimColor>{`· ${group.items.length}`}</Text>
+            </Box>
             {rowsOf(group.items, columns).map(row => (
               <Box key={`row-${row[0].name}`} flexDirection="row" columnGap={COLUMN_GAP}>
-                {row.map(item =>
-                  cellOf(
-                    ui,
-                    `cell-${word}-${item.name}`,
-                    cellChars,
-                    <Button
-                      key={`${word}-${item.name}`}
-                      variant={state.switchOf(kind, item.name) === 'on' ? 'primary' : 'secondary'}
-                      onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
-                    >
-                      {chipLabelOf(state.switchOf(kind, item.name) === 'on', fitLabelOf(item.label, cellChars))}
-                    </Button>,
-                  ),
-                )}
+                {row.map(item => {
+                  const isOn = state.switchOf(kind, item.name) === 'on'
+                  return (
+                    <Box key={`cell-${word}-${item.name}`} width={cellChars} flexDirection="row" justifyContent="space-between" alignItems="center">
+                      <Box flexDirection="row" columnGap={1}>
+                        <Text color={isOn ? ACCENT : undefined} dimColor={!isOn}>{isOn ? ON_MARK : OFF_MARK}</Text>
+                        <Text dimColor={!isOn}>{fitLabelOf(item.label, cellChars)}</Text>
+                      </Box>
+                      <Button
+                        key={`${word}-${item.name}`}
+                        dimColor
+                        onPress={() => toastAfter($, setSwitch($, kind, item.name, flipped(state.switchOf(kind, item.name))))}
+                      >
+                        {isOn ? 'on' : 'off'}
+                      </Button>
+                    </Box>
+                  )
+                })}
               </Box>
             ))}
           </Box>
@@ -594,7 +602,10 @@ export const register: Register = (on, options: PluginOptions) => {
         return { text: isOpen ? 'Subagent bar expanded.' : 'Subagent bar minimized.' }
       }
     }
-    if (word === 'seed') return { text: rest.length === 0 && value !== undefined ? await seedFrom($, value) : USAGE }
+    if (word === 'seed') {
+      const seedPath = e.args.trim().slice(word.length).trim().replace(/^(["'])(.*)\1$/, '$2')
+      return { text: seedPath === '' ? USAGE : await seedFrom($, seedPath) }
+    }
     if (word === 'agent' || word === 'skill') {
       const [nameSwitch, ...extra] = rest
       if (value === undefined || nameSwitch === undefined || !isSwitch(nameSwitch) || extra.length > 0) return { text: USAGE }
