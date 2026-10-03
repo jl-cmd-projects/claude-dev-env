@@ -39,7 +39,7 @@ NORMAL_ANSWER = {
         "tier": "normal",
         "account": "codex-2",
         "home": str(PICKED_CODEX_HOME),
-        "reset_at": None,
+        "resets_at": None,
         "reason": "codex-2 has 90% left",
     },
     "accounts": [{

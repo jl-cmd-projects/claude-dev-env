@@ -13,7 +13,10 @@ from pathlib import Path
 from advisor_scripts_constants.astra_advisor_constants import (
     ACCOUNT_BROKER_CHOOSE_COMMAND,
     ASTRA_ACCOUNT_PICK_TIMEOUT_REASON,
+    ALL_BROKER_ACCEPTED_EXIT_CODES,
+    ALL_BROKER_METER_PERCENT_KEYS,
     ASTRA_ACCOUNT_PICK_TIMEOUT_SECONDS,
+    BROKER_WAIT_EXIT_CODE,
     ASTRA_FALLBACK_KIND_BROKEN,
     ASTRA_FALLBACK_KIND_DECLINED,
     ASTRA_PREFLIGHT_FAILURE_REASON,
@@ -75,7 +78,7 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
         return _broken("broker answer names no Codex home with room")
     all_percent_left = [
         percent
-        for key in ("session_percent_left", "weekly_percent_left")
+        for key in ALL_BROKER_METER_PERCENT_KEYS
         if (percent := _finite_percent(meters.get(key))) is not None
     ]
     if not all_percent_left:
@@ -102,7 +105,7 @@ def _run_broker(
 
 
 def _preflight_from_broker(completed: subprocess.CompletedProcess[str]) -> AstraPreflight:
-    if completed.returncode not in (0, 3):
+    if completed.returncode not in ALL_BROKER_ACCEPTED_EXIT_CODES:
         return _broken(f"broker exit {completed.returncode}")
     try:
         answer = json.loads(completed.stdout)
@@ -110,7 +113,7 @@ def _preflight_from_broker(completed: subprocess.CompletedProcess[str]) -> Astra
         return _broken("broker answer is malformed")
     if not isinstance(answer, dict):
         return _broken("broker answer is malformed")
-    if completed.returncode == 3:
+    if completed.returncode == BROKER_WAIT_EXIT_CODE:
         decision = answer.get("decision")
         if not isinstance(decision, dict) or not isinstance(decision.get("tier"), str):
             return _broken("broker answer is malformed")

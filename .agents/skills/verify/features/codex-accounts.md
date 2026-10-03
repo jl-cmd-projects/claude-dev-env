@@ -9,7 +9,7 @@ The account broker reads the rate-limit windows of the roster's Codex accounts, 
 - Named launchers. `setup` asks for names, saves the roster, and writes `codex-<name>.cmd` with `call codex %*`. `install` reruns it without asking. A name left out at setup has its launcher renamed with a `.replaced-<time>` suffix, and its home stays.
 - Per-account state. Every entry outside `ALL_SHARED_CODEX_HOME_NAMES` stays in each home and is never linked.
 - Meter read. `scripts/codex_account_meters.py` starts `codex app-server` with `CODEX_HOME` set, sends the handshake and `account/rateLimits/read`, and keeps standard input open until the reply lands.
-- Broker. `choose --product codex` prints `decision` with `action`, `account`, `home`, `reset_at`, `reason`, and `tier`, plus `accounts` with each account's meters. The normal tier selects the account with the most room. A wait answer exits 3 and still prints JSON.
+- Broker. `choose --product codex` prints `decision` with `action`, `account`, `home`, `resets_at`, `reason`, and `tier`, plus `accounts` with each account's meters. The normal tier selects the account with the most room. A wait answer exits 3 and still prints JSON.
 - Luna stop. `check --product codex` exits 3 while every account is below its floor and 0 when an account has room.
 - Luna 5-hour floor. An account that reports a 5-hour window takes `luna` only with at least 20% of that window left.
 

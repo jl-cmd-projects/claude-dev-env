@@ -65,6 +65,7 @@ from check_convergence_thread_gates import (
 )
 from pr_converge_scripts_constants.convergence_gate_constants import (
     ALL_CODEX_ACCOUNT_BROKER_RELATIVE_PARTS,
+    ALL_CODEX_BROKER_ACCEPTED_EXIT_CODES,
     BUGBOT_DOWN_BYPASS_NOTE,
     CLAUDE_JOB_DIR_ENV_VAR_NAME,
     CODEX_ACCOUNT_PICK_TIMEOUT_SECONDS,
@@ -392,7 +393,7 @@ def _read_codex_tier() -> str | None:
         answer = json.loads(completed.stdout)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         return None
-    if completed.returncode not in (0, 3) or not isinstance(answer, dict):
+    if completed.returncode not in ALL_CODEX_BROKER_ACCEPTED_EXIT_CODES or not isinstance(answer, dict):
         return None
     decision = answer.get("decision")
     if not isinstance(decision, dict):
