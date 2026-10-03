@@ -779,9 +779,14 @@ export const register: Register = (on, options: PluginOptions) => {
     const isOpen = await read($, isBarOpen)
     const sessionMark = Object.keys(sessionOverrides).length > 0 ? '*' : ''
     return (
-      <Box flexDirection="row" columnGap={2}>
+      <Box flexDirection="row" columnGap={2} alignItems="center">
+        <Box key="footer-dots" flexDirection="row" columnGap={1}>
+          {ALL_FAMILIES.map(family => (
+            <Text key={`footer-dot-${family}`} color={settings[family] === 'on' ? FAMILY_COLORS[family] : STRIP_OFF_COLOR}>{ON_MARK}</Text>
+          ))}
+        </Box>
         <Button key="pill" onPress={() => update($, isBarOpen, current => !current)}>
-          {`${ICON_MARK} ${settings.defaultModel}/${settings.effort}${sessionMark} ${isOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
+          {`${ICON_MARK} ${settings.defaultModel} · ${settings.effort}${sessionMark} ${isOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
         </Button>
         <Text dimColor>{e.props.modes.join(' & ')}</Text>
       </Box>

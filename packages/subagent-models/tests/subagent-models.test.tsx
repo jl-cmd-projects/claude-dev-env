@@ -456,6 +456,22 @@ test('the footer pill opens the bar, the minimize button closes it, and the bar 
   }
 })
 
+test('the footer dots follow which models are on', async ($, on) => {
+  engine(on)
+  await command($ as never, 'reset')
+  const footer = await $.ui.mount({ ...MODE_TARGET, surface: 'desktop' })
+  const bar = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  const dotColors = async () => JSON.stringify(await footer.drawn()).match(/"color":"#[0-9a-f]{6}"\},"children":\["●"\]/g) ?? []
+  const before = await dotColors()
+  expect(before).toHaveLength(4)
+  await bar.press({ key: 'model-haiku' })
+  const after = await dotColors()
+  expect(after[2]).not.toBe(before[2])
+  expect([after[0], after[1], after[3]]).toEqual([before[0], before[1], before[3]])
+  await bar.unmount()
+  await footer.unmount()
+})
+
 test('the more menu saves the session values as defaults', async ($, on) => {
   const world = engine(on)
   const ui = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
