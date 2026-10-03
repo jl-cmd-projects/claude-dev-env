@@ -58,7 +58,7 @@
         ]
       },
       {
-        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message",
+        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__ask_decision",
         "hooks": [
           {
             "type": "command",

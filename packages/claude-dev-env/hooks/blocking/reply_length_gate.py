@@ -4,11 +4,17 @@
 The gate reads the ``text`` field of the chat tools that post to the user.
 It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
 sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
-It also denies a pull request number the reader cannot open::
+It also denies a pull request number the reader cannot open, and a hedge
+word that marks a claim nobody checked::
 
     flag: Both land in PR 5256.
     flag: It merged in #4347.
     ok:   Both land in [PR 5256](https://github.com/owner/repo/pull/5256).
+    flag: The call button likely gets flagged in 7.
+    ok:   The call button is flagged in 7, per the crops.
+
+The hedge check also reads every text field of a decision card.
+
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
 fenced blocks carry no words.
@@ -29,11 +35,15 @@ if hooks_root_directory not in sys.path:
 
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.verify_before_acting_constants import HEDGE_PATTERN
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
     ALLOW_EXIT_CODE,
     BLOCK_EXIT_CODE,
+    CARD_TEXT_SEPARATOR,
+    DECISION_CARD_TOOL_NAME,
     FENCED_BLOCK_PATTERN,
+    HEDGE_MESSAGE,
     HOOK_EVENT_NAME,
     INLINE_CODE_PATTERN,
     LINE_BREAK_PATTERN,
@@ -106,22 +116,72 @@ def unlinked_pull_request_violation(reply_text: str) -> str | None:
     return UNLINKED_PULL_REQUEST_MESSAGE.format(reference=unlinked_match.group(0))
 
 
+def hedge_violation(reply_text: str) -> str | None:
+    """Return the deny reason for the first hedged sentence, or None when none hedges."""
+    all_sentences = [
+        each_sentence
+        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
+        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    ]
+    for each_sentence in all_sentences:
+        hedge_match = HEDGE_PATTERN.search(each_sentence)
+        if hedge_match is None:
+            continue
+        all_words = WORD_PATTERN.findall(each_sentence)
+        return HEDGE_MESSAGE.format(
+            hedge=hedge_match.group(0),
+            sentence_preview=WORD_SEPARATOR.join(all_words[:SENTENCE_PREVIEW_WORD_COUNT])
+            + SENTENCE_PREVIEW_SUFFIX,
+        )
+    return None
+
+
+def all_card_texts(card_value: object) -> list[str]:
+    """Collect every string inside a decision card's input, in order."""
+    if isinstance(card_value, str):
+        return [card_value]
+    if isinstance(card_value, dict):
+        return [
+            each_text
+            for each_value in card_value.values()
+            for each_text in all_card_texts(each_value)
+        ]
+    if isinstance(card_value, list):
+        return [each_text for each_value in card_value for each_text in all_card_texts(each_value)]
+    return []
+
+
+def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
+    """Return the deny reason and the checked text for one call, or None when it passes."""
+    if tool_name == DECISION_CARD_TOOL_NAME:
+        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
+        card_violation = hedge_violation(card_text)
+        return None if card_violation is None else (card_violation, card_text)
+    if tool_name not in ALL_CHECKED_TOOL_NAMES:
+        return None
+    reply_text = all_tool_input.get(TEXT_KEY)
+    if not isinstance(reply_text, str):
+        return None
+    violation = (
+        length_violation(reply_text)
+        or unlinked_pull_request_violation(reply_text)
+        or hedge_violation(reply_text)
+    )
+    return None if violation is None else (violation, reply_text)
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
         return ALLOW_EXIT_CODE
     tool_name = hook_input.get(TOOL_NAME_KEY)
-    if tool_name not in ALL_CHECKED_TOOL_NAMES:
-        return ALLOW_EXIT_CODE
     tool_input = hook_input.get(TOOL_INPUT_KEY)
     if not isinstance(tool_input, dict):
         return ALLOW_EXIT_CODE
-    reply_text = tool_input.get(TEXT_KEY)
-    if not isinstance(reply_text, str):
+    checked = tool_violation(tool_name, tool_input)
+    if checked is None:
         return ALLOW_EXIT_CODE
-    violation = length_violation(reply_text) or unlinked_pull_request_violation(reply_text)
-    if violation is None:
-        return ALLOW_EXIT_CODE
+    violation, reply_text = checked
     block_reason = violation + RETRY_INSTRUCTION
     log_hook_block(
         Path(__file__).name,

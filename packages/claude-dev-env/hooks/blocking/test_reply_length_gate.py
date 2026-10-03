@@ -235,3 +235,72 @@ def test_should_allow_a_bare_pull_request_url(
         {"text": "Pull request: https://github.com/owner/repo/pull/5256"},
     )
     assert exit_code == 0
+
+
+DECISION_TOOL_NAME = "mcp__hearthbot__ask_decision"
+
+
+def test_should_deny_a_reply_that_hedges_a_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        REPLY_TOOL_NAME,
+        {"text": "The call button likely gets flagged in 7."},
+    )
+    assert exit_code == 2
+    assert '"likely"' in stderr_text
+
+
+def test_should_allow_a_reply_that_states_its_evidence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        REPLY_TOOL_NAME,
+        {"text": "The call button is flagged in 7, per the crops."},
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_deny_a_decision_card_that_hedges_in_an_option(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {
+            "question": "Exclude the call button?",
+            "context": "Crops show the call button flagged in 7 themes.",
+            "options": [
+                {"label": "Exclude it", "consequence": "Three themes probably pass."},
+                {"label": "Leave it", "consequence": "Three themes keep a warning."},
+            ],
+            "recommended": 0,
+        },
+    )
+    assert exit_code == 2
+    assert '"probably"' in stderr_text
+
+
+def test_should_allow_a_long_decision_card_with_no_hedge(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {
+            "question": "Exclude the call button?",
+            "context": " ".join([FIFTEEN_WORD_SENTENCE] * 5),
+            "options": [
+                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
+                {"label": "Leave it", "consequence": "Three themes keep a warning."},
+            ],
+            "recommended": 0,
+        },
+    )
+    assert (exit_code, stderr_text) == (0, "")

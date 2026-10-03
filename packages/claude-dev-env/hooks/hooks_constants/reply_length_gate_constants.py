@@ -5,6 +5,8 @@ import re
 MAXIMUM_SENTENCE_COUNT = 3
 MAXIMUM_WORDS_PER_SENTENCE = 15
 ALL_CHECKED_TOOL_NAMES = frozenset({"mcp__hearthbot__reply", "mcp__hearthbot__post_message"})
+DECISION_CARD_TOOL_NAME = "mcp__hearthbot__ask_decision"
+CARD_TEXT_SEPARATOR = "\n"
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
@@ -31,3 +33,4 @@ UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write i
 LONG_SENTENCE_MESSAGE = (
     'Sentence too long: {word_count} words, limit {word_limit}: "{sentence_preview}".'
 )
+HEDGE_MESSAGE = 'Unchecked claim: "{hedge}" in "{sentence_preview}". Check it and state the evidence, or leave the claim out.'
