@@ -1,3 +1,12 @@
+---
+paths:
+  - "**/*.py"
+  - "**/*.mjs"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.ps1"
+---
+
 # Failure Blast Radius
 
 **When this applies:** Batch code that processes assets, rows, accounts, messages, or files where one member can fail while the others are fine.

@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/scripts/**"
+  - "**/hooks/**"
+  - "**/bin/**"
+  - "**/ci/**"
+  - "**/tools/**"
+  - "**/skills/**"
+  - "**/commands/**"
+---
+
 # Build Needs a User
 
 **When this applies:** Before you build a new tool, script, hook, gate, skill,
