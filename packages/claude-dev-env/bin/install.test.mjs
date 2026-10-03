@@ -8,6 +8,7 @@ import {
     writeFileSync,
     symlinkSync,
     readFileSync,
+    readlinkSync,
     readdirSync,
     existsSync,
     copyFileSync,
@@ -16,6 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { FAULT_PHASES, INSTALL_FAULT_ENV } from './install-transaction.mjs';
 
 import {
     collectPackageSourceConflicts,
@@ -50,6 +52,7 @@ import {
     commandNamesOwnedHookScript,
     hookCommandComparisonSpelling,
     detectPython,
+    pythonFileAndPrefixArguments,
     retainNewestRunBackupOnly,
 } from './install.mjs';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
@@ -2594,7 +2597,12 @@ test('a stale registration keeps working because the retired hook leaves an iner
             'a retired path no registration names gets no stand-in',
         );
 
-        const standInRun = spawnSync(detectPython(), [standInPath], { encoding: 'utf8' });
+        const pythonCommand = pythonFileAndPrefixArguments(detectPython());
+        const standInRun = spawnSync(
+            pythonCommand.file,
+            [...pythonCommand.prefixArguments, standInPath],
+            { encoding: 'utf8' },
+        );
 
         assert.equal(standInRun.status, 0, 'the stand-in exits 0, so a stale registration allows the tool');
         assert.equal(standInRun.stdout, '', 'the stand-in writes nothing to stdout');
@@ -3006,6 +3014,40 @@ test('pruneRetiredHookEntriesFromSettings warns and returns 0 when the host conf
 const PSTACK_TEST_PACKAGE_ROOT = dirname(fileURLToPath(new URL('./install.mjs', import.meta.url)));
 const PSTACK_TEST_INSTALLER_PATH = fileURLToPath(new URL('./install.mjs', import.meta.url));
 
+test('a failed update preserves an existing skills lookup pointer', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-install-pointer-'));
+    try {
+        writeFileSync(join(homeDirectory, '.gitconfig'), '');
+        const environment = {
+            ...process.env,
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            CLAUDE_CONFIG_DIR: '',
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+        };
+        const argumentsForCoreInstall = [PSTACK_TEST_INSTALLER_PATH, '--only', 'core'];
+        const firstRun = spawnSync(process.execPath, argumentsForCoreInstall, {
+            encoding: 'utf8',
+            env: environment,
+        });
+        assert.equal(firstRun.status, 0, firstRun.stdout + firstRun.stderr);
+        const pointerPath = join(homeDirectory, '.claude', 'skills');
+        const targetPath = readlinkSync(pointerPath);
+
+        const failedRun = spawnSync(process.execPath, argumentsForCoreInstall, {
+            encoding: 'utf8',
+            env: { ...environment, [INSTALL_FAULT_ENV]: FAULT_PHASES.AFTER_FILE_STAGING },
+        });
+        assert.notEqual(failedRun.status, 0, failedRun.stdout + failedRun.stderr);
+        assert.equal(lstatSync(pointerPath).isSymbolicLink(), true);
+        assert.equal(readlinkSync(pointerPath), targetPath);
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
 function writeRecordingHostCommand(directory, name, logPath) {
     mkdirSync(directory, { recursive: true });
     if (process.platform === 'win32') {
@@ -3034,6 +3076,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             CLAUDE_CONFIG_DIR: join(homeDirectory, '.claude'),
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '1',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
             ...environmentOverrides,
         },
     });
@@ -3265,6 +3308,81 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
     assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
     assertHoldsPackageGuidance(codexGuidance);
     assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+});
+
+const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
+    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin',
+    'claude plugin install usage-wrapup@claude-dev-env',
+]);
+
+function usageWrapupCommands(allRecordedCommands) {
+    return allRecordedCommands.filter(eachCommand => eachCommand.includes('claude-dev-env'));
+}
+
+test('a full install adds this marketplace and installs usage-wrapup on Claude only', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], {
+        ...sandbox.environment,
+        CDE_INSTALL_USAGE_WRAPUP: '1',
+    });
+
+    assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), USAGE_WRAPUP_CLAUDE_COMMANDS);
+    assert.match(installerOutput, /Usage-wrapup \(claude\): installed/);
+    assert.doesNotMatch(installerOutput, /Usage-wrapup \(codex\)/);
+    assert.match(installerOutput, /Pstack \(claude\): installed/);
+});
+
+for (const [caseName, extraArguments, environmentOverrides] of [
+    ['--no-usage-wrapup', ['--no-usage-wrapup'], { CDE_INSTALL_USAGE_WRAPUP: '1' }],
+    ['CDE_INSTALL_USAGE_WRAPUP=0', [], { CDE_INSTALL_USAGE_WRAPUP: '0' }],
+    ['an --only run', ['--only', 'core'], { CDE_INSTALL_USAGE_WRAPUP: '1' }],
+]) {
+    test(`${caseName} skips usage-wrapup`, t => {
+        const sandbox = pstackPluginSandbox(t);
+
+        const installerOutput = runPstackInstaller(sandbox.homeDirectory, extraArguments, {
+            ...sandbox.environment,
+            ...environmentOverrides,
+        });
+
+        assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), []);
+        assert.doesNotMatch(installerOutput, /Usage-wrapup \(/);
+    });
+}
+
+test('a failing usage-wrapup command is reported and the install still succeeds', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const failingCommandPath = join(
+        sandbox.homeDirectory,
+        process.platform === 'win32' ? 'failing-claude.cmd' : 'failing-claude',
+    );
+    writeFileSync(
+        failingCommandPath,
+        process.platform === 'win32'
+            ? '@echo off\r\necho marketplace unreachable 1>&2\r\nexit /b 1\r\n'
+            : '#!/bin/sh\necho marketplace unreachable >&2\nexit 1\n',
+        { mode: 0o755 },
+    );
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], {
+        ...sandbox.environment,
+        CDE_CLAUDE_EXECUTABLE: failingCommandPath,
+        CDE_INSTALL_USAGE_WRAPUP: '1',
+    });
+
+    assert.match(installerOutput, /Usage-wrapup \(claude\): failed .*marketplace unreachable/);
+    assert.ok(existsSync(join(sandbox.homeDirectory, '.claude', '.claude-dev-env-manifest.json')));
+});
+
+test('the help output names the usage-wrapup opt-out beside the pstack one', () => {
+    const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(helpRun.status, 0, helpRun.stderr);
+    assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
 });
 
 function continuityCommandCount(configurationPath) {

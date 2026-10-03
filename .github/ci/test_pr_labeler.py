@@ -1262,7 +1262,7 @@ class TestCommittedTreeContinuousIntegration:
         _workflow_text, parsed_workflow = _load_workflow("ci-tests.yml")
         committed_tree_job = _workflow_job(parsed_workflow, "committed-tree")
         committed_tree_run_text = _job_run_text(committed_tree_job)
-        assert "github.event.pull_request.base.sha" in str(committed_tree_job)
+        assert "github.event.pull_request.base.sha" not in str(committed_tree_job)
         assert 'git merge-base HEAD "${event_base_revision}"' in committed_tree_run_text
         assert (
             'cde_lint.py --base "${COMPARISON_REVISION}"'
@@ -1316,6 +1316,128 @@ class TestCommittedTreeContinuousIntegration:
         )
         assert "validate_instruction_pairs.py" in instruction_pairs_text
         assert "instruction-pairs" in instruction_pairs_workflow["jobs"]
+
+
+_ZERO_REVISION = "0000000000000000000000000000000000000000"
+
+
+def _run_git(repository_path: Path, *all_arguments: str) -> str:
+    completed_git = subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=ci@example.com",
+            "-c",
+            "user.name=CI",
+            "-c",
+            "commit.gpgsign=false",
+            *all_arguments,
+        ],
+        cwd=repository_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return completed_git.stdout.strip()
+
+
+def _commit_file(repository_path: Path, relative_path: str, file_text: str) -> str:
+    (repository_path / relative_path).write_text(file_text, encoding="utf-8")
+    _run_git(repository_path, "add", relative_path)
+    _run_git(repository_path, "commit", "--no-verify", "-m", relative_path)
+    return _run_git(repository_path, "rev-parse", "HEAD")
+
+
+def _merge_ref_after_base_moved(repository_path: Path) -> str:
+    _run_git(repository_path, "init", "--initial-branch=main")
+    fork_revision = _commit_file(repository_path, "seed.txt", "seed\n")
+    _run_git(repository_path, "checkout", "-b", "pull-request")
+    _commit_file(repository_path, "pull_request_change.txt", "change\n")
+    _run_git(repository_path, "checkout", "main")
+    _commit_file(repository_path, "other_pull_request_change.txt", "other\n")
+    _run_git(repository_path, "merge", "--no-ff", "--no-edit", "pull-request")
+    return fork_revision
+
+
+def _event_merge_base_step_run_text() -> str:
+    _workflow_text, parsed_workflow = _load_workflow("ci-tests.yml")
+    all_steps = _workflow_job(parsed_workflow, "committed-tree")["steps"]
+    assert isinstance(all_steps, list)
+    for each_step in all_steps:
+        if each_step.get("id") == "event-merge-base":
+            return str(each_step["run"])
+    raise AssertionError("committed-tree has no event-merge-base step")
+
+
+def _resolved_comparison_revision(
+    repository_path: Path, event_name: str, event_base_revision: str
+) -> str:
+    output_path = repository_path.parent / "github_output.txt"
+    completed_step = subprocess.run(
+        ["bash", "-c", _event_merge_base_step_run_text()],
+        cwd=repository_path,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GITHUB_EVENT_NAME": event_name,
+            "EVENT_BASE_REVISION": event_base_revision,
+            "GITHUB_OUTPUT": str(output_path),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed_step.returncode == 0, completed_step.stderr
+    return output_path.read_text(encoding="utf-8").strip().removeprefix(
+        "comparison_revision="
+    )
+
+
+class TestCommittedTreeEventMergeBase:
+    def should_compare_a_pull_request_against_the_merge_ref_first_parent(
+        self, tmp_path: Path
+    ) -> None:
+        repository_path = tmp_path / "repository"
+        repository_path.mkdir()
+        fork_revision = _merge_ref_after_base_moved(repository_path)
+        synchronize_before_revision = _run_git(repository_path, "rev-parse", "HEAD^2")
+
+        comparison_revision = _resolved_comparison_revision(
+            repository_path, "pull_request", synchronize_before_revision
+        )
+
+        assert comparison_revision == _run_git(repository_path, "rev-parse", "HEAD^1")
+        assert comparison_revision != fork_revision
+
+    def should_compare_a_main_push_against_the_push_before_revision(
+        self, tmp_path: Path
+    ) -> None:
+        repository_path = tmp_path / "repository"
+        repository_path.mkdir()
+        _run_git(repository_path, "init", "--initial-branch=main")
+        before_revision = _commit_file(repository_path, "first.txt", "first\n")
+        _commit_file(repository_path, "second.txt", "second\n")
+        _commit_file(repository_path, "third.txt", "third\n")
+
+        comparison_revision = _resolved_comparison_revision(
+            repository_path, "push", before_revision
+        )
+
+        assert comparison_revision == before_revision
+
+    def should_compare_a_first_push_against_the_head_parent(
+        self, tmp_path: Path
+    ) -> None:
+        repository_path = tmp_path / "repository"
+        repository_path.mkdir()
+        _run_git(repository_path, "init", "--initial-branch=main")
+        parent_revision = _commit_file(repository_path, "first.txt", "first\n")
+        _commit_file(repository_path, "second.txt", "second\n")
+
+        comparison_revision = _resolved_comparison_revision(
+            repository_path, "push", _ZERO_REVISION
+        )
+
+        assert comparison_revision == parent_revision
 
 
 class TestDraftPullRequestTitleValidation:

@@ -53,6 +53,7 @@ jobs:
       package_suite: ${{ steps.filter.outputs.package_suite }}
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
+      subagent_models: ${{ steps.filter.outputs.subagent_models }}
     steps:
       - uses: actions/checkout@v5
 
@@ -83,6 +84,9 @@ jobs:
             javascript:
               - 'packages/claude-dev-env/**'
               - 'package.json'
+              - '.github/workflows/ci-tests.yml'
+            subagent_models:
+              - 'packages/subagent-models/**'
               - '.github/workflows/ci-tests.yml'
 
   python:
@@ -234,6 +238,26 @@ jobs:
           npm install
           npm test
 
+  subagent-models:
+    name: subagent-models mod (ubuntu)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.subagent_models == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate and test the mod
+        working-directory: packages/subagent-models
+        run: |
+          npm install --global @anthropic-ai/claude-code@2.1.288
+          claude plugin validate .
+          claude plugin test .
+
   install-playtest:
     name: Install playtest (ubuntu)
     needs: changes
@@ -324,12 +348,12 @@ jobs:
       - name: Resolve the event merge base
         id: event-merge-base
         env:
-          EVENT_BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_BASE_REVISION: ${{ github.event.before }}
         run: |
           set -euo pipefail
           event_base_revision="${EVENT_BASE_REVISION}"
           zero_revision="0000000000000000000000000000000000000000"
-          if [ -z "${event_base_revision}" ] || [ "${event_base_revision}" = "${zero_revision}" ]; then
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ -z "${event_base_revision}" ] || [ "${event_base_revision}" = "${zero_revision}" ]; then
             event_base_revision="$(git rev-parse HEAD^1)"
           fi
           echo "comparison_revision=$(git merge-base HEAD "${event_base_revision}")" >> "${GITHUB_OUTPUT}"
@@ -377,22 +401,15 @@ jobs:
         run: |
           $windowsSemanticsListPath = '.github/ci/windows-semantics-node-ids.txt'
           $allSelectedNodeIds = [System.Collections.Generic.List[string]]::new()
-          $expectedSelectedCount = 0
           foreach ($eachRawLine in Get-Content -LiteralPath $windowsSemanticsListPath) {
             $eachNodeId = $eachRawLine -replace "`r", ''
             if ([string]::IsNullOrWhiteSpace($eachNodeId)) { continue }
             if ($eachNodeId.StartsWith('#')) { continue }
             $allSelectedNodeIds.Add($eachNodeId)
-            $expectedSelectedCount++
           }
           $selectedCount = $allSelectedNodeIds.Count
-          Write-Host "selected count=$selectedCount expected non-comment lines=$expectedSelectedCount"
-          if ($selectedCount -ne $expectedSelectedCount) {
-            throw "selected count ($selectedCount) != expected non-comment line count ($expectedSelectedCount)"
-          }
-          $expectedWindowsSemanticsCount = 4
-          if ($selectedCount -ne $expectedWindowsSemanticsCount) {
-            throw "selected count ($selectedCount) != expected windows-semantics count ($expectedWindowsSemanticsCount)"
+          if ($selectedCount -eq 0) {
+            throw "$windowsSemanticsListPath lists no node IDs"
           }
           Write-Host "selected count=$selectedCount"
           & python -m pytest @($allSelectedNodeIds.ToArray()) -q

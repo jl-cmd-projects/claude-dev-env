@@ -6,9 +6,11 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     existsSync,
+    lstatSync,
     mkdtempSync,
     mkdirSync,
     readFileSync,
+    realpathSync,
     rmSync,
     writeFileSync,
 } from 'node:fs';
@@ -84,6 +86,7 @@ test('capture and restore recover settings, manifest, files, and hooksPath', () 
     const env = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -145,6 +148,7 @@ test('capture and restore recover an additional host settings file', () => {
         env: {
             ...process.env,
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -179,6 +183,7 @@ test('runWithInstallTransaction restores prior state on injected fault', () => {
     const env = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -232,6 +237,7 @@ test('runWithInstallTransaction commits and discards journal on success', () => 
         env: {
             ...process.env,
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -274,6 +280,7 @@ function runInstaller(homeDirectory, extraArguments, options = {}) {
     const childEnvironment = {
         ...process.env,
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_USAGE_WRAPUP: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -308,6 +315,7 @@ test('a later install fault removes newly seeded Codex pstack files', () => {
             faultPhase: FAULT_PHASES.AFTER_MANIFEST_WRITE,
             environment: {
                 CDE_INSTALL_PSTACK: '1',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 CDE_CODEX_EXECUTABLE: codexCommandPath,
             },
         });
@@ -450,6 +458,7 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
             env: {
                 ...process.env,
                 CDE_INSTALL_PSTACK: '0',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -466,6 +475,7 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
             env: {
                 ...process.env,
                 CDE_INSTALL_PSTACK: '0',
+                CDE_INSTALL_USAGE_WRAPUP: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -489,6 +499,47 @@ test('successful install after prior install leaves one manifest and no fault', 
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
         assert.ok(Array.isArray(manifest.files));
         assert.equal(existsSync(join(homeDirectory, '.claude', '.claude-dev-env-txn')), false);
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('installer fault keeps the lookup pointers a prior install published', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-txn-e2e-pointers-'));
+    try {
+        writeFileSync(join(homeDirectory, '.gitconfig'), '');
+        const homeOnlyEnvironment = { CLAUDE_CONFIG_DIR: '' };
+        const okRun = runInstaller(homeDirectory, ['--only', 'core'], {
+            environment: homeOnlyEnvironment,
+        });
+        assert.equal(okRun.status, 0, okRun.stdout + okRun.stderr);
+        const allPointerTargets = [
+            ...['skills', 'agents', 'hooks', 'scripts'].map((name) => ({
+                pointerPath: join(homeDirectory, '.claude', name),
+                targetPath: realpathSync(join(homeDirectory, '.agents', name)),
+            })),
+            {
+                pointerPath: join(homeDirectory, '.codex', 'hooks'),
+                targetPath: realpathSync(join(homeDirectory, '.agents', 'hooks')),
+            },
+        ];
+
+        for (const faultPhase of [FAULT_PHASES.AFTER_FILE_STAGING, FAULT_PHASES.AFTER_MANIFEST_WRITE]) {
+            const failedRun = runInstaller(homeDirectory, ['--only', 'core'], {
+                faultPhase,
+                environment: homeOnlyEnvironment,
+            });
+            assert.notEqual(failedRun.status, 0, failedRun.stdout + failedRun.stderr);
+            assert.match(`${failedRun.stdout}${failedRun.stderr}`, /prior installation restored/);
+            for (const { pointerPath, targetPath } of allPointerTargets) {
+                assert.equal(
+                    lstatSync(pointerPath, { throwIfNoEntry: false })?.isSymbolicLink(),
+                    true,
+                    `${pointerPath} survives a fault at ${faultPhase}`,
+                );
+                assert.equal(realpathSync(pointerPath), targetPath);
+            }
+        }
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }

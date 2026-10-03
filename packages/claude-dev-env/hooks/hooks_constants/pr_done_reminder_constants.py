@@ -13,9 +13,6 @@ __all__ = [
     "GH_PROGRAM_NAME",
     "GH_PR_SUBCOMMAND",
     "GH_PR_CREATE_ACTION",
-    "ALL_GIT_OPTIONS_WITH_VALUE",
-    "ALL_POWERSHELL_PROGRAM_NAMES",
-    "ALL_POWERSHELL_COMMAND_FLAGS",
     "ALL_GH_PR_VIEW_ARGUMENTS",
     "GH_PR_VIEW_TIMEOUT_SECONDS",
     "NO_PULL_REQUEST_MARKER",
@@ -31,6 +28,7 @@ __all__ = [
     "REMINDER_FOOTER",
     "REMINDER_LINE_SEPARATOR",
     "ALL_REMINDER_HINTS_BY_MERGEABLE",
+    "CHECKS_NOT_REPORTED_TEXT",
     "VERDICT_DONE",
     "VERDICT_NOT_DONE",
     "NO_PULL_REQUEST_REMINDER",
@@ -43,11 +41,6 @@ GIT_PUSH_SUBCOMMAND: str = "push"
 GH_PROGRAM_NAME: str = "gh"
 GH_PR_SUBCOMMAND: str = "pr"
 GH_PR_CREATE_ACTION: str = "create"
-ALL_GIT_OPTIONS_WITH_VALUE: frozenset[str] = frozenset({"-C", "-c"})
-ALL_POWERSHELL_PROGRAM_NAMES: frozenset[str] = frozenset(
-    {"pwsh", "pwsh.exe", "powershell", "powershell.exe"}
-)
-ALL_POWERSHELL_COMMAND_FLAGS: frozenset[str] = frozenset({"-command", "-c"})
 
 ALL_GH_PR_VIEW_ARGUMENTS: tuple[str, ...] = (
     "gh",
@@ -83,6 +76,9 @@ ALL_REMINDER_HINTS_BY_MERGEABLE: dict[str, str] = {
     ),
     MERGEABLE_UNKNOWN_VALUE: "GitHub is still computing. Re-run the re-check command in a minute.",
 }
+CHECKS_NOT_REPORTED_TEXT: str = (
+    "none reported yet on this head. Wait for the checks, then run the re-check command."
+)
 VERDICT_DONE: str = "DONE. Add the label now:"
 VERDICT_NOT_DONE: str = "NOT DONE. Do not add the done label yet."
 NO_PULL_REQUEST_REMINDER: str = (

@@ -6,6 +6,7 @@ from dev_env_scripts_constants.claude_account_constants import (
     CHOICE_MAIN,
     CHOICE_SECOND,
     CHOICE_WAIT,
+    CLAUDE_BINARY_NAME,
     CREDENTIALS_FILE_NAME,
     EXTRA_PROFILES_FILE_NAME,
     JSON_ACCOUNT_KEY,
@@ -14,8 +15,6 @@ from dev_env_scripts_constants.claude_account_constants import (
     MAIN_CLAUDE_HOME_DIRECTORY_NAME,
 )
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
-
-CLAUDE_BINARY_NAME: str = "claude"
 
 DEFAULT_PERMISSION_MODE: str = "auto"
 

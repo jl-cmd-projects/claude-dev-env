@@ -1,5 +1,131 @@
 # Changelog
 
+## [8.37.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.4...claude-dev-env-v8.37.0) (2026-10-03)
+
+
+### Features
+
+* **hooks:** hold agent spawns until the session has read and asked ([16f7ce5](https://github.com/jl-cmd/claude-dev-env/commit/16f7ce5c01258603b1bb982d747cbc016ff35d42))
+* **hooks:** hold agent spawns until the session has read and asked ([f366bdf](https://github.com/jl-cmd/claude-dev-env/commit/f366bdf48f9ff8cc09bc38a1fce594122e7669b9))
+
+
+### Bug Fixes
+
+* **hooks:** count only interactive prompts as the spawn interview ([7fb3ec8](https://github.com/jl-cmd/claude-dev-env/commit/7fb3ec880d7dad53b9c699297e1fd78a8bb0492f))
+
+## [8.36.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.3...claude-dev-env-v8.36.4) (2026-10-03)
+
+
+### Documentation
+
+* **rules:** shrink path-scoped code rules to the rule and its pointers ([3a12498](https://github.com/jl-cmd/claude-dev-env/commit/3a12498086da86ee3fa0ce4e15ad997716697458))
+* **rules:** shrink path-scoped code rules to the rule and its pointers ([3b8a70c](https://github.com/jl-cmd/claude-dev-env/commit/3b8a70c37b0bd4f62d9db25e01b9a711f30cf8fd))
+
+## [8.36.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.2...claude-dev-env-v8.36.3) (2026-10-03)
+
+
+### Maintenance
+
+* **privacy:** drop host-specific names and an archived access note ([2e88683](https://github.com/jl-cmd/claude-dev-env/commit/2e88683c625a3bc50df9c8b924a43610055ee65d))
+* **privacy:** drop host-specific names and an archived access note ([f82761b](https://github.com/jl-cmd/claude-dev-env/commit/f82761b25da3f8814b3ef09ed7e8800bd58c6b2a))
+
+## [8.36.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.1...claude-dev-env-v8.36.2) (2026-10-03)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1627](https://github.com/jl-cmd/claude-dev-env/issues/1627), [#1631](https://github.com/jl-cmd/claude-dev-env/issues/1631) ([2864c5f](https://github.com/jl-cmd/claude-dev-env/commit/2864c5f5550ca025ad605c59d8d6fb088f810971))
+
+## [8.36.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.0...claude-dev-env-v8.36.1) (2026-10-03)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1602](https://github.com/jl-cmd/claude-dev-env/issues/1602), [#1621](https://github.com/jl-cmd/claude-dev-env/issues/1621), [#1622](https://github.com/jl-cmd/claude-dev-env/issues/1622) ([07d2ede](https://github.com/jl-cmd/claude-dev-env/commit/07d2ede41da79da5a64421461f73c47e54220672))
+
+## [8.36.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.3...claude-dev-env-v8.36.0) (2026-10-03)
+
+
+### Features
+
+* **rules:** load code and orchestrator rules only when they apply ([#1635](https://github.com/jl-cmd/claude-dev-env/issues/1635)) ([4f7d3a2](https://github.com/jl-cmd/claude-dev-env/commit/4f7d3a24086622ba3d4cacee6bcaa6e3d49a57f1))
+
+## [8.35.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.2...claude-dev-env-v8.35.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([c497d8d](https://github.com/jl-cmd/claude-dev-env/commit/c497d8d86625d59ba94f751a95d9429b7d6b79b5))
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([2ae0302](https://github.com/jl-cmd/claude-dev-env/commit/2ae0302007e408f1a705b9cccf7f2856812bbdbc))
+
+
+### Tests
+
+* **hooks:** move the toast proof tests into their own files ([d1d0553](https://github.com/jl-cmd/claude-dev-env/commit/d1d0553456eab8f1a66eed7bffb93ee69f1abc9a))
+
+## [8.35.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.1...claude-dev-env-v8.35.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([565e841](https://github.com/jl-cmd/claude-dev-env/commit/565e8411abe598bdbe42a67b20caa8d480df5099))
+* **install:** a failed install keeps the lookup pointers a prior install published ([63c9c86](https://github.com/jl-cmd/claude-dev-env/commit/63c9c861d376773e401e23efba24158cff3cb1fd))
+
+
+### Tests
+
+* **install:** a failed install keeps the lookup pointers a prior install published ([3653d20](https://github.com/jl-cmd/claude-dev-env/commit/3653d204256e344a6f8496ea3b8cef1cad032806))
+* **install:** cover the Codex hooks pointer in the rollback test ([e807832](https://github.com/jl-cmd/claude-dev-env/commit/e807832afce5db19025d3483a5bc05f8e8b7bf9a))
+
+## [8.35.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.0...claude-dev-env-v8.35.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([6f2f5e9](https://github.com/jl-cmd/claude-dev-env/commit/6f2f5e967528989b3375b8432f4c0fd687f4bcae))
+* **launchers:** write Claude and Codex launchers from one body that calls the program ([b697183](https://github.com/jl-cmd/claude-dev-env/commit/b697183caa04cb8266b8e72ec741439cb43ddd22))
+
+
+### Refactoring
+
+* **launchers:** name each launcher file only on its LauncherProgram ([0e80d39](https://github.com/jl-cmd/claude-dev-env/commit/0e80d391deee0a1af3f784991f3f6b5ab11e39f2))
+
+## [8.35.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.34.0...claude-dev-env-v8.35.0) (2026-10-02)
+
+
+### Features
+
+* **codex:** named per-account Codex launchers ([#1620](https://github.com/jl-cmd/claude-dev-env/issues/1620)) ([83d6eb0](https://github.com/jl-cmd/claude-dev-env/commit/83d6eb0e76cf9413940e3afefc5d5e870812773f))
+
+## [8.34.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.2...claude-dev-env-v8.34.0) (2026-10-02)
+
+
+### Features
+
+* **install:** install the usage-wrapup plugin on a full Claude install ([027ef56](https://github.com/jl-cmd/claude-dev-env/commit/027ef56a16fa213b06a4b18dd32060e08b9bdf2b))
+* **install:** pin usage-wrapup 0.2.0, which compacts near the usage limit ([6d34ce8](https://github.com/jl-cmd/claude-dev-env/commit/6d34ce8737617d4f8fc20e51ff963af945d34d4f))
+
+## [8.33.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.1...claude-dev-env-v8.33.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **hooks:** read a head with no reported checks as not done ([307edd4](https://github.com/jl-cmd/claude-dev-env/commit/307edd4a6ca96a2e0e37166020487b6496445fe8))
+
+## [8.33.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.33.0...claude-dev-env-v8.33.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **agent-merge-check:** judge an unstable head by each check's newest run ([f34c3e3](https://github.com/jl-cmd/claude-dev-env/commit/f34c3e3e959311f9e74e02302c93422ef29c987d))
+
+## [8.33.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.2...claude-dev-env-v8.33.0) (2026-10-02)
+
+
+### Features
+
+* **hooks:** block a change made on a hedged claim ([d756aeb](https://github.com/jl-cmd/claude-dev-env/commit/d756aeb0d8d600f0f4261453062e22d7c51e9417))
+
 ## [8.32.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.32.1...claude-dev-env-v8.32.2) (2026-10-02)
 
 

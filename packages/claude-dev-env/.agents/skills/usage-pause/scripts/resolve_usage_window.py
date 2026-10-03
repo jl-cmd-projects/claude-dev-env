@@ -212,7 +212,7 @@ def default_credentials_path() -> Path:
 
     ::
 
-        CLAUDE_CONFIG_DIR=C:/profiles/mel  ->  C:/profiles/mel/.credentials.json
+        CLAUDE_CONFIG_DIR=C:/profiles/work  ->  C:/profiles/work/.credentials.json
         (variable unset or empty)          ->  ~/.claude/.credentials.json
 
     A profile-isolated session keeps its credential under the config-dir

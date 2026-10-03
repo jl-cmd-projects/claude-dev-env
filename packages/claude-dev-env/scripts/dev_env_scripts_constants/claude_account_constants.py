@@ -8,7 +8,10 @@ main account so its owner never runs out.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import timedelta
+
+from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
 MAIN_CLAUDE_HOME_DIRECTORY_NAME: str = ".claude"
 """Directory under the user home that holds the main account's Claude home."""
@@ -38,22 +41,39 @@ ALL_WINDOWS_RESERVED_PROFILE_NAMES: frozenset[str] = frozenset(
 ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS: tuple[str, ...] = (".local", "bin")
 """Path parts under the user home of the directory on PATH that holds the launcher."""
 
-LAUNCHER_FILE_NAME_TEMPLATE: str = "claude-{profile_name}.cmd"
-"""File name pattern for a named profile launcher."""
+CLAUDE_BINARY_NAME: str = "claude"
+"""Claude command name looked up on PATH."""
 
-LAUNCHER_FILE_NAME: str = LAUNCHER_FILE_NAME_TEMPLATE.format(
-    profile_name=SECOND_ACCOUNT_PROFILE_NAME
-)
-"""File name of the launcher that runs Claude under the second account."""
-
-LAUNCHER_TEXT_TEMPLATE: str = (
+LAUNCHER_BODY_TEMPLATE: str = (
     "@echo off\r\n"
     "setlocal\r\n"
-    'set "CLAUDE_CONFIG_DIR={profile_home}"\r\n'
-    "claude %*\r\n"
+    'set "{environment_variable}={profile_home}"\r\n'
+    "call {program} %*\r\n"
     "exit /b %ERRORLEVEL%\r\n"
 )
-"""Launcher body: point Claude at the profile and pass every argument through."""
+"""Launcher body: point a program at the profile home and pass every argument through.
+
+The program resolves to npm's ``<program>.cmd``, whose last line runs ``endLocal``
+and a ``goto`` to a missing label. Chained into without ``call``, that line ends
+this launcher's ``setlocal`` too, and the program starts without the variable.
+"""
+
+
+@dataclass(frozen=True)
+class LauncherProgram:
+    """The program a profile launcher runs and the variable naming its home."""
+
+    program: str
+    environment_variable: str
+    file_name_template: str
+
+
+CLAUDE_LAUNCHER_PROGRAM: LauncherProgram = LauncherProgram(
+    program=CLAUDE_BINARY_NAME,
+    environment_variable=CLAUDE_CONFIG_DIR_ENV_VAR,
+    file_name_template="claude-{profile_name}.cmd",
+)
+"""Launcher that runs Claude with ``CLAUDE_CONFIG_DIR`` set to the profile home."""
 
 LAUNCHER_REPLACED_SUFFIX: str = ".replaced-"
 """Suffix, before the run time, of an older launcher the sync moved aside."""

@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/rules/**"
+  - "**/rules-archived/**"
+  - "**/skills/**"
+  - "**/skills-archived/**"
+  - "**/agents/**"
+  - "**/commands/**"
+  - "**/ever-shipped-skills.mjs"
+---
+
 # Archiving a Rule, Skill, Agent, or Command
 
 **When this applies:** Pruning agent configuration in this package — moving a

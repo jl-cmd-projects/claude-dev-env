@@ -14,20 +14,27 @@ bodies dropped, parenthesis groups joined — lives in
 from __future__ import annotations
 
 import re
+import shlex
 
 __all__ = [
     "ALL_LAUNCHER_WRAPPER_COMMANDS",
     "ALL_SHELL_CONTROL_OPERATOR_TOKENS",
+    "ALL_GIT_GLOBAL_OPTIONS_WITH_VALUE",
     "CONTROL_OPERATOR_SPLIT_PATTERN",
     "LEADING_ASSIGNMENT_PATTERN",
     "LAUNCHER_DURATION_PATTERN",
     "token_basename",
     "split_into_segments",
     "effective_leading_program",
+    "command_tokens",
+    "git_subcommand_tokens",
 ]
 
 ALL_LAUNCHER_WRAPPER_COMMANDS: frozenset[str] = frozenset(
     {"timeout", "nohup", "nice", "stdbuf", "setsid", "env", "time"}
+)
+ALL_GIT_GLOBAL_OPTIONS_WITH_VALUE: frozenset[str] = frozenset(
+    {"-C", "-c", "--git-dir", "--work-tree", "--namespace"}
 )
 ALL_SHELL_CONTROL_OPERATOR_TOKENS: frozenset[str] = frozenset(
     {"&&", "||", ";", "|", "&", "|&"}
@@ -85,3 +92,35 @@ def effective_leading_program(all_segment_tokens: list[str]) -> str | None:
             continue
         return each_token
     return None
+
+
+def command_tokens(command: str) -> list[str]:
+    """Return the POSIX shlex tokens of a command, or its whitespace split when quoting is unbalanced."""
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return command.split()
+
+
+def git_subcommand_tokens(all_arguments: list[str]) -> list[str]:
+    """Return git's subcommand and the tokens after it, past git's global options.
+
+    ``git -C <path> push`` and ``git --git-dir <path> push`` carry an option
+    value before the subcommand; ``--git-dir=<path>`` and ``--no-pager`` carry
+    none. The first token left after those starts the result, so
+    ``git stash push`` yields ``["stash", "push"]`` and ``git log --grep push``
+    yields ``["log", "--grep", "push"]``. A command with no subcommand yields
+    an empty list.
+    """
+    should_skip_next_token = False
+    for each_index, each_argument in enumerate(all_arguments):
+        if should_skip_next_token:
+            should_skip_next_token = False
+            continue
+        if each_argument in ALL_GIT_GLOBAL_OPTIONS_WITH_VALUE:
+            should_skip_next_token = True
+            continue
+        if each_argument.startswith("-"):
+            continue
+        return all_arguments[each_index:]
+    return []

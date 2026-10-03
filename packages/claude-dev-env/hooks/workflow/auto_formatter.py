@@ -4,26 +4,18 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 import os
-import platform
 import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from types import ModuleType
 
 _subprocess_window_hooks_directory = str(Path(__file__).resolve().parents[2] / "hooks")
 if _subprocess_window_hooks_directory not in sys.path:
     sys.path.append(_subprocess_window_hooks_directory)
 
 from hooks_constants.subprocess_window import hidden_window_creation_flags
-
-NOTIFICATION_UTILS_DIRECTORY = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "notification"
-)
-sys.path.insert(0, NOTIFICATION_UTILS_DIRECTORY)
 
 PYTHON_EXTENSIONS = frozenset({".py"})
 JS_EXTENSIONS = frozenset({".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs"})
@@ -55,32 +47,6 @@ PRETTIER_CONFIG_NAMES = frozenset(
         "prettier.config.mjs",
     }
 )
-
-
-def load_notification_utils() -> ModuleType | None:
-    try:
-        return importlib.import_module("notification_utils")
-    except ImportError:
-        return None
-
-
-def send_format_notification(file_path: str, formatter_name: str) -> None:
-    notification_module = load_notification_utils()
-    if notification_module is None:
-        return
-
-    notification_title = "Auto-Formatter"
-    notification_body = f"{formatter_name} formatted: {Path(file_path).name}"
-
-    try:
-        if notification_module.is_wsl():
-            notification_module.notify_wsl(notification_title, notification_body)
-        elif platform.system() == "Linux":
-            notification_module.notify_linux()
-        elif platform.system() == "Windows":
-            notification_module.notify_windows(notification_title, notification_body)
-    except (AttributeError, OSError):
-        pass
 
 
 def has_prettier_config(file_path: str) -> bool:
@@ -249,14 +215,7 @@ def _run_python_format_commands(file_path: str) -> None:
         if did_timeout:
             return
         if completed_process is not None and completed_process.returncode == 0:
-            send_format_notification(file_path, formatter_name_for_command(each_command))
             return
-
-
-def formatter_name_for_command(command: list[str]) -> str:
-    if command[0] == sys.executable:
-        return command[2]
-    return command[0]
 
 
 def _run_prettier(file_path: str) -> None:
@@ -267,11 +226,7 @@ def _run_prettier(file_path: str) -> None:
         "--write",
         os.path.realpath(file_path),
     ]
-    completed_process, _did_timeout = _run_command(
-        prettier_command, file_path, JS_FORMAT_TIMEOUT_SECONDS
-    )
-    if completed_process is not None and completed_process.returncode == 0:
-        send_format_notification(file_path, PRETTIER_FORMATTER_NAME)
+    _run_command(prettier_command, file_path, JS_FORMAT_TIMEOUT_SECONDS)
 
 
 def run_eligible_formatter(file_path: str) -> None:
