@@ -87,21 +87,25 @@ def test_each_entry_opens_with_a_title_after_its_frontmatter() -> None:
     assert untitled == []
 
 
+def _full_text_link_problems(entry_path: Path) -> list[str]:
+    all_guide_names = _linked_guide_names(_entry_text(entry_path))
+    if not all_guide_names:
+        return [f"{entry_path.name}: no Full text link"]
+    return [
+        f"{entry_path.name}: {each_guide_name} does not exist"
+        for each_guide_name in sorted(all_guide_names)
+        if not (RULE_GUIDES_DIRECTORY / each_guide_name).is_file()
+    ]
+
+
 def test_each_entry_links_a_full_text_guide_that_exists() -> None:
-    dead_or_missing = []
-    for each_path in _entry_paths():
-        if each_path.name in POINTER_ENTRY_NAMES:
-            continue
-        all_guide_names = _linked_guide_names(_entry_text(each_path))
-        if not all_guide_names:
-            dead_or_missing.append(f"{each_path.name}: no Full text link")
-            continue
-        for each_guide_name in sorted(all_guide_names):
-            if not (RULE_GUIDES_DIRECTORY / each_guide_name).is_file():
-                dead_or_missing.append(
-                    f"{each_path.name}: {each_guide_name} does not exist"
-                )
-    assert dead_or_missing == []
+    all_problems = [
+        each_problem
+        for each_path in _entry_paths()
+        if each_path.name not in POINTER_ENTRY_NAMES
+        for each_problem in _full_text_link_problems(each_path)
+    ]
+    assert all_problems == []
 
 
 def test_each_guide_has_exactly_one_owner() -> None:
