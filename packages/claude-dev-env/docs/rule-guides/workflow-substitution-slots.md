@@ -11,5 +11,3 @@ For a looped path or key, use `cand_<i>`. Step text can instead say `replace <i>
 ## Enforcement
 
 The staged policy lint runs `workflow-substitution` on `.workflow.js` files. It reports a bare `<word>_<i|j|k>` token used as a path segment in looped content. CI runs the lint against the merge base. A write-time hook does not report this case, so the token remains on disk until lint runs.
-
-The `contrast-framing` rule checks authored Markdown. It grades newly written guide text against the file's prior text.
