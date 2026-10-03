@@ -63,6 +63,8 @@ const isSortedByRecent = atom({ plugin: 'subagent-models', key: 'isSortedByRecen
 
 const staleDaysPick = atom({ plugin: 'subagent-models', key: 'staleDaysPick' } as const, 0)
 
+const groupViews = atom({ plugin: 'subagent-models', key: 'groupViews' } as const, {} as Record<string, number>)
+
 const STALE_CHOICES: readonly number[] = [14, 28, 56]
 
 const LAST_USED_KEY = 'lastUsed'
@@ -109,6 +111,10 @@ const BAR_COLUMN_GAP = 1
 
 const INLINE_LIMIT = 16
 
+const GROUP_PAGE = 40
+
+const COLUMN_SAFETY = 0.85
+
 const PANE_IDS: { readonly [K in Kind]: string } = { agents: 'subagent-agents', skills: 'subagent-skills' }
 
 type Ui = ReturnType<EngineInterface['ui']['resolve']>
@@ -126,7 +132,7 @@ type Group = { title: string; items: { name: string; label: string }[] }
 
 type SkillsView = { isRecent: boolean; staleNames: string[]; staleDays: number; staleChoices: number[] }
 
-type PanelData = { state: State; kind: Kind; names: string[]; groups: Group[]; skillsView?: SkillsView }
+type PanelData = { state: State; kind: Kind; names: string[]; groups: Group[]; views: Record<string, number>; skillsView?: SkillsView }
 
 function familyOf(model: string | undefined): Family | undefined {
   if (model === undefined) return undefined
@@ -386,7 +392,8 @@ async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, defau
   const state = await sessionState($, defaults)
   const names = await panelNamesOf($, defaults, kind)
   const { core } = KIND_DETAILS[kind]
-  if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core), skillsView: undefined }
+  const views = await read($, groupViews)
+  if (kind !== 'skills') return { state, kind, names, groups: groupsOf(names, core), views, skillsView: undefined }
   const lastUsed = await read($, lastUsedDates)
   const isRecent = await read($, isSortedByRecent)
   const pick = await read($, staleDaysPick)
@@ -395,7 +402,7 @@ async function panelDataOf($: StateDollar, defaults: Defaults, kind: Kind, defau
   const now = Date.now()
   const staleNames = staleNamesOf(names, lastUsed, now, staleDays).filter(name => state.switchOf(kind, name) === 'on')
   const groups = isRecent ? recentGroupsOf(names, lastUsed, now, staleDays) : groupsOf(names, core)
-  return { state, kind, names, groups, skillsView: { isRecent, staleNames, staleDays, staleChoices } }
+  return { state, kind, names, groups, views, skillsView: { isRecent, staleNames, staleDays, staleChoices } }
 }
 
 async function panelNamesOf($: StateDollar, defaults: Defaults, kind: Kind): Promise<string[]> {
@@ -471,9 +478,9 @@ async function toastAfter($: EngineInterface, action: Promise<string>) {
   $.ui.toast(await action)
 }
 
-function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellChars: number) => number, hasTitle: boolean, debugText?: string) {
+function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellChars: number) => number, hasTitle: boolean) {
   const { Box, Text, Button, Select } = ui
-  const { state, kind, names, groups, skillsView } = data
+  const { state, kind, names, groups, views, skillsView } = data
   const { word, title, empty } = KIND_DETAILS[kind]
   const onCount = names.filter(name => state.switchOf(kind, name) === 'on').length
   const cellChars = cellCharsOf(groups.flatMap(group => group.items.map(item => item.label)))
@@ -507,18 +514,20 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
           toolbarButton('skills-turn-off-stale', `turn off unused ${skillsView.staleDays}d+ (${skillsView.staleNames.length})`, () =>
             toastAfter($, setAllSwitches($, kind, skillsView.staleNames, 'off')),
           )}
-        {debugText !== undefined && <Text dimColor>{debugText}</Text>}
       </Box>
       {names.length === 0 ? (
         <Text dimColor>{empty}</Text>
       ) : (
-        groups.map(group => (
+        groups.map(group => {
+          const groupKey = `${kind}:${group.title}`
+          const shown = Math.min(group.items.length, views[groupKey] ?? (group.items.length <= INLINE_LIMIT ? group.items.length : 0))
+          const setShown = (count: number) => update($, groupViews, current => ({ ...current, [groupKey]: count }))
+          return (
           <Box key={`group-${group.title}`} flexDirection="column" gap={1}>
-            <Box flexDirection="row" columnGap={2}>
-              <Text bold dimColor>{group.title.toUpperCase()}</Text>
-              <Text dimColor>{`· ${group.items.length}`}</Text>
-            </Box>
-            {rowsOf(group.items, columns).map(row => (
+            <Button key={`group-toggle-${groupKey}`} dimColor onPress={() => setShown(shown > 0 ? 0 : GROUP_PAGE)}>
+              {`${shown > 0 ? MINIMIZE_MARK : SIDE_CLOSED_MARK} ${group.title.toUpperCase()} · ${group.items.length}`}
+            </Button>
+            {rowsOf(group.items.slice(0, shown), columns).map(row => (
               <Box key={`row-${row[0].name}`} flexDirection="row" columnGap={COLUMN_GAP}>
                 {row.map(item => {
                   const isOn = state.switchOf(kind, item.name) === 'on'
@@ -540,8 +549,14 @@ function panelOf($: EngineInterface, ui: Ui, data: PanelData, columnsOf: (cellCh
                 })}
               </Box>
             ))}
+            {shown > 0 && shown < group.items.length && (
+              <Button key={`group-more-${groupKey}`} dimColor onPress={() => setShown(shown + GROUP_PAGE)}>
+                {`show ${Math.min(GROUP_PAGE, group.items.length - shown)} more (${group.items.length - shown} left)`}
+              </Button>
+            )}
           </Box>
-        ))
+          )
+        })
       )}
     </Box>
   )
@@ -733,7 +748,7 @@ export const register: Register = (on, options: PluginOptions) => {
   for (const kind of ALL_KINDS) {
     on('ui.render', { component: 'Pane', requestId: PANE_IDS[kind] }, async ($, e) => {
       const data = await panelDataOf($, defaults, kind, staleDays)
-      return panelOf($, $.ui.resolve(e), data, cellChars => columnsFor(e.props.bodyColumns, cellChars), false, `${e.props.bodyColumns} columns`)
+      return panelOf($, $.ui.resolve(e), data, cellChars => columnsFor(Math.floor(e.props.bodyColumns * COLUMN_SAFETY), cellChars), false)
     })
   }
 

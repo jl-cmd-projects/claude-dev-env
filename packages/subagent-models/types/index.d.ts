@@ -40,6 +40,7 @@ declare module 'claude-code' {
       lastUsed: LastUsed
       isSortedByRecent: boolean
       staleDaysPick: number
+      groupViews: Record<string, number>
     }
   }
 }
