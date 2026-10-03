@@ -8,8 +8,7 @@ beside it, or the script ``COORDINATOR_USAGE_PACE_SCRIPT`` names.
 
     usage under pace (exit 1)          -> no output; the call runs unchanged
     over pace (exit 0) or unreadable   -> allow with updatedInput:
-        model "claude-sonnet-5-5", effort "medium",
-        instructions + the mandatory Fable advisor line
+        model "claude-opus-5-5", effort "medium"
     input that cannot be reshaped      -> deny with a one-line reason
 
 ``updatedInput`` is the whole tool input the call runs with, so it carries
@@ -42,16 +41,9 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.thread_spawn_pace_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     EFFORT_INPUT_KEY,
-    FABLE_ADVISOR_LINE,
-    INSTRUCTIONS_ENCODING,
-    INSTRUCTIONS_INPUT_KEY,
-    INSTRUCTIONS_MAXIMUM_BYTES,
-    INSTRUCTIONS_SEPARATOR,
     LAUNCH_FAILURE_ERROR_TEMPLATE,
     MODEL_INPUT_KEY,
-    NO_INSTRUCTIONS_REASON,
     NOT_AN_OBJECT_REASON,
-    OVER_BYTE_CAP_REASON_TEMPLATE,
     PACE_VERDICT_CONTEXT_MAXIMUM_CHARACTERS,
     PERMISSION_DECISION_REASON_KEY,
     PERMISSION_DENY,
@@ -72,55 +64,30 @@ from hooks_constants.usage_pace_constants import (
 
 
 class SpawnNotReshapable(Exception):
-    """The spawn input cannot carry the over-pace model, effort, and advisor line."""
-
-
-def _instructions_with_advisor_line(instructions: str) -> str:
-    reshaped_instructions = (
-        instructions
-        if FABLE_ADVISOR_LINE in instructions
-        else f"{instructions}{INSTRUCTIONS_SEPARATOR}{FABLE_ADVISOR_LINE}"
-    )
-    reshaped_byte_count = len(reshaped_instructions.encode(INSTRUCTIONS_ENCODING))
-    if reshaped_byte_count > INSTRUCTIONS_MAXIMUM_BYTES:
-        raise SpawnNotReshapable(
-            OVER_BYTE_CAP_REASON_TEMPLATE.format(
-                reshaped_byte_count=reshaped_byte_count,
-                maximum_bytes=INSTRUCTIONS_MAXIMUM_BYTES,
-                excess_byte_count=reshaped_byte_count - INSTRUCTIONS_MAXIMUM_BYTES,
-            )
-        )
-    return reshaped_instructions
+    """The spawn input cannot carry the over-pace model and effort."""
 
 
 def reshape_thread_spawn(tool_input: object) -> dict[str, object]:
-    """Move a thread spawn to Sonnet at medium effort with a Fable advisor line.
+    """Move a thread spawn to Opus 5.5 at medium effort.
 
     ::
 
         {"title": "t", "instructions": "Do X."}
-        -> {"title": "t", "instructions": "Do X.\\n\\nMandatory Fable advisor: ...",
-            "model": "claude-sonnet-5-5", "effort": "medium"}
-
-    An instructions text that already carries the advisor line keeps one copy.
+        -> {"title": "t", "instructions": "Do X.",
+            "model": "claude-opus-5-5", "effort": "medium"}
 
     Args:
         tool_input: The ``tool_input`` object of the start_thread_session call.
 
     Raises:
-        SpawnNotReshapable: The input is not an object, has no instructions
-            text, or would pass the server's instructions byte cap.
+        SpawnNotReshapable: The input is not an object.
     """
     if not isinstance(tool_input, dict):
         raise SpawnNotReshapable(NOT_AN_OBJECT_REASON)
-    instructions = tool_input.get(INSTRUCTIONS_INPUT_KEY)
-    if not isinstance(instructions, str):
-        raise SpawnNotReshapable(NO_INSTRUCTIONS_REASON)
     return {
         **tool_input,
         MODEL_INPUT_KEY: THREAD_MODEL_WHEN_OVER_PACE,
         EFFORT_INPUT_KEY: THREAD_EFFORT_WHEN_OVER_PACE,
-        INSTRUCTIONS_INPUT_KEY: _instructions_with_advisor_line(instructions),
     }
 
 
