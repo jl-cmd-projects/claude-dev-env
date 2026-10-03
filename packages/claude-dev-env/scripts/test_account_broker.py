@@ -1,0 +1,501 @@
+from __future__ import annotations
+
+import json
+import io
+import subprocess
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+import account_broker
+from account_broker import (
+    Account,
+    Meters,
+    Product,
+    ProductAdapter,
+    Reading,
+    choose_from_readings,
+    run_job,
+)
+from dev_env_scripts_constants.account_broker_constants import WAIT_EXIT_CODE
+
+
+NOW = datetime(2026, 10, 3, tzinfo=timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def isolated_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    monkeypatch.setattr(account_broker.support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+
+
+def _account(name: str, product: Product = Product.CODEX, main: bool = False) -> Account:
+    return Account(product, name, Path("/profiles") / name, main, name)
+
+
+def _meters(
+    short_left: float | None,
+    weekly_left: float | None,
+    *,
+    short_reset: datetime | None = None,
+    weekly_reset: datetime | None = None,
+) -> Meters:
+    return Meters(
+        short_left,
+        short_reset or NOW + timedelta(hours=5),
+        weekly_left,
+        weekly_reset or NOW + timedelta(days=3),
+    )
+
+
+def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) -> ProductAdapter:
+    return ProductAdapter(
+        load_accounts=lambda: accounts,
+        read_meters=lambda account: meters[account.name],
+        environment_variable="CODEX_HOME",
+        usage_limit_signatures=("rate limit",),
+        main_guard=False,
+    )
+
+
+def test_should_rank_by_room_in_the_tighter_window() -> None:
+    readings = (
+        Reading(_account("first"), _meters(12, 80)),
+        Reading(_account("second"), _meters(70, 40)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
+
+
+def test_should_put_unread_accounts_after_readable_accounts() -> None:
+    readings = (
+        Reading(_account("unread", Product.CLAUDE), None),
+        Reading(_account("readable", Product.CLAUDE), _meters(20, 20)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+
+
+def test_should_keep_list_order_when_tighter_windows_tie() -> None:
+    readings = (
+        Reading(_account("first"), _meters(40, 60)),
+        Reading(_account("second"), _meters(70, 40)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[0].account
+
+
+@pytest.mark.parametrize(
+    ("weekly_reset", "weekly_left", "short_left"),
+    (
+        (NOW + timedelta(days=3), 20, 80),
+        (NOW + timedelta(hours=4), 10, 80),
+        (NOW + timedelta(hours=4), 20, 50),
+    ),
+)
+def test_should_guard_main_at_each_limit(
+    weekly_reset: datetime, weekly_left: float, short_left: float
+) -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(short_left, weekly_left, weekly_reset=weekly_reset),
+    )
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 20))
+
+    decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
+
+    assert decision.account == extra.account
+
+
+def test_should_prioritize_main_when_its_guard_passes() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(80, 20, weekly_reset=NOW + timedelta(hours=4)),
+    )
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(90, 90))
+
+    decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
+
+    assert decision.account == main.account
+
+
+def test_should_try_next_account_after_usage_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first"), _account("second"))
+    adapter = _adapter(accounts, {"first": _meters(80, 80), "second": _meters(70, 70)})
+    attempted: list[str] = []
+
+    def runner(command: object, **options: object) -> subprocess.CompletedProcess[str]:
+        selected = Path(options["env"]["CODEX_HOME"]).name
+        attempted.append(selected)
+        if selected == "first":
+            return subprocess.CompletedProcess(command, 1, "", "rate limit")
+        return subprocess.CompletedProcess(command, 0, "served", "")
+
+    report_path = tmp_path / "report.json"
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+    with account_broker.override_subprocess_runner(runner):
+        outcome, report = account_broker._execute(
+        Product.CODEX,
+        ("job",),
+        now=NOW,
+        )
+    account_broker._write_report(report_path, report)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert outcome.returncode == 0
+    assert attempted == ["first", "second"]
+    assert [event["type"] for event in report["events"]] == ["pick", "attempt", "pick", "attempt"]
+    assert report["final_decision"]["account"] == "second"
+
+
+def test_should_wait_for_soonest_reset_and_exit_three(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first"), _account("second"))
+    first_reset = NOW + timedelta(hours=5)
+    second_reset = NOW + timedelta(hours=3)
+    adapter = _adapter(
+        accounts,
+        {
+            "first": _meters(0, 0, short_reset=first_reset, weekly_reset=first_reset),
+            "second": _meters(0, 0, short_reset=second_reset, weekly_reset=second_reset),
+        },
+    )
+
+    report_path = tmp_path / "report.json"
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+    with account_broker.override_subprocess_runner(lambda command, **options: pytest.fail("a waiting job ran")):
+        outcome, report = account_broker._execute(
+        Product.CODEX,
+        ("job",),
+        now=NOW,
+        )
+    account_broker._write_report(report_path, report)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert outcome.returncode == WAIT_EXIT_CODE
+    assert report["final_decision"]["action"] == "wait"
+    assert report["final_decision"]["resets_at"] == second_reset.isoformat()
+
+
+def test_should_wait_until_both_blocking_windows_reset() -> None:
+    short_reset = NOW + timedelta(hours=2)
+    weekly_reset = NOW + timedelta(days=2)
+    reading = Reading(
+        _account("spent"),
+        _meters(0, 0, short_reset=short_reset, weekly_reset=weekly_reset),
+    )
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.resets_at == weekly_reset
+
+
+def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
+    blocked = Reading(
+        _account("blocked", Product.CLAUDE), _meters(10, 5)
+    )
+    unread = Reading(_account("unread", Product.CLAUDE), None)
+
+    decision = choose_from_readings(Product.CLAUDE, (blocked, unread), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+
+
+@pytest.mark.parametrize("count", (1, 5))
+def test_should_consider_every_account_in_the_roster(count: int) -> None:
+    readings = tuple(
+        Reading(_account(f"account_{index}"), _meters(30 + index, 30 + index))
+        for index in range(count)
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[-1].account
+
+
+def test_should_use_luna_floor_without_choosing_a_model() -> None:
+    reading = Reading(_account("low"), _meters(30, 8))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.account == reading.account
+    assert decision.tier == "luna"
+    assert not hasattr(decision, "model")
+
+
+def test_should_keep_resume_affinity_when_account_has_room() -> None:
+    readings = (
+        Reading(_account("roomy", Product.CLAUDE), _meters(80, 80)),
+        Reading(_account("origin", Product.CLAUDE), _meters(20, 20)),
+    )
+
+    decision = choose_from_readings(
+        Product.CLAUDE, readings, now=NOW, preferred_command="origin"
+    )
+
+    assert decision.account == readings[1].account
+
+
+def test_should_exit_three_for_check_while_all_accounts_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    account = _account("spent")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"spent": _meters(0, 0)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == WAIT_EXIT_CODE
+
+
+def test_should_print_decision_and_meters_for_choose(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("roomy")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"roomy": _meters(80, 70)}),
+    )
+
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["decision"]["account"] == "roomy"
+    assert payload["accounts"][0]["meters"]["session_percent_left"] == 80
+    assert payload["state_path"].endswith("state.json")
+
+
+def test_should_count_failed_meter_read_as_spent() -> None:
+    readings = (
+        Reading(_account("unread"), None),
+        Reading(_account("roomy"), _meters(70, 70)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+
+
+def test_should_serialize_readings_with_named_fields() -> None:
+    reading = Reading(_account("one"), _meters(80, 70))
+
+    payload = account_broker.readings_payload((reading,))
+
+    assert payload[0]["name"] == "one"
+    assert payload[0]["meters"]["weekly_percent_left"] == 70
+
+
+def test_should_wait_when_all_meter_reads_fail() -> None:
+    readings = (Reading(_account("first"), None), Reading(_account("second"), None))
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == NOW + timedelta(hours=1)
+
+
+def test_should_replay_stdin_bytes_and_only_print_served_stdout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    original = b"first\r\nsecond\x00\xff"
+    received: list[bytes] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        received.append(options["input"])
+        if len(received) == 1:
+            return subprocess.CompletedProcess(argv, 1, "discard this", "rate limit")
+        return subprocess.CompletedProcess(argv, 0, "command output", "")
+
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(original), encoding="utf-8"))
+    report_path = tmp_path / "report.json"
+    with account_broker.override_subprocess_runner(runner):
+        code = account_broker.main(("run", "--product", "codex", "--report", str(report_path), "--", "job"))
+
+    captured_streams = capsys.readouterr()
+    assert code == 0
+    assert received == [original, original]
+    assert captured_streams.out == "command output"
+    assert json.loads(report_path.read_text(encoding="utf-8"))["final_decision"]["account"] == "second"
+
+
+def test_should_write_wait_report_without_stdout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("spent")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"spent": _meters(0, 0)}))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+    report_path = tmp_path / "report.json"
+
+    code = account_broker.main(("run", "--product", "codex", "--report", str(report_path), "--", "job"))
+
+    assert code == WAIT_EXIT_CODE
+    assert capsys.readouterr().out == ""
+    final = json.loads(report_path.read_text(encoding="utf-8"))["final_decision"]
+    assert final["action"] == "wait"
+    assert final["resets_at"] is not None
+
+
+def test_should_keep_spent_mark_until_reset(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    reset = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp())
+
+    assert account_broker.main(("choose", "--product", "codex", "--spent", f"first:{reset}")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
+
+
+@pytest.mark.parametrize(
+    ("start_error", "expected_status"),
+    ((OSError("missing command"), "start_failed"), (subprocess.TimeoutExpired("job", 1), "timeout")),
+)
+def test_should_leave_later_choices_open_after_start_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], start_error: Exception, expected_status: str
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise start_error
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert outcome.attempts == (("first", expected_status), ("second", expected_status))
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+def test_should_keep_usage_limited_account_spent_for_later_choices(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        if Path(options["env"]["CODEX_HOME"]).name == "first":
+            return subprocess.CompletedProcess(argv, 1, "", "rate limit")
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
+
+
+def test_should_list_accounts_without_reading_meters(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("listed")
+    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("meter read"), "CODEX_HOME", (), False)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+
+    assert account_broker.main(("accounts", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "accounts": [{"name": "listed", "home": str(account.home), "is_main": False}]
+    }
+
+
+def test_should_use_default_codex_home_without_roster(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("CODEX_ACCOUNT_PROFILES", raising=False)
+    monkeypatch.setattr(account_broker.support.codex_account_choice, "default_profiles_root", lambda: tmp_path / "profiles")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "default"))
+
+    assert account_broker.load_codex_accounts() == ()
+    decision = choose_from_readings(Product.CODEX, (), now=NOW)
+    assert decision.account.name == "default"
+    assert decision.account.home == (tmp_path / "default").resolve()
+    assert "no roster" in decision.reason
+
+
+def test_should_reuse_meter_cache_for_60_seconds() -> None:
+    account = _account("cached")
+    calls: list[str] = []
+
+    def read_meter(selected: Account) -> Meters:
+        calls.append(selected.name)
+        return _meters(80, 80)
+
+    adapter = ProductAdapter(lambda: (account,), read_meter, "CODEX_HOME", (), False)
+    state = account_broker._load_state(account_broker.broker_state_path())
+
+    account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
+    account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW + timedelta(seconds=59))
+    account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW + timedelta(seconds=60))
+    assert calls == ["cached", "cached"]
+
+
+def test_should_route_resume_to_bound_account(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    chosen: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        chosen.append(Path(options["env"]["CODEX_HOME"]).name)
+        return subprocess.CompletedProcess(argv, 0, '{"session_id":"session-1"}', "")
+
+    with account_broker.override_subprocess_runner(runner):
+        first = run_job(Product.CLAUDE, ("job",))
+        second = run_job(Product.CLAUDE, ("job", "--resume", "session-1"))
+
+    assert first.session_id == "session-1"
+    assert second.account_name == "first"
+    assert chosen == ["first", "first"]
+
+
+def test_should_raise_configuration_error_for_broken_list(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    directory = tmp_path / ".claude"
+    directory.mkdir()
+    (directory / "claude-chain.json").write_text('{"chain": "broken"}', encoding="utf-8")
+
+    with pytest.raises(account_broker.BrokerConfigurationError):
+        account_broker.load_claude_accounts()
+
+
+def test_should_run_job_through_override(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    account = _account("only")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"only": _meters(80, 80)}))
+    calls: list[bytes] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        calls.append(options["input"])
+        return subprocess.CompletedProcess(argv, 0, "done", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome = run_job(Product.CODEX, ("job",), stdin_text=b"input")
+
+    assert outcome.status == "served"
+    assert outcome.attempts == (("only", "served"),)
+    assert calls == [b"input"]
