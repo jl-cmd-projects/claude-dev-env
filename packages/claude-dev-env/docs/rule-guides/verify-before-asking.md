@@ -27,7 +27,7 @@ Only after confirming the answer cannot be obtained through any available tool, 
 
 ## Prior-session facts expire
 
-A path, port, branch name, or config value you recall from an earlier session counts as unanswered until a tool re-checks it this session. Memory records past state; the file may have moved, the port may be down, the branch may have merged. Treat every recalled fact as a claim to re-ground, not an answer to reuse.
+A path, port, branch name, or config value you recall from an earlier session counts as unanswered until a tool re-checks it this session. Memory records past state; the file may have moved, the port may be down, the branch may have merged. Treat every recalled fact as a claim to re-ground.
 
 - When a tool can settle it, re-check in silence and act on the fresh result: no question to the user.
 - When no tool can settle it and the user has a stake in the answer, use the current session's native question tool when available.

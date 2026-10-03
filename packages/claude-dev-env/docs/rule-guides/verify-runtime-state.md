@@ -2,7 +2,7 @@ Back to the [rule entry](../../rules/verify-runtime-state.md).
 
 # Verify runtime state
 
-**When this applies:** Before stating that a component is fine, healthy, not at fault, or working: during debugging, triage, or any judgment about whether something runs.
+**When this applies:** Before stating that a component is fine, healthy, innocent, or working: during debugging, triage, or any judgment about whether something runs.
 
 ## Rule
 
@@ -10,7 +10,7 @@ A verdict that a component is fine or not the cause rests on live evidence gathe
 
 Gather the probe before you write the verdict. When the probe contradicts the code (the code looks right but the port refuses the connection), report the live result and treat the component as suspect.
 
-A status field is a report, not the effect. An exit code, a green pipeline run, and a task result all say the work finished. They do not say the work happened. Read the thing the work was meant to make.
+A status field is a report. An exit code, a green pipeline run, and a task result all say the work finished. They do not say the work happened. Read the thing the work was meant to make.
 
 Some evidence lasts only a moment. When a user shows you a failure, read the source they already hold: the terminal itself, and any log file the error names. A fresh probe minutes later measures a different moment, and a system that healed in between hides the failure you were asked about.
 

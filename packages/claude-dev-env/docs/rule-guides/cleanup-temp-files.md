@@ -8,7 +8,7 @@ Source: [Anthropic: Reduce file creation in agentic coding](https://platform.cla
 
 ## During a task
 
-- Prefer working in memory over creating scratchpad files. Use variables and tool results instead of writing intermediate data to disk.
+- Prefer working in memory over creating scratchpad files. Keep intermediate data in variables and tool results.
 - When a temporary file is needed (e.g., a helper script, a test fixture, a debug output), track it mentally for cleanup.
 
 ## When a task is complete
