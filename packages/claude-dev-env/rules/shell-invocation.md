@@ -20,16 +20,4 @@ When a script file's literal body needs `$(...)`, author it with the Write tool,
 
 No PreToolUse hook denies a Bash command. The substitution constraint above is guidance a reader follows, and a permission prompt on a wrapped command is the signal that one slipped through.
 
-One PreToolUse hook does run on a Bash command, and it only rewrites. `blocking/msys_rev_path_rewriter.py` (PreToolUse on Bash, hosted by `bash_pre_tool_use_dispatcher`) reads a git command before it runs and keeps Git Bash from converting a `<rev>:<path>` argument. That roster holds this one hook, and a test asserts its whole content, so a blocking hook added beside it fails the suite.
-
-Git Bash rewrites that argument when the revision holds a slash and the path after the colon starts with a slash or a dot. It turns the colon into a semicolon and the slashes into backslashes, so `git show origin/main:.claude/settings.json` reaches git as `origin\main;.claude\settings.json` and git reports a revision that does not exist. A leading dot on a file is enough. `origin/main:.gitignore` reaches git as `origin\main;.gitignore`. `git show origin/main:packages/app.py` passes through untouched, and so does any path after the colon that starts with `./`, `../`, or `~/`. A revision without a slash, such as `HEAD:.claude/settings.json`, passes through too.
-
-On that shape the rewriter names only the arguments it found, so `git show origin/main:.claude/settings.json` runs as:
-
-```
-export MSYS2_ARG_CONV_EXCL='origin/main:'; git show origin/main:.claude/settings.json
-```
-
-`MSYS2_ARG_CONV_EXCL` takes a semicolon-separated list of argument prefixes. Naming one prefix per detected token leaves every other argument in the command converting as before. The blanket pair `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'` turns conversion off for the whole command, which changes a path the command meant to convert, so the rewriter does not emit it.
-
-A quoted token is not a revision. `git commit -m "fix a/b:.py"` carries a slash and a dot in one token, and a rewrite there would break the message, so the detection skips a token holding whitespace or a quote.
+`blocking/msys_rev_path_rewriter.py` only rewrites a Bash command. It keeps Git Bash from converting a `<rev>:<path>` argument when the revision holds a slash. A test pins the dispatcher roster to this one hook.

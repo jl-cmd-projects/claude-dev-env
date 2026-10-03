@@ -26,8 +26,6 @@ if _hooks_dir not in sys.path:
 
 from hooks_constants.skill_loaded_reminder_constants import (
     ALL_SELF_LOADING_SUBAGENT_TYPES,
-    ASSISTANT_ENTRY_TYPE,
-    COMPACT_BOUNDARY_SUBTYPE,
     COMPACTION_REMINDER,
     COMPACTION_SOURCE,
     NOT_LOADED_REMINDER,
@@ -35,18 +33,16 @@ from hooks_constants.skill_loaded_reminder_constants import (
     PRE_TOOL_USE_EVENT_NAME,
     PROMPT_SEPARATOR,
     SESSION_START_EVENT_NAME,
-    SKILL_TOOL_NAME,
     ALL_SLASH_COMMAND_MARKERS,
     SUBAGENT_START_EVENT_NAME,
     ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME,
-    TOOL_USE_BLOCK_TYPE,
-    USER_ENTRY_TYPE,
     USER_PROMPT_SUBMIT_EVENT_NAME,
     WORKFLOW_SUBAGENT_TYPE,
 )
 from hooks_constants.pre_tool_use_allow_output import write_pre_tool_use_allow_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
+from transcript_skill_scan import is_skill_loaded_after_last_compaction
 
 
 def subagent_input_with_poteto_mode(
@@ -78,44 +74,6 @@ def subagent_input_with_poteto_mode(
     return {**all_tool_input_fields, field_name: invocation_prefix + PROMPT_SEPARATOR + prompt}
 
 
-def _invokes_poteto_mode(all_entry_fields: dict[str, object]) -> bool:
-    message = all_entry_fields.get("message")
-    if not isinstance(message, dict):
-        return False
-    content_blocks = message.get("content")
-    if all_entry_fields.get("type") == USER_ENTRY_TYPE and isinstance(content_blocks, str):
-        return any(each_marker in content_blocks for each_marker in ALL_SLASH_COMMAND_MARKERS)
-    if all_entry_fields.get("type") != ASSISTANT_ENTRY_TYPE or not isinstance(content_blocks, list):
-        return False
-    return any(
-        isinstance(each_block, dict)
-        and each_block.get("type") == TOOL_USE_BLOCK_TYPE
-        and each_block.get("name") == SKILL_TOOL_NAME
-        and isinstance(each_block.get("input"), dict)
-        and each_block["input"].get("skill") in ALL_POTETO_MODE_SKILL_NAMES
-        for each_block in content_blocks
-    )
-
-
-def _marker_entry(transcript_line: str) -> dict[str, object] | None:
-    if (
-        COMPACT_BOUNDARY_SUBTYPE not in transcript_line
-        and ALL_POTETO_MODE_SKILL_NAMES[0] not in transcript_line
-    ):
-        return None
-    try:
-        parsed_entry = json.loads(transcript_line)
-    except json.JSONDecodeError:
-        return None
-    return parsed_entry if isinstance(parsed_entry, dict) else None
-
-
-def _is_loaded_after(all_entry_fields: dict[str, object], was_loaded: bool) -> bool:
-    if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE:
-        return False
-    return was_loaded or _invokes_poteto_mode(all_entry_fields)
-
-
 def is_poteto_mode_loaded(all_transcript_lines: Iterable[str]) -> bool:
     """Return True when the transcript invoked the skill after its last compaction.
 
@@ -132,12 +90,9 @@ def is_poteto_mode_loaded(all_transcript_lines: Iterable[str]) -> bool:
     Args:
         all_transcript_lines: The session transcript, one JSON entry per line.
     """
-    is_loaded = False
-    for each_line in all_transcript_lines:
-        all_entry_fields = _marker_entry(each_line)
-        if all_entry_fields is not None:
-            is_loaded = _is_loaded_after(all_entry_fields, is_loaded)
-    return is_loaded
+    return is_skill_loaded_after_last_compaction(
+        all_transcript_lines, ALL_POTETO_MODE_SKILL_NAMES, ALL_SLASH_COMMAND_MARKERS
+    )
 
 
 def _is_loaded_in_transcript(transcript_path: object) -> bool:

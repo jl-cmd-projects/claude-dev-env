@@ -21,7 +21,7 @@ paths:
 | Contract | `docs/CODE_RULES.md` | Full review criteria for PR agents, loaded on demand |
 | Pointer | `.cursor/BUGBOT.md` | Checked-in file Cursor BugBot reads; points at `CODE_RULES.md` |
 | Enforcer | `hooks/blocking/code_rules_enforcer.py` | Hand-maintained checks the staged policy lint runs; not generated from the docs |
-| Lint | `scripts/cde_lint.py` | Runs the enforcer and the other policy rules over staged or changed files, grading each against the file's prior text; see [`ci-owns-the-gate.md`](ci-owns-the-gate.md) for what each selection flag reports |
+| Lint | `scripts/cde_lint.py` | Runs the enforcer and the other policy rules over staged or changed files, grading each against the file's prior text; see [CI Owns the Gate](../.agents/skills/pr-lifecycle/SKILL.md#ci-owns-the-gate) for what each selection flag reports |
 | Session rules | `rules/*.md` | Runtime session policy (questions, tasks, shell) |
 
 Load `CODE_RULES.md` when reviewing a PR, resolving a policy conflict, or generating code. Prefer linking this ref over restating rules.

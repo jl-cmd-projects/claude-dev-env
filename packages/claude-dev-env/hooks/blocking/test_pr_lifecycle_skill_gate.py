@@ -1,0 +1,156 @@
+"""Behavior tests for the pull request lifecycle PreToolUse gate."""
+
+import json
+import sys
+from io import BytesIO, StringIO, TextIOWrapper
+from pathlib import Path
+from unittest.mock import patch
+
+HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
+if str(HOOKS_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(HOOKS_DIRECTORY))
+
+from blocking import pr_lifecycle_skill_gate as gate
+from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
+
+
+def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
+    lines = [json.dumps({"type": "user", "message": {"content": "Start."}})]
+    if skill_name:
+        lines.append(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": skill_name}}]}}))
+    if compact:
+        lines.append(json.dumps({"subtype": "compact_boundary"}))
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return transcript_path
+
+
+def _payload(command: str, path: Path, tool_name: str = "Bash") -> dict[str, object]:
+    return {"tool_name": tool_name, "tool_input": {"command": command}, "transcript_path": str(path)}
+
+
+def _run_main(payload: object) -> tuple[int, str]:
+    stdin_text = payload if isinstance(payload, str) else json.dumps(payload)
+    output = StringIO()
+    input_stream = TextIOWrapper(BytesIO(stdin_text.encode("utf-8")), encoding="utf-8")
+    with patch("sys.stdin", input_stream), patch("sys.stdout", output):
+        exit_code = gate.main()
+    return exit_code, output.getvalue()
+
+
+def _assert_denied(payload: dict[str, object]) -> None:
+    assert gate.decision_for(payload) == {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": DENY_REASON,
+        }
+    }
+
+
+def test_unloaded_pull_request_command_is_denied(tmp_path: Path) -> None:
+    exit_code, output = _run_main(_payload("gh pr create", _transcript(tmp_path)))
+    assert exit_code == 0
+    decision = json.loads(output)["hookSpecificOutput"]
+    assert decision["hookEventName"] == "PreToolUse"
+    assert decision["permissionDecision"] == "deny"
+    assert "Skill tool" in decision["permissionDecisionReason"]
+    assert "same command again" in decision["permissionDecisionReason"]
+
+
+def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
+    path = _transcript(tmp_path, "plugin:pr-lifecycle")
+    assert _run_main(_payload("gh pr create", path)) == (0, "")
+
+
+def test_user_slash_command_loads_skill(tmp_path: Path) -> None:
+    path = tmp_path / "slash.jsonl"
+    path.write_text(json.dumps({"type": "user", "message": {"content": "<command-name>/pr-lifecycle</command-name>"}}) + "\n", encoding="utf-8")
+    assert _run_main(_payload("git commit", path)) == (0, "")
+
+
+def test_compaction_requires_another_invocation(tmp_path: Path) -> None:
+    _assert_denied(_payload("git push", _transcript(tmp_path, "pr-lifecycle", compact=True)))
+
+
+def test_agent_transcript_can_supply_invocation(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    agent_path = tmp_path / "agent.jsonl"
+    agent_path.write_text(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}) + "\n", encoding="utf-8")
+    payload = _payload("git push", session_path)
+    payload["agent_transcript_path"] = str(agent_path)
+    assert gate.decision_for(payload) is None
+
+
+def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> None:
+    payload = _payload("gh pr create", tmp_path / "missing.jsonl")
+    assert _run_main(payload) == (0, "")
+    payload.pop("transcript_path")
+    assert _run_main(payload) == (0, "")
+
+
+def test_action_command_shapes(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    commands = (
+        "git commit",
+        "git -C some/path commit -F message.txt",
+        "git --git-dir=.git push origin head",
+        "gh pr create",
+        "gh -R owner/repo pr --repo owner/repo merge",
+        "gh api -X PUT repos/owner/repo/pulls/1/merge",
+        "gh api graphql -f query='mutation { enablePullRequestAutoMerge }'",
+        "gh api graphql -f name=auto-merge",
+        "echo done; gh pr edit",
+    )
+    for command in commands:
+        _assert_denied(_payload(command, path, "PowerShell"))
+
+
+def test_non_action_command_shapes(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    commands = (
+        "git status",
+        "git commit-tree 123",
+        "git log --grep push",
+        "echo 'gh pr create'",
+        "gh api repos/owner/repo/pulls/1/mergeability",
+        "gh issue create --body-file message.txt",
+        "gh pr",
+    )
+    for command in commands:
+        assert gate.decision_for(_payload(command, path)) is None, command
+
+
+def test_matching_github_mcp_tools_are_denied(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for suffix in ("create_pull_request", "merge_pull_request", "enable_pr_auto_merge", "update_pull_request"):
+        payload = _payload("", path, "mcp__github__" + suffix)
+        _assert_denied(payload)
+
+
+def test_malformed_payload_exits_zero_silently() -> None:
+    assert _run_main("bad json") == (0, "")
+
+
+def test_hook_has_its_own_pre_tool_use_registration() -> None:
+    registration_path = HOOKS_DIRECTORY / "hooks.json"
+    all_registration_fields = json.loads(registration_path.read_text(encoding="utf-8"))
+    all_groups = all_registration_fields["hooks"]["PreToolUse"]
+    matching_groups = [
+        each_group
+        for each_group in all_groups
+        if each_group["matcher"]
+        == "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)"
+    ]
+    assert matching_groups == [
+        {
+            "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/pr_lifecycle_skill_gate.py",
+                    "timeout": 10,
+                }
+            ],
+        }
+    ]

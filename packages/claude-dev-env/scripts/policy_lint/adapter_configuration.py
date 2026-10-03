@@ -122,32 +122,21 @@ def _registered_nested_strings(each_entry: object) -> tuple[str, ...]:
 
 
 def _names_exempt_registration_path(registered_string: str) -> bool:
-    """Return True when the registration names a chain that decides no policy.
+    """Return True when the registration names an approved path exception.
 
     ::
 
         hooks/blocking/bash_pre_tool_use_dispatcher.py   -> exempt
+        hooks/blocking/pr_lifecycle_skill_gate.py         -> exempt
         hooks/blocking/step_note_gate.py                 -> exempt
         hooks/blocking/reply_length_gate.py              -> exempt
         hooks/blocking/edit_marker_gate.py               -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
-    The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
-    while its roster hosts one allow-and-rewrite hook. Its path segment reads as
-    a policy boundary that the chain never carries.
-
-    The step-note gate allows every call until the user runs ``/step-notes on``.
-    It asks for a readable status line and decides no code or safety policy.
-
-    The reply length gate caps the sentences in a chat reply to the user. It
-    decides the shape of prose and no code or safety policy.
-
-    The edit marker gate keeps strikethrough and edit notes out of an edited
-    chat message. It decides the shape of prose and no code or safety policy.
-
-    The verify-before-acting hook runs after a mutating call has finished. It
-    asks the model to check a hedged claim, and the call it reads stays in place.
+    The Bash dispatcher rewrites arguments. The pr-lifecycle gate requires a
+    skill before commit, push, pull request, and merge calls. The other listed
+    hooks keep their registered behavior.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.
