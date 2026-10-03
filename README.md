@@ -166,6 +166,7 @@ Reference documents that rules and agents point to for detailed standards.
 | Document | Coverage |
 |----------|----------|
 | `CODE_RULES.md` | Hook-enforced rules, naming conventions, config patterns, type hints, readability rubric |
+| [`code-rules/`](packages/claude-dev-env/docs/code-rules/README.md) | Feature map with check ownership, triggers, proof, and exceptions |
 | `TEST_QUALITY.md` | Test writing standards, mock completeness, assertion patterns |
 | `REACT_PATTERNS.md` | Component architecture, hooks, state management conventions |
 | `DJANGO_PATTERNS.md` | Model patterns, view architecture, ORM best practices |
