@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from dev_env_scripts_constants.account_broker_constants import JobOutcome, Product
+from dev_env_scripts_constants.claude_account_worker_constants import SECONDS_PER_MINUTE
 
 
 def invoke_worker(
@@ -23,7 +24,7 @@ def invoke_worker(
     outcome = runner(
         Product.CLAUDE,
         all_arguments,
-        timeout_seconds=timeout_minutes * 60,
+        timeout_seconds=timeout_minutes * SECONDS_PER_MINUTE,
         stdin_text=prompt_text,
         cwd=cwd,
         encoding="utf-8",

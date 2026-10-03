@@ -13,6 +13,7 @@ from dev_env_scripts_constants.account_broker_constants import BrokerConfigurati
 from dev_env_scripts_constants.claude_account_worker_constants import (
     CLAUDE_BINARY_NAME,
     CLI_DESCRIPTION,
+    CONFIGURATION_FAILURE_EXIT_CODE,
     CWD_FLAG,
     DEFAULT_PERMISSION_MODE,
     DEFAULT_TIMEOUT_MINUTES,
@@ -96,7 +97,7 @@ def run_worker(
             runner=worker_job_runner,
         )
     except BrokerConfigurationError as error:
-        report = pre_launch_failure_report("none", str(error), 2)
+        report = pre_launch_failure_report("none", str(error), CONFIGURATION_FAILURE_EXIT_CODE)
         return finalize_report(report_file, report)
     if outcome.status in {"wait", "exhausted"}:
         report = wait_report("wait", _wait_reason(outcome), outcome.wait_reset_at)
