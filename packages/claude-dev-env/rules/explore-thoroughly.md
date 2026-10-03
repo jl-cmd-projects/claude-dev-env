@@ -1,25 +1,9 @@
-# Explore Thoroughly
+# Explore thoroughly
 
-Source: [Anthropic - Overthinking and Excessive Thoroughness](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#overthinking-and-excessive-thoroughness)
+**When:** Choosing an implementation approach or recommending an architectural direction.
 
-Note: This deliberately chooses exploration depth over the "commit and execute quickly" pattern from the same source. Thorough upfront exploration is preferred for the intended workflow.
+Read relevant files, map local patterns, and identify constraints before committing to an approach. Scale exploration to risk: inspect nearby files for a small change, broader examples for a new feature, and the full landscape for an architectural decision. Once the files, constraints, and success condition are known, act without repeating settled research.
 
-## Before committing to an approach
+**Enforcement:** none, the agent applies it.
 
-- Read the relevant files. Understand what exists before proposing what to change.
-- Map the existing patterns: naming conventions, file organization, architectural decisions.
-- Identify constraints that could invalidate an approach before investing effort in it.
-
-## Exploration scales with risk
-
-- Small change to a familiar file: a quick read of the file and its immediate neighbors is enough.
-- New feature or cross-cutting change: read broadly across the codebase to understand how similar things are done.
-- Architectural decision: explore the full landscape before recommending a direction.
-
-## Inside an autonomous run
-
-The depth budget shrinks once the evidence is in hand. When you can already name the files, the constraints, and what success looks like, further reading buys nothing — act. Re-reading a file to re-derive a fact the run already settled is the shape to cut. See [`long-horizon-autonomy.md`](long-horizon-autonomy.md).
-
-## Relationship to other rules
-
-- **research-mode.md** ensures factual claims are grounded. This rule ensures implementation plans are grounded in the codebase.
+**Full text:** [`docs/rule-guides/explore-thoroughly.md`](../docs/rule-guides/explore-thoroughly.md). Read it when setting exploration depth.
