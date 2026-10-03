@@ -664,12 +664,12 @@ def test_does_not_flag_identifier_bound_only_in_a_test_module() -> None:
         "--- a/tests/test_config.py\n"
         "+++ b/tests/test_config.py\n"
         "@@ -0,0 +1,1 @@\n"
-        "+jon_pc_json = load_fixture()\n"
+        "+office_pc_json = load_fixture()\n"
         "diff --git a/README.md b/README.md\n"
         "--- a/README.md\n"
         "+++ b/README.md\n"
         "@@ -0,0 +1,1 @@\n"
-        "+The jon pc export runs first.\n"
+        "+The office pc export runs first.\n"
     )
     assert sweep_diff(diff) == []
 
@@ -680,16 +680,16 @@ def test_still_flags_identifier_bound_in_a_production_module() -> None:
         "--- a/api/config.py\n"
         "+++ b/api/config.py\n"
         "@@ -0,0 +1,1 @@\n"
-        "+jon_pc_json = load_config()\n"
+        "+office_pc_json = load_config()\n"
         "diff --git a/README.md b/README.md\n"
         "--- a/README.md\n"
         "+++ b/README.md\n"
         "@@ -0,0 +1,1 @@\n"
-        "+The jon pc export runs first.\n"
+        "+The office pc export runs first.\n"
     )
     findings = sweep_diff(diff)
     assert len(findings) == 1
-    assert "jon pc export" in findings[0]
+    assert "office pc export" in findings[0]
 
 
 def test_does_not_flag_window_whose_leading_tokens_are_a_known_identifier() -> None:
