@@ -55,7 +55,7 @@ def _assert_reshaped(stdout: str) -> None:
     assert decision["updatedInput"] == {
         **SPAWN_INPUT,
         "model": "claude-opus-5-5",
-        "effort": "medium",
+        "effort": "low",
     }
 
 

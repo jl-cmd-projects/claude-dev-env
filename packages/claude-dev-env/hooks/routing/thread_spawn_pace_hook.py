@@ -8,7 +8,7 @@ beside it, or the script ``COORDINATOR_USAGE_PACE_SCRIPT`` names.
 
     usage under pace (exit 1)          -> no output; the call runs unchanged
     over pace (exit 0) or unreadable   -> allow with updatedInput:
-        model "claude-opus-5-5", effort "medium"
+        model "claude-opus-5-5", effort "low"
     input that cannot be reshaped      -> deny with a one-line reason
 
 ``updatedInput`` is the whole tool input the call runs with, so it carries
@@ -68,13 +68,13 @@ class SpawnNotReshapable(Exception):
 
 
 def reshape_thread_spawn(tool_input: object) -> dict[str, object]:
-    """Move a thread spawn to Opus 5.5 at medium effort.
+    """Move a thread spawn to Opus 5.5 at low effort.
 
     ::
 
         {"title": "t", "instructions": "Do X."}
         -> {"title": "t", "instructions": "Do X.",
-            "model": "claude-opus-5-5", "effort": "medium"}
+            "model": "claude-opus-5-5", "effort": "low"}
 
     Args:
         tool_input: The ``tool_input`` object of the start_thread_session call.
