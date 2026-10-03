@@ -19,7 +19,7 @@ from _code_review_test_support import (
     install_seams,
     run_review_cli,
 )
-from claude_chain_runner import ChainConfigurationError
+from dev_env_scripts_constants.account_broker_constants import BrokerConfigurationError
 from dev_env_scripts_constants.claude_chain_constants import (
     CHAIN_CONFIG_ERROR_EXIT_CODE,
 )
@@ -74,7 +74,7 @@ def test_cli_emits_json_on_chain_configuration_error(
     install_seams(
         monkeypatch,
         host_profile=HOST_PROFILE_THIRD_PARTY,
-        claude_outcome=ChainConfigurationError(FIXTURE_CHAIN_CONFIG_ERROR_MESSAGE),
+        claude_outcome=BrokerConfigurationError(FIXTURE_CHAIN_CONFIG_ERROR_MESSAGE),
         working_directory=working_directory,
     )
     exit_code = run_review_cli(working_directory, session_model=FIXTURE_SESSION_OPUS)

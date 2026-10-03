@@ -2,27 +2,14 @@
 
 from __future__ import annotations
 
-from dev_env_scripts_constants.claude_account_constants import (
-    CHOICE_MAIN,
-    CHOICE_SECOND,
-    CHOICE_WAIT,
-    CLAUDE_BINARY_NAME,
-    CREDENTIALS_FILE_NAME,
-    EXTRA_PROFILES_FILE_NAME,
-    JSON_ACCOUNT_KEY,
-    JSON_CONFIG_DIRECTORY_KEY,
-    JSON_REASON_KEY,
-    MAIN_CLAUDE_HOME_DIRECTORY_NAME,
-)
-from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
+from dev_env_scripts_constants.account_broker_constants import WAIT_EXIT_CODE
+from dev_env_scripts_constants.claude_account_constants import CLAUDE_BINARY_NAME, JSON_ACCOUNT_KEY, JSON_REASON_KEY
 
 DEFAULT_PERMISSION_MODE: str = "auto"
 
 DEFAULT_TIMEOUT_MINUTES: int = 60
 
 MINIMUM_TIMEOUT_MINUTES: int = 1
-
-WAIT_EXIT_CODE: int = 3
 
 TIMEOUT_EXIT_CODE: int = 124
 
@@ -46,7 +33,7 @@ UTF8_ENCODING: str = "utf-8"
 
 UTF8_DECODE_ERRORS: str = "replace"
 
-CLI_DESCRIPTION: str = "Run one Claude worker using the account picker."
+CLI_DESCRIPTION: str = "Run one Claude worker through the account broker."
 
 PROMPT_FILE_FLAG: str = "--prompt-file"
 
@@ -90,28 +77,20 @@ INVALID_TIMEOUT_MESSAGE: str = "--timeout-minutes must be at least 1"
 
 
 __all__ = [
-    "CHOICE_MAIN",
-    "CHOICE_SECOND",
-    "CHOICE_WAIT",
     "CLAUDE_BINARY_NAME",
-    "CLAUDE_CONFIG_DIR_ENV_VAR",
     "CLI_DESCRIPTION",
-    "CREDENTIALS_FILE_NAME",
     "CWD_FLAG",
     "DEFAULT_PERMISSION_MODE",
     "DEFAULT_TIMEOUT_MINUTES",
     "DRAIN_ATTEMPT_LIMIT",
     "DRAIN_GRACE_TIMEOUT_SECONDS",
     "DURATION_DECIMAL_PLACES",
-    "EXTRA_PROFILES_FILE_NAME",
     "INVALID_TIMEOUT_MESSAGE",
     "JSON_ACCOUNT_KEY",
-    "JSON_CONFIG_DIRECTORY_KEY",
     "JSON_IS_ERROR_KEY",
     "JSON_REASON_KEY",
     "JSON_RESULT_KEY",
     "LAUNCH_FAILURE_EXIT_CODE",
-    "MAIN_CLAUDE_HOME_DIRECTORY_NAME",
     "MISSING_BINARY_EXIT_CODE",
     "MINIMUM_TIMEOUT_MINUTES",
     "MODEL_FLAG",

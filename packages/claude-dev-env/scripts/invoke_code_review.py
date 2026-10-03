@@ -7,14 +7,14 @@ Mode decision::
     host=Claude, session_model=sonnet -> mode chain (headless opus spawn)
     host=ThirdParty, any model        -> mode chain
 
-Chain mode runs ``run_claude`` with argv from ``build_code_review_arguments``
+Chain mode runs the account broker with argv from ``build_code_review_arguments``
 (single-turn prompt, model opus, json output, and the permission mode this
 caller is allowed to ask the review binary for).
 
 cwd is the PR working tree and stdin is redirected from the empty stream so
 the spawn does not wait for interactive input. Result JSON on stdout only::
 
-    {"mode", "served_command", "returncode", "dirty_tree"}
+    {"mode", "served_command", "returncode", "dirty_tree", "status", "wait_reset_at"}
 
 Import ``invoke_code_review`` for the outcome object, or run as a CLI::
 
@@ -29,7 +29,7 @@ import json
 import os
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,16 +58,13 @@ from tier_model_ids import detect_host_profile  # noqa: E402
 from advisor_scripts_constants.model_tier_run_validator_constants import (  # noqa: E402
     HOST_PROFILE_CLAUDE,
 )
-import claude_chain_runner as chain_runner  # noqa: E402
-from claude_chain_runner import (  # noqa: E402
-    ChainConfigurationError,
-    ChainInvocationOutcome,
-    run_claude,
+from account_broker import run_job
+from dev_env_scripts_constants.account_broker_constants import (
+    BrokerConfigurationError,
+    JobOutcome,
+    Product,
 )
-from dev_env_scripts_constants.claude_chain_constants import (  # noqa: E402
-    CHAIN_CONFIG_ERROR_EXIT_CODE,
-    collect_forwarded_text_codec,
-)
+from dev_env_scripts_constants.claude_chain_constants import CHAIN_CONFIG_ERROR_EXIT_CODE
 from dev_env_scripts_constants.code_review_constants import (  # noqa: E402
     ALL_EFFORT_TOKENS_IN_ASCENDING_ORDER,
     CLI_EFFORT_HELP,
@@ -125,9 +122,11 @@ class CodeReviewOutcome:
     served_command: str | None
     returncode: int
     is_dirty_tree: bool
+    status: str | None = None
+    wait_reset_at: str | None = None
 
 
-review_claude_runner = run_claude
+review_claude_runner = run_job
 review_host_profile_detector = detect_host_profile
 review_git_status_runner = subprocess.run
 
@@ -308,41 +307,16 @@ def _run_claude_with_empty_stdin(
     *,
     timeout_seconds: int,
     working_directory: Path,
-) -> ChainInvocationOutcome:
-    working_directory_path = str(working_directory)
-
-    def _runner_with_empty_stdin(
-        all_invocation_tokens: Sequence[str],
-        *all_positionals: object,
-        **all_keywords: object,
-    ) -> subprocess.CompletedProcess[str]:
-        del all_positionals
-        maybe_timeout = all_keywords.get("timeout")
-        timeout_for_run: float | None
-        if isinstance(maybe_timeout, (int, float)):
-            timeout_for_run = float(maybe_timeout)
-        else:
-            timeout_for_run = None
-        forwarded_text_codec = collect_forwarded_text_codec(all_keywords)
-        completed_process: subprocess.CompletedProcess[str] = previous_runner(
-            all_invocation_tokens,
-            capture_output=True,
-            text=True,
-            timeout=timeout_for_run,
-            check=False,
-            stdin=subprocess.DEVNULL,
-            cwd=working_directory_path,
-            **forwarded_text_codec,
-        )
-        return completed_process
-
-    empty_stdin_runner: TextCapturingSubprocessRunner = _runner_with_empty_stdin
-    with chain_runner.override_chain_subprocess_runner(
-        empty_stdin_runner
-    ) as previous_runner:
-        return review_claude_runner(
-            all_claude_arguments, timeout_seconds=timeout_seconds
-        )
+) -> JobOutcome:
+    return review_claude_runner(
+        Product.CLAUDE,
+        ["claude", *all_claude_arguments],
+        timeout_seconds=timeout_seconds,
+        stdin_text="",
+        cwd=working_directory,
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 def _in_session_outcome() -> CodeReviewOutcome:
@@ -355,15 +329,17 @@ def _in_session_outcome() -> CodeReviewOutcome:
 
 
 def _chain_outcome(
-    chain_outcome: ChainInvocationOutcome,
+    chain_outcome: JobOutcome,
     *,
     working_directory: Path,
 ) -> CodeReviewOutcome:
     return CodeReviewOutcome(
         mode=MODE_CHAIN,
-        served_command=chain_outcome.served_command,
+        served_command=chain_outcome.account_name,
         returncode=chain_outcome.returncode,
-        is_dirty_tree=is_working_tree_dirty(working_directory),
+        is_dirty_tree=is_working_tree_dirty(working_directory) if chain_outcome.account_name else False,
+        status=chain_outcome.status,
+        wait_reset_at=chain_outcome.wait_reset_at.isoformat() if chain_outcome.wait_reset_at else None,
     )
 
 
@@ -447,6 +423,8 @@ def encode_code_review_outcome(
         RESULT_KEY_SERVED_COMMAND: review_outcome.served_command,
         RESULT_KEY_RETURNCODE: review_outcome.returncode,
         RESULT_KEY_DIRTY_TREE: review_outcome.is_dirty_tree,
+        "status": review_outcome.status,
+        "wait_reset_at": review_outcome.wait_reset_at,
     }
 
 
@@ -509,7 +487,7 @@ def _run_plain_review_cli(*, parsed_arguments: argparse.Namespace, effort: str) 
             timeout_seconds=parsed_arguments.timeout_seconds,
             effort=effort,
         )
-    except ChainConfigurationError:
+    except BrokerConfigurationError:
         review_outcome = _failure_code_review_outcome(CHAIN_CONFIG_ERROR_EXIT_CODE)
     except ValueError:
         review_outcome = _failure_code_review_outcome(HOST_PROFILE_ERROR_RETURNCODE)

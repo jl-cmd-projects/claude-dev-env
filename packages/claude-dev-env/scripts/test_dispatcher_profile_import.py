@@ -46,8 +46,8 @@ def _stage_shadow_import_root(
         "raise RuntimeError('shadow tier_model_ids imported')\n",
         encoding="utf-8",
     )
-    (shadow_import_root / "claude_chain_runner.py").write_text(
-        "raise RuntimeError('shadow claude_chain_runner imported')\n",
+    (shadow_import_root / "account_broker.py").write_text(
+        "raise RuntimeError('shadow account_broker imported')\n",
         encoding="utf-8",
     )
     shadow_constants_root = shadow_import_root / "advisor_scripts_constants"

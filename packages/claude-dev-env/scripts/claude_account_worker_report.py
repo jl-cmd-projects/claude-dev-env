@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from dev_env_scripts_constants.claude_account_worker_constants import (
@@ -33,6 +34,7 @@ class WorkerReport:
     duration_seconds: float
     payload: object
     is_error: bool
+    wait_reset_at: datetime | None = None
 
 
 def _bounded_stdout_tail(stdout_text: str) -> str:
@@ -49,7 +51,7 @@ def _extract_payload(stdout_text: str) -> tuple[object, bool]:
     return parsed_stdout[JSON_RESULT_KEY], parsed_stdout.get(JSON_IS_ERROR_KEY) is True
 
 
-def wait_report(account: str, reason: str) -> WorkerReport:
+def wait_report(account: str, reason: str, wait_reset_at: datetime | None) -> WorkerReport:
     """Build the report for an account decision that says to wait.
 
     Args:
@@ -65,7 +67,8 @@ def wait_report(account: str, reason: str) -> WorkerReport:
         exit_code=WAIT_EXIT_CODE,
         duration_seconds=WAIT_DURATION_SECONDS,
         payload=None,
-        is_error=True,
+        is_error=False,
+        wait_reset_at=wait_reset_at,
     )
 
 
@@ -138,6 +141,7 @@ def write_report(report_file: Path, report: WorkerReport) -> None:
         REPORT_DURATION_SECONDS_KEY: report.duration_seconds,
         REPORT_RESULT_KEY: report.payload,
         REPORT_IS_ERROR_KEY: report.is_error,
+        "wait_reset_at": report.wait_reset_at.isoformat() if report.wait_reset_at else None,
     }
     report_file.write_text(
         json.dumps(report_payload, ensure_ascii=False, indent=REPORT_INDENT) + "\n",

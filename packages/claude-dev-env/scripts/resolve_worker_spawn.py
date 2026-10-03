@@ -9,7 +9,7 @@ Walk order:
    On a Claude host with the claude tier disabled, stop with
    ``claude_agent_required`` so the calling skill runs the Agent tool.
    On a third-party host, or when the claude tier is enabled, tier 3 runs
-   ``claude_chain_runner.run_claude`` with ``-p --output-format json --agent
+   the account broker with ``-p --output-format json --agent
    <stem>``, prompt body on stdin from the prompt file, and subprocess
    ``cwd`` set to the caller's working directory.
 
@@ -27,10 +27,9 @@ import json
 import os
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO
 
 _scripts_directory_path = Path(__file__).resolve().parent
 _scripts_directory = str(_scripts_directory_path)
@@ -57,14 +56,12 @@ from tier_model_ids import detect_host_profile  # noqa: E402
 from advisor_scripts_constants.model_tier_run_validator_constants import (  # noqa: E402
     HOST_PROFILE_CLAUDE,
 )
-import claude_chain_runner as chain_runner  # noqa: E402
-from claude_chain_runner import (  # noqa: E402
-    ChainConfigurationError,
-    ChainInvocationOutcome,
-    run_claude,
-)
-from dev_env_scripts_constants.claude_chain_constants import (  # noqa: E402
-    collect_forwarded_text_codec,
+from account_broker import run_job
+from dev_env_scripts_constants.account_broker_constants import (
+    BrokerConfigurationError,
+    JobOutcome,
+    Product,
+    WAIT_EXIT_CODE,
 )
 from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     AGENT_FLAG,
@@ -136,18 +133,14 @@ class SpawnOutcome:
     captured_stdout: str
     returncode: int
     is_config_error: bool = False
+    status: str | None = None
+    wait_reset_at: str | None = None
 
 
 spawn_preflight_runner = run_preflight
 spawn_grok_runner = run_headless_worker
-spawn_claude_runner = run_claude
+spawn_claude_runner = run_job
 spawn_host_profile_detector = detect_host_profile
-
-
-TextCapturingSubprocessRunner = Callable[
-    ...,
-    subprocess.CompletedProcess[str],
-]
 
 
 def _attempt(tier: int, *, is_ok: bool, reason: str | None) -> SpawnAttempt:
@@ -173,51 +166,22 @@ def _build_claude_arguments(*, agent_name: str) -> list[str]:
     ]
 
 
-def _timeout_seconds_from_keywords(
-    all_keywords: dict[str, object],
-) -> float | None:
-    maybe_timeout = all_keywords.get("timeout")
-    if isinstance(maybe_timeout, (int, float)):
-        return float(maybe_timeout)
-    return None
-
-
 def _run_claude_with_headless_overrides(
     all_claude_arguments: list[str],
     *,
     timeout_seconds: int,
     working_directory: Path,
-    prompt_stdin: IO[str],
-) -> ChainInvocationOutcome:
-    working_directory_path = str(working_directory)
-
-    def _runner_with_headless_overrides(
-        all_invocation_tokens: Sequence[str],
-        *all_positionals: object,
-        **all_keywords: object,
-    ) -> subprocess.CompletedProcess[str]:
-        del all_positionals
-        prompt_stdin.seek(0)
-        forwarded_text_codec = collect_forwarded_text_codec(all_keywords)
-        completed_process: subprocess.CompletedProcess[str] = previous_runner(
-            all_invocation_tokens,
-            capture_output=True,
-            text=True,
-            timeout=_timeout_seconds_from_keywords(all_keywords),
-            check=False,
-            stdin=prompt_stdin,
-            cwd=working_directory_path,
-            **forwarded_text_codec,
-        )
-        return completed_process
-
-    headless_runner: TextCapturingSubprocessRunner = _runner_with_headless_overrides
-    with chain_runner.override_chain_subprocess_runner(
-        headless_runner
-    ) as previous_runner:
-        return spawn_claude_runner(
-            all_claude_arguments, timeout_seconds=timeout_seconds
-        )
+    prompt_text: str,
+) -> JobOutcome:
+    return spawn_claude_runner(
+        Product.CLAUDE,
+        ["claude", *all_claude_arguments],
+        timeout_seconds=timeout_seconds,
+        stdin_text=prompt_text,
+        cwd=working_directory,
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 def _prompt_file_unreadable_outcome(
@@ -261,9 +225,9 @@ def _claude_agent_required_outcome(
 
 def _served_claude_outcome(
     all_attempts: list[SpawnAttempt],
-    chain_outcome: ChainInvocationOutcome,
+    chain_outcome: JobOutcome,
 ) -> SpawnOutcome:
-    is_served = chain_outcome.served_command is not None
+    is_served = chain_outcome.account_name is not None
     is_ok = is_served and chain_outcome.returncode == SPAWN_SERVED_EXIT_CODE
     all_attempts.append(_attempt(TIER_CLAUDE_HEADLESS, is_ok=is_ok, reason=None))
     if not is_served:
@@ -273,6 +237,8 @@ def _served_claude_outcome(
             all_attempts=tuple(all_attempts),
             captured_stdout=chain_outcome.stdout,
             returncode=chain_outcome.returncode,
+            status=chain_outcome.status,
+            wait_reset_at=chain_outcome.wait_reset_at.isoformat() if chain_outcome.wait_reset_at else None,
         )
     return SpawnOutcome(
         tier_used=TIER_CLAUDE_HEADLESS,
@@ -280,6 +246,7 @@ def _served_claude_outcome(
         all_attempts=tuple(all_attempts),
         captured_stdout=chain_outcome.stdout,
         returncode=chain_outcome.returncode,
+        status=chain_outcome.status,
     )
 
 
@@ -293,18 +260,15 @@ def _run_tier_claude_headless(
 ) -> SpawnOutcome:
     all_claude_arguments = _build_claude_arguments(agent_name=agent_name)
     try:
-        prompt_stdin = prompt_file.open(encoding=UTF8_ENCODING)
+        prompt_text = prompt_file.read_text(encoding=UTF8_ENCODING)
     except OSError:
         return _prompt_file_unreadable_outcome(all_attempts)
-    try:
-        chain_outcome = _run_claude_with_headless_overrides(
-            all_claude_arguments,
-            timeout_seconds=timeout_seconds,
-            working_directory=working_directory,
-            prompt_stdin=prompt_stdin,
-        )
-    finally:
-        prompt_stdin.close()
+    chain_outcome = _run_claude_with_headless_overrides(
+        all_claude_arguments,
+        timeout_seconds=timeout_seconds,
+        working_directory=working_directory,
+        prompt_text=prompt_text,
+    )
     return _served_claude_outcome(all_attempts, chain_outcome)
 
 
@@ -505,6 +469,8 @@ def encode_spawn_outcome(spawn_outcome: SpawnOutcome) -> dict[str, object]:
         RESULT_KEY_ATTEMPTS: all_encoded_attempts,
         RESULT_KEY_OUTPUT: spawn_outcome.captured_stdout,
         RESULT_KEY_RETURNCODE: spawn_outcome.returncode,
+        "status": spawn_outcome.status,
+        "wait_reset_at": spawn_outcome.wait_reset_at,
     }
 
 
@@ -568,6 +534,8 @@ def _exit_code_for_outcome(
 ) -> int:
     if is_config_error or spawn_outcome.is_config_error:
         return SPAWN_CONFIG_ERROR_EXIT_CODE
+    if spawn_outcome.status in {"wait", "exhausted"}:
+        return WAIT_EXIT_CODE
     if spawn_outcome.tier_used is None:
         return SPAWN_EXHAUSTED_EXIT_CODE
     return SPAWN_SERVED_EXIT_CODE
@@ -672,7 +640,7 @@ def main(all_command_arguments: list[str]) -> int:
     except WorkerTimeoutOutOfBoundsError as bounds_error:
         is_config_error = True
         spawn_outcome = _timeout_out_of_bounds_outcome(bounds_error)
-    except (ChainConfigurationError, ValueError) as configuration_error:
+    except (BrokerConfigurationError, ValueError) as configuration_error:
         is_config_error = True
         spawn_outcome = _config_error_outcome(configuration_error)
     return _write_spawn_outcome_and_exit_code(
