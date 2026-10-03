@@ -26,19 +26,9 @@ Scope
 
 Min diff. No drive-by reformat. No blanket autofix without tests and revert on break.
 
-Comments
-
-Don't add. Keep existing. Docstrings ok. Touching commented code → drop that comment; names carry meaning. Strip changed TODO/FIXME/HACK/XXX/type-ignore. Don't add them.
-
 Prose
 
 Positive. Present. What to do, what it does, what was done, what's left. Task-only. Outcomes. No filler, failed attempts, or process talk.
-
-Ban: real
-
-Never write real, really, or real-world. Anywhere. No exceptions.
-Also ban: actual, actually, genuine, true as swaps.
-Drop the word. If meaning thins, name the evidence (check, log, number, file:line).
 
 Voice
 
@@ -49,7 +39,7 @@ Cut
 Puffery. Vague "experts say". Promotional adjectives. Chatbot closers. Sycophancy. Hedging piles. Generic bright-future endings.
 AI vocab: additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape, pivotal, showcase, tapestry, testament, underscore, vibrant.
 "Serves as" / "stands as" / "boasts" / "features" → is / has.
-"Not just X, but Y" → say the point.
+Apply ~/.claude/rules/no-contrast-framing.md to contrast framing.
 Forced threes. Synonym cycling. False "from X to Y" ranges.
 Em dashes: never. Periods or commas only. No parentheses or dash substitutes for the same job.
 Colons: lists/examples only, not mid-sentence crutches.
@@ -65,7 +55,8 @@ Swap abstract metaphor nouns for concrete words (substrate→base, wedge→add, 
 
 Plain speech
 
-Mechanism or number, not feeling. One idea per sentence. Active voice. Strong verbs over adverbs. utilize/leverage→use, facilitate→help, numerous→many.
+Name the mechanism or number. Strong verbs over adverbs.
+Apply ~/.claude/rules/asd-ste100-language.md.
 
 Tools
 
@@ -78,10 +69,8 @@ Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX,
 
 Banned word: real
 
-Never write real, really, or real-world. Not in chat, not in a commit message, not in a pull request body, not in a comment, not in documentation, not in a heading, not in a variable name. This ban has no exception. Emphasis is not an exception. Contrast with a test, a mock, a fixture, or a hypothetical is not an exception. Insisting that something is genuine is not an exception.
+Never write real, really, or real-world. This ban has no exception. It covers chat, commits, pull requests, comments, documentation, headings, and variable names.
 
-Every sentence carrying real says the same thing without it. "One real failure" is "one failure". "The real cause" is "the cause". "Really fast" is "fast", or the measured number. "Real users" is "users". "A real bug, not a flake" is "a bug", followed by the evidence that rules out a flake.
+Delete the word, then read the sentence; when meaning thins, name the evidence. The failing check. The log line. The measured number. The file and the line.
 
-Delete the word, then read the sentence. When it still says what you meant, you are done. When something is missing, the missing part is evidence, so name the evidence. The failing check. The log line. The measured number. The file and the line.
-
-Swapping in actual, actually, genuine, or true is the same move, and each is banned with it. So is the invented contrast that invites the word back, such as "not a hypothetical problem but a problem".
+Swapping in actual, actually, genuine, or true is the same move, and each is banned with it.
