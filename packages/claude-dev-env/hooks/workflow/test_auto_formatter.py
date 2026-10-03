@@ -182,6 +182,33 @@ def _load_auto_formatter_module() -> ModuleType:
     return auto_formatter_module
 
 
+def test_successful_format_does_not_access_notifications(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    formatter = _load_auto_formatter_module()
+    all_touched_names: list[str] = []
+
+    class RecordingNotificationModule(ModuleType):
+        def __getattr__(self, attribute_name: str) -> object:
+            if not attribute_name.startswith("__"):
+                all_touched_names.append(attribute_name)
+            return lambda *_arguments, **_options: False
+
+    monkeypatch.setitem(sys.modules, "notification_utils", RecordingNotificationModule("notification_utils"))
+
+    def report_formatter_success(
+        command: list[str], _file_path: str, _timeout_seconds: int
+    ) -> tuple[subprocess.CompletedProcess[str], bool]:
+        return subprocess.CompletedProcess(command, 0, "", ""), False
+
+    monkeypatch.setattr(formatter, "_run_command", report_formatter_success)
+
+    formatter.run_eligible_formatter("formatted_module.py")
+    formatter._run_prettier("formatted_module.js")
+
+    assert all_touched_names == []
+
+
 def test_formatter_eligibility_requires_write_tool_and_untracked_source(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

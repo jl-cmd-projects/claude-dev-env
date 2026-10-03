@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - id: release
-        uses: release-please-oss/release-please-action@v5
+        uses: release-please-oss/release-please-action@7a6e2d3ff9e08fbd69d0430e4be5d90a3e96c28c
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
