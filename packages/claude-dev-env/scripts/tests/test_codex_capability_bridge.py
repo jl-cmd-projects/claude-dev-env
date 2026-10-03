@@ -26,7 +26,7 @@ def test_rejects_bad_payload_and_schedule() -> None:
 
 def test_rejects_unknown_and_private_paths() -> None:
     assert translate_capability("NoSuchSurface", {})["status"] == "unknown"
-    assert translate_capability("SendMessage", {"message": "C:\\Users\\melan\\secret"})["status"] == "rejected"
+    assert translate_capability("SendMessage", {"message": "C:\\Users\\example\\secret"})["status"] == "rejected"
 
 
 @pytest.mark.parametrize("private_path", ["C:/private/file", "\\\\server\\share\\file", "/private/file", "~/secret", "$HOME/secret", "%USERPROFILE%\\secret", "safe/../secret"])
