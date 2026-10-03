@@ -39,7 +39,7 @@ Cut
 Puffery. Vague "experts say". Promotional adjectives. Chatbot closers. Sycophancy. Hedging piles. Generic bright-future endings.
 AI vocab: additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape, pivotal, showcase, tapestry, testament, underscore, vibrant.
 "Serves as" / "stands as" / "boasts" / "features" → is / has.
-Apply ~/.claude/rules/no-contrast-framing.md to contrast framing.
+"Not just X, but Y" → say the point.
 Forced threes. Synonym cycling. False "from X to Y" ranges.
 Em dashes: never. Periods or commas only. No parentheses or dash substitutes for the same job.
 Colons: lists/examples only, not mid-sentence crutches.
@@ -55,8 +55,7 @@ Swap abstract metaphor nouns for concrete words (substrate→base, wedge→add, 
 
 Plain speech
 
-Name the mechanism or number. Strong verbs over adverbs.
-Apply ~/.claude/rules/asd-ste100-language.md.
+Mechanism or number, not feeling. One idea per sentence. Active voice. Strong verbs over adverbs. utilize/leverage→use, facilitate→help, numerous→many.
 
 Tools
 
