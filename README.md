@@ -132,7 +132,7 @@ Behavioral rules loaded into every session.
 | `plain-illustrative-docstrings` | Docstring narrative reads plainly on the first pass |
 | `pstack-models` | Portable role requirements for pstack delegation |
 | `prompt-workflow-context-controls` | Prompt workflows stay low-context |
-| `research-mode` | Cite sources, say "I don't know", use direct quotes |
+| `research-mode` | Settle each fact with the first permitted tool that reaches it, cite sources, use direct quotes |
 | `shell-invocation` | Use pwsh, and keep shell substitution out of Bash commands |
 | `skill-pointers` | Load the pull request lifecycle skill before governed actions |
 | `testing` | Complete mocks, reference TEST_QUALITY.md |
