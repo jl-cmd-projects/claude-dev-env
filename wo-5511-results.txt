@@ -1,0 +1,39 @@
+Work order 5511 results
+
+Before: 32,783 UTF-8 bytes across eleven rule files (sum of file byte lengths).
+Counts by file before edits:
+asd-ste100-language.md 2632
+cleanup-temp-files.md 1614
+correction-lens.md 5405
+destructive-commands.md 3584
+explore-thoroughly.md 1565
+filesystem-search.md 3087
+memory-stores-durable-facts.md 2991
+no-contrast-framing.md 3453
+research-mode.md 2004
+verify-before-asking.md 3470
+verify-runtime-state.md 2978
+
+After: 8,068 UTF-8 bytes across eleven rule files, confirmed with wc -c.
+Counts by file after edits:
+asd-ste100-language.md 900
+cleanup-temp-files.md 604
+correction-lens.md 895
+destructive-commands.md 886
+explore-thoroughly.md 662
+filesystem-search.md 679
+memory-stores-durable-facts.md 660
+no-contrast-framing.md 704
+research-mode.md 753
+verify-before-asking.md 611
+verify-runtime-state.md 714
+
+Validation:
+- Guides were copied from the source rules before entry edits. The guide edits adjust relative links, sentence-case headings, em dashes, and prohibited vocabulary.
+- Inline checks confirmed the five correction layers, the Permanence section, all six contrast form names, and the destructive-command subagent directive.
+- All eleven entries are 400 to 900 bytes. All guide links resolve. A scan of the twenty-two edited Markdown files found no forbidden vocabulary or em dash.
+- Python suite: first run stopped during collection because the declared PyJWT dependency was missing. After installing it, 813 passed, 1 skipped, and 3 failed. The three failures in test_code_review_constants.py try to patch os.geteuid, which Windows does not provide.
+- Focused Python checks: 18 passed in test_rule_load_scopes.py and test_contrast_framing.py.
+- Full bin Node suite: failed. Observed failures include install.prune.test.mjs child-process status checks and resolve-package-managed-directory.test.mjs checkout pointer checks on Windows.
+- Focused bin checks: 19 passed in install.cursor-rules.test.mjs and install.profile-root.test.mjs.
+- WSL is unavailable on this runner; no Linux rerun was possible.
