@@ -1,15 +1,16 @@
 # Codex accounts
 
-The codex_account_choice picker spreads agent work across the Codex accounts
-on one machine. Each account signs in under its own Codex home, and every home
+The account broker assigns agent work across the Codex accounts.
+Each account signs in under its own Codex home, and every home
 shares the same Codex setup: config, rules, skills, plugins, prompts and agents.
-A job asks the picker which account to use.
+A job asks the broker which account to use.
 
 ## Pieces
 
 | File | What it does |
 |---|---|
-| `scripts/codex_account_choice.py` | `choose` names the account and tier a job runs on, `check` tells a running job whether its account is still above a floor, `sync` links the shared setup into every account's home, `setup` and `install` write one launcher per account |
+| `scripts/account_broker.py` | `choose --product codex` names the account and tier a job runs on; `check --product codex` reports whether any account has room |
+| `scripts/codex_account_choice.py` | `sync` links the shared setup into every account's home; `setup` and `install` write one launcher per account |
 | `scripts/codex_account_meters.py` | Reads one account's rate-limit windows through `codex app-server` with `CODEX_HOME` set to that account's home |
 | `scripts/dev_env_scripts_constants/codex_account_constants.py` | The fallback account names, the roster variable and file, the launcher template, the shared entry names, the 10% bar, the 1% Luna stop, and the 20% 5-hour floor for Luna |
 
@@ -21,8 +22,8 @@ The account roster names the accounts and their order. It comes from the
 in `account-launchers.json` under the profiles root. When neither exists, the
 accounts are `codex-1`, `codex-2`, `codex-3` and `codex-4`.
 
-`choose`, `sync` and `check` all work on that list, in that order. `check`
-accepts only a name on it. Each account's home is `~/.codex-profiles/<name>`, or
+The broker's `choose` and `check` commands and the setup commands use that list.
+Each account's home is `~/.codex-profiles/<name>`, or
 `<name>` under `CODEX_PROFILES_ROOT` when set. `~/.codex` holds the shared setup
 and is never an account. A name uses letters, digits, hyphens or underscores.
 `main`, `wait` and the Windows device names are refused.
@@ -83,50 +84,45 @@ folder under the profiles root stays, with its `auth.json`, so typing the name
 again restores it. A blank first line empties the roster and moves every launcher
 aside.
 
-`check <name>` reads a saved name the same way:
-
-```
-python packages/claude-dev-env/scripts/codex_account_choice.py check alpha --floor 1
-```
-
 ## Which account a job uses
 
 Room is the smaller of an account's two windows: the 5-hour window and the week.
 
 | Condition | Answer |
 |---|---|
-| First account in order with more than 10% left | `normal` on that account |
-| No account over 10%, one or more over 1% | `luna` on the account with the most room, `stop_below_percent` 1 |
+| One or more accounts with more than 10% left | `normal` on the account with the most room |
+| No account over 10%, one or more over 1% | `luna` on the account with the most room |
 | An account that reports a 5-hour window, with under 20% of that window left | never takes `luna` |
-| No account over 1% | `wait`, naming the account whose blocking windows reset first |
-| Account not signed in, or its meter unread | skipped, with the reason in `accounts` |
+| No account over 1% | `wait`, naming the next reset when known |
+| A meter is unread | The account has `meters: null` in `accounts` |
 
 ```
-python packages/claude-dev-env/scripts/codex_account_choice.py choose
-{"tier": "normal", "account": "codex-1", "codex_home": "...\\codex-1", "percent_left": 62.0,
- "stop_below_percent": null, "reason": "codex-1 has 62% left", "accounts": [...]}
+python packages/claude-dev-env/scripts/account_broker.py choose --product codex
+{"decision": {"action": "run", "account": "codex-1", "home": "...\\codex-1",
+ "reset_at": null, "reason": "codex-1 has 62% left", "tier": "normal"},
+ "accounts": [{"account": "codex-1", "home": "...\\codex-1", "main": false,
+ "meters": {"session_percent_left": 62.0, "session_resets_at": null,
+ "weekly_percent_left": 70.0, "weekly_resets_at": null}}]}
 ```
 
-A job runs Codex with `CODEX_HOME` set to `codex_home`. On `luna`, the job runs
+A job runs Codex with `CODEX_HOME` set to `decision.home`. On `luna`, the job runs
 Luna and polls `check` between steps:
 
 ```
-python packages/claude-dev-env/scripts/codex_account_choice.py check codex-2 --floor 1
+python packages/claude-dev-env/scripts/account_broker.py check --product codex
 ```
 
-`check` exits 0 while the account has more than the floor left, and 3 once it has
-not or its meter is unread. The job stops on 3.
+`check` exits 3 while every account is below its floor, and 0 when an account
+has room. The job stops on 3. `choose` also exits 3 for `wait` and still prints
+the JSON answer.
 
 ## Shared callers
 
-Two scripts under `_shared` run `choose` by path. Each finds the picker at
-`scripts/codex_account_choice.py` in the directory that holds `_shared`. Once
-installed, that is `~/.claude/scripts/codex_account_choice.py`.
+Two scripts under `_shared` run `choose --product codex` by path. Each finds the
+broker at `scripts/account_broker.py` in the directory that holds `_shared`.
+Once installed, that is `~/.claude/scripts/account_broker.py`.
 
 | Caller | What it does with the answer |
 |---|---|
-| `_shared/pr-loop/scripts/check_convergence.py` | Requires a Codex clean stamp on HEAD only on `normal`. `luna`, `wait`, or a failed picker skips the Codex gate |
-| `_shared/advisor/scripts/codex_astra_advisor.py` | Binds Astra only on `normal`, and runs Codex with `CODEX_HOME` set to `codex_home` |
-
-Pass `--codex-path` when `codex` is off PATH. Without it the picker also tries
-the desktop install path under the user home.
+| `_shared/pr-loop/scripts/check_convergence.py` | Requires a Codex clean stamp on HEAD only on `normal`. `luna`, `wait`, or a failed broker skips the Codex gate |
+| `_shared/advisor/scripts/codex_astra_advisor.py` | Binds Astra only on `normal`, and runs Codex with `CODEX_HOME` set to `decision.home` |

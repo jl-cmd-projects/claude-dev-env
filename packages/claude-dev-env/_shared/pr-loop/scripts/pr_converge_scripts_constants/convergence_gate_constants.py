@@ -69,11 +69,11 @@ CODEX_CLEAN_AT_STATE_KEY: str = "codex_clean_at"
 CODEX_DOWN_STATE_KEY: str = "codex_down"
 MINIMUM_ABBREVIATED_SHA_LENGTH: int = 7
 SHARED_PACKAGE_ROOT_PARENT_INDEX: int = 3
-ALL_CODEX_ACCOUNT_PICKER_RELATIVE_PARTS: tuple[str, ...] = (
+ALL_CODEX_ACCOUNT_BROKER_RELATIVE_PARTS: tuple[str, ...] = (
     "scripts",
-    "codex_account_choice.py",
+    "account_broker.py",
 )
-CODEX_ACCOUNT_PICKER_CHOOSE_COMMAND: str = "choose"
+CODEX_ACCOUNT_BROKER_CHOOSE_COMMAND: str = "choose"
 CODEX_ACCOUNT_PICK_TIMEOUT_SECONDS: float = 150.0
 CODEX_TIER_KEY: str = "tier"
 CODEX_TIER_NORMAL: str = "normal"
