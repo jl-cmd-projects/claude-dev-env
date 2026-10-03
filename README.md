@@ -256,7 +256,7 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Task\|Agent | `parallel-task-blocker` | Limits concurrent Task/Agent delegations |
 | AskUserQuestion | `attention-needed-notify` | Desktop notification when Claude needs your input |
 | mcp__hearthbot__start_thread_session | `thread_spawn_pace_hook` | When the five-hour or seven-day usage window runs ahead of its clock after its first 10%, or usage cannot be read, moves the thread to Sonnet 5.5 at medium effort with a mandatory Fable advisor line |
-| Agent\|Task\|mcp__hearthbot__start_thread_session | `spawn_readiness_hook` | Denies an agent spawn until the transcript shows a read step since the request and a user reply to a question. A brief line that starts `Scope settled:` passes the interview check, and the hook logs it |
+| Agent\|Task\|mcp__hearthbot__start_thread_session | `spawn_readiness_hook` | Denies an agent spawn until the transcript shows a read step since the request and an answer to an interactive question (AskUserQuestion, a decision card, or a widget). A brief line that starts `Scope settled:` passes the interview check, and the hook logs it |
 | * | `step_note_gate` | Off by default; after `/step-notes on`, asks for a short status line before each tool call |
 
 #### Other Events

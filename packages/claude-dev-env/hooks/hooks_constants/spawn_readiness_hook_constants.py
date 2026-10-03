@@ -70,11 +70,10 @@ ALL_READ_TOOL_NAMES = frozenset(
 MCP_TOOL_NAME_PREFIX = "mcp__"
 MCP_TOOL_NAME_SEPARATOR = "__"
 ALL_MCP_READ_VERB_PREFIXES = ("fetch", "read", "get", "list", "search", "query")
-ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
-ASK_DECISION_TOOL_SUFFIX = "ask_decision"
-ALL_POSTING_TOOL_SUFFIXES = frozenset({"post_message", "reply"})
-POSTED_TEXT_INPUT_KEY = "text"
-QUESTION_MARK = "?"
+ALL_INTERACTIVE_QUESTION_TOOL_NAMES = frozenset(
+    {"AskUserQuestion", "request_user_input", "request_user_input_async"}
+)
+ALL_INTERACTIVE_MCP_ACTIONS = frozenset({"ask_decision", "post_widget"})
 
 SCOPE_SETTLED_PREFIX = "Scope settled:"
 
@@ -90,8 +89,9 @@ MISSING_INVESTIGATION_REASON = (
     "reads in a message before the spawn."
 )
 MISSING_INTERVIEW_REASON = (
-    "Interview the user before this spawn. Post your scope, requirements, and "
-    "goals questions, end the turn, and spawn after the reply. When the request "
+    "Interview the user before this spawn. Ask your scope, requirements, and "
+    "goals questions through AskUserQuestion, a decision card, or an "
+    "interactive widget, and spawn after the answer. When the request "
     "already settles scope, add a brief line that starts with "
     f'"{SCOPE_SETTLED_PREFIX}" and names the reason.'
 )

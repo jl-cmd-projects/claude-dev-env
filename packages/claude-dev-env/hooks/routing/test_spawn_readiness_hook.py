@@ -55,9 +55,7 @@ def _queued(prompt: str) -> dict[str, object]:
 
 
 READ_STEP = _tool_use("Bash", {"command": "cat README.md"})
-QUESTION_STEP = _tool_use(
-    "mcp__hearthbot__post_message", {"text": "Which repo should this land in?"}
-)
+QUESTION_STEP = _tool_use("mcp__hearthbot__ask_decision", {"question": "Which repo should this land in?"})
 REPLY_STEP = _user("The public one.")
 INTERVIEWED_TRANSCRIPT = [_user("Build the hook."), READ_STEP, QUESTION_STEP, REPLY_STEP]
 
@@ -147,10 +145,10 @@ def test_should_name_both_gaps_when_the_session_did_neither(tmp_path: Path) -> N
     assert reason == f"{MISSING_INVESTIGATION_REASON} {MISSING_INTERVIEW_REASON}"
 
 
-def test_should_count_a_posted_message_without_a_question_mark_as_no_question(
+def test_should_count_a_plain_chat_question_as_no_interview(
     tmp_path: Path,
 ) -> None:
-    statement = _tool_use("mcp__hearthbot__post_message", {"text": "Starting on it."})
+    statement = _tool_use("mcp__hearthbot__post_message", {"text": "Which repo should this land in?"})
     transcript = [_user("Build the hook."), READ_STEP, statement, REPLY_STEP, READ_STEP]
     assert _deny_reason(_spawn(tmp_path, transcript)) == MISSING_INTERVIEW_REASON
 
@@ -162,6 +160,12 @@ def test_should_count_an_answered_ask_user_question_as_the_interview(tmp_path: P
         _tool_use("AskUserQuestion", {"questions": []}, block_id="toolu_ask"),
         _tool_result("toolu_ask"),
     ]
+    assert _spawn(tmp_path, transcript) == ""
+
+
+def test_should_count_an_answered_widget_as_the_interview(tmp_path: Path) -> None:
+    widget = _tool_use("mcp__hearthbot__post_widget", {"family": "visualize", "input": {}})
+    transcript = [_user("Build the hook."), READ_STEP, widget, _user("The left layout.")]
     assert _spawn(tmp_path, transcript) == ""
 
 

@@ -63,11 +63,11 @@ def test_should_report_no_gaps_for_a_reply_after_a_question() -> None:
     assert readiness_gaps(all_steps) == []
 
 
-def test_should_read_a_github_get_call_as_a_read_and_a_statement_post_as_another_call() -> None:
+def test_should_read_a_github_get_call_as_a_read_and_a_chat_question_as_another_call() -> None:
     all_lines = [
         json.dumps(_tool_use("mcp__github__get_file_contents", {"path": "a"})),
-        json.dumps(_tool_use("mcp__hearthbot__reply", {"text": "Done."})),
         json.dumps(_tool_use("mcp__hearthbot__reply", {"text": "Which one?"})),
+        json.dumps(_tool_use("mcp__hearthbot__ask_decision", {"question": "Which one?"})),
     ]
     assert session_steps(all_lines) == [SessionStep.READ, SessionStep.OTHER_TOOL_CALL, SessionStep.QUESTION]
 

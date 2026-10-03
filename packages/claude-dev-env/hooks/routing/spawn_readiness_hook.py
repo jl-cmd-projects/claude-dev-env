@@ -7,7 +7,7 @@ It reads the session transcript and checks two things since the user's request:
 ::
 
     no read step after the request              -> deny: investigate first
-    no question to the user, then a reply       -> deny: interview first
+    no interactive question, then an answer     -> deny: interview first
     brief line "Scope settled: <reason>"        -> interview check passes, logged
     both found                                  -> no output; the call runs
 

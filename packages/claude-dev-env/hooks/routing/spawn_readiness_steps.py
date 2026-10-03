@@ -2,14 +2,15 @@
 
 ::
 
-    user "build X" ... Bash ... post_message "Which layout?" ... user "grid"
+    user "build X" ... Bash ... AskUserQuestion "Which layout?" ... answer "grid"
     -> [USER_MESSAGE, READ, QUESTION, USER_MESSAGE]
     -> readiness_gaps(...) == []
 
 A read is a file read, a search, a shell command, a fetch, an MCP read, or a
-read-only subagent. A question is an ``AskUserQuestion`` call, an
-``ask_decision`` card, or a posted message or reply whose text holds a
-question mark. A user message is typed text or a human wake; a harness
+read-only subagent. A question is an interactive prompt: an
+``AskUserQuestion`` or ``request_user_input`` call, whose answer is the
+reply, or an ``ask_decision`` card or ``post_widget`` widget, answered by
+the next user message. A plain chat message is no question. A user message is typed text or a human wake; a harness
 envelope with no human sender, such as an agent relay or a task notice, is
 left out.
 """
@@ -30,11 +31,10 @@ from hooks_constants.spawn_readiness_hook_constants import (
     ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME,
     ALL_HARNESS_ENVELOPE_MARKERS,
     ALL_MCP_READ_VERB_PREFIXES,
-    ALL_POSTING_TOOL_SUFFIXES,
     ALL_READ_ONLY_SUBAGENT_TYPES,
     ALL_READ_TOOL_NAMES,
-    ASK_DECISION_TOOL_SUFFIX,
-    ASK_USER_QUESTION_TOOL_NAME,
+    ALL_INTERACTIVE_MCP_ACTIONS,
+    ALL_INTERACTIVE_QUESTION_TOOL_NAMES,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_ENTRY_TYPE,
     ATTACHMENT_KEY,
@@ -52,8 +52,6 @@ from hooks_constants.spawn_readiness_hook_constants import (
     MESSAGE_KEY,
     MISSING_INTERVIEW_REASON,
     MISSING_INVESTIGATION_REASON,
-    POSTED_TEXT_INPUT_KEY,
-    QUESTION_MARK,
     QUEUED_COMMAND_ATTACHMENT_TYPE,
     QUEUED_PROMPT_KEY,
     RESULT_IS_ERROR_KEY,
@@ -84,13 +82,9 @@ def _is_user_text(text: str) -> bool:
     return True
 
 
-def _mcp_step(action_name: str, all_input_fields: dict[object, object]) -> SessionStep:
-    if action_name == ASK_DECISION_TOOL_SUFFIX:
+def _mcp_step(action_name: str) -> SessionStep:
+    if action_name in ALL_INTERACTIVE_MCP_ACTIONS:
         return SessionStep.QUESTION
-    if action_name in ALL_POSTING_TOOL_SUFFIXES:
-        posted_text = all_input_fields.get(POSTED_TEXT_INPUT_KEY)
-        is_question = isinstance(posted_text, str) and QUESTION_MARK in posted_text
-        return SessionStep.QUESTION if is_question else SessionStep.OTHER_TOOL_CALL
     if action_name.startswith(ALL_MCP_READ_VERB_PREFIXES):
         return SessionStep.READ
     return SessionStep.OTHER_TOOL_CALL
@@ -98,7 +92,7 @@ def _mcp_step(action_name: str, all_input_fields: dict[object, object]) -> Sessi
 
 def _tool_use_step(tool_name: str, tool_input: object) -> SessionStep:
     all_input_fields = tool_input if isinstance(tool_input, dict) else {}
-    if tool_name == ASK_USER_QUESTION_TOOL_NAME:
+    if tool_name in ALL_INTERACTIVE_QUESTION_TOOL_NAMES:
         return SessionStep.QUESTION
     if tool_name in ALL_READ_TOOL_NAMES:
         return SessionStep.READ
@@ -108,7 +102,7 @@ def _tool_use_step(tool_name: str, tool_input: object) -> SessionStep:
     ):
         return SessionStep.READ
     if tool_name.startswith(MCP_TOOL_NAME_PREFIX):
-        return _mcp_step(tool_name.rsplit(MCP_TOOL_NAME_SEPARATOR, 1)[-1], all_input_fields)
+        return _mcp_step(tool_name.rsplit(MCP_TOOL_NAME_SEPARATOR, 1)[-1])
     return SessionStep.OTHER_TOOL_CALL
 
 
@@ -134,7 +128,7 @@ def _assistant_steps(
         tool_name = each_block.get(BLOCK_NAME_KEY)
         if block_id == spawn_tool_use_id or not isinstance(tool_name, str):
             continue
-        if tool_name == ASK_USER_QUESTION_TOOL_NAME and isinstance(block_id, str):
+        if tool_name in ALL_INTERACTIVE_QUESTION_TOOL_NAMES and isinstance(block_id, str):
             all_question_tool_use_ids.add(block_id)
         yield _tool_use_step(tool_name, each_block.get(BLOCK_INPUT_KEY))
 
