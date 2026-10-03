@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.37.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.2...claude-dev-env-v8.37.3) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** settle a fact with every tool before answering ([#1607](https://github.com/jl-cmd/claude-dev-env/issues/1607)) ([d24ed35](https://github.com/jl-cmd/claude-dev-env/commit/d24ed351c95362ff76f1cac10b56124ec2bbba7a))
+
 ## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
 
 
