@@ -56,7 +56,7 @@ def wait_report(account: str, reason: str, wait_reset_at: datetime | None) -> Wo
 
     Args:
         account: The chosen account slot.
-        reason: Why the picker chose to wait.
+        reason: Why the broker returned a wait decision.
 
     Returns:
         A report carrying the wait exit code and no payload.
@@ -84,7 +84,7 @@ def make_report(
 
     Args:
         account: The chosen account slot.
-        reason: Why the picker chose that account.
+        reason: Broker status for the account.
         exit_code: The worker process's exit code.
         duration_seconds: How long the worker ran.
         stdout_text: The worker's captured stdout text.

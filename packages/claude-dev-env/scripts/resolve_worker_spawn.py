@@ -607,7 +607,7 @@ def main(all_command_arguments: list[str]) -> int:
 
     A timeout outside the accepted bounds is a config fault: the run prints a
     structured outcome whose attempt reason is ``timeout_out_of_bounds`` and
-    exits ``3``, rather than raising out of the CLI. A chain misconfiguration,
+    exits ``3``, rather than raising out of the CLI. A broker configuration error,
     or an unknown host profile refused by ``detect_host_profile``, prints the
     same exit code with the refusal text as its output.
 

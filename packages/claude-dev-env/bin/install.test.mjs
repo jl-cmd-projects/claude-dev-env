@@ -216,7 +216,7 @@ test('core includeDirectories ships _shared and scripts for advisor protocol and
     );
     assert.ok(
         CORE_INCLUDE_DIRECTORIES.includes('scripts'),
-        'scripts must ship with --only core so claude_chain_runner.py is available for advisor CLI fallback',
+        'scripts must ship with --only core so account_broker.py is available for advisor CLI fallback',
     );
 });
 

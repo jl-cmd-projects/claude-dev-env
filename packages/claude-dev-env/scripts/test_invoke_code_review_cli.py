@@ -62,6 +62,8 @@ def test_cli_prints_result_json_only(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: IN_SESSION_RETURNCODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
 
 
@@ -87,13 +89,9 @@ def test_cli_emits_json_on_chain_configuration_error(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: CHAIN_CONFIG_ERROR_EXIT_CODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
-    config_error_outcome = invoker.CodeReviewOutcome(
-        mode=MODE_CHAIN,
-        served_command=None,
-        returncode=CHAIN_CONFIG_ERROR_EXIT_CODE,
-        is_dirty_tree=False,
-    )
 
 
 def test_cli_emits_json_on_host_profile_value_error(
@@ -121,6 +119,8 @@ def test_cli_emits_json_on_host_profile_value_error(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: HOST_PROFILE_ERROR_RETURNCODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
 
 

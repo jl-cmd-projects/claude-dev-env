@@ -113,7 +113,7 @@ class CodeReviewOutcome:
 
     ``mode`` is ``in_session`` when the skill should run the slash command
     itself, or ``chain`` when a headless spawn already ran. ``served_command``
-    names the chain binary that served a chain run, or ``None`` otherwise.
+    names the broker account that served a chain run, or ``None`` otherwise.
     ``is_dirty_tree`` is True when ``git status --porcelain`` is non-empty
     after a chain run (fixes applied).
     """
@@ -197,7 +197,7 @@ def build_code_review_prompt(effort: str) -> str:
 def build_code_review_arguments(
     effort: str = DEFAULT_CODE_REVIEW_EFFORT,
 ) -> list[str]:
-    """Return the argv tokens passed to ``run_claude`` for a chain review.
+    """Return the argv tokens passed to the account broker for a review.
 
     ::
 
@@ -386,7 +386,7 @@ def invoke_code_review(
     Args:
         working_directory: PR working tree used as cwd for the chain spawn.
         session_model: Caller-stated session model short alias.
-        timeout_seconds: Timeout applied to each chain binary invocation.
+        timeout_seconds: Timeout applied to the broker job.
         effort: Effort token embedded in the ``/code-review`` prompt.
 
     Returns:
@@ -447,7 +447,7 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
         dest="timeout_seconds",
         type=int,
         default=DEFAULT_CODE_REVIEW_TIMEOUT_SECONDS,
-        help="Timeout in seconds applied to each chain binary invocation.",
+        help="Timeout in seconds applied to the broker job.",
     )
 
 
