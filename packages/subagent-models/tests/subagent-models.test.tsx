@@ -466,8 +466,28 @@ test('the footer dots follow which models are on', async ($, on) => {
   expect(before).toHaveLength(4)
   await bar.press({ key: 'model-haiku' })
   const after = await dotColors()
-  expect(after[2]).not.toBe(before[2])
-  expect([after[0], after[1], after[3]]).toEqual([before[0], before[1], before[3]])
+  expect(after[0]).not.toBe(before[0])
+  expect(after.slice(1)).toEqual(before.slice(1))
+  await bar.unmount()
+  await footer.unmount()
+})
+
+test('the strip, the model rows and the footer dots run from haiku to fable', async ($, on) => {
+  engine(on)
+  await command($ as never, 'reset')
+  const bar = await $.ui.mount({ ...BAR_TARGET, surface: 'desktop' })
+  const footer = await $.ui.mount({ ...MODE_TARGET, surface: 'desktop' })
+  const order = ['haiku', 'sonnet', 'opus', 'fable']
+  const drawn = JSON.stringify(await bar.drawn())
+  for (const prefix of ['strip', 'cell-model', 'model']) {
+    const places = order.map(family => drawn.indexOf('"key":"' + prefix + '-' + family + '"'))
+    expect(places.every(place => place >= 0)).toBe(true)
+    expect(places).toEqual([...places].sort((a, b) => a - b))
+  }
+  const dots = JSON.stringify(await footer.drawn()).match(/"color":"#[0-9a-f]{6}"\},"children":\["●"\]/g) ?? []
+  expect(dots).toHaveLength(4)
+  expect(dots[0]).toContain('#9ece6a')
+  expect(dots[2]).toContain('#bb9af7')
   await bar.unmount()
   await footer.unmount()
 })

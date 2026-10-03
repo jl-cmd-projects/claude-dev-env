@@ -18,7 +18,7 @@ const ALL_CHOICES: { readonly [Field in keyof Settings]: readonly Settings[Field
 
 const ALL_FIELDS = Object.keys(ALL_CHOICES) as (keyof Settings)[]
 
-const ALL_FAMILIES: readonly Family[] = ['opus', 'sonnet', 'haiku', 'fable']
+const ALL_FAMILIES: readonly Family[] = ['haiku', 'sonnet', 'opus', 'fable']
 
 const ALL_SWITCHES: readonly Switch[] = ['on', 'off']
 
@@ -788,7 +788,7 @@ export const register: Register = (on, options: PluginOptions) => {
         <Button key="pill" onPress={() => update($, isBarOpen, current => !current)}>
           {`${ICON_MARK} ${settings.defaultModel} · ${settings.effort}${sessionMark} ${isOpen ? MINIMIZE_MARK : EXPAND_MARK}`}
         </Button>
-        <Text dimColor>{e.props.modes.join(' & ')}</Text>
+        <Text color={ACCENT}>{e.props.modes.join(' & ')}</Text>
       </Box>
     )
   })
