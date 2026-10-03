@@ -361,6 +361,49 @@ def test_should_keep_spent_mark_until_reset(
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
 
 
+@pytest.mark.parametrize(
+    ("start_error", "expected_status"),
+    ((OSError("missing command"), "start_failed"), (subprocess.TimeoutExpired("job", 1), "timeout")),
+)
+def test_should_leave_later_choices_open_after_start_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], start_error: Exception, expected_status: str
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise start_error
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert outcome.attempts == (("first", expected_status), ("second", expected_status))
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+def test_should_keep_usage_limited_account_spent_for_later_choices(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        if Path(options["env"]["CODEX_HOME"]).name == "first":
+            return subprocess.CompletedProcess(argv, 1, "", "rate limit")
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
+
+
 def test_should_list_accounts_without_reading_meters(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
