@@ -28,7 +28,7 @@ Keep current authorization and configured model routing when restoring work.
 ## Process
 
 1. Read the current message and loaded instructions. Load the orchestrator entrypoint.
-2. Resolve the run from its supplied locator or `.orchestrator/active-runs/` under the project directory.
+   Read `~/.claude/rules/long-horizon-autonomy.md` and `~/.claude/rules/workers-done-before-complete.md`. Those two rules load only through this read.2. Resolve the run from its supplied locator or `.orchestrator/active-runs/` under the project directory.
    Read the run record's owner and optional wake metadata first.
    For a recorded one-shot firing, confirm both the invocation's wake identity and current root ownership.
    Immediately run `begin-firing` with its explicit `--status-file` and `--run-slug` through [optional scheduling](../orchestrator/reference/scheduling.md).

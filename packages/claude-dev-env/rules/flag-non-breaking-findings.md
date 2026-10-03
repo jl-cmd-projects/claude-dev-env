@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/hooks/**"
+  - "**/policy_lint/**"
+  - "**/repository_checks/**"
+  - "**/.pre-commit-config.yaml"
+  - "**/.githooks/**"
+  - "**/.husky/**"
+  - "**/.github/workflows/**"
+---
+
 # Flag Non-Breaking Findings
 
 **When this applies:** Writing or changing a local gate — a git hook, a
