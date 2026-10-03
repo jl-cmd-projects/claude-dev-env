@@ -69,7 +69,7 @@ Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX,
 
 Banned word: real
 
-Never write real, really, or real-world. This ban has no exception. It covers chat, commits, pull requests, comments, documentation, headings, and variable names.
+Never write real, really, or real-world. This ban has no exception. Emphasis and contrast are no exception. It covers chat, commits, pull requests, comments, documentation, headings, and variable names.
 
 Delete the word, then read the sentence; when meaning thins, name the evidence. The failing check. The log line. The measured number. The file and the line.
 
