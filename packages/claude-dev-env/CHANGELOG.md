@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
+
+
+### Features
+
+* **scripts:** add one account broker for Claude and Codex jobs ([e0752f4](https://github.com/jl-cmd/claude-dev-env/commit/e0752f4b1352c189c37e2927435a815cbb97dab0))
+
 ## [8.37.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.2...claude-dev-env-v8.37.3) (2026-10-03)
 
 
