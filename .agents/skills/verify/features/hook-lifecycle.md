@@ -9,7 +9,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - `bash-rewrite` returns a `PreToolUse` envelope that allows a `git show <rev>:<path>` call and prefixes `MSYS2_ARG_CONV_EXCL`.
 - `poteto-spawn` opens an `Agent` or `Task` prompt with the poteto-mode invocation.
 - `poteto-codex-spawn` opens a Codex `spawn_agent` message with `$poteto-mode`.
-- `poteto-reminder` tells a session to load poteto-mode after a compaction, at a workflow helper start, and on a user turn before the skill loads.
+- `poteto-reminder` tells a workflow helper to load poteto-mode at its start, and tells a session that invoked the skill to load it again after a compaction drops it.
 - `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call.
 - `policy-lint-timing` runs policy checks from `cde lint` and CI only.
 
@@ -43,7 +43,7 @@ Preconditions:
 
 - No hook returns `deny` or `ask`. A rewrite is `allow` with `updatedInput`. The one `block` comes from `verify_before_acting.py` after the tool has run, so the change stays on disk until the model undoes it. A linter fails only its own command.
 - Empty stdout with exit `0` is the pass for a quiet branch. Check the exit code before you read silence as a pass.
-- A missing or unreadable transcript counts as not loaded, so `UserPromptSubmit` prints the reminder.
+- A missing or unreadable transcript counts as never invoked, so `UserPromptSubmit` and the compact `SessionStart` print nothing.
 - `--home` keeps the scratch home after the run. Without `--home`, the playtest removes its own scratch home.
 - `--skip-install` grades the tree already in `--home`. Use it to read back a broken install. A fresh run without it reinstalls over the break.
 - A roster line that names `test_failure_recorder.py` or `msys_path_conversion_advisor.py` comes from a stale install. A reinstall removes every path in `RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS`.
