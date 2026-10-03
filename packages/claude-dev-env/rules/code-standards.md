@@ -1,3 +1,13 @@
+---
+paths:
+  - "**/*.py"
+  - "**/*.mjs"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.ps1"
+---
+
 # Code Standards
 
 > **Canonical review contract:** [`CODE_RULES.md`](../docs/CODE_RULES.md) — the human and AI review contract for code quality, loaded on demand.

@@ -1,3 +1,12 @@
+---
+paths:
+  - "**/*.py"
+  - "**/*.mjs"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.tsx"
+---
+
 # BDD (discovery-driven development)
 
 **Canonical detail:** `~/.claude/system-prompts/software-engineer.xml` → `<behavior_protocol>`.

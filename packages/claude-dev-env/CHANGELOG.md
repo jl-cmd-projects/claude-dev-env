@@ -1,5 +1,25 @@
 # Changelog
 
+## [8.36.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.3...claude-dev-env-v8.36.0) (2026-10-03)
+
+
+### Features
+
+* **rules:** load code and orchestrator rules only when they apply ([#1635](https://github.com/jl-cmd/claude-dev-env/issues/1635)) ([4f7d3a2](https://github.com/jl-cmd/claude-dev-env/commit/4f7d3a24086622ba3d4cacee6bcaa6e3d49a57f1))
+
+## [8.35.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.2...claude-dev-env-v8.35.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([c497d8d](https://github.com/jl-cmd/claude-dev-env/commit/c497d8d86625d59ba94f751a95d9429b7d6b79b5))
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([2ae0302](https://github.com/jl-cmd/claude-dev-env/commit/2ae0302007e408f1a705b9cccf7f2856812bbdbc))
+
+
+### Tests
+
+* **hooks:** move the toast proof tests into their own files ([d1d0553](https://github.com/jl-cmd/claude-dev-env/commit/d1d0553456eab8f1a66eed7bffb93ee69f1abc9a))
+
 ## [8.35.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.1...claude-dev-env-v8.35.2) (2026-10-02)
 
 

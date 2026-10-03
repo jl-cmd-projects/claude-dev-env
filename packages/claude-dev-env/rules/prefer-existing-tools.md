@@ -1,3 +1,16 @@
+---
+paths:
+  - "**/scripts/**"
+  - "**/hooks/**"
+  - "**/bin/**"
+  - "**/ci/**"
+  - "**/tools/**"
+  - "**/skills/**"
+  - "**/package.json"
+  - "**/pyproject.toml"
+  - "**/requirements*.txt"
+---
+
 # Prefer Existing Tools
 
 **When this applies:** Before you build a tool, check, scanner, script, or library of your own.

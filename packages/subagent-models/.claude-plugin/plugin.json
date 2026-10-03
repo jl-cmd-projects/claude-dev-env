@@ -91,6 +91,18 @@
       "title": "Turned-off agent types",
       "description": "Comma-separated agent types subagents may not run as, such as Explore, Plan",
       "default": ""
+    },
+    "staleDays": {
+      "type": "string",
+      "title": "Days before a skill counts as unused",
+      "description": "A skill last used more than this many days ago counts as unused in the skills panel",
+      "default": "14"
+    },
+    "disabledSkills": {
+      "type": "string",
+      "title": "Turned-off skills",
+      "description": "Comma-separated skills the model may not follow, such as pstack:tdd, simplify",
+      "default": ""
     }
   },
   "author": {

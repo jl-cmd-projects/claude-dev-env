@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/skills/orchestrator/**"
+  - "**/skills/orchestrator-refresh/**"
+---
+
 # Long-Horizon Autonomy
 
 Source: [Anthropic - Prompting Claude Fable 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5)
