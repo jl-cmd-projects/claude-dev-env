@@ -13,7 +13,6 @@ Project root is discovered via CLAUDE_PROJECT_ROOT env var or git rev-parse.
 """
 
 import hashlib
-import importlib
 import json
 import os
 import platform
@@ -21,12 +20,8 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-_notification_utils_directory = os.path.join(_hooks_directory, "notification")
-sys.path.insert(0, _notification_utils_directory)
 
 _validators_directory = os.path.join(_hooks_directory, "validators")
 if _validators_directory not in sys.path:
@@ -58,14 +53,6 @@ from hooks_constants.mypy_validator_cache_constants import (  # noqa: E402
 from json_file_reader import read_json_object  # noqa: E402
 
 from hooks_constants.subprocess_window import hidden_window_creation_flags
-
-
-def load_notification_utils() -> ModuleType | None:
-    try:
-        return importlib.import_module("notification_utils")
-    except ImportError:
-        return None
-
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -530,25 +517,6 @@ def format_error_summary(all_error_lines: list[str]) -> str:
     return error_summary
 
 
-def send_block_notification(error_summary: str) -> None:
-    notification_module = load_notification_utils()
-    if notification_module is None:
-        return
-
-    notification_title = "Mypy Type Errors"
-    notification_body = f"Write blocked: {error_summary[:200]}"
-
-    try:
-        if notification_module.is_wsl():
-            notification_module.notify_wsl(notification_title, notification_body)
-        elif platform.system() == "Linux":
-            notification_module.notify_linux()
-        elif platform.system() == "Windows":
-            notification_module.notify_windows(notification_title, notification_body)
-    except (AttributeError, OSError):
-        pass
-
-
 def build_block_response(error_summary: str) -> dict[str, str | dict[str, str]]:
     return {
         "decision": "block",
@@ -615,7 +583,6 @@ def main() -> None:
         sys.exit(0)
 
     error_summary = format_error_summary(all_error_lines)
-    send_block_notification(error_summary)
     block_response = build_block_response(error_summary)
     log_hook_block(
         calling_hook_name="mypy_validator.py",

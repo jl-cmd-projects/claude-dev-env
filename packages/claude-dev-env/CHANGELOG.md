@@ -1,5 +1,18 @@
 # Changelog
 
+## [8.35.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.2...claude-dev-env-v8.35.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([c497d8d](https://github.com/jl-cmd/claude-dev-env/commit/c497d8d86625d59ba94f751a95d9429b7d6b79b5))
+* **hooks:** stop the formatter and mypy hooks opening a desktop toast ([2ae0302](https://github.com/jl-cmd/claude-dev-env/commit/2ae0302007e408f1a705b9cccf7f2856812bbdbc))
+
+
+### Tests
+
+* **hooks:** move the toast proof tests into their own files ([d1d0553](https://github.com/jl-cmd/claude-dev-env/commit/d1d0553456eab8f1a66eed7bffb93ee69f1abc9a))
+
 ## [8.35.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.35.1...claude-dev-env-v8.35.2) (2026-10-02)
 
 
