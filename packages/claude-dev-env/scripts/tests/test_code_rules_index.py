@@ -101,30 +101,45 @@ def test_should_assign_each_enforcer_check_to_one_family() -> None:
     assert documented_checks == imported_checks
 
 
-def test_should_resolve_code_rules_anchors_and_sections() -> None:
-    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+def _collect_citation_texts() -> list[tuple[Path, str]]:
     all_citations: list[tuple[Path, str]] = []
     for each_root in _CITATION_ROOTS:
-        for each_path in each_root.rglob("*"):
-            if each_path.is_file() and each_path.suffix in _TEXT_SUFFIXES:
-                all_citations.append((each_path, each_path.read_text(encoding="utf-8")))
+        all_candidate_paths = [
+            each_path
+            for each_path in each_root.rglob("*")
+            if each_path.is_file() and each_path.suffix in _TEXT_SUFFIXES
+        ]
+        all_citations.extend(
+            (each_path, each_path.read_text(encoding="utf-8"))
+            for each_path in all_candidate_paths
+        )
+    return all_citations
+
+
+def test_should_resolve_code_rules_anchors_and_sections() -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    all_citations = _collect_citation_texts()
     injected_anchor = os.environ.get("CODE_RULES_INDEX_TEST_ANCHOR")
     if injected_anchor:
         all_citations.append((_INDEX_PATH, "CODE_RULES.md" + "#" + injected_anchor))
     _assert_citations_resolve(index_text, all_citations)
 
 
+def _assert_destination_resolves(family_path: Path, destination: str) -> None:
+    if "://" in destination or destination.startswith("#"):
+        return
+    path_text, _, anchor_text = destination.partition("#")
+    destination_path = family_path.parent / path_text
+    assert destination_path.is_file(), f"{family_path}: {destination}"
+    if anchor_text:
+        destination_text = destination_path.read_text(encoding="utf-8")
+        assert anchor_text in _heading_slugs(destination_text), (
+            f"{family_path}: {destination}"
+        )
+
+
 def test_should_resolve_every_family_relative_link() -> None:
     for each_family_path in _FAMILY_DIRECTORY.glob("*.md"):
         family_text = each_family_path.read_text(encoding="utf-8")
         for each_destination in _MARKDOWN_LINK.findall(family_text):
-            if "://" in each_destination or each_destination.startswith("#"):
-                continue
-            path_text, _, anchor_text = each_destination.partition("#")
-            destination_path = each_family_path.parent / path_text
-            assert destination_path.is_file(), f"{each_family_path}: {each_destination}"
-            if anchor_text:
-                destination_text = destination_path.read_text(encoding="utf-8")
-                assert anchor_text in _heading_slugs(destination_text), (
-                    f"{each_family_path}: {each_destination}"
-                )
+            _assert_destination_resolves(each_family_path, each_destination)
