@@ -1,5 +1,21 @@
 # Changelog
 
+## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** state each rule once in the package AGENTS.md ([bebce38](https://github.com/jl-cmd/claude-dev-env/commit/bebce38ca524910f0769764993cf394f8066acd9))
+
+## [8.37.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.0...claude-dev-env-v8.37.1) (2026-10-03)
+
+
+### Documentation
+
+* **rule-guides:** state seven moved sentences directly ([7f116ff](https://github.com/jl-cmd/claude-dev-env/commit/7f116ff603074aa0c9a868ae38e6cc9d8777f123))
+* **rules:** shrink the eleven always-on rules to index entries ([112adea](https://github.com/jl-cmd/claude-dev-env/commit/112adea563b3b2673852613adda0ee6d4540affe))
+* **rules:** shrink the eleven always-on rules to index entries ([0853f8a](https://github.com/jl-cmd/claude-dev-env/commit/0853f8ac84574a13b321cba08cb022572c65caca))
+
 ## [8.37.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.4...claude-dev-env-v8.37.0) (2026-10-03)
 
 
