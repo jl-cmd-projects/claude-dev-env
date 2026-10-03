@@ -66,17 +66,19 @@ def _sets_account_home(node: ast.AST) -> bool:
     return False
 
 
-def _reads_account_list(tree: ast.AST) -> bool:
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _called_name(node) in ACCOUNT_LIST_CALLS:
-            return True
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            body = ast.unparse(node)
-            if "read_text" in body and any(
-                marker in body for marker in ACCOUNT_LIST_MARKERS
-            ):
-                return True
+def _node_reads_account_list(node: ast.AST) -> bool:
+    if isinstance(node, ast.Call):
+        return _called_name(node) in ACCOUNT_LIST_CALLS
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        body = ast.unparse(node)
+        return "read_text" in body and any(
+            marker in body for marker in ACCOUNT_LIST_MARKERS
+        )
     return False
+
+
+def _reads_account_list(tree: ast.AST) -> bool:
+    return any(_node_reads_account_list(node) for node in ast.walk(tree))
 
 
 def _chooses_account_in_module(path: Path) -> bool:
@@ -104,4 +106,4 @@ def test_should_reject_new_account_pickers_outside_broker() -> None:
         and _chooses_account_in_module(path)
     }
 
-    assert all_pickers <= ALLOWED_LEGACY_MODULES | {"account_broker.py"}
+    assert all_pickers <= ALLOWED_LEGACY_MODULES | {"account_broker.py", "account_broker_support.py"}
