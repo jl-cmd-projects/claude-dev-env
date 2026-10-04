@@ -57,6 +57,7 @@ def wait_report(account: str, reason: str, wait_reset_at: datetime | None) -> Wo
     Args:
         account: The chosen account slot.
         reason: Why the broker returned a wait decision.
+        wait_reset_at: The soonest account reset, or None when unknown.
 
     Returns:
         A report carrying the wait exit code and no payload.
@@ -111,7 +112,7 @@ def pre_launch_failure_report(
 
     Args:
         account: The chosen account slot.
-        reason: Why the picker chose that account.
+        reason: Why the worker stopped before launch.
         exit_code: The failure's exit code.
 
     Returns:
