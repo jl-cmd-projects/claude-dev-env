@@ -20,7 +20,7 @@ Hooks in this repo enforce the conventions below. Follow them so your suggestion
 - Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 - Docstrings on modules, classes, and functions are welcome. Keep the prose in step with the code: a docstring that lists the cases the body handles lists every one of them.
 - Never drop an existing comment on a line you are not otherwise changing.
-- Documentation describes the current state of the code. State what the code is and does, not how it got there.
+- Documentation describes the current state of the code. State what the code is and does.
 
 ## Types
 
@@ -45,4 +45,4 @@ Hooks in this repo enforce the conventions below. Follow them so your suggestion
 ## Structure
 
 - Prefer functions over classes when there is no state to hold. Prefer a concrete class over an abstract base until a second implementation exists.
-- Keep functions small and single-purpose. Use guard clauses and early returns rather than deep nesting.
+- Keep functions small and single-purpose. Use guard clauses and early returns to keep nesting shallow.
