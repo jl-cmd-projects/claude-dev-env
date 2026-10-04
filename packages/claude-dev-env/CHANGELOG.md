@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **scripts:** keep every broker spent mark when jobs write at once ([824cb90](https://github.com/jl-cmd/claude-dev-env/commit/824cb9043365110cdfae571ef4ccd0ecf1f9667a))
+
 ## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
 
 
