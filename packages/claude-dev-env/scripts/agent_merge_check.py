@@ -82,6 +82,7 @@ from dev_env_scripts_constants.agent_merge_check_constants import (
     JSON_CONTENT_TYPE,
     MERGE_EXIT_CODE,
     MERGE_QUEUE_EJECTION_HOLD_TEMPLATE,
+    MERGE_QUEUE_GRAPHQL_FAILURE_TEMPLATE,
     MERGE_QUEUE_REMOVAL_PAGE_SIZE,
     MERGE_QUEUE_REMOVAL_QUERY,
     MERGE_QUEUE_RULE_TYPE,
@@ -877,34 +878,58 @@ def _field_at(document: object, all_fields: object, key: str) -> object:
     return all_fields.get(key)
 
 
-def read_merge_queue_ejection(slug: str, number: int, token: str) -> bool:
+def read_merge_queue_ejection(
+    slug: str, number: int, base_ref: str, token: str
+) -> bool:
     """Read whether the merge queue ejected the pull request's current head.
 
-    Only GraphQL reports why a pull request left the merge queue. A
-    repository with no merge queue reports no removal events.
+    Only GraphQL reports a merge queue removal, and a Claude Code session's
+    proxy refuses GraphQL. So the base branch rules come first, over REST.
+    Rules that show no merge queue skip the GraphQL query.
 
     Args:
         slug: The repository as ``owner/name``.
         number: The pull request number.
+        base_ref: The branch the pull request merges into.
         token: The GitHub token the request authenticates with.
 
     Returns:
         True when a ``failed_checks`` removal is newer than the head commit.
+        False when the base branch rules show no merge queue.
 
     Raises:
-        MergeCheckError: The query failed, or answered with another shape.
+        MergeCheckError: A read failed, or answered with another shape. A
+            refused GraphQL query names the merge queue that needed it.
     """
-    document = _request_json(
-        GITHUB_GRAPHQL_ENDPOINT,
-        token,
-        _pull_request_query_payload(
-            MERGE_QUEUE_REMOVAL_QUERY, MERGE_QUEUE_REMOVAL_PAGE_SIZE, slug, number
-        ),
-    )
+    if not _may_merge_through_a_queue(slug, base_ref, token):
+        return False
+    document = _merge_queue_removal_document(slug, number, base_ref, token)
     return _is_ejected_on_head(
         _list_along(document, ALL_MERGE_QUEUE_REMOVAL_NODE_KEYS),
         _head_committed_at(document),
     )
+
+
+def _merge_queue_removal_document(
+    slug: str, number: int, base_ref: str, token: str
+) -> object:
+    payload = _pull_request_query_payload(
+        MERGE_QUEUE_REMOVAL_QUERY, MERGE_QUEUE_REMOVAL_PAGE_SIZE, slug, number
+    )
+    try:
+        return _request_json(GITHUB_GRAPHQL_ENDPOINT, token, payload)
+    except MergeCheckError as failure:
+        raise MergeCheckError(
+            MERGE_QUEUE_GRAPHQL_FAILURE_TEMPLATE.format(base=base_ref, failure=failure)
+        ) from failure
+
+
+def _may_merge_through_a_queue(slug: str, base_ref: str, token: str) -> bool:
+    try:
+        all_rules = _read_branch_rules(slug, urllib.parse.quote(base_ref), token)
+    except MergeCheckError:
+        return True
+    return has_merge_queue_rule(all_rules)
 
 
 def _list_along(document: object, all_keys: Sequence[str]) -> list[object]:
@@ -985,7 +1010,10 @@ def main(all_arguments: Sequence[str]) -> int:
             parsed.slug, parsed.number, token
         )
         is_ejected_from_merge_queue = read_merge_queue_ejection(
-            parsed.slug, parsed.number, token
+            parsed.slug,
+            parsed.number,
+            str(_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY)),
+            token,
         )
     except MergeCheckError as failure:
         print(failure, file=sys.stderr)
