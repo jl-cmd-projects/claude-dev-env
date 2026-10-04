@@ -20,6 +20,7 @@ from _code_review_test_support import (
     install_seams,
     run_review,
 )
+from dev_env_scripts_constants.account_broker_constants import WAIT_EXIT_CODE
 from dev_env_scripts_constants.code_review_constants import (
     CODE_REVIEW_MODEL_ALIAS,
     DEFAULT_CODE_REVIEW_EFFORT,
@@ -96,8 +97,9 @@ def test_chain_failure_preserves_returncode(
 
     assert review_outcome.mode == MODE_CHAIN
     assert review_outcome.served_command is None
-    assert review_outcome.returncode == FIXTURE_FAILED_RETURNCODE
+    assert review_outcome.returncode == WAIT_EXIT_CODE
     assert review_outcome.is_dirty_tree is False
+    assert review_outcome.status == "exhausted"
     assert invoker.is_successful_code_review(review_outcome) is False
 
 
@@ -114,6 +116,8 @@ def test_encode_code_review_outcome_shape() -> None:
         RESULT_KEY_SERVED_COMMAND: FIXTURE_SERVED_COMMAND,
         RESULT_KEY_RETURNCODE: FIXTURE_CHAIN_RETURNCODE,
         RESULT_KEY_DIRTY_TREE: True,
+        "status": None,
+        "wait_reset_at": None,
     }
 
 

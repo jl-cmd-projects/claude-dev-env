@@ -20,12 +20,9 @@ FIXTURE_CHAIN_STDOUT = '{"result":"review done"}'
 
 def _install_invoker_codec_seams(
     monkeypatch: pytest.MonkeyPatch,
-    *,
-    all_chain_codec_keywords: dict[str, str],
 ) -> dict[str, object]:
     return install_codec_seams(
         monkeypatch,
-        all_chain_codec_keywords=all_chain_codec_keywords,
         chain_stdout=FIXTURE_CHAIN_STDOUT,
         runner_host=invoker,
         runner_attribute_name="review_claude_runner",
@@ -37,10 +34,6 @@ def test_forwards_text_codec_keywords_to_subprocess_runner(
 ) -> None:
     all_observed_runner_keywords = _install_invoker_codec_seams(
         monkeypatch,
-        all_chain_codec_keywords={
-            FIXTURE_ENCODING_KEYWORD_NAME: FIXTURE_CHAIN_ENCODING,
-            FIXTURE_ERRORS_KEYWORD_NAME: FIXTURE_CHAIN_ERRORS,
-        },
     )
 
     invoker._run_claude_with_empty_stdin(
@@ -59,12 +52,11 @@ def test_forwards_text_codec_keywords_to_subprocess_runner(
     )
 
 
-def test_absent_text_codec_keywords_are_not_invented(
+def test_empty_stdin_and_cwd_reach_broker(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     all_observed_runner_keywords = _install_invoker_codec_seams(
         monkeypatch,
-        all_chain_codec_keywords={},
     )
 
     invoker._run_claude_with_empty_stdin(
@@ -73,5 +65,5 @@ def test_absent_text_codec_keywords_are_not_invented(
         working_directory=tmp_path,
     )
 
-    assert FIXTURE_ENCODING_KEYWORD_NAME not in all_observed_runner_keywords
-    assert FIXTURE_ERRORS_KEYWORD_NAME not in all_observed_runner_keywords
+    assert all_observed_runner_keywords["stdin_text"] == ""
+    assert all_observed_runner_keywords["cwd"] == tmp_path
