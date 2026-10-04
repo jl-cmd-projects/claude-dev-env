@@ -305,14 +305,38 @@ def _choose_codex_tier(all_candidates: Sequence[Reading], tier: str) -> Decision
     return None
 
 
+@dataclass(frozen=True)
+class _RetryTime:
+    at: datetime
+    is_known_reset: bool
+
+
+def _wait_reason(all_unreadable_names: Sequence[str], is_every_account_unreadable: bool, soonest: _RetryTime) -> str:
+    next_event = "reset" if soonest.is_known_reset else "check"
+    next_text = f"next {next_event} at {utc_time_text(soonest.at)}"
+    if not all_unreadable_names:
+        return f"no account has room; {next_text}"
+    unreadable_text = ", ".join(all_unreadable_names)
+    if is_every_account_unreadable:
+        return f"no account meter could be read ({unreadable_text}); {next_text}"
+    return f"no readable account has room; meter unreadable for {unreadable_text}; {next_text}"
+
+
 def _wait_decision(
     all_readings: Sequence[Reading], now: datetime, all_spent_accounts: frozenset[Account], all_spent_resets: Mapping[Account, datetime]
 ) -> Decision:
-    all_resets = []
+    next_check = _RetryTime(now + timedelta(hours=1), is_known_reset=False)
+    all_retry_times = []
     for each_reading in all_readings:
         is_spent = each_reading.account in all_spent_accounts
         reset = all_spent_resets.get(each_reading.account) if is_spent else None
         reset = reset or _account_reset(each_reading, is_spent)
-        all_resets.append(reset if reset is not None and reset > now else now + timedelta(hours=1))
-    soonest = min(all_resets, default=now + timedelta(hours=1))
-    return Decision("wait", None, soonest, f"no account has room; next reset at {utc_time_text(soonest)}", "wait")
+        all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
+    soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
+    all_unreadable_names = [
+        each_reading.account.name
+        for each_reading in all_readings
+        if each_reading.meters is None and each_reading.account not in all_spent_accounts
+    ]
+    is_every_account_unreadable = len(all_unreadable_names) == len(all_readings)
+    return Decision("wait", None, soonest.at, _wait_reason(all_unreadable_names, is_every_account_unreadable, soonest), "wait")
