@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.7...claude-dev-env-v8.46.8) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep the permission flow on rewritten spawns ([236e3b9](https://github.com/jl-cmd/claude-dev-env/commit/236e3b9ce177a12cc038bd4b9dd4ab9970a3266a))
+
 ## [8.46.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.6...claude-dev-env-v8.46.7) (2026-10-04)
 
 
