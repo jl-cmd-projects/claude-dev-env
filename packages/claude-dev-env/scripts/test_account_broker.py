@@ -751,8 +751,8 @@ def test_should_record_start_failure_without_launching_a_command_missing_from_pa
     outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
 
     assert outcome.attempts == (("extra", "start_failed"),)
-    assert outcome.status == "exhausted"
-    assert outcome.returncode == WAIT_EXIT_CODE
+    assert outcome.status == "start_failed"
+    assert outcome.returncode == 127
 
 
 @pytest.mark.parametrize("marked_name", ["retired", "first"])
