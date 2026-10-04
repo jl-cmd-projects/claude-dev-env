@@ -28,7 +28,7 @@ The write-time hook skips several rules on test files and on `.mjs` / `.js` file
 - Unused imports — a module-level import a changed file does not read.
 - Function length — a changed function past the length threshold splits into named helpers.
 
-A `test_*.py` name or a `.mjs` extension takes the line out of the write-time gate, not out of this audit. J1 (magic values) and J3 (constants location) keep their test-file exemption; the five rules above do not.
+A `test_*.py` name or a `.mjs` extension takes the line out of the write-time gate only; this audit still covers it. J1 (magic values) and J3 (constants location) keep their test-file exemption; the five rules above do not.
 
 ## Sub-buckets (each requires Shape A finding OR Shape B with ≥3 adversarial probes)
 
@@ -70,11 +70,11 @@ A `test_*.py` name or a `.mjs` extension takes the line out of the write-time ga
 - Comments tied to untouched code remain unchanged; a changed comment is removed with the code it describes.
 - Test files follow the same no-new-comment policy.
 - Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
-- Adversarial probes: (a) is there any `# type:` or marker comment that is inert prose rather than a type-checker / linter directive? (b) is any docstring carrying inline-comment content (line-level explanations rather than module/function description)? (c) does any newly-added blank line between code stanzas function as a comment substitute, suggesting the author wanted to add a comment but couldn't?
+- Adversarial probes: (a) is there any `# type:` or marker comment that is inert prose with no type-checker / linter directive? (b) is any docstring carrying inline-comment content (line-level explanations beyond the module/function description)? (c) does any newly-added blank line between code stanzas function as a comment substitute, suggesting the author wanted to add a comment but couldn't?
 
 **J9. Logging format**
 - Walk every `log_*(...)` call. Must be `log_*("template with {}", arg)`, not `log_*(f"...")`.
-- The rule applies to the project's structured `log_*` family, not stdlib `print`. `print` f-strings are J2-scope (string-template magic), not J9-scope.
+- The rule applies to the project's structured `log_*` family. `print` f-strings fall under J2 (string-template magic).
 - This audit walks changed test-file and `.mjs` / `.js` lines for this rule, even though the write-time hook skips them.
 - Adversarial probes: (a) is there any imported `log_*` function in production code that uses an f-string? (b) is there a logger-equivalent call (e.g., `logger.info(f"...")` from `logging` stdlib) that should be subject to the same rule? (c) does any non-Python logger family (e.g., `console.log`, `Write-Host`, structured-log helpers) appear with a template-string pattern that mirrors the J9 anti-pattern?
 
