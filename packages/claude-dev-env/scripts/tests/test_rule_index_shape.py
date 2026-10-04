@@ -28,6 +28,7 @@ MAXIMUM_ENTRY_BYTES = 1_500
 MAXIMUM_ALWAYS_ON_BYTES = 12_000
 POINTER_ENTRY_NAMES = frozenset({"skill-pointers.md"})
 CODEX_VERBATIM_ENTRY_NAMES = frozenset({"question-presentation.md"})
+INDEX_SHAPE_EXEMPT_ENTRY_NAMES = POINTER_ENTRY_NAMES | CODEX_VERBATIM_ENTRY_NAMES
 CODEX_MATERIALIZED_GUIDE_NAMES = frozenset(
     Path(each_path).name for each_path in codex_instruction_rule_relative_paths
 )
@@ -93,7 +94,7 @@ def test_each_entry_states_when_it_applies() -> None:
     without_when_line = [
         each_path.name
         for each_path in _entry_paths()
-        if each_path.name not in POINTER_ENTRY_NAMES | CODEX_VERBATIM_ENTRY_NAMES
+        if each_path.name not in INDEX_SHAPE_EXEMPT_ENTRY_NAMES
         and not WHEN_LINE_PATTERN.search(_entry_text(each_path))
     ]
     assert without_when_line == []
@@ -114,7 +115,7 @@ def test_each_entry_links_a_full_text_guide_that_exists() -> None:
     all_problems = [
         each_problem
         for each_path in _entry_paths()
-        if each_path.name not in POINTER_ENTRY_NAMES | CODEX_VERBATIM_ENTRY_NAMES
+        if each_path.name not in INDEX_SHAPE_EXEMPT_ENTRY_NAMES
         for each_problem in _full_text_link_problems(each_path)
     ]
     assert all_problems == []
