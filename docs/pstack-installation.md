@@ -1,20 +1,20 @@
 # Install pstack across hosts
 
-A full `claude-dev-env` install also installs [pstack](https://github.com/michael-denyer/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. Upstream owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files.
+A full `claude-dev-env` install also installs [pstack](https://github.com/jl-cmd/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. The `jl-cmd/pstack-claude` fork of the Claude and Codex port owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files. A nightly workflow in the fork runs the port's own sync tool against Cursor's upstream pstack and publishes each new upstream release.
 
 ## What the install step runs
 
 For Claude Code, with `CLAUDE_CONFIG_DIR` set to the managed root this run writes to:
 
 ```bash
-claude plugin marketplace add michael-denyer/pstack-claude
+claude plugin marketplace add jl-cmd/pstack-claude
 claude plugin install pstack@pstack-claude
 ```
 
 For Codex, with `CODEX_HOME` set to the resolved Codex home:
 
 ```bash
-codex plugin marketplace add michael-denyer/pstack-claude
+codex plugin marketplace add jl-cmd/pstack-claude
 codex plugin add pstack@pstack-claude
 ```
 
@@ -39,7 +39,7 @@ The plugin keeps its own state under each host's plugin store. The install manif
 
 ## Updating and configuring
 
-`claude plugin marketplace update pstack-claude` refreshes the catalog and `claude plugin install pstack@pstack-claude` adopts the new version. A later `claude-dev-env` install runs the same two commands, so an install adopts whatever the marketplace publishes.
+Each install is a clean install. On each host it first uninstalls `pstack@pstack-claude` and removes the `pstack-claude` marketplace, then adds the marketplace again and installs the newest version it publishes. On Claude Code it then deletes every cached pstack version the CLI marked with `.orphaned_at`, so `plugins/cache/pstack-claude/pstack/` holds only the installed version. Codex deletes the old version's cache itself on `codex plugin remove`. A removal that finds nothing installed exits non-zero, and the install goes on.
 
 Run `/pstack:setup-pstack` in Claude Code, or `setup-pstack` in Codex, to change the plugin's model defaults or turn its automatic routing off. This repository's own `subagent-model-policy.json` and its `subagent_model_routing` hook stay in place and are unrelated to the plugin's routing. A later install preserves existing Codex model files.
 
@@ -88,4 +88,4 @@ Git and Node 22 or later are installer prerequisites. The plugin's own workflows
 
 ## Sources
 
-[Claude Code plugins](https://code.claude.com/docs/en/plugins), [Claude Code plugin marketplaces](https://code.claude.com/docs/en/plugin-marketplaces), and the [pstack-claude README](https://github.com/michael-denyer/pstack-claude#install) define the marketplace and plugin commands each host accepts.
+[Claude Code plugins](https://code.claude.com/docs/en/plugins), [Claude Code plugin marketplaces](https://code.claude.com/docs/en/plugin-marketplaces), and the [pstack-claude README](https://github.com/jl-cmd/pstack-claude#install) define the marketplace and plugin commands each host accepts.
