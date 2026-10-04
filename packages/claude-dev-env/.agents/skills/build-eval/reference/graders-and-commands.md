@@ -89,11 +89,11 @@ writes were all denied still shows the tool_use attempts.
 
 ## Flag-gated features outside plugin eval
 
-The sandbox cannot turn on a flag-gated feature. Test it with `claude -p`, once with the wrapper
-loaded and once without:
+The sandbox cannot turn on a flag-gated feature. Test it with a headless `claude -p` run started
+through the account broker, once with the wrapper loaded and once without:
 
 ```text
-claude -p "<task>" --advisor <model> --plugin-dir <wrapper> --setting-sources project --strict-mcp-config --allowedTools "<list>" --permission-mode dontAsk --output-format stream-json --verbose
+python "$HOME/.claude/scripts/account_broker.py" run --product claude --report <report.json> -- claude -p "<task>" --advisor <model> --plugin-dir <wrapper> --setting-sources project --strict-mcp-config --allowedTools "<list>" --permission-mode dontAsk --output-format stream-json --verbose
 ```
 
 Drop `--plugin-dir <wrapper>` for the second arm.
