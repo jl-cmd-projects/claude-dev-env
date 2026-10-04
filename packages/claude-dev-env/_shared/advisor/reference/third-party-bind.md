@@ -22,15 +22,15 @@ When the Astra flag is off, follow the Claude-chain steps below.
 3. **CLI bind (primary path):** for Opus, pipe a charter file into:
 
    ```
-   python "$HOME/.claude/scripts/claude_chain_runner.py" --routing-mode ordered_account -- -p --model <alias> --effort <effort> --output-format json
+   python "$HOME/.claude/scripts/account_broker.py" run --product claude --report <path> -- claude -p --model <alias> --effort <effort> --output-format json
    ```
 
    Use `--model opus --effort` with the value of `ADVISOR_EFFORT` (default `xhigh`) on Opus.
    User-facing wording follows [`rules/asd-ste100-language.md`](../../../rules/asd-ste100-language.md).
-   A root advisor bind uses `--routing-mode ordered_account`. Walk order, failover, and the `advisor_blocked` terminal status are in [`cli-chain.md`](cli-chain.md).
+   Account choice, failover, and the `advisor_blocked` status are in [`cli-chain.md`](cli-chain.md).
 4. Stop at the first successful bind.
    Record `{tier, result: "cli"}` for Opus or `{tier: "Astra", result: "codex"}` for the Astra helper, and set `selected_tier` to that tier.
-   Persist `session_id` from the JSON events (any event carries it; the runner also surfaces it on `ChainInvocationOutcome.session_id`; reply text is the `type == "result"` event's `.result` field).
+   Persist `session_id` from the JSON events or `JobOutcome.session_id`; reply text is the `type == "result"` event's `.result` field.
    Run every bind and every later consult with cwd set to the repo root the work is for. Claude sessions are project-scoped by working directory.
 5. **Fail closed:** when every candidate fails (chain exhausted, `advisor_blocked`, or model unavailable), set `selected_tier = null` and a `fallback_reason`, report that the advisor is unreachable, and **stop**. ENDORSE / CORRECTION / PLAN / STOP come only from a bound advisor.
 6. Assemble and paste each executor's Advisor block from [`advisor-block.md`](advisor-block.md). Executors report to the orchestrating session; that session consults the bound advisor and relays the four-signal reply.

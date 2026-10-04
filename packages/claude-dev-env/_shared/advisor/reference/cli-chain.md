@@ -1,18 +1,15 @@
 # CLI Claude-chain
 
 Detail behind the `## CLI chain` section of [`advisor-protocol.md`](../advisor-protocol.md).
-The shared runner is `python "$HOME/.claude/scripts/claude_chain_runner.py" [--routing-mode usage_ranked|ordered_account] -- <claude args...>`.
+The shared runner is `python "$HOME/.claude/scripts/account_broker.py" run --product claude --report <path> -- claude <args...>`.
 
-## Modes
+## Account choice
 
-| Mode | Flag | Walk order | Failover |
-|---|---|---|---|
-| Usage-ranked (default) | `--routing-mode usage_ranked` or omit the flag | Highest weekly remaining first (`claude_chain_usage` / usage-pause OAuth probe) | Usage-limit signature only |
-| Ordered-account | `--routing-mode ordered_account` | Config list order in `~/.claude/claude-chain.json` | Usage-limit signature only; auth / timeout / config / other process errors → `advisor_blocked` |
-
-**Root advisor bind and consult** (the third-party host path): ordered-account mode. A non-usage failure terminates with `terminal_status=advisor_blocked`, exit code 4 on the CLI.
-
-**General chain calls** (non-root automation): keep the default usage-ranked mode.
+The broker applies the main account guard and chooses an eligible extra account
+by remaining usage. On a usage-limit response, it tries another account. If no
+account has room, it reports a reset time and exits with code 3. A non-usage
+Claude failure has `JobOutcome.status == "advisor_blocked"`; the CLI exits with
+code 4. The report path receives the broker's decision and attempt events.
 
 ## Tier-to-alias map
 
@@ -38,8 +35,8 @@ Drop the file once the consult completes.
 
 ## Session resume
 
-Read the `session_id` out of the first call's JSON events.
+Read the `session_id` out of the first call's JSON events or `JobOutcome.session_id`.
 Pass it to `-p --resume <session_id> --output-format json` on every later consult — `-p` stays on the resume call too, since it is still a non-interactive invocation.
-A session store belongs to the binary and account that minted it, so after a usage-limit failover to the next binary a `--resume` against it can fail.
+A session store belongs to the account that minted it. The broker keeps account affinity when that account has room. If the account reaches a usage limit, a `--resume` on another account can fail.
 Treat that failure as starting over.
 Resend the charter plus a compact recap of the consults since the last one, capture the new `session_id` the fresh call returns, and continue from there.
