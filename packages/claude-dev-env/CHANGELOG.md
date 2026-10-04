@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.10](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.9...claude-dev-env-v8.46.10) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** isolate hooks tests from the live session scratchpad ([80e6000](https://github.com/jl-cmd/claude-dev-env/commit/80e60009da9685fe23159ec7b197d8320f164c29))
+
 ## [8.46.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.8...claude-dev-env-v8.46.9) (2026-10-04)
 
 
