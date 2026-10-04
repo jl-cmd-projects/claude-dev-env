@@ -192,3 +192,27 @@ def test_should_end_grandchildren_when_the_job_times_out(tmp_path: Path) -> None
     beat_after_timeout = heartbeat_file.read_text(encoding="utf-8")
     time.sleep(0.5)
     assert heartbeat_file.read_text(encoding="utf-8") == beat_after_timeout
+
+
+def test_should_end_grandchildren_when_the_broker_is_interrupted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+    original_communicate = subprocess.Popen.communicate
+
+    def interrupted_communicate(process: subprocess.Popen[bytes], *args: object, **kwargs: object) -> object:
+        try:
+            return original_communicate(process, *args, timeout=5)
+        except subprocess.TimeoutExpired:
+            raise KeyboardInterrupt from None
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", interrupted_communicate)
+
+    with pytest.raises(KeyboardInterrupt):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+        )
+
+    beat_after_interrupt = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_interrupt

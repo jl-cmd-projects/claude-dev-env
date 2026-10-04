@@ -455,7 +455,7 @@ def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subp
         ) as process:
             try:
                 process.communicate(input=stdin_bytes, timeout=options.get("timeout"))
-            except subprocess.TimeoutExpired:
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
                 _process_tree_kill.terminate_process_tree(process)
                 process.wait()
                 raise
