@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.46.17](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.16...claude-dev-env-v8.46.17) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** read archived converge.mjs in the drift self-check ([78fe3b7](https://github.com/jl-cmd/claude-dev-env/commit/78fe3b7894b49045890c666ad8f900f71713dcd0))
+
+## [8.46.16](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.15...claude-dev-env-v8.46.16) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** fall back to rmtree onerror on Python 3.11 ([7ce5977](https://github.com/jl-cmd/claude-dev-env/commit/7ce5977cab399be6f52d0d5b553e1b8c8e218caa))
+
 ## [8.46.15](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.14...claude-dev-env-v8.46.15) (2026-10-04)
 
 
