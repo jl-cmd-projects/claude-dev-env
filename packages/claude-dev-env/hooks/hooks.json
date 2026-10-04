@@ -63,6 +63,16 @@
         ]
       },
       {
+        "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/pr_lifecycle_skill_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "EnterWorktree",
         "hooks": [
           {

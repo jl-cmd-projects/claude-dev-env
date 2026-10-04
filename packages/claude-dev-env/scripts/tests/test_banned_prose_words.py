@@ -84,7 +84,7 @@ def test_governed_paths_lists_the_shipped_surfaces(tmp_path: Path) -> None:
 
 
 def test_governed_paths_cover_instruction_surfaces_and_skip_archives() -> None:
-    assert governs_path("rules/git-workflow.md")
+    assert governs_path(".agents/skills/pr-lifecycle/SKILL.md")
     assert governs_path(".agents/skills/eli5/SKILL.md")
     assert governs_path("audit-rubrics/prompts/category-o-docstring-vs-impl-drift.md")
     assert governs_path("system-prompts/software-engineer.xml")
