@@ -18,6 +18,7 @@ ALWAYS_ON_RULE_NAMES = frozenset(
         "filesystem-search.md",
         "memory-stores-durable-facts.md",
         "no-contrast-framing.md",
+        "proof-before-pull-request.md",
         "question-presentation.md",
         "research-mode.md",
         "session-title.md",
