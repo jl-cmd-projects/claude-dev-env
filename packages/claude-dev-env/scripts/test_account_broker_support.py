@@ -34,6 +34,53 @@ def test_should_load_claude_roster_from_both_lists(
     assert accounts[1].home == (tmp_path / "alternate").resolve()
 
 
+def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    (main_home / "extra-profiles.json").write_text(json.dumps(extras), encoding="utf-8")
+    return main_home
+
+
+def test_should_leave_claude_priorities_unset_without_an_order_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _claude_home_with_extras(monkeypatch, tmp_path, ["first", "second"])
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.priority for each_account in accounts] == [None, None, None]
+
+
+def test_should_assign_claude_priorities_from_the_order_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first", "second", "unlisted"])
+    (main_home / "claude-account-order.json").write_text(
+        json.dumps(["claude-second", "missing", "claude", "FIRST"]), encoding="utf-8"
+    )
+
+    accounts = support.load_claude_accounts()
+
+    assert {each_account.name: each_account.priority for each_account in accounts} == {
+        "main": 2,
+        "first": 3,
+        "second": 0,
+        "unlisted": None,
+    }
+
+
+def test_should_reject_an_order_file_that_is_not_a_list_of_names(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first"])
+    (main_home / "claude-account-order.json").write_text('{"order": ["first"]}', encoding="utf-8")
+
+    with pytest.raises(support.BrokerConfigurationError, match="claude-account-order.json"):
+        support.load_claude_accounts()
+
+
 def test_should_load_codex_roster_without_meter_reads(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

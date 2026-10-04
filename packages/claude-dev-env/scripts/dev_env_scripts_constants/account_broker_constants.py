@@ -137,6 +137,7 @@ class Account:
     home: Path
     is_main: bool = False
     command: str | None = None
+    priority: int | None = None
 
 
 @dataclass(frozen=True)
@@ -257,9 +258,10 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
     return max(all_blocking_resets, default=None)
 
 
-def _rank_key(reading: Reading) -> float:
+def _rank_key(reading: Reading) -> tuple[bool, int, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
-    return -(room if room is not None else -1.0)
+    priority = reading.account.priority
+    return (priority is None, priority or 0, -(room if room is not None else -1.0))
 
 
 def _main_has_room(meters: Meters | None) -> bool:
@@ -284,10 +286,13 @@ def _choose_claude(all_available: Sequence[Reading], preferred_command: str | No
         is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)
         if preferred_command is not None and is_bound:
             return Decision("run", each_reading.account, None, "resume affinity", TIER_NORMAL)
-    roomiest = min(all_with_room, key=_rank_key, default=None)
-    if roomiest is None:
+    chosen = min(all_with_room, key=_rank_key, default=None)
+    if chosen is None:
         return None
-    return Decision("run", roomiest.account, None, f"{roomiest.account.name} has {roomiest.meters.tightest_percent_left:g}% left", TIER_NORMAL)
+    room_text = f"{chosen.account.name} has {chosen.meters.tightest_percent_left:g}% left"
+    if chosen.account.priority is not None:
+        room_text = f"{room_text}; priority {chosen.account.priority + 1} in the account order"
+    return Decision("run", chosen.account, None, room_text, TIER_NORMAL)
 
 
 def _choose_codex(all_available: Sequence[Reading]) -> Decision | None:
