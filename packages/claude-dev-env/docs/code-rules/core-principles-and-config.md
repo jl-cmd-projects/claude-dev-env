@@ -31,7 +31,7 @@ Search config for the exact value and a semantic match. Add timing to config/tim
 Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
 - check_config_duplicate_path_anchor: two config constants pointing at the same path; `python -m pytest packages/claude-dev-env/hooks/blocking` reports a named violation.
-- check_constants_outside_config: UPPER_SNAKE = 3 in a production module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_config_path.py::test_should_produce_advisory_not_blocking_for_function_local_upper_snake` reports a named violation.
+- check_constants_outside_config: UPPER_SNAKE = 3 in a production module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_config_path.py::test_should_produce_blocking_for_module_level_upper_snake_outside_config` reports a named violation.
 - check_constants_outside_config_advisory: a function-local UPPER_SNAKE constant; `python -m pytest packages/claude-dev-env/hooks/blocking` reports a stderr advisory.
 - check_fstring_structural_literals: an f-string that embeds a URL path fragment; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_fstring_scan.py::test_should_flag_fstring_with_url_path` reports a named violation.
 - check_magic_values: a production function comparing a value with 2; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_magic_allowlist.py::test_check_magic_values_should_flag_literal_two_in_function_body` reports a named violation.
