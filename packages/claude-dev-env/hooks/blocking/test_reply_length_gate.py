@@ -322,3 +322,58 @@ def test_should_keep_the_defaults_when_the_config_file_is_malformed(
     config_path.write_text("{not json", encoding="utf-8")
     exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."})
     assert exit_code == 2
+
+
+DECISION_TOOL_NAME = "mcp__hearthbot__ask_decision"
+
+
+def test_should_deny_a_decision_card_that_hedges_in_an_option(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {
+            "question": "Exclude the call button?",
+            "context": "Crops show the call button flagged in 7 themes.",
+            "options": [
+                {"label": "Exclude it", "consequence": "Three themes probably pass."},
+                {"label": "Leave it", "consequence": "Three themes keep a warning."},
+            ],
+            "recommended": 0,
+        },
+    )
+    assert exit_code == 2
+    assert '"probably"' in stderr_text
+
+
+def test_should_allow_a_long_decision_card_with_no_hedge(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {
+            "question": "Exclude the call button?",
+            "context": " ".join([FIFTEEN_WORD_SENTENCE] * 5),
+            "options": [
+                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
+                {"label": "Leave it", "consequence": "Three themes keep a warning."},
+            ],
+            "recommended": 0,
+        },
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    ["It maybe passed.", "Perhaps it passed.", "It might be the cache.", "I am not sure it passed."],
+)
+def test_should_deny_the_hedges_the_default_list_adds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2
