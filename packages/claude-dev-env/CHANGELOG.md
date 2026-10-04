@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.1...claude-dev-env-v8.43.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** stop on a job timeout ([eb0b6cb](https://github.com/jl-cmd/claude-dev-env/commit/eb0b6cb7fc831fbfd39db48ee6d9a774f5ea3b88))
+
 ## [8.43.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.0...claude-dev-env-v8.43.1) (2026-10-04)
 
 
