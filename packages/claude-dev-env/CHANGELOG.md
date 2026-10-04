@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.6...claude-dev-env-v8.46.7) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** drop substitution contrast framing from files PR 1723 touched ([5373cd4](https://github.com/jl-cmd/claude-dev-env/commit/5373cd4216989715e7113779f61bbf8c1f921619))
+
 ## [8.46.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.5...claude-dev-env-v8.46.6) (2026-10-04)
 
 
