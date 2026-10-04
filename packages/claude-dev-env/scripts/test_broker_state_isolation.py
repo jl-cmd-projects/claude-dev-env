@@ -32,7 +32,6 @@ def test_meter_cache_write_lands_outside_the_home_directory(
         lambda each_account: Meters(80, reset_at, 80, reset_at),
         "CLAUDE_CONFIG_DIR",
         ("usage limit",),
-        False,
     )
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
 
