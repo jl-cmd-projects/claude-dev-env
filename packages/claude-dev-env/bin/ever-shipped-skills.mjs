@@ -67,6 +67,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'pr-consistency-audit',
     'pr-converge',
     'pr-fix-protocol',
+    'pr-lifecycle',
     'pr-loop-cloud-transport',
     'pr-loop-lifecycle',
     'pr-review-responder',
