@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 _DISPATCHER_NAMES = ("resolve_worker_spawn.py", "invoke_code_review.py")
-_SHARED_DIRECTORY_NAMES = ("advisor", "process-tree")
+_SHARED_DIRECTORY_NAMES = ("advisor", "process-tree", "pr-loop")
 
 
 def _stage_profile_tree(
@@ -46,8 +46,8 @@ def _stage_shadow_import_root(
         "raise RuntimeError('shadow tier_model_ids imported')\n",
         encoding="utf-8",
     )
-    (shadow_import_root / "claude_chain_runner.py").write_text(
-        "raise RuntimeError('shadow claude_chain_runner imported')\n",
+    (shadow_import_root / "account_broker.py").write_text(
+        "raise RuntimeError('shadow account_broker imported')\n",
         encoding="utf-8",
     )
     shadow_constants_root = shadow_import_root / "advisor_scripts_constants"
@@ -119,17 +119,13 @@ def test_imported_dispatcher_promotes_all_profile_owned_roots(
     )
     process_tree_config_root = process_tree_scripts_root / "config"
     all_expected_roots = [
+        str(process_tree_config_root),
+        str(process_tree_scripts_root),
         str(advisor_config_root),
         str(advisor_scripts_root),
         str(installed_dispatcher_scripts),
         str(shadow_import_root),
     ]
-    if dispatcher_module_name == "resolve_worker_spawn":
-        all_expected_roots = [
-            str(process_tree_config_root),
-            str(process_tree_scripts_root),
-            *all_expected_roots,
-        ]
     child_code = "\n".join(
         (
             "import importlib",
