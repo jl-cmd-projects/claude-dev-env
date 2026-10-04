@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep one hook entry per script when roots share settings.json ([271e22c](https://github.com/jl-cmd/claude-dev-env/commit/271e22c632e31ac60fdef46eb8582d53db24726c))
+
 ## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
 
 
