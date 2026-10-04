@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.45.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.0...claude-dev-env-v8.45.1) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** drop chain constants the broker move left unused ([573d659](https://github.com/jl-cmd/claude-dev-env/commit/573d659c7162a4c049dc06d61d767d91794b1b0f))
+
+## [8.45.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.6...claude-dev-env-v8.45.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** wait on broker spent marks outside the roster ([edffaa8](https://github.com/jl-cmd/claude-dev-env/commit/edffaa87f4da55e7bbbb7d2b006128b5f0109ac6))
+
 ## [8.44.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.5...claude-dev-env-v8.44.6) (2026-10-04)
 
 
