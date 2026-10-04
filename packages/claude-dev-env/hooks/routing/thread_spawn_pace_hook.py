@@ -7,7 +7,7 @@ beside it, or the script ``COORDINATOR_USAGE_PACE_SCRIPT`` names.
 ::
 
     usage under pace (exit 1)          -> no output; the call runs unchanged
-    over pace (exit 0) or unreadable   -> allow with updatedInput:
+    over pace (exit 0) or unreadable   -> updatedInput:
         model "opus", effort "low"
     input that cannot be reshaped      -> deny with a one-line reason
 
@@ -27,10 +27,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
-    ALLOW_DECISION,
-    HOOK_EVENT_NAME,
-)
+from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
 from hooks_constants.pre_tool_use_allow_output import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
@@ -130,7 +127,6 @@ def decide_hook_output(
     verdict_excerpt = pace_verdict_text.strip()[:PACE_VERDICT_CONTEXT_MAXIMUM_CHARACTERS]
     return _hook_output(
         {
-            PERMISSION_DECISION_KEY: ALLOW_DECISION,
             UPDATED_INPUT_KEY: reshaped_input,
             ADDITIONAL_CONTEXT_KEY: RESHAPE_CONTEXT_PREFIX + verdict_excerpt,
         }
