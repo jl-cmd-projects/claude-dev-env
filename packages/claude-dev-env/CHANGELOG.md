@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.51.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.1...claude-dev-env-v8.51.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **rules:** match skill files in build-needs-a-user paths ([9f3c61b](https://github.com/jl-cmd/claude-dev-env/commit/9f3c61b2cbf92cf4f85db047da12c68891dc7a60))
+
+## [8.51.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.0...claude-dev-env-v8.51.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **scripts:** read directory ages before sweep removes any ([70fee16](https://github.com/jl-cmd/claude-dev-env/commit/70fee1610a7da984df0d7f1a33effaffb691d746))
+
 ## [8.51.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.1...claude-dev-env-v8.51.0) (2026-10-04)
 
 
