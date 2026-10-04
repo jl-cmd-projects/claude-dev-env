@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.16](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.15...claude-dev-env-v8.46.16) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** fall back to rmtree onerror on Python 3.11 ([7ce5977](https://github.com/jl-cmd/claude-dev-env/commit/7ce5977cab399be6f52d0d5b553e1b8c8e218caa))
+
 ## [8.46.15](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.14...claude-dev-env-v8.46.15) (2026-10-04)
 
 
