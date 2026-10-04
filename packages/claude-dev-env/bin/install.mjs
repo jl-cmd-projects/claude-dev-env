@@ -1363,11 +1363,16 @@ function commandRunsHookOfRootSharingSettings(normalizedCommand, relativePath, s
     while (tailStart !== -1) {
         const characterAfterPath = normalizedCommand[tailStart + hookPathTail.length];
         if (characterAfterPath === undefined || commandArgumentBoundary.test(characterAfterPath)) {
-            let rootStart = tailStart;
-            while (rootStart > 0 && !commandArgumentBoundary.test(normalizedCommand[rootStart - 1])) {
-                rootStart--;
+            let rootPath;
+            if (characterAfterPath === '"' || characterAfterPath === "'") {
+                rootPath = quotedRootPathBeforeTail(normalizedCommand.slice(0, tailStart), characterAfterPath);
+            } else {
+                let rootStart = tailStart;
+                while (rootStart > 0 && !commandArgumentBoundary.test(normalizedCommand[rootStart - 1])) {
+                    rootStart--;
+                }
+                rootPath = normalizedCommand.slice(rootStart, tailStart);
             }
-            const rootPath = normalizedCommand.slice(rootStart, tailStart);
             const rootSettingsRealPath = rootPath
                 ? realPathOrNull(join(rootPath, SETTINGS_FILE_NAME))
                 : null;
@@ -1378,6 +1383,41 @@ function commandRunsHookOfRootSharingSettings(normalizedCommand, relativePath, s
         tailStart = normalizedCommand.indexOf(hookPathTail, tailStart + 1);
     }
     return false;
+}
+
+/**
+ * How each quote style of a hook path argument joins the segments around an
+ * escaped character, keyed by the quote, in the forward-slash command form.
+ */
+const QUOTED_ARGUMENT_ESCAPES = {
+    '"': { segmentJoin: '"^%"', joinedCharacter: '%' },
+    "'": { segmentJoin: "'/''", joinedCharacter: "'" },
+};
+
+/**
+ * Decode the root part of a quoted argument that `commandArgumentFromPath`
+ * wrote, read from the command text that ends where the hook path tail starts.
+ *
+ * The win32 form splits a path at each `%` into `"a"^%"b"`. The POSIX form
+ * escapes each `'` as `'\''`, which reads `'/''` once backslashes become
+ * forward slashes.
+ *
+ * @param {string} commandBeforeTail Normalized command text up to the hook path tail.
+ * @param {string} closingQuote The quote that closes the argument after the tail.
+ * @returns {string} The root path with each escaped character restored.
+ */
+function quotedRootPathBeforeTail(commandBeforeTail, closingQuote) {
+    const { segmentJoin, joinedCharacter } = QUOTED_ARGUMENT_ESCAPES[closingQuote];
+    const segments = [];
+    let segmentEnd = commandBeforeTail.length;
+    let openingQuote = commandBeforeTail.lastIndexOf(closingQuote, segmentEnd - 1);
+    while (commandBeforeTail.slice(openingQuote - segmentJoin.length + 1, openingQuote + 1) === segmentJoin) {
+        segments.unshift(commandBeforeTail.slice(openingQuote + 1, segmentEnd));
+        segmentEnd = openingQuote - segmentJoin.length + 1;
+        openingQuote = commandBeforeTail.lastIndexOf(closingQuote, segmentEnd - 1);
+    }
+    segments.unshift(commandBeforeTail.slice(openingQuote + 1, segmentEnd));
+    return segments.join(joinedCharacter);
 }
 
 function commandTailEndsAtManagedHook(normalizedCommand, relativePath) {

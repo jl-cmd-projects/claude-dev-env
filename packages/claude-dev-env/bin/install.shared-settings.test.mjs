@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { managedHookScriptRelativePaths, mergeHooksIntoSettings } from './install.mjs';
+import { commandArgumentFromPath, managedHookScriptRelativePaths, mergeHooksIntoSettings } from './install.mjs';
 
 const INSTALLER_PATH = fileURLToPath(new URL('./install.mjs', import.meta.url));
 const PACKAGE_HOOKS_JSON_PATH = fileURLToPath(new URL('../hooks/hooks.json', import.meta.url));
@@ -200,3 +200,92 @@ test('the merge prunes a hook of a root sharing the settings file and keeps one 
         rmSync(sandboxRoot, { recursive: true, force: true });
     }
 });
+
+test('the merge prunes a quoted hook of a sharing root whose path holds a space', t => {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), 'cdev-shared-settings-space-'));
+    try {
+        const installRoot = join(sandboxRoot, 'install-root');
+        const sharingRoot = join(sandboxRoot, 'Jane Doe', 'profiles', 'second');
+        for (const eachRoot of [installRoot, sharingRoot]) mkdirSync(eachRoot, { recursive: true });
+        const settingsPath = join(installRoot, 'settings.json');
+        writeFileSync(settingsPath, '{}\n');
+        try {
+            symlinkSync(settingsPath, join(sharingRoot, 'settings.json'), 'file');
+        } catch (linkError) {
+            t.skip(`this host cannot create a file symlink (${linkError.code})`);
+            return;
+        }
+        const hooksConfig = {
+            hooks: {
+                SessionStart: [{
+                    matcher: '',
+                    hooks: [{ type: 'command', command: 'python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/start.py' }],
+                }],
+            },
+        };
+        const forwardSlashed = rootPath => rootPath.replace(/\\/g, '/');
+        const sharingHookPath = `${forwardSlashed(sharingRoot)}/hooks/session/start.py`;
+        for (const eachPlatform of ['linux', 'win32']) {
+            const sharingCommand = `python3 ${commandArgumentFromPath(sharingHookPath, eachPlatform)}`;
+            const settings = {
+                hooks: {
+                    SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: sharingCommand }] }],
+                },
+            };
+
+            mergeHooksIntoSettings(settings, hooksConfig, forwardSlashed(installRoot), 'python3', settingsPath);
+
+            const allCommands = settings.hooks.SessionStart.flatMap(group => group.hooks.map(hook => hook.command));
+            assert.ok(!allCommands.includes(sharingCommand), `the ${eachPlatform}-quoted sharing root entry is pruned`);
+            assert.equal(allCommands.length, 1, `only the install root entry stays after the ${eachPlatform} merge`);
+        }
+    } finally {
+        rmSync(sandboxRoot, { recursive: true, force: true });
+    }
+});
+
+for (const { shape, rootDirectoryName, platform } of [
+    { shape: 'a percent sign', rootDirectoryName: 'Jane 100% Doe', platform: 'win32' },
+    { shape: 'an apostrophe', rootDirectoryName: "Jane O'Doe", platform: 'linux' },
+]) {
+    test(`the merge prunes a ${platform}-quoted hook of a sharing root whose path holds ${shape}`, t => {
+        const sandboxRoot = mkdtempSync(join(tmpdir(), 'cdev-shared-settings-escape-'));
+        try {
+            const installRoot = join(sandboxRoot, 'install-root');
+            const sharingRoot = join(sandboxRoot, rootDirectoryName, 'profiles', 'second');
+            for (const eachRoot of [installRoot, sharingRoot]) mkdirSync(eachRoot, { recursive: true });
+            const settingsPath = join(installRoot, 'settings.json');
+            writeFileSync(settingsPath, '{}\n');
+            try {
+                symlinkSync(settingsPath, join(sharingRoot, 'settings.json'), 'file');
+            } catch (linkError) {
+                t.skip(`this host cannot create a file symlink (${linkError.code})`);
+                return;
+            }
+            const hooksConfig = {
+                hooks: {
+                    SessionStart: [{
+                        matcher: '',
+                        hooks: [{ type: 'command', command: 'python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/start.py' }],
+                    }],
+                },
+            };
+            const forwardSlashed = rootPath => rootPath.replace(/\\/g, '/');
+            const sharingHookPath = `${forwardSlashed(sharingRoot)}/hooks/session/start.py`;
+            const sharingCommand = `python3 ${commandArgumentFromPath(sharingHookPath, platform)}`;
+            const settings = {
+                hooks: {
+                    SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: sharingCommand }] }],
+                },
+            };
+
+            mergeHooksIntoSettings(settings, hooksConfig, forwardSlashed(installRoot), 'python3', settingsPath);
+
+            const allCommands = settings.hooks.SessionStart.flatMap(group => group.hooks.map(hook => hook.command));
+            assert.ok(!allCommands.includes(sharingCommand), `the sharing root entry ${sharingCommand} is pruned`);
+            assert.equal(allCommands.length, 1, 'only the install root entry stays after the merge');
+        } finally {
+            rmSync(sandboxRoot, { recursive: true, force: true });
+        }
+    });
+}
