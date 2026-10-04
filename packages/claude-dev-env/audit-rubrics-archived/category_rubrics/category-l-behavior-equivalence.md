@@ -1,7 +1,7 @@
 # Category L — Behavior-equivalence for refactors
 
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 **What this category audits:** rewrites of an existing function (especially an enforcement check, parser, classifier, or normalizer) where the new implementation must accept every input the old implementation accepted and reject every input the old implementation rejected. Common when a regex-based check is rewritten as a tokenize-based check, when a `str.startswith` chain is consolidated into a single regex, when a hand-rolled split is replaced with a library call, or when a multi-step pipeline is collapsed into one pass.
 
