@@ -142,6 +142,10 @@ HOLD_EXIT_CODE = 1
 ERROR_EXIT_CODE = 2
 
 NO_SIGN_IN_MESSAGE = "No GitHub token in the environment. Set GH_TOKEN or GITHUB_TOKEN."
+MERGE_QUEUE_GRAPHQL_FAILURE_TEMPLATE = (
+    "The {base} branch merges through a merge queue, and only the GitHub GraphQL"
+    " API reports a merge queue ejection. That GraphQL read failed: {failure}"
+)
 SLUG_SEPARATOR = "/"
 SLUG_ARGUMENT_HELP = "Repository as owner/name, such as jl-cmd/claude-dev-env."
 NUMBER_ARGUMENT_HELP = "Pull request number."
