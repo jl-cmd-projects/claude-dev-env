@@ -48,6 +48,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
+    TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
     utc_time_text as _time_text,
 )
@@ -284,12 +285,15 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     account = decision.account
     try:
         completion = _invoke(context, account)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
-        _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
-        if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
+    except subprocess.TimeoutExpired as error:
+        _record_spent_attempt(context, account, "timeout", TIMEOUT_EXIT_CODE)
+        context.report.final_decision = decision
+        return JobOutcome(TIMEOUT_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), "timeout", None, None)
+    except OSError as error:
+        _record_spent_attempt(context, account, "start_failed", COMMAND_MISSING_EXIT_CODE)
+        if not context.all_readings:
             context.report.final_decision = decision
-            final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
+            final_status = "advisor_blocked" if context.product is Product.CLAUDE else "start_failed"
             return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), final_status, None, None)
         return None
     combined = f"{completion.stdout}{completion.stderr}".casefold()
