@@ -38,18 +38,17 @@ export function wrapUpNote(low: Low): string {
 export const register: Register = (on, options) => {
   const threshold = Number(options.threshold ?? 5)
   let limits: readonly SessionRateLimit[] | undefined
-  let warned = false
+  let wasWarned = false
 
   on('session.measure', ($, e, next) => {
     limits = e.rateLimits
     const low = lowest(limits, threshold)
     $.ui.status(low ? `⚠ ${low.left}% left — wrapping up` : undefined)
-    if (low && !warned) $.ui.toast(`usage-wrapup: ${describe(low)} Agents told to wrap up.`)
-    warned = !!low
+    if (low && !wasWarned) $.ui.toast(`usage-wrapup: ${describe(low)} Agents told to wrap up.`)
+    wasWarned = !!low
     return next(e)
   })
 
-  // Every tool result (main loop and subagents) carries the note while usage is low.
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
     if ('deny' in ran && ran.deny !== undefined) return ran
