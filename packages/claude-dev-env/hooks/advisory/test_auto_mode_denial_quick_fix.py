@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -101,16 +100,13 @@ def test_should_stay_quiet_on_malformed_input(
     assert capsys.readouterr().out == ""
 
 
-@pytest.mark.skipif(shutil.which("pwsh") is None, reason="needs PowerShell 7")
 def test_should_write_the_entry_with_defaults_when_powershell_runs(tmp_path: Path) -> None:
-    block = auto_mode_denial_quick_fix.powershell_block_for("it's allowed").replace(
-        "claude auto-mode config", ""
+    block = (
+        auto_mode_denial_quick_fix.powershell_block_for("it's allowed")
+        .replace("claude auto-mode config", "")
+        .replace("Join-Path $HOME", f"Join-Path '{tmp_path}'")
     )
-    subprocess.run(
-        ["pwsh", "-NoProfile", "-Command", block],
-        check=True,
-        env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"},
-    )
+    subprocess.run(["pwsh", "-NoProfile", "-Command", block], check=True)
     written_settings = json.loads(
         (tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8")
     )

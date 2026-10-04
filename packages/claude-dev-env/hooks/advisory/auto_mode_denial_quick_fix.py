@@ -31,6 +31,7 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     NO_VERDICT_CONTEXT_TEMPLATE,
     POWERSHELL_BLOCK_TEMPLATE,
     RULE_LABEL_PATTERN,
+    SUMMARY_WORD_SEPARATOR,
     TRUNCATION_MARKER,
     UNNAMED_RULE_LABEL,
     USER_MESSAGE_TEMPLATE,
@@ -52,6 +53,15 @@ def rule_label_from(denial_reason: str) -> str:
     return label_match.group(1).strip() if label_match else UNNAMED_RULE_LABEL
 
 
+def _summary_source_text(tool_input: object) -> str:
+    if not isinstance(tool_input, dict):
+        return json.dumps(tool_input, sort_keys=True)
+    for each_key in ALL_COMMAND_INPUT_KEYS:
+        if isinstance(tool_input.get(each_key), str):
+            return tool_input[each_key]
+    return json.dumps(tool_input, sort_keys=True)
+
+
 def action_summary_from(tool_input: object) -> str:
     """Return one short line that names the denied action.
 
@@ -62,13 +72,7 @@ def action_summary_from(tool_input: object) -> str:
         The command, URL or path when the input has one, else the compact
         JSON input, cut to the summary length limit.
     """
-    summary_text = json.dumps(tool_input, sort_keys=True)
-    if isinstance(tool_input, dict):
-        for each_key in ALL_COMMAND_INPUT_KEYS:
-            if isinstance(tool_input.get(each_key), str):
-                summary_text = tool_input[each_key]
-                break
-    single_line_text = " ".join(summary_text.split())
+    single_line_text = SUMMARY_WORD_SEPARATOR.join(_summary_source_text(tool_input).split())
     if len(single_line_text) <= MAXIMUM_ACTION_SUMMARY_CHARACTERS:
         return single_line_text
     kept_length = MAXIMUM_ACTION_SUMMARY_CHARACTERS - len(TRUNCATION_MARKER)
@@ -88,33 +92,39 @@ def powershell_block_for(allow_entry: str) -> str:
     return POWERSHELL_BLOCK_TEMPLATE.replace("{escaped_entry}", escaped_entry)
 
 
-def build_hook_output(payload: dict[str, object]) -> dict[str, object]:
+def _verdict_context_text(
+    tool_name: str, denial_reason: str, action_summary: str, rule_label: str
+) -> str:
+    allow_entry = ALLOW_ENTRY_TEMPLATE.format(
+        rule_label=rule_label,
+        tool_name=tool_name,
+        action_summary=action_summary,
+    )
+    return VERDICT_CONTEXT_TEMPLATE.format(
+        tool_name=tool_name,
+        rule_label=rule_label,
+        denial_reason=denial_reason,
+        action_summary=action_summary,
+        powershell_block=powershell_block_for(allow_entry),
+    )
+
+
+def build_hook_output(all_denial_fields: dict[str, object]) -> dict[str, object]:
     """Return the PermissionDenied hook output for one denial payload.
 
     Args:
-        payload: The hook input JSON.
+        all_denial_fields: The hook input JSON.
 
     Returns:
         A ``hookSpecificOutput`` with ``additionalContext`` for the agent and
         a top-level ``systemMessage`` for the user.
     """
-    tool_name = str(payload.get("tool_name") or "tool")
-    denial_reason = str(payload.get("denial_reason") or "")
-    action_summary = action_summary_from(payload.get("tool_input"))
+    tool_name = str(all_denial_fields.get("tool_name") or "tool")
+    denial_reason = str(all_denial_fields.get("denial_reason") or "")
+    action_summary = action_summary_from(all_denial_fields.get("tool_input"))
     rule_label = rule_label_from(denial_reason)
-    if payload.get("classifier_verdict"):
-        allow_entry = ALLOW_ENTRY_TEMPLATE.format(
-            rule_label=rule_label,
-            tool_name=tool_name,
-            action_summary=action_summary,
-        )
-        context_text = VERDICT_CONTEXT_TEMPLATE.format(
-            tool_name=tool_name,
-            rule_label=rule_label,
-            denial_reason=denial_reason,
-            action_summary=action_summary,
-            powershell_block=powershell_block_for(allow_entry),
-        )
+    if all_denial_fields.get("classifier_verdict"):
+        context_text = _verdict_context_text(tool_name, denial_reason, action_summary, rule_label)
     else:
         context_text = NO_VERDICT_CONTEXT_TEMPLATE.format(
             tool_name=tool_name,
