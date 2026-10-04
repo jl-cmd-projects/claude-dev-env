@@ -219,9 +219,7 @@ def test_should_end_grandchildren_when_the_broker_is_interrupted(
     assert heartbeat_file.read_text(encoding="utf-8") == beat_after_interrupt
 
 
-def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
-    monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
+def _record_launches(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     all_launched_argv: list[list[str]] = []
 
     class FakeProcess:
@@ -240,6 +238,13 @@ def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.Monkey
             return None, None
 
     monkeypatch.setattr(support.subprocess, "Popen", FakeProcess)
+    return all_launched_argv
+
+
+def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
+    all_launched_argv = _record_launches(monkeypatch)
 
     completion = support.subprocess_runner(["claude", "-p"], input=b"", encoding="utf-8", errors="replace")
 
@@ -264,7 +269,7 @@ def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
 ) -> None:
     resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
 
     with pytest.raises(OSError) as raised:
         support.subprocess_runner(["claude", "-p", f"fix{metacharacter}test"])
@@ -277,7 +282,7 @@ def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
 def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = r"C:\tools\CLAUDE.BAT"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
 
     with pytest.raises(OSError) as raised:
         support.subprocess_runner(["claude", "a & b"])
@@ -288,13 +293,7 @@ def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch
 def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    all_launched_argv: list[list[str]] = []
-
-    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
-        all_launched_argv.append(list(all_argv))
-        return subprocess.CompletedProcess(all_argv, 0)
-
-    monkeypatch.setattr(support.subprocess, "run", fake_run)
+    all_launched_argv = _record_launches(monkeypatch)
 
     support.subprocess_runner(["claude", "-p", "--output-format", "json", "--model", "opus"], input=b"a & b")
 
@@ -304,13 +303,7 @@ def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPa
 def test_should_pass_metacharacters_to_an_executable_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = "/usr/local/bin/claude"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    all_launched_argv: list[list[str]] = []
-
-    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
-        all_launched_argv.append(list(all_argv))
-        return subprocess.CompletedProcess(all_argv, 0)
-
-    monkeypatch.setattr(support.subprocess, "run", fake_run)
+    all_launched_argv = _record_launches(monkeypatch)
 
     support.subprocess_runner(["claude", "-p", 'say "a & b" | 100%!'])
 
