@@ -13,7 +13,7 @@ def _comment_policy_phrases() -> tuple[str, ...]:
         "leave comments tied to untouched code unchanged",
         "keep comment cleanup inside the requested task",
         "production and tests follow one rule",
-        "changed directive, todo, fixme, hack, xxx, and type-ignore comments are removed rather than added or justified",
+        "changed directive, todo, fixme, hack, xxx, and type-ignore comments are removed",
     )
 
 

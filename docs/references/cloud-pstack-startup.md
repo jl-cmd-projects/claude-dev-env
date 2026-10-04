@@ -34,7 +34,7 @@ root does not test this path.
 ## Package ownership
 
 - `packages/claude-dev-env/bin/install-pstack-plugin.mjs` installs
-  `pstack@pstack-claude` from `michael-denyer/pstack-claude` through each CLI.
+  `pstack@pstack-claude` from `jl-cmd/pstack-claude` through each CLI.
   A successful CLI exit reports installation for that CLI home.
 - `packages/claude-dev-env/bin/codex-skill-load-block.mjs` writes a load
   instruction into the selected `CODEX_HOME/AGENTS.md`. Delivery depends on the
