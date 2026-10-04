@@ -1,5 +1,61 @@
 # Changelog
 
+## [8.42.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.3...claude-dev-env-v8.42.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** retry the Windows state lock until it is free ([23129c4](https://github.com/jl-cmd/claude-dev-env/commit/23129c493cc29656242876445150d980a8a19c0e))
+
+## [8.42.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.2...claude-dev-env-v8.42.3) (2026-10-04)
+
+
+### Documentation
+
+* **agents:** restore banned-word examples in the package AGENTS.md ([d0b4920](https://github.com/jl-cmd/claude-dev-env/commit/d0b4920fa373412a3cb4a09e4d3b195128e08c7d))
+
+## [8.42.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.1...claude-dev-env-v8.42.2) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** turn twelve path-scoped rules into index entries ([12423a3](https://github.com/jl-cmd/claude-dev-env/commit/12423a379ac9d4da490cc5bd02cb48dcb54b7395))
+
+## [8.42.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.0...claude-dev-env-v8.42.1) (2026-10-04)
+
+
+### Documentation
+
+* **contrast-framing:** describe the rule file as naming each form ([4568122](https://github.com/jl-cmd/claude-dev-env/commit/456812201156873254e23e4d83f3705ba38d208e))
+
+## [8.42.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.41.0...claude-dev-env-v8.42.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** remind spawns to read and ask, across every spawn surface ([905815a](https://github.com/jl-cmd/claude-dev-env/commit/905815a96452ee12065bd981081d21348c58e2f6))
+
+## [8.41.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.1...claude-dev-env-v8.41.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** load the pull request rules through a hook-gated skill ([5611459](https://github.com/jl-cmd/claude-dev-env/commit/56114596d29804d8b9c8fb75a7bafe29b4a15090))
+
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
+## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny banned words in chat replies ([7bc4d05](https://github.com/jl-cmd/claude-dev-env/commit/7bc4d05e68f069176f6edeb2d7444be27092a9a2))
+
 ## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
 
 

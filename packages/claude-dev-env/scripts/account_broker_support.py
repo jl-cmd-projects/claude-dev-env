@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import subprocess
@@ -11,7 +12,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, Sequence
+from typing import Callable, Iterator, Sequence
 
 if sys.platform == "win32":
     import msvcrt
@@ -229,11 +230,39 @@ def _load_state(path: Path) -> dict[str, object]:
     return {key: parsed_state.get(key) if isinstance(parsed_state.get(key), dict) else {} for key in ("meters", "spent", "affinity")}
 
 
+def _acquire_windows_lock(lock_descriptor: int, locking: Callable[[int, int, int], None], lock_mode: int) -> None:
+    """Lock the first byte of *lock_descriptor*, retrying while another process holds it.
+
+    ``msvcrt.locking`` with ``LK_LOCK`` gives up after ten one-second attempts and
+    raises ``OSError`` with ``EDEADLOCK``. That error means the lock is still busy, so
+    the call repeats until it succeeds, matching ``fcntl.flock`` on POSIX. Any other
+    ``OSError`` propagates.
+
+    Args:
+        lock_descriptor: Open descriptor of the lock file.
+        locking: The ``msvcrt.locking`` function.
+        lock_mode: The blocking lock mode passed to ``locking``.
+    """
+    is_locked = False
+    while not is_locked:
+        is_locked = _attempt_windows_lock(lock_descriptor, locking, lock_mode)
+
+
+def _attempt_windows_lock(lock_descriptor: int, locking: Callable[[int, int, int], None], lock_mode: int) -> bool:
+    os.lseek(lock_descriptor, 0, os.SEEK_SET)
+    try:
+        locking(lock_descriptor, lock_mode, 1)
+    except OSError as error:
+        if error.errno != errno.EDEADLOCK:
+            raise
+        return False
+    return True
+
+
 if sys.platform == "win32":
 
     def _acquire_state_lock(lock_descriptor: int) -> None:
-        os.lseek(lock_descriptor, 0, os.SEEK_SET)
-        msvcrt.locking(lock_descriptor, msvcrt.LK_LOCK, 1)
+        _acquire_windows_lock(lock_descriptor, msvcrt.locking, msvcrt.LK_LOCK)
 
     def _release_state_lock(lock_descriptor: int) -> None:
         os.lseek(lock_descriptor, 0, os.SEEK_SET)
