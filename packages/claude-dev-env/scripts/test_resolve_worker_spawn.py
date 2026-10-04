@@ -1128,6 +1128,9 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
             return subprocess.CompletedProcess(argv, 1, "usage limit reached", "")
         return subprocess.CompletedProcess(argv, 0, FIXTURE_CLAUDE_STDOUT, "")
 
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
     monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "state.json")
     monkeypatch.setattr(
@@ -1154,6 +1157,7 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
     ]
     assert outcome.tier_used == TIER_CLAUDE_HEADLESS
     assert outcome.is_ok is True
+    assert list(fake_home.iterdir()) == []
 
 
 def test_caller_named_agent_serves_an_unregistered_role(
