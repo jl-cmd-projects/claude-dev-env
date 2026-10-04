@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.44.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.2...claude-dev-env-v8.44.3) (2026-10-04)
+
+
+### Tests
+
+* **step-note-gate:** drive late transcript writes from an injected clock ([edc5088](https://github.com/jl-cmd/claude-dev-env/commit/edc50882b877a660ff200c46fcfc00961340cce4))
+
+## [8.44.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.1...claude-dev-env-v8.44.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** scan only the prose fields of a decision card ([841afff](https://github.com/jl-cmd/claude-dev-env/commit/841afff78ee3449180bd6986a33a14904b1e0d42))
+
 ## [8.44.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.0...claude-dev-env-v8.44.1) (2026-10-04)
 
 
