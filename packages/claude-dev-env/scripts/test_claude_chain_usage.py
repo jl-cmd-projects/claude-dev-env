@@ -158,7 +158,7 @@ def test_failed_module_load_does_not_poison_cache(
     (tmp_path / "resolve_usage_window.py").write_text(
         "raise ImportError('intentional load failure')\n", encoding="utf-8"
     )
-    monkeypatch.setattr(usage, "_usage_pause_scripts_directory", lambda: tmp_path)
+    monkeypatch.setattr(usage, "_usage_pause_scripts_directory", lambda _module_file: tmp_path)
 
     with pytest.raises(ImportError, match="intentional load failure"):
         usage._load_resolve_usage_window_module()
