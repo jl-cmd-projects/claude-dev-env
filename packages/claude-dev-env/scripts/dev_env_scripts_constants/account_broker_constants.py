@@ -29,6 +29,12 @@ from dev_env_scripts_constants.codex_account_constants import (
     TIER_LUNA,
     TIER_NORMAL,
 )
+from dev_env_scripts_constants.shared_tree_constants import (
+    CODEX_CLASSIFIER_CONSTANTS_RELATIVE_PATH,
+    CONSTANTS_PACKAGE_ANCHOR_DEPTH,
+    PR_LOOP_DIRECTORY_NAME,
+)
+from shared_tree_paths import resolve_shared_scripts_directory
 
 ALL_CLAUDE_FLOORS = {
     "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
@@ -63,7 +69,7 @@ def codex_usage_limit_signatures() -> tuple[str, ...]:
     Raises:
         ImportError: The marker module cannot be loaded.
     """
-    constants_path = Path(__file__).resolve().parents[2] / "_shared" / "pr-loop" / "scripts" / "codex_review_scripts_constants" / "classifier_constants.py"
+    constants_path = resolve_shared_scripts_directory(__file__, os.environ, PR_LOOP_DIRECTORY_NAME, CODEX_CLASSIFIER_CONSTANTS_RELATIVE_PATH, CONSTANTS_PACKAGE_ANCHOR_DEPTH) / CODEX_CLASSIFIER_CONSTANTS_RELATIVE_PATH
     loader = importlib.machinery.SourceFileLoader("account_broker_codex_classifier_constants", str(constants_path))
     module = types.ModuleType(loader.name)
     try:
