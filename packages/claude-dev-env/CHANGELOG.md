@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.1...claude-dev-env-v8.46.0) (2026-10-04)
+
+
+### Features
+
+* **account-broker:** read one Codex home's rate-limit records ([fce50e2](https://github.com/jl-cmd/claude-dev-env/commit/fce50e2288ba2774ef5fe25f08a27b032bb560d5))
+
 ## [8.45.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.0...claude-dev-env-v8.45.1) (2026-10-04)
 
 
