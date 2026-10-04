@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import errno
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -125,3 +127,37 @@ def test_should_keep_every_concurrent_spent_mark_and_newest_meter_reading(tmp_pa
     assert saved["spent"] == {"codex:one": 2000.0, "codex:two": 3000.0}
     assert saved["meters"]["codex:one"]["read_at"] == 500.0
     assert saved["affinity"] == {"session": "one"}
+
+
+def test_should_retry_windows_lock_until_contention_clears(tmp_path: Path) -> None:
+    lock_descriptor = os.open(tmp_path / "state.json.lock", os.O_CREAT | os.O_RDWR)
+    all_calls: list[tuple[int, int, int]] = []
+
+    def locking(descriptor: int, mode: int, byte_count: int) -> None:
+        all_calls.append((descriptor, mode, byte_count))
+        if len(all_calls) < 3:
+            raise OSError(errno.EDEADLOCK, "Resource deadlock avoided")
+
+    try:
+        support._acquire_windows_lock(lock_descriptor, locking, 7)
+    finally:
+        os.close(lock_descriptor)
+
+    assert all_calls == [(lock_descriptor, 7, 1)] * 3
+
+
+def test_should_raise_windows_lock_error_other_than_contention(tmp_path: Path) -> None:
+    lock_descriptor = os.open(tmp_path / "state.json.lock", os.O_CREAT | os.O_RDWR)
+    all_calls: list[int] = []
+
+    def locking(descriptor: int, mode: int, byte_count: int) -> None:
+        all_calls.append(descriptor)
+        raise OSError(errno.EBADF, "Bad file descriptor")
+
+    try:
+        with pytest.raises(OSError):
+            support._acquire_windows_lock(lock_descriptor, locking, 7)
+    finally:
+        os.close(lock_descriptor)
+
+    assert all_calls == [lock_descriptor]
