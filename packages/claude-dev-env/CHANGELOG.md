@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.3...claude-dev-env-v8.42.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** retry the Windows state lock until it is free ([23129c4](https://github.com/jl-cmd/claude-dev-env/commit/23129c493cc29656242876445150d980a8a19c0e))
+
 ## [8.42.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.2...claude-dev-env-v8.42.3) (2026-10-04)
 
 
