@@ -868,3 +868,51 @@ def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureF
         account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path)))
     assert exit_info.value.code == 2
     assert "invalid choice: 'claude'" in capsys.readouterr().err
+
+
+def test_should_start_claude_job_without_the_parent_session_variables(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (_account("first", Product.CLAUDE),)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(accounts, {
+        "first": _meters(80, 80)
+    }))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/parent/socket")
+    monkeypatch.setenv("UNRELATED_SETTING", "kept")
+    all_child_environments: list[dict[str, str]] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_child_environments.append(options["env"])
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        run_job(Product.CLAUDE, ("claude", "-p", "task"))
+
+    child_environment = all_child_environments[0]
+    assert "CLAUDE_CODE_SESSION_ID" not in child_environment
+    assert "CLAUDECODE" not in child_environment
+    assert "CLAUDE_CODE_MESSAGING_SOCKET" not in child_environment
+    assert child_environment["UNRELATED_SETTING"] == "kept"
+    assert child_environment["CODEX_HOME"] == str(Path("/profiles") / "first")
+
+
+def test_should_keep_the_parent_environment_for_codex_jobs(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (_account("first"),)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80)
+    }))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
+    all_child_environments: list[dict[str, str]] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_child_environments.append(options["env"])
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        run_job(Product.CODEX, ("codex", "exec", "task"))
+
+    assert all_child_environments[0]["CLAUDE_CODE_SESSION_ID"] == "parent-session"

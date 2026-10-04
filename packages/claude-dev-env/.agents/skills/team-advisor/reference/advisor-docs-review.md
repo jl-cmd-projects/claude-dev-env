@@ -213,11 +213,13 @@ cannot reach the built-in tool path. Its sandbox turns off feature-flag
 fetching, and `/advisor` replies "isn't available in this environment". A
 plugin-eval suite therefore grades the warm-agent path alone.
 
-Drive the built-in tool path with a headless run, once with the skill and once
-without:
+Drive the built-in tool path with a headless run through the account broker,
+once with the skill and once without:
 
 ```text
-claude -p "<task>" --advisor opus --plugin-dir <wrapper> \
+python "$HOME/.claude/scripts/account_broker.py" run --product claude \
+  --report <report.json> -- \
+  claude -p "<task>" --advisor opus --plugin-dir <wrapper> \
   --setting-sources project --strict-mcp-config \
   --allowedTools "Read,Glob,Grep,Skill,Agent,SendMessage,Write,Edit" \
   --permission-mode dontAsk --output-format stream-json --verbose
