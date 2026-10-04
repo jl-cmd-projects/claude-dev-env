@@ -9,7 +9,6 @@ main account so its owner never runs out.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
 
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
@@ -128,9 +127,6 @@ WINDOWS_OS_NAME: str = "nt"
 TEXT_ENCODING: str = "utf-8"
 """Encoding for the launcher file and the JSON reports."""
 
-MAIN_SPEND_WINDOW: timedelta = timedelta(hours=24)
-"""Main takes jobs only when its weekly window resets within this span."""
-
 MAIN_WEEKLY_USED_CEILING_PERCENT: float = 90.0
 """Main takes jobs only while its weekly use is under this percent."""
 
@@ -146,9 +142,6 @@ SECOND_SESSION_USED_CEILING_PERCENT: float = 90.0
 FULL_PERCENT: float = 100.0
 """Percent scale ceiling, so remaining is this minus used."""
 
-SECONDS_PER_HOUR: int = 3600
-"""Seconds in one hour, for reason text that names hours until a reset."""
-
 CHOICE_MAIN: str = "main"
 """Picker answer: run the job on the main account."""
 
@@ -157,11 +150,6 @@ CHOICE_SECOND: str = "second"
 
 CHOICE_WAIT: str = "wait"
 """Picker answer: neither account has room, so the job waits."""
-
-REASON_MAIN_EXPIRING_TEMPLATE: str = (
-    "main week resets in {hours_until_reset} hours with {remaining_percent:.0f}% left"
-)
-"""Reason when main spends leftover usage that expires soon."""
 
 REASON_SECOND_HAS_ROOM_TEMPLATE: str = (
     "second account has {weekly_remaining_percent:.0f}% of its week"
