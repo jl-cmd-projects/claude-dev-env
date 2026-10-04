@@ -18,6 +18,10 @@ It denies a banned word or phrase, matched whole and case-insensitive::
 The gate uses the ``banned_words`` list in ``~/.claude/reply-banned-words.json``,
 or in the file that CLAUDE_REPLY_BANNED_WORDS_PATH names. Without a valid
 list there, it uses ALL_DEFAULT_BANNED_WORDS.
+
+The banned-word check also reads every text field of a decision card.
+A decision card gets no length check.
+
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
 fenced blocks carry no words.
@@ -52,8 +56,10 @@ from hooks_constants.reply_length_gate_constants import (
     BANNED_WORDS_JSON_KEY,
     BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
+    CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
+    DECISION_CARD_TOOL_NAME,
     FENCED_BLOCK_PATTERN,
     HOOK_EVENT_NAME,
     INLINE_CODE_PATTERN,
@@ -163,26 +169,52 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
     return None
 
 
-def main() -> int:
-    hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None:
-        return ALLOW_EXIT_CODE
-    tool_name = hook_input.get(TOOL_NAME_KEY)
+def all_card_texts(card_value: object) -> list[str]:
+    """Collect every string inside a decision card's input, in order."""
+    if isinstance(card_value, str):
+        return [card_value]
+    if isinstance(card_value, dict):
+        return [
+            each_text
+            for each_value in card_value.values()
+            for each_text in all_card_texts(each_value)
+        ]
+    if isinstance(card_value, list):
+        return [each_text for each_value in card_value for each_text in all_card_texts(each_value)]
+    return []
+
+
+def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
+    """Return the deny reason and the checked text for one call, or None when it passes."""
+    if tool_name == DECISION_CARD_TOOL_NAME:
+        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
+        card_violation = banned_word_violation(card_text, configured_banned_words())
+        return None if card_violation is None else (card_violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
-        return ALLOW_EXIT_CODE
-    tool_input = hook_input.get(TOOL_INPUT_KEY)
-    if not isinstance(tool_input, dict):
-        return ALLOW_EXIT_CODE
-    reply_text = tool_input.get(TEXT_KEY)
+        return None
+    reply_text = all_tool_input.get(TEXT_KEY)
     if not isinstance(reply_text, str):
-        return ALLOW_EXIT_CODE
+        return None
     violation = (
         length_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
-    if violation is None:
+    return None if violation is None else (violation, reply_text)
+
+
+def main() -> int:
+    hook_input = read_hook_input_dictionary_from_stdin()
+    if hook_input is None:
         return ALLOW_EXIT_CODE
+    tool_name = hook_input.get(TOOL_NAME_KEY)
+    tool_input = hook_input.get(TOOL_INPUT_KEY)
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT_CODE
+    checked = tool_violation(tool_name, tool_input)
+    if checked is None:
+        return ALLOW_EXIT_CODE
+    violation, reply_text = checked
     block_reason = violation + RETRY_INSTRUCTION
     log_hook_block(
         Path(__file__).name,
