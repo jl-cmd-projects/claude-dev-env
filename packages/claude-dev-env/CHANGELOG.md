@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.44.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.5...claude-dev-env-v8.44.6) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** pin subagents and over-pace threads to Opus ([205dcb8](https://github.com/jl-cmd/claude-dev-env/commit/205dcb82a13ba830a76decdf1a0036e490a21846))
+
 ## [8.44.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.4...claude-dev-env-v8.44.5) (2026-10-04)
 
 
