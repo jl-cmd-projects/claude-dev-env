@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.5...claude-dev-env-v8.46.6) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** scan the calling subagent's transcript in the pr-lifecycle gate ([81d0836](https://github.com/jl-cmd/claude-dev-env/commit/81d0836406ed73dd56926eae5e4e0a095970185e))
+
 ## [8.46.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.4...claude-dev-env-v8.46.5) (2026-10-04)
 
 
