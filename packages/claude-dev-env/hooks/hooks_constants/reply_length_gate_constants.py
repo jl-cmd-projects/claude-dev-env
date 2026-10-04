@@ -24,6 +24,8 @@ MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]\n]*\]\([^)\s]*\)")
 UNLINKED_PULL_REQUEST_PATTERN = re.compile(
     r"\b(?:PRs?|pull requests?)\s*#?\d+|(?<![\w/&])#\d+", re.IGNORECASE
 )
+MID_SENTENCE_COLON_PATTERN = re.compile(r":[ \t]+\S")
+EM_DASH_PATTERN = re.compile("\u2014")
 LINE_BREAK_PATTERN = re.compile(r"\n+")
 SENTENCE_END_PATTERN = re.compile(r"(?<=[.!?])\s+")
 WORD_PATTERN = re.compile(r"[A-Za-z0-9]+(?:['.,-][A-Za-z0-9]+)*")
@@ -33,6 +35,11 @@ SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
 UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
+MID_SENTENCE_COLON_MESSAGE = (
+    "A colon joins two clauses on one line. Write two sentences, or end the line with the colon"
+    " and put the list on the lines below."
+)
+EM_DASH_MESSAGE = "An em dash is in the text. Use a period or a comma."
 ALL_DEFAULT_BANNED_WORDS = (
     "real",
     "really",
