@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.0...claude-dev-env-v8.46.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** exit 4 only for a blocked Claude job ([ecd858a](https://github.com/jl-cmd/claude-dev-env/commit/ecd858ad1a3c630b66b247bd7a5f35e339ebdac7))
+
 ## [8.46.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.1...claude-dev-env-v8.46.0) (2026-10-04)
 
 
