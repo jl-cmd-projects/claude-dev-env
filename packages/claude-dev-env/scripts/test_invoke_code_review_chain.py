@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from dev_env_scripts_constants.code_review_constants import (
     REVIEW_PERMISSION_MODE as PERMISSION_MODE_BYPASS,
     PERMISSION_MODE_FLAG,
 )
+from dev_env_scripts_constants.account_broker_constants import JobOutcome, WAIT_EXIT_CODE
 from dev_env_scripts_constants.grok_worker_constants import (
     MODEL_FLAG,
     OUTPUT_FORMAT_FLAG,
@@ -68,3 +70,27 @@ def test_chain_redirects_empty_stdin_and_sets_cwd(
 
     assert call_log.is_stdin_empty is True
     assert call_log.claude_working_directory == working_directory
+
+
+def test_wait_reports_reset_without_running_git_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    reset_at = datetime(2026, 10, 4, 12, tzinfo=timezone.utc)
+    call_log = install_seams(
+        monkeypatch,
+        host_profile=HOST_PROFILE_THIRD_PARTY,
+        claude_outcome=JobOutcome(WAIT_EXIT_CODE, "", "", None, (), "wait", None, reset_at),
+    )
+    monkeypatch.setattr(
+        invoker,
+        "review_git_status_runner",
+        lambda *args, **kwargs: pytest.fail("wait must not inspect the tree"),
+    )
+
+    outcome = run_review(tmp_path, session_model=FIXTURE_SESSION_SONNET)
+
+    assert call_log.claude_calls == 1
+    assert outcome.served_command is None
+    assert outcome.status == "wait"
+    assert outcome.wait_reset_at == reset_at.isoformat()
+    assert outcome.returncode == WAIT_EXIT_CODE

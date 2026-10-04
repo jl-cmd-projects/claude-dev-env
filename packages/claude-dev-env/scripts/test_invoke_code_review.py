@@ -7,8 +7,7 @@ from pathlib import Path
 import pytest
 
 import invoke_code_review as invoker
-from claude_chain_runner import ChainInvocationOutcome
-from dev_env_scripts_constants.claude_chain_constants import TERMINAL_STATUS_SERVED
+from dev_env_scripts_constants.account_broker_constants import JobOutcome
 from dev_env_scripts_constants.code_review_constants import (
     ALL_FINDING_SEVERITIES,
     ALL_LOOP_TERMINALS,
@@ -77,14 +76,16 @@ UNPRIVILEGED_USER_ID: int = 1000
 
 def _serve_a_refusing_binary(
     *_all_positional: object, **_all_keyword: object
-) -> ChainInvocationOutcome:
-    return ChainInvocationOutcome(
-        served_command=SERVED_COMMAND_NAME,
+) -> JobOutcome:
+    return JobOutcome(
         returncode=REVIEW_FAILURE_RETURNCODE,
         stdout=EMPTY_REVIEW_STDOUT,
         stderr=REVIEW_BINARY_REFUSAL_TEXT,
+        account_name=SERVED_COMMAND_NAME,
         attempts=(),
-        terminal_status=TERMINAL_STATUS_SERVED,
+        status="advisor_blocked",
+        session_id=None,
+        wait_reset_at=None,
     )
 
 

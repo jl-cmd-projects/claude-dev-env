@@ -5,6 +5,8 @@ import re
 MAXIMUM_SENTENCE_COUNT = 3
 MAXIMUM_WORDS_PER_SENTENCE = 15
 ALL_CHECKED_TOOL_NAMES = frozenset({"mcp__hearthbot__reply", "mcp__hearthbot__post_message"})
+DECISION_CARD_TOOL_NAME = "mcp__hearthbot__ask_decision"
+CARD_TEXT_SEPARATOR = "\n"
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
@@ -45,6 +47,15 @@ ALL_DEFAULT_BANNED_WORDS = (
     "suspect",
     "guess",
     "my theory",
+    "maybe",
+    "perhaps",
+    "presumably",
+    "might be",
+    "may be",
+    "appears to",
+    "i believe",
+    "not sure",
+    "unsure",
 )
 BANNED_WORD_PART_SEPARATOR = r"\s+"
 BANNED_WORD_PATTERN_TEMPLATE = r"(?<![A-Za-z0-9]){word_pattern}(?![A-Za-z0-9])"

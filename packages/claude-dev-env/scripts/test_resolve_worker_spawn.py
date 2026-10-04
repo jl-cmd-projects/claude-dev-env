@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import io
 import json
 import subprocess
 import sys
 import threading
-from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Self
 
 import pytest
 
@@ -18,17 +16,17 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
-import claude_chain_runner as chain_runner  # noqa: E402
+import account_broker
 import invoke_code_review as invoker
 import resolve_worker_spawn as dispatcher  # noqa: E402
-from claude_chain_runner import (  # noqa: E402
-    ChainAttempt,
-    ChainConfigurationError,
-    ChainInvocationOutcome,
-)
-from dev_env_scripts_constants.claude_chain_constants import (  # noqa: E402
-    TERMINAL_STATUS_CHAIN_EXHAUSTED,
-    TERMINAL_STATUS_SERVED,
+from dev_env_scripts_constants.account_broker_constants import (
+    Account,
+    BrokerConfigurationError,
+    JobOutcome,
+    Meters,
+    Product,
+    ProductAdapter,
+    WAIT_EXIT_CODE,
 )
 from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     AGENT_FLAG,
@@ -64,7 +62,6 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     RESULT_KEY_TIER_USED,
     SINGLE_TURN_FLAG,
     SPAWN_CONFIG_ERROR_EXIT_CODE,
-    SPAWN_EXHAUSTED_EXIT_CODE,
     SPAWN_SERVED_EXIT_CODE,
     TIER_CLAUDE_AGENT,
     TIER_CLAUDE_HEADLESS,
@@ -91,7 +88,6 @@ FIXTURE_ROLE = "code-quality-agent"
 MIN_WORKER_TIMEOUT_SECONDS_CONSTANT_NAME = "MIN_WORKER_TIMEOUT_SECONDS"
 LARGE_PROMPT_CHARACTER_COUNT = 40000
 WINDOWS_SAFE_ARGV_ELEMENT_CEILING = 8192
-LOCK_WAIT_TIMEOUT_SECONDS = 1
 EXPECTED_PRIMARY_AGENT_FOR_DEFAULT_ROLE = Path(
     ALL_AGENT_FILENAMES_BY_ROLE[DEFAULT_ROLE][0]
 ).stem
@@ -135,25 +131,29 @@ def _claude_served(
     stdout: str = FIXTURE_CLAUDE_STDOUT,
     *,
     returncode: int = FIXTURE_CLAUDE_RETURNCODE,
-) -> ChainInvocationOutcome:
-    return ChainInvocationOutcome(
-        served_command="claude",
+) -> JobOutcome:
+    return JobOutcome(
         returncode=returncode,
         stdout=stdout,
         stderr="",
-        attempts=(ChainAttempt(command="claude", status="served"),),
-        terminal_status=TERMINAL_STATUS_SERVED,
+        account_name="main",
+        attempts=(("main", "served"),),
+        status="served" if returncode == 0 else "advisor_blocked",
+        session_id=None,
+        wait_reset_at=None,
     )
 
 
-def _claude_exhausted() -> ChainInvocationOutcome:
-    return ChainInvocationOutcome(
-        served_command=None,
-        returncode=FIXTURE_FAILED_RETURNCODE,
+def _claude_exhausted() -> JobOutcome:
+    return JobOutcome(
+        account_name=None,
+        returncode=WAIT_EXIT_CODE,
         stdout="",
-        stderr="usage limit reached",
-        attempts=(ChainAttempt(command="claude", status="usage_limited"),),
-        terminal_status=TERMINAL_STATUS_CHAIN_EXHAUSTED,
+        stderr="",
+        attempts=(("main", "usage_limited"),),
+        status="exhausted",
+        session_id=None,
+        wait_reset_at=datetime(2026, 10, 4, tzinfo=timezone.utc),
     )
 
 
@@ -174,8 +174,7 @@ class SeamCallLog:
     claude_calls: int = 0
     claude_arguments: list[str] | None = None
     host_profile_calls: int = 0
-    is_stdin_from_prompt_file: bool = False
-    claude_stdin_path: Path | None = None
+    claude_stdin_text: str | None = None
     claude_working_directory: Path | None = None
     grok_keyword_arguments: dict[str, object] | None = None
     max_argv_element_length: int = 0
@@ -187,7 +186,7 @@ def _install_seams(
     *,
     preflight_outcome: PreflightOutcome = _usable_preflight(),
     grok_outcome: GrokRunnerOutcome | None = None,
-    claude_outcome: ChainInvocationOutcome | BaseException | None = None,
+    claude_outcome: JobOutcome | BaseException | None = None,
     host_profile: str = HOST_PROFILE_CLAUDE,
 ) -> SeamCallLog:
     call_log = SeamCallLog()
@@ -202,21 +201,18 @@ def _install_seams(
         assert grok_outcome is not None
         return grok_outcome
 
-    def fake_claude(
-        all_claude_arguments: list[str], *, timeout_seconds: int
-    ) -> ChainInvocationOutcome:
+    def fake_claude(product: Product, all_claude_arguments: list[str], **options: object) -> JobOutcome:
+        assert product is Product.CLAUDE
         call_log.claude_calls += 1
-        call_log.claude_arguments = list(all_claude_arguments)
-        chain_runner.chain_subprocess_runner(
-            ["claude", *all_claude_arguments],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
+        call_log.claude_arguments = list(all_claude_arguments[1:])
+        call_log.max_argv_element_length = max(map(len, all_claude_arguments))
+        call_log.claude_stdin_text = options.get("stdin_text")
+        if options.get("cwd") is not None:
+            call_log.claude_working_directory = Path(options["cwd"])
+            call_log.all_observed_working_directories.append(Path(options["cwd"]))
         if isinstance(claude_outcome, BaseException):
             raise claude_outcome
-        assert isinstance(claude_outcome, ChainInvocationOutcome)
+        assert isinstance(claude_outcome, JobOutcome)
         return claude_outcome
 
     def fake_host_profile(
@@ -231,37 +227,6 @@ def _install_seams(
     monkeypatch.setattr(dispatcher, "spawn_claude_runner", fake_claude)
     monkeypatch.setattr(dispatcher, "spawn_host_profile_detector", fake_host_profile)
 
-    def _tracking_subprocess_runner(
-        all_invocation_tokens: Sequence[str],
-        *all_positionals: object,
-        **all_keywords: object,
-    ) -> subprocess.CompletedProcess[str]:
-        del all_positionals
-        for each_token in all_invocation_tokens:
-            call_log.max_argv_element_length = max(
-                call_log.max_argv_element_length, len(str(each_token))
-            )
-        maybe_stdin = all_keywords.get("stdin")
-        if maybe_stdin is not None and maybe_stdin is not subprocess.DEVNULL:
-            call_log.is_stdin_from_prompt_file = True
-            maybe_name = getattr(maybe_stdin, "name", None)
-            if maybe_name is not None:
-                call_log.claude_stdin_path = Path(str(maybe_name))
-        maybe_cwd = all_keywords.get("cwd")
-        if maybe_cwd is not None:
-            working_directory = Path(str(maybe_cwd))
-            call_log.claude_working_directory = working_directory
-            call_log.all_observed_working_directories.append(working_directory)
-        return subprocess.CompletedProcess(
-            args=list(all_invocation_tokens),
-            returncode=0,
-            stdout="{}",
-            stderr="",
-        )
-
-    monkeypatch.setattr(
-        chain_runner, "chain_subprocess_runner", _tracking_subprocess_runner
-    )
     return call_log
 
 
@@ -487,8 +452,7 @@ def test_grok_auth_failed_on_third_party_runs_tier_three(
         AGENT_FLAG,
         FIXTURE_ROLE,
     ]
-    assert call_log.is_stdin_from_prompt_file is True
-    assert call_log.claude_stdin_path == prompt_file
+    assert call_log.claude_stdin_text == FIXTURE_PROMPT_TEXT
     assert call_log.claude_working_directory == working_directory
     assert spawn_outcome.all_attempts[0].tier == TIER_GROK
     assert spawn_outcome.all_attempts[0].reason == CLASSIFICATION_AUTH_FAILURE
@@ -496,11 +460,11 @@ def test_grok_auth_failed_on_third_party_runs_tier_three(
     assert spawn_outcome.all_attempts[1].is_ok is True
 
 
-def test_tier_three_exhausted_returns_exit_two(
+def test_tier_three_wait_reports_reset_and_stops(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     prompt_file, working_directory, run_state_directory = _paths(tmp_path)
-    _install_seams(
+    call_log = _install_seams(
         monkeypatch,
         grok_outcome=_grok_failure(CLASSIFICATION_AUTH_FAILURE),
         claude_outcome=_claude_exhausted(),
@@ -522,11 +486,14 @@ def test_tier_three_exhausted_returns_exit_two(
         ]
     )
 
-    assert exit_code == SPAWN_EXHAUSTED_EXIT_CODE
+    assert exit_code == WAIT_EXIT_CODE
     captured = capsys.readouterr()
     parsed_payload = json.loads(captured.out)
     assert parsed_payload[RESULT_KEY_OK] is False
     assert parsed_payload[RESULT_KEY_TIER_USED] is None
+    assert parsed_payload["status"] == "exhausted"
+    assert parsed_payload["wait_reset_at"] == datetime(2026, 10, 4, tzinfo=timezone.utc).isoformat()
+    assert call_log.claude_calls == 1
 
 
 def test_config_error_returns_exit_three(
@@ -536,7 +503,7 @@ def test_config_error_returns_exit_three(
     _install_seams(
         monkeypatch,
         grok_outcome=_grok_failure(CLASSIFICATION_AUTH_FAILURE),
-        claude_outcome=ChainConfigurationError("chain config missing"),
+        claude_outcome=BrokerConfigurationError("chain config missing"),
         host_profile=HOST_PROFILE_THIRD_PARTY,
     )
 
@@ -660,6 +627,8 @@ def test_cli_stdout_carries_only_json_result(
         RESULT_KEY_ATTEMPTS,
         RESULT_KEY_OUTPUT,
         RESULT_KEY_RETURNCODE,
+        "status",
+        "wait_reset_at",
     }
     assert reparsed[RESULT_KEY_TIER_USED] == TIER_GROK
     assert reparsed[RESULT_KEY_OK] is True
@@ -797,8 +766,7 @@ def test_enable_claude_tier_flag_reaches_tier_three_on_claude_host(
 
     assert exit_code == SPAWN_SERVED_EXIT_CODE
     assert call_log.claude_calls == 1
-    assert call_log.is_stdin_from_prompt_file is True
-    assert call_log.claude_stdin_path == prompt_file
+    assert call_log.claude_stdin_text == FIXTURE_PROMPT_TEXT
     assert call_log.claude_working_directory == working_directory
     assert call_log.claude_arguments is not None
     assert PROMPT_FILE_FLAG not in call_log.claude_arguments
@@ -892,8 +860,7 @@ def test_large_prompt_stays_out_of_claude_argv(
     assert call_log.claude_arguments is not None
     assert large_prompt_text not in call_log.claude_arguments
     assert call_log.max_argv_element_length < WINDOWS_SAFE_ARGV_ELEMENT_CEILING
-    assert call_log.is_stdin_from_prompt_file is True
-    assert call_log.claude_stdin_path == prompt_file
+    assert call_log.claude_stdin_text == large_prompt_text
 
 
 def test_missing_prompt_file_returns_json_config_exit(
@@ -1027,19 +994,9 @@ def test_prompt_open_failure_not_classified_as_executable_not_found(
         lambda *all_positionals, **all_keywords: HOST_PROFILE_THIRD_PARTY,
     )
     monkeypatch.setattr(
-        chain_runner,
-        "load_chain",
-        lambda _config_path: [chain_runner.ChainEntry(command="claude", extra_args=())],
-    )
-    monkeypatch.setattr(
-        chain_runner,
-        "chain_subprocess_runner",
-        lambda *all_positionals, **all_keywords: subprocess.CompletedProcess(
-            args=["claude"],
-            returncode=0,
-            stdout="{}",
-            stderr="",
-        ),
+        dispatcher,
+        "spawn_claude_runner",
+        lambda *args, **kwargs: pytest.fail("broker must not run"),
     )
     _deny_prompt_open(
         monkeypatch,
@@ -1073,27 +1030,22 @@ def test_prompt_open_failure_not_classified_as_executable_not_found(
     assert "executable_not_found" not in all_attempt_reasons
 
 
-def test_headless_chain_runner_lock_serializes_distinct_cwds(
+def test_headless_jobs_keep_distinct_cwds(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    prompt_file = tmp_path / "prompt.txt"
-    prompt_file.write_text(FIXTURE_PROMPT_TEXT, encoding="utf-8")
-    first_working_directory = tmp_path / "project-a"
+    prompt_file, first_working_directory, run_state_directory = _paths(tmp_path)
     second_working_directory = tmp_path / "project-b"
-    first_working_directory.mkdir()
     second_working_directory.mkdir()
-    run_state_directory = tmp_path / "run-state"
-    run_state_directory.mkdir()
     call_log = _install_seams(
         monkeypatch,
         grok_outcome=_grok_failure(CLASSIFICATION_AUTH_FAILURE),
         claude_outcome=_claude_served(),
         host_profile=HOST_PROFILE_THIRD_PARTY,
     )
-    all_errors: list[Exception] = []
+    errors: list[Exception] = []
     barrier = threading.Barrier(2)
 
-    def _run_with_working_directory(working_directory: Path) -> None:
+    def run_with_directory(working_directory: Path) -> None:
         try:
             barrier.wait(timeout=5)
             dispatcher.resolve_worker_spawn(
@@ -1103,202 +1055,103 @@ def test_headless_chain_runner_lock_serializes_distinct_cwds(
                 timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
                 is_claude_tier_enabled=False,
                 run_state_directory=run_state_directory,
-                    )
-        except (OSError, RuntimeError, ValueError, AssertionError) as raised_error:
-            all_errors.append(raised_error)
+            )
+        except (OSError, RuntimeError, ValueError, AssertionError) as error:
+            errors.append(error)
 
-    first_thread = threading.Thread(
-        target=_run_with_working_directory, args=(first_working_directory,)
-    )
-    second_thread = threading.Thread(
-        target=_run_with_working_directory, args=(second_working_directory,)
-    )
+    first_thread = threading.Thread(target=run_with_directory, args=(first_working_directory,))
+    second_thread = threading.Thread(target=run_with_directory, args=(second_working_directory,))
     first_thread.start()
     second_thread.start()
     first_thread.join(timeout=10)
     second_thread.join(timeout=10)
 
-    assert all_errors == []
+    assert errors == []
     assert call_log.claude_calls == 2
     assert set(call_log.all_observed_working_directories) == {
-        first_working_directory,
-        second_working_directory,
+        first_working_directory, second_working_directory
     }
-    assert chain_runner.chain_subprocess_runner is not None
 
 
-def test_shared_chain_runner_lock_serializes_cross_dispatcher_cwds(
+def test_code_review_and_dispatcher_forward_their_own_cwds(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    first_working_directory = tmp_path / "project-a"
-    second_working_directory = tmp_path / "project-b"
+    first_working_directory = tmp_path / "review"
+    second_working_directory = tmp_path / "spawn"
     first_working_directory.mkdir()
     second_working_directory.mkdir()
-    observed_working_directories: list[Path] = []
-    all_errors: list[BaseException] = []
+    observed: list[Path] = []
 
-    class CoordinatedLock:
-        def __init__(self) -> None:
-            self._lock = threading.Lock()
-            self.first_acquired = threading.Event()
-            self.second_attempted = threading.Event()
-            self.enter_count = 0
-
-        def __enter__(self) -> Self:
-            self.enter_count += 1
-            if self.enter_count == 1:
-                self.first_acquired.set()
-            elif self.enter_count == 2:
-                self.second_attempted.set()
-            self._lock.acquire()
-            return self
-
-        def __exit__(self, *all_positionals: object) -> None:
-            del all_positionals
-            self._lock.release()
-
-    coordinated_lock = CoordinatedLock()
-
-    def tracking_subprocess_runner(
-        all_invocation_tokens: Sequence[str],
-        *all_positionals: object,
-        **all_keywords: object,
-    ) -> subprocess.CompletedProcess[str]:
-        del all_invocation_tokens, all_positionals
-        observed_working_directories.append(Path(str(all_keywords["cwd"])))
-        return subprocess.CompletedProcess(
-            args=["claude"], returncode=0, stdout="{}", stderr=""
-        )
-
-    def run_review_runner(
-        all_claude_arguments: list[str], *, timeout_seconds: int
-    ) -> ChainInvocationOutcome:
-        del all_claude_arguments, timeout_seconds
-        if not coordinated_lock.second_attempted.wait(
-            timeout=LOCK_WAIT_TIMEOUT_SECONDS
-        ):
-            all_errors.append(AssertionError("shared lock was never contended"))
-            return _claude_served()
-        chain_runner.chain_subprocess_runner(
-            ["claude"], capture_output=True, text=True, timeout=1, check=False
-        )
+    def runner(product: Product, argv: list[str], **options: object) -> JobOutcome:
+        assert product is Product.CLAUDE
+        observed.append(Path(options["cwd"]))
         return _claude_served()
 
-    def run_spawn_runner(
-        all_claude_arguments: list[str], *, timeout_seconds: int
-    ) -> ChainInvocationOutcome:
-        del all_claude_arguments, timeout_seconds
-        chain_runner.chain_subprocess_runner(
-            ["claude"], capture_output=True, text=True, timeout=1, check=False
-        )
-        return _claude_served()
+    monkeypatch.setattr(invoker, "review_claude_runner", runner)
+    monkeypatch.setattr(dispatcher, "spawn_claude_runner", runner)
 
-    monkeypatch.setattr(
-        chain_runner, "chain_subprocess_runner", tracking_subprocess_runner
+    invoker._run_claude_with_empty_stdin(
+        ["-p", "review"], timeout_seconds=1, working_directory=first_working_directory
     )
-    monkeypatch.setattr(
-        chain_runner, "chain_subprocess_runner_lock", lambda: coordinated_lock,
-        raising=False,
+    dispatcher._run_claude_with_headless_overrides(
+        ["-p", "spawn"],
+        timeout_seconds=1,
+        working_directory=second_working_directory,
+        prompt_text=FIXTURE_PROMPT_TEXT,
     )
-    monkeypatch.setattr(invoker, "review_claude_runner", run_review_runner)
-    monkeypatch.setattr(dispatcher, "spawn_claude_runner", run_spawn_runner)
 
-    def run_review() -> None:
-        try:
-            invoker._run_claude_with_empty_stdin(
-                ["-p", "review"],
-                timeout_seconds=1,
-                working_directory=first_working_directory,
-            )
-        except Exception as raised_error:  # noqa: BLE001
-            all_errors.append(raised_error)
-
-    def run_spawn() -> None:
-        try:
-            dispatcher._run_claude_with_headless_overrides(
-                ["-p", "spawn"],
-                timeout_seconds=1,
-                working_directory=second_working_directory,
-                prompt_stdin=io.StringIO(FIXTURE_PROMPT_TEXT),
-            )
-        except Exception as raised_error:  # noqa: BLE001
-            all_errors.append(raised_error)
-
-    review_thread = threading.Thread(target=run_review)
-    spawn_thread = threading.Thread(target=run_spawn)
-    review_thread.start()
-    coordinated_lock.first_acquired.wait(timeout=LOCK_WAIT_TIMEOUT_SECONDS)
-    spawn_thread.start()
-    review_thread.join(timeout=10)
-    spawn_thread.join(timeout=10)
-
-    assert all_errors == []
-    assert coordinated_lock.enter_count == 2
-    assert observed_working_directories == [
-        first_working_directory,
-        second_working_directory,
-    ]
-    assert chain_runner.chain_subprocess_runner is tracking_subprocess_runner
+    assert observed == [first_working_directory, second_working_directory]
 
 
-def test_usage_limit_fallover_delivers_full_prompt_to_each_binary(
+def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     prompt_file, working_directory, run_state_directory = _paths(tmp_path)
+    accounts = (
+        Account(Product.CLAUDE, "first", tmp_path / "first"),
+        Account(Product.CLAUDE, "second", tmp_path / "second"),
+    )
+    reset_at = datetime(2026, 10, 5, tzinfo=timezone.utc)
+    adapter = ProductAdapter(
+        lambda: accounts,
+        lambda account: Meters(80, reset_at, 80, reset_at),
+        "CLAUDE_CONFIG_DIR",
+        ("usage limit",),
+        False,
+    )
+    observed: list[tuple[str, bytes]] = []
+
+    def runner(argv: list[str], **options: object) -> subprocess.CompletedProcess[str]:
+        account_name = Path(options["env"]["CLAUDE_CONFIG_DIR"]).name
+        observed.append((account_name, options["input"]))
+        if account_name == "first":
+            return subprocess.CompletedProcess(argv, 1, "usage limit reached", "")
+        return subprocess.CompletedProcess(argv, 0, FIXTURE_CLAUDE_STDOUT, "")
+
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
+    monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "state.json")
     monkeypatch.setattr(
         dispatcher,
         "spawn_preflight_runner",
-        lambda **_keyword_arguments: _fallthrough_preflight(REASON_GROK_AUTH_FAILED),
+        lambda **kwargs: _fallthrough_preflight(REASON_GROK_AUTH_FAILED),
     )
     monkeypatch.setattr(
-        dispatcher,
-        "spawn_host_profile_detector",
-        lambda *all_positionals, **all_keywords: HOST_PROFILE_THIRD_PARTY,
+        dispatcher, "spawn_host_profile_detector", lambda: HOST_PROFILE_THIRD_PARTY
     )
-    monkeypatch.setattr(
-        chain_runner,
-        "load_chain",
-        lambda _config_path: [
-            chain_runner.ChainEntry(command="claude", extra_args=()),
-            chain_runner.ChainEntry(command="claude-profile-c", extra_args=()),
-        ],
-    )
-    prompt_text_by_command: dict[str, str] = {}
-
-    def _reading_subprocess_runner(
-        all_invocation_tokens: Sequence[str],
-        *all_positionals: object,
-        **all_keywords: object,
-    ) -> subprocess.CompletedProcess[str]:
-        del all_positionals
-        command_name = str(all_invocation_tokens[0])
-        read_prompt = getattr(all_keywords.get("stdin"), "read", None)
-        prompt_text_by_command[command_name] = read_prompt() if read_prompt else ""
-        is_primary = command_name == "claude"
-        return subprocess.CompletedProcess(
-            args=list(all_invocation_tokens),
-            returncode=(
-                FIXTURE_FAILED_RETURNCODE if is_primary else SPAWN_SERVED_EXIT_CODE
-            ),
-            stdout="usage limit reached" if is_primary else FIXTURE_CLAUDE_STDOUT,
-            stderr="",
+    with account_broker.override_subprocess_runner(runner):
+        outcome = dispatcher.resolve_worker_spawn(
+            role=DEFAULT_ROLE,
+            prompt_file=prompt_file,
+            working_directory=working_directory,
+            timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
+            is_claude_tier_enabled=False,
+            run_state_directory=run_state_directory,
         )
 
-    monkeypatch.setattr(
-        chain_runner, "chain_subprocess_runner", _reading_subprocess_runner
-    )
-
-    outcome = dispatcher.resolve_worker_spawn(
-        role=DEFAULT_ROLE,
-        prompt_file=prompt_file,
-        working_directory=working_directory,
-        timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
-        is_claude_tier_enabled=False,
-        run_state_directory=run_state_directory,
-    )
-
-    assert prompt_text_by_command["claude"] == FIXTURE_PROMPT_TEXT
-    assert prompt_text_by_command["claude-profile-c"] == FIXTURE_PROMPT_TEXT
+    assert observed == [
+        ("first", FIXTURE_PROMPT_TEXT.encode("utf-8")),
+        ("second", FIXTURE_PROMPT_TEXT.encode("utf-8")),
+    ]
     assert outcome.tier_used == TIER_CLAUDE_HEADLESS
     assert outcome.is_ok is True
 

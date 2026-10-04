@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.44.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.6...claude-dev-env-v8.44.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny hedged claims in project replies and decision cards ([3adc9da](https://github.com/jl-cmd/claude-dev-env/commit/3adc9da34a6f6cdc3c06dec10813b39e682ff2a2))
+
+## [8.43.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.5...claude-dev-env-v8.43.6) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** run the Claude callers through the account broker ([9edb21d](https://github.com/jl-cmd/claude-dev-env/commit/9edb21d30847a7c7eb796d76e5b1bbd5fe48e8f5))
+
 ## [8.43.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.4...claude-dev-env-v8.43.5) (2026-10-04)
 
 
