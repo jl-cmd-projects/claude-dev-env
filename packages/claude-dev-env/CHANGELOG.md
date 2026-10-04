@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.51.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.3...claude-dev-env-v8.51.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* Allow the claude-dev-env update command in auto mode ([9cb4034](https://github.com/jl-cmd/claude-dev-env/commit/9cb40340b3065b8f653c4a749ea80cbd2b490fa7))
+
 ## [8.51.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.2...claude-dev-env-v8.51.3) (2026-10-04)
 
 
