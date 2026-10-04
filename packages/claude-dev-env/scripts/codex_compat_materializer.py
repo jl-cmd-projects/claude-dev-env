@@ -684,6 +684,11 @@ def _is_code_rules_enforcer_hook(all_hook_record: dict[str, object]) -> bool:
     )
 
 
+def _is_windows_host() -> bool:
+    """Report whether hook command paths compare without regard to case."""
+    return os.name == "nt"
+
+
 def _is_managed_codex_enforcer_hook(
     all_hook_record: dict[str, object], managed_command: str
 ) -> bool:
@@ -693,7 +698,7 @@ def _is_managed_codex_enforcer_hook(
         return False
     normalized_command = command.replace("\\", path_separator)
     normalized_managed_command = managed_command.replace("\\", path_separator)
-    if os.name == "nt":
+    if _is_windows_host():
         return normalized_command.casefold() == normalized_managed_command.casefold()
     return normalized_command == normalized_managed_command
 
