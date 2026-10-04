@@ -23,7 +23,6 @@ from dev_env_scripts_constants.account_broker_constants import (
 )
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
-    MAIN_SPEND_WINDOW,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
@@ -41,7 +40,6 @@ def test_should_keep_claude_floors_tied_to_the_account_ceilings() -> None:
     assert ALL_CLAUDE_FLOORS == {
         "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
         "main_session_used_ceiling": MAIN_SESSION_USED_CEILING_PERCENT,
-        "main_spend_window": MAIN_SPEND_WINDOW,
         "extra_weekly_used_ceiling": SECOND_WEEKLY_USED_CEILING_PERCENT,
         "extra_session_used_ceiling": SECOND_SESSION_USED_CEILING_PERCENT,
     }

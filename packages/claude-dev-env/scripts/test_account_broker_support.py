@@ -88,7 +88,7 @@ def test_should_cache_account_reading_under_injected_state_path(
         seen.append(selected.name)
         return Meters(80.0, None, 80.0, None)
 
-    adapter = ProductAdapter(lambda: (account,), reader, "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), reader, "CODEX_HOME", ())
     state = support._load_state(support.broker_state_path())
     now = datetime(2026, 10, 3, tzinfo=timezone.utc)
 
