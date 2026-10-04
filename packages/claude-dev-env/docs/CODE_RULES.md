@@ -96,6 +96,8 @@ Open [details](code-rules/design-and-structure.md) when renaming symbols.
 
 Never swallow a failure into a default unless the caller explicitly opted in at the boundary. Name the specific exception (`except KeyError:`) and propagate the rest. Collapsing every error class to `None` masks programming errors and makes debugging impossible.
 
+A member loop catches its declared `*ItemBlocked` type inside the loop and lets a `*RunFatal` pass through, and an `except Exception` in that loop triggers this rule.
+
 Open [details](code-rules/design-and-structure.md) when handling batch failures.
 
 ## 9.8 REMOVE CODE YOU ORPHAN (Dead Code Elimination)
