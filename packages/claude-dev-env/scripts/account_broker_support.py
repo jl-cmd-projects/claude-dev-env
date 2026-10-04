@@ -6,6 +6,7 @@ import errno
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -439,13 +440,21 @@ def _resume_id(all_argv: Sequence[str]) -> str | None:
     return None
 
 
+def _resolve_command(all_argv: Sequence[str]) -> list[str]:
+    command_name, *all_arguments = all_argv
+    resolved_command = shutil.which(command_name)
+    if resolved_command is None and not os.path.dirname(command_name):
+        raise FileNotFoundError(errno.ENOENT, "command not found on PATH", command_name)
+    return [resolved_command or command_name, *all_arguments]
+
+
 def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subprocess.CompletedProcess[str]:
     encoding = str(options.get("encoding") or "utf-8")
     errors = str(options.get("errors") or "replace")
     stdin_bytes = options.get("input")
     with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
         with subprocess.Popen(
-            list(all_argv),
+            _resolve_command(all_argv),
             stdin=subprocess.PIPE if stdin_bytes is not None else None,
             stdout=stdout_file,
             stderr=stderr_file,

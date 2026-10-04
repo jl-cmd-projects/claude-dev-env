@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -216,3 +217,42 @@ def test_should_end_grandchildren_when_the_broker_is_interrupted(
     beat_after_interrupt = heartbeat_file.read_text(encoding="utf-8")
     time.sleep(0.5)
     assert heartbeat_file.read_text(encoding="utf-8") == beat_after_interrupt
+
+
+def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
+    all_launched_argv: list[list[str]] = []
+
+    class FakeProcess:
+        returncode = 0
+
+        def __init__(self, all_argv: list[str], **options: object) -> None:
+            all_launched_argv.append(list(all_argv))
+
+        def __enter__(self) -> "FakeProcess":
+            return self
+
+        def __exit__(self, *exception_info: object) -> None:
+            return None
+
+        def communicate(self, **options: object) -> tuple[None, None]:
+            return None, None
+
+    monkeypatch.setattr(support.subprocess, "Popen", FakeProcess)
+
+    completion = support.subprocess_runner(["claude", "-p"], input=b"", encoding="utf-8", errors="replace")
+
+    assert all_launched_argv == [[resolved_command, "-p"]]
+    assert completion.returncode == 0
+
+
+def test_should_refuse_to_launch_a_bare_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    with pytest.raises(FileNotFoundError) as raised:
+        support.subprocess_runner(["claude", "-p"])
+
+    assert raised.value.errno == errno.ENOENT
+    assert raised.value.filename == "claude"
