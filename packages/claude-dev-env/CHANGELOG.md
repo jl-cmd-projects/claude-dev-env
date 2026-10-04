@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.11](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.10...claude-dev-env-v8.46.11) (2026-10-04)
+
+
+### Documentation
+
+* drop trailing contrast clauses left after [#1748](https://github.com/jl-cmd/claude-dev-env/issues/1748) ([4c1d1d3](https://github.com/jl-cmd/claude-dev-env/commit/4c1d1d3f722b7c0f65d77375ca04d260d36705d6))
+
 ## [8.46.10](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.9...claude-dev-env-v8.46.10) (2026-10-04)
 
 
