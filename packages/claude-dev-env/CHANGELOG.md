@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.45.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.6...claude-dev-env-v8.45.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** wait on broker spent marks outside the roster ([edffaa8](https://github.com/jl-cmd/claude-dev-env/commit/edffaa87f4da55e7bbbb7d2b006128b5f0109ac6))
+
 ## [8.44.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.5...claude-dev-env-v8.44.6) (2026-10-04)
 
 
