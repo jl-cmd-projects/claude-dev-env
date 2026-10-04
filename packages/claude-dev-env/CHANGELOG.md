@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.51.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.1...claude-dev-env-v8.51.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** keep the session title on status every turn ([#1839](https://github.com/jl-cmd/claude-dev-env/issues/1839)) ([7023aad](https://github.com/jl-cmd/claude-dev-env/commit/7023aad05af87fa17082d115412181d990f29510))
+
+## [8.50.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.0...claude-dev-env-v8.50.1) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** point CONVERGE_PATH label at the archived converge.mjs ([4492229](https://github.com/jl-cmd/claude-dev-env/commit/449222904574d0e79dd86b271e9031cef2767615))
+
+## [8.50.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.4...claude-dev-env-v8.50.0) (2026-10-04)
+
+
+### Features
+
+* **account-broker:** pick Claude accounts in a configured priority order ([#1837](https://github.com/jl-cmd/claude-dev-env/issues/1837)) ([64b6615](https://github.com/jl-cmd/claude-dev-env/commit/64b66157786cd65792454f4eabe74ea4c73440be))
+
+## [8.49.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.3...claude-dev-env-v8.49.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **marketplace:** ship usage-wrapup from this repository ([#1838](https://github.com/jl-cmd/claude-dev-env/issues/1838)) ([1328dcd](https://github.com/jl-cmd/claude-dev-env/commit/1328dcd720a2de326a2175b7bd4da96e99aac767))
+
 ## [8.49.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.2...claude-dev-env-v8.49.3) (2026-10-04)
 
 
