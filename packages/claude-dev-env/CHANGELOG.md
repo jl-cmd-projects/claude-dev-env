@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.49.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.7...claude-dev-env-v8.49.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny gh auth switch, login, and logout from agents ([5c5f7ad](https://github.com/jl-cmd/claude-dev-env/commit/5c5f7ad2a7b22dd72b0c4305bf2c6a9c85ee800e))
+
 ## [8.48.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.6...claude-dev-env-v8.48.7) (2026-10-04)
 
 
