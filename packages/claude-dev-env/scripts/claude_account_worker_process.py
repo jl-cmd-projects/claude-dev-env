@@ -1,4 +1,4 @@
-"""Run a headless Claude worker through the account broker."""
+"""Time one broker job for the headless Claude worker."""
 
 from __future__ import annotations
 
