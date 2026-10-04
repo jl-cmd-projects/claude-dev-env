@@ -172,6 +172,33 @@ def test_should_stay_silent_in_a_session_with_no_title_tool(
     assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
 
 
+def test_should_stay_silent_in_a_remote_session_whose_tool_list_lacks_the_title_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REMOTE_SESSION_VARIABLE, "cse_1")
+    all_entries = [
+        deferred_tools("TaskCreate", "mcp__claude-code-remote__get_session"),
+        prompt("Fix the runner"),
+        tool_call("t1", "Bash"),
+        tool_result("t1"),
+    ]
+    assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
+
+
+def test_should_block_a_remote_session_whose_tool_list_names_the_title_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REMOTE_SESSION_VARIABLE, "cse_1")
+    all_entries = [
+        deferred_tools("TaskCreate", REMOTE_TITLE_TOOL),
+        prompt("Fix the runner"),
+        tool_call("t1", "Bash"),
+        tool_result("t1"),
+    ]
+    _, stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)
+    assert json.loads(stdout_text)["decision"] == "block"
+
+
 def test_should_stay_silent_on_the_retry_after_a_block(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

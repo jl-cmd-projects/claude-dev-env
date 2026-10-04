@@ -9,8 +9,9 @@ stop once and tells the model to set '<emoji> <name>'.
 The hook stays silent when:
 
 - the stop is already a retry after a block (stop_hook_active is true);
-- the session shows no title tool: no remote session id in the environment,
-  and no title tool named anywhere in the transcript;
+- the session shows no title tool: no title tool named anywhere in the
+  transcript, and either no remote session id in the environment or a
+  deferred tool listing that leaves the title tool out;
 - the transcript cannot be read.
 """
 
@@ -79,6 +80,11 @@ def _title_tool_names_in(all_entry_fields: dict[str, object]) -> list[str]:
     return [each_name for each_name in all_names if TITLE_TOOL_NAME_PATTERN.match(each_name)]
 
 
+def _lists_deferred_tools(all_entry_fields: dict[str, object]) -> bool:
+    attachment = all_entry_fields.get("attachment")
+    return isinstance(attachment, dict) and attachment.get("type") in DEFERRED_TOOL_ATTACHMENT_TYPES
+
+
 def _is_title_call(entry_type: object, all_block_fields: dict[str, object]) -> bool:
     return (
         entry_type == "assistant"
@@ -125,10 +131,11 @@ def stop_block_reason(all_entries: list[dict[str, object]], is_remote_session: b
         prompt -> set_session_title -> ok result   => None
         prompt -> work, no title call              => block reason
         no title tool anywhere, not remote         => None
+        remote, tool list lacks the title tool     => None
 
     Args:
         all_entries: The transcript entries, oldest first.
-        is_remote_session: True when the session runs in a cloud session with a title tool.
+        is_remote_session: True when the session runs in a cloud session.
 
     Returns:
         The reason to send back to the model, or None to let the turn end.
@@ -136,7 +143,9 @@ def stop_block_reason(all_entries: list[dict[str, object]], is_remote_session: b
     all_seen_tool_names = [
         each_name for each_entry in all_entries for each_name in _title_tool_names_in(each_entry)
     ]
-    if not all_seen_tool_names and not is_remote_session:
+    if not all_seen_tool_names and (
+        not is_remote_session or any(_lists_deferred_tools(each) for each in all_entries)
+    ):
         return None
     if _title_set_since(all_entries[_turn_start_index(all_entries) :]):
         return None
