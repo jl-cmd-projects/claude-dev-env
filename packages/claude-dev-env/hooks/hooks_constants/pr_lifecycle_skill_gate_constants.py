@@ -18,6 +18,11 @@ ALL_GITHUB_MCP_TOOL_SUFFIXES = (
     "__update_pull_request",
 )
 ALL_TRANSCRIPT_PATH_FIELDS = ("transcript_path", "agent_transcript_path")
+SESSION_TRANSCRIPT_PATH_FIELD = "transcript_path"
+AGENT_ID_FIELD = "agent_id"
+AGENT_ID_PATTERN = r"[A-Za-z0-9_-]+"
+SUBAGENT_TRANSCRIPT_DIRECTORY_NAME = "subagents"
+SUBAGENT_TRANSCRIPT_FILE_TEMPLATE = "agent-{agent_id}.jsonl"
 COMMAND_SEPARATORS = ";|&\n()`"
 COMMAND_WHITESPACE = " \t\r"
 OPTION_AND_VALUE_WORD_COUNT = 2
