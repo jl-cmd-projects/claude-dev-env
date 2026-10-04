@@ -65,7 +65,11 @@ It scans every `~/.claude*` folder and every `~/.claude-profiles/*` folder that 
 
 ## Install
 
-The claude-dev-env marketplace ships the mod:
+A full `npx claude-dev-env` install adds the claude-dev-env marketplace and installs the mod at user scope, so every Claude Code session under that config folder loads it. `--no-subagent-models` or `CDE_INSTALL_SUBAGENT_MODELS=0` skips that step.
+
+The installer removes and reinstalls the plugin on each run. Claude Code drops a plugin's saved `/config` values when it uninstalls the plugin, so after an installer run the defaults in the Settings table apply again.
+
+To install it by hand:
 
 ```sh
 claude plugin marketplace add jl-cmd/claude-dev-env
