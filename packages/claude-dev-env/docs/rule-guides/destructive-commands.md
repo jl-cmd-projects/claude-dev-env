@@ -32,7 +32,7 @@ A file left in the OS temp directory or under `$CLAUDE_JOB_DIR` is cleaned by th
 
 The permission matcher reads the raw command string. A destructive literal carried only as data still sits in that string, so it can push the command out of an allowed shape and into a prompt even though the shell never executes it. This covers a commit message, a PR or issue body, an echoed string, a `python -c` or `node -e` or `awk` argument, and a heredoc.
 
-- Bodies that describe destructive-command behavior go in a file passed by path, such as `git commit -F <file>` or `gh … --body-file <file>`. See [`gh-cli-conventions.md`](../../rules/gh-cli-conventions.md). Never `git commit -m` or `gh … -b`.
+- Bodies that describe destructive-command behavior go in a file passed by path, such as `git commit -F <file>` or `gh … --body-file <file>`. See [gh CLI conventions](../../.agents/skills/pr-lifecycle/SKILL.md#gh-cli-conventions). Never `git commit -m` or `gh … -b`.
 - To exercise or verify a hook, run the committed test suite with `python -m pytest <test_file>`, which passes the command strings as in-language data. Never an inline `python -c` harness.
 
 ## Every subagent prompt carries the rule
