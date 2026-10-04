@@ -224,9 +224,13 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
         return None
     if is_spent:
         return min((reset for reset in (meters.session_resets_at, meters.weekly_resets_at) if reset is not None), default=None)
-    if reading.account.product is Product.CLAUDE:
-        if reading.account.is_main:
-            return meters.weekly_resets_at
+    is_claude_main = reading.account.product is Product.CLAUDE and reading.account.is_main
+    if is_claude_main:
+        blocking = (
+            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"], meters.session_resets_at),
+            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"], meters.weekly_resets_at),
+        )
+    elif reading.account.product is Product.CLAUDE:
         blocking = (
             (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"], meters.session_resets_at),
             (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"], meters.weekly_resets_at),
@@ -236,7 +240,10 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
             (meters.session_percent_left, ALL_CODEX_FLOORS["luna_short_minimum_left"], meters.session_resets_at),
             (meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"], meters.weekly_resets_at),
         )
-    return max((reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None), default=None)
+    all_blocking_resets = [reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None]
+    if is_claude_main and meters.weekly_resets_at is not None:
+        all_blocking_resets.append(meters.weekly_resets_at - ALL_CLAUDE_FLOORS["main_spend_window"])
+    return max(all_blocking_resets, default=None)
 
 
 def _rank_key(reading: Reading) -> float:
