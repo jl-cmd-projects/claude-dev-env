@@ -1,5 +1,34 @@
 # Changelog
 
+## [8.50.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.4...claude-dev-env-v8.50.0) (2026-10-04)
+
+
+### Features
+
+* **account-broker:** pick Claude accounts in a configured priority order ([#1837](https://github.com/jl-cmd/claude-dev-env/issues/1837)) ([64b6615](https://github.com/jl-cmd/claude-dev-env/commit/64b66157786cd65792454f4eabe74ea4c73440be))
+
+## [8.49.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.3...claude-dev-env-v8.49.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **marketplace:** ship usage-wrapup from this repository ([#1838](https://github.com/jl-cmd/claude-dev-env/issues/1838)) ([1328dcd](https://github.com/jl-cmd/claude-dev-env/commit/1328dcd720a2de326a2175b7bd4da96e99aac767))
+
+## [8.49.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.2...claude-dev-env-v8.49.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** keep the start-failure text when no account can start ([128f670](https://github.com/jl-cmd/claude-dev-env/commit/128f670e2ee2b892269b09e96eddda62f6535a0b))
+* **account-broker:** keep the start-failure text when no account can start ([564ffda](https://github.com/jl-cmd/claude-dev-env/commit/564ffda3f82e84d8be3c01186832f057338baced))
+
+## [8.49.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.1...claude-dev-env-v8.49.2) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** import the merge check by bare name through conftest ([2618d77](https://github.com/jl-cmd/claude-dev-env/commit/2618d77573fb6f048def0c3ac547d082d31bca19))
+
 ## [8.49.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.0...claude-dev-env-v8.49.1) (2026-10-04)
 
 
