@@ -63,7 +63,7 @@ Tradeoff for category-restricted mode: parallel category invocation loses cross-
 
 Leave comments tied to untouched code unchanged. Findings on production and test code report only on new code added by the diff; comments on lines that remain otherwise unchanged stay outside the audit's scope. New inline comments added by this PR's diff are themselves a category J finding (code self-documents through naming).
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 ## Read-Only Stance
 
