@@ -28,6 +28,8 @@ _ENFORCER_SCRIPT = Path(__file__).resolve().parent / "code_rules_enforcer.py"
 
 _VIOLATING_PRODUCTION_SOURCE = "def process_data(payload: str) -> None:\n    print(payload)\n"
 
+_DIRECTORY_OUTSIDE_TEMP_ROOTS = Path("/home/user")
+
 
 def _run_enforcer_cli(
     all_cli_arguments: list[str],
@@ -74,6 +76,7 @@ def test_should_return_false_for_os_tempfile_gettempdir_root(
     """
     monkeypatch.delenv("CLAUDE_CODE_RULES_DISABLE_EPHEMERAL_EXEMPT", raising=False)
     monkeypatch.delenv("CLAUDE_JOB_DIR", raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", str(_DIRECTORY_OUTSIDE_TEMP_ROOTS / "os_temp_root"))
     system_temp_root = tempfile.gettempdir()
     scratch_path = str(Path(system_temp_root) / "scratch_work.py")
     assert is_ephemeral_script_path(scratch_path) is False
@@ -82,7 +85,6 @@ def test_should_return_false_for_os_tempfile_gettempdir_root(
 @pytest.mark.parametrize("env_name", ["TMPDIR", "TEMP", "TMP"])
 def test_should_return_false_for_tmpdir_temp_tmp_env_roots(
     env_name: str,
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """B3: $TMPDIR / $TEMP / $TMP are not ephemeral sources.
@@ -92,8 +94,9 @@ def test_should_return_false_for_tmpdir_temp_tmp_env_roots(
     """
     monkeypatch.delenv("CLAUDE_CODE_RULES_DISABLE_EPHEMERAL_EXEMPT", raising=False)
     monkeypatch.delenv("CLAUDE_JOB_DIR", raising=False)
-    monkeypatch.setenv(env_name, str(tmp_path / "env_root"))
-    scratch_path = str(tmp_path / "env_root" / "scratch.py")
+    env_root = _DIRECTORY_OUTSIDE_TEMP_ROOTS / "env_root"
+    monkeypatch.setenv(env_name, str(env_root))
+    scratch_path = str(env_root / "scratch.py")
     assert is_ephemeral_script_path(scratch_path) is False
 
 
@@ -111,7 +114,8 @@ def test_should_return_false_for_pytest_tmp_path_when_job_dir_elsewhere(
     """
     monkeypatch.delenv("CLAUDE_CODE_RULES_DISABLE_EPHEMERAL_EXEMPT", raising=False)
     monkeypatch.setenv("CLAUDE_JOB_DIR", str(tmp_path / "elsewhere"))
-    pytest_sandbox_target = str(tmp_path / "candidate.py")
+    monkeypatch.setattr(tempfile, "tempdir", str(_DIRECTORY_OUTSIDE_TEMP_ROOTS / "os_temp_root"))
+    pytest_sandbox_target = str(Path(tempfile.gettempdir()) / "pytest-of-user" / "candidate.py")
     assert is_ephemeral_script_path(pytest_sandbox_target) is False
 
 
