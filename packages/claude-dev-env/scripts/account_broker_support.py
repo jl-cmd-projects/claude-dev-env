@@ -25,12 +25,14 @@ import codex_account_meters
 from claude_account_profile import default_profile_home, validate_profile_name
 from claude_chain_usage import WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
+    ALL_BATCH_FILE_EXTENSIONS,
     BROKER_STATE_DIRECTORY_NAME,
     BROKER_STATE_FILE_NAME,
     BROKER_STATE_LOCK_SUFFIX,
     BROKER_STATE_TEMP_SUFFIX,
     Account,
     BrokerConfigurationError,
+    CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
     Meters,
@@ -434,7 +436,29 @@ def _resolve_command(all_argv: Sequence[str]) -> list[str]:
     resolved_command = shutil.which(command_name)
     if resolved_command is None and not os.path.dirname(command_name):
         raise FileNotFoundError(errno.ENOENT, "command not found on PATH", command_name)
-    return [resolved_command or command_name, *all_arguments]
+    launched_command = resolved_command or command_name
+    _refuse_batch_file_shell_metacharacters(launched_command, all_arguments)
+    return [launched_command, *all_arguments]
+
+
+def _refuse_batch_file_shell_metacharacters(launched_command: str, all_arguments: Sequence[str]) -> None:
+    if os.path.splitext(launched_command)[1].casefold() not in ALL_BATCH_FILE_EXTENSIONS:
+        return
+    shell_parsed_argument = next(
+        (
+            each_argument
+            for each_argument in all_arguments
+            if any(each_character in CMD_SHELL_METACHARACTERS for each_character in each_argument)
+        ),
+        None,
+    )
+    if shell_parsed_argument is None:
+        return
+    raise OSError(
+        errno.EINVAL,
+        f"cmd.exe would parse the batch file argument {shell_parsed_argument!r}; send that text on stdin",
+        launched_command,
+    )
 
 
 def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subprocess.CompletedProcess[str]:
