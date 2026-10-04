@@ -51,7 +51,7 @@ def _hook_specific_output(stdout: str) -> dict[str, object]:
 def _assert_reshaped(stdout: str) -> None:
     decision = _hook_specific_output(stdout)
     assert decision["hookEventName"] == "PreToolUse"
-    assert decision["permissionDecision"] == "allow"
+    assert "permissionDecision" not in decision
     assert decision["updatedInput"] == {
         **SPAWN_INPUT,
         "model": "claude-opus-5-5",
