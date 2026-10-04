@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.46.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.4...claude-dev-env-v8.46.5) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** apply the PR 1679 comment-rule wording to every copy ([f760cb0](https://github.com/jl-cmd/claude-dev-env/commit/f760cb0f68cf827ba5164dc38e34190b24f0c3a3))
+
+## [8.46.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.3...claude-dev-env-v8.46.4) (2026-10-04)
+
+
+### Tests
+
+* **rules:** scope the When-line check to the entry body ([8f009e5](https://github.com/jl-cmd/claude-dev-env/commit/8f009e588b49051a395c7a4a1c1c291f4b6505fa))
+
+## [8.46.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.2...claude-dev-env-v8.46.3) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** scan the pin constants file for Sonnet ids ([c3a370b](https://github.com/jl-cmd/claude-dev-env/commit/c3a370b88229d9f1b46666191f66fee98ed8d0b6))
+
 ## [8.46.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.1...claude-dev-env-v8.46.2) (2026-10-04)
 
 
