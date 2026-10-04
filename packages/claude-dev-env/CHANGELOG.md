@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.44.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.3...claude-dev-env-v8.44.4) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** turn CODE_RULES.md into an index with a feature map ([a35d048](https://github.com/jl-cmd/claude-dev-env/commit/a35d048c3cc1de49c8e02b64d1cdb9809e6dc6c3))
+
 ## [8.44.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.2...claude-dev-env-v8.44.3) (2026-10-04)
 
 
