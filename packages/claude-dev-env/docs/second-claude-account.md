@@ -43,8 +43,7 @@ room.
 
 | Account | Has room while |
 |---|---|
-| main | under 90% of its week and under 50% of its 5-hour window |
-| second and each extra profile | under 95% of its week and under 90% of its 5-hour window |
+| every account | under 99% of its week and under 95% of its 5-hour window |
 
 When no account has room, the job waits until the next account reset, or for one
 hour when no reset is known. An unreadable meter never picks its account, and
