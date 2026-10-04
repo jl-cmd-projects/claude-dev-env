@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.46.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.8...claude-dev-env-v8.46.9) (2026-10-04)
+
+
+### Bug Fixes
+
+* **tests:** write lock contender result atomically ([768ea9d](https://github.com/jl-cmd/claude-dev-env/commit/768ea9d0461aa1bc400a9af2443dda79e234a68a))
+
+## [8.46.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.7...claude-dev-env-v8.46.8) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep the permission flow on rewritten spawns ([236e3b9](https://github.com/jl-cmd/claude-dev-env/commit/236e3b9ce177a12cc038bd4b9dd4ab9970a3266a))
+
+## [8.46.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.6...claude-dev-env-v8.46.7) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** drop substitution contrast framing from files PR 1723 touched ([5373cd4](https://github.com/jl-cmd/claude-dev-env/commit/5373cd4216989715e7113779f61bbf8c1f921619))
+
 ## [8.46.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.5...claude-dev-env-v8.46.6) (2026-10-04)
 
 

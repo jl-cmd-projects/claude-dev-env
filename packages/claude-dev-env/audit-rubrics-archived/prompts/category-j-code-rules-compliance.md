@@ -70,7 +70,7 @@ A `test_*.py` name or a `.mjs` extension takes the line out of the write-time ga
 - Comments tied to untouched code remain unchanged; a changed comment is removed with the code it describes.
 - Test files follow the same no-new-comment policy.
 - Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
-- Adversarial probes: (a) is there any `# type:` or marker comment that is inert prose rather than a type-checker / linter directive? (b) is any docstring carrying inline-comment content (line-level explanations rather than module/function description)? (c) does any newly-added blank line between code stanzas function as a comment substitute, suggesting the author wanted to add a comment but couldn't?
+- Adversarial probes: (a) is there any `# type:` or marker comment that is inert prose with no type-checker / linter directive? (b) is any docstring carrying inline-comment content (line-level explanations beyond the module/function description)? (c) does any newly-added blank line between code stanzas function as a comment substitute, suggesting the author wanted to add a comment but couldn't?
 
 **J9. Logging format**
 - Walk every `log_*(...)` call. Must be `log_*("template with {}", arg)`, not `log_*(f"...")`.
