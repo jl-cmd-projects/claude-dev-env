@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
-"""PreToolUse hook that caps the length of a chat reply before it posts.
+"""PreToolUse and Stop hook that caps the length of a reply to the user.
 
 The gate reads the ``text`` field of the chat tools that post to the user.
+On the Stop event it reads ``last_assistant_message``, the final terminal
+reply, and runs the same checks. A Stop denial makes the model restate the
+reply per pstack:bro. It checks once: a Stop payload with
+``stop_hook_active`` set passes, so the restatement ends the turn::
+
+    Stop, 4 sentences, stop_hook_active false -> deny, restate per pstack:bro
+    Stop, 4 sentences, stop_hook_active true  -> allow
+
 It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
 sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
 It also denies a pull request number the reader cannot open::
@@ -66,7 +74,9 @@ from hooks_constants.reply_length_gate_constants import (
     DECISION_CARD_TOOL_NAME,
     FENCED_BLOCK_PATTERN,
     HOOK_EVENT_NAME,
+    HOOK_EVENT_NAME_KEY,
     INLINE_CODE_PATTERN,
+    LAST_ASSISTANT_MESSAGE_KEY,
     LINE_BREAK_PATTERN,
     LINK_TARGET_PATTERN,
     LONG_SENTENCE_MESSAGE,
@@ -77,6 +87,9 @@ from hooks_constants.reply_length_gate_constants import (
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
     SENTENCE_PREVIEW_WORD_COUNT,
+    STOP_EVENT_NAME,
+    STOP_HOOK_ACTIVE_KEY,
+    STOP_RETRY_INSTRUCTION,
     TEXT_KEY,
     TOO_MANY_SENTENCES_MESSAGE,
     TOOL_INPUT_KEY,
@@ -201,18 +214,46 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
     reply_text = all_tool_input.get(TEXT_KEY)
     if not isinstance(reply_text, str):
         return None
-    violation = (
+    violation = reply_violation(reply_text)
+    return None if violation is None else (violation, reply_text)
+
+
+def reply_violation(reply_text: str) -> str | None:
+    """Return the first length, link, or banned-word deny reason for a reply, or None."""
+    return (
         length_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
-    return None if violation is None else (violation, reply_text)
+
+
+def stop_main(all_stop_input: dict[str, object]) -> int:
+    """Check the final assistant message once and make the model restate a long one."""
+    if all_stop_input.get(STOP_HOOK_ACTIVE_KEY) is True:
+        return ALLOW_EXIT_CODE
+    reply_text = all_stop_input.get(LAST_ASSISTANT_MESSAGE_KEY)
+    if not isinstance(reply_text, str):
+        return ALLOW_EXIT_CODE
+    violation = reply_violation(reply_text)
+    if violation is None:
+        return ALLOW_EXIT_CODE
+    block_reason = violation + STOP_RETRY_INSTRUCTION
+    log_hook_block(
+        Path(__file__).name,
+        STOP_EVENT_NAME,
+        block_reason,
+        offending_input_preview=reply_text,
+    )
+    sys.stderr.write(block_reason)
+    return BLOCK_EXIT_CODE
 
 
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
         return ALLOW_EXIT_CODE
+    if hook_input.get(HOOK_EVENT_NAME_KEY) == STOP_EVENT_NAME:
+        return stop_main(hook_input)
     tool_name = hook_input.get(TOOL_NAME_KEY)
     tool_input = hook_input.get(TOOL_INPUT_KEY)
     if not isinstance(tool_input, dict):

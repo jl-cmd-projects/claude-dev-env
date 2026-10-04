@@ -14,6 +14,14 @@ TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
 HOOK_EVENT_NAME = "PreToolUse"
+STOP_EVENT_NAME = "Stop"
+HOOK_EVENT_NAME_KEY = "hook_event_name"
+LAST_ASSISTANT_MESSAGE_KEY = "last_assistant_message"
+STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
+STOP_RETRY_INSTRUCTION = (
+    " Restate that reply per pstack:bro: plain words, no jargon, the point first,"
+    " within the limit. Put the detail in the pull request or a linked file."
+)
 ALLOW_EXIT_CODE = 0
 BLOCK_EXIT_CODE = 2
 FENCED_BLOCK_PATTERN = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)

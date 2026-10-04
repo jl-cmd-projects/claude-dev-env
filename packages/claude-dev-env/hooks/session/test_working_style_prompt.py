@@ -71,5 +71,12 @@ class TestWorkingStylePrompt:
         assert "give brief updates when you find important information" not in WORKING_STYLE_PROMPT
         assert "Name each action, fact, reason, and outcome." not in WORKING_STYLE_PROMPT
 
+    def test_prompt_states_the_reply_length_gate_limits(self) -> None:
+        assert (
+            "Keep every reply to 3 sentences or fewer, each 15 words or fewer"
+        ) in WORKING_STYLE_PROMPT
+        assert "restate a longer reply per pstack:bro" in WORKING_STYLE_PROMPT
+        assert "Keep responses focused, brief, and concise." not in WORKING_STYLE_PROMPT
+
     def test_build_session_directive_returns_the_shared_constant(self) -> None:
         assert starter.build_session_directive() == WORKING_STYLE_PROMPT

@@ -442,3 +442,76 @@ def test_should_apply_the_configured_list_to_decision_cards(
     )
     assert (probably_exit_code, synergy_exit_code) == (0, 2)
     assert 'Banned word "synergy"' in stderr_text
+
+
+LONG_TERMINAL_REPLY = """PR 1803 (the broker install fix) is stuck, and I need your OK to commit it myself.
+Where it stands. The owner agent merged main into the branch, resolved the conflict, and staged it. 101 broker tests pass and lint is clean.
+The block. The installed pr_lifecycle_skill_gate hook denied its git commit twice. It had loaded the pr-lifecycle skill both times.
+What I did. The agent asked me to run the commit instead. I have not, because that would get past a hook denial on its behalf.
+If you say yes, I'll do it. If not, PR 1803 waits until the updated hook is installed."""
+SHORT_TERMINAL_REPLY = (
+    "[PR 1803](https://github.com/jl-cmd/claude-dev-env/pull/1803) is blocked by a hook. "
+    "Should I commit and push it myself? Yes or no."
+)
+
+
+def run_stop(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    stop_input: dict[str, object],
+) -> tuple[int, str]:
+    hook_input = {"hook_event_name": "Stop", **stop_input}
+    monkeypatch.setattr(
+        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+    )
+    exit_code = reply_length_gate.main()
+    return exit_code, capsys.readouterr().err
+
+
+def test_should_make_a_long_terminal_reply_restate_per_bro(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_stop(
+        monkeypatch,
+        capsys,
+        {"stop_hook_active": False, "last_assistant_message": LONG_TERMINAL_REPLY},
+    )
+    assert exit_code == 2
+    assert "Reply too long" in stderr_text
+    assert "pstack:bro" in stderr_text
+
+
+def test_should_allow_a_short_terminal_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_stop(
+        monkeypatch,
+        capsys,
+        {"stop_hook_active": False, "last_assistant_message": SHORT_TERMINAL_REPLY},
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_allow_the_restatement_turn_when_the_stop_hook_is_active(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_stop(
+        monkeypatch,
+        capsys,
+        {"stop_hook_active": True, "last_assistant_message": LONG_TERMINAL_REPLY},
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_allow_a_stop_with_no_final_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_stop(monkeypatch, capsys, {"stop_hook_active": False})
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_return_the_first_reply_violation() -> None:
+    assert reply_length_gate.reply_violation(SHORT_TERMINAL_REPLY) is None
+    assert reply_length_gate.reply_violation("It probably works.") == (
+        'Banned word "probably". Delete it and name the evidence: the log line, the check, the file and line.'
+    )

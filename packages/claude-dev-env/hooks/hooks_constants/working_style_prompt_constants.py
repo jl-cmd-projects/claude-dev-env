@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from hooks_constants.reply_length_gate_constants import (
+    MAXIMUM_SENTENCE_COUNT,
+    MAXIMUM_WORDS_PER_SENTENCE,
+)
+
 __all__ = [
     "WORKING_STYLE_PROMPT",
 ]
@@ -11,7 +16,10 @@ WORKING_STYLE_PROMPT = (
     "running scratch text ledger as you work. Use ELI5 for beginner framing, large "
     "visuals, minimal text, one stable self-contained HTML artifact, update-in-place "
     "continuity, and sharing when a user-facing response needs that presentation. "
-    "Keep responses focused, brief, and concise. Apply ~/.claude/rules/asd-ste100-language.md for "
+    f"Keep every reply to {MAXIMUM_SENTENCE_COUNT} sentences or fewer, each "
+    f"{MAXIMUM_WORDS_PER_SENTENCE} words or fewer, and lead with the point. A list "
+    "counts one sentence per item. The reply length gate makes you restate a longer reply "
+    "per pstack:bro. Apply ~/.claude/rules/asd-ste100-language.md for "
     "user-facing word choice, sentence style, tone, punctuation, and prose form. "
     "Keep disclaimers and caveats short while giving "
     "the main answer most of the response. Give a high-level explanation by default "

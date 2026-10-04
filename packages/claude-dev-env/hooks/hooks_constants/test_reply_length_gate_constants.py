@@ -45,3 +45,16 @@ def test_gate_reads_only_the_prose_fields_of_a_decision_card() -> None:
         constants.DECISION_CARD_OPTIONS_KEY,
         constants.ALL_DECISION_OPTION_PROSE_KEYS,
     ) == (("question", "context"), "options", ("label", "consequence"))
+
+
+def test_stop_event_reads_the_final_message_and_the_active_flag() -> None:
+    assert (
+        constants.STOP_EVENT_NAME,
+        constants.HOOK_EVENT_NAME_KEY,
+        constants.LAST_ASSISTANT_MESSAGE_KEY,
+        constants.STOP_HOOK_ACTIVE_KEY,
+    ) == ("Stop", "hook_event_name", "last_assistant_message", "stop_hook_active")
+
+
+def test_stop_retry_instruction_names_the_bro_restatement() -> None:
+    assert "pstack:bro" in constants.STOP_RETRY_INSTRUCTION
