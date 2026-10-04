@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.20](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.19...claude-dev-env-v8.46.20) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep files under the payload cwd out of the agent-home exemption ([86c110a](https://github.com/jl-cmd/claude-dev-env/commit/86c110ac8342eeda24a3bd50088e166e5e50c8f8))
+
 ## [8.46.19](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.18...claude-dev-env-v8.46.19) (2026-10-04)
 
 
