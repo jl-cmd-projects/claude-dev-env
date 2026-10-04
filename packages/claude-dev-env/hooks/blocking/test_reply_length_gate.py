@@ -377,3 +377,68 @@ def test_should_deny_the_hedges_the_default_list_adds(
 ) -> None:
     exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
     assert exit_code == 2
+
+
+def test_should_ignore_a_banned_word_in_a_card_field_that_holds_no_prose(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {
+            "question": "Exclude the call button?",
+            "context": "Crops show the call button flagged in 7 themes.",
+            "options": [
+                {"id": "maybe", "label": "Exclude it", "consequence": "Seven themes pass."},
+                {"id": "leave", "label": "Leave it", "consequence": "Seven themes keep a warning."},
+            ],
+            "kind": "maybe",
+            "recommended": 0,
+        },
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "card_field_name",
+    ["question", "context", "label", "consequence"],
+)
+def test_should_deny_a_banned_word_in_each_card_prose_field(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], card_field_name: str
+) -> None:
+    option = {"label": "Exclude it", "consequence": "Seven themes pass."}
+    card: dict[str, object] = {
+        "question": "Exclude the call button?",
+        "context": "Crops show the call button flagged.",
+        "options": [option],
+    }
+    if card_field_name in option:
+        option[card_field_name] = "It maybe passes."
+    else:
+        card[card_field_name] = "It maybe passes."
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, DECISION_TOOL_NAME, card)
+    assert exit_code == 2
+    assert '"maybe"' in stderr_text
+
+
+def test_should_apply_the_configured_list_to_decision_cards(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    config_path = tmp_path / ".claude" / "reply-banned-words.json"
+    config_path.parent.mkdir()
+    config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
+    probably_exit_code, _ = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {"question": "Ship it?", "context": "It probably passes."},
+    )
+    synergy_exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {"question": "Ship it?", "context": "Synergy shipped."},
+    )
+    assert (probably_exit_code, synergy_exit_code) == (0, 2)
+    assert 'Banned word "synergy"' in stderr_text
