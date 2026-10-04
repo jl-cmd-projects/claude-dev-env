@@ -442,3 +442,48 @@ def test_should_apply_the_configured_list_to_decision_cards(
     )
     assert (probably_exit_code, synergy_exit_code) == (0, 2)
     assert 'Banned word "synergy"' in stderr_text
+
+
+QUOTED_COLON_SENTENCE = "That second reading matters: one message added 6.7k to Messages."
+
+
+def test_should_deny_the_quoted_mid_sentence_colon(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": QUOTED_COLON_SENTENCE}
+    )
+    assert exit_code == 2
+    assert "colon" in stderr_text
+
+
+@pytest.mark.parametrize(
+    "allowed_text",
+    [
+        "That second reading matters. One message added 6.7k to Messages.",
+        "Two checks failed:\n- lint\n- types",
+        "It fired at 9:47 today.",
+        "The call `a: int` passed.",
+        "See https://example.com/a: b for it.",
+        "Both land in [PR 5256](https://github.com/owner/repo/pull/5256).",
+        "```\nflag: x\n```",
+    ],
+)
+def test_should_allow_a_colon_that_introduces_a_list_or_sits_in_a_span(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], allowed_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": allowed_text})
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_deny_an_em_dash_and_allow_one_in_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    denied_code, denied_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The fix \u2014 a rename \u2014 is in."}
+    )
+    allowed_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The fix uses `\u2014` in a label."}
+    )
+    assert (denied_code, allowed_code) == (2, 0)
+    assert "em dash" in denied_text
