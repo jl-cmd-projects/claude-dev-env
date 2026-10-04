@@ -127,6 +127,28 @@ def test_should_prioritize_main_when_its_guard_passes() -> None:
     assert decision.account == main.account
 
 
+@pytest.mark.parametrize(
+    ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
+    (
+        (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
+        (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
+        (80, 50, NOW + timedelta(days=3), NOW + timedelta(days=2)),
+    ),
+)
+def test_should_wait_for_the_meter_or_window_that_blocks_main(
+    short_left: float, weekly_left: float, weekly_reset: datetime, expected_reset: datetime
+) -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(short_left, weekly_left, short_reset=NOW + timedelta(hours=2), weekly_reset=weekly_reset),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == expected_reset
+
+
 def test_should_try_next_account_after_usage_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     accounts = (_account("first"), _account("second"))
     adapter = _adapter(accounts, {"first": _meters(80, 80), "second": _meters(70, 70)})
