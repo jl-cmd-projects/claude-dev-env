@@ -542,3 +542,41 @@ def test_should_run_job_through_override(
     assert outcome.status == "served"
     assert outcome.attempts == (("only", "served"),)
     assert calls == [b"input"]
+
+
+
+def test_should_print_the_whole_rate_limit_result_for_one_home(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    rate_limit_records = {"rateLimitsByLimitId": {"codex": {"primary": {"usedPercent": 20}}}}
+    observed: list[tuple[Path, Path]] = []
+
+    def read_result(codex_path: Path, codex_home: Path) -> dict[str, object]:
+        observed.append((codex_path, codex_home))
+        return rate_limit_records
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+    home = tmp_path / "codex-2"
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(home), "--codex", "codex-bin")) == 0
+    assert json.loads(capsys.readouterr().out) == {"home": str(home), "rate_limits": rate_limit_records}
+    assert observed == [(Path("codex-bin"), home)]
+
+
+def test_should_exit_two_when_the_limits_read_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    def read_result(_codex_path: Path, _codex_home: Path) -> dict[str, object]:
+        raise account_broker.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(tmp_path), "--codex", "codex-bin")) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no rate-limit reply" in captured.err
+
+
+def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path))) == 2
+    assert "Codex accounts only" in capsys.readouterr().err
