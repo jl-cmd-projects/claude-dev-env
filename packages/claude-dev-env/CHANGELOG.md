@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.47.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.0...claude-dev-env-v8.47.1) (2026-10-04)
+
+
+### Tests
+
+* wait for written lock outcomes in the lock contention test ([c5fc864](https://github.com/jl-cmd/claude-dev-env/commit/c5fc86490810447310d3aaa1769376e82d88aaaf))
+
 ## [8.47.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.31...claude-dev-env-v8.47.0) (2026-10-04)
 
 
