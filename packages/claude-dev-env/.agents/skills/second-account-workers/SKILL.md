@@ -55,7 +55,8 @@ When the command exits 3 and the report has `"account": "wait"`, no account is
 eligible. Report the picker's reason and reset time. Do not fall back to the
 Agent tool. Claude can also return exit 3 after a worker starts. When the
 report account is `main`, `second`, or `extra_2` and later, report the child's
-exit code and result.
+exit code and result. Exit 124 with reason `timeout` means the worker ran past
+`--timeout-minutes`.
 
 Workers never commit, push, or call `gh`. The calling session reviews each
 worktree diff and owns every Git step.

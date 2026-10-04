@@ -2597,7 +2597,7 @@ function runFullInstallPrunes(
  * available to a later prune and to uninstall.
  *
  * @param {string[]|null} selectedGroups The `--only` group names, or null for a full install.
- * @param {{isUpdateRefresh?: boolean}} [options] Run options; `isUpdateRefresh` purges before reinstalling.
+ * @param {{isUpdateRefresh?: boolean}} [options] Run options; `isUpdateRefresh` labels the run as an update in the log.
  * @returns {void}
  */
 function install(selectedGroups, options = {}) {
@@ -2674,15 +2674,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     const isUpdateRefresh = plan.isUpdateRefresh;
     const pythonCommand = plan.pythonCommand;
 
-    if (plan.shouldPurgeBeforeReinstall) {
-        console.log(
-            `${PACKAGE_NAME}: --update — removing prior managed files under ${CLAUDE_HOME}, then reinstalling from the package.\n`,
-        );
-        purgeManagedInstallation({
-            isManifestRequired: false,
-            throwIfFault,
-        });
-    } else if (isUpdateRefresh) {
+    if (isUpdateRefresh) {
         const installScope = selectedGroups ? `groups: ${selectedGroups.join(', ')}` : 'full';
         console.log(`${PACKAGE_NAME}: --update — re-running ${installScope} install into ${CLAUDE_HOME}\n`);
     }
@@ -3336,28 +3328,6 @@ function executeUninstallPlan(plan, helpers = {}) {
 }
 
 /**
- * Remove every file the ownership record lists for this managed root.
- *
- * Preflights the uninstall plan (settings JSON must be an object when present)
- * before any removal. When called from `--update` inside an install transaction,
- * pass that transaction's `throwIfFault` so a fault restores the outer snapshot
- * without nesting a second journal.
- *
- * @param {{
- *   isManifestRequired: boolean,
- *   throwIfFault?: (phase: string) => void,
- * }} options
- * @returns {number|void} 0 when no manifest exists and none is required.
- */
-function purgeManagedInstallation({ isManifestRequired, throwIfFault }) {
-    const plan = resolveUninstallPlan(isManifestRequired);
-    if (plan.isNoOp) {
-        return 0;
-    }
-    return executeUninstallPlan(plan, { throwIfFault });
-}
-
-/**
  * Uninstall the selected managed root inside a snapshot/restore transaction.
  *
  * Captures files, settings, manifest, and core.hooksPath before removal so any
@@ -3435,7 +3405,7 @@ ${PACKAGE_NAME} - Claude Code development standards installer
 
 Usage:
   npx ${PACKAGE_NAME}              Install everything into the main default root
-  npx ${PACKAGE_NAME} --update     Full install: remove prior manifest-tracked files first, then reinstall
+  npx ${PACKAGE_NAME} --update     Full install: copy the package over the prior install, then prune files it no longer ships
   npx ${PACKAGE_NAME} --only X     Install specific groups
   npx ${PACKAGE_NAME} --target DIR Install into DIR instead of ~/.claude (overrides CLAUDE_CONFIG_DIR)
   npx ${PACKAGE_NAME} --profile ID Install into one named profile root (under the profiles root)
