@@ -1,5 +1,27 @@
 # Changelog
 
+## [8.52.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.0...claude-dev-env-v8.52.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** end the whole process tree when a job times out ([7cc5903](https://github.com/jl-cmd/claude-dev-env/commit/7cc590347738af573d3ffc452903f0321967f193))
+* **process-tree:** wait for the signalled group to exit before returning ([9da63bc](https://github.com/jl-cmd/claude-dev-env/commit/9da63bca8e3e3e191fe633f9547d18bbe942351c))
+
+## [8.52.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.4...claude-dev-env-v8.52.0) (2026-10-04)
+
+
+### Features
+
+* **install:** install the subagent-models plugin on a full Claude install ([#1849](https://github.com/jl-cmd/claude-dev-env/issues/1849)) ([4cece62](https://github.com/jl-cmd/claude-dev-env/commit/4cece62ab7b80cafd0d6a025987e72680b91c41a))
+
+## [8.51.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.3...claude-dev-env-v8.51.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* Allow the claude-dev-env update command in auto mode ([9cb4034](https://github.com/jl-cmd/claude-dev-env/commit/9cb40340b3065b8f653c4a749ea80cbd2b490fa7))
+
 ## [8.51.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.2...claude-dev-env-v8.51.3) (2026-10-04)
 
 
