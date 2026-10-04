@@ -223,8 +223,8 @@ def read_codex_account_meters(account: Account) -> Meters | None:
 
 
 all_product_adapters = {
-    Product.CLAUDE: ProductAdapter(load_claude_accounts, read_claude_meters, CLAUDE_CONFIG_DIR_ENV_VAR, ALL_USAGE_LIMIT_SIGNATURES, True),
-    Product.CODEX: ProductAdapter(load_codex_accounts, read_codex_account_meters, CODEX_HOME_ENVIRONMENT_VARIABLE, codex_usage_limit_signatures(), False),
+    Product.CLAUDE: ProductAdapter(load_claude_accounts, read_claude_meters, CLAUDE_CONFIG_DIR_ENV_VAR, ALL_USAGE_LIMIT_SIGNATURES),
+    Product.CODEX: ProductAdapter(load_codex_accounts, read_codex_account_meters, CODEX_HOME_ENVIRONMENT_VARIABLE, codex_usage_limit_signatures()),
 }
 
 
