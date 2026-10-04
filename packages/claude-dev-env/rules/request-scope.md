@@ -1,7 +1,7 @@
-# Keep the request's scope
+# Request scope
 
-**When:** The user asks whether part of a prompt, rule, card, or check is still needed, or asks you to change one.
+**When:** Asked whether part of a block is still needed, or asked to change one.
 
-Answer for the whole block that part belongs to. When a shipped hook, gate, or check now enforces what a block tells an agent to do, every line of that block that restates the enforced behavior is dead text. Propose removing all of those lines, and name each line that stays with the reason it stays. Before you report the change done, read the output the user will use and compare it with the user's own words.
+A shipped gate makes each block line restating what it enforces dead text. Propose removing all of them, past the part asked about, and give each kept line's reason. Read the output back before reporting done.
 
-**Enforcement:** none, the agent applies it.
+**Full text:** [`docs/rule-guides/request-scope.md`](../docs/rule-guides/request-scope.md)
