@@ -493,7 +493,7 @@ SPAWN_SERVED_EXIT_CODE: int = 0
 SPAWN_EXHAUSTED_EXIT_CODE: int = 2
 """CLI exit code when no dispatcher tier served the call."""
 
-SPAWN_CONFIG_ERROR_EXIT_CODE: int = 3
+SPAWN_CONFIG_ERROR_EXIT_CODE: int = 5
 """CLI exit code when the claude chain configuration is missing or invalid."""
 
 RESULT_KEY_TIER_USED: str = "tier_used"

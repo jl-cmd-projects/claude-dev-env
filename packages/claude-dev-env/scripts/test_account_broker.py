@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -696,6 +697,95 @@ def test_should_run_job_through_override(
     assert calls == [b"input"]
 
 
+def test_should_record_start_failure_without_launching_a_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("extra", Product.CLAUDE),), {"extra": _meters(80, 80)}
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.attempts == (("extra", "start_failed"),)
+    assert outcome.status == "exhausted"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("marked_name", ["retired", "first"])
+def test_should_run_past_a_stored_spent_mark_beyond_the_platform_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], marked_name: str
+) -> None:
+    account = _account("first")
+    second = _account("second")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account, second), {"first": _meters(80, 80), "second": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+    marked_account = account if marked_name == "first" else Account(Product.CODEX, marked_name, Path(), False)
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {"meters": {}, "spent": {account_broker._state_key(marked_account): 1e20}, "affinity": {}},
+    )
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+
+
+def test_should_name_the_outside_spent_mark_when_it_forces_a_wait(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"visitor:{int(reset.timestamp())}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert decision["action"] == "wait"
+    assert decision["reason"] == f"account visitor outside the roster is spent; next reset at {account_broker._time_text(reset)}"
+
+
+def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", "frist", "--spent", "first"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    assert len(all_warning_lines) == 1
+    assert "frist" in all_warning_lines[0]
+    assert "outside the roster" in all_warning_lines[0]
+
+
+@pytest.mark.parametrize("mark", ["", ":1800000000"])
+def test_should_reject_a_spent_mark_without_an_account_name(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], mark: str
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", mark))
+
+    assert code == 2
+    assert "account name" in capsys.readouterr().err
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
+def test_should_serialize_a_run_and_a_wait_decision() -> None:
+    account = _account("first")
+    reset = NOW + timedelta(hours=2)
+
+    run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
+    wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
+
+    assert run_payload == {"action": "run", "account": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
+    assert wait_payload == {"action": "wait", "account": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
+
 
 def test_should_print_the_whole_rate_limit_result_for_one_home(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
@@ -730,5 +820,7 @@ def test_should_exit_two_when_the_limits_read_fails(
 
 
 def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path))) == 2
-    assert "Codex accounts only" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as exit_info:
+        account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path)))
+    assert exit_info.value.code == 2
+    assert "invalid choice: 'claude'" in capsys.readouterr().err
