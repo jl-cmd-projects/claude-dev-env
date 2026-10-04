@@ -18,11 +18,15 @@ from codex_compat_materializer import (
 )
 
 FRONTMATTER_DELIMITER = "---"
+FENCE_MARKER = "```"
 FULL_TEXT_LINK_PATTERN = re.compile(
     r"^\*\*Full text:\*\*.*?\]\((\.\./docs/rule-guides/[^)#\s]+\.md)\)", re.MULTILINE
 )
 TITLE_PATTERN = re.compile(r"^# \S", re.MULTILINE)
 WHEN_LINE_PATTERN = re.compile(r"^\*\*When(?: this applies)?:\*\* \S", re.MULTILINE)
+DOUBLED_WHEN_LEAD_IN_PATTERN = re.compile(
+    r"^\*\*When(?: this applies)?:\*\* When\b", re.MULTILINE
+)
 
 MAXIMUM_ENTRY_BYTES = 1_500
 MAXIMUM_ALWAYS_ON_BYTES = 12_000
@@ -90,14 +94,72 @@ def test_each_entry_opens_with_a_title_after_its_frontmatter() -> None:
     assert untitled == []
 
 
+def _entry_body_before_full_text(entry_text: str) -> str:
+    _, entry_body = _split_frontmatter(entry_text)
+    all_kept_lines: list[str] = []
+    is_inside_fence = False
+    for each_line in entry_body.splitlines():
+        if FULL_TEXT_LINK_PATTERN.match(each_line):
+            break
+        if each_line.lstrip().startswith(FENCE_MARKER):
+            is_inside_fence = not is_inside_fence
+            continue
+        if not is_inside_fence:
+            all_kept_lines.append(each_line)
+    return "\n".join(all_kept_lines)
+
+
+def _states_when_it_applies(entry_text: str) -> bool:
+    return bool(WHEN_LINE_PATTERN.search(_entry_body_before_full_text(entry_text)))
+
+
 def test_each_entry_states_when_it_applies() -> None:
     without_when_line = [
         each_path.name
         for each_path in _entry_paths()
         if each_path.name not in INDEX_SHAPE_EXEMPT_ENTRY_NAMES
-        and not WHEN_LINE_PATTERN.search(_entry_text(each_path))
+        and not _states_when_it_applies(_entry_text(each_path))
     ]
     assert without_when_line == []
+
+
+def test_when_line_inside_a_fenced_block_does_not_count() -> None:
+    entry_text = (
+        "# Example rule\n\n"
+        "```markdown\n**When:** Writing an example.\n```\n\n"
+        "**Full text:** [`docs/rule-guides/example.md`]"
+        "(../docs/rule-guides/example.md).\n"
+    )
+    assert not _states_when_it_applies(entry_text)
+
+
+def test_when_line_below_the_full_text_link_does_not_count() -> None:
+    entry_text = (
+        "# Example rule\n\n"
+        "**Full text:** [`docs/rule-guides/example.md`]"
+        "(../docs/rule-guides/example.md).\n\n"
+        "**When:** Writing an example.\n"
+    )
+    assert not _states_when_it_applies(entry_text)
+
+
+def test_when_line_in_the_entry_body_counts() -> None:
+    entry_text = (
+        "---\npaths:\n  - \"**/*.py\"\n---\n\n# Example rule\n\n"
+        "**When:** Writing an example.\n\n"
+        "**Full text:** [`docs/rule-guides/example.md`]"
+        "(../docs/rule-guides/example.md).\n"
+    )
+    assert _states_when_it_applies(entry_text)
+
+
+def test_no_entry_repeats_when_after_its_when_label() -> None:
+    doubled_lead_in = [
+        each_path.name
+        for each_path in _entry_paths()
+        if DOUBLED_WHEN_LEAD_IN_PATTERN.search(_entry_text(each_path))
+    ]
+    assert doubled_lead_in == []
 
 
 def _full_text_link_problems(entry_path: Path) -> list[str]:
