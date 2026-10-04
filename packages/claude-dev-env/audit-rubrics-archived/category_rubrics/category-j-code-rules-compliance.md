@@ -31,7 +31,7 @@
 
 The write-time hook (`code_rules_enforcer.py`) exempts test files (`test_*.py`, `*_test.py`, `*.test.*`, `*.spec.*`, `conftest.py`, paths under `/tests/`) from most Category J sub-buckets, while comment changes use one rule for production and tests. It skips the naming, logging, annotation, and unused-import rules on `.mjs` / `.js` files. J11 (`sys.path.insert`) always applies. Read the next section for the sub-buckets this audit applies more widely than the hook.
 
-When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task. Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task. Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 ## Write-time exemptions do not scope this audit
 
