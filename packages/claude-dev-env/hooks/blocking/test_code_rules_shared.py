@@ -309,3 +309,49 @@ def test_normalized_path_marker_table_carries_no_backslash_entry(
     not the marker, so a backslash entry can never match."""
     marker_table = getattr(_SHARED_MODULE, normalized_marker_table_name)
     assert all("\\" not in each_marker for each_marker in marker_table)
+
+
+def test_ephemeral_path_is_false_for_file_under_payload_cwd_inside_scratchpad(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _point_temporary_directory_at(monkeypatch, tmp_path)
+    scratchpad_directory = _build_scratchpad_directory(tmp_path)
+    repository_module = scratchpad_directory / "orders.py"
+    payload_with_scratchpad_cwd = {"cwd": str(scratchpad_directory), "session_id": SESSION_ID}
+
+    assert (
+        _SHARED_MODULE.is_ephemeral_path(str(repository_module), payload_with_scratchpad_cwd)
+        is False
+    )
+
+
+def test_scratchpad_is_false_for_worktree_under_payload_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _point_temporary_directory_at(monkeypatch, tmp_path)
+    scratchpad_directory = _build_scratchpad_directory(tmp_path)
+    worktree_directory = scratchpad_directory / "worktree"
+    repository_module = worktree_directory / "src" / "orders.py"
+    payload_with_worktree_cwd = {"cwd": str(worktree_directory), "session_id": SESSION_ID}
+
+    assert (
+        _SHARED_MODULE.is_under_session_scratchpad(str(repository_module), payload_with_worktree_cwd)
+        is False
+    )
+
+
+def test_ephemeral_path_stays_true_for_scratchpad_file_outside_payload_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _point_temporary_directory_at(monkeypatch, tmp_path)
+    scratchpad_directory = _build_scratchpad_directory(tmp_path)
+    throwaway_script = scratchpad_directory / "one_off_tool.py"
+    payload_with_worktree_cwd = {
+        "cwd": str(scratchpad_directory / "worktree"),
+        "session_id": SESSION_ID,
+    }
+
+    assert _SHARED_MODULE.is_ephemeral_path(str(throwaway_script), _session_payload()) is True
+    assert (
+        _SHARED_MODULE.is_ephemeral_path(str(throwaway_script), payload_with_worktree_cwd) is True
+    )
