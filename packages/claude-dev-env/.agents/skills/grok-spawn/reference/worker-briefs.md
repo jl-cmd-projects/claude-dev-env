@@ -150,7 +150,7 @@ For each acceptance line from the brief:
 1. Keep task-specific detail in its own part file so the brief templates stay
    reusable.
 2. Absolute paths only in `prompt_parts` — the launcher reads them as given.
-3. One worker, one closed scope. Split large work into more workers rather than
-   one long brief.
+3. One worker, one closed scope. Split large work into more workers, each with a
+   short brief.
 4. The lead session fills bracketed fields before launch; workers never see the
    skill folder unless you copy text into their part files.
