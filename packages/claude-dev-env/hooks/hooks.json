@@ -335,6 +335,18 @@
           }
         ]
       }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/advisory/auto_mode_denial_quick_fix.py",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
