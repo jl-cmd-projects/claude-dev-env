@@ -54,7 +54,7 @@ def _assert_reshaped(stdout: str) -> None:
     assert "permissionDecision" not in decision
     assert decision["updatedInput"] == {
         **SPAWN_INPUT,
-        "model": "opus",
+        "model": "claude-opus-5-5",
         "effort": "low",
     }
 
