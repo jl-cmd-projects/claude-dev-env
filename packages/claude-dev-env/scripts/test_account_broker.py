@@ -435,11 +435,42 @@ def test_should_stop_after_timeout_without_running_job_again(
 
     assert invoked_homes == ["first"]
     assert outcome.attempts == (("first", "timeout"),)
-    assert outcome.status == "advisor_blocked"
+    assert outcome.status == "timeout"
     assert outcome.account_name == "first"
     assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+@pytest.mark.parametrize(
+    ("product", "roster_names", "start_error", "expected_code"),
+    (
+        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 4),
+        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 127),
+        (Product.CODEX, (), OSError("missing command"), 127),
+    ),
+)
+def test_should_exit_four_only_for_a_blocked_claude_job(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    product: Product,
+    roster_names: tuple[str, ...],
+    start_error: Exception,
+    expected_code: int,
+) -> None:
+    accounts = tuple(_account(each_name, product) for each_name in roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
+        each_name: _meters(80, 80) for each_name in roster_names
+    }))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise start_error
+
+    with account_broker.override_subprocess_runner(runner):
+        code = account_broker.main(("run", "--product", product.value, "--report", str(tmp_path / "report.json"), "--", "job"))
+
+    assert code == expected_code
 
 
 def test_should_keep_usage_limited_account_spent_for_later_choices(
@@ -663,3 +694,41 @@ def test_should_run_job_through_override(
     assert outcome.status == "served"
     assert outcome.attempts == (("only", "served"),)
     assert calls == [b"input"]
+
+
+
+def test_should_print_the_whole_rate_limit_result_for_one_home(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    rate_limit_records = {"rateLimitsByLimitId": {"codex": {"primary": {"usedPercent": 20}}}}
+    observed: list[tuple[Path, Path]] = []
+
+    def read_result(codex_path: Path, codex_home: Path) -> dict[str, object]:
+        observed.append((codex_path, codex_home))
+        return rate_limit_records
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+    home = tmp_path / "codex-2"
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(home), "--codex", "codex-bin")) == 0
+    assert json.loads(capsys.readouterr().out) == {"home": str(home), "rate_limits": rate_limit_records}
+    assert observed == [(Path("codex-bin"), home)]
+
+
+def test_should_exit_two_when_the_limits_read_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    def read_result(_codex_path: Path, _codex_home: Path) -> dict[str, object]:
+        raise account_broker.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(tmp_path), "--codex", "codex-bin")) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no rate-limit reply" in captured.err
+
+
+def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path))) == 2
+    assert "Codex accounts only" in capsys.readouterr().err
