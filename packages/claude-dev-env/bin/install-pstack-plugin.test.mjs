@@ -218,7 +218,7 @@ test('the usage-wrapup plan adds this repository marketplace and installs the pl
     assert.equal(plan.executable, 'claude');
     assert.equal(plan.homeVariable, 'CLAUDE_CONFIG_DIR');
     assert.deepEqual(plan.commands, [
-        ['plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
         ['plugin', 'install', 'usage-wrapup@claude-dev-env'],
     ]);
 });
@@ -236,7 +236,7 @@ test('installing usage-wrapup runs only the Claude commands, inside the managed 
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
         ['claude', 'plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
         ['claude', 'plugin', 'marketplace', 'remove', 'claude-dev-env'],
-        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin'],
+        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
     ]);
     for (const call of runner.calls) {

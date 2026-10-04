@@ -27,7 +27,7 @@ export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     label: 'Usage-wrapup',
     marketplaceRepository: 'jl-cmd/claude-dev-env',
     marketplaceName: 'claude-dev-env',
-    marketplaceAddArguments: Object.freeze(['--sparse', '.claude-plugin']),
+    marketplaceAddArguments: Object.freeze(['--sparse', '.claude-plugin', 'packages/usage-wrapup']),
     pluginIdentifier: 'usage-wrapup@claude-dev-env',
     hosts: Object.freeze(['claude']),
     optOutFlag: '--no-usage-wrapup',
