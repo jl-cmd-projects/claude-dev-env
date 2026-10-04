@@ -7,9 +7,12 @@ the taskkill argv it builds, the failures it swallows, and the
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -23,6 +26,8 @@ from process_tree_kill import (  # noqa: E402
     terminate_process_tree,
 )
 from process_tree_scripts_constants.process_tree_kill_constants import (  # noqa: E402
+    PROCESS_TREE_EXIT_POLL_SECONDS,
+    PROCESS_TREE_EXIT_WAIT_SECONDS,
     PROCESS_TREE_KILL_TIMEOUT_SECONDS,
     WINDOWS_TASKKILL_COMMAND,
     WINDOWS_TASKKILL_FORCE_FLAG,
@@ -276,3 +281,147 @@ def test_new_session_is_requested_off_windows_only(
 
     _install_windows_platform(monkeypatch)
     assert process_tree_kill.should_start_new_session() is False
+
+
+def _install_posix_group_wait(
+    monkeypatch: pytest.MonkeyPatch, all_member_snapshots: list[list[int]]
+) -> list[float]:
+    """Script what the group wait sees after the kill, and record each pause.
+
+    The last snapshot repeats once the list runs dry, so a never-empty script
+    models a group that outlives the deadline.
+    """
+    all_sleeps: list[float] = []
+    remaining_snapshots = list(all_member_snapshots)
+
+    def scripted_members(process: object, process_group_identifier: int) -> list[int]:
+        del process, process_group_identifier
+        if len(remaining_snapshots) > 1:
+            return remaining_snapshots.pop(0)
+        return remaining_snapshots[0]
+
+    _install_posix_platform(monkeypatch)
+    monkeypatch.setattr(
+        process_tree_kill.os,
+        "getpgid",
+        lambda process_identifier: FAKE_PROCESS_GROUP_IDENTIFIER,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        process_tree_kill.os,
+        "killpg",
+        lambda group_identifier, signal_number: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        process_tree_kill, "running_process_group_members", scripted_members
+    )
+    monkeypatch.setattr(process_tree_kill.time, "sleep", all_sleeps.append)
+    return all_sleeps
+
+
+def test_terminate_waits_until_no_group_member_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The POSIX kill returns only once the signalled group has emptied.
+
+    ::
+
+        members [7], [7], []  ok:   two pauses, then return
+        no wait               flag: a grandchild still inside a system call
+                                    writes after the caller has moved on
+    """
+    all_sleeps = _install_posix_group_wait(monkeypatch, [[7], [7], []])
+
+    terminate_process_tree(_as_popen(_FakeProcess([None, 0])))
+
+    assert all_sleeps == [PROCESS_TREE_EXIT_POLL_SECONDS] * 2
+
+
+def test_terminate_stops_waiting_at_the_exit_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A group member that survives the signal does not hold the caller forever."""
+    all_sleeps = _install_posix_group_wait(monkeypatch, [[7]])
+    clock = iter(
+        [0.0, 0.0, PROCESS_TREE_EXIT_WAIT_SECONDS / 2, PROCESS_TREE_EXIT_WAIT_SECONDS]
+    )
+    monkeypatch.setattr(process_tree_kill.time, "monotonic", lambda: next(clock))
+
+    terminate_process_tree(_as_popen(_FakeProcess([None, 0])))
+
+    assert all_sleeps == [PROCESS_TREE_EXIT_POLL_SECONDS] * 2
+
+
+def _as_popen(fake_process: _FakeProcess) -> subprocess.Popen[str]:
+    return cast("subprocess.Popen[str]", fake_process)
+
+
+def _group_led_by(process: subprocess.Popen[str]) -> int:
+    """Name the group a session-leading child owns; Windows has none, so its pid."""
+    if process_tree_kill.should_start_new_session():
+        return os.getpgid(process.pid)
+    return process.pid
+
+
+def test_running_members_leave_out_a_zombie() -> None:
+    """A member that died but awaits its reaper is not running.
+
+    ::
+
+        child sleeping               ok:   listed on POSIX, [] on Windows
+        child killed, not yet reaped ok:   dropped, so the wait ends
+    """
+    sleeper = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        start_new_session=process_tree_kill.should_start_new_session(),
+    )
+    group_identifier = _group_led_by(sleeper)
+    all_expected_running = (
+        [sleeper.pid] if process_tree_kill.should_start_new_session() else []
+    )
+    try:
+        assert (
+            process_tree_kill.running_process_group_members(sleeper, group_identifier)
+            == all_expected_running
+        )
+        sleeper.kill()
+        deadline = time.monotonic() + PROCESS_TREE_EXIT_WAIT_SECONDS
+        while process_tree_kill.running_process_group_members(
+            sleeper, group_identifier
+        ):
+            assert time.monotonic() < deadline, "the killed sleeper still counts"
+            time.sleep(PROCESS_TREE_EXIT_POLL_SECONDS)
+    finally:
+        sleeper.wait()
+
+
+def test_terminate_returns_with_the_grandchild_already_gone(tmp_path: Path) -> None:
+    """Right after the kill returns, no process in the child's group still runs."""
+    heartbeat_file = tmp_path / "heartbeat.txt"
+    grandchild_source = (
+        "import pathlib, sys\n"
+        "heartbeat = pathlib.Path(sys.argv[1])\n"
+        "while True:\n"
+        "    heartbeat.write_text('beat', encoding='utf-8')\n"
+    )
+    child_source = (
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]])\n"
+        "time.sleep(60)\n"
+    )
+    child = subprocess.Popen(
+        [sys.executable, "-c", child_source, grandchild_source, str(heartbeat_file)],
+        start_new_session=process_tree_kill.should_start_new_session(),
+    )
+    group_identifier = _group_led_by(child)
+    while not heartbeat_file.exists():
+        time.sleep(PROCESS_TREE_EXIT_POLL_SECONDS)
+
+    terminate_process_tree(child)
+    still_running = process_tree_kill.running_process_group_members(
+        child, group_identifier
+    )
+    child.wait()
+
+    assert still_running == []
