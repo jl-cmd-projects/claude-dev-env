@@ -42,7 +42,7 @@ Run the named pytest node or command with the described input. A breach produces
 - check_inline_tuple_string_magic: an inline tuple of two snake-case labels; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_inline_tuple_string_magic.py::test_should_flag_inline_snake_case_tuple_pair_inside_function` reports a named violation.
 - check_join_separator_string_magic: a literal delimiter passed to join in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_join_separator_magic.py::test_should_flag_literal_delimiter_join_separator_in_function_body` reports a named violation.
 - check_string_literal_magic: an environment-variable name literal in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_string_magic.py::test_should_flag_env_var_name_string_in_function_body` reports a named violation.
-- check_whitespace_indentation_magic: a repeated literal indentation string in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_whitespace_indentation_magic.py` reports a named violation.
+- check_whitespace_indentation_magic: a twelve-space indentation literal returned from a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_whitespace_indentation_magic.py::test_flags_twelve_space_indent_constant` reports a line-numbered violation.
 
 ## Gotchas
 

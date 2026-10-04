@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.47.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.0...claude-dev-env-v8.47.1) (2026-10-04)
+
+
+### Tests
+
+* wait for written lock outcomes in the lock contention test ([c5fc864](https://github.com/jl-cmd/claude-dev-env/commit/c5fc86490810447310d3aaa1769376e82d88aaaf))
+
+## [8.47.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.31...claude-dev-env-v8.47.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny a second open follow-up pull request for one parent ([10b79b1](https://github.com/jl-cmd/claude-dev-env/commit/10b79b14d99092c00b484573d5c52f631979e0b8))
+
+## [8.46.31](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.30...claude-dev-env-v8.46.31) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** find the shared tree beside the scripts link ([72b4c4b](https://github.com/jl-cmd/claude-dev-env/commit/72b4c4b5cded80e2e6b9c66c0d6f7df2c645cb9b))
+
+## [8.46.30](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.29...claude-dev-env-v8.46.30) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** name a pytest node in every family proof entry ([8686da3](https://github.com/jl-cmd/claude-dev-env/commit/8686da3d1780c4d3c3b7d2dcd7faf3e224704585))
+
 ## [8.46.29](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.28...claude-dev-env-v8.46.29) (2026-10-04)
 
 

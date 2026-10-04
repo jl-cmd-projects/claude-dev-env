@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import cast
@@ -50,6 +51,7 @@ RESULT_WAIT_SECONDS = 5
 PROCESS_WAIT_SECONDS = 10
 POLL_INTERVAL_SECONDS = 0.01
 LEGACY_LOCK_CONTENT = "legacy owner metadata"
+DELAYED_OUTCOME_WRITE_SECONDS = 0.2
 BASE_PYTHON_EXECUTABLE = cast(str, getattr(sys, "_base_executable", sys.executable))
 
 
@@ -72,13 +74,20 @@ def _start_lock_contender(
     )
 
 
+def _read_reported_outcome(result_path: Path) -> str:
+    if not result_path.is_file():
+        return ""
+    return result_path.read_text(encoding="utf-8")
+
+
 def _wait_for_lock_outcomes(all_result_paths: list[Path]) -> list[str]:
     deadline = time.monotonic() + RESULT_WAIT_SECONDS
     while time.monotonic() < deadline:
-        if all(each_path.is_file() for each_path in all_result_paths):
-            return [
-                each_path.read_text(encoding="utf-8") for each_path in all_result_paths
-            ]
+        all_outcomes = [
+            _read_reported_outcome(each_path) for each_path in all_result_paths
+        ]
+        if all(all_outcomes):
+            return all_outcomes
         time.sleep(POLL_INTERVAL_SECONDS)
     raise AssertionError("lock contenders did not report within five seconds")
 
@@ -144,6 +153,22 @@ def test_process_lock_survives_contention_and_owner_termination(
     finally:
         for each_child_process in all_child_processes:
             _terminate_owned_child(each_child_process)
+
+
+def test_wait_for_lock_outcomes_waits_for_written_content(tmp_path: Path) -> None:
+    result_path = tmp_path / "delayed.result"
+    result_path.touch()
+    delayed_writer = threading.Timer(
+        DELAYED_OUTCOME_WRITE_SECONDS,
+        result_path.write_text,
+        args=("acquired",),
+        kwargs={"encoding": "utf-8"},
+    )
+    delayed_writer.start()
+    try:
+        assert _wait_for_lock_outcomes([result_path]) == ["acquired"]
+    finally:
+        delayed_writer.join()
 
 
 def test_lock_io_error_is_presented_as_supervisor_lock_error(

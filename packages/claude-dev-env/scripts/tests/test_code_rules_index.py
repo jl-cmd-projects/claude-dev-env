@@ -107,15 +107,15 @@ def _assert_proof_target_resolves(proof_label: str, proof_target: str) -> None:
     module_text, _, test_name = proof_target.partition("::")
     module_path = _REPOSITORY_ROOT / module_text
     assert module_path.is_file(), proof_label
-    if test_name:
-        assert re.search(
-            rf"^def {re.escape(test_name)}\(",
-            module_path.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        ), proof_label
+    assert test_name, proof_label
+    assert re.search(
+        rf"^def {re.escape(test_name)}\(",
+        module_path.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    ), proof_label
 
 
-def test_should_name_a_test_module_in_each_proof_command() -> None:
+def test_should_name_a_pytest_node_in_each_proof_command() -> None:
     for each_family_path in _FAMILY_DIRECTORY.glob("*.md"):
         family_text = each_family_path.read_text(encoding="utf-8")
         all_proofs = re.findall(
