@@ -207,17 +207,21 @@ def aggregate_bash_hook_results(
 
 
 def _emit_decision(decision: BashDispatcherDecision) -> None:
-    """Write one PreToolUse permission payload to stdout when an outcome exists."""
+    """Write one PreToolUse permission payload to stdout when an outcome exists.
+
+    A rewrite carries updatedInput with no permissionDecision, so the harness
+    applies the rewritten command and then runs its normal permission prompt.
+    """
     if not decision.decision:
         return
-    hook_specific: dict[str, object] = {
-        "hookEventName": HOOK_EVENT_NAME,
-        _PERMISSION_DECISION_KEY: decision.decision,
-    }
+    hook_specific: dict[str, object] = {"hookEventName": HOOK_EVENT_NAME}
+    is_rewrite = decision.decision == ALLOW_DECISION and decision.updated_input is not None
+    if is_rewrite:
+        hook_specific[_UPDATED_INPUT_KEY] = decision.updated_input
+    else:
+        hook_specific[_PERMISSION_DECISION_KEY] = decision.decision
     if decision.reasons:
         hook_specific[_PERMISSION_REASON_KEY] = REASON_JOIN_SEPARATOR.join(decision.reasons)
-    if decision.decision == ALLOW_DECISION and decision.updated_input is not None:
-        hook_specific[_UPDATED_INPUT_KEY] = decision.updated_input
     if decision.all_additional_context:
         hook_specific[_ADDITIONAL_CONTEXT_KEY] = CONTEXT_JOIN_SEPARATOR.join(
             decision.all_additional_context
