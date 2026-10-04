@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.53.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.0...claude-dev-env-v8.53.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **broker:** hold a Claude account only at 95% of its 5-hour window or 99% of its week ([#1857](https://github.com/jl-cmd/claude-dev-env/issues/1857)) ([6ffd503](https://github.com/jl-cmd/claude-dev-env/commit/6ffd50378e427798e30705d2a3383272eef45ce9))
+
 ## [8.53.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.1...claude-dev-env-v8.53.0) (2026-10-04)
 
 
