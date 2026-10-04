@@ -127,6 +127,28 @@ def test_should_prioritize_main_when_its_guard_passes() -> None:
     assert decision.account == main.account
 
 
+@pytest.mark.parametrize(
+    ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
+    (
+        (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
+        (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
+        (80, 50, NOW + timedelta(days=3), NOW + timedelta(days=2)),
+    ),
+)
+def test_should_wait_for_the_meter_or_window_that_blocks_main(
+    short_left: float, weekly_left: float, weekly_reset: datetime, expected_reset: datetime
+) -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(short_left, weekly_left, short_reset=NOW + timedelta(hours=2), weekly_reset=weekly_reset),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == expected_reset
+
+
 def test_should_try_next_account_after_usage_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     accounts = (_account("first"), _account("second"))
     adapter = _adapter(accounts, {"first": _meters(80, 80), "second": _meters(70, 70)})
@@ -361,12 +383,8 @@ def test_should_keep_spent_mark_until_reset(
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
 
 
-@pytest.mark.parametrize(
-    ("start_error", "expected_status"),
-    ((OSError("missing command"), "start_failed"), (subprocess.TimeoutExpired("job", 1), "timeout")),
-)
 def test_should_leave_later_choices_open_after_start_failure(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], start_error: Exception, expected_status: str
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     accounts = (_account("first"), _account("second"))
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
@@ -374,12 +392,37 @@ def test_should_leave_later_choices_open_after_start_failure(
     }))
 
     def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
-        raise start_error
+        raise OSError("missing command")
 
     with account_broker.override_subprocess_runner(runner):
         outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
 
-    assert outcome.attempts == (("first", expected_status), ("second", expected_status))
+    assert outcome.attempts == (("first", "start_failed"), ("second", "start_failed"))
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+def test_should_stop_after_timeout_without_running_job_again(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        invoked_homes.append(Path(options["env"]["CODEX_HOME"]).name)
+        raise subprocess.TimeoutExpired("job", 1)
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, report = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert invoked_homes == ["first"]
+    assert outcome.attempts == (("first", "timeout"),)
+    assert outcome.status == "advisor_blocked"
+    assert outcome.account_name == "first"
+    assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
 

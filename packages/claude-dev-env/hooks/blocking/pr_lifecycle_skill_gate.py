@@ -17,6 +17,8 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
     ALL_PREFIX_OPTIONS_WITH_VALUE,
+    ALL_PYTHON_EXECUTABLES,
+    ALL_SHELL_WRAPPER_EXECUTABLES,
     ALL_SLASH_COMMAND_MARKERS,
     ALL_TRANSCRIPT_PATH_FIELDS,
     COMMAND_SEPARATORS,
@@ -33,8 +35,11 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     MERGE_PATH_SUFFIX,
     OPTION_AND_VALUE_WORD_COUNT,
+    PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_KEY,
     PERMISSION_DECISION_REASON_KEY,
+    PULL_REQUEST_SCRIPT_NAME,
+    PYTHON_OPTIONS_WITH_VALUE,
     SHELL_TOOL_NAMES,
     SKILL_NAME,
 )
@@ -117,12 +122,29 @@ def _words_from_executable(all_words: list[str]) -> list[str]:
     return []
 
 
+def _file_name(path_word: str) -> str:
+    return re.split(PATH_SEPARATOR_PATTERN, path_word)[-1].lower()
+
+
+def _runs_pull_request_script(all_words: list[str]) -> bool:
+    script, _ = _next_command_word(all_words, 1, PYTHON_OPTIONS_WITH_VALUE)
+    return script is not None and _file_name(script) == PULL_REQUEST_SCRIPT_NAME
+
+
 def _matches_shell_command(command: str) -> bool:
     for each_segment in _command_segments(command):
         all_command_words = _words_from_executable(each_segment)
         if not all_command_words:
             continue
-        executable = all_command_words[0].lower()
+        executable = _file_name(all_command_words[0])
+        if executable == PULL_REQUEST_SCRIPT_NAME:
+            return True
+        if executable in ALL_PYTHON_EXECUTABLES and _runs_pull_request_script(all_command_words):
+            return True
+        if executable in ALL_SHELL_WRAPPER_EXECUTABLES and any(
+            _matches_shell_command(each_argument) for each_argument in all_command_words[1:]
+        ):
+            return True
         if executable in {"git", "git.exe"} and _is_git_action(all_command_words):
             return True
         if executable in {"gh", "gh.exe"} and _is_gh_action(all_command_words):
