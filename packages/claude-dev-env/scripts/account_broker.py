@@ -263,7 +263,8 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
         _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
         if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
             context.report.final_decision = decision
-            return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), "advisor_blocked", None, None)
+            final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
+            return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), final_status, None, None)
         return None
     combined = f"{completion.stdout}{completion.stderr}".casefold()
     is_limited = completion.returncode != 0 and any(
