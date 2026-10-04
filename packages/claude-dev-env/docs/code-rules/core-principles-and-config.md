@@ -30,9 +30,9 @@ Search config for the exact value and a semantic match. Add timing to config/tim
 
 Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
-- check_config_duplicate_path_anchor: two config constants pointing at the same path; `python -m pytest packages/claude-dev-env/hooks/blocking` reports a named violation.
+- check_config_duplicate_path_anchor: two config constants pointing at the same path; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_config_duplicate_path_anchor.py::test_should_flag_reanchored_base_already_built_by_sibling` reports a named violation.
 - check_constants_outside_config: UPPER_SNAKE = 3 in a production module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_config_path.py::test_should_produce_blocking_for_module_level_upper_snake_outside_config` reports a named violation.
-- check_constants_outside_config_advisory: a function-local UPPER_SNAKE constant; `python -m pytest packages/claude-dev-env/hooks/blocking` reports a stderr advisory.
+- check_constants_outside_config_advisory: a function-local UPPER_SNAKE constant; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_split_constants_config.py::test_advisory_should_flag_annotated_function_body_constant` reports a stderr advisory.
 - check_fstring_structural_literals: an f-string that embeds a URL path fragment; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_fstring_scan.py::test_should_flag_fstring_with_url_path` reports a named violation.
 - check_magic_values: a production function comparing a value with 2; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_magic_allowlist.py::test_check_magic_values_should_flag_literal_two_in_function_body` reports a named violation.
 - check_duplicated_format_patterns: the same f-string skeleton at three call sites; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_split_optional_params.py::test_should_advise_when_fstring_skeleton_appears_three_or_more_times` reports a stderr advisory.
@@ -42,7 +42,7 @@ Run the named pytest node or command with the described input. A breach produces
 - check_inline_tuple_string_magic: an inline tuple of two snake-case labels; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_inline_tuple_string_magic.py::test_should_flag_inline_snake_case_tuple_pair_inside_function` reports a named violation.
 - check_join_separator_string_magic: a literal delimiter passed to join in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_join_separator_magic.py::test_should_flag_literal_delimiter_join_separator_in_function_body` reports a named violation.
 - check_string_literal_magic: an environment-variable name literal in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_string_magic.py::test_should_flag_env_var_name_string_in_function_body` reports a named violation.
-- check_whitespace_indentation_magic: a repeated literal indentation string in a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_whitespace_indentation_magic.py` reports a named violation.
+- check_whitespace_indentation_magic: a twelve-space indentation literal returned from a function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_whitespace_indentation_magic.py::test_flags_twelve_space_indent_constant` reports a line-numbered violation.
 
 ## Gotchas
 

@@ -45,6 +45,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _choose_claude,
     _choose_codex,
     _wait_decision,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
     WAIT_EXIT_CODE,
@@ -248,7 +249,12 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
 
 
 def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:
-    environment = {**os.environ, context.active.environment_variable: str(account.home)}
+    environment = {
+        each_variable_name: each_setting
+        for each_variable_name, each_setting in os.environ.items()
+        if context.product is not Product.CLAUDE or each_variable_name not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+    }
+    environment[context.active.environment_variable] = str(account.home)
     return support.subprocess_runner(
         context.all_argv,
         env=environment,
@@ -333,7 +339,8 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="action", required=True)
     for each_action in ("choose", "check", "accounts", "limits", "run"):
         command = commands.add_parser(each_action)
-        command.add_argument("--product", choices=[each_product.value for each_product in Product], required=True)
+        all_product_choices = [Product.CODEX.value] if each_action == "limits" else [each_product.value for each_product in Product]
+        command.add_argument("--product", choices=all_product_choices, required=True)
         if each_action == "choose":
             command.add_argument("--spent", action="append", default=[])
         if each_action == "limits":
@@ -373,9 +380,7 @@ def _accounts_cli(product: Product) -> int:
     return 0
 
 
-def _limits_cli(product: Product, parsed: argparse.Namespace) -> int:
-    if product is not Product.CODEX:
-        raise BrokerConfigurationError("limits reads Codex accounts only")
+def _limits_cli(parsed: argparse.Namespace) -> int:
     try:
         rate_limit_records = codex_account_meters.read_rate_limit_records(
             codex_account_meters.resolve_codex_path(parsed.codex), parsed.home
@@ -430,7 +435,7 @@ def main(all_arguments: Sequence[str]) -> int:
         if parsed.action == "accounts":
             return _accounts_cli(product)
         if parsed.action == "limits":
-            return _limits_cli(product, parsed)
+            return _limits_cli(parsed)
         if parsed.action == "run":
             return _run_cli(product, parsed, parser)
         return _choose_cli(product, parsed)

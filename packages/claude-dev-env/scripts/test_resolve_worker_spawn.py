@@ -299,12 +299,12 @@ def test_grok_usage_limited_on_claude_host_requires_agent(
 def test_out_of_bounds_timeout_is_reported_as_config_not_worker_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A refused timeout prints a structured outcome and exits 3, never a traceback.
+    """A refused timeout prints a structured outcome and exits 5, never a traceback.
 
     ::
 
-        --timeout-seconds 0     ok: reason timeout_out_of_bounds, exit 3
-        --timeout-seconds 5401  ok: reason timeout_out_of_bounds, exit 3
+        --timeout-seconds 0     ok: reason timeout_out_of_bounds, exit 5
+        --timeout-seconds 5401  ok: reason timeout_out_of_bounds, exit 5
     """
     prompt_file, working_directory, run_state_directory = _paths(tmp_path)
     _install_seams(monkeypatch, grok_outcome=_grok_ok())
@@ -350,7 +350,7 @@ def test_out_of_bounds_timeout_is_refused_when_the_grok_tier_is_unreachable(
     ::
 
         preflight unusable, --timeout-seconds 5401
-            ok: reason timeout_out_of_bounds, exit 3, no tier invoked
+            ok: reason timeout_out_of_bounds, exit 5, no tier invoked
     """
     prompt_file, working_directory, run_state_directory = _paths(tmp_path)
     call_log = _install_seams(
@@ -496,7 +496,7 @@ def test_tier_three_wait_reports_reset_and_stops(
     assert call_log.claude_calls == 1
 
 
-def test_config_error_returns_exit_three(
+def test_config_error_exit_code_differs_from_the_wait_exit_code(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     prompt_file, working_directory, run_state_directory = _paths(tmp_path)
@@ -523,6 +523,7 @@ def test_config_error_returns_exit_three(
     )
 
     assert exit_code == SPAWN_CONFIG_ERROR_EXIT_CODE
+    assert exit_code != WAIT_EXIT_CODE
     captured = capsys.readouterr()
     parsed_payload = json.loads(captured.out)
     assert parsed_payload[RESULT_KEY_OK] is False
