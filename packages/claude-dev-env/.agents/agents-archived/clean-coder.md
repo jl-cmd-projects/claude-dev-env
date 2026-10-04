@@ -51,14 +51,14 @@ Installed paths use the active managed root and agents home resolved above; sour
 | Naming and abbreviations | `<managed-root>/docs/CODE_RULES.md#5-no-abbreviations` (source fallback: `packages/claude-dev-env/docs/CODE_RULES.md#5-no-abbreviations`) |
 | Policy surface map | `<managed-root>/rules/code-standards.md` (source fallback: `packages/claude-dev-env/rules/code-standards.md`) |
 | Windows rmtree / mkdir | `<managed-root>/rules/windows-filesystem-safe.md` (source fallback: `packages/claude-dev-env/rules/windows-filesystem-safe.md`) |
-| `gh` body files | `<managed-root>/rules/gh-cli-conventions.md` (source fallback: `packages/claude-dev-env/rules/gh-cli-conventions.md`) |
+| `gh` body files | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Plain illustrative docstrings | `<managed-root>/rules/plain-illustrative-docstrings.md` (source fallback: `packages/claude-dev-env/rules/plain-illustrative-docstrings.md`) |
 | Tests / TDD | `<managed-root>/rules/testing.md` (source fallback: `packages/claude-dev-env/rules/testing.md`), `<managed-root>/rules/paired-test-coverage.md` (source fallback: `packages/claude-dev-env/rules/paired-test-coverage.md`), `<managed-root>/rules/bdd.md` (source fallback: `packages/claude-dev-env/rules/bdd.md`) |
 | Questions / task tracking | `<managed-root>/rules/verify-before-asking.md` (source fallback: `packages/claude-dev-env/rules/verify-before-asking.md`) |
 | Runtime evidence | `<managed-root>/rules/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/rules/verify-runtime-state.md`) |
-| Documentation / durable artifacts | `<managed-root>/rules/doc-inventory-integrity.md` (source fallback: `packages/claude-dev-env/rules/doc-inventory-integrity.md`), `<managed-root>/rules/durable-post-artifacts.md` (source fallback: `packages/claude-dev-env/rules/durable-post-artifacts.md`) |
+| Documentation / durable artifacts | `<managed-root>/rules/doc-inventory-integrity.md` (source fallback: `packages/claude-dev-env/rules/doc-inventory-integrity.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Batch / failure blast radius | `<managed-root>/rules/failure-blast-radius.md` (source fallback: `packages/claude-dev-env/rules/failure-blast-radius.md`) |
-| Git / GitHub | `<managed-root>/rules/git-workflow.md` (source fallback: `packages/claude-dev-env/rules/git-workflow.md`), `<managed-root>/rules/gh-cli-conventions.md` (source fallback: `packages/claude-dev-env/rules/gh-cli-conventions.md`), `<managed-root>/rules/re-stage-before-commit.md` (source fallback: `packages/claude-dev-env/rules/re-stage-before-commit.md`) |
+| Git / GitHub | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Workers / completion | `<managed-root>/rules/workers-done-before-complete.md` (source fallback: `packages/claude-dev-env/rules/workers-done-before-complete.md`) |
 | TDD / right-size | Review contract Tests + Design; `CODE_RULES.md` §7–§8 |
 
@@ -74,7 +74,7 @@ Load only the group that matches the task. Keep session policy details in these 
 | Runtime checks | `<managed-root>/rules/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/rules/verify-runtime-state.md`) |
 | Documentation | `<managed-root>/rules/doc-inventory-integrity.md` (source fallback: `packages/claude-dev-env/rules/doc-inventory-integrity.md`); `<managed-root>/rules/docstring-prose-matches-implementation.md` (source fallback: `packages/claude-dev-env/rules/docstring-prose-matches-implementation.md`) |
 | Batch failures | `<managed-root>/rules/failure-blast-radius.md` (source fallback: `packages/claude-dev-env/rules/failure-blast-radius.md`) |
-| Git | `<managed-root>/rules/git-workflow.md` (source fallback: `packages/claude-dev-env/rules/git-workflow.md`); `<managed-root>/rules/re-stage-before-commit.md` (source fallback: `packages/claude-dev-env/rules/re-stage-before-commit.md`) |
+| Git | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`); `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Worker coordination | `<managed-root>/rules/workers-done-before-complete.md` (source fallback: `packages/claude-dev-env/rules/workers-done-before-complete.md`) |
 
 Material implementation questions must return to the caller for `AskUserQuestion` handling; do not ask in plain text or guess.
