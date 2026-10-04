@@ -435,7 +435,9 @@ def is_under_session_scratchpad(file_path: str, hook_payload: dict) -> bool:
     """Return True when file_path resolves under the harness session scratchpad.
 
     One-off scripts written to the session scratchpad are throwaway tooling
-    outside every repo, so the TDD and CODE_RULES gates skip them.
+    outside every repo, so the TDD and CODE_RULES gates skip them. A path at
+    or under the payload's working directory (``cwd``) is never scratch, so a
+    repository worktree checked out inside the scratchpad stays fully gated.
 
     The match keys on the session id — from the payload, or the
     ``CLAUDE_CODE_SESSION_ID`` environment variable — and on the temp-directory
@@ -446,10 +448,12 @@ def is_under_session_scratchpad(file_path: str, hook_payload: dict) -> bool:
 
     Args:
         file_path: The path the write targets.
-        hook_payload: The PreToolUse payload carrying the session id.
+        hook_payload: The PreToolUse payload carrying the session id and the
+            working directory (``cwd``).
 
     Returns:
-        True when file_path's real path sits at or under the session scratchpad.
+        True when file_path's real path sits at or under the session scratchpad
+        and outside the payload's working directory.
     """
     if not file_path:
         return False
@@ -457,6 +461,12 @@ def is_under_session_scratchpad(file_path: str, hook_payload: dict) -> bool:
     if not session_id:
         return False
     real_target = os.path.realpath(file_path)
+    working_directory = str(hook_payload.get("cwd") or "")
+    if working_directory and _is_at_or_under_root(
+        _normalized_absolute_comparison_path(real_target),
+        _normalized_absolute_comparison_path(os.path.realpath(working_directory)),
+    ):
+        return False
     real_temp_root = os.path.realpath(tempfile.gettempdir())
     all_relative_parts = _relative_parts_under_temp_root(real_target, real_temp_root)
     return (
