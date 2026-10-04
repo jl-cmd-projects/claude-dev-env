@@ -118,19 +118,6 @@ export function discoverProfileSettingsPaths(options) {
     });
 }
 
-/**
- * Add each declared item its list lacks, in place.
- *
- * A hook group counts as present when every command it declares already runs
- * somewhere in that event, compared through hookCommandComparisonKey, because
- * the installer rewrites `~/` to an absolute home path. Every other item counts as
- * present when the list holds an equal string.
- *
- * @param {Record<string, unknown>} settings Mutated in place.
- * @param {readonly DeclaredListEntries[]} declaredSettings
- * @param {string} homeDirectory
- * @returns {string[]} One `<key path>: <item>` line per added item.
- */
 export function mergeDeclaredProfileSettings(settings, declaredSettings, homeDirectory) {
     const allAdditions = [];
     for (const { keyPath, items } of declaredSettings) {
@@ -138,7 +125,24 @@ export function mergeDeclaredProfileSettings(settings, declaredSettings, homeDir
         for (const eachItem of items) {
             if (listHoldsItem(targetList, eachItem, homeDirectory)) continue;
             const addedItem = itemWithExpandedHookCommands(eachItem, homeDirectory);
-            targetList.push(addedItem);
+            const stopGroup = keyPath.join('.') === 'hooks.Stop'
+                ? targetList.find((eachGroup) => (
+                    eachGroup?.matcher === addedItem.matcher && Array.isArray(eachGroup?.hooks)
+                ))
+                : null;
+            if (stopGroup) {
+                const managedGateIndex = stopGroup.hooks.findIndex(
+                    (eachHook) => typeof eachHook?.command === 'string'
+                        && eachHook.command.replace(/\\/g, '/').includes('/hooks/blocking/session_title_stop_gate.py'),
+                );
+                stopGroup.hooks.splice(
+                    managedGateIndex < 0 ? stopGroup.hooks.length : managedGateIndex,
+                    0,
+                    ...addedItem.hooks,
+                );
+            } else {
+                targetList.push(addedItem);
+            }
             allAdditions.push(`${keyPath.join('.')}: ${JSON.stringify(addedItem)}`);
         }
     }
