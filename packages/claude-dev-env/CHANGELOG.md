@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.8...claude-dev-env-v8.46.9) (2026-10-04)
+
+
+### Bug Fixes
+
+* **tests:** write lock contender result atomically ([768ea9d](https://github.com/jl-cmd/claude-dev-env/commit/768ea9d0461aa1bc400a9af2443dda79e234a68a))
+
 ## [8.46.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.7...claude-dev-env-v8.46.8) (2026-10-04)
 
 
