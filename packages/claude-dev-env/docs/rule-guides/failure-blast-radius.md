@@ -42,7 +42,7 @@ for each_member in all_members:
 
 The re-raise comes first, sending an escalation directly through the boundary.
 
-**The boundary recognizes declared types.** A runtime crash inside member work — a `TypeError`, an `AttributeError` — ends the run because its type identifies a code defect. `except Exception` triggers the rule (`CODE_RULES.md` §31).
+**The boundary recognizes declared types.** A runtime crash inside member work — a `TypeError`, an `AttributeError` — ends the run because its type identifies a code defect. `except Exception` triggers the rule (`CODE_RULES.md` §9.7).
 
 ## Repair, park, and the deliverable
 
