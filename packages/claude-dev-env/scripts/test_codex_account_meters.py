@@ -164,7 +164,6 @@ class TestReadCodexMeters:
             read_codex_meters(Path("codex"), Path("/h"), broken_exchange)
 
 
-
 class TestReadRateLimitRecords:
     def should_return_every_limit_record_the_reply_carries(self) -> None:
         rate_limit_records = {
@@ -195,6 +194,7 @@ class TestReadRateLimitRecords:
     def should_raise_unread_when_the_server_never_answers(self) -> None:
         with pytest.raises(CodexMeterUnreadError, match="no rate-limit reply"):
             read_rate_limit_records(Path("codex"), Path("/h"), lambda *_: [])
+
 
 FAKE_APP_SERVER = """#!/usr/bin/env python3
 import json, os, sys

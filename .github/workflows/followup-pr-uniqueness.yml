@@ -1,0 +1,38 @@
+name: Follow-up uniqueness
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  followup-pr-uniqueness:
+    name: One follow-up per parent
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: followup-pr-uniqueness-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fail when an earlier open pull request follows up the same parent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: packages/claude-dev-env/scripts
+        run: |
+          python packages/claude-dev-env/scripts/followup_pr_uniqueness.py \
+            "${{ github.repository }}" \
+            "${{ github.event.pull_request.number }}"
