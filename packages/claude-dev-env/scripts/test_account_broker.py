@@ -393,6 +393,79 @@ def test_should_wait_when_all_meter_reads_fail() -> None:
     assert decision.resets_at == NOW + timedelta(hours=1)
 
 
+_MAIN_CLAUDE = _account("main", Product.CLAUDE, main=True)
+_EV_CLAUDE = _account("ev", Product.CLAUDE)
+
+
+@pytest.mark.parametrize(
+    ("readings", "spent_resets", "expected_reason", "expected_resets_at"),
+    (
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, None), Reading(_EV_CLAUDE, None)),
+            {},
+            "no account meter could be read (main, ev); next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="every-meter-unreadable",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
+            {},
+            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            NOW + timedelta(minutes=30),
+            id="unreadable-beside-a-reset-before-the-check",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
+            {},
+            "no readable account has room; meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="unreadable-beside-a-reset-after-the-check",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(80, 80)), Reading(_EV_CLAUDE, None)),
+            {_MAIN_CLAUDE: NOW + timedelta(minutes=30)},
+            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            NOW + timedelta(minutes=30),
+            id="unreadable-beside-a-spent-account",
+        ),
+        pytest.param(
+            (
+                Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))),
+                Reading(_EV_CLAUDE, _meters(5, 80, short_reset=NOW + timedelta(hours=3))),
+            ),
+            {},
+            "no account has room; next reset at 2026-10-03T02:00:00+00:00",
+            NOW + timedelta(hours=2),
+            id="every-meter-read-with-known-resets",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, Meters(40, None, 50, None)),),
+            {},
+            "no account has room; next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="every-meter-read-without-a-known-reset",
+        ),
+    ),
+)
+def test_should_name_what_the_broker_knows_in_the_wait_reason(
+    readings: tuple[Reading, ...],
+    spent_resets: dict[Account, datetime],
+    expected_reason: str,
+    expected_resets_at: datetime,
+) -> None:
+    decision = choose_from_readings(
+        Product.CLAUDE,
+        readings,
+        now=NOW,
+        all_spent_accounts=frozenset(spent_resets),
+        all_spent_resets=spent_resets,
+    )
+
+    assert decision.action == "wait"
+    assert decision.reason == expected_reason
+    assert decision.resets_at == expected_resets_at
+
+
 def test_should_replay_stdin_bytes_and_only_print_served_stdout(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
