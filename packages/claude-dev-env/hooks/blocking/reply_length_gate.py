@@ -3,7 +3,8 @@
 
 The gate reads the ``text`` field of the chat tools that post to the user.
 On the Stop event it reads ``last_assistant_message``, the final terminal
-reply, and runs the same checks. A Stop denial makes the model restate the
+reply, and runs the length and banned-word checks. A terminal reply may name
+a pull request as a bare number. A Stop denial makes the model restate the
 reply per pstack:bro. It checks once: a Stop payload with
 ``stop_hook_active`` set passes, so the restatement ends the turn::
 
@@ -234,7 +235,9 @@ def stop_main(all_stop_input: dict[str, object]) -> int:
     reply_text = all_stop_input.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(reply_text, str):
         return ALLOW_EXIT_CODE
-    violation = reply_violation(reply_text)
+    violation = length_violation(reply_text) or banned_word_violation(
+        reply_text, configured_banned_words()
+    )
     if violation is None:
         return ALLOW_EXIT_CODE
     block_reason = violation + STOP_RETRY_INSTRUCTION

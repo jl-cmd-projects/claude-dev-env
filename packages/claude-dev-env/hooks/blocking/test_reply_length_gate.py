@@ -450,7 +450,7 @@ The block. The installed pr_lifecycle_skill_gate hook denied its git commit twic
 What I did. The agent asked me to run the commit instead. I have not, because that would get past a hook denial on its behalf.
 If you say yes, I'll do it. If not, PR 1803 waits until the updated hook is installed."""
 SHORT_TERMINAL_REPLY = (
-    "[PR 1803](https://github.com/jl-cmd/claude-dev-env/pull/1803) is blocked by a hook. "
+    "#1803 is blocked by a hook. "
     "Should I commit and push it myself? Yes or no."
 )
 
@@ -492,6 +492,18 @@ def test_should_allow_a_short_terminal_reply(
     assert (exit_code, stderr_text) == (0, "")
 
 
+def test_should_deny_a_banned_word_in_a_terminal_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_stop(
+        monkeypatch,
+        capsys,
+        {"stop_hook_active": False, "last_assistant_message": "It probably works."},
+    )
+    assert exit_code == 2
+    assert '"probably"' in stderr_text
+
+
 def test_should_allow_the_restatement_turn_when_the_stop_hook_is_active(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -511,7 +523,7 @@ def test_should_allow_a_stop_with_no_final_message(
 
 
 def test_should_return_the_first_reply_violation() -> None:
-    assert reply_length_gate.reply_violation(SHORT_TERMINAL_REPLY) is None
+    assert reply_length_gate.reply_violation("Tests pass.") is None
     assert reply_length_gate.reply_violation("It probably works.") == (
         'Banned word "probably". Delete it and name the evidence: the log line, the check, the file and line.'
     )
