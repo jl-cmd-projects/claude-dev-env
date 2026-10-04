@@ -3110,9 +3110,13 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
 
     assert.deepEqual(sandbox.recordedCommands(), [
-        'claude plugin marketplace add michael-denyer/pstack-claude',
+        'claude plugin uninstall pstack@pstack-claude',
+        'claude plugin marketplace remove pstack-claude',
+        'claude plugin marketplace add jl-cmd/pstack-claude',
         'claude plugin install pstack@pstack-claude',
-        'codex plugin marketplace add michael-denyer/pstack-claude',
+        'codex plugin remove pstack@pstack-claude',
+        'codex plugin marketplace remove pstack-claude',
+        'codex plugin marketplace add jl-cmd/pstack-claude',
         'codex plugin add pstack@pstack-claude',
     ]);
     assert.match(installerOutput, /Pstack \(claude\): installed/);
@@ -3311,6 +3315,8 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 });
 
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
+    'claude plugin uninstall usage-wrapup@claude-dev-env',
+    'claude plugin marketplace remove claude-dev-env',
     'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin',
     'claude plugin install usage-wrapup@claude-dev-env',
 ]);

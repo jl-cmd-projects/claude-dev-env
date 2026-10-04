@@ -383,12 +383,8 @@ def test_should_keep_spent_mark_until_reset(
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
 
 
-@pytest.mark.parametrize(
-    ("start_error", "expected_status"),
-    ((OSError("missing command"), "start_failed"), (subprocess.TimeoutExpired("job", 1), "timeout")),
-)
 def test_should_leave_later_choices_open_after_start_failure(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], start_error: Exception, expected_status: str
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     accounts = (_account("first"), _account("second"))
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
@@ -396,12 +392,37 @@ def test_should_leave_later_choices_open_after_start_failure(
     }))
 
     def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
-        raise start_error
+        raise OSError("missing command")
 
     with account_broker.override_subprocess_runner(runner):
         outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
 
-    assert outcome.attempts == (("first", expected_status), ("second", expected_status))
+    assert outcome.attempts == (("first", "start_failed"), ("second", "start_failed"))
+    assert account_broker.main(("choose", "--product", "codex")) == 0
+    assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+def test_should_stop_after_timeout_without_running_job_again(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        invoked_homes.append(Path(options["env"]["CODEX_HOME"]).name)
+        raise subprocess.TimeoutExpired("job", 1)
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, report = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert invoked_homes == ["first"]
+    assert outcome.attempts == (("first", "timeout"),)
+    assert outcome.status == "advisor_blocked"
+    assert outcome.account_name == "first"
+    assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
 
