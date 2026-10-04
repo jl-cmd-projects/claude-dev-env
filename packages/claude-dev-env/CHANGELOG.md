@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.51.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.0...claude-dev-env-v8.51.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **scripts:** read directory ages before sweep removes any ([70fee16](https://github.com/jl-cmd/claude-dev-env/commit/70fee1610a7da984df0d7f1a33effaffb691d746))
+
 ## [8.51.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.1...claude-dev-env-v8.51.0) (2026-10-04)
 
 
