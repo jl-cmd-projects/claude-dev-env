@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.4...claude-dev-env-v8.42.5) (2026-10-04)
+
+
+### Tests
+
+* **rules:** hold the rule index to a shape and size budget ([f879b30](https://github.com/jl-cmd/claude-dev-env/commit/f879b309fc4b3fec6a30a976fb5e9c6f21682049))
+
 ## [8.42.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.3...claude-dev-env-v8.42.4) (2026-10-04)
 
 
