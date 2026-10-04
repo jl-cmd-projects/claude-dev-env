@@ -258,10 +258,15 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the advisor model and auto mode defaults', () => {
+test('package settings.json publishes the session agent, advisor model and auto mode defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
-    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'autoMode']);
+    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'agent', 'autoMode']);
+    assert.equal(settingsDefaults.agent, 'dev-env-session');
+    assert.ok(
+        existsSync(join(PACKAGE_ROOT, '.agents', 'agents', `${settingsDefaults.agent}.md`)),
+        'the session agent named by the agent default ships with the package',
+    );
     assert.equal(settingsDefaults.advisorModel, 'fable');
     const [firstAllowRule, ...allCustomAllowRules] = settingsDefaults.autoMode.allow;
     assert.equal(firstAllowRule, '$defaults');
