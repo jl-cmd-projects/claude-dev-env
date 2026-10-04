@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import account_broker
+import claude_account_worker
 from account_broker import (
     Account,
     Meters,
@@ -464,6 +465,31 @@ def test_should_name_what_the_broker_knows_in_the_wait_reason(
     assert decision.action == "wait"
     assert decision.reason == expected_reason
     assert decision.resets_at == expected_resets_at
+
+
+def test_should_carry_the_unreadable_meter_reason_into_the_worker_report(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    adapter = _adapter((_MAIN_CLAUDE, _EV_CLAUDE), {"main": None, "ev": None})
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
+    prompt_file = tmp_path / "brief.md"
+    prompt_file.write_text("standalone brief", encoding="utf-8")
+    report_file = tmp_path / "report.json"
+
+    with account_broker.override_subprocess_runner(lambda command, **options: pytest.fail("a waiting job ran")):
+        exit_code = claude_account_worker.run_worker(
+            prompt_file=prompt_file,
+            cwd=tmp_path,
+            report_file=report_file,
+            model=None,
+            permission_mode="auto",
+            timeout_minutes=60,
+        )
+
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+    assert exit_code == WAIT_EXIT_CODE
+    assert report["account"] == "wait"
+    assert report["reason"].startswith("no account meter could be read")
 
 
 def test_should_replay_stdin_bytes_and_only_print_served_stdout(
