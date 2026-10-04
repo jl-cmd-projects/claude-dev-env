@@ -12,6 +12,7 @@ rather than the OS temp directory, matching the sibling workflow-hook tests.
 import contextlib
 import functools
 import importlib.util
+import inspect
 import json
 import os
 import shutil
@@ -59,9 +60,15 @@ def _strip_read_only_and_retry(removal_function, target_path, *_exc_info):
         pass
 
 
+_rmtree_supports_onexc = "onexc" in inspect.signature(shutil.rmtree).parameters
+
+
 def _force_rmtree(target_path: str) -> None:
     with contextlib.suppress(OSError):
-        shutil.rmtree(target_path, onexc=_strip_read_only_and_retry)
+        if _rmtree_supports_onexc:
+            shutil.rmtree(target_path, onexc=_strip_read_only_and_retry)
+        else:
+            shutil.rmtree(target_path, onerror=_strip_read_only_and_retry)
 
 
 @functools.lru_cache(maxsize=1)
