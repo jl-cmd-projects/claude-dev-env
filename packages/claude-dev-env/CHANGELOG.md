@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** move Codex callers onto the account broker ([e11d676](https://github.com/jl-cmd/claude-dev-env/commit/e11d676fbb558ad6de364ee333ce8cfb0f42ef49))
+
 ## [8.38.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.2...claude-dev-env-v8.38.3) (2026-10-04)
 
 
