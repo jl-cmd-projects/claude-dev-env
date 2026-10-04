@@ -91,7 +91,6 @@ test('buildInstallPlan is zero-write and freezes a success plan', () => {
         const plan = buildInstallPlan(planInput(packageRoot, managedRoot));
         assert.equal(plan.pythonCommand, 'python3');
         assert.equal(plan.shouldInstallHooks, true);
-        assert.equal(plan.shouldPurgeBeforeReinstall, false);
         assert.deepEqual(plan.priorManifest.skills, ['a']);
         assert.ok(Object.isFrozen(plan));
         assert.equal(treeStamp(managedRoot) + '//' + treeStamp(packageRoot), before);
@@ -166,7 +165,7 @@ test('settings preflight is hooks-gated; broken manifest stays tolerant', () => 
     }
 });
 
-test('update plan marks purge and lists E2 mutation kinds; journal omits hooks', () => {
+test('update plan copies before it prunes and never purges; journal omits hooks', () => {
     const { root, managedRoot, packageRoot } = sandbox();
     try {
         const manifestFilePath = join(managedRoot, '.claude-dev-env-manifest.json');
@@ -177,9 +176,11 @@ test('update plan marks purge and lists E2 mutation kinds; journal omits hooks',
             targetIdentity: 'profile-a',
             isUpdateRefresh: true,
         }));
-        assert.equal(plan.shouldPurgeBeforeReinstall, true);
         const allMutations = describeInstallMutations(plan);
-        assert.ok(allMutations.includes('purge_managed_installation'));
+        assert.ok(!allMutations.includes('purge_managed_installation'));
+        assert.ok(
+            allMutations.indexOf('copy_hook_files') < allMutations.indexOf('prune_retired_and_stale'),
+        );
         assert.ok(allMutations.includes('publish_directory_pointers'));
         assert.ok(allMutations.includes('merge_hooks_settings'));
         assert.ok(allMutations.includes('write_manifest'));

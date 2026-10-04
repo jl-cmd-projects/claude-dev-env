@@ -45,6 +45,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _choose_claude,
     _choose_codex,
     _wait_decision,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
     WAIT_EXIT_CODE,
@@ -249,7 +250,12 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
 
 
 def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:
-    environment = {**os.environ, context.active.environment_variable: str(account.home)}
+    environment = {
+        each_variable_name: each_setting
+        for each_variable_name, each_setting in os.environ.items()
+        if context.product is not Product.CLAUDE or each_variable_name not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+    }
+    environment[context.active.environment_variable] = str(account.home)
     return support.subprocess_runner(
         context.all_argv,
         env=environment,
