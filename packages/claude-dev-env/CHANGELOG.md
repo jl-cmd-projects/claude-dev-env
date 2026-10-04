@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.22](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.21...claude-dev-env-v8.46.22) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** pair the account worker process and report modules ([dca9de8](https://github.com/jl-cmd/claude-dev-env/commit/dca9de8763208b742437ae7a1af0fd34223ca7e7))
+
 ## [8.46.21](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.20...claude-dev-env-v8.46.21) (2026-10-04)
 
 
