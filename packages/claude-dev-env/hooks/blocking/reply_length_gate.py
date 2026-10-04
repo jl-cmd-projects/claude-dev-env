@@ -19,7 +19,8 @@ The gate uses the ``banned_words`` list in ``~/.claude/reply-banned-words.json``
 or in the file that CLAUDE_REPLY_BANNED_WORDS_PATH names. Without a valid
 list there, it uses ALL_DEFAULT_BANNED_WORDS.
 
-The banned-word check also reads every text field of a decision card.
+The banned-word check also reads the prose of a decision card: its question,
+its context, and each option's label and consequence.
 A decision card gets no length check.
 
 Each non-empty line counts as its own sentence, so a list counts one
@@ -47,6 +48,8 @@ from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
+    ALL_DECISION_CARD_PROSE_KEYS,
+    ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
     ALLOW_EXIT_CODE,
     BANNED_WORD_MESSAGE,
@@ -59,6 +62,7 @@ from hooks_constants.reply_length_gate_constants import (
     CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
+    DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
     FENCED_BLOCK_PATTERN,
     HOOK_EVENT_NAME,
@@ -169,19 +173,21 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
     return None
 
 
-def all_card_texts(card_value: object) -> list[str]:
-    """Collect every string inside a decision card's input, in order."""
-    if isinstance(card_value, str):
-        return [card_value]
-    if isinstance(card_value, dict):
-        return [
-            each_text
-            for each_value in card_value.values()
-            for each_text in all_card_texts(each_value)
-        ]
-    if isinstance(card_value, list):
-        return [each_text for each_value in card_value for each_text in all_card_texts(each_value)]
-    return []
+def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
+    """Collect the prose fields of a decision card: question, context, and each option's text."""
+    all_options = all_card_input.get(DECISION_CARD_OPTIONS_KEY)
+    all_option_fields = [
+        each_option.get(each_key)
+        for each_option in (all_options if isinstance(all_options, list) else [])
+        if isinstance(each_option, dict)
+        for each_key in ALL_DECISION_OPTION_PROSE_KEYS
+    ]
+    all_card_fields = [all_card_input.get(each_key) for each_key in ALL_DECISION_CARD_PROSE_KEYS]
+    return [
+        each_field
+        for each_field in all_card_fields + all_option_fields
+        if isinstance(each_field, str)
+    ]
 
 
 def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
