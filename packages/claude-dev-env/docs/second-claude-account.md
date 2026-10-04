@@ -46,8 +46,9 @@ room.
 | main | under 90% of its week and under 50% of its 5-hour window |
 | second and each extra profile | under 95% of its week and under 90% of its 5-hour window |
 
-When no account has room, the job waits for the next reset time. An unreadable
-meter never picks its account.
+When no account has room, the job waits until the next account reset, or for one
+hour when no reset is known. An unreadable meter never picks its account, and
+the wait reason names each account whose meter could not be read.
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product claude
