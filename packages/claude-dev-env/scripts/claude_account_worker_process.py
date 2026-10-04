@@ -26,8 +26,8 @@ def invoke_worker(
         cwd: Working directory for the job.
         prompt_text: Text the runner writes to the job's standard input.
         timeout_minutes: Job time limit in minutes; the runner receives it in seconds.
-        runner: Broker job runner, called with ``Product.CLAUDE`` and UTF-8
-            text decoding that replaces undecodable bytes.
+        runner: Broker job runner, called with ``Product.CLAUDE``,
+            ``encoding="utf-8"``, and ``errors="replace"``.
         monotonic_clock: Clock read once before and once after the job.
 
     Returns:
