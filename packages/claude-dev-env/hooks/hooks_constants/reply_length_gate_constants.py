@@ -28,6 +28,32 @@ SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
 UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
+ALL_DEFAULT_BANNED_WORDS = (
+    "real",
+    "really",
+    "in reality",
+    "genuine",
+    "genuinely",
+    "actual",
+    "actually",
+    "likely",
+    "unlikely",
+    "probably",
+    "seems",
+    "seem",
+    "seemingly",
+    "suspect",
+    "guess",
+    "my theory",
+)
+BANNED_WORD_PART_SEPARATOR = r"\s+"
+BANNED_WORD_PATTERN_TEMPLATE = r"(?<![A-Za-z0-9]){word_pattern}(?![A-Za-z0-9])"
+BANNED_WORDS_JSON_KEY = "banned_words"
+BANNED_WORDS_FILE_NAME = "reply-banned-words.json"
+BANNED_WORDS_PATH_ENV_VAR = "CLAUDE_REPLY_BANNED_WORDS_PATH"
+CLAUDE_HOME_DIRECTORY_NAME = ".claude"
+CONFIG_FILE_ENCODING = "utf-8"
+BANNED_WORD_MESSAGE = 'Banned word "{banned_word}". Delete it and name the evidence: the log line, the check, the file and line.'
 LONG_SENTENCE_MESSAGE = (
     'Sentence too long: {word_count} words, limit {word_limit}: "{sentence_preview}".'
 )
