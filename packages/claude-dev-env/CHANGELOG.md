@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.53.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.2...claude-dev-env-v8.53.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** skip the outside-roster warning for default without a roster ([f90c771](https://github.com/jl-cmd/claude-dev-env/commit/f90c771b190785d5c4c039c3b4b40115d76be2f7))
+
 ## [8.53.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.1...claude-dev-env-v8.53.2) (2026-10-04)
 
 

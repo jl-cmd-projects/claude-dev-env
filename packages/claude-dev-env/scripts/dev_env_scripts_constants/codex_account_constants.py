@@ -66,6 +66,9 @@ CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE: str = "CODEX_PROFILES_ROOT"
 MAIN_CODEX_HOME_DIRECTORY_NAME: str = ".codex"
 """Directory under the user home that holds the shared Codex setup."""
 
+NO_ROSTER_ACCOUNT_NAME: str = "default"
+"""Account name the broker gives the shared Codex home when no roster is configured."""
+
 CODEX_HOME_ENVIRONMENT_VARIABLE: str = "CODEX_HOME"
 """Environment variable that points Codex at one account's home."""
 
