@@ -3112,11 +3112,11 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     assert.deepEqual(sandbox.recordedCommands(), [
         'claude plugin uninstall pstack@pstack-claude',
         'claude plugin marketplace remove pstack-claude',
-        'claude plugin marketplace add michael-denyer/pstack-claude',
+        'claude plugin marketplace add jl-cmd/pstack-claude',
         'claude plugin install pstack@pstack-claude',
         'codex plugin remove pstack@pstack-claude',
         'codex plugin marketplace remove pstack-claude',
-        'codex plugin marketplace add michael-denyer/pstack-claude',
+        'codex plugin marketplace add jl-cmd/pstack-claude',
         'codex plugin add pstack@pstack-claude',
     ]);
     assert.match(installerOutput, /Pstack \(claude\): installed/);

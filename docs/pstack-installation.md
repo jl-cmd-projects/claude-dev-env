@@ -1,20 +1,20 @@
 # Install pstack across hosts
 
-A full `claude-dev-env` install also installs [pstack](https://github.com/michael-denyer/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. Upstream owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files.
+A full `claude-dev-env` install also installs [pstack](https://github.com/jl-cmd/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. The `jl-cmd/pstack-claude` fork of the Claude and Codex port owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files. A nightly workflow in the fork runs the port's own sync tool against Cursor's upstream pstack and publishes each new upstream release.
 
 ## What the install step runs
 
 For Claude Code, with `CLAUDE_CONFIG_DIR` set to the managed root this run writes to:
 
 ```bash
-claude plugin marketplace add michael-denyer/pstack-claude
+claude plugin marketplace add jl-cmd/pstack-claude
 claude plugin install pstack@pstack-claude
 ```
 
 For Codex, with `CODEX_HOME` set to the resolved Codex home:
 
 ```bash
-codex plugin marketplace add michael-denyer/pstack-claude
+codex plugin marketplace add jl-cmd/pstack-claude
 codex plugin add pstack@pstack-claude
 ```
 
@@ -88,4 +88,4 @@ Git and Node 22 or later are installer prerequisites. The plugin's own workflows
 
 ## Sources
 
-[Claude Code plugins](https://code.claude.com/docs/en/plugins), [Claude Code plugin marketplaces](https://code.claude.com/docs/en/plugin-marketplaces), and the [pstack-claude README](https://github.com/michael-denyer/pstack-claude#install) define the marketplace and plugin commands each host accepts.
+[Claude Code plugins](https://code.claude.com/docs/en/plugins), [Claude Code plugin marketplaces](https://code.claude.com/docs/en/plugin-marketplaces), and the [pstack-claude README](https://github.com/jl-cmd/pstack-claude#install) define the marketplace and plugin commands each host accepts.

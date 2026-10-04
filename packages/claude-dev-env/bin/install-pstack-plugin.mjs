@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const PSTACK_MARKETPLACE_REPOSITORY = 'michael-denyer/pstack-claude';
+export const PSTACK_MARKETPLACE_REPOSITORY = 'jl-cmd/pstack-claude';
 export const PSTACK_MARKETPLACE_NAME = 'pstack-claude';
 export const PSTACK_PLUGIN_IDENTIFIER = `pstack@${PSTACK_MARKETPLACE_NAME}`;
 export const PSTACK_PLUGIN_HOSTS = Object.freeze(['claude', 'codex']);
