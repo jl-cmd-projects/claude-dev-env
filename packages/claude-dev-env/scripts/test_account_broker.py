@@ -112,7 +112,6 @@ def test_should_keep_list_order_when_tighter_windows_tie() -> None:
 @pytest.mark.parametrize(
     ("weekly_reset", "weekly_left", "short_left"),
     (
-        (NOW + timedelta(days=3), 20, 80),
         (NOW + timedelta(hours=4), 10, 80),
         (NOW + timedelta(hours=4), 20, 50),
     ),
@@ -131,16 +130,73 @@ def test_should_guard_main_at_each_limit(
     assert decision.account == extra.account
 
 
-def test_should_prioritize_main_when_its_guard_passes() -> None:
+def test_should_pick_main_when_it_has_more_room_than_every_extra() -> None:
     main = Reading(
         _account("main", Product.CLAUDE, main=True),
-        _meters(80, 20, weekly_reset=NOW + timedelta(hours=4)),
+        _meters(80, 80, weekly_reset=NOW + timedelta(days=5)),
+    )
+    extras = (
+        Reading(_account("second", Product.CLAUDE), _meters(60, 60)),
+        Reading(_account("third", Product.CLAUDE), _meters(40, 40)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (*extras, main), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == main.account
+
+
+def test_should_pick_an_extra_with_more_room_than_main() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(60, 60, weekly_reset=NOW + timedelta(hours=4)),
     )
     extra = Reading(_account("extra", Product.CLAUDE), _meters(90, 90))
 
     decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
 
+    assert decision.account == extra.account
+
+
+@pytest.mark.parametrize(("main_short_left", "expected_name"), ((51, "main"), (50, "extra")))
+def test_should_pick_main_only_while_under_its_5_hour_ceiling(
+    main_short_left: float, expected_name: str
+) -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(main_short_left, 95, weekly_reset=NOW + timedelta(days=5)),
+    )
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 20))
+
+    decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
+
+    assert decision.account.name == expected_name
+
+
+def test_should_pick_main_when_it_is_the_only_readable_account() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(80, 80, weekly_reset=NOW + timedelta(days=5)),
+    )
+    unread = Reading(_account("extra", Product.CLAUDE), None)
+
+    decision = choose_from_readings(Product.CLAUDE, (unread, main), now=NOW)
+
+    assert decision.action == "run"
     assert decision.account == main.account
+
+
+def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> None:
+    short_reset = NOW + timedelta(hours=2)
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(40, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == short_reset
 
 
 @pytest.mark.parametrize(
@@ -148,7 +204,6 @@ def test_should_prioritize_main_when_its_guard_passes() -> None:
     (
         (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
         (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
-        (80, 50, NOW + timedelta(days=3), NOW + timedelta(days=2)),
     ),
 )
 def test_should_wait_for_the_meter_or_window_that_blocks_main(
