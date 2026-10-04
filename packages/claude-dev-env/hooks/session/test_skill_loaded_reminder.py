@@ -1,4 +1,4 @@
-"""Tests for skill_loaded_reminder. Checks every fresh context gets poteto-mode, and loaded ones hear nothing."""
+"""Tests for skill_loaded_reminder. Checks restoration after compaction and helper prompts."""
 
 import json
 import sys
@@ -167,14 +167,25 @@ class TestCodexSpawn:
 
     def test_a_codex_spawn_message_that_already_mentions_the_skill_is_left_alone(self) -> None:
         assert (
-            _run_main(
-                _agent_call({"message": "$poteto-mode\n\nFix it."}, tool_name="spawn_agent")
-            )
+            _run_main(_agent_call({"message": "$poteto-mode\n\nFix it."}, tool_name="spawn_agent"))
             == ""
         )
 
 
 class TestIsPotetoModeLoaded:
+    def test_status_without_a_skill_call_reports_no_invocation_or_load(self) -> None:
+        assert reminder.poteto_mode_status(iter([READ_CALL_LINE])) == (False, False)
+
+    def test_status_keeps_invocation_history_after_compaction(self) -> None:
+        assert reminder.poteto_mode_status(
+            iter([SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, READ_CALL_LINE])
+        ) == (True, False)
+
+    def test_status_reports_the_skill_loaded_again_after_compaction(self) -> None:
+        assert reminder.poteto_mode_status(
+            iter([SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, SKILL_CALL_LINE])
+        ) == (True, True)
+
     def test_a_skill_call_loads_it(self) -> None:
         assert reminder.is_poteto_mode_loaded([READ_CALL_LINE, SKILL_CALL_LINE, READ_CALL_LINE])
 
@@ -210,15 +221,29 @@ class TestIsPotetoModeLoaded:
 
 
 class TestReminderFor:
-    def test_a_user_turn_in_a_session_that_never_loaded_the_skill_gets_the_reminder(
+    def test_a_user_turn_in_a_session_that_never_loaded_the_skill_prints_nothing(
         self, tmp_path: Path
     ) -> None:
         transcript_path = _write_transcript(tmp_path, [READ_CALL_LINE])
+        assert _run_main(_user_turn(transcript_path)) == ""
+
+    def test_a_user_turn_after_the_skill_and_compaction_gets_the_reminder(
+        self, tmp_path: Path
+    ) -> None:
+        transcript_path = _write_transcript(
+            tmp_path, [SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, READ_CALL_LINE]
+        )
         emitted = json.loads(_run_main(_user_turn(transcript_path)))
         hook_output = emitted["hookSpecificOutput"]
         assert hook_output["hookEventName"] == "UserPromptSubmit"
         assert hook_output["additionalContext"] == NOT_LOADED_REMINDER
         assert "poteto-mode" in NOT_LOADED_REMINDER
+
+    def test_a_user_turn_after_the_skill_is_reloaded_prints_nothing(self, tmp_path: Path) -> None:
+        transcript_path = _write_transcript(
+            tmp_path, [SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, SKILL_CALL_LINE]
+        )
+        assert _run_main(_user_turn(transcript_path)) == ""
 
     def test_a_user_turn_in_a_session_that_loaded_the_skill_prints_nothing(
         self, tmp_path: Path
@@ -226,18 +251,75 @@ class TestReminderFor:
         transcript_path = _write_transcript(tmp_path, [SKILL_CALL_LINE, READ_CALL_LINE])
         assert _run_main(_user_turn(transcript_path)) == ""
 
-    def test_a_user_turn_with_no_transcript_yet_gets_the_reminder(self, tmp_path: Path) -> None:
-        assert (
-            reminder.reminder_for(_user_turn(tmp_path / "not-written-yet.jsonl"))
-            == NOT_LOADED_REMINDER
-        )
+    def test_a_user_turn_with_no_transcript_yet_prints_nothing(self, tmp_path: Path) -> None:
+        assert _run_main(_user_turn(tmp_path / "not-written-yet.jsonl")) == ""
 
-    def test_session_start_after_compaction_tells_the_session_to_invoke_it_again(self) -> None:
-        emitted = json.loads(_run_main({"hook_event_name": "SessionStart", "source": "compact"}))
+    def test_session_start_after_compaction_tells_a_prior_user_to_invoke_it_again(
+        self, tmp_path: Path
+    ) -> None:
+        transcript_path = _write_transcript(tmp_path, [SKILL_CALL_LINE, READ_CALL_LINE])
+        emitted = json.loads(
+            _run_main(
+                {
+                    "hook_event_name": "SessionStart",
+                    "source": "compact",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+        )
         hook_output = emitted["hookSpecificOutput"]
         assert hook_output["hookEventName"] == "SessionStart"
         assert hook_output["additionalContext"] == COMPACTION_REMINDER
         assert "poteto-mode" in COMPACTION_REMINDER
+
+    def test_session_start_after_a_written_boundary_reminds_a_prior_user(
+        self, tmp_path: Path
+    ) -> None:
+        transcript_path = _write_transcript(tmp_path, [SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE])
+        assert (
+            reminder.reminder_for(
+                {
+                    "hook_event_name": "SessionStart",
+                    "source": "compact",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+            == COMPACTION_REMINDER
+        )
+
+    def test_session_start_after_compaction_without_a_prior_skill_call_prints_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        transcript_path = _write_transcript(tmp_path, [READ_CALL_LINE])
+        assert (
+            _run_main(
+                {
+                    "hook_event_name": "SessionStart",
+                    "source": "compact",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+            == ""
+        )
+
+    def test_session_start_after_compaction_without_a_transcript_path_prints_nothing(
+        self,
+    ) -> None:
+        assert _run_main({"hook_event_name": "SessionStart", "source": "compact"}) == ""
+
+    def test_session_start_after_compaction_with_an_unreadable_transcript_prints_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        assert (
+            _run_main(
+                {
+                    "hook_event_name": "SessionStart",
+                    "source": "compact",
+                    "transcript_path": str(tmp_path / "not-written-yet.jsonl"),
+                }
+            )
+            == ""
+        )
 
     def test_a_resumed_session_keeps_its_context_and_prints_nothing(self) -> None:
         assert _run_main({"hook_event_name": "SessionStart", "source": "resume"}) == ""
