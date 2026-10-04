@@ -820,5 +820,7 @@ def test_should_exit_two_when_the_limits_read_fails(
 
 
 def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path))) == 2
-    assert "Codex accounts only" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as exit_info:
+        account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path)))
+    assert exit_info.value.code == 2
+    assert "invalid choice: 'claude'" in capsys.readouterr().err
