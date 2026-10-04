@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.25](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.24...claude-dev-env-v8.46.25) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** restore the member-loop boundary sentence in section 9.7 ([efd216c](https://github.com/jl-cmd/claude-dev-env/commit/efd216c154d5e516184a9216aa9808c345e13327))
+
 ## [8.46.24](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.23...claude-dev-env-v8.46.24) (2026-10-04)
 
 
