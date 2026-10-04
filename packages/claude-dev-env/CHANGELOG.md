@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.47.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.1...claude-dev-env-v8.47.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **claude-worker:** exit 124 with reason timeout when the job times out ([642d770](https://github.com/jl-cmd/claude-dev-env/commit/642d7708bf4544419c8f5c19212e6777e39494b0))
+
 ## [8.47.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.0...claude-dev-env-v8.47.1) (2026-10-04)
 
 
