@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.49.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.0...claude-dev-env-v8.49.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** rank main with the other accounts and name unreadable meters in waits ([e7404bb](https://github.com/jl-cmd/claude-dev-env/commit/e7404bbdc3662b33468afc13d703de7a60d41ce7))
+
 ## [8.49.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.7...claude-dev-env-v8.49.0) (2026-10-04)
 
 
