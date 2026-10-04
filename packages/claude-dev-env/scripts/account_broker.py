@@ -122,6 +122,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
             "name": each_reading.account.name,
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
+            "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
         }
         for each_reading in all_readings
@@ -212,6 +213,7 @@ class _RunContext:
     all_attempts: list[tuple[str, str]]
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
+    start_failure_text: str = ""
 
 
 def _prepare_run(
@@ -235,7 +237,7 @@ def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
     all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
     if all_attempt_statuses == {"start_failed"}:
-        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", "", None, tuple(context.all_attempts), "start_failed", None, None)
+        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
     status = "exhausted" if context.all_attempts else "wait"
     return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
@@ -288,6 +290,7 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     except (OSError, subprocess.TimeoutExpired) as error:
         status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
         _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
+        context.start_failure_text = str(error)
         if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
             context.report.final_decision = decision
             final_status = "advisor_blocked" if context.product is Product.CLAUDE else status

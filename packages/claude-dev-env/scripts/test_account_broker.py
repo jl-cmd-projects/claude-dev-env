@@ -302,6 +302,59 @@ def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
     assert decision.account is None
 
 
+def _ranked_claude_account(name: str, priority: int | None) -> Account:
+    return Account(Product.CLAUDE, name, Path("/profiles") / name, False, name, priority)
+
+
+def test_should_pick_the_first_claude_account_in_priority_order_with_room() -> None:
+    readings = (
+        Reading(_ranked_claude_account("roomy", 2), _meters(90, 90)),
+        Reading(_ranked_claude_account("spent", 0), _meters(5, 90)),
+        Reading(_ranked_claude_account("preferred", 1), _meters(20, 20)),
+        Reading(_ranked_claude_account("unranked", None), _meters(99, 99)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account.name == "preferred"
+    assert "priority 2" in decision.reason
+
+
+def test_should_fall_back_to_the_roomiest_unranked_claude_account() -> None:
+    readings = (
+        Reading(_ranked_claude_account("ranked_spent", 0), _meters(5, 5)),
+        Reading(_ranked_claude_account("tight", None), _meters(30, 30)),
+        Reading(_ranked_claude_account("roomy", None), _meters(60, 60)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account.name == "roomy"
+
+
+def test_should_keep_resume_affinity_ahead_of_priority() -> None:
+    readings = (
+        Reading(_ranked_claude_account("first", 0), _meters(90, 90)),
+        Reading(_ranked_claude_account("bound", 1), _meters(40, 40)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW, preferred_command="bound")
+
+    assert decision.account.name == "bound"
+    assert decision.reason == "resume affinity"
+
+
+def test_should_wait_when_every_ranked_claude_account_is_spent() -> None:
+    readings = (
+        Reading(_ranked_claude_account("first", 0), _meters(5, 5)),
+        Reading(_ranked_claude_account("second", 1), _meters(0, 50)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.action == "wait"
+
+
 @pytest.mark.parametrize("count", (1, 5))
 def test_should_consider_every_account_in_the_roster(count: int) -> None:
     readings = tuple(
@@ -906,6 +959,20 @@ def test_should_record_start_failure_without_launching_a_command_missing_from_pa
     assert outcome.attempts == (("extra", "start_failed"),)
     assert outcome.status == "start_failed"
     assert outcome.returncode == 127
+
+
+def test_should_keep_the_start_failure_text_when_no_account_can_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE)),
+        {"first": _meters(80, 80), "second": _meters(70, 70)},
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.status == "start_failed"
+    assert "claude" in outcome.stderr
 
 
 @pytest.mark.parametrize("marked_name", ["retired", "first"])
