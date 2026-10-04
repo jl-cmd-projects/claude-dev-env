@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.50.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.4...claude-dev-env-v8.50.0) (2026-10-04)
+
+
+### Features
+
+* **account-broker:** pick Claude accounts in a configured priority order ([#1837](https://github.com/jl-cmd/claude-dev-env/issues/1837)) ([64b6615](https://github.com/jl-cmd/claude-dev-env/commit/64b66157786cd65792454f4eabe74ea4c73440be))
+
 ## [8.49.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.3...claude-dev-env-v8.49.4) (2026-10-04)
 
 
