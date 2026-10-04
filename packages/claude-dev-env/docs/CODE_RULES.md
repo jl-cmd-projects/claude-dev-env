@@ -13,13 +13,13 @@ A keep marker is the one comment that may be added and kept: a comment that open
 
 ## CORE PRINCIPLES
 
-Use clear names. Keep shared constants in `config/`. Search before adding helpers. Put construction and formatting with the data owner.
+Use clear names. Keep shared constants in `config/`. Search before adding helpers. Put construction and formatting with the data owner. Encapsulation enables cleaner naming, so prefer `isMaxLevel(level)` to `level >= MAXIMUM_LEVEL`. Session policy lives in [`code-standards.md`](../rules/code-standards.md).
 
 Open [details](code-rules/core-principles-and-config.md) when adding shared values or construction logic.
 
 ## ⚡ LINT-ENFORCED RULES
 
-Staged lint runs `code_rules_enforcer.py`. Keep imports at the top, parameterize logging, guard path insertion, use specific exceptions, and follow checks for values, types, docstrings, names, and tests.
+Staged lint runs `code_rules_enforcer.py`. Keep imports at the top, parameterize logging, guard path insertion, use specific exceptions, and follow checks for values, types, docstrings, names, and tests. Magic values exempt 0, 1, and -1. Type escape hatches are allowed in boundary files. Stub bodies are allowed in abstract and Protocol classes.
 
 - UPPER_SNAKE constants belong in `config/`. Exemptions include `config/*`, `/migrations/`, and test paths or names matching `test_`, `_test.`, `.spec.`, `conftest`, or `/tests/`.
 - Workflow registries: a path that contains any of these substrings, `/workflow/`, `_tab.py`, `/states.py`, or `/modules.py`, is exempt; each matches independently as a substring.
@@ -94,7 +94,7 @@ Open [details](code-rules/design-and-structure.md) when renaming symbols.
 
 ## 9.7 NO FALLBACK / BEST-EFFORT WRAPPERS
 
-Never swallow a failure into a default unless the caller explicitly opted in at the boundary. Name the specific exception (`except KeyError:`) and propagate the rest — collapsing every error class to `None` masks programming errors and makes debugging impossible.
+Never swallow a failure into a default unless the caller explicitly opted in at the boundary. Name the specific exception (`except KeyError:`) and propagate the rest. Collapsing every error class to `None` masks programming errors and makes debugging impossible.
 
 Open [details](code-rules/design-and-structure.md) when handling batch failures.
 

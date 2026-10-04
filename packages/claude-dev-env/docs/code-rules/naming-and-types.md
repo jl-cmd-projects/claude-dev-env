@@ -27,7 +27,7 @@ I name identifiers for their role and type the boundary of each public function.
 
 ## When it fires
 
-The code-rules enforcer checks names in changed *.py, *.js, *.mjs, and *.ts declarations. Type and pytest fixture checks use test_*.py, *_test.py, and tests/ paths.
+The code-rules enforcer checks names in changed *.py, *.js, *.mjs, and *.ts declarations. Annotation checks skip test files. Pytest fixture annotation and unused-fixture checks run on test_*.py, *_test.py, and tests/ paths. Boolean names cover bool-typed parameters. JavaScript `@param {boolean}` names take camelCase prefixes. A test_* function needs a return annotation. A bare `object` parameter whose body reads an attribute fails the type check.
 
 Known pytest fixture parameters are tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, capfd, caplog, request, and tmp_path_factory with their documented injected types. A collectable test drops a known fixture parameter it never reads, augments, or deletes. Reads inside nested functions and comprehensions count. Ordinary test parameters remain exempt. For typed data, keep _encode_* and _decode_* companions in the same module. The banned identifiers include ctx, cfg, msg, btn, idx, cnt, tmp, elem, and val. Public function names avoid handle_, process_, manage_, and do_.
 
