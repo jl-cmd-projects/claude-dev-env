@@ -36,8 +36,12 @@ def _read(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
+def _read_session_start_rule() -> str:
+    return _read(CANONICAL_RULE_PATH)
+
+
 def _read_rule_with_guide() -> str:
-    return _read(CANONICAL_RULE_PATH) + _read(CANONICAL_GUIDE_PATH)
+    return _read_session_start_rule() + _read(CANONICAL_GUIDE_PATH)
 
 
 def test_canonical_rule_has_issue_9_sources_and_adaptation_boundary() -> None:
@@ -52,28 +56,32 @@ def test_canonical_rule_has_issue_9_sources_and_adaptation_boundary() -> None:
     assert not canonical_text.startswith("---")
 
 
-def test_canonical_rule_contains_compact_policy_clauses() -> None:
-    canonical_text = _read_rule_with_guide().lower()
+def test_session_start_rule_contains_compact_policy_clauses() -> None:
+    rule_text = _read_session_start_rule().lower()
     required_clauses = (
         "short, complete sentences",
-        "one topic in each explanatory sentence",
+        "on one topic",
         "active voice",
-        "one action in each sentence",
-        "familiar, precise words",
-        "stable term",
-        "full words and explicit references",
-        "inclusive, neutral language",
-        "periods, commas, colons, and bullets",
-        "exact quoted labels",
+        "lead with conditions",
+        "one action per step",
+        "plain, precise words",
+        "stable terms",
+        "expand abbreviations and contractions",
+        "name unclear pronouns",
+        "be inclusive",
+        "punctuate clearly",
+        "preserve exact labels",
+        "send a result, blocker, or question",
         "`warning`",
         "`caution`",
-        "20 words or fewer",
-        "25 words or fewer",
-        "responsible human verifies",
+        "state condition then result",
+        "20 words per step",
+        "25 per description",
+        "have a human verify",
     )
 
     for each_clause in required_clauses:
-        assert each_clause in canonical_text
+        assert each_clause in rule_text, each_clause
 
 
 def test_active_runtime_projections_use_the_canonical_language_rule() -> None:
