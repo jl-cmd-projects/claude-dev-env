@@ -152,6 +152,20 @@ def test_should_preserve_served_failure_code(
     assert report["is_error"] is True
 
 
+def test_should_exit_124_with_timeout_reason_when_the_broker_attempt_timed_out(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    timed_out = JobOutcome(127, "", "timed out", "extra_2", (("extra_2", "timeout"),), "advisor_blocked", None, None)
+
+    exit_code, report, _ = _run_worker(monkeypatch, tmp_path, timed_out)
+
+    assert exit_code == 124
+    assert report["exit_code"] == 124
+    assert report["reason"] == "timeout"
+    assert report["account"] == "extra_2"
+    assert report["is_error"] is True
+
+
 def test_should_write_report_for_unreadable_prompt(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
