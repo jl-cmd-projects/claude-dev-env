@@ -58,6 +58,7 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
             ...process.env,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             HOME: sandboxHome,
             USERPROFILE: sandboxHome,
             GIT_CONFIG_GLOBAL: gitConfigGlobal,
