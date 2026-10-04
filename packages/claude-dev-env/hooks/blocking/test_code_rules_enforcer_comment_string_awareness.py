@@ -5,9 +5,9 @@ hex color codes (``"#FFFFFF"``), URL fragments
 (``"https://x#section"``), and f-string interpolation patterns. None of
 those ``#`` characters belong to a comment token. ``check_comments_python``
 and the Python branch of ``extract_comment_texts`` route their ``#``
-detection through ``tokenize.generate_tokens`` so only true ``COMMENT``
+detection through ``tokenize.generate_tokens`` so only ``COMMENT``
 tokens are considered. These tests pin both halves of that contract:
-``#``-in-strings is exempt; real inline comments that land AFTER such
+``#``-in-strings is exempt; inline comments that land AFTER such
 a string still flag.
 """
 
