@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.48.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.5...claude-dev-env-v8.48.6) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** patch a host predicate in place of the global os.name ([d908e23](https://github.com/jl-cmd/claude-dev-env/commit/d908e2333b3161726bc2bed6f14c07de39507661))
+
 ## [8.48.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.4...claude-dev-env-v8.48.5) (2026-10-04)
 
 
