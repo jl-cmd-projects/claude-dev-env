@@ -24,7 +24,7 @@
 | J6 | Vague names | `result`, `data`, `output`, `response`, `value`, `item`, `temp`, `info`, `stuff`, `thing`. Vague prefixes: `handle`, `process`, `manage`, `do`. |
 | J7 | Type hints | Missing type annotation on a parameter or return; presence of `Any` or `# type: ignore`. |
 | J8 | New inline comments | New `#` or `//` comments in production or test code added by this diff; changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are also findings. |
-| J9 | Logging format | `log_*(f"...")` rather than `log_*("...", arg)`. |
+| J9 | Logging format | `log_*(f"...")` where `log_*("...", arg)` belongs. |
 | J10 | Imports inside functions | `import` statements placed inside function bodies. |
 | J11 | sys.path.insert dedup | `sys.path.insert(0, X)` must be guarded by `if X not in sys.path:` (test files exempt). |
 | J12 | Hardcoded user paths | String literals naming a specific user's home directory (`C:/Users/example/...`, `/Users/alice/...`, `/home/bob/...`). Use `pathlib.Path.home()`. |

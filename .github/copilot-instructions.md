@@ -45,4 +45,4 @@ Hooks in this repo enforce the conventions below. Follow them so your suggestion
 ## Structure
 
 - Prefer functions over classes when there is no state to hold. Prefer a concrete class over an abstract base until a second implementation exists.
-- Keep functions small and single-purpose. Use guard clauses and early returns rather than deep nesting.
+- Keep functions small and single-purpose. Use guard clauses and early returns to keep nesting shallow.
