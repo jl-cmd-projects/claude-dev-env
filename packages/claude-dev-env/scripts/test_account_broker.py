@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -663,3 +664,17 @@ def test_should_run_job_through_override(
     assert outcome.status == "served"
     assert outcome.attempts == (("only", "served"),)
     assert calls == [b"input"]
+
+
+def test_should_record_start_failure_without_launching_a_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("extra", Product.CLAUDE),), {"extra": _meters(80, 80)}
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.attempts == (("extra", "start_failed"),)
+    assert outcome.status == "exhausted"
+    assert outcome.returncode == WAIT_EXIT_CODE
