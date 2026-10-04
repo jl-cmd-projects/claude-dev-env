@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.49.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.2...claude-dev-env-v8.49.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** keep the start-failure text when no account can start ([128f670](https://github.com/jl-cmd/claude-dev-env/commit/128f670e2ee2b892269b09e96eddda62f6535a0b))
+* **account-broker:** keep the start-failure text when no account can start ([564ffda](https://github.com/jl-cmd/claude-dev-env/commit/564ffda3f82e84d8be3c01186832f057338baced))
+
 ## [8.49.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.1...claude-dev-env-v8.49.2) (2026-10-04)
 
 
