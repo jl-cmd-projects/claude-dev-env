@@ -26,7 +26,7 @@ Each family page starts with a title and an agent-facing behavior summary. Its f
 - [Bash dispatchers](./bash-dispatchers.md) covers command rewriting and the post-call reminder.
 - [Post-write validation](./post-write-validation.md) covers the after-write dispatcher and formatter.
 - [Conduct gates](./conduct-gates.md) covers chat replies, edit markers, step notes, checked claims, and the pull request lifecycle skill.
-- [Session context](./session-context.md) covers skill reminders and startup guidance.
+- [Session context](./session-context.md) covers skill reminders, startup guidance, and the auto mode denial quick fix.
 - [Spawn routing](./spawn-routing.md) covers spawn readiness, pacing, and model selection.
 - [Observability](./observability.md) covers instruction loads, edited files, and investigation resets.
 - [Lifecycle cleanup](./lifecycle-cleanup.md) covers nested checkouts, worktree setup, and session cleanup.
