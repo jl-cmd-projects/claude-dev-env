@@ -105,3 +105,23 @@ def test_should_extract_session_id_and_restore_runner() -> None:
         assert support.subprocess_runner is runner
     assert support.subprocess_runner is original
     assert support.extract_session_id_from_stdout('{"session_id":"one"}') == "one"
+
+
+def test_should_keep_every_concurrent_spent_mark_and_newest_meter_reading(tmp_path: Path) -> None:
+    state_path = tmp_path / "broker" / "state.json"
+    first_worker = support._load_state(state_path)
+    second_worker = support._load_state(state_path)
+    first_worker["spent"]["codex:one"] = 2000.0
+    first_worker["meters"]["codex:one"] = {"read_at": 500.0, "meters": None}
+    support._save_state(state_path, first_worker)
+    second_worker["spent"]["codex:two"] = 3000.0
+    second_worker["meters"]["codex:one"] = {"read_at": 100.0, "meters": None}
+    support._save_state(state_path, second_worker)
+    stale_worker = {"meters": {}, "spent": {"codex:one": 1000.0}, "affinity": {"session": "one"}}
+    support._save_state(state_path, stale_worker)
+
+    saved = support._load_state(state_path)
+
+    assert saved["spent"] == {"codex:one": 2000.0, "codex:two": 3000.0}
+    assert saved["meters"]["codex:one"]["read_at"] == 500.0
+    assert saved["affinity"] == {"session": "one"}
