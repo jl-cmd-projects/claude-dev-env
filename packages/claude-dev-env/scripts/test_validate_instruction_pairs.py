@@ -1,8 +1,6 @@
 import subprocess
 from pathlib import Path
 
-import sys
-
 from validate_instruction_pairs import (
     GATE_FAILED_EXIT_CODE,
     GATE_PASSED_EXIT_CODE,
@@ -10,11 +8,6 @@ from validate_instruction_pairs import (
     run_gate,
     validate_repository,
 )
-
-_hooks_directory = str(Path(__file__).resolve().parents[1] / "hooks")
-if _hooks_directory not in sys.path:
-    sys.path.insert(0, _hooks_directory)
-
 from followup_ledger import all_recorded_findings, head_commit
 from hooks_constants.followup_ledger_constants import SEVERITY_SMELL
 

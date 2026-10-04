@@ -9,14 +9,10 @@ from pathlib import Path
 
 import pytest
 
-_SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIRECTORY) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIRECTORY))
-
 import durable_post_lint
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 
-SCRIPT_PATH = _SCRIPTS_DIRECTORY / "durable_post_lint.py"
+SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
 VALID_PR_BODY = """## Why
 
 Why text.

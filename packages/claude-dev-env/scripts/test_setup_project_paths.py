@@ -3,22 +3,10 @@
 import inspect
 import json
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-_HOOKS_DIR = _SCRIPTS_DIR.parent / "hooks"
-_SESSION_HOOKS_PACKAGE_DIR = _SCRIPTS_DIR.parent / "hooks" / "session"
-for each_sys_path_entry in (
-    str(_SCRIPTS_DIR),
-    str(_HOOKS_DIR),
-    str(_SESSION_HOOKS_PACKAGE_DIR),
-):
-    if each_sys_path_entry not in sys.path:
-        sys.path.insert(0, each_sys_path_entry)
 
 import setup_project_paths as setup
 import untracked_repo_detector as detector_module
