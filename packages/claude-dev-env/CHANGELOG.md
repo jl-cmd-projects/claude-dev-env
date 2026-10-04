@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.46.29](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.28...claude-dev-env-v8.46.29) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** raise ImportError when usage markers are missing ([7a73804](https://github.com/jl-cmd/claude-dev-env/commit/7a73804bc7a289aaa390d872ae77bd6b1be5ccad))
+
+## [8.46.28](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.27...claude-dev-env-v8.46.28) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** name a pytest node in each family proof entry ([5df2f17](https://github.com/jl-cmd/claude-dev-env/commit/5df2f17db359865d3abfa219e24deb0767481be0))
+
 ## [8.46.27](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.26...claude-dev-env-v8.46.27) (2026-10-04)
 
 

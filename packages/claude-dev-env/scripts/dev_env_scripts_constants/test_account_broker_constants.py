@@ -67,6 +67,18 @@ def test_codex_usage_limit_signatures_loads_classifier_markers() -> None:
     assert "http 429" in signatures
 
 
+def test_codex_usage_limit_signatures_raises_import_error_when_markers_are_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(broker_constants, "__file__", str(tmp_path / "scripts" / "constants" / "module.py"))
+
+    with pytest.raises(ImportError, match="cannot load usage markers from") as raised:
+        broker_constants.codex_usage_limit_signatures()
+
+    assert str(tmp_path) in str(raised.value)
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
+
+
 def test_utc_time_text_converts_an_offset_timestamp() -> None:
     moment = datetime(2026, 10, 3, 7, 30, tzinfo=timezone(timedelta(hours=-4)))
 
