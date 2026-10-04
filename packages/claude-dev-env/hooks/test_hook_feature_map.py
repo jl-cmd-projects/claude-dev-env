@@ -26,16 +26,24 @@ SECTION_PATTERN = re.compile(r"^## (.+)$", re.MULTILINE)
 EXPECTED_SECTIONS = ["Checks", "When it fires", "Proving it", "Gotchas"]
 
 
+def registered_hook_commands() -> list[str]:
+    """Return every command string registered in hooks.json."""
+    registrations = json.loads((HOOKS_DIRECTORY / "hooks.json").read_text(encoding="utf-8"))
+    return [
+        hook["command"]
+        for all_groups in registrations["hooks"].values()
+        for group in all_groups
+        for hook in group["hooks"]
+    ]
+
+
 def registered_script_paths() -> set[str]:
     """Return paths named by the hook registration and hosted rosters."""
-    registrations = json.loads((HOOKS_DIRECTORY / "hooks.json").read_text(encoding="utf-8"))
     script_paths = {"blocking/state_description_blocker.py"}
-    for all_groups in registrations["hooks"].values():
-        for group in all_groups:
-            for hook in group["hooks"]:
-                matching_paths = SCRIPT_PATTERN.findall(hook["command"])
-                assert matching_paths, f"Hook command has no hooks/ script: {hook['command']}"
-                script_paths.update(matching_paths)
+    for command in registered_hook_commands():
+        matching_paths = SCRIPT_PATTERN.findall(command)
+        assert matching_paths, f"Hook command has no hooks/ script: {command}"
+        script_paths.update(matching_paths)
 
     for roster in (
         ALL_HOSTED_HOOK_ENTRIES,

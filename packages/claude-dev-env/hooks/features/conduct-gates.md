@@ -4,10 +4,11 @@ This family stops a chat reply, edited message, or tool call when its payload br
 
 ## Checks
 
-- `blocking/reply_length_gate.py` caps chat reply length and requires a readable link when the text names a pull request number.
+- `blocking/reply_length_gate.py` caps chat reply length, denies a configured banned word, and requires a readable link when the text names a pull request number.
 - `blocking/edit_marker_gate.py` rejects strikethrough and edit-note markers in replacement chat text or cards.
 - `blocking/step_note_gate.py` requires a status line before a tool call while its opt-in flag is on.
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
+- `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
 
 ## When it fires
 
@@ -15,6 +16,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/edit_marker_gate.py` runs on `PreToolUse`, matcher `mcp__.*__update_message`, timeout `10` seconds in `hooks.json`.
 - `blocking/step_note_gate.py` runs on `PreToolUse`, matcher `*`, timeout `15` seconds in `hooks.json`.
 - `blocking/verify_before_acting.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Agent|Task|apply_patch|Bash|PowerShell|mcp__.*`, timeout `10` seconds in `hooks.json`.
+- `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)`, timeout `10` seconds in `hooks.json`.
 
 ## Proving it
 
@@ -26,10 +28,12 @@ Preconditions:
 - **Edit marker.** Input is an update message with strikethrough or an edit note. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_edit_marker_gate.py -q`. The adjacent test observes a denial; clean replacement text passes.
 - **Step note.** Input is a tool call after a transcript message without a status line while the flag is on. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_step_note_gate.py -q`. The adjacent test observes a block until a status line appears.
 - **Checked claim.** Input is a Write after hedged reasoning in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_verify_before_acting.py -q`. The adjacent test observes a block and a logged blocked outcome.
+- **Lifecycle skill.** Input is a `git commit` or `gh pr create` command with no `pr-lifecycle` invocation in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_pr_lifecycle_skill_gate.py -q`. The adjacent test observes a denial, then a silent allow once the skill or its slash command appears.
 
 ## Gotchas
 
 - `blocking/step_note_gate.py` is off by default and polls for the transcript record. Subagent calls and unreadable records pass.
 - `blocking/verify_before_acting.py` runs after the tool. A block asks the agent to check the claim and undo a contradicted change.
-- The reply gate counts each nonempty list line as a sentence. Link targets and code spans add no words.
+- The reply gate counts each nonempty list line as a sentence. Link targets and code spans add no words. Its banned words come from `reply-banned-words.json` in the Claude home, or the file `CLAUDE_REPLY_BANNED_WORDS_PATH` names, with built-in defaults.
 - The edit marker gate scans replacement cards as well as the message text.
+- The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
