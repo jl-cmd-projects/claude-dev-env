@@ -436,3 +436,32 @@ def should_print_probe_reason_on_the_bypassed_copilot_gate_line(
     assert captured_stdout.count(probe_line) == 2
     assert exit_code == 0
 
+
+@pytest.mark.parametrize(
+    ("accepted_exit_codes", "broker_exit_code", "expected_tier"),
+    [
+        ((0,), 3, None),
+        ((0, 2), 2, "wait"),
+    ],
+)
+def should_accept_only_the_broker_exit_codes_the_named_constant_lists(
+    accepted_exit_codes: tuple[int, ...],
+    broker_exit_code: int,
+    expected_tier: str | None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    broker_path = tmp_path / "account_broker.py"
+    broker_path.write_text(
+        "import json, sys\n"
+        "print(json.dumps({'decision': {'tier': 'wait'}, 'accounts': []}))\n"
+        f"sys.exit({broker_exit_code})\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_convergence, "_codex_account_broker_path", lambda: broker_path)
+    monkeypatch.setattr(
+        check_convergence, "ALL_CODEX_BROKER_ACCEPTED_EXIT_CODES", accepted_exit_codes
+    )
+
+    assert check_convergence._read_codex_tier() == expected_tier
+

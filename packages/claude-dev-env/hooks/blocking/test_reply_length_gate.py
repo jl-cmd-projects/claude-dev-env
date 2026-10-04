@@ -237,32 +237,94 @@ def test_should_allow_a_bare_pull_request_url(
     assert exit_code == 0
 
 
-DECISION_TOOL_NAME = "mcp__hearthbot__ask_decision"
-
-
-def test_should_deny_a_reply_that_hedges_a_claim(
+def test_should_deny_a_reply_that_says_likely_and_name_the_word(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         REPLY_TOOL_NAME,
-        {"text": "The call button likely gets flagged in 7."},
+        {"text": "The back-test flagged the garland star. It likely flags the call button."},
     )
     assert exit_code == 2
-    assert '"likely"' in stderr_text
+    assert 'Banned word "likely"' in stderr_text
 
 
-def test_should_allow_a_reply_that_states_its_evidence(
+def test_should_allow_the_same_reply_without_the_banned_word(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         REPLY_TOOL_NAME,
-        {"text": "The call button is flagged in 7, per the crops."},
+        {"text": "The back-test flagged the garland star. It flags the call button in 7 themes."},
     )
     assert (exit_code, stderr_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    ["Really fast.", "A real-world case.", "In   reality it passed.", "ACTUALLY done."],
+)
+def test_should_deny_default_banned_words_in_any_case_and_spacing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, _ = run_gate(monkeypatch, capsys, POST_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "I realized the cache missed.",
+        "Run `actual_count` again.",
+        "See https://example.com/likely.",
+    ],
+)
+def test_should_allow_banned_words_inside_longer_words_code_and_urls(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 0
+
+
+def test_should_replace_the_defaults_with_the_configured_list(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    config_path = tmp_path / ".claude" / "reply-banned-words.json"
+    config_path.parent.mkdir()
+    config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
+    likely_exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."}
+    )
+    synergy_exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Synergy shipped."}
+    )
+    assert (likely_exit_code, synergy_exit_code) == (0, 2)
+    assert 'Banned word "synergy"' in stderr_text
+
+
+def test_should_read_the_list_from_the_path_the_environment_names(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    config_path = tmp_path / "words.json"
+    config_path.write_text(json.dumps({"banned_words": ["basically"]}), encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_REPLY_BANNED_WORDS_PATH", str(config_path))
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Basically done."})
+    assert exit_code == 2
+
+
+def test_should_keep_the_defaults_when_the_config_file_is_malformed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    config_path = tmp_path / ".claude" / "reply-banned-words.json"
+    config_path.parent.mkdir()
+    config_path.write_text("{not json", encoding="utf-8")
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."})
+    assert exit_code == 2
+
+
+DECISION_TOOL_NAME = "mcp__hearthbot__ask_decision"
 
 
 def test_should_deny_a_decision_card_that_hedges_in_an_option(
@@ -304,3 +366,14 @@ def test_should_allow_a_long_decision_card_with_no_hedge(
         },
     )
     assert (exit_code, stderr_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    ["It maybe passed.", "Perhaps it passed.", "It might be the cache.", "I am not sure it passed."],
+)
+def test_should_deny_the_hedges_the_default_list_adds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2

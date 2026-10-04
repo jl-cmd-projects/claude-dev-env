@@ -4,16 +4,23 @@
 The gate reads the ``text`` field of the chat tools that post to the user.
 It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
 sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
-It also denies a pull request number the reader cannot open, and a hedge
-word that marks a claim nobody checked::
+It also denies a pull request number the reader cannot open::
 
     flag: Both land in PR 5256.
     flag: It merged in #4347.
     ok:   Both land in [PR 5256](https://github.com/owner/repo/pull/5256).
-    flag: The call button likely gets flagged in 7.
-    ok:   The call button is flagged in 7, per the crops.
 
-The hedge check also reads every text field of a decision card.
+It denies a banned word or phrase, matched whole and case-insensitive::
+
+    flag: The cause is likely the cache.
+    ok:   The cache log shows the miss at 12:04.
+
+The gate uses the ``banned_words`` list in ``~/.claude/reply-banned-words.json``,
+or in the file that CLAUDE_REPLY_BANNED_WORDS_PATH names. Without a valid
+list there, it uses ALL_DEFAULT_BANNED_WORDS.
+
+The banned-word check also reads every text field of a decision card.
+A decision card gets no length check.
 
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
@@ -26,6 +33,8 @@ later pass, so this gate denies it and the model resends a shorter one.
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -33,17 +42,25 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from json_file_reader import read_json_object
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from hooks_constants.verify_before_acting_constants import HEDGE_PATTERN
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
+    ALL_DEFAULT_BANNED_WORDS,
     ALLOW_EXIT_CODE,
+    BANNED_WORD_MESSAGE,
+    BANNED_WORD_PART_SEPARATOR,
+    BANNED_WORD_PATTERN_TEMPLATE,
+    BANNED_WORDS_FILE_NAME,
+    BANNED_WORDS_JSON_KEY,
+    BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
     CARD_TEXT_SEPARATOR,
+    CLAUDE_HOME_DIRECTORY_NAME,
+    CONFIG_FILE_ENCODING,
     DECISION_CARD_TOOL_NAME,
     FENCED_BLOCK_PATTERN,
-    HEDGE_MESSAGE,
     HOOK_EVENT_NAME,
     INLINE_CODE_PATTERN,
     LINE_BREAK_PATTERN,
@@ -116,23 +133,39 @@ def unlinked_pull_request_violation(reply_text: str) -> str | None:
     return UNLINKED_PULL_REQUEST_MESSAGE.format(reference=unlinked_match.group(0))
 
 
-def hedge_violation(reply_text: str) -> str | None:
-    """Return the deny reason for the first hedged sentence, or None when none hedges."""
-    all_sentences = [
-        each_sentence
-        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
-    ]
-    for each_sentence in all_sentences:
-        hedge_match = HEDGE_PATTERN.search(each_sentence)
-        if hedge_match is None:
-            continue
-        all_words = WORD_PATTERN.findall(each_sentence)
-        return HEDGE_MESSAGE.format(
-            hedge=hedge_match.group(0),
-            sentence_preview=WORD_SEPARATOR.join(all_words[:SENTENCE_PREVIEW_WORD_COUNT])
-            + SENTENCE_PREVIEW_SUFFIX,
+def banned_words_config_path() -> Path:
+    """Return the banned-words file named by the environment, or the one in the Claude home."""
+    path_override = os.environ.get(BANNED_WORDS_PATH_ENV_VAR)
+    if path_override:
+        return Path(path_override)
+    return Path.home() / CLAUDE_HOME_DIRECTORY_NAME / BANNED_WORDS_FILE_NAME
+
+
+def configured_banned_words() -> tuple[str, ...]:
+    """Return the configured banned words, or the defaults when no valid list is configured."""
+    config_document = read_json_object(banned_words_config_path(), CONFIG_FILE_ENCODING)
+    if config_document is None:
+        return ALL_DEFAULT_BANNED_WORDS
+    all_configured_words = config_document.get(BANNED_WORDS_JSON_KEY)
+    if not isinstance(all_configured_words, list):
+        return ALL_DEFAULT_BANNED_WORDS
+    return tuple(
+        each_word.strip()
+        for each_word in all_configured_words
+        if isinstance(each_word, str) and each_word.strip()
+    )
+
+
+def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) -> str | None:
+    """Return the deny reason for the first banned word in the prose, or None."""
+    prose_text = countable_text(reply_text)
+    for each_banned_word in all_banned_words:
+        word_pattern = BANNED_WORD_PART_SEPARATOR.join(
+            re.escape(each_part) for each_part in each_banned_word.split()
         )
+        whole_word_pattern = BANNED_WORD_PATTERN_TEMPLATE.format(word_pattern=word_pattern)
+        if re.search(whole_word_pattern, prose_text, re.IGNORECASE):
+            return BANNED_WORD_MESSAGE.format(banned_word=each_banned_word)
     return None
 
 
@@ -155,7 +188,7 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
     """Return the deny reason and the checked text for one call, or None when it passes."""
     if tool_name == DECISION_CARD_TOOL_NAME:
         card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
-        card_violation = hedge_violation(card_text)
+        card_violation = banned_word_violation(card_text, configured_banned_words())
         return None if card_violation is None else (card_violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
         return None
@@ -165,7 +198,7 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
     violation = (
         length_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
-        or hedge_violation(reply_text)
+        or banned_word_violation(reply_text, configured_banned_words())
     )
     return None if violation is None else (violation, reply_text)
 

@@ -54,8 +54,8 @@ file and the line.
 
 The pattern list lives in
 `scripts/dev_env_scripts_constants/contrast_framing_constants.py`, and both
-lints read that one list. A synchronization test requires a row in the table
-above for every form the list carries.
+lints read that one list. A synchronization test requires the rule file
+`rules/no-contrast-framing.md` to name every form the list carries.
 
 A chat reply reaches no check, so the same list is what the writer reads the
 sentence against: a comma followed by `not`, a `rather than`, a `not just`, a
