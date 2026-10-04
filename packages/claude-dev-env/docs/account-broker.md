@@ -18,7 +18,7 @@ python scripts/account_broker.py run --product claude --report report.json -- cl
 
 `check` prints nothing and exits 3 while every account is below its floor. `run` sets only `CLAUDE_CONFIG_DIR` or `CODEX_HOME` for each attempt. It replays the same stdin bytes when a usage limit or start failure leads to another account. It writes the command's stdout to stdout and diagnostics to stderr. A resumed Claude session uses the account bound to its session when that account has room.
 
-The broker stores cached meters, spent marks, and Claude session bindings in one JSON file under `~/.claude/account-broker`. State writes use a sibling temporary file and `os.replace`.
+The broker stores cached meters, spent marks, and Claude session bindings in one JSON file under `~/.claude/account-broker`. Every broker process for the same user reads that file, so a spent mark pauses that account for every job. A write holds an exclusive lock on the sibling `state.json.lock`, re-reads the file, merges, and swaps in a sibling temporary file with `os.replace`. The merge keeps the latest reset for each spent mark and the newest meter read for each account.
 
 ## Exit codes and report
 

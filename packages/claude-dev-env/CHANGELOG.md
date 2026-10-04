@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** move Codex callers onto the account broker ([e11d676](https://github.com/jl-cmd/claude-dev-env/commit/e11d676fbb558ad6de364ee333ce8cfb0f42ef49))
+
+## [8.38.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.2...claude-dev-env-v8.38.3) (2026-10-04)
+
+
+### Performance
+
+* **hooks:** load poteto-mode on demand ([f6be671](https://github.com/jl-cmd/claude-dev-env/commit/f6be671544c3ec3dc229785390be8925b57ab3cf))
+
+## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep one hook entry per script when roots share settings.json ([271e22c](https://github.com/jl-cmd/claude-dev-env/commit/271e22c632e31ac60fdef46eb8582d53db24726c))
+
+## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **scripts:** keep every broker spent mark when jobs write at once ([824cb90](https://github.com/jl-cmd/claude-dev-env/commit/824cb9043365110cdfae571ef4ccd0ecf1f9667a))
+
 ## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
 
 
