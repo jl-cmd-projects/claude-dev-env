@@ -571,6 +571,50 @@ def test_should_leave_later_choices_open_after_start_failure(
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
 
 
+@pytest.mark.parametrize("product", (Product.CLAUDE, Product.CODEX))
+def test_should_exit_127_when_every_account_fails_to_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, product: Product
+) -> None:
+    accounts = (_account("first", product), _account("second", product))
+    monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise OSError("missing command")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(product, ("job",), now=datetime.now(timezone.utc))
+        code = account_broker.main(("run", "--product", product.value, "--report", str(tmp_path / "report.json"), "--", "job"))
+
+    assert outcome.status == "start_failed"
+    assert outcome.returncode == 127
+    assert outcome.wait_reset_at is None
+    assert code == 127
+
+
+def test_should_report_exhausted_when_start_failure_meets_usage_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        if Path(options["env"]["CODEX_HOME"]).name == "first":
+            raise OSError("missing command")
+        return subprocess.CompletedProcess(argv, 1, "", "rate limit")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert outcome.attempts == (("first", "start_failed"), ("second", "usage_limited"))
+    assert outcome.status == "exhausted"
+    assert outcome.returncode == 3
+
+
 def test_should_stop_after_timeout_without_running_job_again(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -860,8 +904,8 @@ def test_should_record_start_failure_without_launching_a_command_missing_from_pa
     outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
 
     assert outcome.attempts == (("extra", "start_failed"),)
-    assert outcome.status == "exhausted"
-    assert outcome.returncode == WAIT_EXIT_CODE
+    assert outcome.status == "start_failed"
+    assert outcome.returncode == 127
 
 
 @pytest.mark.parametrize("marked_name", ["retired", "first"])

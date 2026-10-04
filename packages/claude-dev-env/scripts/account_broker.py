@@ -232,6 +232,9 @@ def _prepare_run(
 
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
+    all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
+    if all_attempt_statuses == {"start_failed"}:
+        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", "", None, tuple(context.all_attempts), "start_failed", None, None)
     status = "exhausted" if context.all_attempts else "wait"
     return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
