@@ -19,7 +19,7 @@ from _code_review_test_support import (
     install_seams,
     run_review_cli,
 )
-from dev_env_scripts_constants.account_broker_constants import BrokerConfigurationError
+from dev_env_scripts_constants.account_broker_constants import BrokerConfigurationError, WAIT_EXIT_CODE
 from dev_env_scripts_constants.claude_chain_constants import (
     CHAIN_CONFIG_ERROR_EXIT_CODE,
 )
@@ -82,6 +82,7 @@ def test_cli_emits_json_on_chain_configuration_error(
     exit_code = run_review_cli(working_directory, session_model=FIXTURE_SESSION_OPUS)
 
     assert exit_code == CHAIN_CONFIG_ERROR_EXIT_CODE
+    assert exit_code != WAIT_EXIT_CODE
     captured = capsys.readouterr()
     parsed_payload = json.loads(captured.out)
     assert parsed_payload == {
