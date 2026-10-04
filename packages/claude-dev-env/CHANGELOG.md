@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.0...claude-dev-env-v8.42.1) (2026-10-04)
+
+
+### Documentation
+
+* **contrast-framing:** describe the rule file as naming each form ([4568122](https://github.com/jl-cmd/claude-dev-env/commit/456812201156873254e23e4d83f3705ba38d208e))
+
 ## [8.42.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.41.0...claude-dev-env-v8.42.0) (2026-10-04)
 
 
