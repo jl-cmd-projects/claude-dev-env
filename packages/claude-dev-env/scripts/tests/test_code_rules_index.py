@@ -103,6 +103,30 @@ def test_should_assign_each_enforcer_check_to_one_family() -> None:
     assert documented_checks == imported_checks
 
 
+def _assert_proof_target_resolves(proof_label: str, proof_target: str) -> None:
+    module_text, _, test_name = proof_target.partition("::")
+    module_path = _REPOSITORY_ROOT / module_text
+    assert module_path.is_file(), proof_label
+    if test_name:
+        assert re.search(
+            rf"^def {re.escape(test_name)}\(",
+            module_path.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        ), proof_label
+
+
+def test_should_name_a_test_module_in_each_proof_command() -> None:
+    for each_family_path in _FAMILY_DIRECTORY.glob("*.md"):
+        family_text = each_family_path.read_text(encoding="utf-8")
+        all_proofs = re.findall(
+            r"^- (check_\w+):.*?`python -m pytest ([^`\s]+)", family_text, re.MULTILINE
+        )
+        for each_check, each_target in all_proofs:
+            _assert_proof_target_resolves(
+                f"{each_family_path.name}: {each_check} -> {each_target}", each_target
+            )
+
+
 def _collect_citation_texts() -> list[tuple[Path, str]]:
     all_citations: list[tuple[Path, str]] = []
     for each_root in _CITATION_ROOTS:
