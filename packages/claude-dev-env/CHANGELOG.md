@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.50.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.0...claude-dev-env-v8.50.1) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** point CONVERGE_PATH label at the archived converge.mjs ([4492229](https://github.com/jl-cmd/claude-dev-env/commit/449222904574d0e79dd86b271e9031cef2767615))
+
 ## [8.50.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.4...claude-dev-env-v8.50.0) (2026-10-04)
 
 
