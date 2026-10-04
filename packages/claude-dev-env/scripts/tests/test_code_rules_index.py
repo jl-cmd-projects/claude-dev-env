@@ -27,7 +27,8 @@ _TEXT_SUFFIXES = frozenset({".md", ".py", ".js", ".mjs", ".ts", ".json", ".xml"}
 _MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)\s]+)(?:\s+[^)]*)?\)")
 _INDEX_ANCHOR = re.compile(r"CODE_RULES\.md#([^\s)\]<>\"`]+)", re.IGNORECASE)
 _NUMBERED_CITATION = re.compile(
-    r"(?:CODE_RULES\s*\u00a7\s*|\bsection\s+)(\d+(?:\.\d+)?)", re.IGNORECASE
+    r"CODE_RULES(?:\.md)?[`'\"]*\s*(?:\u00a7\s*|section\s+)(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
 )
 
 
@@ -151,6 +152,27 @@ def test_should_report_dead_code_rules_anchor() -> None:
     dead_citation = (_INDEX_PATH, "CODE_RULES.md" + "#no-such-heading")
     with pytest.raises(AssertionError, match="dead CODE_RULES anchor #no-such-heading"):
         _assert_citations_resolve(index_text, [dead_citation])
+
+
+def test_should_ignore_section_number_of_another_document() -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    foreign_citation = (_INDEX_PATH, "See the runbook section 12 appendix row.")
+    _assert_citations_resolve(index_text, [foreign_citation])
+
+
+@pytest.mark.parametrize(
+    "citation_text",
+    [
+        "CODE_RULES.md" + " section 12",
+        "``docs/CODE_RULES.md``" + " section 12",
+        "CODE_RULES" + " \u00a712",
+        "CODE_RULES.md" + " \u00a712",
+    ],
+)
+def test_should_report_dead_code_rules_section(citation_text: str) -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    with pytest.raises(AssertionError, match="dead CODE_RULES" + " section 12"):
+        _assert_citations_resolve(index_text, [(_INDEX_PATH, citation_text)])
 
 
 def _assert_destination_resolves(markdown_path: Path, destination: str) -> None:
