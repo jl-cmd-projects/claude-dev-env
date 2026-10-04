@@ -1,5 +1,75 @@
 # Changelog
 
+## [8.46.16](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.15...claude-dev-env-v8.46.16) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** fall back to rmtree onerror on Python 3.11 ([7ce5977](https://github.com/jl-cmd/claude-dev-env/commit/7ce5977cab399be6f52d0d5b553e1b8c8e218caa))
+
+## [8.46.15](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.14...claude-dev-env-v8.46.15) (2026-10-04)
+
+
+### Bug Fixes
+
+* **agent_merge_check:** skip the GraphQL ejection read without a merge queue ([6c29578](https://github.com/jl-cmd/claude-dev-env/commit/6c295784f24a74ed0baf1c85b57195e4642d5488))
+
+## [8.46.14](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.13...claude-dev-env-v8.46.14) (2026-10-04)
+
+
+### Documentation
+
+* **hooks:** remove emphasis words from comment-awareness test docstring ([b7d4a97](https://github.com/jl-cmd/claude-dev-env/commit/b7d4a97931b5ded5a1623eeaf17c3e01f21c9f69))
+
+## [8.46.13](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.12...claude-dev-env-v8.46.13) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep files under the payload cwd out of the scratchpad exemption ([0937cfc](https://github.com/jl-cmd/claude-dev-env/commit/0937cfccf952f925a173758bd77bbc51debbb215))
+
+## [8.46.12](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.11...claude-dev-env-v8.46.12) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** send a full Opus model id to over-pace thread spawns ([3715cd6](https://github.com/jl-cmd/claude-dev-env/commit/3715cd6b97ed48ec44d9311f3081e56c071f40ee))
+
+## [8.46.11](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.10...claude-dev-env-v8.46.11) (2026-10-04)
+
+
+### Documentation
+
+* drop trailing contrast clauses left after [#1748](https://github.com/jl-cmd/claude-dev-env/issues/1748) ([4c1d1d3](https://github.com/jl-cmd/claude-dev-env/commit/4c1d1d3f722b7c0f65d77375ca04d260d36705d6))
+
+## [8.46.10](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.9...claude-dev-env-v8.46.10) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** isolate hooks tests from the live session scratchpad ([80e6000](https://github.com/jl-cmd/claude-dev-env/commit/80e60009da9685fe23159ec7b197d8320f164c29))
+
+## [8.46.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.8...claude-dev-env-v8.46.9) (2026-10-04)
+
+
+### Bug Fixes
+
+* **tests:** write lock contender result atomically ([768ea9d](https://github.com/jl-cmd/claude-dev-env/commit/768ea9d0461aa1bc400a9af2443dda79e234a68a))
+
+## [8.46.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.7...claude-dev-env-v8.46.8) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep the permission flow on rewritten spawns ([236e3b9](https://github.com/jl-cmd/claude-dev-env/commit/236e3b9ce177a12cc038bd4b9dd4ab9970a3266a))
+
+## [8.46.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.6...claude-dev-env-v8.46.7) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** drop substitution contrast framing from files PR 1723 touched ([5373cd4](https://github.com/jl-cmd/claude-dev-env/commit/5373cd4216989715e7113779f61bbf8c1f921619))
+
 ## [8.46.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.5...claude-dev-env-v8.46.6) (2026-10-04)
 
 

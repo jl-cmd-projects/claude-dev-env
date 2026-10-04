@@ -6,8 +6,8 @@ pin holds at every level.
 
 ::
 
-    model omitted           -> allow with updatedInput model "opus"
-    model sonnet or haiku   -> allow with updatedInput model "opus"
+    model omitted           -> updatedInput model "opus"
+    model sonnet or haiku   -> updatedInput model "opus"
     model opus or fable     -> no output; the call runs unchanged
 
 A model id counts by its family: ``claude-sonnet-5-5`` is sonnet. A fork
@@ -24,14 +24,10 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
-    ALLOW_DECISION,
-    HOOK_EVENT_NAME,
-)
+from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
 from hooks_constants.pre_tool_use_allow_output import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
-    PERMISSION_DECISION_KEY,
     UPDATED_INPUT_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -84,7 +80,6 @@ def decide_hook_output(tool_input: object) -> dict[str, object] | None:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: HOOK_EVENT_NAME,
-            PERMISSION_DECISION_KEY: ALLOW_DECISION,
             UPDATED_INPUT_KEY: {**tool_input, MODEL_INPUT_KEY: SUBAGENT_MODEL_ALIAS},
             ADDITIONAL_CONTEXT_KEY: f"{CONTEXT_PREFIX}{previous_model_text}{CONTEXT_SUFFIX}",
         }

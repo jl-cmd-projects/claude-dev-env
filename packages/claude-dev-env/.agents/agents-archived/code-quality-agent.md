@@ -41,8 +41,8 @@ Treat scoped `AGENTS.md` files as the canonical repository and path rules. Treat
 For Category J, keep these sources separate:
 
 - Use the target repository's full review contract as the primary policy when available.
-- `docs/CODE_RULES.md` is a compact projection, not the full contract. Use it as a checklist.
-- `hooks/blocking/code_rules_enforcer.py` is hand-maintained write-time coverage. It shows what the hook checks, not whether other contract rules are absent.
+- `docs/CODE_RULES.md` is a compact projection of the contract. Use it as a checklist.
+- `hooks/blocking/code_rules_enforcer.py` is hand-maintained write-time coverage. It shows only what the hook checks.
 
 Record each Category J conclusion's policy source and hook coverage. Compact rules and hook results do not replace the canonical contract or scoped `AGENTS.md` rules.
 
@@ -199,7 +199,7 @@ When the primary and adversarial passes flag the same file:line:
 - Concatenate the `failure_mode` strings (separator: " // adversarial: ") so both pass narratives survive.
 - For Shape B entries on the same category, keep every distinct `adversarial_probe` from both passes — collapsing them would drop information that was found.
 
-The merge runs at the end of the adversarial pass, before constructing the output. The output preamble's `Total: N` counts merged findings, not pre-merge total.
+The merge runs at the end of the adversarial pass, before constructing the output. The output preamble's `Total: N` counts merged findings.
 
 ## file:line Evidence Requirement
 
@@ -210,7 +210,7 @@ Every Shape A finding cites a file path and a line number. The offending line is
 Do not infer missing context. If the diff and allowed checks cannot confirm a
 claim, use an open question or an evidence gap.
 
-When the diff alone lacks the context to confirm a finding, list the item under an "Open questions" section rather than asserting it as a Shape A finding. Each open question names the file and line where uncertainty arose and states what additional context would resolve it.
+When the diff alone lacks the context to confirm a finding, list the item under an "Open questions" section and keep it out of the Shape A findings. Each open question names the file and line where uncertainty arose and states what additional context would resolve it.
 
 ```json
 {
