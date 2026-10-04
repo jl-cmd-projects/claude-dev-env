@@ -161,7 +161,7 @@ def _parse_window(raw_window: object) -> UsageWindow | None:
     )
 
 
-def _rate_limits_mapping(reply_text: str) -> Mapping[str, object]:
+def _reply_body(reply_text: str) -> Mapping[str, object]:
     try:
         reply = json.loads(reply_text)
     except json.JSONDecodeError as error:
@@ -171,7 +171,13 @@ def _rate_limits_mapping(reply_text: str) -> Mapping[str, object]:
     if reply.get("error") is not None:
         raise CodexMeterUnreadError(f"rate-limit read failed: {reply['error']}")
     body = reply.get("result")
-    rate_limits = body.get("rateLimits") if isinstance(body, dict) else None
+    if not isinstance(body, dict):
+        raise CodexMeterUnreadError("rate-limit reply has no result")
+    return body
+
+
+def _rate_limits_mapping(reply_text: str) -> Mapping[str, object]:
+    rate_limits = _reply_body(reply_text).get("rateLimits")
     if not isinstance(rate_limits, dict):
         raise CodexMeterUnreadError("rate-limit reply names no rateLimits")
     return rate_limits
@@ -338,13 +344,45 @@ def read_codex_meters(
     Raises:
         CodexMeterUnreadError: The server failed, timed out, or sent no usable reply.
     """
+    return parse_rate_limits_reply(_rate_limits_reply_line(codex_path, codex_home, exchange))
+
+
+def read_rate_limit_records(
+    codex_path: Path,
+    codex_home: Path,
+    exchange: ServerExchange = exchange_with_app_server,
+) -> Mapping[str, object]:
+    """Read one account's whole rate-limit reply through the app server.
+
+    ::
+
+        {"id": 2, "result": {"rateLimits": {...}, "rateLimitsByLimitId": {...}}}
+        -> {"rateLimits": {...}, "rateLimitsByLimitId": {...}}
+
+    Args:
+        codex_path: The Codex executable.
+        codex_home: The account's Codex home.
+        exchange: Sends messages and returns output lines; tests pass a fake.
+
+    Returns:
+        The reply's ``result`` object, with every limit record it carries.
+
+    Raises:
+        CodexMeterUnreadError: The server failed, timed out, or sent no usable reply.
+    """
+    return _reply_body(_rate_limits_reply_line(codex_path, codex_home, exchange))
+
+
+def _rate_limits_reply_line(
+    codex_path: Path, codex_home: Path, exchange: ServerExchange
+) -> str:
     try:
         all_lines = exchange(codex_path, codex_home, request_messages())
     except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as error:
         raise CodexMeterUnreadError(f"codex app-server failed: {error}") from error
     for each_line in all_lines:
         if _is_rate_limits_reply(each_line):
-            return parse_rate_limits_reply(each_line)
+            return each_line
     raise CodexMeterUnreadError("codex app-server sent no rate-limit reply")
 
 

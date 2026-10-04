@@ -13,6 +13,8 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from hooks_constants.pr_lifecycle_skill_gate_constants import (
+    AGENT_ID_FIELD,
+    AGENT_ID_PATTERN,
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
@@ -40,11 +42,15 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
+    SESSION_TRANSCRIPT_PATH_FIELD,
     SHELL_TOOL_NAMES,
     SKILL_NAME,
+    SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
+    SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
+from blocking.followup_pr_dedupe import duplicate_followup_reason
 from transcript_skill_scan import is_skill_loaded_after_last_compaction
 
 
@@ -174,26 +180,51 @@ def _transcript_load_status(path: str) -> bool | None:
         return None
 
 
+def _subagent_transcript_path(all_payload_fields: dict[str, object]) -> str | None:
+    session_path = all_payload_fields.get(SESSION_TRANSCRIPT_PATH_FIELD)
+    agent_id = all_payload_fields.get(AGENT_ID_FIELD)
+    if not isinstance(session_path, str) or not session_path:
+        return None
+    if not isinstance(agent_id, str) or not re.fullmatch(AGENT_ID_PATTERN, agent_id):
+        return None
+    subagent_path = (
+        Path(session_path).with_suffix("")
+        / SUBAGENT_TRANSCRIPT_DIRECTORY_NAME
+        / SUBAGENT_TRANSCRIPT_FILE_TEMPLATE.format(agent_id=agent_id)
+    )
+    return str(subagent_path) if subagent_path.is_file() else None
+
+
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
-    """Return a deny for a governed action with readable, unloaded transcripts.
+    """Return a deny for an unloaded skill or a second follow-up pull request for one parent.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not _is_governed_action(all_payload_fields):
         return None
+    if _is_skill_unloaded(all_payload_fields):
+        return _deny(DENY_REASON)
+    duplicate_reason = duplicate_followup_reason(all_payload_fields)
+    return None if duplicate_reason is None else _deny(duplicate_reason)
+
+
+def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
-    readable_paths = [path for path in paths if isinstance(path, str) and path]
+    paths.append(_subagent_transcript_path(all_payload_fields))
+    readable_paths = list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
     if not readable_paths:
-        return None
+        return False
     statuses = [_transcript_load_status(path) for path in readable_paths]
-    if any(status is None or status for status in statuses):
-        return None
+    return not any(status is None or status for status in statuses)
+
+
+def _deny(reason: str) -> dict[str, object]:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": HOOK_EVENT_NAME,
             PERMISSION_DECISION_KEY: DENY_DECISION,
-            PERMISSION_DECISION_REASON_KEY: DENY_REASON,
+            PERMISSION_DECISION_REASON_KEY: reason,
         }
     }
 

@@ -31,7 +31,7 @@ def test_should_move_the_spawn_to_opus(requested_model: object) -> None:
     if requested_model is not None:
         tool_input["model"] = requested_model
     decision = json.loads(_run_hook(tool_input))["hookSpecificOutput"]
-    assert decision["permissionDecision"] == "allow"
+    assert "permissionDecision" not in decision
     assert decision["updatedInput"] == {**SPAWN_INPUT, "model": "opus"}
 
 
@@ -61,7 +61,6 @@ def test_should_keep_every_constant_free_of_a_sonnet_model_id() -> None:
         each_file.name
         for each_file in CONSTANTS_DIRECTORY.glob("*.py")
         if not each_file.name.startswith("test_")
-        and each_file.name != "subagent_model_pin_hook_constants.py"
         and "claude-sonnet" in each_file.read_text(encoding="utf-8")
     ]
     assert all_offending_files == []

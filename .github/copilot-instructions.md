@@ -17,10 +17,10 @@ Hooks in this repo enforce the conventions below. Follow them so your suggestion
 
 - Do not add code comments. Preserve existing comments. Docstrings remain allowed.
 - When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-- Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+- Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 - Docstrings on modules, classes, and functions are welcome. Keep the prose in step with the code: a docstring that lists the cases the body handles lists every one of them.
 - Never drop an existing comment on a line you are not otherwise changing.
-- Documentation describes the current state of the code. State what the code is and does, not how it got there.
+- Documentation describes the current state of the code. State what the code is and does.
 
 ## Types
 
@@ -45,4 +45,4 @@ Hooks in this repo enforce the conventions below. Follow them so your suggestion
 ## Structure
 
 - Prefer functions over classes when there is no state to hold. Prefer a concrete class over an abstract base until a second implementation exists.
-- Keep functions small and single-purpose. Use guard clauses and early returns rather than deep nesting.
+- Keep functions small and single-purpose. Use guard clauses and early returns to keep nesting shallow.

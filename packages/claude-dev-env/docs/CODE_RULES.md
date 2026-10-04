@@ -7,7 +7,7 @@ Use this index for edits. [`.cursor/BUGBOT.md`](../../../.cursor/BUGBOT.md) poin
 Do not add code comments. Preserve existing comments. Docstrings remain allowed.
 
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 A keep marker is the one comment that may be added and kept: a comment that opens with a prefix the repository lists under `comment_keep_markers` in `.claude/policy-lint.json`. Open [details](code-rules/comment-preservation.md) when editing comments.
 
@@ -95,6 +95,8 @@ Open [details](code-rules/design-and-structure.md) when renaming symbols.
 ## 9.7 NO FALLBACK / BEST-EFFORT WRAPPERS
 
 Never swallow a failure into a default unless the caller explicitly opted in at the boundary. Name the specific exception (`except KeyError:`) and propagate the rest. Collapsing every error class to `None` masks programming errors and makes debugging impossible.
+
+A member loop catches its declared `*ItemBlocked` type inside the loop and lets a `*RunFatal` pass through, and an `except Exception` in that loop triggers this rule.
 
 Open [details](code-rules/design-and-structure.md) when handling batch failures.
 

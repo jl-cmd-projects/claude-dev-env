@@ -22,7 +22,7 @@ Before writing a single line — **task-local discovery only** (no project-wide 
 1. **Load scoped repository instructions first.** Starting at the repository root, read every applicable `AGENTS.md` on the path to the task file. Then read the applicable `CLAUDE.md` files. Apply nearer instructions after broader ones; the closest file wins.
 2. **Read the file you are about to edit** (when editing existing code). Note every existing comment so you can leave each one untouched on lines that remain otherwise unchanged.
 3. **Discover config only next to the task files.** From each file you will write or edit, walk up to the nearest package or repo root and inspect the target package's existing constants layout — such as `config/` or a sibling `*_constants` package. Keep this task-local constants search. Do **not** force a generic `config/` layout. Do **not** glob the whole tree for every config file. Do **not** glob or open `.env`, `.env.*`, or other secret files.
-4. **Reuse constants from that local table.** Reuse first: exact value match → import the existing name. Semantic match → reuse it. Add a shared constant only when the value is shared policy or has multiple consumers. When no match exists, use the target package's existing constants layout, and keep a one-use value in the scope that reads it rather than making it a new shared constant.
+4. **Reuse constants from that local table.** Reuse first: exact value match → import the existing name. Semantic match → reuse it. Add a shared constant only when the value is shared policy or has multiple consumers. When no match exists, use the target package's existing constants layout, and keep a one-use value in the scope that reads it.
 5. **Search callers.** When a symbol, name, or signature changes, search its full caller boundary and update every consumer. This search may be wider than the constants search.
 
 ## Generation mindset (9 laws)
@@ -121,7 +121,7 @@ Do not write production behavior before RED, skip the red run, or call a green t
 
 ## Hook-specific workflow
 
-For a hook change, use the target package's active managed root for installed files, not the current working directory. The default is `~/.claude`; `--target` or `CLAUDE_CONFIG_DIR` selects another managed root. Read `<managed-root>/hooks/AGENTS.md` (default: `~/.claude/hooks/AGENTS.md`; source fallback: `packages/claude-dev-env/hooks/AGENTS.md`), each closer `AGENTS.md` and `CLAUDE.md`, and the registered hook entry before editing. Trace the lifecycle event, stdin JSON, output contract, exit code, and registration. Reuse the target hook area's constants package. Run `<managed-root>/scripts/check.ps1` (default: `~/.claude/scripts/check.ps1`; source fallback: `packages/claude-dev-env/scripts/check.ps1`) and drive the production entry point with event payloads. The RED test covers each allow and deny outcome. Run every applicable test file and suite for the hook, then the full quality gates required by the affected package.
+For a hook change, use the target package's active managed root for installed files. The default is `~/.claude`; `--target` or `CLAUDE_CONFIG_DIR` selects another managed root. Read `<managed-root>/hooks/AGENTS.md` (default: `~/.claude/hooks/AGENTS.md`; source fallback: `packages/claude-dev-env/hooks/AGENTS.md`), each closer `AGENTS.md` and `CLAUDE.md`, and the registered hook entry before editing. Trace the lifecycle event, stdin JSON, output contract, exit code, and registration. Reuse the target hook area's constants package. Run `<managed-root>/scripts/check.ps1` (default: `~/.claude/scripts/check.ps1`; source fallback: `packages/claude-dev-env/scripts/check.ps1`) and drive the production entry point with event payloads. The RED test covers each allow and deny outcome. Run every applicable test file and suite for the hook, then the full quality gates required by the affected package.
 
 ## Session advisor
 
@@ -135,7 +135,7 @@ Consult the advisor the spawn ticket names. When the ticket names the orchestrat
 [3] Parameters and returns typed; no Any / no type-ignore directives?
 [4] Do not add code comments. Preserve existing comments. Docstrings remain allowed.
 [5] When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-[6] Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+[6] Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 [7] Magic values and UPPER_SNAKE live in config/ where required?
 [8] Function short; one job; guards over else-chains?
 [9] Pre-check --check clean for the real destination path?

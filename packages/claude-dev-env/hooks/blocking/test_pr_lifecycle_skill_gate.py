@@ -10,6 +10,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
+from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 
@@ -80,6 +81,49 @@ def test_agent_transcript_can_supply_invocation(tmp_path: Path) -> None:
     payload = _payload("git push", session_path)
     payload["agent_transcript_path"] = str(agent_path)
     assert gate.decision_for(payload) is None
+
+
+def _subagent_transcript(tmp_path: Path, agent_id: str, skill_name: str | None) -> Path:
+    subagent_directory = tmp_path / "session" / "subagents"
+    subagent_directory.mkdir(parents=True)
+    subagent_path = subagent_directory / f"agent-{agent_id}.jsonl"
+    lines = [json.dumps({"type": "user", "message": {"content": "Task."}})]
+    if skill_name:
+        lines.append(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": skill_name}}]}}))
+    subagent_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return subagent_path
+
+
+def test_subagent_transcript_located_by_agent_id_can_supply_invocation(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    _subagent_transcript(tmp_path, "a8865a3f3c71595ce", "pr-lifecycle")
+    payload = _payload("git commit", session_path)
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    assert _run_main(payload) == (0, "")
+
+
+def test_subagent_without_invocation_is_denied(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    _subagent_transcript(tmp_path, "a8865a3f3c71595ce", None)
+    payload = _payload("git push", session_path)
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    _assert_denied(payload)
+
+
+def test_missing_subagent_transcript_keeps_session_deny(tmp_path: Path) -> None:
+    payload = _payload("git push", _transcript(tmp_path))
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    _assert_denied(payload)
+
+
+def test_agent_id_with_path_separator_is_not_followed(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    escaped_path = tmp_path / "session" / "agent-x.jsonl"
+    escaped_path.parent.mkdir(parents=True)
+    escaped_path.write_text(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}) + "\n", encoding="utf-8")
+    payload = _payload("git push", session_path)
+    payload["agent_id"] = "../agent-x"
+    _assert_denied(payload)
 
 
 def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> None:
@@ -188,3 +232,27 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
             ],
         }
     ]
+
+
+def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+    }
+    open_followup = {"number": 1769, "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1769", "body": "Follow-up to #1731"}
+    with patch.object(gate_dedupe, "read_open_pull_requests", return_value=[open_followup]):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "open follow-up pull request #1769" in decision["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+    }
+    with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
+        assert gate.decision_for(payload) is None

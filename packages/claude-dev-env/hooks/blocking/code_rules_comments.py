@@ -46,15 +46,15 @@ extract_javascript_comment_occurrences = (
 def check_comments_python(content: str) -> list[str]:
     """Check for comments in Python code.
 
-    Uses ``tokenize.generate_tokens`` to find true ``COMMENT`` tokens.
+    Uses ``tokenize.generate_tokens`` to find ``COMMENT`` tokens.
     Hash characters that appear inside string literals (hex color codes,
     URL fragments, and the hash inside an f-string interpolation pattern)
     are correctly skipped because the tokenizer recognizes them as parts
-    of string tokens rather than comment tokens.
+    of string tokens.
 
     When the tokenizer cannot parse the file (partial content during
-    Edit, invalid syntax), the check returns no findings rather than
-    falling back to a line-walker scan — false negatives on
+    Edit, invalid syntax), the check returns no findings and does not
+    fall back to a line-walker scan — false negatives on
     syntactically-invalid drafts are preferable to false positives that
     mis-classify string-interior hash characters as comments.
     """
@@ -201,10 +201,10 @@ def _is_keep_occurrence(comment_text: str, all_keep_markers: tuple[str, ...]) ->
     """Return True for a comment that opens with an accepted keep marker.
 
     A keep marker is meant to be freely added and to survive edits to the
-    line it sits on, unlike ``noqa`` or ``TODO``, which AGENTS.md requires to
-    be removed rather than added or justified. It is excluded here rather
-    than through the shared exempt-marker set that ``check_comment_changes``
-    deliberately still blocks on add.
+    line it sits on. AGENTS.md requires ``noqa`` and ``TODO`` comments to be
+    removed and forbids adding or justifying them. This check excludes keep
+    markers itself, outside the shared exempt-marker set that
+    ``check_comment_changes`` deliberately still blocks on add.
     """
     return comment_text.startswith("#") and comment_text[1:].lstrip().startswith(
         all_keep_markers

@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,3 +162,90 @@ def test_should_raise_windows_lock_error_other_than_contention(tmp_path: Path) -
         os.close(lock_descriptor)
 
     assert all_calls == [lock_descriptor]
+
+
+def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
+    all_launched_argv: list[list[str]] = []
+
+    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+        all_launched_argv.append(list(all_argv))
+        return subprocess.CompletedProcess(all_argv, 0)
+
+    monkeypatch.setattr(support.subprocess, "run", fake_run)
+
+    completion = support.subprocess_runner(["claude", "-p"], input=b"", encoding="utf-8", errors="replace")
+
+    assert all_launched_argv == [[resolved_command, "-p"]]
+    assert completion.returncode == 0
+
+
+def test_should_refuse_to_launch_a_bare_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    with pytest.raises(FileNotFoundError) as raised:
+        support.subprocess_runner(["claude", "-p"])
+
+    assert raised.value.errno == errno.ENOENT
+    assert raised.value.filename == "claude"
+
+
+@pytest.mark.parametrize("metacharacter", ["&", "|", "<", ">", "^", "%", "!", '"', "\n", "\r"])
+def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
+    monkeypatch: pytest.MonkeyPatch, metacharacter: str
+) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+
+    with pytest.raises(OSError) as raised:
+        support.subprocess_runner(["claude", "-p", f"fix{metacharacter}test"])
+
+    assert raised.value.errno == errno.EINVAL
+    assert raised.value.filename == resolved_command
+    assert "stdin" in raised.value.strerror
+
+
+def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\tools\CLAUDE.BAT"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+
+    with pytest.raises(OSError) as raised:
+        support.subprocess_runner(["claude", "a & b"])
+
+    assert raised.value.errno == errno.EINVAL
+
+
+def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    all_launched_argv: list[list[str]] = []
+
+    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+        all_launched_argv.append(list(all_argv))
+        return subprocess.CompletedProcess(all_argv, 0)
+
+    monkeypatch.setattr(support.subprocess, "run", fake_run)
+
+    support.subprocess_runner(["claude", "-p", "--output-format", "json", "--model", "opus"], input=b"a & b")
+
+    assert all_launched_argv == [[resolved_command, "-p", "--output-format", "json", "--model", "opus"]]
+
+
+def test_should_pass_metacharacters_to_an_executable_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = "/usr/local/bin/claude"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    all_launched_argv: list[list[str]] = []
+
+    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+        all_launched_argv.append(list(all_argv))
+        return subprocess.CompletedProcess(all_argv, 0)
+
+    monkeypatch.setattr(support.subprocess, "run", fake_run)
+
+    support.subprocess_runner(["claude", "-p", 'say "a & b" | 100%!'])
+
+    assert all_launched_argv == [[resolved_command, "-p", 'say "a & b" | 100%!']]

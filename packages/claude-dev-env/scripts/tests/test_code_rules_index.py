@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import ast
-import os
 import re
 from collections import Counter
 from pathlib import Path
+
+import pytest
 
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,8 @@ _TEXT_SUFFIXES = frozenset({".md", ".py", ".js", ".mjs", ".ts", ".json", ".xml"}
 _MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]+\]\(([^)\s]+)(?:\s+[^)]*)?\)")
 _INDEX_ANCHOR = re.compile(r"CODE_RULES\.md#([^\s)\]<>\"`]+)", re.IGNORECASE)
 _NUMBERED_CITATION = re.compile(
-    r"(?:CODE_RULES\s*\u00a7\s*|\bsection\s+)(\d+(?:\.\d+)?)", re.IGNORECASE
+    r"CODE_RULES(?:\.md)?[`'\"]*\s*(?:\u00a7\s*|section\s+)(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
 )
 
 
@@ -101,6 +103,30 @@ def test_should_assign_each_enforcer_check_to_one_family() -> None:
     assert documented_checks == imported_checks
 
 
+def _assert_proof_target_resolves(proof_label: str, proof_target: str) -> None:
+    module_text, _, test_name = proof_target.partition("::")
+    module_path = _REPOSITORY_ROOT / module_text
+    assert module_path.is_file(), proof_label
+    assert test_name, proof_label
+    assert re.search(
+        rf"^def {re.escape(test_name)}\(",
+        module_path.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    ), proof_label
+
+
+def test_should_name_a_pytest_node_in_each_proof_command() -> None:
+    for each_family_path in _FAMILY_DIRECTORY.glob("*.md"):
+        family_text = each_family_path.read_text(encoding="utf-8")
+        all_proofs = re.findall(
+            r"^- (check_\w+):.*?`python -m pytest ([^`\s]+)", family_text, re.MULTILINE
+        )
+        for each_check, each_target in all_proofs:
+            _assert_proof_target_resolves(
+                f"{each_family_path.name}: {each_check} -> {each_target}", each_target
+            )
+
+
 def _collect_citation_texts() -> list[tuple[Path, str]]:
     all_citations: list[tuple[Path, str]] = []
     for each_root in _CITATION_ROOTS:
@@ -118,28 +144,52 @@ def _collect_citation_texts() -> list[tuple[Path, str]]:
 
 def test_should_resolve_code_rules_anchors_and_sections() -> None:
     index_text = _INDEX_PATH.read_text(encoding="utf-8")
-    all_citations = _collect_citation_texts()
-    injected_anchor = os.environ.get("CODE_RULES_INDEX_TEST_ANCHOR")
-    if injected_anchor:
-        all_citations.append((_INDEX_PATH, "CODE_RULES.md" + "#" + injected_anchor))
-    _assert_citations_resolve(index_text, all_citations)
+    _assert_citations_resolve(index_text, _collect_citation_texts())
 
 
-def _assert_destination_resolves(family_path: Path, destination: str) -> None:
+def test_should_report_dead_code_rules_anchor() -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    dead_citation = (_INDEX_PATH, "CODE_RULES.md" + "#no-such-heading")
+    with pytest.raises(AssertionError, match="dead CODE_RULES anchor #no-such-heading"):
+        _assert_citations_resolve(index_text, [dead_citation])
+
+
+def test_should_ignore_section_number_of_another_document() -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    foreign_citation = (_INDEX_PATH, "See the runbook section 12 appendix row.")
+    _assert_citations_resolve(index_text, [foreign_citation])
+
+
+@pytest.mark.parametrize(
+    "citation_text",
+    [
+        "CODE_RULES.md" + " section 12",
+        "``docs/CODE_RULES.md``" + " section 12",
+        "CODE_RULES" + " \u00a712",
+        "CODE_RULES.md" + " \u00a712",
+    ],
+)
+def test_should_report_dead_code_rules_section(citation_text: str) -> None:
+    index_text = _INDEX_PATH.read_text(encoding="utf-8")
+    with pytest.raises(AssertionError, match="dead CODE_RULES" + " section 12"):
+        _assert_citations_resolve(index_text, [(_INDEX_PATH, citation_text)])
+
+
+def _assert_destination_resolves(markdown_path: Path, destination: str) -> None:
     if "://" in destination or destination.startswith("#"):
         return
     path_text, _, anchor_text = destination.partition("#")
-    destination_path = family_path.parent / path_text
-    assert destination_path.is_file(), f"{family_path}: {destination}"
+    destination_path = markdown_path.parent / path_text
+    assert destination_path.is_file(), f"{markdown_path}: {destination}"
     if anchor_text:
         destination_text = destination_path.read_text(encoding="utf-8")
         assert anchor_text in _heading_slugs(destination_text), (
-            f"{family_path}: {destination}"
+            f"{markdown_path}: {destination}"
         )
 
 
-def test_should_resolve_every_family_relative_link() -> None:
-    for each_family_path in _FAMILY_DIRECTORY.glob("*.md"):
-        family_text = each_family_path.read_text(encoding="utf-8")
-        for each_destination in _MARKDOWN_LINK.findall(family_text):
-            _assert_destination_resolves(each_family_path, each_destination)
+def test_should_resolve_every_index_and_family_relative_link() -> None:
+    for each_markdown_path in [_INDEX_PATH, *_FAMILY_DIRECTORY.glob("*.md")]:
+        markdown_text = each_markdown_path.read_text(encoding="utf-8")
+        for each_destination in _MARKDOWN_LINK.findall(markdown_text):
+            _assert_destination_resolves(each_markdown_path, each_destination)

@@ -1,5 +1,306 @@
 # Changelog
 
+## [8.48.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.4...claude-dev-env-v8.48.5) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** read account meters through the installed scripts link ([2590697](https://github.com/jl-cmd/claude-dev-env/commit/2590697a1c25dbc467341a25cabd230da4aa99c2))
+
+## [8.48.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.3...claude-dev-env-v8.48.4) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** read the branch rules once per merge check ([ce29034](https://github.com/jl-cmd/claude-dev-env/commit/ce29034526d25ab52b5cb79375d66c18a1b00e36))
+
+## [8.48.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.2...claude-dev-env-v8.48.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep hook scripts on disk during --update ([8db5b14](https://github.com/jl-cmd/claude-dev-env/commit/8db5b140f4765517f19f874c82d5ab907911375d))
+
+## [8.48.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.1...claude-dev-env-v8.48.2) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** build ephemeral negatives outside the OS temp root ([51e6e81](https://github.com/jl-cmd/claude-dev-env/commit/51e6e81a167ff2240260b4b7e734c4b07f1b727f))
+
+## [8.48.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.0...claude-dev-env-v8.48.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** refuse cmd.exe metacharacters in batch file arguments ([757c362](https://github.com/jl-cmd/claude-dev-env/commit/757c36205ebb1b99f531502e4efe84a0706dbd30))
+
+## [8.48.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.3...claude-dev-env-v8.48.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** start headless Claude only through the account broker ([0314633](https://github.com/jl-cmd/claude-dev-env/commit/0314633392eead9ba05531e762e11f054dbde4d3))
+
+
+### Bug Fixes
+
+* **hooks:** register the PowerShell dispatcher group beside the Bash group ([0132c15](https://github.com/jl-cmd/claude-dev-env/commit/0132c15c71ae70e4f7633d31ca4515b2e67c2834))
+
+## [8.47.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.2...claude-dev-env-v8.47.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ci:** install playtest expects the rewrite to keep the permission prompt ([9484170](https://github.com/jl-cmd/claude-dev-env/commit/94841701e23848d84aa478304c78b3e4377a90f1))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([e84d272](https://github.com/jl-cmd/claude-dev-env/commit/e84d2723e1e213a3d758286c123607c9c5ebd2a2))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([7af09da](https://github.com/jl-cmd/claude-dev-env/commit/7af09da81a9312486ac91f6bd1c9b698b930ae77))
+
+## [8.47.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.1...claude-dev-env-v8.47.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **claude-worker:** exit 124 with reason timeout when the job times out ([642d770](https://github.com/jl-cmd/claude-dev-env/commit/642d7708bf4544419c8f5c19212e6777e39494b0))
+
+## [8.47.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.0...claude-dev-env-v8.47.1) (2026-10-04)
+
+
+### Tests
+
+* wait for written lock outcomes in the lock contention test ([c5fc864](https://github.com/jl-cmd/claude-dev-env/commit/c5fc86490810447310d3aaa1769376e82d88aaaf))
+
+## [8.47.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.31...claude-dev-env-v8.47.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny a second open follow-up pull request for one parent ([10b79b1](https://github.com/jl-cmd/claude-dev-env/commit/10b79b14d99092c00b484573d5c52f631979e0b8))
+
+## [8.46.31](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.30...claude-dev-env-v8.46.31) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** find the shared tree beside the scripts link ([72b4c4b](https://github.com/jl-cmd/claude-dev-env/commit/72b4c4b5cded80e2e6b9c66c0d6f7df2c645cb9b))
+
+## [8.46.30](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.29...claude-dev-env-v8.46.30) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** name a pytest node in every family proof entry ([8686da3](https://github.com/jl-cmd/claude-dev-env/commit/8686da3d1780c4d3c3b7d2dcd7faf3e224704585))
+
+## [8.46.29](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.28...claude-dev-env-v8.46.29) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** raise ImportError when usage markers are missing ([7a73804](https://github.com/jl-cmd/claude-dev-env/commit/7a73804bc7a289aaa390d872ae77bd6b1be5ccad))
+
+## [8.46.28](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.27...claude-dev-env-v8.46.28) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** name a pytest node in each family proof entry ([5df2f17](https://github.com/jl-cmd/claude-dev-env/commit/5df2f17db359865d3abfa219e24deb0767481be0))
+
+## [8.46.27](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.26...claude-dev-env-v8.46.27) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** resolve the command through PATH before launch ([754b2b8](https://github.com/jl-cmd/claude-dev-env/commit/754b2b87752c1772650e1d5c521a8527c41e9a2e))
+
+## [8.46.26](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.25...claude-dev-env-v8.46.26) (2026-10-04)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1649](https://github.com/jl-cmd/claude-dev-env/issues/1649), [#1660](https://github.com/jl-cmd/claude-dev-env/issues/1660) ([cee2af1](https://github.com/jl-cmd/claude-dev-env/commit/cee2af10c0f217b6cb164400bb45c517ee2226bc))
+
+## [8.46.25](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.24...claude-dev-env-v8.46.25) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** restore the member-loop boundary sentence in section 9.7 ([efd216c](https://github.com/jl-cmd/claude-dev-env/commit/efd216c154d5e516184a9216aa9808c345e13327))
+
+## [8.46.24](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.23...claude-dev-env-v8.46.24) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** restrict limits to codex at parse time ([bc9f94c](https://github.com/jl-cmd/claude-dev-env/commit/bc9f94c28bd04d28cc66ae11623b17c2624fc9c4))
+
+## [8.46.23](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.22...claude-dev-env-v8.46.23) (2026-10-04)
+
+
+### Bug Fixes
+
+* **spawn, code-review:** exit 5 on a chain config error ([b18b493](https://github.com/jl-cmd/claude-dev-env/commit/b18b493a93d35ad98f2e35ae0f66cb79b1c1cb7e))
+
+## [8.46.22](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.21...claude-dev-env-v8.46.22) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** pair the account worker process and report modules ([dca9de8](https://github.com/jl-cmd/claude-dev-env/commit/dca9de8763208b742437ae7a1af0fd34223ca7e7))
+
+## [8.46.21](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.20...claude-dev-env-v8.46.21) (2026-10-04)
+
+
+### Tests
+
+* **code-rules:** anchor numbered citations on the CODE_RULES name ([6486efe](https://github.com/jl-cmd/claude-dev-env/commit/6486efe092a0a804e47f80e5ebd1296dae62bf61))
+
+## [8.46.20](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.19...claude-dev-env-v8.46.20) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep files under the payload cwd out of the agent-home exemption ([86c110a](https://github.com/jl-cmd/claude-dev-env/commit/86c110ac8342eeda24a3bd50088e166e5e50c8f8))
+
+## [8.46.19](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.18...claude-dev-env-v8.46.19) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** harden spent marks outside the roster ([fe86016](https://github.com/jl-cmd/claude-dev-env/commit/fe860169aef62d7f59a93dc14c8639d160ce14ac))
+
+## [8.46.18](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.17...claude-dev-env-v8.46.18) (2026-10-04)
+
+
+### Refactoring
+
+* **hooks:** move PreToolUse output keys out of the allow emitter ([5196b3b](https://github.com/jl-cmd/claude-dev-env/commit/5196b3bfd380ade322389a90bc040f80d7d7ec5f))
+
+## [8.46.17](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.16...claude-dev-env-v8.46.17) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** read archived converge.mjs in the drift self-check ([78fe3b7](https://github.com/jl-cmd/claude-dev-env/commit/78fe3b7894b49045890c666ad8f900f71713dcd0))
+
+## [8.46.16](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.15...claude-dev-env-v8.46.16) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** fall back to rmtree onerror on Python 3.11 ([7ce5977](https://github.com/jl-cmd/claude-dev-env/commit/7ce5977cab399be6f52d0d5b553e1b8c8e218caa))
+
+## [8.46.15](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.14...claude-dev-env-v8.46.15) (2026-10-04)
+
+
+### Bug Fixes
+
+* **agent_merge_check:** skip the GraphQL ejection read without a merge queue ([6c29578](https://github.com/jl-cmd/claude-dev-env/commit/6c295784f24a74ed0baf1c85b57195e4642d5488))
+
+## [8.46.14](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.13...claude-dev-env-v8.46.14) (2026-10-04)
+
+
+### Documentation
+
+* **hooks:** remove emphasis words from comment-awareness test docstring ([b7d4a97](https://github.com/jl-cmd/claude-dev-env/commit/b7d4a97931b5ded5a1623eeaf17c3e01f21c9f69))
+
+## [8.46.13](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.12...claude-dev-env-v8.46.13) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep files under the payload cwd out of the scratchpad exemption ([0937cfc](https://github.com/jl-cmd/claude-dev-env/commit/0937cfccf952f925a173758bd77bbc51debbb215))
+
+## [8.46.12](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.11...claude-dev-env-v8.46.12) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** send a full Opus model id to over-pace thread spawns ([3715cd6](https://github.com/jl-cmd/claude-dev-env/commit/3715cd6b97ed48ec44d9311f3081e56c071f40ee))
+
+## [8.46.11](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.10...claude-dev-env-v8.46.11) (2026-10-04)
+
+
+### Documentation
+
+* drop trailing contrast clauses left after [#1748](https://github.com/jl-cmd/claude-dev-env/issues/1748) ([4c1d1d3](https://github.com/jl-cmd/claude-dev-env/commit/4c1d1d3f722b7c0f65d77375ca04d260d36705d6))
+
+## [8.46.10](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.9...claude-dev-env-v8.46.10) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** isolate hooks tests from the live session scratchpad ([80e6000](https://github.com/jl-cmd/claude-dev-env/commit/80e60009da9685fe23159ec7b197d8320f164c29))
+
+## [8.46.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.8...claude-dev-env-v8.46.9) (2026-10-04)
+
+
+### Bug Fixes
+
+* **tests:** write lock contender result atomically ([768ea9d](https://github.com/jl-cmd/claude-dev-env/commit/768ea9d0461aa1bc400a9af2443dda79e234a68a))
+
+## [8.46.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.7...claude-dev-env-v8.46.8) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep the permission flow on rewritten spawns ([236e3b9](https://github.com/jl-cmd/claude-dev-env/commit/236e3b9ce177a12cc038bd4b9dd4ab9970a3266a))
+
+## [8.46.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.6...claude-dev-env-v8.46.7) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** drop substitution contrast framing from files PR 1723 touched ([5373cd4](https://github.com/jl-cmd/claude-dev-env/commit/5373cd4216989715e7113779f61bbf8c1f921619))
+
+## [8.46.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.5...claude-dev-env-v8.46.6) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** scan the calling subagent's transcript in the pr-lifecycle gate ([81d0836](https://github.com/jl-cmd/claude-dev-env/commit/81d0836406ed73dd56926eae5e4e0a095970185e))
+
+## [8.46.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.4...claude-dev-env-v8.46.5) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** apply the PR 1679 comment-rule wording to every copy ([f760cb0](https://github.com/jl-cmd/claude-dev-env/commit/f760cb0f68cf827ba5164dc38e34190b24f0c3a3))
+
+## [8.46.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.3...claude-dev-env-v8.46.4) (2026-10-04)
+
+
+### Tests
+
+* **rules:** scope the When-line check to the entry body ([8f009e5](https://github.com/jl-cmd/claude-dev-env/commit/8f009e588b49051a395c7a4a1c1c291f4b6505fa))
+
+## [8.46.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.2...claude-dev-env-v8.46.3) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** scan the pin constants file for Sonnet ids ([c3a370b](https://github.com/jl-cmd/claude-dev-env/commit/c3a370b88229d9f1b46666191f66fee98ed8d0b6))
+
+## [8.46.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.1...claude-dev-env-v8.46.2) (2026-10-04)
+
+
+### Tests
+
+* **code-rules:** check the index links and test dead anchors directly ([09abec5](https://github.com/jl-cmd/claude-dev-env/commit/09abec5b516053b3c044679d8e1f246c469aa1ae))
+
+## [8.46.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.0...claude-dev-env-v8.46.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** exit 4 only for a blocked Claude job ([ecd858a](https://github.com/jl-cmd/claude-dev-env/commit/ecd858ad1a3c630b66b247bd7a5f35e339ebdac7))
+
+## [8.46.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.1...claude-dev-env-v8.46.0) (2026-10-04)
+
+
+### Features
+
+* **account-broker:** read one Codex home's rate-limit records ([fce50e2](https://github.com/jl-cmd/claude-dev-env/commit/fce50e2288ba2774ef5fe25f08a27b032bb560d5))
+
 ## [8.45.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.0...claude-dev-env-v8.45.1) (2026-10-04)
 
 

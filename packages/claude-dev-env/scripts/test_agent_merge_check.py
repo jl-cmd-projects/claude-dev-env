@@ -29,6 +29,7 @@ CLEAN_PULL_REQUEST = {
     "number": 1442,
     "draft": False,
     "mergeable_state": "clean",
+    "base": {"ref": "main"},
     "head": {"sha": "ab845eb6945650055ebe852312a9057b9f067d6a"},
 }
 
@@ -292,8 +293,13 @@ def test_a_ready_pull_request_exits_zero(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     monkeypatch.setattr(
         agent_merge_check,
+        "read_branch_rules",
+        lambda slug, base_ref, token: [],
+    )
+    monkeypatch.setattr(
+        agent_merge_check,
         "read_merge_queue_ejection",
-        lambda slug, number, token: False,
+        lambda slug, number, base_ref, all_rules, token: False,
     )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 0
 
@@ -312,8 +318,13 @@ def test_a_held_pull_request_exits_one(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         agent_merge_check,
+        "read_branch_rules",
+        lambda slug, base_ref, token: [],
+    )
+    monkeypatch.setattr(
+        agent_merge_check,
         "read_merge_queue_ejection",
-        lambda slug, number, token: False,
+        lambda slug, number, base_ref, all_rules, token: False,
     )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 1
 
@@ -490,6 +501,65 @@ def test_an_unreadable_branch_rule_keeps_the_generic_blocked_reason(
     assert BLOCKED_HOLD_REASON in line
 
 
+def test_a_blocked_pull_request_reads_the_branch_rules_once(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    routed_answer = _github_answers(
+        MAIN_BRANCH_RULES,
+        [
+            _check_run("Ruff", "success", run_id=11),
+            _check_run("Tip Local green", "success", run_id=12),
+        ],
+        behind_by=225,
+    )
+    all_rules_urls: list[str] = []
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if "/rules/branches/" in url:
+            all_rules_urls.append(url)
+        return routed_answer(url, token, all_payload_fields)
+
+    exit_code, line = _run_main(monkeypatch, capsys, _answer)
+    assert exit_code == 1
+    assert BEHIND_MERGE_QUEUE_HOLD_TEMPLATE.format(count=225) in line
+    assert len(all_rules_urls) == 1
+
+
+def test_read_branch_rules_quotes_the_base_branch_and_returns_its_rules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_rules_urls: list[str] = []
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        all_rules_urls.append(url)
+        return MAIN_BRANCH_RULES
+
+    monkeypatch.setattr(agent_merge_check, "_request_json", _answer)
+    assert (
+        agent_merge_check.read_branch_rules(
+            "jl-cmd/claude-dev-env", "release/2026 q4", "token"
+        )
+        == MAIN_BRANCH_RULES
+    )
+    assert all_rules_urls[0].endswith("/rules/branches/release/2026%20q4")
+
+
+def test_read_branch_rules_returns_the_failure_of_a_refused_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    refusal = agent_merge_check.MergeCheckError("HTTP Error 403: Forbidden")
+
+    def _refuse(url: str, token: str, all_payload_fields: object) -> object:
+        raise refusal
+
+    monkeypatch.setattr(agent_merge_check, "_request_json", _refuse)
+    assert (
+        agent_merge_check.read_branch_rules("jl-cmd/claude-dev-env", "main", "token")
+        is refusal
+    )
+
+
 def _evidence(
     all_unmet_checks: tuple[str, ...] = (),
     behind_by: int = 0,
@@ -625,7 +695,7 @@ def test_read_blocked_evidence_reads_the_pull_request_4922_shape(
         ),
     )
     assert agent_merge_check.read_blocked_evidence(
-        "jl-cmd/claude-dev-env", PULL_REQUEST_4922, "token"
+        "jl-cmd/claude-dev-env", PULL_REQUEST_4922, MAIN_BRANCH_RULES, "token"
     ) == _evidence(behind_by=225)
 
 
@@ -655,17 +725,61 @@ def _removal(created_at: str, reason: str) -> dict[str, object]:
 
 def _merge_queue_answers(
     all_removals: list[dict[str, object]],
+    all_rules: list[object] = MAIN_BRANCH_RULES,
 ) -> object:
     def _answer(url: str, token: str, all_payload_fields: object) -> object:
         if url.endswith("/pulls/1442"):
             return QUEUED_PULL_REQUEST
         if url.endswith("/ccr/review_threads"):
             return []
+        if "/rules/branches/" in url:
+            return all_rules
         if url.endswith("/graphql"):
             return _merge_queue_document(all_removals)
         raise AssertionError(url)
 
     return _answer
+
+
+def _refuse_graphql(answer: object) -> object:
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if url.endswith("/graphql"):
+            raise agent_merge_check.MergeCheckError("HTTP Error 403: Forbidden")
+        return answer(url, token, all_payload_fields)
+
+    return _answer
+
+
+def test_a_base_without_a_merge_queue_may_merge_when_graphql_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(
+        agent_merge_check,
+        "_request_json",
+        _refuse_graphql(_merge_queue_answers([], all_rules=[])),
+    )
+    exit_code = agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"])
+    assert exit_code == 0
+    assert capsys.readouterr().out.startswith(MERGE_VERDICT_LABEL)
+
+
+def test_a_merge_queue_base_names_the_refused_graphql_read(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(
+        agent_merge_check, "_request_json", _refuse_graphql(_merge_queue_answers([]))
+    )
+    exit_code = agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert captured.out == ""
+    assert "merge queue" in captured.err
+    assert "GraphQL" in captured.err
+    assert "HTTP Error 403: Forbidden" in captured.err
 
 
 def _run_queued_main(
@@ -772,13 +886,11 @@ def test_read_merge_queue_ejection_compares_failed_checks_removals_to_the_head(
     expected_ejection: bool,
 ) -> None:
     monkeypatch.setattr(
-        agent_merge_check,
-        "_request_json",
-        lambda url, token, all_payload_fields: _merge_queue_document(all_removals),
+        agent_merge_check, "_request_json", _merge_queue_answers(all_removals)
     )
     assert (
         agent_merge_check.read_merge_queue_ejection(
-            "jl-cmd/claude-dev-env", 1442, "token"
+            "jl-cmd/claude-dev-env", 1442, "main", MAIN_BRANCH_RULES, "token"
         )
         is expected_ejection
     )
@@ -915,8 +1027,8 @@ def _unstable_answers(
             return PULL_REQUEST_5330
         if parsed.path.endswith("/ccr/review_threads"):
             return all_threads or []
-        if parsed.path.endswith("/graphql"):
-            return _merge_queue_document([])
+        if "/rules/branches/" in parsed.path:
+            return []
         if parsed.path.endswith("/check-runs"):
             return {"check_runs": _requested_page(parsed.query, all_check_runs)}
         if parsed.path.endswith("/status"):

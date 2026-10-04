@@ -63,7 +63,7 @@ You edit code and run tests for one closed task. You never commit, push, or call
 
 Do not add code comments. Preserve existing comments. Docstrings remain allowed.
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 ## Scope
 
@@ -150,7 +150,7 @@ For each acceptance line from the brief:
 1. Keep task-specific detail in its own part file so the brief templates stay
    reusable.
 2. Absolute paths only in `prompt_parts` — the launcher reads them as given.
-3. One worker, one closed scope. Split large work into more workers rather than
-   one long brief.
+3. One worker, one closed scope. Split large work into more workers, each with a
+   short brief.
 4. The lead session fills bracketed fields before launch; workers never see the
    skill folder unless you copy text into their part files.

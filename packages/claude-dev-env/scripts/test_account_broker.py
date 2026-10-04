@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -435,11 +436,42 @@ def test_should_stop_after_timeout_without_running_job_again(
 
     assert invoked_homes == ["first"]
     assert outcome.attempts == (("first", "timeout"),)
-    assert outcome.status == "advisor_blocked"
+    assert outcome.status == "timeout"
     assert outcome.account_name == "first"
     assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+@pytest.mark.parametrize(
+    ("product", "roster_names", "start_error", "expected_code"),
+    (
+        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 4),
+        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 127),
+        (Product.CODEX, (), OSError("missing command"), 127),
+    ),
+)
+def test_should_exit_four_only_for_a_blocked_claude_job(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    product: Product,
+    roster_names: tuple[str, ...],
+    start_error: Exception,
+    expected_code: int,
+) -> None:
+    accounts = tuple(_account(each_name, product) for each_name in roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
+        each_name: _meters(80, 80) for each_name in roster_names
+    }))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise start_error
+
+    with account_broker.override_subprocess_runner(runner):
+        code = account_broker.main(("run", "--product", product.value, "--report", str(tmp_path / "report.json"), "--", "job"))
+
+    assert code == expected_code
 
 
 def test_should_keep_usage_limited_account_spent_for_later_choices(
@@ -663,3 +695,180 @@ def test_should_run_job_through_override(
     assert outcome.status == "served"
     assert outcome.attempts == (("only", "served"),)
     assert calls == [b"input"]
+
+
+def test_should_record_start_failure_without_launching_a_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("extra", Product.CLAUDE),), {"extra": _meters(80, 80)}
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.attempts == (("extra", "start_failed"),)
+    assert outcome.status == "exhausted"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("marked_name", ["retired", "first"])
+def test_should_run_past_a_stored_spent_mark_beyond_the_platform_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], marked_name: str
+) -> None:
+    account = _account("first")
+    second = _account("second")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account, second), {"first": _meters(80, 80), "second": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+    marked_account = account if marked_name == "first" else Account(Product.CODEX, marked_name, Path(), False)
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {"meters": {}, "spent": {account_broker._state_key(marked_account): 1e20}, "affinity": {}},
+    )
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+
+
+def test_should_name_the_outside_spent_mark_when_it_forces_a_wait(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"visitor:{int(reset.timestamp())}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert decision["action"] == "wait"
+    assert decision["reason"] == f"account visitor outside the roster is spent; next reset at {account_broker._time_text(reset)}"
+
+
+def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", "frist", "--spent", "first"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    assert len(all_warning_lines) == 1
+    assert "frist" in all_warning_lines[0]
+    assert "outside the roster" in all_warning_lines[0]
+
+
+@pytest.mark.parametrize("mark", ["", ":1800000000"])
+def test_should_reject_a_spent_mark_without_an_account_name(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], mark: str
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", mark))
+
+    assert code == 2
+    assert "account name" in capsys.readouterr().err
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
+def test_should_serialize_a_run_and_a_wait_decision() -> None:
+    account = _account("first")
+    reset = NOW + timedelta(hours=2)
+
+    run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
+    wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
+
+    assert run_payload == {"action": "run", "account": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
+    assert wait_payload == {"action": "wait", "account": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
+
+
+def test_should_print_the_whole_rate_limit_result_for_one_home(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    rate_limit_records = {"rateLimitsByLimitId": {"codex": {"primary": {"usedPercent": 20}}}}
+    observed: list[tuple[Path, Path]] = []
+
+    def read_result(codex_path: Path, codex_home: Path) -> dict[str, object]:
+        observed.append((codex_path, codex_home))
+        return rate_limit_records
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+    home = tmp_path / "codex-2"
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(home), "--codex", "codex-bin")) == 0
+    assert json.loads(capsys.readouterr().out) == {"home": str(home), "rate_limits": rate_limit_records}
+    assert observed == [(Path("codex-bin"), home)]
+
+
+def test_should_exit_two_when_the_limits_read_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    def read_result(_codex_path: Path, _codex_home: Path) -> dict[str, object]:
+        raise account_broker.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+
+    monkeypatch.setattr(account_broker.codex_account_meters, "read_rate_limit_records", read_result)
+
+    assert account_broker.main(("limits", "--product", "codex", "--home", str(tmp_path), "--codex", "codex-bin")) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no rate-limit reply" in captured.err
+
+
+def test_should_refuse_limits_for_claude(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        account_broker.main(("limits", "--product", "claude", "--home", str(tmp_path)))
+    assert exit_info.value.code == 2
+    assert "invalid choice: 'claude'" in capsys.readouterr().err
+
+
+def test_should_start_claude_job_without_the_parent_session_variables(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (_account("first", Product.CLAUDE),)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(accounts, {
+        "first": _meters(80, 80)
+    }))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/parent/socket")
+    monkeypatch.setenv("UNRELATED_SETTING", "kept")
+    all_child_environments: list[dict[str, str]] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_child_environments.append(options["env"])
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        run_job(Product.CLAUDE, ("claude", "-p", "task"))
+
+    child_environment = all_child_environments[0]
+    assert "CLAUDE_CODE_SESSION_ID" not in child_environment
+    assert "CLAUDECODE" not in child_environment
+    assert "CLAUDE_CODE_MESSAGING_SOCKET" not in child_environment
+    assert child_environment["UNRELATED_SETTING"] == "kept"
+    assert child_environment["CODEX_HOME"] == str(Path("/profiles") / "first")
+
+
+def test_should_keep_the_parent_environment_for_codex_jobs(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (_account("first"),)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80)
+    }))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
+    all_child_environments: list[dict[str, str]] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_child_environments.append(options["env"])
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        run_job(Product.CODEX, ("codex", "exec", "task"))
+
+    assert all_child_environments[0]["CLAUDE_CODE_SESSION_ID"] == "parent-session"

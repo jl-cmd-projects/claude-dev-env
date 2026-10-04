@@ -15,6 +15,7 @@ from codex_account_meters import (
     exchange_with_app_server,
     parse_rate_limits_reply,
     read_codex_meters,
+    read_rate_limit_records,
     request_messages,
     resolve_codex_path,
 )
@@ -161,6 +162,38 @@ class TestReadCodexMeters:
 
         with pytest.raises(CodexMeterUnreadError):
             read_codex_meters(Path("codex"), Path("/h"), broken_exchange)
+
+
+class TestReadRateLimitRecords:
+    def should_return_every_limit_record_the_reply_carries(self) -> None:
+        rate_limit_records = {
+            "rateLimits": {"limitId": "codex", "primary": {"usedPercent": 20}},
+            "rateLimitsByLimitId": {
+                "codex": {"limitId": "codex", "planType": "pro"},
+                "codex_other": {"limitId": "codex_other"},
+            },
+        }
+
+        assert (
+            read_rate_limit_records(
+                Path("codex"),
+                Path("/h"),
+                lambda *_: [json.dumps({"id": 1}), json.dumps({"id": 2, "result": rate_limit_records})],
+            )
+            == rate_limit_records
+        )
+
+    def should_raise_unread_on_an_error_reply(self) -> None:
+        with pytest.raises(CodexMeterUnreadError, match="read failed"):
+            read_rate_limit_records(
+                Path("codex"),
+                Path("/h"),
+                lambda *_: [json.dumps({"id": 2, "error": {"code": 1}})],
+            )
+
+    def should_raise_unread_when_the_server_never_answers(self) -> None:
+        with pytest.raises(CodexMeterUnreadError, match="no rate-limit reply"):
+            read_rate_limit_records(Path("codex"), Path("/h"), lambda *_: [])
 
 
 FAKE_APP_SERVER = """#!/usr/bin/env python3
