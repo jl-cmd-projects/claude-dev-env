@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.util
+import importlib.machinery
 import os
 import subprocess
+import types
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -63,11 +64,12 @@ def codex_usage_limit_signatures() -> tuple[str, ...]:
         ImportError: The marker module cannot be loaded.
     """
     constants_path = Path(__file__).resolve().parents[2] / "_shared" / "pr-loop" / "scripts" / "codex_review_scripts_constants" / "classifier_constants.py"
-    specification = importlib.util.spec_from_file_location("account_broker_codex_classifier_constants", constants_path)
-    if specification is None or specification.loader is None:
-        raise ImportError(f"cannot load usage markers from {constants_path}")
-    module = importlib.util.module_from_spec(specification)
-    specification.loader.exec_module(module)
+    loader = importlib.machinery.SourceFileLoader("account_broker_codex_classifier_constants", str(constants_path))
+    module = types.ModuleType(loader.name)
+    try:
+        loader.exec_module(module)
+    except OSError as error:
+        raise ImportError(f"cannot load usage markers from {constants_path}") from error
     return module.ALL_USAGE_LIMIT_MARKERS
 
 
