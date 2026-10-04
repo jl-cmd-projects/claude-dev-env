@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.42.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.2...claude-dev-env-v8.42.3) (2026-10-04)
+
+
+### Documentation
+
+* **agents:** restore banned-word examples in the package AGENTS.md ([d0b4920](https://github.com/jl-cmd/claude-dev-env/commit/d0b4920fa373412a3cb4a09e4d3b195128e08c7d))
+
+## [8.42.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.1...claude-dev-env-v8.42.2) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** turn twelve path-scoped rules into index entries ([12423a3](https://github.com/jl-cmd/claude-dev-env/commit/12423a379ac9d4da490cc5bd02cb48dcb54b7395))
+
+## [8.42.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.0...claude-dev-env-v8.42.1) (2026-10-04)
+
+
+### Documentation
+
+* **contrast-framing:** describe the rule file as naming each form ([4568122](https://github.com/jl-cmd/claude-dev-env/commit/456812201156873254e23e4d83f3705ba38d208e))
+
+## [8.42.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.41.0...claude-dev-env-v8.42.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** remind spawns to read and ask, across every spawn surface ([905815a](https://github.com/jl-cmd/claude-dev-env/commit/905815a96452ee12065bd981081d21348c58e2f6))
+
 ## [8.41.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.1...claude-dev-env-v8.41.0) (2026-10-04)
 
 
