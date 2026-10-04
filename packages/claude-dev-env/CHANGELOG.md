@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.45.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.45.0...claude-dev-env-v8.45.1) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** drop chain constants the broker move left unused ([573d659](https://github.com/jl-cmd/claude-dev-env/commit/573d659c7162a4c049dc06d61d767d91794b1b0f))
+
 ## [8.45.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.6...claude-dev-env-v8.45.0) (2026-10-04)
 
 
