@@ -17,6 +17,7 @@ import pytest
 from dev_env_scripts_constants import account_broker_constants as broker_constants
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_CLAUDE_FLOORS,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_CODEX_FLOORS,
     JobOutcome,
 )
@@ -166,3 +167,9 @@ def test_codex_usage_limit_signatures_finds_shared_tree_beside_the_scripts_link(
     )
 
     assert installed_constants.codex_usage_limit_signatures() == (TEMP_TREE_MARKER,)
+
+
+def test_parent_session_variables_name_the_session_link_and_leave_the_account_home() -> None:
+    assert "CLAUDE_CODE_SESSION_ID" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+    assert "CLAUDECODE" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+    assert "CLAUDE_CONFIG_DIR" not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
