@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.30](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.29...claude-dev-env-v8.46.30) (2026-10-04)
+
+
+### Documentation
+
+* **code-rules:** name a pytest node in every family proof entry ([8686da3](https://github.com/jl-cmd/claude-dev-env/commit/8686da3d1780c4d3c3b7d2dcd7faf3e224704585))
+
 ## [8.46.29](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.28...claude-dev-env-v8.46.29) (2026-10-04)
 
 
