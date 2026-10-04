@@ -210,7 +210,7 @@ Every Shape A finding cites a file path and a line number. The offending line is
 Do not infer missing context. If the diff and allowed checks cannot confirm a
 claim, use an open question or an evidence gap.
 
-When the diff alone lacks the context to confirm a finding, list the item under an "Open questions" section rather than asserting it as a Shape A finding. Each open question names the file and line where uncertainty arose and states what additional context would resolve it.
+When the diff alone lacks the context to confirm a finding, list the item under an "Open questions" section and keep it out of the Shape A findings. Each open question names the file and line where uncertainty arose and states what additional context would resolve it.
 
 ```json
 {
