@@ -4,6 +4,8 @@ import errno
 import json
 import os
 import subprocess
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -161,3 +163,32 @@ def test_should_raise_windows_lock_error_other_than_contention(tmp_path: Path) -
         os.close(lock_descriptor)
 
     assert all_calls == [lock_descriptor]
+
+
+GRANDCHILD_HEARTBEAT_SCRIPT = (
+    "import pathlib, sys, time\n"
+    "heartbeat = pathlib.Path(sys.argv[1])\n"
+    "for each_beat in range(300):\n"
+    "    heartbeat.write_text(str(each_beat), encoding='utf-8')\n"
+    "    time.sleep(0.1)\n"
+)
+
+CHILD_SCRIPT = (
+    "import subprocess, sys, time\n"
+    "subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]])\n"
+    "time.sleep(60)\n"
+)
+
+
+def test_should_end_grandchildren_when_the_job_times_out(tmp_path: Path) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+            timeout=5,
+        )
+
+    beat_after_timeout = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_timeout

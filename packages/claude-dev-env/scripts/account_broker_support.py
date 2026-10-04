@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import errno
+import importlib
 import json
 import os
 import subprocess
@@ -57,6 +58,16 @@ from dev_env_scripts_constants.codex_account_constants import (
     WEEKLY_WINDOW_MINUTES,
 )
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
+from shared_tree_paths import resolve_shared_process_tree_scripts_directory
+
+_shared_process_tree_scripts_directory = resolve_shared_process_tree_scripts_directory(
+    __file__,
+    all_environment=os.environ,
+)
+if str(_shared_process_tree_scripts_directory) not in sys.path:
+    sys.path.insert(0, str(_shared_process_tree_scripts_directory))
+
+_process_tree_kill = importlib.import_module("process_tree_kill")
 
 
 def _read_list(path: Path) -> object:
@@ -433,21 +444,26 @@ def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subp
     errors = str(options.get("errors") or "replace")
     stdin_bytes = options.get("input")
     with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
-        completion = subprocess.run(
+        with subprocess.Popen(
             list(all_argv),
-            input=stdin_bytes,
+            stdin=subprocess.PIPE if stdin_bytes is not None else None,
             stdout=stdout_file,
             stderr=stderr_file,
             env=options.get("env"),
             cwd=options.get("cwd"),
-            timeout=options.get("timeout"),
-            check=False,
-        )
+            start_new_session=_process_tree_kill.should_start_new_session(),
+        ) as process:
+            try:
+                process.communicate(input=stdin_bytes, timeout=options.get("timeout"))
+            except subprocess.TimeoutExpired:
+                _process_tree_kill.terminate_process_tree(process)
+                process.wait()
+                raise
         stdout_file.seek(0)
         stderr_file.seek(0)
         stdout = stdout_file.read().decode(encoding, errors).replace("\r\n", "\n").replace("\r", "\n")
         stderr = stderr_file.read().decode(encoding, errors).replace("\r\n", "\n").replace("\r", "\n")
-    return subprocess.CompletedProcess(list(all_argv), completion.returncode, stdout, stderr)
+    return subprocess.CompletedProcess(list(all_argv), process.returncode, stdout, stderr)
 
 
 subprocess_runner: SubprocessRunner = _run_captured_subprocess
