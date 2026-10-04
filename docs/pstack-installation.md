@@ -39,7 +39,7 @@ The plugin keeps its own state under each host's plugin store. The install manif
 
 ## Updating and configuring
 
-`claude plugin marketplace update pstack-claude` refreshes the catalog and `claude plugin install pstack@pstack-claude` adopts the new version. A later `claude-dev-env` install runs the same two commands, so an install adopts whatever the marketplace publishes.
+Each install is a clean install. On each host it first uninstalls `pstack@pstack-claude` and removes the `pstack-claude` marketplace, then adds the marketplace again and installs the newest version it publishes. On Claude Code it then deletes every cached pstack version the CLI marked with `.orphaned_at`, so `plugins/cache/pstack-claude/pstack/` holds only the installed version. Codex deletes the old version's cache itself on `codex plugin remove`. A removal that finds nothing installed exits non-zero, and the install goes on.
 
 Run `/pstack:setup-pstack` in Claude Code, or `setup-pstack` in Codex, to change the plugin's model defaults or turn its automatic routing off. This repository's own `subagent-model-policy.json` and its `subagent_model_routing` hook stay in place and are unrelated to the plugin's routing. A later install preserves existing Codex model files.
 
