@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.12](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.11...claude-dev-env-v8.46.12) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** send a full Opus model id to over-pace thread spawns ([3715cd6](https://github.com/jl-cmd/claude-dev-env/commit/3715cd6b97ed48ec44d9311f3081e56c071f40ee))
+
 ## [8.46.11](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.10...claude-dev-env-v8.46.11) (2026-10-04)
 
 
