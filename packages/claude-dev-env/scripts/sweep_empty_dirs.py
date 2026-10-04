@@ -36,12 +36,29 @@ def _log_walk_error(os_error: OSError) -> None:
     logging.warning("cannot scan %s -- %s", os_error.filename, os_error.strerror)
 
 
+def _is_older_than(directory_path: str, now: float, min_age_seconds: int) -> bool:
+    """Report whether a directory ctime precedes *now* by more than the minimum age."""
+    try:
+        raw_ctime = os.path.getctime(directory_path)
+    except FileNotFoundError:
+        return False
+    except PermissionError:
+        logging.warning("permission denied -- %s", directory_path)
+        return False
+    except OSError:
+        return False
+    ctime = min(raw_ctime, now)
+    return now - ctime > min_age_seconds
+
+
 def sweep(root: str, min_age_seconds: int) -> list[str]:
     """Remove empty directories under *root* older than *min_age_seconds*.
 
-    Walks bottom-up so nested empty directories are cleaned from the leaves
-    inward.  Relies on os.rmdir to fail harmlessly for non-empty directories
-    instead of checking snapshotted subdirectory lists.
+    Reads the age of every directory before the first removal, because on
+    POSIX removing a child directory moves its parent's ctime to the present.
+    Then removes bottom-up so nested empty directories are cleaned from the
+    leaves inward.  os.rmdir decides emptiness and fails harmlessly for a
+    directory that still holds an entry.
 
     Args:
         root: Root directory to walk; directories below the root are
@@ -56,35 +73,28 @@ def sweep(root: str, min_age_seconds: int) -> list[str]:
     all_removed: list[str] = []
 
     now = time.time()
-    for each_directory_path, _, _ in os.walk(
-        root, onerror=_log_walk_error, topdown=False
-    ):
-        if each_directory_path == root:
-            continue
+    all_expired_directories = [
+        each_directory_path
+        for each_directory_path, _, _ in os.walk(
+            root, onerror=_log_walk_error, topdown=False
+        )
+        if each_directory_path != root
+        and _is_older_than(each_directory_path, now, min_age_seconds)
+    ]
+    for each_directory_path in all_expired_directories:
         try:
-            raw_ctime = os.path.getctime(each_directory_path)
+            os.rmdir(each_directory_path)
+            logging.info("deleted: %s", each_directory_path)
+            all_removed.append(each_directory_path)
         except FileNotFoundError:
-            continue
-        except PermissionError:
-            logging.warning("permission denied -- %s", each_directory_path)
-            continue
-        except OSError:
-            continue
-        ctime = min(raw_ctime, now)
-        if now - ctime > min_age_seconds:
-            try:
-                os.rmdir(each_directory_path)
-                logging.info("deleted: %s", each_directory_path)
-                all_removed.append(each_directory_path)
-            except FileNotFoundError:
-                pass
-            except OSError as e:
-                if e.errno not in (errno.ENOTEMPTY, errno.EEXIST):
-                    logging.warning(
-                        "could not remove %s -- %s",
-                        each_directory_path,
-                        e,
-                    )
+            pass
+        except OSError as e:
+            if e.errno not in (errno.ENOTEMPTY, errno.EEXIST):
+                logging.warning(
+                    "could not remove %s -- %s",
+                    each_directory_path,
+                    e,
+                )
 
     return all_removed
 
