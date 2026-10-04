@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.48.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.1...claude-dev-env-v8.48.2) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** build ephemeral negatives outside the OS temp root ([51e6e81](https://github.com/jl-cmd/claude-dev-env/commit/51e6e81a167ff2240260b4b7e734c4b07f1b727f))
+
 ## [8.48.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.0...claude-dev-env-v8.48.1) (2026-10-04)
 
 
