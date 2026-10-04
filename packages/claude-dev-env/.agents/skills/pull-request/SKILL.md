@@ -205,6 +205,9 @@ The recovery command restores the named account and deletes only that record.
   `--confirm-inactive` before recovery.
 - Normal pull request actions never call `gh auth switch`. If that command
   appears outside explicit recovery, stop.
+- `gh auth switch`, `login`, and `logout` change the account for every session
+  on the machine, and a PreToolUse hook denies them. Scope another account to
+  one command: `GH_TOKEN=$(gh auth token -u <account>) gh <command>`.
 - GitHub CLI output can contain account data. The command captures account
   lookup and recovery output and prints only generic errors.
 
