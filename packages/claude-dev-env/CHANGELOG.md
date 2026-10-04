@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.43.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.3...claude-dev-env-v8.43.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** gate wrapped shells, backticks, and the pull request script ([0e687bf](https://github.com/jl-cmd/claude-dev-env/commit/0e687bfb9bcea56d4db175446bacdb154a627500))
+
+## [8.43.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.2...claude-dev-env-v8.43.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** report the reset that blocks the main account ([c535891](https://github.com/jl-cmd/claude-dev-env/commit/c53589142cbab39f0953428fab95fa86b2dc190d))
+
+## [8.43.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.1...claude-dev-env-v8.43.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** stop on a job timeout ([eb0b6cb](https://github.com/jl-cmd/claude-dev-env/commit/eb0b6cb7fc831fbfd39db48ee6d9a774f5ea3b88))
+
 ## [8.43.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.0...claude-dev-env-v8.43.1) (2026-10-04)
 
 
