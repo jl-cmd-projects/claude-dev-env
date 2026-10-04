@@ -1118,7 +1118,6 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
         lambda account: Meters(80, reset_at, 80, reset_at),
         "CLAUDE_CONFIG_DIR",
         ("usage limit",),
-        False,
     )
     observed: list[tuple[str, bytes]] = []
 
