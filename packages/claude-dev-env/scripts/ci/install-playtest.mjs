@@ -54,7 +54,6 @@ export const PRE_TOOL_USE_EVENT_NAME = 'PreToolUse';
 export const SESSION_START_HOOK_SCRIPT_NAME = 'working_style_prompt.py';
 export const BASH_HOOK_SCRIPT_NAME = 'bash_pre_tool_use_dispatcher.py';
 export const BASH_MATCHER = 'Bash';
-export const ALLOW_DECISION = 'allow';
 
 export const SESSION_START_PAYLOAD = {
     hook_event_name: SESSION_START_EVENT_NAME,
@@ -238,8 +237,8 @@ function runBlockingStage(settingsPath, scratchHome, evidenceDirectory) {
     );
     const hookResult = runInstalledHook(command, scratchHome, BASH_HOOK_PAYLOAD);
     const envelope = readEnvelope(hookResult.stdout, PRE_TOOL_USE_EVENT_NAME);
-    if (envelope.permissionDecision !== ALLOW_DECISION) {
-        throw new Error(`The PreToolUse envelope decided ${envelope.permissionDecision}`);
+    if (envelope.permissionDecision !== undefined) {
+        throw new Error(`The PreToolUse envelope skipped the permission prompt with ${envelope.permissionDecision}`);
     }
     const rewrittenCommand = envelope.updatedInput?.command ?? '';
     if (!rewrittenCommand.includes(REWRITE_MARKER)) {

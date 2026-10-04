@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.48.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.3...claude-dev-env-v8.48.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** start headless Claude only through the account broker ([0314633](https://github.com/jl-cmd/claude-dev-env/commit/0314633392eead9ba05531e762e11f054dbde4d3))
+
+
+### Bug Fixes
+
+* **hooks:** register the PowerShell dispatcher group beside the Bash group ([0132c15](https://github.com/jl-cmd/claude-dev-env/commit/0132c15c71ae70e4f7633d31ca4515b2e67c2834))
+
+## [8.47.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.2...claude-dev-env-v8.47.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ci:** install playtest expects the rewrite to keep the permission prompt ([9484170](https://github.com/jl-cmd/claude-dev-env/commit/94841701e23848d84aa478304c78b3e4377a90f1))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([e84d272](https://github.com/jl-cmd/claude-dev-env/commit/e84d2723e1e213a3d758286c123607c9c5ebd2a2))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([7af09da](https://github.com/jl-cmd/claude-dev-env/commit/7af09da81a9312486ac91f6bd1c9b698b930ae77))
+
+## [8.47.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.1...claude-dev-env-v8.47.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **claude-worker:** exit 124 with reason timeout when the job times out ([642d770](https://github.com/jl-cmd/claude-dev-env/commit/642d7708bf4544419c8f5c19212e6777e39494b0))
+
 ## [8.47.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.0...claude-dev-env-v8.47.1) (2026-10-04)
 
 
