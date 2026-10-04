@@ -8,7 +8,6 @@ import {
     ALL_SESSION_TITLE_GATE_RELATIVE_PATHS,
     AUTO_MODE_DEFAULTS_ENTRY,
     DECLARED_PROFILE_SETTINGS,
-    SESSION_TITLE_GATE_COMMAND,
     SESSION_TITLE_GATE_FILE_NAME,
     SESSION_TITLE_GATE_SOURCE_DIRECTORY,
     discoverProfileSettingsPaths,
@@ -39,6 +38,10 @@ function backupFiles(directory) {
     return readdirSync(directory).filter((eachName) => eachName.endsWith('.bak'));
 }
 
+function expandedGateCommand(homeDirectory) {
+    return `python3 ${homeDirectory.replace(/\\/g, '/')}/.claude/${SESSION_TITLE_GATE_FILE_NAME}`;
+}
+
 function stopCommands(settings) {
     return settings.hooks.Stop.flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
 }
@@ -53,7 +56,7 @@ test('a missing settings.json is created with every declared entry and the gate 
 
     assert.deepEqual(readSettings(settingsPath), {
         hooks: {
-            Stop: [{ hooks: [{ type: 'command', command: SESSION_TITLE_GATE_COMMAND, timeout: 10 }] }],
+            Stop: [{ hooks: [{ type: 'command', command: expandedGateCommand(homeDirectory), timeout: 10 }] }],
         },
         permissions: { allow: PERMISSION_ALLOW_ITEMS },
         autoMode: { allow: AUTO_MODE_ALLOW_ITEMS },
@@ -98,11 +101,10 @@ test('a file that already holds every entry is left byte for byte, with no backu
 test('a partial file gains only the missing entries, keeps other keys, and is backed up first', () => {
     const homeDirectory = makeHome();
     const settingsPath = join(homeDirectory, '.claude', 'settings.json');
-    const expandedGateCommand = `python3 ${homeDirectory.replace(/\\/g, '/')}/.claude/${SESSION_TITLE_GATE_FILE_NAME}`;
     const originalSettings = {
         model: 'opus',
         hooks: {
-            Stop: [{ hooks: [{ type: 'command', command: expandedGateCommand, timeout: 30 }] }],
+            Stop: [{ hooks: [{ type: 'command', command: expandedGateCommand(homeDirectory), timeout: 30 }] }],
             PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'python3 guard.py' }] }],
         },
         permissions: { allow: ['Read', 'mcp__claude-code-remote__set_session_title'], deny: ['Bash(rm:*)'] },
@@ -152,7 +154,7 @@ test('the gate hook is added beside a different Stop hook', () => {
 
     mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
 
-    assert.deepEqual(stopCommands(readSettings(settingsPath)), ['python3 other_stop.py', SESSION_TITLE_GATE_COMMAND]);
+    assert.deepEqual(stopCommands(readSettings(settingsPath)), ['python3 other_stop.py', expandedGateCommand(homeDirectory)]);
 });
 
 test('discovery finds the main, CLAUDE_CONFIG_DIR, and every profile settings.json once, and each is merged', () => {
@@ -183,7 +185,7 @@ test('discovery finds the main, CLAUDE_CONFIG_DIR, and every profile settings.js
     ].sort());
     assert.equal(allSettingsPathsWithSharedConfig.length, 3);
     for (const eachPath of allSettingsPaths) {
-        assert.deepEqual(stopCommands(readSettings(eachPath)), [SESSION_TITLE_GATE_COMMAND]);
+        assert.deepEqual(stopCommands(readSettings(eachPath)), [expandedGateCommand(homeDirectory)]);
         assert.deepEqual(readSettings(eachPath).autoMode.allow, AUTO_MODE_ALLOW_ITEMS);
     }
     assert.equal(readSettings(join(profilesRoot, 'work', 'settings.json')).model, 'work');

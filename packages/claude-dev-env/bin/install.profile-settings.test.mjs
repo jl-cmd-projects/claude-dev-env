@@ -1,6 +1,7 @@
 /**
  * Installing twice into a profile root under ~/.claude-profiles leaves exactly
- * one session-title gate Stop hook, and that hook runs the gate under ~/.claude.
+ * one session-title gate Stop hook, that hook runs the gate under ~/.claude, and
+ * the second install leaves settings.json byte for byte.
  */
 
 import { test } from 'node:test';
@@ -56,7 +57,10 @@ test('two installs into a profile root keep one gate Stop hook that runs the gat
         const expectedGateCommand = `python3 ${forwardSlashedHome}/.claude/${SESSION_TITLE_GATE_FILE_NAME}`;
 
         runCoreInstall(homeDirectory, profileRoot);
+        const settingsBytesAfterFirstInstall = readFileSync(settingsPath);
         runCoreInstall(homeDirectory, profileRoot);
+
+        assert.deepEqual(readFileSync(settingsPath), settingsBytesAfterFirstInstall, 'second install leaves settings.json byte for byte');
 
         const allGateCommands = stopHookCommands(settingsPath)
             .filter((eachCommand) => eachCommand.includes(SESSION_TITLE_GATE_FILE_NAME));

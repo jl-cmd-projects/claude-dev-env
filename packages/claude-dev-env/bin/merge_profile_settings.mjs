@@ -137,8 +137,9 @@ export function mergeDeclaredProfileSettings(settings, declaredSettings, homeDir
         const targetList = listAtKeyPath(settings, keyPath);
         for (const eachItem of items) {
             if (listHoldsItem(targetList, eachItem, homeDirectory)) continue;
-            targetList.push(structuredClone(eachItem));
-            allAdditions.push(`${keyPath.join('.')}: ${JSON.stringify(eachItem)}`);
+            const addedItem = itemWithExpandedHookCommands(eachItem, homeDirectory);
+            targetList.push(addedItem);
+            allAdditions.push(`${keyPath.join('.')}: ${JSON.stringify(addedItem)}`);
         }
     }
     return allAdditions;
@@ -285,6 +286,28 @@ function listHoldsItem(targetList, item, homeDirectory) {
         targetList.flatMap((eachGroup) => groupCommands(eachGroup, homeDirectory)),
     );
     return groupCommands(item, homeDirectory).every((eachCommand) => presentCommands.has(eachCommand));
+}
+
+/**
+ * Copy one declared item, spelling each hook command the way the installer writes it.
+ *
+ * The installer rewrites every hook command's home tokens to the absolute home
+ * path on each run. Writing that same spelling here keeps a second install from
+ * rewriting the entry this merge added.
+ *
+ * @param {unknown} item
+ * @param {string} homeDirectory
+ * @returns {unknown}
+ */
+function itemWithExpandedHookCommands(item, homeDirectory) {
+    const addedItem = structuredClone(item);
+    const allHooks = Array.isArray(addedItem?.hooks) ? addedItem.hooks : [];
+    for (const eachHook of allHooks) {
+        if (typeof eachHook?.command === 'string') {
+            eachHook.command = expandHomeDirectoryTokens(eachHook.command, homeDirectory);
+        }
+    }
+    return addedItem;
 }
 
 /**
