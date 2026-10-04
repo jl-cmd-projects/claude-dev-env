@@ -50,11 +50,11 @@ def check_comments_python(content: str) -> list[str]:
     Hash characters that appear inside string literals (hex color codes,
     URL fragments, and the hash inside an f-string interpolation pattern)
     are correctly skipped because the tokenizer recognizes them as parts
-    of string tokens rather than comment tokens.
+    of string tokens.
 
     When the tokenizer cannot parse the file (partial content during
-    Edit, invalid syntax), the check returns no findings rather than
-    falling back to a line-walker scan — false negatives on
+    Edit, invalid syntax), the check returns no findings and does not
+    fall back to a line-walker scan — false negatives on
     syntactically-invalid drafts are preferable to false positives that
     mis-classify string-interior hash characters as comments.
     """
