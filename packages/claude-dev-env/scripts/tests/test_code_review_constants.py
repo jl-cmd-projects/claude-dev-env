@@ -23,7 +23,7 @@ def _permission_mode_seen_by(
     monkeypatch: pytest.MonkeyPatch, effective_user_id: int
 ) -> str:
     """Read the review permission mode a caller with this user id resolves."""
-    monkeypatch.setattr(os, "geteuid", lambda: effective_user_id)
+    monkeypatch.setattr(os, "geteuid", lambda: effective_user_id, raising=False)
     reloaded_constants = importlib.reload(code_review_constants)
     return str(reloaded_constants.REVIEW_PERMISSION_MODE)
 
@@ -31,7 +31,7 @@ def _permission_mode_seen_by(
 def test_root_detection_agrees_with_this_process(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(os, "geteuid", lambda: ROOT_USER_ID)
+    monkeypatch.setattr(os, "geteuid", lambda: ROOT_USER_ID, raising=False)
     reloaded_constants = importlib.reload(code_review_constants)
 
     assert reloaded_constants.IS_ROOT_CALLER is True
