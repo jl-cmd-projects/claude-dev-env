@@ -14,6 +14,12 @@ PROCESS_TREE_KILL_MODULE_FILENAME: str = "process_tree_kill.py"
 
 ADVISOR_DIRECTORY_NAME: str = "advisor"
 
+PR_LOOP_DIRECTORY_NAME: str = "pr-loop"
+
+CODEX_CLASSIFIER_CONSTANTS_RELATIVE_PATH: str = "codex_review_scripts_constants/classifier_constants.py"
+
+CONSTANTS_PACKAGE_ANCHOR_DEPTH: int = 2
+
 TIER_MODEL_IDS_MODULE_FILENAME: str = "tier_model_ids.py"
 
 AGENTS_DIRECTORY_SUFFIX: str = ".agents"
