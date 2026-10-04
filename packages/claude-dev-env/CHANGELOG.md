@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.46.24](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.23...claude-dev-env-v8.46.24) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** restrict limits to codex at parse time ([bc9f94c](https://github.com/jl-cmd/claude-dev-env/commit/bc9f94c28bd04d28cc66ae11623b17c2624fc9c4))
+
+## [8.46.23](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.22...claude-dev-env-v8.46.23) (2026-10-04)
+
+
+### Bug Fixes
+
+* **spawn, code-review:** exit 5 on a chain config error ([b18b493](https://github.com/jl-cmd/claude-dev-env/commit/b18b493a93d35ad98f2e35ae0f66cb79b1c1cb7e))
+
 ## [8.46.22](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.21...claude-dev-env-v8.46.22) (2026-10-04)
 
 
