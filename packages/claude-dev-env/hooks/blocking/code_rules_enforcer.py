@@ -121,6 +121,7 @@ from code_rules_paths_syspath import (  # noqa: E402
 from code_rules_shared import (  # noqa: E402
     changed_line_numbers,
     get_file_extension,
+    is_agent_home_tooling_outside_working_directory,
     is_ephemeral_script_path,
     is_hook_infrastructure,
     is_test_file,
@@ -754,6 +755,13 @@ def prior_and_post_edit_content(
     return existing_content, apply_edits(existing_content, [one_edit])
 
 
+def _is_exempt_tooling(file_path: str, repository_root: str) -> bool:
+    """Return whether the path is hook infrastructure or agent-home tooling outside the cwd."""
+    return is_hook_infrastructure(file_path) or is_agent_home_tooling_outside_working_directory(
+        file_path, repository_root
+    )
+
+
 def _is_validated_target(file_path: str, repository_root: str = "") -> bool:
     """Return whether the path is subject to code-rules validation.
 
@@ -764,14 +772,15 @@ def _is_validated_target(file_path: str, repository_root: str = "") -> bool:
             scratch merely because the repository sits under ``/tmp``.
 
     Returns:
-        True when the path is non-empty, outside hook infrastructure, and
-        carries a code extension; False for every exempt path.
+        True when the path is non-empty, outside hook infrastructure, outside
+        agent-home tooling that sits beyond ``repository_root``, and carries a
+        code extension; False for every exempt path.
     """
     if not file_path:
         return False
     if is_ephemeral_script_path(file_path, repository_root):
         return False
-    if is_hook_infrastructure(file_path):
+    if _is_exempt_tooling(file_path, repository_root):
         return False
     return get_file_extension(file_path) in ALL_CODE_EXTENSIONS
 
@@ -791,13 +800,14 @@ def _is_hook_infrastructure_python_target(file_path: str, repository_root: str =
             scratch merely because the repository sits under ``/tmp``.
 
     Returns:
-        True when the path names a Python file inside hook infrastructure.
+        True when the path names a Python file inside hook infrastructure or
+        inside agent-home tooling that sits beyond ``repository_root``.
     """
     if not file_path:
         return False
     if is_ephemeral_script_path(file_path, repository_root):
         return False
-    if not is_hook_infrastructure(file_path):
+    if not _is_exempt_tooling(file_path, repository_root):
         return False
     return get_file_extension(file_path) in ALL_PYTHON_EXTENSIONS
 
