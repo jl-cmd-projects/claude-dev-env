@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.4...claude-dev-env-v8.43.5) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** decode escaped quotes in a sharing root's hook path ([1ab7c62](https://github.com/jl-cmd/claude-dev-env/commit/1ab7c620a9eaceacb685ca7bc8a5ba27b5282dd9))
+
 ## [8.43.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.3...claude-dev-env-v8.43.4) (2026-10-04)
 
 
