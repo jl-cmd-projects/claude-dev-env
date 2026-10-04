@@ -64,7 +64,14 @@ class TestWorkingStylePrompt:
             "A report that a fix is done carries three lines: the fix acknowledged, "
             "what changed, and the proof that it works."
         ) in WORKING_STYLE_PROMPT
-        assert "Put the rest of the detail in the pull request or a linked file." in WORKING_STYLE_PROMPT
+        assert "Put the rest of the detail in the pull request, a visualize widget, or an Artifact." in WORKING_STYLE_PROMPT
+
+    def test_prompt_routes_user_facing_write_ups_to_a_widget_or_artifact(self) -> None:
+        assert (
+            "Deliver a report, review, or write-up the user reads as a visualize widget, "
+            "the preferred form, or as an Artifact, and never as a .md file."
+        ) in WORKING_STYLE_PROMPT
+        assert "linked file" not in WORKING_STYLE_PROMPT
 
     def test_prompt_drops_the_clauses_that_invite_surplus_detail(self) -> None:
         assert "supporting detail for readers who want it" not in WORKING_STYLE_PROMPT
