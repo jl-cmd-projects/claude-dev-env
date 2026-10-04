@@ -9,19 +9,16 @@ from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
     ALLOW_DECISION,
     HOOK_EVENT_NAME,
 )
+from hooks_constants.pre_tool_use_output_keys import (
+    HOOK_EVENT_NAME_KEY,
+    HOOK_SPECIFIC_OUTPUT_KEY,
+    PERMISSION_DECISION_KEY,
+    UPDATED_INPUT_KEY,
+)
 
 __all__ = [
-    "HOOK_SPECIFIC_OUTPUT_KEY",
-    "HOOK_EVENT_NAME_KEY",
-    "PERMISSION_DECISION_KEY",
-    "UPDATED_INPUT_KEY",
     "write_pre_tool_use_allow_to_stdout",
 ]
-
-HOOK_SPECIFIC_OUTPUT_KEY: str = "hookSpecificOutput"
-HOOK_EVENT_NAME_KEY: str = "hookEventName"
-PERMISSION_DECISION_KEY: str = "permissionDecision"
-UPDATED_INPUT_KEY: str = "updatedInput"
 
 
 def write_pre_tool_use_allow_to_stdout(

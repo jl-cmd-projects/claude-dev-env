@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.46.18](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.17...claude-dev-env-v8.46.18) (2026-10-04)
+
+
+### Refactoring
+
+* **hooks:** move PreToolUse output keys out of the allow emitter ([5196b3b](https://github.com/jl-cmd/claude-dev-env/commit/5196b3bfd380ade322389a90bc040f80d7d7ec5f))
+
+## [8.46.17](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.16...claude-dev-env-v8.46.17) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** read archived converge.mjs in the drift self-check ([78fe3b7](https://github.com/jl-cmd/claude-dev-env/commit/78fe3b7894b49045890c666ad8f900f71713dcd0))
+
 ## [8.46.16](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.15...claude-dev-env-v8.46.16) (2026-10-04)
 
 
