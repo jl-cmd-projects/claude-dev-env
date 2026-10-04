@@ -1,7 +1,7 @@
 Audit [REPO/ARTIFACT] [TARGET_ID] for **Category L only** (behavior-equivalence for refactors). Skip A–K, M–P. Sub-bucket forced-exhaustion mode: Category L is decomposed into 8 sub-buckets below. Each sub-bucket REQUIRES at least one Shape A finding OR exactly one Shape B proof-of-absence with **at least 3 adversarial probes** specific to that sub-bucket. A sub-bucket returning neither is a protocol gap.
 
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 [ARTIFACT METADATA — include the BEFORE state of the rewritten function so the agent can compare BEFORE vs AFTER behavior on the same input corpus]
 

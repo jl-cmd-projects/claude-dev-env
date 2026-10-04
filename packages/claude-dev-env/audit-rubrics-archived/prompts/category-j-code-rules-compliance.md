@@ -18,7 +18,7 @@ Replace this paragraph with the chunked source material before issuing the promp
 ## Write-time exemptions do not scope this audit
 
 When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 
 The write-time hook skips several rules on test files and on `.mjs` / `.js` files; comment changes use one rule for production and tests. This audit does not skip the other listed rules. Apply these rules to every changed line — production, test, and JavaScript files alike:
 
@@ -69,7 +69,7 @@ A `test_*.py` name or a `.mjs` extension takes the line out of the write-time ga
 - Module/function/class docstrings are always allowed.
 - Comments tied to untouched code remain unchanged; a changed comment is removed with the code it describes.
 - Test files follow the same no-new-comment policy.
-- Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+- Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 - Adversarial probes: (a) is there any `# type:` or marker comment that is inert prose rather than a type-checker / linter directive? (b) is any docstring carrying inline-comment content (line-level explanations rather than module/function description)? (c) does any newly-added blank line between code stanzas function as a comment substitute, suggesting the author wanted to add a comment but couldn't?
 
 **J9. Logging format**
