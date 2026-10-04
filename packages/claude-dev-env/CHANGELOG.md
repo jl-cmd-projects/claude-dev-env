@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.1...claude-dev-env-v8.42.2) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** turn twelve path-scoped rules into index entries ([12423a3](https://github.com/jl-cmd/claude-dev-env/commit/12423a379ac9d4da490cc5bd02cb48dcb54b7395))
+
 ## [8.42.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.0...claude-dev-env-v8.42.1) (2026-10-04)
 
 
