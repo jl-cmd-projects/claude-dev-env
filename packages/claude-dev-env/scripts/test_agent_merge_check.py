@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 import urllib.parse
-from pathlib import Path
 
 import pytest
-
-_SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIRECTORY) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIRECTORY))
 
 import agent_merge_check
 from dev_env_scripts_constants.agent_merge_check_constants import (
