@@ -8,8 +8,8 @@ against a rejected reading::
     "precision matters more than coverage" -> comparative-ranking
     ok: "the function runs more than 30 lines"
 
-The rule file ``rules/no-contrast-framing.md`` carries one row for each name
-here, and a test holds the two in step.
+The rule file ``rules/no-contrast-framing.md`` names each form here in
+backticks, and a test holds the two in step.
 """
 
 from __future__ import annotations
