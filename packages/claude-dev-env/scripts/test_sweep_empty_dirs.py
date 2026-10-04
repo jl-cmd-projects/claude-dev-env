@@ -107,6 +107,17 @@ def test_sweep_removes_nested_empty_dirs(tmp_path: Path) -> None:
     assert not (tmp_path / "level1").exists()
 
 
+def test_sweep_reports_a_nested_chain_removed_leaf_first_in_one_pass(tmp_path: Path) -> None:
+    """sweep reads every age before it removes, so one pass clears the whole chain."""
+    outer = tmp_path / "outer"
+    inner = outer / "inner"
+    inner.mkdir(parents=True)
+
+    removed = sweep(str(tmp_path), min_age_seconds=0)
+
+    assert removed == [str(inner), str(outer)]
+
+
 def test_sweep_removes_only_old_enough_directories(tmp_path: Path) -> None:
     """sweep does not remove directories newer than the age threshold."""
     young_dir = tmp_path / "young"
