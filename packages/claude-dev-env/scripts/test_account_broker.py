@@ -435,11 +435,42 @@ def test_should_stop_after_timeout_without_running_job_again(
 
     assert invoked_homes == ["first"]
     assert outcome.attempts == (("first", "timeout"),)
-    assert outcome.status == "advisor_blocked"
+    assert outcome.status == "timeout"
     assert outcome.account_name == "first"
     assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
+
+
+@pytest.mark.parametrize(
+    ("product", "roster_names", "start_error", "expected_code"),
+    (
+        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 4),
+        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 127),
+        (Product.CODEX, (), OSError("missing command"), 127),
+    ),
+)
+def test_should_exit_four_only_for_a_blocked_claude_job(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    product: Product,
+    roster_names: tuple[str, ...],
+    start_error: Exception,
+    expected_code: int,
+) -> None:
+    accounts = tuple(_account(each_name, product) for each_name in roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
+        each_name: _meters(80, 80) for each_name in roster_names
+    }))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise start_error
+
+    with account_broker.override_subprocess_runner(runner):
+        code = account_broker.main(("run", "--product", product.value, "--report", str(tmp_path / "report.json"), "--", "job"))
+
+    assert code == expected_code
 
 
 def test_should_keep_usage_limited_account_spent_for_later_choices(
