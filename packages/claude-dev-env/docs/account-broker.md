@@ -27,6 +27,7 @@ The broker stores cached meters, spent marks, and Claude session bindings in one
 | `0` | `choose` or `check` found an account, or the job exited successfully. |
 | `3` | No account clears its floor. The decision includes `resets_at`. |
 | `4` | A Claude job stopped with `advisor_blocked`. |
+| `127` | A Codex job timed out, or its command could not start while no Codex roster is configured. |
 | Other command code | `run` returns the command's exit code after a served response. |
 
 `run` writes a JSON report with `product`, `command`, `events`, and `final_decision`. A wait report has `final_decision.action` equal to `wait` and a UTC `final_decision.resets_at`.
