@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.53.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.1...claude-dev-env-v8.53.0) (2026-10-04)
+
+
+### Features
+
+* Add auto mode denial quick-fix hook ([4809d11](https://github.com/jl-cmd/claude-dev-env/commit/4809d1197c388202799d27e8be92e3419bd71f00))
+
 ## [8.52.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.0...claude-dev-env-v8.52.1) (2026-10-04)
 
 
