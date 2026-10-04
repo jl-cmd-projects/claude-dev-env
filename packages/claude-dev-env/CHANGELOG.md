@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
+## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny banned words in chat replies ([7bc4d05](https://github.com/jl-cmd/claude-dev-env/commit/7bc4d05e68f069176f6edeb2d7444be27092a9a2))
+
 ## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
 
 
