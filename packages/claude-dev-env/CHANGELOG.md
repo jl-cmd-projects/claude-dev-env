@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.31](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.30...claude-dev-env-v8.46.31) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** find the shared tree beside the scripts link ([72b4c4b](https://github.com/jl-cmd/claude-dev-env/commit/72b4c4b5cded80e2e6b9c66c0d6f7df2c645cb9b))
+
 ## [8.46.30](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.29...claude-dev-env-v8.46.30) (2026-10-04)
 
 
