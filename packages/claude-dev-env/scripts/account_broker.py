@@ -128,13 +128,22 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     ]
 
 
+def _stored_reset(raw: object, now: datetime) -> datetime | None:
+    if not isinstance(raw, (int, float)) or raw <= now.timestamp():
+        return None
+    try:
+        return datetime.fromtimestamp(raw, timezone.utc)
+    except (ValueError, OSError, OverflowError):
+        return None
+
+
 def _spent_for_readings(all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime) -> tuple[frozenset[Account], dict[Account, datetime]]:
     marks = all_state["spent"]
     spent = {}
     for each_reading in all_readings:
-        raw = marks.get(_state_key(each_reading.account))
-        if isinstance(raw, (int, float)) and raw > now.timestamp():
-            spent[each_reading.account] = datetime.fromtimestamp(raw, timezone.utc)
+        reset = _stored_reset(marks.get(_state_key(each_reading.account)), now)
+        if reset is not None:
+            spent[each_reading.account] = reset
     return frozenset(spent), spent
 
 
@@ -147,21 +156,31 @@ def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime, r
     return until
 
 
-def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> tuple[datetime, ...]:
+def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> dict[str, datetime]:
     marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
     all_roster_names = {each_reading.account.name for each_reading in all_readings}
     prefix = f"{product.value}:"
     placeholder_suffix = f":{Path()}"
-    return tuple(datetime.fromtimestamp(float(each_raw), timezone.utc) for each_key, each_raw in marks.items() if isinstance(each_key, str) and each_key.startswith(prefix) and each_key.endswith(placeholder_suffix) and each_key[len(prefix):-len(placeholder_suffix)] not in all_roster_names and isinstance(each_raw, (int, float)) and each_raw > now.timestamp())
+    all_resets_by_name = {}
+    for each_key, each_raw in marks.items():
+        if not (isinstance(each_key, str) and each_key.startswith(prefix) and each_key.endswith(placeholder_suffix)):
+            continue
+        name = each_key[len(prefix):-len(placeholder_suffix)]
+        reset = _stored_reset(each_raw, now)
+        if name not in all_roster_names and reset is not None:
+            all_resets_by_name[name] = reset
+    return all_resets_by_name
 
 
-def _with_outside_spent_marks(decision: Decision, all_outside_resets: Sequence[datetime]) -> Decision:
-    if not all_outside_resets:
+def _with_outside_spent_marks(decision: Decision, all_outside_resets_by_name: Mapping[str, datetime]) -> Decision:
+    if not all_outside_resets_by_name:
         return decision
-    soonest = min(all_outside_resets) if decision.resets_at is None else min(decision.resets_at, *all_outside_resets)
-    if decision.action == "wait" and decision.resets_at == soonest:
+    outside_name, outside_reset = min(all_outside_resets_by_name.items(), key=lambda each_item: each_item[1])
+    if decision.action != "wait":
+        return Decision("wait", None, outside_reset, f"account {outside_name} outside the roster is spent; next reset at {_time_text(outside_reset)}", "wait")
+    if decision.resets_at is not None and decision.resets_at <= outside_reset:
         return decision
-    return Decision("wait", None, soonest, f"no account has room; next reset at {_time_text(soonest)}", "wait")
+    return Decision("wait", None, outside_reset, f"no account has room; next reset at {_time_text(outside_reset)}", "wait")
 
 
 def _write_report(path: Path, report: Report) -> None:
@@ -328,12 +347,17 @@ def _parser() -> argparse.ArgumentParser:
 
 def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, product: Product) -> tuple[Reading, datetime | None]:
     name, separator, reset_text = mark.partition(":")
+    if not name:
+        raise BrokerConfigurationError(f"spent mark {mark!r} needs an account name")
     try:
         reset = datetime.fromtimestamp(float(reset_text), timezone.utc) if separator else None
     except (ValueError, OSError, OverflowError) as error:
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
-    return reading if reading is not None else Reading(Account(product, name, Path(), False), None), reset
+    if reading is None:
+        print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
+        return Reading(Account(product, name, Path(), False), None), reset
+    return reading, reset
 
 
 def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime, product: Product) -> None:

@@ -357,3 +357,20 @@ def test_ephemeral_path_stays_true_for_scratchpad_file_outside_payload_cwd(
     assert (
         _SHARED_MODULE.is_ephemeral_path(str(throwaway_script), payload_with_worktree_cwd) is True
     )
+
+
+def test_ephemeral_path_is_false_for_file_under_payload_cwd_inside_agent_home() -> None:
+    checkout_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
+    repository_module = os.path.join(checkout_directory, "src", "service.py")
+
+    assert (
+        _SHARED_MODULE.is_ephemeral_path(repository_module, {"cwd": checkout_directory})
+        is False
+    )
+
+
+def test_ephemeral_path_stays_true_for_agent_home_file_outside_payload_cwd() -> None:
+    checkout_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
+    helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
+
+    assert _SHARED_MODULE.is_ephemeral_path(helper_script, {"cwd": checkout_directory}) is True
