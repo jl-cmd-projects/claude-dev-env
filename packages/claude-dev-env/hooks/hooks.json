@@ -24,6 +24,21 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/routing/subagent_model_routing.mjs\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Workflow|mcp__github__actions_run_trigger",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
+            "timeout": 10
           }
         ]
       },

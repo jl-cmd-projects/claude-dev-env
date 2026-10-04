@@ -4,12 +4,12 @@ paths:
   - "**/skills/orchestrator-refresh/**"
 ---
 
-# Workers Done Before Complete
+# Workers done before complete
 
-Before marking a task `completed` that spawned workers — subagents, workflow agents, or background shells — confirm both: every worker has finished, and each worker's result is merged into run state (`state.json`, `pr-converge-state.json`, the task list, or whatever record the task keeps). A worker still running, or one whose output never landed in run state, keeps the task `in_progress`: list the live workers, report any dead or hung one as a finding rather than dropping it in silence, and schedule a wakeup so the run picks the workers back up before the task closes.
+**When:** Mark a task `completed` after spawning subagents, workflow agents, or background shells.
 
-This rule gates a task's status, not your own work. It never says wait before acting: keep working while a worker runs, and hold only the `completed` mark until the worker's result has landed.
+List every worker and confirm that each has finished and its result is merged into run state. Verify worker file lists, counts, descriptions, and findings against the repository and diff before repeating them. While a worker runs or output is missing, keep the task `in_progress`, report dead or hung workers, schedule a wakeup, and keep other work moving. Check the task goal against merged state before closing.
 
-Verify every sub-agent file list, count, description, and finding against the repository and the diff before you merge it into run state or repeat it to the user.
+**Enforcement:** none, the agent applies it.
 
-Checklist, examples, and run-state detail: `@~/.claude/docs/worker-completion-gate.md`.
+**Full text:** [`docs/rule-guides/workers-done-before-complete.md`](../docs/rule-guides/workers-done-before-complete.md). Read it before closing a task that spawned workers.
