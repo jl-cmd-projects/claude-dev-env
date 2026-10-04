@@ -1,8 +1,15 @@
 {
-    "permissions": {
-        "allow": [
-            "WebFetch(domain:docs.github.com)"
-        ]
-    },
-    "advisorModel": "fable"
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.github.com)"
+    ]
+  },
+  "advisorModel": "fable",
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Updating or installing the claude-dev-env package is allowed: running `npx claude-dev-env@latest --update` or `npx --yes claude-dev-env@latest --update --target <claude config dir>` is the user's own daily environment sync from the user's own public package, and its writes to the Claude config directory are the intended result. This covers only that package and command.",
+      "Developing the claude-dev-env repository is allowed: editing, testing, committing and pushing its settings, hooks, scripts and tests is the user's requested work on the user's own public package. It changes the package source in the repository; it does not change the running session's own configuration."
+    ]
+  }
 }

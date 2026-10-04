@@ -8,10 +8,11 @@ import {
     PSTACK_PLUGIN_HOSTS,
     PSTACK_PLUGIN_IDENTIFIER,
     PSTACK_PLUGIN_SPEC,
+    SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
     hostCommandInvocation,
-    installMarketplacePlugin,
-    marketplacePluginPlan,
+    installMarketplacePlugins,
+    marketplacePluginsPlan,
     removeOrphanedPluginVersions,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
@@ -36,7 +37,7 @@ const ROOTS = Object.freeze({
 const WINDOWS_ENVIRONMENT = Object.freeze({ ComSpec: 'C:\\Windows\\system32\\cmd.exe' });
 
 test('the Claude plan carries the two documented plugin commands', () => {
-    const plan = marketplacePluginPlan(PSTACK_PLUGIN_SPEC, 'claude');
+    const plan = marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'claude');
     assert.equal(plan.executable, 'claude');
     assert.deepEqual(plan.commands, [
         ['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
@@ -45,7 +46,7 @@ test('the Claude plan carries the two documented plugin commands', () => {
 });
 
 test('the Codex plan adds the plugin with the Codex verb', () => {
-    const plan = marketplacePluginPlan(PSTACK_PLUGIN_SPEC, 'codex');
+    const plan = marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'codex');
     assert.equal(plan.executable, 'codex');
     assert.deepEqual(plan.commands, [
         ['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
@@ -54,13 +55,13 @@ test('the Codex plan adds the plugin with the Codex verb', () => {
 });
 
 test('an unsupported host names the hosts this installer knows', () => {
-    assert.throws(() => marketplacePluginPlan(PSTACK_PLUGIN_SPEC, 'cursor'), /cursor/);
+    assert.throws(() => marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'cursor'), /cursor/);
     assert.deepEqual(PSTACK_PLUGIN_HOSTS, ['claude', 'codex']);
 });
 
 test('each host installs into the managed root this run wrote', () => {
     const runner = recordingRunner();
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
         ['claude', 'plugin', 'uninstall', PSTACK_PLUGIN_IDENTIFIER],
@@ -77,11 +78,11 @@ test('each host installs into the managed root this run wrote', () => {
 });
 
 test('each host removes the installed plugin and marketplace before it installs', () => {
-    assert.deepEqual(marketplacePluginPlan(PSTACK_PLUGIN_SPEC, 'claude').removalCommands, [
+    assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'claude').removalCommands, [
         ['plugin', 'uninstall', PSTACK_PLUGIN_IDENTIFIER],
         ['plugin', 'marketplace', 'remove', 'pstack-claude'],
     ]);
-    assert.deepEqual(marketplacePluginPlan(PSTACK_PLUGIN_SPEC, 'codex').removalCommands, [
+    assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'codex').removalCommands, [
         ['plugin', 'remove', PSTACK_PLUGIN_IDENTIFIER],
         ['plugin', 'marketplace', 'remove', 'pstack-claude'],
     ]);
@@ -92,7 +93,7 @@ test('a removal that finds nothing installed still lets the install run', () => 
         commandArguments.includes('uninstall') || commandArguments.includes('remove')
             ? { status: 1, stderr: 'not installed' }
             : { status: 0, stderr: '' }));
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, { ...ROOTS, hosts: ['claude'] }, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.at(-1).commandArguments, ['plugin', 'install', PSTACK_PLUGIN_IDENTIFIER]);
 });
@@ -101,7 +102,7 @@ test('an absent host command skips that host and leaves the other installed', ()
     const runner = recordingRunner((executable) => (executable === 'codex'
         ? { status: null, error: Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' }) }
         : { status: 0, stderr: '' }));
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.hosts.find(host => host.host === 'claude').status, 'installed');
     const codex = outcome.hosts.find(host => host.host === 'codex');
     assert.equal(codex.status, 'skipped');
@@ -114,7 +115,7 @@ test('a failing command reports that host and still installs the next one', () =
         executable === 'claude' && commandArguments[2] === 'add'
             ? { status: 1, stderr: 'marketplace unreachable' }
             : { status: 0, stderr: '' }));
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'failed');
     const claude = outcome.hosts.find(host => host.host === 'claude');
     assert.equal(claude.status, 'failed');
@@ -126,8 +127,8 @@ test('a failing command reports that host and still installs the next one', () =
 
 test('an executable override replaces the host command for that host only', () => {
     const runner = recordingRunner();
-    installMarketplacePlugin(
-        PSTACK_PLUGIN_SPEC,
+    installMarketplacePlugins(
+        [PSTACK_PLUGIN_SPEC],
         { ...ROOTS, environment: { CDE_CODEX_EXECUTABLE: '/opt/codex/bin/codex' } },
         runner,
     );
@@ -146,7 +147,7 @@ test('the opt-out flag and variable both turn the step off', () => {
 
 test('a selected host list installs only that host', () => {
     const runner = recordingRunner();
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, { ...ROOTS, hosts: ['codex'] }, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['codex'] }, runner);
     assert.deepEqual(outcome.hosts.map(host => host.host), ['codex']);
     assert.deepEqual([...new Set(runner.calls.map(call => call.executable))], ['codex']);
 });
@@ -199,7 +200,7 @@ test("cmd.exe's command-not-found exit code reads as an absent host, not a failu
             stderr: "'codex' is not recognized as an internal or external command,\noperable program or batch file.",
         }
         : { status: 0, stderr: '' }));
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner);
     const codex = outcome.hosts.find(host => host.host === 'codex');
     assert.equal(codex.status, 'skipped');
     assert.equal(outcome.status, 'installed');
@@ -208,13 +209,13 @@ test("cmd.exe's command-not-found exit code reads as an absent host, not a failu
 
 test('a non-zero exit that is not command-not-found still reads as a failure', () => {
     const runner = recordingRunner(() => ({ status: 9009, stderr: 'the marketplace rejected the catalog' }));
-    const outcome = installMarketplacePlugin(PSTACK_PLUGIN_SPEC, { ...ROOTS, hosts: ['claude'] }, runner);
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
     assert.equal(outcome.hosts[0].status, 'failed');
     assert.match(outcome.hosts[0].warning, /rejected the catalog/);
 });
 
 test('the usage-wrapup plan adds this repository marketplace and installs the plugin on Claude', () => {
-    const plan = marketplacePluginPlan(USAGE_WRAPUP_PLUGIN_SPEC, 'claude');
+    const plan = marketplacePluginsPlan([USAGE_WRAPUP_PLUGIN_SPEC], 'claude');
     assert.equal(plan.executable, 'claude');
     assert.equal(plan.homeVariable, 'CLAUDE_CONFIG_DIR');
     assert.deepEqual(plan.commands, [
@@ -225,12 +226,12 @@ test('the usage-wrapup plan adds this repository marketplace and installs the pl
 
 test('usage-wrapup is a Claude-only plugin and refuses a Codex plan', () => {
     assert.deepEqual(USAGE_WRAPUP_PLUGIN_SPEC.hosts, ['claude']);
-    assert.throws(() => marketplacePluginPlan(USAGE_WRAPUP_PLUGIN_SPEC, 'codex'), /usage-wrapup plugin host codex/);
+    assert.throws(() => marketplacePluginsPlan([USAGE_WRAPUP_PLUGIN_SPEC], 'codex'), /usage-wrapup plugin host codex/);
 });
 
 test('installing usage-wrapup runs only the Claude commands, inside the managed Claude root', () => {
     const runner = recordingRunner();
-    const outcome = installMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
@@ -249,7 +250,7 @@ test('an absent claude command skips usage-wrapup and names the plugin in the wa
         status: null,
         error: Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }),
     }));
-    const outcome = installMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, ROOTS, runner);
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'skipped');
     assert.match(outcome.warning, /usage-wrapup was not installed for claude/);
 });
@@ -268,16 +269,60 @@ test('the usage-wrapup opt-out flag and variable turn off only usage-wrapup', ()
     );
 });
 
-test('the repository marketplace lists usage-wrapup from its package folder in this repository', () => {
-    const marketplace = JSON.parse(readFileSync(
-        new URL('../../../.claude-plugin/marketplace.json', import.meta.url),
-        'utf8',
-    ));
-    const [pluginName, marketplaceName] = USAGE_WRAPUP_PLUGIN_SPEC.pluginIdentifier.split('@');
-    assert.equal(marketplace.name, marketplaceName);
-    const entry = marketplace.plugins.find(plugin => plugin.name === pluginName);
-    assert.ok(entry, `the marketplace lists ${pluginName}`);
-    assert.equal(entry.source, './packages/usage-wrapup');
+for (const [spec, packageFolder] of [
+    [USAGE_WRAPUP_PLUGIN_SPEC, './packages/usage-wrapup'],
+    [SUBAGENT_MODELS_PLUGIN_SPEC, './packages/subagent-models'],
+]) {
+    test(`the repository marketplace lists ${spec.name} from its package folder in this repository`, () => {
+        const marketplace = JSON.parse(readFileSync(
+            new URL('../../../.claude-plugin/marketplace.json', import.meta.url),
+            'utf8',
+        ));
+        const [pluginName, marketplaceName] = spec.pluginIdentifier.split('@');
+        assert.equal(marketplace.name, marketplaceName);
+        const entry = marketplace.plugins.find(plugin => plugin.name === pluginName);
+        assert.ok(entry, `the marketplace lists ${pluginName}`);
+        assert.equal(entry.source, packageFolder);
+        assert.ok(spec.sparsePaths.includes(packageFolder.slice(2)), `the sparse checkout holds ${packageFolder}`);
+    });
+}
+
+test('should remove and add the shared marketplace once when installing usage-wrapup and subagent-models together', () => {
+    const runner = recordingRunner();
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], ROOTS, runner);
+    assert.equal(outcome.status, 'installed');
+    assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
+    assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
+        ['claude', 'plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
+        ['claude', 'plugin', 'uninstall', 'subagent-models@claude-dev-env'],
+        ['claude', 'plugin', 'marketplace', 'remove', 'claude-dev-env'],
+        [
+            'claude', 'plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env',
+            '--sparse', '.claude-plugin', 'packages/usage-wrapup', 'packages/subagent-models',
+        ],
+        ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
+        ['claude', 'plugin', 'install', 'subagent-models@claude-dev-env'],
+    ]);
+});
+
+test('should refuse one plan for plugins from two marketplaces', () => {
+    assert.throws(
+        () => marketplacePluginsPlan([PSTACK_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], 'claude'),
+        /subagent-models comes from jl-cmd\/claude-dev-env/,
+    );
+});
+
+test('should turn off only subagent-models with its opt-out flag or variable', () => {
+    assert.equal(shouldInstallMarketplacePlugin(SUBAGENT_MODELS_PLUGIN_SPEC, [], {}), true);
+    assert.equal(shouldInstallMarketplacePlugin(SUBAGENT_MODELS_PLUGIN_SPEC, ['--no-subagent-models'], {}), false);
+    assert.equal(
+        shouldInstallMarketplacePlugin(SUBAGENT_MODELS_PLUGIN_SPEC, [], { CDE_INSTALL_SUBAGENT_MODELS: '0' }),
+        false,
+    );
+    assert.equal(
+        shouldInstallMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, ['--no-subagent-models'], { CDE_INSTALL_SUBAGENT_MODELS: '0' }),
+        true,
+    );
 });
 
 test('a clean install deletes the orphaned pstack versions and keeps the installed one', () => {
@@ -286,8 +331,8 @@ test('a clean install deletes the orphaned pstack versions and keeps the install
     mkdirSync(join(versionsDirectory, '0.9.55'), { recursive: true });
     writeFileSync(join(versionsDirectory, '0.9.55', '.orphaned_at'), '1');
     mkdirSync(join(versionsDirectory, '0.9.64'), { recursive: true });
-    const outcome = installMarketplacePlugin(
-        PSTACK_PLUGIN_SPEC,
+    const outcome = installMarketplacePlugins(
+        [PSTACK_PLUGIN_SPEC],
         { claudeRoot, hosts: ['claude'], environment: {} },
         recordingRunner(),
     );
