@@ -82,6 +82,49 @@ def test_agent_transcript_can_supply_invocation(tmp_path: Path) -> None:
     assert gate.decision_for(payload) is None
 
 
+def _subagent_transcript(tmp_path: Path, agent_id: str, skill_name: str | None) -> Path:
+    subagent_directory = tmp_path / "session" / "subagents"
+    subagent_directory.mkdir(parents=True)
+    subagent_path = subagent_directory / f"agent-{agent_id}.jsonl"
+    lines = [json.dumps({"type": "user", "message": {"content": "Task."}})]
+    if skill_name:
+        lines.append(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": skill_name}}]}}))
+    subagent_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return subagent_path
+
+
+def test_subagent_transcript_located_by_agent_id_can_supply_invocation(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    _subagent_transcript(tmp_path, "a8865a3f3c71595ce", "pr-lifecycle")
+    payload = _payload("git commit", session_path)
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    assert _run_main(payload) == (0, "")
+
+
+def test_subagent_without_invocation_is_denied(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    _subagent_transcript(tmp_path, "a8865a3f3c71595ce", None)
+    payload = _payload("git push", session_path)
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    _assert_denied(payload)
+
+
+def test_missing_subagent_transcript_keeps_session_deny(tmp_path: Path) -> None:
+    payload = _payload("git push", _transcript(tmp_path))
+    payload["agent_id"] = "a8865a3f3c71595ce"
+    _assert_denied(payload)
+
+
+def test_agent_id_with_path_separator_is_not_followed(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    escaped_path = tmp_path / "session" / "agent-x.jsonl"
+    escaped_path.parent.mkdir(parents=True)
+    escaped_path.write_text(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}) + "\n", encoding="utf-8")
+    payload = _payload("git push", session_path)
+    payload["agent_id"] = "../agent-x"
+    _assert_denied(payload)
+
+
 def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> None:
     payload = _payload("gh pr create", tmp_path / "missing.jsonl")
     assert _run_main(payload) == (0, "")
