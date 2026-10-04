@@ -213,14 +213,12 @@ test('a non-zero exit that is not command-not-found still reads as a failure', (
     assert.match(outcome.hosts[0].warning, /rejected the catalog/);
 });
 
-const USAGE_WRAPUP_PINNED_COMMIT = 'd78c314e5787786e866bf5c4967107365854dc78';
-
 test('the usage-wrapup plan adds this repository marketplace and installs the plugin on Claude', () => {
     const plan = marketplacePluginPlan(USAGE_WRAPUP_PLUGIN_SPEC, 'claude');
     assert.equal(plan.executable, 'claude');
     assert.equal(plan.homeVariable, 'CLAUDE_CONFIG_DIR');
     assert.deepEqual(plan.commands, [
-        ['plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
         ['plugin', 'install', 'usage-wrapup@claude-dev-env'],
     ]);
 });
@@ -238,7 +236,7 @@ test('installing usage-wrapup runs only the Claude commands, inside the managed 
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
         ['claude', 'plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
         ['claude', 'plugin', 'marketplace', 'remove', 'claude-dev-env'],
-        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin'],
+        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
     ]);
     for (const call of runner.calls) {
@@ -270,7 +268,7 @@ test('the usage-wrapup opt-out flag and variable turn off only usage-wrapup', ()
     );
 });
 
-test('the repository marketplace lists usage-wrapup from the fork, pinned to the reviewed commit', () => {
+test('the repository marketplace lists usage-wrapup from its package folder in this repository', () => {
     const marketplace = JSON.parse(readFileSync(
         new URL('../../../.claude-plugin/marketplace.json', import.meta.url),
         'utf8',
@@ -279,12 +277,7 @@ test('the repository marketplace lists usage-wrapup from the fork, pinned to the
     assert.equal(marketplace.name, marketplaceName);
     const entry = marketplace.plugins.find(plugin => plugin.name === pluginName);
     assert.ok(entry, `the marketplace lists ${pluginName}`);
-    assert.deepEqual(entry.source, {
-        source: 'github',
-        repo: 'jl-cmd/usage-wrapup',
-        ref: 'main',
-        sha: USAGE_WRAPUP_PINNED_COMMIT,
-    });
+    assert.equal(entry.source, './packages/usage-wrapup');
 });
 
 test('a clean install deletes the orphaned pstack versions and keeps the installed one', () => {
