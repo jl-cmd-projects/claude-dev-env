@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.47.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.31...claude-dev-env-v8.47.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny a second open follow-up pull request for one parent ([10b79b1](https://github.com/jl-cmd/claude-dev-env/commit/10b79b14d99092c00b484573d5c52f631979e0b8))
+
 ## [8.46.31](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.30...claude-dev-env-v8.46.31) (2026-10-04)
 
 
