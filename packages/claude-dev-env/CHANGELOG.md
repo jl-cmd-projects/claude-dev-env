@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.6...claude-dev-env-v8.43.0) (2026-10-04)
+
+
+### Features
+
+* **install:** install pstack 0.15.9 from the jl-cmd fork, removing the old copy first ([#1689](https://github.com/jl-cmd/claude-dev-env/issues/1689)) ([1dbafc5](https://github.com/jl-cmd/claude-dev-env/commit/1dbafc50a50a0401e3624869256877482720f775))
+
 ## [8.42.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.5...claude-dev-env-v8.42.6) (2026-10-04)
 
 
