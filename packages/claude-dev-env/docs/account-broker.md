@@ -2,7 +2,11 @@
 
 `account_broker.py` reads the Claude and Codex account rosters, checks each account's session and weekly usage, and chooses an account with room. It does not select a model or sleep. A Codex decision names the `normal` or `luna` tier for the caller.
 
-Claude's main home is `~/.claude`. Its `claude-chain.json` file contains a `chain` list; each entry's `credentials_path` field identifies the credentials file whose parent is that account's home folder. The optional `extra-profiles.json` file in the main home lists additional profile names. Codex uses its configured account roster. When no Codex roster is configured, the broker chooses the default Codex home.
+Claude's main home is `~/.claude`. Its `claude-chain.json` file contains a `chain` list; each entry's `credentials_path` field identifies the credentials file whose parent is that account's home folder. The optional `extra-profiles.json` file in the main home lists additional profile names.
+
+The optional `claude-account-order.json` file in the main home sets the Claude pick priority. It is a JSON list of account names, first choice first, such as `["claude-second", "claude"]`. An entry matches an account's name, its command, or its `claude-<name>` launcher, and `claude` names the main account. A new job goes to the first listed account with room. When no listed account has room, the broker picks the unlisted account with the most room, and it waits when no account has room. A resumed session stays on its bound account while that account has room. A listed name absent from the roster is skipped. Without the file, every job goes to the account with the most room. Edit the file to change the order; the next pick reads it.
+
+Codex uses its configured account roster. When no Codex roster is configured, the broker chooses the default Codex home.
 
 ## Commands
 
