@@ -1,6 +1,6 @@
 import io
 import json
-import threading
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -160,6 +160,24 @@ def test_should_allow_every_parallel_call_under_one_note(
     assert (first_exit_code, second_exit_code) == (0, 0)
 
 
+class HarnessWritesDuringFirstSleep:
+    """Stand-in for the time module that runs the harness write on the first poll sleep."""
+
+    def __init__(self, write_late_lines: Callable[[], None]) -> None:
+        self.write_late_lines = write_late_lines
+        self.elapsed_seconds = 0.0
+        self.sleep_count = 0
+
+    def monotonic(self) -> float:
+        return self.elapsed_seconds
+
+    def sleep(self, seconds: float) -> None:
+        if self.sleep_count == 0:
+            self.write_late_lines()
+        self.sleep_count += 1
+        self.elapsed_seconds += seconds
+
+
 def test_should_see_a_note_the_harness_writes_after_the_hook_starts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -174,12 +192,11 @@ def test_should_see_a_note_the_harness_writes_after_the_hook_starts(
         with transcript.open("a", encoding="utf-8") as transcript_file:
             transcript_file.write(late_lines)
 
-    writer = threading.Timer(0.15, append_late_lines)
-    writer.start()
+    harness_clock = HarnessWritesDuringFirstSleep(append_late_lines)
+    monkeypatch.setattr(step_note_gate, "time", harness_clock)
     exit_code, _ = run_gate(monkeypatch, capsys, transcript, "call_1")
-    writer.join()
 
-    assert exit_code == 0
+    assert (exit_code, harness_clock.sleep_count) == (0, 1)
 
 
 def test_should_block_a_bare_call_the_harness_writes_after_the_hook_starts(
@@ -192,12 +209,11 @@ def test_should_block_a_bare_call_the_harness_writes_after_the_hook_starts(
         with transcript.open("a", encoding="utf-8") as transcript_file:
             transcript_file.write(json.dumps(call_entry("m1", "call_1")) + "\n")
 
-    writer = threading.Timer(0.15, append_late_call)
-    writer.start()
+    harness_clock = HarnessWritesDuringFirstSleep(append_late_call)
+    monkeypatch.setattr(step_note_gate, "time", harness_clock)
     exit_code, _ = run_gate(monkeypatch, capsys, transcript, "call_1")
-    writer.join()
 
-    assert exit_code == 2
+    assert (exit_code, harness_clock.sleep_count) == (2, 1)
 
 
 def test_should_allow_a_call_that_never_reaches_the_transcript(
