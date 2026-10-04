@@ -262,10 +262,12 @@ def test_is_ephemeral_path_false_for_repository_file(
 ) -> None:
     _simulate_windows_platform(monkeypatch, tmp_path)
     monkeypatch.delenv("CLAUDE_CODE_RULES_DISABLE_EPHEMERAL_EXEMPT", raising=False)
-    repository_file = tmp_path / "repository" / "orders.py"
-    repository_file.parent.mkdir(parents=True)
+    repository_file_outside_temp_root = Path(WORKING_DIRECTORY).parent / "repository" / "orders.py"
 
-    assert _SHARED_MODULE.is_ephemeral_path(str(repository_file), _session_payload()) is False
+    assert (
+        _SHARED_MODULE.is_ephemeral_path(str(repository_file_outside_temp_root), _session_payload())
+        is False
+    )
 
 
 def test_is_ephemeral_path_reads_session_id_from_environment(
