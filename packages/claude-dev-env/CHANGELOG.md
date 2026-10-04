@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.3...claude-dev-env-v8.43.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** gate wrapped shells, backticks, and the pull request script ([0e687bf](https://github.com/jl-cmd/claude-dev-env/commit/0e687bfb9bcea56d4db175446bacdb154a627500))
+
 ## [8.43.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.2...claude-dev-env-v8.43.3) (2026-10-04)
 
 
