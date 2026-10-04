@@ -135,7 +135,7 @@ Consult the advisor the spawn ticket names. When the ticket names the orchestrat
 [3] Parameters and returns typed; no Any / no type-ignore directives?
 [4] Do not add code comments. Preserve existing comments. Docstrings remain allowed.
 [5] When a change touches code that an existing comment describes or is attached to, remove that comment in the same change and carry its meaning through clear names and structure. Leave comments tied to untouched code unchanged. Keep comment cleanup inside the requested task.
-[6] Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed rather than added or justified.
+[6] Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX, and type-ignore comments are removed. Do not add or justify them.
 [7] Magic values and UPPER_SNAKE live in config/ where required?
 [8] Function short; one job; guards over else-chains?
 [9] Pre-check --check clean for the real destination path?

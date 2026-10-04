@@ -201,10 +201,10 @@ def _is_keep_occurrence(comment_text: str, all_keep_markers: tuple[str, ...]) ->
     """Return True for a comment that opens with an accepted keep marker.
 
     A keep marker is meant to be freely added and to survive edits to the
-    line it sits on, unlike ``noqa`` or ``TODO``, which AGENTS.md requires to
-    be removed rather than added or justified. It is excluded here rather
-    than through the shared exempt-marker set that ``check_comment_changes``
-    deliberately still blocks on add.
+    line it sits on. AGENTS.md requires ``noqa`` and ``TODO`` comments to be
+    removed and forbids adding or justifying them. This check excludes keep
+    markers itself, outside the shared exempt-marker set that
+    ``check_comment_changes`` deliberately still blocks on add.
     """
     return comment_text.startswith("#") and comment_text[1:].lstrip().startswith(
         all_keep_markers
