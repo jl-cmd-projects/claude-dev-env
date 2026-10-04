@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.41.0...claude-dev-env-v8.42.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** remind spawns to read and ask, across every spawn surface ([905815a](https://github.com/jl-cmd/claude-dev-env/commit/905815a96452ee12065bd981081d21348c58e2f6))
+
 ## [8.41.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.1...claude-dev-env-v8.41.0) (2026-10-04)
 
 
