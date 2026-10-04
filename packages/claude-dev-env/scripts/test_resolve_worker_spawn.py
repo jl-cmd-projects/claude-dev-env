@@ -1130,7 +1130,6 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
         return subprocess.CompletedProcess(argv, 0, FIXTURE_CLAUDE_STDOUT, "")
 
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
-    monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "state.json")
     monkeypatch.setattr(
         dispatcher,
         "spawn_preflight_runner",
