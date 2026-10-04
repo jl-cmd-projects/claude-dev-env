@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.42.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.5...claude-dev-env-v8.42.6) (2026-10-04)
+
+
+### Tests
+
+* **pr-loop:** cover the broker exit-code constant in check_convergence ([e49f69f](https://github.com/jl-cmd/claude-dev-env/commit/e49f69feae5603c2fb9ed8197b18cf2d87d8a866))
+
 ## [8.42.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.4...claude-dev-env-v8.42.5) (2026-10-04)
 
 
