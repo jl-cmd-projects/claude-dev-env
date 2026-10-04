@@ -31,6 +31,7 @@ def test_should_move_the_spawn_to_opus(requested_model: object) -> None:
     if requested_model is not None:
         tool_input["model"] = requested_model
     decision = json.loads(_run_hook(tool_input))["hookSpecificOutput"]
+    assert decision["hookEventName"] == "PreToolUse"
     assert "permissionDecision" not in decision
     assert decision["updatedInput"] == {**SPAWN_INPUT, "model": "opus"}
 
