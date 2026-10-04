@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.48.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.6...claude-dev-env-v8.48.7) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** exit 127 when no account can start the command ([d850a11](https://github.com/jl-cmd/claude-dev-env/commit/d850a11ac0216476d246764f925a4f55367946de))
+
+
+### Tests
+
+* **hooks:** pin the model pin hook's event name and clear [#1763](https://github.com/jl-cmd/claude-dev-env/issues/1763) smells ([c758222](https://github.com/jl-cmd/claude-dev-env/commit/c75822270179e6c8b518c9daa9c495d857eb250b))
+
 ## [8.48.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.5...claude-dev-env-v8.48.6) (2026-10-04)
 
 
