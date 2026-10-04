@@ -128,6 +128,33 @@ def test_non_action_command_shapes(tmp_path: Path) -> None:
         assert gate.decision_for(_payload(command, path)) is None, command
 
 
+def test_wrapped_and_scripted_action_shapes_are_denied(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    commands = (
+        'bash -c "git push"',
+        "sh -lc 'gh pr create'",
+        'pwsh -NoProfile -Command "git commit -F message.txt"',
+        "echo `git push`",
+        "python ~/.agents/skills/pull-request/scripts/pull_request.py create --title-file t.txt",
+        "python3 -X utf8 'C:\\repo\\scripts\\pull_request.py' edit",
+    )
+    for command in commands:
+        _assert_denied(_payload(command, path))
+
+
+def test_wrapped_and_scripted_non_action_shapes_are_allowed(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    commands = (
+        'bash -c "git status"',
+        "bash script.sh",
+        "cat scripts/pull_request.py",
+        "python -m pytest scripts/test_pull_request.py",
+        "echo `git log`",
+    )
+    for command in commands:
+        assert gate.decision_for(_payload(command, path)) is None, command
+
+
 def test_matching_github_mcp_tools_are_denied(tmp_path: Path) -> None:
     path = _transcript(tmp_path)
     for suffix in ("create_pull_request", "merge_pull_request", "enable_pr_auto_merge", "update_pull_request"):
