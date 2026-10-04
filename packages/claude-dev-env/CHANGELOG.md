@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.5...claude-dev-env-v8.43.6) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** run the Claude callers through the account broker ([9edb21d](https://github.com/jl-cmd/claude-dev-env/commit/9edb21d30847a7c7eb796d76e5b1bbd5fe48e8f5))
+
 ## [8.43.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.4...claude-dev-env-v8.43.5) (2026-10-04)
 
 
