@@ -30,7 +30,7 @@ from advisor_scripts_constants.advisor_route_constants import (
 )
 from advisor_scripts_constants.astra_advisor_constants import (
     ADVISOR_CODEX_EXECUTABLE_ENV_VAR,
-    ALL_ACCOUNT_PICKER_RELATIVE_PARTS,
+    ALL_ACCOUNT_BROKER_RELATIVE_PARTS,
     ALL_ASTRA_TRUTHY_VALUES,
     ASTRA_BIND_FAILURE_REASON,
     ASTRA_CODEX_TIMEOUT_REASON,
@@ -174,18 +174,18 @@ def resolve_advisor_effort(all_settings: Mapping[str, str] | None) -> str:
     return resolve_advisor_pair(all_settings, None)[1]
 
 
-def resolve_account_picker_path() -> Path:
-    """Return the Codex account picker in the scripts directory beside this shared tree.
+def resolve_account_broker_path() -> Path:
+    """Return the account broker in the scripts directory beside this shared tree.
 
     ::
 
-        ~/.claude/_shared/advisor/scripts  ->  ~/.claude/scripts/codex_account_choice.py
+        ~/.claude/_shared/advisor/scripts  ->  ~/.claude/scripts/account_broker.py
 
     Returns:
-        Path to ``codex_account_choice.py``.
+        Path to ``account_broker.py``.
     """
     shared_root = _scripts_directory.parents[SHARED_PACKAGE_ROOT_PARENT_INDEX]
-    return shared_root.joinpath(*ALL_ACCOUNT_PICKER_RELATIVE_PARTS)
+    return shared_root.joinpath(*ALL_ACCOUNT_BROKER_RELATIVE_PARTS)
 
 
 def resolve_codex_executable(all_settings: Mapping[str, str] | None) -> str | None:
@@ -237,12 +237,12 @@ def build_codex_arguments(
 
 def _resolve_preflight(
     preflight: AstraPreflight | None,
-    picker_path: Path | None,
+    broker_path: Path | None,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
 ) -> AstraPreflight:
     if preflight is not None:
         return preflight
-    resolved_path = resolve_account_picker_path() if picker_path is None else picker_path
+    resolved_path = resolve_account_broker_path() if broker_path is None else broker_path
     return run_astra_preflight(resolved_path, process_runner)
 
 
@@ -331,7 +331,7 @@ def run_codex_astra_advisor(
     prompt: str,
     working_directory: Path,
     preflight: AstraPreflight | None,
-    picker_path: Path | None,
+    broker_path: Path | None,
     setting_by_name: Mapping[str, str] | None,
     session_id: str | None,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
@@ -341,11 +341,11 @@ def run_codex_astra_advisor(
     Args:
         prompt: Advisor prompt text.
         working_directory: Working directory for Codex.
-        preflight: Account picker result, or None to run the picker.
-        picker_path: Account picker path, or None for the one beside this shared tree.
+        preflight: Account broker result, or None to run the broker.
+        broker_path: Account broker path, or None for the one beside this shared tree.
         setting_by_name: Environment mapping, or None to read os.environ.
         session_id: Session to resume, or None for a new bind.
-        process_runner: Callable that runs the picker and Codex.
+        process_runner: Callable that runs the broker and Codex.
 
     Returns:
         Advisor reply, or a fallback.
@@ -355,7 +355,7 @@ def run_codex_astra_advisor(
     executable = resolve_codex_executable(setting_by_name)
     if executable is None:
         return build_fallback_reply(ASTRA_EXECUTABLE_NOT_FOUND_REASON, True)
-    resolved_preflight = _resolve_preflight(preflight, picker_path, process_runner)
+    resolved_preflight = _resolve_preflight(preflight, broker_path, process_runner)
     return _run_enabled_advisor(prompt, working_directory, setting_by_name, session_id, executable, resolved_preflight, process_runner)
 
 
