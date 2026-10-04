@@ -71,6 +71,17 @@ def test_should_assign_claude_priorities_from_the_order_file(
     }
 
 
+def test_should_read_an_order_file_saved_with_a_byte_order_mark(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first"])
+    (main_home / "claude-account-order.json").write_text('["first"]', encoding="utf-8-sig")
+
+    accounts = support.load_claude_accounts()
+
+    assert {each_account.name: each_account.priority for each_account in accounts} == {"main": None, "first": 0}
+
+
 def test_should_reject_an_order_file_that_is_not_a_list_of_names(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

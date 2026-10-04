@@ -67,7 +67,7 @@ from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_EN
 
 def _read_list(path: Path) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise BrokerConfigurationError(f"cannot read account list {path}: {error}") from error
 
