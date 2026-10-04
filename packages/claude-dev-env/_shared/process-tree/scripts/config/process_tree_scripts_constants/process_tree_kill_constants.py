@@ -25,3 +25,15 @@ PROCESS_TREE_KILL_TIMEOUT_SECONDS: int = 10
 Gates the kill command alone. Each caller sets its own bound on the drain that
 follows the kill.
 """
+
+PROCESS_TREE_EXIT_WAIT_SECONDS: float = 2.0
+"""Seconds ``terminate_process_tree`` waits for the signalled POSIX group to exit.
+
+A SIGKILL takes effect when the kernel next schedules each target, so a
+descendant can still run for a moment after ``killpg`` returns. The wait ends
+as soon as no group member is still running; the bound applies only when a
+member survived the signal.
+"""
+
+PROCESS_TREE_EXIT_POLL_SECONDS: float = 0.01
+"""Pause between checks for running members of the signalled process group."""
