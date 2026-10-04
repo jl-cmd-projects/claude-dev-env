@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.51.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.1...claude-dev-env-v8.51.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** keep the session title on status every turn ([#1839](https://github.com/jl-cmd/claude-dev-env/issues/1839)) ([7023aad](https://github.com/jl-cmd/claude-dev-env/commit/7023aad05af87fa17082d115412181d990f29510))
+
 ## [8.50.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.0...claude-dev-env-v8.50.1) (2026-10-04)
 
 
