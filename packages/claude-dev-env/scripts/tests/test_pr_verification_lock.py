@@ -28,16 +28,23 @@ sys.path.insert(0, str(scripts_directory))
 
 from pr_verification.lock import SupervisorLock, SupervisorLockError
 
+
+def report_outcome(outcome):
+    pending_result_path = result_path.with_name(result_path.name + ".pending")
+    pending_result_path.write_text(outcome, encoding="utf-8")
+    pending_result_path.replace(result_path)
+
+
 while not start_path.exists():
     time.sleep(0.01)
 
 try:
     with SupervisorLock(cache_root):
-        result_path.write_text("acquired", encoding="utf-8")
+        report_outcome("acquired")
         while True:
             time.sleep(1)
 except SupervisorLockError:
-    result_path.write_text("contended", encoding="utf-8")
+    report_outcome("contended")
 """
 RESULT_WAIT_SECONDS = 5
 PROCESS_WAIT_SECONDS = 10
