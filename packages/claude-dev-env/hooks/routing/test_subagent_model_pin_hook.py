@@ -61,7 +61,6 @@ def test_should_keep_every_constant_free_of_a_sonnet_model_id() -> None:
         each_file.name
         for each_file in CONSTANTS_DIRECTORY.glob("*.py")
         if not each_file.name.startswith("test_")
-        and each_file.name != "subagent_model_pin_hook_constants.py"
         and "claude-sonnet" in each_file.read_text(encoding="utf-8")
     ]
     assert all_offending_files == []
