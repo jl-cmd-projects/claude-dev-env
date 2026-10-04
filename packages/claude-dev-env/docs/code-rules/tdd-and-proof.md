@@ -29,7 +29,7 @@ The TDD loop is the default for bug fixes and new behavior. A prototype may prec
 
 Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
-- check_e2e_test_naming: an end-to-end test with an unmarked name; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_dot_test_pattern.py` reports a named violation.
+- check_e2e_test_naming: a spec test name containing online; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_e2e_test_naming.py::test_should_flag_online_word_in_spec_test_name` reports a line-numbered violation.
 - check_public_function_missing_paired_test: a new public function absent from its established suite; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_paired_test.py::test_flags_public_function_absent_from_established_suite` reports a named violation.
 - check_test_file_omits_module_public_function: an established test module omitting a public function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_paired_test.py::test_flags_module_public_function_when_test_suite_omits_it` reports a named violation.
 - check_constant_equality_tests: a test asserting a constant equals its literal; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_constant_equality.py::test_should_flag_test_asserting_constant_equals_literal` reports a named violation.
@@ -38,9 +38,9 @@ Run the named pytest node or command with the described input. A breach produces
 - check_skip_decorators_in_tests: a skipped pytest test function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_skip_decorators.py::test_should_flag_pytest_mark_skip_on_test_function` reports a named violation.
 - check_stale_test_name_target: a test name still naming a removed function; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_stale_test_name.py::test_flags_renamed_away_target_in_test_name` reports a named violation.
 - check_vacuous_cleanup_assertion_tests: a cleanup test with no created temporary file; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_vacuous_cleanup_assertion.py::test_should_flag_glob_emptiness_cleanup_test_without_temp_creation` reports a named violation.
-- check_tests_use_isolated_filesystem_paths: a test writing to a shared user-home path; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_tests_isolate_home_temp.py` reports a named violation.
-- check_dead_test_module_constant: an unused private constant in a test module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_test_layout.py` reports a named violation.
-- check_unused_test_helper_parameter: a test helper parameter its body never reads; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_test_layout.py` reports a named violation.
+- check_tests_use_isolated_filesystem_paths: a test writing to a shared user-home path; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_tests_isolate_home_temp.py::test_should_flag_path_home_in_test_without_fixture` reports a named violation.
+- check_dead_test_module_constant: an unused private constant in a test module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_test_layout.py::test_should_flag_dead_private_constant_in_test_file` reports a named violation.
+- check_unused_test_helper_parameter: a test helper parameter its body never reads; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_test_layout.py::test_should_flag_unused_private_helper_parameter` reports a named violation.
 
 ## Gotchas
 
