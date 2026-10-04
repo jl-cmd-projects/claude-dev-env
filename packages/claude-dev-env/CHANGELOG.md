@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.4...claude-dev-env-v8.46.5) (2026-10-04)
+
+
+### Documentation
+
+* **rules:** apply the PR 1679 comment-rule wording to every copy ([f760cb0](https://github.com/jl-cmd/claude-dev-env/commit/f760cb0f68cf827ba5164dc38e34190b24f0c3a3))
+
 ## [8.46.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.3...claude-dev-env-v8.46.4) (2026-10-04)
 
 
