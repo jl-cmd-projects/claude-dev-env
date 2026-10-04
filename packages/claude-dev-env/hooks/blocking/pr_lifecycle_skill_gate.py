@@ -13,6 +13,8 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from hooks_constants.pr_lifecycle_skill_gate_constants import (
+    AGENT_ID_FIELD,
+    AGENT_ID_PATTERN,
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
@@ -40,8 +42,11 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
+    SESSION_TRANSCRIPT_PATH_FIELD,
     SHELL_TOOL_NAMES,
     SKILL_NAME,
+    SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
+    SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
@@ -174,6 +179,21 @@ def _transcript_load_status(path: str) -> bool | None:
         return None
 
 
+def _subagent_transcript_path(all_payload_fields: dict[str, object]) -> str | None:
+    session_path = all_payload_fields.get(SESSION_TRANSCRIPT_PATH_FIELD)
+    agent_id = all_payload_fields.get(AGENT_ID_FIELD)
+    if not isinstance(session_path, str) or not session_path:
+        return None
+    if not isinstance(agent_id, str) or not re.fullmatch(AGENT_ID_PATTERN, agent_id):
+        return None
+    subagent_path = (
+        Path(session_path).with_suffix("")
+        / SUBAGENT_TRANSCRIPT_DIRECTORY_NAME
+        / SUBAGENT_TRANSCRIPT_FILE_TEMPLATE.format(agent_id=agent_id)
+    )
+    return str(subagent_path) if subagent_path.is_file() else None
+
+
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
     """Return a deny for a governed action with readable, unloaded transcripts.
 
@@ -183,7 +203,8 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     if not _is_governed_action(all_payload_fields):
         return None
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
-    readable_paths = [path for path in paths if isinstance(path, str) and path]
+    paths.append(_subagent_transcript_path(all_payload_fields))
+    readable_paths = list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
     if not readable_paths:
         return None
     statuses = [_transcript_load_status(path) for path in readable_paths]
