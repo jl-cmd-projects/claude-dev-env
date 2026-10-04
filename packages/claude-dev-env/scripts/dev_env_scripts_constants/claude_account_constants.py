@@ -27,6 +27,9 @@ SECOND_ACCOUNT_PROFILE_NAME: str = "ev"
 EXTRA_PROFILES_FILE_NAME: str = "extra-profiles.json"
 """Local main-home file listing extra profile names in selection order."""
 
+CLAUDE_ACCOUNT_ORDER_FILE_NAME: str = "claude-account-order.json"
+"""Optional main-home file listing Claude accounts in pick priority, first choice first."""
+
 PROFILE_NAME_PATTERN: str = r"[A-Za-z0-9][A-Za-z0-9_-]*"
 """Allowed profile names for directories and command launchers."""
 
