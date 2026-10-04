@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.19](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.18...claude-dev-env-v8.46.19) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** harden spent marks outside the roster ([fe86016](https://github.com/jl-cmd/claude-dev-env/commit/fe860169aef62d7f59a93dc14c8639d160ce14ac))
+
 ## [8.46.18](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.17...claude-dev-env-v8.46.18) (2026-10-04)
 
 
