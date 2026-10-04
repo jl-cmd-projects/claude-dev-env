@@ -50,6 +50,34 @@ def _relevant_entry(each_line: str, skill_names: Collection[str]) -> dict[str, o
     return all_entry_fields if isinstance(all_entry_fields, dict) else None
 
 
+def skill_invocation_status(
+    all_transcript_lines: Iterable[str],
+    skill_names: Collection[str],
+    slash_command_markers: Collection[str],
+) -> tuple[bool, bool]:
+    """Report whether the skill was ever invoked and whether it is loaded now.
+
+    Args:
+        all_transcript_lines: JSON transcript entries, one per line.
+        skill_names: Accepted skill names, with plugin prefixes accepted.
+        slash_command_markers: Accepted user command tags.
+
+    Returns:
+        Whether any entry invoked the skill, and whether an invocation follows
+        the last compact boundary.
+    """
+    was_invoked = False
+    loaded = False
+    for each_line in all_transcript_lines:
+        all_entry_fields = _relevant_entry(each_line, skill_names)
+        if all_entry_fields is not None:
+            loaded = all_entry_fields.get("subtype") != COMPACT_BOUNDARY_SUBTYPE and (
+                loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
+            )
+            was_invoked = was_invoked or loaded
+    return was_invoked, loaded
+
+
 def is_skill_loaded_after_last_compaction(
     all_transcript_lines: Iterable[str],
     skill_names: Collection[str],
@@ -62,11 +90,4 @@ def is_skill_loaded_after_last_compaction(
         skill_names: Accepted skill names, with plugin prefixes accepted.
         slash_command_markers: Accepted user command tags.
     """
-    loaded = False
-    for each_line in all_transcript_lines:
-        all_entry_fields = _relevant_entry(each_line, skill_names)
-        if all_entry_fields is not None:
-            loaded = all_entry_fields.get("subtype") != COMPACT_BOUNDARY_SUBTYPE and (
-                loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
-            )
-    return loaded
+    return skill_invocation_status(all_transcript_lines, skill_names, slash_command_markers)[1]

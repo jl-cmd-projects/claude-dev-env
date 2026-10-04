@@ -8,7 +8,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
-from transcript_skill_scan import is_skill_loaded_after_last_compaction
+from transcript_skill_scan import is_skill_loaded_after_last_compaction, skill_invocation_status
 
 
 def _skill_entry(name: str) -> str:
@@ -49,3 +49,10 @@ def test_malformed_entries_do_not_load() -> None:
         ("pr-lifecycle",),
         (),
     )
+
+
+def test_invocation_status_separates_ever_invoked_from_loaded_now() -> None:
+    compaction = json.dumps({"subtype": "compact_boundary"})
+    assert skill_invocation_status([_skill_entry("pr-lifecycle")], ("pr-lifecycle",), ()) == (True, True)
+    assert skill_invocation_status([_skill_entry("pr-lifecycle"), compaction], ("pr-lifecycle",), ()) == (True, False)
+    assert skill_invocation_status([compaction, _skill_entry("other")], ("pr-lifecycle",), ()) == (False, False)
