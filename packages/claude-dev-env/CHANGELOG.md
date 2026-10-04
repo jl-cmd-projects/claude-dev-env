@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.51.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.2...claude-dev-env-v8.51.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** silence the title stop gate when the session lacks the title tool ([d29d9b5](https://github.com/jl-cmd/claude-dev-env/commit/d29d9b5c6156792282a8f15197bac715fa906b24))
+* **hooks:** silence the title stop gate when the session lacks the title tool ([4a11694](https://github.com/jl-cmd/claude-dev-env/commit/4a1169420fdc5b47a435221d97142d7b25e0ef9e))
+
 ## [8.51.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.1...claude-dev-env-v8.51.2) (2026-10-04)
 
 
