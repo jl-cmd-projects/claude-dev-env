@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.42.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.41.0...claude-dev-env-v8.42.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** remind spawns to read and ask, across every spawn surface ([905815a](https://github.com/jl-cmd/claude-dev-env/commit/905815a96452ee12065bd981081d21348c58e2f6))
+
+## [8.41.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.1...claude-dev-env-v8.41.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** load the pull request rules through a hook-gated skill ([5611459](https://github.com/jl-cmd/claude-dev-env/commit/56114596d29804d8b9c8fb75a7bafe29b4a15090))
+
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
+## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny banned words in chat replies ([7bc4d05](https://github.com/jl-cmd/claude-dev-env/commit/7bc4d05e68f069176f6edeb2d7444be27092a9a2))
+
 ## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
 
 
