@@ -2,7 +2,7 @@
 
 Groups: the spawn tools it checks and their brief fields, the transcript entry
 shapes it reads, the tool names that count as a read or a question, the
-scope-settled line, and the deny messages and log fields.
+scope-settled line, and the reminder messages and log fields.
 """
 
 from __future__ import annotations
@@ -15,11 +15,22 @@ AGENT_ID_KEY = "agent_id"
 SUBAGENT_TYPE_INPUT_KEY = "subagent_type"
 
 THREAD_SPAWN_TOOL_NAME = "mcp__hearthbot__start_thread_session"
+CODEX_SPAWN_TOOL_NAME = "multi_agent_v1__spawn_agent"
+WORKFLOW_TOOL_NAME = "Workflow"
+WORKFLOW_SCRIPT_PATH_INPUT_KEY = "scriptPath"
 ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME = {
     "Agent": "prompt",
     "Task": "prompt",
     THREAD_SPAWN_TOOL_NAME: "instructions",
+    CODEX_SPAWN_TOOL_NAME: "message",
+    WORKFLOW_TOOL_NAME: "script",
 }
+WORKFLOW_DISPATCH_TOOL_NAME = "mcp__github__actions_run_trigger"
+DISPATCH_METHOD_INPUT_KEY = "method"
+DISPATCH_RUN_WORKFLOW_METHOD = "run_workflow"
+DISPATCH_INPUTS_KEY = "inputs"
+DISPATCH_PROMPT_INPUT_KEY = "prompt"
+CODEX_TURN_ID_KEY = "turn_id"
 ALL_READ_ONLY_SUBAGENT_TYPES = frozenset({"Explore", "Plan", "claude-code-guide"})
 
 ENTRY_TYPE_KEY = "type"
@@ -80,20 +91,26 @@ SCOPE_SETTLED_PREFIX = "Scope settled:"
 PRE_TOOL_USE_EVENT_NAME = "PreToolUse"
 HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
 HOOK_EVENT_NAME_KEY = "hookEventName"
-PERMISSION_DECISION_KEY = "permissionDecision"
-PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
-PERMISSION_DENY = "deny"
+ADDITIONAL_CONTEXT_KEY = "additionalContext"
 MISSING_INVESTIGATION_REASON = (
-    "Investigate the request before this spawn. Read the files, threads, or "
-    "sources it names, so the brief and the agent count fit the task. Run the "
-    "reads in a message before the spawn."
+    "This spawn comes before any read of the request. Read the files, threads, "
+    "or sources the request names, then check that the brief and the agent "
+    "count fit the task."
 )
 MISSING_INTERVIEW_REASON = (
-    "Interview the user before this spawn. Ask your scope, requirements, and "
-    "goals questions through AskUserQuestion, a decision card, or an "
-    "interactive widget, and spawn after the answer. When the request "
-    "already settles scope, add a brief line that starts with "
-    f'"{SCOPE_SETTLED_PREFIX}" and names the reason.'
+    "This spawn comes before an answered question to the user. Ask the open "
+    "scope, requirements, and goals questions through AskUserQuestion, a "
+    "decision card, or an interactive widget. When the request already "
+    "settles scope, add a brief line that starts with "
+    f'"{SCOPE_SETTLED_PREFIX}" and names the defaults you chose.'
+)
+CODEX_TRANSCRIPT_REMINDER = (
+    "This hook reads no Codex transcript, because Codex documents that format "
+    "as unstable for hooks. Before this spawn, read what the request names, "
+    "size the agents to the independent pieces, and ask the user the open "
+    "scope questions. When the request already settles scope, add a brief "
+    f'line that starts with "{SCOPE_SETTLED_PREFIX}" and names the defaults '
+    "you chose."
 )
 REASON_SEPARATOR = " "
 
@@ -108,4 +125,5 @@ LOG_TOOL_USE_ID_KEY = "tool_use_id"
 LOG_OUTCOME_KEY = "outcome"
 LOG_SCOPE_SETTLED_LINE_KEY = "scope_settled_line"
 OUTCOME_SCOPE_SETTLED = "scope_settled"
+OUTCOME_REMINDED = "reminded"
 OUTCOME_TRANSCRIPT_UNREADABLE = "transcript_unreadable"
