@@ -127,7 +127,6 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     ]
 
 
-
 def _spent_for_readings(all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime) -> tuple[frozenset[Account], dict[Account, datetime]]:
     marks = all_state["spent"]
     spent = {}
@@ -145,6 +144,22 @@ def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime, r
     all_state["spent"][_state_key(reading.account)] = until.timestamp()
     _save_state(broker_state_path(), all_state)
     return until
+
+
+def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> tuple[datetime, ...]:
+    marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
+    all_roster_names = {each_reading.account.name for each_reading in all_readings}
+    prefix = f"{product.value}:"
+    return tuple(datetime.fromtimestamp(float(each_raw), timezone.utc) for each_key, each_raw in marks.items() if isinstance(each_key, str) and each_key.startswith(prefix) and each_key[len(prefix):].split(":", 1)[0] not in all_roster_names and isinstance(each_raw, (int, float)) and each_raw > now.timestamp())
+
+
+def _with_outside_spent_marks(decision: Decision, all_outside_resets: Sequence[datetime]) -> Decision:
+    if not all_outside_resets:
+        return decision
+    soonest = min(all_outside_resets) if decision.resets_at is None else min(decision.resets_at, *all_outside_resets)
+    if decision.action == "wait" and decision.resets_at == soonest:
+        return decision
+    return Decision("wait", None, soonest, f"no account has room; next reset at {_time_text(soonest)}", "wait")
 
 
 def _write_report(path: Path, report: Report) -> None:
@@ -268,12 +283,8 @@ def _execute(
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     while True:
-        decision = choose_from_readings(
-            product, context.all_readings, now=now,
-            all_spent_accounts=frozenset(context.all_spent_accounts),
-            preferred_command=context.preferred_command, adapter=context.active,
-            all_spent_resets=context.all_spent_resets
-        )
+        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, adapter=context.active, all_spent_resets=context.all_spent_resets)
+        decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
         if decision.account is None:
             return _wait_outcome(context, decision), context.report
@@ -309,21 +320,20 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str) -> tuple[Reading, datetime | None]:
+def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, product: Product) -> tuple[Reading, datetime | None]:
     name, separator, reset_text = mark.partition(":")
-    if name not in all_accounts_by_name:
-        raise BrokerConfigurationError(f"unknown account {name}")
     try:
         reset = datetime.fromtimestamp(float(reset_text), timezone.utc) if separator else None
-    except ValueError as error:
+    except (ValueError, OSError) as error:
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
-    return all_accounts_by_name[name], reset
+    reading = all_accounts_by_name.get(name)
+    return reading if reading is not None else Reading(Account(product, name, Path(), False), None), reset
 
 
-def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime) -> None:
+def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime, product: Product) -> None:
     all_accounts_by_name = {each_reading.account.name: each_reading for each_reading in all_readings}
     for each_mark in all_marks:
-        reading, reset = _parse_spent_mark(all_accounts_by_name, each_mark)
+        reading, reset = _parse_spent_mark(all_accounts_by_name, each_mark, product)
         _mark_spent(all_state, reading, now, reset)
 
 
@@ -352,9 +362,10 @@ def _choose_cli(product: Product, parsed: argparse.Namespace) -> int:
     all_state = _load_state(broker_state_path())
     all_readings = read_accounts(product, all_state=all_state, now=now)
     if parsed.action == "choose" and parsed.spent:
-        _save_spent_arguments(parsed.spent, all_readings, all_state, now)
+        _save_spent_arguments(parsed.spent, all_readings, all_state, now, product)
     spent, resets = _spent_for_readings(all_readings, all_state, now)
     decision = choose_from_readings(product, all_readings, now=now, all_spent_accounts=spent, all_spent_resets=resets)
+    decision = _with_outside_spent_marks(decision, _outside_roster_resets(product, all_readings, all_state, now))
     if parsed.action == "choose":
         print(json.dumps({"decision": decision_payload(decision), "accounts": readings_payload(all_readings), "state_path": str(broker_state_path())}))
     return WAIT_EXIT_CODE if decision.action == "wait" else 0
