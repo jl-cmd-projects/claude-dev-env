@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.3...claude-dev-env-v8.54.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** keep the full scope of a request ([a7e6d18](https://github.com/jl-cmd/claude-dev-env/commit/a7e6d18510c7a4bafefdde66b1fa44c895559695))
+
 ## [8.53.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.2...claude-dev-env-v8.53.3) (2026-10-04)
 
 
