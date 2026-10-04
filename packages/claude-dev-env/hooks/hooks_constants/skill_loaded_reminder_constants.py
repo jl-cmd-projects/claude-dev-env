@@ -4,8 +4,6 @@ from __future__ import annotations
 
 __all__ = [
     "ALL_SELF_LOADING_SUBAGENT_TYPES",
-    "ASSISTANT_ENTRY_TYPE",
-    "COMPACT_BOUNDARY_SUBTYPE",
     "COMPACTION_REMINDER",
     "COMPACTION_SOURCE",
     "NOT_LOADED_REMINDER",
@@ -13,14 +11,11 @@ __all__ = [
     "PRE_TOOL_USE_EVENT_NAME",
     "PROMPT_SEPARATOR",
     "SESSION_START_EVENT_NAME",
-    "SKILL_TOOL_NAME",
     "ALL_SLASH_COMMAND_MARKERS",
     "SUBAGENT_START_EVENT_NAME",
     "CLAUDE_SUBAGENT_PROMPT_PREFIX",
     "CODEX_SUBAGENT_PROMPT_PREFIX",
     "ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME",
-    "TOOL_USE_BLOCK_TYPE",
-    "USER_ENTRY_TYPE",
     "USER_PROMPT_SUBMIT_EVENT_NAME",
     "WORKFLOW_SUBAGENT_TYPE",
 ]
@@ -41,11 +36,6 @@ ALL_SLASH_COMMAND_MARKERS = (
     "<command-name>/pstack:poteto-mode</command-name>",
 )
 PROMPT_SEPARATOR = "\n\n"
-
-ASSISTANT_ENTRY_TYPE = "assistant"
-USER_ENTRY_TYPE = "user"
-TOOL_USE_BLOCK_TYPE = "tool_use"
-COMPACT_BOUNDARY_SUBTYPE = "compact_boundary"
 
 CLAUDE_SUBAGENT_PROMPT_PREFIX = (
     "Before any other work, invoke the poteto-mode skill with the Skill tool. "

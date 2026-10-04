@@ -450,8 +450,8 @@ EXPECTED_SOURCE_LINK_PAIRS = {
             "packages/claude-dev-env/rules/windows-filesystem-safe.md",
         ),
         (
-            "<managed-root>/rules/gh-cli-conventions.md",
-            "packages/claude-dev-env/rules/gh-cli-conventions.md",
+            "<agents-home>/skills/pr-lifecycle/SKILL.md",
+            "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
         ),
         (
             "<managed-root>/rules/plain-illustrative-docstrings.md",
@@ -498,20 +498,20 @@ EXPECTED_SOURCE_LINK_PAIRS = {
             "packages/claude-dev-env/rules/docstring-prose-matches-implementation.md",
         ),
         (
-            "<managed-root>/rules/durable-post-artifacts.md",
-            "packages/claude-dev-env/rules/durable-post-artifacts.md",
+            "<agents-home>/skills/pr-lifecycle/SKILL.md",
+            "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
         ),
         (
             "<managed-root>/rules/failure-blast-radius.md",
             "packages/claude-dev-env/rules/failure-blast-radius.md",
         ),
         (
-            "<managed-root>/rules/git-workflow.md",
-            "packages/claude-dev-env/rules/git-workflow.md",
+            "<agents-home>/skills/pr-lifecycle/SKILL.md",
+            "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
         ),
         (
-            "<managed-root>/rules/re-stage-before-commit.md",
-            "packages/claude-dev-env/rules/re-stage-before-commit.md",
+            "<agents-home>/skills/pr-lifecycle/SKILL.md",
+            "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
         ),
         (
             "<managed-root>/rules/workers-done-before-complete.md",
@@ -524,8 +524,8 @@ EXPECTED_SOURCE_LINK_PAIRS = {
             "packages/claude-dev-env/.agents/agents/reference/pr-description-illustrative-voice.md",
         ),
         (
-            "<managed-root>/rules/gh-cli-conventions.md#body-content-goes-in-a-file",
-            "packages/claude-dev-env/rules/gh-cli-conventions.md#body-content-goes-in-a-file",
+            "<agents-home>/skills/pr-lifecycle/SKILL.md",
+            "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
         ),
     }),
 }
@@ -628,7 +628,8 @@ def test_named_agents_resolve_active_managed_root_and_agents_home() -> None:
         assert "active agents home" in agent_text.lower()
         assert "CLAUDE_CONFIG_DIR" in agent_text
         assert "--target" in agent_text
-        assert "<managed-root>/" in agent_text
+        if each_agent_file_name == "clean-coder.md":
+            assert "<managed-root>/" in agent_text
         assert "<agents-home>/" in agent_text
         assert "do not assume" in agent_text.lower()
 
@@ -716,7 +717,7 @@ def test_clean_coder_links_canonical_policy_areas() -> None:
         "<managed-root>/rules/verify-runtime-state.md",
         "<managed-root>/rules/doc-inventory-integrity.md",
         "<managed-root>/rules/failure-blast-radius.md",
-        "<managed-root>/rules/git-workflow.md",
+        "<agents-home>/skills/pr-lifecycle/SKILL.md",
         "<managed-root>/rules/workers-done-before-complete.md",
     )
     assert all(each_link in body for each_link in required_links)
@@ -959,8 +960,6 @@ def test_clean_coder_groups_session_policy_references() -> None:
         "doc-inventory-integrity.md",
         "docstring-prose-matches-implementation.md",
         "failure-blast-radius.md",
-        "git-workflow.md",
-        "re-stage-before-commit.md",
         "workers-done-before-complete.md",
     )
     session_policy_map = body[body.index("## Session policy map") :]
@@ -970,3 +969,7 @@ def test_clean_coder_groups_session_policy_references() -> None:
             f"<managed-root>/rules/{each_policy_file_name}",
             f"packages/claude-dev-env/rules/{each_policy_file_name}",
         ) in session_policy_links
+    assert (
+        "<agents-home>/skills/pr-lifecycle/SKILL.md",
+        "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md",
+    ) in session_policy_links
