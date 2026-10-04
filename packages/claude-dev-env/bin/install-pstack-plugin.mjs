@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
-export const PSTACK_MARKETPLACE_REPOSITORY = 'michael-denyer/pstack-claude';
+export const PSTACK_MARKETPLACE_REPOSITORY = 'jl-cmd/pstack-claude';
 export const PSTACK_MARKETPLACE_NAME = 'pstack-claude';
 export const PSTACK_PLUGIN_IDENTIFIER = `pstack@${PSTACK_MARKETPLACE_NAME}`;
 export const PSTACK_PLUGIN_HOSTS = Object.freeze(['claude', 'codex']);
@@ -12,6 +14,7 @@ export const PSTACK_PLUGIN_SPEC = Object.freeze({
     name: 'pstack',
     label: 'Pstack',
     marketplaceRepository: PSTACK_MARKETPLACE_REPOSITORY,
+    marketplaceName: PSTACK_MARKETPLACE_NAME,
     marketplaceAddArguments: Object.freeze([]),
     pluginIdentifier: PSTACK_PLUGIN_IDENTIFIER,
     hosts: PSTACK_PLUGIN_HOSTS,
@@ -23,6 +26,7 @@ export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     name: 'usage-wrapup',
     label: 'Usage-wrapup',
     marketplaceRepository: 'jl-cmd/claude-dev-env',
+    marketplaceName: 'claude-dev-env',
     marketplaceAddArguments: Object.freeze(['--sparse', '.claude-plugin']),
     pluginIdentifier: 'usage-wrapup@claude-dev-env',
     hosts: Object.freeze(['claude']),
@@ -35,18 +39,27 @@ const HOST_DEFINITIONS = Object.freeze({
         executable: 'claude',
         executableVariable: 'CDE_CLAUDE_EXECUTABLE',
         homeVariable: 'CLAUDE_CONFIG_DIR',
+        orphanedVersionsDirectory: (homeDirectory, spec) => join(
+            homeDirectory, 'plugins', 'cache', spec.marketplaceName, spec.name,
+        ),
         installVerb: 'install',
+        uninstallVerb: 'uninstall',
     }),
     codex: Object.freeze({
         executable: 'codex',
         executableVariable: 'CDE_CODEX_EXECUTABLE',
         homeVariable: 'CODEX_HOME',
         installVerb: 'add',
+        uninstallVerb: 'remove',
     }),
 });
 
 /**
  * Read the marketplace and plugin commands one host installs a plugin with.
+ *
+ * The removal commands run first and take out the installed plugin, its
+ * cached versions, and the marketplace clone, so the install commands that
+ * follow fetch the newest published version into an empty slot.
  *
  * Claude Code and Codex publish a marketplace under different plugin verbs, so
  * the install verb belongs to the host and the marketplace and identifier
@@ -57,6 +70,7 @@ const HOST_DEFINITIONS = Object.freeze({
  * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
  * @param {string} host A host the spec names, `claude` or `codex`.
  * @returns {{executable: string, executableVariable: string, homeVariable: string,
+ *   removalCommands: ReadonlyArray<ReadonlyArray<string>>,
  *   commands: ReadonlyArray<ReadonlyArray<string>>}} The host's install plan.
  */
 export function marketplacePluginPlan(spec, host) {
@@ -70,6 +84,10 @@ export function marketplacePluginPlan(spec, host) {
         executable: hostDefinition.executable,
         executableVariable: hostDefinition.executableVariable,
         homeVariable: hostDefinition.homeVariable,
+        removalCommands: [
+            ['plugin', hostDefinition.uninstallVerb, spec.pluginIdentifier],
+            ['plugin', 'marketplace', 'remove', spec.marketplaceName],
+        ],
         commands: [
             ['plugin', 'marketplace', 'add', spec.marketplaceRepository, ...spec.marketplaceAddArguments],
             ['plugin', hostDefinition.installVerb, spec.pluginIdentifier],
@@ -156,22 +174,54 @@ function firstLine(text) {
     return trimmed.split(/\r?\n/).filter(Boolean).at(-1);
 }
 
+const ORPHANED_VERSION_MARKER = '.orphaned_at';
+
+/**
+ * Delete each cached plugin version the host marked as orphaned.
+ *
+ * Claude Code keeps an uninstalled version in its plugin cache with an
+ * `.orphaned_at` marker, so the clean install deletes those versions and
+ * leaves the version it just installed.
+ *
+ * @param {string|undefined} versionsDirectory The plugin's cache directory.
+ * @returns {string[]} The version directories removed.
+ */
+export function removeOrphanedPluginVersions(versionsDirectory) {
+    if (!versionsDirectory || !existsSync(versionsDirectory)) return [];
+    const removedPaths = [];
+    for (const versionName of readdirSync(versionsDirectory)) {
+        const versionPath = join(versionsDirectory, versionName);
+        if (!existsSync(join(versionPath, ORPHANED_VERSION_MARKER))) continue;
+        rmSync(versionPath, { recursive: true, force: true });
+        removedPaths.push(versionPath);
+    }
+    return removedPaths;
+}
+
+function absentHostOutcome(spec, host, executable) {
+    return {
+        host,
+        executable,
+        status: 'skipped',
+        warning: `${executable} is not on PATH, so ${spec.name} was not installed for ${host}.`,
+    };
+}
+
 function installForHost(spec, host, homeDirectory, environment, runCommand) {
     const plan = marketplacePluginPlan(spec, host);
     const executable = environment[plan.executableVariable] || plan.executable;
     const commandEnvironment = { [plan.homeVariable]: homeDirectory };
+    for (const commandArguments of plan.removalCommands) {
+        const outcome = runCommand(executable, [...commandArguments], {
+            environment: commandEnvironment,
+        });
+        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(spec, host, executable);
+    }
     for (const commandArguments of plan.commands) {
         const outcome = runCommand(executable, [...commandArguments], {
             environment: commandEnvironment,
         });
-        if (namesAnAbsentCommand(outcome)) {
-            return {
-                host,
-                executable,
-                status: 'skipped',
-                warning: `${executable} is not on PATH, so ${spec.name} was not installed for ${host}.`,
-            };
-        }
+        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(spec, host, executable);
         if (outcome.status !== 0 || outcome.error) {
             const detail = firstLine(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
             return {
@@ -182,11 +232,19 @@ function installForHost(spec, host, homeDirectory, environment, runCommand) {
             };
         }
     }
+    const hostDefinition = HOST_DEFINITIONS[host];
+    if (hostDefinition.orphanedVersionsDirectory && homeDirectory) {
+        removeOrphanedPluginVersions(hostDefinition.orphanedVersionsDirectory(homeDirectory, spec));
+    }
     return { host, executable, status: 'installed', warning: null };
 }
 
 /**
  * Install one plugin from its marketplace into each host's own home.
+ *
+ * Each host first removes the plugin and its marketplace, so an older
+ * version never survives beside the new one. A removal that finds nothing
+ * to remove exits non-zero on a fresh home, and the install goes on.
  *
  * Each host is one member of the batch. A host without its command-line tool
  * is skipped and a host whose command fails is reported, so the rules, hooks,

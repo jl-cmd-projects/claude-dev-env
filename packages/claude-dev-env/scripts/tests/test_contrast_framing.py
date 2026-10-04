@@ -89,7 +89,7 @@ def test_form_named_rejects_an_unknown_name() -> None:
         form_named("no-such-form")
 
 
-def test_every_form_carries_a_row_in_the_rule_document() -> None:
+def test_every_form_is_named_in_the_rule_document() -> None:
     rule_text = (PACKAGE_ROOT / CONTRAST_FRAMING_RULE_DOCUMENT).read_text(
         encoding="utf-8"
     )

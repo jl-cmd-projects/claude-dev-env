@@ -29,10 +29,10 @@ The frozen process env is only a fallback when that disk read fails (logged once
 A probe error does not waive the gate; the live GitHub checks still run.
 
 The Codex gate is conditional-required: it demands
-``codex_clean_at == current_head`` only when the Codex account picker
-(``scripts/codex_account_choice.py choose``) answers the ``normal`` tier, so
+``codex_clean_at == current_head`` only when the account broker
+(``scripts/account_broker.py choose --product codex``) answers the ``normal`` tier, so
 one signed-in account has room for a review. A ``luna`` or ``wait`` answer, an
-unreadable picker, the codex token, or ``codex_down`` never blocks ready.
+unreadable broker, the codex token, or ``codex_down`` never blocks ready.
 """
 
 from __future__ import annotations
@@ -64,11 +64,12 @@ from check_convergence_thread_gates import (
     _count_unresolved_bot_threads,
 )
 from pr_converge_scripts_constants.convergence_gate_constants import (
-    ALL_CODEX_ACCOUNT_PICKER_RELATIVE_PARTS,
+    ALL_CODEX_ACCOUNT_BROKER_RELATIVE_PARTS,
+    ALL_CODEX_BROKER_ACCEPTED_EXIT_CODES,
     BUGBOT_DOWN_BYPASS_NOTE,
     CLAUDE_JOB_DIR_ENV_VAR_NAME,
     CODEX_ACCOUNT_PICK_TIMEOUT_SECONDS,
-    CODEX_ACCOUNT_PICKER_CHOOSE_COMMAND,
+    CODEX_ACCOUNT_BROKER_CHOOSE_COMMAND,
     CODEX_BYPASS_DETAIL,
     CODEX_CLEAN_AT_STATE_KEY,
     CODEX_CLEAN_DETAIL_TEMPLATE,
@@ -344,16 +345,16 @@ def _evaluate_codex_clean(
 
     ::
 
-        clean stamp on head                  -> pass  (picker never runs)
+        clean stamp on head                  -> pass  (broker never runs)
         no stamp, tier luna, wait, or None   -> skip  (never blocks)
         no stamp, tier normal                -> fail
 
-    A stamp on the current HEAD settles the gate on its own, so the picker
-    stays behind it: the picker starts one Codex app server per account, and
+    A stamp on the current HEAD settles the gate on its own, so the broker
+    stays behind it: the broker starts one Codex app server per account, and
     the common already-clean tick has no reason to pay for them.
 
     Args:
-        read_codex_tier: Returns the picker's tier, or None when the picker cannot say.
+        read_codex_tier: Returns the broker's tier, or None when the broker cannot say.
         codex_clean_at: HEAD SHA where Codex last reported clean, or None.
         head_sha: Current PR HEAD commit SHA.
 
@@ -367,20 +368,22 @@ def _evaluate_codex_clean(
     return False, CODEX_MISSING_CLEAN_DETAIL_TEMPLATE % _short_sha(head_sha)
 
 
-def _codex_account_picker_path() -> Path:
-    """Return the installed Codex account picker beside this shared tree."""
+def _codex_account_broker_path() -> Path:
+    """Return the installed account broker beside this shared tree."""
     shared_root = Path(__file__).resolve().parents[SHARED_PACKAGE_ROOT_PARENT_INDEX]
-    return shared_root.joinpath(*ALL_CODEX_ACCOUNT_PICKER_RELATIVE_PARTS)
+    return shared_root.joinpath(*ALL_CODEX_ACCOUNT_BROKER_RELATIVE_PARTS)
 
 
 def _read_codex_tier() -> str | None:
-    """Ask the Codex account picker which tier a review runs on, or None when it cannot say."""
+    """Ask the account broker which tier a review runs on, or None when it cannot say."""
     try:
         completed = subprocess.run(
             [
                 sys.executable,
-                str(_codex_account_picker_path()),
-                CODEX_ACCOUNT_PICKER_CHOOSE_COMMAND,
+                str(_codex_account_broker_path()),
+                CODEX_ACCOUNT_BROKER_CHOOSE_COMMAND,
+                "--product",
+                "codex",
             ],
             capture_output=True,
             text=True,
@@ -390,9 +393,12 @@ def _read_codex_tier() -> str | None:
         answer = json.loads(completed.stdout)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         return None
-    if completed.returncode != 0 or not isinstance(answer, dict):
+    if completed.returncode not in ALL_CODEX_BROKER_ACCEPTED_EXIT_CODES or not isinstance(answer, dict):
         return None
-    tier = answer.get(CODEX_TIER_KEY)
+    decision = answer.get("decision")
+    if not isinstance(decision, dict):
+        return None
+    tier = decision.get(CODEX_TIER_KEY)
     return tier if isinstance(tier, str) else None
 
 
