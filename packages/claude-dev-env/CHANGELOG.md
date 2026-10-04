@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.48.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.0...claude-dev-env-v8.48.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** refuse cmd.exe metacharacters in batch file arguments ([757c362](https://github.com/jl-cmd/claude-dev-env/commit/757c36205ebb1b99f531502e4efe84a0706dbd30))
+
 ## [8.48.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.3...claude-dev-env-v8.48.0) (2026-10-04)
 
 
