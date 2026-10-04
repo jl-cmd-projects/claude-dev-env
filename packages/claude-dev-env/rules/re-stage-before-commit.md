@@ -12,3 +12,5 @@ Staging covers tracked files you edited. Do not commit untracked files unless th
 - **A preceding `git add` or `git stage`.** `git add <paths> && git commit …` stages the files in its own segment before the commit runs.
 
 A `--amend` carries the same risk. An amend records the staged snapshot too, so an unstaged session edit is dropped the same way a plain commit drops it.
+
+**Full text:** [`docs/rule-guides/re-stage-before-commit.md`](../docs/rule-guides/re-stage-before-commit.md)

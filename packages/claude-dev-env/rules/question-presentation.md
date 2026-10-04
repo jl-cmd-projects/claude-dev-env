@@ -10,3 +10,5 @@ Discover the current session's native question tool and its schema. Claude may e
 Codex may expose `request_user_input_async` or `request_user_input`. Follow the tool's mode restrictions.
 Put the question in its declared title or question field and choices in its declared string or object fields.
 When no native tool is usable, ask the short question and choices in chat.
+
+**Full text:** [`docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md)

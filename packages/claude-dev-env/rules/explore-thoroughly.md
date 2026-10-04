@@ -23,3 +23,5 @@ The depth budget shrinks once the evidence is in hand. When you can already name
 ## Relationship to other rules
 
 - **research-mode.md** ensures factual claims are grounded. This rule ensures implementation plans are grounded in the codebase.
+
+**Full text:** [`docs/rule-guides/explore-thoroughly.md`](../docs/rule-guides/explore-thoroughly.md)

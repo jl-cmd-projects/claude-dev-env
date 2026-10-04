@@ -1,54 +1,7 @@
 # Review Closure Is a Check
 
-**When this applies:** Any pull request an agent drives, from the first review comment on it to the merge.
+Answer review findings on the current head before merge. The driving agent replies, pushes a fix, or both. Run `review_closure.py` for the closure verdict; a resolved thread or old run alone does not establish closure on the current head.
 
-## Rule
+When this rule applies, read the full text guide before acting.
 
-A review finding on the head is answered before the pull request merges. The agent driving it replies, pushes the fix, or both. The check named `Review closure` reads that state on every push, on every review event, and on every top-level comment, and reports red while a finding waits.
-
-One command prints the same verdict:
-
-```
-python packages/claude-dev-env/scripts/review_closure.py <owner>/<name> <number>
-```
-
-It prints `CLOSED` and exits 0 when every finding on the head is answered. It prints `OPEN`, one line per waiting finding, and exits 1. It exits 2 when the state could not be read.
-
-## What closes a finding
-
-| The thread | Closed by |
-|---|---|
-| A review comment on code | A push that replaced the code it points at |
-| A review comment on code | A reply from the account driving the pull request |
-| A review comment on code | Resolution, where the comment carries no red circle |
-| A red-circle finding | A reply from the driving account, or a push that replaced the code |
-| A thread the driving account opened | Itself |
-| A blocking `Claude Approvals` row | A push, which moves the head the check reports on |
-| A top-level comment on the pull request | A later top-level comment from the driving account |
-| A bot notice: a review-skipped note, a pointer to an updated summary, a Graphite verdict mirror, a Qodo change summary, a Qodo in-progress placeholder, or a Qodo review that found no issues | Itself |
-
-A review bot rewrites its summary comment on each pass. Its edit leaves an answered summary closed, because each new finding it has arrives as a review thread or a new comment. An edit from a person reopens the comment.
-
-A red circle marks a finding a review states as blocking, so resolution in silence leaves it open. The reply says what changed or why the finding stands, and the reviewer reads it beside the diff.
-
-The driving account is the one that opened the pull request. Where the agent comments under a second login, `--driver-login <login>` names it, repeatably.
-
-A repository whose review bots post notices this package does not know passes each one's marker text with `--notice-marker <text>`, repeatably. A bot comment carrying that text closes itself, like the built-in notices above.
-
-## Where the check runs
-
-`.github/workflows/review-closure.yml` runs it here on a push to a pull request, on a submitted or dismissed review, on a review comment, and on a top-level comment posted or edited on a pull request. Each run reports on the pull request's head commit, so a finding posted after the last push still turns the check red.
-
-A top-level comment arrives as an `issue_comment` event, and a run on that event belongs to the default branch commit. The comment job reads the pull request's head, runs the same command, and posts the verdict on that head through the Checks API as a `Review closure` check run. The token belongs to the GitHub Actions app, so that check run carries the same name and app as the pull request job's own, and the newest one on the head is the one branch rules read.
-
-A private repository that installs this package runs the same command from its own workflow, against the revision of this package that its workflow pins.
-
-A repository that merges through a merge queue also runs the check on `merge_group` and lists `Review closure` as a required check. The queue ref `gh-readonly-queue/<base>/pr-<number>-<sha>` names the pull request number the command takes. A finding posted while an entry waits in the queue then fails the queue build. Without that trigger, the entry merges on the verdict it carried when it joined the queue.
-
-## Sibling rules
-
-| Rule | Role |
-|---|---|
-| [`agent-merges-its-own-green-pull-request.md`](agent-merges-its-own-green-pull-request.md) | The agent that drives a pull request merges it once its gate passes |
-| [`git-workflow.md`](git-workflow.md) | Open ready for review, and confirm each required context fired after the push |
-| [`correction-lens.md`](correction-lens.md) | A correction becomes a control at the highest layer that can hold it |
+**Full text:** [`docs/rule-guides/review-closure-is-a-check.md`](../docs/rule-guides/review-closure-is-a-check.md)

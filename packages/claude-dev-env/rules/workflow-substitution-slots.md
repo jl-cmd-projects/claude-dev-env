@@ -10,3 +10,5 @@ In a `.workflow.js` agent-prompt template, every per-call or per-iteration value
 When a loop builds a per-iteration path or output key, write the index as a slot — `cand_<i>` — or spell out `replace <i> with the iteration index 0, 1, 2` in the step text. Every per-call value in a `.workflow.js` template carries angle brackets so an agent fills in a fresh value per call.
 
 The staged policy lint carries this check as its `workflow-substitution` rule. It reports a `.workflow.js` file whose looped content holds a bare `<word>_<i|j|k>` token as a per-iteration path segment. CI runs that lint against the merge base. No write-time hook reports this, so a bare token stays on disk until the lint runs.
+
+**Full text:** [`docs/rule-guides/workflow-substitution-slots.md`](../docs/rule-guides/workflow-substitution-slots.md)

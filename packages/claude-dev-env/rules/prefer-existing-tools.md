@@ -46,3 +46,5 @@ Code of your own is code you maintain alone. A trusted tool carries fixes and ne
 |---|---|
 | [`explore-thoroughly.md`](explore-thoroughly.md) | Read what exists before you propose a change |
 | [`verify-before-asking.md`](verify-before-asking.md) | Answer a question with a tool before you ask it |
+
+**Full text:** [`docs/rule-guides/prefer-existing-tools.md`](../docs/rule-guides/prefer-existing-tools.md)

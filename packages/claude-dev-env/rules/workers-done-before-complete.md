@@ -13,3 +13,5 @@ This rule gates a task's status, not your own work. It never says wait before ac
 Verify every sub-agent file list, count, description, and finding against the repository and the diff before you merge it into run state or repeat it to the user.
 
 Checklist, examples, and run-state detail: `@~/.claude/docs/worker-completion-gate.md`.
+
+**Full text:** [`docs/rule-guides/workers-done-before-complete.md`](../docs/rule-guides/workers-done-before-complete.md)

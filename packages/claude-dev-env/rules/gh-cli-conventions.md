@@ -34,3 +34,5 @@ Single-object endpoints such as `pulls/<n>` and `issues/<n>` do not need
 pagination and may use `--jq` directly. For a newest-first walk, sort the
 slurped array and take the last element. For one page, cap the request with a
 `per_page` query parameter.
+
+**Full text:** [`docs/rule-guides/gh-cli-conventions.md`](../docs/rule-guides/gh-cli-conventions.md)

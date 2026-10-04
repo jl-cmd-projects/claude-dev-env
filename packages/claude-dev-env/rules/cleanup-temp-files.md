@@ -31,3 +31,5 @@ Use an allowed removal form for everything else: [`destructive-commands.md`](des
 - Debug output files, log dumps, or intermediate data exports
 - Helper files created to work around tool limitations
 - Any file the user did not ask for and would not expect to find after the task
+
+**Full text:** [`docs/rule-guides/cleanup-temp-files.md`](../docs/rule-guides/cleanup-temp-files.md)
