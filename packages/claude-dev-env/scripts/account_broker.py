@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 import account_broker_support as support
+import codex_account_meters
 from account_broker_support import (
     all_product_adapters,
     Account,
@@ -311,11 +312,14 @@ def run_job(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
-    for each_action in ("choose", "check", "accounts", "run"):
+    for each_action in ("choose", "check", "accounts", "limits", "run"):
         command = commands.add_parser(each_action)
         command.add_argument("--product", choices=[each_product.value for each_product in Product], required=True)
         if each_action == "choose":
             command.add_argument("--spent", action="append", default=[])
+        if each_action == "limits":
+            command.add_argument("--home", type=Path, required=True)
+            command.add_argument("--codex", type=Path)
         if each_action == "run":
             command.add_argument("--report", type=Path, required=True)
             command.add_argument("command", nargs=argparse.REMAINDER)
@@ -342,6 +346,19 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
 def _accounts_cli(product: Product) -> int:
     roster = all_product_adapters[product].load_accounts()
     print(json.dumps({"accounts": [{"name": each_account.name, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
+    return 0
+
+
+def _limits_cli(product: Product, parsed: argparse.Namespace) -> int:
+    if product is not Product.CODEX:
+        raise BrokerConfigurationError("limits reads Codex accounts only")
+    try:
+        rate_limit_records = codex_account_meters.read_rate_limit_records(
+            codex_account_meters.resolve_codex_path(parsed.codex), parsed.home
+        )
+    except (codex_account_meters.CodexMeterUnreadError, OSError) as error:
+        raise BrokerConfigurationError(str(error)) from error
+    print(json.dumps({"home": str(parsed.home), "rate_limits": rate_limit_records}))
     return 0
 
 
@@ -388,6 +405,8 @@ def main(all_arguments: Sequence[str]) -> int:
     try:
         if parsed.action == "accounts":
             return _accounts_cli(product)
+        if parsed.action == "limits":
+            return _limits_cli(product, parsed)
         if parsed.action == "run":
             return _run_cli(product, parsed, parser)
         return _choose_cli(product, parsed)
