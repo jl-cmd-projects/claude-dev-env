@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.49.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.3...claude-dev-env-v8.49.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **marketplace:** ship usage-wrapup from this repository ([#1838](https://github.com/jl-cmd/claude-dev-env/issues/1838)) ([1328dcd](https://github.com/jl-cmd/claude-dev-env/commit/1328dcd720a2de326a2175b7bd4da96e99aac767))
+
 ## [8.49.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.2...claude-dev-env-v8.49.3) (2026-10-04)
 
 
