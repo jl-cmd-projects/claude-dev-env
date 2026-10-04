@@ -48,7 +48,7 @@ Review each hit. Ignore:
 ## 4. Re-check before commit / post
 
 - Stage only clean files
-- Prefer `--body-file` for `gh` posts (also required by the gh-cli-conventions rule)
+- Prefer `--body-file` for `gh` posts (also required by the [gh CLI conventions](../../pr-lifecycle/SKILL.md#gh-cli-conventions))
 - No hook re-scans the next Write, commit, or post. Re-run this sweep before the next commit or post.
 
 ## Accepted residual (do not over-scrub)

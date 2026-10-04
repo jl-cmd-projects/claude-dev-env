@@ -37,7 +37,7 @@ For a voice sample only when needed, read `<agents-home>/agents/reference/pr-des
 
 ## Publish through GitHub CLI
 
-Place markdown in a BOM-free temporary file and pass its path with `--body-file`. Follow `<managed-root>/rules/gh-cli-conventions.md#body-content-goes-in-a-file` (source fallback: `packages/claude-dev-env/rules/gh-cli-conventions.md#body-content-goes-in-a-file`).
+Place markdown in a BOM-free temporary file and pass its path with `--body-file`. Follow `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`).
 
 ## Check the draft
 
