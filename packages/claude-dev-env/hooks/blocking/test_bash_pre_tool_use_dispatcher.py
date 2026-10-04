@@ -235,3 +235,19 @@ def test_emit_decision_re_emits_silent_deny_fields(
     assert hook_specific["additionalContext"] == "see docs/runbook.md"
     assert emitted_payload["systemMessage"] == "[gh-gate] blocked redirected gh pr create"
     assert emitted_payload["suppressOutput"] is True
+
+
+def test_emit_decision_sends_a_rewrite_through_the_permission_prompt(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A rewritten command reaches the harness with updatedInput and no permissionDecision."""
+    rewrite = BashDispatcherDecision(
+        decision="allow",
+        updated_input={"command": "MSYS2_ARG_CONV_EXCL='*' git show HEAD:a.py"},
+    )
+    _emit_decision(rewrite)
+    hook_specific = json.loads(capsys.readouterr().out.strip())["hookSpecificOutput"]
+    assert "permissionDecision" not in hook_specific
+    assert hook_specific["updatedInput"] == {
+        "command": "MSYS2_ARG_CONV_EXCL='*' git show HEAD:a.py"
+    }
