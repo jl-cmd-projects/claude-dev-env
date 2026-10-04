@@ -909,6 +909,20 @@ def test_should_record_start_failure_without_launching_a_command_missing_from_pa
     assert outcome.returncode == 127
 
 
+def test_should_keep_the_start_failure_text_when_no_account_can_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE)),
+        {"first": _meters(80, 80), "second": _meters(70, 70)},
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.status == "start_failed"
+    assert "claude" in outcome.stderr
+
+
 @pytest.mark.parametrize("marked_name", ["retired", "first"])
 def test_should_run_past_a_stored_spent_mark_beyond_the_platform_range(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], marked_name: str
