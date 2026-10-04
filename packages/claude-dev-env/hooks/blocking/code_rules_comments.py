@@ -46,7 +46,7 @@ extract_javascript_comment_occurrences = (
 def check_comments_python(content: str) -> list[str]:
     """Check for comments in Python code.
 
-    Uses ``tokenize.generate_tokens`` to find true ``COMMENT`` tokens.
+    Uses ``tokenize.generate_tokens`` to find ``COMMENT`` tokens.
     Hash characters that appear inside string literals (hex color codes,
     URL fragments, and the hash inside an f-string interpolation pattern)
     are correctly skipped because the tokenizer recognizes them as parts
