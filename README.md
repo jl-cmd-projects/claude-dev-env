@@ -171,7 +171,6 @@ Reference documents that rules and agents point to for detailed standards.
 | `codex-compatibility.md` | The bridge from this source tree to Codex-compatible output |
 | `high-trust-agent-delivery.md` | The layered-controls model behind the correction lens |
 | `host-pool-health-monitor.md` | Kernel pool counters and handle pressure on a Windows host |
-| `worker-completion-gate.md` | Full detail behind the worker completion rule |
 | `wsl-docker-cowork-starter-matrix.md` | Host memory attribution under WSL2 and Docker Desktop |
 
 ### Agents (1)
