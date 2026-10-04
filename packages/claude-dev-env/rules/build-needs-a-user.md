@@ -5,7 +5,7 @@ paths:
   - "**/bin/**"
   - "**/ci/**"
   - "**/tools/**"
-  - "**/skills/*/scripts/**"
+  - "**/skills/**"
   - "**/commands/**"
 ---
 
