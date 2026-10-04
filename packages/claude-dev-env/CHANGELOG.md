@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.44.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.2...claude-dev-env-v8.44.3) (2026-10-04)
+
+
+### Tests
+
+* **step-note-gate:** drive late transcript writes from an injected clock ([edc5088](https://github.com/jl-cmd/claude-dev-env/commit/edc50882b877a660ff200c46fcfc00961340cce4))
+
 ## [8.44.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.1...claude-dev-env-v8.44.2) (2026-10-04)
 
 
