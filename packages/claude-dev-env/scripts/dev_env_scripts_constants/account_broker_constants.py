@@ -51,6 +51,8 @@ BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
 BROKER_STATE_LOCK_SUFFIX = ".lock"
 SECONDS_PER_HOUR = 3600
+ALL_BATCH_FILE_EXTENSIONS = frozenset({".bat", ".cmd"})
+CMD_SHELL_METACHARACTERS = "&|<>^%!\"\r\n"
 
 
 def codex_usage_limit_signatures() -> tuple[str, ...]:
