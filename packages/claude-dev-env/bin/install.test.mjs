@@ -3321,7 +3321,7 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin uninstall usage-wrapup@claude-dev-env',
     'claude plugin marketplace remove claude-dev-env',
-    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin',
+    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
     'claude plugin install usage-wrapup@claude-dev-env',
 ]);
 
