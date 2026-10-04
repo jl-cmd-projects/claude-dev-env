@@ -5,37 +5,32 @@ chain-outcome builders, its runner shortcuts, and its seam installer from here
 so the behavioral groups stay small and none of the shared support is copied
 between them.
 
-This module inserts the scripts directory on ``sys.path`` before its flat
-import list, so the invoker and its constants package resolve by bare name
-whether or not pytest's conftest has already registered the directory.
+The sibling ``conftest.py`` registers the scripts directory on ``sys.path``
+before pytest imports any test module, so the invoker and its constants
+package resolve here by bare name.
 """
 
 from __future__ import annotations
 
 import subprocess
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
-_SCRIPTS_DIRECTORY = str(Path(__file__).resolve().parent)
-if _SCRIPTS_DIRECTORY not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIRECTORY)
-
-import invoke_code_review as invoker  # noqa: E402
+import invoke_code_review as invoker
 from dev_env_scripts_constants.account_broker_constants import JobOutcome, Product, WAIT_EXIT_CODE
-from dev_env_scripts_constants.code_review_constants import (  # noqa: E402
+from dev_env_scripts_constants.code_review_constants import (
     CLI_SESSION_MODEL_FLAG,
     CODE_REVIEW_MODEL_ALIAS,
     GIT_BINARY,
 )
-from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
+from dev_env_scripts_constants.grok_worker_constants import (
     CLI_TIMEOUT_FLAG,
     CWD_FLAG,
 )
-from dev_env_scripts_constants.timing import (  # noqa: E402
+from dev_env_scripts_constants.timing import (
     DEFAULT_CODE_REVIEW_TIMEOUT_SECONDS,
 )
 
