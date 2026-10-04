@@ -5,12 +5,18 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Sequence
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 import codex_account_choice
 import codex_account_meters
@@ -19,6 +25,7 @@ from claude_chain_usage import WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
     BROKER_STATE_DIRECTORY_NAME,
     BROKER_STATE_FILE_NAME,
+    BROKER_STATE_LOCK_SUFFIX,
     BROKER_STATE_TEMP_SUFFIX,
     Account,
     BrokerConfigurationError,
@@ -222,18 +229,79 @@ def _load_state(path: Path) -> dict[str, object]:
     return {key: parsed_state.get(key) if isinstance(parsed_state.get(key), dict) else {} for key in ("meters", "spent", "affinity")}
 
 
-def _save_state(path: Path, all_state: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_name: str | None = None
+if sys.platform == "win32":
+
+    def _acquire_state_lock(lock_descriptor: int) -> None:
+        os.lseek(lock_descriptor, 0, os.SEEK_SET)
+        msvcrt.locking(lock_descriptor, msvcrt.LK_LOCK, 1)
+
+    def _release_state_lock(lock_descriptor: int) -> None:
+        os.lseek(lock_descriptor, 0, os.SEEK_SET)
+        msvcrt.locking(lock_descriptor, msvcrt.LK_UNLCK, 1)
+
+else:
+
+    def _acquire_state_lock(lock_descriptor: int) -> None:
+        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+
+    def _release_state_lock(lock_descriptor: int) -> None:
+        fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _state_lock(path: Path) -> Iterator[None]:
+    """Hold an exclusive operating-system lock on the state file's sibling lock file."""
+    lock_descriptor = os.open(path.with_name(path.name + BROKER_STATE_LOCK_SUFFIX), os.O_CREAT | os.O_RDWR)
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix="state-", suffix=BROKER_STATE_TEMP_SUFFIX, delete=False, newline="\n") as stream:
-            temporary_name = stream.name
-            json.dump(all_state, stream, indent=REPORT_INDENT_SPACES, sort_keys=True)
-            stream.write("\n")
-        os.replace(temporary_name, path)
+        _acquire_state_lock(lock_descriptor)
+        try:
+            yield
+        finally:
+            _release_state_lock(lock_descriptor)
     finally:
-        if temporary_name is not None and os.path.exists(temporary_name):
-            os.unlink(temporary_name)
+        os.close(lock_descriptor)
+
+
+def _read_at(entry: object) -> float:
+    if not isinstance(entry, dict):
+        return float("-inf")
+    read_at = entry.get("read_at")
+    return float(read_at) if isinstance(read_at, (int, float)) else float("-inf")
+
+
+def _merged_state(all_saved_state: dict[str, object], all_unsaved_state: dict[str, object]) -> dict[str, object]:
+    """Combine two state documents so each writer keeps the other writer's entries.
+
+    A spent mark keeps its latest reset, a meter entry keeps its newest read,
+    and the unsaved session bindings take their keys.
+    """
+    all_meters = dict(all_saved_state["meters"])
+    for each_key, each_entry in all_unsaved_state["meters"].items():
+        if _read_at(each_entry) >= _read_at(all_meters.get(each_key)):
+            all_meters[each_key] = each_entry
+    all_spent = dict(all_saved_state["spent"])
+    for each_key, each_reset in all_unsaved_state["spent"].items():
+        saved_reset = all_spent.get(each_key)
+        if not isinstance(saved_reset, (int, float)) or (isinstance(each_reset, (int, float)) and each_reset > saved_reset):
+            all_spent[each_key] = each_reset
+    return {"meters": all_meters, "spent": all_spent, "affinity": {**all_saved_state["affinity"], **all_unsaved_state["affinity"]}}
+
+
+def _save_state(path: Path, all_state: dict[str, object]) -> None:
+    """Merge the caller's state into the saved file under a lock, then refresh the caller's copy."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _state_lock(path):
+        all_state.update(_merged_state(_load_state(path), all_state))
+        temporary_name: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix="state-", suffix=BROKER_STATE_TEMP_SUFFIX, delete=False, newline="\n") as stream:
+                temporary_name = stream.name
+                json.dump(all_state, stream, indent=REPORT_INDENT_SPACES, sort_keys=True)
+                stream.write("\n")
+            os.replace(temporary_name, path)
+        finally:
+            if temporary_name is not None and os.path.exists(temporary_name):
+                os.unlink(temporary_name)
 
 
 def _state_key(account: Account) -> str:

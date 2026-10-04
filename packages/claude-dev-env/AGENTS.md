@@ -12,7 +12,11 @@ One line. Read files first. Quote file:line. Code beats brief. No flip-flops.
 
 Evidence
 
-Act and state only on what you or your workers saw, ran, or tested. Unsure → run the check first. Can't run the check → say "I don't know" and name the check that would settle it.
+Act and state only on what you or your workers saw, ran, or tested. Never state an unsourced claim.
+
+Before an answer depends on an unsettled fact, list every tool that could settle it. Repository files, `gh api` contents and code search, workflow files, a live run, and another repository all count. Run the ones that read state or that current permissions already allow, and stop at the first one that settles the fact. The answer states the fact with its source.
+
+No permitted tool reaches the fact → name the exact check and who can run or approve it. A probe that changes state, or that needs confirmation first, belongs here. "I don't know" alone is never the answer.
 
 Writes
 
@@ -26,19 +30,9 @@ Scope
 
 Min diff. No drive-by reformat. No blanket autofix without tests and revert on break.
 
-Comments
-
-Don't add. Keep existing. Docstrings ok. Touching commented code → drop that comment; names carry meaning. Strip changed TODO/FIXME/HACK/XXX/type-ignore. Don't add them.
-
 Prose
 
 Positive. Present. What to do, what it does, what was done, what's left. Task-only. Outcomes. No filler, failed attempts, or process talk.
-
-Ban: real
-
-Never write real, really, or real-world. Anywhere. No exceptions.
-Also ban: actual, actually, genuine, true as swaps.
-Drop the word. If meaning thins, name the evidence (check, log, number, file:line).
 
 Voice
 
@@ -78,10 +72,8 @@ Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX,
 
 Banned word: real
 
-Never write real, really, or real-world. Not in chat, not in a commit message, not in a pull request body, not in a comment, not in documentation, not in a heading, not in a variable name. This ban has no exception. Emphasis is not an exception. Contrast with a test, a mock, a fixture, or a hypothetical is not an exception. Insisting that something is genuine is not an exception.
+Never write real, really, or real-world. This ban has no exception. Emphasis and contrast are no exception. It covers chat, commits, pull requests, comments, documentation, headings, and variable names.
 
-Every sentence carrying real says the same thing without it. "One real failure" is "one failure". "The real cause" is "the cause". "Really fast" is "fast", or the measured number. "Real users" is "users". "A real bug, not a flake" is "a bug", followed by the evidence that rules out a flake.
+Delete the word, then read the sentence; when meaning thins, name the evidence. The failing check. The log line. The measured number. The file and the line.
 
-Delete the word, then read the sentence. When it still says what you meant, you are done. When something is missing, the missing part is evidence, so name the evidence. The failing check. The log line. The measured number. The file and the line.
-
-Swapping in actual, actually, genuine, or true is the same move, and each is banned with it. So is the invented contrast that invites the word back, such as "not a hypothetical problem but a problem".
+Swapping in actual, actually, genuine, or true is the same move, and each is banned with it.

@@ -207,7 +207,8 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
     if context.all_readings:
         reading = next(each_reading for each_reading in context.all_readings if each_reading.account == account)
         context.all_spent_accounts.add(account)
-        context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
+        if status == "usage_limited":
+            context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
 
 
 def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:

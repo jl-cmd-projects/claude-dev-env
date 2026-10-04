@@ -1,7 +1,7 @@
 """Fixture-driven tests for the conditional Codex convergence gate.
 
 Covers: required-and-clean, required-and-dirty, skipped-by-tier,
-skipped-by-token, skipped-by-down, and the read of the Codex account picker's
+skipped-by-token, skipped-by-down, and the read of the account broker's
 ``choose`` answer. The required tier comes from ``CODEX_TIER_NORMAL``.
 """
 
@@ -117,15 +117,15 @@ def should_pass_when_codex_required_and_clean(
     assert "All pre-conditions met" in captured
 
 
-def should_pass_without_running_the_picker_when_the_clean_stamp_is_on_head(
+def test_should_pass_without_running_the_broker_when_the_clean_stamp_is_on_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _picker_that_must_not_run() -> str | None:
+    def _broker_that_must_not_run() -> str | None:
         raise AssertionError(
-            "the Codex account picker must not run when codex_clean_at is on HEAD"
+            "the account broker must not run when codex_clean_at is on HEAD"
         )
 
-    monkeypatch.setattr(check_convergence, "_read_codex_tier", _picker_that_must_not_run)
+    monkeypatch.setattr(check_convergence, "_read_codex_tier", _broker_that_must_not_run)
 
     is_passed, detail = check_convergence._evaluate_codex_clean(
         read_codex_tier=check_convergence._read_codex_tier,
@@ -228,7 +228,7 @@ def should_fail_when_codex_required_and_dirty(
 
 
 @pytest.mark.parametrize("tier_without_room", ALL_TIERS_WITHOUT_ROOM_FOR_REVIEW)
-def should_skip_when_the_picker_names_no_account_with_room_for_review(
+def test_should_skip_when_the_broker_names_no_account_with_room_for_review(
     tier_without_room: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     fixture_path = _write_fixture(
@@ -513,47 +513,86 @@ def should_accept_codex_clean_at_flag_in_parsed_arguments() -> None:
     assert arguments.codex_clean_at == HEAD_SHA
 
 
-def _install_fake_picker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, picker_source: str
+def _install_fake_broker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, broker_source: str
 ) -> None:
-    picker_path = tmp_path / "codex_account_choice.py"
-    picker_path.write_text(picker_source, encoding="utf-8")
-    monkeypatch.setattr(check_convergence, "_codex_account_picker_path", lambda: picker_path)
+    broker_path = tmp_path / "account_broker.py"
+    broker_path.write_text(broker_source, encoding="utf-8")
+    monkeypatch.setattr(check_convergence, "_codex_account_broker_path", lambda: broker_path)
 
 
-def should_read_the_tier_the_picker_chooses(
+def test_should_read_normal_tier_from_broker_decision(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _install_fake_picker(
+    broker_path = tmp_path / "account_broker.py"
+    broker_path.write_text(
+        "import json, sys\n"
+        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "print(json.dumps({'decision': {'tier': 'normal', 'reason': 'room'}, 'accounts': []}))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_convergence, "_codex_account_broker_path", lambda: broker_path)
+
+    assert check_convergence._read_codex_tier() == CODEX_TIER_NORMAL
+
+
+def test_should_read_wait_tier_from_broker_exit_three(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker_path = tmp_path / "account_broker.py"
+    broker_path.write_text(
+        "import json, sys\n"
+        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "print(json.dumps({'decision': {'tier': 'wait', 'reason': 'no room'}, 'accounts': []}))\n"
+        "sys.exit(3)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_convergence, "_codex_account_broker_path", lambda: broker_path)
+
+    assert check_convergence._read_codex_tier() == "wait"
+
+    passed, detail = check_convergence._evaluate_codex_clean(
+        read_codex_tier=check_convergence._read_codex_tier,
+        codex_clean_at=None,
+        head_sha=HEAD_SHA,
+    )
+    assert passed
+    assert "skipped" in detail
+
+
+def test_should_read_the_tier_the_broker_chooses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install_fake_broker(
         tmp_path,
         monkeypatch,
         "import json, sys\n"
-        "assert sys.argv[1:] == ['choose']\n"
-        "print(json.dumps({'tier': 'normal', 'account': 'codex-2'}))\n",
+        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "print(json.dumps({'decision': {'tier': 'normal', 'account': 'codex-2'}, 'accounts': []}))\n",
     )
 
     assert check_convergence._read_codex_tier() == CODEX_TIER_NORMAL
 
 
 @pytest.mark.parametrize(
-    "picker_source",
+    "broker_source",
     [
-        "import sys\nprint('{\"tier\": \"normal\"}')\nsys.exit(1)\n",
+        "import sys\nprint('{\"decision\": {\"tier\": \"normal\"}}')\nsys.exit(1)\n",
         "print('not json')\n",
         "print('[\"normal\"]')\n",
-        "print('{\"tier\": 1}')\n",
+        "print('{\"decision\": {\"tier\": 1}}')\n",
     ],
 )
-def should_read_no_tier_when_the_picker_fails_or_answers_out_of_shape(
-    picker_source: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_should_read_no_tier_when_the_broker_fails_or_answers_out_of_shape(
+    broker_source: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _install_fake_picker(tmp_path, monkeypatch, picker_source)
+    _install_fake_broker(tmp_path, monkeypatch, broker_source)
 
     assert check_convergence._read_codex_tier() is None
 
 
-def should_locate_the_packaged_codex_account_picker() -> None:
-    picker_path = check_convergence._codex_account_picker_path()
+def test_should_locate_the_packaged_codex_account_broker() -> None:
+    broker_path = check_convergence._codex_account_broker_path()
 
-    assert picker_path.name == "codex_account_choice.py"
-    assert picker_path.is_file()
+    assert broker_path.name == "account_broker.py"
+    assert broker_path.is_file()

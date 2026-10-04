@@ -1,5 +1,76 @@
 # Changelog
 
+## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** move Codex callers onto the account broker ([e11d676](https://github.com/jl-cmd/claude-dev-env/commit/e11d676fbb558ad6de364ee333ce8cfb0f42ef49))
+
+## [8.38.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.2...claude-dev-env-v8.38.3) (2026-10-04)
+
+
+### Performance
+
+* **hooks:** load poteto-mode on demand ([f6be671](https://github.com/jl-cmd/claude-dev-env/commit/f6be671544c3ec3dc229785390be8925b57ab3cf))
+
+## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep one hook entry per script when roots share settings.json ([271e22c](https://github.com/jl-cmd/claude-dev-env/commit/271e22c632e31ac60fdef46eb8582d53db24726c))
+
+## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **scripts:** keep every broker spent mark when jobs write at once ([824cb90](https://github.com/jl-cmd/claude-dev-env/commit/824cb9043365110cdfae571ef4ccd0ecf1f9667a))
+
+## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
+
+
+### Features
+
+* **scripts:** add one account broker for Claude and Codex jobs ([e0752f4](https://github.com/jl-cmd/claude-dev-env/commit/e0752f4b1352c189c37e2927435a815cbb97dab0))
+
+## [8.37.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.2...claude-dev-env-v8.37.3) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** settle a fact with every tool before answering ([#1607](https://github.com/jl-cmd/claude-dev-env/issues/1607)) ([d24ed35](https://github.com/jl-cmd/claude-dev-env/commit/d24ed351c95362ff76f1cac10b56124ec2bbba7a))
+
+## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** state each rule once in the package AGENTS.md ([bebce38](https://github.com/jl-cmd/claude-dev-env/commit/bebce38ca524910f0769764993cf394f8066acd9))
+
+## [8.37.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.0...claude-dev-env-v8.37.1) (2026-10-03)
+
+
+### Documentation
+
+* **rule-guides:** state seven moved sentences directly ([7f116ff](https://github.com/jl-cmd/claude-dev-env/commit/7f116ff603074aa0c9a868ae38e6cc9d8777f123))
+* **rules:** shrink the eleven always-on rules to index entries ([112adea](https://github.com/jl-cmd/claude-dev-env/commit/112adea563b3b2673852613adda0ee6d4540affe))
+* **rules:** shrink the eleven always-on rules to index entries ([0853f8a](https://github.com/jl-cmd/claude-dev-env/commit/0853f8ac84574a13b321cba08cb022572c65caca))
+
+## [8.37.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.4...claude-dev-env-v8.37.0) (2026-10-03)
+
+
+### Features
+
+* **hooks:** hold agent spawns until the session has read and asked ([16f7ce5](https://github.com/jl-cmd/claude-dev-env/commit/16f7ce5c01258603b1bb982d747cbc016ff35d42))
+* **hooks:** hold agent spawns until the session has read and asked ([f366bdf](https://github.com/jl-cmd/claude-dev-env/commit/f366bdf48f9ff8cc09bc38a1fce594122e7669b9))
+
+
+### Bug Fixes
+
+* **hooks:** count only interactive prompts as the spawn interview ([7fb3ec8](https://github.com/jl-cmd/claude-dev-env/commit/7fb3ec880d7dad53b9c699297e1fd78a8bb0492f))
+
 ## [8.36.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.36.3...claude-dev-env-v8.36.4) (2026-10-03)
 
 
