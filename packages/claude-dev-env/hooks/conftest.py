@@ -18,8 +18,26 @@ _is_ephemeral_script_path = importlib.import_module("code_rules_shared").is_ephe
 _EPHEMERAL_EXEMPT_DISABLE_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
     "hooks_constants.code_rules_enforcer_constants"
 ).EPHEMERAL_EXEMPT_DISABLE_ENVIRONMENT_VARIABLE_NAME
+_CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
+    "hooks_constants.harness_scratchpad_constants"
+).CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME
 
 _ROOT_ANCHORED_PROBE_PATH = "/tmp/scratch.py"
+
+
+@pytest.fixture(autouse=True)
+def isolate_from_live_session_scratchpad(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove the live harness session id before each hooks test.
+
+    A Claude Code session exports ``CLAUDE_CODE_SESSION_ID``. When this checkout
+    sits inside that session's scratchpad, the scratchpad predicate classifies
+    every repository file as throwaway scratch, and the gates under test step
+    aside. Tests that exercise the scratchpad match set their own session id.
+
+    Args:
+        monkeypatch: Pytest's environment-variable patcher, torn down after the test.
+    """
+    monkeypatch.delenv(_CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME, raising=False)
 
 
 @pytest.fixture
