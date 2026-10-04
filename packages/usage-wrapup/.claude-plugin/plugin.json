@@ -1,0 +1,30 @@
+{
+  "name": "usage-wrapup",
+  "version": "0.2.0",
+  "description": "When your plan usage gets low, tells every running agent to wrap up before the limit cuts it off, and compacts the conversation when usage is nearly gone.",
+  "userConfig": {
+    "threshold": {
+      "type": "number",
+      "title": "Wrap-up threshold (% left)",
+      "description": "Tell agents to finish when this much of a usage window is left.",
+      "default": 5
+    },
+    "compactFiveHour": {
+      "type": "number",
+      "title": "Compact at 5-hour usage (% used)",
+      "description": "Compact the conversation once per 5-hour window when this much of it is used.",
+      "default": 97
+    },
+    "compactSevenDay": {
+      "type": "number",
+      "title": "Compact at weekly usage (% used)",
+      "description": "Compact the conversation once per weekly window when this much of it is used.",
+      "default": 99
+    }
+  },
+  "author": {
+    "name": "Kevin Koch"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
