@@ -130,5 +130,5 @@ zero when no error remains.
 
 | Rule | Role |
 |---|---|
-| [`ci-owns-the-gate.md`](ci-owns-the-gate.md) | The full check suite runs once, on CI |
-| [`git-workflow.md`](git-workflow.md) | A red required check blocks the branch |
+| [CI Owns the Gate](../.agents/skills/pr-lifecycle/SKILL.md#ci-owns-the-gate) | The full check suite runs once, on CI |
+| [Git workflow](../.agents/skills/pr-lifecycle/SKILL.md#git-workflow) | A red required check blocks the branch |

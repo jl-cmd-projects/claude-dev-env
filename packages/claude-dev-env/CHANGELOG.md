@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.41.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.1...claude-dev-env-v8.41.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** load the pull request rules through a hook-gated skill ([5611459](https://github.com/jl-cmd/claude-dev-env/commit/56114596d29804d8b9c8fb75a7bafe29b4a15090))
+
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
 ## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
 
 

@@ -1364,8 +1364,12 @@ function commandRunsHookOfRootSharingSettings(normalizedCommand, relativePath, s
         const characterAfterPath = normalizedCommand[tailStart + hookPathTail.length];
         if (characterAfterPath === undefined || commandArgumentBoundary.test(characterAfterPath)) {
             let rootStart = tailStart;
-            while (rootStart > 0 && !commandArgumentBoundary.test(normalizedCommand[rootStart - 1])) {
-                rootStart--;
+            if (characterAfterPath === '"' || characterAfterPath === "'") {
+                rootStart = normalizedCommand.lastIndexOf(characterAfterPath, tailStart - 1) + 1;
+            } else {
+                while (rootStart > 0 && !commandArgumentBoundary.test(normalizedCommand[rootStart - 1])) {
+                    rootStart--;
+                }
             }
             const rootPath = normalizedCommand.slice(rootStart, tailStart);
             const rootSettingsRealPath = rootPath
