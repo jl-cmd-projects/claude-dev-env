@@ -22,6 +22,7 @@ FULL_TEXT_LINK_PATTERN = re.compile(
     r"^\*\*Full text:\*\*.*?\]\((\.\./docs/rule-guides/[^)#\s]+\.md)\)", re.MULTILINE
 )
 TITLE_PATTERN = re.compile(r"^# \S", re.MULTILINE)
+WHEN_LINE_PATTERN = re.compile(r"^\*\*When(?: this applies)?:\*\* \S", re.MULTILINE)
 
 MAXIMUM_ENTRY_BYTES = 1_500
 MAXIMUM_ALWAYS_ON_BYTES = 12_000
@@ -86,6 +87,16 @@ def test_each_entry_opens_with_a_title_after_its_frontmatter() -> None:
         )
     ]
     assert untitled == []
+
+
+def test_each_entry_states_when_it_applies() -> None:
+    without_when_line = [
+        each_path.name
+        for each_path in _entry_paths()
+        if each_path.name not in POINTER_ENTRY_NAMES | CODEX_VERBATIM_ENTRY_NAMES
+        and not WHEN_LINE_PATTERN.search(_entry_text(each_path))
+    ]
+    assert without_when_line == []
 
 
 def _full_text_link_problems(entry_path: Path) -> list[str]:
