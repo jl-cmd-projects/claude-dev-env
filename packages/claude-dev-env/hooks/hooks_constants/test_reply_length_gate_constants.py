@@ -13,3 +13,9 @@ def test_gate_checks_the_two_chat_tools_that_post_to_the_user() -> None:
 
 def test_gate_exit_codes_match_the_hook_contract() -> None:
     assert (constants.ALLOW_EXIT_CODE, constants.BLOCK_EXIT_CODE) == (0, 2)
+
+
+def test_default_banned_words_hold_the_hedges_and_intensifiers() -> None:
+    assert {"likely", "probably", "seems", "real", "actually", "genuine"} <= set(
+        constants.ALL_DEFAULT_BANNED_WORDS
+    )

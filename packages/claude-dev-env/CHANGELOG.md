@@ -1,5 +1,61 @@
 # Changelog
 
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
+## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny banned words in chat replies ([7bc4d05](https://github.com/jl-cmd/claude-dev-env/commit/7bc4d05e68f069176f6edeb2d7444be27092a9a2))
+
+## [8.39.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.3...claude-dev-env-v8.39.0) (2026-10-04)
+
+
+### Features
+
+* **scripts:** move Codex callers onto the account broker ([e11d676](https://github.com/jl-cmd/claude-dev-env/commit/e11d676fbb558ad6de364ee333ce8cfb0f42ef49))
+
+## [8.38.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.2...claude-dev-env-v8.38.3) (2026-10-04)
+
+
+### Performance
+
+* **hooks:** load poteto-mode on demand ([f6be671](https://github.com/jl-cmd/claude-dev-env/commit/f6be671544c3ec3dc229785390be8925b57ab3cf))
+
+## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep one hook entry per script when roots share settings.json ([271e22c](https://github.com/jl-cmd/claude-dev-env/commit/271e22c632e31ac60fdef46eb8582d53db24726c))
+
+## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **scripts:** keep every broker spent mark when jobs write at once ([824cb90](https://github.com/jl-cmd/claude-dev-env/commit/824cb9043365110cdfae571ef4ccd0ecf1f9667a))
+
+## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
+
+
+### Features
+
+* **scripts:** add one account broker for Claude and Codex jobs ([e0752f4](https://github.com/jl-cmd/claude-dev-env/commit/e0752f4b1352c189c37e2927435a815cbb97dab0))
+
+## [8.37.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.2...claude-dev-env-v8.37.3) (2026-10-03)
+
+
+### Documentation
+
+* **agents:** settle a fact with every tool before answering ([#1607](https://github.com/jl-cmd/claude-dev-env/issues/1607)) ([d24ed35](https://github.com/jl-cmd/claude-dev-env/commit/d24ed351c95362ff76f1cac10b56124ec2bbba7a))
+
 ## [8.37.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.1...claude-dev-env-v8.37.2) (2026-10-03)
 
 
