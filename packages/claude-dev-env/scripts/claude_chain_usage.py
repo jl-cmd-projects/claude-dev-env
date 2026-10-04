@@ -28,11 +28,31 @@ class WeeklyUtilizationProbeError(Exception):
     """Raised when an account's usage meters cannot be measured."""
 
 
-def _usage_pause_scripts_directory() -> Path:
-    package_root = Path(__file__).resolve().parent.parent
-    return (
+def _usage_pause_scripts_directory(module_file: Path) -> Path:
+    """Return the usage-pause scripts directory beside this scripts tree.
+
+    ::
+
+        packages/claude-dev-env/scripts/x.py  ->  packages/claude-dev-env/.agents/skills/usage-pause/scripts
+        ~/.claude/scripts/x.py (link)         ->  ~/.agents/skills/usage-pause/scripts
+
+    The installer links ~/.claude/scripts to ~/.agents/scripts, so the
+    resolved scripts tree already sits inside the agents home.
+
+    Args:
+        module_file: Path of a module inside the scripts tree.
+
+    Returns:
+        The directory that holds the usage-pause resolver.
+    """
+    package_root = module_file.resolve().parent.parent
+    agents_home = (
         package_root
-        / USAGE_PAUSE_AGENTS_HOME_DIRECTORY_NAME
+        if package_root.name.endswith(USAGE_PAUSE_AGENTS_HOME_DIRECTORY_NAME)
+        else package_root / USAGE_PAUSE_AGENTS_HOME_DIRECTORY_NAME
+    )
+    return (
+        agents_home
         / USAGE_PAUSE_SKILL_DIRECTORY_NAME
         / USAGE_PAUSE_SKILL_NAME
         / USAGE_PAUSE_SCRIPTS_DIRECTORY_NAME
@@ -48,7 +68,7 @@ def _load_resolve_usage_window_module() -> ModuleType:
     already_loaded = sys.modules.get(RESOLVE_USAGE_WINDOW_MODULE_NAME)
     if already_loaded is not None:
         return already_loaded
-    scripts_directory = _usage_pause_scripts_directory()
+    scripts_directory = _usage_pause_scripts_directory(Path(__file__))
     module_path = scripts_directory / RESOLVE_USAGE_WINDOW_FILENAME
     if not module_path.is_file():
         raise WeeklyUtilizationProbeError(
@@ -90,12 +110,43 @@ class AccountUsageMeters:
     weekly_resets_at: datetime | None
 
 
+def _read_access_token(
+    usage_window_resolver: ModuleType, credentials_path: Path, now: datetime
+) -> str | None:
+    """Return the bearer token that reads one account's meters.
+
+    ::
+
+        credential file holds a token                ->  that token
+        no token, the session's own credential path  ->  the session ingress token
+        no token, another account's credential path  ->  None
+
+    A cloud session has no credential file, only the ingress token, and that
+    token belongs to the account the session runs on.
+
+    Args:
+        usage_window_resolver: The loaded usage-pause resolver module.
+        credentials_path: The account's CLI credential file.
+        now: The current time, for the token expiry check.
+
+    Returns:
+        A bearer token, or None when the account has none.
+    """
+    file_token = usage_window_resolver.read_oauth_access_token(credentials_path, now)
+    if file_token is not None:
+        return file_token
+    session_credentials_path = usage_window_resolver.default_credentials_path()
+    if credentials_path.resolve() != session_credentials_path.resolve():
+        return None
+    return usage_window_resolver.read_session_ingress_token()
+
+
 def _fetch_account_usage_payload(
     usage_window_resolver: ModuleType, credentials_path: Path
 ) -> dict[str, object]:
     now = datetime.now().astimezone()
     try:
-        access_token = usage_window_resolver.read_oauth_access_token(credentials_path, now)
+        access_token = _read_access_token(usage_window_resolver, credentials_path, now)
         if access_token is None:
             raise WeeklyUtilizationProbeError(
                 NO_ACCESS_TOKEN_ERROR_TEMPLATE.format(credentials_path=credentials_path)

@@ -214,7 +214,6 @@ export function preflightSettingsIfNeeded(settingsPath, shouldInstallHooks, io =
  */
 export function buildInstallPlan(input) {
     const io = input.io || {};
-    const exists = io.existsSync || existsSync;
     const packageName = input.packageName || 'claude-dev-env';
 
     preflightManagedRoot(input.managedRoot, io);
@@ -250,9 +249,6 @@ export function buildInstallPlan(input) {
     preflightSettingsIfNeeded(settingsPath, shouldInstallHooks, io);
 
     const isUpdateRefresh = Boolean(input.isUpdateRefresh);
-    const shouldPurgeBeforeReinstall = isUpdateRefresh
-        && !input.selectedGroups
-        && exists(input.manifestFilePath);
 
     return Object.freeze({
         packageRoot: input.packageRoot,
@@ -261,7 +257,6 @@ export function buildInstallPlan(input) {
         targetIdentity: input.targetIdentity,
         selectedGroups: input.selectedGroups,
         isUpdateRefresh,
-        shouldPurgeBeforeReinstall,
         pythonCommand,
         shouldInstallHooks,
         priorManifest: Object.freeze({
@@ -277,7 +272,6 @@ export function buildInstallPlan(input) {
  * High-level mutation kinds the executor applies for this plan (E2 surface).
  *
  * @param {{
- *   shouldPurgeBeforeReinstall: boolean,
  *   shouldInstallHooks: boolean,
  *   selectedGroups: string[]|null,
  * }} plan
@@ -286,9 +280,6 @@ export function buildInstallPlan(input) {
 export function describeInstallMutations(plan) {
     /** @type {string[]} */
     const allMutations = [];
-    if (plan.shouldPurgeBeforeReinstall) {
-        allMutations.push('purge_managed_installation');
-    }
     allMutations.push(
         'ensure_managed_root',
         'publish_directory_pointers',
