@@ -20,7 +20,7 @@ Lint reports patterns; prompt context carries judgment about SRP, right-sized de
 
 Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
-- check_unanchored_command_dispatch: a command regex that matches a verb inside another command; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_dispatch_wiring.py` reports a named violation.
+- check_unanchored_command_dispatch: a command regex that matches a verb inside another command; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_command_dispatch.py::test_flags_unanchored_multi_word_command_pattern` reports a named violation.
 - check_same_file_inline_duplicate_body: a helper body copied inline into a caller; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_same_file_inline_duplicate.py::test_should_flag_helper_whose_body_is_inlined_in_another_function` reports a named violation.
 - check_zero_payload_function_alias: a pass-through alias forwarding the same arguments; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_zero_payload_alias.py::test_should_flag_pass_through_alias_forwarding_same_parameters` reports a named violation.
 
