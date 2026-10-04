@@ -130,16 +130,16 @@ WINDOWS_OS_NAME: str = "nt"
 TEXT_ENCODING: str = "utf-8"
 """Encoding for the launcher file and the JSON reports."""
 
-MAIN_WEEKLY_USED_CEILING_PERCENT: float = 90.0
+MAIN_WEEKLY_USED_CEILING_PERCENT: float = 99.0
 """Main takes jobs only while its weekly use is under this percent."""
 
-MAIN_SESSION_USED_CEILING_PERCENT: float = 50.0
+MAIN_SESSION_USED_CEILING_PERCENT: float = 95.0
 """Main takes jobs only while its 5-hour use is under this percent."""
 
-SECOND_WEEKLY_USED_CEILING_PERCENT: float = 95.0
+SECOND_WEEKLY_USED_CEILING_PERCENT: float = 99.0
 """The second account takes jobs while its weekly use is under this percent."""
 
-SECOND_SESSION_USED_CEILING_PERCENT: float = 90.0
+SECOND_SESSION_USED_CEILING_PERCENT: float = 95.0
 """The second account takes jobs while its 5-hour use is under this percent."""
 
 FULL_PERCENT: float = 100.0
