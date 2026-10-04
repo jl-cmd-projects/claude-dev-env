@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.44.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.4...claude-dev-env-v8.44.5) (2026-10-04)
+
+
+### Tests
+
+* **rules:** name the index-shape exempt entry set once ([33766db](https://github.com/jl-cmd/claude-dev-env/commit/33766dbde6e63aaad95d295519e640ce63d76b09))
+
 ## [8.44.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.44.3...claude-dev-env-v8.44.4) (2026-10-04)
 
 
