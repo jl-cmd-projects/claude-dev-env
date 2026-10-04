@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.43.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.0...claude-dev-env-v8.43.1) (2026-10-04)
+
+
+### Documentation
+
+* **agents:** clear contrast-framing debt in the root AGENTS.md ([967eef4](https://github.com/jl-cmd/claude-dev-env/commit/967eef46f7ecc02d4793cd192d6c0d2cf0d7702e))
+
 ## [8.43.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.6...claude-dev-env-v8.43.0) (2026-10-04)
 
 
