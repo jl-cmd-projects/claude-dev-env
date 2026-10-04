@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.53.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.1...claude-dev-env-v8.53.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** deny mid-sentence colons and em dashes in chat posts ([b403c97](https://github.com/jl-cmd/claude-dev-env/commit/b403c97fad576557784e27d6cfb7656594c78c7d))
+
+## [8.53.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.0...claude-dev-env-v8.53.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **broker:** hold a Claude account only at 95% of its 5-hour window or 99% of its week ([#1857](https://github.com/jl-cmd/claude-dev-env/issues/1857)) ([6ffd503](https://github.com/jl-cmd/claude-dev-env/commit/6ffd50378e427798e30705d2a3383272eef45ce9))
+
+## [8.53.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.1...claude-dev-env-v8.53.0) (2026-10-04)
+
+
+### Features
+
+* Add auto mode denial quick-fix hook ([4809d11](https://github.com/jl-cmd/claude-dev-env/commit/4809d1197c388202799d27e8be92e3419bd71f00))
+
 ## [8.52.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.0...claude-dev-env-v8.52.1) (2026-10-04)
 
 

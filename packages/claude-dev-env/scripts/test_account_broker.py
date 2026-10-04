@@ -112,8 +112,8 @@ def test_should_keep_list_order_when_tighter_windows_tie() -> None:
 @pytest.mark.parametrize(
     ("weekly_reset", "weekly_left", "short_left"),
     (
-        (NOW + timedelta(hours=4), 10, 80),
-        (NOW + timedelta(hours=4), 20, 50),
+        (NOW + timedelta(hours=4), 1, 80),
+        (NOW + timedelta(hours=4), 20, 5),
     ),
 )
 def test_should_guard_main_at_each_limit(
@@ -158,7 +158,7 @@ def test_should_pick_an_extra_with_more_room_than_main() -> None:
     assert decision.account == extra.account
 
 
-@pytest.mark.parametrize(("main_short_left", "expected_name"), ((51, "main"), (50, "extra")))
+@pytest.mark.parametrize(("main_short_left", "expected_name"), ((6, "main"), (5, "extra")))
 def test_should_pick_main_only_while_under_its_5_hour_ceiling(
     main_short_left: float, expected_name: str
 ) -> None:
@@ -166,7 +166,7 @@ def test_should_pick_main_only_while_under_its_5_hour_ceiling(
         _account("main", Product.CLAUDE, main=True),
         _meters(main_short_left, 95, weekly_reset=NOW + timedelta(days=5)),
     )
-    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 20))
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 2))
 
     decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
 
@@ -190,7 +190,7 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
     short_reset = NOW + timedelta(hours=2)
     main = Reading(
         _account("main", Product.CLAUDE, main=True),
-        _meters(40, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
+        _meters(5, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
     )
 
     decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
@@ -202,8 +202,8 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
 @pytest.mark.parametrize(
     ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
     (
-        (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
-        (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
+        (5, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
+        (80, 1, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
     ),
 )
 def test_should_wait_for_the_meter_or_window_that_blocks_main(
@@ -292,7 +292,7 @@ def test_should_wait_until_both_blocking_windows_reset() -> None:
 
 def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
     blocked = Reading(
-        _account("blocked", Product.CLAUDE), _meters(10, 5)
+        _account("blocked", Product.CLAUDE), _meters(5, 1)
     )
     unread = Reading(_account("unread", Product.CLAUDE), None)
 
@@ -462,14 +462,14 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
             id="every-meter-unreadable",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
             {},
             "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
             NOW + timedelta(minutes=30),
             id="unreadable-beside-a-reset-before-the-check",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
             {},
             "no readable account has room; meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
@@ -484,7 +484,7 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
         ),
         pytest.param(
             (
-                Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))),
+                Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))),
                 Reading(_EV_CLAUDE, _meters(5, 80, short_reset=NOW + timedelta(hours=3))),
             ),
             {},
@@ -493,7 +493,7 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
             id="every-meter-read-with-known-resets",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, Meters(40, None, 50, None)),),
+            (Reading(_MAIN_CLAUDE, Meters(5, None, 50, None)),),
             {},
             "no account has room; next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
