@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.48.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.3...claude-dev-env-v8.48.4) (2026-10-04)
+
+
+### Refactoring
+
+* **scripts:** read the branch rules once per merge check ([ce29034](https://github.com/jl-cmd/claude-dev-env/commit/ce29034526d25ab52b5cb79375d66c18a1b00e36))
+
+## [8.48.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.2...claude-dev-env-v8.48.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep hook scripts on disk during --update ([8db5b14](https://github.com/jl-cmd/claude-dev-env/commit/8db5b140f4765517f19f874c82d5ab907911375d))
+
 ## [8.48.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.1...claude-dev-env-v8.48.2) (2026-10-04)
 
 
