@@ -45,3 +45,9 @@ def test_gate_reads_only_the_prose_fields_of_a_decision_card() -> None:
         constants.DECISION_CARD_OPTIONS_KEY,
         constants.ALL_DECISION_OPTION_PROSE_KEYS,
     ) == (("question", "context"), "options", ("label", "consequence"))
+
+
+def test_colon_pattern_matches_a_colon_with_prose_after_it_on_the_line() -> None:
+    assert constants.MID_SENTENCE_COLON_PATTERN.search("matters: one message")
+    assert constants.MID_SENTENCE_COLON_PATTERN.search("at 9:47") is None
+    assert constants.MID_SENTENCE_COLON_PATTERN.search("items:\n- one") is None
