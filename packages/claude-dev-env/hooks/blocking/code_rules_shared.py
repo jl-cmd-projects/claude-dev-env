@@ -431,6 +431,26 @@ def _existing_scratchpad_root(
     return None
 
 
+def _is_at_or_under_payload_working_directory(file_path: str, hook_payload: dict) -> bool:
+    """Return True when file_path's real path sits at or under the payload ``cwd``.
+
+    Args:
+        file_path: The path the write targets.
+        hook_payload: The PreToolUse payload that may carry ``cwd``.
+
+    Returns:
+        True when the payload names a working directory and file_path resolves
+        at or under its real path.
+    """
+    working_directory = str(hook_payload.get("cwd") or "")
+    if not working_directory:
+        return False
+    return _is_at_or_under_root(
+        _normalized_absolute_comparison_path(os.path.realpath(file_path)),
+        _normalized_absolute_comparison_path(os.path.realpath(working_directory)),
+    )
+
+
 def is_under_session_scratchpad(file_path: str, hook_payload: dict) -> bool:
     """Return True when file_path resolves under the harness session scratchpad.
 
@@ -460,13 +480,9 @@ def is_under_session_scratchpad(file_path: str, hook_payload: dict) -> bool:
     session_id = _session_id_for_scratchpad(hook_payload)
     if not session_id:
         return False
-    real_target = os.path.realpath(file_path)
-    working_directory = str(hook_payload.get("cwd") or "")
-    if working_directory and _is_at_or_under_root(
-        _normalized_absolute_comparison_path(real_target),
-        _normalized_absolute_comparison_path(os.path.realpath(working_directory)),
-    ):
+    if _is_at_or_under_payload_working_directory(file_path, hook_payload):
         return False
+    real_target = os.path.realpath(file_path)
     real_temp_root = os.path.realpath(tempfile.gettempdir())
     all_relative_parts = _relative_parts_under_temp_root(real_target, real_temp_root)
     return (
@@ -482,10 +498,10 @@ def is_ephemeral_path(file_path: str, hook_payload: dict | None = None) -> bool:
     scratch directories (``/tmp`` and ``$CLAUDE_JOB_DIR/tmp``), the harness
     session scratchpad, and a coding agent's own home-directory tooling such as
     ``~/.grok/runs/``. A path inside the payload's own working directory
-    (``cwd``) is never treated as scratch, so a repository checked out under
-    ``/tmp`` still receives full enforcement. The scratchpad match reads the
-    session id from the payload when supplied, else the harness environment
-    variable. The code-rules and TDD gates call the underlying predicates
+    (``cwd``) is never treated as scratch or agent tooling, so a repository
+    checked out under ``/tmp`` or ``~/.grok/runs/`` still receives full
+    enforcement. The scratchpad match reads the session id from the payload
+    when supplied, else the harness environment variable. The code-rules and TDD gates call the underlying predicates
     ``is_ephemeral_script_path``, ``is_agent_home_tooling``, and
     ``is_under_session_scratchpad`` directly.
 
@@ -501,7 +517,9 @@ def is_ephemeral_path(file_path: str, hook_payload: dict | None = None) -> bool:
     repository_root = str((hook_payload or {}).get("cwd") or "")
     if is_ephemeral_script_path(file_path, repository_root):
         return True
-    if is_agent_home_tooling(file_path):
+    if is_agent_home_tooling(file_path) and not _is_at_or_under_payload_working_directory(
+        file_path, hook_payload or {}
+    ):
         return True
     return is_under_session_scratchpad(file_path, hook_payload or {})
 
