@@ -1,5 +1,14 @@
 # Changelog
 
+## [8.47.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.2...claude-dev-env-v8.47.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ci:** install playtest expects the rewrite to keep the permission prompt ([9484170](https://github.com/jl-cmd/claude-dev-env/commit/94841701e23848d84aa478304c78b3e4377a90f1))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([e84d272](https://github.com/jl-cmd/claude-dev-env/commit/e84d2723e1e213a3d758286c123607c9c5ebd2a2))
+* **hooks:** keep the permission prompt on rewritten Bash commands ([7af09da](https://github.com/jl-cmd/claude-dev-env/commit/7af09da81a9312486ac91f6bd1c9b698b930ae77))
+
 ## [8.47.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.47.1...claude-dev-env-v8.47.2) (2026-10-04)
 
 
