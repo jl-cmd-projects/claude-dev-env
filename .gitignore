@@ -60,7 +60,7 @@ packages/claude-dev-env/.agents/skills/self-improve-pr-converge/self-improve-eva
 packages/claude-dev-env/.agents/skills/self-improve-pr-converge/scripts/self-improve-eval-data/
 **/self-improve-eval-data/*.temp-*
 
-# Local working documents — never committed per git-workflow rule
+# Local working documents are excluded by the pr-lifecycle skill
 docs/plans/
 .orchestrator/
 

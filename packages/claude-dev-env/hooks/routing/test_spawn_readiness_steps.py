@@ -1,5 +1,6 @@
 import json
 
+from hooks_constants.spawn_readiness_hook_constants import MISSING_INVESTIGATION_REASON
 from spawn_readiness_steps import SessionStep, readiness_gaps, session_steps
 
 
@@ -81,7 +82,4 @@ def test_should_start_the_span_at_the_request_before_an_answered_question() -> N
         SessionStep.QUESTION,
         SessionStep.USER_MESSAGE,
     ]
-    assert readiness_gaps(all_steps) == [
-        "Investigate the request before this spawn. Read the files, threads, or sources it names, "
-        "so the brief and the agent count fit the task. Run the reads in a message before the spawn."
-    ]
+    assert readiness_gaps(all_steps) == [MISSING_INVESTIGATION_REASON]
