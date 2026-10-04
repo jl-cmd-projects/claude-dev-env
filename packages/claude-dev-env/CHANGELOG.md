@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.48.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.4...claude-dev-env-v8.48.5) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** read account meters through the installed scripts link ([2590697](https://github.com/jl-cmd/claude-dev-env/commit/2590697a1c25dbc467341a25cabd230da4aa99c2))
+
 ## [8.48.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.3...claude-dev-env-v8.48.4) (2026-10-04)
 
 
