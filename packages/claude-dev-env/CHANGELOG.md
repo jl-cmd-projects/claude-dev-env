@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.49.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.1...claude-dev-env-v8.49.2) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** import the merge check by bare name through conftest ([2618d77](https://github.com/jl-cmd/claude-dev-env/commit/2618d77573fb6f048def0c3ac547d082d31bca19))
+
 ## [8.49.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.0...claude-dev-env-v8.49.1) (2026-10-04)
 
 
