@@ -118,6 +118,16 @@
         ]
       },
       {
+        "matcher": "mcp__.*__set_session_title",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/session_title_format_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__hearthbot__start_thread_session",
         "hooks": [
           {
@@ -247,6 +257,17 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/session_edit_tracker_cleanup.py",
             "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/session_title_stop_gate.py",
+            "timeout": 10
           }
         ]
       }
