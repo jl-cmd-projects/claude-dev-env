@@ -1,5 +1,60 @@
 # Changelog
 
+## [8.49.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.2...claude-dev-env-v8.49.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** keep the start-failure text when no account can start ([128f670](https://github.com/jl-cmd/claude-dev-env/commit/128f670e2ee2b892269b09e96eddda62f6535a0b))
+* **account-broker:** keep the start-failure text when no account can start ([564ffda](https://github.com/jl-cmd/claude-dev-env/commit/564ffda3f82e84d8be3c01186832f057338baced))
+
+## [8.49.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.1...claude-dev-env-v8.49.2) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** import the merge check by bare name through conftest ([2618d77](https://github.com/jl-cmd/claude-dev-env/commit/2618d77573fb6f048def0c3ac547d082d31bca19))
+
+## [8.49.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.49.0...claude-dev-env-v8.49.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** rank main with the other accounts and name unreadable meters in waits ([e7404bb](https://github.com/jl-cmd/claude-dev-env/commit/e7404bbdc3662b33468afc13d703de7a60d41ce7))
+
+## [8.49.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.7...claude-dev-env-v8.49.0) (2026-10-04)
+
+
+### Features
+
+* **hooks:** deny gh auth switch, login, and logout from agents ([5c5f7ad](https://github.com/jl-cmd/claude-dev-env/commit/5c5f7ad2a7b22dd72b0c4305bf2c6a9c85ee800e))
+
+## [8.48.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.6...claude-dev-env-v8.48.7) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** exit 127 when no account can start the command ([d850a11](https://github.com/jl-cmd/claude-dev-env/commit/d850a11ac0216476d246764f925a4f55367946de))
+
+
+### Tests
+
+* **hooks:** pin the model pin hook's event name and clear [#1763](https://github.com/jl-cmd/claude-dev-env/issues/1763) smells ([c758222](https://github.com/jl-cmd/claude-dev-env/commit/c75822270179e6c8b518c9daa9c495d857eb250b))
+
+## [8.48.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.5...claude-dev-env-v8.48.6) (2026-10-04)
+
+
+### Tests
+
+* **scripts:** patch a host predicate in place of the global os.name ([d908e23](https://github.com/jl-cmd/claude-dev-env/commit/d908e2333b3161726bc2bed6f14c07de39507661))
+
+## [8.48.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.4...claude-dev-env-v8.48.5) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** read account meters through the installed scripts link ([2590697](https://github.com/jl-cmd/claude-dev-env/commit/2590697a1c25dbc467341a25cabd230da4aa99c2))
+
 ## [8.48.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.48.3...claude-dev-env-v8.48.4) (2026-10-04)
 
 

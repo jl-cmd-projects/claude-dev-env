@@ -65,7 +65,6 @@ def choose_from_readings(
     now: datetime,
     all_spent_accounts: frozenset[Account] = frozenset(),
     preferred_command: str | None = None,
-    adapter: ProductAdapter | None = None,
     all_spent_resets: Mapping[Account, datetime] | None = None,
 ) -> Decision:
     """Choose an account or a wait.
@@ -80,10 +79,9 @@ def choose_from_readings(
     if product is Product.CODEX and not all_readings:
         home = Path(os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE) or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
         return Decision("run", Account(product, "default", home, True), None, "no roster is configured", TIER_NORMAL)
-    active = adapter or all_product_adapters[product]
     all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
     selected = (
-        _choose_claude(all_available, now, preferred_command, active.main_guard)
+        _choose_claude(all_available, preferred_command)
         if product is Product.CLAUDE
         else _choose_codex(all_available)
     )
@@ -213,6 +211,7 @@ class _RunContext:
     all_attempts: list[tuple[str, str]]
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
+    start_failure_text: str = ""
 
 
 def _prepare_run(
@@ -234,8 +233,11 @@ def _prepare_run(
 
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
+    all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
+    if all_attempt_statuses == {"start_failed"}:
+        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
     status = "exhausted" if context.all_attempts else "wait"
-    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at)
+    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
 
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
@@ -286,6 +288,7 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     except (OSError, subprocess.TimeoutExpired) as error:
         status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
         _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
+        context.start_failure_text = str(error)
         if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
             context.report.final_decision = decision
             final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
@@ -311,7 +314,7 @@ def _execute(
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     while True:
-        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, adapter=context.active, all_spent_resets=context.all_spent_resets)
+        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
         if decision.account is None:
