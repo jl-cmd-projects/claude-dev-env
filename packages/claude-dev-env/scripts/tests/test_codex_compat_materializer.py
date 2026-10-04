@@ -1290,7 +1290,7 @@ def test_posix_case_distinct_enforcer_path_remains_foreign(
     target_manifest = _codex_hook_manifest(
         _codex_hook_group(managed_hook, foreign_hook)
     )
-    monkeypatch.setattr(materializer.os, "name", "posix")
+    monkeypatch.setattr(materializer, "_is_windows_host", lambda: False)
 
     projected_manifest, _, _ = _publish_codex_hook_fixture(
         source, target, target_manifest
@@ -1315,7 +1315,7 @@ def test_windows_case_variant_enforcer_path_is_managed(
     target_manifest = _codex_hook_manifest(
         _codex_hook_group({**managed_hook, "command": case_variant_command})
     )
-    monkeypatch.setattr(materializer.os, "name", "nt")
+    monkeypatch.setattr(materializer, "_is_windows_host", lambda: True)
 
     projected_manifest, _, _ = _publish_codex_hook_fixture(
         source, target, target_manifest
