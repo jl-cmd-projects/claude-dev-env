@@ -11,6 +11,8 @@ paths:
 
 # Documentation Inventory Integrity
 
+**When:** Changing code that a document inventories.
+
 A doc that inventories code stays in step with the code, in the same change:
 
 1. Every bare filename a per-directory `CLAUDE.md` names in a table cell or a fenced run command exists in its subtree.

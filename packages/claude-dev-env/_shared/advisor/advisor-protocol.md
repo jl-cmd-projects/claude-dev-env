@@ -138,8 +138,8 @@ Drift signals and the per-host re-spawn / re-bind steps: [`reference/lifecycle.m
 
 ## CLI chain
 
-The shared runner is `python "$HOME/.claude/scripts/claude_chain_runner.py" [--routing-mode usage_ranked|ordered_account] -- <claude args...>`.
-Modes and failover, the tier-to-alias table, brief piping, and `--resume` session handling: [`reference/cli-chain.md`](reference/cli-chain.md).
+The shared runner is `python "$HOME/.claude/scripts/account_broker.py" run --product claude --report <path> -- claude <args...>`.
+Account choice, failover, the tier-to-alias table, brief piping, and `--resume` session handling: [`reference/cli-chain.md`](reference/cli-chain.md).
 
 **Third-party host:** the primary bind and consult path; the walk order and fail-closed rule live in [`reference/third-party-bind.md`](reference/third-party-bind.md).
 
