@@ -1,5 +1,54 @@
 # Changelog
 
+## [8.43.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.3...claude-dev-env-v8.43.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** gate wrapped shells, backticks, and the pull request script ([0e687bf](https://github.com/jl-cmd/claude-dev-env/commit/0e687bfb9bcea56d4db175446bacdb154a627500))
+
+## [8.43.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.2...claude-dev-env-v8.43.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** report the reset that blocks the main account ([c535891](https://github.com/jl-cmd/claude-dev-env/commit/c53589142cbab39f0953428fab95fa86b2dc190d))
+
+## [8.43.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.1...claude-dev-env-v8.43.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** stop on a job timeout ([eb0b6cb](https://github.com/jl-cmd/claude-dev-env/commit/eb0b6cb7fc831fbfd39db48ee6d9a774f5ea3b88))
+
+## [8.43.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.43.0...claude-dev-env-v8.43.1) (2026-10-04)
+
+
+### Documentation
+
+* **agents:** clear contrast-framing debt in the root AGENTS.md ([967eef4](https://github.com/jl-cmd/claude-dev-env/commit/967eef46f7ecc02d4793cd192d6c0d2cf0d7702e))
+
+## [8.43.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.6...claude-dev-env-v8.43.0) (2026-10-04)
+
+
+### Features
+
+* **install:** install pstack 0.15.9 from the jl-cmd fork, removing the old copy first ([#1689](https://github.com/jl-cmd/claude-dev-env/issues/1689)) ([1dbafc5](https://github.com/jl-cmd/claude-dev-env/commit/1dbafc50a50a0401e3624869256877482720f775))
+
+## [8.42.6](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.5...claude-dev-env-v8.42.6) (2026-10-04)
+
+
+### Tests
+
+* **pr-loop:** cover the broker exit-code constant in check_convergence ([e49f69f](https://github.com/jl-cmd/claude-dev-env/commit/e49f69feae5603c2fb9ed8197b18cf2d87d8a866))
+
+## [8.42.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.4...claude-dev-env-v8.42.5) (2026-10-04)
+
+
+### Tests
+
+* **rules:** hold the rule index to a shape and size budget ([f879b30](https://github.com/jl-cmd/claude-dev-env/commit/f879b309fc4b3fec6a30a976fb5e9c6f21682049))
+
 ## [8.42.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.42.3...claude-dev-env-v8.42.4) (2026-10-04)
 
 
