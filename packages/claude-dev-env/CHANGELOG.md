@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.15](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.14...claude-dev-env-v8.46.15) (2026-10-04)
+
+
+### Bug Fixes
+
+* **agent_merge_check:** skip the GraphQL ejection read without a merge queue ([6c29578](https://github.com/jl-cmd/claude-dev-env/commit/6c295784f24a74ed0baf1c85b57195e4642d5488))
+
 ## [8.46.14](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.13...claude-dev-env-v8.46.14) (2026-10-04)
 
 
