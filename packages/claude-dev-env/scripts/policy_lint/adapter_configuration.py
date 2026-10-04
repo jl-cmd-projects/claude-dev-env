@@ -140,7 +140,9 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The pull request lifecycle gate denies a commit, push, pull request, or
     merge call once, until the session loads the ``pr-lifecycle`` skill. It
-    decides when a rule set loads and no code or safety policy.
+    decides when a rule set loads and no code or safety policy. It also denies
+    a second open ``Follow-up to #N`` pull request for one parent, a delivery
+    rule that names the open follow-up to extend.
 
     The step-note gate allows every call until the user runs ``/step-notes on``.
     It asks for a readable status line and decides no code or safety policy.

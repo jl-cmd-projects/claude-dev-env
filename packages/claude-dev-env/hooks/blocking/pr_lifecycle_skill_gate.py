@@ -50,6 +50,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
+from blocking.followup_pr_dedupe import duplicate_followup_reason
 from transcript_skill_scan import is_skill_loaded_after_last_compaction
 
 
@@ -195,26 +196,35 @@ def _subagent_transcript_path(all_payload_fields: dict[str, object]) -> str | No
 
 
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
-    """Return a deny for a governed action with readable, unloaded transcripts.
+    """Return a deny for an unloaded skill or a second follow-up pull request for one parent.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not _is_governed_action(all_payload_fields):
         return None
+    if _is_skill_unloaded(all_payload_fields):
+        return _deny(DENY_REASON)
+    duplicate_reason = duplicate_followup_reason(all_payload_fields)
+    return None if duplicate_reason is None else _deny(duplicate_reason)
+
+
+def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
     paths.append(_subagent_transcript_path(all_payload_fields))
     readable_paths = list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
     if not readable_paths:
-        return None
+        return False
     statuses = [_transcript_load_status(path) for path in readable_paths]
-    if any(status is None or status for status in statuses):
-        return None
+    return not any(status is None or status for status in statuses)
+
+
+def _deny(reason: str) -> dict[str, object]:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": HOOK_EVENT_NAME,
             PERMISSION_DECISION_KEY: DENY_DECISION,
-            PERMISSION_DECISION_REASON_KEY: DENY_REASON,
+            PERMISSION_DECISION_REASON_KEY: reason,
         }
     }
 
