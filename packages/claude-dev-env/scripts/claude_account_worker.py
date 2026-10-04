@@ -70,9 +70,9 @@ def _invocation(*, model: str | None, permission_mode: str) -> list[str]:
 
 
 def _wait_reason(outcome: JobOutcome) -> str:
-    if outcome.wait_reset_at is None:
+    if outcome.wait_reason is None:
         return "no account has room"
-    return f"no account has room; next reset at {outcome.wait_reset_at.isoformat()}"
+    return outcome.wait_reason
 
 
 def run_worker(
