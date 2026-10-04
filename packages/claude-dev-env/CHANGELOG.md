@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.3...claude-dev-env-v8.46.4) (2026-10-04)
+
+
+### Tests
+
+* **rules:** scope the When-line check to the entry body ([8f009e5](https://github.com/jl-cmd/claude-dev-env/commit/8f009e588b49051a395c7a4a1c1c291f4b6505fa))
+
 ## [8.46.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.2...claude-dev-env-v8.46.3) (2026-10-04)
 
 
