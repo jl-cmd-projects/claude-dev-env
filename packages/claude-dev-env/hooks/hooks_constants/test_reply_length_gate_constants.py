@@ -19,3 +19,29 @@ def test_default_banned_words_hold_the_hedges_and_intensifiers() -> None:
     assert {"likely", "probably", "seems", "real", "actually", "genuine"} <= set(
         constants.ALL_DEFAULT_BANNED_WORDS
     )
+
+
+def test_gate_checks_the_project_decision_card_tool() -> None:
+    assert constants.DECISION_CARD_TOOL_NAME == "mcp__hearthbot__ask_decision"
+
+
+def test_default_banned_words_hold_the_added_hedge_phrases() -> None:
+    assert {
+        "maybe",
+        "perhaps",
+        "presumably",
+        "might be",
+        "may be",
+        "appears to",
+        "i believe",
+        "not sure",
+        "unsure",
+    } <= set(constants.ALL_DEFAULT_BANNED_WORDS)
+
+
+def test_gate_reads_only_the_prose_fields_of_a_decision_card() -> None:
+    assert (
+        constants.ALL_DECISION_CARD_PROSE_KEYS,
+        constants.DECISION_CARD_OPTIONS_KEY,
+        constants.ALL_DECISION_OPTION_PROSE_KEYS,
+    ) == (("question", "context"), "options", ("label", "consequence"))
