@@ -177,6 +177,7 @@ class JobOutcome:
     status: str
     session_id: str | None
     wait_reset_at: datetime | None
+    wait_reason: str | None = None
 
 
 @dataclass

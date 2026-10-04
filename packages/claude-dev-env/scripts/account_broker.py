@@ -233,7 +233,7 @@ def _prepare_run(
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
     status = "exhausted" if context.all_attempts else "wait"
-    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at)
+    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
 
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
