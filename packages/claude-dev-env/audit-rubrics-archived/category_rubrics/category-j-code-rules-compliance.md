@@ -43,7 +43,7 @@ The write-time hook skips several rules on test files and on `.mjs` / `.js` file
 - **Unused imports** — a module-level import a changed file does not read is a finding.
 - **Function length** — a changed function that runs past the length threshold splits into named helpers.
 
-A `test_*.py` name or a `.mjs` extension takes the line out of the write-time gate, not out of this audit. When the diff touches a test or a JavaScript file, walk these five rules against the changed lines there too. J1 (magic values) and J3 (constants location) keep their test-file exemption.
+A `test_*.py` name or a `.mjs` extension takes the line out of the write-time gate only; this audit still covers it. When the diff touches a test or a JavaScript file, walk these five rules against the changed lines there too. J1 (magic values) and J3 (constants location) keep their test-file exemption.
 
 ---
 
