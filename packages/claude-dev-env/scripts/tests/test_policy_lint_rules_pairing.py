@@ -557,6 +557,19 @@ def test_pairing_accepts_installer_module_with_the_agents_home_suite(
     assert all_paths == ()
 
 
+def test_pairing_accepts_installer_module_with_the_shared_settings_suite(
+    tmp_path: Path,
+) -> None:
+    all_paths = _diagnostic_paths(
+        tmp_path,
+        _body_change_at(_INSTALLER_MODULE_PATH),
+        _body_change_at(
+            PurePosixPath("packages/claude-dev-env/bin/install.shared-settings.test.mjs")
+        ),
+    )
+    assert all_paths == ()
+
+
 _COMMENT_RULES_PRODUCTION_PATH = PurePosixPath(
     "packages/claude-dev-env/hooks/blocking/code_rules_comments.py"
 )
