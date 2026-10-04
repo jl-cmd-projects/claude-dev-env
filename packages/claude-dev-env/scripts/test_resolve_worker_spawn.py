@@ -1133,6 +1133,7 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
     monkeypatch.setattr(Path, "home", lambda: fake_home)
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
     monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "state.json")
+    monkeypatch.setattr(account_broker.support, "broker_state_path", lambda: tmp_path / "state.json")
     monkeypatch.setattr(
         dispatcher,
         "spawn_preflight_runner",
