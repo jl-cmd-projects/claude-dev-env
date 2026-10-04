@@ -5,7 +5,7 @@ paths:
 
 # Rules prose names only hooks that run
 
-**When:** When describing a hook or retiring a gate.
+**When:** Describing a hook or retiring a gate.
 
 Verify the module and its hook registration or dispatcher roster before claiming it runs; describe a retired hook in past tense or name the check that carries its work now. When retiring a gate, remove the forced agent calls, tokens, extra steps, thresholds, audit rubrics, and review prompts it required across every instruction lane. Add a retired hook path to the installer roster when deleting its module.
 
