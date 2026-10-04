@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.46.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.2...claude-dev-env-v8.46.3) (2026-10-04)
+
+
+### Tests
+
+* **hooks:** scan the pin constants file for Sonnet ids ([c3a370b](https://github.com/jl-cmd/claude-dev-env/commit/c3a370b88229d9f1b46666191f66fee98ed8d0b6))
+
+## [8.46.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.1...claude-dev-env-v8.46.2) (2026-10-04)
+
+
+### Tests
+
+* **code-rules:** check the index links and test dead anchors directly ([09abec5](https://github.com/jl-cmd/claude-dev-env/commit/09abec5b516053b3c044679d8e1f246c469aa1ae))
+
 ## [8.46.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.0...claude-dev-env-v8.46.1) (2026-10-04)
 
 
