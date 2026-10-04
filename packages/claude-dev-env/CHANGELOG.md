@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.38.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.2...claude-dev-env-v8.38.3) (2026-10-04)
+
+
+### Performance
+
+* **hooks:** load poteto-mode on demand ([f6be671](https://github.com/jl-cmd/claude-dev-env/commit/f6be671544c3ec3dc229785390be8925b57ab3cf))
+
 ## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
 
 
