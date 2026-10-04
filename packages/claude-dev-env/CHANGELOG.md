@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.38.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.1...claude-dev-env-v8.38.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** keep one hook entry per script when roots share settings.json ([271e22c](https://github.com/jl-cmd/claude-dev-env/commit/271e22c632e31ac60fdef46eb8582d53db24726c))
+
+## [8.38.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.38.0...claude-dev-env-v8.38.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **scripts:** keep every broker spent mark when jobs write at once ([824cb90](https://github.com/jl-cmd/claude-dev-env/commit/824cb9043365110cdfae571ef4ccd0ecf1f9667a))
+
 ## [8.38.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.37.3...claude-dev-env-v8.38.0) (2026-10-03)
 
 
