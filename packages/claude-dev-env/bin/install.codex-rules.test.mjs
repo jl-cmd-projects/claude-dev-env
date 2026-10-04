@@ -56,6 +56,8 @@ function runInstaller(homeDirectory, extraArguments) {
         encoding: 'utf8',
         env: {
             ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             HOME: homeDirectory,
@@ -85,6 +87,8 @@ function scanTextWithProductionPiiScanner(scannedText) {
                 encoding: 'utf8',
                 env: {
                     ...process.env,
+                    CLAUDE_CONFIG_DIR: undefined,
+                    LLM_SETTINGS_PROFILES_ROOT: undefined,
                     CDE_INSTALL_PSTACK: '0',
                     CDE_INSTALL_USAGE_WRAPUP: '0',
                     PYTHONPATH: BLOCKING_HOOKS_DIRECTORY,

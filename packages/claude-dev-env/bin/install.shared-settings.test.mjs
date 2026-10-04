@@ -25,6 +25,7 @@ const PACKAGE_HOOKS_JSON_PATH = fileURLToPath(new URL('../hooks/hooks.json', imp
 function installEnvironment(homeDirectory) {
     return {
         ...process.env,
+        LLM_SETTINGS_PROFILES_ROOT: undefined,
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         CLAUDE_CONFIG_DIR: '',
