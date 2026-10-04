@@ -613,6 +613,39 @@ def test_should_reject_an_invalid_spent_reset(
     assert "invalid reset" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("reset_text", ["inf", "1e20", "-1e20"])
+def test_should_reject_a_spent_reset_outside_the_platform_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reset_text: str
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"guest:{reset_text}"))
+
+    assert code == 2
+    assert "invalid reset" in capsys.readouterr().err
+
+
+def test_should_run_past_a_spent_mark_left_by_an_account_removed_from_the_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    _freeze_clock(monkeypatch, NOW)
+    retired_key = account_broker._state_key(_account("retired"))
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {"meters": {}, "spent": {retired_key: (NOW + timedelta(days=6)).timestamp()}, "affinity": {}},
+    )
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["account"] == "first"
+
+
 def test_should_run_job_through_override(
     monkeypatch: pytest.MonkeyPatch
 ) -> None:

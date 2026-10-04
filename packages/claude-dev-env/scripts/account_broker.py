@@ -150,7 +150,8 @@ def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], al
     marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
     all_roster_names = {each_reading.account.name for each_reading in all_readings}
     prefix = f"{product.value}:"
-    return tuple(datetime.fromtimestamp(float(each_raw), timezone.utc) for each_key, each_raw in marks.items() if isinstance(each_key, str) and each_key.startswith(prefix) and each_key[len(prefix):].split(":", 1)[0] not in all_roster_names and isinstance(each_raw, (int, float)) and each_raw > now.timestamp())
+    placeholder_suffix = f":{Path()}"
+    return tuple(datetime.fromtimestamp(float(each_raw), timezone.utc) for each_key, each_raw in marks.items() if isinstance(each_key, str) and each_key.startswith(prefix) and each_key.endswith(placeholder_suffix) and each_key[len(prefix):-len(placeholder_suffix)] not in all_roster_names and isinstance(each_raw, (int, float)) and each_raw > now.timestamp())
 
 
 def _with_outside_spent_marks(decision: Decision, all_outside_resets: Sequence[datetime]) -> Decision:
@@ -324,7 +325,7 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
     name, separator, reset_text = mark.partition(":")
     try:
         reset = datetime.fromtimestamp(float(reset_text), timezone.utc) if separator else None
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, OverflowError) as error:
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
     return reading if reading is not None else Reading(Account(product, name, Path(), False), None), reset
