@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.13](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.12...claude-dev-env-v8.46.13) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** keep files under the payload cwd out of the scratchpad exemption ([0937cfc](https://github.com/jl-cmd/claude-dev-env/commit/0937cfccf952f925a173758bd77bbc51debbb215))
+
 ## [8.46.12](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.11...claude-dev-env-v8.46.12) (2026-10-04)
 
 
