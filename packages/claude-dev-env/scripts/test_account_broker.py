@@ -71,7 +71,6 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
         read_meters=lambda account: meters[account.name],
         environment_variable="CODEX_HOME",
         usage_limit_signatures=("rate limit",),
-        main_guard=False,
     )
 
 
@@ -553,7 +552,7 @@ def test_should_list_accounts_without_reading_meters(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     account = _account("listed")
-    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("meter read"), "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("meter read"), "CODEX_HOME", ())
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
 
     assert account_broker.main(("accounts", "--product", "codex")) == 0
@@ -584,7 +583,7 @@ def test_should_reuse_meter_cache_for_60_seconds() -> None:
         calls.append(selected.name)
         return _meters(80, 80)
 
-    adapter = ProductAdapter(lambda: (account,), read_meter, "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), read_meter, "CODEX_HOME", ())
     state = account_broker._load_state(account_broker.broker_state_path())
 
     account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
