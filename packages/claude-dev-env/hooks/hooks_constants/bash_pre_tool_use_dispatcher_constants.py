@@ -59,4 +59,8 @@ ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
         script_relative_path="blocking/msys_rev_path_rewriter.py",
         applicable_tool_names=ALL_BASH_ONLY_TOOL_NAMES,
     ),
+    BashHostedHookEntry(
+        script_relative_path="blocking/headless_claude_broker_gate.py",
+        applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+    ),
 )
