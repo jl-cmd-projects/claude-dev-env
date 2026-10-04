@@ -19,7 +19,7 @@ from _code_review_test_support import (
     install_seams,
     run_review_cli,
 )
-from claude_chain_runner import ChainConfigurationError
+from dev_env_scripts_constants.account_broker_constants import BrokerConfigurationError
 from dev_env_scripts_constants.claude_chain_constants import (
     CHAIN_CONFIG_ERROR_EXIT_CODE,
 )
@@ -62,6 +62,8 @@ def test_cli_prints_result_json_only(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: IN_SESSION_RETURNCODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
 
 
@@ -74,7 +76,7 @@ def test_cli_emits_json_on_chain_configuration_error(
     install_seams(
         monkeypatch,
         host_profile=HOST_PROFILE_THIRD_PARTY,
-        claude_outcome=ChainConfigurationError(FIXTURE_CHAIN_CONFIG_ERROR_MESSAGE),
+        claude_outcome=BrokerConfigurationError(FIXTURE_CHAIN_CONFIG_ERROR_MESSAGE),
         working_directory=working_directory,
     )
     exit_code = run_review_cli(working_directory, session_model=FIXTURE_SESSION_OPUS)
@@ -87,13 +89,9 @@ def test_cli_emits_json_on_chain_configuration_error(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: CHAIN_CONFIG_ERROR_EXIT_CODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
-    config_error_outcome = invoker.CodeReviewOutcome(
-        mode=MODE_CHAIN,
-        served_command=None,
-        returncode=CHAIN_CONFIG_ERROR_EXIT_CODE,
-        is_dirty_tree=False,
-    )
 
 
 def test_cli_emits_json_on_host_profile_value_error(
@@ -121,6 +119,8 @@ def test_cli_emits_json_on_host_profile_value_error(
         RESULT_KEY_SERVED_COMMAND: None,
         RESULT_KEY_RETURNCODE: HOST_PROFILE_ERROR_RETURNCODE,
         RESULT_KEY_DIRTY_TREE: False,
+        "status": None,
+        "wait_reset_at": None,
     }
 
 

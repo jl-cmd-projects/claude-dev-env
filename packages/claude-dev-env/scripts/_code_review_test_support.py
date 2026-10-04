@@ -24,13 +24,8 @@ _SCRIPTS_DIRECTORY = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIRECTORY not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIRECTORY)
 
-import claude_chain_runner as chain_runner  # noqa: E402
 import invoke_code_review as invoker  # noqa: E402
-from claude_chain_runner import ChainAttempt, ChainInvocationOutcome  # noqa: E402
-from dev_env_scripts_constants.claude_chain_constants import (  # noqa: E402
-    TERMINAL_STATUS_CHAIN_EXHAUSTED,
-    TERMINAL_STATUS_SERVED,
-)
+from dev_env_scripts_constants.account_broker_constants import JobOutcome, Product, WAIT_EXIT_CODE
 from dev_env_scripts_constants.code_review_constants import (  # noqa: E402
     CLI_SESSION_MODEL_FLAG,
     CODE_REVIEW_MODEL_ALIAS,
@@ -111,27 +106,29 @@ def claude_served(
     *,
     returncode: int = FIXTURE_CHAIN_RETURNCODE,
     stdout: str = FIXTURE_CHAIN_STDOUT,
-) -> ChainInvocationOutcome:
-    return ChainInvocationOutcome(
-        served_command=FIXTURE_SERVED_COMMAND,
+) -> JobOutcome:
+    return JobOutcome(
         returncode=returncode,
         stdout=stdout,
         stderr="",
-        attempts=(ChainAttempt(command=FIXTURE_SERVED_COMMAND, status="served"),),
-        terminal_status=TERMINAL_STATUS_SERVED,
+        account_name=FIXTURE_SERVED_COMMAND,
+        attempts=((FIXTURE_SERVED_COMMAND, "served"),),
+        status="served" if returncode == 0 else "advisor_blocked",
+        session_id=None,
+        wait_reset_at=None,
     )
 
 
-def claude_failed() -> ChainInvocationOutcome:
-    return ChainInvocationOutcome(
-        served_command=None,
-        returncode=FIXTURE_FAILED_RETURNCODE,
+def claude_failed() -> JobOutcome:
+    return JobOutcome(
+        returncode=WAIT_EXIT_CODE,
         stdout="",
-        stderr="chain exhausted",
-        attempts=(
-            ChainAttempt(command=FIXTURE_SERVED_COMMAND, status="usage_limited"),
-        ),
-        terminal_status=TERMINAL_STATUS_CHAIN_EXHAUSTED,
+        stderr="",
+        account_name=None,
+        attempts=((FIXTURE_SERVED_COMMAND, "usage_limited"),),
+        status="exhausted",
+        session_id=None,
+        wait_reset_at=None,
     )
 
 
@@ -179,7 +176,7 @@ class SeamCallLog:
 @dataclass
 class _SeamConfiguration:
     host_profile: str
-    claude_outcome: ChainInvocationOutcome | BaseException | None
+    claude_outcome: JobOutcome | BaseException | None
     should_dirty_tree_on_chain: bool
     working_directory: Path | None
 
@@ -220,23 +217,21 @@ def _build_host_profile_seam(
 
 def _build_claude_seam(
     call_log: SeamCallLog, configuration: _SeamConfiguration
-) -> Callable[..., ChainInvocationOutcome]:
+) -> Callable[..., JobOutcome]:
     def fake_claude(
-        all_claude_arguments: list[str], *, timeout_seconds: int
-    ) -> ChainInvocationOutcome:
+        product: Product, all_claude_arguments: list[str], **options: object
+    ) -> JobOutcome:
+        assert product is Product.CLAUDE
         call_log.claude_calls += 1
-        call_log.claude_arguments = list(all_claude_arguments)
-        chain_runner.chain_subprocess_runner(
-            ["claude", *all_claude_arguments],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
+        call_log.claude_arguments = list(all_claude_arguments[1:])
+        call_log.is_stdin_empty = options.get("stdin_text") == ""
+        if options.get("cwd") is not None:
+            call_log.claude_working_directory = Path(options["cwd"])
+            call_log.all_observed_working_directories.append(Path(options["cwd"]))
         _record_dirty_tree(configuration)
         if isinstance(configuration.claude_outcome, BaseException):
             raise configuration.claude_outcome
-        assert isinstance(configuration.claude_outcome, ChainInvocationOutcome)
+        assert isinstance(configuration.claude_outcome, JobOutcome)
         return configuration.claude_outcome
 
     return fake_claude
@@ -284,18 +279,13 @@ def _apply_seams(
         "review_claude_runner",
         _build_claude_seam(call_log, configuration),
     )
-    monkeypatch.setattr(
-        chain_runner,
-        "chain_subprocess_runner",
-        _build_subprocess_seam(call_log),
-    )
 
 
 def install_seams(
     monkeypatch: pytest.MonkeyPatch,
     *,
     host_profile: str = HOST_PROFILE_CLAUDE,
-    claude_outcome: ChainInvocationOutcome | BaseException | None = None,
+    claude_outcome: JobOutcome | BaseException | None = None,
     should_dirty_tree_on_chain: bool = False,
     working_directory: Path | None = None,
 ) -> SeamCallLog:

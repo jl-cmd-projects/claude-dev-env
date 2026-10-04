@@ -7,10 +7,6 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 ALLOWED_LEGACY_MODULES = frozenset(
     {
-        "claude_account_choice.py",
-        "claude_account_worker.py",
-        "claude_chain_runner.py",
-        "claude_chain_usage.py",
         "codex_account_choice.py",
         "codex_account_meters.py",
     }
