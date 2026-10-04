@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.46.21](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.20...claude-dev-env-v8.46.21) (2026-10-04)
+
+
+### Tests
+
+* **code-rules:** anchor numbered citations on the CODE_RULES name ([6486efe](https://github.com/jl-cmd/claude-dev-env/commit/6486efe092a0a804e47f80e5ebd1296dae62bf61))
+
 ## [8.46.20](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.46.19...claude-dev-env-v8.46.20) (2026-10-04)
 
 
