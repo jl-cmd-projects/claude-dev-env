@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.40.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.40.0...claude-dev-env-v8.40.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **install:** read a quoted shared-settings root that holds a space ([7fb8694](https://github.com/jl-cmd/claude-dev-env/commit/7fb869485a26198c7eb70648926501decceea78f))
+
 ## [8.40.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.39.0...claude-dev-env-v8.40.0) (2026-10-04)
 
 
