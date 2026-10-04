@@ -10,6 +10,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
+from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 
@@ -231,3 +232,27 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
             ],
         }
     ]
+
+
+def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+    }
+    open_followup = {"number": 1769, "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1769", "body": "Follow-up to #1731"}
+    with patch.object(gate_dedupe, "read_open_pull_requests", return_value=[open_followup]):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "open follow-up pull request #1769" in decision["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+    }
+    with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
+        assert gate.decision_for(payload) is None
