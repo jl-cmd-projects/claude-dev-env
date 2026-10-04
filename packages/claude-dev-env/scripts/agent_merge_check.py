@@ -607,6 +607,7 @@ def read_pull_request(slug: str, number: int, token: str) -> Mapping[str, object
 def read_blocked_evidence(
     slug: str,
     all_pull_request_fields: Mapping[str, object],
+    all_rules: list[object] | MergeCheckError,
     token: str,
 ) -> BlockedEvidence:
     """Read what stands behind a ``blocked`` merge state.
@@ -615,6 +616,8 @@ def read_blocked_evidence(
         slug: The repository as ``owner/name``.
         all_pull_request_fields: The pull request, carrying its base branch
             and its head commit.
+        all_rules: The base branch rules, or the failure that kept them
+            unread.
         token: The GitHub token the requests authenticate with.
 
     Returns:
@@ -628,7 +631,8 @@ def read_blocked_evidence(
         str(_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY))
     )
     head_sha = str(_nested_field(all_pull_request_fields, HEAD_KEY, SHA_KEY))
-    all_rules = _read_branch_rules(slug, base_ref, token)
+    if isinstance(all_rules, MergeCheckError):
+        raise all_rules
     return BlockedEvidence(
         all_unmet_checks=_read_unmet_checks(slug, head_sha, all_rules, token),
         behind_by=_read_behind_by(slug, base_ref, head_sha, token),
@@ -636,13 +640,30 @@ def read_blocked_evidence(
     )
 
 
-def _read_branch_rules(slug: str, base_ref: str, token: str) -> list[object]:
-    return _request_list(
-        BRANCH_RULES_ENDPOINT_TEMPLATE.format(
-            api_root=GITHUB_API_ROOT, slug=slug, branch=base_ref
-        ),
-        token,
-    )
+def read_branch_rules(
+    slug: str, base_ref: str, token: str
+) -> list[object] | MergeCheckError:
+    """Read the rules GitHub reports as active on the base branch.
+
+    Args:
+        slug: The repository as ``owner/name``.
+        base_ref: The branch the pull request merges into.
+        token: The GitHub token the request authenticates with.
+
+    Returns:
+        The rules, or the failure that kept them unread.
+    """
+    try:
+        return _request_list(
+            BRANCH_RULES_ENDPOINT_TEMPLATE.format(
+                api_root=GITHUB_API_ROOT,
+                slug=slug,
+                branch=urllib.parse.quote(base_ref),
+            ),
+            token,
+        )
+    except MergeCheckError as failure:
+        return failure
 
 
 def read_unstable_checks(
@@ -879,7 +900,11 @@ def _field_at(document: object, all_fields: object, key: str) -> object:
 
 
 def read_merge_queue_ejection(
-    slug: str, number: int, base_ref: str, token: str
+    slug: str,
+    number: int,
+    base_ref: str,
+    all_rules: list[object] | MergeCheckError,
+    token: str,
 ) -> bool:
     """Read whether the merge queue ejected the pull request's current head.
 
@@ -891,6 +916,8 @@ def read_merge_queue_ejection(
         slug: The repository as ``owner/name``.
         number: The pull request number.
         base_ref: The branch the pull request merges into.
+        all_rules: The base branch rules, or the failure that kept them
+            unread.
         token: The GitHub token the request authenticates with.
 
     Returns:
@@ -901,7 +928,9 @@ def read_merge_queue_ejection(
         MergeCheckError: A read failed, or answered with another shape. A
             refused GraphQL query names the merge queue that needed it.
     """
-    if not _may_merge_through_a_queue(slug, base_ref, token):
+    if not isinstance(all_rules, MergeCheckError) and not has_merge_queue_rule(
+        all_rules
+    ):
         return False
     document = _merge_queue_removal_document(slug, number, base_ref, token)
     return _is_ejected_on_head(
@@ -922,14 +951,6 @@ def _merge_queue_removal_document(
         raise MergeCheckError(
             MERGE_QUEUE_GRAPHQL_FAILURE_TEMPLATE.format(base=base_ref, failure=failure)
         ) from failure
-
-
-def _may_merge_through_a_queue(slug: str, base_ref: str, token: str) -> bool:
-    try:
-        all_rules = _read_branch_rules(slug, urllib.parse.quote(base_ref), token)
-    except MergeCheckError:
-        return True
-    return has_merge_queue_rule(all_rules)
 
 
 def _list_along(document: object, all_keys: Sequence[str]) -> list[object]:
@@ -1009,11 +1030,10 @@ def main(all_arguments: Sequence[str]) -> int:
         unresolved_thread_count = read_unresolved_thread_count(
             parsed.slug, parsed.number, token
         )
+        base_ref = str(_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY))
+        all_rules = read_branch_rules(parsed.slug, base_ref, token)
         is_ejected_from_merge_queue = read_merge_queue_ejection(
-            parsed.slug,
-            parsed.number,
-            str(_nested_field(all_pull_request_fields, BASE_KEY, REF_KEY)),
-            token,
+            parsed.slug, parsed.number, base_ref, all_rules, token
         )
     except MergeCheckError as failure:
         print(failure, file=sys.stderr)
@@ -1022,7 +1042,7 @@ def main(all_arguments: Sequence[str]) -> int:
     if all_pull_request_fields.get(MERGEABLE_STATE_KEY) == MERGEABLE_STATE_BLOCKED:
         try:
             blocked_evidence = read_blocked_evidence(
-                parsed.slug, all_pull_request_fields, token
+                parsed.slug, all_pull_request_fields, all_rules, token
             )
         except MergeCheckError as failure:
             print(failure, file=sys.stderr)
