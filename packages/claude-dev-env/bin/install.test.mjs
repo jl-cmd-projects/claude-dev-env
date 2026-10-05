@@ -2988,6 +2988,10 @@ test('the help output states that the installer reads only flags', () => {
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /reads only flags/i);
     assert.match(helpRun.stdout, /bare path argument carries no meaning/i);
+    assert.match(
+        helpRun.stdout,
+        /--update\s+Full install: copy the package over the prior install, then prune files it no longer ships/,
+    );
 });
 
 
