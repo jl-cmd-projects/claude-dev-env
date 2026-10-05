@@ -26,20 +26,26 @@ import urllib.request
 from collections.abc import Mapping, Sequence
 
 from dev_env_scripts_constants.review_closure_constants import (
-    ALL_THREAD_NODE_KEYS,
+    AFTER_VARIABLE,
+    ALL_THREAD_CONNECTION_KEYS,
     ALL_TOKEN_ENVIRONMENT_VARIABLES,
     CHECK_RUN_PAGE_SIZE,
     CHECK_RUNS_ENDPOINT_TEMPLATE,
     CHECK_RUNS_KEY,
     COMMENT_PAGE_SIZE,
+    END_CURSOR_KEY,
     GET_METHOD,
     GITHUB_API_ROOT,
     GITHUB_GRAPHQL_ENDPOINT,
+    HAS_NEXT_PAGE_KEY,
     MAX_COMMENT_PAGES,
+    MAX_REVIEW_THREAD_PAGES,
     NAME_VARIABLE,
     NO_SIGN_IN_MESSAGE,
+    NODES_KEY,
     NUMBER_VARIABLE,
     OWNER_VARIABLE,
+    PAGE_INFO_KEY,
     PAGE_SIZE_VARIABLE,
     POST_METHOD,
     PULL_REQUEST_ENDPOINT_TEMPLATE,
@@ -51,6 +57,7 @@ from dev_env_scripts_constants.review_closure_constants import (
     REVIEW_THREAD_QUERY,
     REVIEW_THREADS_ENDPOINT_TEMPLATE,
     SLUG_SEPARATOR,
+    TOO_MANY_THREAD_PAGES_TEMPLATE,
     TOP_LEVEL_COMMENTS_ENDPOINT_TEMPLATE,
     UNREADABLE_TOP_LEVEL_COMMENT_TEMPLATE,
     VARIABLES_KEY,
@@ -372,21 +379,46 @@ def _thread_records_over_rest(
 
 
 def _thread_records_over_graphql(slug: str, number: int, token: str) -> list[object]:
+    all_records: list[object] = []
+    after_cursor: object = None
+    for _ in range(MAX_REVIEW_THREAD_PAGES):
+        page_records, after_cursor = _thread_page_over_graphql(
+            slug, number, token, after_cursor
+        )
+        all_records.extend(page_records)
+        if after_cursor is None:
+            return all_records
+    raise GitHubError(
+        TOO_MANY_THREAD_PAGES_TEMPLATE.format(
+            slug=slug, number=number, page_count=MAX_REVIEW_THREAD_PAGES
+        )
+    )
+
+
+def _thread_page_over_graphql(
+    slug: str, number: int, token: str, after_cursor: object
+) -> tuple[list[object], object]:
     document = request_json(
         POST_METHOD,
         GITHUB_GRAPHQL_ENDPOINT,
         token,
-        _thread_query_payload(slug, number),
+        _thread_query_payload(slug, number, after_cursor),
     )
-    all_records = functools.reduce(
-        functools.partial(_field_at, document), ALL_THREAD_NODE_KEYS, document
+    connection = functools.reduce(
+        functools.partial(_field_at, document), ALL_THREAD_CONNECTION_KEYS, document
     )
-    if not isinstance(all_records, list):
+    page_records = _field_at(document, connection, NODES_KEY)
+    if not isinstance(page_records, list):
         raise GitHubError(str(document))
-    return all_records
+    page_info = _field_at(document, connection, PAGE_INFO_KEY)
+    if not isinstance(page_info, Mapping) or not page_info.get(HAS_NEXT_PAGE_KEY):
+        return page_records, None
+    return page_records, page_info.get(END_CURSOR_KEY)
 
 
-def _thread_query_payload(slug: str, number: int) -> dict[str, object]:
+def _thread_query_payload(
+    slug: str, number: int, after_cursor: object
+) -> dict[str, object]:
     owner, _, name = slug.partition(SLUG_SEPARATOR)
     return {
         QUERY_KEY: REVIEW_THREAD_QUERY,
@@ -395,6 +427,7 @@ def _thread_query_payload(slug: str, number: int) -> dict[str, object]:
             NAME_VARIABLE: name,
             NUMBER_VARIABLE: number,
             PAGE_SIZE_VARIABLE: REVIEW_THREAD_PAGE_SIZE,
+            AFTER_VARIABLE: after_cursor,
         },
     }
 
