@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.59.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.58.0...claude-dev-env-v8.59.0) (2026-10-05)
+
+
+### Features
+
+* **hooks:** deny an issue close that hands a found defect to another issue ([#1892](https://github.com/jl-cmd-projects/claude-dev-env/issues/1892)) ([30940b0](https://github.com/jl-cmd-projects/claude-dev-env/commit/30940b03cfba202f9648030b3355c16fb4c23743))
+
 ## [8.58.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.57.0...claude-dev-env-v8.58.0) (2026-10-05)
 
 
