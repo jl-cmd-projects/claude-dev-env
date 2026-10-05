@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.55.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.9...claude-dev-env-v8.55.0) (2026-10-05)
+
+
+### Features
+
+* **install:** merge declared profile settings into each Claude profile ([0a7ea87](https://github.com/jl-cmd/claude-dev-env/commit/0a7ea876f0ba93e765797c83da65fd9921c8e2e5))
+
 ## [8.54.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.8...claude-dev-env-v8.54.9) (2026-10-05)
 
 
