@@ -30,6 +30,8 @@ test('the driver reads an envelope from every stage of a fresh install, and repo
         assert.match(greenRun.stdout, /\[PASS\] playtest install .* sha256=[0-9a-f]{64}/);
         assert.match(greenRun.stdout, /\[PASS\] playtest session_start_hook .* sha256=[0-9a-f]{64}/);
         assert.match(greenRun.stdout, /\[PASS\] playtest blocking_hook .* sha256=[0-9a-f]{64}/);
+        const blockingEnvelope = JSON.parse(readFileSync(join(evidenceDirectory, 'blocking_hook.json'), 'utf8'));
+        assert.equal(Object.hasOwn(blockingEnvelope, 'permissionDecision'), false);
         assert.ok(
             readFileSync(join(scratchHome, SANDBOX_GIT_CONFIG_NAME), 'utf8').startsWith(SANDBOX_GIT_CONFIG_BODY),
         );
