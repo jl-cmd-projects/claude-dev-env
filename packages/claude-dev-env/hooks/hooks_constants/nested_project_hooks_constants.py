@@ -29,9 +29,6 @@ ALL_SHELL_PROGRAM_NAMES: tuple[str, ...] = ("bash", "sh")
 SHELL_COMMAND_FLAG: str = "-c"
 
 BLOCKING_EXIT_CODE: int = 2
-HOOK_SPECIFIC_OUTPUT_KEY: str = "hookSpecificOutput"
-HOOK_EVENT_NAME_OUTPUT_KEY: str = "hookEventName"
-PERMISSION_DECISION_KEY: str = "permissionDecision"
 ALL_FORWARDED_PERMISSION_DECISIONS: frozenset[str] = frozenset({"deny", "ask"})
 ADDITIONAL_CONTEXT_KEY: str = "additionalContext"
 CONTEXT_SECTION_SEPARATOR: str = "\n\n"
