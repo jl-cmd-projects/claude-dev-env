@@ -45,6 +45,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _choose_claude,
     _choose_codex,
     _wait_decision,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
     WAIT_EXIT_CODE,
@@ -53,6 +54,7 @@ from dev_env_scripts_constants.account_broker_constants import (
 from dev_env_scripts_constants.codex_account_constants import (
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     MAIN_CODEX_HOME_DIRECTORY_NAME,
+    NO_ROSTER_ACCOUNT_NAME,
     TIER_NORMAL,
 )
 
@@ -64,7 +66,6 @@ def choose_from_readings(
     now: datetime,
     all_spent_accounts: frozenset[Account] = frozenset(),
     preferred_command: str | None = None,
-    adapter: ProductAdapter | None = None,
     all_spent_resets: Mapping[Account, datetime] | None = None,
 ) -> Decision:
     """Choose an account or a wait.
@@ -78,11 +79,10 @@ def choose_from_readings(
     """
     if product is Product.CODEX and not all_readings:
         home = Path(os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE) or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
-        return Decision("run", Account(product, "default", home, True), None, "no roster is configured", TIER_NORMAL)
-    active = adapter or all_product_adapters[product]
+        return Decision("run", Account(product, NO_ROSTER_ACCOUNT_NAME, home, True), None, "no roster is configured", TIER_NORMAL)
     all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
     selected = (
-        _choose_claude(all_available, now, preferred_command, active.main_guard)
+        _choose_claude(all_available, preferred_command)
         if product is Product.CLAUDE
         else _choose_codex(all_available)
     )
@@ -122,6 +122,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
             "name": each_reading.account.name,
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
+            "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
         }
         for each_reading in all_readings
@@ -212,6 +213,7 @@ class _RunContext:
     all_attempts: list[tuple[str, str]]
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
+    start_failure_text: str = ""
 
 
 def _prepare_run(
@@ -233,8 +235,11 @@ def _prepare_run(
 
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
+    all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
+    if all_attempt_statuses == {"start_failed"}:
+        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
     status = "exhausted" if context.all_attempts else "wait"
-    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at)
+    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
 
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
@@ -248,7 +253,12 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
 
 
 def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:
-    environment = {**os.environ, context.active.environment_variable: str(account.home)}
+    environment = {
+        each_variable_name: each_setting
+        for each_variable_name, each_setting in os.environ.items()
+        if context.product is not Product.CLAUDE or each_variable_name not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+    }
+    environment[context.active.environment_variable] = str(account.home)
     return support.subprocess_runner(
         context.all_argv,
         env=environment,
@@ -280,6 +290,7 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     except (OSError, subprocess.TimeoutExpired) as error:
         status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
         _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
+        context.start_failure_text = str(error)
         if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
             context.report.final_decision = decision
             final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
@@ -305,7 +316,7 @@ def _execute(
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     while True:
-        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, adapter=context.active, all_spent_resets=context.all_spent_resets)
+        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
         if decision.account is None:
@@ -333,7 +344,8 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="action", required=True)
     for each_action in ("choose", "check", "accounts", "limits", "run"):
         command = commands.add_parser(each_action)
-        command.add_argument("--product", choices=[each_product.value for each_product in Product], required=True)
+        all_product_choices = [Product.CODEX.value] if each_action == "limits" else [each_product.value for each_product in Product]
+        command.add_argument("--product", choices=all_product_choices, required=True)
         if each_action == "choose":
             command.add_argument("--spent", action="append", default=[])
         if each_action == "limits":
@@ -355,7 +367,8 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
-        print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
+        if all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME:
+            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
         return Reading(Account(product, name, Path(), False), None), reset
     return reading, reset
 
@@ -373,9 +386,7 @@ def _accounts_cli(product: Product) -> int:
     return 0
 
 
-def _limits_cli(product: Product, parsed: argparse.Namespace) -> int:
-    if product is not Product.CODEX:
-        raise BrokerConfigurationError("limits reads Codex accounts only")
+def _limits_cli(parsed: argparse.Namespace) -> int:
     try:
         rate_limit_records = codex_account_meters.read_rate_limit_records(
             codex_account_meters.resolve_codex_path(parsed.codex), parsed.home
@@ -430,7 +441,7 @@ def main(all_arguments: Sequence[str]) -> int:
         if parsed.action == "accounts":
             return _accounts_cli(product)
         if parsed.action == "limits":
-            return _limits_cli(product, parsed)
+            return _limits_cli(parsed)
         if parsed.action == "run":
             return _run_cli(product, parsed, parser)
         return _choose_cli(product, parsed)

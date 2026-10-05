@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 import urllib.parse
-from pathlib import Path
 
 import pytest
-
-_SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIRECTORY) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIRECTORY))
 
 import agent_merge_check
 from dev_env_scripts_constants.agent_merge_check_constants import (
@@ -293,8 +287,13 @@ def test_a_ready_pull_request_exits_zero(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     monkeypatch.setattr(
         agent_merge_check,
+        "read_branch_rules",
+        lambda slug, base_ref, token: [],
+    )
+    monkeypatch.setattr(
+        agent_merge_check,
         "read_merge_queue_ejection",
-        lambda slug, number, base_ref, token: False,
+        lambda slug, number, base_ref, all_rules, token: False,
     )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 0
 
@@ -313,8 +312,13 @@ def test_a_held_pull_request_exits_one(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         agent_merge_check,
+        "read_branch_rules",
+        lambda slug, base_ref, token: [],
+    )
+    monkeypatch.setattr(
+        agent_merge_check,
         "read_merge_queue_ejection",
-        lambda slug, number, base_ref, token: False,
+        lambda slug, number, base_ref, all_rules, token: False,
     )
     assert agent_merge_check.main(["jl-cmd/claude-dev-env", "1442"]) == 1
 
@@ -491,6 +495,65 @@ def test_an_unreadable_branch_rule_keeps_the_generic_blocked_reason(
     assert BLOCKED_HOLD_REASON in line
 
 
+def test_a_blocked_pull_request_reads_the_branch_rules_once(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    routed_answer = _github_answers(
+        MAIN_BRANCH_RULES,
+        [
+            _check_run("Ruff", "success", run_id=11),
+            _check_run("Tip Local green", "success", run_id=12),
+        ],
+        behind_by=225,
+    )
+    all_rules_urls: list[str] = []
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        if "/rules/branches/" in url:
+            all_rules_urls.append(url)
+        return routed_answer(url, token, all_payload_fields)
+
+    exit_code, line = _run_main(monkeypatch, capsys, _answer)
+    assert exit_code == 1
+    assert BEHIND_MERGE_QUEUE_HOLD_TEMPLATE.format(count=225) in line
+    assert len(all_rules_urls) == 1
+
+
+def test_read_branch_rules_quotes_the_base_branch_and_returns_its_rules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_rules_urls: list[str] = []
+
+    def _answer(url: str, token: str, all_payload_fields: object) -> object:
+        all_rules_urls.append(url)
+        return MAIN_BRANCH_RULES
+
+    monkeypatch.setattr(agent_merge_check, "_request_json", _answer)
+    assert (
+        agent_merge_check.read_branch_rules(
+            "jl-cmd/claude-dev-env", "release/2026 q4", "token"
+        )
+        == MAIN_BRANCH_RULES
+    )
+    assert all_rules_urls[0].endswith("/rules/branches/release/2026%20q4")
+
+
+def test_read_branch_rules_returns_the_failure_of_a_refused_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    refusal = agent_merge_check.MergeCheckError("HTTP Error 403: Forbidden")
+
+    def _refuse(url: str, token: str, all_payload_fields: object) -> object:
+        raise refusal
+
+    monkeypatch.setattr(agent_merge_check, "_request_json", _refuse)
+    assert (
+        agent_merge_check.read_branch_rules("jl-cmd/claude-dev-env", "main", "token")
+        is refusal
+    )
+
+
 def _evidence(
     all_unmet_checks: tuple[str, ...] = (),
     behind_by: int = 0,
@@ -626,7 +689,7 @@ def test_read_blocked_evidence_reads_the_pull_request_4922_shape(
         ),
     )
     assert agent_merge_check.read_blocked_evidence(
-        "jl-cmd/claude-dev-env", PULL_REQUEST_4922, "token"
+        "jl-cmd/claude-dev-env", PULL_REQUEST_4922, MAIN_BRANCH_RULES, "token"
     ) == _evidence(behind_by=225)
 
 
@@ -821,7 +884,7 @@ def test_read_merge_queue_ejection_compares_failed_checks_removals_to_the_head(
     )
     assert (
         agent_merge_check.read_merge_queue_ejection(
-            "jl-cmd/claude-dev-env", 1442, "main", "token"
+            "jl-cmd/claude-dev-env", 1442, "main", MAIN_BRANCH_RULES, "token"
         )
         is expected_ejection
     )

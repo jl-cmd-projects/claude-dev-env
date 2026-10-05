@@ -2,8 +2,9 @@
 
 A Bash tool call starts one interpreter, the dispatcher's own. Each roster
 entry then runs in that process through runpy, so the roster's exact content is
-the chain's cost after that single start. One allow-and-rewrite hook is the
-whole roster; a blocking hook added here fails this test.
+the chain's cost after that single start. The roster holds the MSYS rewriter,
+the headless Claude broker gate, and the gh global account gate; any other hook
+added here fails this test.
 """
 
 import sys
@@ -14,16 +15,25 @@ if str(_HOOKS_ROOT) not in sys.path:
     sys.path.insert(0, str(_HOOKS_ROOT))
 
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
+    ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
     ALL_BASH_HOSTED_HOOK_ENTRIES,
     ALL_BASH_ONLY_TOOL_NAMES,
     BashHostedHookEntry,
 )
 
 
-def test_bash_roster_starts_only_the_msys_rewriter_and_no_blocking_hook() -> None:
+def test_bash_roster_starts_only_the_msys_rewriter_and_the_two_gates() -> None:
     assert ALL_BASH_HOSTED_HOOK_ENTRIES == (
         BashHostedHookEntry(
             script_relative_path="blocking/msys_rev_path_rewriter.py",
             applicable_tool_names=ALL_BASH_ONLY_TOOL_NAMES,
+        ),
+        BashHostedHookEntry(
+            script_relative_path="blocking/headless_claude_broker_gate.py",
+            applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+        ),
+        BashHostedHookEntry(
+            script_relative_path="blocking/gh_global_account_switch_gate.py",
+            applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
         ),
     )

@@ -9,7 +9,6 @@ main account so its owner never runs out.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
 
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
@@ -27,6 +26,9 @@ SECOND_ACCOUNT_PROFILE_NAME: str = "ev"
 
 EXTRA_PROFILES_FILE_NAME: str = "extra-profiles.json"
 """Local main-home file listing extra profile names in selection order."""
+
+CLAUDE_ACCOUNT_ORDER_FILE_NAME: str = "claude-account-order.json"
+"""Optional main-home file listing Claude accounts in pick priority, first choice first."""
 
 PROFILE_NAME_PATTERN: str = r"[A-Za-z0-9][A-Za-z0-9_-]*"
 """Allowed profile names for directories and command launchers."""
@@ -128,26 +130,20 @@ WINDOWS_OS_NAME: str = "nt"
 TEXT_ENCODING: str = "utf-8"
 """Encoding for the launcher file and the JSON reports."""
 
-MAIN_SPEND_WINDOW: timedelta = timedelta(hours=24)
-"""Main takes jobs only when its weekly window resets within this span."""
-
-MAIN_WEEKLY_USED_CEILING_PERCENT: float = 90.0
+MAIN_WEEKLY_USED_CEILING_PERCENT: float = 99.0
 """Main takes jobs only while its weekly use is under this percent."""
 
-MAIN_SESSION_USED_CEILING_PERCENT: float = 50.0
+MAIN_SESSION_USED_CEILING_PERCENT: float = 95.0
 """Main takes jobs only while its 5-hour use is under this percent."""
 
-SECOND_WEEKLY_USED_CEILING_PERCENT: float = 95.0
+SECOND_WEEKLY_USED_CEILING_PERCENT: float = 99.0
 """The second account takes jobs while its weekly use is under this percent."""
 
-SECOND_SESSION_USED_CEILING_PERCENT: float = 90.0
+SECOND_SESSION_USED_CEILING_PERCENT: float = 95.0
 """The second account takes jobs while its 5-hour use is under this percent."""
 
 FULL_PERCENT: float = 100.0
 """Percent scale ceiling, so remaining is this minus used."""
-
-SECONDS_PER_HOUR: int = 3600
-"""Seconds in one hour, for reason text that names hours until a reset."""
 
 CHOICE_MAIN: str = "main"
 """Picker answer: run the job on the main account."""
@@ -157,11 +153,6 @@ CHOICE_SECOND: str = "second"
 
 CHOICE_WAIT: str = "wait"
 """Picker answer: neither account has room, so the job waits."""
-
-REASON_MAIN_EXPIRING_TEMPLATE: str = (
-    "main week resets in {hours_until_reset} hours with {remaining_percent:.0f}% left"
-)
-"""Reason when main spends leftover usage that expires soon."""
 
 REASON_SECOND_HAS_ROOM_TEMPLATE: str = (
     "second account has {weekly_remaining_percent:.0f}% of its week"

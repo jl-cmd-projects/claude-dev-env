@@ -36,17 +36,18 @@ Claude refreshes it on each run.
 
 ## Which account a job uses
 
-The main account belongs to the person who works on it, so a job borrows it only
-to spend leftover usage that expires soon.
+The broker ranks every Claude account that has room and picks the one with the
+most room left. An account's room is the smaller of its 5-hour and weekly
+percent left. A resumed session stays on its account while that account has
+room.
 
-| Condition | Account |
+| Account | Has room while |
 |---|---|
-| Main week resets within 24 hours, main under 90% of its week, main under 50% of its 5-hour window | main |
-| Otherwise, second under 95% of its week and under 90% of its 5-hour window | second |
-| Second meter unreadable | wait until the meter can be read |
-| Otherwise | wait, with the next reset time |
+| every account | under 99% of its week and under 95% of its 5-hour window |
 
-An unreadable main meter never picks main.
+When no account has room, the job waits until the next account reset, or for one
+hour when no reset is known. An unreadable meter never picks its account, and
+the wait reason names each account whose meter could not be read.
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product claude

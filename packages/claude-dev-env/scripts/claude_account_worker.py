@@ -27,6 +27,8 @@ from dev_env_scripts_constants.claude_account_worker_constants import (
     PROMPT_FILE_FLAG,
     REPORT_FILE_FLAG,
     SINGLE_PROMPT_FLAG,
+    TIMEOUT_ATTEMPT_STATUS,
+    TIMEOUT_EXIT_CODE,
     TIMEOUT_MINUTES_FLAG,
     UTF8_ENCODING,
 )
@@ -68,9 +70,9 @@ def _invocation(*, model: str | None, permission_mode: str) -> list[str]:
 
 
 def _wait_reason(outcome: JobOutcome) -> str:
-    if outcome.wait_reset_at is None:
+    if outcome.wait_reason is None:
         return "no account has room"
-    return f"no account has room; next reset at {outcome.wait_reset_at.isoformat()}"
+    return outcome.wait_reason
 
 
 def run_worker(
@@ -102,10 +104,11 @@ def run_worker(
     if outcome.status in {"wait", "exhausted"}:
         report = wait_report("wait", _wait_reason(outcome), outcome.wait_reset_at)
         return finalize_report(report_file, report)
+    is_timed_out = bool(outcome.attempts) and outcome.attempts[-1][1] == TIMEOUT_ATTEMPT_STATUS
     report = make_report(
         outcome.account_name or "none",
-        outcome.status,
-        exit_code=outcome.returncode,
+        TIMEOUT_ATTEMPT_STATUS if is_timed_out else outcome.status,
+        exit_code=TIMEOUT_EXIT_CODE if is_timed_out else outcome.returncode,
         duration_seconds=duration_seconds,
         stdout_text=outcome.stdout,
     )

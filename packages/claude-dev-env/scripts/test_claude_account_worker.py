@@ -23,6 +23,7 @@ def _outcome(
     account_name: str | None = "extra_2",
     status: str = "served",
     wait_reset_at: datetime | None = None,
+    wait_reason: str | None = None,
 ) -> JobOutcome:
     return JobOutcome(
         returncode,
@@ -33,6 +34,7 @@ def _outcome(
         status,
         None,
         wait_reset_at,
+        wait_reason,
     )
 
 
@@ -86,20 +88,28 @@ def test_should_send_prompt_and_flags_to_broker(
     assert captured["timeout_seconds"] == 3600
 
 
-def test_should_report_wait_with_reset_and_exit_three(
+def test_should_report_the_broker_wait_reason_and_exit_three(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     reset_at = datetime(2026, 10, 4, 12, tzinfo=timezone.utc)
+    broker_reason = f"no readable account has room; meter unreadable for ev; next check at {reset_at.isoformat()}"
     exit_code, report, captured = _run_worker(
         monkeypatch,
         tmp_path,
-        _outcome(stdout="", returncode=WAIT_EXIT_CODE, account_name=None, status="wait", wait_reset_at=reset_at),
+        _outcome(
+            stdout="",
+            returncode=WAIT_EXIT_CODE,
+            account_name=None,
+            status="wait",
+            wait_reset_at=reset_at,
+            wait_reason=broker_reason,
+        ),
     )
 
     assert exit_code == WAIT_EXIT_CODE
     assert report["account"] == "wait"
     assert report["wait_reset_at"] == reset_at.isoformat()
-    assert report["reason"] == f"no account has room; next reset at {reset_at.isoformat()}"
+    assert report["reason"] == broker_reason
     assert report["is_error"] is False
     assert captured["product"] is Product.CLAUDE
 
@@ -148,6 +158,20 @@ def test_should_preserve_served_failure_code(
     )
 
     assert exit_code == 3
+    assert report["account"] == "extra_2"
+    assert report["is_error"] is True
+
+
+def test_should_exit_124_with_timeout_reason_when_the_broker_attempt_timed_out(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    timed_out = JobOutcome(127, "", "timed out", "extra_2", (("extra_2", "timeout"),), "advisor_blocked", None, None)
+
+    exit_code, report, _ = _run_worker(monkeypatch, tmp_path, timed_out)
+
+    assert exit_code == 124
+    assert report["exit_code"] == 124
+    assert report["reason"] == "timeout"
     assert report["account"] == "extra_2"
     assert report["is_error"] is True
 

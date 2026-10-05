@@ -3,7 +3,10 @@ from __future__ import annotations
 import errno
 import json
 import os
+import shutil
 import subprocess
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +34,64 @@ def test_should_load_claude_roster_from_both_lists(
 
     assert [each_account.name for each_account in accounts] == ["main", "alternate", "extra"]
     assert accounts[1].home == (tmp_path / "alternate").resolve()
+
+
+def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    (main_home / "extra-profiles.json").write_text(json.dumps(extras), encoding="utf-8")
+    return main_home
+
+
+def test_should_leave_claude_priorities_unset_without_an_order_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _claude_home_with_extras(monkeypatch, tmp_path, ["first", "second"])
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.priority for each_account in accounts] == [None, None, None]
+
+
+def test_should_assign_claude_priorities_from_the_order_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first", "second", "unlisted"])
+    (main_home / "claude-account-order.json").write_text(
+        json.dumps(["claude-second", "missing", "claude", "FIRST"]), encoding="utf-8"
+    )
+
+    accounts = support.load_claude_accounts()
+
+    assert {each_account.name: each_account.priority for each_account in accounts} == {
+        "main": 2,
+        "first": 3,
+        "second": 0,
+        "unlisted": None,
+    }
+
+
+def test_should_read_an_order_file_saved_with_a_byte_order_mark(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first"])
+    (main_home / "claude-account-order.json").write_text('["first"]', encoding="utf-8-sig")
+
+    accounts = support.load_claude_accounts()
+
+    assert {each_account.name: each_account.priority for each_account in accounts} == {"main": None, "first": 0}
+
+
+def test_should_reject_an_order_file_that_is_not_a_list_of_names(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first"])
+    (main_home / "claude-account-order.json").write_text('{"order": ["first"]}', encoding="utf-8")
+
+    with pytest.raises(support.BrokerConfigurationError, match="claude-account-order.json"):
+        support.load_claude_accounts()
 
 
 def test_should_load_codex_roster_without_meter_reads(
@@ -87,7 +148,7 @@ def test_should_cache_account_reading_under_injected_state_path(
         seen.append(selected.name)
         return Meters(80.0, None, 80.0, None)
 
-    adapter = ProductAdapter(lambda: (account,), reader, "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), reader, "CODEX_HOME", ())
     state = support._load_state(support.broker_state_path())
     now = datetime(2026, 10, 3, tzinfo=timezone.utc)
 
@@ -161,3 +222,147 @@ def test_should_raise_windows_lock_error_other_than_contention(tmp_path: Path) -
         os.close(lock_descriptor)
 
     assert all_calls == [lock_descriptor]
+
+
+GRANDCHILD_HEARTBEAT_SCRIPT = (
+    "import pathlib, sys, time\n"
+    "heartbeat = pathlib.Path(sys.argv[1])\n"
+    "for each_beat in range(300):\n"
+    "    heartbeat.write_text(str(each_beat), encoding='utf-8')\n"
+    "    time.sleep(0.1)\n"
+)
+
+CHILD_SCRIPT = (
+    "import subprocess, sys, time\n"
+    "subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]])\n"
+    "time.sleep(60)\n"
+)
+
+
+def test_should_end_grandchildren_when_the_job_times_out(tmp_path: Path) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+            timeout=5,
+        )
+
+    beat_after_timeout = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_timeout
+
+
+def test_should_end_grandchildren_when_the_broker_is_interrupted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+    original_communicate = subprocess.Popen.communicate
+
+    def interrupted_communicate(process: subprocess.Popen[bytes], *args: object, **kwargs: object) -> object:
+        try:
+            return original_communicate(process, *args, timeout=5)
+        except subprocess.TimeoutExpired:
+            raise KeyboardInterrupt from None
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", interrupted_communicate)
+
+    with pytest.raises(KeyboardInterrupt):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+        )
+
+    beat_after_interrupt = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_interrupt
+
+
+def _record_launches(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    all_launched_argv: list[list[str]] = []
+
+    class FakeProcess:
+        returncode = 0
+
+        def __init__(self, all_argv: list[str], **options: object) -> None:
+            all_launched_argv.append(list(all_argv))
+
+        def __enter__(self) -> "FakeProcess":
+            return self
+
+        def __exit__(self, *exception_info: object) -> None:
+            return None
+
+        def communicate(self, **options: object) -> tuple[None, None]:
+            return None, None
+
+    monkeypatch.setattr(support.subprocess, "Popen", FakeProcess)
+    return all_launched_argv
+
+
+def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
+    all_launched_argv = _record_launches(monkeypatch)
+
+    completion = support.subprocess_runner(["claude", "-p"], input=b"", encoding="utf-8", errors="replace")
+
+    assert all_launched_argv == [[resolved_command, "-p"]]
+    assert completion.returncode == 0
+
+
+def test_should_refuse_to_launch_a_bare_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    with pytest.raises(FileNotFoundError) as raised:
+        support.subprocess_runner(["claude", "-p"])
+
+    assert raised.value.errno == errno.ENOENT
+    assert raised.value.filename == "claude"
+
+
+@pytest.mark.parametrize("metacharacter", ["&", "|", "<", ">", "^", "%", "!", '"', "\n", "\r"])
+def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
+    monkeypatch: pytest.MonkeyPatch, metacharacter: str
+) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
+
+    with pytest.raises(OSError) as raised:
+        support.subprocess_runner(["claude", "-p", f"fix{metacharacter}test"])
+
+    assert raised.value.errno == errno.EINVAL
+    assert raised.value.filename == resolved_command
+    assert "stdin" in raised.value.strerror
+
+
+def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\tools\CLAUDE.BAT"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
+
+    with pytest.raises(OSError) as raised:
+        support.subprocess_runner(["claude", "a & b"])
+
+    assert raised.value.errno == errno.EINVAL
+
+
+def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    all_launched_argv = _record_launches(monkeypatch)
+
+    support.subprocess_runner(["claude", "-p", "--output-format", "json", "--model", "opus"], input=b"a & b")
+
+    assert all_launched_argv == [[resolved_command, "-p", "--output-format", "json", "--model", "opus"]]
+
+
+def test_should_pass_metacharacters_to_an_executable_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved_command = "/usr/local/bin/claude"
+    monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
+    all_launched_argv = _record_launches(monkeypatch)
+
+    support.subprocess_runner(["claude", "-p", 'say "a & b" | 100%!'])
+
+    assert all_launched_argv == [[resolved_command, "-p", 'say "a & b" | 100%!']]
