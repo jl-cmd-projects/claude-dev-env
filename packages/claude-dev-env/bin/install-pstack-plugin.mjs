@@ -25,7 +25,7 @@ export const PSTACK_PLUGIN_SPEC = Object.freeze({
 export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     name: 'usage-wrapup',
     label: 'Usage-wrapup',
-    marketplaceRepository: 'jl-cmd/claude-dev-env',
+    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
     marketplaceName: 'claude-dev-env',
     sparsePaths: Object.freeze(['.claude-plugin', 'packages/usage-wrapup']),
     pluginIdentifier: 'usage-wrapup@claude-dev-env',
@@ -37,7 +37,7 @@ export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
 export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
     name: 'subagent-models',
     label: 'Subagent-models',
-    marketplaceRepository: 'jl-cmd/claude-dev-env',
+    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
     marketplaceName: 'claude-dev-env',
     sparsePaths: Object.freeze(['.claude-plugin', 'packages/subagent-models']),
     pluginIdentifier: 'subagent-models@claude-dev-env',

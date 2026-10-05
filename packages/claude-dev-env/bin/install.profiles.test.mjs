@@ -235,7 +235,7 @@ test('repeated and selected multi-profile dry runs write one ownership manifest 
 test('install.mjs --help documents profile target selection', () => {
     const result = spawnSync(process.execPath, [INSTALL_MODULE_PATH, '--help'], {
         encoding: 'utf8',
-        env: process.env,
+        env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /--profile/);
@@ -247,7 +247,7 @@ test('install.mjs --help documents profile target selection', () => {
 test('install.mjs --help states that a positional path argument carries no meaning', () => {
     const result = spawnSync(process.execPath, [INSTALL_MODULE_PATH, '--help'], {
         encoding: 'utf8',
-        env: process.env,
+        env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /reads only flags/i);

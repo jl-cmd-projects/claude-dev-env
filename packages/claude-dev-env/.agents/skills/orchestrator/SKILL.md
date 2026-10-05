@@ -103,6 +103,7 @@ Send follow-ups only through a transport authorized by the current runtime and u
 
 Read the evidence needed for your decision. Keep lengthy output in files and return short evidence pointers.
 Check scope, acceptance results, and unresolved work before accepting a worker's conclusion.
+Review every close a worker reports. Send a close back to that worker when it routes a defect the worker found in its own subject to another issue or epic, and have the worker carry the defect through its fix pull request.
 Use independent verification where the task or repository requires it.
 Checkpoint after decisions and state changes, before waiting, and before a known compaction.
 

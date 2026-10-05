@@ -21,6 +21,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'context7-mcp',
     'copilot-finding-triage',
     'copilot-review',
+    'correction',
     'deep-research',
     'descriptions',
     'e-code-review',
