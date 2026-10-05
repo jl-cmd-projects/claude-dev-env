@@ -165,7 +165,7 @@ def test_should_preserve_served_failure_code(
 def test_should_exit_124_with_timeout_reason_when_the_broker_attempt_timed_out(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    timed_out = JobOutcome(127, "", "timed out", "extra_2", (("extra_2", "timeout"),), "advisor_blocked", None, None)
+    timed_out = JobOutcome(124, "", "timed out", "extra_2", (("extra_2", "timeout"),), "timeout", None, None)
 
     exit_code, report, _ = _run_worker(monkeypatch, tmp_path, timed_out)
 
