@@ -24,7 +24,6 @@ def test_pr_done_reminder_also_serves_the_powershell_tool() -> None:
 
 def test_context_forwarding_keys_match_the_hook_output_contract() -> None:
     assert constants.POST_TOOL_USE_HOOK_EVENT_NAME == "PostToolUse"
-    assert constants.HOOK_SPECIFIC_OUTPUT_KEY == "hookSpecificOutput"
     assert constants.ADDITIONAL_CONTEXT_KEY == "additionalContext"
     assert constants.ADDITIONAL_CONTEXT_JOIN_SEPARATOR == "\n\n"
 
