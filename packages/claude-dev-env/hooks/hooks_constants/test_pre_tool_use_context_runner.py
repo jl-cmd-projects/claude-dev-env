@@ -34,3 +34,14 @@ def test_prints_nothing_for_empty_stdin(
     _feed_stdin(monkeypatch, "")
     assert run_context_hook(lambda payload: {"never": True}) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_prints_nothing_and_exits_zero_when_the_decision_raises(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def _raise(payload: dict[str, object]) -> dict[str, object] | None:
+        raise KeyError(payload["missing"])
+
+    _feed_stdin(monkeypatch, json.dumps({"tool_name": "Agent"}))
+    assert run_context_hook(_raise) == 0
+    assert capsys.readouterr().out == ""

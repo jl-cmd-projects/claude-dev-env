@@ -1,7 +1,8 @@
 """Shared main loop for PreToolUse hooks that only add context.
 
 Reads the payload from stdin, asks the hook's decide function for an output,
-and writes it as JSON. Exit status is always 0, so the tool call runs.
+and writes it as JSON. Exit status is always 0, so the tool call runs; a
+decide function that raises leaves the call with no output.
 """
 
 from __future__ import annotations
@@ -27,7 +28,10 @@ def run_context_hook(
     hook_payload = read_hook_input_dictionary_from_stdin()
     if hook_payload is None:
         return 0
-    hook_output = decide_hook_output(hook_payload)
+    try:
+        hook_output = decide_hook_output(hook_payload)
+    except Exception:
+        return 0
     if hook_output is not None:
         sys.stdout.write(json.dumps(hook_output))
         sys.stdout.flush()
