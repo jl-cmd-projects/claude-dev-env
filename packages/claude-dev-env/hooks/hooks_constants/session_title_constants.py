@@ -15,6 +15,7 @@ ALLOW_EXIT_CODE = 0
 BLOCK_EXIT_CODE = 2
 BLOCK_DECISION = "block"
 DEFERRED_TOOL_ATTACHMENT_TYPES = frozenset({"deferred_tools_delta", "deferred_tools_record"})
+HOOK_BLOCKING_ERROR_ATTACHMENT_TYPE = "hook_blocking_error"
 
 STATUS_PREFIX_PATTERN = re.compile("^(\U0001f6a9|\u2705|\u23f3)\ufe0f? (?=\\S)")
 MAXIMUM_NAME_LENGTH = 25
