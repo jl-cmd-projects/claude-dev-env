@@ -7,6 +7,7 @@
   --accent: #2245a2; --accent-soft: #e6ecfb; --accent-ink: #ffffff;
   --ok: #165737; --ok-soft: #e3f3ea; --bad: #8b2621; --bad-soft: #fbe5e3; --warn: #6f4100; --warn-soft: #fbf0dc;
   --violet: #553b95; --violet-soft: #efe9fa;
+  --change: #8a1f6b; --change-ink: #ffffff;
   --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -14,12 +15,14 @@
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
+  --change: #f5a3dc; --change-ink: #1f0a19;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --edge: #6d7891; --line: #2b3240;
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
+  --change: #f5a3dc; --change-ink: #1f0a19;
   color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.4; padding-inline: 16px; padding-block: 24px 48px; margin: 0 }
@@ -95,6 +98,12 @@ details.what[open] summary::before { content: "▾" }
 .steps .sh { font-weight: 800 }
 .step { display: flex; gap: 10px; align-items: flex-start }
 .step .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--warn); color: var(--surface); display: grid; place-items: center; font-weight: 800 }
+.lchip.changed::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--change); flex: none }
+.changed { box-shadow: inset 4px 0 0 var(--change); padding-left: 12px; border-radius: 4px }
+.next.changed { border-radius: 12px }
+.lchip.changed { box-shadow: none; border-radius: 999px; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
+.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800; margin-right: 8px; vertical-align: middle; flex: none; white-space: nowrap }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 .empty { background: var(--surface); border: 2px dashed var(--edge); border-radius: 14px; padding: 20px; font-weight: 600 }
 @media (hover: hover) { .lchip:hover, .fchip:hover, .tab:hover, .copy:hover { border-color: var(--accent) } }
 </style>
@@ -117,6 +126,7 @@ details.what[open] summary::before { content: "▾" }
 <script type="application/json" id="tracker-data">
 {
  "updated": "2026-01-15T17:30:00Z",
+ "round": 3,
  "owners": [
   {
    "key": "web",
@@ -147,6 +157,8 @@ details.what[open] summary::before { content: "▾" }
    "needs_you": true,
    "card": true,
    "next": "choose between the two dates in the linked plan.",
+   "changed_round": 3,
+   "changed_parts": ["next"],
    "summary": [
     "One release date everyone plans around",
     "The launch checklist dated backward from it",
@@ -167,6 +179,8 @@ details.what[open] summary::before { content: "▾" }
    "status": "blocked",
    "card": true,
    "next": "wait for the staging database to come back online.",
+   "changed_round": 2,
+   "changed_parts": ["next"],
    "summary": [
     "The login test passes ten runs in a row",
     "The root cause written in the pull request"
@@ -186,6 +200,8 @@ details.what[open] summary::before { content: "▾" }
    "status": "doing",
    "card": true,
    "next": "finish the index change and rerun the timing check.",
+   "changed_round": 3,
+   "changed_parts": ["summary"],
    "summary": [
     "Search answers in under one second",
     "A timing check that guards it",
@@ -288,6 +304,8 @@ const STAGE_BY_KEY = Object.fromEntries(STAGES.map(s => [s.key, s]));
 const TRACK = ["Card", "Builder", "Pull request", "Merged"];
 const state = { tab: "open", owner: "all", query: "" };
 try { const saved = JSON.parse(localStorage.getItem("work-tracker-view") || "{}"); if (saved.tab) state.tab = saved.tab; if (saved.owner) state.owner = saved.owner; } catch (e) {}
+const REVIEW_ROUND = Number(TRACKER.round) || 0;
+const CHANGE_BASELINE = changeBaseline();
 const ownerByKey = Object.fromEntries(TRACKER.owners.map(o => [o.key, o]));
 const isDone = it => it.status === "done";
 function stageOf(it) {
@@ -300,6 +318,33 @@ function stageOf(it) {
 const slug = it => "item-" + it.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const fmt = iso => { if (!iso) return ""; try { return new Date(iso).toLocaleString(undefined, { month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return iso; } };
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+function changeBaseline() {
+  try {
+    const held = JSON.parse(sessionStorage.getItem("work-tracker-baseline") || "null");
+    if (held && held.round === REVIEW_ROUND) return held.baseline;
+  } catch (e) {}
+  let baseline = REVIEW_ROUND - 1;
+  try {
+    const seen = localStorage.getItem("work-tracker-seen-round");
+    if (seen !== null && Number.isFinite(Number(seen))) baseline = Math.min(Number(seen), REVIEW_ROUND);
+  } catch (e) {}
+  try { sessionStorage.setItem("work-tracker-baseline", JSON.stringify({ round: REVIEW_ROUND, baseline })); } catch (e) {}
+  try { localStorage.setItem("work-tracker-seen-round", String(REVIEW_ROUND)); } catch (e) {}
+  return baseline;
+}
+function stampChange(node, it, part) {
+  const parts = [].concat(it.changed_parts || []);
+  if (it.changed_round && (part ? parts.includes(part) : parts.length)) node.dataset.changedRound = it.changed_round;
+  return node;
+}
+function markChanges() {
+  for (const node of document.querySelectorAll("[data-changed-round]")) {
+    if (Number(node.dataset.changedRound) <= CHANGE_BASELINE || node.classList.contains("changed")) continue;
+    node.classList.add("changed");
+    const label = node.querySelector(":scope > summary") || node;
+    label.prepend(node.dataset.changeMark === "dot" ? el("span", "sr", "Changed. ") : el("span", "pill-changed", "Changed"));
+  }
+}
 function save() { try { localStorage.setItem("work-tracker-view", JSON.stringify({ tab: state.tab, owner: state.owner })); } catch (e) {} }
 function inView(it) {
   if ((state.tab === "done") !== isDone(it)) return false;
@@ -329,7 +374,8 @@ function renderBoard(items) {
     if (mine.length) {
       const chips = el("div", "lchips");
       for (const it of mine) {
-        const b = el("button", "lchip", it.title);
+        const b = stampChange(el("button", "lchip", it.title), it);
+        b.dataset.changeMark = "dot";
         b.setAttribute("aria-label", "Go to " + it.title);
         b.onclick = () => jumpTo(it);
         chips.append(b);
@@ -398,16 +444,17 @@ function itemCard(it) {
   band.append(proj);
   card.append(band);
   const body = el("div", "body");
-  body.append(el("h3", "title", it.title));
+  body.append(stampChange(el("h3", "title", it.title), it, "title"));
   body.append(trackFor(it));
   if (it.next) {
-    const next = el("div", "next");
+    const next = stampChange(el("div", "next"), it, "next");
     next.append(el("span", "ic", isDone(it) ? "✅" : "👉"), el("span", null, it.next.charAt(0).toUpperCase() + it.next.slice(1)));
     body.append(next);
   }
   const points = [].concat(it.summary || []);
   if (points.length) {
-    const d = el("details", "what");
+    const d = stampChange(el("details", "what"), it, "summary");
+    d.open = d.dataset.changedRound > CHANGE_BASELINE;
     d.append(el("summary", null, "What it delivers"));
     const ul = el("ul", "points");
     for (const p of points) ul.append(el("li", null, p));
@@ -415,12 +462,12 @@ function itemCard(it) {
     body.append(d);
   }
   if (it.proposal && !isDone(it) && it.owner_steps && it.owner_steps.length) {
-    const st = el("div", "steps");
+    const st = stampChange(el("div", "steps"), it, "steps");
     st.append(el("div", "sh", "Your steps to create " + it.proposal.name));
     it.owner_steps.forEach((text, i) => { const row = el("div", "step"); row.append(el("span", "num", String(i + 1)), el("span", null, text)); st.append(row); });
     body.append(st);
   }
-  const actions = el("div", "actions");
+  const actions = stampChange(el("div", "actions"), it, "links");
   for (const l of it.links || []) {
     const a = el("a", "link");
     a.append(el("span", null, "🔗"), el("span", null, l.label));
@@ -458,6 +505,7 @@ function render() {
     list.append(h);
     mine.forEach(i => list.append(itemCard(i)));
   }
+  markChanges();
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => { state.tab = t.dataset.tab; save(); render(); });
 document.getElementById("search").oninput = e => { state.query = e.target.value; render(); };
