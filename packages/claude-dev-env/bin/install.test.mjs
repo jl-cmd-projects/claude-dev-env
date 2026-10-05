@@ -3029,6 +3029,7 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
         };
         const argumentsForCoreInstall = [PSTACK_TEST_INSTALLER_PATH, '--only', 'core'];
         const firstRun = spawnSync(process.execPath, argumentsForCoreInstall, {
@@ -3081,6 +3082,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '1',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             ...environmentOverrides,
         },
     });
@@ -3393,6 +3395,60 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
+});
+
+const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
+    'claude plugin uninstall usage-wrapup@claude-dev-env',
+    'claude plugin uninstall subagent-models@claude-dev-env',
+    'claude plugin marketplace remove claude-dev-env',
+    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
+    'claude plugin install usage-wrapup@claude-dev-env',
+    'claude plugin install subagent-models@claude-dev-env',
+]);
+
+test('should install subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], {
+        ...sandbox.environment,
+        CDE_INSTALL_USAGE_WRAPUP: '1',
+        CDE_INSTALL_SUBAGENT_MODELS: '1',
+    });
+
+    assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), REPOSITORY_PLUGIN_CLAUDE_COMMANDS);
+    assert.match(installerOutput, /Usage-wrapup \(claude\): installed/);
+    assert.match(installerOutput, /Subagent-models \(claude\): installed/);
+});
+
+for (const [caseName, extraArguments, environmentOverrides] of [
+    ['--no-subagent-models', ['--no-subagent-models'], { CDE_INSTALL_SUBAGENT_MODELS: '1' }],
+    ['CDE_INSTALL_SUBAGENT_MODELS=0', [], { CDE_INSTALL_SUBAGENT_MODELS: '0' }],
+    ['an --only run', ['--only', 'core'], { CDE_INSTALL_SUBAGENT_MODELS: '1' }],
+]) {
+    test(`should skip subagent-models on ${caseName}`, t => {
+        const sandbox = pstackPluginSandbox(t);
+
+        const installerOutput = runPstackInstaller(sandbox.homeDirectory, extraArguments, {
+            ...sandbox.environment,
+            ...environmentOverrides,
+        });
+
+        assert.equal(
+            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('subagent-models')),
+            false,
+        );
+        assert.doesNotMatch(installerOutput, /Subagent-models \(/);
+    });
+}
+
+test('should name the subagent-models opt-out in the help output', () => {
+    const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(helpRun.status, 0, helpRun.stderr);
+    assert.match(helpRun.stdout, /--no-subagent-models .*CDE_INSTALL_SUBAGENT_MODELS=0/);
 });
 
 function continuityCommandCount(configurationPath) {

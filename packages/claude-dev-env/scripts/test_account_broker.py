@@ -112,8 +112,8 @@ def test_should_keep_list_order_when_tighter_windows_tie() -> None:
 @pytest.mark.parametrize(
     ("weekly_reset", "weekly_left", "short_left"),
     (
-        (NOW + timedelta(hours=4), 10, 80),
-        (NOW + timedelta(hours=4), 20, 50),
+        (NOW + timedelta(hours=4), 1, 80),
+        (NOW + timedelta(hours=4), 20, 5),
     ),
 )
 def test_should_guard_main_at_each_limit(
@@ -158,7 +158,7 @@ def test_should_pick_an_extra_with_more_room_than_main() -> None:
     assert decision.account == extra.account
 
 
-@pytest.mark.parametrize(("main_short_left", "expected_name"), ((51, "main"), (50, "extra")))
+@pytest.mark.parametrize(("main_short_left", "expected_name"), ((6, "main"), (5, "extra")))
 def test_should_pick_main_only_while_under_its_5_hour_ceiling(
     main_short_left: float, expected_name: str
 ) -> None:
@@ -166,7 +166,7 @@ def test_should_pick_main_only_while_under_its_5_hour_ceiling(
         _account("main", Product.CLAUDE, main=True),
         _meters(main_short_left, 95, weekly_reset=NOW + timedelta(days=5)),
     )
-    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 20))
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 2))
 
     decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
 
@@ -190,7 +190,7 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
     short_reset = NOW + timedelta(hours=2)
     main = Reading(
         _account("main", Product.CLAUDE, main=True),
-        _meters(40, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
+        _meters(5, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
     )
 
     decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
@@ -202,8 +202,8 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
 @pytest.mark.parametrize(
     ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
     (
-        (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
-        (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
+        (5, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
+        (80, 1, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
     ),
 )
 def test_should_wait_for_the_meter_or_window_that_blocks_main(
@@ -292,7 +292,7 @@ def test_should_wait_until_both_blocking_windows_reset() -> None:
 
 def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
     blocked = Reading(
-        _account("blocked", Product.CLAUDE), _meters(10, 5)
+        _account("blocked", Product.CLAUDE), _meters(5, 1)
     )
     unread = Reading(_account("unread", Product.CLAUDE), None)
 
@@ -462,14 +462,14 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
             id="every-meter-unreadable",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
             {},
             "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
             NOW + timedelta(minutes=30),
             id="unreadable-beside-a-reset-before-the-check",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
             {},
             "no readable account has room; meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
@@ -484,7 +484,7 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
         ),
         pytest.param(
             (
-                Reading(_MAIN_CLAUDE, _meters(40, 50, short_reset=NOW + timedelta(hours=2))),
+                Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))),
                 Reading(_EV_CLAUDE, _meters(5, 80, short_reset=NOW + timedelta(hours=3))),
             ),
             {},
@@ -493,7 +493,7 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
             id="every-meter-read-with-known-resets",
         ),
         pytest.param(
-            (Reading(_MAIN_CLAUDE, Meters(40, None, 50, None)),),
+            (Reading(_MAIN_CLAUDE, Meters(5, None, 50, None)),),
             {},
             "no account has room; next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
@@ -1023,6 +1023,38 @@ def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
     all_warning_lines = capsys.readouterr().err.splitlines()
     assert len(all_warning_lines) == 1
     assert "frist" in all_warning_lines[0]
+    assert "outside the roster" in all_warning_lines[0]
+
+
+def test_should_not_warn_when_the_default_account_is_marked_without_a_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"default:{int(reset.timestamp())}"))
+
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    ("all_roster_names", "marked_name"),
+    [(("first",), "default"), ((), "visitor")],
+)
+def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], all_roster_names: tuple[str, ...], marked_name: str
+) -> None:
+    all_accounts = tuple(_account(each_name) for each_name in all_roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(all_accounts, {each_name: _meters(80, 80) for each_name in all_roster_names}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"{marked_name}:{int(reset.timestamp())}"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    assert len(all_warning_lines) == 1
+    assert marked_name in all_warning_lines[0]
     assert "outside the roster" in all_warning_lines[0]
 
 

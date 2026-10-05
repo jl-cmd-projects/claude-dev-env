@@ -63,6 +63,7 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
             LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             HOME: sandboxHome,
             USERPROFILE: sandboxHome,
             GIT_CONFIG_GLOBAL: gitConfigGlobal,
@@ -262,9 +263,16 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the advisor model default', () => {
+test('package settings.json publishes the advisor model and auto mode defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
-    assert.deepEqual(settingsDefaultsFromPackageSettings(packageSettings), { advisorModel: 'fable' });
+    const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
+    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'autoMode']);
+    assert.equal(settingsDefaults.advisorModel, 'fable');
+    const [firstAllowRule, ...allCustomAllowRules] = settingsDefaults.autoMode.allow;
+    assert.equal(firstAllowRule, '$defaults');
+    assert.equal(allCustomAllowRules.length, 2);
+    assert.match(allCustomAllowRules[0], /npx claude-dev-env@latest --update/);
+    assert.match(allCustomAllowRules[1], /claude-dev-env repository/);
 });
 
 test('a missing default is added and a user-set value is kept', () => {

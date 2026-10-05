@@ -54,8 +54,9 @@ import {
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
+    SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
-    installMarketplacePlugin,
+    installMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
@@ -412,17 +413,19 @@ export function pythonFileAndPrefixArguments(pythonCommand) {
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome.
  */
 export function installPstackPluginForHosts() {
-    return installMarketplacePlugin(PSTACK_PLUGIN_SPEC, {
+    return installMarketplacePlugins([PSTACK_PLUGIN_SPEC], {
         claudeRoot: CLAUDE_HOME,
         codexHome: INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
     });
 }
 
-function printPluginHostOutcomes(spec, pluginOutcome) {
-    for (const eachHost of pluginOutcome.hosts) {
-        console.log(eachHost.warning
-            ? `  ${spec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
-            : `  ${spec.label} (${eachHost.host}): ${eachHost.status}`);
+function printPluginHostOutcomes(allSpecs, pluginOutcome) {
+    for (const eachSpec of allSpecs) {
+        for (const eachHost of pluginOutcome.hosts) {
+            console.log(eachHost.warning
+                ? `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
+                : `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status}`);
+        }
     }
 }
 
@@ -2882,14 +2885,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
             }
         }
-        printPluginHostOutcomes(PSTACK_PLUGIN_SPEC, pstackPlugin);
+        printPluginHostOutcomes([PSTACK_PLUGIN_SPEC], pstackPlugin);
     }
-    if (!selectedGroups && shouldInstallMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC)) {
-        const usageWrapupPlugin = installMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, {
+    const allRepositoryPluginSpecs = [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC]
+        .filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
+    if (!selectedGroups && allRepositoryPluginSpecs.length > 0) {
+        const repositoryPlugins = installMarketplacePlugins(allRepositoryPluginSpecs, {
             claudeRoot: CLAUDE_HOME,
         });
-        summary.usageWrapupPlugin = usageWrapupPlugin;
-        printPluginHostOutcomes(USAGE_WRAPUP_PLUGIN_SPEC, usageWrapupPlugin);
+        summary.repositoryPlugins = repositoryPlugins;
+        printPluginHostOutcomes(allRepositoryPluginSpecs, repositoryPlugins);
     }
     if (!selectedGroups) {
         const packageGuidancePath = writeCodexPackageGuidance(
@@ -3411,6 +3416,7 @@ Usage:
   npx ${PACKAGE_NAME} --profiles A,B  Install into each selected profile (one ownership manifest per target)
   npx ${PACKAGE_NAME} --no-pstack  Full install without the pstack plugin (also CDE_INSTALL_PSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
+  npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

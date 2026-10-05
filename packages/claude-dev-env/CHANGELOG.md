@@ -1,5 +1,84 @@
 # Changelog
 
+## [8.54.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.3...claude-dev-env-v8.54.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** keep the full scope of a request ([a7e6d18](https://github.com/jl-cmd/claude-dev-env/commit/a7e6d18510c7a4bafefdde66b1fa44c895559695))
+
+## [8.53.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.2...claude-dev-env-v8.53.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** skip the outside-roster warning for default without a roster ([f90c771](https://github.com/jl-cmd/claude-dev-env/commit/f90c771b190785d5c4c039c3b4b40115d76be2f7))
+
+## [8.53.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.1...claude-dev-env-v8.53.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** deny mid-sentence colons and em dashes in chat posts ([b403c97](https://github.com/jl-cmd/claude-dev-env/commit/b403c97fad576557784e27d6cfb7656594c78c7d))
+
+## [8.53.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.0...claude-dev-env-v8.53.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **broker:** hold a Claude account only at 95% of its 5-hour window or 99% of its week ([#1857](https://github.com/jl-cmd/claude-dev-env/issues/1857)) ([6ffd503](https://github.com/jl-cmd/claude-dev-env/commit/6ffd50378e427798e30705d2a3383272eef45ce9))
+
+## [8.53.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.1...claude-dev-env-v8.53.0) (2026-10-04)
+
+
+### Features
+
+* Add auto mode denial quick-fix hook ([4809d11](https://github.com/jl-cmd/claude-dev-env/commit/4809d1197c388202799d27e8be92e3419bd71f00))
+
+## [8.52.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.52.0...claude-dev-env-v8.52.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** end the whole process tree when a job times out ([7cc5903](https://github.com/jl-cmd/claude-dev-env/commit/7cc590347738af573d3ffc452903f0321967f193))
+* **process-tree:** wait for the signalled group to exit before returning ([9da63bc](https://github.com/jl-cmd/claude-dev-env/commit/9da63bca8e3e3e191fe633f9547d18bbe942351c))
+
+## [8.52.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.4...claude-dev-env-v8.52.0) (2026-10-04)
+
+
+### Features
+
+* **install:** install the subagent-models plugin on a full Claude install ([#1849](https://github.com/jl-cmd/claude-dev-env/issues/1849)) ([4cece62](https://github.com/jl-cmd/claude-dev-env/commit/4cece62ab7b80cafd0d6a025987e72680b91c41a))
+
+## [8.51.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.3...claude-dev-env-v8.51.4) (2026-10-04)
+
+
+### Bug Fixes
+
+* Allow the claude-dev-env update command in auto mode ([9cb4034](https://github.com/jl-cmd/claude-dev-env/commit/9cb40340b3065b8f653c4a749ea80cbd2b490fa7))
+
+## [8.51.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.2...claude-dev-env-v8.51.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** silence the title stop gate when the session lacks the title tool ([d29d9b5](https://github.com/jl-cmd/claude-dev-env/commit/d29d9b5c6156792282a8f15197bac715fa906b24))
+* **hooks:** silence the title stop gate when the session lacks the title tool ([4a11694](https://github.com/jl-cmd/claude-dev-env/commit/4a1169420fdc5b47a435221d97142d7b25e0ef9e))
+
+## [8.51.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.1...claude-dev-env-v8.51.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **rules:** match skill files in build-needs-a-user paths ([9f3c61b](https://github.com/jl-cmd/claude-dev-env/commit/9f3c61b2cbf92cf4f85db047da12c68891dc7a60))
+
+## [8.51.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.51.0...claude-dev-env-v8.51.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **scripts:** read directory ages before sweep removes any ([70fee16](https://github.com/jl-cmd/claude-dev-env/commit/70fee1610a7da984df0d7f1a33effaffb691d746))
+
 ## [8.51.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.50.1...claude-dev-env-v8.51.0) (2026-10-04)
 
 

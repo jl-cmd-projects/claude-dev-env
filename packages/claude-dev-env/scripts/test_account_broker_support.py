@@ -5,6 +5,8 @@ import json
 import os
 import shutil
 import subprocess
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -222,16 +224,85 @@ def test_should_raise_windows_lock_error_other_than_contention(tmp_path: Path) -
     assert all_calls == [lock_descriptor]
 
 
+GRANDCHILD_HEARTBEAT_SCRIPT = (
+    "import pathlib, sys, time\n"
+    "heartbeat = pathlib.Path(sys.argv[1])\n"
+    "for each_beat in range(300):\n"
+    "    heartbeat.write_text(str(each_beat), encoding='utf-8')\n"
+    "    time.sleep(0.1)\n"
+)
+
+CHILD_SCRIPT = (
+    "import subprocess, sys, time\n"
+    "subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]])\n"
+    "time.sleep(60)\n"
+)
+
+
+def test_should_end_grandchildren_when_the_job_times_out(tmp_path: Path) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+            timeout=5,
+        )
+
+    beat_after_timeout = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_timeout
+
+
+def test_should_end_grandchildren_when_the_broker_is_interrupted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    heartbeat_file = tmp_path / "heartbeat.txt"
+    original_communicate = subprocess.Popen.communicate
+
+    def interrupted_communicate(process: subprocess.Popen[bytes], *args: object, **kwargs: object) -> object:
+        try:
+            return original_communicate(process, *args, timeout=5)
+        except subprocess.TimeoutExpired:
+            raise KeyboardInterrupt from None
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", interrupted_communicate)
+
+    with pytest.raises(KeyboardInterrupt):
+        support._run_captured_subprocess(
+            [sys.executable, "-c", CHILD_SCRIPT, GRANDCHILD_HEARTBEAT_SCRIPT, str(heartbeat_file)],
+        )
+
+    beat_after_interrupt = heartbeat_file.read_text(encoding="utf-8")
+    time.sleep(0.5)
+    assert heartbeat_file.read_text(encoding="utf-8") == beat_after_interrupt
+
+
+def _record_launches(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    all_launched_argv: list[list[str]] = []
+
+    class FakeProcess:
+        returncode = 0
+
+        def __init__(self, all_argv: list[str], **options: object) -> None:
+            all_launched_argv.append(list(all_argv))
+
+        def __enter__(self) -> "FakeProcess":
+            return self
+
+        def __exit__(self, *exception_info: object) -> None:
+            return None
+
+        def communicate(self, **options: object) -> tuple[None, None]:
+            return None, None
+
+    monkeypatch.setattr(support.subprocess, "Popen", FakeProcess)
+    return all_launched_argv
+
+
 def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command if name == "claude" else None)
-    all_launched_argv: list[list[str]] = []
-
-    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
-        all_launched_argv.append(list(all_argv))
-        return subprocess.CompletedProcess(all_argv, 0)
-
-    monkeypatch.setattr(support.subprocess, "run", fake_run)
+    all_launched_argv = _record_launches(monkeypatch)
 
     completion = support.subprocess_runner(["claude", "-p"], input=b"", encoding="utf-8", errors="replace")
 
@@ -241,7 +312,7 @@ def test_should_launch_the_path_resolved_command_file(monkeypatch: pytest.Monkey
 
 def test_should_refuse_to_launch_a_bare_command_missing_from_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shutil, "which", lambda name: None)
-    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a missing command ran"))
 
     with pytest.raises(FileNotFoundError) as raised:
         support.subprocess_runner(["claude", "-p"])
@@ -256,7 +327,7 @@ def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
 ) -> None:
     resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
 
     with pytest.raises(OSError) as raised:
         support.subprocess_runner(["claude", "-p", f"fix{metacharacter}test"])
@@ -269,7 +340,7 @@ def test_should_refuse_a_batch_file_argument_that_cmd_would_parse(
 def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = r"C:\tools\CLAUDE.BAT"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    monkeypatch.setattr(support.subprocess, "run", lambda *arguments, **options: pytest.fail("a batch file ran"))
+    monkeypatch.setattr(support.subprocess, "Popen", lambda *arguments, **options: pytest.fail("a batch file ran"))
 
     with pytest.raises(OSError) as raised:
         support.subprocess_runner(["claude", "a & b"])
@@ -280,13 +351,7 @@ def test_should_refuse_metacharacters_for_an_uppercase_bat_extension(monkeypatch
 def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = r"C:\Users\someone\AppData\Roaming\npm\claude.cmd"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    all_launched_argv: list[list[str]] = []
-
-    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
-        all_launched_argv.append(list(all_argv))
-        return subprocess.CompletedProcess(all_argv, 0)
-
-    monkeypatch.setattr(support.subprocess, "run", fake_run)
+    all_launched_argv = _record_launches(monkeypatch)
 
     support.subprocess_runner(["claude", "-p", "--output-format", "json", "--model", "opus"], input=b"a & b")
 
@@ -296,13 +361,7 @@ def test_should_launch_a_batch_file_with_flags_only(monkeypatch: pytest.MonkeyPa
 def test_should_pass_metacharacters_to_an_executable_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     resolved_command = "/usr/local/bin/claude"
     monkeypatch.setattr(shutil, "which", lambda name: resolved_command)
-    all_launched_argv: list[list[str]] = []
-
-    def fake_run(all_argv: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
-        all_launched_argv.append(list(all_argv))
-        return subprocess.CompletedProcess(all_argv, 0)
-
-    monkeypatch.setattr(support.subprocess, "run", fake_run)
+    all_launched_argv = _record_launches(monkeypatch)
 
     support.subprocess_runner(["claude", "-p", 'say "a & b" | 100%!'])
 

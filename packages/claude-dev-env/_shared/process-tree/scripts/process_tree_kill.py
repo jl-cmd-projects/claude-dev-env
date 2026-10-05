@@ -25,6 +25,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 _config_directory = str(Path(__file__).resolve().parent / "config")
@@ -32,6 +33,8 @@ if _config_directory not in sys.path:
     sys.path.insert(0, _config_directory)
 
 from process_tree_scripts_constants.process_tree_kill_constants import (  # noqa: E402
+    PROCESS_TREE_EXIT_POLL_SECONDS,
+    PROCESS_TREE_EXIT_WAIT_SECONDS,
     PROCESS_TREE_KILL_TIMEOUT_SECONDS,
     WINDOWS_TASKKILL_COMMAND,
     WINDOWS_TASKKILL_FORCE_FLAG,
@@ -126,19 +129,103 @@ def terminate_process_tree(process: subprocess.Popen[str]) -> None:
         tree kill takes            ok:  grandchildren die, pipes close
         tree kill misses the child ok:  Popen.kill() ends the direct child
         child exits mid-kill       ok:  the raised lookup error is swallowed
+        grandchild still running   ok:  returns once the POSIX group has exited
 
     Falls back to ``Popen.kill()`` when the direct child survives the tree kill,
-    so the caller never waits on a live process.
+    so the caller never waits on a live process. On POSIX it then waits, bounded
+    by ``PROCESS_TREE_EXIT_WAIT_SECONDS``, until no group member is running, so
+    a descendant cannot touch files after this call returns.
 
     Args:
         process: The process whose tree is ended.
     """
     if process.poll() is not None:
         return
+    process_group_identifier = _posix_process_group(process.pid)
     kill_process_tree_by_identifier(process.pid)
-    if process.poll() is not None:
-        return
+    if process.poll() is None:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    if process_group_identifier is not None:
+        _wait_for_process_group_exit(process, process_group_identifier)
+
+
+def _posix_process_group(process_identifier: int) -> int | None:
+    if sys.platform == "win32":
+        return None
     try:
-        process.kill()
-    except ProcessLookupError:
-        return
+        return os.getpgid(process_identifier)
+    except OSError:
+        return None
+
+
+def _wait_for_process_group_exit(
+    process: subprocess.Popen[str], process_group_identifier: int
+) -> None:
+    """Block until no member of the signalled group is still running, bounded.
+
+    ``killpg`` returns once the signal is queued, and each target dies only when
+    the kernel next schedules it. A grandchild preempted inside a system call
+    finishes that call first, so it can still truncate or write a file after
+    the caller has moved on. Waiting here keeps that work inside the call.
+    """
+    deadline = time.monotonic() + PROCESS_TREE_EXIT_WAIT_SECONDS
+    while running_process_group_members(process, process_group_identifier):
+        if time.monotonic() >= deadline:
+            return
+        time.sleep(PROCESS_TREE_EXIT_POLL_SECONDS)
+
+
+def running_process_group_members(
+    process: subprocess.Popen[str], process_group_identifier: int
+) -> list[int]:
+    """List the process ids in a POSIX group that have not exited yet.
+
+    Reads ``/proc`` where it exists, which tells a running member from a zombie
+    waiting on its reaper. Elsewhere it reaps the direct child and asks the
+    kernel whether the group still has any member.
+
+    Args:
+        process: The direct child that leads the group.
+        process_group_identifier: The group the direct child leads.
+
+    Returns:
+        Process ids still running, or an empty list once the group has exited.
+    """
+    if sys.platform == "win32":
+        return []
+    proc_directory = Path("/proc")
+    if proc_directory.is_dir():
+        return _running_members_from_proc(proc_directory, process_group_identifier)
+    try:
+        process.wait(timeout=PROCESS_TREE_EXIT_POLL_SECONDS)
+    except subprocess.TimeoutExpired:
+        return [process.pid]
+    try:
+        os.killpg(process_group_identifier, 0)
+    except OSError:
+        return []
+    return [process_group_identifier]
+
+
+def _running_members_from_proc(
+    proc_directory: Path, process_group_identifier: int
+) -> list[int]:
+    all_running: list[int] = []
+    for each_entry in proc_directory.iterdir():
+        if not each_entry.name.isdigit():
+            continue
+        try:
+            stat_text = (each_entry / "stat").read_text(
+                encoding="ascii", errors="replace"
+            )
+        except OSError:
+            continue
+        state, _parent_identifier, group_identifier, *_later_fields = stat_text.rsplit(
+            ")", 1
+        )[1].split()
+        if int(group_identifier) == process_group_identifier and state != "Z":
+            all_running.append(int(each_entry.name))
+    return all_running
