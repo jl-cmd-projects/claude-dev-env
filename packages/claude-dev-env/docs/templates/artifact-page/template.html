@@ -7,7 +7,7 @@
   --accent: #2245a2; --accent-soft: #e6ecfb; --accent-ink: #ffffff;
   --ok: #165737; --ok-soft: #e3f3ea; --bad: #8b2621; --bad-soft: #fbe5e3; --warn: #6f4100; --warn-soft: #fbf0dc;
   --violet: #553b95; --violet-soft: #efe9fa;
-  --change: #8a1f6b; --change-ink: #ffffff;
+  --change: #8a1f6b;
   --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -15,14 +15,14 @@
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
-  --change: #f5a3dc; --change-ink: #1f0a19;
+  --change: #f5a3dc;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --edge: #6d7891; --line: #2b3240;
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
-  --change: #f5a3dc; --change-ink: #1f0a19;
+  --change: #f5a3dc;
   color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.4; padding-inline: 16px; padding-block: 24px 48px; margin: 0 }
@@ -98,17 +98,13 @@ details.what[open] summary::before { content: "▾" }
 .steps .sh { font-weight: 800 }
 .step { display: flex; gap: 10px; align-items: flex-start }
 .step .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--warn); color: var(--surface); display: grid; place-items: center; font-weight: 800 }
-.changes-note { justify-self: start; min-height: 44px; border-radius: 999px; border: 2px solid var(--change); background: var(--surface); padding: 4px 14px; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px }
-.changes-note[hidden] { display: none }
-.changes-note .mark, .lchip.changed::before { width: 10px; height: 10px; border-radius: 50%; background: var(--change); flex: none }
+.lchip.changed::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--change); flex: none }
 .changed { box-shadow: inset 4px 0 0 var(--change); padding-left: 12px; border-radius: 4px }
 .card.changed { box-shadow: inset 6px 0 0 var(--change); padding-left: 0; border-radius: 16px }
 .card.changed .band, .card.changed > .body { padding-left: 18px }
 .card.changed .body .changed { padding-left: 12px }
 .next.changed { border-radius: 12px }
-.lchip.changed { box-shadow: none; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
-.lchip.changed::before { content: "" }
-.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800 }
+.lchip.changed { box-shadow: none; border-radius: 999px; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 .empty { background: var(--surface); border: 2px dashed var(--edge); border-radius: 14px; padding: 20px; font-weight: 600 }
 @media (hover: hover) { .lchip:hover, .fchip:hover, .tab:hover, .copy:hover { border-color: var(--accent) } }
@@ -118,7 +114,6 @@ details.what[open] summary::before { content: "▾" }
   <header>
     <h1>Work Tracker</h1>
     <div class="stamp" id="stamp"></div>
-    <button class="changes-note" id="changes" hidden><span class="mark" aria-hidden="true"></span><span id="changes-text"></span></button>
   </header>
   <div class="tabs" role="group" aria-label="Show open or finished items">
     <button class="tab" data-tab="open" aria-pressed="true">Open <span class="n" id="n-open"></span></button>
@@ -339,7 +334,6 @@ function changeBaseline() {
   try { localStorage.setItem("work-tracker-seen-round", String(REVIEW_ROUND)); } catch (e) {}
   return baseline;
 }
-const isFresh = it => Number(it.changed_round) > CHANGE_BASELINE;
 function stampChange(node, it, part) {
   if (it.changed_round && (!part || [].concat(it.changed_parts || []).includes(part))) node.dataset.changedRound = it.changed_round;
   return node;
@@ -348,8 +342,6 @@ function markChanges() {
   for (const node of document.querySelectorAll("[data-changed-round]")) {
     if (Number(node.dataset.changedRound) <= CHANGE_BASELINE || node.classList.contains("changed")) continue;
     node.classList.add("changed");
-    const slot = node.querySelector("[data-change-slot]");
-    if (slot) { slot.prepend(el("span", "pill-changed", "Changed")); continue; }
     const label = node.querySelector(":scope > summary") || node;
     label.prepend(el("span", "sr", "Changed. "));
   }
@@ -408,13 +400,6 @@ function renderFilters() {
     f.append(b);
   }
 }
-function renderChangesNote(items) {
-  const note = document.getElementById("changes");
-  const fresh = items.filter(isFresh);
-  note.hidden = !fresh.length;
-  document.getElementById("changes-text").textContent = fresh.length === 1 ? "1 item changed since you last looked" : fresh.length + " items changed since you last looked";
-  note.onclick = () => { const first = document.querySelector(".card.changed"); if (first) jumpTo(TRACKER.items.find(i => slug(i) === first.id)); };
-}
 function trackFor(it) {
   const ol = el("ol", "track");
   ol.setAttribute("aria-label", "Progress");
@@ -453,7 +438,6 @@ function itemCard(it) {
   const card = stampChange(el("article", "card " + key), it);
   card.id = slug(it);
   const band = el("div", "band " + key);
-  band.dataset.changeSlot = "";
   band.append(el("span", null, s.icon), el("span", null, s.label));
   const proj = el("span", "proj");
   proj.append(el("span", null, (owner.icon || "📁")), el("span", null, owner.name));
@@ -505,7 +489,6 @@ function render() {
   renderFilters();
   const items = TRACKER.items.filter(inView);
   renderBoard(items);
-  renderChangesNote(items);
   const list = document.getElementById("list"); list.textContent = "";
   if (!items.length) {
     list.append(el("div", "empty", TRACKER.items.length ? (state.tab === "done" ? "No finished items match." : "No open items match.") : "Nothing tracked yet. Add an item to the data block and it shows up here."));

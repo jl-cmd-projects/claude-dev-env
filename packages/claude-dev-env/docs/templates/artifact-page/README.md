@@ -16,7 +16,7 @@
 | Readable text | Text is 16px or larger and uses the full text color. Gray stays on lines and borders only. Text holds a 7:1 contrast ratio against its background. |
 | Touch targets | Buttons and chips are 40px or taller, with a visible focus ring. |
 | Copy fallback | The copy button uses the clipboard API and falls back to a hidden text area, then says when the copy is blocked. |
-| Review rounds | Parts changed since the viewer's last look carry a thin bar and a "Changed" pill. [review-rounds.md](review-rounds.md) holds the data fields and behavior. |
+| Review rounds | Parts changed since the viewer's last look carry a thin bar on their left edge. [review-rounds.md](review-rounds.md) holds the data fields and behavior. |
 
 ## House rules for a page built from it
 
