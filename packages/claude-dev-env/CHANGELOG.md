@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.60.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.59.0...claude-dev-env-v8.60.0) (2026-10-05)
+
+
+### Features
+
+* **hooks:** every spawn carries the orchestrator oversight duty ([#1879](https://github.com/jl-cmd-projects/claude-dev-env/issues/1879)) ([adc5238](https://github.com/jl-cmd-projects/claude-dev-env/commit/adc5238671cb32a2133cf103eed9c73b8c47ad20))
+
 ## [8.59.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.58.0...claude-dev-env-v8.59.0) (2026-10-05)
 
 
