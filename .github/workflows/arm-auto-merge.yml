@@ -1,0 +1,40 @@
+name: Arm auto-merge
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+
+concurrency:
+  group: arm-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  arm:
+    name: Arm auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Arm auto-merge so the pull request joins the merge queue once its checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          pull_request_state=$(gh pr view "$PULL_REQUEST_NUMBER" --json autoMergeRequest,state --jq '[.state, (.autoMergeRequest != null)] | @tsv')
+          echo "Pull request $PULL_REQUEST_NUMBER state and armed flag: $pull_request_state"
+          if [ "$pull_request_state" != "$(printf 'OPEN\tfalse')" ]; then
+            echo "Pull request $PULL_REQUEST_NUMBER is closed or already armed."
+            exit 0
+          fi
+          gh pr merge "$PULL_REQUEST_NUMBER" --auto
