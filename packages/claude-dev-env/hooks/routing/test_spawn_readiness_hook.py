@@ -368,3 +368,15 @@ def test_should_quiet_a_codex_spawn_whose_brief_settles_scope(tmp_path: Path) ->
     assert stdout == ""
     [log_record] = _decision_log(tmp_path)
     assert log_record["outcome"] == "scope_settled"
+
+
+def test_should_print_nothing_for_empty_stdin(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT)],
+        input="",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        check=True,
+    )
+    assert completed.stdout == ""

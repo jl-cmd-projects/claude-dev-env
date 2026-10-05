@@ -3,8 +3,9 @@ name: orchestrator
 description: >-
   Coordinate user goals, parent tasks, workers, evidence, and recovery.
   Triggers: /orchestrator, orchestrate, operate like a coordinator,
-  track my goals, coordinate workers, retain goals across compaction.
-disable-model-invocation: true
+  track my goals, coordinate workers, retain goals across compaction,
+  before spawning a subagent, thread, or session, or starting work that
+  spans several turns.
 ---
 
 # Orchestrator
@@ -15,6 +16,7 @@ disable-model-invocation: true
 - [Gotchas](#gotchas)
 - [When this applies](#when-this-applies)
 - [Process](#process)
+- [Oversee delegated work](#oversee-delegated-work)
 - [Sub-skills](#sub-skills)
 - [File index](#file-index)
 - [Folder map](#folder-map)
@@ -116,6 +118,18 @@ If this run owns a scheduled wake, follow [optional scheduling](reference/schedu
 After all tasks, workers, approvals, and required delivery are resolved, persist the run's closure and evidence.
 Archive only this run's locator as described in [run state](reference/run-state.md), preserving other roots and their wakes.
 Report the result, evidence, and any remaining limit.
+
+## Oversee delegated work
+
+Every agent that spawns a subagent, thread, or session owns that work until it reaches the user.
+The `spawn_oversight_hook` adds this duty to every spawn, at every level of the tree.
+
+- Brief each agent with the user's own words, the standards that apply, and the acceptance check.
+- While it runs, read its progress. Wake a quiet agent with one concrete next step.
+- Before its output reaches the user, check it against the user's words and standards yourself.
+- Send the agent a correction when it misses, and check the corrected output the same way.
+- Give each piece of a multi-piece task its own reviewer or helper.
+- Show the user you are involved: say what you checked and what you corrected.
 
 ## Sub-skills
 
