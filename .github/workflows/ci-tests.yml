@@ -118,6 +118,13 @@ jobs:
             mypy \
             ruff
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install the Claude Code CLI for plugin tests
+        run: npm install --global @anthropic-ai/claude-code@2.1.288
+
       - name: Configure git identity for test repos
         run: |
           git config --global user.email "ci@example.com"
