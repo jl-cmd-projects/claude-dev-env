@@ -687,6 +687,7 @@ def test_should_stop_after_timeout_without_running_job_again(
     assert invoked_homes == ["first"]
     assert outcome.attempts == (("first", "timeout"),)
     assert outcome.status == "timeout"
+    assert outcome.returncode == 124
     assert outcome.account_name == "first"
     assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
@@ -696,12 +697,12 @@ def test_should_stop_after_timeout_without_running_job_again(
 @pytest.mark.parametrize(
     ("product", "roster_names", "start_error", "expected_code"),
     (
-        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 4),
-        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 127),
+        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 124),
+        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 124),
         (Product.CODEX, (), OSError("missing command"), 127),
     ),
 )
-def test_should_exit_four_only_for_a_blocked_claude_job(
+def test_should_exit_with_job_failure_code(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     product: Product,
