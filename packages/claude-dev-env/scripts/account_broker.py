@@ -54,6 +54,7 @@ from dev_env_scripts_constants.account_broker_constants import (
 from dev_env_scripts_constants.codex_account_constants import (
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     MAIN_CODEX_HOME_DIRECTORY_NAME,
+    NO_ROSTER_ACCOUNT_NAME,
     TIER_NORMAL,
 )
 
@@ -78,7 +79,7 @@ def choose_from_readings(
     """
     if product is Product.CODEX and not all_readings:
         home = Path(os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE) or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
-        return Decision("run", Account(product, "default", home, True), None, "no roster is configured", TIER_NORMAL)
+        return Decision("run", Account(product, NO_ROSTER_ACCOUNT_NAME, home, True), None, "no roster is configured", TIER_NORMAL)
     all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
     selected = (
         _choose_claude(all_available, preferred_command)
@@ -366,7 +367,8 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
-        print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
+        if all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME:
+            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
         return Reading(Account(product, name, Path(), False), None), reset
     return reading, reset
 
