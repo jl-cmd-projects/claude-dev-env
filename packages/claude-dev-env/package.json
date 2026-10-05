@@ -25,7 +25,6 @@
         "settings.json",
         "installable-surfaces.manifest.json",
         "_shared/",
-        "profile-settings/",
         "audit-rubrics/",
         "codex-rules/",
         "pstack-codex-models.md",
