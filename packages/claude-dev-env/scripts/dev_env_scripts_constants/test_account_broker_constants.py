@@ -16,9 +16,11 @@ import pytest
 
 from dev_env_scripts_constants import account_broker_constants as broker_constants
 from dev_env_scripts_constants.account_broker_constants import (
+    ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_FLOORS,
-    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_CODEX_FLOORS,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
+    CMD_SHELL_METACHARACTERS,
     JobOutcome,
 )
 from dev_env_scripts_constants.claude_account_constants import (
@@ -51,6 +53,11 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
         "luna_stop_left": LUNA_TIER_STOP_PERCENT_LEFT,
         "luna_short_minimum_left": LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     }
+
+
+def test_batch_command_boundaries_include_shell_metacharacters() -> None:
+    assert ALL_BATCH_FILE_EXTENSIONS == frozenset({".bat", ".cmd"})
+    assert set(CMD_SHELL_METACHARACTERS) == set('&|<>^%!"\r\n')
 
 
 def test_should_freeze_job_outcome() -> None:
