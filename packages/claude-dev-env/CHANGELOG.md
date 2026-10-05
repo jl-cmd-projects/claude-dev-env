@@ -1,5 +1,21 @@
 # Changelog
 
+## [8.56.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.1...claude-dev-env-v8.56.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **hooks:** ask for the session title in silence ([6fc3413](https://github.com/jl-cmd-projects/claude-dev-env/commit/6fc34133ae6cf14651146ae24bb2796d5fb9df18))
+* **hooks:** one silent session-title Stop gate ([1185c48](https://github.com/jl-cmd-projects/claude-dev-env/commit/1185c483fa8e195dbf92d0e72230b683eb595ffb))
+* **install:** retire the duplicate profile session-title Stop gate ([f5ef076](https://github.com/jl-cmd-projects/claude-dev-env/commit/f5ef076d06c286cc04e301c66caffbc8370d4870))
+* **rules:** keep the session-title rule inside the always-on budget ([1bd038d](https://github.com/jl-cmd-projects/claude-dev-env/commit/1bd038da3fe4ad6a6c2f141fa56bcc98ed6d2698))
+
+
+### CI
+
+* run required checks on merge_group for a merge queue ([f0a3467](https://github.com/jl-cmd-projects/claude-dev-env/commit/f0a34673defe912b602e6c85383886aa509ff1df))
+* run required checks on merge_group for a merge queue ([c276f37](https://github.com/jl-cmd-projects/claude-dev-env/commit/c276f370aec7f27cd5f81bcd0c78673748c1ca6c))
+
 ## [8.56.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.56.0...claude-dev-env-v8.56.1) (2026-10-05)
 
 
