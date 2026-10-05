@@ -12,7 +12,7 @@ def test_entry_point_registers_both_hook_groups() -> None:
         "register((event) => events.push(event), {}); "
         "console.log(JSON.stringify(events));"
     )
-    result = subprocess.run(
+    registration_run = subprocess.run(
         ["bun", "-e", script],
         cwd=root,
         capture_output=True,
@@ -21,4 +21,4 @@ def test_entry_point_registers_both_hook_groups() -> None:
         shell=os.name == "nt",
     )
 
-    assert json.loads(result.stdout) == ["session.measure", "tool.call", "turn.complete"]
+    assert json.loads(registration_run.stdout) == ["session.measure", "tool.call", "turn.complete"]

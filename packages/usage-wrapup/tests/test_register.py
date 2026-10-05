@@ -14,7 +14,7 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         "console.log(JSON.stringify({low, note: wrapUpNote(low), "
         "aboveThreshold: lowest([{kind: 'five_hour', percentUsed: 94}], 5)}));"
     )
-    result = subprocess.run(
+    selection_run = subprocess.run(
         ["bun", "-e", script],
         cwd=root,
         capture_output=True,
@@ -22,11 +22,11 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         check=True,
         shell=os.name == "nt",
     )
-    output = json.loads(result.stdout)
+    selection_report = json.loads(selection_run.stdout)
 
-    assert output["low"] == {
+    assert selection_report["low"] == {
         "kind": "seven_day",
         "left": 1,
     }
-    assert "weekly usage limit: only 1% left." in output["note"]
-    assert "aboveThreshold" not in output
+    assert "weekly usage limit: only 1% left." in selection_report["note"]
+    assert "aboveThreshold" not in selection_report
