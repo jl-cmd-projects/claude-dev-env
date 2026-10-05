@@ -89,9 +89,19 @@ jobs:
             echo "Passed ${each_context} on ${head_sha}"
           done
 
-      - name: Merge the release pull request and start the release run
+      - name: Mint an app token whose merge starts the merge queue and push runs
+        if: ${{ steps.release_pr.outputs.head_sha != '' }}
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Queue the release pull request for merge
         if: ${{ steps.release_pr.outputs.head_sha != '' }}
         env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
           pr_number: ${{ steps.release_pr.outputs.number }}
           head_sha: ${{ steps.release_pr.outputs.head_sha }}
         run: |
@@ -103,12 +113,11 @@ jobs:
             echo "${unexpected_files}"
             exit 0
           fi
-          if ! gh pr merge "${pr_number}" --merge --match-head-commit "${head_sha}"; then
+          if ! gh pr merge "${pr_number}" --squash --match-head-commit "${head_sha}"; then
             echo "::notice::The main branch rules refused the merge of release pull request #${pr_number}, so it waits for a maintainer."
             exit 0
           fi
-          gh workflow run publish.yml --ref main
-          echo "Merged release pull request #${pr_number} and started the release run on main."
+          echo "Queued release pull request #${pr_number}. Its merge to main starts the push run that publishes."
 
   publish:
     needs: release

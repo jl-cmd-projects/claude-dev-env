@@ -1483,7 +1483,7 @@ class TestReleasePullRequestChecks:
             "release-please--branches--main--components--claude-dev-env"
         )
 
-    def should_merge_a_version_bump_and_dispatch_the_release_run(
+    def should_queue_a_version_bump_without_dispatching_a_release_run(
         self, tmp_path: Path
     ) -> None:
         gh_calls = _run_release_merge_step(
@@ -1495,8 +1495,8 @@ class TestReleasePullRequestChecks:
             ),
             merge_exit_code=0,
         )
-        assert "pr merge 1553 --merge --match-head-commit abc123" in gh_calls
-        assert "workflow run publish.yml --ref main" in gh_calls
+        assert "pr merge 1553 --squash --match-head-commit abc123" in gh_calls
+        assert all("workflow run" not in each_call for each_call in gh_calls)
 
     def should_leave_a_release_pull_request_with_other_files_for_a_maintainer(
         self, tmp_path: Path
@@ -1520,7 +1520,7 @@ class TestReleasePullRequestChecks:
             changed_files="packages/claude-dev-env/package.json\n",
             merge_exit_code=1,
         )
-        assert "pr merge 1553 --merge --match-head-commit abc123" in gh_calls
+        assert "pr merge 1553 --squash --match-head-commit abc123" in gh_calls
         assert all("workflow run" not in each_call for each_call in gh_calls)
 
 
@@ -1534,7 +1534,7 @@ def _run_release_merge_step(
     merge_step = next(
         each_step
         for each_step in all_steps
-        if each_step.get("name") == "Merge the release pull request and start the release run"
+        if each_step.get("name") == "Queue the release pull request for merge"
     )
     gh_log_path = tmp_path / "gh-calls.log"
     fake_bin_path = tmp_path / "bin"
