@@ -78,6 +78,14 @@ def should_block_stop_when_user_text_follows_last_title(tmp_path: Path) -> None:
     assert "set_session_title" in decision["reason"]
 
 
+def should_tell_the_model_to_set_the_title_in_silence(tmp_path: Path) -> None:
+    gate_output = _run_gate(tmp_path, [_user_text_entry("one more thing")])
+
+    reason = json.loads(gate_output)["reason"]
+    assert "Say nothing to the user about the title" in reason
+    assert "end with no text" in reason
+
+
 def should_allow_stop_when_stop_hook_is_already_active(tmp_path: Path) -> None:
     assert (
         _run_gate(tmp_path, [_user_text_entry("fix the bug")], is_stop_hook_active=True)

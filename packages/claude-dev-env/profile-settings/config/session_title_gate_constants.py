@@ -11,5 +11,9 @@ INSTRUCTION = (
     'Title = "<emoji> <brief task name>", one line in a narrow sidebar. '
     "\U0001f6a9 = Jon must act (question, approval, a step only he can do). "
     "✅ = fully done (merged or nothing left). "
-    "⏳ = work, CI, or a merge queue still running and nothing waits on Jon."
+    "⏳ = work, CI, or a merge queue still running and nothing waits on Jon. "
+    "The title is a silent step: make the call and end the turn. "
+    "Say nothing to the user about the title, its emoji or this reminder. "
+    "When the user already has your answer this turn, end with no text. "
+    "Next time, set the title before your final reply."
 )
