@@ -213,6 +213,43 @@ def test_should_block_a_remote_session_whose_tool_list_names_the_title_tool(
     assert json.loads(stdout_text)["decision"] == "block"
 
 
+def earlier_stop_block() -> dict[str, object]:
+    return {
+        "type": "attachment",
+        "attachment": {"type": "hook_blocking_error", "hookEvent": "Stop"},
+    }
+
+
+def test_should_stay_silent_in_a_remote_session_after_an_unmet_earlier_block(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REMOTE_SESSION_VARIABLE, "cse_1")
+    all_entries = [
+        prompt("Fix the runner"),
+        earlier_stop_block(),
+        prompt("Next task"),
+        tool_call("t1", "Bash"),
+        tool_result("t1"),
+    ]
+    assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
+
+
+def test_should_block_after_an_earlier_block_once_the_title_tool_is_listed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REMOTE_SESSION_VARIABLE, "cse_1")
+    all_entries = [
+        deferred_tools(REMOTE_TITLE_TOOL),
+        prompt("Fix the runner"),
+        earlier_stop_block(),
+        prompt("Next task"),
+        tool_call("t1", "Bash"),
+        tool_result("t1"),
+    ]
+    _, stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)
+    assert json.loads(stdout_text)["decision"] == "block"
+
+
 def test_should_stay_silent_on_the_retry_after_a_block(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
