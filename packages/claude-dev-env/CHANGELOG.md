@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.57.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.2...claude-dev-env-v8.57.0) (2026-10-05)
+
+
+### Features
+
+* **templates:** mark what changed between review rounds in the artifact page ([#1890](https://github.com/jl-cmd-projects/claude-dev-env/issues/1890)) ([2a73528](https://github.com/jl-cmd-projects/claude-dev-env/commit/2a735283d2d9227f8bffeba06551ff61acddb6de))
+
 ## [8.56.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.1...claude-dev-env-v8.56.2) (2026-10-05)
 
 
