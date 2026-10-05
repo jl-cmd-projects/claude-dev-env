@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.54.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.3...claude-dev-env-v8.54.0) (2026-10-04)
+
+
+### Features
+
+* **rules:** keep the full scope of a request ([a7e6d18](https://github.com/jl-cmd/claude-dev-env/commit/a7e6d18510c7a4bafefdde66b1fa44c895559695))
+
+## [8.53.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.2...claude-dev-env-v8.53.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **account-broker:** skip the outside-roster warning for default without a roster ([f90c771](https://github.com/jl-cmd/claude-dev-env/commit/f90c771b190785d5c4c039c3b4b40115d76be2f7))
+
+## [8.53.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.1...claude-dev-env-v8.53.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **hooks:** deny mid-sentence colons and em dashes in chat posts ([b403c97](https://github.com/jl-cmd/claude-dev-env/commit/b403c97fad576557784e27d6cfb7656594c78c7d))
+
 ## [8.53.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.0...claude-dev-env-v8.53.1) (2026-10-04)
 
 
