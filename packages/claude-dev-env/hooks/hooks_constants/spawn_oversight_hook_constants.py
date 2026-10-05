@@ -31,7 +31,7 @@ ALL_SPAWN_TOOL_NAMES = frozenset(
 
 SPAWN_OVERSIGHT_DIRECTIVE = (
     "You own the work this spawn starts. Load the orchestrator skill and follow "
-    "its Oversee delegated work section. While the agent runs, read its progress "
+    "its oversee delegated work reference. While the agent runs, read its progress "
     "and wake it with one next step when it goes quiet. Before its output "
     "reaches the user, check it against the user's own words and standards, and "
     "send the agent a correction when it misses. Give each piece of a "
