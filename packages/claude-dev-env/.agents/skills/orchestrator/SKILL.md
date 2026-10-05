@@ -122,6 +122,7 @@ Report the result, evidence, and any remaining limit.
 ## Oversee delegated work
 
 Every agent that spawns a subagent, thread, or session owns that work until it reaches the user.
+Agents make mistakes. The spawner is a fresh second set of eyes that catches and corrects them before they reach the user.
 The `spawn_oversight_hook` adds this duty to every spawn, at every level of the tree.
 
 - Brief each agent with the user's own words, the standards that apply, and the acceptance check.
