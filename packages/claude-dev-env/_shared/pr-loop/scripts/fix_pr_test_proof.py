@@ -5,7 +5,7 @@
     title "docs: ..."                               -> pass, nothing to prove
     title "fix: ..." changing only docs or .github  -> pass, nothing to prove
     title "fix: ..." with no changed Python test    -> fail
-    title "fix: ..." with no changed Python or Node test -> fail
+    title "fix: ..." with no changed Python, Node, or plugin test -> fail
     changed test passes on head, fails on base      -> pass
     changed test passes on both                     -> fail
     any changed test fails on head                  -> fail
@@ -14,8 +14,10 @@ Python tests reuse the regression gate's detached worktree: the changed test
 files are copied onto the base checkout, which runs them with import isolation.
 Node tests (``*.test.mjs``, ``*.test.js``, ``*.test.cjs``) run through
 ``node --test`` on the head, then on a detached base checkout that holds a copy
-of the changed test files. The fix is proven when at least one language's
-changed tests fail on the base.
+of the changed test files. Plugin tests (``*.test.ts``, ``*.test.tsx`` under a
+directory that holds ``.claude-plugin/``) run through ``claude plugin test`` in
+each plugin root on the head, then on the same kind of detached base checkout.
+The fix is proven when at least one language's changed tests fail on the base.
 """
 
 import argparse
@@ -23,7 +25,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from enum import Enum
+from functools import partial
 from pathlib import Path
 
 from code_rules_gate_parts import staged_test_regression, staged_test_running
@@ -32,6 +36,8 @@ from code_rules_gate_parts.wrapper_plumb_check import is_test_path
 from pr_loop_shared_constants.fix_pr_test_proof_constants import (
     ALL_NODE_TEST_COMMAND,
     ALL_NODE_TEST_SUFFIXES,
+    ALL_PLUGIN_TEST_COMMAND,
+    ALL_PLUGIN_TEST_SUFFIXES,
     ALL_PRODUCTION_CODE_SUFFIXES,
     CI_CONFIG_DIRECTORY_NAME,
     FAILED_EXIT_CODE,
@@ -44,6 +50,7 @@ from pr_loop_shared_constants.fix_pr_test_proof_constants import (
     NODE_BASE_WORKTREE_TEMP_DIRECTORY_PREFIX,
     NOT_A_FIX_MESSAGE,
     PASSED_EXIT_CODE,
+    PLUGIN_MANIFEST_DIRECTORY_NAME,
     PROVEN_MESSAGE,
     WORKTREE_FAILED_MESSAGE,
 )
@@ -102,6 +109,25 @@ def _changed_node_tests(all_changed_paths: list[Path]) -> list[Path]:
     ]
 
 
+def _plugin_root(test_path: Path, repository_root: Path) -> Path | None:
+    for each_directory in test_path.parents:
+        if (each_directory / PLUGIN_MANIFEST_DIRECTORY_NAME).is_dir():
+            return each_directory
+        if each_directory == repository_root:
+            return None
+    return None
+
+
+def _changed_plugin_tests(all_changed_paths: list[Path], repository_root: Path) -> list[Path]:
+    return [
+        each_path
+        for each_path in all_changed_paths
+        if each_path.name.endswith(ALL_PLUGIN_TEST_SUFFIXES)
+        and each_path.is_file()
+        and _plugin_root(each_path, repository_root) is not None
+    ]
+
+
 def _python_proof_verdict(
     all_changed_tests: list[Path], repository_root: Path, base_revision: str
 ) -> ProofVerdict:
@@ -130,7 +156,7 @@ def _python_proof_verdict(
     return ProofVerdict.PROVEN
 
 
-def _node_tests_pass(working_directory: Path, all_relative_tests: list[Path]) -> bool:
+def _node_tests_pass(all_relative_tests: list[Path], working_directory: Path) -> bool:
     node_run = subprocess.run(
         [*ALL_NODE_TEST_COMMAND, *(each_path.as_posix() for each_path in all_relative_tests)],
         cwd=working_directory,
@@ -139,6 +165,20 @@ def _node_tests_pass(working_directory: Path, all_relative_tests: list[Path]) ->
         check=False,
     )
     return node_run.returncode == 0
+
+
+def _plugin_tests_pass(all_relative_plugin_roots: list[Path], working_directory: Path) -> bool:
+    return all(
+        subprocess.run(
+            ALL_PLUGIN_TEST_COMMAND,
+            cwd=working_directory / each_relative_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        == 0
+        for each_relative_root in all_relative_plugin_roots
+    )
 
 
 def _copy_tests_onto(
@@ -150,11 +190,14 @@ def _copy_tests_onto(
         shutil.copy2(repository_root / each_relative_test, base_test_path)
 
 
-def _node_proof_verdict(
-    all_changed_tests: list[Path], repository_root: Path, base_revision: str
+def _head_and_base_proof_verdict(
+    all_changed_tests: list[Path],
+    repository_root: Path,
+    base_revision: str,
+    tests_pass: Callable[[Path], bool],
 ) -> ProofVerdict:
     all_relative_tests = [each_path.relative_to(repository_root) for each_path in all_changed_tests]
-    if not _node_tests_pass(repository_root, all_relative_tests):
+    if not tests_pass(repository_root):
         sys.stderr.write(HEAD_FAILURE_MESSAGE.format(group_root=repository_root) + "\n")
         return ProofVerdict.HEAD_FAILED
     with tempfile.TemporaryDirectory(
@@ -168,13 +211,43 @@ def _node_proof_verdict(
             return ProofVerdict.BASE_UNAVAILABLE
         try:
             _copy_tests_onto(base_worktree, repository_root, all_relative_tests)
-            passes_on_base = _node_tests_pass(base_worktree, all_relative_tests)
+            passes_on_base = tests_pass(base_worktree)
         finally:
             staged_test_regression._remove_baseline_worktree(repository_root, base_worktree)
     if passes_on_base:
         return ProofVerdict.PASSES_ON_BASE
     sys.stdout.write(PROVEN_MESSAGE.format(count=len(all_relative_tests)) + "\n")
     return ProofVerdict.PROVEN
+
+
+def _node_proof_verdict(
+    all_changed_tests: list[Path], repository_root: Path, base_revision: str
+) -> ProofVerdict:
+    all_relative_tests = [each_path.relative_to(repository_root) for each_path in all_changed_tests]
+    return _head_and_base_proof_verdict(
+        all_changed_tests,
+        repository_root,
+        base_revision,
+        partial(_node_tests_pass, all_relative_tests),
+    )
+
+
+def _plugin_proof_verdict(
+    all_changed_tests: list[Path], repository_root: Path, base_revision: str
+) -> ProofVerdict:
+    all_relative_plugin_roots = sorted(
+        {
+            each_root.relative_to(repository_root)
+            for each_path in all_changed_tests
+            if (each_root := _plugin_root(each_path, repository_root)) is not None
+        }
+    )
+    return _head_and_base_proof_verdict(
+        all_changed_tests,
+        repository_root,
+        base_revision,
+        partial(_plugin_tests_pass, all_relative_plugin_roots),
+    )
 
 
 def _proof_exit_code(
@@ -213,7 +286,8 @@ def main(all_arguments: list[str]) -> int:
         return PASSED_EXIT_CODE
     all_changed_python_tests = _changed_python_tests(all_changed_paths)
     all_changed_node_tests = _changed_node_tests(all_changed_paths)
-    if not all_changed_python_tests and not all_changed_node_tests:
+    all_changed_plugin_tests = _changed_plugin_tests(all_changed_paths, repository_root)
+    if not (all_changed_python_tests or all_changed_node_tests or all_changed_plugin_tests):
         sys.stderr.write(NO_CHANGED_TEST_MESSAGE + "\n")
         return FAILED_EXIT_CODE
     base_revision = parsed_arguments.base_revision
@@ -225,6 +299,10 @@ def main(all_arguments: list[str]) -> int:
     if all_changed_node_tests:
         all_verdicts.append(
             _node_proof_verdict(all_changed_node_tests, repository_root, base_revision)
+        )
+    if all_changed_plugin_tests:
+        all_verdicts.append(
+            _plugin_proof_verdict(all_changed_plugin_tests, repository_root, base_revision)
         )
     return _proof_exit_code(all_verdicts, base_revision)
 
