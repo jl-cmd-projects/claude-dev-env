@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.58.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.57.0...claude-dev-env-v8.58.0) (2026-10-05)
+
+
+### Features
+
+* **skills:** add /correction to turn a correction into an intake brief ([#1893](https://github.com/jl-cmd-projects/claude-dev-env/issues/1893)) ([a0ec615](https://github.com/jl-cmd-projects/claude-dev-env/commit/a0ec6154ae5e2aae89d06f7a5ab23f3f4e8c50d8))
+
+
+### Documentation
+
+* **templates:** add convert steps to the artifact page README ([#1896](https://github.com/jl-cmd-projects/claude-dev-env/issues/1896)) ([011cb20](https://github.com/jl-cmd-projects/claude-dev-env/commit/011cb205c5fe5a244dc007cdda72f649c123ae8f))
+
 ## [8.57.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.2...claude-dev-env-v8.57.0) (2026-10-05)
 
 
