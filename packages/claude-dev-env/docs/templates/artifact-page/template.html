@@ -100,12 +100,9 @@ details.what[open] summary::before { content: "▾" }
 .step .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--warn); color: var(--surface); display: grid; place-items: center; font-weight: 800 }
 .lchip.changed::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--change); flex: none }
 .changed { box-shadow: inset 4px 0 0 var(--change); padding-left: 12px; border-radius: 4px }
-.card.changed { box-shadow: inset 6px 0 0 var(--change); padding-left: 0; border-radius: 16px }
-.card.changed .band, .card.changed > .body { padding-left: 18px }
-.card.changed .body .changed { padding-left: 12px }
 .next.changed { border-radius: 12px }
 .lchip.changed { box-shadow: none; border-radius: 999px; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
-.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800 }
+.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800; margin-right: 8px; vertical-align: middle; flex: none; white-space: nowrap }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 .empty { background: var(--surface); border: 2px dashed var(--edge); border-radius: 14px; padding: 20px; font-weight: 600 }
 @media (hover: hover) { .lchip:hover, .fchip:hover, .tab:hover, .copy:hover { border-color: var(--accent) } }
@@ -336,17 +333,16 @@ function changeBaseline() {
   return baseline;
 }
 function stampChange(node, it, part) {
-  if (it.changed_round && (!part || [].concat(it.changed_parts || []).includes(part))) node.dataset.changedRound = it.changed_round;
+  const parts = [].concat(it.changed_parts || []);
+  if (it.changed_round && (part ? parts.includes(part) : parts.length)) node.dataset.changedRound = it.changed_round;
   return node;
 }
 function markChanges() {
   for (const node of document.querySelectorAll("[data-changed-round]")) {
     if (Number(node.dataset.changedRound) <= CHANGE_BASELINE || node.classList.contains("changed")) continue;
     node.classList.add("changed");
-    const slot = node.querySelector("[data-change-slot]");
-    if (slot) { slot.prepend(el("span", "pill-changed", "Changed")); continue; }
     const label = node.querySelector(":scope > summary") || node;
-    label.prepend(el("span", "sr", "Changed. "));
+    label.prepend(node.dataset.changeMark === "dot" ? el("span", "sr", "Changed. ") : el("span", "pill-changed", "Changed"));
   }
 }
 function save() { try { localStorage.setItem("work-tracker-view", JSON.stringify({ tab: state.tab, owner: state.owner })); } catch (e) {} }
@@ -379,6 +375,7 @@ function renderBoard(items) {
       const chips = el("div", "lchips");
       for (const it of mine) {
         const b = stampChange(el("button", "lchip", it.title), it);
+        b.dataset.changeMark = "dot";
         b.setAttribute("aria-label", "Go to " + it.title);
         b.onclick = () => jumpTo(it);
         chips.append(b);
@@ -438,10 +435,9 @@ function copyButton(it) {
 }
 function itemCard(it) {
   const key = stageOf(it), s = STAGE_BY_KEY[key], owner = ownerByKey[it.owner] || { name: it.owner };
-  const card = stampChange(el("article", "card " + key), it);
+  const card = el("article", "card " + key);
   card.id = slug(it);
   const band = el("div", "band " + key);
-  band.dataset.changeSlot = "";
   band.append(el("span", null, s.icon), el("span", null, s.label));
   const proj = el("span", "proj");
   proj.append(el("span", null, (owner.icon || "📁")), el("span", null, owner.name));
