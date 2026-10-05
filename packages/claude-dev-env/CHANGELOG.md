@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.2...claude-dev-env-v8.54.3) (2026-10-05)
+
+
+### Documentation
+
+* **scripts:** add Args and Returns to invoke_worker docstring ([d8774d2](https://github.com/jl-cmd/claude-dev-env/commit/d8774d2e4d173950449f67bdfb29c020a0c0b8a5))
+
 ## [8.54.2](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.1...claude-dev-env-v8.54.2) (2026-10-05)
 
 
