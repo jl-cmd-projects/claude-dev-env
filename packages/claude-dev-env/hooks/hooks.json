@@ -118,6 +118,16 @@
         ]
       },
       {
+        "matcher": "mcp__.*__(add_issue_comment|issue_write|update_issue_comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/issue_close_handoff_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__set_session_title",
         "hooks": [
           {
