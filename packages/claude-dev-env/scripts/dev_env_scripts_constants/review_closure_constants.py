@@ -30,10 +30,16 @@ CHECK_RUN_PAGE_SIZE: int = 100
 """How many check runs one request asks for."""
 
 REVIEW_THREAD_QUERY: str = """
-query($owner: String!, $name: String!, $number: Int!, $pageSize: Int!) {
+query(
+  $owner: String!, $name: String!, $number: Int!, $pageSize: Int!, $after: String
+) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      reviewThreads(first: $pageSize) {
+      reviewThreads(first: $pageSize, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           path
           isResolved
@@ -52,14 +58,13 @@ query($owner: String!, $name: String!, $number: Int!, $pageSize: Int!) {
 """
 """GraphQL query for the review threads on one pull request."""
 
-ALL_THREAD_NODE_KEYS: tuple[str, ...] = (
+ALL_THREAD_CONNECTION_KEYS: tuple[str, ...] = (
     "data",
     "repository",
     "pullRequest",
     "reviewThreads",
-    "nodes",
 )
-"""Path from the GraphQL answer down to the review-thread list."""
+"""Path from the GraphQL answer down to the review-thread connection."""
 
 ALL_RESOLVED_KEYS: tuple[str, ...] = ("isResolved", "resolved", "is_resolved")
 """Field names either route uses for a resolved review thread."""
@@ -173,6 +178,29 @@ NUMBER_VARIABLE: str = "number"
 
 PAGE_SIZE_VARIABLE: str = "pageSize"
 """GraphQL variable naming the page size."""
+
+AFTER_VARIABLE: str = "after"
+"""GraphQL variable naming the cursor a page starts after."""
+
+NODES_KEY: str = "nodes"
+"""GraphQL connection field carrying one page of records."""
+
+PAGE_INFO_KEY: str = "pageInfo"
+"""GraphQL connection field describing the page boundaries."""
+
+HAS_NEXT_PAGE_KEY: str = "hasNextPage"
+"""Page-info field that is true while more records follow."""
+
+END_CURSOR_KEY: str = "endCursor"
+"""Page-info field naming the cursor the next page starts after."""
+
+MAX_REVIEW_THREAD_PAGES: int = 20
+"""How many review-thread pages one read follows before it reports an error."""
+
+TOO_MANY_THREAD_PAGES_TEMPLATE: str = (
+    "review threads on {slug}#{number} span more than {page_count} pages"
+)
+"""Error raised when the review threads outrun the page limit."""
 
 ALL_TOKEN_ENVIRONMENT_VARIABLES: tuple[str, ...] = (
     "GITHUB_TOKEN",
