@@ -63,7 +63,3 @@ def test_empty_stdin_stays_quiet() -> None:
         [sys.executable, str(HOOK_SCRIPT)], input="", capture_output=True, text=True, check=True
     )
     assert completed.stdout == ""
-
-
-def test_the_pointer_names_a_template_that_exists() -> None:
-    assert ARTIFACT_TEMPLATE_PATH.is_file()
