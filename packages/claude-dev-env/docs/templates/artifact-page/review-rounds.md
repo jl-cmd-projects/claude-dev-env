@@ -1,6 +1,6 @@
 # Marking what changed between review rounds
 
-A page that a reviewer reads more than once shows what changed since their last look. The template marks each changed card and each changed part with a thin bar on its left edge, and each changed board chip with a dot in the same color. There is no diff, no label and no list of changes.
+A page that a reviewer reads more than once shows what changed since their last look. The template marks each changed card and each changed part with a thin bar on its left edge, gives each changed card a small "Changed" label, and gives each changed board chip a dot in the same color. There is no diff and no list of changes.
 
 ## Data
 
@@ -21,6 +21,6 @@ When a revision answers feedback, set `round` to the new number and stamp each i
 
 ## Other pages
 
-Any element with `data-changed-round="N"` takes the bar and a screen reader label.
+Any element with `data-changed-round="N"` takes the bar. An element that holds a `data-change-slot` child gets the "Changed" label in that child; other elements get a screen reader label.
 
-The `--change` token holds the bar color in light and dark. Keep it at 3:1 or better against `--surface` and `--bg`.
+The `--change` and `--change-ink` tokens hold the mark colors in light and dark. Keep the label text at 7:1 or better against `--change`, and the bar at 3:1 or better against `--surface` and `--bg`.

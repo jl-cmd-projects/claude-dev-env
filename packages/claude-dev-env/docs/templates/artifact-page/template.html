@@ -7,7 +7,7 @@
   --accent: #2245a2; --accent-soft: #e6ecfb; --accent-ink: #ffffff;
   --ok: #165737; --ok-soft: #e3f3ea; --bad: #8b2621; --bad-soft: #fbe5e3; --warn: #6f4100; --warn-soft: #fbf0dc;
   --violet: #553b95; --violet-soft: #efe9fa;
-  --change: #8a1f6b;
+  --change: #8a1f6b; --change-ink: #ffffff;
   --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -15,14 +15,14 @@
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
-  --change: #f5a3dc;
+  --change: #f5a3dc; --change-ink: #1f0a19;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --edge: #6d7891; --line: #2b3240;
   --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
   --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
   --violet: #c5b1f2; --violet-soft: #251f38;
-  --change: #f5a3dc;
+  --change: #f5a3dc; --change-ink: #1f0a19;
   color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.4; padding-inline: 16px; padding-block: 24px 48px; margin: 0 }
@@ -105,6 +105,7 @@ details.what[open] summary::before { content: "▾" }
 .card.changed .body .changed { padding-left: 12px }
 .next.changed { border-radius: 12px }
 .lchip.changed { box-shadow: none; border-radius: 999px; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
+.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800 }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 .empty { background: var(--surface); border: 2px dashed var(--edge); border-radius: 14px; padding: 20px; font-weight: 600 }
 @media (hover: hover) { .lchip:hover, .fchip:hover, .tab:hover, .copy:hover { border-color: var(--accent) } }
@@ -342,6 +343,8 @@ function markChanges() {
   for (const node of document.querySelectorAll("[data-changed-round]")) {
     if (Number(node.dataset.changedRound) <= CHANGE_BASELINE || node.classList.contains("changed")) continue;
     node.classList.add("changed");
+    const slot = node.querySelector("[data-change-slot]");
+    if (slot) { slot.prepend(el("span", "pill-changed", "Changed")); continue; }
     const label = node.querySelector(":scope > summary") || node;
     label.prepend(el("span", "sr", "Changed. "));
   }
@@ -438,6 +441,7 @@ function itemCard(it) {
   const card = stampChange(el("article", "card " + key), it);
   card.id = slug(it);
   const band = el("div", "band " + key);
+  band.dataset.changeSlot = "";
   band.append(el("span", null, s.icon), el("span", null, s.label));
   const proj = el("span", "proj");
   proj.append(el("span", null, (owner.icon || "📁")), el("span", null, owner.name));
