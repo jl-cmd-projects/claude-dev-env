@@ -21,6 +21,7 @@ ALWAYS_ON_RULE_NAMES = frozenset(
         "proof-before-pull-request.md",
         "question-presentation.md",
         "research-mode.md",
+        "request-scope.md",
         "session-title.md",
         "skill-pointers.md",
         "shell-invocation.md",
