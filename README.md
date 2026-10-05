@@ -255,6 +255,7 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | mcp__hearthbot__start_thread_session | `thread_spawn_pace_hook` | When the five-hour or seven-day usage window runs ahead of its clock after its first 10%, or usage cannot be read, moves the thread to Opus 5.5 at low effort |
 | Agent\|Task | `subagent_model_pin_hook` | Moves a subagent that names Sonnet or Haiku, or names no model, to Opus |
 | Agent\|Task\|mcp__hearthbot__start_thread_session\|multi_agent_v1__spawn_agent\|Workflow\|mcp__github__actions_run_trigger | `spawn_readiness_hook` | Adds a reminder to an agent spawn when the transcript shows no read step since the request or no answer to an interactive question (AskUserQuestion, a decision card, or a widget). The spawn runs with its normal permission flow. A brief line that starts `Scope settled:` passes the interview check, and the hook logs it. A workflow dispatch counts when its inputs carry a `prompt`. A Codex spawn gets one reminder, because Codex documents its transcript format as unstable for hooks |
+| Artifact\|Skill | `artifact_template_pointer` | Adds one line naming the artifact page template when a session starts an artifact page (an `Artifact` quickstart or the `artifact-design` skill) |
 | * | `step_note_gate` | Off by default; after `/step-notes on`, asks for a short status line before each tool call |
 
 #### Other Events
