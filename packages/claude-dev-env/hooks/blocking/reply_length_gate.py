@@ -10,6 +10,13 @@ It also denies a pull request number the reader cannot open::
     flag: It merged in #4347.
     ok:   Both land in [PR 5256](https://github.com/owner/repo/pull/5256).
 
+It denies a colon that joins two clauses on one line, and an em dash::
+
+    flag: That second reading matters: one message added 6.7k.
+    ok:   That second reading matters. One message added 6.7k.
+    ok:   Two checks failed at 9:47, then the list follows:
+          (each item on its own line below the colon)
+
 It denies a banned word or phrase, matched whole and case-insensitive::
 
     flag: The cause is likely the cache.
@@ -64,6 +71,8 @@ from hooks_constants.reply_length_gate_constants import (
     CONFIG_FILE_ENCODING,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
+    EM_DASH_MESSAGE,
+    EM_DASH_PATTERN,
     FENCED_BLOCK_PATTERN,
     HOOK_EVENT_NAME,
     INLINE_CODE_PATTERN,
@@ -73,6 +82,8 @@ from hooks_constants.reply_length_gate_constants import (
     MARKDOWN_LINK_PATTERN,
     MAXIMUM_SENTENCE_COUNT,
     MAXIMUM_WORDS_PER_SENTENCE,
+    MID_SENTENCE_COLON_MESSAGE,
+    MID_SENTENCE_COLON_PATTERN,
     RETRY_INSTRUCTION,
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
@@ -124,6 +135,20 @@ def length_violation(reply_text: str) -> str | None:
                 sentence_preview=sentence_preview + SENTENCE_PREVIEW_SUFFIX,
             )
     return None
+
+
+def mid_sentence_colon_violation(reply_text: str) -> str | None:
+    """Return the deny reason for a colon followed by prose on its line, or None."""
+    if MID_SENTENCE_COLON_PATTERN.search(countable_text(reply_text)) is None:
+        return None
+    return MID_SENTENCE_COLON_MESSAGE
+
+
+def em_dash_violation(reply_text: str) -> str | None:
+    """Return the deny reason for an em dash in the prose, or None."""
+    if EM_DASH_PATTERN.search(countable_text(reply_text)) is None:
+        return None
+    return EM_DASH_MESSAGE
 
 
 def unlinked_pull_request_violation(reply_text: str) -> str | None:
@@ -203,6 +228,8 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
         return None
     violation = (
         length_violation(reply_text)
+        or mid_sentence_colon_violation(reply_text)
+        or em_dash_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
