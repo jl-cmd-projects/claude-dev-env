@@ -89,8 +89,6 @@ ALL_INTERACTIVE_MCP_ACTIONS = frozenset({"ask_decision", "post_widget"})
 SCOPE_SETTLED_PREFIX = "Scope settled:"
 
 PRE_TOOL_USE_EVENT_NAME = "PreToolUse"
-HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
-HOOK_EVENT_NAME_KEY = "hookEventName"
 ADDITIONAL_CONTEXT_KEY = "additionalContext"
 MISSING_INVESTIGATION_REASON = (
     "This spawn comes before any read of the request. Read the files, threads, "
