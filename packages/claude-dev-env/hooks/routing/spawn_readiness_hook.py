@@ -48,8 +48,6 @@ from hooks_constants.spawn_readiness_hook_constants import (
     DISPATCH_METHOD_INPUT_KEY,
     DISPATCH_PROMPT_INPUT_KEY,
     DISPATCH_RUN_WORKFLOW_METHOD,
-    HOOK_EVENT_NAME_KEY,
-    HOOK_SPECIFIC_OUTPUT_KEY,
     LOG_APPEND_MODE,
     LOG_LINE_END,
     LOG_OUTCOME_KEY,
@@ -74,6 +72,10 @@ from hooks_constants.spawn_readiness_hook_constants import (
     WORKFLOW_DISPATCH_TOOL_NAME,
     WORKFLOW_SCRIPT_PATH_INPUT_KEY,
     WORKFLOW_TOOL_NAME,
+)
+from hooks_constants.hook_specific_output_keys import (
+    HOOK_EVENT_NAME_KEY,
+    HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from spawn_readiness_steps import readiness_gaps, session_steps
 

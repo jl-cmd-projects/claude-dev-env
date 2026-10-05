@@ -28,7 +28,7 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
-from hooks_constants.pre_tool_use_output_keys import (
+from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
