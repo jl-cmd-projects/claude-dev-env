@@ -26,6 +26,10 @@ class PrivateTermDigest:
     sha256: str
 
 
+OWNER_HANDLE_DIGEST = PrivateTermDigest(
+    length=7,
+    sha256="d526db5593d5986500e4770cb6018f2d33c459ed93657487958a6086e52e6147",
+)
 ALL_PRIVATE_TERM_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
     {
         PrivateTermDigest(
@@ -36,15 +40,15 @@ ALL_PRIVATE_TERM_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
             length=16,
             sha256="182cb82e3e973d041b8527659064153f8c4af79503bd198508d3655d9a932fdf",
         ),
-        PrivateTermDigest(
-            length=7,
-            sha256="d526db5593d5986500e4770cb6018f2d33c459ed93657487958a6086e52e6147",
-        ),
+        OWNER_HANDLE_DIGEST,
         PrivateTermDigest(
             length=7,
             sha256="968e2d5b08687bf42997461cbdef6c844eabbf04f440cee888c95b864c2a4bcc",
         ),
     }
+)
+ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
+    {OWNER_HANDLE_DIGEST}
 )
 PRIVATE_TERM_TEXT_ENCODING = "utf-8"
 PRIVATE_TERM_FINDING_CODE = "private-term"
