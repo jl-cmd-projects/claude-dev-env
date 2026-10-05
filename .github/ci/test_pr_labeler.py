@@ -1448,7 +1448,7 @@ class TestDraftPullRequestTitleValidation:
         assert isinstance(jobs, dict)
         validate_job = jobs["validate"]
         assert isinstance(validate_job, dict)
-        assert "if" not in validate_job
+        assert validate_job["if"] == "github.event_name == 'pull_request'"
         assert validate_job["name"] == "Validate PR title"
 
 

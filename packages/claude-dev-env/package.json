@@ -50,7 +50,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jl-cmd/claude-dev-env.git",
+        "url": "git+https://github.com/jl-cmd-projects/claude-dev-env.git",
         "directory": "packages/claude-dev-env"
     }
 }
