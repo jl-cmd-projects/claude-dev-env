@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.5](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.4...claude-dev-env-v8.54.5) (2026-10-05)
+
+
+### Tests
+
+* **scripts:** isolate broker state path for every scripts test ([6472b9e](https://github.com/jl-cmd/claude-dev-env/commit/6472b9e2475936ca6aeefb25f79f43828724951a))
+
 ## [8.54.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.3...claude-dev-env-v8.54.4) (2026-10-05)
 
 
