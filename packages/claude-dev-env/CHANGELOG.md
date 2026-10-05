@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.9](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.8...claude-dev-env-v8.54.9) (2026-10-05)
+
+
+### Bug Fixes
+
+* **pr-loop:** prove plugin test changes in the fix test proof check ([9b23154](https://github.com/jl-cmd/claude-dev-env/commit/9b23154c696445a45165e0da3f87fe322193012e))
+
 ## [8.54.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.7...claude-dev-env-v8.54.8) (2026-10-05)
 
 
