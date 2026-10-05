@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.4](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.3...claude-dev-env-v8.54.4) (2026-10-05)
+
+
+### Refactoring
+
+* **hooks:** share one hookSpecificOutput key module across hooks ([5dc283f](https://github.com/jl-cmd/claude-dev-env/commit/5dc283f505389ecc6d64c925faa804cffc6cdddc))
+
 ## [8.54.3](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.2...claude-dev-env-v8.54.3) (2026-10-05)
 
 
