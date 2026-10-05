@@ -38,6 +38,8 @@ from hooks_constants.bash_post_call_dispatcher_constants import (
     ADDITIONAL_CONTEXT_JOIN_SEPARATOR,
     ADDITIONAL_CONTEXT_KEY,
     ALL_BASH_POST_TOOL_USE_HOSTED_HOOK_ENTRIES,
+)
+from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
