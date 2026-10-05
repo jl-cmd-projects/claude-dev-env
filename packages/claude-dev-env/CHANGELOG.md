@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.8](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.7...claude-dev-env-v8.54.8) (2026-10-05)
+
+
+### Bug Fixes
+
+* report a broker timeout as exit 124 with status timeout ([f3e9d34](https://github.com/jl-cmd/claude-dev-env/commit/f3e9d34527e967735f791112d8ed33a9eb3dcfb9))
+
 ## [8.54.7](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.6...claude-dev-env-v8.54.7) (2026-10-05)
 
 
