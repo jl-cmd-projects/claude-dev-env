@@ -20,6 +20,7 @@ ALWAYS_ON_RULE_NAMES = frozenset(
         "no-contrast-framing.md",
         "question-presentation.md",
         "research-mode.md",
+        "request-scope.md",
         "session-title.md",
         "skill-pointers.md",
         "shell-invocation.md",
