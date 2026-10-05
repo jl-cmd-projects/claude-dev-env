@@ -45,5 +45,5 @@ Preconditions:
 - `blocking/verify_before_acting.py` runs after the tool. A block asks the agent to check the claim and undo a contradicted change.
 - The reply gate counts each nonempty list line as a sentence. Link targets and code spans add no words. Its banned words come from `reply-banned-words.json` in the Claude home, or the file `CLAUDE_REPLY_BANNED_WORDS_PATH` names, with built-in defaults.
 - The edit marker gate scans replacement cards as well as the message text.
-- The handoff close gate reads the `body` and `comment` fields only. A `gh issue close --comment` command in Bash does not reach it.
+- The handoff close gate reads the `body` and `comment` fields of issue tools only. A `gh issue close --comment` command in Bash and a pull request body that closes the issue with `Closes #N` do not reach it.
 - The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
