@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.56.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.56.0...claude-dev-env-v8.56.1) (2026-10-05)
+
+
+### Documentation
+
+* **account-broker:** send the prompt on stdin in the run example ([8943b4f](https://github.com/jl-cmd/claude-dev-env/commit/8943b4faad5d4d92f1c30b66a5abaaf085df240d))
+
 ## [8.56.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.55.0...claude-dev-env-v8.56.0) (2026-10-05)
 
 
