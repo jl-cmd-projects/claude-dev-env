@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.54.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.0...claude-dev-env-v8.54.1) (2026-10-05)
+
+
+### Documentation
+
+* **hooks:** add a hook feature map with a membership test ([5c44143](https://github.com/jl-cmd/claude-dev-env/commit/5c4414364f93f9fc8b16a26e7959b979d0362b65))
+
 ## [8.54.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.53.3...claude-dev-env-v8.54.0) (2026-10-04)
 
 
