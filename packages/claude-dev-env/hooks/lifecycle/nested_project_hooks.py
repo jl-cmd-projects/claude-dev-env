@@ -48,13 +48,10 @@ from hooks_constants.nested_project_hooks_constants import (
     CONTEXT_SECTION_SEPARATOR,
     DEFAULT_HOOK_TIMEOUT_SECONDS,
     HOOK_EVENT_NAME_KEY,
-    HOOK_EVENT_NAME_OUTPUT_KEY,
-    HOOK_SPECIFIC_OUTPUT_KEY,
     HOOK_TYPE_KEY,
     HOOKS_KEY,
     ALL_MATCH_TARGET_KEYS_BY_EVENT,
     MATCHER_KEY,
-    PERMISSION_DECISION_KEY,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
     SESSION_START_EVENT,
@@ -64,6 +61,11 @@ from hooks_constants.nested_project_hooks_constants import (
     SHELL_COMMAND_FLAG,
     ALL_SHELL_PROGRAM_NAMES,
     TIMEOUT_KEY,
+)
+from hooks_constants.hook_specific_output_keys import (
+    HOOK_EVENT_NAME_KEY as HOOK_EVENT_NAME_OUTPUT_KEY,
+    HOOK_SPECIFIC_OUTPUT_KEY,
+    PERMISSION_DECISION_KEY,
 )
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 

@@ -7,9 +7,11 @@ import sys
 
 from hooks_constants.bash_post_call_dispatcher_constants import (
     ADDITIONAL_CONTEXT_KEY,
+    POST_TOOL_USE_HOOK_EVENT_NAME,
+)
+from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
-    POST_TOOL_USE_HOOK_EVENT_NAME,
 )
 
 

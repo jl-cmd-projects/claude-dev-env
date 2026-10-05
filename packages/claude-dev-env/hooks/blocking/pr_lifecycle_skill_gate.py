@@ -34,11 +34,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     GIT_ACTIONS,
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
     HOOK_EVENT_NAME,
-    HOOK_SPECIFIC_OUTPUT_KEY,
     MERGE_PATH_SUFFIX,
     OPTION_AND_VALUE_WORD_COUNT,
     PATH_SEPARATOR_PATTERN,
-    PERMISSION_DECISION_KEY,
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
@@ -47,6 +45,10 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     SKILL_NAME,
     SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
     SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
+)
+from hooks_constants.hook_specific_output_keys import (
+    HOOK_SPECIFIC_OUTPUT_KEY,
+    PERMISSION_DECISION_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
