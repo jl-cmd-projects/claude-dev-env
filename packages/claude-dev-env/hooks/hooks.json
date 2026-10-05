@@ -128,6 +128,16 @@
         ]
       },
       {
+        "matcher": "Artifact|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/artifact_template_pointer.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__hearthbot__start_thread_session",
         "hooks": [
           {
