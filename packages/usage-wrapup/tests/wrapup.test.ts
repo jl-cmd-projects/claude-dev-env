@@ -46,3 +46,12 @@ test('threshold is configurable', { options: { threshold: 20 } }, async ($, on) 
   const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
   expect(((r as { context?: string[] }).context ?? []).join('\n')).toMatch(/15% left/)
 })
+
+test('the note arms a wake for just after the reset before it stops', async ($, on) => {
+  engine(on)
+  await $.session.measure({ ...measure(96), rateLimits: [{ kind: 'five_hour', percentUsed: 96, resetsAt: '2026-10-05T03:10:00Z' }] })
+  const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
+  const note = ((r as { context?: string[] }).context ?? []).join('\n')
+  expect(note).toMatch(/4\. Before you stop, arm one wake for just after 2026-10-05T03:10:00Z/)
+  expect(note).toMatch(/5\. Then stop/)
+})

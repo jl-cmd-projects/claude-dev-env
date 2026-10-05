@@ -1,7 +1,7 @@
 """Behavioral tests for the fix pull request test-proof check.
 
-Every case drives a git repository under ``tmp_path`` and a pytest or
-``node --test`` subprocess, the same shape the CI job runs.
+Every case drives a git repository under ``tmp_path`` and a pytest,
+``node --test``, or ``claude plugin test`` subprocess, the same shape the CI job runs.
 """
 
 from pathlib import Path
@@ -39,6 +39,25 @@ NODE_ALWAYS_PASSING_TEST_TEXT = (
     "import { test } from 'node:test';\n\n"
     "test('nothing in particular', () => {});\n"
 )
+PLUGIN_MANIFEST_TEXT = '{"name": "calc"}\n'
+PLUGIN_HOOKS_TEXT = '{ "modules": ["./index.ts"] }\n'
+BUGGY_PLUGIN_PRODUCTION_TEXT = (
+    "export function add(left: number, right: number): number {\n"
+    "  return left - right\n}\n"
+)
+FIXED_PLUGIN_PRODUCTION_TEXT = (
+    "export function add(left: number, right: number): number {\n"
+    "  return left + right\n}\n"
+)
+PLUGIN_PROOF_TEST_TEXT = (
+    "import { test, expect } from 'claude-code/testing'\n"
+    "import { add } from '../hooks/index'\n\n"
+    "test('add sums both operands', () => {\n  expect(add(1, 2)).toBe(3)\n})\n"
+)
+PLUGIN_ALWAYS_PASSING_TEST_TEXT = (
+    "import { test, expect } from 'claude-code/testing'\n\n"
+    "test('nothing in particular', () => {\n  expect(1).toBe(1)\n})\n"
+)
 
 
 def _commit_files(repository_root: Path, all_file_texts: dict[str, str]) -> None:
@@ -63,6 +82,19 @@ def _repository_at_buggy_base(tmp_path: Path) -> tuple[Path, str]:
 def _repository_at_buggy_node_base(tmp_path: Path) -> tuple[Path, str]:
     repository_root = repository_with_root_pytest_config(tmp_path)
     _commit_files(repository_root, {"bin/calc.mjs": BUGGY_NODE_PRODUCTION_TEXT})
+    return repository_root, _head_revision(repository_root)
+
+
+def _repository_at_buggy_plugin_base(tmp_path: Path) -> tuple[Path, str]:
+    repository_root = repository_with_root_pytest_config(tmp_path)
+    _commit_files(
+        repository_root,
+        {
+            "plugins/calc/.claude-plugin/plugin.json": PLUGIN_MANIFEST_TEXT,
+            "plugins/calc/hooks/hooks.json": PLUGIN_HOOKS_TEXT,
+            "plugins/calc/hooks/index.ts": BUGGY_PLUGIN_PRODUCTION_TEXT,
+        },
+    )
     return repository_root, _head_revision(repository_root)
 
 
@@ -100,7 +132,7 @@ def test_a_fix_with_no_changed_test_fails(
     _commit_files(repository_root, {"pkg/calc.py": FIXED_PRODUCTION_TEXT})
 
     assert _run_check(repository_root, "fix: sum operands", base_revision) == 1
-    assert "no Python or Node test" in capsys.readouterr().err
+    assert "no Python, Node, or plugin test" in capsys.readouterr().err
 
 
 def test_a_fix_whose_test_fails_on_base_and_passes_on_head_passes(
@@ -186,6 +218,64 @@ def test_a_node_fix_whose_changed_test_fails_on_head_fails(
     assert "fails on the head" in capsys.readouterr().err
 
 
+def test_a_plugin_fix_with_no_changed_test_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root, base_revision = _repository_at_buggy_plugin_base(tmp_path)
+    _commit_files(repository_root, {"plugins/calc/hooks/index.ts": FIXED_PLUGIN_PRODUCTION_TEXT})
+
+    assert _run_check(repository_root, "fix(calc): sum operands", base_revision) == 1
+    assert "no Python, Node, or plugin test" in capsys.readouterr().err
+
+
+def test_a_plugin_fix_whose_test_fails_on_base_and_passes_on_head_passes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root, base_revision = _repository_at_buggy_plugin_base(tmp_path)
+    _commit_files(
+        repository_root,
+        {
+            "plugins/calc/hooks/index.ts": FIXED_PLUGIN_PRODUCTION_TEXT,
+            "plugins/calc/tests/calc.test.ts": PLUGIN_PROOF_TEST_TEXT,
+        },
+    )
+
+    assert _run_check(repository_root, "fix(calc): sum operands", base_revision) == 0
+    assert "fail on the base and pass on the head" in capsys.readouterr().out
+
+
+def test_a_plugin_fix_whose_changed_test_also_passes_on_base_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root, base_revision = _repository_at_buggy_plugin_base(tmp_path)
+    _commit_files(
+        repository_root,
+        {
+            "plugins/calc/hooks/index.ts": FIXED_PLUGIN_PRODUCTION_TEXT,
+            "plugins/calc/tests/calc.test.ts": PLUGIN_ALWAYS_PASSING_TEST_TEXT,
+        },
+    )
+
+    assert _run_check(repository_root, "fix(calc): sum operands", base_revision) == 1
+    assert "passes on the base" in capsys.readouterr().err
+
+
+def test_a_plugin_fix_whose_changed_test_fails_on_head_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository_root, base_revision = _repository_at_buggy_plugin_base(tmp_path)
+    _commit_files(
+        repository_root,
+        {
+            "plugins/calc/tests/calc.test.ts": PLUGIN_PROOF_TEST_TEXT,
+            "plugins/calc/hooks/extra.ts": "export const VALUE = 1\n",
+        },
+    )
+
+    assert _run_check(repository_root, "fix(calc): sum operands", base_revision) == 1
+    assert "fails on the head" in capsys.readouterr().err
+
+
 BUGGY_GREETING_TEXT = 'def greet() -> str:\n    return "helo"\n'
 FIXED_GREETING_TEXT = 'def greet() -> str:\n    return "hello"\n'
 GREETING_TEST_TEXT = (
@@ -222,7 +312,7 @@ def test_a_fix_without_its_own_test_fails_when_the_base_branch_moved_with_a_test
     )
 
     assert _run_check(repository_root, "fix: sum operands", MERGE_REF_FIRST_PARENT) == 1
-    assert "no Python or Node test" in capsys.readouterr().err
+    assert "no Python, Node, or plugin test" in capsys.readouterr().err
 
 
 def test_a_fix_on_a_moved_base_branch_judges_only_its_own_test(
