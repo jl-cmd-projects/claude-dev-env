@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.56.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.55.0...claude-dev-env-v8.56.0) (2026-10-05)
+
+
+### Features
+
+* add an artifact page template and a pointer hook ([922d5f5](https://github.com/jl-cmd/claude-dev-env/commit/922d5f584cea49a78882a60b78b4985919e67977))
+
 ## [8.55.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.54.9...claude-dev-env-v8.55.0) (2026-10-05)
 
 
