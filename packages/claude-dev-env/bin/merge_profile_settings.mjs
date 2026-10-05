@@ -7,11 +7,16 @@
  * Before the first change to a file, the merge copies that file to a
  * timestamped `.bak` beside it.
  *
- * Run `node merge_profile_settings.mjs --dry-run` to list the additions for
+ * Each run also retires the profile-level session-title Stop gate an earlier
+ * install copied to `~/.claude`. The plugin's own session-title stop gate does
+ * that job, so the merge removes the profile gate's Stop hook and allow rule
+ * from each file and deletes the gate files.
+ *
+ * Run `node merge_profile_settings.mjs --dry-run` to list the changes for
  * every profile on this machine without writing anything.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,14 +31,13 @@ import {
 import { resolveProfilesRootDirectory } from './select-install-targets.mjs';
 
 export const DRY_RUN_FLAG = '--dry-run';
-export const SESSION_TITLE_GATE_FILE_NAME = 'session_title_status_gate.py';
-export const SESSION_TITLE_GATE_SOURCE_DIRECTORY = fileURLToPath(new URL('../profile-settings/', import.meta.url));
-export const ALL_SESSION_TITLE_GATE_RELATIVE_PATHS = Object.freeze([
-    SESSION_TITLE_GATE_FILE_NAME,
-    join('config', '__init__.py'),
-    join('config', 'session_title_gate_constants.py'),
-]);
-export const SESSION_TITLE_GATE_COMMAND = `python3 ~/.claude/${SESSION_TITLE_GATE_FILE_NAME}`;
+export const RETIRED_SESSION_TITLE_GATE_FILE_NAME = 'session_title_status_gate.py';
+export const RETIRED_SESSION_TITLE_GATE_CONFIG_DIRECTORY_NAME = 'config';
+export const RETIRED_SESSION_TITLE_GATE_CONSTANTS_FILE_NAME = 'session_title_gate_constants.py';
+export const RETIRED_SESSION_TITLE_GATE_PACKAGE_INIT_TEXT =
+    '"""Constants package installed beside the Stop hook gate."""\n';
+export const RETIRED_SESSION_TITLE_GATE_COMMAND = `python3 ~/.claude/${RETIRED_SESSION_TITLE_GATE_FILE_NAME}`;
+export const RETIRED_SESSION_TITLE_GATE_PERMISSION = `Bash(${RETIRED_SESSION_TITLE_GATE_COMMAND}:*)`;
 export const AUTO_MODE_DEFAULTS_ENTRY = '$defaults';
 
 const DEFAULT_SETTINGS_INDENT = '    ';
@@ -46,21 +50,10 @@ const DEFAULT_HOST_CONFIGURATION_INDENT = '  ';
 /** @type {readonly DeclaredListEntries[]} */
 export const DECLARED_PROFILE_SETTINGS = Object.freeze([
     {
-        keyPath: ['hooks', 'Stop'],
-        items: [
-            {
-                hooks: [
-                    { type: 'command', command: SESSION_TITLE_GATE_COMMAND, timeout: 10 },
-                ],
-            },
-        ],
-    },
-    {
         keyPath: ['permissions', 'allow'],
         items: [
             'mcp__claude-code-remote__set_session_title',
             'mcp__ccd_session_mgmt__set_session_title',
-            `Bash(${SESSION_TITLE_GATE_COMMAND}:*)`,
             'Bash(python ~/.claude/scripts/account_broker.py run:*)',
         ],
     },
@@ -125,28 +118,47 @@ export function mergeDeclaredProfileSettings(settings, declaredSettings, homeDir
         for (const eachItem of items) {
             if (listHoldsItem(targetList, eachItem, homeDirectory)) continue;
             const addedItem = itemWithExpandedHookCommands(eachItem, homeDirectory);
-            const stopGroup = keyPath.join('.') === 'hooks.Stop'
-                ? targetList.find((eachGroup) => (
-                    eachGroup?.matcher === addedItem.matcher && Array.isArray(eachGroup?.hooks)
-                ))
-                : null;
-            if (stopGroup) {
-                const managedGateIndex = stopGroup.hooks.findIndex(
-                    (eachHook) => typeof eachHook?.command === 'string'
-                        && eachHook.command.replace(/\\/g, '/').includes('/hooks/blocking/session_title_stop_gate.py'),
-                );
-                stopGroup.hooks.splice(
-                    managedGateIndex < 0 ? stopGroup.hooks.length : managedGateIndex,
-                    0,
-                    ...addedItem.hooks,
-                );
-            } else {
-                targetList.push(addedItem);
-            }
+            targetList.push(addedItem);
             allAdditions.push(`${keyPath.join('.')}: ${JSON.stringify(addedItem)}`);
         }
     }
     return allAdditions;
+}
+
+/**
+ * Remove the retired profile gate's Stop hook and allow rule from one settings object.
+ *
+ * A Stop group left with no hook goes too, and so does an emptied Stop list or
+ * hooks object, so the file holds no husk of the retired entry.
+ *
+ * @param {Record<string, any>} settings
+ * @param {string} homeDirectory
+ * @returns {string[]} One description per removed entry.
+ */
+export function removeRetiredSessionTitleGate(settings, homeDirectory) {
+    const allRemovals = [];
+    const retiredCommandKey = hookCommandComparisonKey(RETIRED_SESSION_TITLE_GATE_COMMAND, homeDirectory);
+    const hooks = settings.hooks;
+    if (hooks && typeof hooks === 'object' && Array.isArray(hooks.Stop)) {
+        for (const eachGroup of hooks.Stop) {
+            if (!Array.isArray(eachGroup?.hooks)) continue;
+            eachGroup.hooks = eachGroup.hooks.filter((eachHook) => {
+                const isRetired = typeof eachHook?.command === 'string'
+                    && hookCommandComparisonKey(eachHook.command, homeDirectory) === retiredCommandKey;
+                if (isRetired) allRemovals.push(`hooks.Stop: ${eachHook.command}`);
+                return !isRetired;
+            });
+        }
+        hooks.Stop = hooks.Stop.filter((eachGroup) => !Array.isArray(eachGroup?.hooks) || eachGroup.hooks.length > 0);
+        if (hooks.Stop.length === 0) delete hooks.Stop;
+        if (Object.keys(hooks).length === 0) delete settings.hooks;
+    }
+    const allowList = settings.permissions?.allow;
+    if (Array.isArray(allowList) && allowList.includes(RETIRED_SESSION_TITLE_GATE_PERMISSION)) {
+        settings.permissions.allow = allowList.filter((eachRule) => eachRule !== RETIRED_SESSION_TITLE_GATE_PERMISSION);
+        allRemovals.push(`permissions.allow: ${RETIRED_SESSION_TITLE_GATE_PERMISSION}`);
+    }
+    return allRemovals;
 }
 
 /**
@@ -163,13 +175,14 @@ export function mergeProfileSettingsFile(settingsPath, options) {
     if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
         throw new Error(`${settingsPath} holds a value other than a JSON object`);
     }
+    const removals = removeRetiredSessionTitleGate(settings, options.homeDirectory);
     const additions = mergeDeclaredProfileSettings(
         settings,
         options.declaredSettings ?? DECLARED_PROFILE_SETTINGS,
         options.homeDirectory,
     );
-    if (additions.length === 0 || options.dryRun) {
-        return { settingsPath, additions, backupPath: null };
+    if ((additions.length === 0 && removals.length === 0) || options.dryRun) {
+        return { settingsPath, additions, removals, backupPath: null };
     }
     let backupPath = null;
     if (settingsText) {
@@ -181,48 +194,57 @@ export function mergeProfileSettingsFile(settingsPath, options) {
         settingsPath,
         JSON.stringify(settings, null, hostConfigurationIndent(settingsText, DEFAULT_SETTINGS_INDENT)) + '\n',
     );
-    return { settingsPath, additions, backupPath };
+    return { settingsPath, additions, removals, backupPath };
 }
 
 /**
- * Copy the session-title gate and its constants module to `~/.claude` when a copy is absent or differs.
+ * Delete the retired profile gate and its constants package from `~/.claude`.
  *
- * The Stop hook entry runs the gate, so both files have to land before the entry does.
+ * The package's `__init__.py` goes only while it still holds the text the
+ * installer wrote, and the config directory goes only once nothing else is
+ * left in it, so a user's own files there stay.
  *
  * @param {{ homeDirectory: string, dryRun: boolean }} options
- * @returns {{ gatePath: string, changed: boolean }}
+ * @returns {{ removedPaths: string[] }}
  */
-export function installSessionTitleGate(options) {
+export function retireSessionTitleGate(options) {
     const claudeDirectory = join(options.homeDirectory, DEFAULT_CLAUDE_DIRECTORY_NAME);
-    const allStaleRelativePaths = ALL_SESSION_TITLE_GATE_RELATIVE_PATHS.filter((eachRelativePath) => {
-        const targetPath = join(claudeDirectory, eachRelativePath);
-        const sourceText = readFileSync(join(SESSION_TITLE_GATE_SOURCE_DIRECTORY, eachRelativePath), 'utf8');
-        return !existsSync(targetPath) || readFileSync(targetPath, 'utf8') !== sourceText;
-    });
-    if (!options.dryRun) {
-        for (const eachRelativePath of allStaleRelativePaths) {
-            const targetPath = join(claudeDirectory, eachRelativePath);
-            mkdirSync(dirname(targetPath), { recursive: true });
-            copyFileSync(join(SESSION_TITLE_GATE_SOURCE_DIRECTORY, eachRelativePath), targetPath);
+    const configDirectory = join(claudeDirectory, RETIRED_SESSION_TITLE_GATE_CONFIG_DIRECTORY_NAME);
+    const packageInitPath = join(configDirectory, '__init__.py');
+    const allRetiredPaths = [
+        join(claudeDirectory, RETIRED_SESSION_TITLE_GATE_FILE_NAME),
+        join(configDirectory, RETIRED_SESSION_TITLE_GATE_CONSTANTS_FILE_NAME),
+    ];
+    if (existsSync(packageInitPath) && readFileSync(packageInitPath, 'utf8') === RETIRED_SESSION_TITLE_GATE_PACKAGE_INIT_TEXT) {
+        allRetiredPaths.push(packageInitPath);
+    }
+    const removedPaths = allRetiredPaths.filter((eachPath) => existsSync(eachPath));
+    if (options.dryRun) {
+        return { removedPaths };
+    }
+    for (const eachPath of removedPaths) {
+        rmSync(eachPath);
+    }
+    if (existsSync(configDirectory)) {
+        const allLeftEntries = readdirSync(configDirectory).filter((eachName) => eachName !== '__pycache__');
+        if (allLeftEntries.length === 0) {
+            rmSync(configDirectory, { recursive: true, force: true });
         }
     }
-    return {
-        gatePath: join(claudeDirectory, SESSION_TITLE_GATE_FILE_NAME),
-        changed: allStaleRelativePaths.length > 0,
-    };
+    return { removedPaths };
 }
 
 /**
- * Install the gate, then merge the declared entries into each settings.json.
+ * Retire the profile gate, then merge the declared entries into each settings.json.
  *
  * @param {string[]} allSettingsPaths
  * @param {{ dryRun: boolean, homeDirectory: string, now?: Date }} options
- * @returns {{ gate: { gatePath: string, changed: boolean },
- *   files: { settingsPath: string, additions: string[], backupPath: string | null }[] }}
+ * @returns {{ gate: { removedPaths: string[] },
+ *   files: { settingsPath: string, additions: string[], removals: string[], backupPath: string | null }[] }}
  */
 export function mergeProfileSettings(allSettingsPaths, options) {
     const timestamp = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
-    const gate = installSessionTitleGate(options);
+    const gate = retireSessionTitleGate(options);
     const files = allSettingsPaths.map((eachPath) => mergeProfileSettingsFile(eachPath, {
         dryRun: options.dryRun,
         homeDirectory: options.homeDirectory,
@@ -232,25 +254,26 @@ export function mergeProfileSettings(allSettingsPaths, options) {
 }
 
 /**
- * @param {{ gate: { gatePath: string, changed: boolean },
- *   files: { settingsPath: string, additions: string[], backupPath: string | null }[] }} outcome
+ * @param {{ gate: { removedPaths: string[] },
+ *   files: { settingsPath: string, additions: string[], removals: string[], backupPath: string | null }[] }} outcome
  * @param {boolean} isDryRun
  * @returns {string[]}
  */
 export function describeProfileSettingsOutcome(outcome, isDryRun) {
-    const verb = isDryRun ? 'would add' : 'added';
-    const allLines = [
-        outcome.gate.changed
-            ? `${outcome.gate.gatePath}: ${isDryRun ? 'would copy' : 'copied'} session-title gate`
-            : `${outcome.gate.gatePath}: gate current`,
-    ];
-    for (const { settingsPath, additions, backupPath } of outcome.files) {
-        if (additions.length === 0) {
+    const addVerb = isDryRun ? 'would add' : 'added';
+    const removeVerb = isDryRun ? 'would remove' : 'removed';
+    const allLines = outcome.gate.removedPaths.map(
+        (eachPath) => `${eachPath}: ${removeVerb} retired session-title gate file`,
+    );
+    for (const { settingsPath, additions, removals, backupPath } of outcome.files) {
+        if (additions.length === 0 && removals.length === 0) {
             allLines.push(`${settingsPath}: no change`);
             continue;
         }
-        allLines.push(`${settingsPath}: ${verb} ${additions.length}${backupPath ? ` (backup ${backupPath})` : ''}`);
-        allLines.push(...additions.map((eachAddition) => `  ${eachAddition}`));
+        const backupNote = backupPath ? ` (backup ${backupPath})` : '';
+        allLines.push(`${settingsPath}: ${addVerb} ${additions.length}, ${removeVerb} ${removals.length}${backupNote}`);
+        allLines.push(...additions.map((eachAddition) => `  + ${eachAddition}`));
+        allLines.push(...removals.map((eachRemoval) => `  - ${eachRemoval}`));
     }
     return allLines;
 }
