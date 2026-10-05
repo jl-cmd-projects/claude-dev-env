@@ -19,7 +19,20 @@ def invoke_worker(
     runner: Callable[..., JobOutcome],
     monotonic_clock: Callable[[], float] = time.monotonic,
 ) -> tuple[JobOutcome, float]:
-    """Run one broker job and measure its elapsed time."""
+    """Run one broker job and measure its elapsed time.
+
+    Args:
+        all_arguments: Claude command-line arguments passed to the runner.
+        cwd: Working directory for the job.
+        prompt_text: Text the runner writes to the job's standard input.
+        timeout_minutes: Job time limit in minutes; the runner receives it in seconds.
+        runner: Broker job runner, called with ``Product.CLAUDE``,
+            ``encoding="utf-8"``, and ``errors="replace"``.
+        monotonic_clock: Clock read once before and once after the job.
+
+    Returns:
+        The runner's job outcome and the difference between the two clock reads.
+    """
     started_at = monotonic_clock()
     outcome = runner(
         Product.CLAUDE,
