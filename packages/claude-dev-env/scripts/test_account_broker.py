@@ -1027,6 +1027,38 @@ def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
     assert "outside the roster" in all_warning_lines[0]
 
 
+def test_should_not_warn_when_the_default_account_is_marked_without_a_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"default:{int(reset.timestamp())}"))
+
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    ("all_roster_names", "marked_name"),
+    [(("first",), "default"), ((), "visitor")],
+)
+def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], all_roster_names: tuple[str, ...], marked_name: str
+) -> None:
+    all_accounts = tuple(_account(each_name) for each_name in all_roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(all_accounts, {each_name: _meters(80, 80) for each_name in all_roster_names}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"{marked_name}:{int(reset.timestamp())}"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    assert len(all_warning_lines) == 1
+    assert marked_name in all_warning_lines[0]
+    assert "outside the roster" in all_warning_lines[0]
+
+
 @pytest.mark.parametrize("mark", ["", ":1800000000"])
 def test_should_reject_a_spent_mark_without_an_account_name(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], mark: str
