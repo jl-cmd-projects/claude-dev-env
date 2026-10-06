@@ -245,6 +245,28 @@ def test_should_carry_another_child_context_into_an_ask_decision(
     }
 
 
+def test_should_carry_one_copy_of_context_two_checkouts_repeat(
+    tmp_path: pathlib.Path,
+) -> None:
+    context_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "Build this page from the house template.",
+        }
+    }
+    for each_checkout_name in ("alpha", "beta"):
+        _make_checkout(
+            tmp_path,
+            each_checkout_name,
+            {"PreToolUse": [_command_group("Artifact", f"echo '{json.dumps(context_output)}'")]},
+        )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Artifact"))
+
+    assert completed_process.returncode == 0
+    assert json.loads(completed_process.stdout) == context_output
+
+
 def test_should_skip_a_child_hook_whose_matcher_names_another_tool(
     tmp_path: pathlib.Path,
 ) -> None:

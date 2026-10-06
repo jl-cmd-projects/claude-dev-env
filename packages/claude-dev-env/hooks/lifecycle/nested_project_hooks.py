@@ -286,9 +286,9 @@ def pre_tool_use_verdict(
 
     Returns:
         A blocking exit carrying the child's stderr when any child exits 2,
-        else the first child ``deny`` or ``ask`` output carrying every
-        child's ``additionalContext``, else a pass carrying that context,
-        else an empty pass.
+        else the first child ``deny`` or ``ask`` output carrying one copy
+        of each distinct child ``additionalContext``, else a pass carrying
+        that context, else an empty pass.
     """
     for each_result in all_results:
         if each_result.returncode == BLOCKING_EXIT_CODE:
@@ -302,7 +302,8 @@ def pre_tool_use_verdict(
     all_context_sections = _non_empty_sections(
         _json_additional_context(each_parsed_output) for each_parsed_output in all_parsed_outputs
     )
-    joined_context = CONTEXT_SECTION_SEPARATOR.join(all_context_sections)
+    all_distinct_context_sections = list(dict.fromkeys(all_context_sections))
+    joined_context = CONTEXT_SECTION_SEPARATOR.join(all_distinct_context_sections)
     for each_parsed_output in all_parsed_outputs:
         if _permission_decision(each_parsed_output) in ALL_FORWARDED_PERMISSION_DECISIONS:
             decision_output = dict(each_parsed_output)
