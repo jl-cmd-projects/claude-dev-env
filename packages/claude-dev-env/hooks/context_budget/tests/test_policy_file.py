@@ -34,6 +34,14 @@ def test_baseline_lines_may_be_null_but_may_not_be_missing() -> None:
         parse_policy(policy_text({"a/SKILL.md": {"sections": ["Plan"]}}))
 
 
+def test_duplicate_hook_names_are_rejected_before_measurement() -> None:
+    raw_policy = json.loads(policy_text())
+    raw_policy["hooks"].append(dict(raw_policy["hooks"][0]))
+
+    with pytest.raises(ContextBudgetPolicyError, match="hook names must be unique"):
+        parse_policy(json.dumps(raw_policy))
+
+
 def test_repository_root_accepts_a_git_file_and_policy_reads_from_it(tmp_path: Path) -> None:
     repository_root = tmp_path / "worktree"
     (repository_root / ".claude").mkdir(parents=True)

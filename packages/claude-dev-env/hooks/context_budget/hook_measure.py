@@ -27,11 +27,16 @@ from hooks_constants.context_budget_constants import (
     ENV_COMMAND_NAME,
     HOOK_FINDING_TEMPLATE,
     HOOK_GROWN_TEMPLATE,
+    HOOK_MEASUREMENT_FAILED_TEMPLATE,
     HOOK_SPECIFIC_OUTPUT_KEY,
     HOOK_TIMEOUT_SECONDS,
     SYSTEM_MESSAGE_KEY,
     UTF8_ENCODING,
 )
+
+
+class HookMeasurementError(RuntimeError):
+    """Raised when a hook command cannot provide a successful measurement."""
 
 
 def _text_length(raw_value: object) -> int:
@@ -127,25 +132,15 @@ def _hook_environment(home_directory: str, value_by_name: dict[str, str]) -> dic
     return environment
 
 
-def run_hook_command(hook: HookBudget, repository_root: Path) -> str:
-    """Run one hook from the repository root under a minimal environment.
-
-    The environment holds the inherited executable-search names, a fresh empty
-    home directory, and the command's own ``env`` pairs. A ``python`` or
-    ``python3`` command runs under the current interpreter.
-
-    Args:
-        hook: The hook to run.
-        repository_root: Directory the command runs from.
-
-    Returns:
-        The hook's standard output.
-    """
+def _run_hook_in_empty_home(
+    hook: HookBudget,
+    repository_root: Path,
+) -> subprocess.CompletedProcess[str]:
     value_by_name, all_arguments = split_command_environment(hook.all_command_parts)
     if all_arguments and all_arguments[0] in ALL_PYTHON_COMMAND_NAMES:
         all_arguments = (sys.executable, *all_arguments[1:])
     with tempfile.TemporaryDirectory() as home_directory:
-        completed_process = subprocess.run(
+        return subprocess.run(
             list(all_arguments),
             input=hook.stdin_text,
             capture_output=True,
@@ -155,5 +150,29 @@ def run_hook_command(hook: HookBudget, repository_root: Path) -> str:
             env=_hook_environment(home_directory, value_by_name),
             timeout=HOOK_TIMEOUT_SECONDS,
             check=False,
+        )
+
+
+def run_hook_command(hook: HookBudget, repository_root: Path) -> str:
+    """Run a hook with a fresh home; Python commands use this interpreter.
+
+    Args:
+        hook: The hook to run.
+        repository_root: Directory the command runs from.
+
+    Returns:
+        Successful standard output.
+
+    Raises:
+        HookMeasurementError: When the hook exits with a nonzero status.
+    """
+    completed_process = _run_hook_in_empty_home(hook, repository_root)
+    if completed_process.returncode != 0:
+        raise HookMeasurementError(
+            HOOK_MEASUREMENT_FAILED_TEMPLATE.format(
+                name=hook.name,
+                status=completed_process.returncode,
+                stderr=completed_process.stderr.strip(),
+            )
         )
     return completed_process.stdout

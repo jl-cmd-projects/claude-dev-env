@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from context_budget.hook_measure import (
+    HookMeasurementError,
     hook_findings,
     injected_character_count,
+    run_hook_command,
     split_command_environment,
 )
 from context_budget.model import BudgetPolicy, HookBudget
@@ -39,3 +44,14 @@ def test_env_prefix_lifts_into_environment_pairs() -> None:
         ("python3", "x.py"),
     )
     assert split_command_environment(["python3", "x.py"]) == ({}, ("python3", "x.py"))
+
+
+def test_a_failed_hook_with_output_is_not_a_measurement(tmp_path: Path) -> None:
+    hook_path = tmp_path / "failed.py"
+    hook_path.write_text(
+        "print('partial output')\nraise RuntimeError('fixture failure')\n", encoding="utf-8"
+    )
+    hook = HookBudget("failed", ("python3", str(hook_path)), "{}", 1500)
+
+    with pytest.raises(HookMeasurementError, match='hook "failed" exited with status 1'):
+        run_hook_command(hook, tmp_path)

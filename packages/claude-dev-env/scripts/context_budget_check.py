@@ -48,8 +48,13 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from context_budget.baseline import build_baseline, policy_text_with_baseline
-from context_budget.hook_measure import hook_findings, injected_character_count, run_hook_command
-from context_budget.model import BudgetPolicy
+from context_budget.hook_measure import (
+    HookMeasurementError,
+    hook_findings,
+    injected_character_count,
+    run_hook_command,
+)
+from context_budget.model import BudgetPolicy, ContextBudgetPolicyError
 from context_budget.policy_file import read_policy_file
 from context_budget.sections import context_kind_for_path
 from hooks_constants.context_budget_constants import BASELINE_FILES_KEY, BASELINE_HOOKS_KEY
@@ -202,6 +207,18 @@ def _write_baseline(policy: BudgetPolicy, repository_root: Path, stdout: TextIO)
     return SUCCESS_EXIT_CODE
 
 
+def _run_action(namespace: argparse.Namespace, repository_root: Path, stdout: TextIO) -> int:
+    policy = read_policy_file(repository_root)
+    if policy is None:
+        stdout.write(NO_POLICY_MESSAGE + "\n")
+        return FAILURE_EXIT_CODE
+    if namespace.write_baseline:
+        return _write_baseline(policy, repository_root, stdout)
+    if namespace.hooks:
+        return _check_hooks(policy, repository_root, stdout)
+    return _check_paths(repository_root, namespace.paths, stdout)
+
+
 def main(all_arguments: Sequence[str], starting_directory: Path, stdout: TextIO) -> int:
     """Run the command.
 
@@ -215,15 +232,11 @@ def main(all_arguments: Sequence[str], starting_directory: Path, stdout: TextIO)
     """
     namespace = build_parser().parse_args(list(all_arguments))
     repository_root = _repository_root(starting_directory)
-    policy = read_policy_file(repository_root)
-    if policy is None:
-        stdout.write(NO_POLICY_MESSAGE + "\n")
+    try:
+        return _run_action(namespace, repository_root, stdout)
+    except (ContextBudgetPolicyError, HookMeasurementError) as error:
+        stdout.write(str(error) + "\n")
         return FAILURE_EXIT_CODE
-    if namespace.write_baseline:
-        return _write_baseline(policy, repository_root, stdout)
-    if namespace.hooks:
-        return _check_hooks(policy, repository_root, stdout)
-    return _check_paths(repository_root, namespace.paths, stdout)
 
 
 if __name__ == "__main__":

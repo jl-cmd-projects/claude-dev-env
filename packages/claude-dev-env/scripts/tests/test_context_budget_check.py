@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import context_budget_check
@@ -137,3 +138,133 @@ def test_the_committed_baseline_matches_what_the_generator_builds_today() -> Non
     regenerated = context_budget_check.current_baseline(policy, REPOSITORY_ROOT)
 
     assert regenerated == committed["baseline"]
+
+
+def _hook_policy(repository_root: Path, all_hook_specs: list[tuple[str, str]]) -> Path:
+    all_hooks = []
+    for index, (name, source_text) in enumerate(all_hook_specs):
+        hook_path = repository_root / f"fixture_hook_{index}.py"
+        hook_path.write_text(source_text, encoding="utf-8")
+        all_hooks.append(
+            {
+                "name": name,
+                "command": [sys.executable, str(hook_path)],
+                "stdin": {},
+                "char_limit": 1500,
+            }
+        )
+    policy_path = repository_root / ".claude" / "context-budget.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "kinds": [],
+                "hooks": all_hooks,
+                "baseline": {"files": {}, "hooks": {"sample": 2200}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return policy_path
+
+
+def _hook_cli(repository_root: Path, action: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, context_budget_check.__file__, action],
+        cwd=repository_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize("action", ["--hooks", "--write-baseline"])
+def test_duplicate_hook_names_fail_without_replacing_the_policy(
+    repository_root: Path,
+    action: str,
+) -> None:
+    policy_path = _hook_policy(
+        repository_root,
+        [
+            ("sample", "print('x' * 2100)\n"),
+            ("sample", "print('x')\n"),
+        ],
+    )
+    prior_text = policy_path.read_bytes()
+
+    completed = _hook_cli(repository_root, action)
+
+    assert completed.returncode == 1
+    assert "hook names must be unique" in completed.stdout
+    assert policy_path.read_bytes() == prior_text
+
+
+@pytest.mark.parametrize("action", ["--hooks", "--write-baseline"])
+@pytest.mark.parametrize(
+    "source_text",
+    [
+        "raise RuntimeError('fixture failure')\n",
+        "print('partial output')\nraise RuntimeError('fixture failure')\n",
+    ],
+)
+def test_failed_hook_measurement_fails_without_replacing_the_policy(
+    repository_root: Path,
+    action: str,
+    source_text: str,
+) -> None:
+    policy_path = _hook_policy(repository_root, [("sample", source_text)])
+    prior_text = policy_path.read_bytes()
+
+    completed = _hook_cli(repository_root, action)
+
+    assert completed.returncode == 1
+    assert 'hook "sample" exited with status 1' in completed.stdout
+    assert "fixture failure" in completed.stdout
+    assert policy_path.read_bytes() == prior_text
+
+
+def test_unique_hook_measurements_keep_each_count(repository_root: Path) -> None:
+    _hook_policy(
+        repository_root, [("sample", "print('x' * 2100)\n"), ("short", "print('x')\n")]
+    )
+
+    completed = _hook_cli(repository_root, "--hooks")
+
+    assert completed.returncode == 0
+    assert "sample: 2101 characters" in completed.stdout
+    assert "short: 2 characters" in completed.stdout
+
+
+def test_successful_empty_hook_can_remove_its_baseline(repository_root: Path) -> None:
+    policy_path = _hook_policy(repository_root, [("sample", "")])
+
+    completed = _hook_cli(repository_root, "--write-baseline")
+
+    assert completed.returncode == 0
+    assert (
+        json.loads(policy_path.read_text(encoding="utf-8"))["baseline"]["hooks"] == {}
+    )
+
+
+def test_successful_hook_baseline_preserves_its_count(repository_root: Path) -> None:
+    policy_path = _hook_policy(repository_root, [("sample", "print('x' * 2100)\n")])
+
+    completed = _hook_cli(repository_root, "--write-baseline")
+
+    assert completed.returncode == 0
+    assert json.loads(policy_path.read_text(encoding="utf-8"))["baseline"]["hooks"] == {
+        "sample": 2101
+    }
+
+
+def test_a_unique_unlisted_long_hook_still_exceeds_its_limit(
+    repository_root: Path,
+) -> None:
+    policy_path = _hook_policy(repository_root, [("sample", "print('x' * 2100)\n")])
+    raw_policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    raw_policy["baseline"]["hooks"] = {}
+    policy_path.write_text(json.dumps(raw_policy), encoding="utf-8")
+
+    completed = _hook_cli(repository_root, "--hooks")
+
+    assert completed.returncode == 1
+    assert "injects 2101 characters (limit 1500)" in completed.stdout

@@ -32,6 +32,7 @@ from hooks_constants.context_budget_constants import (
     NAME_KEY,
     PATTERNS_KEY,
     POLICY_ERROR_BAD_FIELD,
+    POLICY_ERROR_DUPLICATE_HOOK_NAME,
     POLICY_ERROR_NOT_OBJECT,
     SECTION_DETAIL_LINE_LIMIT_KEY,
     SECTION_RULE_KEY,
@@ -111,6 +112,14 @@ def _parse_hook(raw_hook: object) -> HookBudget:
     )
 
 
+def _parse_hooks(raw_hooks: object) -> tuple[HookBudget, ...]:
+    all_hooks = tuple(_parse_hook(each) for each in _items(raw_hooks, HOOKS_KEY))
+    all_names = [each.name for each in all_hooks]
+    if len(set(all_names)) != len(all_names):
+        raise ContextBudgetPolicyError(POLICY_ERROR_DUPLICATE_HOOK_NAME)
+    return all_hooks
+
+
 def _parse_baseline_entry(raw_entry: object) -> BaselineEntry:
     entry_by_key = _mapping(raw_entry, BASELINE_FILES_KEY)
     if LINES_KEY not in entry_by_key:
@@ -170,9 +179,7 @@ def parse_policy(policy_text: str) -> BudgetPolicy:
         all_kinds=tuple(
             _parse_kind(each) for each in _items(raw_policy.get(KINDS_KEY, []), KINDS_KEY)
         ),
-        all_hooks=tuple(
-            _parse_hook(each) for each in _items(raw_policy.get(HOOKS_KEY, []), HOOKS_KEY)
-        ),
+        all_hooks=_parse_hooks(raw_policy.get(HOOKS_KEY, [])),
         baseline_entry_by_path=entry_by_path,
         baseline_characters_by_hook_name=characters_by_hook_name,
     )

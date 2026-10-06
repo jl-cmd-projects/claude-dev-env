@@ -133,6 +133,10 @@ NO_LINE_LIMIT_TEXT = "none"
 
 POLICY_ERROR_NOT_OBJECT = "policy must be a JSON object"
 POLICY_ERROR_BAD_FIELD = "field {field} has the wrong type"
+POLICY_ERROR_DUPLICATE_HOOK_NAME = "context-budget: hook names must be unique"
+HOOK_MEASUREMENT_FAILED_TEMPLATE = (
+    'context-budget: hook "{name}" exited with status {status}: {stderr}'
+)
 
 JSON_INDENT = 2
 
