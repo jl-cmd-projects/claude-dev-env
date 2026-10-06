@@ -36,6 +36,12 @@ function readPackageProfile(profilePath) {
     return { isWritable: currentText.startsWith(SOL_PROFILE_HEADER), currentText };
 }
 
+export function codexSolProfileSnapshotPaths(codexHome) {
+    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
+    const { isWritable, currentText } = readPackageProfile(profilePath);
+    return isWritable && currentText !== null ? [profilePath] : [];
+}
+
 /**
  * Keep CODEX_HOME/trimmed-sol.config.toml pointing at the installed Sol prompt.
  *

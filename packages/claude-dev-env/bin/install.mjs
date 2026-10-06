@@ -61,8 +61,8 @@ import {
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
+    codexSolProfileSnapshotPaths,
     removeCodexSolProfile,
-    SOL_PROFILE_FILE_NAME,
     SOL_PROMPT_DIRECTORY_NAME,
     SOL_PROMPT_FILE_NAME,
     writeCodexSolProfile,
@@ -2637,6 +2637,7 @@ function executeInstallPlan(plan) {
         priorManifestFiles: [
             ...(plan.priorManifest.files || []),
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
+            ...codexSolProfileSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -3380,7 +3381,7 @@ function uninstall() {
         priorManifestFiles: [
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
-            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROFILE_FILE_NAME),
+            ...codexSolProfileSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
