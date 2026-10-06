@@ -81,6 +81,8 @@ GitHub closes the sub-issue when someone **merges** a pull request into the **de
 
 **Not enough:** a Development "related" link with no closing keyword. **Not enough:** closing the PR without merging.
 
+**A defect found while working the issue stays on the issue.** Keep the issue open and fix the defect through this issue's pull request. A close that routes the defect to another issue or epic leaves the work unfinished, and `hooks/blocking/issue_close_handoff_gate.py` denies it.
+
 **Who owns `#N`:** the agent or session writing the PR must use the correct sub-issue number. Nothing in this package verifies the number matches the fix.
 
 ## Return shape

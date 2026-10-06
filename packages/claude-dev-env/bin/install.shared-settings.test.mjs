@@ -25,12 +25,14 @@ const PACKAGE_HOOKS_JSON_PATH = fileURLToPath(new URL('../hooks/hooks.json', imp
 function installEnvironment(homeDirectory) {
     return {
         ...process.env,
+        LLM_SETTINGS_PROFILES_ROOT: undefined,
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         CLAUDE_CONFIG_DIR: '',
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
+        CDE_INSTALL_SUBAGENT_MODELS: '0',
     };
 }
 

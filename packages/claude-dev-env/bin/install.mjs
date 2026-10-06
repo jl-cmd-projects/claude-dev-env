@@ -30,6 +30,11 @@ import {
     settingsDefaultsFromPackageSettings,
 } from './merge_settings_defaults.mjs';
 import {
+    describeProfileSettingsOutcome,
+    hostConfigurationIndent,
+    mergeProfileSettings,
+} from './merge_profile_settings.mjs';
+import {
     SKIPPED_SOURCE_ENTRY_NAMES,
     SKIPPED_SOURCE_FILE_EXTENSIONS,
     RUN_BACKUP_DIRECTORY_NAME_PATTERN,
@@ -49,8 +54,9 @@ import {
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
+    SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
-    installMarketplacePlugin,
+    installMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
@@ -407,17 +413,19 @@ export function pythonFileAndPrefixArguments(pythonCommand) {
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome.
  */
 export function installPstackPluginForHosts() {
-    return installMarketplacePlugin(PSTACK_PLUGIN_SPEC, {
+    return installMarketplacePlugins([PSTACK_PLUGIN_SPEC], {
         claudeRoot: CLAUDE_HOME,
         codexHome: INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
     });
 }
 
-function printPluginHostOutcomes(spec, pluginOutcome) {
-    for (const eachHost of pluginOutcome.hosts) {
-        console.log(eachHost.warning
-            ? `  ${spec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
-            : `  ${spec.label} (${eachHost.host}): ${eachHost.status}`);
+function printPluginHostOutcomes(allSpecs, pluginOutcome) {
+    for (const eachSpec of allSpecs) {
+        for (const eachHost of pluginOutcome.hosts) {
+            console.log(eachHost.warning
+                ? `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
+                : `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status}`);
+        }
     }
 }
 
@@ -1545,15 +1553,19 @@ function startEventFromHookGroupList(settings, eventType) {
  * @param {object} settings The parsed settings.json object (mutated in place).
  * @param {{hooks: object}} hooksConfig Parsed hooks.json.
  * @param {string} pluginRootDir Directory ${CLAUDE_PLUGIN_ROOT} resolves to
- *   (the installer's `~/.claude` root; home is its parent directory).
+ *   (the installer's managed root, `~/.claude` or a profile root).
  * @param {string} pythonCommand Interpreter command that replaces python3.
  * @param {string|null} [sharedSettingsRealPath] Resolved path of the settings
  *   file being merged. Hooks of every root whose settings.json resolves to it
  *   count as managed, so roots sharing one file keep one entry per script.
+ * @param {string} [homeDirectory] The home directory `~/`, `$HOME`, and
+ *   `${HOME}` expand to. It is the user's home whatever root installs, so a
+ *   profile root under `~/.claude-profiles` expands `~/` the same way the
+ *   profile settings merge does.
  * @returns {number} Count of matcher groups merged.
  */
 export function mergeHooksIntoSettings(
-    settings, hooksConfig, pluginRootDir, pythonCommand, sharedSettingsRealPath = null,
+    settings, hooksConfig, pluginRootDir, pythonCommand, sharedSettingsRealPath = null, homeDirectory = homedir(),
 ) {
     const managedHookRelativePaths = managedHookScriptRelativePaths(hooksConfig);
     const pluginRootForward = pluginRootDir.replace(/\\/g, '/');
@@ -1601,7 +1613,7 @@ export function mergeHooksIntoSettings(
             groupCount++;
         }
     }
-    expandHomeDirectoryTokensInSettings(settings, dirname(pluginRootDir));
+    expandHomeDirectoryTokensInSettings(settings, homeDirectory);
     return groupCount;
 }
 
@@ -1878,23 +1890,6 @@ function stripRetiredHookEntries(settings, retiredHookRelativePaths, ownership) 
         settings.hooks[eventType] = eventOutcome.keptGroups;
     }
     return removedCount;
-}
-
-const DEFAULT_HOST_CONFIGURATION_INDENT = '  ';
-
-/**
- * Read the indent the host configuration file already uses.
- *
- * ~/.claude/settings.json uses four spaces and ~/.codex/hooks.json uses two.
- * Forcing four spaces would rewrite every line of one of those files. The first
- * indented line supplies the indent, tabs included.
- *
- * @param {string} settingsText The host configuration file as it stands on disk.
- * @returns {string} The indent one nesting level uses.
- */
-function hostConfigurationIndent(settingsText) {
-    const firstIndentedLine = /\n([ \t]+)\S/.exec(settingsText);
-    return firstIndentedLine ? firstIndentedLine[1] : DEFAULT_HOST_CONFIGURATION_INDENT;
 }
 
 /**
@@ -2890,14 +2885,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
             }
         }
-        printPluginHostOutcomes(PSTACK_PLUGIN_SPEC, pstackPlugin);
+        printPluginHostOutcomes([PSTACK_PLUGIN_SPEC], pstackPlugin);
     }
-    if (!selectedGroups && shouldInstallMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC)) {
-        const usageWrapupPlugin = installMarketplacePlugin(USAGE_WRAPUP_PLUGIN_SPEC, {
+    const allRepositoryPluginSpecs = [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC]
+        .filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
+    if (!selectedGroups && allRepositoryPluginSpecs.length > 0) {
+        const repositoryPlugins = installMarketplacePlugins(allRepositoryPluginSpecs, {
             claudeRoot: CLAUDE_HOME,
         });
-        summary.usageWrapupPlugin = usageWrapupPlugin;
-        printPluginHostOutcomes(USAGE_WRAPUP_PLUGIN_SPEC, usageWrapupPlugin);
+        summary.repositoryPlugins = repositoryPlugins;
+        printPluginHostOutcomes(allRepositoryPluginSpecs, repositoryPlugins);
     }
     if (!selectedGroups) {
         const packageGuidancePath = writeCodexPackageGuidance(
@@ -3021,6 +3018,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     const settingsDefaultsMerge = mergePackageSettingsDefaults();
     if (settingsDefaultsMerge.addedKeys.length > 0) {
         console.log(`  Settings: added ${settingsDefaultsMerge.addedKeys.join(', ')}`);
+    }
+    const mergeOutcome = mergeProfileSettings(
+        [join(CLAUDE_HOME, SETTINGS_FILE_NAME)],
+        { dryRun: false, homeDirectory: homedir() },
+    );
+    for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
+        console.log(`  Profile settings: ${eachLine}`);
     }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');
@@ -3412,6 +3416,7 @@ Usage:
   npx ${PACKAGE_NAME} --profiles A,B  Install into each selected profile (one ownership manifest per target)
   npx ${PACKAGE_NAME} --no-pstack  Full install without the pstack plugin (also CDE_INSTALL_PSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
+  npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

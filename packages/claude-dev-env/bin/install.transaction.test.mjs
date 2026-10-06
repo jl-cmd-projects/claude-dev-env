@@ -85,8 +85,11 @@ test('capture and restore recover settings, manifest, files, and hooksPath', () 
     mkdirSync(priorHooksDirectory, { recursive: true });
     const env = {
         ...process.env,
+        CLAUDE_CONFIG_DIR: undefined,
+        LLM_SETTINGS_PROFILES_ROOT: undefined,
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
+        CDE_INSTALL_SUBAGENT_MODELS: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -147,8 +150,11 @@ test('capture and restore recover an additional host settings file', () => {
     const io = {
         env: {
             ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -182,8 +188,11 @@ test('runWithInstallTransaction restores prior state on injected fault', () => {
     writeFileSync(gitConfigPath, '');
     const env = {
         ...process.env,
+        CLAUDE_CONFIG_DIR: undefined,
+        LLM_SETTINGS_PROFILES_ROOT: undefined,
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
+        CDE_INSTALL_SUBAGENT_MODELS: '0',
         HOME: box.root,
         USERPROFILE: box.root,
         GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -236,8 +245,11 @@ test('runWithInstallTransaction commits and discards journal on success', () => 
     const io = {
         env: {
             ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             HOME: box.root,
             USERPROFILE: box.root,
             GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -279,8 +291,11 @@ test('runWithInstallTransaction commits and discards journal on success', () => 
 function runInstaller(homeDirectory, extraArguments, options = {}) {
     const childEnvironment = {
         ...process.env,
+        CLAUDE_CONFIG_DIR: undefined,
+        LLM_SETTINGS_PROFILES_ROOT: undefined,
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
+        CDE_INSTALL_SUBAGENT_MODELS: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -316,6 +331,7 @@ test('a later install fault removes newly seeded Codex pstack files', () => {
             environment: {
                 CDE_INSTALL_PSTACK: '1',
                 CDE_INSTALL_USAGE_WRAPUP: '0',
+                CDE_INSTALL_SUBAGENT_MODELS: '0',
                 CDE_CODEX_EXECUTABLE: codexCommandPath,
             },
         });
@@ -457,8 +473,11 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
         writeGlobalCoreHooksPath(priorHooksPath, {
             env: {
                 ...process.env,
+                CLAUDE_CONFIG_DIR: undefined,
+                LLM_SETTINGS_PROFILES_ROOT: undefined,
                 CDE_INSTALL_PSTACK: '0',
                 CDE_INSTALL_USAGE_WRAPUP: '0',
+                CDE_INSTALL_SUBAGENT_MODELS: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,
@@ -474,8 +493,11 @@ test('installer fault after_git_config restores prior core.hooksPath', () => {
         const restored = readGlobalCoreHooksPath({
             env: {
                 ...process.env,
+                CLAUDE_CONFIG_DIR: undefined,
+                LLM_SETTINGS_PROFILES_ROOT: undefined,
                 CDE_INSTALL_PSTACK: '0',
                 CDE_INSTALL_USAGE_WRAPUP: '0',
+                CDE_INSTALL_SUBAGENT_MODELS: '0',
                 HOME: homeDirectory,
                 USERPROFILE: homeDirectory,
                 GIT_CONFIG_GLOBAL: gitConfigPath,

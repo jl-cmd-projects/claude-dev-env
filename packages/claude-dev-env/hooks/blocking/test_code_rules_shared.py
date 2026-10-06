@@ -392,18 +392,15 @@ def test_agent_home_tooling_outside_the_cwd_is_exempt() -> None:
     checkout_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
     helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
 
-    assert (
-        _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(
-            helper_script, checkout_directory
-        )
-        is True
+    assert _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(
+        helper_script, checkout_directory
     )
 
 
 def test_agent_home_tooling_with_no_cwd_is_exempt() -> None:
     helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
 
-    assert _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(helper_script, "") is True
+    assert _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(helper_script, "")
 
 
 def test_hook_infrastructure_excludes_agent_home_tooling() -> None:

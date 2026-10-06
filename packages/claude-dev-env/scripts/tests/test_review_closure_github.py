@@ -192,6 +192,76 @@ def should_fall_back_to_the_graphql_query(monkeypatch: pytest.MonkeyPatch) -> No
     assert any("graphql" in each_url for each_url in all_requested_urls)
 
 
+def _thread_page(path: str, end_cursor: str | None) -> dict[str, object]:
+    return {
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {
+                            "hasNextPage": end_cursor is not None,
+                            "endCursor": end_cursor,
+                        },
+                        "nodes": [
+                            {
+                                "path": path,
+                                "isResolved": False,
+                                "isOutdated": False,
+                                "comments": {"nodes": []},
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    }
+
+
+def should_read_every_graphql_page_of_review_threads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_pages_by_cursor = {
+        None: _thread_page("scripts/first.py", "cursor-1"),
+        "cursor-1": _thread_page("scripts/second.py", None),
+    }
+    all_requested_cursors: list[object] = []
+
+    @contextmanager
+    def fake_urlopen(request: object, timeout: int = 0) -> Iterator[FakeReply]:
+        if "ccr/review_threads" in request.full_url:
+            yield FakeReply(404, {})
+            return
+        cursor = json.loads(request.data)["variables"].get("after")
+        all_requested_cursors.append(cursor)
+        yield FakeReply(200, all_pages_by_cursor[cursor])
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+
+    all_threads = reader.read_review_threads("jl-cmd/claude-dev-env", 7, TOKEN)
+
+    assert [each.subject for each in all_threads] == [
+        "scripts/first.py",
+        "scripts/second.py",
+    ]
+    assert all_requested_cursors == [None, "cursor-1"]
+
+
+def should_report_review_threads_that_outrun_the_page_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @contextmanager
+    def fake_urlopen(request: object, timeout: int = 0) -> Iterator[FakeReply]:
+        if "ccr/review_threads" in request.full_url:
+            yield FakeReply(404, {})
+            return
+        yield FakeReply(200, _thread_page("scripts/endless.py", "cursor-next"))
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(GitHubError):
+        reader.read_review_threads("jl-cmd/claude-dev-env", 7, TOKEN)
+
+
 def should_report_a_graphql_answer_carrying_no_threads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

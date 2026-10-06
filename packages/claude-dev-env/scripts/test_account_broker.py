@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import account_broker
+import claude_account_worker
 from account_broker import (
     Account,
     Meters,
@@ -71,7 +72,6 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
         read_meters=lambda account: meters[account.name],
         environment_variable="CODEX_HOME",
         usage_limit_signatures=("rate limit",),
-        main_guard=False,
     )
 
 
@@ -112,9 +112,8 @@ def test_should_keep_list_order_when_tighter_windows_tie() -> None:
 @pytest.mark.parametrize(
     ("weekly_reset", "weekly_left", "short_left"),
     (
-        (NOW + timedelta(days=3), 20, 80),
-        (NOW + timedelta(hours=4), 10, 80),
-        (NOW + timedelta(hours=4), 20, 50),
+        (NOW + timedelta(hours=4), 1, 80),
+        (NOW + timedelta(hours=4), 20, 5),
     ),
 )
 def test_should_guard_main_at_each_limit(
@@ -131,24 +130,80 @@ def test_should_guard_main_at_each_limit(
     assert decision.account == extra.account
 
 
-def test_should_prioritize_main_when_its_guard_passes() -> None:
+def test_should_pick_main_when_it_has_more_room_than_every_extra() -> None:
     main = Reading(
         _account("main", Product.CLAUDE, main=True),
-        _meters(80, 20, weekly_reset=NOW + timedelta(hours=4)),
+        _meters(80, 80, weekly_reset=NOW + timedelta(days=5)),
+    )
+    extras = (
+        Reading(_account("second", Product.CLAUDE), _meters(60, 60)),
+        Reading(_account("third", Product.CLAUDE), _meters(40, 40)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (*extras, main), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == main.account
+
+
+def test_should_pick_an_extra_with_more_room_than_main() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(60, 60, weekly_reset=NOW + timedelta(hours=4)),
     )
     extra = Reading(_account("extra", Product.CLAUDE), _meters(90, 90))
 
     decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
 
+    assert decision.account == extra.account
+
+
+@pytest.mark.parametrize(("main_short_left", "expected_name"), ((6, "main"), (5, "extra")))
+def test_should_pick_main_only_while_under_its_5_hour_ceiling(
+    main_short_left: float, expected_name: str
+) -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(main_short_left, 95, weekly_reset=NOW + timedelta(days=5)),
+    )
+    extra = Reading(_account("extra", Product.CLAUDE), _meters(20, 2))
+
+    decision = choose_from_readings(Product.CLAUDE, (main, extra), now=NOW)
+
+    assert decision.account.name == expected_name
+
+
+def test_should_pick_main_when_it_is_the_only_readable_account() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(80, 80, weekly_reset=NOW + timedelta(days=5)),
+    )
+    unread = Reading(_account("extra", Product.CLAUDE), None)
+
+    decision = choose_from_readings(Product.CLAUDE, (unread, main), now=NOW)
+
+    assert decision.action == "run"
     assert decision.account == main.account
+
+
+def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> None:
+    short_reset = NOW + timedelta(hours=2)
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        _meters(5, 50, short_reset=short_reset, weekly_reset=NOW + timedelta(days=3)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == short_reset
 
 
 @pytest.mark.parametrize(
     ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
     (
-        (40, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
-        (80, 5, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
-        (80, 50, NOW + timedelta(days=3), NOW + timedelta(days=2)),
+        (5, 20, NOW + timedelta(hours=4), NOW + timedelta(hours=2)),
+        (80, 1, NOW + timedelta(hours=4), NOW + timedelta(hours=4)),
     ),
 )
 def test_should_wait_for_the_meter_or_window_that_blocks_main(
@@ -237,7 +292,7 @@ def test_should_wait_until_both_blocking_windows_reset() -> None:
 
 def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
     blocked = Reading(
-        _account("blocked", Product.CLAUDE), _meters(10, 5)
+        _account("blocked", Product.CLAUDE), _meters(5, 1)
     )
     unread = Reading(_account("unread", Product.CLAUDE), None)
 
@@ -245,6 +300,59 @@ def test_should_use_claude_extra_floors_and_wait_for_unread() -> None:
 
     assert decision.action == "wait"
     assert decision.account is None
+
+
+def _ranked_claude_account(name: str, priority: int | None) -> Account:
+    return Account(Product.CLAUDE, name, Path("/profiles") / name, False, name, priority)
+
+
+def test_should_pick_the_first_claude_account_in_priority_order_with_room() -> None:
+    readings = (
+        Reading(_ranked_claude_account("roomy", 2), _meters(90, 90)),
+        Reading(_ranked_claude_account("spent", 0), _meters(5, 90)),
+        Reading(_ranked_claude_account("preferred", 1), _meters(20, 20)),
+        Reading(_ranked_claude_account("unranked", None), _meters(99, 99)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account.name == "preferred"
+    assert "priority 2" in decision.reason
+
+
+def test_should_fall_back_to_the_roomiest_unranked_claude_account() -> None:
+    readings = (
+        Reading(_ranked_claude_account("ranked_spent", 0), _meters(5, 5)),
+        Reading(_ranked_claude_account("tight", None), _meters(30, 30)),
+        Reading(_ranked_claude_account("roomy", None), _meters(60, 60)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account.name == "roomy"
+
+
+def test_should_keep_resume_affinity_ahead_of_priority() -> None:
+    readings = (
+        Reading(_ranked_claude_account("first", 0), _meters(90, 90)),
+        Reading(_ranked_claude_account("bound", 1), _meters(40, 40)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW, preferred_command="bound")
+
+    assert decision.account.name == "bound"
+    assert decision.reason == "resume affinity"
+
+
+def test_should_wait_when_every_ranked_claude_account_is_spent() -> None:
+    readings = (
+        Reading(_ranked_claude_account("first", 0), _meters(5, 5)),
+        Reading(_ranked_claude_account("second", 1), _meters(0, 50)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.action == "wait"
 
 
 @pytest.mark.parametrize("count", (1, 5))
@@ -339,6 +447,104 @@ def test_should_wait_when_all_meter_reads_fail() -> None:
     assert decision.resets_at == NOW + timedelta(hours=1)
 
 
+_MAIN_CLAUDE = _account("main", Product.CLAUDE, main=True)
+_EV_CLAUDE = _account("ev", Product.CLAUDE)
+
+
+@pytest.mark.parametrize(
+    ("readings", "spent_resets", "expected_reason", "expected_resets_at"),
+    (
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, None), Reading(_EV_CLAUDE, None)),
+            {},
+            "no account meter could be read (main, ev); next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="every-meter-unreadable",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
+            {},
+            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            NOW + timedelta(minutes=30),
+            id="unreadable-beside-a-reset-before-the-check",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
+            {},
+            "no readable account has room; meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="unreadable-beside-a-reset-after-the-check",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, _meters(80, 80)), Reading(_EV_CLAUDE, None)),
+            {_MAIN_CLAUDE: NOW + timedelta(minutes=30)},
+            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            NOW + timedelta(minutes=30),
+            id="unreadable-beside-a-spent-account",
+        ),
+        pytest.param(
+            (
+                Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))),
+                Reading(_EV_CLAUDE, _meters(5, 80, short_reset=NOW + timedelta(hours=3))),
+            ),
+            {},
+            "no account has room; next reset at 2026-10-03T02:00:00+00:00",
+            NOW + timedelta(hours=2),
+            id="every-meter-read-with-known-resets",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, Meters(5, None, 50, None)),),
+            {},
+            "no account has room; next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="every-meter-read-without-a-known-reset",
+        ),
+    ),
+)
+def test_should_name_what_the_broker_knows_in_the_wait_reason(
+    readings: tuple[Reading, ...],
+    spent_resets: dict[Account, datetime],
+    expected_reason: str,
+    expected_resets_at: datetime,
+) -> None:
+    decision = choose_from_readings(
+        Product.CLAUDE,
+        readings,
+        now=NOW,
+        all_spent_accounts=frozenset(spent_resets),
+        all_spent_resets=spent_resets,
+    )
+
+    assert decision.action == "wait"
+    assert decision.reason == expected_reason
+    assert decision.resets_at == expected_resets_at
+
+
+def test_should_carry_the_unreadable_meter_reason_into_the_worker_report(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    adapter = _adapter((_MAIN_CLAUDE, _EV_CLAUDE), {"main": None, "ev": None})
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
+    prompt_file = tmp_path / "brief.md"
+    prompt_file.write_text("standalone brief", encoding="utf-8")
+    report_file = tmp_path / "report.json"
+
+    with account_broker.override_subprocess_runner(lambda command, **options: pytest.fail("a waiting job ran")):
+        exit_code = claude_account_worker.run_worker(
+            prompt_file=prompt_file,
+            cwd=tmp_path,
+            report_file=report_file,
+            model=None,
+            permission_mode="auto",
+            timeout_minutes=60,
+        )
+
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+    assert exit_code == WAIT_EXIT_CODE
+    assert report["account"] == "wait"
+    assert report["reason"].startswith("no account meter could be read")
+
+
 def test_should_replay_stdin_bytes_and_only_print_served_stdout(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -418,6 +624,50 @@ def test_should_leave_later_choices_open_after_start_failure(
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "first"
 
 
+@pytest.mark.parametrize("product", (Product.CLAUDE, Product.CODEX))
+def test_should_exit_127_when_every_account_fails_to_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, product: Product
+) -> None:
+    accounts = (_account("first", product), _account("second", product))
+    monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        raise OSError("missing command")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(product, ("job",), now=datetime.now(timezone.utc))
+        code = account_broker.main(("run", "--product", product.value, "--report", str(tmp_path / "report.json"), "--", "job"))
+
+    assert outcome.status == "start_failed"
+    assert outcome.returncode == 127
+    assert outcome.wait_reset_at is None
+    assert code == 127
+
+
+def test_should_report_exhausted_when_start_failure_meets_usage_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        if Path(options["env"]["CODEX_HOME"]).name == "first":
+            raise OSError("missing command")
+        return subprocess.CompletedProcess(argv, 1, "", "rate limit")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=datetime.now(timezone.utc))
+
+    assert outcome.attempts == (("first", "start_failed"), ("second", "usage_limited"))
+    assert outcome.status == "exhausted"
+    assert outcome.returncode == 3
+
+
 def test_should_stop_after_timeout_without_running_job_again(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -437,6 +687,7 @@ def test_should_stop_after_timeout_without_running_job_again(
     assert invoked_homes == ["first"]
     assert outcome.attempts == (("first", "timeout"),)
     assert outcome.status == "timeout"
+    assert outcome.returncode == 124
     assert outcome.account_name == "first"
     assert report.final_decision.account.name == "first"
     assert account_broker.main(("choose", "--product", "codex")) == 0
@@ -446,12 +697,12 @@ def test_should_stop_after_timeout_without_running_job_again(
 @pytest.mark.parametrize(
     ("product", "roster_names", "start_error", "expected_code"),
     (
-        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 4),
-        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 127),
+        (Product.CLAUDE, ("first",), subprocess.TimeoutExpired("job", 1), 124),
+        (Product.CODEX, ("first",), subprocess.TimeoutExpired("job", 1), 124),
         (Product.CODEX, (), OSError("missing command"), 127),
     ),
 )
-def test_should_exit_four_only_for_a_blocked_claude_job(
+def test_should_exit_with_job_failure_code(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     product: Product,
@@ -498,7 +749,7 @@ def test_should_list_accounts_without_reading_meters(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     account = _account("listed")
-    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("meter read"), "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("meter read"), "CODEX_HOME", ())
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
 
     assert account_broker.main(("accounts", "--product", "codex")) == 0
@@ -529,7 +780,7 @@ def test_should_reuse_meter_cache_for_60_seconds() -> None:
         calls.append(selected.name)
         return _meters(80, 80)
 
-    adapter = ProductAdapter(lambda: (account,), read_meter, "CODEX_HOME", (), False)
+    adapter = ProductAdapter(lambda: (account,), read_meter, "CODEX_HOME", ())
     state = account_broker._load_state(account_broker.broker_state_path())
 
     account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
@@ -707,8 +958,22 @@ def test_should_record_start_failure_without_launching_a_command_missing_from_pa
     outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
 
     assert outcome.attempts == (("extra", "start_failed"),)
-    assert outcome.status == "exhausted"
-    assert outcome.returncode == WAIT_EXIT_CODE
+    assert outcome.status == "start_failed"
+    assert outcome.returncode == 127
+
+
+def test_should_keep_the_start_failure_text_when_no_account_can_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _adapter(
+        (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE)),
+        {"first": _meters(80, 80), "second": _meters(70, 70)},
+    ))
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(account_broker.support.subprocess, "run", lambda *arguments, **options: pytest.fail("a missing command ran"))
+
+    outcome, _ = account_broker._execute(Product.CLAUDE, ("claude", "-p"), now=NOW)
+
+    assert outcome.status == "start_failed"
+    assert "claude" in outcome.stderr
 
 
 @pytest.mark.parametrize("marked_name", ["retired", "first"])
@@ -759,6 +1024,38 @@ def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
     all_warning_lines = capsys.readouterr().err.splitlines()
     assert len(all_warning_lines) == 1
     assert "frist" in all_warning_lines[0]
+    assert "outside the roster" in all_warning_lines[0]
+
+
+def test_should_not_warn_when_the_default_account_is_marked_without_a_roster(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"default:{int(reset.timestamp())}"))
+
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    ("all_roster_names", "marked_name"),
+    [(("first",), "default"), ((), "visitor")],
+)
+def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], all_roster_names: tuple[str, ...], marked_name: str
+) -> None:
+    all_accounts = tuple(_account(each_name) for each_name in all_roster_names)
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(all_accounts, {each_name: _meters(80, 80) for each_name in all_roster_names}))
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"{marked_name}:{int(reset.timestamp())}"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    assert len(all_warning_lines) == 1
+    assert marked_name in all_warning_lines[0]
     assert "outside the roster" in all_warning_lines[0]
 
 

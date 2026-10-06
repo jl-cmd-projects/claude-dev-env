@@ -37,6 +37,7 @@ ALL_ADVISOR_RULE_SENTENCES = (
     "This cadence guides planning and leaves the task free to follow its evidence.",
     "Short reactive tasks may use the single consult that best fits the live decision.",
     "Ask the advisor to hunt for missing requirements, untested behavior, wrong assumptions, unhandled edge cases, evidence gaps, and early completion claims.",
+    "A defect the task found in its own subject stays with the task through its fix pull request, so a close that routes that defect to another issue or epic is an early completion claim.",
     "Give the advice serious weight.",
 )
 

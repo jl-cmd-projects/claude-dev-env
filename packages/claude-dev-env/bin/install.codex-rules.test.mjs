@@ -56,8 +56,11 @@ function runInstaller(homeDirectory, extraArguments) {
         encoding: 'utf8',
         env: {
             ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -85,8 +88,11 @@ function scanTextWithProductionPiiScanner(scannedText) {
                 encoding: 'utf8',
                 env: {
                     ...process.env,
+                    CLAUDE_CONFIG_DIR: undefined,
+                    LLM_SETTINGS_PROFILES_ROOT: undefined,
                     CDE_INSTALL_PSTACK: '0',
                     CDE_INSTALL_USAGE_WRAPUP: '0',
+                    CDE_INSTALL_SUBAGENT_MODELS: '0',
                     PYTHONPATH: BLOCKING_HOOKS_DIRECTORY,
                     CLAUDE_LOCAL_IDENTITY_PATH: join(
                         temporaryDirectory,

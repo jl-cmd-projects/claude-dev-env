@@ -16,14 +16,15 @@ import pytest
 
 from dev_env_scripts_constants import account_broker_constants as broker_constants
 from dev_env_scripts_constants.account_broker_constants import (
+    ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_FLOORS,
-    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_CODEX_FLOORS,
+    ALL_PARENT_CLAUDE_SESSION_VARIABLES,
+    CMD_SHELL_METACHARACTERS,
     JobOutcome,
 )
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
-    MAIN_SPEND_WINDOW,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
@@ -41,7 +42,6 @@ def test_should_keep_claude_floors_tied_to_the_account_ceilings() -> None:
     assert ALL_CLAUDE_FLOORS == {
         "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
         "main_session_used_ceiling": MAIN_SESSION_USED_CEILING_PERCENT,
-        "main_spend_window": MAIN_SPEND_WINDOW,
         "extra_weekly_used_ceiling": SECOND_WEEKLY_USED_CEILING_PERCENT,
         "extra_session_used_ceiling": SECOND_SESSION_USED_CEILING_PERCENT,
     }
@@ -53,6 +53,11 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
         "luna_stop_left": LUNA_TIER_STOP_PERCENT_LEFT,
         "luna_short_minimum_left": LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     }
+
+
+def test_batch_command_boundaries_include_shell_metacharacters() -> None:
+    assert ALL_BATCH_FILE_EXTENSIONS == frozenset({".bat", ".cmd"})
+    assert set(CMD_SHELL_METACHARACTERS) == set('&|<>^%!"\r\n')
 
 
 def test_should_freeze_job_outcome() -> None:

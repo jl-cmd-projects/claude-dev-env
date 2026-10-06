@@ -406,7 +406,9 @@ test('mergeHooksIntoSettings expands residual $HOME in preserved user hooks', ()
             ],
         },
     };
-    mergeHooksIntoSettings(settings, hooksConfig, 'C:/Users/x/.claude', 'C:/Python313/python.exe');
+    mergeHooksIntoSettings(
+        settings, hooksConfig, 'C:/Users/x/.claude', 'C:/Python313/python.exe', null, 'C:/Users/x',
+    );
     const allCommands = settings.hooks.SessionStart[0].hooks.map(eachHook => eachHook.command);
     assert.ok(
         allCommands.includes(
@@ -2980,12 +2982,16 @@ test('the help output states that the installer reads only flags', () => {
     const helpRun = spawnSync(
         process.execPath,
         [fileURLToPath(new URL('./install.mjs', import.meta.url)), '--help'],
-        { encoding: 'utf8', env: process.env },
+        { encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined } },
     );
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /reads only flags/i);
     assert.match(helpRun.stdout, /bare path argument carries no meaning/i);
+    assert.match(
+        helpRun.stdout,
+        /--update\s+Full install: copy the package over the prior install, then prune files it no longer ships/,
+    );
 });
 
 
@@ -3020,12 +3026,14 @@ test('a failed update preserves an existing skills lookup pointer', () => {
         writeFileSync(join(homeDirectory, '.gitconfig'), '');
         const environment = {
             ...process.env,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CLAUDE_CONFIG_DIR: '',
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
         };
         const argumentsForCoreInstall = [PSTACK_TEST_INSTALLER_PATH, '--only', 'core'];
         const firstRun = spawnSync(process.execPath, argumentsForCoreInstall, {
@@ -3070,6 +3078,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
         encoding: 'utf8',
         env: {
             ...process.env,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -3077,6 +3086,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '1',
             CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
             ...environmentOverrides,
         },
     });
@@ -3317,7 +3327,7 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin uninstall usage-wrapup@claude-dev-env',
     'claude plugin marketplace remove claude-dev-env',
-    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin',
+    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
     'claude plugin install usage-wrapup@claude-dev-env',
 ]);
 
@@ -3384,11 +3394,65 @@ test('a failing usage-wrapup command is reported and the install still succeeds'
 test('the help output names the usage-wrapup opt-out beside the pstack one', () => {
     const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
         encoding: 'utf8',
-        env: process.env,
+        env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined },
     });
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
+});
+
+const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
+    'claude plugin uninstall usage-wrapup@claude-dev-env',
+    'claude plugin uninstall subagent-models@claude-dev-env',
+    'claude plugin marketplace remove claude-dev-env',
+    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
+    'claude plugin install usage-wrapup@claude-dev-env',
+    'claude plugin install subagent-models@claude-dev-env',
+]);
+
+test('should install subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], {
+        ...sandbox.environment,
+        CDE_INSTALL_USAGE_WRAPUP: '1',
+        CDE_INSTALL_SUBAGENT_MODELS: '1',
+    });
+
+    assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), REPOSITORY_PLUGIN_CLAUDE_COMMANDS);
+    assert.match(installerOutput, /Usage-wrapup \(claude\): installed/);
+    assert.match(installerOutput, /Subagent-models \(claude\): installed/);
+});
+
+for (const [caseName, extraArguments, environmentOverrides] of [
+    ['--no-subagent-models', ['--no-subagent-models'], { CDE_INSTALL_SUBAGENT_MODELS: '1' }],
+    ['CDE_INSTALL_SUBAGENT_MODELS=0', [], { CDE_INSTALL_SUBAGENT_MODELS: '0' }],
+    ['an --only run', ['--only', 'core'], { CDE_INSTALL_SUBAGENT_MODELS: '1' }],
+]) {
+    test(`should skip subagent-models on ${caseName}`, t => {
+        const sandbox = pstackPluginSandbox(t);
+
+        const installerOutput = runPstackInstaller(sandbox.homeDirectory, extraArguments, {
+            ...sandbox.environment,
+            ...environmentOverrides,
+        });
+
+        assert.equal(
+            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('subagent-models')),
+            false,
+        );
+        assert.doesNotMatch(installerOutput, /Subagent-models \(/);
+    });
+}
+
+test('should name the subagent-models opt-out in the help output', () => {
+    const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(helpRun.status, 0, helpRun.stderr);
+    assert.match(helpRun.stdout, /--no-subagent-models .*CDE_INSTALL_SUBAGENT_MODELS=0/);
 });
 
 function continuityCommandCount(configurationPath) {

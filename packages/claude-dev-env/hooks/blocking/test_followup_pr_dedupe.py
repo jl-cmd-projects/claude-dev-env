@@ -84,3 +84,11 @@ def test_powershell_body_file_is_denied(tmp_path: Path) -> None:
     }
     reason = dedupe.duplicate_followup_reason(payload, _reader([OPEN_FOLLOWUP]))
     assert reason is not None and "pull request #1769" in reason
+
+
+def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("From the file.", encoding="utf-8")
+    assert dedupe.body_from_arguments(["--body", "Inline."], "") == "Inline."
+    assert dedupe.body_from_arguments(["--body-file", "body.md"], str(tmp_path)) == "From the file."
+    assert dedupe.body_from_arguments(["--body-file", "-"], str(tmp_path)) is None
+    assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None

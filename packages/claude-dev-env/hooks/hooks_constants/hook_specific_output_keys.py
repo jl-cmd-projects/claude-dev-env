@@ -1,4 +1,4 @@
-"""JSON keys of the hookSpecificOutput object a PreToolUse hook writes to stdout."""
+"""JSON keys of the hookSpecificOutput object a hook writes to stdout."""
 
 from __future__ import annotations
 

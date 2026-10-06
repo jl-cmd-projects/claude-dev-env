@@ -1,5 +1,3 @@
-# Trigger scope: no branches filter on pull_request, so a PR based on a stacked
-# parent branch gets its title validated the same way a PR based on main does.
 name: PR checks
 
 on:
@@ -10,6 +8,7 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+  merge_group:
 
 concurrency:
   group: pr-check-${{ github.ref }}
@@ -18,6 +17,7 @@ concurrency:
 jobs:
   validate:
     name: Validate PR title
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -46,6 +46,7 @@ jobs:
 
   fix-test-proof:
     name: Fix test proof
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -68,6 +69,13 @@ jobs:
             pyyaml \
             Pillow \
             ruff
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install the Claude Code CLI for plugin tests
+        run: npm install --global @anthropic-ai/claude-code@2.1.288
 
       - name: Configure git identity for test repos
         run: |

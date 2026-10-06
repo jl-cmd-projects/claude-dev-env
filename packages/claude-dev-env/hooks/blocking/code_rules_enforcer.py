@@ -118,7 +118,7 @@ from code_rules_paths_syspath import (  # noqa: E402
     check_hardcoded_user_paths,
     check_sys_path_insert_deduplication_guard,
 )
-from code_rules_shared import (  # noqa: E402
+from code_rules_shared import (
     changed_line_numbers,
     get_file_extension,
     is_agent_home_tooling_outside_working_directory,
@@ -772,9 +772,9 @@ def _is_validated_target(file_path: str, repository_root: str = "") -> bool:
             scratch merely because the repository sits under ``/tmp``.
 
     Returns:
-        True when the path is non-empty, outside hook infrastructure, outside
+        Whether the path is non-empty, outside hook infrastructure, outside
         agent-home tooling that sits beyond ``repository_root``, and carries a
-        code extension; False for every exempt path.
+        code extension.
     """
     if not file_path:
         return False
@@ -800,7 +800,7 @@ def _is_hook_infrastructure_python_target(file_path: str, repository_root: str =
             scratch merely because the repository sits under ``/tmp``.
 
     Returns:
-        True when the path names a Python file inside hook infrastructure or
+        Whether the path names a Python file inside hook infrastructure or
         inside agent-home tooling that sits beyond ``repository_root``.
     """
     if not file_path:

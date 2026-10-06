@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import errno
+import importlib
 import json
 import os
 import shutil
@@ -47,6 +49,8 @@ from dev_env_scripts_constants.account_broker_constants import (
     utc_time_text,
 )
 from dev_env_scripts_constants.claude_account_constants import (
+    CLAUDE_ACCOUNT_ORDER_FILE_NAME,
+    CLAUDE_LAUNCHER_PROGRAM,
     CREDENTIALS_FILE_NAME,
     EXTRA_PROFILES_FILE_NAME,
     FULL_PERCENT,
@@ -60,11 +64,21 @@ from dev_env_scripts_constants.codex_account_constants import (
     WEEKLY_WINDOW_MINUTES,
 )
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
+from shared_tree_paths import resolve_shared_process_tree_scripts_directory
+
+_shared_process_tree_scripts_directory = resolve_shared_process_tree_scripts_directory(
+    __file__,
+    all_environment=os.environ,
+)
+if str(_shared_process_tree_scripts_directory) not in sys.path:
+    sys.path.insert(0, str(_shared_process_tree_scripts_directory))
+
+_process_tree_kill = importlib.import_module("process_tree_kill")
 
 
 def _read_list(path: Path) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise BrokerConfigurationError(f"cannot read account list {path}: {error}") from error
 
@@ -121,11 +135,34 @@ def _append_claude_account(
         all_seen.add(key)
 
 
+def _account_order(main_home: Path) -> tuple[str, ...]:
+    order_path = main_home / CLAUDE_ACCOUNT_ORDER_FILE_NAME
+    if not order_path.exists():
+        return ()
+    all_names = _read_list(order_path)
+    if not isinstance(all_names, list) or any(not isinstance(each_name, str) for each_name in all_names):
+        raise BrokerConfigurationError(f"invalid account list {order_path}")
+    return tuple(each_name.casefold() for each_name in all_names)
+
+
+def _order_names(account: Account) -> frozenset[str]:
+    launcher_name = Path(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=account.name)).stem
+    return frozenset(each_name.casefold() for each_name in (account.name, account.command, launcher_name) if each_name)
+
+
+def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequence[str]) -> tuple[Account, ...]:
+    def priority_of(account: Account) -> int | None:
+        all_names = _order_names(account)
+        return next((index for index, each_name in enumerate(all_ordered_names) if each_name in all_names), None)
+
+    return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
+
+
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account roster.
 
     Returns:
-        Main and additional accounts in configured order.
+        Main and additional accounts in configured order, each with its place in the account order file.
 
     Raises:
         BrokerConfigurationError: An account list is unreadable.
@@ -138,7 +175,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return tuple(all_accounts)
+    return _with_priorities(all_accounts, _account_order(main_home))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:
@@ -212,8 +249,8 @@ def read_codex_account_meters(account: Account) -> Meters | None:
 
 
 all_product_adapters = {
-    Product.CLAUDE: ProductAdapter(load_claude_accounts, read_claude_meters, CLAUDE_CONFIG_DIR_ENV_VAR, ALL_USAGE_LIMIT_SIGNATURES, True),
-    Product.CODEX: ProductAdapter(load_codex_accounts, read_codex_account_meters, CODEX_HOME_ENVIRONMENT_VARIABLE, codex_usage_limit_signatures(), False),
+    Product.CLAUDE: ProductAdapter(load_claude_accounts, read_claude_meters, CLAUDE_CONFIG_DIR_ENV_VAR, ALL_USAGE_LIMIT_SIGNATURES),
+    Product.CODEX: ProductAdapter(load_codex_accounts, read_codex_account_meters, CODEX_HOME_ENVIRONMENT_VARIABLE, codex_usage_limit_signatures()),
 }
 
 
@@ -466,21 +503,26 @@ def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subp
     errors = str(options.get("errors") or "replace")
     stdin_bytes = options.get("input")
     with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
-        completion = subprocess.run(
+        with subprocess.Popen(
             _resolve_command(all_argv),
-            input=stdin_bytes,
+            stdin=subprocess.PIPE if stdin_bytes is not None else None,
             stdout=stdout_file,
             stderr=stderr_file,
             env=options.get("env"),
             cwd=options.get("cwd"),
-            timeout=options.get("timeout"),
-            check=False,
-        )
+            start_new_session=_process_tree_kill.should_start_new_session(),
+        ) as process:
+            try:
+                process.communicate(input=stdin_bytes, timeout=options.get("timeout"))
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                _process_tree_kill.terminate_process_tree(process)
+                process.wait()
+                raise
         stdout_file.seek(0)
         stderr_file.seek(0)
         stdout = stdout_file.read().decode(encoding, errors).replace("\r\n", "\n").replace("\r", "\n")
         stderr = stderr_file.read().decode(encoding, errors).replace("\r\n", "\n").replace("\r", "\n")
-    return subprocess.CompletedProcess(list(all_argv), completion.returncode, stdout, stderr)
+    return subprocess.CompletedProcess(list(all_argv), process.returncode, stdout, stderr)
 
 
 subprocess_runner: SubprocessRunner = _run_captured_subprocess

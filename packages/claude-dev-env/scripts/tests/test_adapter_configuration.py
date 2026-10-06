@@ -82,9 +82,28 @@ def test_new_edit_marker_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_issue_close_handoff_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/issue_close_handoff_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_verify_before_acting_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/verify_before_acting.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
+def test_new_session_title_gate_registrations_are_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        [
+            "hooks/blocking/session_title_format_gate.py",
+            "hooks/blocking/session_title_stop_gate.py",
+        ],
         '{"hooks": {}}',
     )
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()

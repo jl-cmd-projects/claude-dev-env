@@ -48,12 +48,14 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
+    TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
     utc_time_text as _time_text,
 )
 from dev_env_scripts_constants.codex_account_constants import (
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     MAIN_CODEX_HOME_DIRECTORY_NAME,
+    NO_ROSTER_ACCOUNT_NAME,
     TIER_NORMAL,
 )
 
@@ -65,7 +67,6 @@ def choose_from_readings(
     now: datetime,
     all_spent_accounts: frozenset[Account] = frozenset(),
     preferred_command: str | None = None,
-    adapter: ProductAdapter | None = None,
     all_spent_resets: Mapping[Account, datetime] | None = None,
 ) -> Decision:
     """Choose an account or a wait.
@@ -79,11 +80,10 @@ def choose_from_readings(
     """
     if product is Product.CODEX and not all_readings:
         home = Path(os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE) or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
-        return Decision("run", Account(product, "default", home, True), None, "no roster is configured", TIER_NORMAL)
-    active = adapter or all_product_adapters[product]
+        return Decision("run", Account(product, NO_ROSTER_ACCOUNT_NAME, home, True), None, "no roster is configured", TIER_NORMAL)
     all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
     selected = (
-        _choose_claude(all_available, now, preferred_command, active.main_guard)
+        _choose_claude(all_available, preferred_command)
         if product is Product.CLAUDE
         else _choose_codex(all_available)
     )
@@ -123,6 +123,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
             "name": each_reading.account.name,
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
+            "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
         }
         for each_reading in all_readings
@@ -213,6 +214,7 @@ class _RunContext:
     all_attempts: list[tuple[str, str]]
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
+    start_failure_text: str = ""
 
 
 def _prepare_run(
@@ -234,8 +236,11 @@ def _prepare_run(
 
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
+    all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
+    if all_attempt_statuses == {"start_failed"}:
+        return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
     status = "exhausted" if context.all_attempts else "wait"
-    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at)
+    return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
 
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
@@ -283,12 +288,16 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     account = decision.account
     try:
         completion = _invoke(context, account)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
-        _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
-        if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
+    except subprocess.TimeoutExpired as error:
+        _record_spent_attempt(context, account, "timeout", TIMEOUT_EXIT_CODE)
+        context.report.final_decision = decision
+        return JobOutcome(TIMEOUT_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), "timeout", None, None)
+    except OSError as error:
+        _record_spent_attempt(context, account, "start_failed", COMMAND_MISSING_EXIT_CODE)
+        context.start_failure_text = str(error)
+        if not context.all_readings:
             context.report.final_decision = decision
-            final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
+            final_status = "advisor_blocked" if context.product is Product.CLAUDE else "start_failed"
             return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), final_status, None, None)
         return None
     combined = f"{completion.stdout}{completion.stderr}".casefold()
@@ -311,7 +320,7 @@ def _execute(
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     while True:
-        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, adapter=context.active, all_spent_resets=context.all_spent_resets)
+        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
         if decision.account is None:
@@ -362,7 +371,8 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
-        print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
+        if all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME:
+            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
         return Reading(Account(product, name, Path(), False), None), reset
     return reading, reset
 

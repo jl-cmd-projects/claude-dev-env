@@ -42,9 +42,11 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.bash_post_call_dispatcher_constants import (
+    POST_TOOL_USE_HOOK_EVENT_NAME,
+)
+from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
-    POST_TOOL_USE_HOOK_EVENT_NAME,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin

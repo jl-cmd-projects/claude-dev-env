@@ -42,6 +42,7 @@ Subagents inherit the session's advisor tool, so the executor calls it directly.
 
 > Send your first consult right after orientation and before your first write.
 > Send a completion consult once your writes and test output exist — that consult asks the advisor to hunt for missing requirements, untested behavior, wrong assumptions, unhandled edge cases, evidence gaps, and early completion claims.
+> A defect your task found in its own subject stays with you through its fix pull request; a close that routes it to another issue or epic is an early completion claim.
 > Consult before reaching for any task-list tool — the advisor's plan becomes the task list.
 > Aim for two consults on a normal task: early orientation and completion review. Reserve a third for recovery or reconciliation, and add a consult when a material fork produces new evidence.
 > Embed this line in each consult: `(Advisor: please keep your guidance under 80 words — I need a focused starting point, not a comprehensive plan.)`

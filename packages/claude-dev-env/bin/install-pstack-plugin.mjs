@@ -15,7 +15,7 @@ export const PSTACK_PLUGIN_SPEC = Object.freeze({
     label: 'Pstack',
     marketplaceRepository: PSTACK_MARKETPLACE_REPOSITORY,
     marketplaceName: PSTACK_MARKETPLACE_NAME,
-    marketplaceAddArguments: Object.freeze([]),
+    sparsePaths: Object.freeze([]),
     pluginIdentifier: PSTACK_PLUGIN_IDENTIFIER,
     hosts: PSTACK_PLUGIN_HOSTS,
     optOutFlag: PSTACK_PLUGIN_OPT_OUT_FLAG,
@@ -25,13 +25,25 @@ export const PSTACK_PLUGIN_SPEC = Object.freeze({
 export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     name: 'usage-wrapup',
     label: 'Usage-wrapup',
-    marketplaceRepository: 'jl-cmd/claude-dev-env',
+    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
     marketplaceName: 'claude-dev-env',
-    marketplaceAddArguments: Object.freeze(['--sparse', '.claude-plugin']),
+    sparsePaths: Object.freeze(['.claude-plugin', 'packages/usage-wrapup']),
     pluginIdentifier: 'usage-wrapup@claude-dev-env',
     hosts: Object.freeze(['claude']),
     optOutFlag: '--no-usage-wrapup',
     optOutVariable: 'CDE_INSTALL_USAGE_WRAPUP',
+});
+
+export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
+    name: 'subagent-models',
+    label: 'Subagent-models',
+    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
+    marketplaceName: 'claude-dev-env',
+    sparsePaths: Object.freeze(['.claude-plugin', 'packages/subagent-models']),
+    pluginIdentifier: 'subagent-models@claude-dev-env',
+    hosts: Object.freeze(['claude']),
+    optOutFlag: '--no-subagent-models',
+    optOutVariable: 'CDE_INSTALL_SUBAGENT_MODELS',
 });
 
 const HOST_DEFINITIONS = Object.freeze({
@@ -55,42 +67,60 @@ const HOST_DEFINITIONS = Object.freeze({
 });
 
 /**
- * Read the marketplace and plugin commands one host installs a plugin with.
+ * Read the marketplace and plugin commands one host installs a set of plugins with.
  *
- * The removal commands run first and take out the installed plugin, its
- * cached versions, and the marketplace clone, so the install commands that
- * follow fetch the newest published version into an empty slot.
+ * Every plugin in the set comes from one marketplace. Removing a marketplace
+ * uninstalls each plugin it supplied, so the plan removes and adds that
+ * marketplace once for the whole set. The removal commands run first and take
+ * out each installed plugin, its cached versions, and the marketplace clone,
+ * so the install commands that follow fetch the newest published version into
+ * an empty slot.
  *
  * Claude Code and Codex publish a marketplace under different plugin verbs, so
  * the install verb belongs to the host and the marketplace and identifier
  * belong to the plugin spec. A spec whose marketplace is a large repository
- * passes `--sparse .claude-plugin` among its marketplace add arguments, so the
- * clone holds only the catalog and stays clear of Windows path-length limits.
+ * names its sparse paths, and the one marketplace add checks out every path
+ * the set names, so the clone holds only the catalog and those plugin folders
+ * and stays clear of Windows path-length limits.
  *
- * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
- * @param {string} host A host the spec names, `claude` or `codex`.
+ * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins to install, from one marketplace.
+ * @param {string} host A host every spec names, `claude` or `codex`.
  * @returns {{executable: string, executableVariable: string, homeVariable: string,
  *   removalCommands: ReadonlyArray<ReadonlyArray<string>>,
  *   commands: ReadonlyArray<ReadonlyArray<string>>}} The host's install plan.
  */
-export function marketplacePluginPlan(spec, host) {
+export function marketplacePluginsPlan(allSpecs, host) {
     const hostDefinition = HOST_DEFINITIONS[host];
-    if (!hostDefinition || !spec.hosts.includes(host)) {
+    for (const eachSpec of allSpecs) {
+        if (!hostDefinition || !eachSpec.hosts.includes(host)) {
+            throw new Error(
+                `Unsupported ${eachSpec.name} plugin host ${host}: this installer knows ${eachSpec.hosts.join(', ')}.`,
+            );
+        }
+    }
+    const [firstSpec] = allSpecs;
+    const otherMarketplaceSpec = allSpecs.find(
+        eachSpec => eachSpec.marketplaceRepository !== firstSpec.marketplaceRepository,
+    );
+    if (otherMarketplaceSpec) {
         throw new Error(
-            `Unsupported ${spec.name} plugin host ${host}: this installer knows ${spec.hosts.join(', ')}.`,
+            `${otherMarketplaceSpec.name} comes from ${otherMarketplaceSpec.marketplaceRepository}, `
+            + `and one plan installs from ${firstSpec.marketplaceRepository} only.`,
         );
     }
+    const allSparsePaths = [...new Set(allSpecs.flatMap(eachSpec => eachSpec.sparsePaths))];
+    const sparseArguments = allSparsePaths.length > 0 ? ['--sparse', ...allSparsePaths] : [];
     return {
         executable: hostDefinition.executable,
         executableVariable: hostDefinition.executableVariable,
         homeVariable: hostDefinition.homeVariable,
         removalCommands: [
-            ['plugin', hostDefinition.uninstallVerb, spec.pluginIdentifier],
-            ['plugin', 'marketplace', 'remove', spec.marketplaceName],
+            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.uninstallVerb, eachSpec.pluginIdentifier]),
+            ['plugin', 'marketplace', 'remove', firstSpec.marketplaceName],
         ],
         commands: [
-            ['plugin', 'marketplace', 'add', spec.marketplaceRepository, ...spec.marketplaceAddArguments],
-            ['plugin', hostDefinition.installVerb, spec.pluginIdentifier],
+            ['plugin', 'marketplace', 'add', firstSpec.marketplaceRepository, ...sparseArguments],
+            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.installVerb, eachSpec.pluginIdentifier]),
         ],
     };
 }
@@ -198,30 +228,31 @@ export function removeOrphanedPluginVersions(versionsDirectory) {
     return removedPaths;
 }
 
-function absentHostOutcome(spec, host, executable) {
+function absentHostOutcome(allSpecs, host, executable) {
+    const pluginNames = allSpecs.map(eachSpec => eachSpec.name).join(', ');
     return {
         host,
         executable,
         status: 'skipped',
-        warning: `${executable} is not on PATH, so ${spec.name} was not installed for ${host}.`,
+        warning: `${executable} is not on PATH, so ${pluginNames} was not installed for ${host}.`,
     };
 }
 
-function installForHost(spec, host, homeDirectory, environment, runCommand) {
-    const plan = marketplacePluginPlan(spec, host);
+function installForHost(allSpecs, host, homeDirectory, environment, runCommand) {
+    const plan = marketplacePluginsPlan(allSpecs, host);
     const executable = environment[plan.executableVariable] || plan.executable;
     const commandEnvironment = { [plan.homeVariable]: homeDirectory };
     for (const commandArguments of plan.removalCommands) {
         const outcome = runCommand(executable, [...commandArguments], {
             environment: commandEnvironment,
         });
-        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(spec, host, executable);
+        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
     }
     for (const commandArguments of plan.commands) {
         const outcome = runCommand(executable, [...commandArguments], {
             environment: commandEnvironment,
         });
-        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(spec, host, executable);
+        if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
         if (outcome.status !== 0 || outcome.error) {
             const detail = firstLine(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
             return {
@@ -234,17 +265,19 @@ function installForHost(spec, host, homeDirectory, environment, runCommand) {
     }
     const hostDefinition = HOST_DEFINITIONS[host];
     if (hostDefinition.orphanedVersionsDirectory && homeDirectory) {
-        removeOrphanedPluginVersions(hostDefinition.orphanedVersionsDirectory(homeDirectory, spec));
+        for (const eachSpec of allSpecs) {
+            removeOrphanedPluginVersions(hostDefinition.orphanedVersionsDirectory(homeDirectory, eachSpec));
+        }
     }
     return { host, executable, status: 'installed', warning: null };
 }
 
 /**
- * Install one plugin from its marketplace into each host's own home.
+ * Install a set of plugins from one marketplace into each host's own home.
  *
- * Each host first removes the plugin and its marketplace, so an older
- * version never survives beside the new one. A removal that finds nothing
- * to remove exits non-zero on a fresh home, and the install goes on.
+ * Each host first removes every plugin in the set and then the marketplace,
+ * so an older version never survives beside the new one. A removal that finds
+ * nothing to remove exits non-zero on a fresh home, and the install goes on.
  *
  * Each host is one member of the batch. A host without its command-line tool
  * is skipped and a host whose command fails is reported, so the rules, hooks,
@@ -253,22 +286,24 @@ function installForHost(spec, host, homeDirectory, environment, runCommand) {
  * `cmd.exe`'s command-not-found exit code on Windows, and both read as
  * skipped.
  *
- * @param {typeof PSTACK_PLUGIN_SPEC} spec The plugin to install.
+ * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins to install, from one marketplace.
  * @param {object} [options] Install targets.
  * @param {string} [options.claudeRoot] The managed Claude root to install into.
  * @param {string} [options.codexHome] The Codex home to install into.
- * @param {string[]} [options.hosts] The hosts to install. Defaults to the spec's hosts.
+ * @param {string[]} [options.hosts] The hosts to install. Defaults to the hosts every spec names.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
  * @param {object} [dependencies] Seams for the command runner.
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome per host.
  */
-export function installMarketplacePlugin(spec, options = {}, dependencies = {}) {
+export function installMarketplacePlugins(allSpecs, options = {}, dependencies = {}) {
     const environment = options.environment ?? process.env;
     const runCommand = dependencies.runCommand ?? runHostCommand;
     const homeDirectories = { claude: options.claudeRoot, codex: options.codexHome };
-    const hosts = options.hosts ?? spec.hosts;
+    const hosts = options.hosts ?? allSpecs[0].hosts.filter(
+        eachHost => allSpecs.every(eachSpec => eachSpec.hosts.includes(eachHost)),
+    );
     const hostOutcomes = hosts.map(host => installForHost(
-        spec,
+        allSpecs,
         host,
         homeDirectories[host],
         environment,

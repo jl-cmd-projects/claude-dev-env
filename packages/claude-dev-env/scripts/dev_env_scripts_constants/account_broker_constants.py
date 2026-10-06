@@ -15,7 +15,6 @@ from typing import Callable, Mapping, Sequence
 from dev_env_scripts_constants.claude_account_constants import (
     FULL_PERCENT,
     MAIN_SESSION_USED_CEILING_PERCENT,
-    MAIN_SPEND_WINDOW,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
@@ -39,7 +38,6 @@ from shared_tree_paths import resolve_shared_scripts_directory
 ALL_CLAUDE_FLOORS = {
     "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
     "main_session_used_ceiling": MAIN_SESSION_USED_CEILING_PERCENT,
-    "main_spend_window": MAIN_SPEND_WINDOW,
     "extra_weekly_used_ceiling": SECOND_WEEKLY_USED_CEILING_PERCENT,
     "extra_session_used_ceiling": SECOND_SESSION_USED_CEILING_PERCENT,
 }
@@ -52,12 +50,12 @@ ALL_CODEX_FLOORS = {
 
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
+TIMEOUT_EXIT_CODE = 124
 REPORT_INDENT_SPACES = 2
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
 BROKER_STATE_LOCK_SUFFIX = ".lock"
-SECONDS_PER_HOUR = 3600
 ALL_BATCH_FILE_EXTENSIONS = frozenset({".bat", ".cmd"})
 CMD_SHELL_METACHARACTERS = "&|<>^%!\"\r\n"
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
@@ -140,6 +138,7 @@ class Account:
     home: Path
     is_main: bool = False
     command: str | None = None
+    priority: int | None = None
 
 
 @dataclass(frozen=True)
@@ -180,6 +179,7 @@ class JobOutcome:
     status: str
     session_id: str | None
     wait_reset_at: datetime | None
+    wait_reason: str | None = None
 
 
 @dataclass
@@ -201,22 +201,6 @@ class ProductAdapter:
     read_meters: MeterReader
     environment_variable: str
     usage_limit_signatures: tuple[str, ...]
-    main_guard: bool
-
-
-
-def _main_reason(meters: Meters | None, now: datetime) -> str | None:
-    if meters is None or meters.session_percent_left is None or meters.weekly_percent_left is None or meters.weekly_resets_at is None:
-        return None
-    until_reset = meters.weekly_resets_at - now
-    if (
-        until_reset > ALL_CLAUDE_FLOORS["main_spend_window"]
-        or meters.weekly_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]
-        or meters.session_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]
-    ):
-        return None
-    hours = int(until_reset.total_seconds() // SECONDS_PER_HOUR)
-    return f"main week resets in {hours} hours with {meters.weekly_percent_left:.0f}% left"
 
 
 def _claude_extra_tier(meters: Meters | None) -> str | None:
@@ -272,14 +256,13 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
             (meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"], meters.weekly_resets_at),
         )
     all_blocking_resets = [reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None]
-    if is_claude_main and meters.weekly_resets_at is not None:
-        all_blocking_resets.append(meters.weekly_resets_at - ALL_CLAUDE_FLOORS["main_spend_window"])
     return max(all_blocking_resets, default=None)
 
 
-def _rank_key(reading: Reading) -> float:
+def _rank_key(reading: Reading) -> tuple[bool, int, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
-    return -(room if room is not None else -1.0)
+    priority = reading.account.priority
+    return (priority is None, priority or 0, -(room if room is not None else -1.0))
 
 
 def _main_has_room(meters: Meters | None) -> bool:
@@ -292,23 +275,25 @@ def _main_has_room(meters: Meters | None) -> bool:
     )
 
 
-def _choose_claude(
-    all_available: Sequence[Reading], now: datetime, preferred_command: str | None, has_main_guard: bool
-) -> Decision | None:
-    for each_reading in all_available:
+def _claude_has_room(reading: Reading) -> bool:
+    if reading.account.is_main:
+        return _main_has_room(reading.meters)
+    return _claude_extra_tier(reading.meters) is not None
+
+
+def _choose_claude(all_available: Sequence[Reading], preferred_command: str | None) -> Decision | None:
+    all_with_room = [each_reading for each_reading in all_available if _claude_has_room(each_reading)]
+    for each_reading in all_with_room:
         is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)
-        has_room = _main_has_room(each_reading.meters) if each_reading.account.is_main else bool(_claude_extra_tier(each_reading.meters))
-        if preferred_command is not None and is_bound and has_room:
+        if preferred_command is not None and is_bound:
             return Decision("run", each_reading.account, None, "resume affinity", TIER_NORMAL)
-    main = next((each_reading for each_reading in all_available if each_reading.account.is_main), None)
-    main_reason = _main_reason(main.meters, now) if main and has_main_guard else None
-    if main is not None and main_reason is not None:
-        return Decision("run", main.account, None, main_reason, TIER_NORMAL)
-    extras = sorted((each_reading for each_reading in all_available if not each_reading.account.is_main), key=_rank_key)
-    for each_reading in extras:
-        if _claude_extra_tier(each_reading.meters):
-            return Decision("run", each_reading.account, None, f"{each_reading.account.name} has {each_reading.meters.tightest_percent_left:g}% left", TIER_NORMAL)
-    return None
+    chosen = min(all_with_room, key=_rank_key, default=None)
+    if chosen is None:
+        return None
+    room_text = f"{chosen.account.name} has {chosen.meters.tightest_percent_left:g}% left"
+    if chosen.account.priority is not None:
+        room_text = f"{room_text}; priority {chosen.account.priority + 1} in the account order"
+    return Decision("run", chosen.account, None, room_text, TIER_NORMAL)
 
 
 def _choose_codex(all_available: Sequence[Reading]) -> Decision | None:
@@ -327,14 +312,38 @@ def _choose_codex_tier(all_candidates: Sequence[Reading], tier: str) -> Decision
     return None
 
 
+@dataclass(frozen=True)
+class _RetryTime:
+    at: datetime
+    is_known_reset: bool
+
+
+def _wait_reason(all_unreadable_names: Sequence[str], is_every_account_unreadable: bool, soonest: _RetryTime) -> str:
+    next_event = "reset" if soonest.is_known_reset else "check"
+    next_text = f"next {next_event} at {utc_time_text(soonest.at)}"
+    if not all_unreadable_names:
+        return f"no account has room; {next_text}"
+    unreadable_text = ", ".join(all_unreadable_names)
+    if is_every_account_unreadable:
+        return f"no account meter could be read ({unreadable_text}); {next_text}"
+    return f"no readable account has room; meter unreadable for {unreadable_text}; {next_text}"
+
+
 def _wait_decision(
     all_readings: Sequence[Reading], now: datetime, all_spent_accounts: frozenset[Account], all_spent_resets: Mapping[Account, datetime]
 ) -> Decision:
-    all_resets = []
+    next_check = _RetryTime(now + timedelta(hours=1), is_known_reset=False)
+    all_retry_times = []
     for each_reading in all_readings:
         is_spent = each_reading.account in all_spent_accounts
         reset = all_spent_resets.get(each_reading.account) if is_spent else None
         reset = reset or _account_reset(each_reading, is_spent)
-        all_resets.append(reset if reset is not None and reset > now else now + timedelta(hours=1))
-    soonest = min(all_resets, default=now + timedelta(hours=1))
-    return Decision("wait", None, soonest, f"no account has room; next reset at {utc_time_text(soonest)}", "wait")
+        all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
+    soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
+    all_unreadable_names = [
+        each_reading.account.name
+        for each_reading in all_readings
+        if each_reading.meters is None and each_reading.account not in all_spent_accounts
+    ]
+    is_every_account_unreadable = len(all_unreadable_names) == len(all_readings)
+    return Decision("wait", None, soonest.at, _wait_reason(all_unreadable_names, is_every_account_unreadable, soonest), "wait")

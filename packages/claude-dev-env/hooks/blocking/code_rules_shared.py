@@ -82,7 +82,7 @@ def is_agent_home_tooling_outside_working_directory(file_path: str, repository_r
             when the payload names none.
 
     Returns:
-        True when the path sits under a recognized agent home directory and
+        Whether the path sits under a recognized agent home directory and
         outside ``repository_root``.
     """
     return is_agent_home_tooling(file_path) and not _is_at_or_under_payload_working_directory(
