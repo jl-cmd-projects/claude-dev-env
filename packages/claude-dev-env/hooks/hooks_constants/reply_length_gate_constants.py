@@ -13,6 +13,7 @@ ALL_DECISION_OPTION_PROSE_KEYS = ("label", "consequence")
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
+TRANSCRIPT_PATH_KEY = "transcript_path"
 HOOK_EVENT_NAME = "PreToolUse"
 ALLOW_EXIT_CODE = 0
 BLOCK_EXIT_CODE = 2

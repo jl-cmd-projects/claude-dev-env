@@ -1,0 +1,36 @@
+{
+  "rules": [
+    {
+      "key": "one_item",
+      "label": "More than one item",
+      "reminder": "Show one item per reply. Send the next item after the user answers this one."
+    },
+    {
+      "key": "no_picture",
+      "label": "No picture",
+      "reminder": "Show the item as a visual first, a widget or a published page, then send a reply of one or two short sentences."
+    },
+    {
+      "key": "too_many_words",
+      "label": "Too many words",
+      "reminder": "Cut the reply to three short sentences or fewer. The visual carries the detail."
+    },
+    {
+      "key": "no_tap_answer",
+      "label": "No tap answer",
+      "reminder": "Ask each question as a decision card the user answers with a tap. Keep the question out of the reply text."
+    },
+    {
+      "key": "abbreviations",
+      "label": "Abbreviations",
+      "reminder": "Write each name in plain descriptive words. Spell out every abbreviation and drop tracker and item numbers. A pull request number stays only inside its link."
+    },
+    {
+      "key": "wall_of_text",
+      "label": "Wall of text",
+      "reminder": "Put each point, and each step the reader takes, on its own line."
+    }
+  ],
+  "allowed_capitalized_words": ["I", "OK"],
+  "lowercase_abbreviations": ["e.g.", "i.e.", "etc.", "vs.", "approx.", "w/"]
+}
