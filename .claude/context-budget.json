@@ -182,11 +182,10 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/build-eval/SKILL.md": {
-        "lines": 111,
+        "lines": 103,
         "sections": [
           "Gotchas",
-          "Process",
-          "Files"
+          "Process"
         ]
       },
       "packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md": {

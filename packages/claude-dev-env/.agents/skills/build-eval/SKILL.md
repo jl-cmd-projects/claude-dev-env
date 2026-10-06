@@ -101,11 +101,3 @@ Otherwise work the steps in order.
 - `reference/graders-and-commands.md`. Prompt frontmatter, grader types, case set, eval commands,
   and the `claude -p` recipe for flag-gated features.
 - `reference/context-budget.md`. The context budget command and the fix for each finding.
-
-```text
-build-eval/
-├── SKILL.md
-└── reference/
-    ├── context-budget.md
-    └── graders-and-commands.md
-```
