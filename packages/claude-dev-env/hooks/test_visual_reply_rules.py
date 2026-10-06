@@ -64,7 +64,7 @@ def test_abbreviation_violation_names_the_abbreviation_and_allows_listed_words()
 
 def test_abbreviation_violation_flags_a_lowercase_abbreviation_and_a_tracker_number() -> None:
     assert SHIPPED_RULES is not None
-    assert 'Abbreviation "e.g."' in str(abbreviation_violation("Icons, e.g. the clock.", SHIPPED_RULES))
+    assert 'Abbreviation "e.g."' in str(abbreviation_violation("Logs, e.g. the error log.", SHIPPED_RULES))
     assert 'Tracker number "card 12"' in str(abbreviation_violation("See card 12.", SHIPPED_RULES))
 
 

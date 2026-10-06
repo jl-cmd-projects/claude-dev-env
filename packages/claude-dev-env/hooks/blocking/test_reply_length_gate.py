@@ -493,7 +493,7 @@ def test_should_deny_an_em_dash_and_allow_one_in_code(
 
 
 WIDGET_TOOL_NAME = "mcp__hearthbot__post_widget"
-TWO_SENTENCE_REPLY = "The export stopped on a missing file. The page shows each step."
+TWO_SENTENCE_REPLY = "The deploy stopped on a missing file. The page shows each step."
 
 
 def write_transcript(transcript_path: Path, all_entries: list[dict[str, object]]) -> Path:
@@ -524,10 +524,10 @@ def test_should_deny_an_abbreviation_in_a_reply(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
-        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The STP export is fixed."}
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The API deploy is fixed."}
     )
     assert exit_code == 2
-    assert 'Abbreviation "STP"' in stderr_text
+    assert 'Abbreviation "API"' in stderr_text
 
 
 def test_should_allow_an_abbreviation_inside_a_pull_request_link(
@@ -556,7 +556,7 @@ def test_should_deny_a_question_in_reply_text_and_name_the_card(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
-        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which koi theme moves?"}
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which build ships first?"}
     )
     assert exit_code == 2
     assert "decision card" in stderr_text
@@ -569,10 +569,10 @@ def test_should_deny_an_abbreviation_in_a_decision_card(
         monkeypatch,
         capsys,
         DECISION_TOOL_NAME,
-        {"question": "Ship the STP fix?", "options": [{"label": "Ship it", "consequence": "It merges."}]},
+        {"question": "Ship the API fix?", "options": [{"label": "Ship it", "consequence": "It merges."}]},
     )
     assert exit_code == 2
-    assert 'Abbreviation "STP"' in stderr_text
+    assert 'Abbreviation "API"' in stderr_text
 
 
 def test_should_deny_two_sentences_with_no_visual_this_turn(
@@ -580,7 +580,7 @@ def test_should_deny_two_sentences_with_no_visual_this_turn(
 ) -> None:
     transcript_path = write_transcript(
         tmp_path / "t.jsonl",
-        [prompt_entry("why did the export stop"), tool_call_entry("Bash")],
+        [prompt_entry("why did the deploy stop"), tool_call_entry("Bash")],
     )
     exit_code, stderr_text = run_gate(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
@@ -594,7 +594,7 @@ def test_should_allow_two_sentences_after_a_widget_this_turn(
 ) -> None:
     transcript_path = write_transcript(
         tmp_path / "t.jsonl",
-        [prompt_entry("why did the export stop"), tool_call_entry(WIDGET_TOOL_NAME)],
+        [prompt_entry("why did the deploy stop"), tool_call_entry(WIDGET_TOOL_NAME)],
     )
     exit_code, _ = run_gate(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
@@ -608,9 +608,9 @@ def test_should_deny_when_the_only_widget_came_before_the_last_prompt(
     transcript_path = write_transcript(
         tmp_path / "t.jsonl",
         [
-            prompt_entry("why did the export stop"),
+            prompt_entry("why did the deploy stop"),
             tool_call_entry(WIDGET_TOOL_NAME),
-            prompt_entry("and the icons"),
+            prompt_entry("and the logs"),
         ],
     )
     exit_code, _ = run_gate(
@@ -657,8 +657,8 @@ def test_should_skip_the_mode_checks_when_the_switch_turns_the_mode_off(
     turn_mode_off(tmp_path)
     transcript_path = write_transcript(tmp_path / "t.jsonl", [prompt_entry("status")])
     all_exit_codes = [
-        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The STP export is fixed."})[0],
-        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which koi theme moves?"})[0],
+        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The API deploy is fixed."})[0],
+        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which build ships first?"})[0],
         run_gate(
             monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
         )[0],
