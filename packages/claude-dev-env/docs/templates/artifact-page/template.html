@@ -1,0 +1,513 @@
+<title>Work Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --fg: #1b2230; --edge: #6b7383; --line: #dde1e8;
+  --accent: #2245a2; --accent-soft: #e6ecfb; --accent-ink: #ffffff;
+  --ok: #165737; --ok-soft: #e3f3ea; --bad: #8b2621; --bad-soft: #fbe5e3; --warn: #6f4100; --warn-soft: #fbf0dc;
+  --violet: #553b95; --violet-soft: #efe9fa;
+  --change: #8a1f6b; --change-ink: #ffffff;
+  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --edge: #6d7891; --line: #2b3240;
+  --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
+  --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
+  --violet: #c5b1f2; --violet-soft: #251f38;
+  --change: #f5a3dc; --change-ink: #1f0a19;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --edge: #6d7891; --line: #2b3240;
+  --accent: #a8bfff; --accent-soft: #1f2a45; --accent-ink: #0d1424;
+  --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a; --warn: #f0b860; --warn-soft: #362a14;
+  --violet: #c5b1f2; --violet-soft: #251f38;
+  --change: #f5a3dc; --change-ink: #1f0a19;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.4; padding-inline: 16px; padding-block: 24px 48px; margin: 0 }
+button { font: inherit; color: inherit; touch-action: manipulation; cursor: pointer }
+a { color: var(--accent) }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 16px }
+header { display: grid; gap: 4px }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 0 }
+.stamp { font-size: 16px; font-weight: 600 }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.tab { min-height: 52px; border-radius: 12px; border: 2px solid var(--edge); background: var(--surface); font-weight: 800; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 8px }
+.tab[aria-pressed="true"] { border: 3px solid var(--accent); background: var(--accent-soft); color: var(--accent) }
+.tab .n { font-size: 18px; border-radius: 999px; padding: 0 10px; background: var(--fg); color: var(--bg) }
+.tab[aria-pressed="true"] .n { background: var(--accent); color: var(--accent-ink) }
+.board { display: grid; gap: 8px }
+.lane { border-radius: 14px; padding: 12px; display: grid; gap: 10px; border: 2px solid transparent }
+.lane.you { background: var(--warn-soft) } .lane.you .lh { color: var(--warn) }
+.lane.blocked { background: var(--bad-soft) } .lane.blocked .lh { color: var(--bad) }
+.lane.doing { background: var(--violet-soft) } .lane.doing .lh { color: var(--violet) }
+.lane.ready { background: var(--accent-soft) } .lane.ready .lh { color: var(--accent) }
+.lane.done { background: var(--ok-soft) } .lane.done .lh { color: var(--ok) }
+.lh { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px }
+.lh .ic { font-size: 22px; line-height: 1 }
+.lh .count { margin-left: auto; font-size: 26px; font-variant-numeric: tabular-nums }
+.lchips { display: flex; flex-wrap: wrap; gap: 6px }
+.lchip { background: var(--surface); border: 2px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 16px; font-weight: 700; min-height: 40px; text-align: left }
+.filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin }
+.fchip { flex: none; min-height: 44px; border-radius: 999px; border: 2px solid var(--edge); background: var(--surface); padding: 4px 14px; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; white-space: nowrap }
+.fchip[aria-pressed="true"] { border: 3px solid var(--accent); background: var(--accent-soft); color: var(--accent); padding: 3px 13px }
+input[type="search"] { font: inherit; font-size: 17px; width: 100%; min-height: 48px; background: var(--surface); color: var(--fg); border: 2px solid var(--edge); border-radius: 12px; padding: 8px 14px }
+input[type="search"]::placeholder { color: var(--fg); opacity: 1 }
+.section-h { font-size: 20px; font-weight: 800; margin: 8px 0 0; display: flex; align-items: center; gap: 8px }
+.list { display: grid; gap: 12px }
+.card { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; overflow: hidden; display: grid; min-width: 0; scroll-margin-top: 16px }
+.card.you { border: 3px solid var(--warn) }
+.card.blocked { border: 3px solid var(--bad) }
+.card.flash { box-shadow: 0 0 0 4px var(--accent) }
+.band { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 800; font-size: 16px }
+.band.you { background: var(--warn-soft); color: var(--warn) }
+.band.blocked { background: var(--bad-soft); color: var(--bad) }
+.band.doing { background: var(--violet-soft); color: var(--violet) }
+.band.ready { background: var(--accent-soft); color: var(--accent) }
+.band.done { background: var(--ok-soft); color: var(--ok) }
+.band .proj { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--fg); font-weight: 700; text-align: right }
+.body { padding: 12px; display: grid; gap: 12px; min-width: 0 }
+.title { font-size: 21px; font-weight: 800; margin: 0; overflow-wrap: anywhere }
+.track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: relative }
+.track::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 15px; height: 3px; background: var(--edge) }
+.track li { display: grid; justify-items: center; gap: 4px; text-align: center; font-size: 16px; font-weight: 700; position: relative; min-width: 0 }
+.track .dot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 16px; background: var(--surface); border: 3px solid var(--edge) }
+.track li.done .dot { background: var(--ok); border-color: var(--ok); color: var(--surface) }
+.track li.now .dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 4px var(--accent-soft) }
+.track li.now { color: var(--accent); font-weight: 800 }
+.card.you .track li.now { color: var(--warn) }
+.card.you .track li.now .dot { background: var(--warn); border-color: var(--warn); color: var(--surface); box-shadow: 0 0 0 4px var(--warn-soft) }
+.next { display: flex; gap: 10px; align-items: flex-start; background: var(--bg); border-radius: 12px; padding: 10px 12px; font-weight: 600; overflow-wrap: anywhere }
+.next .ic { font-size: 20px; line-height: 1.2; flex: none }
+details.what { border-top: 2px solid var(--line); padding-top: 8px }
+details.what summary { font-weight: 800; cursor: pointer; min-height: 40px; display: flex; align-items: center; gap: 8px; list-style: none }
+details.what summary::-webkit-details-marker { display: none }
+details.what summary::before { content: "▸"; font-size: 18px }
+details.what[open] summary::before { content: "▾" }
+.points { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 8px }
+.points li { display: flex; gap: 8px; overflow-wrap: anywhere }
+.points li::before { content: "✓"; color: var(--ok); font-weight: 800; flex: none }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 2px solid var(--accent); border-radius: 999px; padding: 4px 14px; font-weight: 700; font-size: 16px; text-decoration: none; color: var(--accent); background: var(--surface) }
+.copy { min-height: 44px; border-radius: 999px; border: 2px solid var(--fg); background: var(--surface); padding: 4px 14px; font-weight: 800; font-size: 16px; margin-left: auto }
+.copy.ok { border-color: var(--ok); color: var(--ok) }
+.when { font-size: 16px; font-weight: 600 }
+.steps { display: grid; gap: 8px; border-top: 2px solid var(--line); padding-top: 10px }
+.steps .sh { font-weight: 800 }
+.step { display: flex; gap: 10px; align-items: flex-start }
+.step .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--warn); color: var(--surface); display: grid; place-items: center; font-weight: 800 }
+.lchip.changed::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--change); flex: none }
+.changed { box-shadow: inset 4px 0 0 var(--change); padding-left: 12px; border-radius: 4px }
+.next.changed { border-radius: 12px }
+.lchip.changed { box-shadow: none; border-radius: 999px; padding-left: 10px; border-color: var(--change); display: inline-flex; align-items: center; gap: 6px }
+.pill-changed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--change); color: var(--change-ink); font-size: 16px; font-weight: 800; margin-right: 8px; vertical-align: middle; flex: none; white-space: nowrap }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
+.empty { background: var(--surface); border: 2px dashed var(--edge); border-radius: 14px; padding: 20px; font-weight: 600 }
+@media (hover: hover) { .lchip:hover, .fchip:hover, .tab:hover, .copy:hover { border-color: var(--accent) } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Work Tracker</h1>
+    <div class="stamp" id="stamp"></div>
+  </header>
+  <div class="tabs" role="group" aria-label="Show open or finished items">
+    <button class="tab" data-tab="open" aria-pressed="true">Open <span class="n" id="n-open"></span></button>
+    <button class="tab" data-tab="done" aria-pressed="false">Done <span class="n" id="n-done"></span></button>
+  </div>
+  <section class="board" id="board" aria-label="Where items stand"></section>
+  <div class="filters" id="filters" role="group" aria-label="Filter by project"></div>
+  <input type="search" id="search" placeholder="Search items" aria-label="Search items">
+  <main class="list" id="list"></main>
+</div>
+
+<script type="application/json" id="tracker-data">
+{
+ "updated": "2026-01-15T17:30:00Z",
+ "round": 3,
+ "owners": [
+  {
+   "key": "web",
+   "name": "Web App",
+   "icon": "🌐"
+  },
+  {
+   "key": "platform",
+   "name": "Platform",
+   "icon": "🧩"
+  },
+  {
+   "key": "docs",
+   "name": "Documentation",
+   "icon": "📚"
+  },
+  {
+   "key": "new-project",
+   "name": "New projects",
+   "icon": "✨"
+  }
+ ],
+ "items": [
+  {
+   "title": "Pick a release date",
+   "owner": "web",
+   "status": "open",
+   "needs_you": true,
+   "card": true,
+   "next": "choose between the two dates in the linked plan.",
+   "changed_round": 3,
+   "changed_parts": ["next"],
+   "summary": [
+    "One release date everyone plans around",
+    "The launch checklist dated backward from it",
+    "A reminder a week before"
+   ],
+   "added": "2026-01-14T15:05:00Z",
+   "links": [
+    {
+     "label": "Release plan",
+     "url": "https://example.com/release-plan"
+    }
+   ],
+   "starter": "Pick a release date. Read the release plan, list both dates with what each one moves, and ask for the choice."
+  },
+  {
+   "title": "Flaky login test",
+   "owner": "web",
+   "status": "blocked",
+   "card": true,
+   "next": "wait for the staging database to come back online.",
+   "changed_round": 2,
+   "changed_parts": ["next"],
+   "summary": [
+    "The login test passes ten runs in a row",
+    "The root cause written in the pull request"
+   ],
+   "added": "2026-01-13T19:20:00Z",
+   "links": [
+    {
+     "label": "Issue 42",
+     "url": "https://example.com/issues/42"
+    }
+   ],
+   "starter": "Fix the flaky login test. Reproduce it, find the cause, and open a draft pull request with the proof."
+  },
+  {
+   "title": "Faster search page",
+   "owner": "platform",
+   "status": "doing",
+   "card": true,
+   "next": "finish the index change and rerun the timing check.",
+   "changed_round": 3,
+   "changed_parts": ["summary"],
+   "summary": [
+    "Search answers in under one second",
+    "A timing check that guards it",
+    "No change to the results people see"
+   ],
+   "added": "2026-01-12T14:00:00Z",
+   "links": [
+    {
+     "label": "Pull request 108",
+     "url": "https://example.com/pulls/108"
+    }
+   ],
+   "starter": "Make the search page faster. Measure first, change the index, and prove the new time."
+  },
+  {
+   "title": "Setup guide refresh",
+   "owner": "docs",
+   "status": "open",
+   "card": true,
+   "next": "start a builder on the card.",
+   "summary": [
+    "Every setup step runs as written on a clean machine",
+    "Screens match the current app"
+   ],
+   "added": "2026-01-15T16:45:00Z",
+   "starter": "Refresh the setup guide. Run each step on a clean machine and fix every step that fails."
+  },
+  {
+   "title": "Status page",
+   "owner": "new-project",
+   "status": "open",
+   "card": false,
+   "next": "create the project, then hand it the setup brief.",
+   "summary": [
+    "A public page that shows service health",
+    "An alert when a check fails"
+   ],
+   "added": "2026-01-15T17:10:00Z",
+   "proposal": {
+    "name": "Status Page"
+   },
+   "owner_steps": [
+    "Create a project named Status Page.",
+    "Attach the repository it should watch.",
+    "Paste the copied starter as its first message."
+   ],
+   "starter": "Set up the Status Page project from its brief, then build the first health check."
+  },
+  {
+   "title": "Dark mode colors",
+   "owner": "web",
+   "status": "done",
+   "card": true,
+   "next": "merged; every screen passes the contrast check in both themes.",
+   "summary": [
+    "Every color token has a dark value",
+    "Text keeps a 7:1 contrast ratio"
+   ],
+   "added": "2026-01-08T13:00:00Z",
+   "done_at": "2026-01-11T21:40:00Z",
+   "links": [
+    {
+     "label": "Pull request 97",
+     "url": "https://example.com/pulls/97"
+    }
+   ]
+  },
+  {
+   "title": "Changelog automation",
+   "owner": "platform",
+   "status": "done",
+   "card": true,
+   "next": "merged; each release writes its own changelog.",
+   "summary": [
+    "Release notes come from merged pull requests",
+    "No hand-edited changelog"
+   ],
+   "added": "2026-01-05T15:30:00Z",
+   "done_at": "2026-01-09T18:15:00Z",
+   "links": [
+    {
+     "label": "Pull request 90",
+     "url": "https://example.com/pulls/90"
+    }
+   ]
+  }
+ ]
+}
+</script>
+<script>
+const TRACKER = JSON.parse(document.getElementById("tracker-data").textContent);
+const STAGES = [
+  { key: "you", label: "Needs you", icon: "✋" },
+  { key: "blocked", label: "Blocked", icon: "⛔" },
+  { key: "doing", label: "In progress", icon: "🔨" },
+  { key: "ready", label: "Ready to build", icon: "📋" },
+  { key: "done", label: "Done", icon: "✅" }
+];
+const STAGE_BY_KEY = Object.fromEntries(STAGES.map(s => [s.key, s]));
+const TRACK = ["Card", "Builder", "Pull request", "Merged"];
+const state = { tab: "open", owner: "all", query: "" };
+try { const saved = JSON.parse(localStorage.getItem("work-tracker-view") || "{}"); if (saved.tab) state.tab = saved.tab; if (saved.owner) state.owner = saved.owner; } catch (e) {}
+const REVIEW_ROUND = Number(TRACKER.round) || 0;
+const CHANGE_BASELINE = changeBaseline();
+const ownerByKey = Object.fromEntries(TRACKER.owners.map(o => [o.key, o]));
+const isDone = it => it.status === "done";
+function stageOf(it) {
+  if (it.status === "done") return "done";
+  if (it.status === "blocked") return "blocked";
+  if (it.needs_you) return "you";
+  if (it.status === "doing") return "doing";
+  return "ready";
+}
+const slug = it => "item-" + it.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const fmt = iso => { if (!iso) return ""; try { return new Date(iso).toLocaleString(undefined, { month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return iso; } };
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+function changeBaseline() {
+  try {
+    const held = JSON.parse(sessionStorage.getItem("work-tracker-baseline") || "null");
+    if (held && held.round === REVIEW_ROUND) return held.baseline;
+  } catch (e) {}
+  let baseline = REVIEW_ROUND - 1;
+  try {
+    const seen = localStorage.getItem("work-tracker-seen-round");
+    if (seen !== null && Number.isFinite(Number(seen))) baseline = Math.min(Number(seen), REVIEW_ROUND);
+  } catch (e) {}
+  try { sessionStorage.setItem("work-tracker-baseline", JSON.stringify({ round: REVIEW_ROUND, baseline })); } catch (e) {}
+  try { localStorage.setItem("work-tracker-seen-round", String(REVIEW_ROUND)); } catch (e) {}
+  return baseline;
+}
+function stampChange(node, it, part) {
+  const parts = [].concat(it.changed_parts || []);
+  if (it.changed_round && (part ? parts.includes(part) : parts.length)) node.dataset.changedRound = it.changed_round;
+  return node;
+}
+function markChanges() {
+  for (const node of document.querySelectorAll("[data-changed-round]")) {
+    if (Number(node.dataset.changedRound) <= CHANGE_BASELINE || node.classList.contains("changed")) continue;
+    node.classList.add("changed");
+    const label = node.querySelector(":scope > summary") || node;
+    label.prepend(node.dataset.changeMark === "dot" ? el("span", "sr", "Changed. ") : el("span", "pill-changed", "Changed"));
+  }
+}
+function save() { try { localStorage.setItem("work-tracker-view", JSON.stringify({ tab: state.tab, owner: state.owner })); } catch (e) {} }
+function inView(it) {
+  if ((state.tab === "done") !== isDone(it)) return false;
+  if (state.owner !== "all" && it.owner !== state.owner) return false;
+  const q = state.query.trim().toLowerCase();
+  return !q || (it.title + " " + [].concat(it.summary || []).join(" ") + " " + (it.next || "")).toLowerCase().includes(q);
+}
+function jumpTo(it) {
+  const card = document.getElementById(slug(it));
+  if (!card) return;
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  card.classList.add("flash");
+  setTimeout(() => card.classList.remove("flash"), 1600);
+}
+function renderBoard(items) {
+  const board = document.getElementById("board"); board.textContent = "";
+  const keys = state.tab === "done" ? ["done"] : ["you", "blocked", "doing", "ready"];
+  for (const key of keys) {
+    const mine = items.filter(i => stageOf(i) === key);
+    if (!mine.length && (key === "blocked" || key === "you")) continue;
+    const s = STAGE_BY_KEY[key];
+    const lane = el("div", "lane " + key);
+    const head = el("div", "lh");
+    head.append(el("span", "ic", s.icon), el("span", null, s.label));
+    head.append(el("span", "count", String(mine.length)));
+    lane.append(head);
+    if (mine.length) {
+      const chips = el("div", "lchips");
+      for (const it of mine) {
+        const b = stampChange(el("button", "lchip", it.title), it);
+        b.dataset.changeMark = "dot";
+        b.setAttribute("aria-label", "Go to " + it.title);
+        b.onclick = () => jumpTo(it);
+        chips.append(b);
+      }
+      lane.append(chips);
+    }
+    board.append(lane);
+  }
+}
+function renderFilters() {
+  const f = document.getElementById("filters"); f.textContent = "";
+  const pool = TRACKER.items.filter(i => (state.tab === "done") === isDone(i));
+  const opts = [{ key: "all", name: "All projects" }].concat(TRACKER.owners.filter(o => pool.some(i => i.owner === o.key)));
+  if (!opts.some(o => o.key === state.owner)) state.owner = "all";
+  for (const o of opts) {
+    const b = el("button", "fchip");
+    if (o.key !== "all") b.append(el("span", null, (ownerByKey[o.key].icon || "📁")));
+    b.append(el("span", null, o.name));
+    if (o.key !== "all") b.append(el("b", null, String(pool.filter(i => i.owner === o.key).length)));
+    b.setAttribute("aria-pressed", String(state.owner === o.key));
+    b.onclick = () => { state.owner = o.key; save(); render(); };
+    f.append(b);
+  }
+}
+function trackFor(it) {
+  const ol = el("ol", "track");
+  ol.setAttribute("aria-label", "Progress");
+  let now;
+  if (it.status === "done") now = TRACK.length;
+  else if (it.status === "doing") now = 2;
+  else now = it.card ? 1 : 0;
+  TRACK.forEach((label, i) => {
+    const li = el("li", i < now ? "done" : i === now ? "now" : "");
+    li.append(el("span", "dot", i < now ? "✓" : String(i + 1)), el("span", null, label));
+    ol.append(li);
+  });
+  return ol;
+}
+function copyButton(it) {
+  const cp = el("button", "copy", "Copy starter");
+  cp.setAttribute("aria-label", "Copy the handoff for " + it.title);
+  const reset = () => { cp.textContent = "Copy starter"; cp.classList.remove("ok"); };
+  cp.onclick = () => {
+    const text = it.starter || it.title;
+    const done = () => { cp.textContent = "Copied ✓"; cp.classList.add("ok"); setTimeout(reset, 1800); };
+    const fallback = () => {
+      const area = document.createElement("textarea");
+      area.value = text; area.setAttribute("readonly", ""); area.style.position = "fixed"; area.style.opacity = "0";
+      document.body.append(area); area.select();
+      let copied = false; try { copied = document.execCommand("copy"); } catch (e) {}
+      area.remove();
+      if (copied) done(); else cp.textContent = "Copy blocked";
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  };
+  return cp;
+}
+function itemCard(it) {
+  const key = stageOf(it), s = STAGE_BY_KEY[key], owner = ownerByKey[it.owner] || { name: it.owner };
+  const card = el("article", "card " + key);
+  card.id = slug(it);
+  const band = el("div", "band " + key);
+  band.append(el("span", null, s.icon), el("span", null, s.label));
+  const proj = el("span", "proj");
+  proj.append(el("span", null, (owner.icon || "📁")), el("span", null, owner.name));
+  band.append(proj);
+  card.append(band);
+  const body = el("div", "body");
+  body.append(stampChange(el("h3", "title", it.title), it, "title"));
+  body.append(trackFor(it));
+  if (it.next) {
+    const next = stampChange(el("div", "next"), it, "next");
+    next.append(el("span", "ic", isDone(it) ? "✅" : "👉"), el("span", null, it.next.charAt(0).toUpperCase() + it.next.slice(1)));
+    body.append(next);
+  }
+  const points = [].concat(it.summary || []);
+  if (points.length) {
+    const d = stampChange(el("details", "what"), it, "summary");
+    d.open = d.dataset.changedRound > CHANGE_BASELINE;
+    d.append(el("summary", null, "What it delivers"));
+    const ul = el("ul", "points");
+    for (const p of points) ul.append(el("li", null, p));
+    d.append(ul);
+    body.append(d);
+  }
+  if (it.proposal && !isDone(it) && it.owner_steps && it.owner_steps.length) {
+    const st = stampChange(el("div", "steps"), it, "steps");
+    st.append(el("div", "sh", "Your steps to create " + it.proposal.name));
+    it.owner_steps.forEach((text, i) => { const row = el("div", "step"); row.append(el("span", "num", String(i + 1)), el("span", null, text)); st.append(row); });
+    body.append(st);
+  }
+  const actions = stampChange(el("div", "actions"), it, "links");
+  for (const l of it.links || []) {
+    const a = el("a", "link");
+    a.append(el("span", null, "🔗"), el("span", null, l.label));
+    a.href = l.url; a.target = "_blank"; a.rel = "noopener";
+    actions.append(a);
+  }
+  if (!isDone(it)) actions.append(copyButton(it));
+  body.append(actions);
+  body.append(el("div", "when", isDone(it) ? "Done " + fmt(it.done_at) : "Added " + fmt(it.added)));
+  card.append(body);
+  return card;
+}
+function render() {
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.tab === state.tab)));
+  const open = TRACKER.items.filter(i => !isDone(i));
+  document.getElementById("stamp").textContent = "Updated " + fmt(TRACKER.updated);
+  document.getElementById("n-open").textContent = open.length;
+  document.getElementById("n-done").textContent = TRACKER.items.length - open.length;
+  renderFilters();
+  const items = TRACKER.items.filter(inView);
+  renderBoard(items);
+  const list = document.getElementById("list"); list.textContent = "";
+  if (!items.length) {
+    list.append(el("div", "empty", TRACKER.items.length ? (state.tab === "done" ? "No finished items match." : "No open items match.") : "Nothing tracked yet. Add an item to the data block and it shows up here."));
+    return;
+  }
+  const order = state.tab === "done" ? ["done"] : ["you", "blocked", "doing", "ready"];
+  for (const key of order) {
+    const mine = items.filter(i => stageOf(i) === key);
+    if (!mine.length) continue;
+    mine.sort((a, b) => key === "done" ? (b.done_at || "").localeCompare(a.done_at || "") : (a.added || "").localeCompare(b.added || ""));
+    const s = STAGE_BY_KEY[key];
+    const h = el("h2", "section-h");
+    h.append(el("span", null, s.icon), el("span", null, s.label + " · " + mine.length));
+    list.append(h);
+    mine.forEach(i => list.append(itemCard(i)));
+  }
+  markChanges();
+}
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => { state.tab = t.dataset.tab; save(); render(); });
+document.getElementById("search").oninput = e => { state.query = e.target.value; render(); };
+render();
+</script>

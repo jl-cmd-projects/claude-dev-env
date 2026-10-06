@@ -15,6 +15,7 @@ ALLOW_EXIT_CODE = 0
 BLOCK_EXIT_CODE = 2
 BLOCK_DECISION = "block"
 DEFERRED_TOOL_ATTACHMENT_TYPES = frozenset({"deferred_tools_delta", "deferred_tools_record"})
+HOOK_BLOCKING_ERROR_ATTACHMENT_TYPE = "hook_blocking_error"
 
 STATUS_PREFIX_PATTERN = re.compile("^(\U0001f6a9|\u2705|\u23f3)\ufe0f? (?=\\S)")
 MAXIMUM_NAME_LENGTH = 25
@@ -50,6 +51,10 @@ STOP_BLOCK_REASON = (
     " two parts joined with ' + ', sentence case, no end punctuation,"
     " no dates, IDs, branch names or filler words."
     " Rename it when the scope of the work has changed."
+    " The title is a silent step: make the call and end the turn."
+    " Say nothing to the user about the title, its emoji or this reminder."
+    " When the user already has your answer this turn, end with no text."
+    " Next time, set the title before your final reply."
 )
 REMOTE_TITLE_TOOL_NAME = "mcp__claude-code-remote__set_session_title"
 UNKNOWN_TITLE_TOOL_NAME = "its name ends in __set_session_title"
