@@ -6,7 +6,7 @@ repository without one is not checked.
 
 ::
 
-    context-budget         SKILL.md grew past its record   -> finding
+    context-budget         SKILL.md over its limit grew    -> finding
     context-budget-policy  baseline entry raised           -> finding
 """
 

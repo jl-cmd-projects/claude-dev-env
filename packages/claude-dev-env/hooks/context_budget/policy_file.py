@@ -113,8 +113,11 @@ def _parse_hook(raw_hook: object) -> HookBudget:
 
 def _parse_baseline_entry(raw_entry: object) -> BaselineEntry:
     entry_by_key = _mapping(raw_entry, BASELINE_FILES_KEY)
+    if LINES_KEY not in entry_by_key:
+        raise _bad_field(LINES_KEY)
+    raw_lines = entry_by_key[LINES_KEY]
     return BaselineEntry(
-        _integer(entry_by_key.get(LINES_KEY), LINES_KEY),
+        None if raw_lines is None else _integer(raw_lines, LINES_KEY),
         _texts(entry_by_key.get(SECTIONS_KEY, []), SECTIONS_KEY),
     )
 

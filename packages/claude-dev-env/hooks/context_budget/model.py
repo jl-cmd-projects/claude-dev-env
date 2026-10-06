@@ -5,7 +5,8 @@
     BudgetPolicy
       kinds     ContextKind("skill entry", ("**/SKILL.md",), 200, True)
       hooks     HookBudget("startup print", ("python3", "x.py"), "{}", 1500)
-      baseline  {"a/SKILL.md": BaselineEntry(743, ("Plan",))}, {"startup print": 5200}
+      baseline  {"a/SKILL.md": BaselineEntry(743, ("Plan",)),
+                 "b/SKILL.md": BaselineEntry(None, ("Steps",))}, {"startup print": 5200}
 """
 
 from __future__ import annotations
@@ -57,11 +58,12 @@ class BaselineEntry:
     """The recorded over-budget state of one file.
 
     Attributes:
-        lines: Recorded physical line count.
+        lines: Recorded physical line count when the file is over its kind's
+            line limit, or None when the file is listed only for its sections.
         all_section_headings: Over-limit unpointed section headings, a multiset.
     """
 
-    lines: int
+    lines: int | None
     all_section_headings: tuple[str, ...]
 
 
@@ -75,6 +77,8 @@ class BudgetPolicy:
         all_hooks: Context-adding hooks to measure.
         baseline_entry_by_path: Over-budget files by repository-relative path.
         baseline_characters_by_hook_name: Over-budget hooks by name.
+        is_baseline_the_prior_text: Whether the baseline entry was measured from
+            the file's prior text because the repository has no policy file.
     """
 
     section_detail_line_limit: int
@@ -82,6 +86,7 @@ class BudgetPolicy:
     all_hooks: tuple[HookBudget, ...] = ()
     baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=dict)
     baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict)
+    is_baseline_the_prior_text: bool = False
 
 
 @dataclass(frozen=True)

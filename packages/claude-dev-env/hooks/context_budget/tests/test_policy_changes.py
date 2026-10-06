@@ -67,6 +67,19 @@ def test_policy_change_that_loosens_the_budget_is_a_finding(
 def test_policy_change_that_shrinks_or_adds_the_file_passes() -> None:
     prior_policy = parse_policy(policy_text({"a/SKILL.md": {"lines": 300, "sections": ["X"]}}))
     shrunk_policy = parse_policy(policy_text({"a/SKILL.md": {"lines": 250, "sections": []}}))
+    nulled_policy = parse_policy(policy_text({"a/SKILL.md": {"lines": None, "sections": ["X"]}}))
 
     assert policy_shrink_findings("p", prior_policy, shrunk_policy) == ()
+    assert policy_shrink_findings("p", prior_policy, nulled_policy) == ()
     assert policy_shrink_findings("p", None, shrunk_policy) == ()
+
+
+def test_policy_change_from_null_lines_to_a_number_fails_shrink_only() -> None:
+    prior_policy = parse_policy(policy_text({"a/SKILL.md": {"lines": None, "sections": ["X"]}}))
+    numbered_policy = parse_policy(policy_text({"a/SKILL.md": {"lines": 250, "sections": ["X"]}}))
+
+    all_findings = policy_shrink_findings("p", prior_policy, numbered_policy)
+
+    assert len(all_findings) == 1
+    assert 'records 250 lines for "a/SKILL.md"' in all_findings[0].message
+    assert "the over-budget list may only shrink" in all_findings[0].message

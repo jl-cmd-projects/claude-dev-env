@@ -32,7 +32,7 @@ Preconditions:
 ## Gotchas
 
 - `ALL_HOSTED_HOOK_ENTRIES` lists the two nonblocking advisors and the blocking context budget gate. The dispatcher calls the description evaluator through its native hook table.
-- The context budget gate denies only what an edit adds. A repository with no policy file uses built-in kinds and treats the file's current text as its baseline entry. The CI ratchet runs in `scripts/policy_lint/adapter_context_budget.py`, never in the hook. See the [context budget reference](../../.agents/skills/build-eval/reference/context-budget.md).
+- The context budget gate denies only what an edit adds. A repository with no policy file uses built-in kinds and treats the file's current text as its baseline entry, so a file under its line limit may grow to the limit and a file over it may only shrink. The CI ratchet runs in `scripts/policy_lint/adapter_context_budget.py`, never in the hook. See the [context budget reference](../../.agents/skills/build-eval/reference/context-budget.md).
 - The dispatcher runs hosted entries in roster order. A hosted advisory crash stays silent; a native blocking check can deny the write.
 - `scripts/policy_lint/adapter_detectors.py` also loads `blocking/state_description_blocker.py`. Check that adapter when changing its evaluator.
 - `bin/install.mjs` names folded and retired script paths so reinstall can remove stale registrations.

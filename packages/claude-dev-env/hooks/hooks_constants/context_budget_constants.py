@@ -84,9 +84,14 @@ GROWN_FINDING_TEMPLATE = (
     "list and may only shrink. Move detail sections to reference files until it "
     "has {recorded} lines or fewer."
 )
+GROWN_PAST_PRIOR_TEMPLATE = (
+    MESSAGE_PREFIX + "file has {count} lines; it was already over its limit at {recorded} lines "
+    "and may only shrink ({kind} limit {limit}). Move detail sections to reference files "
+    "until it has {recorded} lines or fewer."
+)
 RATCHET_LOWER_TEMPLATE = (
-    MESSAGE_PREFIX + "file is below its over-budget entry ({recorded_lines} lines, sections "
-    "{recorded_sections}); it now has {count} lines and sections {sections}. "
+    MESSAGE_PREFIX + "file is below its over-budget entry {recorded_entry_json}; "
+    "it now has {count} lines and sections {sections}. "
     "Set its entry in " + POLICY_RELATIVE_PATH + " to {entry_json} so the list "
     "keeps shrinking."
 )
@@ -110,6 +115,9 @@ HOOK_GROWN_TEMPLATE = (
 )
 CHANGE_ADDS_FILE = 'baseline adds file "{subject}"'
 CHANGE_RAISES_FILE = 'baseline raises "{subject}" from {prior} to {current} lines'
+CHANGE_RECORDS_FILE_LINES = (
+    'baseline records {current} lines for "{subject}", listed before for its sections only'
+)
 CHANGE_ADDS_SECTION = 'baseline adds section "{heading}" to "{subject}"'
 CHANGE_ADDS_HOOK = 'baseline adds hook "{subject}"'
 CHANGE_RAISES_HOOK = 'baseline raises hook "{subject}" from {prior} to {current} characters'

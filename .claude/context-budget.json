@@ -175,52 +175,52 @@
   "baseline": {
     "files": {
       ".agents/skills/verify/SKILL.md": {
-        "lines": 81,
+        "lines": null,
         "sections": [
           "Policy linter",
           "Helpers"
         ]
       },
       "packages/claude-dev-env/.agents/skills/build-eval/SKILL.md": {
-        "lines": 103,
+        "lines": null,
         "sections": [
           "Gotchas",
           "Process"
         ]
       },
       "packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md": {
-        "lines": 36,
+        "lines": null,
         "sections": [
           "Codex cleanse"
         ]
       },
       "packages/claude-dev-env/.agents/skills/correction/SKILL.md": {
-        "lines": 25,
+        "lines": null,
         "sections": [
           "/correction"
         ]
       },
       "packages/claude-dev-env/.agents/skills/e-code-review/SKILL.md": {
-        "lines": 56,
+        "lines": null,
         "sections": [
           "Native GitHub evidence pilot"
         ]
       },
       "packages/claude-dev-env/.agents/skills/e-simplify/SKILL.md": {
-        "lines": 95,
+        "lines": null,
         "sections": [
           "Efficiency"
         ]
       },
       "packages/claude-dev-env/.agents/skills/eli5/SKILL.md": {
-        "lines": 136,
+        "lines": null,
         "sections": [
           "Gotchas",
           "Process"
         ]
       },
       "packages/claude-dev-env/.agents/skills/everything-search/SKILL.md": {
-        "lines": 174,
+        "lines": null,
         "sections": [
           "Registry tokens",
           "Command Syntax",
@@ -230,7 +230,7 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/fresh-branch/SKILL.md": {
-        "lines": 131,
+        "lines": null,
         "sections": [
           "Phase 2 \u2014 Branch name (high freedom)",
           "Phase 3 \u2014 Create branch (execute the script)"
@@ -250,7 +250,7 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/issue-tracker/SKILL.md": {
-        "lines": 99,
+        "lines": null,
         "sections": [
           "Close the sub-issue through the PR (required when a fix ships)"
         ]
@@ -290,21 +290,21 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/recovering-codex-startup/SKILL.md": {
-        "lines": 58,
+        "lines": null,
         "sections": [
           "Process",
           "Files"
         ]
       },
       "packages/claude-dev-env/.agents/skills/repairing-hook-boundaries/SKILL.md": {
-        "lines": 57,
+        "lines": null,
         "sections": [
           "Process",
           "Files"
         ]
       },
       "packages/claude-dev-env/.agents/skills/second-account-workers/SKILL.md": {
-        "lines": 85,
+        "lines": null,
         "sections": [
           "Configure extra profiles",
           "Choose a worker",
@@ -312,19 +312,19 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/sync-dev-env/SKILL.md": {
-        "lines": 51,
+        "lines": null,
         "sections": [
           "3. Schedule the daily sync"
         ]
       },
       "packages/claude-dev-env/.agents/skills/team-advisor/SKILL.md": {
-        "lines": 53,
+        "lines": null,
         "sections": [
           "Constraints"
         ]
       },
       "packages/claude-dev-env/.agents/skills/test-runner/SKILL.md": {
-        "lines": 70,
+        "lines": null,
         "sections": [
           "Command",
           "Preflight",
@@ -332,7 +332,7 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/usage-pause/SKILL.md": {
-        "lines": 114,
+        "lines": null,
         "sections": [
           "Step 1 \u2014 resolve the usage window",
           "Probe mechanism",
@@ -341,7 +341,7 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/windows-scheduled-task/SKILL.md": {
-        "lines": 181,
+        "lines": null,
         "sections": [
           "Contents",
           "Gotchas",
@@ -360,7 +360,7 @@
         ]
       },
       "packages/claude-dev-env/rules/question-presentation.md": {
-        "lines": 12,
+        "lines": null,
         "sections": [
           "Present questions clearly"
         ]

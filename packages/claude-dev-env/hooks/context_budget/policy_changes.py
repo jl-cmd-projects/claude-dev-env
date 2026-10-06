@@ -1,15 +1,16 @@
 """Report a policy file change that loosens the budget.
 
 The over-budget list may only shrink: a new or larger baseline entry, a raised
-limit, a section rule turned off, or a deleted kind is a finding. A policy
-file the change introduces passes.
+limit, a section rule turned off, or a deleted kind is a finding. A null line
+count that becomes a number is larger. A policy file the change introduces
+passes.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 
-from context_budget.model import BudgetFinding, BudgetPolicy, ContextKind
+from context_budget.model import BaselineEntry, BudgetFinding, BudgetPolicy, ContextKind
 from hooks_constants.context_budget_constants import (
     CHANGE_ADDS_FILE,
     CHANGE_ADDS_HOOK,
@@ -21,6 +22,7 @@ from hooks_constants.context_budget_constants import (
     CHANGE_RAISES_HOOK,
     CHANGE_RAISES_LINE_LIMIT,
     CHANGE_RAISES_SECTION_LIMIT,
+    CHANGE_RECORDS_FILE_LINES,
     FILE_SCOPE,
     NO_LINE_LIMIT_TEXT,
     SHRINK_ONLY_TEMPLATE,
@@ -82,6 +84,20 @@ def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> 
     return all_changes
 
 
+def _line_entry_change(
+    each_path: str, each_entry: BaselineEntry, prior_entry: BaselineEntry
+) -> str | None:
+    if each_entry.lines is None:
+        return None
+    if prior_entry.lines is None:
+        return CHANGE_RECORDS_FILE_LINES.format(subject=each_path, current=each_entry.lines)
+    if each_entry.lines > prior_entry.lines:
+        return CHANGE_RAISES_FILE.format(
+            subject=each_path, prior=prior_entry.lines, current=each_entry.lines
+        )
+    return None
+
+
 def _file_entry_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
     all_changes: list[str] = []
     for each_path, each_entry in sorted(current_policy.baseline_entry_by_path.items()):
@@ -89,12 +105,9 @@ def _file_entry_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy
         if prior_entry is None:
             all_changes.append(CHANGE_ADDS_FILE.format(subject=each_path))
             continue
-        if each_entry.lines > prior_entry.lines:
-            all_changes.append(
-                CHANGE_RAISES_FILE.format(
-                    subject=each_path, prior=prior_entry.lines, current=each_entry.lines
-                )
-            )
+        line_change = _line_entry_change(each_path, each_entry, prior_entry)
+        if line_change is not None:
+            all_changes.append(line_change)
         all_added_headings = Counter(each_entry.all_section_headings) - Counter(
             prior_entry.all_section_headings
         )

@@ -87,7 +87,20 @@ def test_edit_that_grows_an_over_budget_file_is_denied(repository_root: Path) ->
     reason = evaluate(_edit_payload(target_path, "# Skill\n", "# Skill\nOne more line.\n"))
 
     assert reason is not None
-    assert "grew from 211 to 212 lines" in reason
+    assert "was already over its limit at 211 lines and may only shrink" in reason
+    assert "list" not in reason
+
+
+def test_edit_that_adds_a_line_to_a_short_skill_with_one_long_section_is_allowed(
+    repository_root: Path,
+) -> None:
+    target_path = repository_root / "skills" / "short" / "SKILL.md"
+    target_path.parent.mkdir(parents=True)
+    plan_body = "".join(f"Detail line {each}.\n" for each in range(8))
+    target_path.write_text("# Skill\nIntro.\n## Plan\n" + plan_body, encoding="utf-8")
+
+    assert len(target_path.read_text(encoding="utf-8").splitlines()) == 11
+    assert evaluate(_edit_payload(target_path, "Intro.\n", "Intro.\nOne more line.\n")) is None
 
 
 def test_multi_edit_adding_an_unpointed_section_is_denied(repository_root: Path) -> None:

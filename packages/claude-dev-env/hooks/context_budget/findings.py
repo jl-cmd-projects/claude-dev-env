@@ -2,11 +2,14 @@
 
 ::
 
-    unlisted file   lines > limit                    -> file finding
-                    unpointed section > detail limit -> section finding
-    listed file     lines > recorded lines           -> grown finding
-                    section heading not recorded     -> section finding
-    CI ratchet      changed file below its record    -> lower or remove the entry
+    unlisted file   lines > limit                         -> file finding
+                    unpointed section > detail limit      -> section finding
+    listed file     lines null, lines > limit             -> file finding
+                    lines N, lines > limit and lines > N  -> grown finding
+                    section heading not recorded          -> section finding
+    CI ratchet      changed file below its record N       -> record the new count, or null
+                    changed file lost a recorded section  -> drop it from the entry
+                    changed file within budget            -> remove the entry
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ from hooks_constants.context_budget_constants import (
     FILE_FINDING_TEMPLATE,
     FILE_SCOPE,
     GROWN_FINDING_TEMPLATE,
+    GROWN_PAST_PRIOR_TEMPLATE,
     KEBAB_SEPARATOR,
     LINES_KEY,
     NON_KEBAB_CHARACTER_PATTERN,
@@ -68,17 +72,19 @@ def _unrecorded_sections(
     return all_unrecorded
 
 
-def _ratchet_message(relative_path: str, current: BaselineEntry, recorded: BaselineEntry) -> str:
-    entry_json = json.dumps(
-        {LINES_KEY: current.lines, SECTIONS_KEY: list(current.all_section_headings)}
-    )
+def _entry_json(entry: BaselineEntry) -> str:
+    return json.dumps({LINES_KEY: entry.lines, SECTIONS_KEY: list(entry.all_section_headings)})
+
+
+def _ratchet_message(
+    relative_path: str, measure: FileMeasure, current: BaselineEntry, recorded: BaselineEntry
+) -> str:
     return RATCHET_LOWER_TEMPLATE.format(
         path=relative_path,
-        recorded_lines=recorded.lines,
-        recorded_sections=json.dumps(list(recorded.all_section_headings)),
-        count=current.lines,
+        recorded_entry_json=_entry_json(recorded),
+        count=measure.line_count,
         sections=json.dumps(list(current.all_section_headings)),
-        entry_json=entry_json,
+        entry_json=_entry_json(current),
     )
 
 
@@ -92,13 +98,16 @@ def _ratchet_findings(
     has_lost_section = bool(
         Counter(recorded.all_section_headings) - Counter(current.all_section_headings)
     )
-    if current.lines >= recorded.lines and not has_lost_section:
+    has_dropped_lines = recorded.lines is not None and (
+        current.lines is None or current.lines < recorded.lines
+    )
+    if not has_dropped_lines and not has_lost_section:
         return []
-    message = _ratchet_message(relative_path, current, recorded)
+    message = _ratchet_message(relative_path, measure, current, recorded)
     return [BudgetFinding(relative_path, FILE_SCOPE, message)]
 
 
-def _unlisted_file_findings(relative_path: str, measure: FileMeasure) -> list[BudgetFinding]:
+def _line_limit_findings(relative_path: str, measure: FileMeasure) -> list[BudgetFinding]:
     limit = measure.kind.line_limit or 0
     if measure.line_count <= limit:
         return []
@@ -109,20 +118,33 @@ def _unlisted_file_findings(relative_path: str, measure: FileMeasure) -> list[Bu
 
 
 def _grown_findings(
-    relative_path: str, measure: FileMeasure, recorded: BaselineEntry
+    relative_path: str, measure: FileMeasure, recorded: BaselineEntry, grown_template: str
 ) -> list[BudgetFinding]:
-    if measure.line_count <= recorded.lines:
+    if recorded.lines is None:
+        return _line_limit_findings(relative_path, measure)
+    limit = measure.kind.line_limit or 0
+    if measure.line_count <= max(recorded.lines, limit):
         return []
-    message = GROWN_FINDING_TEMPLATE.format(
-        path=relative_path, recorded=recorded.lines, count=measure.line_count
+    message = grown_template.format(
+        path=relative_path,
+        recorded=recorded.lines,
+        count=measure.line_count,
+        kind=measure.kind.name,
+        limit=limit,
     )
     return [BudgetFinding(relative_path, FILE_SCOPE, message)]
 
 
-def _listed_findings(
-    relative_path: str, measure: FileMeasure, recorded: BaselineEntry, is_ratchet_due: bool
+def _file_scope_findings(
+    relative_path: str,
+    measure: FileMeasure,
+    recorded: BaselineEntry | None,
+    is_ratchet_due: bool,
+    grown_template: str,
 ) -> tuple[list[BudgetFinding], list[SectionScan]]:
-    all_findings = _grown_findings(relative_path, measure, recorded)
+    if recorded is None:
+        return _line_limit_findings(relative_path, measure), list(measure.all_over_limit_sections)
+    all_findings = _grown_findings(relative_path, measure, recorded, grown_template)
     if is_ratchet_due:
         all_findings.extend(_ratchet_findings(relative_path, measure, recorded))
     all_new_sections = _unrecorded_sections(
@@ -150,10 +172,11 @@ def file_findings(
         return ()
     recorded = policy.baseline_entry_by_path.get(relative_path)
     is_ratchet_due = ratchet_prior_text is not None and ratchet_prior_text != text
-    all_findings, all_new_sections = (
-        (_unlisted_file_findings(relative_path, measure), list(measure.all_over_limit_sections))
-        if recorded is None
-        else _listed_findings(relative_path, measure, recorded, is_ratchet_due)
+    grown_template = (
+        GROWN_PAST_PRIOR_TEMPLATE if policy.is_baseline_the_prior_text else GROWN_FINDING_TEMPLATE
+    )
+    all_findings, all_new_sections = _file_scope_findings(
+        relative_path, measure, recorded, is_ratchet_due, grown_template
     )
     return (
         *all_findings,
@@ -175,6 +198,7 @@ def _with_prior_as_baseline(
         policy.all_hooks,
         {**policy.baseline_entry_by_path, relative_path: prior_entry},
         policy.baseline_characters_by_hook_name,
+        is_baseline_the_prior_text=True,
     )
 
 

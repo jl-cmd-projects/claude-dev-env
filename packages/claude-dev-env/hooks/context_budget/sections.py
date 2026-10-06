@@ -203,9 +203,11 @@ def baseline_entry_for(measure: FileMeasure) -> BaselineEntry | None:
         measure: One file measurement.
 
     Returns:
-        The entry recording the line count and over-limit headings.
+        The entry recording the over-limit headings, and the line count only
+        when it exceeds the kind's line limit.
     """
     all_headings = tuple(each_scan.heading for each_scan in measure.all_over_limit_sections)
-    if measure.line_count <= (measure.kind.line_limit or 0) and not all_headings:
+    is_over_line_limit = measure.line_count > (measure.kind.line_limit or 0)
+    if not is_over_line_limit and not all_headings:
         return None
-    return BaselineEntry(measure.line_count, all_headings)
+    return BaselineEntry(measure.line_count if is_over_line_limit else None, all_headings)

@@ -13,6 +13,7 @@ def test_baseline_records_over_budget_files_and_hooks_only() -> None:
     policy = parse_policy(policy_text())
     text_by_path = {
         "b/SKILL.md": section_text("Plan", 7) + section_text("Plan", 8),
+        "c/SKILL.md": section_text("Plan", 7) + "\n" * 200,
         "a/SKILL.md": "short\n",
         "x/skills-archived/SKILL.md": section_text("Old", 40),
         "docs/notes.md": section_text("Notes", 40),
@@ -21,7 +22,10 @@ def test_baseline_records_over_budget_files_and_hooks_only() -> None:
     baseline = build_baseline(policy, text_by_path, {"greeter": 1501, "unlisted": 9000})
 
     assert baseline == {
-        "files": {"b/SKILL.md": {"lines": 17, "sections": ["Plan", "Plan"]}},
+        "files": {
+            "b/SKILL.md": {"lines": None, "sections": ["Plan", "Plan"]},
+            "c/SKILL.md": {"lines": 208, "sections": ["Plan"]},
+        },
         "hooks": {"greeter": 1501},
     }
 

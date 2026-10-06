@@ -26,6 +26,14 @@ def test_parse_ignores_unknown_keys_and_rejects_a_bad_shape() -> None:
         parse_policy("{not json")
 
 
+def test_baseline_lines_may_be_null_but_may_not_be_missing() -> None:
+    policy = parse_policy(policy_text({"a/SKILL.md": {"lines": None, "sections": ["Plan"]}}))
+
+    assert policy.baseline_entry_by_path["a/SKILL.md"].lines is None
+    with pytest.raises(ContextBudgetPolicyError):
+        parse_policy(policy_text({"a/SKILL.md": {"sections": ["Plan"]}}))
+
+
 def test_repository_root_accepts_a_git_file_and_policy_reads_from_it(tmp_path: Path) -> None:
     repository_root = tmp_path / "worktree"
     (repository_root / ".claude").mkdir(parents=True)
