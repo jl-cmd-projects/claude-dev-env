@@ -28,7 +28,7 @@ definitions and dictionary decisions.
 - Use inclusive, neutral language.
 - Use periods, commas, colons, and bullets to show structure.
 - Preserve exact quoted labels, identifiers, formulas, titles, and interface text.
-- Say each fact once in a reply or page. A picture, its caption, and the words sent with it count as one text, so the words never describe what the picture draws.
+- Say each fact once in content read together. Preserve accessible text alternatives for pictures and essential prerequisites or warnings at each point of use.
 - Send the reader only a result, a blocker, or a question. Leave out a line that says nothing is needed from them, and leave out which agent, session, or coordinator did the work.
 - Use `WARNING` for a risk of injury or death. Use `CAUTION` for a risk of equipment, tool, or machine damage. State the command or condition first, then state the result.
 - Aim for 20 words or fewer in a procedure sentence when the technical content allows.
@@ -44,9 +44,9 @@ Those contracts use this policy for their language.
 Run this check on each reply or page you draft, before you send it. Run it also when asked to check text for repeated points.
 
 1. List each fact the text states, with where it appears. Include each fact that a picture, diagram, or table shows: its labels, its order, what moves, and the end state it draws.
-2. Mark each fact that appears more than once, in the same words or in other words.
-3. Keep each marked fact in the one place that shows it best. Delete each other statement of it, or rewrite that line to carry a new fact. A bullet under a picture keeps only what the picture cannot show, such as a cause, a condition, a command, or a warning.
-4. Report each restatement you removed, or report that each fact appears once.
+2. Mark repeated facts within content read together. Exclude accessibility text, alternate representations, and prerequisites or warnings needed at each point of use.
+3. Keep each marked fact in the one place that shows it best. Delete each other statement of it, or rewrite that line to carry a new fact. Outside these exceptions, a bullet under a picture keeps only what the picture cannot show, such as a cause, a condition, a command, or a warning.
+4. Keep routine self-check results silent. When asked to review repeated points, report each restatement you removed, or report that each fact appears once.
 
 Treat automated output and language checks as drafting aids. A responsible human verifies
 technical accuracy, terminology, safety, confidentiality, and intended meaning.
