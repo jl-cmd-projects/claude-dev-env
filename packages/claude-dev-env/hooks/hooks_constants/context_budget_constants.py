@@ -122,3 +122,18 @@ NO_LINE_LIMIT_TEXT = "none"
 
 POLICY_ERROR_NOT_OBJECT = "policy must be a JSON object"
 POLICY_ERROR_BAD_FIELD = "field {field} has the wrong type"
+
+JSON_INDENT = 2
+
+TOOL_NAME_KEY = "tool_name"
+TOOL_INPUT_KEY = "tool_input"
+FILE_PATH_KEY = "file_path"
+CONTENT_KEY = "content"
+CWD_KEY = "cwd"
+CONTEXT_BUDGET_BLOCK_PREFIX = "BLOCKED: [CONTEXT_BUDGET] "
+CONTEXT_BUDGET_REASON_SEPARATOR = " "
+CONTEXT_BUDGET_NOTICE = (
+    "Context budget check: keep entry files a short map and move detail to "
+    "reference files the agent opens on demand."
+)
+CONTEXT_BUDGET_HOOK_NAME = "context_budget_blocker.py"

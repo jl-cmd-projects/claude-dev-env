@@ -33,15 +33,27 @@ def _entry_for(script_relative_path: str):
     return matching_entries[0] if matching_entries else None
 
 
-def test_roster_keeps_only_nonblocking_edit_advisors() -> None:
+def test_roster_keeps_the_edit_advisors_and_the_context_budget_gate() -> None:
     all_script_paths = tuple(
         each_entry.script_relative_path for each_entry in ALL_HOSTED_HOOK_ENTRIES
     )
     assert all_script_paths == (
         "advisory/refactor_guard.py",
         "advisory/migration_safety_advisor.py",
+        "blocking/context_budget_blocker.py",
     )
-    assert all(not each_entry.is_blocking for each_entry in ALL_HOSTED_HOOK_ENTRIES)
+    all_blocking_paths = tuple(
+        each_entry.script_relative_path
+        for each_entry in ALL_HOSTED_HOOK_ENTRIES
+        if each_entry.is_blocking
+    )
+    assert all_blocking_paths == ("blocking/context_budget_blocker.py",)
+
+
+def test_context_budget_gate_applies_to_every_mutation_tool() -> None:
+    entry = _entry_for("blocking/context_budget_blocker.py")
+    assert entry is not None
+    assert entry.applicable_tool_names == ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES
 
 
 def test_advisors_apply_to_edit_and_multi_edit() -> None:
