@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-          ACTIONS_BOT_LOGIN: github-actions
+          ACTIONS_BOT_LOGIN: app/github-actions
         run: |
           pull_request_state=$(gh pr view "$PULL_REQUEST_NUMBER" --json autoMergeRequest,state --jq '[.state, (.autoMergeRequest.enabledBy.login // "")] | @tsv')
           state=$(printf '%s' "$pull_request_state" | cut -f1)
