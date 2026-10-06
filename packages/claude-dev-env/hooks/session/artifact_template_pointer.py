@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: point an agent about to build an artifact page at the template.
+"""PreToolUse hook: point an agent about to build an artifact page at its templates.
 
 Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
-naming ``docs/templates/artifact-page/template.html`` when a session starts a
-new artifact page:
+when a session starts a new artifact page. The line names the html-plan skill
+as the default template, with its install command, and
+``docs/templates/artifact-page/template.html`` as the alternative:
 
 ::
 
@@ -27,10 +28,13 @@ if hooks_root_directory not in sys.path:
 
 from hooks_constants.artifact_template_pointer_constants import (
     ALL_ARTIFACT_DESIGN_SKILL_NAMES,
+    ALTERNATIVE_TEXT_PREFIX,
     ARTIFACT_ACTION_INPUT_KEY,
     ARTIFACT_QUICKSTART_ACTION,
     ARTIFACT_TEMPLATE_PATH,
     ARTIFACT_TOOL_NAME,
+    DEFAULT_TEMPLATE_INSTALL_COMMAND,
+    DEFAULT_TEMPLATE_SKILL_NAME,
     POINTER_TEXT_PREFIX,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
@@ -77,7 +81,11 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
-            ADDITIONAL_CONTEXT_KEY: f"{POINTER_TEXT_PREFIX}{ARTIFACT_TEMPLATE_PATH}.",
+            ADDITIONAL_CONTEXT_KEY: (
+                f"{POINTER_TEXT_PREFIX}`{DEFAULT_TEMPLATE_SKILL_NAME}`. "
+                f"When the skill is absent, install it: `{DEFAULT_TEMPLATE_INSTALL_COMMAND}`. "
+                f"{ALTERNATIVE_TEXT_PREFIX}{ARTIFACT_TEMPLATE_PATH}."
+            ),
         }
     }
 

@@ -38,6 +38,17 @@ def test_artifact_quickstart_gets_the_template_pointer() -> None:
     assert "permissionDecision" not in specific_output
 
 
+def test_pointer_names_html_plan_first_and_the_old_template_as_the_alternative() -> None:
+    hook_output = artifact_template_pointer.decide_hook_output(
+        _payload("Artifact", {"action": "quickstart", "intent": "other"})
+    )
+    assert hook_output is not None
+    pointer_text = hook_output["hookSpecificOutput"]["additionalContext"]
+    assert pointer_text.index("html-plan:html-plan") < pointer_text.index(str(ARTIFACT_TEMPLATE_PATH))
+    assert "claude plugin install html-plan@claude-community" in pointer_text
+    assert f"Alternative: the template at {ARTIFACT_TEMPLATE_PATH}" in pointer_text
+
+
 def test_artifact_design_skill_gets_the_template_pointer() -> None:
     hook_output = artifact_template_pointer.decide_hook_output(
         _payload("Skill", {"skill": "artifact-design"})

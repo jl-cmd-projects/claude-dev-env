@@ -1,6 +1,8 @@
 # Artifact page template
 
-`template.html` is the reference page for any artifact an agent builds: a tracker, a board, a review page, a dashboard. Start from it, keep its structure and house style, and replace the sample data and the parts the new page does not need.
+The default template for an artifact page is the `html-plan` skill from the `html-plan` plugin in [anthropics/claude-plugins-community](https://github.com/anthropics/claude-plugins-community/tree/main/html-plan). Start a page from that skill.
+
+`template.html` is the alternative template: a tracker, a board, a review page, a dashboard. When an agent picks it, start from it, keep its structure and house style, and replace the sample data and the parts the new page does not need.
 
 ## What it demonstrates
 
