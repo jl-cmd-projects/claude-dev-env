@@ -13,6 +13,9 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
+from hooks_constants.pull_request_proof_constants import MISSING_PROOF_REASON
+
+PROVEN_FOLLOWUP_BODY = "Follow-up to #1731\n\n## Proof in practice\nRan `python probe.py`.\n"
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
@@ -61,7 +64,7 @@ def test_unloaded_pull_request_command_is_denied(tmp_path: Path) -> None:
 
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
     path = _transcript(tmp_path, "plugin:pr-lifecycle")
-    assert _run_main(_payload("gh pr create", path)) == (0, "")
+    assert _run_main(_payload("gh pr view", path)) == (0, "")
 
 
 def test_user_slash_command_loads_skill(tmp_path: Path) -> None:
@@ -127,7 +130,7 @@ def test_agent_id_with_path_separator_is_not_followed(tmp_path: Path) -> None:
 
 
 def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> None:
-    payload = _payload("gh pr create", tmp_path / "missing.jsonl")
+    payload = _payload("gh pr view", tmp_path / "missing.jsonl")
     assert _run_main(payload) == (0, "")
     payload.pop("transcript_path")
     assert _run_main(payload) == (0, "")
@@ -237,7 +240,7 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
 def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Path) -> None:
     payload = {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
     }
     open_followup = {"number": 1769, "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1769", "body": "Follow-up to #1731"}
@@ -251,8 +254,14 @@ def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Pa
 def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> None:
     payload = {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
     }
     with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
         assert gate.decision_for(payload) is None
+
+
+def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:
+    exit_code, output = _run_main(_payload("gh pr create --body 'Adds a gate.'", _transcript(tmp_path, "pr-lifecycle")))
+    assert exit_code == 0
+    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON

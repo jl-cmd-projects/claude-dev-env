@@ -65,6 +65,12 @@ export const DECLARED_PROFILE_SETTINGS = Object.freeze([
                 + '(mcp__claude-code-remote__set_session_title or mcp__ccd_session_mgmt__set_session_title) is allowed, '
                 + 'and so is a live test run of the account broker with '
                 + '`python ~/.claude/scripts/account_broker.py run`: the user installed both tools for these sessions',
+            'Moving instruction files out of the always-loaded rules folder of a Claude config directory '
+                + '(`~/.claude/rules` or a profile\'s `rules` folder) into a sibling on-demand folder in the same '
+                + 'config directory, and moving them back, is allowed when the task is to trim session-start context: '
+                + 'each file keeps its contents and stays on disk, and the move reverses with one more move. '
+                + 'This covers a plain move or rename with an index file that says when to open each moved file. '
+                + 'It does not cover deleting or editing a rule, or any change to settings, hooks or permissions.',
         ],
     },
 ]);
