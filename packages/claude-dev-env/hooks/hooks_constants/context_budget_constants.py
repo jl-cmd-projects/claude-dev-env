@@ -73,7 +73,7 @@ MESSAGE_PREFIX = "{path}: context-budget: "
 SECTION_FINDING_TEMPLATE = (
     MESSAGE_PREFIX + 'section "{heading}" has {count} detail lines and no pointer (limit {limit}). '
     "Move it to a reference file, for example reference/{kebab}.md, "
-    "and leave a one-line pointer to it."
+    "and replace the section with a one-line pointer to it. Cutting the section down to the limit keeps the detail inline and is not the fix."
 )
 FILE_FINDING_TEMPLATE = (
     MESSAGE_PREFIX + "file has {count} lines ({kind} limit {limit}). "
