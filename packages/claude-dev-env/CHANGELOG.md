@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.61.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.0...claude-dev-env-v8.61.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **hooks:** forward child PreToolUse context through the nested hooks forwarder ([#1907](https://github.com/jl-cmd-projects/claude-dev-env/issues/1907)) ([daff35d](https://github.com/jl-cmd-projects/claude-dev-env/commit/daff35d0811477113c13f6949db77023bb0cda60))
+
 ## [8.61.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.60.0...claude-dev-env-v8.61.0) (2026-10-06)
 
 
