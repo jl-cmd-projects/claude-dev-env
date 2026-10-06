@@ -358,12 +358,6 @@
         "sections": [
           "(top)"
         ]
-      },
-      "packages/claude-dev-env/rules/question-presentation.md": {
-        "lines": null,
-        "sections": [
-          "Present questions clearly"
-        ]
       }
     },
     "hooks": {

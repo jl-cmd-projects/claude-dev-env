@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.61.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.60.0...claude-dev-env-v8.61.0) (2026-10-06)
+
+
+### Features
+
+* **settings:** allow moving rule files to an on-demand folder in auto mode ([#1897](https://github.com/jl-cmd-projects/claude-dev-env/issues/1897)) ([9460aca](https://github.com/jl-cmd-projects/claude-dev-env/commit/9460aca8ba84680df6f945aa51ede7dd408e5d70))
+
 ## [8.60.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.59.0...claude-dev-env-v8.60.0) (2026-10-05)
 
 

@@ -81,6 +81,12 @@ def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> 
         all_changes.extend(
             _kind_changes(each_prior_kind, current_kind_by_name.get(each_prior_kind.name))
         )
+    return all_changes + _hook_limit_changes(prior_policy, current_policy)
+
+
+def _hook_limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
+    """Preserve each measured hook and hold its output limit to the prior budget."""
+    all_changes: list[str] = []
     current_hook_by_name = {each.name: each for each in current_policy.all_hooks}
     for each_prior_hook in prior_policy.all_hooks:
         current_hook = current_hook_by_name.get(each_prior_hook.name)

@@ -52,5 +52,3 @@ def test_repository_root_accepts_a_git_file_and_policy_reads_from_it(tmp_path: P
         find_repository_root(tmp_path / "x.md") is None
         or find_repository_root(tmp_path / "x.md") != repository_root
     )
-
-
