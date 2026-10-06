@@ -62,6 +62,7 @@ import {
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
     removeCodexSolProfile,
+    SOL_PROFILE_FILE_NAME,
     SOL_PROMPT_DIRECTORY_NAME,
     SOL_PROMPT_FILE_NAME,
     writeCodexSolProfile,
@@ -3379,6 +3380,7 @@ function uninstall() {
         priorManifestFiles: [
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROFILE_FILE_NAME),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });

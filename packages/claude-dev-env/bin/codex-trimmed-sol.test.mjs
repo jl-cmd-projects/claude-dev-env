@@ -22,7 +22,7 @@ function makeScratchHome(context) {
     return homeDirectory;
 }
 
-function installInScratchHome(homeDirectory, argumentsList = []) {
+function installInScratchHome(homeDirectory, argumentsList = [], environment = {}) {
     return spawnSync(process.execPath, [installerPath, ...argumentsList], {
         cwd: packageDirectory,
         encoding: 'utf8',
@@ -37,6 +37,7 @@ function installInScratchHome(homeDirectory, argumentsList = []) {
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            ...environment,
         },
     });
 }
@@ -109,4 +110,19 @@ test('uninstall removes the package Sol profile', (context) => {
     const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
     assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
     assert.equal(existsSync(profilePath), false);
+});
+
+test('failed uninstall restores the package Sol profile', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const profilePath = join(homeDirectory, '.codex', SOL_PROFILE_FILE_NAME);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    const priorProfile = readFileSync(profilePath, 'utf8');
+
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], {
+        CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
+    });
+    assert.notEqual(uninstallation.status, 0);
+    assert.match(uninstallation.stderr, /prior installation restored/);
+    assert.equal(readFileSync(profilePath, 'utf8'), priorProfile);
 });
