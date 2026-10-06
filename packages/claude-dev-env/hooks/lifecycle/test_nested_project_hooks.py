@@ -205,6 +205,46 @@ def test_should_carry_child_pre_tool_use_context_without_its_allow(
     }
 
 
+def test_should_carry_another_child_context_into_an_ask_decision(
+    tmp_path: pathlib.Path,
+) -> None:
+    context_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "Build this page from the house template.",
+        }
+    }
+    ask_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": "publishing needs a person",
+        }
+    }
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"PreToolUse": [_command_group("Artifact", f"echo '{json.dumps(context_output)}'")]},
+    )
+    _make_checkout(
+        tmp_path,
+        "beta",
+        {"PreToolUse": [_command_group("Artifact", f"echo '{json.dumps(ask_output)}'")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Artifact"))
+
+    assert completed_process.returncode == 0
+    assert json.loads(completed_process.stdout) == {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": "publishing needs a person",
+            "additionalContext": "Build this page from the house template.",
+        }
+    }
+
+
 def test_should_skip_a_child_hook_whose_matcher_names_another_tool(
     tmp_path: pathlib.Path,
 ) -> None:
