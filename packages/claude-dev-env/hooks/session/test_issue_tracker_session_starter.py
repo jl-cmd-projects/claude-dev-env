@@ -104,3 +104,42 @@ def test_main_disabled_prints_nothing() -> None:
     )
     assert completed.returncode == 0
     assert completed.stdout.strip() == ""
+
+
+def _run_main_in_registered_repository(tmp_path: Path, is_mod_on: bool) -> str:
+    """Run main() from a registered repository with the session-prompts plugin on or off."""
+    repository_root = Path(__file__).resolve().parents[4]
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "project-paths.json").write_text(
+        json.dumps({"this-repository": str(repository_root)}), encoding="utf-8"
+    )
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"enabledPlugins": {"session-prompts@mods-marketplace": is_mod_on}}), encoding="utf-8"
+    )
+    completed = subprocess.run(
+        [sys.executable, str(STARTER_SCRIPT)],
+        input=json.dumps({"source": "startup"}),
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=repository_root,
+        env={
+            **os.environ,
+            ISSUE_TRACKER_SESSION_STARTER_ENABLED_ENV_VAR: "1",
+            "HOME": str(tmp_path),
+            "USERPROFILE": str(tmp_path),
+            "CLAUDE_CONFIG_DIR": str(tmp_path),
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+        },
+    )
+    assert completed.returncode == 0
+    return completed.stdout.strip()
+
+
+def test_main_prints_the_directive_while_the_session_prompts_mod_is_off(tmp_path: Path) -> None:
+    emitted = json.loads(_run_main_in_registered_repository(tmp_path, is_mod_on=False))
+    assert emitted["hookSpecificOutput"]["additionalContext"] == ISSUE_TRACKER_SESSION_START_DIRECTIVE
+
+
+def test_main_prints_nothing_while_the_session_prompts_mod_is_on(tmp_path: Path) -> None:
+    assert _run_main_in_registered_repository(tmp_path, is_mod_on=True) == ""

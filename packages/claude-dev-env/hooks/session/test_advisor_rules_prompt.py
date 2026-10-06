@@ -56,6 +56,16 @@ class TestAdvisorRulesPrompt:
         _write_settings(config_directory, {"permissions": {}})
         assert _run_main() == ""
 
+    def test_should_emit_nothing_while_the_session_prompts_mod_is_on(
+        self, config_directory: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(config_directory))
+        _write_settings(
+            config_directory,
+            {"advisorModel": "fable", "enabledPlugins": {"session-prompts@mods-marketplace": True}},
+        )
+        assert _run_main() == ""
+
     def test_should_emit_nothing_when_advisor_model_is_blank(self, config_directory: Path) -> None:
         _write_settings(config_directory, {"advisorModel": "  "})
         assert _run_main() == ""

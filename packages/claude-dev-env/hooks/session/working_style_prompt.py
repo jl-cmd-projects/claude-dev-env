@@ -20,6 +20,8 @@ _hooks_dir = str(Path(__file__).resolve().parent.parent)
 if _hooks_dir not in sys.path:
     sys.path.insert(0, _hooks_dir)
 
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
+from hooks_constants.mod_handoff_constants import SESSION_PROMPTS_PLUGIN_NAME
 from hooks_constants.working_style_prompt_constants import (  # noqa: E402
     WORKING_STYLE_PROMPT,
 )
@@ -31,7 +33,9 @@ def build_session_directive() -> str:
 
 
 def main() -> None:
-    """Emit the working-style prompt as SessionStart additionalContext."""
+    """Emit the working-style prompt as SessionStart additionalContext, unless the session-prompts mod is on."""
+    if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
+        return
     print(
         json.dumps(
             {

@@ -24,6 +24,8 @@ from hooks_constants.issue_tracker_session_starter_constants import (  # noqa: E
     ISSUE_TRACKER_SESSION_STARTER_ENABLED_ENV_VAR,
     ISSUE_TRACKER_STARTER_TIMEOUT_MILLISECONDS,
 )
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
+from hooks_constants.mod_handoff_constants import SESSION_PROMPTS_PLUGIN_NAME
 from hooks_constants.pre_tool_use_stdin import (  # noqa: E402
     read_hook_input_dictionary_from_stdin,
 )
@@ -114,7 +116,9 @@ def run_issue_tracker_session_starter(
 
 
 def main() -> None:
-    """Emit issue-tracker additionalContext when opt-in and registry gate pass."""
+    """Emit issue-tracker additionalContext when opt-in and registry gate pass and the session-prompts mod is off."""
+    if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
+        return
     payload_by_key = read_hook_input_dictionary_from_stdin()
     if payload_by_key is None:
         return

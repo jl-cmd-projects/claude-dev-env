@@ -7,6 +7,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
 for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
@@ -63,3 +65,15 @@ class TestSessionDirective:
 
     def test_build_session_directive_returns_the_shared_constant(self) -> None:
         assert prompt.build_session_directive() == TASK_TOOL_DIRECTIVE
+
+
+class TestModHandoff:
+    def test_should_stay_silent_while_the_session_prompts_mod_is_on(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "settings.json").write_text(
+            json.dumps({"enabledPlugins": {"session-prompts@mods-marketplace": True}}), encoding="utf-8"
+        )
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        assert _run_main() == ""

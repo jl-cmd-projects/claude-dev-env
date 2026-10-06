@@ -99,3 +99,24 @@ def test_main_stdin_disabled_prints_nothing() -> None:
     )
     assert completed.returncode == 0
     assert completed.stdout.strip() == ""
+
+
+def test_main_prints_nothing_while_the_session_prompts_mod_is_on(tmp_path: Path) -> None:
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"enabledPlugins": {"session-prompts@mods-marketplace": True}}), encoding="utf-8"
+    )
+    completed = subprocess.run(
+        [sys.executable, str(STARTER_SCRIPT)],
+        input=json.dumps({"source": "startup"}),
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            **os.environ,
+            ORCHESTRATOR_AUTO_STARTER_ENABLED_ENV_VAR: "1",
+            "CLAUDE_CONFIG_DIR": str(tmp_path),
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+        },
+    )
+    assert completed.returncode == 0
+    assert completed.stdout.strip() == ""
