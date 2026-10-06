@@ -17,7 +17,7 @@ from types import ModuleType
 
 from .adapter_support import HookModuleLoader
 from .config import constants
-from .model import Diagnostic, Document, Location, Severity
+from .model import Diagnostic, Document, Severity
 
 
 def accepts_context_markdown(document: Document) -> bool:
@@ -44,8 +44,8 @@ def accepts_context_budget_policy(document: Document) -> bool:
     return document.path.as_posix() == constants.CONTEXT_BUDGET_POLICY_PATH
 
 
-def _diagnostic(rule_id: str, document: Document, message: str) -> Diagnostic:
-    return Diagnostic(rule_id, Severity.ERROR, message, Location(document.path, 1, 1))
+def _file_diagnostic(rule_id: str, message: str) -> Diagnostic:
+    return Diagnostic(rule_id, Severity.ERROR, message)
 
 
 def context_budget_diagnostics(
@@ -74,7 +74,7 @@ def context_budget_diagnostics(
         policy, document.path.as_posix(), document.text, document.prior_text
     )
     return tuple(
-        _diagnostic(constants.CONTEXT_BUDGET_RULE_ID, document, each.message)
+        _file_diagnostic(constants.CONTEXT_BUDGET_RULE_ID, each.message)
         for each in all_findings
     )
 
@@ -126,4 +126,4 @@ def context_budget_policy_diagnostics(
     del repository_root
     rule_id = constants.CONTEXT_BUDGET_POLICY_RULE_ID
     all_messages = _policy_messages(document, load_module)
-    return tuple(_diagnostic(rule_id, document, each) for each in all_messages)
+    return tuple(_file_diagnostic(rule_id, each) for each in all_messages)

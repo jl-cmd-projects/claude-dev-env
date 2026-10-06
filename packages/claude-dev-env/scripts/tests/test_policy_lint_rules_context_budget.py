@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path, PurePosixPath
 
 from policy_lint import adapters, registry
-from policy_lint.model import ContentOrigin, Document, DocumentRule
+from policy_lint.engine import lint
+from policy_lint.model import ContentOrigin, Document, DocumentRule, LintRequest
 
 _SKILL_PATH = "tools/example/SKILL.md"
 _POLICY_PATH = ".claude/context-budget.json"
@@ -142,3 +145,41 @@ def test_a_new_or_shrunk_policy_file_passes_and_a_malformed_one_reports(
         _document(_POLICY_PATH, "{broken"), tmp_path
     )
     assert "does not parse" in malformed[0].message
+
+
+def _git(repository_root: Path, *arguments: str) -> None:
+    environment = {
+        variable_name: variable_text
+        for variable_name, variable_text in os.environ.items()
+        if not variable_name.upper().startswith("GIT_")
+    }
+    subprocess.run(
+        ["git", *arguments], cwd=repository_root, env=environment,
+        check=True, capture_output=True, text=True,
+    )
+
+
+def test_a_section_added_below_line_one_reports_in_a_base_selection(
+    tmp_path: Path,
+) -> None:
+    """A base selection keeps only diagnostics on changed lines, so a finding
+    pinned to an unchanged line 1 vanished from the pull request check."""
+    _git(tmp_path, "init", "--quiet", "-b", "main")
+    _git(tmp_path, "config", "user.name", "Budget Tests")
+    _git(tmp_path, "config", "user.email", "budget@example.invalid")
+    _git(tmp_path, "config", "commit.gpgsign", "false")
+    _write_policy(tmp_path, _policy())
+    skill_path = tmp_path / _SKILL_PATH
+    skill_path.parent.mkdir(parents=True)
+    skill_path.write_text("# Example\n\nShort map.\n", encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "--quiet", "-m", "fixture")
+    with skill_path.open("a", encoding="utf-8") as skill_file:
+        skill_file.write("\n" + _section("Oversee", 9))
+    _git(tmp_path, "commit", "--quiet", "-am", "inline a long section")
+
+    report = lint(LintRequest.base(tmp_path, "HEAD~1"))
+
+    assert [
+        each.rule_id for each in report.diagnostics if each.rule_id == "context-budget"
+    ] == ["context-budget"]
