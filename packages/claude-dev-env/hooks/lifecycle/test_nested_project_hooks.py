@@ -178,6 +178,33 @@ def test_should_not_forward_a_child_allow_decision(tmp_path: pathlib.Path) -> No
     assert completed_process.stdout.strip() == ""
 
 
+def test_should_carry_child_pre_tool_use_context_without_its_allow(
+    tmp_path: pathlib.Path,
+) -> None:
+    context_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "additionalContext": "Build this page from the house template.",
+        }
+    }
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"PreToolUse": [_command_group("Artifact", f"echo '{json.dumps(context_output)}'")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Artifact"))
+
+    assert completed_process.returncode == 0
+    assert json.loads(completed_process.stdout) == {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "Build this page from the house template.",
+        }
+    }
+
+
 def test_should_skip_a_child_hook_whose_matcher_names_another_tool(
     tmp_path: pathlib.Path,
 ) -> None:

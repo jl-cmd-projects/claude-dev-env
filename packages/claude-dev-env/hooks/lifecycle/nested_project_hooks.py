@@ -14,8 +14,9 @@ guards then never run. This hook runs them::
 Each child hook receives the same stdin payload, runs inside its checkout, and
 keeps its own matcher and timeout. A child ``exit 2`` blocks the tool call and a
 child ``deny`` or ``ask`` decision passes through; a child ``allow`` is dropped,
-so no child widens permissions for the session. SessionStart output from every
-child joins into one ``additionalContext``.
+so no child widens permissions for the session. The ``additionalContext`` of
+every child, at SessionStart and at PreToolUse, joins into one
+``additionalContext``.
 
 When the session directory is itself a checkout or holds its own settings,
 Claude Code already runs those hooks, and this hook exits at once.
@@ -285,31 +286,48 @@ def pre_tool_use_verdict(
 
     Returns:
         A blocking exit carrying the child's stderr when any child exits 2,
-        else the first child ``deny`` or ``ask`` output, else an empty pass.
+        else the first child ``deny`` or ``ask`` output, else a pass carrying
+        every child's ``additionalContext``, else an empty pass.
     """
     for each_result in all_results:
         if each_result.returncode == BLOCKING_EXIT_CODE:
             return HookVerdict(BLOCKING_EXIT_CODE, "", each_result.stderr)
-    for each_result in all_results:
-        if each_result.returncode != 0:
-            continue
-        parsed_output = _parsed_hook_output(each_result.stdout)
-        if parsed_output is None:
-            continue
-        if _permission_decision(parsed_output) in ALL_FORWARDED_PERMISSION_DECISIONS:
-            return HookVerdict(0, json.dumps(parsed_output), "")
-    return HookVerdict(0, "", "")
+    all_parsed_outputs = [
+        _parsed_hook_output(each_result.stdout)
+        for each_result in all_results
+        if each_result.returncode == 0
+    ]
+    all_parsed_outputs = [each_output for each_output in all_parsed_outputs if each_output is not None]
+    for each_parsed_output in all_parsed_outputs:
+        if _permission_decision(each_parsed_output) in ALL_FORWARDED_PERMISSION_DECISIONS:
+            return HookVerdict(0, json.dumps(each_parsed_output), "")
+    all_context_sections = _non_empty_sections(
+        _json_additional_context(each_parsed_output) for each_parsed_output in all_parsed_outputs
+    )
+    if not all_context_sections:
+        return HookVerdict(0, "", "")
+    hook_output = {
+        HOOK_SPECIFIC_OUTPUT_KEY: {
+            HOOK_EVENT_NAME_OUTPUT_KEY: PRE_TOOL_USE_EVENT,
+            ADDITIONAL_CONTEXT_KEY: CONTEXT_SECTION_SEPARATOR.join(all_context_sections),
+        }
+    }
+    return HookVerdict(0, json.dumps(hook_output), "")
+
+
+def _json_additional_context(all_output_fields: dict[str, object]) -> str:
+    specific_output = all_output_fields.get(HOOK_SPECIFIC_OUTPUT_KEY)
+    if not isinstance(specific_output, dict):
+        return ""
+    context_text = specific_output.get(ADDITIONAL_CONTEXT_KEY)
+    return context_text.strip() if isinstance(context_text, str) else ""
 
 
 def _session_start_context(stdout_text: str) -> str:
     parsed_output = _parsed_hook_output(stdout_text)
     if parsed_output is None:
         return stdout_text.strip()
-    specific_output = parsed_output.get(HOOK_SPECIFIC_OUTPUT_KEY)
-    if not isinstance(specific_output, dict):
-        return ""
-    context_text = specific_output.get(ADDITIONAL_CONTEXT_KEY)
-    return context_text.strip() if isinstance(context_text, str) else ""
+    return _json_additional_context(parsed_output)
 
 
 def _non_empty_sections(all_sections: Iterable[str]) -> list[str]:
