@@ -35,7 +35,7 @@ routing_directory = str(Path(__file__).resolve().parent)
 if routing_directory not in sys.path:
     sys.path.insert(0, routing_directory)
 
-from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.pre_tool_use_context_runner import run_context_hook
 from hooks_constants.spawn_readiness_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     AGENT_ID_KEY,
@@ -250,19 +250,8 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
 
 
 def main() -> int:
-    """Read the PreToolUse payload and print the reminder when the spawn is not ready.
-
-    Returns:
-        0 in every case; the reminder travels in the JSON output.
-    """
-    hook_payload = read_hook_input_dictionary_from_stdin()
-    if hook_payload is None:
-        return 0
-    hook_output = decide_hook_output(hook_payload)
-    if hook_output is not None:
-        sys.stdout.write(json.dumps(hook_output))
-        sys.stdout.flush()
-    return 0
+    """Run the hook on the stdin payload; always 0."""
+    return run_context_hook(decide_hook_output)
 
 
 if __name__ == "__main__":

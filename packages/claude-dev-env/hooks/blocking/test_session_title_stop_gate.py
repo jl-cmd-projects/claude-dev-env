@@ -285,3 +285,11 @@ def test_stop_block_reason_names_the_seen_tool_when_the_turn_has_no_title() -> N
     ]
     block_reason = session_title_stop_gate.stop_block_reason(all_entries, is_remote_session=False)
     assert block_reason is not None and DESKTOP_TITLE_TOOL in block_reason
+
+
+def test_stop_block_reason_tells_the_model_to_set_the_title_in_silence() -> None:
+    all_entries = [prompt("Fix the runner"), tool_call("t1", REMOTE_TITLE_TOOL), prompt("Next")]
+    block_reason = session_title_stop_gate.stop_block_reason(all_entries, is_remote_session=True)
+    assert block_reason is not None
+    assert "Say nothing to the user about the title" in block_reason
+    assert "end with no text" in block_reason

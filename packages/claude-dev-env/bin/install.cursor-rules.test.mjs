@@ -31,6 +31,7 @@ function runInstaller(homeDirectory, extraArguments, environmentOverrides = {}) 
         encoding: 'utf8',
         env: {
             ...process.env,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
@@ -123,9 +124,10 @@ test('seeds one editable policy and one native Codex routing hook', () => {
             group => group.matcher === 'multi_agent_v1__spawn_agent',
         );
         assert.equal(firstRoutingGroups.length, 1);
-        assert.equal(firstRoutingGroups[0].hooks.length, 2);
+        assert.equal(firstRoutingGroups[0].hooks.length, 3);
         assert.match(firstRoutingGroups[0].hooks[0].command, /subagent_model_routing\.mjs/);
         assert.match(firstRoutingGroups[0].hooks[1].command, /spawn_readiness_hook\.py/);
+        assert.match(firstRoutingGroups[0].hooks[2].command, /spawn_oversight_hook\.py/);
         const firstSpawnPromptGroups = firstCodexHooks.hooks.PreToolUse.filter(
             group => group.matcher === 'Agent|Task',
         );

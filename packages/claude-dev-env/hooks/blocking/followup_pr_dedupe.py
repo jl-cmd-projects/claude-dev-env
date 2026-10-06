@@ -79,7 +79,12 @@ def _option_value(all_arguments: list[str], all_option_names: frozenset[str]) ->
     return None
 
 
-def _body_from_arguments(all_arguments: list[str], working_directory: str) -> str | None:
+def body_from_arguments(all_arguments: list[str], working_directory: str) -> str | None:
+    """Return the body a gh-style argument list passes, or None when it passes none.
+
+    ``--body`` text comes back as given. A ``--body-file`` path is read from
+    the working directory. Standard input and an unreadable file give None.
+    """
     inline_body = _option_value(all_arguments, ALL_BODY_OPTIONS)
     if inline_body is not None:
         return inline_body
@@ -125,7 +130,7 @@ def _segment_draft(all_segment_tokens: list[str], working_directory: str) -> Pul
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
     if program != "gh" or all_arguments[: len(ALL_GH_CREATE_WORDS)] != ALL_GH_CREATE_WORDS:
         return None
-    body = _body_from_arguments(all_arguments, working_directory)
+    body = body_from_arguments(all_arguments, working_directory)
     repository = _repository_from_arguments(all_arguments, working_directory)
     if body is None or repository is None:
         return None

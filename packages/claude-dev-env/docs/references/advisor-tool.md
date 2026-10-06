@@ -18,7 +18,7 @@ If the task needs orientation first (find files, fetch a source, see what exists
 
 Also call:
 
-- **When you believe the task is complete.** Before this call, make the deliverable durable: write the file, save the result, commit the change. The call takes time; if the session ends during it, a durable result survives and an unwritten one does not. Ask the advisor to hunt for missing requirements, untested behavior, wrong assumptions, unhandled edge cases, evidence gaps, and early completion claims.
+- **When you believe the task is complete.** Before this call, make the deliverable durable: write the file, save the result, commit the change. The call takes time; if the session ends during it, a durable result survives and an unwritten one does not. Ask the advisor to hunt for missing requirements, untested behavior, wrong assumptions, unhandled edge cases, evidence gaps, and early completion claims. A defect the task found in its own subject stays with the task through its fix pull request, so a close that routes that defect to another issue or epic is an early completion claim.
 - **When stuck** — errors recur, approach does not converge, results do not fit.
 - **When considering a change of approach.**
 
