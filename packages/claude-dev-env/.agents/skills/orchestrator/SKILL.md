@@ -3,8 +3,9 @@ name: orchestrator
 description: >-
   Coordinate user goals, parent tasks, workers, evidence, and recovery.
   Triggers: /orchestrator, orchestrate, operate like a coordinator,
-  track my goals, coordinate workers, retain goals across compaction.
-disable-model-invocation: true
+  track my goals, coordinate workers, retain goals across compaction,
+  before spawning a subagent, thread, or session, or starting work that
+  spans several turns.
 ---
 
 # Orchestrator
@@ -46,6 +47,7 @@ If a run is already active, retain its follow-up entry and answer without replac
 Create durable run state when work spans turns, has several goals, delegates, or waits on an external result.
 An explicit advisor-only request can restrict execution to workers for that run.
 For Claude Projects facts or reported coordinator mechanisms, read [platform evidence](reference/platform-evidence.md).
+Before spawning a subagent, thread, or session, read [oversee delegated work](reference/oversee-delegated-work.md).
 
 ## Process
 
@@ -135,6 +137,7 @@ Report the result, evidence, and any remaining limit.
 | `.claude/CLAUDE.md` | Claude instruction import. |
 | `reference/run-state.md` | Goal records, task authority, follow list, and active-root registry. |
 | `reference/recovery.md` | Cold-start and compaction recovery. |
+| `reference/oversee-delegated-work.md` | Spawner review of delegated work before it reaches the user. |
 | `reference/platform-evidence.md` | Official Projects sources and coordinator report boundaries. |
 | `reference/scheduling.md` | Optional existing gate commands and owned wake lifecycle. |
 | `reference/consult-the-orchestrator.md` | Executor consults and four-signal replies. |
