@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import PurePosixPath
 
 from . import adapters, model
+from .config import constants
 
 
 def build_document_rule(
@@ -152,6 +153,12 @@ def default_registry() -> tuple[model.Rule, ...]:
         *_python_document_rules(),
         *_text_document_rules(),
         *_configuration_document_rules(),
+        model.ChangeSetRule(
+            constants.CONTEXT_BUDGET_POLICY_REMOVAL_RULE_ID,
+            frozenset({"changed"}),
+            frozenset({model.SelectionKind.STAGED, model.SelectionKind.BASE}),
+            adapters.context_budget_policy_change_set_diagnostics,
+        ),
         model.ChangeSetRule(
             "test-pairing",
             frozenset({"changed"}),

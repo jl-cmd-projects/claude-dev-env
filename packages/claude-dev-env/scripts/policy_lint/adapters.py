@@ -557,3 +557,17 @@ def context_budget_policy_diagnostics(
     return adapter_context_budget.context_budget_policy_diagnostics(
         document, repository_root, _hooks_module
     )
+
+
+def context_budget_policy_change_set_diagnostics(
+    document_set: DocumentSet,
+) -> tuple[Diagnostic, ...]:
+    """Reject a Git selection that removes the context budget policy path.
+
+    Args:
+        document_set: Changed documents and removed or renamed paths.
+
+    Returns:
+        Policy removal diagnostics.
+    """
+    return adapter_context_budget.context_budget_policy_change_set_diagnostics(document_set)

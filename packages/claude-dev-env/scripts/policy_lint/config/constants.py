@@ -200,7 +200,11 @@ CALLER_NAME_PATTERN_TEMPLATE = r"(?<![\w-]){name}(?![\w-])"
 
 CONTEXT_BUDGET_RULE_ID = "context-budget"
 CONTEXT_BUDGET_POLICY_RULE_ID = "context-budget-policy"
+CONTEXT_BUDGET_POLICY_REMOVAL_RULE_ID = "context-budget-policy-removal"
 CONTEXT_BUDGET_POLICY_PATH = ".claude/context-budget.json"
+CONTEXT_BUDGET_POLICY_REMOVED_MESSAGE = (
+    "{path}: context-budget: the policy file is removed. Restore it to preserve the budget."
+)
 CONTEXT_BUDGET_POLICY_FILE_MODULE = "context_budget.policy_file"
 CONTEXT_BUDGET_FINDINGS_MODULE = "context_budget.findings"
 CONTEXT_BUDGET_POLICY_CHANGES_MODULE = "context_budget.policy_changes"

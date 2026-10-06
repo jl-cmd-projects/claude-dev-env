@@ -1,9 +1,9 @@
 """Report a policy file change that loosens the budget.
 
 The over-budget list may only shrink: a new or larger baseline entry, a raised
-limit, a section rule turned off, or a deleted kind is a finding. A null line
-count that becomes a number is larger. A policy file the change introduces
-passes.
+limit, a section rule turned off, or a deleted kind or hook is a finding.
+Existing kind patterns and precedence stay fixed. A null line count that
+becomes a number is larger. A policy file the change introduces passes.
 """
 
 from __future__ import annotations
@@ -15,6 +15,9 @@ from hooks_constants.context_budget_constants import (
     CHANGE_ADDS_FILE,
     CHANGE_ADDS_HOOK,
     CHANGE_ADDS_SECTION,
+    CHANGE_CHANGES_KIND_ORDER,
+    CHANGE_CHANGES_PATTERNS,
+    CHANGE_DELETES_HOOK,
     CHANGE_DELETES_KIND,
     CHANGE_DISABLES_SECTION_RULE,
     CHANGE_RAISES_CHAR_LIMIT,
@@ -37,6 +40,8 @@ def _kind_changes(prior_kind: ContextKind, current_kind: ContextKind | None) -> 
     if current_kind is None:
         return [CHANGE_DELETES_KIND.format(subject=prior_kind.name)]
     all_changes: list[str] = []
+    if current_kind.all_patterns != prior_kind.all_patterns:
+        all_changes.append(CHANGE_CHANGES_PATTERNS.format(subject=prior_kind.name))
     prior_limit = prior_kind.line_limit
     current_limit = current_kind.line_limit
     if prior_limit is not None and (current_limit is None or current_limit > prior_limit):
@@ -63,6 +68,15 @@ def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> 
             )
         )
     current_kind_by_name = {each.name: each for each in current_policy.all_kinds}
+    all_prior_kind_names = tuple(
+        each.name for each in prior_policy.all_kinds if each.name in current_kind_by_name
+    )
+    all_current_kind_names = tuple(each.name for each in current_policy.all_kinds)
+    if (
+        all_current_kind_names[:len(all_prior_kind_names)] != all_prior_kind_names
+        or len(set(all_current_kind_names)) != len(all_current_kind_names)
+    ):
+        all_changes.append(CHANGE_CHANGES_KIND_ORDER)
     for each_prior_kind in prior_policy.all_kinds:
         all_changes.extend(
             _kind_changes(each_prior_kind, current_kind_by_name.get(each_prior_kind.name))
@@ -70,9 +84,10 @@ def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> 
     current_hook_by_name = {each.name: each for each in current_policy.all_hooks}
     for each_prior_hook in prior_policy.all_hooks:
         current_hook = current_hook_by_name.get(each_prior_hook.name)
-        current_limit = (
-            each_prior_hook.char_limit if current_hook is None else current_hook.char_limit
-        )
+        if current_hook is None:
+            all_changes.append(CHANGE_DELETES_HOOK.format(subject=each_prior_hook.name))
+            continue
+        current_limit = current_hook.char_limit
         if current_limit > each_prior_hook.char_limit:
             all_changes.append(
                 CHANGE_RAISES_CHAR_LIMIT.format(

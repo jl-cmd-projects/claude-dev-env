@@ -7,6 +7,8 @@ import os
 import subprocess
 from pathlib import Path, PurePosixPath
 
+import pytest
+
 from policy_lint import adapters, registry
 from policy_lint.engine import lint
 from policy_lint.model import ContentOrigin, Document, DocumentRule, LintRequest
@@ -154,7 +156,8 @@ def _git(repository_root: Path, *arguments: str) -> None:
         if not variable_name.upper().startswith("GIT_")
     }
     subprocess.run(
-        ["git", *arguments], cwd=repository_root, env=environment,
+        ["git", "-c", "core.hooksPath=.git/fixture-hooks", *arguments],
+        cwd=repository_root, env=environment,
         check=True, capture_output=True, text=True,
     )
 
@@ -183,3 +186,33 @@ def test_a_section_added_below_line_one_reports_in_a_base_selection(
     assert [
         each.rule_id for each in report.diagnostics if each.rule_id == "context-budget"
     ] == ["context-budget"]
+
+
+@pytest.mark.parametrize("selection", ["staged", "base"])
+@pytest.mark.parametrize("operation", ["delete", "rename"])
+def test_removing_the_policy_is_rejected_by_git_selection(
+    tmp_path: Path, selection: str, operation: str
+) -> None:
+    _git(tmp_path, "init", "--quiet", "-b", "main")
+    _git(tmp_path, "config", "user.name", "Budget Tests")
+    _git(tmp_path, "config", "user.email", "budget@example.invalid")
+    _git(tmp_path, "config", "commit.gpgsign", "false")
+    _write_policy(tmp_path, _policy())
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "--quiet", "-m", "fixture")
+    if operation == "delete":
+        _git(tmp_path, "rm", _POLICY_PATH)
+    else:
+        _git(tmp_path, "mv", _POLICY_PATH, ".claude/renamed-budget.json")
+    request = (
+        LintRequest.staged(tmp_path)
+        if selection == "staged"
+        else LintRequest.base(tmp_path, "HEAD")
+    )
+
+    report = lint(request)
+
+    findings = [each for each in report.diagnostics if each.rule_id == "context-budget-policy"]
+    assert len(findings) == 1
+    assert "policy file is removed" in findings[0].message
+    assert not report.failed_rules

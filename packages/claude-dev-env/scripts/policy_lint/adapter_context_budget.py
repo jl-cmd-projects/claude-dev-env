@@ -12,12 +12,12 @@ repository without one is not checked.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 from .adapter_support import HookModuleLoader
 from .config import constants
-from .model import Diagnostic, Document, Severity
+from .model import Diagnostic, Document, DocumentSet, Severity
 
 
 def accepts_context_markdown(document: Document) -> bool:
@@ -127,3 +127,31 @@ def context_budget_policy_diagnostics(
     rule_id = constants.CONTEXT_BUDGET_POLICY_RULE_ID
     all_messages = _policy_messages(document, load_module)
     return tuple(_file_diagnostic(rule_id, each) for each in all_messages)
+
+
+def context_budget_policy_change_set_diagnostics(
+    document_set: DocumentSet,
+) -> tuple[Diagnostic, ...]:
+    """Reject removal or movement of the policy path in a Git selection.
+
+    Args:
+        document_set: Changed documents and removed or renamed paths.
+
+    Returns:
+        One finding when the selection removes the policy path.
+    """
+    policy_path = PurePosixPath(constants.CONTEXT_BUDGET_POLICY_PATH)
+    removed_paths = set(document_set.deleted_paths)
+    removed_paths.update(
+        old_path for old_path, new_path in document_set.renamed_paths if old_path != new_path
+    )
+    if policy_path not in removed_paths:
+        return ()
+    return (
+        Diagnostic(
+            constants.CONTEXT_BUDGET_POLICY_RULE_ID,
+            Severity.ERROR,
+            constants.CONTEXT_BUDGET_POLICY_REMOVED_MESSAGE.format(path=policy_path),
+            check_id=constants.CONTEXT_BUDGET_POLICY_REMOVAL_RULE_ID,
+        ),
+    )

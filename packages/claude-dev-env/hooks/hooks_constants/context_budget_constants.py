@@ -125,6 +125,9 @@ CHANGE_RAISES_SECTION_LIMIT = SECTION_DETAIL_LINE_LIMIT_KEY + " rises from {prio
 CHANGE_RAISES_LINE_LIMIT = 'kind "{subject}" line_limit rises from {prior} to {current}'
 CHANGE_DISABLES_SECTION_RULE = 'kind "{subject}" turns its section rule off'
 CHANGE_DELETES_KIND = 'kind "{subject}" is deleted'
+CHANGE_CHANGES_PATTERNS = 'kind "{subject}" patterns change'
+CHANGE_CHANGES_KIND_ORDER = "kind selection order changes"
+CHANGE_DELETES_HOOK = 'hook "{subject}" is deleted'
 CHANGE_RAISES_CHAR_LIMIT = 'hook "{subject}" char_limit rises from {prior} to {current}'
 NO_LINE_LIMIT_TEXT = "none"
 

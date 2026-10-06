@@ -40,6 +40,12 @@ from context_budget.policy_file import parse_policy
         ),
         (lambda raw: raw["kinds"].pop(2), 'kind "rule" is deleted'),
         (
+            lambda raw: raw["kinds"][1].update({"patterns": ["no-skills/*.md"]}),
+            'kind "skill entry" patterns change',
+        ),
+        (lambda raw: raw["kinds"].reverse(), "kind selection order changes"),
+        (lambda raw: raw["hooks"].clear(), 'hook "greeter" is deleted'),
+        (
             lambda raw: raw["hooks"][0].update({"char_limit": 1501}),
             "char_limit rises from 1500 to 1501",
         ),
@@ -83,3 +89,49 @@ def test_policy_change_from_null_lines_to_a_number_fails_shrink_only() -> None:
     assert len(all_findings) == 1
     assert 'records 250 lines for "a/SKILL.md"' in all_findings[0].message
     assert "the over-budget list may only shrink" in all_findings[0].message
+
+
+@pytest.mark.parametrize("position", [0, 1])
+def test_a_new_kind_cannot_precede_an_existing_kind(position: int) -> None:
+    raw_prior = json.loads(policy_text())
+    raw_current = json.loads(json.dumps(raw_prior))
+    raw_current["kinds"].insert(
+        position,
+        {"name": "unlimited", "patterns": ["**/*"], "line_limit": None},
+    )
+
+    findings = policy_shrink_findings(
+        "p", parse_policy(json.dumps(raw_prior)), parse_policy(json.dumps(raw_current))
+    )
+
+    assert len(findings) == 1
+    assert "kind selection order changes" in findings[0].message
+
+
+def test_a_duplicate_name_cannot_hide_a_raised_limit() -> None:
+    raw_prior = json.loads(policy_text())
+    raw_current = json.loads(json.dumps(raw_prior))
+    raw_current["kinds"][1]["line_limit"] = None
+    raw_current["kinds"].append(raw_prior["kinds"][1])
+
+    findings = policy_shrink_findings(
+        "p", parse_policy(json.dumps(raw_prior)), parse_policy(json.dumps(raw_current))
+    )
+
+    assert len(findings) == 1
+    assert "kind selection order changes" in findings[0].message
+
+
+def test_appending_a_kind_and_tightening_limits_passes() -> None:
+    raw_prior = json.loads(policy_text())
+    raw_current = json.loads(json.dumps(raw_prior))
+    raw_current["kinds"][1]["line_limit"] = 100
+    raw_current["hooks"][0]["char_limit"] = 1000
+    raw_current["section_detail_line_limit"] = 5
+    raw_current["kinds"].append(
+        {"name": "extra", "patterns": ["extra/*.md"], "line_limit": 20}
+    )
+
+    assert policy_shrink_findings(
+        "p", parse_policy(json.dumps(raw_prior)), parse_policy(json.dumps(raw_current))
+    ) == ()
