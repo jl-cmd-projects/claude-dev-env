@@ -80,10 +80,17 @@ class VisualReplyRules:
         return next(each.reminder for each in self.all_rules if each.key == rule_key)
 
 
+def _string_list(field_value: object) -> list[object]:
+    return field_value if isinstance(field_value, list) else []
+
+
 def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
     """Parse the rule file, or return None when it is missing or malformed."""
     document = read_json_object(rules_path, RULES_FILE_ENCODING)
-    if document is None or not isinstance(document.get(RULES_LIST_KEY), list):
+    if document is None:
+        return None
+    all_rule_entries = document.get(RULES_LIST_KEY)
+    if not isinstance(all_rule_entries, list):
         return None
     all_rules = tuple(
         ReplyRule(
@@ -91,7 +98,7 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
             label=str(each[RULE_LABEL_FIELD]),
             reminder=str(each[RULE_REMINDER_FIELD]),
         )
-        for each in document[RULES_LIST_KEY]
+        for each in all_rule_entries
         if isinstance(each, dict)
         and all(field in each for field in (RULE_KEY_FIELD, RULE_LABEL_FIELD, RULE_REMINDER_FIELD))
     )
@@ -101,10 +108,10 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
     return VisualReplyRules(
         all_rules=all_rules,
         all_allowed_capitalized_words=frozenset(
-            str(each) for each in document.get(ALLOWED_CAPITALIZED_WORDS_KEY) or []
+            str(each) for each in _string_list(document.get(ALLOWED_CAPITALIZED_WORDS_KEY))
         ),
         all_lowercase_abbreviations=tuple(
-            str(each) for each in document.get(LOWERCASE_ABBREVIATIONS_KEY) or []
+            str(each) for each in _string_list(document.get(LOWERCASE_ABBREVIATIONS_KEY))
         ),
     )
 
