@@ -28,6 +28,7 @@ definitions and dictionary decisions.
 - Use inclusive, neutral language.
 - Use periods, commas, colons, and bullets to show structure.
 - Preserve exact quoted labels, identifiers, formulas, titles, and interface text.
+- Say each fact once in a reply or page. A picture, its caption, and the words sent with it count as one text, so the words never describe what the picture draws.
 - Send the reader only a result, a blocker, or a question. Leave out a line that says nothing is needed from them, and leave out which agent, session, or coordinator did the work.
 - Use `WARNING` for a risk of injury or death. Use `CAUTION` for a risk of equipment, tool, or machine damage. State the command or condition first, then state the result.
 - Aim for 20 words or fewer in a procedure sentence when the technical content allows.
@@ -37,6 +38,15 @@ Use this policy for chat, tool narration, questions, plans, documentation, code-
 and durable repository text. Named contracts can add behavior-specific structure, evidence,
 question routing, current-state documentation, completion, docstring, or publication rules.
 Those contracts use this policy for their language.
+
+## Repeated-points check
+
+Run this check on each reply or page you draft, before you send it. Run it also when asked to check text for repeated points.
+
+1. List each fact the text states, with where it appears. Include each fact that a picture, diagram, or table shows: its labels, its order, what moves, and the end state it draws.
+2. Mark each fact that appears more than once, in the same words or in other words.
+3. Keep each marked fact in the one place that shows it best. Delete each other statement of it, or rewrite that line to carry a new fact. A bullet under a picture keeps only what the picture cannot show, such as a cause, a condition, a command, or a warning.
+4. Report each restatement you removed, or report that each fact appears once.
 
 Treat automated output and language checks as drafting aids. A responsible human verifies
 technical accuracy, terminology, safety, confidentiality, and intended meaning.
