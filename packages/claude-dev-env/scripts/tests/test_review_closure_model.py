@@ -627,10 +627,11 @@ def should_not_credit_a_driver_review_request_as_a_bug_reply() -> None:
     ("User", "maintainer"),
 ])
 @pytest.mark.parametrize("record_index", [1, 2])
+@pytest.mark.parametrize("case", CASES, ids=lambda case: str(case["number"]))
 def should_retain_a_notice_pasted_by_an_untrusted_author(
-    user_type: str, login: str, record_index: int
+    user_type: str, login: str, record_index: int, case: dict
 ) -> None:
-    record = copy.deepcopy(CASES[0]["comments"][record_index])
+    record = copy.deepcopy(case["comments"][record_index])
     record["user"] = {"type": user_type, "login": login}
     comment = model.parse_top_level_comment(record)
 
@@ -639,13 +640,24 @@ def should_retain_a_notice_pasted_by_an_untrusted_author(
 
 
 @pytest.mark.parametrize("record_index", [0, 1, 2])
-def should_retain_a_command_or_notice_with_an_appended_finding(record_index: int) -> None:
-    record = copy.deepcopy(CASES[0]["comments"][record_index])
+@pytest.mark.parametrize("case", CASES, ids=lambda case: str(case["number"]))
+def should_retain_a_command_or_notice_with_an_appended_finding(record_index: int, case: dict) -> None:
+    record = copy.deepcopy(case["comments"][record_index])
     record["body"] += "\n\n[P1] The rollback loses the saved profile."
     comment = model.parse_top_level_comment(record)
 
     assert not comment.is_notice
     assert len(model.top_level_findings((comment,), DRIVERS)) == 1
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: str(case["number"]))
+def should_retain_a_finding_inside_the_clean_review_sentence(case: dict) -> None:
+    record = copy.deepcopy(case["comments"][2])
+    record["body"] = record["body"].replace(
+        "Didn't find any major issues.", "Didn't find any major issues. [P1] The rollback loses a profile."
+    )
+
+    assert not model.parse_top_level_comment(record).is_notice
 
 
 def should_retain_a_finding_inside_pasted_notice_metadata() -> None:

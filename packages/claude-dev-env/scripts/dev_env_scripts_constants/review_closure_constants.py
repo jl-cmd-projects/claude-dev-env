@@ -174,7 +174,8 @@ CODEX_SUMMARY_ROW_PATTERN = (
     r"[^<\n]+</relative-time> \| `[a-f0-9]{7,40}` \| Manual request \|"
 )
 CODEX_CLEAN_REVIEW_PATTERN = (
-    r"Codex Review: Didn't find any major issues\.(?: Nice work!| Chef's kiss\.)?"
+    r"Codex Review: Didn't find any major issues\."
+    r"(?: Nice work!| Chef's kiss\.| You're on a roll\.| Swish!)?"
     r"\n\n\*\*Reviewed commit:\*\* `[a-f0-9]{7,40}`"
 )
 
