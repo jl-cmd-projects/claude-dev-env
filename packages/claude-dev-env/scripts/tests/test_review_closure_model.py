@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +12,7 @@ SCRIPTS_DIRECTORY = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIRECTORY))
 
+import review_closure as command
 import review_closure_model as model
 from dev_env_scripts_constants.review_closure_constants import (
     APPROVALS_CHECK_NAME,
@@ -567,3 +570,118 @@ def should_read_a_person_carrying_a_repository_marker_as_a_comment() -> None:
     )
 
     assert not comment.is_notice
+
+
+CASES = json.loads(
+    (Path(__file__).resolve().parents[1] / "test_files/review_closure/codex_comments.json")
+    .read_text(encoding="utf-8")
+)
+DRIVERS = frozenset({CASES[0]["driver_login"]})
+SLUG = "jl-cmd-projects/claude-dev-env"
+
+
+def _comments(case: dict) -> tuple[model.TopLevelComment, ...]:
+    return tuple(model.parse_top_level_comment(record) for record in case["comments"])
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: str(case["number"]))
+def should_replay_clean_queue_comments_through_the_command(
+    case: dict, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pr = {"number": case["number"], "head": {"sha": case["head"]},
+          "user": {"login": next(iter(DRIVERS))}}
+    monkeypatch.setattr(command, "github_token", lambda: "fixture-token")
+    monkeypatch.setattr(command, "read_pull_request", lambda *_: pr)
+    monkeypatch.setattr(command, "read_review_threads", lambda *_: ())
+    monkeypatch.setattr(command, "read_top_level_comments", lambda *_: _comments(case))
+    monkeypatch.setattr(command, "read_approvals_conclusion", lambda *_: None)
+
+    assert command.main([SLUG, str(case["number"])]) == 0
+    assert capsys.readouterr().out.startswith(f"CLOSED {SLUG}#{case['number']}")
+
+
+@pytest.mark.parametrize("body", ["@codex review", "@codex security review"])
+def should_treat_a_command_only_request_as_a_notice(body: str) -> None:
+    record = copy.deepcopy(CASES[0]["comments"][0])
+    record["body"] = body
+
+    assert model.parse_top_level_comment(record).is_notice
+
+
+def should_not_credit_a_driver_review_request_as_a_bug_reply() -> None:
+    request = copy.deepcopy(CASES[0]["comments"][0])
+    request["user"]["login"] = next(iter(DRIVERS))
+    bug = copy.deepcopy(request)
+    bug["user"]["login"] = "maintainer"
+    bug["body"] = "The rollback loses the saved profile."
+    bug["created_at"] = bug["updated_at"] = "2026-10-06T11:00:00Z"
+    comments = tuple(model.parse_top_level_comment(record) for record in (bug, request))
+
+    assert len(model.top_level_findings(comments, DRIVERS)) == 1
+    assert model.latest_driver_comment_time(comments, DRIVERS) is None
+
+
+@pytest.mark.parametrize("user_type,login", [
+    ("User", "chatgpt-codex-connector[bot]"),
+    ("Bot", "untrusted[bot]"),
+    ("User", "maintainer"),
+])
+@pytest.mark.parametrize("record_index", [1, 2])
+def should_retain_a_notice_pasted_by_an_untrusted_author(
+    user_type: str, login: str, record_index: int
+) -> None:
+    record = copy.deepcopy(CASES[0]["comments"][record_index])
+    record["user"] = {"type": user_type, "login": login}
+    comment = model.parse_top_level_comment(record)
+
+    assert not comment.is_notice
+    assert len(model.top_level_findings((comment,), DRIVERS)) == 1
+
+
+@pytest.mark.parametrize("record_index", [0, 1, 2])
+def should_retain_a_command_or_notice_with_an_appended_finding(record_index: int) -> None:
+    record = copy.deepcopy(CASES[0]["comments"][record_index])
+    record["body"] += "\n\n[P1] The rollback loses the saved profile."
+    comment = model.parse_top_level_comment(record)
+
+    assert not comment.is_notice
+    assert len(model.top_level_findings((comment,), DRIVERS)) == 1
+
+
+def should_retain_a_finding_inside_pasted_notice_metadata() -> None:
+    record = copy.deepcopy(CASES[0]["comments"][2])
+    record["body"] = record["body"].replace(
+        "</details>", "[P1] The rollback loses the saved profile.\n</details>"
+    )
+
+    assert not model.parse_top_level_comment(record).is_notice
+
+
+def should_keep_an_inline_finding_open_beside_clean_notices() -> None:
+    thread = model.ReviewThread(
+        subject="bin/install.mjs", is_resolved=False, is_outdated=False,
+        all_comments=(model.ReviewComment("reviewer", "[P1] The rollback loses a profile."),),
+    )
+
+    findings = model.all_open_findings((thread,), _comments(CASES[0]), DRIVERS, None)
+
+    assert len(findings) == 1
+    assert findings[0].subject == "bin/install.mjs"
+
+
+def should_keep_a_top_level_bug_open_after_a_stale_clean_verdict() -> None:
+    bug = copy.deepcopy(CASES[0]["comments"][0])
+    bug["user"]["login"] = "maintainer"
+    bug["body"] = "[P1] The rollback loses the saved profile."
+    clean = copy.deepcopy(CASES[0]["comments"][2])
+    clean["body"] = clean["body"].replace("e123a99375", "aaaaaaaaaa")
+    comments = tuple(model.parse_top_level_comment(record) for record in (bug, clean))
+
+    assert len(model.top_level_findings(comments, DRIVERS)) == 1
+
+
+def should_keep_a_blocking_approval_open_beside_clean_notices() -> None:
+    findings = model.all_open_findings((), _comments(CASES[0]), DRIVERS, "failure")
+
+    assert len(findings) == 1
+    assert findings[0].subject == "Claude Approvals"
