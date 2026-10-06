@@ -8,6 +8,8 @@ Back to the [rule entry](../../rules/session-title.md).
 
 Before each turn ends, set the title to `<emoji> <name>`. Get the session id from `get_session` with no `session_id` when the tool asks for one.
 
+Set the title before the final reply, and set it in silence. The reply to the user carries no mention of the title, its emoji, or the reminder that asked for it. When a Stop hook asks for the title after the answer went out, make the call and end the turn with no text.
+
 ## Status emoji
 
 | Emoji | Use it when |

@@ -3327,7 +3327,7 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin uninstall usage-wrapup@claude-dev-env',
     'claude plugin marketplace remove claude-dev-env',
-    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
+    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
     'claude plugin install usage-wrapup@claude-dev-env',
 ]);
 
@@ -3405,7 +3405,7 @@ const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin uninstall usage-wrapup@claude-dev-env',
     'claude plugin uninstall subagent-models@claude-dev-env',
     'claude plugin marketplace remove claude-dev-env',
-    'claude plugin marketplace add jl-cmd/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
+    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
     'claude plugin install usage-wrapup@claude-dev-env',
     'claude plugin install subagent-models@claude-dev-env',
 ]);

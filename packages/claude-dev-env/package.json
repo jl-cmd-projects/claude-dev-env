@@ -1,6 +1,6 @@
 {
     "name": "claude-dev-env",
-    "version": "8.55.0",
+    "version": "8.61.0",
     "description": "Claude Code development standards — rules, hooks, agents, commands, and skills",
     "type": "module",
     "bin": {
@@ -25,7 +25,6 @@
         "settings.json",
         "installable-surfaces.manifest.json",
         "_shared/",
-        "profile-settings/",
         "audit-rubrics/",
         "codex-rules/",
         "pstack-codex-models.md",
@@ -50,7 +49,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jl-cmd/claude-dev-env.git",
+        "url": "git+https://github.com/jl-cmd-projects/claude-dev-env.git",
         "directory": "packages/claude-dev-env"
     }
 }

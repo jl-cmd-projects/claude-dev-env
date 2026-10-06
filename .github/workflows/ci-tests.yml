@@ -1,12 +1,3 @@
-# Full Python + JS test suites on every PR and main push.
-#
-# Path filters (dorny/paths-filter, per-job): the package-suite, root-suite, and
-# javascript jobs each run only when their filter matches on a PR; push to main
-# always runs the full suite. The root-suite filter adds docs, scripts, and
-# workflow paths on top of the package-suite filter, so a docs-only PR runs the
-# root suite and skips the package suite. All of packages/claude-dev-env/** stays
-# in every filter because package markdown is fixture-bearing.
-#
 # Deselect policy (single-source lists under .github/ci/):
 #   - LivePostAudit: permanently deselected (local register; no credential wiring;
 #     gh binary is present on runners but author-swap tokens are not).
@@ -22,12 +13,6 @@
 # ephemeral production scripts.
 #
 # permissions: contents read + pull-requests read (dorny/paths-filter on PRs).
-#
-# Trigger scope: the pull_request trigger carries no branches filter, so a PR
-# whose base is a stacked parent branch runs the same jobs as a PR based on
-# main. dorny/paths-filter compares against the PR's own base ref, so each PR
-# in a stack filters on the files that PR alone changes. The push trigger stays
-# pinned to main and always runs the full suite.
 
 name: CI — Full test suites
 
@@ -35,6 +20,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -59,6 +45,7 @@ jobs:
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
+        if: github.event_name != 'merge_group'
         with:
           filters: |
             package_suite:
@@ -66,6 +53,7 @@ jobs:
               - 'pytest.ini'
               - 'pyproject.toml'
               - 'packages/claude-dev-env/**'
+              - 'packages/usage-wrapup/**'
               - 'tests/**'
               - '.github/workflows/ci-tests.yml'
               - '.github/ci/**'
@@ -125,6 +113,9 @@ jobs:
       - name: Install the Claude Code CLI for plugin tests
         run: npm install --global @anthropic-ai/claude-code@2.1.288
 
+      - name: Set up Bun for usage-wrapup tests
+        uses: oven-sh/setup-bun@v2
+
       - name: Configure git identity for test repos
         run: |
           git config --global user.email "ci@example.com"
@@ -140,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest packages/claude-dev-env \
+          python -m pytest packages/claude-dev-env packages/usage-wrapup/tests \
             --basetemp="$RUNNER_TEMP/pytest-basetemp-pkg" \
             -q \
             -n auto \
@@ -355,7 +346,7 @@ jobs:
       - name: Resolve the event merge base
         id: event-merge-base
         env:
-          EVENT_BASE_REVISION: ${{ github.event.before }}
+          EVENT_BASE_REVISION: ${{ github.event.before || github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           event_base_revision="${EVENT_BASE_REVISION}"
