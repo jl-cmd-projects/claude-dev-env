@@ -61,6 +61,12 @@ import {
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
+    removeCodexSolProfile,
+    SOL_PROMPT_DIRECTORY_NAME,
+    SOL_PROMPT_FILE_NAME,
+    writeCodexSolProfile,
+} from './codex-trimmed-sol.mjs';
+import {
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     writeCodexAgentsGuidance,
@@ -2911,6 +2917,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
         );
         if (questionGuidancePath) allCodexGuidancePaths.push(questionGuidancePath);
+        const solProfilePath = writeCodexSolProfile(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            join(CLAUDE_HOME, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
+        );
+        if (solProfilePath) {
+            allCodexGuidancePaths.push(solProfilePath);
+            console.log(`  \u2713 ${solProfilePath} (Codex trimmed Sol profile)`);
+        }
     }
     syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
@@ -3271,6 +3285,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     removeCodexPackageGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
+    removeCodexSolProfile(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 
     if (existsSync(plan.settingsPath)) {

@@ -81,6 +81,7 @@ class TestSync:
         main_home = tmp_path / "main"
         (main_home / "rules").mkdir(parents=True)
         (main_home / "config.toml").write_text("model = 'x'")
+        (main_home / "trimmed-sol.config.toml").write_text("model = 'y'")
         (main_home / "auth.json").write_text("{}")
         (main_home / "sessions").mkdir()
         profiles_root = tmp_path / "profiles"
@@ -103,6 +104,9 @@ class TestSync:
         each_home = profiles_root / "codex-3"
         assert os.readlink(each_home / "rules") == str(main_home / "rules")
         assert os.readlink(each_home / "config.toml") == str(main_home / "config.toml")
+        assert os.readlink(each_home / "trimmed-sol.config.toml") == str(
+            main_home / "trimmed-sol.config.toml"
+        )
         assert not (each_home / "auth.json").exists()
         assert not (each_home / "sessions").exists()
 
@@ -110,7 +114,7 @@ class TestSync:
 class TestSmallHelpers:
     @pytest.mark.parametrize(
         ("entry_name", "is_local"),
-        [("auth.json", True), ("sessions", True), ("state_5.sqlite", True), ("config.toml", False), ("plugins", False), ("agents", False)],
+        [("auth.json", True), ("sessions", True), ("state_5.sqlite", True), ("config.toml", False), ("trimmed-sol.config.toml", False), ("plugins", False), ("agents", False)],
     )
     def should_keep_every_entry_outside_the_shared_set_per_account(
         self, entry_name: str, is_local: bool

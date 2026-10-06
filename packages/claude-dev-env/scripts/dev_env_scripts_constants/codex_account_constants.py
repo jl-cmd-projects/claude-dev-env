@@ -86,6 +86,7 @@ ALL_SHARED_CODEX_HOME_NAMES: frozenset[str] = frozenset(
         "prompts",
         "rules",
         "skills",
+        "trimmed-sol.config.toml",
     }
 )
 """Codex home entries every account shares. Every other entry stays per account."""

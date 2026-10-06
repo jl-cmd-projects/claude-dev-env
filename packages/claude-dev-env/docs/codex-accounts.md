@@ -42,7 +42,8 @@ $env:CODEX_HOME = "$HOME\.codex-profiles\codex-1"; codex login
 
 The sign-in lives in that folder's `auth.json`. Only the entries in
 `ALL_SHARED_CODEX_HOME_NAMES` link to `~/.codex`. They are `AGENTS.md`, `agents`,
-`config.toml`, `hooks`, `hooks.json`, `plugins`, `prompts`, `rules` and `skills`.
+`config.toml`, `hooks`, `hooks.json`, `plugins`, `prompts`, `rules`, `skills` and
+`trimmed-sol.config.toml`.
 Sign-in, sessions, history, logs and state files stay per account.
 
 ## Named launchers
@@ -126,3 +127,28 @@ Once installed, that is `~/.claude/scripts/account_broker.py`.
 |---|---|
 | `_shared/pr-loop/scripts/check_convergence.py` | Requires a Codex clean stamp on HEAD only on `normal`. `luna`, `wait`, or a failed broker skips the Codex gate |
 | `_shared/advisor/scripts/codex_astra_advisor.py` | Binds Astra only on `normal`, and runs Codex with `CODEX_HOME` set to `decision.home` |
+
+## Trimmed Sol prompt
+
+The installer writes `trimmed-sol.config.toml` in `~/.codex`. That Codex profile
+sets `model = "gpt-6.1-sol"` and points `model_instructions_file` at
+`~/.claude/system-prompts/codex-sol.md`. The file is Codex's default
+`gpt-6.1-sol` prompt with the lines that conflict with the package rules
+rewritten. `sync` links the profile into every account home.
+
+A run gets the trimmed prompt only when it passes `--profile trimmed-sol`.
+Without the flag, each model runs the default prompt Codex ships for it.
+
+To see which prompt a Codex run uses, read the run's command line. With
+`--profile trimmed-sol`, the prompt is the file the profile names:
+
+```
+Get-Content "$HOME\.codex\trimmed-sol.config.toml"
+```
+
+To run Sol on the trimmed prompt through the broker, add the flag to the Codex
+command. `run` reads all of standard input before it starts Codex, so close it:
+
+```
+python ~/.claude/scripts/account_broker.py run --product codex --report <report.json> -- codex exec --profile trimmed-sol "<request>" < /dev/null
+```
