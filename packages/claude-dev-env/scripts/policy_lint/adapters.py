@@ -11,6 +11,7 @@ from shared_tree_paths import resolve_shared_scripts_directory
 from . import (
     adapter_callers,
     adapter_configuration,
+    adapter_context_budget,
     adapter_contrast_framing,
     adapter_detectors,
     adapter_pairing,
@@ -497,4 +498,62 @@ def retired_hook_prose_diagnostics(
     """
     return adapter_retired_hook_prose.retired_hook_prose_diagnostics(
         document, repository_root
+    )
+
+
+def accepts_context_markdown(document: Document) -> bool:
+    """Return whether the document is Markdown the context budget may select.
+
+    Args:
+        document: Candidate document.
+
+    Returns:
+        True for Markdown documents.
+    """
+    return adapter_context_budget.accepts_context_markdown(document)
+
+
+def accepts_context_budget_policy(document: Document) -> bool:
+    """Return whether the document is the context budget policy file.
+
+    Args:
+        document: Candidate document.
+
+    Returns:
+        True for ``.claude/context-budget.json``.
+    """
+    return adapter_context_budget.accepts_context_budget_policy(document)
+
+
+def context_budget_diagnostics(
+    document: Document, repository_root: Path
+) -> tuple[Diagnostic, ...]:
+    """Hold one changed context file to its kind limits and the over-budget list.
+
+    Args:
+        document: Current Markdown text and its prior text.
+        repository_root: Repository root holding the policy file.
+
+    Returns:
+        Context budget diagnostics.
+    """
+    return adapter_context_budget.context_budget_diagnostics(
+        document, repository_root, _hooks_module
+    )
+
+
+def context_budget_policy_diagnostics(
+    document: Document, repository_root: Path
+) -> tuple[Diagnostic, ...]:
+    """Report a policy file change that loosens the context budget.
+
+    Args:
+        document: Current policy text and its prior text.
+        repository_root: Request repository root.
+
+    Returns:
+        Shrink-only diagnostics.
+    """
+    return adapter_context_budget.context_budget_policy_diagnostics(
+        document, repository_root, _hooks_module
     )

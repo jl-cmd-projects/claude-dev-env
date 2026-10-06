@@ -114,6 +114,16 @@ def _text_document_rules() -> tuple[model.Rule, ...]:
             adapters.accepts_instruction_markdown,
             adapters.retired_hook_prose_diagnostics,
         ),
+        build_document_rule(
+            "context-budget",
+            adapters.accepts_context_markdown,
+            adapters.context_budget_diagnostics,
+        ),
+        build_document_rule(
+            "context-budget-policy",
+            adapters.accepts_context_budget_policy,
+            adapters.context_budget_policy_diagnostics,
+        ),
     )
 
 

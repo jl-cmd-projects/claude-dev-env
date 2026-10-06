@@ -197,3 +197,15 @@ ALL_INVENTORY_FILE_NAMES = frozenset(
 )
 ALL_UNCALLED_EXEMPT_FILE_NAMES = frozenset({"__init__.py", "conftest.py"})
 CALLER_NAME_PATTERN_TEMPLATE = r"(?<![\w-]){name}(?![\w-])"
+
+CONTEXT_BUDGET_RULE_ID = "context-budget"
+CONTEXT_BUDGET_POLICY_RULE_ID = "context-budget-policy"
+CONTEXT_BUDGET_POLICY_PATH = ".claude/context-budget.json"
+CONTEXT_BUDGET_POLICY_FILE_MODULE = "context_budget.policy_file"
+CONTEXT_BUDGET_FINDINGS_MODULE = "context_budget.findings"
+CONTEXT_BUDGET_POLICY_CHANGES_MODULE = "context_budget.policy_changes"
+CONTEXT_BUDGET_MODEL_MODULE = "context_budget.model"
+CONTEXT_BUDGET_UNREADABLE_MESSAGE = (
+    "{path}: context-budget: the policy file does not parse ({error}). Fix it to"
+    " the documented shape."
+)

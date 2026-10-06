@@ -98,9 +98,6 @@ SHRINK_ONLY_TEMPLATE = (
     MESSAGE_PREFIX + "{change}; the over-budget list may only shrink. Restore the prior value "
     "and shrink the context instead."
 )
-POLICY_UNREADABLE_TEMPLATE = (
-    MESSAGE_PREFIX + "the policy file does not parse ({error}). Fix it to the documented shape."
-)
 HOOK_FINDING_TEMPLATE = (
     'context-budget: hook "{name}" injects {count} characters (limit {limit}). '
     "Move the detail to a skill or reference file the agent opens on demand and "
