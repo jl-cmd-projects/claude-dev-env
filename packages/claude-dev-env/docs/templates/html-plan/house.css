@@ -1,0 +1,26 @@
+:root { color-scheme: light dark; --ink-2: var(--ink); --ink-3: var(--ink); --accent: #7a2e14; --green: #1c5426; --amber: #5f3f06; --red: #8f1d17; --on-accent: #ffffff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink-2: var(--ink); --ink-3: var(--ink); --accent: #f6bba5; --green: #9fdcaa; --amber: #f2cc80; --red: #f7b3ab; --on-accent: #1f1e1d; } }
+:root[data-theme="dark"] { --ink-2: var(--ink); --ink-3: var(--ink); --accent: #f6bba5; --green: #9fdcaa; --amber: #f2cc80; --red: #f7b3ab; --on-accent: #1f1e1d; }
+body { background: var(--paper); color: var(--ink); font: 430 16px/1.6 var(--sans); }
+small, code, bdi, .mk-cap, .mk-label, .mk-bar, .fig-cap, .c-lang, .c-lines, .c-body td,
+.pl-num, .pl-chev, .pl-bdg, p.pl-claim, doc-claim > .pl-row > .pl-claim, .pl-body > p, .pl-body > ul, .pl-body > doc-note,
+doc-ask::before, doc-ask label small, doc-ask label .sug, doc-ask label > span,
+.nw-askrow .s, .nw-askrow .q small, .nw-btn, .nw-next, .nw-respond, .nw-cbtn, .fig-zoom, .tr-name, .tr-guide, .tr-note, .cl-note, .cl-loc, .mc-to, .mc-hint { font-size: 16px !important; }
+.nw-cbtn, .cl-loc, .fig-zoom, .mc-ev[disabled], .nw-btn[disabled], svg.nw .msg.mc-past path, svg.nw .msg.mc-past text { opacity: 1 !important; }
+.nw-next, .has-comment > .nw-cbtn, .nw-cbtn.on, .nw-askrow.todo .s, .nw-asks .ttl b.todo, .nw-pop.note .k { color: var(--on-accent) !important; }
+.mk-frame.terminal .mk-bar { color: #e6e3dc; }
+doc-note, doc-note > strong:first-child { font-size: 16px !important; }
+:root { --blue: #1d4a85; --purple: #4f2f96; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --blue: #b9d3f5; --purple: #d3c3f5; } }
+:root[data-theme="dark"] { --blue: #b9d3f5; --purple: #d3c3f5; }
+doc-note, doc-note > strong:first-child, .pill, .kicker, .dek, .meta, h4, th, table, figcaption, .caption, details > summary, pre,
+.nw-toc, .nw-toc a, .nw-toc a.h3, .nw-toc a.ask, .nw-toc .ttl, .nw-pop, .nw-pop .ref, .nw-pop textarea, .nw-sheet .hint, .nw-send-state,
+.nw-sheet .body pre, .nw-asks .ttl, .nw-asks .ttl b, .nw-askrow, .nw-askrow .k, .nw-toast, .nw-pin-list, .nw-err, .nw-bar .nw-respond .n,
+doc-claim[data-l="1"] > .pl-row > .pl-num, doc-claim[data-l="2"] > .pl-row > .pl-claim { font-size: 16px !important; }
+.has-comment > .nw-cbtn, .nw-cbtn.on, .nw-bar .nw-respond .n, .nw-bar .nw-next { background: var(--accent); }
+.nw-bar .nw-respond .n.ok { background: var(--green); color: var(--on-accent); }
+.nw-bar .nw-respond .n { color: var(--on-accent); }
+doc-changes, doc-changes b, .ch-tag, .ch-n, .q-via, .q-from, .q-body { font-size: 16px !important; }
+.cl-head, .cl-kind, .cl-title, .cl-counts, .cl-counts b, .cl-nm, .cl-rail, .cl-tg, .c-cap, .c-pin b, .mc-now, .mc-now b, .mc-now i, .mc-now span, .nw-pin-dot, svg.nw text, svg.nw .node text.sub, svg.nw .node text.more, svg.nw .edge text, svg.nw .group text { font-size: 16px !important; }
+.cl-tg { color: var(--ink); }
+.nw-pin-dot { color: var(--on-accent); }

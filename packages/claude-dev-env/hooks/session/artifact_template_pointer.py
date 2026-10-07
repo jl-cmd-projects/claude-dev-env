@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: point an agent about to build an artifact page at the template.
+"""PreToolUse hook: point an agent about to build an artifact page at html-plan.
 
 Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
-naming ``docs/templates/artifact-page/template.html`` when a session starts a
-new artifact page:
+naming ``docs/templates/html-plan/README.md`` as the default and
+``docs/templates/artifact-page/template.html`` as the alternative when a
+session starts a new artifact page:
 
 ::
 
@@ -31,6 +32,8 @@ from hooks_constants.artifact_template_pointer_constants import (
     ARTIFACT_QUICKSTART_ACTION,
     ARTIFACT_TEMPLATE_PATH,
     ARTIFACT_TOOL_NAME,
+    HTML_PLAN_TEMPLATE_README_PATH,
+    POINTER_ALTERNATIVE_PREFIX,
     POINTER_TEXT_PREFIX,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
@@ -77,7 +80,10 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
-            ADDITIONAL_CONTEXT_KEY: f"{POINTER_TEXT_PREFIX}{ARTIFACT_TEMPLATE_PATH}.",
+            ADDITIONAL_CONTEXT_KEY: (
+                f"{POINTER_TEXT_PREFIX}{HTML_PLAN_TEMPLATE_README_PATH}"
+                f"{POINTER_ALTERNATIVE_PREFIX}{ARTIFACT_TEMPLATE_PATH}."
+            ),
         }
     }
 
