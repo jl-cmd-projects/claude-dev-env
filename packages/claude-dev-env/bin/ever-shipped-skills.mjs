@@ -94,6 +94,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'reviewer-gates',
     'reviews',
     'run-claude-dev-env',
+    'search-before-acting',
     'second-account-workers',
     'session-continuity',
     'session-log',

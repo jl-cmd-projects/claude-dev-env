@@ -25,3 +25,17 @@ MISSING_PROOF_REASON = (
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
+EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/search-before-acting.md"
+MISSING_EXISTING_WORK_REASON = (
+    "This pull request body has no 'Existing work' section. Before you open a pull"
+    " request, search for what already does the change in full or in part: repository"
+    " code, open and merged pull requests, hooks, rules, skills, workflows, trackers and"
+    " production config. Add an 'Existing work' heading to the body. Under it, list each"
+    " piece you found with its link or file:line and what this pull request adds on top"
+    " of it, or state that nothing was found and name the places you searched. When the"
+    " search finds a piece that already does the change, stop and report it to the user"
+    " before you open the pull request. Run the search-before-acting skill and read "
+    + EXISTING_WORK_GUIDE_PATH
+    + " for the full rule."
+)
