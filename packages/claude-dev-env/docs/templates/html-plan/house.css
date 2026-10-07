@@ -20,7 +20,7 @@ doc-claim[data-l="1"] > .pl-row > .pl-num, doc-claim[data-l="2"] > .pl-row > .pl
 .has-comment > .nw-cbtn, .nw-cbtn.on, .nw-bar .nw-respond .n, .nw-bar .nw-next { background: var(--accent); }
 .nw-bar .nw-respond .n.ok { background: var(--green); color: var(--on-accent); }
 .nw-bar .nw-respond .n { color: var(--on-accent); }
-doc-changes, doc-changes b, .ch-tag, .ch-n, .q-via, .q-from, .q-body { font-size: 16px !important; }
+doc-changes, doc-changes b, .ch-tag, .ch-n, .q-head, .q-via, .q-from, .q-at, .q-body { font-size: 16px !important; }
 .cl-head, .cl-kind, .cl-title, .cl-counts, .cl-counts b, .cl-nm, .cl-rail, .cl-tg, .c-cap, .c-pin b, .mc-now, .mc-now b, .mc-now i, .mc-now span, .nw-pin-dot, svg.nw text, svg.nw .node text.sub, svg.nw .node text.more, svg.nw .edge text, svg.nw .group text { font-size: 16px !important; }
-.cl-tg { color: var(--ink); }
+.cl-tg, .tr-guide { color: var(--ink); }
 .nw-pin-dot { color: var(--on-accent); }
