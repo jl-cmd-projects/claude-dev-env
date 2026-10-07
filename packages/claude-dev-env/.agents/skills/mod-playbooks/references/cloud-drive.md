@@ -43,5 +43,5 @@ characters shift every column after them.
 - Check the request body for your tool id, so the second request ends the turn with text.
 - A mod can refuse to draw a pane below a minimum width. Run at 180 columns unless the steps need less.
 - A toast draws in the top-right corner, over the header rows.
-- A PNG renderer can paint a wide emoji over the next cell. The text capture holds the true characters.
+- A PNG renderer can paint a wide emoji over the next cell. The text capture holds the characters as drawn.
 - A step that runs a script from the project folder fails in the sandbox, because that folder is empty.

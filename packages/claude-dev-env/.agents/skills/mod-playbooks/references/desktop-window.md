@@ -12,6 +12,8 @@ mod, and the operator only looks at it.
 - `Start-Process pwsh` opens the old console host. Launch through `wt.exe` to get Windows Terminal.
 - `wt.exe new-tab` lands in an existing Windows Terminal window. A screen capture then shows whichever tab is active. Use `wt.exe -w new` for a window of its own.
 - `wt.exe` is an app execution alias. Call it by its full path under `%LOCALAPPDATA%\Microsoft\WindowsApps`.
+- When the operator already has the same plugin installed, both copies load. A `--settings` file with `{"enabledPlugins":{"<plugin>@<marketplace>":false}}` turned off the installed copy for that one session.
+- A shell or program can rename the tab, and the window title follows it. Pass `--suppressApplicationTitle` so the capture can find the window by its demo title.
 
 ## The auto mode safety check
 
@@ -54,7 +56,7 @@ step is final for that session; report the refusal text and stop.
 
    ```powershell
    $wt = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\wt.exe'
-   Start-Process $wt -ArgumentList "-w new new-tab --title `"Mod demo`" pwsh -NoExit -File `"$script`""
+   Start-Process $wt -ArgumentList "-w new new-tab --title `"Mod demo`" --suppressApplicationTitle pwsh -NoExit -File `"$script`""
    ```
 
 5. Capture the window with [desktop-capture.md](desktop-capture.md) and check the PNG yourself.
