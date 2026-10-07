@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.65.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.64.0...claude-dev-env-v8.65.0) (2026-10-07)
+
+
+### Features
+
+* **skills:** add mod-playbooks, a map for driving and capturing mods ([#1922](https://github.com/jl-cmd-projects/claude-dev-env/issues/1922)) ([e444dbd](https://github.com/jl-cmd-projects/claude-dev-env/commit/e444dbd1f62962eae68a9be94c5ac79d45bcbfc9))
+
+## [8.64.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.63.0...claude-dev-env-v8.64.0) (2026-10-07)
+
+
+### Features
+
+* **rules:** search for existing work before acting on an ask ([#1914](https://github.com/jl-cmd-projects/claude-dev-env/issues/1914)) ([9e7d42f](https://github.com/jl-cmd-projects/claude-dev-env/commit/9e7d42f129e2fc16d3f103ec9d16fcedf98526d8))
+
+## [8.63.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.1...claude-dev-env-v8.63.0) (2026-10-07)
+
+
+### Features
+
+* **context-audit:** add a skill that inventories agent-loaded context ([#1921](https://github.com/jl-cmd-projects/claude-dev-env/issues/1921)) ([6b1b883](https://github.com/jl-cmd-projects/claude-dev-env/commit/6b1b8833045ce3f2ee5e0584b8ef254c4e169991))
+
 ## [8.62.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.0...claude-dev-env-v8.62.1) (2026-10-07)
 
 

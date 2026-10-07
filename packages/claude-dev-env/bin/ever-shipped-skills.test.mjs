@@ -45,6 +45,10 @@ test('EVER_SHIPPED_SKILL_NAMES includes the correction skill', () => {
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('correction'), true);
 });
 
+test('EVER_SHIPPED_SKILL_NAMES includes the search before acting skill', () => {
+    assert.equal(EVER_SHIPPED_SKILL_NAMES.has('search-before-acting'), true);
+});
+
 test('EVER_SHIPPED_SKILL_NAMES includes the windows scheduled task skill', () => {
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('windows-scheduled-task'), true);
 });

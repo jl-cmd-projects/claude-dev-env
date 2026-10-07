@@ -120,7 +120,7 @@ Behavioral rules loaded into every session.
 | `destructive-commands` | Allowed removal forms, and destructive literals kept out of command strings |
 | `doc-inventory-integrity` | A doc that inventories code stays in step with the directory |
 | `docstring-prose-matches-implementation` | A docstring's enumeration covers every behavior the body applies |
-| `explore-thoroughly` | Read before proposing, map patterns before committing |
+| `explore-thoroughly` | Search for existing work before acting on an ask, read before proposing |
 | `failure-blast-radius` | Name what a raise stops: the run, or one member of a batch |
 | `falsify-before-green` | A check's green counts once that check ran red on a named break |
 | `filesystem-search` | Every filesystem search names a scope |
@@ -213,6 +213,7 @@ that carry them.
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |
 | `grok-spawn` | Spawn headless grok worker fleets through preflight and batch spawn |
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
+| `mod-playbooks` | Drive a mod, open its menus and panes, and capture each screen |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
 | `pr-lifecycle` | Rules for commits, pushes, pull requests, review threads, and merges |
@@ -220,6 +221,7 @@ that carry them.
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |
 | `repairing-hook-boundaries` | Repair Claude and Codex hook failures at the first failing boundary |
+| `search-before-acting` | Search for what already does an ask and report it in four points before acting |
 | `second-account-workers` | Run local Claude workers through the second-account picker |
 | `skill-builder` | Author a skill package to the house conventions |
 | `step-notes` | Turn the step-note gate on or off |
