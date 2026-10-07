@@ -16,11 +16,6 @@
       "reminder": "Cut the reply to three short sentences or fewer. The visual carries the detail."
     },
     {
-      "key": "no_tap_answer",
-      "label": "No tap answer",
-      "reminder": "Ask each question as a decision card the user answers with a tap. Keep the question out of the reply text."
-    },
-    {
       "key": "abbreviations",
       "label": "Abbreviations",
       "reminder": "Write each name in plain descriptive words. Spell out every abbreviation and drop tracker and item numbers. A pull request number stays only inside its link."

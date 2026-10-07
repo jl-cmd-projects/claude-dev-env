@@ -12,7 +12,6 @@ from visual_reply_rules import (
     abbreviation_violation,
     load_rules,
     mode_enabled,
-    question_violation,
     replies_sent_this_turn,
     second_reply_violation,
     visual_shown_this_turn,
@@ -36,7 +35,7 @@ def tool_line(tool_name: str) -> str:
 def test_shipped_rule_file_parses_with_a_label_and_reminder_per_rule() -> None:
     rules = load_rules()
     assert rules is not None
-    assert {each.key for each in rules.all_rules} >= {"no_picture", "no_tap_answer", "abbreviations"}
+    assert {each.key for each in rules.all_rules} >= {"one_item", "no_picture", "abbreviations"}
     assert all(each.label and each.reminder for each in rules.all_rules)
 
 
@@ -68,12 +67,6 @@ def test_abbreviation_violation_flags_a_lowercase_abbreviation_and_a_tracker_num
     assert SHIPPED_RULES is not None
     assert 'Abbreviation "e.g."' in str(abbreviation_violation("Logs, e.g. the error log.", SHIPPED_RULES))
     assert 'Tracker number "card 12"' in str(abbreviation_violation("See card 12.", SHIPPED_RULES))
-
-
-def test_question_violation_flags_only_a_question_mark_that_ends_a_sentence() -> None:
-    assert SHIPPED_RULES is not None
-    assert question_violation("Ship it?", SHIPPED_RULES) is not None
-    assert question_violation("The query?id=4 param is set.", SHIPPED_RULES) is None
 
 
 def test_widget_anchor_violation_reads_only_widget_calls() -> None:

@@ -18,7 +18,6 @@ MODE_SWITCH_FILE_NAME = "visual-reply-mode.json"
 MODE_SWITCH_ENABLED_KEY = "enabled"
 
 NO_PICTURE_RULE_KEY = "no_picture"
-NO_TAP_ANSWER_RULE_KEY = "no_tap_answer"
 ABBREVIATIONS_RULE_KEY = "abbreviations"
 ONE_ITEM_RULE_KEY = "one_item"
 
@@ -36,7 +35,6 @@ LOWERCASE_ABBREVIATION_TEMPLATE = r"(?<![A-Za-z0-9]){abbreviation}(?![A-Za-z0-9]
 TRACKER_NUMBER_PATTERN = re.compile(
     r"\b(?:issues?|items?|cards?|tickets?|tasks?)\s*#?\d+", re.IGNORECASE
 )
-QUESTION_SENTENCE_PATTERN = re.compile(r"\?(?=\s|$)")
 WIDGET_ANCHOR_PATTERN = re.compile(r"<a\b[^>]*\bhref\s*=", re.IGNORECASE)
 
 TRANSCRIPT_ENCODING = "utf-8"
@@ -57,7 +55,6 @@ IS_META_KEY = "isMeta"
 
 ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
-QUESTION_IN_REPLY_MESSAGE = "A question is in the reply text. {reminder}"
 NO_VISUAL_MESSAGE = "This reply has {sentence_count} sentences and no visual this turn. {reminder}"
 SECOND_REPLY_MESSAGE = "A reply already went out this turn. {reminder}"
 WIDGET_ANCHOR_MESSAGE = (

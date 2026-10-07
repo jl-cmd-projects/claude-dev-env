@@ -40,11 +40,8 @@ from hooks_constants.visual_reply_rules_constants import (
     MODE_SWITCH_ENABLED_KEY,
     MODE_SWITCH_FILE_NAME,
     NO_PICTURE_RULE_KEY,
-    NO_TAP_ANSWER_RULE_KEY,
     NO_VISUAL_MESSAGE,
     ONE_ITEM_RULE_KEY,
-    QUESTION_IN_REPLY_MESSAGE,
-    QUESTION_SENTENCE_PATTERN,
     RULE_KEY_FIELD,
     RULE_LABEL_FIELD,
     RULE_REMINDER_FIELD,
@@ -110,7 +107,7 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
         if isinstance(each, dict)
         and all(field in each for field in (RULE_KEY_FIELD, RULE_LABEL_FIELD, RULE_REMINDER_FIELD))
     )
-    all_needed_keys = {ONE_ITEM_RULE_KEY, NO_PICTURE_RULE_KEY, NO_TAP_ANSWER_RULE_KEY, ABBREVIATIONS_RULE_KEY}
+    all_needed_keys = {ONE_ITEM_RULE_KEY, NO_PICTURE_RULE_KEY, ABBREVIATIONS_RULE_KEY}
     if not all_needed_keys <= {each.key for each in all_rules}:
         return None
     return VisualReplyRules(
@@ -146,13 +143,6 @@ def abbreviation_violation(prose_text: str, rules: VisualReplyRules) -> str | No
     if tracker_match is not None:
         return TRACKER_NUMBER_MESSAGE.format(reference=tracker_match.group(0), reminder=reminder)
     return None
-
-
-def question_violation(prose_text: str, rules: VisualReplyRules) -> str | None:
-    """Return the deny reason for a question asked in reply text."""
-    if QUESTION_SENTENCE_PATTERN.search(prose_text) is None:
-        return None
-    return QUESTION_IN_REPLY_MESSAGE.format(reminder=rules.reminder(NO_TAP_ANSWER_RULE_KEY))
 
 
 def widget_anchor_violation(tool_name: str, all_tool_input: dict[str, object]) -> str | None:

@@ -552,16 +552,6 @@ def test_should_deny_a_tracker_item_number(
     assert 'Tracker number "Item 6"' in stderr_text
 
 
-def test_should_deny_a_question_in_reply_text_and_name_the_card(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    exit_code, stderr_text = run_gate(
-        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which build ships first?"}
-    )
-    assert exit_code == 2
-    assert "decision card" in stderr_text
-
-
 def test_should_deny_an_abbreviation_in_a_decision_card(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
