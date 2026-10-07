@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.63.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.1...claude-dev-env-v8.63.0) (2026-10-07)
+
+
+### Features
+
+* **context-audit:** add a skill that inventories agent-loaded context ([#1921](https://github.com/jl-cmd-projects/claude-dev-env/issues/1921)) ([6b1b883](https://github.com/jl-cmd-projects/claude-dev-env/commit/6b1b8833045ce3f2ee5e0584b8ef254c4e169991))
+
+## [8.62.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.0...claude-dev-env-v8.62.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **hooks:** ask for the title when the remote title tool loads directly ([#1861](https://github.com/jl-cmd-projects/claude-dev-env/issues/1861)) ([8e0469b](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e0469b9d479078f66a4d6a9bd576ec0d50675f8))
+
+## [8.62.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.1...claude-dev-env-v8.62.0) (2026-10-07)
+
+
+### Features
+
+* **session:** ship a replacement session system prompt ([#1860](https://github.com/jl-cmd-projects/claude-dev-env/issues/1860)) ([b625953](https://github.com/jl-cmd-projects/claude-dev-env/commit/b625953890cbc8cf45d2c2ab103d4ac843601473))
+
 ## [8.61.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.0...claude-dev-env-v8.61.1) (2026-10-06)
 
 

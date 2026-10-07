@@ -1,4 +1,5 @@
 {
+  "agent": "dev-env-session",
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.github.com)"
