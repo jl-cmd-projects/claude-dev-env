@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.63.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.1...claude-dev-env-v8.63.0) (2026-10-07)
+
+
+### Features
+
+* **context-audit:** add a skill that inventories agent-loaded context ([#1921](https://github.com/jl-cmd-projects/claude-dev-env/issues/1921)) ([6b1b883](https://github.com/jl-cmd-projects/claude-dev-env/commit/6b1b8833045ce3f2ee5e0584b8ef254c4e169991))
+
 ## [8.62.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.0...claude-dev-env-v8.62.1) (2026-10-07)
 
 
