@@ -18,6 +18,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'condensing-instructions',
     'codex-review',
     'codex-cleanse',
+    'context-audit',
     'context7-mcp',
     'copilot-finding-triage',
     'copilot-review',

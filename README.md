@@ -204,6 +204,7 @@ that carry them.
 |-------|---------|
 | `build-eval` | Evaluate skills with a direct Codex review suite or `claude plugin eval` |
 | `codex-cleanse` | [Preview or archive local Codex sessions on demand after seven days without activity](packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md) |
+| `context-audit` | Inventory every file an agent loads from a checkout and list what to clean up |
 | `correction` | Turn a correction into a short handoff brief for a corrections intake |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
