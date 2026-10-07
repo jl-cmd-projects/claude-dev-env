@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+import importlib
 import os
 import stat
+import sys
 from pathlib import Path
 
 import pytest
 
-import correction_filing
+SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPTS_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIRECTORY))
+
+correction_filing = importlib.import_module("correction_filing")
 
 STAND_IN_GH = r'''#!/usr/bin/env python3
 import json, os, sys
@@ -54,7 +60,7 @@ def _stored_issues(store_path: Path) -> list[dict[str, object]]:
     return json.loads(store_path.read_text()) if store_path.exists() else []
 
 
-def should_file_one_labeled_issue_quoting_the_text(filing_environment, capsys) -> None:
+def test_should_file_one_labeled_issue_quoting_the_text(filing_environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert correction_filing.main(["file", "--text", "stop asking me to paste settings"]) == 0
     all_issues = _stored_issues(filing_environment)
     assert len(all_issues) == 1
@@ -63,21 +69,21 @@ def should_file_one_labeled_issue_quoting_the_text(filing_environment, capsys) -
     assert "Filed: https://example.test/issues/1" in capsys.readouterr().out
 
 
-def should_file_a_replayed_correction_once(filing_environment, capsys) -> None:
+def test_should_file_a_replayed_correction_once(filing_environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
     correction_filing.main(["file", "--text", "stop  asking me"])
     assert correction_filing.main(["file", "--text", "stop asking me"]) == 0
     assert len(_stored_issues(filing_environment)) == 1
     assert "Already filed: https://example.test/issues/1" in capsys.readouterr().out
 
 
-def should_dedupe_on_a_supplied_key(filing_environment) -> None:
+def test_should_dedupe_on_a_supplied_key(filing_environment: Path) -> None:
     correction_filing.main(["file", "--text", "first", "--dedupe-key", "msg-7"])
     correction_filing.main(["file", "--text", "second", "--dedupe-key", "msg-7"])
     correction_filing.main(["file", "--text", "second", "--dedupe-key", "msg-8"])
     assert len(_stored_issues(filing_environment)) == 2
 
 
-def should_mask_tokens_and_emails(filing_environment) -> None:
+def test_should_mask_tokens_and_emails(filing_environment: Path) -> None:
     correction_filing.main(
         ["file", "--text", "you leaked ghp_" + "a" * 36 + " and me@example.com"]
     )
@@ -86,19 +92,19 @@ def should_mask_tokens_and_emails(filing_environment) -> None:
     assert body.count("[redacted]") == 2
 
 
-def should_file_nothing_without_config(filing_environment, monkeypatch, tmp_path, capsys) -> None:
+def test_should_file_nothing_without_config(filing_environment: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("CLAUDE_CORRECTION_CAPTURE_PATH", str(tmp_path / "absent.json"))
     assert correction_filing.main(["file", "--text", "anything"]) == 1
     assert _stored_issues(filing_environment) == []
     assert "No correction filing config" in capsys.readouterr().err
 
 
-def should_file_nothing_for_empty_text(filing_environment) -> None:
+def test_should_file_nothing_for_empty_text(filing_environment: Path) -> None:
     assert correction_filing.main(["file", "--text", "   "]) == 1
     assert _stored_issues(filing_environment) == []
 
 
-def should_list_open_corrections(filing_environment, capsys) -> None:
+def test_should_list_open_corrections(filing_environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
     correction_filing.main(["list"])
     assert "No open corrections." in capsys.readouterr().out
     correction_filing.main(["file", "--text", "use plain words"])
@@ -107,14 +113,14 @@ def should_list_open_corrections(filing_environment, capsys) -> None:
     assert "#1 Correction: use plain words https://example.test/issues/1" in capsys.readouterr().out
 
 
-def should_build_title_and_body_from_text() -> None:
+def test_should_build_title_and_body_from_text() -> None:
     assert correction_filing.issue_title_for("a\nb") == "Correction: a b"
     body = correction_filing.issue_body_for("x\ny", "flag", "abcdef0123456789")
     assert "> x\n> y" in body and "Source: flag" in body
     assert "<!-- correction-dedupe: abcdef0123456789 -->" in body
 
 
-def should_read_target_and_reject_incomplete_config(tmp_path) -> None:
+def test_should_read_target_and_reject_incomplete_config(tmp_path: Path) -> None:
     good = tmp_path / "good.json"
     good.write_text(json.dumps({"repository": "o/n", "label": "l"}))
     assert correction_filing.load_filing_target(good) == correction_filing.FilingTarget("o/n", "l")
@@ -124,7 +130,7 @@ def should_read_target_and_reject_incomplete_config(tmp_path) -> None:
         correction_filing.load_filing_target(bad)
 
 
-def should_dedupe_from_the_ledger_when_the_listing_lags(filing_environment, capsys) -> None:
+def test_should_dedupe_from_the_ledger_when_the_listing_lags(filing_environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
     correction_filing.main(["file", "--text", "keep replies short"])
     filing_environment.write_text("[]")
     capsys.readouterr()
