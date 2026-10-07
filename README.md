@@ -213,6 +213,7 @@ that carry them.
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |
 | `grok-spawn` | Spawn headless grok worker fleets through preflight and batch spawn |
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
+| `mod-playbooks` | Drive a mod, open its menus and panes, and capture each screen |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
 | `pr-lifecycle` | Rules for commits, pushes, pull requests, review threads, and merges |

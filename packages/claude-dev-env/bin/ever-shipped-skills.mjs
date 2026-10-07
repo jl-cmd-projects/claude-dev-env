@@ -99,6 +99,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'second-account-workers',
     'session-continuity',
     'session-log',
+    'mod-playbooks',
     'session-tidy',
     'pr-shared-extraction',
     'show',
