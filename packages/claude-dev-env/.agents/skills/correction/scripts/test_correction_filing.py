@@ -61,11 +61,11 @@ def _stored_issues(store_path: Path) -> list[dict[str, object]]:
 
 
 def test_should_file_one_labeled_issue_quoting_the_text(filing_environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert correction_filing.main(["file", "--text", "stop asking me to paste settings"]) == 0
+    assert correction_filing.main(["file", "--text", "use shorter replies"]) == 0
     all_issues = _stored_issues(filing_environment)
     assert len(all_issues) == 1
     assert all_issues[0]["label"] == "correction"
-    assert "> stop asking me to paste settings" in all_issues[0]["body"]
+    assert "> use shorter replies" in all_issues[0]["body"]
     assert "Filed: https://example.test/issues/1" in capsys.readouterr().out
 
 

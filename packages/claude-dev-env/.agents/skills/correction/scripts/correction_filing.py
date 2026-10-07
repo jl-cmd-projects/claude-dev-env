@@ -6,12 +6,12 @@ identifying lives in this package::
     ~/.claude/correction-capture.json
     {"repository": "owner/name", "label": "correction"}
 
-    python correction_filing.py file --text "stop asking me to paste settings"
+    python correction_filing.py file --text "use shorter replies"
     Filed: https://github.com/owner/name/issues/12
-    python correction_filing.py file --text "stop asking me to paste settings"
+    python correction_filing.py file --text "use shorter replies"
     Already filed: https://github.com/owner/name/issues/12
     python correction_filing.py list
-    #12 Correction: stop asking me to paste settings https://github.com/...
+    #12 Correction: use shorter replies https://github.com/...
 
 The issue quotes only the correction text, with tokens and email addresses
 masked. A hidden dedupe marker in the body, and a local ledger of filed keys
