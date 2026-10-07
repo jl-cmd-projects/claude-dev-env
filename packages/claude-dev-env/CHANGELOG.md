@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.64.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.63.0...claude-dev-env-v8.64.0) (2026-10-07)
+
+
+### Features
+
+* **rules:** search for existing work before acting on an ask ([#1914](https://github.com/jl-cmd-projects/claude-dev-env/issues/1914)) ([9e7d42f](https://github.com/jl-cmd-projects/claude-dev-env/commit/9e7d42f129e2fc16d3f103ec9d16fcedf98526d8))
+
 ## [8.63.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.1...claude-dev-env-v8.63.0) (2026-10-07)
 
 

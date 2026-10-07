@@ -1,4 +1,4 @@
-"""Deny a new pull request whose body carries no 'Proof in practice' section."""
+"""Deny a new pull request whose body lacks a 'Proof in practice' or an 'Existing work' section."""
 
 from __future__ import annotations
 
@@ -18,8 +18,10 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_PYTHON_PROGRAM_NAMES,
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
+    EXISTING_WORK_HEADING_PATTERN,
     LINE_SEPARATOR,
     MISSING_BODY_REASON,
+    MISSING_EXISTING_WORK_REASON,
     MISSING_PROOF_REASON,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
@@ -48,6 +50,16 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
     return all_lines
 
 
+def _section_text(body: str, heading_pattern: str) -> str | None:
+    all_lines = body.splitlines()
+    for each_index, each_line in enumerate(all_lines):
+        heading_level = _heading_level(each_line, heading_pattern)
+        if heading_level is not None:
+            all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
+            return LINE_SEPARATOR.join(all_section_lines).strip()
+    return None
+
+
 def proof_section(body: str) -> str | None:
     """Return the text under the body's 'Proof in practice' heading, or None.
 
@@ -58,13 +70,20 @@ def proof_section(body: str) -> str | None:
 
     The section runs to the next heading of the same or a higher level.
     """
-    all_lines = body.splitlines()
-    for each_index, each_line in enumerate(all_lines):
-        heading_level = _heading_level(each_line, PROOF_HEADING_PATTERN)
-        if heading_level is not None:
-            all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
-            return LINE_SEPARATOR.join(all_section_lines).strip()
-    return None
+    return _section_text(body, PROOF_HEADING_PATTERN)
+
+
+def section_under_existing_work(body: str) -> str | None:
+    """Return the text under the body's 'Existing work' heading, or None.
+
+    ::
+
+        "## Existing work\\n`a.py:4` runs it\\n## Notes" -> "`a.py:4` runs it"
+        "## Summary\\nno existing work heading"         -> None
+
+    The section runs to the next heading of the same or a higher level.
+    """
+    return _section_text(body, EXISTING_WORK_HEADING_PATTERN)
 
 
 def _script_arguments(program: str, all_arguments: list[str]) -> list[str] | None:
@@ -138,4 +157,27 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         section = proof_section(each_body)
         if not section or COMMAND_MARKER not in section:
             return MISSING_PROOF_REASON
+    return None
+
+
+def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a new pull request's body has no existing-work section, else None.
+
+    ::
+
+        mcp__github__create_pull_request, body has the section -> None
+        mcp__github__create_pull_request, body without it      -> MISSING_EXISTING_WORK_REASON
+        gh pr create --fill                                     -> None
+        gh pr edit, git push, any other tool                    -> None
+
+    The section is an 'Existing work' heading with text under it. A create
+    command whose body this gate cannot read passes here, because
+    missing_proof_reason denies it first.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    for each_body in _create_bodies(all_payload_fields):
+        if each_body is not None and not section_under_existing_work(each_body):
+            return MISSING_EXISTING_WORK_REASON
     return None

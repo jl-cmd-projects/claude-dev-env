@@ -63,6 +63,13 @@ step is final for that session; report the refusal text and stop.
 6. Tell the operator the window is open and what to look at. Hand over a pasteable command only when
    the launch failed, and say why it failed.
 
+## Input on the operator's PC
+
+To click, hover or type into a mod on the operator's PC, run the mod repository's driver there from the
+Remote Control session, for example `node tools/visual-test/drive.mjs <playbook> <capture-folder>`.
+The driver owns its pseudo-terminal, so no input goes to a desktop window. Post its PNG captures.
+Never send operating-system keystrokes or clicks to the demo window.
+
 ## Verification
 
 - The operator sees the window without any click.

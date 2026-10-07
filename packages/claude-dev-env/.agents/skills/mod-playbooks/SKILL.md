@@ -54,5 +54,5 @@ Each row is one thing an agent does to a mod, and the input that does it. The by
 ## Limits
 
 - The cloud route proves the mod's screens. It runs a mock model, so it proves nothing about model output.
-- The desktop route opens and captures a window. Typing or clicking into that window is not proven; drive input in the cloud route.
+- Drive input with the mod repository's driver, in the cloud or on the operator's PC. The desktop window is for looking only.
 - A screen that needs the operator's account, files or network stays on the desktop route.
