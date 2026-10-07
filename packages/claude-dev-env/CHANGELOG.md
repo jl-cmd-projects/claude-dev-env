@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.62.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.1...claude-dev-env-v8.62.0) (2026-10-07)
+
+
+### Features
+
+* **session:** ship a replacement session system prompt ([#1860](https://github.com/jl-cmd-projects/claude-dev-env/issues/1860)) ([b625953](https://github.com/jl-cmd-projects/claude-dev-env/commit/b625953890cbc8cf45d2c2ab103d4ac843601473))
+
 ## [8.61.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.0...claude-dev-env-v8.61.1) (2026-10-06)
 
 
