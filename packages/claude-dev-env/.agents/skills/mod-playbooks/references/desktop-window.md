@@ -67,7 +67,9 @@ step is final for that session; report the refusal text and stop.
 
 To click, hover or type into a mod on the operator's PC, run the mod repository's driver there from the
 Remote Control session, for example `node tools/visual-test/drive.mjs <playbook> <capture-folder>`.
-The driver owns its pseudo-terminal, so no input goes to a desktop window. Post its PNG captures.
+The driver owns its pseudo-terminal, so no input goes to a desktop window, and the auto mode check has
+nothing to refuse. One PC run of the drawer playbook passed with no refusal, where a session that sent
+operating-system keystrokes to a demo window was refused. Post the driver's PNG captures.
 Never send operating-system keystrokes or clicks to the demo window.
 
 ## Verification
