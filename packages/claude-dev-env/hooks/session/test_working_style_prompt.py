@@ -15,8 +15,11 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
 import working_style_prompt as starter
 
 from hooks_constants.working_style_prompt_constants import (
+    WORKING_STYLE_GUIDE_RELATIVE_PATH,
     WORKING_STYLE_PROMPT,
 )
+
+WORKING_STYLE_GUIDE_PATH = _HOOKS_ROOT.parent / WORKING_STYLE_GUIDE_RELATIVE_PATH
 
 
 def _run_main() -> str:
@@ -38,38 +41,22 @@ class TestWorkingStylePrompt:
         emitted = json.loads(_run_main())
         assert emitted["hookSpecificOutput"]["additionalContext"] == WORKING_STYLE_PROMPT
 
-    def test_emitted_prompt_contains_canonical_policy_and_scope_guidance(self) -> None:
-        emitted = json.loads(_run_main())
-        prompt_text = emitted["hookSpecificOutput"]["additionalContext"]
-        assert "Document each task in a location that remains easy to find later." in prompt_text
-        assert "Deliver the requested work at its intended scope." in prompt_text
-        assert "A request to remove something is complete once it is gone." in prompt_text
-        assert "pass a replacement idea to the requester as a question." in prompt_text
-        assert "Use ELI5 for beginner framing, large visuals, minimal text" in prompt_text
-        assert "one stable self-contained HTML artifact" in prompt_text
-        assert "update-in-place continuity, and sharing" in prompt_text
-        assert "Apply ~/.claude/rules/asd-ste100-language.md for user-facing word choice" in prompt_text
-        assert "Use current, immediately relevant context." in prompt_text
-        assert "Use full terms and specific names for repository work." in prompt_text
-        assert "When a request has multiple reasonable interpretations" in prompt_text
-        assert "Ask one focused clarification question" in prompt_text
-        assert "Pause for the user's choice before making a high-impact decision." in prompt_text
+    def test_prompt_points_at_the_working_style_guide(self) -> None:
+        assert f"~/.claude/{WORKING_STYLE_GUIDE_RELATIVE_PATH}" in WORKING_STYLE_PROMPT
+        assert WORKING_STYLE_GUIDE_PATH.is_file()
 
-    def test_prompt_limits_replies_to_what_the_user_must_act_on_or_know(self) -> None:
-        assert "Send the user only what they must act on or need to know." in WORKING_STYLE_PROMPT
-        assert "starts a turn and nothing in it needs the user, end the turn with no text." in WORKING_STYLE_PROMPT
-        assert "On a typed request, state your next action in one sentence" in WORKING_STYLE_PROMPT
-        assert "Before your first tool call, state your next action" not in WORKING_STYLE_PROMPT
-        assert (
-            "A report that a fix is done carries three lines: the fix acknowledged, "
-            "what changed, and the proof that it works."
-        ) in WORKING_STYLE_PROMPT
-        assert "Put the rest of the detail in the pull request or a linked file." in WORKING_STYLE_PROMPT
+    def test_prompt_stays_a_short_pointer(self) -> None:
+        assert len(WORKING_STYLE_PROMPT) < len(WORKING_STYLE_GUIDE_PATH.read_text(encoding="utf-8")) // 10
 
-    def test_prompt_drops_the_clauses_that_invite_surplus_detail(self) -> None:
-        assert "supporting detail for readers who want it" not in WORKING_STYLE_PROMPT
-        assert "give brief updates when you find important information" not in WORKING_STYLE_PROMPT
-        assert "Name each action, fact, reason, and outcome." not in WORKING_STYLE_PROMPT
+    def test_guide_carries_the_policy_and_scope_guidance(self) -> None:
+        guide_text = WORKING_STYLE_GUIDE_PATH.read_text(encoding="utf-8")
+        assert "Document each task in a location that remains easy to find later." in guide_text
+        assert "Deliver the requested work at its intended scope." in guide_text
+        assert "A request to remove something is complete once it is gone." in guide_text
+        assert "Send the user only what they must act on or need to know." in guide_text
+        assert "starts a turn and nothing in it needs the user, end the turn with no text." in guide_text
+        assert "On a typed request, state your next action in one sentence" in guide_text
+        assert "Pause for the user's choice before making a high-impact decision." in guide_text
 
     def test_build_session_directive_returns_the_shared_constant(self) -> None:
         assert starter.build_session_directive() == WORKING_STYLE_PROMPT
