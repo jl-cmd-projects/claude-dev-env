@@ -26,7 +26,7 @@ MISSING_PROOF_REASON = (
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
-EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/search-before-acting.md"
+EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (
     "This pull request body has no 'Existing work' section. Before you open a pull"
     " request, search for what already does the change in full or in part: repository"
