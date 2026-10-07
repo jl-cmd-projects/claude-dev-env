@@ -42,8 +42,7 @@ $env:CODEX_HOME = "$HOME\.codex-profiles\codex-1"; codex login
 
 The sign-in lives in that folder's `auth.json`. Only the entries in
 `ALL_SHARED_CODEX_HOME_NAMES` link to `~/.codex`. They are `AGENTS.md`, `agents`,
-`config.toml`, `hooks`, `hooks.json`, `plugins`, `prompts`, `rules`, `skills` and
-`trimmed-sol.config.toml`.
+`config.toml`, `hooks`, `hooks.json`, `plugins`, `prompts`, `rules` and `skills`.
 Sign-in, sessions, history, logs and state files stay per account.
 
 ## Named launchers
@@ -130,25 +129,26 @@ Once installed, that is `~/.claude/scripts/account_broker.py`.
 
 ## Trimmed Sol prompt
 
-The installer writes `trimmed-sol.config.toml` in `~/.codex`. That Codex profile
-sets `model = "gpt-6.1-sol"` and points `model_instructions_file` at
-`~/.claude/system-prompts/codex-sol.md`. The file is Codex's default
-`gpt-6.1-sol` prompt with the lines that conflict with the package rules
-rewritten. `sync` links the profile into every account home.
+The installer writes one top-level line into `~/.codex/config.toml`, under a
+`# claude-dev-env trimmed Sol prompt` marker. The line points
+`model_instructions_file` at `~/.claude/system-prompts/codex-sol.md`. The file
+is Codex's default `gpt-6.1-sol` prompt with the lines that conflict with the
+package rules rewritten. The line names no model, so every Codex run uses the
+file, whichever model it selects. `sync` links `config.toml` into every account
+home, so every account gets the line.
 
-A run gets the trimmed prompt only when it passes `--profile trimmed-sol`.
-Without the flag, each model runs the default prompt Codex ships for it.
+A `model_instructions_file` the user wrote at the top level keeps the config as
+it is. Uninstall removes only the package line.
 
-To see which prompt a Codex run uses, read the run's command line. With
-`--profile trimmed-sol`, the prompt is the file the profile names:
-
-```
-Get-Content "$HOME\.codex\trimmed-sol.config.toml"
-```
-
-To run Sol on the trimmed prompt through the broker, add the flag to the Codex
-command. `run` reads all of standard input before it starts Codex, so close it:
+To see which prompt Codex uses, read the setting:
 
 ```
-python ~/.claude/scripts/account_broker.py run --product codex --report <report.json> -- codex exec --profile trimmed-sol "<request>" < /dev/null
+Select-String -Path "$HOME\.codex\config.toml" -Pattern model_instructions_file
+```
+
+To run Codex on the trimmed prompt through the broker, run it as usual. `run`
+reads all of standard input before it starts Codex, so close it:
+
+```
+python ~/.claude/scripts/account_broker.py run --product codex --report <report.json> -- codex exec "<request>" < /dev/null
 ```

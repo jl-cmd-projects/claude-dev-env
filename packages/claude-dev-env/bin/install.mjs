@@ -61,11 +61,11 @@ import {
 } from './install-pstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
-    codexSolProfileSnapshotPaths,
-    removeCodexSolProfile,
+    codexSolSettingSnapshotPaths,
+    removeCodexSolSetting,
     SOL_PROMPT_DIRECTORY_NAME,
     SOL_PROMPT_FILE_NAME,
-    writeCodexSolProfile,
+    writeCodexSolSetting,
 } from './codex-trimmed-sol.mjs';
 import {
     removeCodexPackageGuidance,
@@ -2637,7 +2637,7 @@ function executeInstallPlan(plan) {
         priorManifestFiles: [
             ...(plan.priorManifest.files || []),
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
-            ...codexSolProfileSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -2919,13 +2919,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
         );
         if (questionGuidancePath) allCodexGuidancePaths.push(questionGuidancePath);
-        const solProfilePath = writeCodexSolProfile(
+        const solSettingPath = writeCodexSolSetting(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             join(CLAUDE_HOME, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
         );
-        if (solProfilePath) {
-            allCodexGuidancePaths.push(solProfilePath);
-            console.log(`  \u2713 ${solProfilePath} (Codex trimmed Sol profile)`);
+        if (solSettingPath) {
+            allCodexGuidancePaths.push(solSettingPath);
+            console.log(`  \u2713 ${solSettingPath} (Codex trimmed Sol prompt setting)`);
         }
     }
     syncWrittenPaths([...allInstalledFiles, ...allCodexGuidancePaths, ...publishedPointerPaths]);
@@ -3287,7 +3287,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     removeCodexPackageGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
-    removeCodexSolProfile(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
+    removeCodexSolSetting(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 
     if (existsSync(plan.settingsPath)) {
@@ -3381,7 +3381,7 @@ function uninstall() {
         priorManifestFiles: [
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
-            ...codexSolProfileSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });

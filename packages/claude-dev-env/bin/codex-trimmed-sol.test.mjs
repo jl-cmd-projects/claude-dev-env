@@ -1,16 +1,16 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-    codexSolProfileSnapshotPaths,
-    removeCodexSolProfile,
-    SOL_PROFILE_FILE_NAME,
-    solProfileContent,
-    writeCodexSolProfile,
+    CODEX_CONFIG_FILE_NAME,
+    codexSolSettingSnapshotPaths,
+    removeCodexSolSetting,
+    solSettingLines,
+    writeCodexSolSetting,
 } from './codex-trimmed-sol.mjs';
 
 const packageDirectory = fileURLToPath(new URL('..', import.meta.url));
@@ -18,7 +18,7 @@ const installerPath = join(packageDirectory, 'bin', 'install.mjs');
 const shippedPromptPath = join(packageDirectory, 'system-prompts', 'codex-sol.md');
 
 function makeScratchHome(context) {
-    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-sol-profile-'));
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-sol-setting-'));
     context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
     return homeDirectory;
 }
@@ -46,108 +46,135 @@ function installInScratchHome(homeDirectory, argumentsList = [], environment = {
     });
 }
 
-test('profile text runs gpt-6.1-sol on the named prompt file', () => {
-    const profileText = solProfileContent('/home/user/.claude/system-prompts/codex-sol.md');
-    const allLines = profileText.split('\n');
-    assert.ok(allLines.includes('model = "gpt-6.1-sol"'));
+function settingText(instructionsPath, userText = '') {
+    return [...solSettingLines(instructionsPath), userText].join('\n');
+}
+
+test('setting lines point model_instructions_file at the prompt and name no model', () => {
+    const allLines = solSettingLines('/home/user/.claude/system-prompts/codex-sol.md');
     assert.ok(allLines.includes('model_instructions_file = "/home/user/.claude/system-prompts/codex-sol.md"'));
+    assert.equal(allLines.some((eachLine) => /^\s*model\s*=/.test(eachLine)), false);
 });
 
-test('profile text escapes a Windows path as a TOML basic string', () => {
-    const profileText = solProfileContent('C:\\Users\\user\\.claude\\system-prompts\\codex-sol.md');
-    assert.ok(profileText.split('\n').includes(
+test('setting lines escape a Windows path as a TOML basic string', () => {
+    assert.ok(solSettingLines('C:\\Users\\user\\.claude\\system-prompts\\codex-sol.md').includes(
         'model_instructions_file = "C:\\\\Users\\\\user\\\\.claude\\\\system-prompts\\\\codex-sol.md"',
     ));
 });
 
-test('writing twice changes the file once', (context) => {
+test('writing twice changes the config once and keeps user settings below the line', (context) => {
     const codexHome = join(makeScratchHome(context), '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    assert.equal(writeCodexSolProfile(codexHome, '/prompt.md'), profilePath);
-    assert.equal(writeCodexSolProfile(codexHome, '/prompt.md'), null);
-    assert.equal(readFileSync(profilePath, 'utf8'), solProfileContent('/prompt.md'));
-    assert.equal(writeCodexSolProfile(codexHome, '/moved/prompt.md'), profilePath);
-    assert.equal(readFileSync(profilePath, 'utf8'), solProfileContent('/moved/prompt.md'));
-    assert.deepEqual(codexSolProfileSnapshotPaths(codexHome), [profilePath]);
-});
-
-test('a user-owned profile file is neither rewritten nor removed', (context) => {
-    const codexHome = join(makeScratchHome(context), '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    const userText = 'model = "gpt-6-sol"\n';
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = 'model = "gpt-6.1-sol"\n\n[features]\nweb_search = true\n';
     mkdirSync(codexHome, { recursive: true });
-    writeFileSync(profilePath, userText);
-    assert.equal(writeCodexSolProfile(codexHome, '/prompt.md'), null);
-    assert.equal(removeCodexSolProfile(codexHome), null);
-    assert.equal(readFileSync(profilePath, 'utf8'), userText);
-    assert.deepEqual(codexSolProfileSnapshotPaths(codexHome), []);
+    writeFileSync(configPath, userText);
+    assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), configPath);
+    assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), null);
+    assert.equal(readFileSync(configPath, 'utf8'), settingText('/prompt.md', userText));
+    assert.equal(writeCodexSolSetting(codexHome, '/moved/prompt.md'), configPath);
+    assert.equal(readFileSync(configPath, 'utf8'), settingText('/moved/prompt.md', userText));
+    assert.deepEqual(codexSolSettingSnapshotPaths(codexHome), [configPath]);
+    assert.equal(removeCodexSolSetting(codexHome), configPath);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
-test('a directory at the profile path is left alone', (context) => {
+test('a user-written top-level model_instructions_file is neither rewritten nor removed', (context) => {
     const codexHome = join(makeScratchHome(context), '.codex');
-    mkdirSync(join(codexHome, SOL_PROFILE_FILE_NAME), { recursive: true });
-    assert.equal(writeCodexSolProfile(codexHome, '/prompt.md'), null);
-    assert.equal(removeCodexSolProfile(codexHome), null);
-    assert.deepEqual(codexSolProfileSnapshotPaths(codexHome), []);
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = 'model_instructions_file = "/mine.md"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
+    assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), null);
+    assert.equal(removeCodexSolSetting(codexHome), null);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
-test('a missing Sol profile needs no prior snapshot', (context) => {
-    assert.deepEqual(codexSolProfileSnapshotPaths(join(makeScratchHome(context), '.codex')), []);
+test('a model_instructions_file inside a table does not block the top-level setting', (context) => {
+    const codexHome = join(makeScratchHome(context), '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = '[profiles.other]\nmodel_instructions_file = "/other.md"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
+    assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), configPath);
+    assert.equal(readFileSync(configPath, 'utf8'), settingText('/prompt.md', userText));
 });
 
-test('full install points the Codex Sol profile at the installed trimmed prompt', (context) => {
+test('a directory at the config path is left alone', (context) => {
+    const codexHome = join(makeScratchHome(context), '.codex');
+    mkdirSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { recursive: true });
+    assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), null);
+    assert.equal(removeCodexSolSetting(codexHome), null);
+    assert.deepEqual(codexSolSettingSnapshotPaths(codexHome), []);
+});
+
+test('a missing config needs no prior snapshot', (context) => {
+    assert.deepEqual(codexSolSettingSnapshotPaths(join(makeScratchHome(context), '.codex')), []);
+});
+
+test('full install points config.toml model_instructions_file at the installed trimmed prompt', (context) => {
     const homeDirectory = makeScratchHome(context);
-    const profilePath = join(homeDirectory, '.codex', SOL_PROFILE_FILE_NAME);
+    const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
     const installedPromptPath = join(homeDirectory, '.claude', 'system-prompts', 'codex-sol.md');
 
     const firstInstallation = installInScratchHome(homeDirectory);
     assert.equal(firstInstallation.status, 0, firstInstallation.stdout + firstInstallation.stderr);
-    assert.equal(readFileSync(profilePath, 'utf8'), solProfileContent(installedPromptPath));
+    assert.equal(readFileSync(configPath, 'utf8'), settingText(installedPromptPath));
     assert.equal(readFileSync(installedPromptPath, 'utf8'), readFileSync(shippedPromptPath, 'utf8'));
 
     const secondInstallation = installInScratchHome(homeDirectory);
     assert.equal(secondInstallation.status, 0, secondInstallation.stdout + secondInstallation.stderr);
-    assert.equal(secondInstallation.stdout.includes('Codex trimmed Sol profile'), false);
-    assert.equal(readFileSync(profilePath, 'utf8'), solProfileContent(installedPromptPath));
+    assert.equal(secondInstallation.stdout.includes('Codex trimmed Sol prompt setting'), false);
+    assert.equal(readFileSync(configPath, 'utf8'), settingText(installedPromptPath));
 });
 
-test('uninstall removes the package Sol profile', (context) => {
+test('uninstall removes the package line and keeps the user config', (context) => {
     const homeDirectory = makeScratchHome(context);
-    const profilePath = join(homeDirectory, '.codex', SOL_PROFILE_FILE_NAME);
+    const codexHome = join(homeDirectory, '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = 'approval_policy = "never"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
     const installation = installInScratchHome(homeDirectory);
     assert.equal(installation.status, 0, installation.stdout + installation.stderr);
-    assert.ok(existsSync(profilePath));
 
     const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
     assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
-    assert.equal(existsSync(profilePath), false);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
-test('failed uninstall restores the package Sol profile', (context) => {
+test('uninstall removes a config that held only the package line', (context) => {
     const homeDirectory = makeScratchHome(context);
-    const profilePath = join(homeDirectory, '.codex', SOL_PROFILE_FILE_NAME);
+    const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
     const installation = installInScratchHome(homeDirectory);
     assert.equal(installation.status, 0, installation.stdout + installation.stderr);
-    const priorProfile = readFileSync(profilePath, 'utf8');
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(configPath), false);
+});
+
+test('failed uninstall restores the config with the package line', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    const priorConfig = readFileSync(configPath, 'utf8');
 
     const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], {
         CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
     });
     assert.notEqual(uninstallation.status, 0);
     assert.match(uninstallation.stderr, /prior installation restored/);
-    assert.equal(readFileSync(profilePath, 'utf8'), priorProfile);
+    assert.equal(readFileSync(configPath, 'utf8'), priorConfig);
 });
 
-test('failed install restores a package Sol profile shared by two homes', (context) => {
+test('failed install restores a user config shared by two homes', (context) => {
     const firstHome = makeScratchHome(context);
     const secondHome = makeScratchHome(context);
     const codexHome = join(firstHome, '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    const promptPath = join(firstHome, '.claude', 'system-prompts', 'codex-sol.md');
-    const installation = installInScratchHome(firstHome);
-    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
-    const priorProfile = readFileSync(profilePath);
-    const priorPrompt = readFileSync(promptPath);
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = 'approval_policy = "never"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
 
     const failedInstallation = installInScratchHome(secondHome, [], {
         CODEX_HOME: codexHome,
@@ -155,46 +182,26 @@ test('failed install restores a package Sol profile shared by two homes', (conte
     });
     assert.notEqual(failedInstallation.status, 0);
     assert.match(failedInstallation.stderr, /prior installation restored/);
-    assert.ok(failedInstallation.stdout.includes('Codex trimmed Sol profile'));
-    assert.deepEqual(readFileSync(profilePath), priorProfile);
-    assert.deepEqual(readFileSync(promptPath), priorPrompt);
-    assert.ok(!existsSync(join(secondHome, '.claude', 'system-prompts', 'codex-sol.md')));
+    assert.ok(failedInstallation.stdout.includes('Codex trimmed Sol prompt setting'));
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
-test('failed install removes a newly created package Sol profile', (context) => {
+test('failed install removes a newly created config', (context) => {
     const homeDirectory = makeScratchHome(context);
     const installation = installInScratchHome(homeDirectory, [], {
         CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
     });
     assert.notEqual(installation.status, 0);
     assert.match(installation.stderr, /prior installation restored/);
-    assert.ok(!existsSync(join(homeDirectory, '.codex', SOL_PROFILE_FILE_NAME)));
+    assert.ok(!existsSync(join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME)));
 });
 
-test('failed install leaves a user-owned shared Sol profile unchanged', (context) => {
+test('failed install leaves a directory at the config path unchanged', (context) => {
     const firstHome = makeScratchHome(context);
     const secondHome = makeScratchHome(context);
     const codexHome = join(firstHome, '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    const userProfile = 'model = "gpt-6-sol"\n';
-    mkdirSync(codexHome, { recursive: true });
-    writeFileSync(profilePath, userProfile);
-    const installation = installInScratchHome(secondHome, [], {
-        CODEX_HOME: codexHome,
-        CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
-    });
-    assert.notEqual(installation.status, 0);
-    assert.match(installation.stderr, /prior installation restored/);
-    assert.equal(readFileSync(profilePath, 'utf8'), userProfile);
-});
-
-test('failed install leaves a directory at the shared Sol profile path unchanged', (context) => {
-    const firstHome = makeScratchHome(context);
-    const secondHome = makeScratchHome(context);
-    const codexHome = join(firstHome, '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    const sentinelPath = join(profilePath, 'keep.txt');
-    mkdirSync(profilePath, { recursive: true });
+    const sentinelPath = join(codexHome, CODEX_CONFIG_FILE_NAME, 'keep.txt');
+    mkdirSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { recursive: true });
     writeFileSync(sentinelPath, 'keep\n');
     const installation = installInScratchHome(secondHome, [], {
         CODEX_HOME: codexHome,
@@ -202,26 +209,5 @@ test('failed install leaves a directory at the shared Sol profile path unchanged
     });
     assert.notEqual(installation.status, 0);
     assert.match(installation.stderr, /prior installation restored/);
-    assert.equal(readFileSync(sentinelPath, 'utf8'), 'keep\n');
-});
-
-test('failed install leaves a junction at the shared Sol profile path unchanged', (context) => {
-    const firstHome = makeScratchHome(context);
-    const secondHome = makeScratchHome(context);
-    const codexHome = join(firstHome, '.codex');
-    const profilePath = join(codexHome, SOL_PROFILE_FILE_NAME);
-    const destination = join(firstHome, 'profile-directory');
-    const sentinelPath = join(destination, 'keep.txt');
-    mkdirSync(codexHome, { recursive: true });
-    mkdirSync(destination);
-    writeFileSync(sentinelPath, 'keep\n');
-    symlinkSync(destination, profilePath, 'junction');
-    const installation = installInScratchHome(secondHome, [], {
-        CODEX_HOME: codexHome,
-        CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',
-    });
-    assert.notEqual(installation.status, 0);
-    assert.match(installation.stderr, /prior installation restored/);
-    assert.ok(lstatSync(profilePath).isSymbolicLink());
     assert.equal(readFileSync(sentinelPath, 'utf8'), 'keep\n');
 });
