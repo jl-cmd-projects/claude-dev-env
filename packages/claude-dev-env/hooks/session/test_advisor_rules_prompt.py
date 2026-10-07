@@ -35,6 +35,7 @@ def _run_main() -> str:
 @pytest.fixture
 def config_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv(CLAUDE_CONFIG_DIR_ENV_VAR, str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
     monkeypatch.delenv(ADVISOR_DISABLE_ENV_VAR, raising=False)
     return tmp_path
 

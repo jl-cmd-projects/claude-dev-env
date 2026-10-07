@@ -15,6 +15,8 @@ from pathlib import Path
 
 from hooks_constants.mod_handoff_constants import (
     ALL_SETTINGS_FILE_NAMES_IN_PRECEDENCE_ORDER,
+    CLOUD_SESSION_ENV_TRUE_VALUE,
+    CLOUD_SESSION_ENV_VAR,
     CLAUDE_CONFIG_DIR_ENV_VAR,
     CLAUDE_PROJECT_DIR_ENV_VAR,
     DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME,
@@ -72,11 +74,15 @@ def plugin_state_in_settings_file(settings_path: Path, plugin_name: str) -> bool
 
 
 def is_mod_plugin_enabled(plugin_name: str) -> bool:
-    """Return True when the settings files leave plugin_name on.
+    """Return True when the settings files leave plugin_name on outside a cloud session.
+
+    A cloud session runs no mods, so it keeps every hook whatever the settings say.
 
     Args:
         plugin_name: The plugin that holds the mod replacing the calling hook.
     """
+    if os.environ.get(CLOUD_SESSION_ENV_VAR, "").strip().lower() == CLOUD_SESSION_ENV_TRUE_VALUE:
+        return False
     is_enabled = False
     for each_path in all_settings_paths_in_precedence_order():
         state = plugin_state_in_settings_file(each_path, plugin_name)

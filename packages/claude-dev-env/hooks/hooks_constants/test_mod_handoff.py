@@ -28,6 +28,7 @@ def settings_homes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Pat
     user_directory.mkdir()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(user_directory))
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_directory))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
     return user_directory, project_directory
 
 
@@ -85,4 +86,15 @@ def test_should_let_local_project_settings_turn_a_user_plugin_off(
     _write_enabled_plugins(
         project_directory / ".claude" / "settings.local.json", {"session-prompts@market": False}
     )
+    assert is_mod_plugin_enabled("session-prompts") is False
+
+
+def test_should_keep_the_hook_in_a_cloud_session_with_the_plugin_on(
+    settings_homes: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, project_directory = settings_homes
+    _write_enabled_plugins(
+        project_directory / ".claude" / "settings.json", {"session-prompts@market": True}
+    )
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
     assert is_mod_plugin_enabled("session-prompts") is False

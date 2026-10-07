@@ -261,6 +261,7 @@ def _enable_shell_guards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         json.dumps({"enabledPlugins": {"shell-guards@mods-marketplace": True}}), encoding="utf-8"
     )
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(user_directory))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
 
 
@@ -292,6 +293,7 @@ def test_should_deny_a_headless_claude_command_while_no_mod_is_on(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("claude -p 'say hello'"))
     assert _decision_from_stdout(completed.stdout)[0] == "deny"

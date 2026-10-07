@@ -115,6 +115,7 @@ def test_main_prints_nothing_while_the_session_prompts_mod_is_on(tmp_path: Path)
             **os.environ,
             ORCHESTRATOR_AUTO_STARTER_ENABLED_ENV_VAR: "1",
             "CLAUDE_CONFIG_DIR": str(tmp_path),
+            "CLAUDE_CODE_REMOTE": "",
             "CLAUDE_PROJECT_DIR": str(tmp_path),
         },
     )

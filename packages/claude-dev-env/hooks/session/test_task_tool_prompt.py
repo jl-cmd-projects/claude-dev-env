@@ -75,5 +75,6 @@ class TestModHandoff:
             json.dumps({"enabledPlugins": {"session-prompts@mods-marketplace": True}}), encoding="utf-8"
         )
         monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+        monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
         assert _run_main() == ""
