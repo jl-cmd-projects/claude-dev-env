@@ -219,6 +219,7 @@ that carry them.
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |
 | `repairing-hook-boundaries` | Repair Claude and Codex hook failures at the first failing boundary |
+| `run-mod-on-desktop` | Open a colored desktop window that loads a mod, and capture it |
 | `second-account-workers` | Run local Claude workers through the second-account picker |
 | `skill-builder` | Author a skill package to the house conventions |
 | `step-notes` | Turn the step-note gate on or off |
