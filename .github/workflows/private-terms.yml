@@ -27,17 +27,19 @@ on:
     types:
       - published
       - edited
+  merge_group:
 
 permissions:
   contents: read
 
 concurrency:
-  group: private-terms-${{ github.event_name }}-${{ github.event.comment.id || github.event.review.id || github.event.pull_request.number || github.event.issue.number || github.event.release.id }}
+  group: private-terms-${{ github.event_name }}-${{ github.event.comment.id || github.event.review.id || github.event.pull_request.number || github.event.issue.number || github.event.release.id || github.event.merge_group.head_sha }}
   cancel-in-progress: true
 
 jobs:
   scan:
     name: Private terms
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

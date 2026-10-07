@@ -1,21 +1,23 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import {
-    ALL_SESSION_TITLE_GATE_RELATIVE_PATHS,
     AUTO_MODE_DEFAULTS_ENTRY,
     DECLARED_PROFILE_SETTINGS,
-    SESSION_TITLE_GATE_FILE_NAME,
-    SESSION_TITLE_GATE_SOURCE_DIRECTORY,
+    RETIRED_SESSION_TITLE_GATE_CONSTANTS_FILE_NAME,
+    RETIRED_SESSION_TITLE_GATE_FILE_NAME,
+    RETIRED_SESSION_TITLE_GATE_PACKAGE_INIT_TEXT,
+    RETIRED_SESSION_TITLE_GATE_PERMISSION,
     discoverProfileSettingsPaths,
     mergeProfileSettings,
 } from './merge_profile_settings.mjs';
 
 const FIXED_NOW = new Date('2026-10-04T12:00:00.000Z');
 const BACKUP_SUFFIX = '.2026-10-04T12-00-00-000Z.bak';
+const PLUGIN_STOP_GATE_COMMAND = 'python3 /plugin/hooks/blocking/session_title_stop_gate.py';
 const PERMISSION_ALLOW_ITEMS = DECLARED_PROFILE_SETTINGS
     .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
 const AUTO_MODE_ALLOW_ITEMS = DECLARED_PROFILE_SETTINGS
@@ -38,15 +40,23 @@ function backupFiles(directory) {
     return readdirSync(directory).filter((eachName) => eachName.endsWith('.bak'));
 }
 
-function expandedGateCommand(homeDirectory) {
-    return `python3 ${homeDirectory.replace(/\\/g, '/')}/.claude/${SESSION_TITLE_GATE_FILE_NAME}`;
+function expandedRetiredGateCommand(homeDirectory) {
+    return `python3 ${homeDirectory.replace(/\\/g, '/')}/.claude/${RETIRED_SESSION_TITLE_GATE_FILE_NAME}`;
 }
 
 function stopCommands(settings) {
-    return settings.hooks.Stop.flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
+    return (settings.hooks?.Stop ?? []).flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
 }
 
-test('a missing settings.json is created with every declared entry and the gate is copied', () => {
+function installRetiredGateFiles(claudeDirectory) {
+    mkdirSync(join(claudeDirectory, 'config', '__pycache__'), { recursive: true });
+    writeFileSync(join(claudeDirectory, RETIRED_SESSION_TITLE_GATE_FILE_NAME), 'gate\n');
+    writeFileSync(join(claudeDirectory, 'config', RETIRED_SESSION_TITLE_GATE_CONSTANTS_FILE_NAME), 'constants\n');
+    writeFileSync(join(claudeDirectory, 'config', '__init__.py'), RETIRED_SESSION_TITLE_GATE_PACKAGE_INIT_TEXT);
+    writeFileSync(join(claudeDirectory, 'config', '__pycache__', '__init__.cpython-311.pyc'), '');
+}
+
+test('a missing settings.json is created with every declared entry and no Stop hook', () => {
     const homeDirectory = makeHome();
     const claudeDirectory = join(homeDirectory, '.claude');
     mkdirSync(claudeDirectory);
@@ -55,33 +65,71 @@ test('a missing settings.json is created with every declared entry and the gate 
     const outcome = mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
 
     assert.deepEqual(readSettings(settingsPath), {
-        hooks: {
-            Stop: [{ hooks: [{ type: 'command', command: expandedGateCommand(homeDirectory), timeout: 10 }] }],
-        },
         permissions: { allow: PERMISSION_ALLOW_ITEMS },
         autoMode: { allow: AUTO_MODE_ALLOW_ITEMS },
     });
     assert.equal(outcome.files[0].backupPath, null);
     assert.deepEqual(backupFiles(claudeDirectory), []);
-    for (const eachRelativePath of ALL_SESSION_TITLE_GATE_RELATIVE_PATHS) {
-        assert.equal(
-            readFileSync(join(claudeDirectory, eachRelativePath), 'utf8'),
-            readFileSync(join(SESSION_TITLE_GATE_SOURCE_DIRECTORY, eachRelativePath), 'utf8'),
-        );
-    }
+    assert.deepEqual(outcome.gate.removedPaths, []);
 });
 
-test('a gate whose constants module is missing is reported changed and the module is copied', () => {
+test('the retired profile gate leaves settings.json and ~/.claude, and the plugin gate stays', () => {
     const homeDirectory = makeHome();
-    const settingsPath = join(homeDirectory, '.claude', 'settings.json');
-    mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
-    const constantsPath = join(homeDirectory, '.claude', 'config', 'session_title_gate_constants.py');
-    unlinkSync(constantsPath);
+    const claudeDirectory = join(homeDirectory, '.claude');
+    const settingsPath = join(claudeDirectory, 'settings.json');
+    writeSettings(settingsPath, {
+        hooks: {
+            Stop: [
+                {
+                    hooks: [
+                        { type: 'command', command: expandedRetiredGateCommand(homeDirectory), timeout: 10 },
+                        { type: 'command', command: PLUGIN_STOP_GATE_COMMAND },
+                    ],
+                },
+                { hooks: [{ type: 'command', command: expandedRetiredGateCommand(homeDirectory), timeout: 10 }] },
+            ],
+        },
+        permissions: { allow: ['Read', RETIRED_SESSION_TITLE_GATE_PERMISSION] },
+    });
+    installRetiredGateFiles(claudeDirectory);
 
     const outcome = mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
 
-    assert.equal(outcome.gate.changed, true);
-    assert.equal(existsSync(constantsPath), true);
+    const mergedSettings = readSettings(settingsPath);
+    assert.deepEqual(stopCommands(mergedSettings), [PLUGIN_STOP_GATE_COMMAND]);
+    assert.equal(mergedSettings.hooks.Stop.length, 1);
+    assert.equal(mergedSettings.permissions.allow.includes(RETIRED_SESSION_TITLE_GATE_PERMISSION), false);
+    assert.equal(outcome.files[0].removals.length, 3);
+    assert.equal(outcome.gate.removedPaths.length, 3);
+    assert.equal(existsSync(join(claudeDirectory, RETIRED_SESSION_TITLE_GATE_FILE_NAME)), false);
+    assert.equal(existsSync(join(claudeDirectory, 'config')), false);
+});
+
+test('a retired gate hook written with backslashes is removed, and an emptied hooks object goes', () => {
+    const homeDirectory = makeHome();
+    const settingsPath = join(homeDirectory, '.claude', 'settings.json');
+    const backslashedGateCommand = `python3 ${homeDirectory.replace(/\//g, '\\')}\\.claude\\${RETIRED_SESSION_TITLE_GATE_FILE_NAME}`;
+    writeSettings(settingsPath, {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: backslashedGateCommand, timeout: 10 }] }] },
+    });
+
+    mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
+
+    assert.equal(readSettings(settingsPath).hooks, undefined);
+});
+
+test('a config directory holding other files keeps them and a changed __init__.py', () => {
+    const homeDirectory = makeHome();
+    const claudeDirectory = join(homeDirectory, '.claude');
+    installRetiredGateFiles(claudeDirectory);
+    writeFileSync(join(claudeDirectory, 'config', '__init__.py'), '"""Mine."""\n');
+    writeFileSync(join(claudeDirectory, 'config', 'mine.py'), 'VALUE = 1\n');
+
+    mergeProfileSettings([join(claudeDirectory, 'settings.json')], { dryRun: false, homeDirectory, now: FIXED_NOW });
+
+    assert.equal(existsSync(join(claudeDirectory, 'config', RETIRED_SESSION_TITLE_GATE_CONSTANTS_FILE_NAME)), false);
+    assert.equal(readFileSync(join(claudeDirectory, 'config', '__init__.py'), 'utf8'), '"""Mine."""\n');
+    assert.equal(existsSync(join(claudeDirectory, 'config', 'mine.py')), true);
 });
 
 test('a file that already holds every entry is left byte for byte, with no backup', () => {
@@ -93,7 +141,7 @@ test('a file that already holds every entry is left byte for byte, with no backu
     const outcome = mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
 
     assert.deepEqual(outcome.files[0].additions, []);
-    assert.equal(outcome.gate.changed, false);
+    assert.deepEqual(outcome.files[0].removals, []);
     assert.equal(readFileSync(settingsPath, 'utf8'), textAfterFirstRun);
     assert.deepEqual(backupFiles(join(homeDirectory, '.claude')), []);
 });
@@ -104,7 +152,7 @@ test('a partial file gains only the missing entries, keeps other keys, and is ba
     const originalSettings = {
         model: 'opus',
         hooks: {
-            Stop: [{ hooks: [{ type: 'command', command: expandedGateCommand(homeDirectory), timeout: 30 }] }],
+            Stop: [{ hooks: [{ type: 'command', command: PLUGIN_STOP_GATE_COMMAND, timeout: 30 }] }],
             PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'python3 guard.py' }] }],
         },
         permissions: { allow: ['Read', 'mcp__claude-code-remote__set_session_title'], deny: ['Bash(rm:*)'] },
@@ -117,8 +165,7 @@ test('a partial file gains only the missing entries, keeps other keys, and is ba
 
     const mergedSettings = readSettings(settingsPath);
     assert.equal(mergedSettings.model, 'opus');
-    assert.deepEqual(mergedSettings.hooks.Stop, originalSettings.hooks.Stop);
-    assert.deepEqual(mergedSettings.hooks.PreToolUse, originalSettings.hooks.PreToolUse);
+    assert.deepEqual(mergedSettings.hooks, originalSettings.hooks);
     assert.deepEqual(mergedSettings.permissions.deny, ['Bash(rm:*)']);
     assert.deepEqual(mergedSettings.permissions.allow, [
         'Read',
@@ -130,31 +177,6 @@ test('a partial file gains only the missing entries, keeps other keys, and is ba
     assert.deepEqual(mergedSettings.autoMode.environment, ['Source control: example']);
     assert.equal(outcome.files[0].backupPath, `${settingsPath}${BACKUP_SUFFIX}`);
     assert.equal(readFileSync(outcome.files[0].backupPath, 'utf8'), originalText);
-});
-
-test('a gate hook written with backslashes counts as present', () => {
-    const homeDirectory = makeHome();
-    const settingsPath = join(homeDirectory, '.claude', 'settings.json');
-    const backslashedGateCommand = `python3 ${homeDirectory.replace(/\//g, '\\')}\\.claude\\${SESSION_TITLE_GATE_FILE_NAME}`;
-    writeSettings(settingsPath, {
-        hooks: { Stop: [{ hooks: [{ type: 'command', command: backslashedGateCommand, timeout: 10 }] }] },
-    });
-
-    mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
-
-    assert.deepEqual(stopCommands(readSettings(settingsPath)), [backslashedGateCommand]);
-});
-
-test('the gate hook is added beside a different Stop hook', () => {
-    const homeDirectory = makeHome();
-    const settingsPath = join(homeDirectory, '.claude', 'settings.json');
-    writeSettings(settingsPath, {
-        hooks: { Stop: [{ hooks: [{ type: 'command', command: 'python3 other_stop.py' }] }] },
-    });
-
-    mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
-
-    assert.deepEqual(stopCommands(readSettings(settingsPath)), ['python3 other_stop.py', expandedGateCommand(homeDirectory)]);
 });
 
 test('discovery finds the main, CLAUDE_CONFIG_DIR, and every profile settings.json once, and each is merged', () => {
@@ -185,24 +207,27 @@ test('discovery finds the main, CLAUDE_CONFIG_DIR, and every profile settings.js
     ].sort());
     assert.equal(allSettingsPathsWithSharedConfig.length, 3);
     for (const eachPath of allSettingsPaths) {
-        assert.deepEqual(stopCommands(readSettings(eachPath)), [expandedGateCommand(homeDirectory)]);
+        assert.deepEqual(readSettings(eachPath).permissions.allow, PERMISSION_ALLOW_ITEMS);
         assert.deepEqual(readSettings(eachPath).autoMode.allow, AUTO_MODE_ALLOW_ITEMS);
     }
     assert.equal(readSettings(join(profilesRoot, 'work', 'settings.json')).model, 'work');
     assert.equal(backupFiles(join(profilesRoot, 'home')).length, 1);
 });
 
-test('a dry run reports additions and writes nothing', () => {
+test('a dry run reports additions and removals and writes nothing', () => {
     const homeDirectory = makeHome();
-    const settingsPath = join(homeDirectory, '.claude', 'settings.json');
-    writeSettings(settingsPath, { model: 'opus' });
+    const claudeDirectory = join(homeDirectory, '.claude');
+    const settingsPath = join(claudeDirectory, 'settings.json');
+    writeSettings(settingsPath, { model: 'opus', permissions: { allow: [RETIRED_SESSION_TITLE_GATE_PERMISSION] } });
+    installRetiredGateFiles(claudeDirectory);
     const originalText = readFileSync(settingsPath, 'utf8');
 
     const outcome = mergeProfileSettings([settingsPath], { dryRun: true, homeDirectory, now: FIXED_NOW });
 
-    assert.equal(outcome.files[0].additions.length, 7);
-    assert.equal(outcome.gate.changed, true);
+    assert.equal(outcome.files[0].additions.length, PERMISSION_ALLOW_ITEMS.length + AUTO_MODE_ALLOW_ITEMS.length);
+    assert.equal(outcome.files[0].removals.length, 1);
+    assert.equal(outcome.gate.removedPaths.length, 3);
     assert.equal(readFileSync(settingsPath, 'utf8'), originalText);
-    assert.deepEqual(backupFiles(join(homeDirectory, '.claude')), []);
-    assert.equal(existsSync(join(homeDirectory, '.claude', SESSION_TITLE_GATE_FILE_NAME)), false);
+    assert.deepEqual(backupFiles(claudeDirectory), []);
+    assert.equal(existsSync(join(claudeDirectory, RETIRED_SESSION_TITLE_GATE_FILE_NAME)), true);
 });

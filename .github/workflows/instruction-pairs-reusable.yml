@@ -40,7 +40,7 @@ jobs:
         if: ${{ !inputs.skip-validation }}
         uses: actions/checkout@v5
         with:
-          repository: jl-cmd/claude-dev-env
+          repository: ${{ github.repository }}
           ref: ${{ inputs.validator-ref }}
           path: .instruction-pair-validator
           sparse-checkout: |

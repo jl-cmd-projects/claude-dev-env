@@ -10,8 +10,7 @@
     "system-prompts",
     "scripts",
     "_shared",
-    "audit-rubrics",
-    "profile-settings"
+    "audit-rubrics"
   ],
   "root_files": [
     "AGENTS.md",

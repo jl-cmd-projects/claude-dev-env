@@ -19,6 +19,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/subagent_model_pin_hook.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
+            "timeout": 10
           }
         ]
       },
@@ -34,6 +39,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
+            "timeout": 10
           }
         ]
       },
@@ -43,6 +53,11 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
             "timeout": 10
           }
         ]
@@ -118,6 +133,16 @@
         ]
       },
       {
+        "matcher": "mcp__.*__(add_issue_comment|issue_write|update_issue_comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/issue_close_handoff_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__set_session_title",
         "hooks": [
           {
@@ -148,6 +173,21 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__hearthbot__start_rc_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
             "timeout": 10
           }
         ]

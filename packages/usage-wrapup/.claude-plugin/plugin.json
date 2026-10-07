@@ -7,7 +7,7 @@
       "type": "number",
       "title": "Wrap-up threshold (% left)",
       "description": "Tell agents to finish when this much of a usage window is left.",
-      "default": 5
+      "default": 1
     },
     "compactFiveHour": {
       "type": "number",

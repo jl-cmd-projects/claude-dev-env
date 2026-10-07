@@ -1,5 +1,75 @@
 # Changelog
 
+## [8.61.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.0...claude-dev-env-v8.61.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **hooks:** forward child PreToolUse context through the nested hooks forwarder ([#1907](https://github.com/jl-cmd-projects/claude-dev-env/issues/1907)) ([daff35d](https://github.com/jl-cmd-projects/claude-dev-env/commit/daff35d0811477113c13f6949db77023bb0cda60))
+
+## [8.61.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.60.0...claude-dev-env-v8.61.0) (2026-10-06)
+
+
+### Features
+
+* **settings:** allow moving rule files to an on-demand folder in auto mode ([#1897](https://github.com/jl-cmd-projects/claude-dev-env/issues/1897)) ([9460aca](https://github.com/jl-cmd-projects/claude-dev-env/commit/9460aca8ba84680df6f945aa51ede7dd408e5d70))
+
+## [8.60.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.59.0...claude-dev-env-v8.60.0) (2026-10-05)
+
+
+### Features
+
+* **hooks:** every spawn carries the orchestrator oversight duty ([#1879](https://github.com/jl-cmd-projects/claude-dev-env/issues/1879)) ([adc5238](https://github.com/jl-cmd-projects/claude-dev-env/commit/adc5238671cb32a2133cf103eed9c73b8c47ad20))
+
+## [8.59.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.58.0...claude-dev-env-v8.59.0) (2026-10-05)
+
+
+### Features
+
+* **hooks:** deny an issue close that hands a found defect to another issue ([#1892](https://github.com/jl-cmd-projects/claude-dev-env/issues/1892)) ([30940b0](https://github.com/jl-cmd-projects/claude-dev-env/commit/30940b03cfba202f9648030b3355c16fb4c23743))
+
+## [8.58.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.57.0...claude-dev-env-v8.58.0) (2026-10-05)
+
+
+### Features
+
+* **skills:** add /correction to turn a correction into an intake brief ([#1893](https://github.com/jl-cmd-projects/claude-dev-env/issues/1893)) ([a0ec615](https://github.com/jl-cmd-projects/claude-dev-env/commit/a0ec6154ae5e2aae89d06f7a5ab23f3f4e8c50d8))
+
+
+### Documentation
+
+* **templates:** add convert steps to the artifact page README ([#1896](https://github.com/jl-cmd-projects/claude-dev-env/issues/1896)) ([011cb20](https://github.com/jl-cmd-projects/claude-dev-env/commit/011cb205c5fe5a244dc007cdda72f649c123ae8f))
+
+## [8.57.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.2...claude-dev-env-v8.57.0) (2026-10-05)
+
+
+### Features
+
+* **templates:** mark what changed between review rounds in the artifact page ([#1890](https://github.com/jl-cmd-projects/claude-dev-env/issues/1890)) ([2a73528](https://github.com/jl-cmd-projects/claude-dev-env/commit/2a735283d2d9227f8bffeba06551ff61acddb6de))
+
+## [8.56.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.56.1...claude-dev-env-v8.56.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **hooks:** ask for the session title in silence ([6fc3413](https://github.com/jl-cmd-projects/claude-dev-env/commit/6fc34133ae6cf14651146ae24bb2796d5fb9df18))
+* **hooks:** one silent session-title Stop gate ([1185c48](https://github.com/jl-cmd-projects/claude-dev-env/commit/1185c483fa8e195dbf92d0e72230b683eb595ffb))
+* **install:** retire the duplicate profile session-title Stop gate ([f5ef076](https://github.com/jl-cmd-projects/claude-dev-env/commit/f5ef076d06c286cc04e301c66caffbc8370d4870))
+* **rules:** keep the session-title rule inside the always-on budget ([1bd038d](https://github.com/jl-cmd-projects/claude-dev-env/commit/1bd038da3fe4ad6a6c2f141fa56bcc98ed6d2698))
+
+
+### CI
+
+* run required checks on merge_group for a merge queue ([f0a3467](https://github.com/jl-cmd-projects/claude-dev-env/commit/f0a34673defe912b602e6c85383886aa509ff1df))
+* run required checks on merge_group for a merge queue ([c276f37](https://github.com/jl-cmd-projects/claude-dev-env/commit/c276f370aec7f27cd5f81bcd0c78673748c1ca6c))
+
+## [8.56.1](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.56.0...claude-dev-env-v8.56.1) (2026-10-05)
+
+
+### Documentation
+
+* **account-broker:** send the prompt on stdin in the run example ([8943b4f](https://github.com/jl-cmd/claude-dev-env/commit/8943b4faad5d4d92f1c30b66a5abaaf085df240d))
+
 ## [8.56.0](https://github.com/jl-cmd/claude-dev-env/compare/claude-dev-env-v8.55.0...claude-dev-env-v8.56.0) (2026-10-05)
 
 
