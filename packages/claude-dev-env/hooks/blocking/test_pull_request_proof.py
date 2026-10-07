@@ -1,4 +1,4 @@
-"""Behavior tests for the proof-in-practice check on a new pull request."""
+"""Behavior tests for the proof-in-practice and existing-work checks on a new pull request."""
 
 import sys
 from pathlib import Path
@@ -8,10 +8,19 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
-from hooks_constants.pull_request_proof_constants import MISSING_BODY_REASON, MISSING_PROOF_REASON
+from hooks_constants.pull_request_proof_constants import (
+    MISSING_BODY_REASON,
+    MISSING_EXISTING_WORK_REASON,
+    MISSING_PROOF_REASON,
+)
 
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
 UNPROVEN_BODY = "## Summary\nAdds a gate.\n\n## Verification\nUnit tests pass.\n"
+SEARCHED_BODY = (
+    "## Summary\nAdds a gate.\n\n## Existing work\n`gate.py:12` runs the check; this adds a flag.\n\n"
+    "## Proof in practice\nRan `python run.py`.\n"
+)
+EMPTY_EXISTING_WORK_BODY = "## Existing work\n\n## Proof in practice\nRan `python run.py`.\n"
 
 
 def _shell(command: str, working_directory: Path | None = None) -> dict[str, object]:
@@ -90,3 +99,37 @@ def test_other_pull_request_commands_should_pass() -> None:
 def test_other_tools_should_pass() -> None:
     payload = {"tool_name": "mcp__github__update_pull_request", "tool_input": {"body": "x"}}
     assert gate.missing_proof_reason(payload) is None
+
+
+def test_existing_work_section_should_stop_at_a_heading_of_the_same_level() -> None:
+    assert gate.section_under_existing_work(SEARCHED_BODY) == "`gate.py:12` runs the check; this adds a flag."
+
+
+def test_mcp_create_without_existing_work_should_be_denied() -> None:
+    assert gate.missing_existing_work_reason(_mcp_create(PROVEN_BODY)) == MISSING_EXISTING_WORK_REASON
+
+
+def test_mcp_create_with_an_empty_existing_work_section_should_be_denied() -> None:
+    payload = _mcp_create(EMPTY_EXISTING_WORK_BODY)
+    assert gate.missing_existing_work_reason(payload) == MISSING_EXISTING_WORK_REASON
+
+
+def test_mcp_create_with_existing_work_should_pass() -> None:
+    assert gate.missing_existing_work_reason(_mcp_create(SEARCHED_BODY)) is None
+
+
+def test_gh_create_body_file_without_existing_work_should_be_denied(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text(PROVEN_BODY, encoding="utf-8")
+    payload = _shell("gh pr create --draft --body-file body.md", tmp_path)
+    assert gate.missing_existing_work_reason(payload) == MISSING_EXISTING_WORK_REASON
+
+
+def test_unreadable_body_should_leave_the_deny_to_the_proof_check() -> None:
+    payload = _shell("gh pr create --fill")
+    assert gate.missing_existing_work_reason(payload) is None
+    assert gate.missing_proof_reason(payload) == MISSING_BODY_REASON
+
+
+def test_other_pull_request_commands_should_pass_the_existing_work_check() -> None:
+    for each_command in ("gh pr edit 3 --body x", "git push -u origin b", "gh pr view"):
+        assert gate.missing_existing_work_reason(_shell(each_command)) is None

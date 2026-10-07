@@ -15,7 +15,10 @@ from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import MISSING_PROOF_REASON
 
-PROVEN_FOLLOWUP_BODY = "Follow-up to #1731\n\n## Proof in practice\nRan `python probe.py`.\n"
+PROVEN_FOLLOWUP_BODY = (
+    "Follow-up to #1731\n\n## Existing work\nNothing found in open or merged pull requests.\n\n"
+    "## Proof in practice\nRan `python probe.py`.\n"
+)
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
