@@ -20,17 +20,21 @@ from json_file_reader import read_json_object
 from hooks_constants.visual_reply_rules_constants import (
     ABBREVIATION_MESSAGE,
     ABBREVIATIONS_RULE_KEY,
+    ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_VISUAL_TOOL_NAME_SUFFIXES,
     ALLOWED_CAPITALIZED_WORDS_KEY,
     ASSISTANT_ENTRY_TYPE,
+    BLOCK_ID_KEY,
     BLOCK_NAME_KEY,
     BLOCK_TYPE_KEY,
     CAPITALIZED_ABBREVIATION_PATTERN,
     CONTENT_KEY,
     ENTRY_TYPE_KEY,
+    IS_ERROR_KEY,
     IS_META_KEY,
     LOWERCASE_ABBREVIATION_TEMPLATE,
     LOWERCASE_ABBREVIATIONS_KEY,
+    MAXIMUM_REPLIES_PER_TURN,
     MAXIMUM_SENTENCES_WITHOUT_VISUAL,
     MESSAGE_KEY,
     MODE_SWITCH_ENABLED_KEY,
@@ -38,6 +42,7 @@ from hooks_constants.visual_reply_rules_constants import (
     NO_PICTURE_RULE_KEY,
     NO_TAP_ANSWER_RULE_KEY,
     NO_VISUAL_MESSAGE,
+    ONE_ITEM_RULE_KEY,
     QUESTION_IN_REPLY_MESSAGE,
     QUESTION_SENTENCE_PATTERN,
     RULE_KEY_FIELD,
@@ -46,8 +51,11 @@ from hooks_constants.visual_reply_rules_constants import (
     RULES_FILE_ENCODING,
     RULES_FILE_PATH,
     RULES_LIST_KEY,
+    SECOND_REPLY_MESSAGE,
     TEXT_BLOCK_TYPE,
+    TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
+    TOOL_USE_ID_KEY,
     TRACKER_NUMBER_MESSAGE,
     TRACKER_NUMBER_PATTERN,
     TRANSCRIPT_ENCODING,
@@ -102,7 +110,7 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
         if isinstance(each, dict)
         and all(field in each for field in (RULE_KEY_FIELD, RULE_LABEL_FIELD, RULE_REMINDER_FIELD))
     )
-    all_needed_keys = {NO_PICTURE_RULE_KEY, NO_TAP_ANSWER_RULE_KEY, ABBREVIATIONS_RULE_KEY}
+    all_needed_keys = {ONE_ITEM_RULE_KEY, NO_PICTURE_RULE_KEY, NO_TAP_ANSWER_RULE_KEY, ABBREVIATIONS_RULE_KEY}
     if not all_needed_keys <= {each.key for each in all_rules}:
         return None
     return VisualReplyRules(
@@ -180,42 +188,83 @@ def _is_prompt_entry(all_entry_fields: dict[str, object]) -> bool:
     )
 
 
-def _tool_names(all_entry_fields: dict[str, object]) -> list[str]:
-    if all_entry_fields.get(ENTRY_TYPE_KEY) != ASSISTANT_ENTRY_TYPE:
+def _content_blocks(all_entry_fields: dict[str, object], entry_type: str) -> list[dict[str, object]]:
+    if all_entry_fields.get(ENTRY_TYPE_KEY) != entry_type:
         return []
     message = all_entry_fields.get(MESSAGE_KEY)
     content = message.get(CONTENT_KEY) if isinstance(message, dict) else None
+    return [each for each in (content if isinstance(content, list) else []) if isinstance(each, dict)]
+
+
+def _tool_uses(all_entry_fields: dict[str, object]) -> list[dict[str, object]]:
     return [
-        str(each_block.get(BLOCK_NAME_KEY))
-        for each_block in (content if isinstance(content, list) else [])
-        if isinstance(each_block, dict) and each_block.get(BLOCK_TYPE_KEY) == TOOL_USE_BLOCK_TYPE
+        each_block
+        for each_block in _content_blocks(all_entry_fields, ASSISTANT_ENTRY_TYPE)
+        if each_block.get(BLOCK_TYPE_KEY) == TOOL_USE_BLOCK_TYPE
     ]
 
 
-def visual_shown_this_turn(all_transcript_lines: Iterable[str]) -> bool:
-    """Return True when a widget or page call follows the last prompt in the transcript."""
+def _entries_this_turn(all_transcript_lines: Iterable[str]) -> list[dict[str, object]]:
     all_entries = _parsed_entries(all_transcript_lines)
     last_prompt_index = max(
         (index for index, each in enumerate(all_entries) if _is_prompt_entry(each)), default=-1
     )
+    return all_entries[last_prompt_index + 1 :]
+
+
+def _read_transcript_lines(transcript_path: object) -> list[str] | None:
+    if not isinstance(transcript_path, str):
+        return None
+    try:
+        return Path(transcript_path).read_text(encoding=TRANSCRIPT_ENCODING).splitlines()
+    except OSError:
+        return None
+
+
+def visual_shown_this_turn(all_transcript_lines: Iterable[str]) -> bool:
+    """Return True when a widget or page call follows the last prompt in the transcript."""
     return any(
-        each_name.endswith(ALL_VISUAL_TOOL_NAME_SUFFIXES)
-        for each in all_entries[last_prompt_index + 1 :]
-        for each_name in _tool_names(each)
+        str(each_use.get(BLOCK_NAME_KEY)).endswith(ALL_VISUAL_TOOL_NAME_SUFFIXES)
+        for each_entry in _entries_this_turn(all_transcript_lines)
+        for each_use in _tool_uses(each_entry)
     )
+
+
+def replies_sent_this_turn(all_transcript_lines: Iterable[str]) -> int:
+    """Count the reply calls after the last prompt that came back without an error."""
+    all_entries = _entries_this_turn(all_transcript_lines)
+    all_delivered_ids = {
+        each_block.get(TOOL_USE_ID_KEY)
+        for each_entry in all_entries
+        for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
+        if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
+        and not each_block.get(IS_ERROR_KEY)
+    }
+    return sum(
+        1
+        for each_entry in all_entries
+        for each_use in _tool_uses(each_entry)
+        if str(each_use.get(BLOCK_NAME_KEY)).endswith(ALL_REPLY_TOOL_NAME_SUFFIXES)
+        and each_use.get(BLOCK_ID_KEY) in all_delivered_ids
+    )
+
+
+def second_reply_violation(transcript_path: object, rules: VisualReplyRules) -> str | None:
+    """Return the deny reason for a reply when this turn already delivered one."""
+    all_lines = _read_transcript_lines(transcript_path)
+    if all_lines is None or replies_sent_this_turn(all_lines) < MAXIMUM_REPLIES_PER_TURN:
+        return None
+    return SECOND_REPLY_MESSAGE.format(reminder=rules.reminder(ONE_ITEM_RULE_KEY))
 
 
 def visual_violation(
     sentence_count: int, transcript_path: object, rules: VisualReplyRules
 ) -> str | None:
     """Return the deny reason for a reply of several sentences with no visual this turn."""
-    if sentence_count <= MAXIMUM_SENTENCES_WITHOUT_VISUAL or not isinstance(transcript_path, str):
+    if sentence_count <= MAXIMUM_SENTENCES_WITHOUT_VISUAL:
         return None
-    try:
-        all_lines = Path(transcript_path).read_text(encoding=TRANSCRIPT_ENCODING).splitlines()
-    except OSError:
-        return None
-    if visual_shown_this_turn(all_lines):
+    all_lines = _read_transcript_lines(transcript_path)
+    if all_lines is None or visual_shown_this_turn(all_lines):
         return None
     return NO_VISUAL_MESSAGE.format(
         sentence_count=sentence_count, reminder=rules.reminder(NO_PICTURE_RULE_KEY)

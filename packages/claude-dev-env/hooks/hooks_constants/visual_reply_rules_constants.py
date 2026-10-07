@@ -20,10 +20,13 @@ MODE_SWITCH_ENABLED_KEY = "enabled"
 NO_PICTURE_RULE_KEY = "no_picture"
 NO_TAP_ANSWER_RULE_KEY = "no_tap_answer"
 ABBREVIATIONS_RULE_KEY = "abbreviations"
+ONE_ITEM_RULE_KEY = "one_item"
 
 WIDGET_TOOL_NAME_SUFFIX = "__post_widget"
 ARTIFACT_TOOL_NAME = "Artifact"
 ALL_VISUAL_TOOL_NAME_SUFFIXES = (WIDGET_TOOL_NAME_SUFFIX, ARTIFACT_TOOL_NAME)
+ALL_REPLY_TOOL_NAME_SUFFIXES = ("__reply", "__post_message")
+MAXIMUM_REPLIES_PER_TURN = 1
 MAXIMUM_SENTENCES_WITHOUT_VISUAL = 1
 
 CAPITALIZED_ABBREVIATION_PATTERN = re.compile(
@@ -46,12 +49,17 @@ BLOCK_TYPE_KEY = "type"
 BLOCK_NAME_KEY = "name"
 TEXT_BLOCK_TYPE = "text"
 TOOL_USE_BLOCK_TYPE = "tool_use"
+TOOL_RESULT_BLOCK_TYPE = "tool_result"
+BLOCK_ID_KEY = "id"
+TOOL_USE_ID_KEY = "tool_use_id"
+IS_ERROR_KEY = "is_error"
 IS_META_KEY = "isMeta"
 
 ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
 QUESTION_IN_REPLY_MESSAGE = "A question is in the reply text. {reminder}"
 NO_VISUAL_MESSAGE = "This reply has {sentence_count} sentences and no visual this turn. {reminder}"
+SECOND_REPLY_MESSAGE = "A reply already went out this turn. {reminder}"
 WIDGET_ANCHOR_MESSAGE = (
     "A link sits inside the widget code, and a widget link does not open in the Claude app."
     " Remove the anchor and put the page link in the reply text."

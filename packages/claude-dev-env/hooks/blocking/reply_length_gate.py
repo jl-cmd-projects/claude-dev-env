@@ -38,7 +38,8 @@ With visual reply mode on, the default, the gate also runs the checks in
 ``visual_reply_rules.py``. A reply or a decision card may hold no
 abbreviation and no tracker number outside a link. A reply may ask no
 question, since a decision card takes the tap answer. A reply of more than
-one sentence needs a widget or a page earlier in the turn. A widget may
+one sentence needs a widget or a page earlier in the turn. A turn sends one
+reply, so a reply after a delivered reply in the same turn is denied. A widget may
 hold no anchor link, since a widget link does not open in the Claude app.
 
 A length limit is a smell elsewhere in this package, recorded and fixed in a
@@ -64,6 +65,7 @@ from visual_reply_rules import (
     load_rules,
     mode_enabled,
     question_violation,
+    second_reply_violation,
     visual_violation,
     widget_anchor_violation,
 )
@@ -268,6 +270,7 @@ def reply_violation(
     return (
         abbreviation_violation(prose_text, mode_rules)
         or question_violation(prose_text, mode_rules)
+        or second_reply_violation(transcript_path, mode_rules)
         or visual_violation(len(sentence_word_lists(reply_text)), transcript_path, mode_rules)
     )
 

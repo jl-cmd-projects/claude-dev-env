@@ -13,6 +13,8 @@ from visual_reply_rules import (
     load_rules,
     mode_enabled,
     question_violation,
+    replies_sent_this_turn,
+    second_reply_violation,
     visual_shown_this_turn,
     visual_violation,
     widget_anchor_violation,
@@ -94,3 +96,55 @@ def test_visual_violation_reads_the_transcript_file(tmp_path: Path) -> None:
     assert visual_violation(2, str(transcript_path), SHIPPED_RULES) is not None
     assert visual_violation(1, str(transcript_path), SHIPPED_RULES) is None
     assert visual_violation(2, str(tmp_path / "missing.jsonl"), SHIPPED_RULES) is None
+
+
+def reply_use_line(tool_use_id: str) -> str:
+    return json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "id": tool_use_id, "name": "mcp__thread__reply"}]
+            },
+        }
+    )
+
+
+def result_line(tool_use_id: str, is_error: bool) -> str:
+    return json.dumps(
+        {
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "tool_use_id": tool_use_id, "is_error": is_error}]
+            },
+        }
+    )
+
+
+def test_replies_sent_this_turn_counts_delivered_replies_after_the_last_prompt() -> None:
+    all_lines = [
+        prompt_line("earlier"),
+        reply_use_line("a"),
+        result_line("a", False),
+        prompt_line("status"),
+        reply_use_line("b"),
+        result_line("b", True),
+        reply_use_line("c"),
+        result_line("c", False),
+        reply_use_line("d"),
+    ]
+    assert replies_sent_this_turn(all_lines) == 1
+
+
+def test_second_reply_violation_denies_only_after_a_delivered_reply(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "transcript.jsonl"
+    transcript_path.write_text(
+        "\n".join([prompt_line("status"), reply_use_line("a"), result_line("a", True)]),
+        encoding="utf-8",
+    )
+    assert second_reply_violation(str(transcript_path), SHIPPED_RULES) is None
+    transcript_path.write_text(
+        "\n".join([prompt_line("status"), reply_use_line("a"), result_line("a", False)]),
+        encoding="utf-8",
+    )
+    assert second_reply_violation(str(transcript_path), SHIPPED_RULES) is not None
+    assert second_reply_violation(str(tmp_path / "missing.jsonl"), SHIPPED_RULES) is None
