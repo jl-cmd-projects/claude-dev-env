@@ -1,0 +1,132 @@
+"""Behavior tests for correction_filing with a stand-in gh on PATH."""
+
+from __future__ import annotations
+
+import json
+import os
+import stat
+from pathlib import Path
+
+import pytest
+
+import correction_filing
+
+STAND_IN_GH = r'''#!/usr/bin/env python3
+import json, os, sys
+from urllib.parse import parse_qs, urlsplit
+store = os.environ["STAND_IN_GH_STORE"]
+issues = json.load(open(store)) if os.path.exists(store) else []
+args = sys.argv[1:]
+if "POST" in args:
+    fields = dict(args[i + 1].split("=", 1) for i, a in enumerate(args) if a == "-f")
+    number = len(issues) + 1
+    url = "https://example.test/issues/%d" % number
+    issues.append({"number": number, "title": fields["title"], "url": url,
+                   "body": fields["body"], "label": fields["labels[]"], "state": "open"})
+    json.dump(issues, open(store, "w"))
+    print(url)
+else:
+    query = parse_qs(urlsplit(args[2]).query)
+    state = query["state"][0]
+    for i in issues:
+        if i["label"] == query["labels"][0] and (state == "all" or i["state"] == state):
+            print(json.dumps({k: i[k] for k in ("number", "title", "url", "body")}))
+'''
+
+
+@pytest.fixture
+def filing_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    gh_path = bin_directory / "gh"
+    gh_path.write_text(STAND_IN_GH, encoding="utf-8")
+    gh_path.chmod(gh_path.stat().st_mode | stat.S_IEXEC)
+    store_path = tmp_path / "issues.json"
+    config_file = tmp_path / "correction-capture.json"
+    config_file.write_text(json.dumps({"repository": "owner/name", "label": "correction"}))
+    monkeypatch.setenv("PATH", str(bin_directory) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("STAND_IN_GH_STORE", str(store_path))
+    monkeypatch.setenv("CLAUDE_CORRECTION_CAPTURE_PATH", str(config_file))
+    return store_path
+
+
+def _stored_issues(store_path: Path) -> list[dict[str, object]]:
+    return json.loads(store_path.read_text()) if store_path.exists() else []
+
+
+def should_file_one_labeled_issue_quoting_the_text(filing_environment, capsys) -> None:
+    assert correction_filing.main(["file", "--text", "stop asking me to paste settings"]) == 0
+    all_issues = _stored_issues(filing_environment)
+    assert len(all_issues) == 1
+    assert all_issues[0]["label"] == "correction"
+    assert "> stop asking me to paste settings" in all_issues[0]["body"]
+    assert "Filed: https://example.test/issues/1" in capsys.readouterr().out
+
+
+def should_file_a_replayed_correction_once(filing_environment, capsys) -> None:
+    correction_filing.main(["file", "--text", "stop  asking me"])
+    assert correction_filing.main(["file", "--text", "stop asking me"]) == 0
+    assert len(_stored_issues(filing_environment)) == 1
+    assert "Already filed: https://example.test/issues/1" in capsys.readouterr().out
+
+
+def should_dedupe_on_a_supplied_key(filing_environment) -> None:
+    correction_filing.main(["file", "--text", "first", "--dedupe-key", "msg-7"])
+    correction_filing.main(["file", "--text", "second", "--dedupe-key", "msg-7"])
+    correction_filing.main(["file", "--text", "second", "--dedupe-key", "msg-8"])
+    assert len(_stored_issues(filing_environment)) == 2
+
+
+def should_mask_tokens_and_emails(filing_environment) -> None:
+    correction_filing.main(
+        ["file", "--text", "you leaked ghp_" + "a" * 36 + " and me@example.com"]
+    )
+    body = _stored_issues(filing_environment)[0]["body"]
+    assert "ghp_" not in body and "me@example.com" not in body
+    assert body.count("[redacted]") == 2
+
+
+def should_file_nothing_without_config(filing_environment, monkeypatch, tmp_path, capsys) -> None:
+    monkeypatch.setenv("CLAUDE_CORRECTION_CAPTURE_PATH", str(tmp_path / "absent.json"))
+    assert correction_filing.main(["file", "--text", "anything"]) == 1
+    assert _stored_issues(filing_environment) == []
+    assert "No correction filing config" in capsys.readouterr().err
+
+
+def should_file_nothing_for_empty_text(filing_environment) -> None:
+    assert correction_filing.main(["file", "--text", "   "]) == 1
+    assert _stored_issues(filing_environment) == []
+
+
+def should_list_open_corrections(filing_environment, capsys) -> None:
+    correction_filing.main(["list"])
+    assert "No open corrections." in capsys.readouterr().out
+    correction_filing.main(["file", "--text", "use plain words"])
+    capsys.readouterr()
+    correction_filing.main(["list"])
+    assert "#1 Correction: use plain words https://example.test/issues/1" in capsys.readouterr().out
+
+
+def should_build_title_and_body_from_text() -> None:
+    assert correction_filing.issue_title_for("a\nb") == "Correction: a b"
+    body = correction_filing.issue_body_for("x\ny", "flag", "abcdef0123456789")
+    assert "> x\n> y" in body and "Source: flag" in body
+    assert "<!-- correction-dedupe: abcdef0123456789 -->" in body
+
+
+def should_read_target_and_reject_incomplete_config(tmp_path) -> None:
+    good = tmp_path / "good.json"
+    good.write_text(json.dumps({"repository": "o/n", "label": "l"}))
+    assert correction_filing.load_filing_target(good) == correction_filing.FilingTarget("o/n", "l")
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"repository": "o/n"}))
+    with pytest.raises(correction_filing.FilingConfigMissing):
+        correction_filing.load_filing_target(bad)
+
+
+def should_dedupe_from_the_ledger_when_the_listing_lags(filing_environment, capsys) -> None:
+    correction_filing.main(["file", "--text", "keep replies short"])
+    filing_environment.write_text("[]")
+    capsys.readouterr()
+    correction_filing.main(["file", "--text", "keep replies short"])
+    assert "Already filed: https://example.test/issues/1" in capsys.readouterr().out

@@ -1,16 +1,32 @@
 ---
 name: correction
-description: Turn a correction the user just made into a short handoff brief they paste into a corrections intake. Use when the user types /correction followed by what the agent got wrong.
+description: File a correction the user made to an agent as one labeled GitHub issue, list the open corrections, or write a handoff brief. Use when the user types /correction, says "file this as a correction", or asks to show the open corrections.
 argument-hint: "<what the agent got wrong, in the user's words>"
 ---
 
 # /correction
 
-The user corrected an agent and wants the fix to stick. Write one brief they can paste into the place that turns corrections into lasting fixes.
+The user corrected an agent and wants the fix to stick. A labeled issue is the shared store a corrections project watches.
 
-`$ARGUMENTS` is the user's statement of the correction. Fill the other fields from this session: the transcript, the files and pull requests it touched, and the messages it sent. When the session does not settle a field, write `unknown` there.
+## File it
 
-Print the brief as one fenced `text` block, and nothing after it:
+Use this for `/correction <text>` and "file this as a correction: <text>". Run:
+
+```bash
+python "${CLAUDE_SKILL_DIR}/scripts/correction_filing.py" file --text "<the correction, word for word>"
+```
+
+Pass the user's words exactly. Print the one line the command prints, `Filed: <url>` or `Already filed: <url>`, and nothing else.
+
+When it prints `No correction filing config`, write the brief below instead and tell the user the config file it names.
+
+## List them
+
+For "show the open corrections", run `python "${CLAUDE_SKILL_DIR}/scripts/correction_filing.py" list` and print its lines.
+
+## Brief
+
+Print one fenced `text` block, and nothing after it. Fill the fields from this session. Write `unknown` for a field the session does not settle.
 
 ```text
 Correction: <$ARGUMENTS, word for word>
@@ -23,3 +39,12 @@ Repeat: <yes, with the earlier time it happened | no | unknown>
 ```
 
 Keep each field to one or two lines. Leave out the layer and the fix design; the intake decides those.
+
+## Layout
+
+| File | Purpose |
+|---|---|
+| `scripts/correction_filing.py` | Files one correction as a labeled issue, deduplicated, or lists the open ones |
+| `scripts/correction_filing_constants/config/constants.py` | Config keys, issue shape, and redaction patterns |
+| `scripts/test_correction_filing.py` | Behavior tests with a stand-in `gh` |
+| `references/filing.md` | Config file, issue shape, dedupe, and the flag and hook callers |
