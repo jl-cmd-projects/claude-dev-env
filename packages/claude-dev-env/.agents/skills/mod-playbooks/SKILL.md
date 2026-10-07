@@ -20,8 +20,9 @@ operator's desktop comes last, when a person wants to look.
 | Let the operator watch the mod on their own screen | Open a desktop window from a Remote Control session | [desktop-window.md](references/desktop-window.md) |
 | Prove what the operator's window shows | Capture that window to a PNG | [desktop-capture.md](references/desktop-capture.md) |
 
-When the mod's repository ships a driver and playbooks, use them first. Read its playbook guide, run
-the matching playbook, and add a playbook for any new screen you test.
+When the mod's repository ships a driver and playbooks, use them first. Look for a `drive.mjs` beside
+a `playbooks/` folder and a playbook guide in its docs. Read the guide, run the matching playbook, and
+add a playbook for any new screen you test.
 
 ## Playbook map
 
