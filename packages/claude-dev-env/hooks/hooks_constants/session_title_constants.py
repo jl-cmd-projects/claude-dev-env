@@ -57,4 +57,5 @@ STOP_BLOCK_REASON = (
     " Next time, set the title before your final reply."
 )
 REMOTE_TITLE_TOOL_NAME = "mcp__claude-code-remote__set_session_title"
+REMOTE_SERVER_TOOL_PREFIX = "mcp__claude-code-remote__"
 UNKNOWN_TITLE_TOOL_NAME = "its name ends in __set_session_title"

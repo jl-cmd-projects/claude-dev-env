@@ -11,8 +11,8 @@ The hook stays silent when:
 - the stop is already a retry after a block (stop_hook_active is true);
 - the session shows no title tool: no title tool named anywhere in the
   transcript, and either no remote session id in the environment or a
-  deferred tool listing that leaves the title tool out, or an earlier
-  Stop block the session never met;
+  deferred tool listing that names other remote-server tools and leaves
+  the title tool out, or an earlier Stop block the session never met;
 - the transcript cannot be read.
 """
 
@@ -34,6 +34,7 @@ from hooks_constants.session_title_constants import (
     BLOCK_DECISION,
     DEFERRED_TOOL_ATTACHMENT_TYPES,
     HOOK_BLOCKING_ERROR_ATTACHMENT_TYPE,
+    REMOTE_SERVER_TOOL_PREFIX,
     REMOTE_SESSION_ENVIRONMENT_VARIABLE,
     REMOTE_TITLE_TOOL_NAME,
     STOP_BLOCK_REASON,
@@ -82,9 +83,17 @@ def _title_tool_names_in(all_entry_fields: dict[str, object]) -> list[str]:
     return [each_name for each_name in all_names if TITLE_TOOL_NAME_PATTERN.match(each_name)]
 
 
-def _lists_deferred_tools(all_entry_fields: dict[str, object]) -> bool:
+def _defers_remote_server_tools(all_entry_fields: dict[str, object]) -> bool:
     attachment = all_entry_fields.get("attachment")
-    return isinstance(attachment, dict) and attachment.get("type") in DEFERRED_TOOL_ATTACHMENT_TYPES
+    if not isinstance(attachment, dict) or attachment.get("type") not in DEFERRED_TOOL_ATTACHMENT_TYPES:
+        return False
+    all_names = [str(each_name) for each_name in attachment.get("addedNames") or []]
+    all_names += [
+        str(each_record.get("name"))
+        for each_record in attachment.get("entries") or []
+        if isinstance(each_record, dict)
+    ]
+    return any(each_name.startswith(REMOTE_SERVER_TOOL_PREFIX) for each_name in all_names)
 
 
 def _is_stop_block(all_entry_fields: dict[str, object]) -> bool:
@@ -142,8 +151,9 @@ def stop_block_reason(all_entries: list[dict[str, object]], is_remote_session: b
         prompt -> set_session_title -> ok result   => None
         prompt -> work, no title call              => block reason
         no title tool anywhere, not remote         => None
-        remote, tool list lacks the title tool     => None
+        remote, deferred remote tools lack title   => None
         remote, earlier Stop block never met       => None
+        remote, remote tools load directly         => block reason
 
     Args:
         all_entries: The transcript entries, oldest first.
@@ -157,7 +167,7 @@ def stop_block_reason(all_entries: list[dict[str, object]], is_remote_session: b
     ]
     if not all_seen_tool_names and (
         not is_remote_session
-        or any(_lists_deferred_tools(each) or _is_stop_block(each) for each in all_entries)
+        or any(_defers_remote_server_tools(each) or _is_stop_block(each) for each in all_entries)
     ):
         return None
     if _title_set_since(all_entries[_turn_start_index(all_entries) :]):
