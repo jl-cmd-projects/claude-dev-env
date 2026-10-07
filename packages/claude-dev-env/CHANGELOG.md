@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.65.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.64.0...claude-dev-env-v8.65.0) (2026-10-07)
+
+
+### Features
+
+* **skills:** add mod-playbooks, a map for driving and capturing mods ([#1922](https://github.com/jl-cmd-projects/claude-dev-env/issues/1922)) ([e444dbd](https://github.com/jl-cmd-projects/claude-dev-env/commit/e444dbd1f62962eae68a9be94c5ac79d45bcbfc9))
+
 ## [8.64.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.63.0...claude-dev-env-v8.64.0) (2026-10-07)
 
 
