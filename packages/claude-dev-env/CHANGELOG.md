@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.62.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.0...claude-dev-env-v8.62.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **hooks:** ask for the title when the remote title tool loads directly ([#1861](https://github.com/jl-cmd-projects/claude-dev-env/issues/1861)) ([8e0469b](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e0469b9d479078f66a4d6a9bd576ec0d50675f8))
+
 ## [8.62.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.1...claude-dev-env-v8.62.0) (2026-10-07)
 
 
