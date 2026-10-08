@@ -21,7 +21,9 @@ import math
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+scripts_directory = str(Path(__file__).resolve().parent)
+if scripts_directory not in sys.path:
+    sys.path.insert(0, scripts_directory)
 
 from dev_env_scripts_constants.agent_image_copy_constants import (
     AGENT_COPY_SUFFIX,
@@ -48,6 +50,9 @@ def capped_size(
         width: Source width in pixels.
         height: Source height in pixels.
         maximum_edge: The largest long edge allowed.
+
+    Returns:
+        The capped (width, height).
     """
     long_edge = max(width, height)
     if long_edge <= maximum_edge:
@@ -73,11 +78,17 @@ def visual_tokens(width: int, height: int) -> int:
     )
 
 
-def parse_crop_box(crop_text: str) -> tuple[int, int, int, int]:
+def parse_all_crop_coordinates(crop_text: str) -> tuple[int, int, int, int]:
     """Return LEFT, TOP, RIGHT, BOTTOM parsed from text like ``0,0,720,640``.
 
     Args:
         crop_text: Four comma-separated pixel coordinates.
+
+    Returns:
+        The four coordinates as integers.
+
+    Raises:
+        argparse.ArgumentTypeError: When the text does not hold four numbers.
     """
     all_parts = crop_text.split(CROP_BOX_SEPARATOR)
     if len(all_parts) != CROP_BOX_PART_COUNT:
@@ -89,17 +100,20 @@ def parse_crop_box(crop_text: str) -> tuple[int, int, int, int]:
 
 
 def write_agent_copy(
-    source_path: Path, crop_box: tuple[int, int, int, int] | None = None
+    source_path: Path, all_crop_coordinates: tuple[int, int, int, int] | None = None
 ) -> Path:
     """Write the capped copy beside the source and return its path.
 
     Args:
         source_path: The full-size image.
-        crop_box: An optional LEFT, TOP, RIGHT, BOTTOM region cut before scaling.
+        all_crop_coordinates: An optional LEFT, TOP, RIGHT, BOTTOM region cut before scaling.
+
+    Returns:
+        The path of the written copy.
     """
     copy_path = source_path.with_name(source_path.stem + AGENT_COPY_SUFFIX)
     with Image.open(source_path) as source_image:
-        working_image = source_image.crop(crop_box) if crop_box else source_image.copy()
+        working_image = source_image.crop(all_crop_coordinates) if all_crop_coordinates else source_image.copy()
     working_image = working_image.resize(
         capped_size(*working_image.size), Image.Resampling.LANCZOS
     )
@@ -107,11 +121,11 @@ def write_agent_copy(
     return copy_path
 
 
-def main(all_arguments: list[str] | None = None) -> int:
+def main(all_arguments: list[str]) -> int:
     """Write the capped copy named on the command line and print its path and token cost.
 
     Args:
-        all_arguments: Command-line arguments; the process arguments when None.
+        all_arguments: Command-line arguments after the program name.
 
     Returns:
         0 when the copy was written.
@@ -120,7 +134,7 @@ def main(all_arguments: list[str] | None = None) -> int:
         description="Write an agent-size copy of an image."
     )
     parser.add_argument("image_path", type=Path)
-    parser.add_argument("--crop", type=parse_crop_box, default=None)
+    parser.add_argument("--crop", type=parse_all_crop_coordinates, default=None)
     parsed = parser.parse_args(all_arguments)
     copy_path = write_agent_copy(parsed.image_path, parsed.crop)
     with Image.open(copy_path) as copy_image:
@@ -130,4 +144,4 @@ def main(all_arguments: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

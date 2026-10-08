@@ -37,8 +37,11 @@ from hooks_constants.image_read_size_gate_constants import (
     ALL_JPEG_STANDALONE_MARKERS,
     DENY_DECISION,
     FILE_PATH_INPUT_KEY,
-    GIF_SIGNATURES,
+    ALL_GIF_SIGNATURES,
     HEADER_BYTE_COUNT,
+    JPEG_FRAME_SIZE_END,
+    JPEG_FRAME_SIZE_START,
+    JPEG_MARKER_LENGTH,
     JPEG_MARKER_PREFIX,
     JPEG_SIGNATURE,
     MAXIMUM_LONG_EDGE_PIXELS,
@@ -57,7 +60,7 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 
 def _jpeg_size(header: bytes) -> tuple[int, int] | None:
     offset = len(JPEG_SIGNATURE)
-    while offset + 9 <= len(header):
+    while offset + JPEG_FRAME_SIZE_END <= len(header):
         if header[offset] != JPEG_MARKER_PREFIX:
             return None
         marker = header[offset + 1]
@@ -65,12 +68,15 @@ def _jpeg_size(header: bytes) -> tuple[int, int] | None:
             offset += 1
             continue
         if marker in ALL_JPEG_STANDALONE_MARKERS:
-            offset += 2
+            offset += JPEG_MARKER_LENGTH
             continue
         if marker in ALL_JPEG_FRAME_MARKERS:
-            height, width = struct.unpack(">HH", header[offset + 5 : offset + 9])
+            height, width = struct.unpack(
+                ">HH", header[offset + JPEG_FRAME_SIZE_START : offset + JPEG_FRAME_SIZE_END]
+            )
             return width, height
-        offset += 2 + struct.unpack(">H", header[offset + 2 : offset + 4])[0]
+        segment_length_end = offset + JPEG_MARKER_LENGTH + JPEG_MARKER_LENGTH
+        offset += JPEG_MARKER_LENGTH + struct.unpack(">H", header[offset + JPEG_MARKER_LENGTH : segment_length_end])[0]
     return None
 
 
@@ -103,7 +109,7 @@ def image_size(header: bytes) -> tuple[int, int] | None:
     if header.startswith(PNG_SIGNATURE) and len(header) >= 24:
         width, height = struct.unpack(">II", header[16:24])
         return width, height
-    if header.startswith(GIF_SIGNATURES) and len(header) >= 10:
+    if header.startswith(ALL_GIF_SIGNATURES) and len(header) >= 10:
         width, height = struct.unpack("<HH", header[6:10])
         return width, height
     if header.startswith(JPEG_SIGNATURE):
