@@ -12,7 +12,7 @@ What counts as proof:
 - You ran the changed thing the way its user runs it, and you saw the effect it exists to produce. A hook fires in a live Claude Code session and changes what that session does. A script runs from its launcher on inputs like the ones it will meet. A skill or rule changes what a fresh agent does with an ordinary request.
 - You saw the failure first. Run the same scenario without your change and record what goes wrong. The proof is the difference between the two runs.
 - You covered the conditions the change will meet. That includes the case it should leave alone, and for session behavior a fresh session, a resumed session, a later turn, and a session after compaction.
-- The session under test got an ordinary request, worded as a task the way Jon would ask for it.
+- The session under test got an ordinary request, worded as a task the way the owner would ask for it.
 
 Unit tests are welcome as extra evidence. The live run is the proof. A test you edited until it passed proves nothing.
 
@@ -28,7 +28,7 @@ For a change to Claude Code behavior, such as a hook, skill, rule, setting, prom
 
 Report it in the pull request body under "Proof in practice". List each command you ran, quote the output lines that show the effect, state the difference between the runs with and without the change, and name anything still unproven.
 
-When you cannot prove it, leave the pull request unopened. Tell Jon in three short sentences what you could not run and which tool would make it possible. A blocked proof is an acceptable result, because it shows where tooling is missing.
+When you cannot prove it, leave the pull request unopened. Tell the owner in three short sentences what you could not run and which tool would make it possible. A blocked proof is an acceptable result, because it shows where tooling is missing.
 
 ## Enforcement
 
