@@ -507,7 +507,6 @@ def test_should_deny_the_quoted_cause_with_no_source(
     [
         "The write did not land, because the next read printed `Right after write: 1`.",
         "The job failed because of [run 12](https://github.com/owner/repo/actions/runs/12).",
-        "The write did not land, so the line stays.\n```\nRight after write: 1\n```",
     ],
 )
 def test_should_allow_a_cause_that_cites_evidence(
@@ -515,6 +514,22 @@ def test_should_allow_a_cause_that_cites_evidence(
 ) -> None:
     exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
     assert (exit_code, stderr_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "That window lacked Administrator, so the write did not land.\n\n```powershell\nRestart-Service x\n```",
+        "The error shows the hook is the only line. So the filter wrote nothing.",
+        "One line survived because its start did not match my filter. Run this.",
+    ],
+)
+def test_should_deny_a_cause_whose_own_sentence_cites_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2
+    assert "Cause with no source" in stderr_text
 
 
 def test_should_allow_a_reply_with_no_causal_claim(

@@ -17,8 +17,9 @@ It denies a colon that joins two clauses on one line, and an em dash::
     ok:   Two checks failed at 9:47, then the list follows:
           (each item on its own line below the colon)
 
-It denies a causal claim when the reply carries no evidence, meaning no
-inline code, fenced block, URL, or markdown link::
+It denies a causal sentence ("so", "because", "caused", "due to",
+"therefore", "means") that carries no inline code, URL, or markdown link
+of its own. A command block in the same reply is no evidence::
 
     flag: That window was Windows PowerShell without Administrator, so the write did not land.
     ok:   The write did not land, because the next read printed `Right after write: 1`.
@@ -161,13 +162,14 @@ def em_dash_violation(reply_text: str) -> str | None:
 
 
 def unsourced_cause_violation(reply_text: str) -> str | None:
-    """Return the deny reason for a causal sentence when the reply cites no evidence, or None."""
-    if any(each_pattern.search(reply_text) for each_pattern in ALL_EVIDENCE_PATTERNS):
-        return None
-    for each_line in LINE_BREAK_PATTERN.split(reply_text):
+    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
+    for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text)):
         for each_sentence in SENTENCE_END_PATTERN.split(each_line):
-            if CAUSAL_CLAIM_PATTERN.search(each_sentence):
-                return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
+            if CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence)) is None:
+                continue
+            if any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS):
+                continue
+            return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
     return None
 
 
