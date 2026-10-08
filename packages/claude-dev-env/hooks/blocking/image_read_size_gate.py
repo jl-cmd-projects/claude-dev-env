@@ -11,7 +11,7 @@ long edge passes the cap, naming the command that writes a capped copy::
     Read notes.md                    -> allowed
     Read broken.png (no header)      -> allowed
 
-A missing file, an unknown format and an unreadable header all pass, so the
+A missing file, a WebP or other unknown format and an unreadable header all pass, so the
 hook never fails closed.
 """
 
@@ -50,10 +50,8 @@ from hooks_constants.image_read_size_gate_constants import (
     PNG_SIGNATURE,
     PRE_TOOL_USE_EVENT_NAME,
     READ_TOOL_NAME,
-    RIFF_SIGNATURE,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
-    WEBP_SIGNATURE,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 
@@ -80,23 +78,8 @@ def _jpeg_size(header: bytes) -> tuple[int, int] | None:
     return None
 
 
-def _webp_size(header: bytes) -> tuple[int, int] | None:
-    chunk_name = header[12:16]
-    if chunk_name == b"VP8 " and len(header) >= 30:
-        width, height = struct.unpack("<HH", header[26:30])
-        return width & 0x3FFF, height & 0x3FFF
-    if chunk_name == b"VP8L" and len(header) >= 25:
-        packed_size = int.from_bytes(header[21:25], "little")
-        return (packed_size & 0x3FFF) + 1, ((packed_size >> 14) & 0x3FFF) + 1
-    if chunk_name == b"VP8X" and len(header) >= 30:
-        return int.from_bytes(header[24:27], "little") + 1, int.from_bytes(
-            header[27:30], "little"
-        ) + 1
-    return None
-
-
 def image_size(header: bytes) -> tuple[int, int] | None:
-    """Return (width, height) read from the first bytes of a PNG, JPEG, GIF or WebP file.
+    """Return (width, height) read from the first bytes of a PNG, JPEG or GIF file.
 
     ::
 
@@ -114,8 +97,6 @@ def image_size(header: bytes) -> tuple[int, int] | None:
         return width, height
     if header.startswith(JPEG_SIGNATURE):
         return _jpeg_size(header)
-    if header.startswith(RIFF_SIGNATURE) and header[8:12] == WEBP_SIGNATURE:
-        return _webp_size(header)
     return None
 
 

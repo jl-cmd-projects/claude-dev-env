@@ -63,7 +63,7 @@ def test_should_allow_a_missing_file(tmp_path: Path) -> None:
     assert _run_hook(tmp_path / "gone.png") == ""
 
 
-@pytest.mark.parametrize("suffix", [".png", ".jpg", ".gif", ".webp"])
+@pytest.mark.parametrize("suffix", [".png", ".jpg", ".gif"])
 def test_image_size_reads_each_format(tmp_path: Path, suffix: str) -> None:
     image_path = _image(tmp_path / f"wide{suffix}", 900, 300)
     assert image_read_size_gate.image_size(image_path.read_bytes()[:65536]) == (900, 300)

@@ -78,7 +78,7 @@ def visual_tokens(width: int, height: int) -> int:
     )
 
 
-def parse_all_crop_coordinates(crop_text: str) -> tuple[int, int, int, int]:
+def parse_crop_box(crop_text: str) -> tuple[int, int, int, int]:
     """Return LEFT, TOP, RIGHT, BOTTOM parsed from text like ``0,0,720,640``.
 
     Args:
@@ -134,7 +134,7 @@ def main(all_arguments: list[str]) -> int:
         description="Write an agent-size copy of an image."
     )
     parser.add_argument("image_path", type=Path)
-    parser.add_argument("--crop", type=parse_all_crop_coordinates, default=None)
+    parser.add_argument("--crop", type=parse_crop_box, default=None)
     parsed = parser.parse_args(all_arguments)
     copy_path = write_agent_copy(parsed.image_path, parsed.crop)
     with Image.open(copy_path) as copy_image:

@@ -4,11 +4,11 @@ This family stops a Read before it puts too much into the context. An agent that
 
 ## Checks
 
-- `blocking/image_read_size_gate.py` denies a Read of a PNG, JPEG, GIF or WebP file whose long edge is over 512 pixels and names `scripts/agent_image_copy.py`, which writes a `<name>.agent.png` copy at 512 pixels or less with the aspect ratio kept.
+- `blocking/image_read_size_gate.py` denies a Read of a PNG, JPEG or GIF file whose long edge is over 512 pixels and names `scripts/agent_image_copy.py`, which writes a `<name>.agent.png` copy at 512 pixels or less with the aspect ratio kept.
 
 ## When it fires
 
-- `blocking/image_read_size_gate.py` runs on `PreToolUse`, matcher `Read`, timeout `10` seconds in `hooks.json`. It reads only the file header, so a text file, a missing file and an unknown format pass.
+- `blocking/image_read_size_gate.py` runs on `PreToolUse`, matcher `Read`, timeout `10` seconds in `hooks.json`. It reads only the file header, so a text file, a missing file, a WebP file and an unknown format pass.
 
 ## Proving it
 
