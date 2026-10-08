@@ -4,7 +4,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 
 ## Checks
 
-- `blocking/reply_length_gate.py` caps chat reply length, denies a configured banned word, and requires a readable link when the text names a pull request number. With visual reply mode on, it also runs the checks in `visual_reply_rules.py` from the rule list in `rules/visual-reply-rules.json`: no abbreviation or tracker number outside a link, a widget or page before a reply of more than one sentence, and no anchor link inside widget code. `~/.claude/visual-reply-mode.json` with `{"enabled": false}` turns the mode checks off.
+- `blocking/reply_length_gate.py` caps chat reply length, denies a configured banned word, and requires a readable link when the text names a pull request number. With visual reply mode on, it also runs the checks in `visual_reply_rules.py` from the rule list in `rules/visual-reply-rules.json`: no abbreviation or tracker number outside a link, a widget or page before a reply of more than one sentence, and no anchor link inside widget code. The mode is off by default; `~/.claude/visual-reply-mode.json` with `{"enabled": true}` turns the mode checks on.
 - `blocking/edit_marker_gate.py` rejects strikethrough and edit-note markers in replacement chat text or cards.
 - `blocking/issue_close_handoff_gate.py` denies an issue comment or issue write that closes the issue and routes a found defect to another issue or epic.
 - `blocking/session_title_format_gate.py` denies a session title that breaks the `<emoji> <name>` shape or has a name longer than 25 characters.

@@ -48,13 +48,13 @@ def test_load_rules_returns_none_when_a_needed_rule_is_missing(tmp_path: Path) -
     assert load_rules(rules_path) is None
 
 
-def test_mode_is_on_without_a_switch_file(tmp_path: Path) -> None:
-    assert mode_enabled(tmp_path) is True
-
-
-def test_mode_is_off_when_the_switch_file_says_so(tmp_path: Path) -> None:
-    (tmp_path / "visual-reply-mode.json").write_text('{"enabled": false}', encoding="utf-8")
+def test_mode_is_off_without_a_switch_file(tmp_path: Path) -> None:
     assert mode_enabled(tmp_path) is False
+
+
+def test_mode_is_on_when_the_switch_file_says_so(tmp_path: Path) -> None:
+    (tmp_path / "visual-reply-mode.json").write_text('{"enabled": true}', encoding="utf-8")
+    assert mode_enabled(tmp_path) is True
 
 
 def test_abbreviation_violation_names_the_abbreviation_and_allows_listed_words() -> None:

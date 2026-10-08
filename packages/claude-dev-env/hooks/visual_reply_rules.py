@@ -4,8 +4,8 @@ One JSON file, ``rules/visual-reply-rules.json``, holds the rules. The gate,
 the reminder and the evaluation read the same file, so all three name each
 rule with the same label and the same reminder text.
 
-The mode is on unless ``~/.claude/visual-reply-mode.json`` holds
-``{"enabled": false}``.
+The mode is off unless ``~/.claude/visual-reply-mode.json`` holds
+``{"enabled": true}``.
 """
 
 from __future__ import annotations
@@ -122,11 +122,11 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
 
 
 def mode_enabled(claude_home: Path) -> bool:
-    """Return False only when the switch file turns the mode off."""
+    """Return True only when the switch file turns the mode on."""
     switch_document = read_json_object(claude_home / MODE_SWITCH_FILE_NAME, RULES_FILE_ENCODING)
     if switch_document is None:
-        return True
-    return switch_document.get(MODE_SWITCH_ENABLED_KEY) is not False
+        return False
+    return switch_document.get(MODE_SWITCH_ENABLED_KEY) is True
 
 
 def abbreviation_violation(prose_text: str, rules: VisualReplyRules) -> str | None:

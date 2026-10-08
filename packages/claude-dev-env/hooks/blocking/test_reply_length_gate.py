@@ -42,6 +42,9 @@ def run_gate(
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    switch_path = tmp_path / ".claude" / "visual-reply-mode.json"
+    switch_path.parent.mkdir(exist_ok=True)
+    switch_path.write_text('{"enabled": true}', encoding="utf-8")
 
 
 def test_should_allow_three_short_sentences(
@@ -295,7 +298,7 @@ def test_should_replace_the_defaults_with_the_configured_list(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
     likely_exit_code, _ = run_gate(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."}
@@ -321,7 +324,7 @@ def test_should_keep_the_defaults_when_the_config_file_is_malformed(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("{not json", encoding="utf-8")
     exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."})
     assert exit_code == 2
@@ -429,7 +432,7 @@ def test_should_apply_the_configured_list_to_decision_cards(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
     probably_exit_code, _ = run_gate(
         monkeypatch,
