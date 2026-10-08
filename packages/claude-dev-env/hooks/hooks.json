@@ -153,6 +153,16 @@
         ]
       },
       {
+        "matcher": "Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_dark_mode_gate.py",
+            "timeout": 60
+          }
+        ]
+      },
+      {
         "matcher": "Artifact|Skill",
         "hooks": [
           {
