@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -16,15 +17,20 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
+    ALL_VISIBLE_FILE_SUFFIXES,
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
+    DEFAULT_BRANCH_REFERENCE,
     EXISTING_WORK_HEADING_PATTERN,
+    GIT_TIMEOUT_SECONDS,
     LINE_SEPARATOR,
     MISSING_BODY_REASON,
     MISSING_EXISTING_WORK_REASON,
+    MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
+    PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
 )
@@ -180,4 +186,75 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
     for each_body in _create_bodies(all_payload_fields):
         if each_body is not None and not section_under_existing_work(each_body):
             return MISSING_EXISTING_WORK_REASON
+    return None
+
+
+def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str]:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", working_directory, *all_git_arguments],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return completed.stdout.splitlines() if completed.returncode == 0 else []
+
+
+def visible_changed_files(working_directory: str, head_branch: object) -> list[str]:
+    """Return the changed files people see on the branch checked out in the directory.
+
+    A named head branch that differs from the checked-out branch returns an
+    empty list, because the checkout then holds a different change.
+
+    Args:
+        working_directory: The session directory the hook payload names.
+        head_branch: The head branch a create call names, or None.
+    """
+    if not working_directory:
+        return []
+    all_current_branch_lines = _git_lines(working_directory, "branch", "--show-current")
+    if isinstance(head_branch, str) and head_branch and all_current_branch_lines != [head_branch]:
+        return []
+    all_merge_base_lines = _git_lines(working_directory, "merge-base", "HEAD", DEFAULT_BRANCH_REFERENCE)
+    if not all_merge_base_lines:
+        return []
+    return [
+        each_path
+        for each_path in _git_lines(
+            working_directory, "diff", "--name-only", all_merge_base_lines[0], "HEAD"
+        )
+        if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
+    ]
+
+
+def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a pull request changing visible files shows no picture, else None.
+
+    ::
+
+        branch changes page.html, proof has ![after](https://x/after.png) -> None
+        branch changes page.html, proof quotes only command output        -> MISSING_LOOK_REASON
+        branch changes only .py files                                     -> None
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    all_bodies = [each_body for each_body in _create_bodies(all_payload_fields) if each_body is not None]
+    if not all_bodies:
+        return None
+    working_directory = all_payload_fields.get("cwd")
+    tool_input = all_payload_fields.get("tool_input")
+    head_branch = tool_input.get("head") if isinstance(tool_input, dict) else None
+    all_visible_files = visible_changed_files(
+        working_directory if isinstance(working_directory, str) else "", head_branch
+    )
+    if not all_visible_files:
+        return None
+    for each_body in all_bodies:
+        section = proof_section(each_body) or ""
+        if re.search(PROOF_IMAGE_PATTERN, section, re.IGNORECASE) is None:
+            return MISSING_LOOK_REASON.format(changed_files=", ".join(all_visible_files))
     return None

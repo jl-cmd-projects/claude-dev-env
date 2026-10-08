@@ -39,3 +39,18 @@ MISSING_EXISTING_WORK_REASON = (
     + EXISTING_WORK_GUIDE_PATH
     + " for the full rule."
 )
+ALL_VISIBLE_FILE_SUFFIXES = (".html", ".htm", ".css", ".scss", ".tsx", ".jsx", ".vue", ".svelte")
+PROOF_IMAGE_PATTERN = (
+    r"!\[[^\]]*\]\([^)]+\)|https?://\S+?\.(?:png|jpe?g|gif|webp)\b"
+    r"|https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9-]+"
+)
+DEFAULT_BRANCH_REFERENCE = "origin/HEAD"
+GIT_TIMEOUT_SECONDS = 5
+MISSING_LOOK_REASON = (
+    "This pull request changes files people see ({changed_files}), and its 'Proof in"
+    " practice' section shows no picture. Render the change, open the screenshot with the"
+    " Read tool and check it against the ask, then put the screenshot in the section as an"
+    " image link, before and after when the change alters an existing view. Where the session"
+    " cannot upload an image, publish the screenshots as an Artifact page and link it. The person who"
+    " asked sees the same proof you looked at. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)

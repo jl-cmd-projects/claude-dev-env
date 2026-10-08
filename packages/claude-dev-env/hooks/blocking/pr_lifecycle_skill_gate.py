@@ -53,7 +53,11 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import duplicate_followup_reason
-from blocking.pull_request_proof import missing_existing_work_reason, missing_proof_reason
+from blocking.pull_request_proof import (
+    missing_existing_work_reason,
+    missing_look_reason,
+    missing_proof_reason,
+)
 from transcript_skill_scan import is_skill_loaded_after_last_compaction
 
 
@@ -214,6 +218,9 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     search_reason = missing_existing_work_reason(all_payload_fields)
     if search_reason is not None:
         return _deny(search_reason)
+    look_reason = missing_look_reason(all_payload_fields)
+    if look_reason is not None:
+        return _deny(look_reason)
     duplicate_reason = duplicate_followup_reason(all_payload_fields)
     return None if duplicate_reason is None else _deny(duplicate_reason)
 
