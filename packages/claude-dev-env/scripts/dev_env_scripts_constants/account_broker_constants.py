@@ -265,12 +265,6 @@ def _rank_key(reading: Reading) -> tuple[bool, int, float]:
     return (priority is None, priority or 0, -(room if room is not None else -1.0))
 
 
-def _claude_rank_key(reading: Reading) -> tuple[float, bool, int]:
-    weekly_left = reading.meters.weekly_percent_left if reading.meters else None
-    priority = reading.account.priority
-    return (-(weekly_left if weekly_left is not None else -1.0), priority is None, priority or 0)
-
-
 def _main_has_room(meters: Meters | None) -> bool:
     return bool(
         meters is not None
@@ -293,15 +287,10 @@ def _choose_claude(all_available: Sequence[Reading], preferred_command: str | No
         is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)
         if preferred_command is not None and is_bound:
             return Decision("run", each_reading.account, None, "resume affinity", TIER_NORMAL)
-    chosen = min(all_with_room, key=_claude_rank_key, default=None)
+    chosen = min(all_with_room, key=_rank_key, default=None)
     if chosen is None:
         return None
-    weekly_left = chosen.meters.weekly_percent_left
-    room_text = (
-        f"{chosen.account.name} has {weekly_left:g}% of its week left"
-        if weekly_left is not None
-        else f"{chosen.account.name} has {chosen.meters.tightest_percent_left:g}% left"
-    )
+    room_text = f"{chosen.account.name} has {chosen.meters.tightest_percent_left:g}% left"
     if chosen.account.priority is not None:
         room_text = f"{room_text}; priority {chosen.account.priority + 1} in the account order"
     return Decision("run", chosen.account, None, room_text, TIER_NORMAL)
