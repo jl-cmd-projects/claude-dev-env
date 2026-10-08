@@ -50,8 +50,8 @@ cat "<report>"
 ```
 
 Add `--live-log "<events.jsonl>"` to watch the worker while it runs. The worker
-then writes one JSON event per line into that file as it happens. The first line
-is the `init` event with the `session_id`. Each `assistant` line names the tool
+then writes one JSON event per line into that file as it happens. Every event
+carries the `session_id`, from the first startup hook line on. Each `assistant` line names the tool
 calls and text, and the last line is the `result` event. Read new lines with
 `tail -n 20 "<events.jsonl>"` and skip screenshots unless a check needs to see
 the screen.
