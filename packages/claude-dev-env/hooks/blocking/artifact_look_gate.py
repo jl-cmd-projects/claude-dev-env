@@ -94,10 +94,11 @@ def _failed_tool_use_ids(all_entries: list[dict[str, object]]) -> set[str]:
 
 def _tool_calls(all_entries: list[dict[str, object]]) -> list[tuple[str, object, object]]:
     return [
-        (str(each_block.get("id")), each_block.get("name"), each_block["input"].get(FILE_PATH_INPUT_KEY))
+        (str(each_block.get("id")), each_block.get("name"), tool_input.get(FILE_PATH_INPUT_KEY))
         for each_entry in all_entries
         for each_block in _content_blocks(each_entry, ASSISTANT_ENTRY_TYPE)
-        if each_block.get("type") == TOOL_USE_BLOCK_TYPE and isinstance(each_block.get("input"), dict)
+        if each_block.get("type") == TOOL_USE_BLOCK_TYPE
+        and isinstance(tool_input := each_block.get("input"), dict)
     ]
 
 
