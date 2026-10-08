@@ -321,31 +321,6 @@ def test_should_pick_the_claude_account_with_the_most_weekly_room() -> None:
     assert "priority 3" in decision.reason
 
 
-def test_should_use_a_top_tier_account_with_room_before_a_roomier_one() -> None:
-    top_tier = Account(Product.CLAUDE, "top", Path("/profiles/top"), False, "top", 3, True)
-    readings = (
-        Reading(_ranked_claude_account("roomy", 0), _meters(90, 90)),
-        Reading(top_tier, _meters(40, 30)),
-    )
-
-    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
-
-    assert decision.account.name == "top"
-    assert "top tier" in decision.reason
-
-
-def test_should_skip_a_top_tier_account_without_room() -> None:
-    top_tier = Account(Product.CLAUDE, "top", Path("/profiles/top"), False, "top", 0, True)
-    readings = (
-        Reading(top_tier, _meters(5, 30)),
-        Reading(_ranked_claude_account("roomy", 1), _meters(90, 90)),
-    )
-
-    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
-
-    assert decision.account.name == "roomy"
-
-
 def test_should_break_a_weekly_room_tie_with_the_account_order() -> None:
     readings = (
         Reading(_ranked_claude_account("unranked", None), _meters(90, 50)),

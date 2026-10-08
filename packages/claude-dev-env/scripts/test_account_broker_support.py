@@ -73,21 +73,6 @@ def test_should_assign_claude_priorities_from_the_order_file(
     }
 
 
-def test_should_mark_the_accounts_the_top_tier_file_names(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["first", "second"])
-    (main_home / "claude-account-top-tier.json").write_text(json.dumps(["claude-second"]), encoding="utf-8")
-
-    accounts = support.load_claude_accounts()
-
-    assert {each_account.name: each_account.is_top_tier for each_account in accounts} == {
-        "main": False,
-        "first": False,
-        "second": True,
-    }
-
-
 def test_should_read_an_order_file_saved_with_a_byte_order_mark(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

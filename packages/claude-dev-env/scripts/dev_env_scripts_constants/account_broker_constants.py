@@ -139,7 +139,6 @@ class Account:
     is_main: bool = False
     command: str | None = None
     priority: int | None = None
-    is_top_tier: bool = False
 
 
 @dataclass(frozen=True)
@@ -266,10 +265,10 @@ def _rank_key(reading: Reading) -> tuple[bool, int, float]:
     return (priority is None, priority or 0, -(room if room is not None else -1.0))
 
 
-def _claude_rank_key(reading: Reading) -> tuple[bool, float, bool, int]:
+def _claude_rank_key(reading: Reading) -> tuple[float, bool, int]:
     weekly_left = reading.meters.weekly_percent_left if reading.meters else None
     priority = reading.account.priority
-    return (not reading.account.is_top_tier, -(weekly_left if weekly_left is not None else -1.0), priority is None, priority or 0)
+    return (-(weekly_left if weekly_left is not None else -1.0), priority is None, priority or 0)
 
 
 def _main_has_room(meters: Meters | None) -> bool:
@@ -303,8 +302,6 @@ def _choose_claude(all_available: Sequence[Reading], preferred_command: str | No
         if weekly_left is not None
         else f"{chosen.account.name} has {chosen.meters.tightest_percent_left:g}% left"
     )
-    if chosen.account.is_top_tier:
-        room_text = f"{room_text}; top tier"
     if chosen.account.priority is not None:
         room_text = f"{room_text}; priority {chosen.account.priority + 1} in the account order"
     return Decision("run", chosen.account, None, room_text, TIER_NORMAL)

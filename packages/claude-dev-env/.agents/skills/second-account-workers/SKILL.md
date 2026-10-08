@@ -23,10 +23,8 @@ JSON list of profile names, with the first choice first. Names use letters,
 digits, hyphens, and underscores. The worker uses the existing second profile
 when the file is absent. When the file exists, its list sets the full order.
 Keep `main` and `wait` out of the list because they name picker decisions.
-The picker keeps each account that has room. It uses an account named in
-`claude-account-top-tier.json` in the main Claude home first, while that account
-has room. Among the rest, it picks the one with the most weekly usage left. The
-account order in `claude-account-order.json` breaks a tie.
+The picker keeps each account that has room and picks the one with the most
+weekly usage left. The account order breaks a tie.
 For direct picker calls, `--second-config-dir` sets the first extra profile and
 each `--extra-config-dir` adds another in the order given.
 Picker JSON prints `config_dir` for the choice and meters under `main`, `second`,
