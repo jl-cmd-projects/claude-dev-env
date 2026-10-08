@@ -28,6 +28,8 @@ EXTRA_PROFILES_FILE_NAME: str = "extra-profiles.json"
 """Local main-home file listing extra profile names in selection order."""
 
 CLAUDE_ACCOUNT_ORDER_FILE_NAME: str = "claude-account-order.json"
+
+CLAUDE_ACCOUNT_TOP_TIER_FILE_NAME: str = "claude-account-top-tier.json"
 """Optional main-home file listing Claude accounts in pick priority, first choice first."""
 
 PROFILE_NAME_PATTERN: str = r"[A-Za-z0-9][A-Za-z0-9_-]*"

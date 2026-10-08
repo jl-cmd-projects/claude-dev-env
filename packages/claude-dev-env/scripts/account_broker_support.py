@@ -50,6 +50,7 @@ from dev_env_scripts_constants.account_broker_constants import (
 )
 from dev_env_scripts_constants.claude_account_constants import (
     CLAUDE_ACCOUNT_ORDER_FILE_NAME,
+    CLAUDE_ACCOUNT_TOP_TIER_FILE_NAME,
     CLAUDE_LAUNCHER_PROGRAM,
     CREDENTIALS_FILE_NAME,
     EXTRA_PROFILES_FILE_NAME,
@@ -135,8 +136,8 @@ def _append_claude_account(
         all_seen.add(key)
 
 
-def _account_order(main_home: Path) -> tuple[str, ...]:
-    order_path = main_home / CLAUDE_ACCOUNT_ORDER_FILE_NAME
+def _account_order(main_home: Path, file_name: str = CLAUDE_ACCOUNT_ORDER_FILE_NAME) -> tuple[str, ...]:
+    order_path = main_home / file_name
     if not order_path.exists():
         return ()
     all_names = _read_list(order_path)
@@ -150,12 +151,21 @@ def _order_names(account: Account) -> frozenset[str]:
     return frozenset(each_name.casefold() for each_name in (account.name, account.command, launcher_name) if each_name)
 
 
-def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequence[str]) -> tuple[Account, ...]:
+def _with_priorities(
+    all_accounts: Sequence[Account], all_ordered_names: Sequence[str], all_top_tier_names: Sequence[str] = ()
+) -> tuple[Account, ...]:
     def priority_of(account: Account) -> int | None:
         all_names = _order_names(account)
         return next((index for index, each_name in enumerate(all_ordered_names) if each_name in all_names), None)
 
-    return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
+    return tuple(
+        dataclasses.replace(
+            each_account,
+            priority=priority_of(each_account),
+            is_top_tier=not _order_names(each_account).isdisjoint(all_top_tier_names),
+        )
+        for each_account in all_accounts
+    )
 
 
 def load_claude_accounts() -> tuple[Account, ...]:
@@ -175,7 +185,9 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return _with_priorities(all_accounts, _account_order(main_home))
+    return _with_priorities(
+        all_accounts, _account_order(main_home), _account_order(main_home, CLAUDE_ACCOUNT_TOP_TIER_FILE_NAME)
+    )
 
 
 def load_codex_accounts() -> tuple[Account, ...]:
