@@ -18,6 +18,7 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
+    CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DEFAULT_BRANCH_REFERENCE,
@@ -256,5 +257,5 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     for each_body in all_bodies:
         section = proof_section(each_body) or ""
         if re.search(PROOF_IMAGE_PATTERN, section, re.IGNORECASE) is None:
-            return MISSING_LOOK_REASON.format(changed_files=", ".join(all_visible_files))
+            return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
     return None

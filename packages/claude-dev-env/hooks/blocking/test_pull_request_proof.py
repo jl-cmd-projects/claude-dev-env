@@ -1,5 +1,6 @@
 """Behavior tests for the proof-in-practice and existing-work checks on a new pull request."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -136,8 +137,6 @@ def test_other_pull_request_commands_should_pass_the_existing_work_check() -> No
 
 
 def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
-    import subprocess
-
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
     git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]

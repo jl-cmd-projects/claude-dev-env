@@ -127,7 +127,7 @@ def test_page_was_looked_at_ignores_reads_of_other_files(tmp_path: Path) -> None
     assert not artifact_look_gate.page_was_looked_at(all_lines, str(tmp_path / "page.html"))
 
 
-def test_unseen_page_reason_passes_non_publish_calls(tmp_path: Path) -> None:
+def test_unseen_page_reason_passes_non_publish_calls() -> None:
     assert (
         artifact_look_gate.unseen_page_reason(
             {"tool_name": "Artifact", "tool_input": {"action": "read", "url": "x"}}

@@ -54,3 +54,4 @@ MISSING_LOOK_REASON = (
     " cannot upload an image, publish the screenshots as an Artifact page and link it. The person who"
     " asked sees the same proof you looked at. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+CHANGED_FILES_SEPARATOR = ", "

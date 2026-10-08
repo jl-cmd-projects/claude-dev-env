@@ -5,7 +5,7 @@ Two templates live here. Pick the one that fits the ask before you write a line.
 | Ask | Template |
 |---|---|
 | A tracker, board, review page or dashboard that people read and click | `template.html` |
-| A picture of how things connect: a map, a flow, who calls what, what replaces what. Also any ask for "only visuals" or "no words" | `diagram.html` |
+| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | `diagram.html` |
 
 `diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
 
