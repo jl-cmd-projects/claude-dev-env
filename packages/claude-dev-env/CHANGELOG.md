@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.65.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.65.0...claude-dev-env-v8.65.1) (2026-10-08)
+
+
+### Maintenance
+
+* **user-layer:** trim session-start context and empty instruction stubs ([#1924](https://github.com/jl-cmd-projects/claude-dev-env/issues/1924)) ([801afc5](https://github.com/jl-cmd-projects/claude-dev-env/commit/801afc54e2f9e7ba118b7fbeadd17b9b04f5fe8c))
+
 ## [8.65.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.64.0...claude-dev-env-v8.65.0) (2026-10-07)
 
 
