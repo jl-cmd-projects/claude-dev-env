@@ -137,6 +137,59 @@ def test_should_read_codex_meters_through_injected_reader(
     assert meters.weekly_percent_left == 70.0
 
 
+def _codex_meter_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, all_outcomes: list[object]
+) -> list[Path]:
+    all_homes_read: list[Path] = []
+
+    def read_codex_meters(_codex_path: Path, codex_home: Path) -> object:
+        all_homes_read.append(codex_home)
+        outcome = all_outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
+    monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", read_codex_meters)
+    return all_homes_read
+
+
+def test_should_read_codex_meters_again_after_one_failed_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
+    usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None)
+    unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, usage])
+
+    meters = support.read_codex_account_meters(Account(Product.CODEX, "one", tmp_path))
+
+    assert meters is not None
+    assert meters.weekly_percent_left == 70.0
+    assert all_homes_read == [tmp_path, tmp_path]
+
+
+def test_should_keep_the_unread_reason_after_two_failed_codex_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    first_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server failed: timed out")
+    second_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [first_unread, second_unread])
+    account = Account(Product.CODEX, "codex-3", tmp_path)
+    adapter = ProductAdapter(lambda: (account,), support.read_codex_account_meters, "CODEX_HOME", ())
+    state = support._load_state(support.broker_state_path())
+    now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+
+    first_reading = support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0]
+    cached_reading = support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0]
+
+    assert first_reading.meters is None
+    assert first_reading.unread_reason == "codex app-server sent no rate-limit reply"
+    assert cached_reading.unread_reason == "codex app-server sent no rate-limit reply"
+    assert all_homes_read == [tmp_path, tmp_path]
+
+
 def test_should_cache_account_reading_under_injected_state_path(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
