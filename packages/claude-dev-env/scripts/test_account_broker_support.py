@@ -376,3 +376,17 @@ def test_should_write_child_output_into_the_live_log_while_it_runs(tmp_path: Pat
 
     assert completed.stdout == "first\nfirst\n"
     assert live_log.read_text(encoding="utf-8") == "first\nfirst\n"
+
+
+def test_should_match_order_names_to_an_account_named_by_its_windows_launcher_path() -> None:
+    launcher_account = Account(
+        Product.CLAUDE,
+        "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd",
+        Path("/profiles/editor"),
+        False,
+        "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd",
+    )
+
+    ranked = support._with_priorities((launcher_account,), ("claude-org-jon", "claude-editor"))
+
+    assert ranked[0].priority == 1

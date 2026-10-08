@@ -14,7 +14,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Iterator, Sequence
 
 if sys.platform == "win32":
@@ -147,7 +147,9 @@ def _account_order(main_home: Path) -> tuple[str, ...]:
 
 def _order_names(account: Account) -> frozenset[str]:
     launcher_name = Path(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=account.name)).stem
-    return frozenset(each_name.casefold() for each_name in (account.name, account.command, launcher_name) if each_name)
+    all_candidates = (account.name, account.command, launcher_name)
+    all_launcher_stems = tuple(PureWindowsPath(each_name).stem for each_name in all_candidates if each_name)
+    return frozenset(each_name.casefold() for each_name in (*all_candidates, *all_launcher_stems) if each_name)
 
 
 def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequence[str]) -> tuple[Account, ...]:
