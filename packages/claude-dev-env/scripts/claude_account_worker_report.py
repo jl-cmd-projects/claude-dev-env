@@ -43,7 +43,7 @@ def _bounded_stdout_tail(stdout_text: str) -> str:
     return stdout_text[-STDOUT_TAIL_CHARACTER_LIMIT:]
 
 
-def _last_result_event(stdout_text: str) -> dict[str, object] | None:
+def _closing_event(stdout_text: str) -> dict[str, object] | None:
     for each_line in reversed(stdout_text.splitlines()):
         try:
             parsed_line = json.loads(each_line)
@@ -58,7 +58,7 @@ def _extract_payload(stdout_text: str) -> tuple[object, bool]:
     try:
         parsed_stdout = json.loads(stdout_text)
     except json.JSONDecodeError:
-        parsed_stdout = _last_result_event(stdout_text)
+        parsed_stdout = _closing_event(stdout_text)
         if parsed_stdout is None:
             return _bounded_stdout_tail(stdout_text), True
     if not isinstance(parsed_stdout, dict) or JSON_RESULT_KEY not in parsed_stdout:

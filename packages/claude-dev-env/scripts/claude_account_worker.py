@@ -58,11 +58,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def _invocation(*, model: str | None, permission_mode: str, is_streamed: bool) -> list[str]:
-    output_arguments = [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_STREAM_JSON, VERBOSE_FLAG] if is_streamed else [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_JSON]
+    format_flags = [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_STREAM_JSON, VERBOSE_FLAG] if is_streamed else [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_JSON]
     arguments = [
         CLAUDE_BINARY_NAME,
         SINGLE_PROMPT_FLAG,
-        *output_arguments,
+        *format_flags,
         PERMISSION_MODE_FLAG,
         permission_mode,
     ]
