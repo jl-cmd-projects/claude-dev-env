@@ -157,9 +157,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
-            "timeout": 1800,
-            "async": true
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_dark_mode_gate.py",
+            "timeout": 60
           }
         ]
       },
@@ -283,7 +282,8 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
-            "timeout": 1800
+            "timeout": 1800,
+            "async": true
           }
         ]
       },
