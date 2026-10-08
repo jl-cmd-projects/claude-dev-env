@@ -38,6 +38,8 @@ from hooks_constants.image_read_size_gate_constants import (
     DENY_DECISION,
     FILE_PATH_INPUT_KEY,
     ALL_GIF_SIGNATURES,
+    GIF_SIZE_END,
+    GIF_SIZE_START,
     HEADER_BYTE_COUNT,
     JPEG_FRAME_SIZE_END,
     JPEG_FRAME_SIZE_START,
@@ -48,6 +50,8 @@ from hooks_constants.image_read_size_gate_constants import (
     OVERSIZED_IMAGE_REASON_TEMPLATE,
     PERMISSION_DECISION_REASON_KEY,
     PNG_SIGNATURE,
+    PNG_SIZE_END,
+    PNG_SIZE_START,
     PRE_TOOL_USE_EVENT_NAME,
     READ_TOOL_NAME,
     TOOL_INPUT_KEY,
@@ -89,11 +93,11 @@ def image_size(header: bytes) -> tuple[int, int] | None:
     Args:
         header: The first bytes of the file.
     """
-    if header.startswith(PNG_SIGNATURE) and len(header) >= 24:
-        width, height = struct.unpack(">II", header[16:24])
+    if header.startswith(PNG_SIGNATURE) and len(header) >= PNG_SIZE_END:
+        width, height = struct.unpack(">II", header[PNG_SIZE_START:PNG_SIZE_END])
         return width, height
-    if header.startswith(ALL_GIF_SIGNATURES) and len(header) >= 10:
-        width, height = struct.unpack("<HH", header[6:10])
+    if header.startswith(ALL_GIF_SIGNATURES) and len(header) >= GIF_SIZE_END:
+        width, height = struct.unpack("<HH", header[GIF_SIZE_START:GIF_SIZE_END])
         return width, height
     if header.startswith(JPEG_SIGNATURE):
         return _jpeg_size(header)
