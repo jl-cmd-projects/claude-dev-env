@@ -163,12 +163,15 @@ def em_dash_violation(reply_text: str) -> str | None:
 
 def unsourced_cause_violation(reply_text: str) -> str | None:
     """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
-    for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text)):
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line):
-            if CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence)) is None:
-                continue
-            if any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS):
-                continue
+    all_sentences = [
+        each_sentence
+        for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text))
+        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    ]
+    for each_sentence in all_sentences:
+        is_causal = CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence))
+        has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
+        if is_causal and not has_evidence:
             return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
     return None
 
