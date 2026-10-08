@@ -21,7 +21,9 @@ from hooks_constants.pull_request_proof_constants import (
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
-    DEFAULT_BRANCH_REFERENCE,
+    ALL_DEFAULT_BRANCH_REFERENCES,
+    REMOTE_BRANCH_PREFIX,
+    UNREADABLE_CHANGES_REASON,
     EXISTING_WORK_HEADING_PATTERN,
     GIT_TIMEOUT_SECONDS,
     LINE_SEPARATOR,
@@ -190,7 +192,7 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
     return None
 
 
-def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str]:
+def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
     try:
         completed = subprocess.run(
             ["git", "-C", working_directory, *all_git_arguments],
@@ -200,35 +202,56 @@ def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str]:
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
-        return []
-    return completed.stdout.splitlines() if completed.returncode == 0 else []
+        return None
+    return completed.stdout.splitlines() if completed.returncode == 0 else None
 
 
-def visible_changed_files(working_directory: str, head_branch: object) -> list[str]:
-    """Return the changed files people see on the branch checked out in the directory.
+def _first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    for each_base_reference in ALL_DEFAULT_BRANCH_REFERENCES:
+        all_merge_base_lines = _git_lines(working_directory, "merge-base", head_reference, each_base_reference)
+        if all_merge_base_lines:
+            return all_merge_base_lines[0]
+    return None
 
-    A named head branch that differs from the checked-out branch returns an
-    empty list, because the checkout then holds a different change.
+
+def _head_reference(working_directory: str, head_branch: object) -> str | None:
+    if not isinstance(head_branch, str) or not head_branch:
+        return "HEAD"
+    if _git_lines(working_directory, "branch", "--show-current") == [head_branch]:
+        return "HEAD"
+    for each_candidate in (head_branch, REMOTE_BRANCH_PREFIX + head_branch):
+        if _git_lines(working_directory, "rev-parse", "--verify", "--quiet", each_candidate + "^{commit}"):
+            return each_candidate
+    return None
+
+
+def visible_changed_files(working_directory: str, head_branch: object) -> list[str] | None:
+    """Return the changed files people see on the head branch, or None when git cannot tell.
+
+    The head is the checked-out branch, or the named branch or its origin copy
+    when the checkout holds another branch. The base is the first of
+    origin/HEAD, origin/main and main that git can reach::
+
+        checkout on feature, page.html changed -> ["page.html"]
+        named head exists nowhere in the clone  -> None
+        no base reference reachable             -> None
 
     Args:
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
     """
     if not working_directory:
-        return []
-    all_current_branch_lines = _git_lines(working_directory, "branch", "--show-current")
-    if isinstance(head_branch, str) and head_branch and all_current_branch_lines != [head_branch]:
-        return []
-    all_merge_base_lines = _git_lines(working_directory, "merge-base", "HEAD", DEFAULT_BRANCH_REFERENCE)
-    if not all_merge_base_lines:
-        return []
-    return [
-        each_path
-        for each_path in _git_lines(
-            working_directory, "diff", "--name-only", all_merge_base_lines[0], "HEAD"
-        )
-        if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
-    ]
+        return None
+    head_reference = _head_reference(working_directory, head_branch)
+    if head_reference is None:
+        return None
+    merge_base = _first_merge_base(working_directory, head_reference)
+    if merge_base is None:
+        return None
+    all_changed_paths = _git_lines(working_directory, "diff", "--name-only", merge_base, head_reference)
+    if all_changed_paths is None:
+        return None
+    return [each_path for each_path in all_changed_paths if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)]
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -239,6 +262,7 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         branch changes page.html, proof has ![after](https://x/after.png) -> None
         branch changes page.html, proof quotes only command output        -> MISSING_LOOK_REASON
         branch changes only .py files                                     -> None
+        git cannot read the branch, proof shows no picture                -> UNREADABLE_CHANGES_REASON
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -249,13 +273,13 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     working_directory = all_payload_fields.get("cwd")
     tool_input = all_payload_fields.get("tool_input")
     head_branch = tool_input.get("head") if isinstance(tool_input, dict) else None
-    all_visible_files = visible_changed_files(
-        working_directory if isinstance(working_directory, str) else "", head_branch
-    )
-    if not all_visible_files:
+    all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
+    if all_visible_files == []:
         return None
     for each_body in all_bodies:
-        section = proof_section(each_body) or ""
-        if re.search(PROOF_IMAGE_PATTERN, section, re.IGNORECASE) is None:
-            return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
+        if re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE):
+            continue
+        if all_visible_files is None:
+            return UNREADABLE_CHANGES_REASON
+        return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
     return None

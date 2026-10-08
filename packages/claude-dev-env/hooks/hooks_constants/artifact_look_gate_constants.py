@@ -10,7 +10,6 @@ FILE_PATH_INPUT_KEY = "file_path"
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TRANSCRIPT_PATH_KEY = "transcript_path"
-ALL_PAGE_WRITING_TOOL_NAMES = frozenset({"Write", "Edit", "MultiEdit"})
 IMAGE_READING_TOOL_NAME = "Read"
 ALL_IMAGE_FILE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 ALL_PAGE_FILE_SUFFIXES = (".html", ".htm")

@@ -44,7 +44,8 @@ PROOF_IMAGE_PATTERN = (
     r"!\[[^\]]*\]\([^)]+\)|https?://\S+?\.(?:png|jpe?g|gif|webp)\b"
     r"|https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9-]+"
 )
-DEFAULT_BRANCH_REFERENCE = "origin/HEAD"
+ALL_DEFAULT_BRANCH_REFERENCES = ("origin/HEAD", "origin/main", "main")
+REMOTE_BRANCH_PREFIX = "origin/"
 GIT_TIMEOUT_SECONDS = 5
 MISSING_LOOK_REASON = (
     "This pull request changes files people see ({changed_files}), and its 'Proof in"
@@ -55,3 +56,9 @@ MISSING_LOOK_REASON = (
     " asked sees the same proof you looked at. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 CHANGED_FILES_SEPARATOR = ", "
+UNREADABLE_CHANGES_REASON = (
+    "Git in this directory cannot list the files this pull request changes, so the"
+    " picture check cannot tell whether people see the change. Run the create call"
+    " from a checkout of the head branch with origin fetched, or put a screenshot"
+    " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)

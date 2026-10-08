@@ -13,6 +13,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_BODY_REASON,
     MISSING_EXISTING_WORK_REASON,
     MISSING_PROOF_REASON,
+    UNREADABLE_CHANGES_REASON,
 )
 
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
@@ -181,4 +182,16 @@ def test_should_allow_a_python_only_change_without_a_picture(tmp_path: Path) -> 
 def test_visible_changed_files_skips_a_different_head_branch(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "page.html")
     assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
-    assert gate.visible_changed_files(str(clone_path), "other-branch") == []
+    assert gate.visible_changed_files(str(clone_path), "other-branch") is None
+
+
+def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(tmp_path: Path) -> None:
+    payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+
+
+def test_visible_changed_files_falls_back_to_origin_main_without_origin_head(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, "page.html")
+    subprocess.run(["git", "-C", str(clone_path), "remote", "set-head", "origin", "-d"], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]

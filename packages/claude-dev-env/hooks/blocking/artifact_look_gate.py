@@ -3,12 +3,13 @@
 
 An agent that writes a page and publishes it without rendering it cannot know
 the page matches the ask. The hook walks the session transcript and allows the
-publish only when an image was opened with Read after the page file was last
-written::
+publish only when a Read opened an image file whose modification time is at
+least the page file's::
 
-    Write page.html -> Read shot.png -> Artifact publish page.html  -> allowed
-    Write page.html -> Artifact publish page.html                   -> refused
-    Read shot.png -> Edit page.html -> Artifact publish page.html   -> refused
+    Write page.html -> shoot shot.png -> Read shot.png -> publish -> allowed
+    Write page.html -> publish                                    -> refused
+    Read shot.png -> change page.html in any tool -> publish      -> refused
+    Read an image older than the page -> publish                  -> refused
 
 A Read that returned an error does not count. A non-HTML file, an asset
 upload, a non-publish action and an unreadable transcript all pass, so the
@@ -28,7 +29,6 @@ if hooks_root_directory not in sys.path:
 from hooks_constants.artifact_look_gate_constants import (
     ALL_IMAGE_FILE_SUFFIXES,
     ALL_PAGE_FILE_SUFFIXES,
-    ALL_PAGE_WRITING_TOOL_NAMES,
     ARTIFACT_ACTION_INPUT_KEY,
     ARTIFACT_ASSET_INPUT_KEY,
     ARTIFACT_PUBLISH_ACTION,
@@ -71,10 +71,6 @@ def _content_blocks(
     return [each_block for each_block in content if isinstance(each_block, dict)]
 
 
-def _same_path(first_path: object, second_path: str) -> bool:
-    return isinstance(first_path, str) and Path(first_path).resolve() == Path(second_path).resolve()
-
-
 def _parsed_entry(transcript_line: str) -> dict[str, object]:
     try:
         parsed_line = json.loads(transcript_line)
@@ -110,26 +106,36 @@ def _is_image_read(tool_name: object, file_path: object) -> bool:
     )
 
 
+def _modified_time(file_path: str) -> float | None:
+    try:
+        return Path(file_path).stat().st_mtime
+    except OSError:
+        return None
+
+
 def page_was_looked_at(all_transcript_lines: list[str], page_path: str) -> bool:
-    """Return True when an image was read after the page file was last written.
+    """Return True when a screenshot made after the page's last change was read.
+
+    The page's modification time covers every way it can change, including a
+    Bash command or a subagent. A Read counts only when it succeeded and its
+    image file is at least as new as the page.
 
     Args:
         all_transcript_lines: The session transcript, one JSON record per line.
         page_path: The file the Artifact call publishes.
     """
+    page_modified_time = _modified_time(page_path)
+    if page_modified_time is None:
+        return False
     all_entries = [_parsed_entry(each_line) for each_line in all_transcript_lines]
     all_failed_ids = _failed_tool_use_ids(all_entries)
-    all_tool_calls = _tool_calls(all_entries)
-    all_write_positions = [
-        each_position
-        for each_position, (_each_id, each_tool_name, each_file_path) in enumerate(all_tool_calls)
-        if each_tool_name in ALL_PAGE_WRITING_TOOL_NAMES and _same_path(each_file_path, page_path)
-    ]
-    first_unwritten_position = all_write_positions[-1] + 1 if all_write_positions else 0
-    return any(
-        _is_image_read(each_tool_name, each_file_path) and each_id not in all_failed_ids
-        for each_id, each_tool_name, each_file_path in all_tool_calls[first_unwritten_position:]
-    )
+    for each_id, each_tool_name, each_file_path in _tool_calls(all_entries):
+        if not _is_image_read(each_tool_name, each_file_path) or each_id in all_failed_ids:
+            continue
+        image_modified_time = _modified_time(str(each_file_path))
+        if image_modified_time is not None and image_modified_time >= page_modified_time:
+            return True
+    return False
 
 
 def _published_page_path(all_hook_fields: dict[str, object]) -> str | None:
