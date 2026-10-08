@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.68.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.67.0...claude-dev-env-v8.68.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** look at a page before it ships ([#1928](https://github.com/jl-cmd-projects/claude-dev-env/issues/1928)) ([324139f](https://github.com/jl-cmd-projects/claude-dev-env/commit/324139fe6167c58f16ce9607bdb8e06e8fe9f8a9))
+
 ## [8.67.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.66.0...claude-dev-env-v8.67.0) (2026-10-08)
 
 
