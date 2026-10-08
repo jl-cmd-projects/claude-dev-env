@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.68.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.2...claude-dev-env-v8.68.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **hooks:** run nested project start hooks in the background ([#1940](https://github.com/jl-cmd-projects/claude-dev-env/issues/1940)) ([b6e1466](https://github.com/jl-cmd-projects/claude-dev-env/commit/b6e1466b6779fb7fdeb5ce8479bfc475198913d8))
+
 ## [8.68.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.1...claude-dev-env-v8.68.2) (2026-10-08)
 
 
