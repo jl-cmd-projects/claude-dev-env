@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.68.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.1...claude-dev-env-v8.68.2) (2026-10-08)
+
+
+### Refactoring
+
+* **hooks:** remove the subagent model pin hook ([#1939](https://github.com/jl-cmd-projects/claude-dev-env/issues/1939)) ([87f5c11](https://github.com/jl-cmd-projects/claude-dev-env/commit/87f5c11df1385a5a96e00cb961ae12d0637b6ca4))
+
 ## [8.68.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.0...claude-dev-env-v8.68.1) (2026-10-08)
 
 
