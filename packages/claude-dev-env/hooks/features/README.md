@@ -29,4 +29,5 @@ Each family page starts with a title and an agent-facing behavior summary. Its f
 - [Session context](./session-context.md) covers skill reminders, startup guidance, and the auto mode denial quick fix.
 - [Spawn routing](./spawn-routing.md) covers spawn readiness, pacing, and model selection.
 - [Observability](./observability.md) covers instruction loads, edited files, and investigation resets.
+- [Read gates](./read-gates.md) covers the image size cap on Read.
 - [Lifecycle cleanup](./lifecycle-cleanup.md) covers nested checkouts, worktree setup, and session cleanup.
