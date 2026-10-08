@@ -22,6 +22,8 @@ from hooks_constants.pull_request_proof_constants import (
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     ALL_DEFAULT_BRANCH_REFERENCES,
+    ALL_HEAD_FLAGS,
+    HEAD_FLAG_ASSIGNMENT_PREFIX,
     REMOTE_BRANCH_PREFIX,
     UNREADABLE_CHANGES_REASON,
     EXISTING_WORK_HEADING_PATTERN,
@@ -125,6 +127,34 @@ def _shell_create_bodies(command: str, working_directory: str) -> list[str | Non
         for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
         if (all_create_arguments := _create_arguments(each_segment)) is not None
     ]
+
+
+def _head_flag_value(all_create_arguments: list[str]) -> str | None:
+    for each_position, each_argument in enumerate(all_create_arguments):
+        if each_argument in ALL_HEAD_FLAGS and each_position + 1 < len(all_create_arguments):
+            return all_create_arguments[each_position + 1]
+        if each_argument.startswith(HEAD_FLAG_ASSIGNMENT_PREFIX):
+            return each_argument[len(HEAD_FLAG_ASSIGNMENT_PREFIX) :]
+    return None
+
+
+def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
+    tool_input = all_payload_fields.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return None
+    head_branch = tool_input.get("head")
+    if isinstance(head_branch, str):
+        return head_branch
+    command = tool_input.get("command")
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    all_head_flag_values = [
+        _head_flag_value(all_create_arguments)
+        for each_text in all_wrapped_command_texts(command)
+        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+        if (all_create_arguments := _create_arguments(each_segment)) is not None
+    ]
+    return next((each_value for each_value in all_head_flag_values if each_value), None)
 
 
 def _create_bodies(all_payload_fields: Mapping[str, object]) -> list[str | None]:
@@ -271,9 +301,9 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     if not all_bodies:
         return None
     working_directory = all_payload_fields.get("cwd")
-    tool_input = all_payload_fields.get("tool_input")
-    head_branch = tool_input.get("head") if isinstance(tool_input, dict) else None
-    all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
+    all_visible_files = visible_changed_files(
+        str(working_directory or ""), _named_head_branch(all_payload_fields)
+    )
     if all_visible_files == []:
         return None
     for each_body in all_bodies:

@@ -195,3 +195,18 @@ def test_visible_changed_files_falls_back_to_origin_main_without_origin_head(tmp
     subprocess.run(["git", "-C", str(clone_path), "remote", "set-head", "origin", "-d"], check=True)
     subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
     assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
+
+
+def test_should_read_the_head_flag_of_a_shell_create(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, "page.html")
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
+    body_path = clone_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": f"gh pr create --head feature --title t --body-file {body_path}"},
+        "cwd": str(clone_path),
+    }
+    reason = gate.missing_look_reason(payload)
+    assert reason is not None
+    assert "page.html" in reason

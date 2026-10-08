@@ -38,9 +38,12 @@ def _tool_use(call_id: str, tool_name: str, file_path: str) -> dict[str, object]
     }
 
 
-def _tool_result(call_id: str, is_error: bool = False) -> dict[str, object]:
+def _tool_result(
+    call_id: str, is_error: bool = False, timestamp: str = "2026-01-01T00:00:00Z"
+) -> dict[str, object]:
     return {
         "type": "user",
+        "timestamp": timestamp,
         "message": {
             "content": [
                 {
@@ -82,8 +85,10 @@ def _file_at(file_path: Path, modified_time: float) -> Path:
     return file_path
 
 
-def _read_records(image_path: Path, is_error: bool = False) -> list[dict[str, object]]:
-    return [_tool_use("r1", "Read", str(image_path)), _tool_result("r1", is_error)]
+def _read_records(
+    image_path: Path, is_error: bool = False, timestamp: str = "2026-01-01T00:00:00Z"
+) -> list[dict[str, object]]:
+    return [_tool_use("r1", "Read", str(image_path)), _tool_result("r1", is_error, timestamp)]
 
 
 def test_should_refuse_a_page_published_without_a_look(tmp_path: Path) -> None:
@@ -114,6 +119,15 @@ def test_should_refuse_when_the_screenshot_read_failed(tmp_path: Path) -> None:
     page_path = _file_at(tmp_path / "page.html", 1000)
     image_path = _file_at(tmp_path / "page.png", 1001)
     assert "deny" in _run_hook(tmp_path, _read_records(image_path, is_error=True), page_path)
+
+
+def test_should_refuse_a_screenshot_overwritten_after_its_read(tmp_path: Path) -> None:
+    page_path = _file_at(tmp_path / "page.html", 1000)
+    image_path = _file_at(tmp_path / "page.png", 1001)
+    read_before_the_page_changed = "1970-01-01T00:16:39Z"
+    assert "deny" in _run_hook(
+        tmp_path, _read_records(image_path, timestamp=read_before_the_page_changed), page_path
+    )
 
 
 def test_page_was_looked_at_ignores_reads_of_other_files(tmp_path: Path) -> None:

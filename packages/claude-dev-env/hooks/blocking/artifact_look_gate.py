@@ -11,7 +11,8 @@ least the page file's::
     Read shot.png -> change page.html in any tool -> publish      -> refused
     Read an image older than the page -> publish                  -> refused
 
-A Read that returned an error does not count. A non-HTML file, an asset
+A Read that returned an error, or whose result came before the page's last
+change, does not count. A non-HTML file, an asset
 upload, a non-publish action and an unreadable transcript all pass, so the
 hook never fails closed.
 """
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -35,6 +37,7 @@ from hooks_constants.artifact_look_gate_constants import (
     ARTIFACT_TOOL_NAME,
     ASSISTANT_ENTRY_TYPE,
     DENY_DECISION,
+    ENTRY_TIMESTAMP_KEY,
     FILE_PATH_INPUT_KEY,
     IMAGE_READING_TOOL_NAME,
     PRE_TOOL_USE_EVENT_NAME,
@@ -79,12 +82,23 @@ def _parsed_entry(transcript_line: str) -> dict[str, object]:
     return parsed_line if isinstance(parsed_line, dict) else {}
 
 
-def _failed_tool_use_ids(all_entries: list[dict[str, object]]) -> set[str]:
+def _entry_epoch(all_entry_fields: dict[str, object]) -> float | None:
+    timestamp_text = all_entry_fields.get(ENTRY_TIMESTAMP_KEY)
+    if not isinstance(timestamp_text, str):
+        return None
+    try:
+        return datetime.fromisoformat(timestamp_text.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _successful_result_epochs(all_entries: list[dict[str, object]]) -> dict[str, float]:
     return {
-        str(each_block.get("tool_use_id"))
+        str(each_block.get("tool_use_id")): result_epoch
         for each_entry in all_entries
+        if (result_epoch := _entry_epoch(each_entry)) is not None
         for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
-        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and each_block.get("is_error")
+        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and not each_block.get("is_error")
     }
 
 
@@ -117,8 +131,9 @@ def page_was_looked_at(all_transcript_lines: list[str], page_path: str) -> bool:
     """Return True when a screenshot made after the page's last change was read.
 
     The page's modification time covers every way it can change, including a
-    Bash command or a subagent. A Read counts only when it succeeded and its
-    image file is at least as new as the page.
+    Bash command or a subagent. A Read counts only when it succeeded, its
+    result arrived after the page last changed, and its image file is at
+    least as new as the page.
 
     Args:
         all_transcript_lines: The session transcript, one JSON record per line.
@@ -128,12 +143,17 @@ def page_was_looked_at(all_transcript_lines: list[str], page_path: str) -> bool:
     if page_modified_time is None:
         return False
     all_entries = [_parsed_entry(each_line) for each_line in all_transcript_lines]
-    all_failed_ids = _failed_tool_use_ids(all_entries)
+    result_epoch_by_id = _successful_result_epochs(all_entries)
     for each_id, each_tool_name, each_file_path in _tool_calls(all_entries):
-        if not _is_image_read(each_tool_name, each_file_path) or each_id in all_failed_ids:
+        result_epoch = result_epoch_by_id.get(each_id)
+        if not _is_image_read(each_tool_name, each_file_path) or result_epoch is None:
             continue
         image_modified_time = _modified_time(str(each_file_path))
-        if image_modified_time is not None and image_modified_time >= page_modified_time:
+        if (
+            image_modified_time is not None
+            and image_modified_time >= page_modified_time
+            and result_epoch >= page_modified_time
+        ):
             return True
     return False
 

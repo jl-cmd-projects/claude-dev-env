@@ -46,6 +46,8 @@ PROOF_IMAGE_PATTERN = (
 )
 ALL_DEFAULT_BRANCH_REFERENCES = ("origin/HEAD", "origin/main", "main")
 REMOTE_BRANCH_PREFIX = "origin/"
+ALL_HEAD_FLAGS = frozenset({"--head", "-H"})
+HEAD_FLAG_ASSIGNMENT_PREFIX = "--head="
 GIT_TIMEOUT_SECONDS = 5
 MISSING_LOOK_REASON = (
     "This pull request changes files people see ({changed_files}), and its 'Proof in"
