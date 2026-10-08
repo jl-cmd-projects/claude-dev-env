@@ -40,6 +40,15 @@ MID_SENTENCE_COLON_MESSAGE = (
     " and put the list on the lines below."
 )
 EM_DASH_MESSAGE = "An em dash is in the text. Use a period or a comma."
+CAUSAL_CLAIM_PATTERN = re.compile(
+    r",\s*so\b(?!\s+far\b)|\b(?:because|caused|causes|due to|therefore|which means|that means)\b",
+    re.IGNORECASE,
+)
+ALL_EVIDENCE_PATTERNS = (FENCED_BLOCK_PATTERN, INLINE_CODE_PATTERN, URL_PATTERN, MARKDOWN_LINK_PATTERN)
+UNSOURCED_CAUSE_MESSAGE = (
+    'Cause with no source: "{sentence}". Quote the log line or output in backticks,'
+    " or link the run or file and line that shows it."
+)
 ALL_DEFAULT_BANNED_WORDS = (
     "real",
     "really",

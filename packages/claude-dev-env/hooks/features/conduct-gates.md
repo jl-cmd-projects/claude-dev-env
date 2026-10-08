@@ -4,7 +4,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 
 ## Checks
 
-- `blocking/reply_length_gate.py` caps chat reply length, denies a configured banned word, and requires a readable link when the text names a pull request number.
+- `blocking/reply_length_gate.py` caps chat reply length, denies a configured banned word, and requires a readable link when the text names a pull request number, and denies a causal claim in a reply that cites no code span, output block, or link.
 - `blocking/edit_marker_gate.py` rejects strikethrough and edit-note markers in replacement chat text or cards.
 - `blocking/issue_close_handoff_gate.py` denies an issue comment or issue write that closes the issue and routes a found defect to another issue or epic.
 - `blocking/session_title_format_gate.py` denies a session title that breaks the `<emoji> <name>` shape or has a name longer than 25 characters.

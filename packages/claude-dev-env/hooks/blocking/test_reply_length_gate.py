@@ -487,3 +487,40 @@ def test_should_deny_an_em_dash_and_allow_one_in_code(
     )
     assert (denied_code, allowed_code) == (2, 0)
     assert "em dash" in denied_text
+
+
+def test_should_deny_the_quoted_cause_with_no_source(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {"text": "That window was Windows PowerShell without Administrator, so the write did not land."},
+    )
+    assert exit_code == 2
+    assert "Cause with no source" in stderr_text
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "The write did not land, because the next read printed `Right after write: 1`.",
+        "The job failed because of [run 12](https://github.com/owner/repo/actions/runs/12).",
+        "The write did not land, so the line stays.\n```\nRight after write: 1\n```",
+    ],
+)
+def test_should_allow_a_cause_that_cites_evidence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_allow_a_reply_with_no_causal_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The runner restarted. Also, so far so good."}
+    )
+    assert exit_code == 0

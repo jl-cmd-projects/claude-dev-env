@@ -17,6 +17,12 @@ It denies a colon that joins two clauses on one line, and an em dash::
     ok:   Two checks failed at 9:47, then the list follows:
           (each item on its own line below the colon)
 
+It denies a causal claim when the reply carries no evidence, meaning no
+inline code, fenced block, URL, or markdown link::
+
+    flag: That window was Windows PowerShell without Administrator, so the write did not land.
+    ok:   The write did not land, because the next read printed `Right after write: 1`.
+
 It denies a banned word or phrase, matched whole and case-insensitive::
 
     flag: The cause is likely the cache.
@@ -58,6 +64,7 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_DECISION_CARD_PROSE_KEYS,
     ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
+    ALL_EVIDENCE_PATTERNS,
     ALLOW_EXIT_CODE,
     BANNED_WORD_MESSAGE,
     BANNED_WORD_PART_SEPARATOR,
@@ -66,6 +73,7 @@ from hooks_constants.reply_length_gate_constants import (
     BANNED_WORDS_JSON_KEY,
     BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
+    CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
@@ -94,6 +102,7 @@ from hooks_constants.reply_length_gate_constants import (
     TOOL_NAME_KEY,
     UNLINKED_PULL_REQUEST_MESSAGE,
     UNLINKED_PULL_REQUEST_PATTERN,
+    UNSOURCED_CAUSE_MESSAGE,
     URL_PATTERN,
     WORD_PATTERN,
     WORD_SEPARATOR,
@@ -149,6 +158,17 @@ def em_dash_violation(reply_text: str) -> str | None:
     if EM_DASH_PATTERN.search(countable_text(reply_text)) is None:
         return None
     return EM_DASH_MESSAGE
+
+
+def unsourced_cause_violation(reply_text: str) -> str | None:
+    """Return the deny reason for a causal sentence when the reply cites no evidence, or None."""
+    if any(each_pattern.search(reply_text) for each_pattern in ALL_EVIDENCE_PATTERNS):
+        return None
+    for each_line in LINE_BREAK_PATTERN.split(reply_text):
+        for each_sentence in SENTENCE_END_PATTERN.split(each_line):
+            if CAUSAL_CLAIM_PATTERN.search(each_sentence):
+                return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
+    return None
 
 
 def unlinked_pull_request_violation(reply_text: str) -> str | None:
@@ -231,6 +251,7 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
         or mid_sentence_colon_violation(reply_text)
         or em_dash_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
+        or unsourced_cause_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
     return None if violation is None else (violation, reply_text)
