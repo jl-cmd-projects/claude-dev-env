@@ -32,7 +32,7 @@ const PACKAGE_SETTINGS_PATH = join(PACKAGE_ROOT, 'settings.json');
 const INSTALL_ENTRY = join(PACKAGE_ROOT, 'bin', 'install.mjs');
 
 const EXPECTED_DENY_ENTRIES = [];
-const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)'];
+const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)', 'Read(~/.claude/docs/**)'];
 const PROFILE_ALLOW_ENTRIES = DECLARED_PROFILE_SETTINGS
     .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
 const SAMPLE_MANAGED_DENY_ENTRIES = ['Edit($HOME/.claude/managed-test/**)'];
