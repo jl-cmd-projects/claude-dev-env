@@ -367,7 +367,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, product: Product) -> tuple[Reading, datetime | None]:
-    name, separator, reset_text = mark.partition(":")
+    name, separator, reset_text = mark.rpartition(":")
+    if mark in all_accounts_by_name or not separator:
+        name, separator, reset_text = mark, "", ""
     if not name:
         raise BrokerConfigurationError(f"spent mark {mark!r} needs an account name")
     try:

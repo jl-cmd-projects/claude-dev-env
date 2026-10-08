@@ -884,6 +884,26 @@ def test_should_keep_a_spent_mark_without_a_reset_for_one_hour(
     assert decision["resets_at"] == (NOW + timedelta(hours=1)).isoformat()
 
 
+def test_should_mark_a_windows_launcher_path_account_spent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
+    first = _account(launcher_name)
+    second = _account("second")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"{launcher_name}:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "second"
+
+
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
