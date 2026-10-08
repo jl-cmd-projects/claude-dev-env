@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.67.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.66.0...claude-dev-env-v8.67.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** deny an uncited causal claim in a chat reply ([#1932](https://github.com/jl-cmd-projects/claude-dev-env/issues/1932)) ([b136bb9](https://github.com/jl-cmd-projects/claude-dev-env/commit/b136bb9d2189f3930603877cefed453a9be9fbea))
+
+## [8.66.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.65.1...claude-dev-env-v8.66.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** deny an artifact page publish that is unreadable in dark mode ([#1929](https://github.com/jl-cmd-projects/claude-dev-env/issues/1929)) ([c1d25c2](https://github.com/jl-cmd-projects/claude-dev-env/commit/c1d25c2a199a8efd3300ddacb8627f2a7fe2ecb3))
+
 ## [8.65.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.65.0...claude-dev-env-v8.65.1) (2026-10-08)
 
 
