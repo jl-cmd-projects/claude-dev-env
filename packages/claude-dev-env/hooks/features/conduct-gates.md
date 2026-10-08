@@ -12,6 +12,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/step_note_gate.py` requires a status line before a tool call while its opt-in flag is on.
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
+- `blocking/artifact_look_gate.py` denies an Artifact publish of an HTML page until an image was opened with Read after the page file was last written, so the agent looks at its page before it ships.
 
 ## When it fires
 
@@ -23,6 +24,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/step_note_gate.py` runs on `PreToolUse`, matcher `*`, timeout `15` seconds in `hooks.json`.
 - `blocking/verify_before_acting.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Agent|Task|apply_patch|Bash|PowerShell|mcp__.*`, timeout `10` seconds in `hooks.json`.
 - `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)`, timeout `10` seconds in `hooks.json`.
+- `blocking/artifact_look_gate.py` runs on `PreToolUse`, matcher `Artifact|Skill`, timeout `10` seconds in `hooks.json`. It speaks only on an `Artifact` publish of a `.html` or `.htm` file.
 
 ## Proving it
 
@@ -47,3 +49,4 @@ Preconditions:
 - The edit marker gate scans replacement cards as well as the message text.
 - The handoff close gate reads the `body` and `comment` fields of issue tools only. A `gh issue close --comment` command in Bash and a pull request body that closes the issue with `Closes #N` do not reach it.
 - The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
+- **Looked-at page.** Input is a transcript that writes a page and publishes it with no screenshot read after the write. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_look_gate.py -q`. The adjacent test observes a denial that names the screenshot command; a Read of a PNG after the last write passes.

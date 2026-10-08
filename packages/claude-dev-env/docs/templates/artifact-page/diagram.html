@@ -1,0 +1,50 @@
+<title>Flow Diagram</title>
+<style>
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --fg: #1b2230; --line: #6b7383;
+  --ok: #165737; --ok-soft: #e3f3ea; --bad: #8b2621; --bad-soft: #fbe5e3;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --line: #8a94a8;
+  --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12151b; --surface: #1a1f28; --fg: #e6e9ef; --line: #8a94a8;
+  --ok: #6fd3a0; --ok-soft: #173327; --bad: #ffa8a0; --bad-soft: #3a1c1a;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); margin: 0; padding: 16px }
+svg { display: block; width: 100%; max-width: 960px; height: auto; margin: 0 auto }
+.node rect { stroke-width: 3 }
+.node.ok rect { fill: var(--ok-soft); stroke: var(--ok) }
+.node.bad rect { fill: var(--bad-soft); stroke: var(--bad) }
+.node.caller rect { fill: var(--surface); stroke: var(--line) }
+.node text { fill: var(--fg); font-size: 15px; font-weight: 700; text-anchor: middle; dominant-baseline: middle }
+.edge { fill: none; stroke-width: 3 }
+.edge.ok { stroke: var(--ok) }
+.edge.bad { stroke: var(--bad) }
+.key text { fill: var(--fg); font-size: 14px; font-weight: 700; dominant-baseline: middle }
+</style>
+<svg viewBox="0 0 720 360" role="img" aria-label="Callers on the left point at the source they use on the right">
+  <defs>
+    <marker id="arrow-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--ok)"/></marker>
+    <marker id="arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--bad)"/></marker>
+  </defs>
+
+  <g class="key" transform="translate(20 24)">
+    <rect width="18" height="18" rx="4" fill="var(--ok)"/><text x="26" y="9">current</text>
+    <rect x="120" width="18" height="18" rx="4" fill="var(--bad)"/><text x="146" y="9">retire</text>
+  </g>
+
+  <g class="node caller"><rect x="20" y="80" width="200" height="56" rx="12"/><text x="120" y="108">Caller A</text></g>
+  <g class="node caller"><rect x="20" y="180" width="200" height="56" rx="12"/><text x="120" y="208">Caller B</text></g>
+  <g class="node caller"><rect x="20" y="280" width="200" height="56" rx="12"/><text x="120" y="308">Caller C</text></g>
+
+  <g class="node ok"><rect x="480" y="110" width="220" height="64" rx="12"/><text x="590" y="142">Source one</text></g>
+  <g class="node bad"><rect x="480" y="250" width="220" height="64" rx="12"/><text x="590" y="282">Source two</text></g>
+
+  <path class="edge ok" d="M220 108 C350 108 350 142 478 142" marker-end="url(#arrow-ok)"/>
+  <path class="edge bad" d="M220 208 C350 208 350 282 478 282" marker-end="url(#arrow-bad)"/>
+  <path class="edge bad" d="M220 308 C350 308 350 282 478 282" marker-end="url(#arrow-bad)"/>
+</svg>
