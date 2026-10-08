@@ -17,11 +17,6 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/subagent_model_pin_hook.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
             "timeout": 10
           }
