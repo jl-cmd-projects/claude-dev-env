@@ -9,6 +9,7 @@ from pathlib import Path
 
 from dev_env_scripts_constants.claude_account_worker_constants import (
     DURATION_DECIMAL_PLACES,
+    JSON_EVENT_TYPE_KEY,
     JSON_IS_ERROR_KEY,
     JSON_RESULT_KEY,
     REPORT_ACCOUNT_KEY,
@@ -18,6 +19,7 @@ from dev_env_scripts_constants.claude_account_worker_constants import (
     REPORT_IS_ERROR_KEY,
     REPORT_REASON_KEY,
     REPORT_RESULT_KEY,
+    RESULT_EVENT_TYPE,
     STDOUT_TAIL_CHARACTER_LIMIT,
     SUMMARY_LINE_TEMPLATE,
     UTF8_ENCODING,
@@ -41,11 +43,24 @@ def _bounded_stdout_tail(stdout_text: str) -> str:
     return stdout_text[-STDOUT_TAIL_CHARACTER_LIMIT:]
 
 
+def _last_result_event(stdout_text: str) -> dict[str, object] | None:
+    for each_line in reversed(stdout_text.splitlines()):
+        try:
+            parsed_line = json.loads(each_line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed_line, dict) and parsed_line.get(JSON_EVENT_TYPE_KEY) == RESULT_EVENT_TYPE:
+            return parsed_line
+    return None
+
+
 def _extract_payload(stdout_text: str) -> tuple[object, bool]:
     try:
         parsed_stdout = json.loads(stdout_text)
     except json.JSONDecodeError:
-        return _bounded_stdout_tail(stdout_text), True
+        parsed_stdout = _last_result_event(stdout_text)
+        if parsed_stdout is None:
+            return _bounded_stdout_tail(stdout_text), True
     if not isinstance(parsed_stdout, dict) or JSON_RESULT_KEY not in parsed_stdout:
         return None, True
     return parsed_stdout[JSON_RESULT_KEY], parsed_stdout.get(JSON_IS_ERROR_KEY) is True

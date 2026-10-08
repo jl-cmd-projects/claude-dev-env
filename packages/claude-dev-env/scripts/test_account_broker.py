@@ -306,18 +306,31 @@ def _ranked_claude_account(name: str, priority: int | None) -> Account:
     return Account(Product.CLAUDE, name, Path("/profiles") / name, False, name, priority)
 
 
-def test_should_pick_the_first_claude_account_in_priority_order_with_room() -> None:
+def test_should_pick_the_claude_account_with_the_most_weekly_room() -> None:
     readings = (
-        Reading(_ranked_claude_account("roomy", 2), _meters(90, 90)),
-        Reading(_ranked_claude_account("spent", 0), _meters(5, 90)),
-        Reading(_ranked_claude_account("preferred", 1), _meters(20, 20)),
-        Reading(_ranked_claude_account("unranked", None), _meters(99, 99)),
+        Reading(_ranked_claude_account("first", 0), _meters(90, 20)),
+        Reading(_ranked_claude_account("spent", 1), _meters(5, 99)),
+        Reading(_ranked_claude_account("weekly_roomy", 2), _meters(30, 80)),
+        Reading(_ranked_claude_account("unranked", None), _meters(90, 60)),
     )
 
     decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
 
-    assert decision.account.name == "preferred"
-    assert "priority 2" in decision.reason
+    assert decision.account.name == "weekly_roomy"
+    assert "80% of its week left" in decision.reason
+    assert "priority 3" in decision.reason
+
+
+def test_should_break_a_weekly_room_tie_with_the_account_order() -> None:
+    readings = (
+        Reading(_ranked_claude_account("unranked", None), _meters(90, 50)),
+        Reading(_ranked_claude_account("second", 1), _meters(90, 50)),
+        Reading(_ranked_claude_account("first", 0), _meters(40, 50)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.account.name == "first"
 
 
 def test_should_fall_back_to_the_roomiest_unranked_claude_account() -> None:

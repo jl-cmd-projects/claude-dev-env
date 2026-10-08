@@ -502,7 +502,9 @@ def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subp
     encoding = str(options.get("encoding") or "utf-8")
     errors = str(options.get("errors") or "replace")
     stdin_bytes = options.get("input")
-    with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
+    live_log = options.get("live_log")
+    stdout_target = open(live_log, "w+b") if live_log is not None else tempfile.TemporaryFile()
+    with stdout_target as stdout_file, tempfile.TemporaryFile() as stderr_file:
         with subprocess.Popen(
             _resolve_command(all_argv),
             stdin=subprocess.PIPE if stdin_bytes is not None else None,

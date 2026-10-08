@@ -215,6 +215,7 @@ class _RunContext:
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
     start_failure_text: str = ""
+    live_log: Path | None = None
 
 
 def _prepare_run(
@@ -268,6 +269,7 @@ def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProce
         cwd=str(context.cwd) if context.cwd is not None else None,
         encoding=context.encoding,
         errors=context.errors,
+        live_log=context.live_log,
     )
 
 
@@ -316,9 +318,11 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
 def _execute(
     product: Product, all_argv: Sequence[str], *, now: datetime,
     timeout_seconds: float | None = None, stdin_text: str | bytes | None = None,
-    cwd: str | Path | None = None, encoding: str = "utf-8", errors: str = "replace"
+    cwd: str | Path | None = None, encoding: str = "utf-8", errors: str = "replace",
+    live_log: Path | None = None,
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
+    context.live_log = live_log
     while True:
         picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
@@ -339,8 +343,9 @@ def run_job(
     cwd: str | Path | None = None,
     encoding: str = "utf-8",
     errors: str = "replace",
+    live_log: Path | None = None,
 ) -> JobOutcome:
-    return _execute(product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds, stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors)[0]
+    return _execute(product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds, stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors, live_log=live_log)[0]
 
 
 def _parser() -> argparse.ArgumentParser:

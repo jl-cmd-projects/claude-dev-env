@@ -3,7 +3,8 @@ name: second-account-workers
 description: >-
   Run local headless Claude workers through the account picker.
   Triggers: spawn a worker on the second account or another extra account, offload a worker,
-  use a named Claude profile, save main account usage.
+  use a named Claude profile, save main account usage, run a local orchestrator that spawns
+  and watches Claude workers.
 ---
 
 # Extra account workers
@@ -22,8 +23,8 @@ JSON list of profile names, with the first choice first. Names use letters,
 digits, hyphens, and underscores. The worker uses the existing second profile
 when the file is absent. When the file exists, its list sets the full order.
 Keep `main` and `wait` out of the list because they name picker decisions.
-The picker ranks main and every extra profile by room left and picks the one
-with the most.
+The picker keeps each account that has room and picks the one with the most
+weekly usage left. The account order breaks a tie.
 For direct picker calls, `--second-config-dir` sets the first extra profile and
 each `--extra-config-dir` adds another in the order given.
 Picker JSON prints `config_dir` for the choice and meters under `main`, `second`,
@@ -46,6 +47,13 @@ wait "$worker_pid"
 worker_exit=$?
 cat "<report>"
 ```
+
+Add `--live-log "<events.jsonl>"` to watch the worker while it runs. The worker
+then writes one JSON event per line into that file as it happens. The first line
+is the `init` event with the `session_id`. Each `assistant` line names the tool
+calls and text, and the last line is the `result` event. Read new lines with
+`tail -n 20 "<events.jsonl>"` and skip screenshots unless a check needs to see
+the screen.
 
 Read the JSON report and worker log after the process ends. The JSON fields are
 `account`, `reason`, `exit_code`, `duration_seconds`, `result`, and `is_error`.
@@ -83,3 +91,12 @@ Blocked: <open issue, or none>
 
 Keep the owned file list closed. Name the worktree path with `--cwd` and use a
 separate brief and report path for each worker.
+
+## Run a local orchestrator
+
+To save usage in a long session, start one local orchestrator worker and let it
+spawn the other workers. Give it its own brief that names each worker brief,
+worktree, report path and live log. It launches each worker with the command
+above in the background, reads the live logs to follow progress, and reads each
+report at the end. Each spawn goes through the picker, so every worker lands on
+the account with the most weekly room at its start.

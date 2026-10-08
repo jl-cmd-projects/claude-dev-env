@@ -366,3 +366,13 @@ def test_should_pass_metacharacters_to_an_executable_unchanged(monkeypatch: pyte
     support.subprocess_runner(["claude", "-p", 'say "a & b" | 100%!'])
 
     assert all_launched_argv == [[resolved_command, "-p", 'say "a & b" | 100%!']]
+
+
+def test_should_write_child_output_into_the_live_log_while_it_runs(tmp_path: Path) -> None:
+    live_log = tmp_path / "worker.jsonl"
+    child_script = "import sys, pathlib; print('first', flush=True); sys.stdout.write(pathlib.Path(sys.argv[1]).read_text())"
+
+    completed = support._run_captured_subprocess([sys.executable, "-c", child_script, str(live_log)], live_log=live_log)
+
+    assert completed.stdout == "first\nfirst\n"
+    assert live_log.read_text(encoding="utf-8") == "first\nfirst\n"
