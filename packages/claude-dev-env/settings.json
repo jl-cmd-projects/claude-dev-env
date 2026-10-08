@@ -11,7 +11,8 @@
     "allow": [
       "$defaults",
       "Updating or installing the claude-dev-env package is allowed: running `npx claude-dev-env@latest --update` or `npx --yes claude-dev-env@latest --update --target <claude config dir>` is the user's own daily environment sync from the user's own public package, and its writes to the Claude config directory are the intended result. This covers only that package and command.",
-      "Developing the claude-dev-env repository is allowed: editing, testing, committing and pushing its settings, hooks, scripts and tests is the user's requested work on the user's own public package. It changes the package source in the repository; it does not change the running session's own configuration."
+      "Developing the claude-dev-env repository is allowed: editing, testing, committing and pushing its settings, hooks, scripts and tests is the user's requested work on the user's own public package. It changes the package source in the repository; it does not change the running session's own configuration.",
+      "Copying files to a folder the user named is allowed: when the task produced files such as images, reports or proof sheets, or the user named existing files, copying or mirroring them with Copy-Item, cp, robocopy or a short script into a local folder or a mapped network drive the user or the user's instructions name is the requested delivery step. This covers creating the destination folders and overwriting earlier copies there. It does not cover deleting or moving source files, copying credentials, keys, tokens or config directories, or uploading to an internet host."
     ]
   }
 }
