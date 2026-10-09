@@ -70,3 +70,13 @@ test('renderBlock draws a flow with arrows and tone classes', () => {
   const html = VisualPlan.renderBlock({ kind: 'flow', parsed: VisualPlan.parseFlow('a > b [info]'), attrs: {} });
   assert.match(html, /<span class="fs ">a<\/span><span class="fa" aria-hidden="true">\u2192<\/span><span class="fs here">b<\/span>/);
 });
+
+test('openStore waits for a db that resolves after 5 s and uses it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const db = { doc() {}, collection() {} };
+  globalThis.window = { claude: { use: () => new Promise((resolve) => setTimeout(() => resolve(db), 5000)) } };
+  t.after(() => { delete globalThis.window; });
+  const opened = VisualPlan.openStore('visualplan:test');
+  t.mock.timers.tick(5000);
+  assert.equal((await opened).kind, 'db');
+});

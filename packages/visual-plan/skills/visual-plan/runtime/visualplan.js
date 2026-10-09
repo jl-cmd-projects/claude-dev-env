@@ -2,8 +2,8 @@
  * visualplan.js is the runtime for visual-plan pages. It reads the vp- elements,
  * builds one plan model, draws the grid, the decisions and the path, opens cards,
  * keeps answers and notes, and writes the response. Without a DOM it only
- * registers the pure parsers on globalThis.VisualPlan, so pack.mjs lints with the
- * same code the browser runs.
+ * registers the pure parsers and openStore on globalThis.VisualPlan, so pack.mjs
+ * lints with the same code the browser runs.
  */
 (function () {
 'use strict';
@@ -703,12 +703,10 @@ function responseText({ title, asks, answers, notes }) {
 
 Object.assign(VisualPlan, {
   TONES, dedent, parseLine, parseFlow, parseBranch, parseVs, parseStats, parseBar, parseMeter, parseChips, parseChecks, parseLinks, parseDots,
-  parseColumns, fromHtml, fromDom, buildPlan, lint, renderBlock, renderCard, renderPage, responseText,
+  parseColumns, fromHtml, fromDom, buildPlan, lint, renderBlock, renderCard, renderPage, responseText, openStore,
 });
 globalThis.VisualPlan = VisualPlan;
 if (!HAS_DOM) return;
-
-const STORE_TIMEOUT_MS = 4000;
 
 function dbStore(db) {
   return {
@@ -786,8 +784,7 @@ async function openStore(storageKey) {
   const claude = window.claude;
   if (claude && typeof claude.use === 'function') {
     try {
-      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), STORE_TIMEOUT_MS));
-      const db = await Promise.race([Promise.resolve(claude.use('db')), timeout]);
+      const db = await claude.use('db');
       if (db && typeof db.doc === 'function') return dbStore(db);
     } catch (error) { console.warn('visual-plan: db unavailable', error); }
   }
