@@ -111,6 +111,30 @@ def test_should_pass_no_live_log_when_none_is_named(
     assert "live_log" not in captured
 
 
+def test_should_report_an_unwritable_live_log_before_the_broker_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompt_file = tmp_path / "brief.md"
+    prompt_file.write_text("standalone brief", encoding="utf-8")
+    report_file = tmp_path / "report.json"
+    monkeypatch.setattr(worker, "worker_job_runner", lambda *args, **kwargs: pytest.fail("broker ran"))
+
+    exit_code = worker.run_worker(
+        prompt_file=prompt_file,
+        cwd=tmp_path,
+        report_file=report_file,
+        model=None,
+        permission_mode="auto",
+        timeout_minutes=60,
+        live_log=tmp_path / "missing" / "worker.jsonl",
+    )
+
+    report = json.loads(report_file.read_text(encoding="utf-8"))
+    assert exit_code == report["exit_code"] == 1
+    assert report["account"] == "none"
+    assert report["reason"] == "live log file is unwritable"
+
+
 def test_should_report_the_broker_wait_reason_and_exit_three(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

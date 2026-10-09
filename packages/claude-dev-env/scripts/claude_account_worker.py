@@ -30,6 +30,7 @@ from dev_env_scripts_constants.claude_account_worker_constants import (
     REPORT_FILE_FLAG,
     SINGLE_PROMPT_FLAG,
     TIMEOUT_MINUTES_FLAG,
+    UNWRITABLE_LIVE_LOG_MESSAGE,
     VERBOSE_FLAG,
     UTF8_ENCODING,
 )
@@ -91,12 +92,19 @@ def run_worker(
 
     With ``live_log`` set, the worker streams one JSON event per line into that
     file while it runs, so a watching session can read progress before the end.
+    A live log that cannot be written ends the run before the broker starts.
     """
     try:
         prompt_text = prompt_file.read_text(encoding=UTF8_ENCODING)
     except (OSError, UnicodeError):
         report = pre_launch_failure_report("none", "prompt file is unreadable", LAUNCH_FAILURE_EXIT_CODE)
         return finalize_report(report_file, report)
+    if live_log is not None:
+        try:
+            live_log.write_bytes(b"")
+        except OSError:
+            report = pre_launch_failure_report("none", UNWRITABLE_LIVE_LOG_MESSAGE, LAUNCH_FAILURE_EXIT_CODE)
+            return finalize_report(report_file, report)
     try:
         outcome, duration_seconds = invoke_worker(
             all_arguments=_invocation(model=model, permission_mode=permission_mode, is_streamed=live_log is not None),

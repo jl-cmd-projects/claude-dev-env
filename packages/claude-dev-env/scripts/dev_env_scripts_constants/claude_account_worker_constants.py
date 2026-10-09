@@ -77,6 +77,8 @@ SUMMARY_LINE_TEMPLATE: str = "account={account} exit_code={exit_code} report={re
 
 INVALID_TIMEOUT_MESSAGE: str = "--timeout-minutes must be at least 1"
 
+UNWRITABLE_LIVE_LOG_MESSAGE: str = "live log file is unwritable"
+
 
 __all__ = [
     "CLAUDE_BINARY_NAME",
