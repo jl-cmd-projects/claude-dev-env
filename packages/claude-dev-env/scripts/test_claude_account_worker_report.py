@@ -51,6 +51,21 @@ def test_should_build_report_from_json_result_and_round_duration() -> None:
     assert report.wait_reset_at is None
 
 
+def test_should_take_the_result_event_from_streamed_output() -> None:
+    streamed_lines = "\n".join(
+        (
+            '{"type":"system","subtype":"init","session_id":"s1"}',
+            '{"type":"assistant","message":{"content":[]}}',
+            '{"type":"result","result":"ready","is_error":false}',
+        )
+    )
+
+    report = make_report("extra_2", "served", exit_code=0, duration_seconds=1.0, stdout_text=streamed_lines)
+
+    assert report.payload == "ready"
+    assert report.is_error is False
+
+
 def test_should_mark_report_as_error_when_json_flags_error() -> None:
     report = make_report(
         "extra_2",

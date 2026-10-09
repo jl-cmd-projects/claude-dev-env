@@ -909,6 +909,26 @@ def test_should_keep_a_spent_mark_without_a_reset_for_one_hour(
     assert decision["resets_at"] == (NOW + timedelta(hours=1)).isoformat()
 
 
+def test_should_mark_a_windows_launcher_path_account_spent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
+    first = _account(launcher_name)
+    second = _account("second")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"{launcher_name}:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "second"
+
+
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1194,3 +1214,21 @@ def test_should_keep_the_parent_environment_for_codex_jobs(
         run_job(Product.CODEX, ("codex", "exec", "task"))
 
     assert all_child_environments[0]["CLAUDE_CODE_SESSION_ID"] == "parent-session"
+
+
+
+def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live_log = tmp_path / "events.jsonl"
+    adapter = _adapter((_account("only"),), {"only": _meters(80, 80)})
+    captured_options: dict[str, object] = {}
+
+    def runner(command: object, **options: object) -> subprocess.CompletedProcess[str]:
+        captured_options.update(options)
+        return subprocess.CompletedProcess(command, 0, "served", "")
+
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW, live_log=live_log)
+
+    assert outcome.returncode == 0
+    assert captured_options["live_log"] == live_log
