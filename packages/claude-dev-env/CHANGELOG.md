@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.68.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.3...claude-dev-env-v8.68.4) (2026-10-09)
+
+
+### Bug Fixes
+
+* **account-broker:** retry a failed Codex meter read and name why it failed ([#1943](https://github.com/jl-cmd-projects/claude-dev-env/issues/1943)) ([a2346db](https://github.com/jl-cmd-projects/claude-dev-env/commit/a2346db349f177fcf2854a54bccd7e6d97fef009))
+
 ## [8.68.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.2...claude-dev-env-v8.68.3) (2026-10-08)
 
 
