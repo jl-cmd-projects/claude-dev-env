@@ -22,10 +22,14 @@ export function solSettingLines(instructionsPath) {
     return [SOL_SETTING_MARKER, `model_instructions_file = ${JSON.stringify(instructionsPath)}`];
 }
 
+function isPackageMarkerLine(eachLine) {
+    return eachLine.replace(/\r$/, '') === SOL_SETTING_MARKER;
+}
+
 function withoutPackageSetting(allLines) {
     const allKeptLines = [];
     for (let i = 0; i < allLines.length; i++) {
-        if (allLines[i] === SOL_SETTING_MARKER) {
+        if (isPackageMarkerLine(allLines[i])) {
             i++;
             continue;
         }
@@ -94,7 +98,7 @@ export function removeCodexSolSetting(codexHome) {
     const { isReadable, currentText } = readCodexConfig(configPath);
     if (!isReadable || currentText === null) return null;
     const allLines = currentText.split('\n');
-    if (!allLines.includes(SOL_SETTING_MARKER)) return null;
+    if (!allLines.some(isPackageMarkerLine)) return null;
     const userText = withoutPackageSetting(allLines).join('\n');
     if (userText.trim() === '') {
         unlinkSync(configPath);

@@ -78,6 +78,19 @@ test('writing twice changes the config once and keeps user settings below the li
     assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
+test('a config saved with CRLF line endings still has its package line rewritten and removed', (context) => {
+    const codexHome = join(makeScratchHome(context), '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const userText = 'model = "gpt-6.1-sol"\r\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, settingText('/prompt.md', userText).replace(/\n/g, '\r\n').replace(/\r\r/g, '\r'));
+    assert.equal(writeCodexSolSetting(codexHome, '/moved/prompt.md'), configPath);
+    assert.equal(readFileSync(configPath, 'utf8'), settingText('/moved/prompt.md', userText));
+    writeFileSync(configPath, readFileSync(configPath, 'utf8').replace(/\r?\n/g, '\r\n'));
+    assert.equal(removeCodexSolSetting(codexHome), configPath);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
+});
+
 test('a user-written top-level model_instructions_file is neither rewritten nor removed', (context) => {
     const codexHome = join(makeScratchHome(context), '.codex');
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
