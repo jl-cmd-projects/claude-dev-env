@@ -111,14 +111,11 @@ def _file_lines(all_card_fields: dict[str, object]) -> str:
         isinstance(each, str) for each in all_files
     ):
         raise CardInputRunFatal(REASON_FILES_NOT_A_LIST)
-    for each_path in all_files:
+    all_named_paths = [each_path.strip() for each_path in all_files if each_path.strip()]
+    for each_path in all_named_paths:
         if re.match(ABSOLUTE_PATH_PATTERN, each_path):
             raise CardInputRunFatal(REASON_ABSOLUTE_FILE_TEMPLATE.format(path=each_path))
-    all_lines = [
-        FILE_LINE_TEMPLATE.format(path=each_path.strip())
-        for each_path in all_files
-        if each_path.strip()
-    ]
+    all_lines = [FILE_LINE_TEMPLATE.format(path=each_path) for each_path in all_named_paths]
     return LINE_SEPARATOR.join(all_lines) or NO_FILES_LINE
 
 

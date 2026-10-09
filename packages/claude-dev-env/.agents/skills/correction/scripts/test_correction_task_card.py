@@ -107,6 +107,7 @@ def test_should_name_no_files_when_the_session_names_none() -> None:
         ({"files": ["/home/me/repo/hooks/example.py"]}, "is absolute"),
         ({"files": ["C:\\repo\\hooks\\example.py"]}, "is absolute"),
         ({"files": ["~/repo/hooks/example.py"]}, "is absolute"),
+        ({"files": ["  /home/me/repo/hooks/example.py"]}, "is absolute"),
     ],
 )
 def test_should_refuse_a_card_that_breaks_a_field_rule(
