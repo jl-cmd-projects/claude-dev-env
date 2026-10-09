@@ -7,6 +7,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/haiku_spawn_slim_gate.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/skill_loaded_reminder.py",
             "timeout": 10
           },
@@ -185,6 +190,11 @@
       {
         "matcher": "mcp__hearthbot__start_thread_session",
         "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/haiku_spawn_slim_gate.py",
+            "timeout": 10
+          },
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/thread_spawn_pace_hook.py",
