@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.73.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.2...claude-dev-env-v8.73.0) (2026-10-09)
+
+
+### Features
+
+* **context-budget:** hold agent context to a pstack-style budget ([#1903](https://github.com/jl-cmd-projects/claude-dev-env/issues/1903)) ([8320058](https://github.com/jl-cmd-projects/claude-dev-env/commit/832005893df219f5227803aa50e2300c217af7b0))
+
 ## [8.72.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.1...claude-dev-env-v8.72.2) (2026-10-09)
 
 
