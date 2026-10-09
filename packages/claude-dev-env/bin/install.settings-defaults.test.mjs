@@ -25,13 +25,16 @@ import {
     mergeMissingSettingsDefaults,
     settingsDefaultsFromPackageSettings,
 } from './merge_settings_defaults.mjs';
+import { DECLARED_PROFILE_SETTINGS } from './merge_profile_settings.mjs';
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_SETTINGS_PATH = join(PACKAGE_ROOT, 'settings.json');
 const INSTALL_ENTRY = join(PACKAGE_ROOT, 'bin', 'install.mjs');
 
 const EXPECTED_DENY_ENTRIES = [];
-const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)'];
+const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)', 'Read(~/.claude/docs/**)'];
+const PROFILE_ALLOW_ENTRIES = DECLARED_PROFILE_SETTINGS
+    .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
 const SAMPLE_MANAGED_DENY_ENTRIES = ['Edit($HOME/.claude/managed-test/**)'];
 const SAMPLE_MANAGED_PERMISSIONS = { allow: [], deny: SAMPLE_MANAGED_DENY_ENTRIES };
 const SAMPLE_MANAGED_ALLOW_PERMISSIONS = { allow: ['WebFetch(domain:example.com)'], deny: [] };
@@ -56,6 +59,8 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
         encoding: 'utf8',
         env: {
             ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
@@ -171,7 +176,7 @@ test('sandbox install keeps default managed denies empty on repeat', () => {
         const firstSettings = JSON.parse(readFileSync(settingsPath, 'utf8'));
         const firstDeny = firstSettings.permissions?.deny ?? [];
         assert.deepEqual(firstDeny, EXPECTED_DENY_ENTRIES);
-        assert.deepEqual(firstSettings.permissions?.allow, EXPECTED_ALLOW_ENTRIES);
+        assert.deepEqual(firstSettings.permissions?.allow, [...EXPECTED_ALLOW_ENTRIES, ...PROFILE_ALLOW_ENTRIES]);
 
         const manifestPath = join(sandboxHome, '.claude', '.claude-dev-env-manifest.json');
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -183,7 +188,7 @@ test('sandbox install keeps default managed denies empty on repeat', () => {
         const secondSettings = JSON.parse(readFileSync(settingsPath, 'utf8'));
         const secondDeny = secondSettings.permissions?.deny ?? [];
         assert.deepEqual(secondDeny, EXPECTED_DENY_ENTRIES);
-        assert.deepEqual(secondSettings.permissions?.allow, EXPECTED_ALLOW_ENTRIES);
+        assert.deepEqual(secondSettings.permissions?.allow, [...EXPECTED_ALLOW_ENTRIES, ...PROFILE_ALLOW_ENTRIES]);
     } finally {
         rmSync(sandboxHome, { recursive: true, force: true });
     }
@@ -214,7 +219,7 @@ test('a normal upgrade retires manifest-owned denies and preserves user entries'
 
         const upgradedSettings = JSON.parse(readFileSync(settingsPath, 'utf8'));
         assert.deepEqual(upgradedSettings.permissions?.deny, [USER_OWNED_DENY_ENTRY]);
-        assert.deepEqual(upgradedSettings.permissions?.allow, ['Bash(git status)', ...EXPECTED_ALLOW_ENTRIES]);
+        assert.deepEqual(upgradedSettings.permissions?.allow, ['Bash(git status)', ...EXPECTED_ALLOW_ENTRIES, ...PROFILE_ALLOW_ENTRIES]);
         assert.deepEqual(upgradedSettings.permissions?.ask, ['Edit(./**)']);
 
         const upgradedManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -258,10 +263,15 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the advisor model and auto mode defaults', () => {
+test('package settings.json publishes the session agent, advisor model and auto mode defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
-    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'autoMode']);
+    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'agent', 'autoMode']);
+    assert.equal(settingsDefaults.agent, 'dev-env-session');
+    assert.ok(
+        existsSync(join(PACKAGE_ROOT, '.agents', 'agents', `${settingsDefaults.agent}.md`)),
+        'the session agent named by the agent default ships with the package',
+    );
     assert.equal(settingsDefaults.advisorModel, 'fable');
     const [firstAllowRule, ...allCustomAllowRules] = settingsDefaults.autoMode.allow;
     assert.equal(firstAllowRule, '$defaults');

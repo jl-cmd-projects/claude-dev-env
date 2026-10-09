@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from dev_env_scripts_constants import private_term_constants
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 
 _SCRIPTS_DIRECTORY = Path(__file__).resolve().parents[1]
@@ -18,7 +19,16 @@ if str(_SCRIPTS_DIRECTORY) not in sys.path:
 import private_term_scan
 
 _FIXTURE_TERM = "acmewidget"
+_FIXTURE_OWNER_HANDLE = "patowner"
 _CLEAN_IDENTITY = ("Claude", "noreply@example.com")
+_OWNER_HANDLE = "ohcEnoJ"[::-1]
+_OWNER_IDENTITY = (_OWNER_HANDLE, f"24366590+{_OWNER_HANDLE}@users.noreply.github.com")
+
+
+def _fixture_digest(term: str) -> PrivateTermDigest:
+    return PrivateTermDigest(
+        length=len(term), sha256=hashlib.sha256(term.encode("utf-8")).hexdigest()
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -26,14 +36,26 @@ def private_fixture_terms(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         private_term_scan,
         "ALL_PRIVATE_TERM_DIGESTS",
-        frozenset(
-            {
-                PrivateTermDigest(
-                    length=len(_FIXTURE_TERM),
-                    sha256=hashlib.sha256(_FIXTURE_TERM.encode("utf-8")).hexdigest(),
-                )
-            }
-        ),
+        frozenset({_fixture_digest(_FIXTURE_TERM), _fixture_digest(_FIXTURE_OWNER_HANDLE)}),
+    )
+    monkeypatch.setattr(
+        private_term_scan,
+        "ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS",
+        frozenset({_fixture_digest(_FIXTURE_OWNER_HANDLE)}),
+    )
+
+
+@pytest.fixture
+def shipped_private_terms(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        private_term_scan,
+        "ALL_PRIVATE_TERM_DIGESTS",
+        private_term_constants.ALL_PRIVATE_TERM_DIGESTS,
+    )
+    monkeypatch.setattr(
+        private_term_scan,
+        "ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS",
+        private_term_constants.ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
     )
 
 
@@ -188,6 +210,57 @@ def test_should_flag_a_private_name_beside_a_github_noreply_address(
     all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
     assert len(all_findings) == 1
     assert " identity:" in all_findings[0]
+
+
+@pytest.mark.usefixtures("shipped_private_terms")
+def test_should_accept_the_owner_handle_as_a_commit_identity(tmp_path: Path) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", *_OWNER_IDENTITY)]
+    )
+    assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+@pytest.mark.usefixtures("shipped_private_terms")
+def test_should_flag_the_owner_handle_in_a_commit_message(tmp_path: Path) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [(f"docs: note\n\nWritten by {_OWNER_HANDLE}.", *_OWNER_IDENTITY)]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " message: Line 3 " in all_findings[0]
+
+
+def test_should_flag_a_private_name_in_the_message_of_an_owner_commit(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path,
+        [
+            (
+                "docs: note\n\nWritten for Acme Widgets.",
+                "Pat Owner",
+                "81234567+patowner@users.noreply.github.com",
+            )
+        ],
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " message: Line 3 " in all_findings[0]
+
+
+def test_should_flag_a_private_name_in_a_pull_request_body_beside_an_accepted_handle(
+    tmp_path: Path,
+) -> None:
+    event_path = _write_event(
+        tmp_path,
+        {"pull_request": {"title": "fix: one", "body": "By Pat Owner\nFor Acme Widgets\n"}},
+    )
+    assert private_term_scan.scan_event(event_path) == [
+        "pull request body: Line 1 names a private organization. "
+        "Describe it in general terms and drop any link to it.",
+        "pull request body: Line 2 names a private organization. "
+        "Describe it in general terms and drop any link to it.",
+    ]
 
 
 def test_should_print_findings_and_fail_from_the_command_line(

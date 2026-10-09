@@ -185,6 +185,20 @@ def test_should_stay_silent_in_a_remote_session_whose_tool_list_lacks_the_title_
     assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
 
 
+def test_should_block_a_remote_session_whose_deferred_list_holds_no_remote_server_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REMOTE_SESSION_VARIABLE, "cse_1")
+    all_entries = [
+        deferred_tools("TaskCreate", "WebFetch"),
+        prompt("Fix the runner"),
+        tool_call("t1", "Bash"),
+        tool_result("t1"),
+    ]
+    _, stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)
+    assert json.loads(stdout_text)["decision"] == "block"
+
+
 def test_should_block_a_remote_session_whose_tool_list_names_the_title_tool(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -271,3 +285,11 @@ def test_stop_block_reason_names_the_seen_tool_when_the_turn_has_no_title() -> N
     ]
     block_reason = session_title_stop_gate.stop_block_reason(all_entries, is_remote_session=False)
     assert block_reason is not None and DESKTOP_TITLE_TOOL in block_reason
+
+
+def test_stop_block_reason_tells_the_model_to_set_the_title_in_silence() -> None:
+    all_entries = [prompt("Fix the runner"), tool_call("t1", REMOTE_TITLE_TOOL), prompt("Next")]
+    block_reason = session_title_stop_gate.stop_block_reason(all_entries, is_remote_session=True)
+    assert block_reason is not None
+    assert "Say nothing to the user about the title" in block_reason
+    assert "end with no text" in block_reason

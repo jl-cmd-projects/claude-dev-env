@@ -37,7 +37,7 @@ export function wrapUpNote(low: Low): string {
 }
 
 export const register: Register = (on, options) => {
-  const threshold = Number(options.threshold ?? 5)
+  const threshold = Number(options.threshold ?? 1)
   let limits: readonly SessionRateLimit[] | undefined
   let wasWarned = false
 

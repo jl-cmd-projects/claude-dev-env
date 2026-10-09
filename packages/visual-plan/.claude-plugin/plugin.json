@@ -1,0 +1,10 @@
+{
+  "name": "visual-plan",
+  "version": "0.1.0",
+  "description": "Write a plan as one interactive HTML page: a grid of problems and fixes, the decisions to answer, and the path to approval. Every box opens a card of pictures, and every item takes a note.",
+  "author": {
+    "name": "jl-cmd"
+  },
+  "license": "MIT",
+  "keywords": ["plan", "planning", "html", "visual", "decisions", "review"]
+}

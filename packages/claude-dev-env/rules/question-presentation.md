@@ -1,12 +1,11 @@
 # Present questions clearly
 
-Before asking for input, give a short formatted brief in chat. Put the context and the effect of each choice there. Add a visual or artifact only when it helps the decision.
+Before asking, give a short formatted chat brief with context and each choice's effect. Add helpful visuals or artifacts.
 
-For Codex, when a visual comparison helps, discover callable tools for Page creation, visualization upload, and Page opening. Create the comparison, upload its visualization, and open its Page in the current task before asking. If a tool is unavailable, creation, upload, or opening fails, or opening queues, put the comparison in chat before asking. Inline Visualize references appear only in final replies. Use the user's submitted answer for the decision. An async dispatch acknowledgement or saved visual supplies context only. Wait for the answer before work that depends on it.
+Ask one short, self-contained question with two or three choices. Give each a short label and one short sentence. Reuse labels in the brief, comparison, and picker.
 
-Ask one short, self-contained question with two or three clear choices. Use short labels, and keep each supported choice description to one short sentence. Use the same labels in the chat brief, comparison, and picker.
+Find the native question tool and schema. Claude may use `AskUserQuestion`; Codex may use `request_user_input_async` or `request_user_input`. Honor mode rules. Put the question in its title or question field and choices in string or object fields. If unusable, ask in chat.
 
-Discover the current session's native question tool and its schema. Claude may expose `AskUserQuestion`.
-Codex may expose `request_user_input_async` or `request_user_input`. Follow the tool's mode restrictions.
-Put the question in its declared title or question field and choices in its declared string or object fields.
-When no native tool is usable, ask the short question and choices in chat.
+When the user asks for option cards, or for a Codex visual comparison, read the full text first.
+
+**Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).

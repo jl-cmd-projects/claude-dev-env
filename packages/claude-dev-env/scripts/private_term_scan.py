@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from dev_env_scripts_constants.private_term_constants import (
+    ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
     ALL_EVENT_TEXT_FIELDS,
     ALL_PRIVATE_TERM_DIGESTS,
     COMMIT_FIELD_SEPARATOR,
@@ -34,18 +35,23 @@ from dev_env_scripts_constants.private_term_constants import (
     PRIVATE_TERM_MESSAGE_TEMPLATE,
     PRIVATE_TERM_TEXT_ENCODING,
     SHORT_SHA_LENGTH,
+    PrivateTermDigest,
 )
 from private_terms import private_term_line_numbers
 
 
-def _findings_for(label: str, text: str) -> list[str]:
+def _findings_for(
+    label: str,
+    text: str,
+    all_term_digests: frozenset[PrivateTermDigest],
+) -> list[str]:
     return [
         FINDING_LINE_TEMPLATE.format(
             label=label,
             message=PRIVATE_TERM_MESSAGE_TEMPLATE.format(line_number=each_line_number),
         )
         for each_line_number in private_term_line_numbers(
-            text, ALL_PRIVATE_TERM_DIGESTS
+            text, all_term_digests
         )
     ]
 
@@ -67,7 +73,9 @@ def scan_event(event_path: Path) -> list[str]:
             continue
         text = event_object.get(each_field)
         if isinstance(text, str):
-            all_findings.extend(_findings_for(each_label, text))
+            all_findings.extend(
+                _findings_for(each_label, text, ALL_PRIVATE_TERM_DIGESTS)
+            )
     return all_findings
 
 
@@ -80,10 +88,12 @@ def _commit_findings(record: str) -> list[str]:
         *_findings_for(
             COMMIT_LABEL_TEMPLATE.format(short_sha=short_sha, part=COMMIT_IDENTITY_PART),
             re.sub(GITHUB_NOREPLY_ADDRESS_PATTERN, MASKED_ADDRESS, identity, flags=re.IGNORECASE),
+            ALL_PRIVATE_TERM_DIGESTS - ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
         ),
         *_findings_for(
             COMMIT_LABEL_TEMPLATE.format(short_sha=short_sha, part=COMMIT_MESSAGE_PART),
             message,
+            ALL_PRIVATE_TERM_DIGESTS,
         ),
     ]
 
@@ -99,6 +109,8 @@ def scan_commits(repository_root: Path, commit_range: str) -> list[str]:
         One finding per commit identity or message line that names a private
         organization. An identity address ending in users.noreply.github.com
         is left out of the scan, since GitHub builds it from the account handle.
+        The owner's own handle passes in an identity and still fails in a
+        message.
     """
     log_text = subprocess.run(
         ["git", "-C", str(repository_root), "log", "--reverse", COMMIT_LOG_FORMAT, commit_range],

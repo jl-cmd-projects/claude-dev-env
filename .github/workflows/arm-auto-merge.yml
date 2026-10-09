@@ -1,0 +1,57 @@
+name: Arm auto-merge
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+
+concurrency:
+  group: arm-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  arm:
+    name: Arm auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    permissions:
+      contents: read
+    steps:
+      - name: Mint an app token whose auto-merge starts the merge queue
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Arm auto-merge so the pull request joins the merge queue once its checks pass
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          ACTIONS_BOT_LOGIN: app/github-actions
+        run: |
+          pull_request_state=$(gh pr view "$PULL_REQUEST_NUMBER" --json autoMergeRequest,state --jq '[.state, (.autoMergeRequest.enabledBy.login // "")] | @tsv')
+          state=$(printf '%s' "$pull_request_state" | cut -f1)
+          armed_by=$(printf '%s' "$pull_request_state" | cut -f2)
+          echo "Pull request $PULL_REQUEST_NUMBER state: $state, armed by: ${armed_by:-nobody}"
+          if [ "$state" != "OPEN" ]; then
+            echo "Pull request $PULL_REQUEST_NUMBER is closed."
+            exit 0
+          fi
+          if [ -n "$armed_by" ] && [ "$armed_by" != "$ACTIONS_BOT_LOGIN" ]; then
+            echo "Pull request $PULL_REQUEST_NUMBER is already armed."
+            exit 0
+          fi
+          if [ "$armed_by" = "$ACTIONS_BOT_LOGIN" ]; then
+            gh pr merge "$PULL_REQUEST_NUMBER" --disable-auto
+          fi
+          gh pr merge "$PULL_REQUEST_NUMBER" --auto
