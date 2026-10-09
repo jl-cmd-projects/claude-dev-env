@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.70.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.1...claude-dev-env-v8.70.0) (2026-10-09)
+
+
+### Features
+
+* **correction:** file a correction as one labeled issue by hand ([#1917](https://github.com/jl-cmd-projects/claude-dev-env/issues/1917)) ([8228d6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/8228d6fe40ec7f8c37df5de61961c54665d0a361))
+
 ## [8.69.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.0...claude-dev-env-v8.69.1) (2026-10-09)
 
 
