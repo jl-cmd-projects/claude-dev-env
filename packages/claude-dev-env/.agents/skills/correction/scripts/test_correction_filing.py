@@ -140,9 +140,10 @@ def test_should_dedupe_from_the_ledger_when_the_listing_lags(filing_environment:
 
 
 def test_should_read_the_text_from_stdin_without_expanding_it(filing_environment: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "stdin", io.StringIO('say "$(whoami)" and `id`\n'))
+    piped_bytes = 'say "$(whoami)" and `id` in caf\u00e9\n'.encode("utf-8")
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(piped_bytes), encoding="cp1252"))
     assert correction_filing.main(["file"]) == 0
-    assert '> say "$(whoami)" and `id`' in _stored_issues(filing_environment)[0]["body"]
+    assert '> say "$(whoami)" and `id` in caf\u00e9' in _stored_issues(filing_environment)[0]["body"]
 
 
 def test_should_file_again_after_the_config_names_another_repository(filing_environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

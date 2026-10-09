@@ -287,7 +287,9 @@ def _run_command(target: FilingTarget, parsed_arguments: argparse.Namespace) -> 
         sys.stdout.write(_open_corrections_listing(target))
         return SUCCESS_EXIT_CODE
     correction_text = (
-        sys.stdin.read() if parsed_arguments.text is None else parsed_arguments.text
+        sys.stdin.buffer.read().decode(UTF8_ENCODING)
+        if parsed_arguments.text is None
+        else parsed_arguments.text
     )
     if not correction_text.strip():
         sys.stderr.write(EMPTY_TEXT_MESSAGE)
