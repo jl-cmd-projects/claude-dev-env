@@ -13,7 +13,7 @@ The user corrected an agent and wants the fix to stick. Write one brief that rec
 Print the brief as one fenced `text` block:
 
 ```text
-Correction: <$ARGUMENTS, word for word>
+Correction: <$ARGUMENTS word for word, minus a leading fix>
 Asked: <what the user asked for, quoted where a message carries it>
 Agent did: <what the agent did, with the reply, file, or command that shows it>
 Corrected to: <what the user wanted instead, or the fix already made>
@@ -29,7 +29,7 @@ Keep each field to one or two lines. Leave out the layer and the fix design; the
 | Mode | What follows the brief |
 |---|---|
 | Hand off, the default | Nothing. The brief is the whole reply. |
-| `fix` | Run [`playbooks/fix.md`](playbooks/fix.md). |
+| `fix` | Read [`playbooks/fix.md`](playbooks/fix.md) right after the brief, and run its steps from step 2. |
 
 ## Layout
 
