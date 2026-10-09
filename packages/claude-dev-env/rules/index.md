@@ -1,9 +1,8 @@
 # Rules
-
 Each line gives a rule in brief. When its trigger matches your task, open the guide and follow it in full. Correction lens and question presentation load as their own files.
 
 **Writing**
-- **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step.
+- **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step, each fact said once.
 - **No contrast framing** ([guide](../docs/rule-guides/no-contrast-framing.md)). Any sentence a person reads. State the chosen point and leave out the discarded reading. Remove the six forms: `trailing-comma-not`, `corrective-it-is-not`, `substitution-rather-than`, `additive-not-just`, `comparative-ranking`, `substitution-as-opposed-to`.
 
 **Evidence**

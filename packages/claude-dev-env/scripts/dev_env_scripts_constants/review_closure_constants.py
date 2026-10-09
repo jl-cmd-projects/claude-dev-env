@@ -155,6 +155,30 @@ summary, a Graphite verdict mirror whose findings arrive as review threads, a
 Qodo description of the change, a Qodo placeholder posted while it reviews, and
 a Qodo review that found nothing."""
 
+CODEX_REVIEW_BOT_LOGIN = "chatgpt-codex-connector[bot]"
+ALL_REVIEW_REQUEST_COMMANDS = ("@codex review", "@codex security review")
+ALL_CODEX_NOTICE_DETAILS = (
+    "<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with \U0001f440 while any review is running, comments if it has suggestions, and reacts with \U0001f44d once all reviews finish with no findings.\n\n</details>",
+    "<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with \U0001f44d.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+)
+CODEX_SUMMARY_PREFIX = (
+    "<!-- codex-pull-request-review-summary -->\n\n"
+    "## Codex Review Summary\n\n"
+    "This comment shows the latest Codex review activity on this pull request.\n\n"
+    "| Review | Status | Commit | Review trigger |\n"
+    "| --- | --- | --- | --- |\n"
+)
+CODEX_SUMMARY_ROW_PATTERN = (
+    r"\| (?:\U0001f4dd \*\*Code Review\*\*|\U0001f6e1\ufe0f \*\*Security Review\*\*) "
+    r"\| \u2705 \*\*Completed\*\* <relative-time datetime=\"[^\"\n]+\">"
+    r"[^<\n]+</relative-time> \| `[a-f0-9]{7,40}` \| Manual request \|"
+)
+CODEX_CLEAN_REVIEW_PATTERN = (
+    r"Codex Review: Didn't find any major issues\."
+    r"(?: Nice work!| Chef's kiss\.| You're on a roll\.| Swish!)?"
+    r"\n\n\*\*Reviewed commit:\*\* `[a-f0-9]{7,40}`"
+)
+
 SHORT_SHA_LENGTH: int = 7
 """How much of a commit identifier the verdict line prints."""
 

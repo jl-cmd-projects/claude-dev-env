@@ -22,21 +22,14 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Pull request submission rules
 
-**Prove the change where it runs before you open the pull request.** The body carries a
-"Proof in practice" section with each command you ran and its quoted output. A hook denies
-a new pull request without one. Read `~/.claude/docs/rule-guides/proof-before-pull-request.md`
-before you plan the proof run. A `feat` pull request also needs an "Eval" section and a
-session that invoked `/claude-api build-eval`; read
-`~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
+**Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
 
-**Open every pull request ready for review.** Pass `--draft` only when the owner asks
-for a draft.
+**Open PRs ready for review; use `--draft` when the owner requests it.**
 
 **A release bot's PR body is machine input. Leave it alone.** Release automation reads
 back the body of its own merged pull request to decide it owns that merge. Rewriting the
 body, or trimming its header or footer, makes the bot treat the merge as somebody else's
-work: it cuts no tag, the publish job skips, and it opens one more release pull request on
-the next run. The merge stays in the repository. No tag is cut and the package never publishes.
+work: it cuts no tag, skips publishing, and opens another release PR on the next run.
 
 Spot one by its head branch, which starts `release-please--branches--`, or by a body that
 opens with the bot's own marker line. The description rules in this file, the
