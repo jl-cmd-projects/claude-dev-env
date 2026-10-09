@@ -251,3 +251,49 @@ def test_emit_decision_sends_a_rewrite_through_the_permission_prompt(
     assert hook_specific["updatedInput"] == {
         "command": "MSYS2_ARG_CONV_EXCL='*' git show HEAD:a.py"
     }
+
+
+def _enable_shell_guards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn the shell-guards plugin on in a temp user settings file."""
+    user_directory = tmp_path / "user-config"
+    user_directory.mkdir()
+    (user_directory / "settings.json").write_text(
+        json.dumps({"enabledPlugins": {"shell-guards@mods-marketplace": True}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(user_directory))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+
+
+def test_should_drop_the_gates_the_shell_guards_mod_holds_while_it_is_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_shell_guards(tmp_path, monkeypatch)
+    all_script_paths = [each_entry.script_relative_path for each_entry in select_applicable_entries(BASH_TOOL_NAME)]
+    assert all_script_paths == ["blocking/msys_rev_path_rewriter.py"]
+
+
+def test_should_pass_a_headless_claude_command_while_the_shell_guards_mod_is_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_shell_guards(tmp_path, monkeypatch)
+    completed = subprocess.run(
+        [sys.executable, _DISPATCHER_SCRIPT],
+        check=False,
+        input=_bash_payload("claude -p 'say hello'"),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ},
+    )
+    assert _decision_from_stdout(completed.stdout) == ("", "")
+
+
+def test_should_deny_a_headless_claude_command_while_no_mod_is_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("claude -p 'say hello'"))
+    assert _decision_from_stdout(completed.stdout)[0] == "deny"

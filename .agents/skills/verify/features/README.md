@@ -11,5 +11,6 @@ Use the feature file that matches the changed user path:
 - [Merge readiness](merge-readiness.md)
 - [Second Claude account](second-claude-account.md)
 - [Codex accounts](codex-accounts.md)
+- [Trimmed Sol prompt](codex-sol-prompt.md)
 - [Follow-up ledger](follow-up-ledger.md)
 - [Release and publish](release-publish.md)

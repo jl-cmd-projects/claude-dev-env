@@ -127,3 +127,29 @@ Once installed, that is `~/.claude/scripts/account_broker.py`.
 |---|---|
 | `_shared/pr-loop/scripts/check_convergence.py` | Requires a Codex clean stamp on HEAD only on `normal`. `luna`, `wait`, or a failed broker skips the Codex gate |
 | `_shared/advisor/scripts/codex_astra_advisor.py` | Binds Astra only on `normal`, and runs Codex with `CODEX_HOME` set to `decision.home` |
+
+## Trimmed Sol prompt
+
+The installer writes one top-level line into `~/.codex/config.toml`, under a
+`# claude-dev-env trimmed Sol prompt` marker. The line points
+`model_instructions_file` at `~/.claude/system-prompts/codex-sol.md`. The file
+is Codex's default `gpt-6.1-sol` prompt with the lines that conflict with the
+package rules rewritten. The line names no model, so every Codex run uses the
+file, whichever model it selects. `sync` links `config.toml` into every account
+home, so every account gets the line.
+
+A `model_instructions_file` the user wrote at the top level keeps the config as
+it is. Uninstall removes only the package line.
+
+To see which prompt Codex uses, read the setting:
+
+```
+Select-String -Path "$HOME\.codex\config.toml" -Pattern model_instructions_file
+```
+
+To run Codex on the trimmed prompt through the broker, run it as usual. `run`
+reads all of standard input before it starts Codex, so close it:
+
+```
+python ~/.claude/scripts/account_broker.py run --product codex --report <report.json> -- codex exec "<request>" < /dev/null
+```

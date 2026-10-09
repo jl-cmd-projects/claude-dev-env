@@ -1,5 +1,61 @@
 # Changelog
 
+## [8.73.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.2...claude-dev-env-v8.73.0) (2026-10-09)
+
+
+### Features
+
+* **context-budget:** hold agent context to a pstack-style budget ([#1903](https://github.com/jl-cmd-projects/claude-dev-env/issues/1903)) ([8320058](https://github.com/jl-cmd-projects/claude-dev-env/commit/832005893df219f5227803aa50e2300c217af7b0))
+
+## [8.72.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.1...claude-dev-env-v8.72.2) (2026-10-09)
+
+
+### Documentation
+
+* **language:** say each fact once and add a repeated-points check ([#1901](https://github.com/jl-cmd-projects/claude-dev-env/issues/1901)) ([b77c2d8](https://github.com/jl-cmd-projects/claude-dev-env/commit/b77c2d880ef9731dd17f7a1ab46fa0ab6f53ebdb))
+
+## [8.72.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.0...claude-dev-env-v8.72.1) (2026-10-09)
+
+
+### Documentation
+
+* **build-eval:** run until-clean loops with only the user's limits ([#1913](https://github.com/jl-cmd-projects/claude-dev-env/issues/1913)) ([45f5f5c](https://github.com/jl-cmd-projects/claude-dev-env/commit/45f5f5c84c2b03cf6dbd4651689239829e041f6d))
+
+## [8.72.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.1...claude-dev-env-v8.72.0) (2026-10-09)
+
+
+### Features
+
+* **hooks:** remove migration_safety_advisor ([#1918](https://github.com/jl-cmd-projects/claude-dev-env/issues/1918)) ([ff52917](https://github.com/jl-cmd-projects/claude-dev-env/commit/ff52917cf0739d76faec9a3c856a0fb7a78b2739))
+
+## [8.71.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.0...claude-dev-env-v8.71.1) (2026-10-09)
+
+
+### Documentation
+
+* **rules:** point option-card questions at the html-plan page template ([#1916](https://github.com/jl-cmd-projects/claude-dev-env/issues/1916)) ([3c07190](https://github.com/jl-cmd-projects/claude-dev-env/commit/3c07190ed64c1679ed718063f313ddbb32e0068f))
+
+## [8.71.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.70.0...claude-dev-env-v8.71.0) (2026-10-09)
+
+
+### Features
+
+* **artifact-pointer:** point new artifact pages at html-plan with a house stylesheet ([#1915](https://github.com/jl-cmd-projects/claude-dev-env/issues/1915)) ([78d2a0a](https://github.com/jl-cmd-projects/claude-dev-env/commit/78d2a0a7a4d6d3378fd3c502566802400a8dd400))
+
+## [8.70.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.1...claude-dev-env-v8.70.0) (2026-10-09)
+
+
+### Features
+
+* **correction:** file a correction as one labeled issue by hand ([#1917](https://github.com/jl-cmd-projects/claude-dev-env/issues/1917)) ([8228d6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/8228d6fe40ec7f8c37df5de61961c54665d0a361))
+
+## [8.69.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.0...claude-dev-env-v8.69.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **hooks:** drop screenshot attach step from artifact look gate ([#1948](https://github.com/jl-cmd-projects/claude-dev-env/issues/1948)) ([ddf8c63](https://github.com/jl-cmd-projects/claude-dev-env/commit/ddf8c635e653066090e277079f5ffac3d074d241))
+
 ## [8.69.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.4...claude-dev-env-v8.69.0) (2026-10-09)
 
 

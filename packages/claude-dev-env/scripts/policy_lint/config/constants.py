@@ -71,11 +71,12 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/verify_before_acting.py",
     "blocking/session_title_format_gate.py",
     "blocking/session_title_stop_gate.py",
+    "blocking/image_read_size_gate.py",
     "blocking/artifact_dark_mode_gate.py",
 )
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests"})
 ALL_TEST_FILE_PREFIXES = ("test_",)
-ALL_TEST_FILE_SUFFIXES = ("_test.py",)
+ALL_TEST_FILE_SUFFIXES = ("_test.py", "_test_support.py")
 POLICY_LINT_DIRECTORY_NAME = "policy_lint"
 POLICY_LINT_RULES_TEST_PREFIX = "test_policy_lint_rules"
 POLICY_LINT_SELECTION_TEST_PREFIX = "test_policy_lint_selection"
@@ -198,3 +199,19 @@ ALL_INVENTORY_FILE_NAMES = frozenset(
 )
 ALL_UNCALLED_EXEMPT_FILE_NAMES = frozenset({"__init__.py", "conftest.py"})
 CALLER_NAME_PATTERN_TEMPLATE = r"(?<![\w-]){name}(?![\w-])"
+
+CONTEXT_BUDGET_RULE_ID = "context-budget"
+CONTEXT_BUDGET_POLICY_RULE_ID = "context-budget-policy"
+CONTEXT_BUDGET_POLICY_REMOVAL_RULE_ID = "context-budget-policy-removal"
+CONTEXT_BUDGET_POLICY_PATH = ".claude/context-budget.json"
+CONTEXT_BUDGET_POLICY_REMOVED_MESSAGE = (
+    "{path}: context-budget: the policy file is removed. Restore it to preserve the budget."
+)
+CONTEXT_BUDGET_POLICY_FILE_MODULE = "context_budget.policy_file"
+CONTEXT_BUDGET_FINDINGS_MODULE = "context_budget.findings"
+CONTEXT_BUDGET_POLICY_CHANGES_MODULE = "context_budget.policy_changes"
+CONTEXT_BUDGET_MODEL_MODULE = "context_budget.model"
+CONTEXT_BUDGET_UNREADABLE_MESSAGE = (
+    "{path}: context-budget: the policy file does not parse ({error}). Fix it to"
+    " the documented shape."
+)

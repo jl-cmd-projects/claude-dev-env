@@ -1,4 +1,4 @@
-"""Deny a new pull request whose body lacks a 'Proof in practice' or an 'Existing work' section."""
+"""Deny a new pull request whose body lacks a 'Proof in practice' or an 'Existing work' section, or a feature pull request whose body lacks an 'Eval' section."""
 
 from __future__ import annotations
 
@@ -6,13 +6,14 @@ import re
 import subprocess
 import sys
 from collections.abc import Mapping
+from typing import NamedTuple
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.followup_pr_dedupe import body_from_arguments
+from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
@@ -20,16 +21,18 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
-    CREATE_PULL_REQUEST_TOOL_SUFFIX,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
     HEAD_FLAG_ASSIGNMENT_PREFIX,
     REMOTE_BRANCH_PREFIX,
     UNREADABLE_CHANGES_REASON,
+    EVAL_HEADING_PATTERN,
     EXISTING_WORK_HEADING_PATTERN,
+    FEATURE_TITLE_PATTERN,
     GIT_TIMEOUT_SECONDS,
     LINE_SEPARATOR,
     MISSING_BODY_REASON,
+    MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
     MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
@@ -46,6 +49,13 @@ from hooks_constants.shell_command_wrappers import (
     all_wrapped_command_texts,
     segment_program_and_arguments,
 )
+
+
+class CreateCall(NamedTuple):
+    """The title and body one pull request create call passes; None marks a value this gate cannot read."""
+
+    title: str | None
+    body: str | None
 
 
 def _heading_level(line: str, heading_pattern: str) -> int | None:
@@ -120,9 +130,12 @@ def _create_arguments(all_segment_tokens: list[str]) -> list[str] | None:
     return _script_create_arguments(program, all_arguments)
 
 
-def _shell_create_bodies(command: str, working_directory: str) -> list[str | None]:
+def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
     return [
-        body_from_arguments(all_create_arguments, working_directory)
+        CreateCall(
+            title_from_arguments(all_create_arguments),
+            body_from_arguments(all_create_arguments, working_directory),
+        )
         for each_text in all_wrapped_command_texts(command)
         for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
         if (all_create_arguments := _create_arguments(each_segment)) is not None
@@ -139,13 +152,12 @@ def _head_flag_value(all_create_arguments: list[str]) -> str | None:
 
 
 def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
-    tool_input = all_payload_fields.get("tool_input")
-    if not isinstance(tool_input, dict):
-        return None
-    head_branch = tool_input.get("head")
+    create_fields = create_tool_fields(all_payload_fields)
+    head_branch = None if create_fields is None else create_fields.get("head")
     if isinstance(head_branch, str):
         return head_branch
-    command = tool_input.get("command")
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
     all_head_flag_values = [
@@ -157,21 +169,75 @@ def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
     return next((each_value for each_value in all_head_flag_values if each_value), None)
 
 
-def _create_bodies(all_payload_fields: Mapping[str, object]) -> list[str | None]:
-    tool_name = all_payload_fields.get("tool_name")
+def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
+    create_fields = create_tool_fields(all_payload_fields)
+    if create_fields is not None:
+        title = create_fields.get("title")
+        body = create_fields.get("body")
+        return [
+            CreateCall(
+                title if isinstance(title, str) else None,
+                body if isinstance(body, str) else "",
+            )
+        ]
     tool_input = all_payload_fields.get("tool_input")
-    if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
-        return []
-    if tool_name.endswith(CREATE_PULL_REQUEST_TOOL_SUFFIX):
-        body = tool_input.get("body")
-        return [body if isinstance(body, str) else ""]
-    command = tool_input.get("command")
-    if tool_name not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
         return []
     working_directory = all_payload_fields.get("cwd")
-    return _shell_create_bodies(
+    return _shell_create_calls(
         command, working_directory if isinstance(working_directory, str) else ""
     )
+
+
+def _create_bodies(all_payload_fields: Mapping[str, object]) -> list[str | None]:
+    return [each_call.body for each_call in _create_calls(all_payload_fields)]
+
+
+def _is_feature_title(title: str | None) -> bool:
+    return title is not None and re.match(FEATURE_TITLE_PATTERN, title, re.IGNORECASE) is not None
+
+
+def is_feature_pull_request(all_payload_fields: Mapping[str, object]) -> bool:
+    """Return whether any pull request create call in the payload carries a feature title.
+
+    ::
+
+        mcp__github__create_pull_request, title "feat(hooks)!: x" -> True
+        gh pr create --title "fix: y" --body-file b.md             -> False
+        gh pr create --fill                                        -> False
+        gh pr edit, git push, any other tool                       -> False
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    return any(_is_feature_title(each_call.title) for each_call in _create_calls(all_payload_fields))
+
+
+def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a feature pull request's body has no eval section, else None.
+
+    ::
+
+        title "feat: x", body has the section     -> None
+        title "feat: x", body without it          -> MISSING_EVAL_SECTION_REASON
+        title "fix: y", body without it           -> None
+        title "feat: x", gh pr create --fill      -> None
+
+    The section is an 'Eval' heading whose text names at least one command in
+    backticks. A create command whose body this gate cannot read passes here,
+    because missing_proof_reason denies it first.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    for each_call in _create_calls(all_payload_fields):
+        if each_call.body is None or not _is_feature_title(each_call.title):
+            continue
+        section = _section_text(each_call.body, EVAL_HEADING_PATTERN)
+        if not section or COMMAND_MARKER not in section:
+            return MISSING_EVAL_SECTION_REASON
+    return None
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:

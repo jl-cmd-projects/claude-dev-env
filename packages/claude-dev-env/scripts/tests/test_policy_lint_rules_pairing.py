@@ -594,3 +594,29 @@ def test_pairing_rejects_comment_rules_module_without_any_approved_suite(
 ) -> None:
     all_paths = _diagnostic_paths(tmp_path, _body_change_at(_COMMENT_RULES_PRODUCTION_PATH))
     assert all_paths == (_COMMENT_RULES_PRODUCTION_PATH,)
+
+
+def test_pairing_treats_test_support_modules_as_test_files(tmp_path: Path) -> None:
+    all_test_support_paths = (
+        PurePosixPath("packages/claude-dev-env/scripts/_code_review_test_support.py"),
+        PurePosixPath("packages/claude-dev-env/scripts/codec_forwarding_test_support.py"),
+    )
+    all_paths = _diagnostic_paths(
+        tmp_path,
+        *(_body_change_at(each_path) for each_path in all_test_support_paths),
+    )
+    assert all_paths == ()
+
+
+def test_pairing_rejects_a_module_beside_only_its_changed_test_support(
+    tmp_path: Path,
+) -> None:
+    production_path = PurePosixPath("packages/claude-dev-env/scripts/codec_forwarding.py")
+    all_paths = _diagnostic_paths(
+        tmp_path,
+        _body_change_at(production_path),
+        _body_change_at(
+            PurePosixPath("packages/claude-dev-env/scripts/codec_forwarding_test_support.py")
+        ),
+    )
+    assert all_paths == (production_path,)

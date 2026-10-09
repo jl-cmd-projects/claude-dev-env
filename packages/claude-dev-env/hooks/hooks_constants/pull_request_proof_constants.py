@@ -8,7 +8,6 @@ ALL_GH_CREATE_WORDS = ["pr", "create"]
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PULL_REQUEST_SCRIPT_CREATE_WORD = "create"
 ALL_PYTHON_PROGRAM_NAMES = frozenset({"python", "python3", "py"})
-CREATE_PULL_REQUEST_TOOL_SUFFIX = "__create_pull_request"
 PROOF_GUIDE_PATH = "~/.claude/docs/rule-guides/proof-before-pull-request.md"
 MISSING_BODY_REASON = (
     "Pass the pull request body with --body or --body-file so this gate can read its"
@@ -63,4 +62,24 @@ UNREADABLE_CHANGES_REASON = (
     " picture check cannot tell whether people see the change. Run the create call"
     " from a checkout of the head branch with origin fetched, or put a screenshot"
     " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
+EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
+EVAL_GUIDE_PATH = "~/.claude/docs/rule-guides/features-start-with-an-eval.md"
+MISSING_EVAL_SECTION_REASON = (
+    "This feature pull request has no 'Eval' section naming its eval. A new feature is"
+    " built against an eval. Invoke the Skill tool with skill 'claude-api' and args"
+    " 'build-eval', build or reuse the eval it leads you to, and run it. Then add an"
+    " 'Eval' heading to the body that names the eval's cases and grader, gives the"
+    " command that runs it in backticks, and quotes its result. Read "
+    + EVAL_GUIDE_PATH
+    + " for the full rule."
+)
+MISSING_BUILD_EVAL_REASON = (
+    "This feature pull request comes from a session that never invoked /claude-api"
+    " build-eval. A new feature starts with that command. Invoke the Skill tool with"
+    " skill 'claude-api' and args 'build-eval', check the eval named in the 'Eval'"
+    " section with it, then run the same command again. Read "
+    + EVAL_GUIDE_PATH
+    + " for the full rule."
 )
