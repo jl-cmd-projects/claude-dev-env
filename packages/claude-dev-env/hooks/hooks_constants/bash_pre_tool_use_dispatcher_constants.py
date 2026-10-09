@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hooks_constants.mod_handoff_constants import SHELL_GUARDS_PLUGIN_NAME
+
 __all__ = [
     "DENY_DECISION",
     "ASK_DECISION",
@@ -48,10 +50,14 @@ class BashHostedHookEntry:
         script_relative_path: Hook path relative to the hooks/ directory.
         applicable_tool_names: Tool names this hook runs for. The dispatcher
             skips the hook when the payload's tool is not in this set.
+        replaced_by_plugin_name: The plugin whose mod holds this hook. The
+            dispatcher skips the hook while that plugin is on, so a session
+            runs the hook or the mod and never both.
     """
 
     script_relative_path: str
     applicable_tool_names: frozenset[str]
+    replaced_by_plugin_name: str | None = None
 
 
 ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
@@ -62,9 +68,11 @@ ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
     BashHostedHookEntry(
         script_relative_path="blocking/headless_claude_broker_gate.py",
         applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+        replaced_by_plugin_name=SHELL_GUARDS_PLUGIN_NAME,
     ),
     BashHostedHookEntry(
         script_relative_path="blocking/gh_global_account_switch_gate.py",
         applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+        replaced_by_plugin_name=SHELL_GUARDS_PLUGIN_NAME,
     ),
 )

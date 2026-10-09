@@ -54,6 +54,7 @@ jobs:
               - 'pytest.ini'
               - 'pyproject.toml'
               - 'packages/claude-dev-env/**'
+              - 'packages/usage-wrapup/**'
               - 'tests/**'
               - '.github/workflows/ci-tests.yml'
               - '.github/ci/**'
@@ -116,6 +117,9 @@ jobs:
       - name: Install the Claude Code CLI for plugin tests
         run: npm install --global @anthropic-ai/claude-code@2.1.288
 
+      - name: Set up Bun for usage-wrapup tests
+        uses: oven-sh/setup-bun@v2
+
       - name: Configure git identity for test repos
         run: |
           git config --global user.email "ci@example.com"
@@ -131,7 +135,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest packages/claude-dev-env \
+          python -m pytest packages/claude-dev-env packages/usage-wrapup/tests \
             --basetemp="$RUNNER_TEMP/pytest-basetemp-pkg" \
             -q \
             -n auto \
