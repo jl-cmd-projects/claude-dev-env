@@ -17,3 +17,4 @@ DUPLICATE_FOLLOWUP_REASON_TEMPLATE = (
     " ({open_url}). Add this finding to the open follow-up pull request #{open_number}."
     " One combined follow-up pull request per parent pull request."
 )
+ALL_TITLE_OPTIONS = frozenset({"-t", "--title"})

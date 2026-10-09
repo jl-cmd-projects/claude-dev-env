@@ -19,6 +19,7 @@ from hooks_constants.followup_pr_dedupe_constants import (
     ALL_BODY_FILE_OPTIONS,
     ALL_BODY_OPTIONS,
     ALL_REPOSITORY_OPTIONS,
+    ALL_TITLE_OPTIONS,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     FOLLOWUP_PARENT_PATTERN,
@@ -97,6 +98,18 @@ def body_from_arguments(all_arguments: list[str], working_directory: str) -> str
         )
     except OSError:
         return None
+
+
+def title_from_arguments(all_arguments: list[str]) -> str | None:
+    """Return the title a gh-style argument list passes, or None when it passes none.
+
+    ::
+
+        ["--title", "feat: x"] -> "feat: x"
+        ["-t=fix: y"]          -> "fix: y"
+        ["--fill"]             -> None
+    """
+    return _option_value(all_arguments, ALL_TITLE_OPTIONS)
 
 
 def _origin_repository(working_directory: str) -> tuple[str, str] | None:

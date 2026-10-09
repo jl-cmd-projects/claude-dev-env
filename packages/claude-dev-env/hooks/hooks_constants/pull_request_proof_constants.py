@@ -64,3 +64,23 @@ UNREADABLE_CHANGES_REASON = (
     " from a checkout of the head branch with origin fetched, or put a screenshot"
     " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
+EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
+EVAL_GUIDE_PATH = "~/.claude/docs/rule-guides/features-start-with-an-eval.md"
+MISSING_EVAL_SECTION_REASON = (
+    "This feature pull request has no 'Eval' section naming its eval. A new feature is"
+    " built against an eval. Invoke the Skill tool with skill 'claude-api' and args"
+    " 'build-eval', build or reuse the eval it leads you to, and run it. Then add an"
+    " 'Eval' heading to the body that names the eval's cases and grader, gives the"
+    " command that runs it in backticks, and quotes its result. Read "
+    + EVAL_GUIDE_PATH
+    + " for the full rule."
+)
+MISSING_BUILD_EVAL_REASON = (
+    "This feature pull request comes from a session that never invoked /claude-api"
+    " build-eval. A new feature starts with that command. Invoke the Skill tool with"
+    " skill 'claude-api' and args 'build-eval', check the eval named in the 'Eval'"
+    " section with it, then run the same command again. Read "
+    + EVAL_GUIDE_PATH
+    + " for the full rule."
+)

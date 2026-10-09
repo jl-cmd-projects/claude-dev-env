@@ -92,3 +92,11 @@ def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) ->
     assert dedupe.body_from_arguments(["--body-file", "body.md"], str(tmp_path)) == "From the file."
     assert dedupe.body_from_arguments(["--body-file", "-"], str(tmp_path)) is None
     assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None
+
+
+def test_title_from_arguments_should_read_each_title_flag_shape() -> None:
+    assert dedupe.title_from_arguments(["--title", "feat: x", "--fill"]) == "feat: x"
+    assert dedupe.title_from_arguments(["-t", "fix: y"]) == "fix: y"
+    assert dedupe.title_from_arguments(["--title=feat(x): z"]) == "feat(x): z"
+    assert dedupe.title_from_arguments(["--title-file", "t.txt"]) is None
+    assert dedupe.title_from_arguments(["--fill"]) is None
