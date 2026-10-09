@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.72.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.0...claude-dev-env-v8.72.1) (2026-10-09)
+
+
+### Documentation
+
+* **build-eval:** run until-clean loops with only the user's limits ([#1913](https://github.com/jl-cmd-projects/claude-dev-env/issues/1913)) ([45f5f5c](https://github.com/jl-cmd-projects/claude-dev-env/commit/45f5f5c84c2b03cf6dbd4651689239829e041f6d))
+
 ## [8.72.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.1...claude-dev-env-v8.72.0) (2026-10-09)
 
 
