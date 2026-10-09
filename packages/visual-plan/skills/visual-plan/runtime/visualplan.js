@@ -815,6 +815,7 @@ function boot() {
   const byId = (id) => document.getElementById(id);
   const stateEl = byId('vp-state') || document.createElement('span');
   const answers = {};
+  let storedAnswerIds = [];
   const notes = new Map();
   const noteSaves = new Map();
   const askButtons = {};
@@ -1139,7 +1140,7 @@ function boot() {
       if (!store) { status.textContent = 'Nothing is saved yet'; return; }
       try {
         for (const key of [...notes.keys()]) await store.removeNote(key);
-        for (const id of Object.keys(answers)) await store.removeAnswer(id);
+        for (const id of new Set([...storedAnswerIds, ...Object.keys(answers)])) await store.removeAnswer(id);
         notes.clear();
         Object.keys(answers).forEach((id) => delete answers[id]);
         paint();
@@ -1157,6 +1158,7 @@ function boot() {
     Object.values(askButtons).forEach((buttons) => buttons.forEach((button) => { button.disabled = false; }));
     store.watch(
       (saved) => {
+        storedAnswerIds = Object.keys(saved);
         Object.keys(answers).forEach((id) => delete answers[id]);
         plan.asks.forEach((ask) => { const record = saved[ask.id]; if (record && Number.isInteger(record.index) && ask.options[record.index]) answers[ask.id] = record.index; });
         paint();
