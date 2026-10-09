@@ -25,7 +25,7 @@ _HOOKS_CONFIGURATION = """
 """
 _DISPATCHER_ROSTER_SOURCE = """
 ALL_HOSTED_HOOK_ENTRIES = (
-    HostedHookEntry("advisory/refactor_guard.py", is_blocking=False),
+    HostedHookEntry("advisory/migration_safety_advisor.py", is_blocking=False),
 )
 """
 
@@ -40,7 +40,7 @@ def _build_package(repository_root: Path) -> None:
     (package_root / "bin").mkdir(parents=True)
     (package_root / "rules").mkdir(parents=True)
     (hooks_root / "blocking" / "windows_rmtree_blocker.py").write_text("", "utf-8")
-    (hooks_root / "advisory" / "refactor_guard.py").write_text("", "utf-8")
+    (hooks_root / "advisory" / "migration_safety_advisor.py").write_text("", "utf-8")
     (hooks_root / "observability" / "session_file_edit_tracker.py").write_text(
         "", "utf-8"
     )
@@ -96,7 +96,7 @@ def test_a_registered_hook_described_in_the_present_tense_passes(
     _build_package(tmp_path)
     all_messages = _diagnostics_for(
         tmp_path,
-        "`session_file_edit_tracker` records each Write path, and `refactor_guard` reports a risk.\n",
+        "`session_file_edit_tracker` records each Write path, and `migration_safety_advisor` reports a risk.\n",
     )
     assert all_messages == ()
 
@@ -156,7 +156,7 @@ def test_a_second_hook_name_bounds_the_first_claim(tmp_path: Path) -> None:
     _build_package(tmp_path)
     all_messages = _diagnostics_for(
         tmp_path,
-        "`destructive_command_blocker` was retired, and `refactor_guard` reports a risk.",
+        "`destructive_command_blocker` was retired, and `migration_safety_advisor` reports a risk.",
     )
     assert all_messages == ()
 

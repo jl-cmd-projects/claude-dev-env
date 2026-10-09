@@ -75,6 +75,31 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
     )
 
 
+def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room() -> None:
+    codex_3 = _account("codex-3")
+    codex_4 = _account("codex-4")
+
+    def read_meter(account: Account) -> Meters:
+        if account is codex_3:
+            raise OSError("codex app-server failed: timed out")
+        return _meters(0, 40, short_reset=NOW + timedelta(hours=2))
+
+    adapter = ProductAdapter(lambda: (codex_3, codex_4), read_meter, "CODEX_HOME", ())
+    state = account_broker._load_state(account_broker.broker_state_path())
+    readings = account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+    payload = account_broker.readings_payload(readings)
+
+    assert decision.action == "wait"
+    assert decision.reason == (
+        "no readable account has room; meter unreadable for codex-3 (codex app-server failed: timed out); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+    assert payload[0]["unread_reason"] == "codex app-server failed: timed out"
+    assert payload[1]["unread_reason"] is None
+
+
 def test_should_rank_by_room_in_the_tighter_window() -> None:
     readings = (
         Reading(_account("first"), _meters(12, 80)),
@@ -884,6 +909,26 @@ def test_should_keep_a_spent_mark_without_a_reset_for_one_hour(
     assert decision["resets_at"] == (NOW + timedelta(hours=1)).isoformat()
 
 
+def test_should_mark_a_windows_launcher_path_account_spent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
+    first = _account(launcher_name)
+    second = _account("second")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"{launcher_name}:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "second"
+
+
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1169,3 +1214,21 @@ def test_should_keep_the_parent_environment_for_codex_jobs(
         run_job(Product.CODEX, ("codex", "exec", "task"))
 
     assert all_child_environments[0]["CLAUDE_CODE_SESSION_ID"] == "parent-session"
+
+
+
+def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live_log = tmp_path / "events.jsonl"
+    adapter = _adapter((_account("only"),), {"only": _meters(80, 80)})
+    captured_options: dict[str, object] = {}
+
+    def runner(command: object, **options: object) -> subprocess.CompletedProcess[str]:
+        captured_options.update(options)
+        return subprocess.CompletedProcess(command, 0, "served", "")
+
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW, live_log=live_log)
+
+    assert outcome.returncode == 0
+    assert captured_options["live_log"] == live_log

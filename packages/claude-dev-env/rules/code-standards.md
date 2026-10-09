@@ -16,4 +16,4 @@ paths:
 
 **Enforcement:** the staged policy lint runs `hooks/blocking/code_rules_enforcer.py` over each changed file, and CI runs it against the merge base.
 
-**Full text:** [`docs/rule-guides/code-standards.md`](../docs/rule-guides/code-standards.md), with the policy surface map.
+**Full text:** [guide](../docs/rule-guides/code-standards.md), with the policy surface map.
