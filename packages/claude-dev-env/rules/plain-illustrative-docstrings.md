@@ -11,4 +11,4 @@ Write the narrative so a general developer follows it on the first read. Paint a
 
 **Enforcement:** `check_docstring_runon_sentence` and `check_docstring_prose_wall_without_illustration` in `code_rules_docstrings.py`, which the staged policy lint runs through `code_rules_enforcer.py`. Category O sub-bucket O9 of the audit rubric carries the judgment.
 
-**Full text:** [`docs/rule-guides/plain-illustrative-docstrings.md`](../docs/rule-guides/plain-illustrative-docstrings.md), with the canonical example.
+**Full text:** [guide](../docs/rule-guides/plain-illustrative-docstrings.md), with the canonical example.

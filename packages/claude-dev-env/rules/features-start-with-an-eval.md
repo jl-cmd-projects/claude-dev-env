@@ -6,4 +6,4 @@ Your first action is the Skill tool with skill `claude-api` and args `build-eval
 
 **Enforcement:** `hooks/blocking/pr_lifecycle_skill_gate.py` denies a `feat` pull request with no "Eval" section or no build-eval call.
 
-**Full text:** [`docs/rule-guides/features-start-with-an-eval.md`](../docs/rule-guides/features-start-with-an-eval.md).
+**Full text:** [guide](../docs/rule-guides/features-start-with-an-eval.md).
