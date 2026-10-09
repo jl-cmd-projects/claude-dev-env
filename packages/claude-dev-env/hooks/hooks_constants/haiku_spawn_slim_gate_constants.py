@@ -22,6 +22,6 @@ SLIM_PROFILE_DENY_REASON = (
     '--settings \'{"enabledPlugins": {}, "autoMemoryEnabled": false, "autoCompactWindow": 100000}\' '
     "--strict-mcp-config --mcp-config '{\"mcpServers\": {}}' --autocompact 100k. "
     "Send the task on standard input. In a cloud session, run the same claude -p command without the broker. "
-    "For a code review in python-automation, /efficient-review headless or /efficient-review auto builds "
+    "Where the efficient-review skill is installed, /efficient-review headless or /efficient-review auto builds "
     "this profile. To keep the agent in this session, spawn it on opus or sonnet."
 )
