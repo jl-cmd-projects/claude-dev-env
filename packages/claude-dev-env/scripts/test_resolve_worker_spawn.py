@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -12,13 +11,9 @@ from pathlib import Path
 
 import pytest
 
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
-
 import account_broker
 import invoke_code_review as invoker
-import resolve_worker_spawn as dispatcher  # noqa: E402
+import resolve_worker_spawn as dispatcher
 from dev_env_scripts_constants.account_broker_constants import (
     Account,
     BrokerConfigurationError,
@@ -28,7 +23,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ProductAdapter,
     WAIT_EXIT_CODE,
 )
-from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
+from dev_env_scripts_constants.grok_worker_constants import (
     AGENT_FLAG,
     CLI_AGENT_FLAG,
     ALL_AGENT_FILENAMES_BY_ROLE,
@@ -67,12 +62,12 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     TIER_CLAUDE_HEADLESS,
     TIER_GROK,
 )
-import grok_headless_runner  # noqa: E402
-from grok_headless_runner import (  # noqa: E402
+import grok_headless_runner
+from grok_headless_runner import (
     GrokRunnerOutcome,
     run_headless_worker,
 )
-from grok_worker_preflight import PreflightOutcome  # noqa: E402
+from grok_worker_preflight import PreflightOutcome
 
 HOST_PROFILE_CLAUDE = "Claude"
 HOST_PROFILE_THIRD_PARTY = "ThirdParty"
