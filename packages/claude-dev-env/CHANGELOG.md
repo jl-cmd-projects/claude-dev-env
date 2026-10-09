@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.72.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.1...claude-dev-env-v8.72.0) (2026-10-09)
+
+
+### Features
+
+* **hooks:** remove migration_safety_advisor ([#1918](https://github.com/jl-cmd-projects/claude-dev-env/issues/1918)) ([ff52917](https://github.com/jl-cmd-projects/claude-dev-env/commit/ff52917cf0739d76faec9a3c856a0fb7a78b2739))
+
 ## [8.71.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.0...claude-dev-env-v8.71.1) (2026-10-09)
 
 
