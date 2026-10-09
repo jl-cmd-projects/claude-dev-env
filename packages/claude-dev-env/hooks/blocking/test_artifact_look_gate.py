@@ -101,6 +101,7 @@ def test_should_refuse_a_page_published_without_a_look(tmp_path: Path) -> None:
     specific_output = hook_output["hookSpecificOutput"]
     assert specific_output["permissionDecision"] == "deny"
     assert "--screenshot" in specific_output["permissionDecisionReason"]
+    assert "Attach" not in specific_output["permissionDecisionReason"]
 
 
 def test_should_allow_a_page_whose_newer_screenshot_was_read(tmp_path: Path) -> None:
