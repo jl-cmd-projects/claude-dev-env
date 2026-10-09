@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.74.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.74.1...claude-dev-env-v8.74.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* **artifact-pointer:** route visuals by scope ([#1969](https://github.com/jl-cmd-projects/claude-dev-env/issues/1969)) ([e0e6d9f](https://github.com/jl-cmd-projects/claude-dev-env/commit/e0e6d9f838dc0ffc0a95b226a555c35c48477b23))
+
 ## [8.74.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.74.0...claude-dev-env-v8.74.1) (2026-10-09)
 
 
