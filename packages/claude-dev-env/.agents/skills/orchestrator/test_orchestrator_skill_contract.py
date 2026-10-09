@@ -7,11 +7,9 @@ _SKILL_DIR = Path(__file__).resolve().parent
 _REFRESH_PATH = _SKILL_DIR.parent / "orchestrator-refresh" / "SKILL.md"
 _ORCHESTRATOR_PATHS = (
     _SKILL_DIR / "SKILL.md",
-    _SKILL_DIR / "AGENTS.md",
     _SKILL_DIR / "reference" / "consult-the-orchestrator.md",
     _SKILL_DIR / "reference" / "executor-consult-block.md",
     _SKILL_DIR / "reference" / "host-detect.md",
-    _SKILL_DIR / "reference" / "AGENTS.md",
     _REFRESH_PATH,
 )
 _FOREIGN_MARKERS = (

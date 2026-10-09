@@ -17,11 +17,6 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/subagent_model_pin_hook.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_oversight_hook.py",
             "timeout": 10
           }
@@ -153,11 +148,26 @@
         ]
       },
       {
+        "matcher": "Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_dark_mode_gate.py",
+            "timeout": 60
+          }
+        ]
+      },
+      {
         "matcher": "Artifact|Skill",
         "hooks": [
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/artifact_template_pointer.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_look_gate.py",
             "timeout": 10
           }
         ]
@@ -267,7 +277,8 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
-            "timeout": 1800
+            "timeout": 1800,
+            "async": true
           }
         ]
       },
