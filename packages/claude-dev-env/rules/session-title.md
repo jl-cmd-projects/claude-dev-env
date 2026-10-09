@@ -6,4 +6,4 @@ Before each turn ends, set the title to `<emoji> <name>`. Use the red flag when 
 
 **Enforcement:** `hooks/blocking/session_title_format_gate.py` denies a malformed title; `hooks/blocking/session_title_stop_gate.py` blocks a turn end with no title.
 
-**Full text:** [`docs/rule-guides/session-title.md`](../docs/rule-guides/session-title.md). Read it for the emoji table and naming rules.
+**Full text:** [guide](../docs/rule-guides/session-title.md). Read it for the emoji table and naming rules.

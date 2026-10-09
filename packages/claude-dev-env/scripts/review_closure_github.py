@@ -19,6 +19,7 @@ a workflow runner.
 from __future__ import annotations
 
 import functools
+import http.client
 import json
 import os
 import urllib.error
@@ -126,7 +127,12 @@ def request_json(
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as reply:
             return _decoded_answer(url, reply.status, reply.read())
-    except (urllib.error.URLError, OSError, ValueError) as failure:
+    except (
+        urllib.error.URLError,
+        OSError,
+        ValueError,
+        http.client.HTTPException,
+    ) as failure:
         raise GitHubError(str(failure)) from failure
 
 

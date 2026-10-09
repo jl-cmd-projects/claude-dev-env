@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Short Plan Name</title>
+<link rel="stylesheet" href="../runtime/visualplan.css">
+<script src="../runtime/visualplan.js" defer></script>
+<body>
+<vp-plan>
+<header><h1>The change and the place</h1><a href="https://example.com/full-plan">Full plan</a></header>
+
+<vp-grid cols="Problem | Fix | Count">
+  <vp-band tone="ok" mark="&#10003;" label="Strongest evidence">
+    <vp-card>
+      <vp-flow><script type="text/plain">
+        What the evidence is > how it was shown [ok]
+      </script></vp-flow>
+      <vp-details><p>The source words for this band.</p></vp-details>
+    </vp-card>
+    <vp-row>
+      <vp-cell face="Problem in few words">
+        <vp-flow><script type="text/plain">
+          What happens today > where it breaks [bad]
+        </script></vp-flow>
+        <vp-stats><script type="text/plain">
+          12 | what the number counts | bad
+          3 | a second count | warn
+        </script></vp-stats>
+        <vp-details><p>The source words for this problem.</p></vp-details>
+      </vp-cell>
+      <vp-cell face="Fix in few words">
+        <vp-vs before="Today" after="With the fix"><script type="text/plain">
+          - What happens now > the bad end [bad]
+          + The new step [info] > the good end [ok]
+        </script></vp-vs>
+        <vp-list marks="number">
+          <vp-item title="First part of the fix"></vp-item>
+          <vp-item title="Second part of the fix"></vp-item>
+        </vp-list>
+        <vp-list marks="tag">
+          <vp-item mark="Proof" tone="ok">
+            <vp-checks><script type="text/plain">
+              + What fails before the fix
+              + What passes after the fix
+              ! What stays open
+            </script></vp-checks>
+          </vp-item>
+          <vp-item mark="Owner" tone="info">
+            <vp-chips><script type="text/plain">
+              Owner name [info]
+            </script></vp-chips>
+          </vp-item>
+        </vp-list>
+        <vp-details><p>The source words for this fix.</p></vp-details>
+      </vp-cell>
+      <vp-cell count="12">
+        <vp-ladder steps="Said | Seen in code | Rerun fails | Fix shown" at="3" tone="ok"></vp-ladder>
+        <vp-dots><script type="text/plain">
+          10 | ok
+          2 | warn
+        </script></vp-dots>
+        <vp-fold summary="Records by group" count="2" tone="ok">
+          <vp-meter unit=" records"><script type="text/plain">
+            10 | First group | ok
+            2 | Second group | warn
+          </script></vp-meter>
+          <vp-fold summary="First group" count="10">
+            <vp-bar><script type="text/plain">
+              7 | one kind | ok
+              3 | another kind | warn
+            </script></vp-bar>
+            <vp-fold summary="Records" badge="2 records">
+              <vp-links><script type="text/plain">
+                Record 1 | https://example.com/records/1 | one short note
+                Record 2 | https://example.com/records/2
+              </script></vp-links>
+            </vp-fold>
+          </vp-fold>
+        </vp-fold>
+        <vp-details><p>Where the count comes from.</p></vp-details>
+      </vp-cell>
+    </vp-row>
+  </vp-band>
+
+  <vp-band tone="warn" mark="&#8776;" label="Weaker evidence">
+    <vp-row>
+      <vp-cell face="Second problem">
+        <vp-branch><script type="text/plain">
+          The start
+          -> one outcome [bad]
+          -> another outcome [ok]
+        </script></vp-branch>
+      </vp-cell>
+      <vp-cell face="Second fix"></vp-cell>
+      <vp-cell count="2"></vp-cell>
+    </vp-row>
+  </vp-band>
+</vp-grid>
+
+<vp-decisions>
+  <vp-ask id="approve" top>
+    <p>Approve this plan?</p>
+    <label><input type="radio" name="approve" value="yes"> Approve</label>
+    <label><input type="radio" name="approve" value="no"> Not yet</label>
+  </vp-ask>
+  <vp-ask id="first-choice">
+    <p>A question of ten words or fewer?</p>
+    <label><input type="radio" name="first-choice" value="a" checked> Your default</label>
+    <label><input type="radio" name="first-choice" value="b"> The other way</label>
+    <vp-card>
+      <vp-branch><script type="text/plain">
+        The fork
+        -> Your default [ok] > what follows
+        -> The other way [warn] > what follows
+      </script></vp-branch>
+    </vp-card>
+  </vp-ask>
+</vp-decisions>
+
+<vp-path caption="One sentence about the path.">
+  <vp-stage state="done" label="Done stage">
+    <vp-flow><script type="text/plain">
+      What happened > the result [ok]
+    </script></vp-flow>
+  </vp-stage>
+  <vp-stage state="here" label="Current stage">
+    <vp-flow><script type="text/plain">
+      Waits on you [info]
+    </script></vp-flow>
+  </vp-stage>
+  <vp-stage label="Next stage"></vp-stage>
+  <vp-step label="First step">
+    <vp-flow><script type="text/plain">
+      What the step does > its result [ok]
+    </script></vp-flow>
+  </vp-step>
+  <vp-step label="Second step"></vp-step>
+</vp-path>
+
+<vp-scope>
+  <li>A thing that stays the same.</li>
+</vp-scope>
+</vp-plan>
+</body>
+</html>

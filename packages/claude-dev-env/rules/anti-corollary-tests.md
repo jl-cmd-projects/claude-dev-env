@@ -14,6 +14,6 @@ paths:
 
 Before keeping a test, name one code change it would catch; replace a case that catches none. Skip spelling cross products after proving canonicalization once; compare a few discriminating cases. Exercise the production path with a non-default expected result so a dead implementation cannot pass. Test policy compliance on governed surfaces; in an audit, name a mutation and record how many tests it fails.
 
-**Enforcement:** none, the agent applies it.
+**Enforcement:** none.
 
-**Full text:** [`docs/rule-guides/anti-corollary-tests.md`](../docs/rule-guides/anti-corollary-tests.md). Read it when choosing cases or auditing mutation evidence.
+**Full text:** [guide](../docs/rule-guides/anti-corollary-tests.md). Read it when choosing cases or auditing mutation evidence.
