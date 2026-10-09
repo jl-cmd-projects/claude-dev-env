@@ -11,4 +11,4 @@ Verify the module and its hook registration or dispatcher roster before claiming
 
 **Enforcement:** `retired-hook-prose` in `scripts/policy_lint/registry.py` checks instruction Markdown, including `rules/` and `docs/`; the detour sweep is manual.
 
-**Full text:** [`docs/rule-guides/retired-hook-prose.md`](../docs/rule-guides/retired-hook-prose.md). Read it when tracing a hook's current path or removing its gate.
+**Full text:** [guide](../docs/rule-guides/retired-hook-prose.md). Read it when tracing a hook's current path or removing its gate.

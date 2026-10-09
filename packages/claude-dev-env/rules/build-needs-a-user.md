@@ -17,4 +17,4 @@ Name its caller in this change, first-use date or event, and last manual use wit
 
 **Enforcement:** `uncalled-new-file` checks new code under `scripts/`, `hooks/`, `bin/`, `ci/`, and `tools/` for a caller.
 
-**Full text:** [`docs/rule-guides/build-needs-a-user.md`](../docs/rule-guides/build-needs-a-user.md). Read it when sizing a new check.
+**Full text:** [guide](../docs/rule-guides/build-needs-a-user.md). Read it when sizing a new check.
