@@ -26,7 +26,7 @@ When the Astra flag is off, follow the Claude-chain steps below.
    ```
 
    Use `--model opus --effort` with the value of `ADVISOR_EFFORT` (default `xhigh`) on Opus.
-   User-facing wording follows [`rules/asd-ste100-language.md`](../../../rules/asd-ste100-language.md).
+   User-facing wording follows [`docs/rule-guides/asd-ste100-language.md`](../../../docs/rule-guides/asd-ste100-language.md).
    Account choice, failover, and the `advisor_blocked` status are in [`cli-chain.md`](cli-chain.md).
 4. Stop at the first successful bind.
    Record `{tier, result: "cli"}` for Opus or `{tier: "Astra", result: "codex"}` for the Astra helper, and set `selected_tier` to that tier.

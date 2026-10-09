@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from dev_env_scripts_constants.contrast_framing_constants import (
     ALL_CONTRAST_FRAMING_FORMS,
     CONTRAST_FRAMING_MESSAGE_TEMPLATE,
+    CONTRAST_FRAMING_RULE_DOCUMENT,
 )
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_the_rule_document_is_a_rule_guide_that_exists() -> None:
+    rule_document = PACKAGE_ROOT / CONTRAST_FRAMING_RULE_DOCUMENT
+
+    assert rule_document.parent.name == "rule-guides"
+    assert rule_document.is_file()
 
 
 def test_every_form_carries_a_distinct_name() -> None:

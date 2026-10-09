@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/features-start-with-an-eval.md).
+Back to the [rules index](../../rules/index.md).
 
 # Features start with an eval
+
+## In brief
+
+Your first action is the Skill tool with skill `claude-api` and args `build-eval`. Build the feature against that eval. When the work touches an existing feature with no eval, start a separate session to build that eval in parallel. An Agent-tool subagent does not count. You own its result.
+
+**Enforcement:** `hooks/blocking/pr_lifecycle_skill_gate.py` denies a `feat` pull request with no "Eval" section or no build-eval call.
 
 **When this applies:** A user asks for a new feature or a change in behavior, in any project.
 
@@ -13,7 +19,7 @@ An eval is three things for one feature: a set of input cases with their expecte
 ## Rule
 
 1. Make the Skill tool call with skill `claude-api` and args `build-eval` your first action on the ask. A user who types `/claude-api build-eval` has made the same call.
-2. Run the existing-work search from [`explore-thoroughly.md`](../../rules/explore-thoroughly.md) next. The guide's own first step also looks for cases, graders, and runners that exist.
+2. Run the existing-work search from [`explore-thoroughly.md`](explore-thoroughly.md) next. The guide's own first step also looks for cases, graders, and runners that exist.
 3. Follow the guide the skill loads. It asks the user to approve the inputs and the grading method, and to approve the cost before the first paid run. Ask through the session's question tool. Where the host says to keep working while a question waits, continue on the option you recommended and change course if the answer differs.
 4. Run the eval before the change to get a baseline, build the feature, and run it again.
 5. Give the pull request an "Eval" section. Name the cases and the grader, give the command that runs the eval in backticks, and quote the baseline and the result.

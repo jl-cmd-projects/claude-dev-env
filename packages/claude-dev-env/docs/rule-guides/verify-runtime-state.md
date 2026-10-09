@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/verify-runtime-state.md).
+Back to the [rules index](../../rules/index.md).
 
 # Verify runtime state
+
+## In brief
+
+Gather a live signal this session: process list, port probe, log, status code, or fresh reproduction. Read the user's terminal and named error log while a reported failure is still visible. Check the effect the work should produce, including each job result, loaded config, or deployed artifact; a success status alone does not establish the effect. When testing code, identify the loaded module path.
+
+**Enforcement:** none.
 
 **When this applies:** Before stating that a component is fine, healthy, innocent, or working: during debugging, triage, or any judgment about whether something runs.
 

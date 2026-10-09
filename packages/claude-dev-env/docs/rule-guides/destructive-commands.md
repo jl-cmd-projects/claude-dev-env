@@ -1,6 +1,16 @@
-Back to the [rule entry](../../rules/destructive-commands.md).
+Back to the [rules index](../../rules/index.md).
 
 # Destructive commands in Bash
+
+## In brief
+
+**When:** Removing files or writing a destructive command string.
+
+Keep destructive literals out of command strings, including data. Use literal absolute targets; never target a bare temporary root. Use `git rm` for tracked files. Pass bodies by file and test hooks through the test suite. Copy this line into every subagent prompt:
+
+> Never use bash rm in any form. Delete scratch/probe files with the PowerShell tool (Remove-Item -Recurse -Force -Confirm:$false <absolute path>), or leave them in the OS temp dir; remove worktrees only via git worktree remove --force.
+
+**Enforcement:** none; a harness permission prompt can stall unattended work.
 
 No hook watches Bash commands for destructive patterns. What you face is the harness permission prompt. The harness raises it from the session permission mode and the permission rules in effect on your host. In a background or auto-mode run no human can answer that prompt, so the call stalls.
 
@@ -26,7 +36,7 @@ Never pass a bare ephemeral root, such as `/tmp`, the OS temp root itself, or a 
 
 Write each target as a literal path. A variable, a `$(...)` or backtick expansion, or a brace glob hides what the command will delete from the reader and from the permission matcher.
 
-A file left in the OS temp directory or under `$CLAUDE_JOB_DIR` is cleaned by the harness and needs no explicit removal. See the exception clause in [`cleanup-temp-files.md`](../../rules/cleanup-temp-files.md).
+A file left in the OS temp directory or under `$CLAUDE_JOB_DIR` is cleaned by the harness and needs no explicit removal. See the exception clause in [`cleanup-temp-files.md`](cleanup-temp-files.md).
 
 ## Keep destructive literals out of the command string
 
@@ -45,5 +55,5 @@ Prefer that a child leaves its scratch files for the parent to remove at teardow
 
 ## Sibling rules
 
-- [`cleanup-temp-files.md`](../../rules/cleanup-temp-files.md) names which scratch files a task removes, and which it leaves.
+- [`cleanup-temp-files.md`](cleanup-temp-files.md) names which scratch files a task removes, and which it leaves.
 - [`windows-filesystem-safe.md`](../../rules/windows-filesystem-safe.md) holds the safe `rmtree` and `force_rmtree` patterns for read-only Windows files.
