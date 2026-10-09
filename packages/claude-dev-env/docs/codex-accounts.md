@@ -94,7 +94,8 @@ Room is the smaller of an account's two windows: the 5-hour window and the week.
 | No account over 10%, one or more over 1% | `luna` on the account with the most room |
 | An account that reports a 5-hour window, with under 20% of that window left | never takes `luna` |
 | No account over 1% | `wait`, naming the next reset when known |
-| A meter is unread | The account has `meters: null` in `accounts` |
+| A meter read fails | The broker reads it once more |
+| A meter is unread after both reads | The account has `meters: null` and the failure text in `unread_reason`; a `wait` reason names the account and that text |
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product codex

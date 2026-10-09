@@ -32,7 +32,7 @@ const PACKAGE_SETTINGS_PATH = join(PACKAGE_ROOT, 'settings.json');
 const INSTALL_ENTRY = join(PACKAGE_ROOT, 'bin', 'install.mjs');
 
 const EXPECTED_DENY_ENTRIES = [];
-const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)'];
+const EXPECTED_ALLOW_ENTRIES = ['WebFetch(domain:docs.github.com)', 'Read(~/.claude/docs/**)'];
 const PROFILE_ALLOW_ENTRIES = DECLARED_PROFILE_SETTINGS
     .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
 const SAMPLE_MANAGED_DENY_ENTRIES = ['Edit($HOME/.claude/managed-test/**)'];
@@ -263,10 +263,15 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the advisor model and auto mode defaults', () => {
+test('package settings.json publishes the session agent, advisor model and auto mode defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
-    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'autoMode']);
+    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'agent', 'autoMode']);
+    assert.equal(settingsDefaults.agent, 'dev-env-session');
+    assert.ok(
+        existsSync(join(PACKAGE_ROOT, '.agents', 'agents', `${settingsDefaults.agent}.md`)),
+        'the session agent named by the agent default ships with the package',
+    );
     assert.equal(settingsDefaults.advisorModel, 'fable');
     const [firstAllowRule, ...allCustomAllowRules] = settingsDefaults.autoMode.allow;
     assert.equal(firstAllowRule, '$defaults');

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """SessionStart hook — inject working-style guidance into the session.
 
-At session start this hook emits an ``additionalContext`` block carrying a fixed
-working-style prompt: use ELI5 for the beginner presentation envelope, follow
-``~/.claude/rules/asd-ste100-language.md`` for sentence prose, keep a running
-ledger, narrate before the first tool call on a typed request, lead with the
-outcome, send only what the user must act on or know, stay silent on a
-background-event turn that needs nothing, and stay at the asked scope.
+At session start this hook emits an ``additionalContext`` line that points the
+session at ``docs/references/working-style.md``, the guide for task records,
+presentation, replies, scope, and questions.
 The hook writes nothing and runs no tools itself.
 """
 

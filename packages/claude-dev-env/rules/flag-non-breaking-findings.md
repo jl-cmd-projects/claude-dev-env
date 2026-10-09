@@ -15,6 +15,6 @@ paths:
 
 Give every check ID a breaking or smell severity row; style and structure findings are smells. Fail the gate and stop for a bug, secret, broken test, syntax error, or instruction file that cannot load. Record a smell in `.claude/followups/smells.jsonl`, proceed, and fix it later in one combined follow-up pull request per parent pull request, whose body names the parent as `Follow-up to #N`; ledger failure leaves the gate decision unchanged. Treat an unclassified check as breaking.
 
-**Enforcement:** none, the agent applies it.
+**Enforcement:** none.
 
-**Full text:** [`docs/rule-guides/flag-non-breaking-findings.md`](../docs/rule-guides/flag-non-breaking-findings.md). Read it when adding a check.
+**Full text:** [guide](../docs/rule-guides/flag-non-breaking-findings.md). Read it when adding a check.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import sys
@@ -379,3 +380,23 @@ def should_read_a_bot_comment_carrying_a_passed_marker_as_a_notice(
     )
 
     assert [each.is_notice for each in all_comments] == [True]
+
+
+class TruncatedReply:
+    status = 200
+
+    def read(self) -> bytes:
+        raise http.client.IncompleteRead(b"{", 39041)
+
+
+def should_report_a_reply_cut_short_as_a_github_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @contextmanager
+    def fake_urlopen(request: object, timeout: int = 0) -> Iterator[TruncatedReply]:
+        yield TruncatedReply()
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(GitHubError, match="IncompleteRead"):
+        reader.read_pull_request("jl-cmd/claude-dev-env", 4347, TOKEN)
