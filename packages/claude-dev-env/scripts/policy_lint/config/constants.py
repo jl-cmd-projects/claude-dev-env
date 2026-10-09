@@ -77,7 +77,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
 )
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests"})
 ALL_TEST_FILE_PREFIXES = ("test_",)
-ALL_TEST_FILE_SUFFIXES = ("_test.py",)
+ALL_TEST_FILE_SUFFIXES = ("_test.py", "_test_support.py")
 POLICY_LINT_DIRECTORY_NAME = "policy_lint"
 POLICY_LINT_RULES_TEST_PREFIX = "test_policy_lint_rules"
 POLICY_LINT_SELECTION_TEST_PREFIX = "test_policy_lint_selection"
