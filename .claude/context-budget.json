@@ -1,0 +1,354 @@
+{
+  "section_detail_line_limit": 6,
+  "kinds": [
+    {
+      "name": "archived skill",
+      "patterns": [
+        "skill-archive/**",
+        "**/skills-archived/**"
+      ],
+      "line_limit": null
+    },
+    {
+      "name": "skill entry",
+      "patterns": [
+        "**/SKILL.md"
+      ],
+      "line_limit": 200,
+      "section_rule": true
+    },
+    {
+      "name": "agent instructions",
+      "patterns": [
+        "**/AGENTS.md",
+        "**/CLAUDE.md"
+      ],
+      "line_limit": 60,
+      "section_rule": true
+    },
+    {
+      "name": "rule",
+      "patterns": [
+        "packages/claude-dev-env/rules/*.md",
+        "**/.claude/rules/*.md"
+      ],
+      "line_limit": 30,
+      "section_rule": true
+    }
+  ],
+  "hooks": [
+    {
+      "name": "task tool prompt",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/task_tool_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "working style prompt",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/working_style_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "advisor rules prompt",
+      "command": [
+        "env",
+        "CLAUDE_CONFIG_DIR=packages/claude-dev-env/hooks/test_files/context_budget/advisor_config",
+        "python3",
+        "packages/claude-dev-env/hooks/session/advisor_rules_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "orchestrator auto starter",
+      "command": [
+        "env",
+        "CLAUDE_ORCHESTRATOR_AUTO_STARTER_ENABLED=1",
+        "python3",
+        "packages/claude-dev-env/hooks/session/orchestrator_auto_starter.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "skill loaded reminder",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/skill_loaded_reminder.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SubagentStart",
+        "agent_type": "workflow-subagent"
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "spawn readiness reminder",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/routing/spawn_readiness_hook.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_use_id": "toolu_budget",
+        "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/empty_transcript.jsonl",
+        "tool_input": {
+          "description": "Budget sample",
+          "prompt": "Summarize the repository layout."
+        }
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "spawn oversight reminder",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/routing/spawn_oversight_hook.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_use_id": "toolu_budget",
+        "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/empty_transcript.jsonl",
+        "tool_input": {
+          "description": "Budget sample",
+          "prompt": "Summarize the repository layout."
+        }
+      },
+      "char_limit": 1500
+    },
+    {
+      "name": "artifact template pointer",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/artifact_template_pointer.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Artifact",
+        "tool_input": {
+          "action": "quickstart"
+        }
+      },
+      "char_limit": 1500
+    }
+  ],
+  "baseline": {
+    "files": {
+      ".agents/skills/verify/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Policy linter",
+          "Helpers"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/build-eval/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Gotchas",
+          "Process"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Codex cleanse"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/correction/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "File it",
+          "Brief"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/e-code-review/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Native GitHub evidence pilot"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/e-simplify/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Efficiency"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/eli5/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Gotchas",
+          "Process"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/everything-search/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Registry tokens",
+          "Command Syntax",
+          "Search Operators",
+          "Output Options",
+          "Junctions, Symlinks & Drive Mapping"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/fresh-branch/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Phase 2 \u2014 Branch name (high freedom)",
+          "Phase 3 \u2014 Create branch (execute the script)"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/grok-spawn/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Gotchas",
+          "When this skill applies",
+          "Process",
+          "1. Preflight",
+          "4. Launch the batch",
+          "5. Collect reports",
+          "6. Verify and own git / gh"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/issue-tracker/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Close the sub-issue through the PR (required when a fix ships)"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md": {
+        "lines": 470,
+        "sections": [
+          "Pull request submission rules",
+          "Confirm the required checks fired, and let CI run them",
+          "Each stack level stands on its own",
+          "Responding to review feedback",
+          "Why",
+          "Running a gate locally",
+          "The verdict belongs to CI",
+          "A repository that runs no CI",
+          "Rule",
+          "Rule",
+          "Optimize every image before it reaches GitHub",
+          "Volatile paths that must not appear in a post body",
+          "Validation",
+          "Put body content in a file",
+          "Paginated reads slurp before they filter"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/pull-request/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "When this applies",
+          "Constraints",
+          "2. Author the title and body",
+          "3. Run the local linter",
+          "5. Resolve the process-local author",
+          "8. Read back the remote state",
+          "Gotchas"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/recovering-codex-startup/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Process",
+          "Files"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/repairing-hook-boundaries/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Process",
+          "Files"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/second-account-workers/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Configure extra profiles",
+          "Choose a worker",
+          "Write a standalone brief"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/sync-dev-env/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "3. Schedule the daily sync"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/team-advisor/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Constraints"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/test-runner/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Command",
+          "Preflight",
+          "Files"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/usage-pause/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Step 1 \u2014 resolve the usage window",
+          "Probe mechanism",
+          "Stage wakeup prompt template",
+          "Final wakeup prompt template"
+        ]
+      },
+      "packages/claude-dev-env/.agents/skills/windows-scheduled-task/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "Contents",
+          "Gotchas",
+          "Process",
+          "Endless repetition",
+          "Headless principal",
+          "Absolute paths in the action",
+          "Handing the elevated step to the operator",
+          "Files"
+        ]
+      },
+      "packages/claude-dev-env/AGENTS.md": {
+        "lines": 81,
+        "sections": [
+          "(top)"
+        ]
+      },
+      "packages/visual-plan/skills/visual-plan/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "The tree",
+          "Rules",
+          "Words",
+          "Steps",
+          "Getting the answer back"
+        ]
+      }
+    },
+    "hooks": {}
+  }
+}
