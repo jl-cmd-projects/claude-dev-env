@@ -22,6 +22,10 @@ _CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
     "hooks_constants.harness_scratchpad_constants"
 ).CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME
 
+_CLOUD_SESSION_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
+    "hooks_constants.headless_claude_broker_gate_constants"
+).CLOUD_SESSION_ENV_VAR
+
 _ROOT_ANCHORED_PROBE_PATH = "/tmp/scratch.py"
 
 
@@ -38,6 +42,20 @@ def isolate_from_live_session_scratchpad(monkeypatch: pytest.MonkeyPatch) -> Non
         monkeypatch: Pytest's environment-variable patcher, torn down after the test.
     """
     monkeypatch.delenv(_CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def isolate_from_live_cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove the cloud session marker before each hooks test.
+
+    A Claude Code cloud session exports CLAUDE_CODE_REMOTE=true, and gates
+    that stand aside in cloud would then pass every case. Tests that exercise the
+    cloud path set the variable themselves.
+
+    Args:
+        monkeypatch: Pytest's environment-variable patcher, torn down after the test.
+    """
+    monkeypatch.delenv(_CLOUD_SESSION_ENVIRONMENT_VARIABLE_NAME, raising=False)
 
 
 @pytest.fixture

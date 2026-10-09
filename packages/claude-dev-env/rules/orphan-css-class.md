@@ -11,4 +11,4 @@ Every class the markup references has a `.<class>` selector in a nearby `<style>
 
 **Enforcement:** `check_orphan_css_classes` in `code_rules_orphan_css_class.py`, which the staged policy lint runs through `code_rules_enforcer.py`.
 
-**Full text:** [`docs/rule-guides/orphan-css-class.md`](../docs/rule-guides/orphan-css-class.md).
+**Full text:** [guide](../docs/rule-guides/orphan-css-class.md).

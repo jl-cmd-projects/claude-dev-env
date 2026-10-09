@@ -19,15 +19,19 @@ from dev_env_scripts_constants.claude_account_worker_constants import (
     DEFAULT_TIMEOUT_MINUTES,
     INVALID_TIMEOUT_MESSAGE,
     LAUNCH_FAILURE_EXIT_CODE,
+    LIVE_LOG_FLAG,
     MINIMUM_TIMEOUT_MINUTES,
     MODEL_FLAG,
     OUTPUT_FORMAT_FLAG,
     OUTPUT_FORMAT_JSON,
+    OUTPUT_FORMAT_STREAM_JSON,
     PERMISSION_MODE_FLAG,
     PROMPT_FILE_FLAG,
     REPORT_FILE_FLAG,
     SINGLE_PROMPT_FLAG,
     TIMEOUT_MINUTES_FLAG,
+    UNWRITABLE_LIVE_LOG_MESSAGE,
+    VERBOSE_FLAG,
     UTF8_ENCODING,
 )
 
@@ -50,15 +54,16 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(MODEL_FLAG)
     parser.add_argument(PERMISSION_MODE_FLAG, default=DEFAULT_PERMISSION_MODE)
     parser.add_argument(TIMEOUT_MINUTES_FLAG, type=_positive_timeout_minutes, default=DEFAULT_TIMEOUT_MINUTES)
+    parser.add_argument(LIVE_LOG_FLAG, type=Path)
     return parser
 
 
-def _invocation(*, model: str | None, permission_mode: str) -> list[str]:
+def _invocation(*, model: str | None, permission_mode: str, is_streamed: bool) -> list[str]:
+    format_flags = [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_STREAM_JSON, VERBOSE_FLAG] if is_streamed else [OUTPUT_FORMAT_FLAG, OUTPUT_FORMAT_JSON]
     arguments = [
         CLAUDE_BINARY_NAME,
         SINGLE_PROMPT_FLAG,
-        OUTPUT_FORMAT_FLAG,
-        OUTPUT_FORMAT_JSON,
+        *format_flags,
         PERMISSION_MODE_FLAG,
         permission_mode,
     ]
@@ -81,20 +86,33 @@ def run_worker(
     model: str | None,
     permission_mode: str,
     timeout_minutes: int,
+    live_log: Path | None = None,
 ) -> int:
-    """Run one worker and write its structured report."""
+    """Run one worker and write its structured report.
+
+    With ``live_log`` set, the worker streams one JSON event per line into that
+    file while it runs, so a watching session can read progress before the end.
+    A live log that cannot be written ends the run before the broker starts.
+    """
     try:
         prompt_text = prompt_file.read_text(encoding=UTF8_ENCODING)
     except (OSError, UnicodeError):
         report = pre_launch_failure_report("none", "prompt file is unreadable", LAUNCH_FAILURE_EXIT_CODE)
         return finalize_report(report_file, report)
+    if live_log is not None:
+        try:
+            live_log.write_bytes(b"")
+        except OSError:
+            report = pre_launch_failure_report("none", UNWRITABLE_LIVE_LOG_MESSAGE, LAUNCH_FAILURE_EXIT_CODE)
+            return finalize_report(report_file, report)
     try:
         outcome, duration_seconds = invoke_worker(
-            all_arguments=_invocation(model=model, permission_mode=permission_mode),
+            all_arguments=_invocation(model=model, permission_mode=permission_mode, is_streamed=live_log is not None),
             cwd=cwd,
             prompt_text=prompt_text,
             timeout_minutes=timeout_minutes,
             runner=worker_job_runner,
+            live_log=live_log,
         )
     except BrokerConfigurationError as error:
         report = pre_launch_failure_report("none", str(error), CONFIGURATION_FAILURE_EXIT_CODE)
@@ -122,6 +140,7 @@ def main() -> int:
         model=arguments.model,
         permission_mode=arguments.permission_mode,
         timeout_minutes=arguments.timeout_minutes,
+        live_log=arguments.live_log,
     )
 
 

@@ -1,7 +1,9 @@
 {
+  "agent": "dev-env-session",
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.github.com)"
+      "WebFetch(domain:docs.github.com)",
+      "Read(~/.claude/docs/**)"
     ]
   },
   "advisorModel": "fable",

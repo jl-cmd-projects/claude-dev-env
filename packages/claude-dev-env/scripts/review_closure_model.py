@@ -29,6 +29,7 @@ nobody.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,6 +39,8 @@ from dev_env_scripts_constants.review_closure_constants import (
     ALL_COMMENT_AUTHOR_KEYS,
     ALL_COMMENT_LIST_KEYS,
     ALL_NOTICE_COMMENT_MARKERS,
+    ALL_CODEX_NOTICE_DETAILS,
+    ALL_REVIEW_REQUEST_COMMANDS,
     ALL_OUTDATED_KEYS,
     ALL_RESOLVED_KEYS,
     APPROVALS_CHECK_NAME,
@@ -48,6 +51,10 @@ from dev_env_scripts_constants.review_closure_constants import (
     CHECK_RUN_NAME_KEY,
     CLOSED_DETAIL,
     CLOSED_VERDICT_LABEL,
+    CODEX_CLEAN_REVIEW_PATTERN,
+    CODEX_REVIEW_BOT_LOGIN,
+    CODEX_SUMMARY_PREFIX,
+    CODEX_SUMMARY_ROW_PATTERN,
     COMMENT_BODY_KEY,
     COMMENT_IDENTIFIER_KEY,
     COMMENT_IDS_KEY,
@@ -187,21 +194,21 @@ def latest_driver_comment_time(
     all_comments: Iterable[TopLevelComment],
     all_driver_logins: frozenset[str],
 ) -> datetime | None:
-    """Find when the driving agent last posted a top-level comment.
+    """Find when the driving agent last posted a substantive top-level comment.
 
     Args:
         all_comments: The top-level comments on the pull request.
         all_driver_logins: The logins that count as the driving agent.
 
     Returns:
-        The creation time of the driving agent's latest top-level comment, or
+        The creation time of the driving agent's latest substantive comment, or
         None when it posted none.
     """
     return max(
         (
             each_comment.created_at
             for each_comment in all_comments
-            if each_comment.author_login in all_driver_logins
+            if each_comment.author_login in all_driver_logins and not each_comment.is_notice
         ),
         default=None,
     )
@@ -241,10 +248,10 @@ def top_level_findings(
     """Decide which top-level comments still wait on the driving agent.
 
     The driving agent answers a top-level comment by posting a top-level
-    comment of its own. Its latest one answers every comment last touched
+    substantive comment of its own. Its latest one answers every comment last touched
     before it. A person's comment edited after it waits again. A bot's edit
     leaves its comment answered, since a bot posts each new finding as a
-    review thread or a new comment.
+    review thread or a new comment. Requests and notices answer no findings.
 
     Args:
         all_comments: The top-level comments on the pull request.
@@ -424,14 +431,47 @@ def comment_records_by_id(
     }
 
 
+def _is_codex_notice(body: str) -> bool:
+    """Match the verified summary or clean format, including its metadata."""
+    normalized = body.strip()
+    for each_details in ALL_CODEX_NOTICE_DETAILS:
+        if not normalized.endswith(each_details):
+            continue
+        content = normalized[:-len(each_details)].rstrip()
+        if content.startswith(CODEX_SUMMARY_PREFIX):
+            all_rows = content[len(CODEX_SUMMARY_PREFIX):].splitlines()
+            return bool(all_rows) and all(
+                re.fullmatch(CODEX_SUMMARY_ROW_PATTERN, each_row) for each_row in all_rows
+            )
+        return re.fullmatch(CODEX_CLEAN_REVIEW_PATTERN, content) is not None
+    return False
+
+
+def _is_notice_comment(
+    all_comment_fields: Mapping[str, object], body: str, all_extra_markers: Sequence[str]
+) -> bool:
+    """Separate exact review requests and trusted notices from findings."""
+    is_command = body.strip().casefold() in ALL_REVIEW_REQUEST_COMMANDS
+    if is_command:
+        return is_command
+    if not _is_bot_author(all_comment_fields):
+        return False
+    return any(
+        each_marker in body for each_marker in (*ALL_NOTICE_COMMENT_MARKERS, *all_extra_markers)
+    ) or (
+        _comment_author_login(all_comment_fields) == CODEX_REVIEW_BOT_LOGIN and _is_codex_notice(body)
+    )
+
+
 def parse_top_level_comment(
     all_comment_fields: Mapping[str, object],
     all_extra_notice_markers: Sequence[str] = (),
 ) -> TopLevelComment:
     """Read one top-level comment from the REST answer.
 
-    A bot comment whose body carries a notice marker is a notice. A person's
-    comment carrying the same text still counts, since anyone can paste it.
+    Command-only review requests and verified bot notices carry no findings.
+    A person's comment pasting bot notice text still counts. Notice metadata
+    and format must match before a Codex bot comment is exempted.
 
     Args:
         all_comment_fields: The comment as the issue comments route reports it.
@@ -450,11 +490,7 @@ def parse_top_level_comment(
         identifier=all_comment_fields.get(COMMENT_IDENTIFIER_KEY),
         author_login=_comment_author_login(all_comment_fields),
         is_bot=is_bot,
-        is_notice=is_bot
-        and any(
-            each_marker in body
-            for each_marker in (*ALL_NOTICE_COMMENT_MARKERS, *all_extra_notice_markers)
-        ),
+        is_notice=_is_notice_comment(all_comment_fields, body, all_extra_notice_markers),
         created_at=datetime.fromisoformat(str(all_comment_fields.get(CREATED_AT_KEY))),
         updated_at=datetime.fromisoformat(str(all_comment_fields.get(UPDATED_AT_KEY))),
         url=str(all_comment_fields.get(HTML_URL_KEY) or ""),
