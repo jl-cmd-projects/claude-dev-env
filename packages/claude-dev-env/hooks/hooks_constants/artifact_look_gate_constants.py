@@ -28,6 +28,5 @@ UNSEEN_PAGE_REASON_TEMPLATE = (
     "headless browser, for example `chromium --headless --screenshot=page.png "
     "--window-size=800,900 file://{page_path}`, then open page.png with the "
     "Read tool and check it against the ask. Fix what the picture shows, take "
-    "a new screenshot, and publish again. Attach that screenshot when you "
-    "report the page, so the person who asked sees the same proof."
+    "a new screenshot, and publish again."
 )

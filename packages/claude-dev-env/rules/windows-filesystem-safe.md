@@ -14,4 +14,4 @@ Call `shutil.rmtree` with an `onexc` (Python 3.12 and later) or `onerror` handle
 
 **Enforcement:** the staged policy lint's `rmtree-safety` rule, which returns the full `force_rmtree` code. CI runs it against the merge base.
 
-**Full text:** [`docs/rule-guides/windows-filesystem-safe.md`](../docs/rule-guides/windows-filesystem-safe.md).
+**Full text:** [guide](../docs/rule-guides/windows-filesystem-safe.md).
