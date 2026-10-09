@@ -41,6 +41,7 @@ ISSUE_TITLE_PREFIX = "Correction: "
 ISSUE_TITLE_TEXT_LENGTH = 72
 LABEL_FIELD_TEMPLATE = "labels[]={value}"
 LEDGER_FILE_NAME = "correction-capture-filed.json"
+LEDGER_KEY_TEMPLATE = "{repository} {dedupe_key}"
 LINE_SEPARATOR = "\n"
 LIST_LINE_TEMPLATE = "#{number} {title} {url}\n"
 MISSING_CONFIG_MESSAGE_TEMPLATE = (

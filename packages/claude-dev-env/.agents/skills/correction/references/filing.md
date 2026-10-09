@@ -1,6 +1,6 @@
 # Correction filing
 
-`scripts/correction_filing.py` is the one filing path. The skill, an inline flag, and a prompt hook all call it.
+`scripts/correction_filing.py` is the one filing path. The skill calls it.
 
 ## Config
 
@@ -21,11 +21,13 @@ Keep this file private. Without it the script files nothing and exits 1.
 
 ## Dedupe
 
-The key is a hash of `--dedupe-key` when given, else of the whitespace-collapsed text. A flag passes its message id. Before filing, the script checks `correction-capture-filed.json` beside the config file, then every labeled issue, open and closed, and prints `Already filed: <url>` on a key match. The local file covers the minute after filing, when the labeled-issue listing can miss a new issue.
+The key is a hash of `--dedupe-key` when given, else of the whitespace-collapsed text. A caller with a message id passes it there. Before filing, the script checks `correction-capture-filed.json` beside the config file for this repository and key, then every labeled issue, open and closed, and prints `Already filed: <url>` on a key match. The local file covers the minute after filing, when the labeled-issue listing can miss a new issue.
 
 ## Commands
 
+Without `--text`, `file` reads the correction from standard input.
+
 ```bash
-python correction_filing.py file --text "<text>" [--source flag] [--dedupe-key <id>]
+python correction_filing.py file [--text "<text>"] [--source flag] [--dedupe-key <id>]
 python correction_filing.py list
 ```

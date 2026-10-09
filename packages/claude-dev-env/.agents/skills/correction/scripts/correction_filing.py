@@ -10,6 +10,10 @@ identifying lives in this package::
     Filed: https://github.com/owner/name/issues/12
     python correction_filing.py file --text "use shorter replies"
     Already filed: https://github.com/owner/name/issues/12
+    python correction_filing.py file <<'CORRECTION'
+    use shorter replies
+    CORRECTION
+    Already filed: https://github.com/owner/name/issues/12
     python correction_filing.py list
     #12 Correction: use shorter replies https://github.com/...
 
@@ -58,6 +62,7 @@ from correction_filing_constants.config.constants import (
     ISSUES_LIST_JQ_FILTER,
     ISSUES_LIST_PATH_TEMPLATE,
     LEDGER_FILE_NAME,
+    LEDGER_KEY_TEMPLATE,
     ISSUE_TITLE_PREFIX,
     ISSUE_TITLE_TEXT_LENGTH,
     LIST_LINE_TEMPLATE,
@@ -200,15 +205,19 @@ def _read_ledger() -> dict[str, str]:
     return parsed_ledger if isinstance(parsed_ledger, dict) else {}
 
 
-def _record_in_ledger(dedupe_key: str, issue_url: str) -> None:
-    url_by_dedupe_key = _read_ledger()
-    url_by_dedupe_key[dedupe_key] = issue_url
-    _ledger_path().write_text(json.dumps(url_by_dedupe_key), encoding=CONFIG_ENCODING)
+def _ledger_key_for(target: FilingTarget, dedupe_key: str) -> str:
+    return LEDGER_KEY_TEMPLATE.format(repository=target.repository, dedupe_key=dedupe_key)
+
+
+def _record_in_ledger(target: FilingTarget, dedupe_key: str, issue_url: str) -> None:
+    url_by_ledger_key = _read_ledger()
+    url_by_ledger_key[_ledger_key_for(target, dedupe_key)] = issue_url
+    _ledger_path().write_text(json.dumps(url_by_ledger_key), encoding=CONFIG_ENCODING)
 
 
 def _find_filed_issue_url(target: FilingTarget, dedupe_key: str) -> str:
     """Return the url of an issue already carrying this dedupe key, or empty."""
-    ledger_url = _read_ledger().get(dedupe_key, "")
+    ledger_url = _read_ledger().get(_ledger_key_for(target, dedupe_key), "")
     if ledger_url:
         return ledger_url
     for each_issue in _list_labeled_issues(target, "all"):
@@ -243,7 +252,7 @@ def _file_correction(
             CREATED_URL_JQ_FILTER,
         ]
     ).strip()
-    _record_in_ledger(dedupe_key, created_url)
+    _record_in_ledger(target, dedupe_key, created_url)
     return FILED_MESSAGE_TEMPLATE.format(url=created_url)
 
 
@@ -266,7 +275,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="File or list user corrections.")
     all_subcommands = parser.add_subparsers(dest="command", required=True)
     file_parser = all_subcommands.add_parser("file", help="File one correction.")
-    file_parser.add_argument("--text", required=True)
+    file_parser.add_argument("--text", default=None)
     file_parser.add_argument("--source", choices=ALL_SOURCES, default=DEFAULT_SOURCE)
     file_parser.add_argument("--dedupe-key", default="")
     all_subcommands.add_parser("list", help="List the open corrections.")
@@ -277,12 +286,15 @@ def _run_command(target: FilingTarget, parsed_arguments: argparse.Namespace) -> 
     if parsed_arguments.command == "list":
         sys.stdout.write(_open_corrections_listing(target))
         return SUCCESS_EXIT_CODE
-    if not parsed_arguments.text.strip():
+    correction_text = (
+        sys.stdin.read() if parsed_arguments.text is None else parsed_arguments.text
+    )
+    if not correction_text.strip():
         sys.stderr.write(EMPTY_TEXT_MESSAGE)
         return FAILURE_EXIT_CODE
     sys.stdout.write(
         _file_correction(
-            target, parsed_arguments.text, parsed_arguments.source, parsed_arguments.dedupe_key
+            target, correction_text, parsed_arguments.source, parsed_arguments.dedupe_key
         )
     )
     return SUCCESS_EXIT_CODE

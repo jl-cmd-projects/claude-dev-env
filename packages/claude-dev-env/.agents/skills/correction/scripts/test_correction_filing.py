@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import importlib
+import io
+import json
 import os
 import stat
 import sys
@@ -136,3 +137,18 @@ def test_should_dedupe_from_the_ledger_when_the_listing_lags(filing_environment:
     capsys.readouterr()
     correction_filing.main(["file", "--text", "keep replies short"])
     assert "Already filed: https://example.test/issues/1" in capsys.readouterr().out
+
+
+def test_should_read_the_text_from_stdin_without_expanding_it(filing_environment: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO('say "$(whoami)" and `id`\n'))
+    assert correction_filing.main(["file"]) == 0
+    assert '> say "$(whoami)" and `id`' in _stored_issues(filing_environment)[0]["body"]
+
+
+def test_should_file_again_after_the_config_names_another_repository(filing_environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    correction_filing.main(["file", "--text", "keep replies short"])
+    filing_environment.write_text("[]")
+    (tmp_path / "correction-capture.json").write_text(json.dumps({"repository": "owner/other", "label": "correction"}))
+    capsys.readouterr()
+    correction_filing.main(["file", "--text", "keep replies short"])
+    assert "Filed: https://example.test/issues/1" in capsys.readouterr().out

@@ -13,10 +13,12 @@ The user corrected an agent and wants the fix to stick. A labeled issue is the s
 Use this for `/correction <text>` and "file this as a correction: <text>". Run:
 
 ```bash
-python "${CLAUDE_SKILL_DIR}/scripts/correction_filing.py" file --text "<the correction, word for word>"
+python "${CLAUDE_SKILL_DIR}/scripts/correction_filing.py" file <<'CORRECTION'
+<the correction, word for word>
+CORRECTION
 ```
 
-Pass the user's words exactly. Print the one line the command prints, `Filed: <url>` or `Already filed: <url>`, and nothing else.
+Pass the user's words exactly. The quoted heredoc keeps the shell from expanding `$`, backticks, and quotes in them. Print the one line the command prints, `Filed: <url>` or `Already filed: <url>`, and nothing else.
 
 When it prints `No correction filing config`, write the brief below instead and tell the user the config file it names.
 
@@ -47,4 +49,4 @@ Keep each field to one or two lines. Leave out the layer and the fix design; the
 | `scripts/correction_filing.py` | Files one correction as a labeled issue, deduplicated, or lists the open ones |
 | `scripts/correction_filing_constants/config/constants.py` | Config keys, issue shape, and redaction patterns |
 | `scripts/test_correction_filing.py` | Behavior tests with a stand-in `gh` |
-| `references/filing.md` | Config file, issue shape, dedupe, and the flag and hook callers |
+| `references/filing.md` | Config file, issue shape, dedupe, and commands |
