@@ -57,6 +57,9 @@ the arm with the plugin and the arm without it.
   such a feature with the `claude -p` recipe in `reference/graders-and-commands.md`.
 - `--keep-temp` on Windows warns that it cannot seal the folder. Delete that folder when done with
   PowerShell `Remove-Item -Recurse -Force -LiteralPath <path>`.
+- A loop the user asks to run until clean runs with no round cap and no retry cap. Use only the
+  limits the user set. Name any other stop condition to the user before the first launch, and
+  report each run it ended as stopped by that condition.
 
 ## When this applies
 

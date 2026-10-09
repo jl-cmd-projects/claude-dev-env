@@ -1,6 +1,7 @@
 """Behavior tests for the pull request lifecycle PreToolUse gate."""
 
 import json
+import subprocess
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
@@ -13,6 +14,12 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
+from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON, MISSING_PROOF_REASON
+
+PROVEN_FOLLOWUP_BODY = (
+    "Follow-up to #1731\n\n## Existing work\nNothing found in open or merged pull requests.\n\n"
+    "## Proof in practice\nRan `python probe.py`.\n"
+)
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
@@ -61,7 +68,7 @@ def test_unloaded_pull_request_command_is_denied(tmp_path: Path) -> None:
 
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
     path = _transcript(tmp_path, "plugin:pr-lifecycle")
-    assert _run_main(_payload("gh pr create", path)) == (0, "")
+    assert _run_main(_payload("gh pr view", path)) == (0, "")
 
 
 def test_user_slash_command_loads_skill(tmp_path: Path) -> None:
@@ -127,7 +134,7 @@ def test_agent_id_with_path_separator_is_not_followed(tmp_path: Path) -> None:
 
 
 def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> None:
-    payload = _payload("gh pr create", tmp_path / "missing.jsonl")
+    payload = _payload("gh pr view", tmp_path / "missing.jsonl")
     assert _run_main(payload) == (0, "")
     payload.pop("transcript_path")
     assert _run_main(payload) == (0, "")
@@ -218,11 +225,11 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
         each_group
         for each_group in all_groups
         if each_group["matcher"]
-        == "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)"
+        == "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)"
     ]
     assert matching_groups == [
         {
-            "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)",
+            "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)",
             "hooks": [
                 {
                     "type": "command",
@@ -234,11 +241,24 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
     ]
 
 
+def _checkout_without_visible_changes(tmp_path: Path) -> str:
+    checkout_path = tmp_path / "checkout"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(checkout_path)], check=True)
+    (checkout_path / "tool.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(checkout_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(checkout_path), "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"],
+        check=True,
+    )
+    return str(checkout_path)
+
+
 def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Path) -> None:
     payload = {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+        "cwd": _checkout_without_visible_changes(tmp_path),
     }
     open_followup = {"number": 1769, "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1769", "body": "Follow-up to #1731"}
     with patch.object(gate_dedupe, "read_open_pull_requests", return_value=[open_followup]):
@@ -251,8 +271,129 @@ def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Pa
 def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> None:
     payload = {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": "Follow-up to #1731"},
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+        "cwd": _checkout_without_visible_changes(tmp_path),
     }
     with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
         assert gate.decision_for(payload) is None
+
+
+def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:
+    exit_code, output = _run_main(_payload("gh pr create --body 'Adds a gate.'", _transcript(tmp_path, "pr-lifecycle")))
+    assert exit_code == 0
+    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON
+
+
+EVALUATED_BODY = (
+    "## Existing work\nNothing found in open or merged pull requests.\n\n"
+    "## Proof in practice\nRan `python probe.py`.\n\n"
+    "## Eval\nTen labeled cases, exact-match grader. Ran `python eval.py`: 10/10.\n"
+)
+SKILL_LOAD_LINE = json.dumps(
+    {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}
+)
+BUILD_EVAL_LINE = json.dumps(
+    {
+        "type": "assistant",
+        "message": {
+            "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}]
+        },
+    }
+)
+
+
+def _transcript_with_lines(tmp_path: Path, file_name: str, all_lines: list[str]) -> Path:
+    transcript_path = tmp_path / file_name
+    transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
+    return transcript_path
+
+
+def _create_payload(tmp_path: Path, title: str, transcript_path: Path) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "o", "repo": "r", "title": title, "body": EVALUATED_BODY},
+        "transcript_path": str(transcript_path),
+        "cwd": _checkout_without_visible_changes(tmp_path),
+    }
+
+
+def _assert_denied_with(payload: dict[str, object], reason: str) -> None:
+    decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == reason
+
+
+def test_feature_pull_request_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    _assert_denied_with(_create_payload(tmp_path, "feat: add a gate", transcript_path), MISSING_BUILD_EVAL_REASON)
+
+
+def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
+    assert gate.decision_for(_create_payload(tmp_path, "feat: add a gate", transcript_path)) is None
+
+
+def test_non_feature_pull_request_without_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    assert gate.decision_for(_create_payload(tmp_path, "fix: repair a gate", transcript_path)) is None
+
+
+def test_feature_pull_request_with_no_readable_transcript_should_pass(tmp_path: Path) -> None:
+    payload = _create_payload(tmp_path, "feat: add a gate", tmp_path / "missing.jsonl")
+    assert gate.decision_for(payload) is None
+
+
+def test_build_eval_check_should_ignore_an_unreadable_transcript_beside_a_readable_one(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
+    payload["agent_transcript_path"] = str(tmp_path / "missing-agent.jsonl")
+    _assert_denied_with(payload, MISSING_BUILD_EVAL_REASON)
+
+
+def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Path) -> None:
+    session_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    agent_path = _transcript_with_lines(tmp_path, "agent.jsonl", [BUILD_EVAL_LINE])
+    payload = _create_payload(tmp_path, "feat: add a gate", session_path)
+    payload["agent_transcript_path"] = str(agent_path)
+    assert gate.decision_for(payload) is None
+
+
+def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": {
+            "method": "run_workflow",
+            "owner": "o",
+            "repo": "r",
+            "workflow_id": "open.yml",
+            "ref": "main",
+            "inputs": all_inputs,
+        },
+        "transcript_path": str(transcript_path),
+        "cwd": _checkout_without_visible_changes(tmp_path),
+    }
+
+
+def test_feature_dispatch_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
+    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON)
+
+
+def test_feature_dispatch_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
+    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
+    assert gate.decision_for(_dispatch_payload(tmp_path, all_inputs, transcript_path)) is None
+
+
+def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    all_inputs = {"head": "main", "title": "fix: repair a gate", "body": EVALUATED_BODY}
+    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), DENY_REASON)
+
+
+def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None

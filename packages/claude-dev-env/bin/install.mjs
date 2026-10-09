@@ -30,6 +30,11 @@ import {
     settingsDefaultsFromPackageSettings,
 } from './merge_settings_defaults.mjs';
 import {
+    describeProfileSettingsOutcome,
+    hostConfigurationIndent,
+    mergeProfileSettings,
+} from './merge_profile_settings.mjs';
+import {
     SKIPPED_SOURCE_ENTRY_NAMES,
     SKIPPED_SOURCE_FILE_EXTENSIONS,
     RUN_BACKUP_DIRECTORY_NAME_PATTERN,
@@ -1242,6 +1247,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/send_user_file_open_locally_blocker.py',
     'blocking/question_to_user_enforcer.py',
     'blocking/session_handoff_blocker.py',
+    'session/issue_tracker_session_starter.py',
 ]);
 
 export const MOVED_HOOK_RELATIVE_PATHS = new Set([
@@ -1548,15 +1554,19 @@ function startEventFromHookGroupList(settings, eventType) {
  * @param {object} settings The parsed settings.json object (mutated in place).
  * @param {{hooks: object}} hooksConfig Parsed hooks.json.
  * @param {string} pluginRootDir Directory ${CLAUDE_PLUGIN_ROOT} resolves to
- *   (the installer's `~/.claude` root; home is its parent directory).
+ *   (the installer's managed root, `~/.claude` or a profile root).
  * @param {string} pythonCommand Interpreter command that replaces python3.
  * @param {string|null} [sharedSettingsRealPath] Resolved path of the settings
  *   file being merged. Hooks of every root whose settings.json resolves to it
  *   count as managed, so roots sharing one file keep one entry per script.
+ * @param {string} [homeDirectory] The home directory `~/`, `$HOME`, and
+ *   `${HOME}` expand to. It is the user's home whatever root installs, so a
+ *   profile root under `~/.claude-profiles` expands `~/` the same way the
+ *   profile settings merge does.
  * @returns {number} Count of matcher groups merged.
  */
 export function mergeHooksIntoSettings(
-    settings, hooksConfig, pluginRootDir, pythonCommand, sharedSettingsRealPath = null,
+    settings, hooksConfig, pluginRootDir, pythonCommand, sharedSettingsRealPath = null, homeDirectory = homedir(),
 ) {
     const managedHookRelativePaths = managedHookScriptRelativePaths(hooksConfig);
     const pluginRootForward = pluginRootDir.replace(/\\/g, '/');
@@ -1604,7 +1614,7 @@ export function mergeHooksIntoSettings(
             groupCount++;
         }
     }
-    expandHomeDirectoryTokensInSettings(settings, dirname(pluginRootDir));
+    expandHomeDirectoryTokensInSettings(settings, homeDirectory);
     return groupCount;
 }
 
@@ -1881,23 +1891,6 @@ function stripRetiredHookEntries(settings, retiredHookRelativePaths, ownership) 
         settings.hooks[eventType] = eventOutcome.keptGroups;
     }
     return removedCount;
-}
-
-const DEFAULT_HOST_CONFIGURATION_INDENT = '  ';
-
-/**
- * Read the indent the host configuration file already uses.
- *
- * ~/.claude/settings.json uses four spaces and ~/.codex/hooks.json uses two.
- * Forcing four spaces would rewrite every line of one of those files. The first
- * indented line supplies the indent, tabs included.
- *
- * @param {string} settingsText The host configuration file as it stands on disk.
- * @returns {string} The indent one nesting level uses.
- */
-function hostConfigurationIndent(settingsText) {
-    const firstIndentedLine = /\n([ \t]+)\S/.exec(settingsText);
-    return firstIndentedLine ? firstIndentedLine[1] : DEFAULT_HOST_CONFIGURATION_INDENT;
 }
 
 /**
@@ -3026,6 +3019,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     const settingsDefaultsMerge = mergePackageSettingsDefaults();
     if (settingsDefaultsMerge.addedKeys.length > 0) {
         console.log(`  Settings: added ${settingsDefaultsMerge.addedKeys.join(', ')}`);
+    }
+    const mergeOutcome = mergeProfileSettings(
+        [join(CLAUDE_HOME, SETTINGS_FILE_NAME)],
+        { dryRun: false, homeDirectory: homedir() },
+    );
+    for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
+        console.log(`  Profile settings: ${eachLine}`);
     }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');

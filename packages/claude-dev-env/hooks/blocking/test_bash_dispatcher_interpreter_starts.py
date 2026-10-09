@@ -31,9 +31,11 @@ def test_bash_roster_starts_only_the_msys_rewriter_and_the_two_gates() -> None:
         BashHostedHookEntry(
             script_relative_path="blocking/headless_claude_broker_gate.py",
             applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+            replaced_by_plugin_name="shell-guards",
         ),
         BashHostedHookEntry(
             script_relative_path="blocking/gh_global_account_switch_gate.py",
             applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+            replaced_by_plugin_name="shell-guards",
         ),
     )

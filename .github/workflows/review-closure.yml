@@ -19,6 +19,7 @@ on:
     types:
       - created
       - edited
+  merge_group:
 
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency:
-      group: review-closure-${{ github.event.pull_request.number }}
+      group: review-closure-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
@@ -45,10 +46,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONPATH: packages/claude-dev-env/scripts
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
         run: |
-          python packages/claude-dev-env/scripts/review_closure.py \
-            "${{ github.repository }}" \
-            "${{ github.event.pull_request.number }}"
+          set -euo pipefail
+          pull_request_number="${PULL_REQUEST_NUMBER}"
+          if [ "${GITHUB_EVENT_NAME}" = "merge_group" ]; then
+            queue_branch_name="${MERGE_GROUP_HEAD_REF##*/}"
+            pull_request_number="${queue_branch_name#pr-}"
+            pull_request_number="${pull_request_number%%-*}"
+          fi
+          python packages/claude-dev-env/scripts/review_closure.py "$REPOSITORY" "$pull_request_number"
 
   review-closure-comment:
     name: Review closure on a comment event

@@ -21,4 +21,4 @@ A doc that inventories code stays in step with the code, in the same change:
 
 **Enforcement:** `repository_checks/claude_md.py`, `repository_checks/package_inventory.py`, and `repository_checks/env_var_documentation.py`. Run `python packages/claude-dev-env/scripts/repository_policy.py` before you commit. CI runs the same command.
 
-**Full text:** [`docs/rule-guides/doc-inventory-integrity.md`](../docs/rule-guides/doc-inventory-integrity.md).
+**Full text:** [guide](../docs/rule-guides/doc-inventory-integrity.md).

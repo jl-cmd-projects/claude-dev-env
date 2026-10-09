@@ -1,6 +1,6 @@
 {
     "name": "claude-dev-env",
-    "version": "8.54.6",
+    "version": "8.72.1",
     "description": "Claude Code development standards — rules, hooks, agents, commands, and skills",
     "type": "module",
     "bin": {
@@ -9,7 +9,7 @@
         "cde": "bin/cde.mjs"
     },
     "scripts": {
-        "test": "node --test \"bin/*.test.mjs\" \".agents/skills/**/*.test.mjs\" \"tests/fresh-session/**/*.test.mjs\" \"scripts/ci/*.test.mjs\""
+        "test": "node --test --test-concurrency=1 \"bin/*.test.mjs\" \".agents/skills/**/*.test.mjs\" \"tests/fresh-session/**/*.test.mjs\" \"scripts/ci/*.test.mjs\""
     },
     "files": [
         "bin/",
@@ -49,7 +49,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/jl-cmd/claude-dev-env.git",
+        "url": "git+https://github.com/jl-cmd-projects/claude-dev-env.git",
         "directory": "packages/claude-dev-env"
     }
 }

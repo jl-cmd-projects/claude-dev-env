@@ -48,6 +48,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
     REPORT_INDENT_SPACES,
+    TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
     utc_time_text as _time_text,
 )
@@ -124,6 +125,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
             "is_main": each_reading.account.is_main,
             "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
+            "unread_reason": each_reading.unread_reason,
         }
         for each_reading in all_readings
     ]
@@ -214,6 +216,7 @@ class _RunContext:
     all_spent_accounts: set[Account]
     all_spent_resets: dict[Account, datetime]
     start_failure_text: str = ""
+    live_log: Path | None = None
 
 
 def _prepare_run(
@@ -267,6 +270,7 @@ def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProce
         cwd=str(context.cwd) if context.cwd is not None else None,
         encoding=context.encoding,
         errors=context.errors,
+        live_log=context.live_log,
     )
 
 
@@ -287,13 +291,16 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     account = decision.account
     try:
         completion = _invoke(context, account)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        status = "timeout" if isinstance(error, subprocess.TimeoutExpired) else "start_failed"
-        _record_spent_attempt(context, account, status, COMMAND_MISSING_EXIT_CODE)
+    except subprocess.TimeoutExpired as error:
+        _record_spent_attempt(context, account, "timeout", TIMEOUT_EXIT_CODE)
+        context.report.final_decision = decision
+        return JobOutcome(TIMEOUT_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), "timeout", None, None)
+    except OSError as error:
+        _record_spent_attempt(context, account, "start_failed", COMMAND_MISSING_EXIT_CODE)
         context.start_failure_text = str(error)
-        if isinstance(error, subprocess.TimeoutExpired) or not context.all_readings:
+        if not context.all_readings:
             context.report.final_decision = decision
-            final_status = "advisor_blocked" if context.product is Product.CLAUDE else status
+            final_status = "advisor_blocked" if context.product is Product.CLAUDE else "start_failed"
             return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), final_status, None, None)
         return None
     combined = f"{completion.stdout}{completion.stderr}".casefold()
@@ -312,9 +319,11 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
 def _execute(
     product: Product, all_argv: Sequence[str], *, now: datetime,
     timeout_seconds: float | None = None, stdin_text: str | bytes | None = None,
-    cwd: str | Path | None = None, encoding: str = "utf-8", errors: str = "replace"
+    cwd: str | Path | None = None, encoding: str = "utf-8", errors: str = "replace",
+    live_log: Path | None = None,
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
+    context.live_log = live_log
     while True:
         picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
@@ -335,8 +344,9 @@ def run_job(
     cwd: str | Path | None = None,
     encoding: str = "utf-8",
     errors: str = "replace",
+    live_log: Path | None = None,
 ) -> JobOutcome:
-    return _execute(product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds, stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors)[0]
+    return _execute(product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds, stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors, live_log=live_log)[0]
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -358,7 +368,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, product: Product) -> tuple[Reading, datetime | None]:
-    name, separator, reset_text = mark.partition(":")
+    name, separator, reset_text = mark.rpartition(":")
+    if mark in all_accounts_by_name or not separator:
+        name, separator, reset_text = mark, "", ""
     if not name:
         raise BrokerConfigurationError(f"spent mark {mark!r} needs an account name")
     try:
