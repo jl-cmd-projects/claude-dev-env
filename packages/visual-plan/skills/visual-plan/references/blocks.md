@@ -174,7 +174,8 @@ Errors stop the write:
 - an ask with no id, a duplicate id, or a duplicate control name;
 - a non-top ask without exactly one `checked` option;
 - a `vp-details` that is not the last child of its card, or a second one;
-- two cells with the same id;
+- two cells with the same id, or a box whose card key matches another card's, such as a cell `id="p-1"` beside the first path stage;
+- an ask id or a cell id with a character other than letters, digits and `_ - . ~ : @ +`, or an id of `.` or `..`;
 - no `h1`, or no link to `visualplan.css` or `visualplan.js`.
 
 Warnings are budgets for skimming: an `h1` outside 3 to 7 words, a face over 5 words, a question over 10 words, an option label over 5 words, a card `<p>` over 25 words, card text outside `vp-details` over 60 words, more than 12 grid rows, more than 10 asks, a card that starts with a paragraph, and a long dash anywhere on the page.

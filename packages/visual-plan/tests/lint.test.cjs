@@ -75,6 +75,26 @@ test('cell ids default to the slug of the row face and the column index', () => 
   assert.equal(plan.grid.maxCount, 12);
 });
 
+test('should report a cell id that takes the card key of a path stage', () => {
+  const chips = (text) => `<vp-chips><script type="text/plain">${text}</script></vp-chips>`;
+  const source = page({ rows: row(`<vp-cell face="A" id="p-1">${chips('cell card')}</vp-cell>${PLAIN_TAIL}`) })
+    .replace('</vp-decisions>', `</vp-decisions><vp-path><vp-stage label="Draft" state="here">${chips('stage card')}</vp-stage></vp-path>`);
+  assert.ok(VisualPlan.lint(source).errors.some((message) => /card key "p-1" is already used/.test(message)));
+});
+
+test('should lint a numeric entity past the last code point without throwing', () => {
+  const report = VisualPlan.lint(page({ header: '<header><h1>Plan for &#1114112; things</h1></header>' }));
+  assert.deepEqual(report.errors, []);
+  assert.equal(VisualPlan.buildPlan(VisualPlan.fromHtml(page({ header: '<header><h1>Plan &#x110000; here</h1></header>' }))).plan.title, 'Plan \ufffd here');
+});
+
+test('should report an ask id or a cell id with a character a store path refuses', () => {
+  const ask = '<vp-ask id="ship first"><p>Pick one?</p><label><input type="radio" name="pick" value="a" checked> A</label><label><input type="radio" name="pick" value="b"> B</label></vp-ask>';
+  assertError({ asks: ask }, /ask id "ship first" may use only/);
+  assertError({ rows: row(`<vp-cell face="A" id="a/b"></vp-cell>${PLAIN_TAIL}`) }, /cell id "a\/b" may use only/);
+  assertError({ rows: row(`<vp-cell face="A" id=".."></vp-cell>${PLAIN_TAIL}`) }, /cell id "\.\." may use only/);
+});
+
 test('should finish linting a page whose last raw tag close has no ">"', () => {
   const errors = VisualPlan.lint(`${page({})}<script>x</script`).errors;
   assert.deepEqual(errors, []);

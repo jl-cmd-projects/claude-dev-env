@@ -33,10 +33,16 @@ const countWords = (text) => String(text || '').trim().split(/\s+/).filter(Boole
 const slug = (text) => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'row';
 const toneClass = (tone) => (tone === 'info' ? 'here' : tone || '');
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+const LAST_CODE_POINT = 0x10ffff;
+const REPLACEMENT_CHARACTER = '\ufffd';
 const decode = (text) => String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name) => {
-  if (name[0] === '#') return String.fromCodePoint(name[1].toLowerCase() === 'x' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10));
-  return ENTITIES[name.toLowerCase()] ?? whole;
+  if (name[0] !== '#') return ENTITIES[name.toLowerCase()] ?? whole;
+  const codePoint = name[1].toLowerCase() === 'x' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+  return codePoint > LAST_CODE_POINT ? REPLACEMENT_CHARACTER : String.fromCodePoint(codePoint);
 });
+const STORE_KEY_PATTERN = /^[A-Za-z0-9_\-.~:@+]+$/;
+const isStoreKey = (text) => STORE_KEY_PATTERN.test(text) && text !== '.' && text !== '..';
+const STORE_KEY_RULE = 'may use only letters, digits and _ - . ~ : @ +, and is not "." or ".."';
 
 /** Removes the shared leading indent and the blank first and last lines of a block source. */
 function dedent(text) {
@@ -410,6 +416,7 @@ function buildPlan(root) {
   function buildCard(parent, nodes, key, title, label) {
     const elements = nodes.filter((child) => child.tag !== '#text');
     if (!elements.length) return null;
+    if (cards.has(key)) fail(parent, `the card key "${key}" is already used by "${cards.get(key).label}"; give one of them a different id=""`);
     const detailsAt = elements.map((child, index) => (child.tag === 'vp-details' ? index : -1)).filter((index) => index >= 0);
     if (detailsAt.length > 1) fail(elements[detailsAt[1]], 'a card holds one <vp-details>; this is a second one');
     if (detailsAt.length && detailsAt[0] !== elements.length - 1) fail(elements[detailsAt[0]], '<vp-details> must be the last child of its card');
@@ -465,6 +472,7 @@ function buildPlan(root) {
           if (!isCount && !face) fail(cellNode, '<vp-cell> needs face="" or count=""');
           if (!isCount && countWords(face) > BUDGET.face) warn(cellNode, `cell "${face}" has ${countWords(face)} words; keep a face to ${BUDGET.face}`);
           const id = cellNode.attrs.id || `${slug(firstFace)}.${columnIndex}`;
+          if (!isStoreKey(id)) fail(cellNode, `the cell id "${id}" ${STORE_KEY_RULE}`);
           if (cellIds.has(id)) fail(cellNode, `two cells have the id "${id}" (lines ${cellIds.get(id)} and ${cellNode.line}); give one an id=""`);
           cellIds.set(id, cellNode.line);
           const column = columns[columnIndex] || '';
@@ -491,6 +499,7 @@ function buildPlan(root) {
       const id = askNode.attrs.id || '';
       const isTop = 'top' in askNode.attrs;
       if (!id) fail(askNode, '<vp-ask> needs an id=""');
+      else if (!isStoreKey(id)) fail(askNode, `the ask id "${id}" ${STORE_KEY_RULE}`);
       else if (askIds.has(id)) fail(askNode, `two asks have the id "${id}" (lines ${askIds.get(id)} and ${askNode.line})`);
       if (id) askIds.set(id, askNode.line);
       const questionNode = childrenNamed(askNode, 'p')[0];
