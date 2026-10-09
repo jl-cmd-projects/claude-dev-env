@@ -1,20 +1,23 @@
-"""Append-only ledger of non-breaking findings awaiting a follow-up fix.
+"""Ledger of non-breaking findings awaiting a follow-up fix, one file each.
 
 A gate that finds a breaking defect stops the commit, the push, or the tool
 call. A gate that finds a non-breaking smell records the finding here and lets
-the work proceed. ``cde followup`` reads the ledger and briefs the agent that
-fixes the recorded smells in their own pull request.
+the work proceed. Each finding is its own JSON file under
+``.claude/followups/``, named by a hash of the finding, so parallel branches
+that record different findings never edit the same file. ``cde followup``
+reads the ledger and briefs the agent that fixes the recorded smells in their
+own pull request.
 
-Every write is fail-safe. A ledger that cannot be created or appended to leaves
+Every write is fail-safe. A ledger that cannot be created or written to leaves
 the calling gate's decision unchanged, so recording a finding never becomes a
 new way for a gate to fail.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -24,9 +27,12 @@ if _hooks_directory not in sys.path:
 
 from hooks_constants.followup_ledger_constants import (
     ABSENT_ORIGIN_COMMIT,
-    ALL_FOLLOWUP_LEDGER_PATH_SEGMENTS,
+    ALL_FOLLOWUP_DIRECTORY_SEGMENTS,
     CHECK_ID_KEY,
     FILE_PATH_KEY,
+    FINDING_FILE_NAME_HASH_LENGTH,
+    FINDING_FILE_PATTERN,
+    FINDING_FILE_SUFFIX,
     GIT_COMMON_DIRECTORY_FILE_NAME,
     GIT_DIRECTORY_FILE_PREFIX,
     GIT_DIRECTORY_NAME,
@@ -35,10 +41,11 @@ from hooks_constants.followup_ledger_constants import (
     GIT_PACKED_REFERENCES_FILE_NAME,
     GIT_PACKED_REFERENCES_PEELED_PREFIX,
     GIT_REFERENCE_PREFIX,
-    LEDGER_APPEND_MODE,
+    LEDGER_CREATE_MODE,
     LEDGER_ENCODING,
     LEDGER_IGNORE_FILE_NAME,
     LEDGER_IGNORE_TEXT,
+    LEDGER_JSON_INDENT,
     MESSAGE_KEY,
     ORIGIN_COMMIT_KEY,
     RULE_ID_KEY,
@@ -80,151 +87,144 @@ class FollowupFinding(NamedTuple):
         return (self.check_id or self.rule_id, self.file_path, self.message)
 
 
-def deduplicated_lines(all_lines: Sequence[str]) -> list[str]:
-    """Return the lines with every exact repeat removed.
-
-    The first occurrence of each line keeps its place, so the ledger keeps its
-    record order after a ``merge=union`` merge writes both sides' lines.
-
-    Args:
-        all_lines: The ledger lines, in file order.
-
-    Returns:
-        The lines in file order, each exact line once.
-    """
-    return list(dict.fromkeys(all_lines))
-
-
-def deduplicate_ledger(repository_root: Path) -> int:
-    """Rewrite the repository's ledger without exact repeated lines.
-
-    An absent or unreadable ledger, and a ledger that cannot be rewritten, are
-    left as they are, so a ledger failure never becomes a gate failure.
-
-    Args:
-        repository_root: The repository whose ledger to clean.
-
-    Returns:
-        How many lines the rewrite removed.
-    """
-    ledger_path = followup_ledger_path(repository_root)
-    try:
-        all_ledger_lines = ledger_path.read_text(encoding=LEDGER_ENCODING).splitlines()
-    except (OSError, UnicodeError):
-        return 0
-    all_unique_lines = deduplicated_lines(all_ledger_lines)
-    removed_line_count = len(all_ledger_lines) - len(all_unique_lines)
-    if not removed_line_count:
-        return 0
-    try:
-        ledger_path.write_text(
-            "".join(each_line + "\n" for each_line in all_unique_lines),
-            encoding=LEDGER_ENCODING,
-        )
-    except OSError:
-        return 0
-    return removed_line_count
-
-
-def followup_ledger_path(repository_root: Path) -> Path:
-    """Return the ledger path for one repository.
+def followup_directory(repository_root: Path) -> Path:
+    """Return the directory that holds one repository's recorded findings.
 
     Args:
         repository_root: The repository whose ledger to address.
 
     Returns:
-        The absolute path of that repository's follow-up ledger.
+        The absolute path of that repository's follow-up directory.
     """
-    return repository_root.joinpath(*ALL_FOLLOWUP_LEDGER_PATH_SEGMENTS)
+    return repository_root.joinpath(*ALL_FOLLOWUP_DIRECTORY_SEGMENTS)
+
+
+def finding_path(repository_root: Path, finding: FollowupFinding) -> Path:
+    """Return the file one finding is recorded in.
+
+    The file name is a hash of the finding's tracking key, so the same finding
+    always maps to the same file and two different findings never share one.
+
+    Args:
+        repository_root: The repository whose ledger holds the finding.
+        finding: The finding to locate.
+
+    Returns:
+        The absolute path of the finding's file.
+    """
+    key_text = json.dumps(list(finding.tracking_key()), ensure_ascii=True)
+    key_digest = hashlib.sha256(key_text.encode(LEDGER_ENCODING)).hexdigest()
+    file_name = key_digest[:FINDING_FILE_NAME_HASH_LENGTH] + FINDING_FILE_SUFFIX
+    return followup_directory(repository_root) / file_name
 
 
 def record_followup_finding(repository_root: Path, finding: FollowupFinding) -> None:
-    """Append one finding to the repository's ledger, once.
+    """Write one finding to its own file in the repository's ledger, once.
 
-    The ledger first loses every exact repeated line, so lines a
-    ``merge=union`` merge wrote twice leave on the next write. A finding
-    already present in the ledger is left alone, so a gate that runs on every
-    commit records a standing smell a single time. The ledger
-    directory carries a ``.gitignore`` matching every file in it, so the
-    ledger stays out of ``git status`` in any repository. Every filesystem
-    error is swallowed, so a ledger failure leaves the caller's gate decision
-    unchanged.
+    The file is created exclusively, so a finding already on disk keeps the
+    record that first raised it, and a gate that runs on every commit records
+    a standing smell a single time. Two writers recording different findings
+    write different files, so parallel branches never edit a shared file. The
+    first write in a directory with no ``.gitignore`` adds one matching every
+    file, so the ledger stays out of ``git status`` in any repository that
+    does not commit its own. Every filesystem error is swallowed, so a ledger
+    failure leaves the caller's gate decision unchanged.
 
     Args:
         repository_root: The repository whose ledger receives the finding.
         finding: The non-breaking finding to record.
     """
-    deduplicate_ledger(repository_root)
-    all_recorded_keys = {
-        each_finding.tracking_key()
-        for each_finding in all_recorded_findings(repository_root)
-    }
-    if finding.tracking_key() in all_recorded_keys:
-        return
-
-    ledger_path = followup_ledger_path(repository_root)
-    record_text = json.dumps(
-        {
-            RULE_ID_KEY: finding.rule_id,
-            FILE_PATH_KEY: finding.file_path,
-            MESSAGE_KEY: finding.message,
-            CHECK_ID_KEY: finding.check_id or finding.rule_id,
-            SEVERITY_KEY: finding.severity,
-            ORIGIN_COMMIT_KEY: finding.origin_commit,
-        }
-    )
+    record_path = finding_path(repository_root, finding)
+    record_text = json.dumps(_record_fields(finding), indent=LEDGER_JSON_INDENT)
     try:
-        ledger_path.parent.mkdir(parents=True, exist_ok=True)
-        ignore_path = ledger_path.parent / LEDGER_IGNORE_FILE_NAME
+        record_path.parent.mkdir(parents=True, exist_ok=True)
+        ignore_path = record_path.parent / LEDGER_IGNORE_FILE_NAME
         if not ignore_path.exists():
             ignore_path.write_text(LEDGER_IGNORE_TEXT, encoding=LEDGER_ENCODING)
-        with ledger_path.open(LEDGER_APPEND_MODE, encoding=LEDGER_ENCODING) as ledger_file:
-            ledger_file.write(record_text + "\n")
+        with record_path.open(LEDGER_CREATE_MODE, encoding=LEDGER_ENCODING) as record_file:
+            record_file.write(record_text + "\n")
     except OSError:
         return
 
 
-def all_recorded_findings(repository_root: Path) -> tuple[FollowupFinding, ...]:
-    """Return every finding the repository's ledger holds, in record order.
+def _record_fields(finding: FollowupFinding) -> dict[str, str]:
+    return {
+        RULE_ID_KEY: finding.rule_id,
+        FILE_PATH_KEY: finding.file_path,
+        MESSAGE_KEY: finding.message,
+        CHECK_ID_KEY: finding.check_id or finding.rule_id,
+        SEVERITY_KEY: finding.severity,
+        ORIGIN_COMMIT_KEY: finding.origin_commit,
+    }
 
-    An absent or unreadable ledger reads as empty, and a line that does not
-    parse into a complete record is skipped, so one damaged line never hides
-    the findings around it.
+
+def all_recorded_findings(repository_root: Path) -> tuple[FollowupFinding, ...]:
+    """Return every finding the repository's ledger holds, ordered by check.
+
+    An absent directory reads as empty, and a file that does not parse into a
+    complete record is skipped, so one damaged file never hides the findings
+    around it.
 
     Args:
         repository_root: The repository whose ledger to read.
 
     Returns:
-        The recorded findings, in the order they were appended.
+        The recorded findings, sorted by check identifier, path, and message.
     """
-    ledger_path = followup_ledger_path(repository_root)
-    try:
-        ledger_text = ledger_path.read_text(encoding=LEDGER_ENCODING)
-    except (OSError, UnicodeError):
-        return ()
-
-    all_findings: list[FollowupFinding] = []
-    for each_line in ledger_text.splitlines():
-        each_finding = _finding_from_line(each_line)
-        if each_finding is not None:
-            all_findings.append(each_finding)
-    return tuple(all_findings)
+    all_findings = [
+        each_finding
+        for _each_path, each_finding in all_finding_files(repository_root)
+    ]
+    return tuple(sorted(all_findings, key=FollowupFinding.tracking_key))
 
 
-def _finding_from_line(ledger_line: str) -> FollowupFinding | None:
-    """Parse one ledger line into a finding.
+def all_record_paths(directory: Path) -> list[Path]:
+    """Return every finding file in one ledger directory, sorted by name.
 
     Args:
-        ledger_line: One line of the ledger file.
+        directory: The follow-up directory to list.
 
     Returns:
-        The parsed finding, or None when the line carries no complete record.
+        The finding file paths, or an empty list when none can be listed.
     """
-    stripped_line = ledger_line.strip()
-    if not stripped_line:
-        return None
     try:
-        parsed_record = json.loads(stripped_line)
+        return sorted(directory.glob(FINDING_FILE_PATTERN))
+    except OSError:
+        return []
+
+
+def all_finding_files(repository_root: Path) -> list[tuple[Path, FollowupFinding]]:
+    """Return each readable finding file with the finding it holds.
+
+    Args:
+        repository_root: The repository whose ledger to read.
+
+    Returns:
+        Path and finding pairs, sorted by file name.
+    """
+    all_pairs: list[tuple[Path, FollowupFinding]] = []
+    for each_path in all_record_paths(followup_directory(repository_root)):
+        try:
+            record_text = each_path.read_text(encoding=LEDGER_ENCODING)
+        except (OSError, UnicodeError):
+            continue
+        each_finding = finding_from_text(record_text)
+        if each_finding is not None:
+            all_pairs.append((each_path, each_finding))
+    return all_pairs
+
+
+def finding_from_text(record_text: str) -> FollowupFinding | None:
+    """Parse one JSON record into a finding.
+
+    Args:
+        record_text: One finding file's text, or one legacy ledger line.
+
+    Returns:
+        The parsed finding, or None when the text carries no complete record.
+    """
+    try:
+        parsed_record = json.loads(record_text)
     except json.JSONDecodeError:
         return None
     if not isinstance(parsed_record, dict):
@@ -232,9 +232,7 @@ def _finding_from_line(ledger_line: str) -> FollowupFinding | None:
     rule_id = parsed_record.get(RULE_ID_KEY)
     file_path = parsed_record.get(FILE_PATH_KEY)
     message = parsed_record.get(MESSAGE_KEY)
-    if not isinstance(rule_id, str) or not isinstance(file_path, str):
-        return None
-    if not isinstance(message, str):
+    if not all(isinstance(each, str) for each in (rule_id, file_path, message)):
         return None
     return FollowupFinding(
         rule_id,
@@ -252,7 +250,7 @@ def _text_field(
     """Read one text field of a ledger record.
 
     Args:
-        all_record_fields: The mapping one ledger line parsed into.
+        all_record_fields: The mapping one record parsed into.
         field_key: The key to read.
         fallback: The value a record written before this field carried it takes.
 

@@ -17,7 +17,6 @@ import repository_policy
 from repository_checks.config.constants import (
     CHECK_ID_CLAUDE_MD_ORPHANS,
     CHECK_ID_ENV_VAR_DOCUMENTATION,
-    CHECK_ID_FOLLOWUP_LEDGER_DUPLICATES,
     CHECK_ID_PACKAGE_INVENTORY,
     CHECK_ID_PYTEST_TESTPATHS,
     CHECK_ID_TRACKED_PERSONAL_DATA,
@@ -51,8 +50,7 @@ def test_should_keep_stable_check_identifiers() -> None:
     assert repository_policy.ALL_CHECK_IDS == (
         CHECK_ID_CLAUDE_MD_ORPHANS,
         CHECK_ID_ENV_VAR_DOCUMENTATION,
-        CHECK_ID_FOLLOWUP_LEDGER_DUPLICATES,
-        CHECK_ID_PACKAGE_INVENTORY,
+            CHECK_ID_PACKAGE_INVENTORY,
         CHECK_ID_PYTEST_TESTPATHS,
         CHECK_ID_TRACKED_PERSONAL_DATA,
         CHECK_ID_TRACKED_PRIVATE_TERMS,

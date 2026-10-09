@@ -8,9 +8,8 @@
  * timestamped `.bak` beside it.
  *
  * Each run also retires the profile-level session-title Stop gate an earlier
- * install copied to `~/.claude`. The plugin's own session-title stop gate does
- * that job, so the merge removes the profile gate's Stop hook and allow rule
- * from each file and deletes the gate files.
+ * install copied to `~/.claude`. The merge removes that gate's Stop hook and
+ * allow rule from each file and deletes the gate files.
  *
  * Run `node merge_profile_settings.mjs --dry-run` to list the changes for
  * every profile on this machine without writing anything.

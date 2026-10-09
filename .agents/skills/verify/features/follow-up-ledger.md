@@ -4,9 +4,9 @@ A local gate that finds a non-breaking smell records it in a per-checkout ledger
 
 ## Sub-features
 
-- The ledger file `.claude/followups/smells.jsonl`, one JSON record per line with `rule_id`, `check_id`, `file_path`, `message`, `severity`, and `origin_commit`. `hooks/followup_ledger.py` writes and reads it.
+- The ledger directory `.claude/followups/`, one JSON file per finding with `rule_id`, `check_id`, `file_path`, `message`, `severity`, and `origin_commit`. Each file name is a hash of the check id, path, and message. `hooks/followup_ledger.py` writes and reads it.
 - The gates that write to it. `scripts/validate_instruction_pairs.py` records `instruction-filename` and `instruction-git-mode` and exits 0. `scripts/repository_policy.py` records its `package-inventory` finding through `scripts/repository_checks/followups.py`.
-- `cde followup list`, `ingest REPORT`, `brief`, `count`, and `clear`, run by `scripts/followup_cli.py`. Each takes `--repository-root PATH`.
+- `cde followup list`, `ingest REPORT`, `brief`, `count`, `clear`, and `dedupe`, run by `scripts/followup_cli.py`. Each takes `--repository-root PATH`.
 - The `check_id` field of `cde lint --format json`, which `ingest` copies into each record.
 - The `/fix-followups` command in `commands/fix-followups.md`, which reads `brief`, fixes each check group, opens a pull request, and runs `clear`.
 
@@ -36,12 +36,13 @@ Expected results:
 | `list` or `brief` on an empty ledger | `no follow-ups recorded` | 0 |
 | `count` at or under 20 records | `<n> follow-ups recorded, threshold 20` | 0 |
 | `count` over 20 records | `... over the threshold of 20. Work the backlog down ...` | 1 |
-| `ingest` of a readable report | Nothing, and one ledger line per new finding | 0 |
+| `ingest` of a readable report | Nothing, and one ledger file per new finding | 0 |
 | `ingest` of a missing or non-JSON file | `cannot read the lint report: <path>` | 2 |
 | `ingest` with no path, or an unknown subcommand | The usage text | 2 |
 | `list` | One line per record: check id, path, origin commit, message, tab-separated | 0 |
 | `brief` | A header, one `- [<check id>] <path>: <message> (recorded at <commit>)` line per record, and a footer naming `clear` | 0 |
-| `clear` | Nothing, and `smells.jsonl` is gone | 0 |
+| `clear` | Nothing, and no `*.json` file is left in `.claude/followups/` | 0 |
+| `dedupe` with a legacy `smells.jsonl` | `moved <n> legacy ledger lines into finding files, removed 0 duplicate finding files`, and `smells.jsonl` is gone | 0 |
 | The instruction-pair gate on a `CLAUDE.md` with Git mode 100755 | `recorded for follow-up: Commit the instruction file with Git mode 100644: CLAUDE.md` | 0 |
 
 Run the paired tests:
@@ -58,7 +59,8 @@ node --test packages/claude-dev-env/bin/cde.test.mjs
 - `cde lint` exits 1 when it writes any diagnostic. Read the report file, and ignore that exit code before `ingest`.
 - Write the lint report from `pwsh` 7, whose `>` writes UTF-8 with no byte-order mark. `ingest` reads UTF-8 only, so a UTF-16 file from the Windows PowerShell 5.1 `>` or a UTF-8 file with a byte-order mark stops with `cannot read the lint report` and exit 2.
 - A diagnostic with no `check_id` records its `rule_id` in that field. A diagnostic with no `rule_id` or no `message` is skipped.
-- A record is written once per `check_id`, path, and message. A second `ingest` of the same report adds no line.
+- A record is written once per `check_id`, path, and message. A second `ingest` of the same report adds no file.
 - `origin_commit` comes from the `.git/HEAD` file and the loose ref it names. It is empty in a linked worktree, where `.git` is a file, and after `git pack-refs` moves the branch ref into `packed-refs`.
 - The `brief` footer names `python <absolute path>/followup_cli.py clear`, the script inside the package that ran it.
-- The first record writes `.claude/followups/.gitignore` holding `*`, so `git status` lists nothing from the ledger directory. `clear` removes only `smells.jsonl`.
+- The first record writes `.claude/followups/.gitignore` holding `*` when the directory has none, so `git status` lists nothing from the ledger directory. A committed `.gitignore`, such as this repository's `!*.json`, stays as it is. `clear` removes every `*.json` file and a legacy `smells.jsonl`, and keeps the `.gitignore`.
+- `list` and `brief` sort findings by check id, path, and message.

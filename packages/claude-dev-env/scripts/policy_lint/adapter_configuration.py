@@ -134,7 +134,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/issue_close_handoff_gate.py       -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt
         hooks/blocking/session_title_format_gate.py      -> exempt
-        hooks/blocking/session_title_stop_gate.py        -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 

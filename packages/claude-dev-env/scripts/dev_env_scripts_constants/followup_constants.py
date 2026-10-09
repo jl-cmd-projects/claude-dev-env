@@ -63,7 +63,10 @@ ABSENT_LOCATION_PATH: str = ""
 LINE_SEPARATOR: str = "\n"
 EMPTY_LEDGER_MESSAGE: str = "no follow-ups recorded"
 UNREADABLE_REPORT_TEMPLATE: str = "cannot read the lint report: {report_path}"
-DEDUPE_RESULT_TEMPLATE: str = "removed {removed_count} duplicate ledger lines"
+DEDUPE_RESULT_TEMPLATE: str = (
+    "moved {migrated_count} legacy ledger lines into finding files, "
+    "removed {removed_count} duplicate finding files"
+)
 USAGE_TEXT: str = (
     "Usage: followup_cli.py <list|ingest|brief|clear|count|dedupe> "
     "[--repository-root PATH]\n"

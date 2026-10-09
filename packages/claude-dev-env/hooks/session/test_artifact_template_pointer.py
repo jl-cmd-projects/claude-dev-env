@@ -44,6 +44,19 @@ def test_artifact_quickstart_gets_the_template_pointer() -> None:
     assert "permissionDecision" not in specific_output
 
 
+def test_pointer_routes_a_simple_visual_to_a_flowchart_ahead_of_html_plan() -> None:
+    hook_output = artifact_template_pointer.decide_hook_output(
+        _payload("Artifact", {"action": "quickstart", "intent": "other"})
+    )
+    assert hook_output is not None
+    pointer_text = hook_output["hookSpecificOutput"]["additionalContext"]
+    assert pointer_text.index("one flow or one comparison") < pointer_text.index("flowchart")
+    assert pointer_text.index("flowchart") < pointer_text.index("multi-part plan or evidence")
+    assert pointer_text.index("multi-part plan or evidence") < pointer_text.index(
+        str(HTML_PLAN_TEMPLATE_README_PATH)
+    )
+
+
 def test_artifact_design_skill_gets_the_template_pointer() -> None:
     hook_output = artifact_template_pointer.decide_hook_output(
         _payload("Skill", {"skill": "artifact-design"})

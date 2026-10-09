@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 __all__ = [
-    "ALL_FOLLOWUP_LEDGER_PATH_SEGMENTS",
+    "ALL_FOLLOWUP_DIRECTORY_SEGMENTS",
+    "LEGACY_LEDGER_FILE_NAME",
+    "FINDING_FILE_SUFFIX",
+    "FINDING_FILE_PATTERN",
+    "FINDING_FILE_NAME_HASH_LENGTH",
     "LEDGER_ENCODING",
-    "LEDGER_APPEND_MODE",
+    "LEDGER_CREATE_MODE",
+    "LEDGER_JSON_INDENT",
     "LEDGER_IGNORE_FILE_NAME",
     "LEDGER_IGNORE_TEXT",
     "RULE_ID_KEY",
@@ -28,9 +33,14 @@ __all__ = [
     "ALL_SEVERITY_NAMES",
 ]
 
-ALL_FOLLOWUP_LEDGER_PATH_SEGMENTS: tuple[str, ...] = (".claude", "followups", "smells.jsonl")
+ALL_FOLLOWUP_DIRECTORY_SEGMENTS: tuple[str, ...] = (".claude", "followups")
+LEGACY_LEDGER_FILE_NAME: str = "smells.jsonl"
+FINDING_FILE_SUFFIX: str = ".json"
+FINDING_FILE_PATTERN: str = "*.json"
+FINDING_FILE_NAME_HASH_LENGTH: int = 16
 LEDGER_ENCODING: str = "utf-8"
-LEDGER_APPEND_MODE: str = "a"
+LEDGER_CREATE_MODE: str = "x"
+LEDGER_JSON_INDENT: int = 2
 LEDGER_IGNORE_FILE_NAME: str = ".gitignore"
 LEDGER_IGNORE_TEXT: str = "*\n"
 

@@ -1231,6 +1231,7 @@ test('retired hook registrations stay managed so reinstall removes them', () => 
         'blocking/question_to_user_enforcer.py',
         'blocking/session_handoff_blocker.py',
         'blocking/artifact_look_gate.py',
+        'blocking/session_title_stop_gate.py',
         'session/issue_tracker_session_starter.py',
     ]);
     const shippedHooks = JSON.parse(

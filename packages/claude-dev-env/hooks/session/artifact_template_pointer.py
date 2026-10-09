@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: point an agent about to build an artifact page at html-plan.
+"""PreToolUse hook: route an agent about to build an artifact page by scope.
 
 Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
-naming ``docs/templates/html-plan/README.md`` as the default and
-``docs/templates/artifact-page/README.md`` as the alternative when a
-session starts a new artifact page:
+when a session starts a new artifact page. One flow or one comparison is an
+inline SVG flowchart with minimal text. A multi-part plan or evidence is an
+html-plan page from ``docs/templates/html-plan/README.md``, and
+``docs/templates/artifact-page/README.md`` stays the alternative:
 
 ::
 
