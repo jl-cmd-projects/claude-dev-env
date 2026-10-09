@@ -9,7 +9,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/working_style_prompt.py` injects the session's working style at session start.
 - `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled.
 - `session/orchestrator_auto_starter.py` injects an orchestrator directive when its environment flag is enabled.
-- `session/artifact_template_pointer.py` points an agent that starts an artifact page at `docs/templates/artifact-page/template.html`.
+- `session/artifact_template_pointer.py` points an agent that starts an artifact page at `docs/templates/html-plan/README.md`. When the request names the older artifact page template, it points at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
 - `advisory/auto_mode_denial_quick_fix.py` proposes one `autoMode.allow` entry and a PowerShell block that writes it after an auto mode denial. It never retries the denied call.
 
 ## When it fires
@@ -30,7 +30,7 @@ Preconditions:
 - **Working style.** Input is a SessionStart event. Run `python -m pytest packages/claude-dev-env/hooks/session/test_working_style_prompt.py -q`. The adjacent test observes the fixed context text.
 - **Advisor guidance.** Input is SessionStart with `advisorModel` set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_advisor_rules_prompt.py -q`. The adjacent test observes guidance only when the advisor setting is enabled.
 - **Orchestrator start.** Input is SessionStart with its opt-in flag set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_orchestrator_auto_starter.py -q`. The adjacent test observes an orchestrator directive.
-- **Artifact template pointer.** Input is an `Artifact` quickstart call. Run `python -m pytest packages/claude-dev-env/hooks/session/test_artifact_template_pointer.py -q`. The adjacent test observes the template path in `additionalContext`, and silence on a publish call or another skill.
+- **Artifact template pointer.** Input is an `Artifact` quickstart call. Run `python -m pytest packages/claude-dev-env/hooks/session/test_artifact_template_pointer.py -q`. The adjacent test observes the html-plan path ahead of the template path in `additionalContext`, and silence on a publish call or another skill.
 - **Denial quick fix.** Input is a `PermissionDenied` event with a bracketed rule label and a classifier verdict. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_auto_mode_denial_quick_fix.py -q`. The adjacent test observes the named rule, the allow entry, and the PowerShell block; a denial with no verdict gets a note and no block.
 
 ## Gotchas

@@ -17,4 +17,4 @@ Four failures end a run: the source bytes changed, a provenance or digest mismat
 
 **Enforcement:** `code_rules_blast_radius.py`, which the staged policy lint runs through `code_rules_enforcer.py` under its `code-rules` rule. CI runs it against the merge base.
 
-**Full text:** [`docs/rule-guides/failure-blast-radius.md`](../docs/rule-guides/failure-blast-radius.md), with the boundary example and the Codex excerpt.
+**Full text:** [guide](../docs/rule-guides/failure-blast-radius.md), with the boundary example and the Codex excerpt.

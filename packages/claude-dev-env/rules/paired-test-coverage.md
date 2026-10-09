@@ -11,4 +11,4 @@ Every public function such a module defines gets a behavioral test in its paired
 
 **Enforcement:** `check_public_function_missing_paired_test` and `check_test_file_omits_module_public_function` in `code_rules_paired_test.py`, which the staged policy lint runs through `code_rules_enforcer.py`. Both record smells per [`flag-non-breaking-findings.md`](flag-non-breaking-findings.md).
 
-**Full text:** [`docs/rule-guides/paired-test-coverage.md`](../docs/rule-guides/paired-test-coverage.md).
+**Full text:** [guide](../docs/rule-guides/paired-test-coverage.md).

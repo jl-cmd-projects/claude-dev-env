@@ -17,3 +17,7 @@ DUPLICATE_FOLLOWUP_REASON_TEMPLATE = (
     " ({open_url}). Add this finding to the open follow-up pull request #{open_number}."
     " One combined follow-up pull request per parent pull request."
 )
+ALL_TITLE_OPTIONS = frozenset({"-t", "--title"})
+WORKFLOW_DISPATCH_TOOL_SUFFIX = "__actions_run_trigger"
+RUN_WORKFLOW_METHOD = "run_workflow"
+ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS = ("head", "title")

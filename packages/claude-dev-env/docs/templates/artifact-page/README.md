@@ -1,5 +1,16 @@
 # Artifact page template
 
+Two templates live here. Pick the one that fits the ask before you write a line.
+
+| Ask | Template |
+|---|---|
+| A tracker, board, review page or dashboard that people read and click | `template.html` |
+| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | `diagram.html` |
+
+`diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
+
+Render the page and look at the screenshot before you publish. Headless Chromium renders at least 500 pixels wide, so take the screenshot at 800 wide.
+
 `template.html` is the reference page for any artifact an agent builds: a tracker, a board, a review page, a dashboard. Start from it, keep its structure and house style, and replace the sample data and the parts the new page does not need.
 
 ## What it demonstrates
