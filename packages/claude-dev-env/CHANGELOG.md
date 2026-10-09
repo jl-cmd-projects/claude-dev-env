@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.73.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.0...claude-dev-env-v8.73.1) (2026-10-09)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1681](https://github.com/jl-cmd-projects/claude-dev-env/issues/1681), [#1662](https://github.com/jl-cmd-projects/claude-dev-env/issues/1662) ([#1794](https://github.com/jl-cmd-projects/claude-dev-env/issues/1794)) ([4248e40](https://github.com/jl-cmd-projects/claude-dev-env/commit/4248e40d358e953d2bf1777201445ba695ecc834))
+
 ## [8.73.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.2...claude-dev-env-v8.73.0) (2026-10-09)
 
 
