@@ -18,40 +18,12 @@ from hooks_constants.pre_tool_use_dispatcher_constants import (
     ALL_WRITE_EDIT_MULTI_EDIT_TOOL_NAMES,
     APPLY_PATCH_TOOL_NAME,
     BLOCKING_CRASH_DENY_REASON,
-    EDIT_TOOL_NAME,
-    MULTI_EDIT_TOOL_NAME,
 )
 from pre_tool_use_dispatcher import HostedHookResult, aggregate_hosted_hook_results
 
 
-def _entry_for(script_relative_path: str):
-    matching_entries = [
-        each_entry
-        for each_entry in ALL_HOSTED_HOOK_ENTRIES
-        if each_entry.script_relative_path == script_relative_path
-    ]
-    return matching_entries[0] if matching_entries else None
-
-
-def test_roster_keeps_only_nonblocking_edit_advisors() -> None:
-    all_script_paths = tuple(
-        each_entry.script_relative_path for each_entry in ALL_HOSTED_HOOK_ENTRIES
-    )
-    assert all_script_paths == (
-        "advisory/refactor_guard.py",
-        "advisory/migration_safety_advisor.py",
-    )
-    assert all(not each_entry.is_blocking for each_entry in ALL_HOSTED_HOOK_ENTRIES)
-
-
-def test_advisors_apply_to_edit_and_multi_edit() -> None:
-    for each_script_path in (
-        "advisory/refactor_guard.py",
-        "advisory/migration_safety_advisor.py",
-    ):
-        entry = _entry_for(each_script_path)
-        assert entry is not None
-        assert entry.applicable_tool_names == frozenset({EDIT_TOOL_NAME, MULTI_EDIT_TOOL_NAME})
+def test_roster_hosts_no_script() -> None:
+    assert ALL_HOSTED_HOOK_ENTRIES == ()
 
 
 def test_every_hosted_script_path_exists_under_the_hooks_root() -> None:

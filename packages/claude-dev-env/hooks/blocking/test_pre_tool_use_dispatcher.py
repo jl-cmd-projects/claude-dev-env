@@ -724,10 +724,7 @@ def test_folded_write_edit_hooks_have_no_standalone_hooks_json_entry() -> None:
         for each_group in hooks_configuration["hooks"]["PreToolUse"]
         for each_hook in each_group["hooks"]
     ]
-    folded_script_relative_paths = (
-        "advisory/refactor_guard.py",
-        "advisory/migration_safety_advisor.py",
-    )
+    folded_script_relative_paths = ("advisory/migration_safety_advisor.py",)
     for each_script_path in folded_script_relative_paths:
         matching_commands = [
             each_command
@@ -807,10 +804,7 @@ def test_dispatcher_allows_clean_apply_patch_add(tmp_path: Path) -> None:
     assert not is_deny, reason_text
 
 
-ALL_RETAINED_PATHS = {
-    "advisory/refactor_guard.py",
-    "advisory/migration_safety_advisor.py",
-}
+ALL_RETAINED_PATHS: set[str] = set()
 ALL_RETIRED_PATHS = {
     "validation/hook_format_validator.py",
     "blocking/code_rules_enforcer.py",

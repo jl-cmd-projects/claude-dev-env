@@ -11,4 +11,4 @@ Mark each changing value with angle brackets, including loop indices in paths or
 
 **Enforcement:** `workflow-substitution` in the staged policy lint.
 
-**Full text:** [`docs/rule-guides/workflow-substitution-slots.md`](../docs/rule-guides/workflow-substitution-slots.md). Read it when a loop builds a path or output key.
+**Full text:** [guide](../docs/rule-guides/workflow-substitution-slots.md). Read it when a loop builds a path or output key.
