@@ -69,7 +69,7 @@ export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
             continue;
         }
         if (Object.hasOwn(targetSettings, settingKey)) continue;
-        targetSettings[settingKey] = defaultValue;
+        targetSettings[settingKey] = structuredClone(defaultValue);
         addedKeys.push(settingKey);
     }
     return { addedKeys };
