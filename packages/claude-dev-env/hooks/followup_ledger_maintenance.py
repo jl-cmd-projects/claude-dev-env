@@ -73,21 +73,30 @@ def normalize_ledger(repository_root: Path) -> LedgerNormalization:
         How many legacy lines moved and how many duplicate files left.
     """
     migrated_count = _migrate_legacy_ledger(repository_root)
+    all_pairs = all_finding_files(repository_root)
+    all_readable_paths = {each_path for each_path, _each_finding in all_pairs}
     removed_count = sum(
-        _settle_finding_file(each_path, finding_path(repository_root, each_finding))
-        for each_path, each_finding in all_finding_files(repository_root)
+        _settle_finding_file(
+            each_path,
+            finding_path(repository_root, each_finding),
+            all_readable_paths,
+        )
+        for each_path, each_finding in all_pairs
     )
     return LedgerNormalization(migrated_count, removed_count)
 
 
-def _settle_finding_file(current_path: Path, expected_path: Path) -> int:
+def _settle_finding_file(
+    current_path: Path, expected_path: Path, all_readable_paths: set[Path]
+) -> int:
     if current_path == expected_path:
         return 0
     try:
-        if expected_path.exists():
+        if expected_path in all_readable_paths:
             current_path.unlink()
             return 1
-        current_path.rename(expected_path)
+        if not expected_path.exists():
+            current_path.rename(expected_path)
     except OSError:
         return 0
     return 0

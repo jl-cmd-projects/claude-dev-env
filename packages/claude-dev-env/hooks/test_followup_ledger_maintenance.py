@@ -88,3 +88,20 @@ def test_normalize_keeps_the_legacy_ledger_when_a_finding_cannot_be_written(
 
     assert normalization.migrated_count == 0
     assert legacy_path.read_text(encoding="utf-8") == legacy_text + "\n"
+
+
+def test_normalize_keeps_a_misnamed_finding_when_its_name_holds_a_damaged_file(
+    tmp_path: Path,
+) -> None:
+    finding = FollowupFinding("r1", "a.py", "m1", "r1")
+    record_followup_finding(tmp_path, finding)
+    expected_path = finding_path(tmp_path, finding)
+    misnamed_path = expected_path.with_name("misnamed.json")
+    expected_path.rename(misnamed_path)
+    expected_path.write_text("{ damaged\n", encoding="utf-8")
+
+    normalization = normalize_ledger(tmp_path)
+
+    assert normalization.removed_count == 0
+    assert misnamed_path.is_file()
+    assert all_recorded_findings(tmp_path) == (finding,)
