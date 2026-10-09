@@ -1,6 +1,6 @@
 # Correction filing
 
-`scripts/correction_filing.py` is the one filing path. The skill calls it.
+`scripts/correction_filing.py` files a correction as a labeled issue for the correction flag mod in claude-mods-framework, which runs `correction_filing.py file --source flag`. `/correction` hands a correction off as a task card and files no issue. The skill runs only `list`, which reads the issues filed before the card and the issues the flag mod files.
 
 ## Config
 
