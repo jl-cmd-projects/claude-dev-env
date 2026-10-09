@@ -263,10 +263,18 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the session agent, advisor model and auto mode defaults', () => {
+test('package settings.json publishes the session agent, advisor model, auto-compact and auto mode defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
-    assert.deepEqual(Object.keys(settingsDefaults).sort(), ['advisorModel', 'agent', 'autoMode']);
+    assert.deepEqual(
+        Object.keys(settingsDefaults).sort(),
+        ['advisorModel', 'agent', 'autoCompactWindow', 'autoMode', 'modelSettings'],
+    );
+    assert.equal(settingsDefaults.autoCompactWindow, 350000);
+    assert.deepEqual(settingsDefaults.modelSettings, {
+        'claude-haiku-5-5': { autoCompactWindow: 100000 },
+        'claude-haiku-4-5': { autoCompactWindow: 100000 },
+    });
     assert.equal(settingsDefaults.agent, 'dev-env-session');
     assert.ok(
         existsSync(join(PACKAGE_ROOT, '.agents', 'agents', `${settingsDefaults.agent}.md`)),
