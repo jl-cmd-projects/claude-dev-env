@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.72.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.1...claude-dev-env-v8.72.2) (2026-10-09)
+
+
+### Documentation
+
+* **language:** say each fact once and add a repeated-points check ([#1901](https://github.com/jl-cmd-projects/claude-dev-env/issues/1901)) ([b77c2d8](https://github.com/jl-cmd-projects/claude-dev-env/commit/b77c2d880ef9731dd17f7a1ab46fa0ab6f53ebdb))
+
 ## [8.72.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.72.0...claude-dev-env-v8.72.1) (2026-10-09)
 
 
