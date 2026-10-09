@@ -35,6 +35,6 @@ For a task that spawned workers, the completion condition and checklist live in 
 
 ## Ground progress and the closing report
 
-Progress claims come from tool results in the current session. Failed tests carry their output. Skipped steps are named. The [ASD-STE100 language rule](../../rules/asd-ste100-language.md) governs the wording. The first progress update uses one sentence. Later updates cover important discoveries or a change in direction.
+Progress claims come from tool results in the current session. Failed tests carry their output. Skipped steps are named. The [ASD-STE100 language rule](asd-ste100-language.md) governs the wording. The first progress update uses one sentence. Later updates cover important discoveries or a change in direction.
 
 Terse notes between tool calls can support the run. The final message briefs a reader who saw none of them. It opens with the outcome, then explains any input needed using plain names for each file, commit, or flag. A remaining context or token count does not end an unfinished run. Content the user must see word for word goes through the channel the harness provides for it.

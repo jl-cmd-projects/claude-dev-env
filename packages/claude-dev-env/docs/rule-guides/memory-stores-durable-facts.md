@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/memory-stores-durable-facts.md).
+Back to the [rules index](../../rules/index.md).
 
 # Memory stores durable facts
+
+## In brief
+
+Keep only a fact that helps a fresh session weeks later. Remove dates, task identifiers, commits, and paths from a draft; if the remainder is empty or false, put it in the task tracker or handoff instead. Store standing user preferences, stable setup traps, and useful resource pointers. Delete stale memory and its index line in the same run.
+
+**Enforcement:** none.
 
 **When this applies:** Before you write or update a file in an auto-memory
 directory, and before you add its line to `MEMORY.md`.
@@ -55,5 +61,5 @@ into each session and reads as current.
 | Rule | Role |
 |---|---|
 | [`correction-lens.md`](../../rules/correction-lens.md) | A memory records a decision, and the control holds the behavior |
-| [`verify-before-asking.md`](../../rules/verify-before-asking.md) | A recalled fact is a claim to re-check |
-| [`cleanup-temp-files.md`](../../rules/cleanup-temp-files.md) | Scratch output leaves with the task |
+| [`verify-before-asking.md`](verify-before-asking.md) | A recalled fact is a claim to re-check |
+| [`cleanup-temp-files.md`](cleanup-temp-files.md) | Scratch output leaves with the task |

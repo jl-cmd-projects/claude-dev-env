@@ -29,7 +29,7 @@ For a non-Windows run, return exactly:
 ## Process
 
 1. When the session exposes a task tool, register the tasks in `reference/task-seeds.md`.
-2. Read `../../../rules/verify-runtime-state.md`.
+2. Read `../../../docs/rule-guides/verify-runtime-state.md`.
 3. Confirm Windows and collect a fresh timestamp.
 4. Use read-only Windows tools to inspect Codex processes only.
 5. Record process name, executable path, start time, and owner.

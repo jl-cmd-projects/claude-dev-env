@@ -9,14 +9,10 @@ The sandbox is rooted under the user's home directory via ``tempfile.mkdtemp``
 rather than the OS temp directory, matching the sibling workflow-hook tests.
 """
 
-import contextlib
 import functools
 import importlib.util
-import inspect
 import json
 import os
-import shutil
-import stat
 import subprocess
 import sys
 import tempfile
@@ -25,6 +21,8 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+
+from hooks_constants.windows_filesystem import force_rmtree
 
 HOOK_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "auto_formatter.py")
 HOOKS_DIRECTORY_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,25 +50,6 @@ def build_dispatcher_payload(tool_name: str, file_path: Path) -> str:
     return json.dumps({"tool_name": tool_name, "tool_input": {"file_path": str(file_path)}})
 
 
-def _strip_read_only_and_retry(removal_function, target_path, *_exc_info):
-    try:
-        os.chmod(target_path, stat.S_IWRITE)
-        removal_function(target_path)
-    except OSError:
-        pass
-
-
-_rmtree_supports_onexc = "onexc" in inspect.signature(shutil.rmtree).parameters
-
-
-def _force_rmtree(target_path: str) -> None:
-    with contextlib.suppress(OSError):
-        if _rmtree_supports_onexc:
-            shutil.rmtree(target_path, onexc=_strip_read_only_and_retry)
-        else:
-            shutil.rmtree(target_path, onerror=_strip_read_only_and_retry)
-
-
 @functools.lru_cache(maxsize=1)
 def _get_sandbox_parent_directory() -> str:
     return tempfile.mkdtemp(prefix="pytest_auto_formatter_", dir=str(Path.home()))
@@ -80,7 +59,7 @@ def _get_sandbox_parent_directory() -> str:
 def _cleanup_sandbox_parent_directory() -> Generator[None]:
     yield
     if _get_sandbox_parent_directory.cache_info().currsize:
-        _force_rmtree(_get_sandbox_parent_directory())
+        force_rmtree(_get_sandbox_parent_directory())
         _get_sandbox_parent_directory.cache_clear()
 
 
@@ -95,7 +74,7 @@ def git_repository() -> Generator[Path]:
         env=build_fixture_git_environment(),
     )
     yield repository_path
-    _force_rmtree(str(repository_path))
+    force_rmtree(str(repository_path))
 
 
 def _run_hook(tool_name: str, file_path: Path) -> subprocess.CompletedProcess[str]:

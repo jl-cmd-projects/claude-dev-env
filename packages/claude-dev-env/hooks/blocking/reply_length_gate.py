@@ -41,6 +41,15 @@ Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
 fenced blocks carry no words.
 
+With visual reply mode on, the gate also runs the checks in
+``visual_reply_rules.py``. The mode is off until
+``~/.claude/visual-reply-mode.json`` holds ``{"enabled": true}``. A reply
+or a decision card may hold no abbreviation and no tracker number outside
+a link. A reply of more than one sentence needs a widget or a page earlier
+in the turn. A turn sends one reply, so a reply after a delivered reply in
+the same turn is denied. A widget may hold no anchor link, since a widget
+link does not open in the Claude app.
+
 A length limit is a smell elsewhere in this package, recorded and fixed in a
 later pass. A posted reply reaches the user the moment it sends and has no
 later pass, so this gate denies it and the model resends a shorter one.
@@ -58,6 +67,15 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from json_file_reader import read_json_object
+from visual_reply_rules import (
+    VisualReplyRules,
+    abbreviation_violation,
+    load_rules,
+    mode_enabled,
+    second_reply_violation,
+    visual_violation,
+    widget_anchor_violation,
+)
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.reply_length_gate_constants import (
@@ -101,6 +119,7 @@ from hooks_constants.reply_length_gate_constants import (
     TOO_MANY_SENTENCES_MESSAGE,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
+    TRANSCRIPT_PATH_KEY,
     UNLINKED_PULL_REQUEST_MESSAGE,
     UNLINKED_PULL_REQUEST_PATTERN,
     UNSOURCED_CAUSE_MESSAGE,
@@ -176,12 +195,17 @@ def unsourced_cause_violation(reply_text: str) -> str | None:
     return None
 
 
-def unlinked_pull_request_violation(reply_text: str) -> str | None:
-    """Return the deny reason for a pull request number outside a link, or None."""
+def prose_outside_links(reply_text: str) -> str:
+    """Remove fenced blocks, code spans, whole markdown links and URLs."""
     without_fences = FENCED_BLOCK_PATTERN.sub(" ", reply_text)
     without_code = INLINE_CODE_PATTERN.sub(" ", without_fences)
     without_links = MARKDOWN_LINK_PATTERN.sub(" ", without_code)
-    unlinked_match = UNLINKED_PULL_REQUEST_PATTERN.search(URL_PATTERN.sub(" ", without_links))
+    return URL_PATTERN.sub(" ", without_links)
+
+
+def unlinked_pull_request_violation(reply_text: str) -> str | None:
+    """Return the deny reason for a pull request number outside a link, or None."""
+    unlinked_match = UNLINKED_PULL_REQUEST_PATTERN.search(prose_outside_links(reply_text))
     if unlinked_match is None:
         return None
     return UNLINKED_PULL_REQUEST_MESSAGE.format(reference=unlinked_match.group(0))
@@ -240,17 +264,24 @@ def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
     ]
 
 
-def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
-    """Return the deny reason and the checked text for one call, or None when it passes."""
-    if tool_name == DECISION_CARD_TOOL_NAME:
-        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
-        card_violation = banned_word_violation(card_text, configured_banned_words())
-        return None if card_violation is None else (card_violation, card_text)
-    if tool_name not in ALL_CHECKED_TOOL_NAMES:
+def active_mode_rules() -> VisualReplyRules | None:
+    """Return the visual reply rules when the mode is on and the rule file parses."""
+    if not mode_enabled(Path.home() / CLAUDE_HOME_DIRECTORY_NAME):
         return None
-    reply_text = all_tool_input.get(TEXT_KEY)
-    if not isinstance(reply_text, str):
-        return None
+    return load_rules()
+
+
+def card_violation(card_text: str, mode_rules: VisualReplyRules | None) -> str | None:
+    """Return the deny reason for a decision card's prose, or None."""
+    return banned_word_violation(card_text, configured_banned_words()) or (
+        None if mode_rules is None else abbreviation_violation(prose_outside_links(card_text), mode_rules)
+    )
+
+
+def reply_violation(
+    reply_text: str, transcript_path: object, mode_rules: VisualReplyRules | None
+) -> str | None:
+    """Return the deny reason for a reply's text, or None."""
     violation = (
         length_violation(reply_text)
         or mid_sentence_colon_violation(reply_text)
@@ -259,6 +290,35 @@ def tool_violation(tool_name: object, all_tool_input: dict[str, object]) -> tupl
         or unsourced_cause_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
+    if violation is not None or mode_rules is None:
+        return violation
+    prose_text = prose_outside_links(reply_text)
+    return (
+        abbreviation_violation(prose_text, mode_rules)
+        or second_reply_violation(transcript_path, mode_rules)
+        or visual_violation(len(sentence_word_lists(reply_text)), transcript_path, mode_rules)
+    )
+
+
+def tool_violation(
+    tool_name: object, all_tool_input: dict[str, object], transcript_path: object = None
+) -> tuple[str, str] | None:
+    """Return the deny reason and the checked text for one call, or None when it passes."""
+    mode_rules = active_mode_rules()
+    if isinstance(tool_name, str) and mode_rules is not None:
+        anchor_violation = widget_anchor_violation(tool_name, all_tool_input)
+        if anchor_violation is not None:
+            return anchor_violation, str(all_tool_input)
+    if tool_name == DECISION_CARD_TOOL_NAME:
+        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
+        violation = card_violation(card_text, mode_rules)
+        return None if violation is None else (violation, card_text)
+    if tool_name not in ALL_CHECKED_TOOL_NAMES:
+        return None
+    reply_text = all_tool_input.get(TEXT_KEY)
+    if not isinstance(reply_text, str):
+        return None
+    violation = reply_violation(reply_text, transcript_path, mode_rules)
     return None if violation is None else (violation, reply_text)
 
 
@@ -270,7 +330,7 @@ def main() -> int:
     tool_input = hook_input.get(TOOL_INPUT_KEY)
     if not isinstance(tool_input, dict):
         return ALLOW_EXIT_CODE
-    checked = tool_violation(tool_name, tool_input)
+    checked = tool_violation(tool_name, tool_input, hook_input.get(TRANSCRIPT_PATH_KEY))
     if checked is None:
         return ALLOW_EXIT_CODE
     violation, reply_text = checked

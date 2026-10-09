@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
-
-_SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIRECTORY) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIRECTORY))
 
 import digest_check
 from dev_env_scripts_constants.digest_check_constants import (

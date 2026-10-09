@@ -22,12 +22,15 @@ def run_gate(
     capsys: pytest.CaptureFixture[str],
     tool_name: str,
     tool_input: dict[str, object],
+    transcript_path: Path | None = None,
 ) -> tuple[int, str]:
-    hook_input = {
+    hook_input: dict[str, object] = {
         "hook_event_name": "PreToolUse",
         "tool_name": tool_name,
         "tool_input": tool_input,
     }
+    if transcript_path is not None:
+        hook_input["transcript_path"] = str(transcript_path)
     monkeypatch.setattr(
         "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
     )
@@ -39,6 +42,9 @@ def run_gate(
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    switch_path = tmp_path / ".claude" / "visual-reply-mode.json"
+    switch_path.parent.mkdir(exist_ok=True)
+    switch_path.write_text('{"enabled": true}', encoding="utf-8")
 
 
 def test_should_allow_three_short_sentences(
@@ -48,7 +54,7 @@ def test_should_allow_three_short_sentences(
         monkeypatch,
         capsys,
         REPLY_TOOL_NAME,
-        {"text": "The fix is in. Tests pass on CI. It ships with the next release."},
+        {"text": "The fix is in. Tests pass. It ships with the next release."},
     )
     assert (exit_code, stderr_text) == (0, "")
 
@@ -292,7 +298,7 @@ def test_should_replace_the_defaults_with_the_configured_list(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
     likely_exit_code, _ = run_gate(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."}
@@ -318,7 +324,7 @@ def test_should_keep_the_defaults_when_the_config_file_is_malformed(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("{not json", encoding="utf-8")
     exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It likely passed."})
     assert exit_code == 2
@@ -426,7 +432,7 @@ def test_should_apply_the_configured_list_to_decision_cards(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     config_path = tmp_path / ".claude" / "reply-banned-words.json"
-    config_path.parent.mkdir()
+    config_path.parent.mkdir(exist_ok=True)
     config_path.write_text(json.dumps({"banned_words": ["synergy"]}), encoding="utf-8")
     probably_exit_code, _ = run_gate(
         monkeypatch,
@@ -487,6 +493,179 @@ def test_should_deny_an_em_dash_and_allow_one_in_code(
     )
     assert (denied_code, allowed_code) == (2, 0)
     assert "em dash" in denied_text
+
+
+WIDGET_TOOL_NAME = "mcp__hearthbot__post_widget"
+TWO_SENTENCE_REPLY = "The deploy stopped on a missing file. The page shows each step."
+
+
+def write_transcript(transcript_path: Path, all_entries: list[dict[str, object]]) -> Path:
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_entry) for each_entry in all_entries), encoding="utf-8"
+    )
+    return transcript_path
+
+
+def prompt_entry(text: str) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+def tool_call_entry(tool_name: str) -> dict[str, object]:
+    return {
+        "type": "assistant",
+        "message": {"content": [{"type": "tool_use", "id": "t1", "name": tool_name, "input": {}}]},
+    }
+
+
+def turn_mode_off(tmp_path: Path) -> None:
+    switch_path = tmp_path / ".claude" / "visual-reply-mode.json"
+    switch_path.parent.mkdir(exist_ok=True)
+    switch_path.write_text('{"enabled": false}', encoding="utf-8")
+
+
+def test_should_deny_an_abbreviation_in_a_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The API deploy is fixed."}
+    )
+    assert exit_code == 2
+    assert 'Abbreviation "API"' in stderr_text
+
+
+def test_should_allow_an_abbreviation_inside_a_pull_request_link(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, _ = run_gate(
+        monkeypatch,
+        capsys,
+        REPLY_TOOL_NAME,
+        {"text": "It merged in [PR 5256](https://github.com/owner/repo/pull/5256)."},
+    )
+    assert exit_code == 0
+
+
+def test_should_deny_a_tracker_item_number(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Item 6 is ready for you."}
+    )
+    assert exit_code == 2
+    assert 'Tracker number "Item 6"' in stderr_text
+
+
+def test_should_deny_an_abbreviation_in_a_decision_card(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        {"question": "Ship the API fix?", "options": [{"label": "Ship it", "consequence": "It merges."}]},
+    )
+    assert exit_code == 2
+    assert 'Abbreviation "API"' in stderr_text
+
+
+def test_should_deny_two_sentences_with_no_visual_this_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "t.jsonl",
+        [prompt_entry("why did the deploy stop"), tool_call_entry("Bash")],
+    )
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+    assert "no visual this turn" in stderr_text
+
+
+def test_should_allow_two_sentences_after_a_widget_this_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "t.jsonl",
+        [prompt_entry("why did the deploy stop"), tool_call_entry(WIDGET_TOOL_NAME)],
+    )
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
+    )
+    assert exit_code == 0
+
+
+def test_should_deny_when_the_only_widget_came_before_the_last_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "t.jsonl",
+        [
+            prompt_entry("why did the deploy stop"),
+            tool_call_entry(WIDGET_TOOL_NAME),
+            prompt_entry("and the logs"),
+        ],
+    )
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+
+
+def test_should_allow_one_sentence_with_no_visual(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(tmp_path / "t.jsonl", [prompt_entry("merge it")])
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "It merged."}, transcript_path
+    )
+    assert exit_code == 0
+
+
+def test_should_deny_an_anchor_link_inside_widget_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        WIDGET_TOOL_NAME,
+        {"widget_code": '<div><a href="https://claude.ai/artifact/x">Review page</a></div>'},
+    )
+    assert exit_code == 2
+    assert "does not open in the Claude app" in stderr_text
+
+
+def test_should_allow_widget_code_with_no_anchor(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, WIDGET_TOOL_NAME, {"widget_code": "<div>Three steps</div>"}
+    )
+    assert exit_code == 0
+
+
+def test_should_skip_the_mode_checks_when_the_switch_turns_the_mode_off(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    turn_mode_off(tmp_path)
+    transcript_path = write_transcript(tmp_path / "t.jsonl", [prompt_entry("status")])
+    all_exit_codes = [
+        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The API deploy is fixed."})[0],
+        run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "Which build ships first?"})[0],
+        run_gate(
+            monkeypatch, capsys, REPLY_TOOL_NAME, {"text": TWO_SENTENCE_REPLY}, transcript_path
+        )[0],
+        run_gate(monkeypatch, capsys, WIDGET_TOOL_NAME, {"widget_code": '<a href="x">go</a>'})[0],
+    ]
+    assert all_exit_codes == [0, 0, 0, 0]
+
+
+def test_should_keep_the_length_check_when_the_mode_is_off(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    turn_mode_off(tmp_path)
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "One. Two. Three. Four."})
+    assert exit_code == 2
 
 
 def test_should_deny_the_quoted_cause_with_no_source(

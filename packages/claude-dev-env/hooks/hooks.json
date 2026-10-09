@@ -123,7 +123,7 @@
         ]
       },
       {
-        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__ask_decision",
+        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__ask_decision|mcp__hearthbot__post_widget",
         "hooks": [
           {
             "type": "command",
@@ -178,11 +178,6 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/artifact_template_pointer.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_look_gate.py",
             "timeout": 10
           }
         ]

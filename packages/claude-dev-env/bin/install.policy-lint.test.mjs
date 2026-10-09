@@ -45,6 +45,7 @@ const allRetiredPolicyRegistrations = [
     'blocking/send_user_file_open_locally_blocker.py',
     'blocking/question_to_user_enforcer.py',
     'blocking/session_handoff_blocker.py',
+    'blocking/artifact_look_gate.py',
 ];
 const sourceHooks = JSON.parse(readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8'));
 const installedRoot = '/fixture-home/.claude';

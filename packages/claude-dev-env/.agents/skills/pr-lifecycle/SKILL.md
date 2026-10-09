@@ -226,7 +226,7 @@ behind, so each new head runs the gate again.
 | Rule | Role |
 |---|---|
 | [`git-workflow.md`](#git-workflow) | Confirm each required context fired after the push |
-| [`verify-runtime-state.md`](~/.claude/rules/verify-runtime-state.md) | A status field is a report; read the thing the work was meant to make |
+| [`verify-runtime-state.md`](~/.claude/docs/rule-guides/verify-runtime-state.md) | A status field is a report; read the thing the work was meant to make |
 | [`falsify-before-green.md`](~/.claude/rules/falsify-before-green.md) | A green counts as evidence once the check has run red on a deliberate break |
 
 ## Review Closure Is a Check

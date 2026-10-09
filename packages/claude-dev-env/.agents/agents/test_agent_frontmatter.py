@@ -474,20 +474,20 @@ EXPECTED_SOURCE_LINK_PAIRS = {
             "packages/claude-dev-env/rules/bdd.md",
         ),
         (
-            "<managed-root>/rules/verify-before-asking.md",
-            "packages/claude-dev-env/rules/verify-before-asking.md",
+            "<managed-root>/docs/rule-guides/verify-before-asking.md",
+            "packages/claude-dev-env/docs/rule-guides/verify-before-asking.md",
         ),
         (
-            "<managed-root>/rules/filesystem-search.md",
-            "packages/claude-dev-env/rules/filesystem-search.md",
+            "<managed-root>/docs/rule-guides/filesystem-search.md",
+            "packages/claude-dev-env/docs/rule-guides/filesystem-search.md",
         ),
         (
-            "<managed-root>/rules/shell-invocation.md",
-            "packages/claude-dev-env/rules/shell-invocation.md",
+            "<managed-root>/docs/rule-guides/shell-invocation.md",
+            "packages/claude-dev-env/docs/rule-guides/shell-invocation.md",
         ),
         (
-            "<managed-root>/rules/verify-runtime-state.md",
-            "packages/claude-dev-env/rules/verify-runtime-state.md",
+            "<managed-root>/docs/rule-guides/verify-runtime-state.md",
+            "packages/claude-dev-env/docs/rule-guides/verify-runtime-state.md",
         ),
         (
             "<managed-root>/rules/doc-inventory-integrity.md",
@@ -714,7 +714,7 @@ def test_clean_coder_links_canonical_policy_areas() -> None:
     required_links = (
         "<managed-root>/docs/CODE_RULES.md#5-no-abbreviations",
         "<managed-root>/rules/testing.md",
-        "<managed-root>/rules/verify-runtime-state.md",
+        "<managed-root>/docs/rule-guides/verify-runtime-state.md",
         "<managed-root>/rules/doc-inventory-integrity.md",
         "<managed-root>/rules/failure-blast-radius.md",
         "<agents-home>/skills/pr-lifecycle/SKILL.md",
@@ -950,24 +950,24 @@ def test_clean_coder_groups_session_policy_references() -> None:
     assert "AskUserQuestion" in body
     assert "do not ask in plain text or guess" in body
 
-    expected_session_policy_files = (
-        "testing.md",
-        "anti-corollary-tests.md",
-        "verify-before-asking.md",
-        "filesystem-search.md",
-        "shell-invocation.md",
-        "verify-runtime-state.md",
-        "doc-inventory-integrity.md",
-        "docstring-prose-matches-implementation.md",
-        "failure-blast-radius.md",
-        "workers-done-before-complete.md",
+    expected_session_policy_paths = (
+        "rules/testing.md",
+        "rules/anti-corollary-tests.md",
+        "docs/rule-guides/verify-before-asking.md",
+        "docs/rule-guides/filesystem-search.md",
+        "docs/rule-guides/shell-invocation.md",
+        "docs/rule-guides/verify-runtime-state.md",
+        "rules/doc-inventory-integrity.md",
+        "rules/docstring-prose-matches-implementation.md",
+        "rules/failure-blast-radius.md",
+        "rules/workers-done-before-complete.md",
     )
     session_policy_map = body[body.index("## Session policy map") :]
     session_policy_links = SOURCE_LINK_PATTERN.findall(session_policy_map)
-    for each_policy_file_name in expected_session_policy_files:
+    for each_policy_path in expected_session_policy_paths:
         assert (
-            f"<managed-root>/rules/{each_policy_file_name}",
-            f"packages/claude-dev-env/rules/{each_policy_file_name}",
+            f"<managed-root>/{each_policy_path}",
+            f"packages/claude-dev-env/{each_policy_path}",
         ) in session_policy_links
     assert (
         "<agents-home>/skills/pr-lifecycle/SKILL.md",

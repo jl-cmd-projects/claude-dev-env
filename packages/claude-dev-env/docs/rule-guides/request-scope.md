@@ -1,6 +1,10 @@
-Back to the [rule entry](../../rules/request-scope.md).
+Back to the [rules index](../../rules/index.md).
 
 # Request scope
+
+## In brief
+
+A shipped gate makes each block line restating what it enforces dead text. Propose removing all of them, past the part asked about, and give each kept line's reason. Read the output back before reporting done.
 
 **When this applies:** The user asks whether part of a prompt, rule, card, or check is still needed, or asks you to change one.
 

@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/no-contrast-framing.md).
+Back to the [rules index](../../rules/index.md).
 
 # No contrast framing
+
+## In brief
+
+State the chosen point directly and leave out the discarded reading. Remove these six forms: `trailing-comma-not`, `corrective-it-is-not`, `substitution-rather-than`, `additive-not-just`, `comparative-ranking`, `substitution-as-opposed-to`. Keep quantity comparisons. If a sentence loses substance, add the failing check, log line, measured number, or file and line.
+
+**Enforcement:** staged policy lint and `scripts/durable_post_lint.py` check authored text; the agent checks chat.
 
 **When this applies:** Every sentence a person reads. A chat reply, a commit
 message, a pull request title or body, a review comment, an issue, a rule file,
@@ -55,7 +61,7 @@ file and the line.
 The pattern list lives in
 `scripts/dev_env_scripts_constants/contrast_framing_constants.py`, and both
 lints read that one list. A synchronization test requires the rule file
-`rules/no-contrast-framing.md` to name every form the list carries.
+`docs/rule-guides/no-contrast-framing.md` to name every form the list carries.
 
 A chat reply reaches no check, so the same list is what the writer reads the
 sentence against: a comma followed by `not`, a `rather than`, a `not just`, a
@@ -65,6 +71,6 @@ ranking of one thing over another.
 
 | Rule | Role |
 |---|---|
-| [`asd-ste100-language.md`](../../rules/asd-ste100-language.md) | Plain word choice, sentence style, and tone |
+| [`asd-ste100-language.md`](asd-ste100-language.md) | Plain word choice, sentence style, and tone |
 | [`correction-lens.md`](../../rules/correction-lens.md) | Every correction becomes a control at the highest layer that can hold it |
-| [`research-mode.md`](../../rules/research-mode.md) | A claim carries its source |
+| [`research-mode.md`](research-mode.md) | A claim carries its source |
