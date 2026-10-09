@@ -4,7 +4,7 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 
 **Writing**
 - **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step.
-- **No contrast framing** ([guide](../docs/rule-guides/no-contrast-framing.md)). Any sentence a person reads. State the chosen point and drop the discarded reading: "not X", "rather than", "instead of", "not just", "as opposed to", and rankings.
+- **No contrast framing** ([guide](../docs/rule-guides/no-contrast-framing.md)). Any sentence a person reads. State the chosen point and leave out the discarded reading. Remove the six forms: `trailing-comma-not`, `corrective-it-is-not`, `substitution-rather-than`, `additive-not-just`, `comparative-ranking`, `substitution-as-opposed-to`.
 
 **Evidence**
 - **Research mode** ([guide](../docs/rule-guides/research-mode.md)). Any claim, recommendation, or advice. Cite a source for each claim, and run the tool that settles a fact before you state it.
