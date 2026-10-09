@@ -32,7 +32,7 @@ You own that session's result. Check its pull request, and link it from your own
 
 ## Enforcement
 
-`hooks/blocking/pull_request_proof.py` reads each new pull request before it opens, through `pr_lifecycle_skill_gate.py`. A pull request whose title starts with `feat` (`feat:`, `feat(scope):`, `feat!:`) is denied when:
+`hooks/blocking/pull_request_proof.py` reads each new pull request before it opens, through `pr_lifecycle_skill_gate.py`. A new pull request is a `gh pr create` command, a GitHub MCP create call, or a GitHub MCP `run_workflow` dispatch whose inputs name a `head` branch and a `title`, because that workflow opens the pull request. A pull request whose title starts with `feat` (`feat:`, `feat(scope):`, `feat!:`) is denied when:
 
 - its body has no "Eval" heading, or the text under that heading names no command in backticks;
 - the session's transcript is readable and shows no `claude-api` Skill call with args `build-eval`, and no `/claude-api build-eval` command.

@@ -13,7 +13,7 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.followup_pr_dedupe import body_from_arguments, title_from_arguments
+from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
@@ -21,7 +21,6 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
-    CREATE_PULL_REQUEST_TOOL_SUFFIX,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
     HEAD_FLAG_ASSIGNMENT_PREFIX,
@@ -153,13 +152,12 @@ def _head_flag_value(all_create_arguments: list[str]) -> str | None:
 
 
 def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
-    tool_input = all_payload_fields.get("tool_input")
-    if not isinstance(tool_input, dict):
-        return None
-    head_branch = tool_input.get("head")
+    create_fields = create_tool_fields(all_payload_fields)
+    head_branch = None if create_fields is None else create_fields.get("head")
     if isinstance(head_branch, str):
         return head_branch
-    command = tool_input.get("command")
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
     all_head_flag_values = [
@@ -172,21 +170,19 @@ def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
 
 
 def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
-    tool_name = all_payload_fields.get("tool_name")
-    tool_input = all_payload_fields.get("tool_input")
-    if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
-        return []
-    if tool_name.endswith(CREATE_PULL_REQUEST_TOOL_SUFFIX):
-        title = tool_input.get("title")
-        body = tool_input.get("body")
+    create_fields = create_tool_fields(all_payload_fields)
+    if create_fields is not None:
+        title = create_fields.get("title")
+        body = create_fields.get("body")
         return [
             CreateCall(
                 title if isinstance(title, str) else None,
                 body if isinstance(body, str) else "",
             )
         ]
-    command = tool_input.get("command")
-    if tool_name not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
         return []
     working_directory = all_payload_fields.get("cwd")
     return _shell_create_calls(

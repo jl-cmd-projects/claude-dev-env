@@ -294,3 +294,42 @@ def test_feature_create_with_an_unreadable_body_should_leave_the_deny_to_the_pro
     payload = _shell('gh pr create --title "feat: x" --fill')
     assert gate.missing_eval_section_reason(payload) is None
     assert gate.missing_proof_reason(payload) == MISSING_BODY_REASON
+
+
+def _dispatch(all_inputs: dict[str, object], method: str = "run_workflow") -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": {
+            "method": method,
+            "owner": "o",
+            "repo": "r",
+            "workflow_id": "open.yml",
+            "ref": "main",
+            "inputs": all_inputs,
+        },
+    }
+
+
+def test_pull_request_dispatch_without_proof_should_be_denied() -> None:
+    payload = _dispatch({"head": "feature", "title": "fix: y", "body": UNPROVEN_BODY})
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+
+
+def test_pull_request_dispatch_with_no_body_input_should_be_denied() -> None:
+    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON
+
+
+def test_feature_dispatch_without_an_eval_section_should_be_denied() -> None:
+    payload = _dispatch({"head": "feature", "title": "feat: x", "body": SEARCHED_BODY})
+    assert gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_dispatch_that_names_no_head_or_runs_no_workflow_should_not_count_as_a_create() -> None:
+    all_payloads = [
+        _dispatch({"title": "feat: x", "body": UNPROVEN_BODY}),
+        _dispatch({"head": "feature", "title": "feat: x", "body": UNPROVEN_BODY}, "rerun_workflow_run"),
+    ]
+    for each_payload in all_payloads:
+        assert gate.missing_proof_reason(each_payload) is None
+        assert not gate.is_feature_pull_request(each_payload)

@@ -56,7 +56,7 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
-from blocking.followup_pr_dedupe import duplicate_followup_reason
+from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
 from blocking.pull_request_proof import (
     is_feature_pull_request,
     missing_eval_section_reason,
@@ -179,7 +179,7 @@ def _is_governed_action(all_payload_fields: dict[str, object]) -> bool:
     tool_name = all_payload_fields.get("tool_name")
     if not isinstance(tool_name, str):
         return False
-    if tool_name.endswith(ALL_GITHUB_MCP_TOOL_SUFFIXES):
+    if tool_name.endswith(ALL_GITHUB_MCP_TOOL_SUFFIXES) or create_tool_fields(all_payload_fields) is not None:
         return True
     if tool_name not in SHELL_TOOL_NAMES:
         return False

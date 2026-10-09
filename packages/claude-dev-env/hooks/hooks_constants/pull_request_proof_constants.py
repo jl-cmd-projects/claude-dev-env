@@ -8,7 +8,6 @@ ALL_GH_CREATE_WORDS = ["pr", "create"]
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PULL_REQUEST_SCRIPT_CREATE_WORD = "create"
 ALL_PYTHON_PROGRAM_NAMES = frozenset({"python", "python3", "py"})
-CREATE_PULL_REQUEST_TOOL_SUFFIX = "__create_pull_request"
 PROOF_GUIDE_PATH = "~/.claude/docs/rule-guides/proof-before-pull-request.md"
 MISSING_BODY_REASON = (
     "Pass the pull request body with --body or --body-file so this gate can read its"

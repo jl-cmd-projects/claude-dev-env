@@ -225,11 +225,11 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
         each_group
         for each_group in all_groups
         if each_group["matcher"]
-        == "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)"
+        == "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)"
     ]
     assert matching_groups == [
         {
-            "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)",
+            "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)",
             "hooks": [
                 {
                     "type": "command",
@@ -358,3 +358,42 @@ def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Pat
     payload = _create_payload(tmp_path, "feat: add a gate", session_path)
     payload["agent_transcript_path"] = str(agent_path)
     assert gate.decision_for(payload) is None
+
+
+def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": {
+            "method": "run_workflow",
+            "owner": "o",
+            "repo": "r",
+            "workflow_id": "open.yml",
+            "ref": "main",
+            "inputs": all_inputs,
+        },
+        "transcript_path": str(transcript_path),
+        "cwd": _checkout_without_visible_changes(tmp_path),
+    }
+
+
+def test_feature_dispatch_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
+    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
+    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON)
+
+
+def test_feature_dispatch_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
+    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
+    assert gate.decision_for(_dispatch_payload(tmp_path, all_inputs, transcript_path)) is None
+
+
+def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    all_inputs = {"head": "main", "title": "fix: repair a gate", "body": EVALUATED_BODY}
+    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), DENY_REASON)
+
+
+def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None
