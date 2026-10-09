@@ -1254,6 +1254,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/send_user_file_open_locally_blocker.py',
     'blocking/question_to_user_enforcer.py',
     'blocking/session_handoff_blocker.py',
+    'blocking/artifact_look_gate.py',
     'session/issue_tracker_session_starter.py',
 ]);
 

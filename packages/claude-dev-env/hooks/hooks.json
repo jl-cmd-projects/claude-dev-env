@@ -174,11 +174,6 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/artifact_template_pointer.py",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/artifact_look_gate.py",
-            "timeout": 10
           }
         ]
       },
