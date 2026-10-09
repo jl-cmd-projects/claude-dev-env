@@ -14,7 +14,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Iterator, Sequence
 
 if sys.platform == "win32":
@@ -147,7 +147,9 @@ def _account_order(main_home: Path) -> tuple[str, ...]:
 
 def _order_names(account: Account) -> frozenset[str]:
     launcher_name = Path(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=account.name)).stem
-    return frozenset(each_name.casefold() for each_name in (account.name, account.command, launcher_name) if each_name)
+    all_candidates = (account.name, account.command, launcher_name)
+    all_launcher_stems = tuple(PureWindowsPath(each_name).stem for each_name in all_candidates if each_name)
+    return frozenset(each_name.casefold() for each_name in (*all_candidates, *all_launcher_stems) if each_name)
 
 
 def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequence[str]) -> tuple[Account, ...]:
@@ -222,20 +224,24 @@ def read_claude_meters(account: Account) -> Meters | None:
     )
 
 
-def read_codex_account_meters(account: Account) -> Meters | None:
+def read_codex_account_meters(account: Account) -> Meters:
     """Probe one Codex account.
 
     Args:
         account: Account whose meter is read.
 
     Returns:
-        Its meters, or None when the probe fails.
+        Its meters, read again once when the first read fails.
+
+    Raises:
+        CodexMeterUnreadError: Both reads failed; the message is the second failure.
+        OSError: No Codex executable was found.
     """
+    codex_path = codex_account_meters.resolve_codex_path(None)
     try:
-        codex_path = codex_account_meters.resolve_codex_path(None)
         usage = codex_account_meters.read_codex_meters(codex_path, account.home)
-    except (codex_account_meters.CodexMeterUnreadError, OSError):
-        return None
+    except codex_account_meters.CodexMeterUnreadError:
+        usage = codex_account_meters.read_codex_meters(codex_path, account.home)
     weekly = [window for window in usage.all_windows if window.duration_minutes is None or window.duration_minutes >= WEEKLY_WINDOW_MINUTES]
     short = [window for window in usage.all_windows if window.duration_minutes is not None and window.duration_minutes < WEEKLY_WINDOW_MINUTES]
     weekly_window = max(weekly, key=lambda window: window.used_percent) if weekly else None
@@ -401,13 +407,16 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
     key = _state_key(account)
     cached = all_cache.get(key)
     if isinstance(cached, dict) and isinstance(cached.get("read_at"), (int, float)) and 0 <= now.timestamp() - cached["read_at"] < 60:
-        return Reading(account, _meters_from_payload(cached.get("meters"))), False
+        cached_reason = cached.get("unread_reason")
+        return Reading(account, _meters_from_payload(cached.get("meters")), cached_reason if isinstance(cached_reason, str) else None), False
+    unread_reason = None
     try:
         meters = adapter.read_meters(account)
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+    except (codex_account_meters.CodexMeterUnreadError, OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         meters = None
-    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters)}
-    return Reading(account, meters), True
+        unread_reason = str(error) or type(error).__name__
+    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters), "unread_reason": unread_reason}
+    return Reading(account, meters, unread_reason), True
 
 
 def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None) -> tuple[Reading, ...]:
@@ -502,7 +511,9 @@ def _run_captured_subprocess(all_argv: Sequence[str], **options: object) -> subp
     encoding = str(options.get("encoding") or "utf-8")
     errors = str(options.get("errors") or "replace")
     stdin_bytes = options.get("input")
-    with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
+    live_log = options.get("live_log")
+    stdout_target = open(live_log, "w+b") if live_log is not None else tempfile.TemporaryFile()
+    with stdout_target as stdout_file, tempfile.TemporaryFile() as stderr_file:
         with subprocess.Popen(
             _resolve_command(all_argv),
             stdin=subprocess.PIPE if stdin_bytes is not None else None,
