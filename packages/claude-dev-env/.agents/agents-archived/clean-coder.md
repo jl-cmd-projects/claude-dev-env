@@ -54,8 +54,8 @@ Installed paths use the active managed root and agents home resolved above; sour
 | `gh` body files | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Plain illustrative docstrings | `<managed-root>/rules/plain-illustrative-docstrings.md` (source fallback: `packages/claude-dev-env/rules/plain-illustrative-docstrings.md`) |
 | Tests / TDD | `<managed-root>/rules/testing.md` (source fallback: `packages/claude-dev-env/rules/testing.md`), `<managed-root>/rules/paired-test-coverage.md` (source fallback: `packages/claude-dev-env/rules/paired-test-coverage.md`), `<managed-root>/rules/bdd.md` (source fallback: `packages/claude-dev-env/rules/bdd.md`) |
-| Questions / task tracking | `<managed-root>/rules/verify-before-asking.md` (source fallback: `packages/claude-dev-env/rules/verify-before-asking.md`) |
-| Runtime evidence | `<managed-root>/rules/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/rules/verify-runtime-state.md`) |
+| Questions / task tracking | `<managed-root>/docs/rule-guides/verify-before-asking.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/verify-before-asking.md`) |
+| Runtime evidence | `<managed-root>/docs/rule-guides/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/verify-runtime-state.md`) |
 | Documentation / durable artifacts | `<managed-root>/rules/doc-inventory-integrity.md` (source fallback: `packages/claude-dev-env/rules/doc-inventory-integrity.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
 | Batch / failure blast radius | `<managed-root>/rules/failure-blast-radius.md` (source fallback: `packages/claude-dev-env/rules/failure-blast-radius.md`) |
 | Git / GitHub | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`), `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |
@@ -69,9 +69,9 @@ Load only the group that matches the task. Keep session policy details in these 
 | Group | Canonical refs |
 |---|---|
 | Tests | `<managed-root>/rules/testing.md` (source fallback: `packages/claude-dev-env/rules/testing.md`); `<managed-root>/rules/anti-corollary-tests.md` (source fallback: `packages/claude-dev-env/rules/anti-corollary-tests.md`) |
-| Questions | `<managed-root>/rules/verify-before-asking.md` (source fallback: `packages/claude-dev-env/rules/verify-before-asking.md`) |
-| Search and shell | `<managed-root>/rules/filesystem-search.md` (source fallback: `packages/claude-dev-env/rules/filesystem-search.md`); `<managed-root>/rules/shell-invocation.md` (source fallback: `packages/claude-dev-env/rules/shell-invocation.md`) |
-| Runtime checks | `<managed-root>/rules/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/rules/verify-runtime-state.md`) |
+| Questions | `<managed-root>/docs/rule-guides/verify-before-asking.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/verify-before-asking.md`) |
+| Search and shell | `<managed-root>/docs/rule-guides/filesystem-search.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/filesystem-search.md`); `<managed-root>/docs/rule-guides/shell-invocation.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/shell-invocation.md`) |
+| Runtime checks | `<managed-root>/docs/rule-guides/verify-runtime-state.md` (source fallback: `packages/claude-dev-env/docs/rule-guides/verify-runtime-state.md`) |
 | Documentation | `<managed-root>/rules/doc-inventory-integrity.md` (source fallback: `packages/claude-dev-env/rules/doc-inventory-integrity.md`); `<managed-root>/rules/docstring-prose-matches-implementation.md` (source fallback: `packages/claude-dev-env/rules/docstring-prose-matches-implementation.md`) |
 | Batch failures | `<managed-root>/rules/failure-blast-radius.md` (source fallback: `packages/claude-dev-env/rules/failure-blast-radius.md`) |
 | Git | `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`); `<agents-home>/skills/pr-lifecycle/SKILL.md` (source fallback: `packages/claude-dev-env/.agents/skills/pr-lifecycle/SKILL.md`) |

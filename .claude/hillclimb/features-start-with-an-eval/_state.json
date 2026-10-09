@@ -10,7 +10,7 @@
     "baseline": {"install": []},
     "v1": {
       "install": [
-        ["packages/claude-dev-env/rules/features-start-with-an-eval.md", ".claude/rules/features-start-with-an-eval.md"],
+        ["packages/claude-dev-env/rules/index.md", ".claude/rules/index.md"],
         ["packages/claude-dev-env/docs/rule-guides/features-start-with-an-eval.md", ".claude/docs/rule-guides/features-start-with-an-eval.md"]
       ]
     }

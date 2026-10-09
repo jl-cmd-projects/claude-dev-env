@@ -6,7 +6,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = REPOSITORY_ROOT / "packages" / "claude-dev-env"
-CANONICAL_RULE_PATH = PACKAGE_ROOT / "rules" / "asd-ste100-language.md"
+CANONICAL_RULE_PATH = PACKAGE_ROOT / "docs" / "rule-guides" / "asd-ste100-language.md"
 CANONICAL_GUIDE_PATH = PACKAGE_ROOT / "docs" / "rule-guides" / "asd-ste100-language.md"
 
 

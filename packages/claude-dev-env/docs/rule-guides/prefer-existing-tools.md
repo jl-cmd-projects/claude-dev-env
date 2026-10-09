@@ -18,5 +18,5 @@ Code written here needs local maintenance. A widely used tool draws fixes and ne
 
 | Rule | Role |
 |---|---|
-| [`explore-thoroughly.md`](../../rules/explore-thoroughly.md) | Read existing code before proposing a change |
-| [`verify-before-asking.md`](../../rules/verify-before-asking.md) | Check a question with a tool before asking it |
+| [`explore-thoroughly.md`](explore-thoroughly.md) | Read existing code before proposing a change |
+| [`verify-before-asking.md`](verify-before-asking.md) | Check a question with a tool before asking it |

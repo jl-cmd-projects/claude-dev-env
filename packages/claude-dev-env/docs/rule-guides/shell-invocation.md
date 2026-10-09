@@ -1,6 +1,14 @@
-Back to the [rule entry](../../rules/shell-invocation.md).
+Back to the [rules index](../../rules/index.md).
 
 # Shell Invocation
+
+## In brief
+
+**When:** Issuing a Bash-tool shell command, or writing a `settings.json` permission rule.
+
+On Windows, run shell work through `pwsh`: `pwsh -NoProfile -File '<script>.ps1' <args>` for a script, and `pwsh -NoProfile -Command "..."` or the `PowerShell` tool for inline work. A direct interpreter call such as `python script.py` conforms as written. Keep `powershell`, `cmd /c`, and `bash -c` out of permission rules. Keep `$(...)`, unescaped backticks, and `<(...)` or `>(...)` out of Bash commands; split the call or use a flag form such as `git -C "<path>"`. Arithmetic `$((...))` passes.
+
+**Enforcement:** none; a permission prompt on a wrapped command is the signal. `blocking/msys_rev_path_rewriter.py` only rewrites a `<rev>:<path>` argument.
 
 Two constraints govern every shell command an agent issues: which shell runs it, and what the command string may contain.
 

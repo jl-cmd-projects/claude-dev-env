@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/cleanup-temp-files.md).
+Back to the [rules index](../../rules/index.md).
 
 # Clean up temporary files
+
+## In brief
+
+Prefer memory to scratch files and track any temporary files you create. At completion, remove those files and leave user-requested files in place. Files under the OS temporary root or `$CLAUDE_JOB_DIR` need no explicit removal; a parent handles child-agent scratch.
+
+**Enforcement:** none.
 
 **When this applies:** After tasks that created scratch files, debug dumps, or one-off scripts the user did not ask to keep.
 
@@ -25,7 +31,7 @@ Three kinds of file are already ephemeral and need no explicit removal:
 - A file under `$CLAUDE_JOB_DIR`, which the harness clears with the job.
 - A child agent's scratch file, which the parent removes at teardown.
 
-Use an allowed removal form for everything else: [`destructive-commands.md`](../../rules/destructive-commands.md) names them.
+Use an allowed removal form for everything else: [`destructive-commands.md`](destructive-commands.md) names them.
 
 ## What counts as temporary
 

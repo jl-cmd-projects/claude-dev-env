@@ -741,7 +741,7 @@ def test_additional_context_contains_examples():
     ctx = output["hookSpecificOutput"].get("additionalContext", "")
     assert "BAD:" in ctx
     assert "GOOD:" in ctx
-    assert "~/.claude/rules/asd-ste100-language.md" in ctx
+    assert "~/.claude/docs/rule-guides/asd-ste100-language.md" in ctx
 
 
 def test_handles_non_dict_stdin():

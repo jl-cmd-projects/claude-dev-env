@@ -8,24 +8,9 @@ SKILLS_DIRECTORY = PACKAGE_ROOT / ".agents" / "skills"
 
 ALWAYS_ON_RULE_NAMES = frozenset(
     {
-        "asd-ste100-language.md",
-        "cleanup-temp-files.md",
         "correction-lens.md",
-        "destructive-commands.md",
-        "explore-thoroughly.md",
-        "features-start-with-an-eval.md",
-        "filesystem-search.md",
-        "memory-stores-durable-facts.md",
-        "no-contrast-framing.md",
-        "proof-before-pull-request.md",
+        "index.md",
         "question-presentation.md",
-        "research-mode.md",
-        "request-scope.md",
-        "session-title.md",
-        "skill-pointers.md",
-        "shell-invocation.md",
-        "verify-before-asking.md",
-        "verify-runtime-state.md",
     }
 )
 

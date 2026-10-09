@@ -8,7 +8,7 @@ against a rejected reading::
     "precision matters more than coverage" -> comparative-ranking
     ok: "the function runs more than 30 lines"
 
-The rule file ``rules/no-contrast-framing.md`` names each form here in
+The rule guide ``docs/rule-guides/no-contrast-framing.md`` names each form here in
 backticks, and a test holds the two in step.
 """
 
@@ -79,4 +79,4 @@ CONTRAST_FRAMING_QUOTED_LINE_LIMIT: int = 120
 
 CONTRAST_FRAMING_FINDING_CODE: str = "contrast-framing"
 
-CONTRAST_FRAMING_RULE_DOCUMENT: str = "rules/no-contrast-framing.md"
+CONTRAST_FRAMING_RULE_DOCUMENT: str = "docs/rule-guides/no-contrast-framing.md"

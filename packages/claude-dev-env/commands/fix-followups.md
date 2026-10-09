@@ -9,7 +9,7 @@ and deliver them as one pull request.
 The repository root is `$ARGUMENTS`, or the current repository when that is
 blank.
 
-Use `rules/asd-ste100-language.md` for user-facing wording.
+Use `docs/rule-guides/asd-ste100-language.md` for user-facing wording.
 
 ## 1. Read the ledger
 
