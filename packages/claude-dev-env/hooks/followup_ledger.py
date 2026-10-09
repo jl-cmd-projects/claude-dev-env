@@ -25,10 +25,15 @@ if _hooks_directory not in sys.path:
 from hooks_constants.followup_ledger_constants import (
     ABSENT_ORIGIN_COMMIT,
     ALL_FOLLOWUP_LEDGER_PATH_SEGMENTS,
-    ALL_GIT_HEAD_PATH_SEGMENTS,
     CHECK_ID_KEY,
     FILE_PATH_KEY,
+    GIT_COMMON_DIRECTORY_FILE_NAME,
+    GIT_DIRECTORY_FILE_PREFIX,
     GIT_DIRECTORY_NAME,
+    GIT_HEAD_FILE_NAME,
+    GIT_PACKED_REFERENCES_COMMENT_PREFIX,
+    GIT_PACKED_REFERENCES_FILE_NAME,
+    GIT_PACKED_REFERENCES_PEELED_PREFIX,
     GIT_REFERENCE_PREFIX,
     LEDGER_APPEND_MODE,
     LEDGER_ENCODING,
@@ -267,7 +272,10 @@ def head_commit(repository_root: Path) -> str:
 
         .git/HEAD holding "ref: refs/heads/main" -> the sha in refs/heads/main
         .git/HEAD holding a sha                  -> that sha
-        no .git directory                        -> ""
+        .git file holding "gitdir: <path>"       -> the same reads in <path>,
+                                                    branches from its commondir
+        branch only in packed-refs               -> the sha packed-refs lists
+        no .git entry                            -> ""
 
     The revision comes from the files git writes rather than from a git
     process, so recording a finding starts no subprocess.
@@ -278,16 +286,73 @@ def head_commit(repository_root: Path) -> str:
     Returns:
         The checked-out revision, or an empty string when none can be read.
     """
-    head_path = repository_root.joinpath(*ALL_GIT_HEAD_PATH_SEGMENTS)
-    head_text = _file_text(head_path)
+    git_directory = _git_directory(repository_root)
+    head_text = _file_text(git_directory / GIT_HEAD_FILE_NAME)
     if head_text is None:
         return ABSENT_ORIGIN_COMMIT
     if not head_text.startswith(GIT_REFERENCE_PREFIX):
         return head_text
-    reference_path = repository_root / GIT_DIRECTORY_NAME / head_text[
-        len(GIT_REFERENCE_PREFIX) :
-    ]
-    return _file_text(reference_path) or ABSENT_ORIGIN_COMMIT
+    reference_name = head_text[len(GIT_REFERENCE_PREFIX) :]
+    for each_reference_directory in (git_directory, _common_directory(git_directory)):
+        loose_commit = _file_text(each_reference_directory / reference_name)
+        if loose_commit:
+            return loose_commit
+    return _packed_reference_commit(_common_directory(git_directory), reference_name)
+
+
+def _git_directory(repository_root: Path) -> Path:
+    """Locate the git directory, following a linked worktree's .git file.
+
+    Args:
+        repository_root: The repository whose git directory to locate.
+
+    Returns:
+        The directory git keeps HEAD in for this checkout.
+    """
+    git_entry = repository_root / GIT_DIRECTORY_NAME
+    if not git_entry.is_file():
+        return git_entry
+    entry_text = _file_text(git_entry) or ""
+    if not entry_text.startswith(GIT_DIRECTORY_FILE_PREFIX):
+        return git_entry
+    return repository_root / entry_text[len(GIT_DIRECTORY_FILE_PREFIX) :]
+
+
+def _common_directory(git_directory: Path) -> Path:
+    """Locate the directory holding the branches shared by every worktree.
+
+    Args:
+        git_directory: The checkout's own git directory.
+
+    Returns:
+        The commondir target, or git_directory itself when none is named.
+    """
+    common_text = _file_text(git_directory / GIT_COMMON_DIRECTORY_FILE_NAME)
+    if not common_text:
+        return git_directory
+    return git_directory / common_text
+
+
+def _packed_reference_commit(common_directory: Path, reference_name: str) -> str:
+    """Find one reference's sha in packed-refs.
+
+    Args:
+        common_directory: The git directory holding packed-refs.
+        reference_name: The full reference name, such as refs/heads/main.
+
+    Returns:
+        The packed sha, or an empty string when packed-refs lacks the reference.
+    """
+    packed_text = _file_text(common_directory / GIT_PACKED_REFERENCES_FILE_NAME) or ""
+    for each_line in packed_text.splitlines():
+        if each_line.startswith(
+            (GIT_PACKED_REFERENCES_COMMENT_PREFIX, GIT_PACKED_REFERENCES_PEELED_PREFIX)
+        ):
+            continue
+        commit_and_name = each_line.split(maxsplit=1)
+        if len(commit_and_name) == 2 and commit_and_name[1] == reference_name:
+            return commit_and_name[0]
+    return ABSENT_ORIGIN_COMMIT
 
 
 def _file_text(file_path: Path) -> str | None:
