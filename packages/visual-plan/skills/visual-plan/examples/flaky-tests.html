@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flaky Test Cleanup</title>
+<link rel="stylesheet" href="../runtime/visualplan.css">
+<script src="../runtime/visualplan.js" defer></script>
+<body>
+<vp-plan>
+<header><h1>Flaky test cleanup in Ledgerly CI</h1><a href="https://example.com/ledgerly/flaky-tests-plan">Full plan</a></header>
+
+<vp-grid cols="Problem | Fix | Failures">
+  <vp-band tone="ok" mark="&#10003;" label="Reproduced">
+    <vp-card>
+      <vp-flow><script type="text/plain">
+        Failed test > rerun on the same commit > same failure [ok]
+      </script></vp-flow>
+      <vp-bar><script type="text/plain">
+        12 | Clock drift | ok
+        9 | Shared temp folder | ok
+      </script></vp-bar>
+      <vp-details><p>A failure counts as reproduced when a rerun on the same commit fails the same way.</p></vp-details>
+    </vp-card>
+    <vp-row>
+      <vp-cell face="Clock drift">
+        <vp-flow><script type="text/plain">
+          Test reads the wall clock > midnight passes > date check fails [bad]
+        </script></vp-flow>
+        <vp-stats><script type="text/plain">
+          12 | failures in 30 days | bad
+          3 | suites hit | warn
+        </script></vp-stats>
+        <vp-details><p>The invoice tests compare the due date with the date at run time. A run that starts before midnight and ends after it fails.</p></vp-details>
+      </vp-cell>
+      <vp-cell face="Frozen test clock">
+        <vp-vs before="Today" after="With the fix"><script type="text/plain">
+          - Wall clock > date moves during the run [bad]
+          + Frozen clock [info] > one date for the whole run > check passes [ok]
+        </script></vp-vs>
+        <vp-list marks="number">
+          <vp-item title="Add a clock fixture"></vp-item>
+          <vp-item>
+            <vp-flow><script type="text/plain">
+              Invoice tests > use the fixture [info]
+            </script></vp-flow>
+          </vp-item>
+          <vp-item title="Ban clock reads in tests"></vp-item>
+        </vp-list>
+        <vp-list marks="tag">
+          <vp-item mark="Proof" tone="ok">
+            <vp-checks><script type="text/plain">
+              + The midnight run fails before the fix
+              + The midnight run passes after the fix
+              ! A lint rule blocks new clock reads
+            </script></vp-checks>
+          </vp-item>
+          <vp-item mark="Undo">
+            <vp-flow><script type="text/plain">
+              Revert > tests read the wall clock
+            </script></vp-flow>
+          </vp-item>
+        </vp-list>
+        <vp-details><p>The fixture sets one date when the test session starts. Each invoice test reads that date.</p></vp-details>
+      </vp-cell>
+      <vp-cell count="12">
+        <vp-stats><script type="text/plain">
+          12 | failures | bad
+          12 / 12 | fail again on rerun | ok
+        </script></vp-stats>
+        <vp-dots><script type="text/plain">
+          12 | ok
+        </script></vp-dots>
+        <vp-fold summary="Failures by suite" count="3" tone="bad">
+          <vp-meter unit=" runs"><script type="text/plain">
+            7 | Invoices | bad
+            3 | Reports | warn
+            2 | Exports | warn
+          </script></vp-meter>
+          <vp-fold summary="Invoices suite" count="7" tone="bad">
+            <vp-chips><script type="text/plain">
+              Fails after midnight [bad]
+              Passes on rerun in the morning [ok]
+            </script></vp-chips>
+            <vp-fold summary="Runs that failed" badge="3 records">
+              <vp-links><script type="text/plain">
+                Run 4417 | https://example.com/ledgerly/runs/4417 | due date one day off
+                Run 4452 | https://example.com/ledgerly/runs/4452 | due date one day off
+                Run 4490 | https://example.com/ledgerly/runs/4490 | late fee charged twice
+              </script></vp-links>
+            </vp-fold>
+          </vp-fold>
+        </vp-fold>
+        <vp-details><p>Counted from the CI failure log for the last 30 days. Each run appears once.</p></vp-details>
+      </vp-cell>
+    </vp-row>
+    <vp-row>
+      <vp-cell face="Shared temp folder">
+        <vp-branch><script type="text/plain">
+          Two tests run at the same time
+          -> both write report.csv [bad] > one test reads the other file [bad]
+          -> one test runs alone > pass [ok]
+        </script></vp-branch>
+        <vp-stats><script type="text/plain">
+          9 | failures in 30 days | bad
+        </script></vp-stats>
+      </vp-cell>
+      <vp-cell face="One folder per test">
+        <vp-vs><script type="text/plain">
+          - One shared folder > tests overwrite files [bad]
+          + One folder per test [info] > no shared files [ok]
+        </script></vp-vs>
+        <vp-checks><script type="text/plain">
+          + Parallel runs pass 50 times in a row
+          + Each folder is removed after its test
+        </script></vp-checks>
+      </vp-cell>
+      <vp-cell count="9">
+        <vp-stats><script type="text/plain">
+          9 | failures | bad
+          9 / 9 | fail again on rerun | ok
+        </script></vp-stats>
+      </vp-cell>
+    </vp-row>
+  </vp-band>
+
+  <vp-band tone="warn" mark="&#8776;" label="Seen in logs">
+    <vp-card>
+      <vp-flow><script type="text/plain">
+        Failure in the CI log > no rerun yet > cause read from the log [warn]
+      </script></vp-flow>
+    </vp-card>
+    <vp-row>
+      <vp-cell face="Port clash">
+        <vp-flow><script type="text/plain">
+          Test server asks for port 8080 > port is in use [bad] > server does not start [bad]
+        </script></vp-flow>
+        <vp-stats><script type="text/plain">
+          7 | failures in 30 days | warn
+        </script></vp-stats>
+      </vp-cell>
+      <vp-cell face="Free port from the OS">
+        <vp-vs><script type="text/plain">
+          - Fixed port 8080 > clash [bad]
+          + Port 0 [info] > the OS gives a free port > no clash [ok]
+        </script></vp-vs>
+      </vp-cell>
+      <vp-cell count="7">
+        <vp-meter unit=" failures"><script type="text/plain">
+          5 | API suite | warn
+          2 | Webhook suite | warn
+        </script></vp-meter>
+      </vp-cell>
+    </vp-row>
+    <vp-row>
+      <vp-cell face="Slow fixture load">
+        <vp-flow><script type="text/plain">
+          Each test loads 40 MB of fixtures > runner timeout [bad]
+        </script></vp-flow>
+      </vp-cell>
+      <vp-cell face="Load once per run"></vp-cell>
+      <vp-cell count="4"></vp-cell>
+    </vp-row>
+  </vp-band>
+
+  <vp-band tone="bad" mark="&#10005;" label="Reported only">
+    <vp-row>
+      <vp-cell face="Network timeout">
+        <vp-flow><script type="text/plain">
+          A developer reports a timeout > no log kept [bad]
+        </script></vp-flow>
+        <vp-details><p>One report in the team chat. The CI log for that run expired.</p></vp-details>
+      </vp-cell>
+      <vp-cell face="Retry policy decision">
+        <vp-branch><script type="text/plain">
+          Decision on retries
+          -> No retries [ok] > collect logs first
+          -> Retry once [warn] > a flaky test can hide
+        </script></vp-branch>
+      </vp-cell>
+      <vp-cell count="2"></vp-cell>
+    </vp-row>
+  </vp-band>
+</vp-grid>
+
+<vp-decisions>
+  <vp-ask id="approve" top>
+    <p>Approve this plan?</p>
+    <label><input type="radio" name="approve" value="yes"> Approve</label>
+    <label><input type="radio" name="approve" value="no"> Not yet</label>
+    <vp-card>
+      <vp-branch><script type="text/plain">
+        Approve
+        -> Work starts with step 1 [ok]
+      </script></vp-branch>
+      <vp-branch><script type="text/plain">
+        Not yet
+        -> The plan stays in review [warn]
+      </script></vp-branch>
+    </vp-card>
+  </vp-ask>
+  <vp-ask id="retries">
+    <p>Retry a failed test once?</p>
+    <label><input type="radio" name="retries" value="no" checked> No retries</label>
+    <label><input type="radio" name="retries" value="once"> Retry once</label>
+    <vp-card>
+      <vp-branch><script type="text/plain">
+        A test fails
+        -> No retries [ok] > the run fails > the log names the test
+        -> Retry once [warn] > the run can pass > the flaky test stays
+      </script></vp-branch>
+    </vp-card>
+  </vp-ask>
+  <vp-ask id="quarantine">
+    <p>Quarantine a test after 3 failures?</p>
+    <label><input type="radio" name="quarantine" value="yes" checked> Yes, quarantine</label>
+    <label><input type="radio" name="quarantine" value="no"> Keep it running</label>
+    <vp-card>
+      <vp-flow><script type="text/plain">
+        3 failures in 7 days > test moves to quarantine [info] > owner gets an issue
+      </script></vp-flow>
+      <vp-chips><script type="text/plain">
+        Quarantined tests still run [ok]
+        They do not block a merge [warn]
+      </script></vp-chips>
+    </vp-card>
+  </vp-ask>
+  <vp-ask id="first">
+    <p>Which fix ships first?</p>
+    <label><input type="radio" name="first" value="clock" checked> Frozen clock</label>
+    <label><input type="radio" name="first" value="folders"> Test folders</label>
+  </vp-ask>
+</vp-decisions>
+
+<vp-path caption="Nothing merges before you approve.">
+  <vp-stage state="done" label="Review">
+    <vp-flow><script type="text/plain">
+      Draft plan > team review [info] > no open item [ok]
+    </script></vp-flow>
+  </vp-stage>
+  <vp-stage state="here" label="Ready">
+    <vp-flow><script type="text/plain">
+      Review closed [ok] > waits on you [info]
+    </script></vp-flow>
+  </vp-stage>
+  <vp-stage label="You approve">
+    <vp-flow><script type="text/plain">
+      You approve [info] > scope is fixed to this plan
+    </script></vp-flow>
+  </vp-stage>
+  <vp-stage label="Work starts"></vp-stage>
+  <vp-step label="Freeze the clock">
+    <vp-flow><script type="text/plain">
+      Clock fixture > invoice tests [info] > lint rule [ok]
+    </script></vp-flow>
+  </vp-step>
+  <vp-step label="Split temp folders">
+    <vp-flow><script type="text/plain">
+      Folder fixture > report tests [info]
+    </script></vp-flow>
+  </vp-step>
+  <vp-step label="Free test ports">
+    <vp-flow><script type="text/plain">
+      Port 0 > API and webhook servers [info]
+    </script></vp-flow>
+  </vp-step>
+  <vp-step label="Load fixtures once"></vp-step>
+  <vp-step label="Quarantine rule">
+    <vp-chips><script type="text/plain">
+      Only if you choose it [warn]
+    </script></vp-chips>
+  </vp-step>
+</vp-path>
+
+<vp-scope>
+  <li>The test runner stays the same.</li>
+  <li>The CI machines stay the same.</li>
+  <li>No test changes what it checks.</li>
+</vp-scope>
+</vp-plan>
+</body>
+</html>

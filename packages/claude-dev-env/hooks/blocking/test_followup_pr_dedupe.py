@@ -84,3 +84,44 @@ def test_powershell_body_file_is_denied(tmp_path: Path) -> None:
     }
     reason = dedupe.duplicate_followup_reason(payload, _reader([OPEN_FOLLOWUP]))
     assert reason is not None and "pull request #1769" in reason
+
+
+def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("From the file.", encoding="utf-8")
+    assert dedupe.body_from_arguments(["--body", "Inline."], "") == "Inline."
+    assert dedupe.body_from_arguments(["--body-file", "body.md"], str(tmp_path)) == "From the file."
+    assert dedupe.body_from_arguments(["--body-file", "-"], str(tmp_path)) is None
+    assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None
+
+
+def test_title_from_arguments_should_read_each_title_flag_shape() -> None:
+    assert dedupe.title_from_arguments(["--title", "feat: x", "--fill"]) == "feat: x"
+    assert dedupe.title_from_arguments(["-t", "fix: y"]) == "fix: y"
+    assert dedupe.title_from_arguments(["--title=feat(x): z"]) == "feat(x): z"
+    assert dedupe.title_from_arguments(["--title-file", "t.txt"]) is None
+    assert dedupe.title_from_arguments(["--fill"]) is None
+
+
+def _dispatch_payload(all_inputs: dict[str, object]) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": {"method": "run_workflow", "owner": "jl-cmd", "repo": "claude-dev-env", "inputs": all_inputs},
+    }
+
+
+def test_create_tool_fields_should_read_a_pull_request_dispatch_as_a_create() -> None:
+    payload = _dispatch_payload({"head": "b", "title": "fix: y", "body": "Follow-up to #1731"})
+    assert dedupe.create_tool_fields(payload) == {
+        "head": "b",
+        "title": "fix: y",
+        "body": "Follow-up to #1731",
+        "owner": "jl-cmd",
+        "repo": "claude-dev-env",
+    }
+    reason = dedupe.duplicate_followup_reason(payload, _reader([OPEN_FOLLOWUP]))
+    assert reason is not None and "#1769" in reason
+
+
+def test_create_tool_fields_should_skip_a_call_that_opens_no_pull_request() -> None:
+    assert dedupe.create_tool_fields(_dispatch_payload({"work_order": "wo-1"})) is None
+    assert dedupe.create_tool_fields({"tool_name": "Bash", "tool_input": {"command": "gh pr list"}}) is None
