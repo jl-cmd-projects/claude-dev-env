@@ -1,6 +1,6 @@
 # html-plan page template
 
-Build a new artifact page from the html-plan skill. Load `house.css` from this folder after the plugin's `htmlplan.css`. The older [artifact page template](../artifact-page/README.md) stays available; use it when the request names it.
+Build a complex visual, such as a multi-part plan or evidence, from the html-plan skill. Load `house.css` from this folder after the plugin's `htmlplan.css`. The older [artifact page template](../artifact-page/README.md) stays available; use it when the request names it.
 
 ## Get the skill
 
