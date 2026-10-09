@@ -1,5 +1,40 @@
 # Changelog
 
+## [8.68.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.3...claude-dev-env-v8.68.4) (2026-10-09)
+
+
+### Bug Fixes
+
+* **account-broker:** retry a failed Codex meter read and name why it failed ([#1943](https://github.com/jl-cmd-projects/claude-dev-env/issues/1943)) ([a2346db](https://github.com/jl-cmd-projects/claude-dev-env/commit/a2346db349f177fcf2854a54bccd7e6d97fef009))
+
+## [8.68.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.2...claude-dev-env-v8.68.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **hooks:** run nested project start hooks in the background ([#1940](https://github.com/jl-cmd-projects/claude-dev-env/issues/1940)) ([b6e1466](https://github.com/jl-cmd-projects/claude-dev-env/commit/b6e1466b6779fb7fdeb5ce8479bfc475198913d8))
+
+## [8.68.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.1...claude-dev-env-v8.68.2) (2026-10-08)
+
+
+### Refactoring
+
+* **hooks:** remove the subagent model pin hook ([#1939](https://github.com/jl-cmd-projects/claude-dev-env/issues/1939)) ([87f5c11](https://github.com/jl-cmd-projects/claude-dev-env/commit/87f5c11df1385a5a96e00cb961ae12d0637b6ca4))
+
+## [8.68.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.0...claude-dev-env-v8.68.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **review-closure:** report a reply cut short as a GitHubError ([#1937](https://github.com/jl-cmd-projects/claude-dev-env/issues/1937)) ([f1a6cc6](https://github.com/jl-cmd-projects/claude-dev-env/commit/f1a6cc6453676a1000b50bd8038fbbcd90ca84a3))
+
+## [8.68.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.67.0...claude-dev-env-v8.68.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** look at a page before it ships ([#1928](https://github.com/jl-cmd-projects/claude-dev-env/issues/1928)) ([324139f](https://github.com/jl-cmd-projects/claude-dev-env/commit/324139fe6167c58f16ce9607bdb8e06e8fe9f8a9))
+
 ## [8.67.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.66.0...claude-dev-env-v8.67.0) (2026-10-08)
 
 
