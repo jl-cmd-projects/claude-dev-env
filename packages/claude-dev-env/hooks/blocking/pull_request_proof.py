@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -16,15 +17,25 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
+    ALL_VISIBLE_FILE_SUFFIXES,
+    CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
+    ALL_DEFAULT_BRANCH_REFERENCES,
+    ALL_HEAD_FLAGS,
+    HEAD_FLAG_ASSIGNMENT_PREFIX,
+    REMOTE_BRANCH_PREFIX,
+    UNREADABLE_CHANGES_REASON,
     EXISTING_WORK_HEADING_PATTERN,
+    GIT_TIMEOUT_SECONDS,
     LINE_SEPARATOR,
     MISSING_BODY_REASON,
     MISSING_EXISTING_WORK_REASON,
+    MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
+    PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
 )
@@ -118,6 +129,34 @@ def _shell_create_bodies(command: str, working_directory: str) -> list[str | Non
     ]
 
 
+def _head_flag_value(all_create_arguments: list[str]) -> str | None:
+    for each_position, each_argument in enumerate(all_create_arguments):
+        if each_argument in ALL_HEAD_FLAGS and each_position + 1 < len(all_create_arguments):
+            return all_create_arguments[each_position + 1]
+        if each_argument.startswith(HEAD_FLAG_ASSIGNMENT_PREFIX):
+            return each_argument[len(HEAD_FLAG_ASSIGNMENT_PREFIX) :]
+    return None
+
+
+def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
+    tool_input = all_payload_fields.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return None
+    head_branch = tool_input.get("head")
+    if isinstance(head_branch, str):
+        return head_branch
+    command = tool_input.get("command")
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    all_head_flag_values = [
+        _head_flag_value(all_create_arguments)
+        for each_text in all_wrapped_command_texts(command)
+        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+        if (all_create_arguments := _create_arguments(each_segment)) is not None
+    ]
+    return next((each_value for each_value in all_head_flag_values if each_value), None)
+
+
 def _create_bodies(all_payload_fields: Mapping[str, object]) -> list[str | None]:
     tool_name = all_payload_fields.get("tool_name")
     tool_input = all_payload_fields.get("tool_input")
@@ -180,4 +219,97 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
     for each_body in _create_bodies(all_payload_fields):
         if each_body is not None and not section_under_existing_work(each_body):
             return MISSING_EXISTING_WORK_REASON
+    return None
+
+
+def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", working_directory, *all_git_arguments],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.splitlines() if completed.returncode == 0 else None
+
+
+def _first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    for each_base_reference in ALL_DEFAULT_BRANCH_REFERENCES:
+        all_merge_base_lines = _git_lines(working_directory, "merge-base", head_reference, each_base_reference)
+        if all_merge_base_lines:
+            return all_merge_base_lines[0]
+    return None
+
+
+def _head_reference(working_directory: str, head_branch: object) -> str | None:
+    if not isinstance(head_branch, str) or not head_branch:
+        return "HEAD"
+    if _git_lines(working_directory, "branch", "--show-current") == [head_branch]:
+        return "HEAD"
+    for each_candidate in (head_branch, REMOTE_BRANCH_PREFIX + head_branch):
+        if _git_lines(working_directory, "rev-parse", "--verify", "--quiet", each_candidate + "^{commit}"):
+            return each_candidate
+    return None
+
+
+def visible_changed_files(working_directory: str, head_branch: object) -> list[str] | None:
+    """Return the changed files people see on the head branch, or None when git cannot tell.
+
+    The head is the checked-out branch, or the named branch or its origin copy
+    when the checkout holds another branch. The base is the first of
+    origin/HEAD, origin/main and main that git can reach::
+
+        checkout on feature, page.html changed -> ["page.html"]
+        named head exists nowhere in the clone  -> None
+        no base reference reachable             -> None
+
+    Args:
+        working_directory: The session directory the hook payload names.
+        head_branch: The head branch a create call names, or None.
+    """
+    if not working_directory:
+        return None
+    head_reference = _head_reference(working_directory, head_branch)
+    if head_reference is None:
+        return None
+    merge_base = _first_merge_base(working_directory, head_reference)
+    if merge_base is None:
+        return None
+    all_changed_paths = _git_lines(working_directory, "diff", "--name-only", merge_base, head_reference)
+    if all_changed_paths is None:
+        return None
+    return [each_path for each_path in all_changed_paths if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)]
+
+
+def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a pull request changing visible files shows no picture, else None.
+
+    ::
+
+        branch changes page.html, proof has ![after](https://x/after.png) -> None
+        branch changes page.html, proof quotes only command output        -> MISSING_LOOK_REASON
+        branch changes only .py files                                     -> None
+        git cannot read the branch, proof shows no picture                -> UNREADABLE_CHANGES_REASON
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    all_bodies = [each_body for each_body in _create_bodies(all_payload_fields) if each_body is not None]
+    if not all_bodies:
+        return None
+    working_directory = all_payload_fields.get("cwd")
+    all_visible_files = visible_changed_files(
+        str(working_directory or ""), _named_head_branch(all_payload_fields)
+    )
+    if all_visible_files == []:
+        return None
+    for each_body in all_bodies:
+        if re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE):
+            continue
+        if all_visible_files is None:
+            return UNREADABLE_CHANGES_REASON
+        return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
     return None

@@ -55,6 +55,7 @@ python packages/claude-dev-env/scripts/account_broker.py choose --product claude
 
 The JSON output has a `decision` object and an `accounts` list. Each account's
 `meters` holds its remaining percent and reset time for the 5-hour window and
-the week. An unreadable meter appears as `null`. A wait decision has
+the week. An unreadable meter appears as `null`, and the account's
+`unread_reason` holds the failure text when the reader raised one. A wait decision has
 `action: "wait"` and a `resets_at` timestamp. The broker exits with code 3 on
 wait. The worker writes the same reset time to its report.
