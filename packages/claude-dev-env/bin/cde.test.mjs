@@ -292,4 +292,5 @@ test("dispatches followup to the follow-up ledger command", async () => {
 test("help names the followup command", () => {
     assert.match(createHelpText(), /cde <lint\|verify\|followup>/);
     assert.match(createHelpText(), /cde followup count/);
+    assert.match(createHelpText(), /cde followup dedupe/);
 });

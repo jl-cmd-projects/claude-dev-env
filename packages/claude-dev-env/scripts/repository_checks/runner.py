@@ -11,6 +11,9 @@ from repository_checks.config import constants as repository_constants
 from repository_checks.env_var_documentation import (
     collect_env_var_documentation_findings,
 )
+from repository_checks.followup_ledger_duplicates import (
+    collect_followup_ledger_duplicate_findings,
+)
 from repository_checks.models import RepositoryCheckReport, RepositoryFinding
 from repository_checks.package_inventory import collect_package_inventory_findings
 from repository_checks.pytest_testpaths import collect_pytest_testpath_findings
@@ -80,6 +83,10 @@ def _all_collectors() -> tuple[tuple[str, RepositoryCollector], ...]:
         (
             repository_constants.CHECK_ID_ENV_VAR_DOCUMENTATION,
             collect_env_var_documentation_findings,
+        ),
+        (
+            repository_constants.CHECK_ID_FOLLOWUP_LEDGER_DUPLICATES,
+            collect_followup_ledger_duplicate_findings,
         ),
         (
             repository_constants.CHECK_ID_PACKAGE_INVENTORY,
