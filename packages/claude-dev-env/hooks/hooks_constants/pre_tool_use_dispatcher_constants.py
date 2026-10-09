@@ -84,11 +84,6 @@ class HostedHookEntry:
 
 ALL_HOSTED_HOOK_ENTRIES: tuple[HostedHookEntry, ...] = (
     HostedHookEntry(
-        script_relative_path="advisory/refactor_guard.py",
-        applicable_tool_names=frozenset({EDIT_TOOL_NAME, MULTI_EDIT_TOOL_NAME}),
-        is_blocking=False,
-    ),
-    HostedHookEntry(
         script_relative_path="advisory/migration_safety_advisor.py",
         applicable_tool_names=frozenset({EDIT_TOOL_NAME, MULTI_EDIT_TOOL_NAME}),
         is_blocking=False,

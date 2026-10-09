@@ -138,25 +138,6 @@
       "char_limit": 1500
     },
     {
-      "name": "subagent model pin",
-      "command": [
-        "python3",
-        "packages/claude-dev-env/hooks/routing/subagent_model_pin_hook.py"
-      ],
-      "stdin": {
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Agent",
-        "tool_use_id": "toolu_budget",
-        "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/empty_transcript.jsonl",
-        "tool_input": {
-          "description": "Budget sample",
-          "prompt": "Summarize the repository layout.",
-          "model": "sonnet"
-        }
-      },
-      "char_limit": 1500
-    },
-    {
       "name": "artifact template pointer",
       "command": [
         "python3",
@@ -197,7 +178,8 @@
       "packages/claude-dev-env/.agents/skills/correction/SKILL.md": {
         "lines": null,
         "sections": [
-          "/correction"
+          "File it",
+          "Brief"
         ]
       },
       "packages/claude-dev-env/.agents/skills/e-code-review/SKILL.md": {
@@ -237,13 +219,12 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/grok-spawn/SKILL.md": {
-        "lines": 236,
+        "lines": null,
         "sections": [
           "Gotchas",
           "When this skill applies",
           "Process",
           "1. Preflight",
-          "3. Write the batch JSON spec",
           "4. Launch the batch",
           "5. Collect reports",
           "6. Verify and own git / gh"
@@ -276,7 +257,7 @@
         ]
       },
       "packages/claude-dev-env/.agents/skills/pull-request/SKILL.md": {
-        "lines": 243,
+        "lines": null,
         "sections": [
           "When this applies",
           "Constraints",
@@ -284,9 +265,7 @@
           "3. Run the local linter",
           "5. Resolve the process-local author",
           "8. Read back the remote state",
-          "Examples",
-          "Gotchas",
-          "Folder map"
+          "Gotchas"
         ]
       },
       "packages/claude-dev-env/.agents/skills/recovering-codex-startup/SKILL.md": {
@@ -358,10 +337,18 @@
         "sections": [
           "(top)"
         ]
+      },
+      "packages/visual-plan/skills/visual-plan/SKILL.md": {
+        "lines": null,
+        "sections": [
+          "The tree",
+          "Rules",
+          "Words",
+          "Steps",
+          "Getting the answer back"
+        ]
       }
     },
-    "hooks": {
-      "working style prompt": 2353
-    }
+    "hooks": {}
   }
 }

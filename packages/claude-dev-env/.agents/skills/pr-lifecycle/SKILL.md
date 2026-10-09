@@ -22,7 +22,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Pull request submission rules
 
-**Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements.
+**Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
 
 **Open PRs ready for review; use `--draft` when the owner requests it.**
 

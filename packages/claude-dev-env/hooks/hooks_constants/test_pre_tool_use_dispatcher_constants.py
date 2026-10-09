@@ -38,7 +38,6 @@ def test_roster_keeps_the_edit_advisors_and_the_context_budget_gate() -> None:
         each_entry.script_relative_path for each_entry in ALL_HOSTED_HOOK_ENTRIES
     )
     assert all_script_paths == (
-        "advisory/refactor_guard.py",
         "advisory/migration_safety_advisor.py",
         "blocking/context_budget_blocker.py",
     )
@@ -57,13 +56,9 @@ def test_context_budget_gate_applies_to_every_mutation_tool() -> None:
 
 
 def test_advisors_apply_to_edit_and_multi_edit() -> None:
-    for each_script_path in (
-        "advisory/refactor_guard.py",
-        "advisory/migration_safety_advisor.py",
-    ):
-        entry = _entry_for(each_script_path)
-        assert entry is not None
-        assert entry.applicable_tool_names == frozenset({EDIT_TOOL_NAME, MULTI_EDIT_TOOL_NAME})
+    entry = _entry_for("advisory/migration_safety_advisor.py")
+    assert entry is not None
+    assert entry.applicable_tool_names == frozenset({EDIT_TOOL_NAME, MULTI_EDIT_TOOL_NAME})
 
 
 def test_every_hosted_script_path_exists_under_the_hooks_root() -> None:
