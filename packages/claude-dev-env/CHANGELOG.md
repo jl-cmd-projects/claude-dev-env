@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.71.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.71.0...claude-dev-env-v8.71.1) (2026-10-09)
+
+
+### Documentation
+
+* **rules:** point option-card questions at the html-plan page template ([#1916](https://github.com/jl-cmd-projects/claude-dev-env/issues/1916)) ([3c07190](https://github.com/jl-cmd-projects/claude-dev-env/commit/3c07190ed64c1679ed718063f313ddbb32e0068f))
+
 ## [8.71.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.70.0...claude-dev-env-v8.71.0) (2026-10-09)
 
 
