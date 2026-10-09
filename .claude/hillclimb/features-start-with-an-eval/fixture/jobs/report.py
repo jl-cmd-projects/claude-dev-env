@@ -5,16 +5,20 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
-def parse_row(row: dict[str, str]) -> tuple[str, str, datetime]:
+def parse_row(text_by_field: dict[str, str]) -> tuple[str, str, datetime]:
     """Return a job row's name, status and finish time.
 
     Args:
-        row: One job entry from jobs.json.
+        text_by_field: One job entry from jobs.json.
 
     Returns:
         The name, the status and the finish time in UTC.
     """
-    return row["name"], row["status"], datetime.fromisoformat(row["finished_at"])
+    return (
+        text_by_field["name"],
+        text_by_field["status"],
+        datetime.fromisoformat(text_by_field["finished_at"]),
+    )
 
 
 def finished_jobs(jobs_file: Path, days: int) -> list[tuple[str, str, datetime]]:

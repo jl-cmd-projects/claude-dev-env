@@ -3,7 +3,7 @@
 import time
 from pathlib import Path
 
-SECONDS_PER_DAY = 86400
+from jobs.config.constants import SECONDS_PER_DAY
 
 
 def remove_old_logs(folder: Path, days: int) -> list[Path]:

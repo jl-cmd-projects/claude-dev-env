@@ -18,6 +18,7 @@ from session_eval_support.config.constants import (
     BROKER_SCRIPT,
     FIXTURE_DIRECTORY,
     JSON_INDENT,
+    NEWLINE,
     REPOSITORY_ROOT,
     RESULT_EVENT_TYPE,
     STREAM_FILE_NAME,
@@ -55,12 +56,15 @@ def installed_files_digest(all_installs: list[tuple[str, str]]) -> str:
 
     Args:
         all_installs: Pairs of a repository path and its workspace path.
+
+    Returns:
+        The first 12 hex digits of the digest, or an empty string for no installs.
     """
     if not all_installs:
         return ""
     digest = hashlib.sha256()
-    for each_source, _each_target in all_installs:
-        digest.update((REPOSITORY_ROOT / each_source).read_bytes())
+    for each_install in all_installs:
+        digest.update((REPOSITORY_ROOT / each_install[0]).read_bytes())
     return digest.hexdigest()[:12]
 
 
@@ -100,21 +104,10 @@ def _read_events(stream_path: Path) -> list[dict[str, object]]:
     return all_events
 
 
-def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> SessionRun:
-    """Run the prompt as one headless session in the workspace and read its stream.
-
-    The broker picks the account. The stream and the broker report land in a
-    sibling directory, so the session under test never sees them.
-
-    Args:
-        workspace: The prepared workspace, used as the session's directory.
-        prompt: The case's ask, sent as the first user turn.
-        settings: The model, effort, turn cap and wall-clock ceiling.
-    """
-    output_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
-    stream_path = output_directory / STREAM_FILE_NAME
-    report_path = output_directory / BROKER_REPORT_FILE_NAME
-    command = [
+def _session_command(
+    report_path: Path, prompt: str, settings: SessionSettings
+) -> list[str]:
+    return [
         sys.executable,
         str(BROKER_SCRIPT),
         "run",
@@ -136,39 +129,78 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
         "stream-json",
         "--verbose",
     ]
-    started = time.monotonic()
-    exit_code: int | None
+
+
+def _read_broker_report(report_path: Path) -> dict[str, object]:
+    if not report_path.is_file():
+        return {}
+    try:
+        loaded = json.loads(report_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _run_command(
+    all_command_words: list[str],
+    workspace: Path,
+    stream_path: Path,
+    timeout_seconds: int,
+) -> int | None:
     with stream_path.open("w", encoding="utf-8") as stream_file:
         try:
             completed = subprocess.run(
-                command,
+                all_command_words,
                 cwd=workspace,
                 stdout=stream_file,
                 stderr=subprocess.DEVNULL,
-                timeout=settings.timeout_seconds,
+                timeout=timeout_seconds,
                 check=False,
             )
-            exit_code = completed.returncode
         except subprocess.TimeoutExpired:
-            exit_code = None
+            return None
+    return completed.returncode
+
+
+def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> SessionRun:
+    """Run the prompt as one headless session in the workspace and read its stream.
+
+    The broker picks the account. The stream and the broker report land in a
+    sibling directory, so the session under test never sees them.
+
+    Args:
+        workspace: The prepared workspace, used as the session's directory.
+        prompt: The case's ask, sent as the first user turn.
+        settings: The model, effort, turn cap and wall-clock ceiling.
+
+    Returns:
+        The stream, latency, exit code (None on timeout) and broker report.
+    """
+    capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
+    stream_path = capture_directory / STREAM_FILE_NAME
+    report_path = capture_directory / BROKER_REPORT_FILE_NAME
+    started = time.monotonic()
+    exit_code = _run_command(
+        _session_command(report_path, prompt, settings),
+        workspace,
+        stream_path,
+        settings.timeout_seconds,
+    )
     latency_seconds = time.monotonic() - started
-    broker_report: dict[str, object] = {}
-    if report_path.is_file():
-        try:
-            loaded = json.loads(report_path.read_text(encoding="utf-8"))
-            broker_report = loaded if isinstance(loaded, dict) else {}
-        except json.JSONDecodeError:
-            broker_report = {}
+    broker_report = _read_broker_report(report_path)
     return SessionRun(
         _read_events(stream_path), latency_seconds, exit_code, broker_report
     )
 
 
-def result_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
+def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
     """Return the session's final result event, or None when it never finished.
 
     Args:
         all_events: The parsed stream.
+
+    Returns:
+        The last event whose type is result, or None when the stream has none.
     """
     return next(
         (
@@ -180,16 +212,56 @@ def result_event(all_events: list[dict[str, object]]) -> dict[str, object] | Non
     )
 
 
-def _result_text(content: object) -> str:
+def _tool_reply_text(content: object) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return "\n".join(
+        return NEWLINE.join(
             str(each_part.get("text", ""))
             for each_part in content
             if isinstance(each_part, dict)
         )
     return ""
+
+
+def _assistant_text_turn(block_by_field: Mapping[str, object]) -> dict[str, str]:
+    return {"role": "assistant", "content": str(block_by_field.get("text", ""))}
+
+
+def _tool_call_turn(block_by_field: Mapping[str, object]) -> dict[str, str]:
+    return {
+        "role": "tool_call",
+        "name": str(block_by_field.get("name")),
+        "content": json.dumps(block_by_field.get("input"), indent=JSON_INDENT),
+    }
+
+
+def _tool_reply_turn(block_by_field: Mapping[str, object]) -> dict[str, str]:
+    return {
+        "role": "tool_result",
+        "content": _tool_reply_text(block_by_field.get("content"))[:TOOL_RESULT_PREVIEW_LENGTH],
+    }
+
+
+def _event_turns(event_by_field: Mapping[str, object]) -> list[dict[str, str]]:
+    message = event_by_field.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), list):
+        return []
+    turn_builder_by_type = {
+        (ASSISTANT_EVENT_TYPE, TEXT_BLOCK_TYPE): _assistant_text_turn,
+        (ASSISTANT_EVENT_TYPE, TOOL_USE_BLOCK_TYPE): _tool_call_turn,
+        (USER_EVENT_TYPE, TOOL_RESULT_BLOCK_TYPE): _tool_reply_turn,
+    }
+    all_turns: list[dict[str, str]] = []
+    for each_block in message["content"]:
+        if not isinstance(each_block, dict):
+            continue
+        build_turn = turn_builder_by_type.get(
+            (event_by_field.get("type"), each_block.get("type"))
+        )
+        if build_turn is not None:
+            all_turns.append(build_turn(each_block))
+    return all_turns
 
 
 def trace_turns(
@@ -205,58 +277,25 @@ def trace_turns(
     Args:
         prompt: The case's ask.
         all_events: The parsed stream.
+
+    Returns:
+        The user prompt turn followed by one turn per text, tool_use and
+        tool_result block, in stream order.
     """
     all_turns: list[dict[str, str]] = [{"role": "user", "content": prompt}]
     for each_event in all_events:
-        message = each_event.get("message")
-        if not isinstance(message, dict) or not isinstance(
-            message.get("content"), list
-        ):
-            continue
-        for each_block in message["content"]:
-            if not isinstance(each_block, dict):
-                continue
-            block_type = each_block.get("type")
-            if (
-                each_event.get("type") == ASSISTANT_EVENT_TYPE
-                and block_type == TEXT_BLOCK_TYPE
-            ):
-                all_turns.append(
-                    {"role": "assistant", "content": str(each_block.get("text", ""))}
-                )
-            elif (
-                each_event.get("type") == ASSISTANT_EVENT_TYPE
-                and block_type == TOOL_USE_BLOCK_TYPE
-            ):
-                all_turns.append(
-                    {
-                        "role": "tool_call",
-                        "name": str(each_block.get("name")),
-                        "content": json.dumps(
-                            each_block.get("input"), indent=JSON_INDENT
-                        ),
-                    }
-                )
-            elif (
-                each_event.get("type") == USER_EVENT_TYPE
-                and block_type == TOOL_RESULT_BLOCK_TYPE
-            ):
-                all_turns.append(
-                    {
-                        "role": "tool_result",
-                        "content": _result_text(each_block.get("content"))[
-                            :TOOL_RESULT_PREVIEW_LENGTH
-                        ],
-                    }
-                )
+        all_turns.extend(_event_turns(each_event))
     return all_turns
 
 
-def served_models(result: Mapping[str, object]) -> list[str]:
+def served_models(field_by_name: Mapping[str, object]) -> list[str]:
     """Return the model ids the result event bills.
 
     Args:
-        result: The session's result event.
+        field_by_name: The session's result event.
+
+    Returns:
+        The sorted keys of the event's modelUsage map, or an empty list.
     """
-    model_usage = result.get("modelUsage")
+    model_usage = field_by_name.get("modelUsage")
     return sorted(model_usage) if isinstance(model_usage, dict) else []

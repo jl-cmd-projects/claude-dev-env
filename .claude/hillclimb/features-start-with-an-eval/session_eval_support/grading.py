@@ -14,7 +14,10 @@ from session_eval_support.config.constants import (
     PLUGIN_SEPARATOR,
     SKILL_TOOL_NAME,
     TOOL_USE_BLOCK_TYPE,
+    WILSON_CENTER_DIVISOR,
+    WILSON_SPREAD_DIVISOR,
     WILSON_Z,
+    WILSON_Z_SQUARED,
 )
 
 
@@ -40,29 +43,34 @@ def tool_calls(all_events: Iterable[Mapping[str, object]]) -> list[ToolCall]:
     Returns:
         One ToolCall per tool_use block of an assistant event.
     """
-    all_calls: list[ToolCall] = []
-    for each_event in all_events:
-        message = each_event.get("message")
-        if each_event.get("type") != ASSISTANT_EVENT_TYPE or not isinstance(
-            message, dict
-        ):
-            continue
-        all_blocks = message.get("content")
-        if not isinstance(all_blocks, list):
-            continue
-        for each_block in all_blocks:
-            if (
-                isinstance(each_block, dict)
-                and each_block.get("type") == TOOL_USE_BLOCK_TYPE
-            ):
-                tool_input = each_block.get("input")
-                all_calls.append(
-                    ToolCall(
-                        str(each_block.get("name")),
-                        tool_input if isinstance(tool_input, dict) else {},
-                    )
-                )
-    return all_calls
+    return [
+        _tool_call(each_block)
+        for each_event in all_events
+        for each_block in _tool_use_blocks(each_event)
+    ]
+
+
+def _tool_use_blocks(event_by_field: Mapping[str, object]) -> list[dict[str, object]]:
+    message = event_by_field.get("message")
+    if event_by_field.get("type") != ASSISTANT_EVENT_TYPE or not isinstance(message, dict):
+        return []
+    all_blocks = message.get("content")
+    if not isinstance(all_blocks, list):
+        return []
+    return [
+        each_block
+        for each_block in all_blocks
+        if isinstance(each_block, dict)
+        and each_block.get("type") == TOOL_USE_BLOCK_TYPE
+    ]
+
+
+def _tool_call(block_by_field: Mapping[str, object]) -> ToolCall:
+    tool_input = block_by_field.get("input")
+    return ToolCall(
+        str(block_by_field.get("name")),
+        tool_input if isinstance(tool_input, dict) else {},
+    )
 
 
 def _names_skill(call: ToolCall, skill_name: str) -> bool:
@@ -86,6 +94,9 @@ def is_build_eval_call(call: ToolCall) -> bool:
 
     Args:
         call: One tool call from the session.
+
+    Returns:
+        Whether the call is a claude-api Skill call whose first argument word is build-eval.
     """
     arguments = call.tool_input.get("args")
     all_words = arguments.split() if isinstance(arguments, str) else []
@@ -99,6 +110,9 @@ def is_local_build_eval_call(call: ToolCall) -> bool:
 
     Args:
         call: One tool call from the session.
+
+    Returns:
+        Whether the call is a Skill call naming the build-eval skill.
     """
     return _names_skill(call, LOCAL_BUILD_EVAL_SKILL_NAME)
 
@@ -114,6 +128,9 @@ def build_eval_came_first(all_calls: list[ToolCall]) -> bool:
 
     Args:
         all_calls: The session's tool calls in order.
+
+    Returns:
+        Whether a build-eval call came before every edit or spawn call.
     """
     for each_call in all_calls:
         if is_build_eval_call(each_call):
@@ -163,16 +180,22 @@ def wilson_interval(successes: int, trials: int) -> tuple[float, float]:
     Args:
         successes: How many trials passed.
         trials: How many trials ran.
+
+    Returns:
+        The low and high bounds, clamped to the range 0 to 1.
     """
     if trials == 0:
         return 0.0, 1.0
     rate = successes / trials
-    z_squared = WILSON_Z**2
+    z_squared = WILSON_Z_SQUARED
     denominator = 1 + z_squared / trials
-    center = (rate + z_squared / (2 * trials)) / denominator
+    center = (rate + z_squared / (WILSON_CENTER_DIVISOR * trials)) / denominator
     spread = (
         WILSON_Z
-        * math.sqrt(rate * (1 - rate) / trials + z_squared / (4 * trials**2))
+        * math.sqrt(
+            rate * (1 - rate) / trials
+            + z_squared / (WILSON_SPREAD_DIVISOR * trials * trials)
+        )
         / denominator
     )
     return max(0.0, center - spread), min(1.0, center + spread)
