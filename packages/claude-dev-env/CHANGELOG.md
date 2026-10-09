@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.73.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.1...claude-dev-env-v8.73.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* **hooks:** remove the artifact look gate ([#1951](https://github.com/jl-cmd-projects/claude-dev-env/issues/1951)) ([b41606f](https://github.com/jl-cmd-projects/claude-dev-env/commit/b41606f48c7a4f9c33f8509d96dc1bf422284a27))
+
 ## [8.73.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.0...claude-dev-env-v8.73.1) (2026-10-09)
 
 
