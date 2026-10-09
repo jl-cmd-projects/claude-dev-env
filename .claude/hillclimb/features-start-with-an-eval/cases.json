@@ -1,0 +1,18 @@
+[
+  {"id": "f01", "group": "feature", "expected": "build-eval", "prompt": "Add a --dry-run flag to the cleanup command that prints what it would delete."},
+  {"id": "f02", "group": "feature", "expected": "build-eval", "prompt": "Add CSV export to the report command."},
+  {"id": "f03", "group": "feature", "expected": "build-eval", "prompt": "Send me an email when a job fails."},
+  {"id": "f04", "group": "feature", "expected": "build-eval", "prompt": "Build a small HTML page that lists the jobs and their status."},
+  {"id": "f05", "group": "feature", "expected": "build-eval", "prompt": "Add retry with backoff to the download command."},
+  {"id": "f06", "group": "feature", "expected": "build-eval", "prompt": "Let users tag jobs and filter the job list by tag."},
+  {"id": "f07", "group": "feature", "expected": "build-eval", "prompt": "Can you add a config option for the default cleanup age?"},
+  {"id": "f08", "group": "feature", "expected": "build-eval", "prompt": "Add a git hook that blocks commits to main."},
+  {"id": "f09", "group": "feature", "expected": "build-eval", "prompt": "Change the report's default sort to newest first."},
+  {"id": "f10", "group": "feature-without-eval", "expected": "build-eval", "prompt": "Add a --json flag to the report command."},
+  {"id": "n01", "group": "bug-fix", "expected": "none", "prompt": "The cleanup command crashes when the folder has no logs. Fix it."},
+  {"id": "n02", "group": "question", "expected": "none", "prompt": "How does the report command pick its date range?"},
+  {"id": "n03", "group": "rename", "expected": "none", "prompt": "Rename parse_row to parse_report_row everywhere."},
+  {"id": "n04", "group": "docs", "expected": "none", "prompt": "Fix the typo \"recieve\" in README.md."},
+  {"id": "n05", "group": "test-run", "expected": "none", "prompt": "Run the tests and tell me what fails."},
+  {"id": "n06", "group": "speed", "expected": "none", "prompt": "Make the cleanup command faster."}
+]

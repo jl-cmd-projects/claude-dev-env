@@ -6,4 +6,4 @@ State the chosen point directly and leave out the discarded reading. Remove thes
 
 **Enforcement:** staged policy lint and `scripts/durable_post_lint.py` check authored text; the agent checks chat.
 
-**Full text:** [`docs/rule-guides/no-contrast-framing.md`](../docs/rule-guides/no-contrast-framing.md). Read it for examples and checker exceptions.
+**Full text:** [guide](../docs/rule-guides/no-contrast-framing.md). Read it for examples and checker exceptions.

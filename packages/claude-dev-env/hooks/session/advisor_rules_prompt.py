@@ -29,6 +29,8 @@ from hooks_constants.advisor_rules_prompt_constants import (
     DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME,
     USER_SETTINGS_FILE_NAME,
 )
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
+from hooks_constants.mod_handoff_constants import SESSION_PROMPTS_PLUGIN_NAME
 
 
 def user_settings_path() -> Path:
@@ -58,7 +60,9 @@ def is_advisor_configured(settings_path: Path) -> bool:
 
 
 def main() -> None:
-    """Emit the advisor guidance as SessionStart additionalContext when the advisor is on."""
+    """Emit the advisor guidance as SessionStart additionalContext when the advisor is on and the session-prompts mod is off."""
+    if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
+        return
     if is_advisor_disabled_by_environment():
         return
     if not is_advisor_configured(user_settings_path()):

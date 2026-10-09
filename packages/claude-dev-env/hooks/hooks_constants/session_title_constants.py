@@ -51,6 +51,11 @@ STOP_BLOCK_REASON = (
     " two parts joined with ' + ', sentence case, no end punctuation,"
     " no dates, IDs, branch names or filler words."
     " Rename it when the scope of the work has changed."
+    " The title is a silent step: make the call and end the turn."
+    " Say nothing to the user about the title, its emoji or this reminder."
+    " When the user already has your answer this turn, end with no text."
+    " Next time, set the title before your final reply."
 )
 REMOTE_TITLE_TOOL_NAME = "mcp__claude-code-remote__set_session_title"
+REMOTE_SERVER_TOOL_PREFIX = "mcp__claude-code-remote__"
 UNKNOWN_TITLE_TOOL_NAME = "its name ends in __set_session_title"

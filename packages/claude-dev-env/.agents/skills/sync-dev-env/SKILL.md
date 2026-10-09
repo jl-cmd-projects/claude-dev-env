@@ -1,6 +1,6 @@
 ---
 name: sync-dev-env
-description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, or to set up the daily sync.
+description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
 argument-hint: "[HH:MM] [IANA time zone]"
 ---
 
@@ -40,6 +40,14 @@ Bind the routine to the session whose container needs the sync. Called from that
 Then call `list_triggers` and tell the user the routine name and its `next_run_at` in their time zone. The schedule counts as armed only once that listing shows it.
 
 In a local Claude Code session, `CronCreate` jobs expire after 7 days. Use `/loop` or an operating system scheduler for a local daily sync.
+
+## Session prompt
+
+The package sets `"agent": "dev-env-session"` in `~/.claude/settings.json`. Claude Code loads that agent's body, `~/.claude/agents/dev-env-session.md`, as the system prompt of every session the settings file reaches.
+
+When the user asks which session prompt this session uses, read the `agent` key in `~/.claude/settings.json`, then compare your loaded system prompt with the body of `~/.claude/agents/dev-env-session.md`. Report `dev-env-session` with the file path when the key is set and the body matches your loaded prompt. Report the default Claude Code prompt when the key is absent or the body differs, because a launch flag such as `--agent`, `--system-prompt` or `--settings` overrides the key.
+
+When the user asks to turn the trimmed prompt off for one session, start that session with `claude --settings '{"agent": ""}'`. The settings file stays unchanged, so the next session loads the trimmed prompt again.
 
 ## Layout
 

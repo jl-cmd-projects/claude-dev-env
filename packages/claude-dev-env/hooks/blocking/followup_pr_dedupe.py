@@ -19,16 +19,20 @@ from hooks_constants.followup_pr_dedupe_constants import (
     ALL_BODY_FILE_OPTIONS,
     ALL_BODY_OPTIONS,
     ALL_REPOSITORY_OPTIONS,
+    ALL_TITLE_OPTIONS,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     FOLLOWUP_PARENT_PATTERN,
     ALL_GH_CREATE_WORDS,
     ALL_GIT_REMOTE_COMMAND_WORDS,
+    ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS,
     GITHUB_API_ROOT,
     GITHUB_REMOTE_PATTERN,
     OPEN_PULL_REQUESTS_PATH_TEMPLATE,
     READ_TIMEOUT_SECONDS,
+    RUN_WORKFLOW_METHOD,
     STANDARD_INPUT_PATH,
+    WORKFLOW_DISPATCH_TOOL_SUFFIX,
 )
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pytest_invocation import unquoted_token
@@ -79,7 +83,12 @@ def _option_value(all_arguments: list[str], all_option_names: frozenset[str]) ->
     return None
 
 
-def _body_from_arguments(all_arguments: list[str], working_directory: str) -> str | None:
+def body_from_arguments(all_arguments: list[str], working_directory: str) -> str | None:
+    """Return the body a gh-style argument list passes, or None when it passes none.
+
+    ``--body`` text comes back as given. A ``--body-file`` path is read from
+    the working directory. Standard input and an unreadable file give None.
+    """
     inline_body = _option_value(all_arguments, ALL_BODY_OPTIONS)
     if inline_body is not None:
         return inline_body
@@ -92,6 +101,18 @@ def _body_from_arguments(all_arguments: list[str], working_directory: str) -> st
         )
     except OSError:
         return None
+
+
+def title_from_arguments(all_arguments: list[str]) -> str | None:
+    """Return the title a gh-style argument list passes, or None when it passes none.
+
+    ::
+
+        ["--title", "feat: x"] -> "feat: x"
+        ["-t=fix: y"]          -> "fix: y"
+        ["--fill"]             -> None
+    """
+    return _option_value(all_arguments, ALL_TITLE_OPTIONS)
 
 
 def _origin_repository(working_directory: str) -> tuple[str, str] | None:
@@ -125,7 +146,7 @@ def _segment_draft(all_segment_tokens: list[str], working_directory: str) -> Pul
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
     if program != "gh" or all_arguments[: len(ALL_GH_CREATE_WORDS)] != ALL_GH_CREATE_WORDS:
         return None
-    body = _body_from_arguments(all_arguments, working_directory)
+    body = body_from_arguments(all_arguments, working_directory)
     repository = _repository_from_arguments(all_arguments, working_directory)
     if body is None or repository is None:
         return None
@@ -141,19 +162,53 @@ def _shell_draft(command: str, working_directory: str) -> PullRequestDraft | Non
     return next((each_draft for each_draft in all_drafts if each_draft is not None), None)
 
 
-def pull_request_draft(all_payload_fields: Mapping[str, object]) -> PullRequestDraft | None:
-    """Return the pull request a PreToolUse payload is about to open, or None."""
+def _dispatch_fields(all_tool_input_fields: Mapping[str, object]) -> dict[str, object] | None:
+    all_inputs = all_tool_input_fields.get("inputs")
+    if all_tool_input_fields.get("method") != RUN_WORKFLOW_METHOD or not isinstance(all_inputs, dict):
+        return None
+    if not all(isinstance(all_inputs.get(each_key), str) for each_key in ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS):
+        return None
+    return {**all_inputs, "owner": all_tool_input_fields.get("owner"), "repo": all_tool_input_fields.get("repo")}
+
+
+def create_tool_fields(all_payload_fields: Mapping[str, object]) -> Mapping[str, object] | None:
+    """Return the fields a GitHub MCP call that opens a pull request carries, or None.
+
+    ::
+
+        create_pull_request {owner, repo, title, body}       -> those fields
+        actions_run_trigger run_workflow, head and title in   -> the inputs, owner and repo
+        actions_run_trigger whose inputs name no head         -> None
+
+    A dispatch whose inputs name a head branch and a title runs a workflow
+    that opens the pull request, so it counts as a create call.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+
+    Returns:
+        The owner, repo, title, body and head keys the call names, or None.
+    """
     tool_name = all_payload_fields.get("tool_name")
     tool_input = all_payload_fields.get("tool_input")
     if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
         return None
     if tool_name.endswith(CREATE_PULL_REQUEST_TOOL_SUFFIX):
-        owner, repo, body = (tool_input.get(each_key) for each_key in ("owner", "repo", "body"))
+        return tool_input
+    return _dispatch_fields(tool_input) if tool_name.endswith(WORKFLOW_DISPATCH_TOOL_SUFFIX) else None
+
+
+def pull_request_draft(all_payload_fields: Mapping[str, object]) -> PullRequestDraft | None:
+    """Return the pull request a PreToolUse payload is about to open, or None."""
+    create_fields = create_tool_fields(all_payload_fields)
+    if create_fields is not None:
+        owner, repo, body = (create_fields.get(each_key) for each_key in ("owner", "repo", "body"))
         if isinstance(owner, str) and isinstance(repo, str) and isinstance(body, str):
             return PullRequestDraft(owner, repo, body)
         return None
-    command = tool_input.get("command")
-    if tool_name not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
     working_directory = all_payload_fields.get("cwd")
     return _shell_draft(command, working_directory if isinstance(working_directory, str) else "")

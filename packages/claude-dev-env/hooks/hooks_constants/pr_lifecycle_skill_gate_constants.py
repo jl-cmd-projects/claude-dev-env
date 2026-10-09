@@ -39,3 +39,6 @@ ALL_PYTHON_EXECUTABLES = frozenset({"python", "python3", "python.exe", "python3.
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PATH_SEPARATOR_PATTERN = r"[\\/]"
 PYTHON_OPTIONS_WITH_VALUE = frozenset({"-X", "-W"})
+ALL_BUILD_EVAL_SKILL_NAMES = ("claude-api",)
+BUILD_EVAL_ARGUMENT_WORD = "build-eval"
+BUILD_EVAL_COMMAND_MARKER = "<command-name>/claude-api</command-name>"

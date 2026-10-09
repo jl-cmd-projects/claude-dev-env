@@ -50,6 +50,7 @@ ALL_CODEX_FLOORS = {
 
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
+TIMEOUT_EXIT_CODE = 124
 REPORT_INDENT_SPACES = 2
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
@@ -157,6 +158,7 @@ class Meters:
 class Reading:
     account: Account
     meters: Meters | None
+    unread_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -317,6 +319,12 @@ class _RetryTime:
     is_known_reset: bool
 
 
+def _unreadable_text(reading: Reading) -> str:
+    if reading.unread_reason is None:
+        return reading.account.name
+    return f"{reading.account.name} ({reading.unread_reason})"
+
+
 def _wait_reason(all_unreadable_names: Sequence[str], is_every_account_unreadable: bool, soonest: _RetryTime) -> str:
     next_event = "reset" if soonest.is_known_reset else "check"
     next_text = f"next {next_event} at {utc_time_text(soonest.at)}"
@@ -340,7 +348,7 @@ def _wait_decision(
         all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
     soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
     all_unreadable_names = [
-        each_reading.account.name
+        _unreadable_text(each_reading)
         for each_reading in all_readings
         if each_reading.meters is None and each_reading.account not in all_spent_accounts
     ]

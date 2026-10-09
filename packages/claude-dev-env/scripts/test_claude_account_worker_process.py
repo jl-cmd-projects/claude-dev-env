@@ -45,3 +45,23 @@ def test_should_send_job_to_runner_and_return_outcome_with_elapsed_seconds(
             },
         )
     ]
+
+
+def test_should_pass_the_live_log_to_the_runner_when_one_is_named(tmp_path: Path) -> None:
+    live_log = tmp_path / "events.jsonl"
+    captured_options: dict[str, object] = {}
+
+    def recording_runner(product: Product, argv: list[str], **options: object) -> JobOutcome:
+        captured_options.update(options)
+        return JobOutcome(0, "{}", "", "main", (), "served", None, None)
+
+    invoke_worker(
+        all_arguments=["claude", "-p"],
+        cwd=tmp_path,
+        prompt_text="brief",
+        timeout_minutes=1,
+        runner=recording_runner,
+        live_log=live_log,
+    )
+
+    assert captured_options["live_log"] == live_log

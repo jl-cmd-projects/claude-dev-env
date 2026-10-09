@@ -22,6 +22,13 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Pull request submission rules
 
+**Prove the change where it runs before you open the pull request.** The body carries a
+"Proof in practice" section with each command you ran and its quoted output. A hook denies
+a new pull request without one. Read `~/.claude/docs/rule-guides/proof-before-pull-request.md`
+before you plan the proof run. A `feat` pull request also needs an "Eval" section and a
+session that invoked `/claude-api build-eval`; read
+`~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
+
 **Open every pull request ready for review.** Pass `--draft` only when the owner asks
 for a draft.
 

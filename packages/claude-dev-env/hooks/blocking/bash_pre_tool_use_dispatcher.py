@@ -41,6 +41,7 @@ from hooks_constants.hosted_hook_runner import (
     HostedHookRun,
     resolved_hook_script_path,
 )
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
 
 _PERMISSION_DECISION_KEY = "permissionDecision"
 _PERMISSION_REASON_KEY = "permissionDecisionReason"
@@ -87,11 +88,18 @@ class _ParsedHookDecision:
 
 
 def select_applicable_entries(tool_name: str) -> list[BashHostedHookEntry]:
-    """Return the ordered hosted-hook entries that apply to tool_name."""
+    """Return the ordered hosted-hook entries that apply to tool_name.
+
+    An entry whose mod plugin is on drops out, because the mod does its work.
+    """
     return [
         each_entry
         for each_entry in ALL_BASH_HOSTED_HOOK_ENTRIES
         if tool_name in each_entry.applicable_tool_names
+        and not (
+            each_entry.replaced_by_plugin_name is not None
+            and is_mod_plugin_enabled(each_entry.replaced_by_plugin_name)
+        )
     ]
 
 

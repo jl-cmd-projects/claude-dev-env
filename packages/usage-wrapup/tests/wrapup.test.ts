@@ -25,12 +25,19 @@ test('no note while plenty of usage is left', async ($, on) => {
   expect((r as { context?: string[] }).context ?? []).toHaveLength(0)
 })
 
-test('tool results carry the wrap-up note at 5% left or less', async ($, on) => {
+test('no note at 5% left by default', async ($, on) => {
   engine(on)
-  await $.session.measure(measure(96))
+  await $.session.measure(measure(95))
+  const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
+  expect((r as { context?: string[] }).context ?? []).toHaveLength(0)
+})
+
+test('tool results carry the wrap-up note at 1% left or less', async ($, on) => {
+  engine(on)
+  await $.session.measure(measure(99))
   const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
   const ctx = (r as { context?: string[] }).context ?? []
-  expect(ctx.join('\n')).toMatch(/USAGE LOW .*4% left/)
+  expect(ctx.join('\n')).toMatch(/USAGE LOW .*1% left/)
   expect(ctx.join('\n')).toMatch(/handoff/)
 })
 
@@ -45,4 +52,13 @@ test('threshold is configurable', { options: { threshold: 20 } }, async ($, on) 
   await $.session.measure(measure(85))
   const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
   expect(((r as { context?: string[] }).context ?? []).join('\n')).toMatch(/15% left/)
+})
+
+test('the note arms a wake for just after the reset before it stops', async ($, on) => {
+  engine(on)
+  await $.session.measure({ ...measure(99), rateLimits: [{ kind: 'five_hour', percentUsed: 99, resetsAt: '2026-10-05T03:10:00Z' }] })
+  const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
+  const note = ((r as { context?: string[] }).context ?? []).join('\n')
+  expect(note).toMatch(/4\. Before you stop, arm one wake for just after 2026-10-05T03:10:00Z/)
+  expect(note).toMatch(/5\. Then stop/)
 })

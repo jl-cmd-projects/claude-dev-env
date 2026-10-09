@@ -1,8 +1,5 @@
 name: Validate instruction pairs
 
-# pull_request reports the required instruction-pairs check on PRs that
-# change this workflow. pull_request_target runs this file from main so
-# bot PRs start without workflow approval.
 on:
   pull_request:
   pull_request_target:
@@ -18,6 +15,7 @@ on:
       - "packages/claude-dev-env/scripts/validate_instruction_pairs.py"
       - ".pre-commit-config.yaml"
       - ".gitattributes"
+  merge_group:
   workflow_dispatch:
 
 jobs:

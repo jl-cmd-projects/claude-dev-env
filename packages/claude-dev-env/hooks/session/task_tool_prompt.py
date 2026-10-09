@@ -14,6 +14,8 @@ import sys
 
 import _path_setup  # noqa: F401
 
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
+from hooks_constants.mod_handoff_constants import SESSION_PROMPTS_PLUGIN_NAME
 from hooks_constants.task_tool_prompt_constants import TASK_TOOL_DIRECTIVE
 
 
@@ -23,7 +25,9 @@ def build_session_directive() -> str:
 
 
 def main() -> None:
-    """Emit the task-tool directive as SessionStart additionalContext."""
+    """Emit the task-tool directive as SessionStart additionalContext, unless the session-prompts mod is on."""
+    if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
+        return
     payload = {
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",

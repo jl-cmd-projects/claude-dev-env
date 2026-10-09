@@ -31,12 +31,13 @@ export function wrapUpNote(low: Low): string {
     '1. Do not start new work, new subagents or big searches.',
     '2. Finish or safely pause the current step. Leave files in a working state.',
     '3. Write a short handoff: what is done, what is left, the exact next step.',
-    '4. Then stop and give the user your final answer.',
+    `4. Before you stop, arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so the paused work resumes without a person.`,
+    '5. Then stop and give the user your final answer.',
   ].join('\n')
 }
 
 export const register: Register = (on, options) => {
-  const threshold = Number(options.threshold ?? 5)
+  const threshold = Number(options.threshold ?? 1)
   let limits: readonly SessionRateLimit[] | undefined
   let wasWarned = false
 
