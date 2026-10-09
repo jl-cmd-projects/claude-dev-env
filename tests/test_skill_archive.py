@@ -74,7 +74,7 @@ def test_skill_builder_keeps_only_the_requested_stub_and_instruction_files() -> 
         for file_path in stub_directory.rglob("*")
         if file_path.is_file()
     }
-    assert actual_files == {"SKILL.md", "AGENTS.md", ".claude/CLAUDE.md"}
+    assert actual_files == {"SKILL.md"}
     assert (ARCHIVE_DIRECTORY / "skill-builder" / "workflows").is_dir()
     assert (ARCHIVE_DIRECTORY / "skill-builder" / "references").is_dir()
     assert (ARCHIVE_DIRECTORY / "skill-builder" / "templates").is_dir()

@@ -17,6 +17,7 @@ def invoke_worker(
     prompt_text: str,
     timeout_minutes: int,
     runner: Callable[..., JobOutcome],
+    live_log: Path | None = None,
     monotonic_clock: Callable[[], float] = time.monotonic,
 ) -> tuple[JobOutcome, float]:
     """Run one broker job and measure its elapsed time.
@@ -28,12 +29,15 @@ def invoke_worker(
         timeout_minutes: Job time limit in minutes; the runner receives it in seconds.
         runner: Broker job runner, called with ``Product.CLAUDE``,
             ``encoding="utf-8"``, and ``errors="replace"``.
+        live_log: File the runner writes the job's standard output into as it
+            runs, passed only when set.
         monotonic_clock: Clock read once before and once after the job.
 
     Returns:
         The runner's job outcome and the difference between the two clock reads.
     """
     started_at = monotonic_clock()
+    all_log_options = {} if live_log is None else {"live_log": live_log}
     outcome = runner(
         Product.CLAUDE,
         all_arguments,
@@ -42,5 +46,6 @@ def invoke_worker(
         cwd=cwd,
         encoding="utf-8",
         errors="replace",
+        **all_log_options,
     )
     return outcome, monotonic_clock() - started_at
