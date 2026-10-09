@@ -2,12 +2,11 @@
 
 import json
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
+from rules_eval_support.launch import launch_words
 from rules_eval_support.config.constants import (
-    BROKER_SCRIPT,
     JSON_INDENT,
     JUDGE_EFFORT,
     JUDGE_MODEL,
@@ -59,40 +58,26 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
     return None
 
 
-def run_judge(prompt_text: str) -> tuple[dict[str, object] | None, dict[str, object]]:
-    """Run the judge once, headless through the account broker, in an empty folder.
+def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | None, dict[str, object]]:
+    """Run the judge once, headless, in an empty folder.
 
     Args:
         prompt_text: The text from judge_prompt.
+        is_direct: Whether to skip the broker and run on the caller's account.
 
     Returns:
         The verdict (None when unreadable) and the judge's result event.
     """
     judge_directory = Path(tempfile.mkdtemp(prefix="rules-judge-"))
     completed = subprocess.run(
-        [
-            sys.executable,
-            str(BROKER_SCRIPT),
-            "run",
-            "--product",
-            "claude",
-            "--report",
-            str(judge_directory.parent / (judge_directory.name + "-" + JUDGE_REPORT_FILE_NAME)),
-            "--",
-            "claude",
-            "-p",
-            prompt_text,
-            "--model",
-            JUDGE_MODEL,
-            "--effort",
-            JUDGE_EFFORT,
-            "--max-turns",
-            "1",
-            "--output-format",
-            "json",
-            "--setting-sources",
-            JUDGE_SETTING_SOURCES,
-        ],
+        launch_words(
+            judge_directory.parent / (judge_directory.name + "-" + JUDGE_REPORT_FILE_NAME),
+            [
+                "claude", "-p", prompt_text, "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
+                "--max-turns", "1", "--output-format", "json", "--setting-sources", JUDGE_SETTING_SOURCES,
+            ],
+            is_direct,
+        ),
         cwd=judge_directory,
         capture_output=True,
         text=True,

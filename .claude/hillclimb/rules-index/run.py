@@ -61,11 +61,11 @@ from rules_eval_support.grading import TOOL_CHECK_BY_NAME, opened_a_guide
 from rules_eval_support.install import prepare_workspace, variant_files
 from rules_eval_support.judge import judge_prompt, run_judge
 from session_eval_support.grading import tool_calls, wilson_interval
+from rules_eval_support.launch import run_session
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
-    run_session,
     served_models,
     trace_turns,
 )
@@ -84,6 +84,8 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--max-turns", type=int, default=DEFAULT_MAX_TURNS)
     parser.add_argument("--timeout-s", type=int, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
+    parser.add_argument("--label", default="", help="results folder name; defaults to the variant name")
+    parser.add_argument("--direct", action="store_true", help="run every session and judge on this session's account, skipping the broker")
     return parser.parse_args()
 
 
@@ -111,7 +113,7 @@ def _unscorable(session: SessionRun, settings: SessionSettings) -> tuple[str, ob
     return None
 
 
-def _grade(case_by_field: dict[str, str], session: SessionRun) -> tuple[bool | None, dict[str, object]]:
+def _grade(case_by_field: dict[str, str], session: SessionRun, is_direct: bool) -> tuple[bool | None, dict[str, object]]:
     all_calls = tool_calls(session.all_events)
     check = case_by_field["check"]
     if check in TOOL_CHECK_BY_NAME:
@@ -122,16 +124,17 @@ def _grade(case_by_field: dict[str, str], session: SessionRun) -> tuple[bool | N
         return not all_hits, {"contrast_hits": all_hits}
     if check == CHECK_JUDGE:
         verdict, judge_event = run_judge(
-            judge_prompt(case_by_field["prompt"], case_by_field["rubric"], trace_turns(case_by_field["prompt"], session.all_events))
+            judge_prompt(case_by_field["prompt"], case_by_field["rubric"], trace_turns(case_by_field["prompt"], session.all_events)),
+            is_direct,
         )
         judge_record = {"judge_model": JUDGE_MODEL, "judge_usage": judge_event.get("usage"), "judge_verdict": verdict}
         return (None if verdict is None else bool(verdict["pass"])), judge_record
     raise KeyError(check)
 
 
-def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, files_by_target: dict[str, str], settings: SessionSettings) -> None:
+def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, files_by_target: dict[str, str], settings: SessionSettings, is_direct: bool) -> None:
     workspace = prepare_workspace(files_by_target)
-    session = run_session(workspace, case_by_field["prompt"], settings)
+    session = run_session(workspace, case_by_field["prompt"], settings, is_direct)
     failure = _unscorable(session, settings)
     if failure is not None:
         _append_line(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": failure[0], "detail": failure[1]})
@@ -139,7 +142,7 @@ def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, f
     (variant_directory / TRACES_DIRECTORY_NAME / TRACE_FILE_TEMPLATE.format(case_id=case_by_field["id"], rep=rep)).write_text(
         json.dumps(trace_turns(case_by_field["prompt"], session.all_events), indent=JSON_INDENT), encoding="utf-8"
     )
-    followed, grade_record = _grade(case_by_field, session)
+    followed, grade_record = _grade(case_by_field, session, is_direct)
     if followed is None:
         _append_line(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": FAILURE_JUDGE, "detail": grade_record})
         return
@@ -188,13 +191,13 @@ def main() -> int:
     files_by_target = variant_files(state["variants"][arguments.variant]["ref"])
     all_wanted_ids = {each_id for each_id in arguments.cases.split(",") if each_id}
     all_cases = [each_case for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8")) if not all_wanted_ids or each_case["id"] in all_wanted_ids]
-    variant_directory = FLOW_ROOT / arguments.variant
+    variant_directory = FLOW_ROOT / (arguments.label or arguments.variant)
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
     all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)}
     all_pending = [(each_case, each_rep) for each_case in all_cases for each_rep in range(arguments.reps) if (each_case["id"], each_rep) not in all_done]
     with ThreadPoolExecutor(max_workers=arguments.parallel) as executor:
-        for each_future in [executor.submit(_run_one, each_case, each_rep, variant_directory, files_by_target, settings) for each_case, each_rep in all_pending]:
+        for each_future in [executor.submit(_run_one, each_case, each_rep, variant_directory, files_by_target, settings, arguments.direct) for each_case, each_rep in all_pending]:
             each_future.result()
     all_rows = [each_row for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME) if each_row["prompt_id"] in {each_case["id"] for each_case in all_cases}]
     logger.info("%s: %s", arguments.variant, _summary(all_rows, len(_read_rows(variant_directory / ERRORS_FILE_NAME))))
