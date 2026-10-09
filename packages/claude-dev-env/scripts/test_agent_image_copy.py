@@ -47,6 +47,26 @@ def test_write_agent_copy_should_crop_before_scaling(tmp_path: Path) -> None:
         assert copy_image.size == (512, 455)
 
 
+def test_write_agent_copy_should_write_a_cmyk_jpeg_as_rgb(tmp_path: Path) -> None:
+    source_path = tmp_path / "print.jpg"
+    Image.new("CMYK", (1000, 800)).save(source_path)
+    copy_path = agent_image_copy.write_agent_copy(source_path)
+    with Image.open(copy_path) as copy_image:
+        assert copy_image.mode == "RGB"
+        assert copy_image.size == (512, 410)
+
+
+def test_write_agent_copy_should_follow_the_exif_orientation(tmp_path: Path) -> None:
+    source_path = tmp_path / "phone.jpg"
+    source_image = Image.new("RGB", (1000, 600), "white")
+    all_exif_tags = source_image.getexif()
+    all_exif_tags[0x0112] = 6
+    source_image.save(source_path, exif=all_exif_tags)
+    copy_path = agent_image_copy.write_agent_copy(source_path)
+    with Image.open(copy_path) as copy_image:
+        assert copy_image.size == (307, 512)
+
+
 def test_main_should_print_the_copy_path(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

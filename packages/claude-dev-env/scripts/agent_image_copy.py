@@ -27,12 +27,14 @@ if scripts_directory not in sys.path:
 
 from dev_env_scripts_constants.agent_image_copy_constants import (
     AGENT_COPY_SUFFIX,
+    ALL_PNG_WRITABLE_MODES,
     CROP_BOX_PART_COUNT,
     CROP_BOX_SEPARATOR,
     MAXIMUM_LONG_EDGE_PIXELS,
+    PNG_FALLBACK_MODE,
     VISUAL_TOKEN_PATCH_PIXELS,
 )
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def capped_size(
@@ -104,6 +106,9 @@ def write_agent_copy(
 ) -> Path:
     """Write the capped copy beside the source and return its path.
 
+    The copy is turned upright by its EXIF orientation before the crop, and a mode PNG
+    cannot hold, such as CMYK, is converted to RGB.
+
     Args:
         source_path: The full-size image.
         all_crop_coordinates: An optional LEFT, TOP, RIGHT, BOTTOM region cut before scaling.
@@ -113,7 +118,10 @@ def write_agent_copy(
     """
     copy_path = source_path.with_name(source_path.stem + AGENT_COPY_SUFFIX)
     with Image.open(source_path) as source_image:
-        working_image = source_image.crop(all_crop_coordinates) if all_crop_coordinates else source_image.copy()
+        upright_image = ImageOps.exif_transpose(source_image)
+        working_image = upright_image.crop(all_crop_coordinates) if all_crop_coordinates else upright_image.copy()
+    if working_image.mode not in ALL_PNG_WRITABLE_MODES:
+        working_image = working_image.convert(PNG_FALLBACK_MODE)
     working_image = working_image.resize(
         capped_size(*working_image.size), Image.Resampling.LANCZOS
     )
