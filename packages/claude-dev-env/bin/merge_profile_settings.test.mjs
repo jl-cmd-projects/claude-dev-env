@@ -17,7 +17,7 @@ import {
 
 const FIXED_NOW = new Date('2026-10-04T12:00:00.000Z');
 const BACKUP_SUFFIX = '.2026-10-04T12-00-00-000Z.bak';
-const PLUGIN_STOP_GATE_COMMAND = 'python3 /plugin/hooks/blocking/session_title_stop_gate.py';
+const OTHER_STOP_HOOK_COMMAND = 'python3 /plugin/hooks/lifecycle/other_stop_hook.py';
 const PERMISSION_ALLOW_ITEMS = DECLARED_PROFILE_SETTINGS
     .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
 const AUTO_MODE_ALLOW_ITEMS = DECLARED_PROFILE_SETTINGS
@@ -73,7 +73,7 @@ test('a missing settings.json is created with every declared entry and no Stop h
     assert.deepEqual(outcome.gate.removedPaths, []);
 });
 
-test('the retired profile gate leaves settings.json and ~/.claude, and the plugin gate stays', () => {
+test('the retired profile gate leaves settings.json and ~/.claude, and another Stop hook stays', () => {
     const homeDirectory = makeHome();
     const claudeDirectory = join(homeDirectory, '.claude');
     const settingsPath = join(claudeDirectory, 'settings.json');
@@ -83,7 +83,7 @@ test('the retired profile gate leaves settings.json and ~/.claude, and the plugi
                 {
                     hooks: [
                         { type: 'command', command: expandedRetiredGateCommand(homeDirectory), timeout: 10 },
-                        { type: 'command', command: PLUGIN_STOP_GATE_COMMAND },
+                        { type: 'command', command: OTHER_STOP_HOOK_COMMAND },
                     ],
                 },
                 { hooks: [{ type: 'command', command: expandedRetiredGateCommand(homeDirectory), timeout: 10 }] },
@@ -96,7 +96,7 @@ test('the retired profile gate leaves settings.json and ~/.claude, and the plugi
     const outcome = mergeProfileSettings([settingsPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
 
     const mergedSettings = readSettings(settingsPath);
-    assert.deepEqual(stopCommands(mergedSettings), [PLUGIN_STOP_GATE_COMMAND]);
+    assert.deepEqual(stopCommands(mergedSettings), [OTHER_STOP_HOOK_COMMAND]);
     assert.equal(mergedSettings.hooks.Stop.length, 1);
     assert.equal(mergedSettings.permissions.allow.includes(RETIRED_SESSION_TITLE_GATE_PERMISSION), false);
     assert.equal(outcome.files[0].removals.length, 3);
@@ -152,7 +152,7 @@ test('a partial file gains only the missing entries, keeps other keys, and is ba
     const originalSettings = {
         model: 'opus',
         hooks: {
-            Stop: [{ hooks: [{ type: 'command', command: PLUGIN_STOP_GATE_COMMAND, timeout: 30 }] }],
+            Stop: [{ hooks: [{ type: 'command', command: OTHER_STOP_HOOK_COMMAND, timeout: 30 }] }],
             PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'python3 guard.py' }] }],
         },
         permissions: { allow: ['Read', 'mcp__claude-code-remote__set_session_title'], deny: ['Bash(rm:*)'] },
