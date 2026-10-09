@@ -1230,6 +1230,7 @@ test('retired hook registrations stay managed so reinstall removes them', () => 
         'blocking/send_user_file_open_locally_blocker.py',
         'blocking/question_to_user_enforcer.py',
         'blocking/session_handoff_blocker.py',
+        'blocking/artifact_look_gate.py',
     ]);
     const shippedHooks = JSON.parse(
         readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8')

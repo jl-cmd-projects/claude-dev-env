@@ -1247,6 +1247,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/send_user_file_open_locally_blocker.py',
     'blocking/question_to_user_enforcer.py',
     'blocking/session_handoff_blocker.py',
+    'blocking/artifact_look_gate.py',
 ]);
 
 export const MOVED_HOOK_RELATIVE_PATHS = new Set([
