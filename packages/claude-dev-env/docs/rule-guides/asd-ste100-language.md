@@ -1,6 +1,14 @@
-Back to the [rule entry](../../rules/asd-ste100-language.md).
+Back to the [rules index](../../rules/index.md).
 
 # ASD-STE100 language policy
+
+## In brief
+
+**When:** Writing chat, tool narration, or repository prose.
+
+Use the sole general language rule. Write short, complete sentences on one topic. Use active voice; lead with conditions; one action per step. Use plain, precise words, stable terms. Expand abbreviations and contractions; name unclear pronouns. Be inclusive; punctuate clearly. Preserve exact labels, identifiers, formulas, titles, interface text. Say each fact once. Send a result, blocker, or question. Mark injury or death `WARNING`, equipment damage `CAUTION`; state condition then result. Aim for 20 words per step, 25 per description. Treat checks as aids; have a human verify accuracy, terms, safety, confidentiality, meaning.
+
+**Enforcement:** none.
 
 Use this rule as the sole general language authority for user-facing text in this repository.
 It defines ordinary word choice, sentence style, tone, punctuation, and prose form.

@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/verify-before-asking.md).
+Back to the [rules index](../../rules/index.md).
 
 # Verify before asking
+
+## In brief
+
+Inspect files, directories, configuration, environment, databases, and available tools for the answer. Recheck facts recalled from earlier sessions. Apply any criterion the user already supplied and state the decision. Ask only for a judgment, preference, or inaccessible fact.
+
+**Enforcement:** none.
 
 **When this applies:** Before asking the user any clarifying question during discovery, scoping, or implementation planning.
 

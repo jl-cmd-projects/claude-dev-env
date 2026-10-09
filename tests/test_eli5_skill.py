@@ -42,7 +42,7 @@ def test_eli5_skill_owns_the_leaf_presentation_envelope() -> None:
         "one stable self-contained HTML artifact",
         "update-in-place continuity",
         "sharing",
-        "~/.claude/rules/asd-ste100-language.md",
+        "~/.claude/docs/rule-guides/asd-ste100-language.md",
         "ELI5 is a leaf skill",
         "zero presentation sub-skills",
     ):

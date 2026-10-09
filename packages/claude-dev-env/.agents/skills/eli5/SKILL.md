@@ -52,7 +52,7 @@ presentation capability local.
 | Owner | Owns | ELI5 action |
 |---|---|---|
 | ELI5 | Beginner framing, visual expectation, minimal content, HTML continuity, and sharing | Keep the response in one useful, stable artifact. |
-| `~/.claude/rules/asd-ste100-language.md` | Word choice, sentence structure, terminology, punctuation, procedural instructions, and safety text | Read and apply it before writing or updating any page or response prose. |
+| `~/.claude/docs/rule-guides/asd-ste100-language.md` | Word choice, sentence structure, terminology, punctuation, procedural instructions, and safety text | Read and apply it before writing or updating any page or response prose. |
 | The named capability skill | Native data, evidence, workflow, and file-format requirements | Preserve its contract inside the HTML presentation envelope. |
 | User instructions and safety requirements | Task boundary, audience, confidentiality, and permitted result | Treat them as the controlling scope for the page. |
 | Human review | Technical accuracy, terminology, safety, confidentiality, intended meaning, and rendered usefulness | Review the completed artifact before delivery. |
@@ -67,7 +67,7 @@ keep ownership of their native artifact rules while ELI5 supplies the global
 ## Gotchas
 
 - Keep the HTML presentation envelope active when another capability skill creates the page.
-- Keep sentence-level prose under `~/.claude/rules/asd-ste100-language.md`.
+- Keep sentence-level prose under `~/.claude/docs/rule-guides/asd-ste100-language.md`.
 - Preserve an explicit user-supplied output path and an existing artifact path.
 - Keep one artifact path across all updates in the active task or conversation.
 - Keep every page self-contained and browser-ready.
@@ -95,7 +95,7 @@ Process steps in order.
    such as 3a and 3b for a case that holds a draft and a ready variant. Give
    each case its own card and its own visual.
 3. **Borderline — add the current explanation to that artifact.** Read and apply
-   `~/.claude/rules/asd-ste100-language.md` to every sentence. Frame the topic
+   `~/.claude/docs/rule-guides/asd-ste100-language.md` to every sentence. Frame the topic
    for a beginner, use a large useful visual, keep the text minimal, and update
    the same artifact in place.
 4. **Deterministic — run the digest check on a summary of many changes.** A

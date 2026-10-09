@@ -42,7 +42,7 @@ ALL_AGENT_HOME_TOOLING_PATTERNS = {"/.grok/"}
 ALL_HOOK_INFRASTRUCTURE_PATTERNS = {
     "/.claude/hooks/",
     "/packages/claude-dev-env/hooks/",
-} | ALL_AGENT_HOME_TOOLING_PATTERNS
+}
 ALL_WORKFLOW_REGISTRY_PATTERNS = {"/workflow/", "_tab.py", "/states.py", "/modules.py"}
 ALL_MIGRATION_PATH_PATTERNS = {"/migrations/"}
 

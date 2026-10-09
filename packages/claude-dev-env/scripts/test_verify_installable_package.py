@@ -6,13 +6,8 @@ command walking without requiring a full npm pack on every case.
 
 from __future__ import annotations
 
-import sys
 import tarfile
 from pathlib import Path
-
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
 
 import verify_installable_package as mod
 from dev_env_scripts_constants.verify_installable_package_constants import (

@@ -374,3 +374,36 @@ def test_ephemeral_path_stays_true_for_agent_home_file_outside_payload_cwd() -> 
     helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
 
     assert _SHARED_MODULE.is_ephemeral_path(helper_script, {"cwd": checkout_directory}) is True
+
+
+def test_agent_home_tooling_under_the_cwd_is_not_exempt() -> None:
+    checkout_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
+    repository_module = os.path.join(checkout_directory, "src", "service.py")
+
+    assert (
+        _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(
+            repository_module, checkout_directory
+        )
+        is False
+    )
+
+
+def test_agent_home_tooling_outside_the_cwd_is_exempt() -> None:
+    checkout_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
+    helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
+
+    assert _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(
+        helper_script, checkout_directory
+    )
+
+
+def test_agent_home_tooling_with_no_cwd_is_exempt() -> None:
+    helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
+
+    assert _SHARED_MODULE.is_agent_home_tooling_outside_working_directory(helper_script, "")
+
+
+def test_hook_infrastructure_excludes_agent_home_tooling() -> None:
+    helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
+
+    assert _SHARED_MODULE.is_hook_infrastructure(helper_script) is False

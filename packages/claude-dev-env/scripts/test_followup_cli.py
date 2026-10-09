@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import sys
 from pathlib import Path
 
 from dev_env_scripts_constants.followup_constants import (
@@ -14,11 +13,6 @@ from dev_env_scripts_constants.followup_constants import (
     FOLLOWUP_BACKLOG_THRESHOLD,
 )
 from followup_cli import main
-
-_hooks_directory = str(Path(__file__).resolve().parents[1] / "hooks")
-if _hooks_directory not in sys.path:
-    sys.path.insert(0, _hooks_directory)
-
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,

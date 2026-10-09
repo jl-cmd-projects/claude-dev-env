@@ -89,12 +89,12 @@ def test_form_named_rejects_an_unknown_name() -> None:
         form_named("no-such-form")
 
 
-def test_every_form_is_named_in_the_rule_document() -> None:
-    rule_text = (PACKAGE_ROOT / CONTRAST_FRAMING_RULE_DOCUMENT).read_text(
+def test_every_form_is_named_in_the_rule_guide() -> None:
+    guide_text = (PACKAGE_ROOT / CONTRAST_FRAMING_RULE_DOCUMENT).read_text(
         encoding="utf-8"
     )
     for each_form in ALL_CONTRAST_FRAMING_FORMS:
-        assert f"`{each_form.name}`" in rule_text
+        assert f"`{each_form.name}`" in guide_text
 
 
 def test_a_list_of_not_items_stays_quiet() -> None:

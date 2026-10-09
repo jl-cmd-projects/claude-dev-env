@@ -136,7 +136,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/session_title_stop_gate.py        -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
-        hooks/blocking/artifact_look_gate.py             -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -160,10 +159,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The verify-before-acting hook runs after a mutating call has finished. It
     asks the model to check a hedged claim, and the call it reads stays in place.
-
-    The artifact look gate denies an Artifact publish of a page until a
-    screenshot of it was read. It decides when a page ships and no code or
-    safety policy.
 
     The session title gates keep the session title in its status format. One
     denies a malformed title, and the other asks for a title before a turn

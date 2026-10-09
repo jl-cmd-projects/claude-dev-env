@@ -10,7 +10,7 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 ## Presentation
 
 - Use ELI5 for beginner framing, large visuals, minimal text, one stable self-contained HTML artifact, update-in-place continuity, and sharing when a user-facing response needs that presentation.
-- Apply `~/.claude/rules/asd-ste100-language.md` for user-facing word choice, sentence style, tone, punctuation, and prose form.
+- Apply `~/.claude/docs/rule-guides/asd-ste100-language.md` for user-facing word choice, sentence style, tone, punctuation, and prose form.
 - Keep responses focused, brief, and concise. Keep disclaimers and caveats short while giving the main answer most of the response.
 - Give a high-level explanation by default and provide depth when the request calls for it.
 - Match written-document length to the task. Cover the substance and keep every section, summary, and phrase useful.

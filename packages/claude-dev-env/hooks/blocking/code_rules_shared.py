@@ -69,6 +69,27 @@ def is_agent_home_tooling(file_path: str) -> bool:
     return any(each_pattern in path_lower for each_pattern in ALL_AGENT_HOME_TOOLING_PATTERNS)
 
 
+def is_agent_home_tooling_outside_working_directory(file_path: str, repository_root: str) -> bool:
+    """Check whether a path is agent-home tooling that sits outside the session cwd.
+
+    A repository checked out under an agent home, such as
+    ``~/.grok/runs/<repo>/``, is project code whenever the session works inside
+    it, so only agent-home paths outside the payload ``cwd`` stay exempt.
+
+    Args:
+        file_path: The candidate path to classify.
+        repository_root: The PreToolUse payload's ``cwd``, or an empty string
+            when the payload names none.
+
+    Returns:
+        Whether the path sits under a recognized agent home directory and
+        outside ``repository_root``.
+    """
+    return is_agent_home_tooling(file_path) and not _is_at_or_under_payload_working_directory(
+        file_path, {"cwd": repository_root}
+    )
+
+
 def is_test_file(file_path: str) -> bool:
     """Check if file is a test file."""
     path_lower = file_path.lower()
@@ -502,7 +523,7 @@ def is_ephemeral_path(file_path: str, hook_payload: dict | None = None) -> bool:
     checked out under ``/tmp`` or ``~/.grok/runs/`` still receives full
     enforcement. The scratchpad match reads the session id from the payload
     when supplied, else the harness environment variable. The code-rules and TDD gates call the underlying predicates
-    ``is_ephemeral_script_path``, ``is_agent_home_tooling``, and
+    ``is_ephemeral_script_path``, ``is_agent_home_tooling_outside_working_directory``, and
     ``is_under_session_scratchpad`` directly.
 
     Args:
@@ -517,9 +538,7 @@ def is_ephemeral_path(file_path: str, hook_payload: dict | None = None) -> bool:
     repository_root = str((hook_payload or {}).get("cwd") or "")
     if is_ephemeral_script_path(file_path, repository_root):
         return True
-    if is_agent_home_tooling(file_path) and not _is_at_or_under_payload_working_directory(
-        file_path, hook_payload or {}
-    ):
+    if is_agent_home_tooling_outside_working_directory(file_path, repository_root):
         return True
     return is_under_session_scratchpad(file_path, hook_payload or {})
 

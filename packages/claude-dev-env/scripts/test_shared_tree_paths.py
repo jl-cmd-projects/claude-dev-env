@@ -9,12 +9,8 @@ from pathlib import Path
 
 import pytest
 
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
-
-import shared_tree_paths  # noqa: E402
-from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
+import shared_tree_paths
+from dev_env_scripts_constants.grok_worker_constants import (
     CLAUDE_CONFIG_DIR_ENV_VAR,
     PROCESS_TREE_DIRECTORY_NAME,
     PROCESS_TREE_KILL_MODULE_FILENAME,
