@@ -24,7 +24,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/session_title_stop_gate.py` runs on `Stop`, no matcher, timeout `10` seconds in `hooks.json`.
 - `blocking/step_note_gate.py` runs on `PreToolUse`, matcher `*`, timeout `15` seconds in `hooks.json`.
 - `blocking/verify_before_acting.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Agent|Task|apply_patch|Bash|PowerShell|mcp__.*`, timeout `10` seconds in `hooks.json`.
-- `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request)`, timeout `10` seconds in `hooks.json`.
+- `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_look_gate.py` runs on `PreToolUse`, matcher `Artifact|Skill`, timeout `10` seconds in `hooks.json`. It speaks only on an `Artifact` publish of a `.html` or `.htm` file.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 

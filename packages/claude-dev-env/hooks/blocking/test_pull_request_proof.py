@@ -1,4 +1,4 @@
-"""Behavior tests for the proof-in-practice and existing-work checks on a new pull request."""
+"""Behavior tests for the proof-in-practice, existing-work and eval checks on a new pull request."""
 
 import subprocess
 import sys
@@ -11,6 +11,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
     MISSING_BODY_REASON,
+    MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
     MISSING_PROOF_REASON,
     UNREADABLE_CHANGES_REASON,
@@ -210,3 +211,125 @@ def test_should_read_the_head_flag_of_a_shell_create(tmp_path: Path) -> None:
     reason = gate.missing_look_reason(payload)
     assert reason is not None
     assert "page.html" in reason
+
+
+EVALUATED_BODY = SEARCHED_BODY + "\n## Eval\nTen labeled cases, exact-match grader. Ran `python eval.py`: 10/10.\n"
+EVAL_WITHOUT_COMMAND_BODY = SEARCHED_BODY + "\n## Eval\nTen labeled cases, all pass.\n"
+
+
+def _titled_mcp_create(title: object, body: object) -> dict[str, object]:
+    payload = _mcp_create(body)
+    payload["tool_input"]["title"] = title
+    return payload
+
+
+def test_feature_mcp_create_without_an_eval_section_should_be_denied() -> None:
+    payload = _titled_mcp_create("feat: add a gate", SEARCHED_BODY)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_feature_mcp_create_with_an_eval_section_naming_a_command_should_pass() -> None:
+    assert gate.missing_eval_section_reason(_titled_mcp_create("feat: add a gate", EVALUATED_BODY)) is None
+
+
+def test_feature_mcp_create_with_an_eval_heading_and_no_backtick_should_be_denied() -> None:
+    payload = _titled_mcp_create("feat: add a gate", EVAL_WITHOUT_COMMAND_BODY)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_eval_section_should_stop_at_a_heading_of_the_same_level() -> None:
+    body = SEARCHED_BODY + "\n## Evals\nCases listed.\n\n## Notes\nRan `python eval.py`.\n"
+    payload = _titled_mcp_create("feat: add a gate", body)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_fix_and_docs_titles_without_an_eval_section_should_pass() -> None:
+    for each_title in ("fix: repair a gate", "docs: describe a gate"):
+        payload = _titled_mcp_create(each_title, SEARCHED_BODY)
+        assert gate.missing_eval_section_reason(payload) is None, each_title
+        assert not gate.is_feature_pull_request(payload), each_title
+
+
+def test_feature_titles_should_count_as_features() -> None:
+    for each_title in ("feat: x", "feat(hooks)!: x", "FEAT: x", "FEAT(x)!: y", "  feat!: x"):
+        assert gate.is_feature_pull_request(_titled_mcp_create(each_title, SEARCHED_BODY)), each_title
+
+
+def test_non_feature_titles_should_not_count_as_features() -> None:
+    for each_title in ("featured: x", "feature: x", "chore: feat: x", None, 7):
+        assert not gate.is_feature_pull_request(_titled_mcp_create(each_title, SEARCHED_BODY)), each_title
+
+
+def test_gh_create_title_flag_should_be_read(tmp_path: Path) -> None:
+    (tmp_path / "b.md").write_text(SEARCHED_BODY, encoding="utf-8")
+    payload = _shell('gh pr create --title "feat: x" --body-file b.md', tmp_path)
+    assert gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_gh_create_title_assignment_should_be_read(tmp_path: Path) -> None:
+    (tmp_path / "b.md").write_text(EVALUATED_BODY, encoding="utf-8")
+    payload = _shell("gh pr create --title=feat:x --body-file b.md", tmp_path)
+    assert gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) is None
+
+
+def test_pull_request_script_create_title_should_be_read(tmp_path: Path) -> None:
+    (tmp_path / "b.md").write_text(SEARCHED_BODY, encoding="utf-8")
+    payload = _shell(
+        'python pull_request.py create --title "feat(x): y" --body-file b.md --repo o/r', tmp_path
+    )
+    assert gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_gh_create_without_a_title_should_not_count_as_a_feature(tmp_path: Path) -> None:
+    (tmp_path / "b.md").write_text(SEARCHED_BODY, encoding="utf-8")
+    payload = _shell("gh pr create --body-file b.md", tmp_path)
+    assert not gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) is None
+
+
+def test_feature_create_with_an_unreadable_body_should_leave_the_deny_to_the_proof_check() -> None:
+    payload = _shell('gh pr create --title "feat: x" --fill')
+    assert gate.missing_eval_section_reason(payload) is None
+    assert gate.missing_proof_reason(payload) == MISSING_BODY_REASON
+
+
+def _dispatch(all_inputs: dict[str, object], method: str = "run_workflow") -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__actions_run_trigger",
+        "tool_input": {
+            "method": method,
+            "owner": "o",
+            "repo": "r",
+            "workflow_id": "open.yml",
+            "ref": "main",
+            "inputs": all_inputs,
+        },
+    }
+
+
+def test_pull_request_dispatch_without_proof_should_be_denied() -> None:
+    payload = _dispatch({"head": "feature", "title": "fix: y", "body": UNPROVEN_BODY})
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+
+
+def test_pull_request_dispatch_with_no_body_input_should_be_denied() -> None:
+    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON
+
+
+def test_feature_dispatch_without_an_eval_section_should_be_denied() -> None:
+    payload = _dispatch({"head": "feature", "title": "feat: x", "body": SEARCHED_BODY})
+    assert gate.is_feature_pull_request(payload)
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+
+
+def test_dispatch_that_names_no_head_or_runs_no_workflow_should_not_count_as_a_create() -> None:
+    all_payloads = [
+        _dispatch({"title": "feat: x", "body": UNPROVEN_BODY}),
+        _dispatch({"head": "feature", "title": "feat: x", "body": UNPROVEN_BODY}, "rerun_workflow_run"),
+    ]
+    for each_payload in all_payloads:
+        assert gate.missing_proof_reason(each_payload) is None
+        assert not gate.is_feature_pull_request(each_payload)

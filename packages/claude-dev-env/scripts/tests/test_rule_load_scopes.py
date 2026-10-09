@@ -13,6 +13,7 @@ ALWAYS_ON_RULE_NAMES = frozenset(
         "correction-lens.md",
         "destructive-commands.md",
         "explore-thoroughly.md",
+        "features-start-with-an-eval.md",
         "filesystem-search.md",
         "memory-stores-durable-facts.md",
         "no-contrast-framing.md",

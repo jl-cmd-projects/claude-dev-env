@@ -16,4 +16,4 @@ Read [`TEST_QUALITY.md`](../docs/TEST_QUALITY.md) and give mocks every field the
 
 **Enforcement:** `useless_test_checks.py` and `code_rules_test_assertions.py` catch weak assertions; `Fix test proof` checks fix tests.
 
-**Full text:** [`docs/rule-guides/testing.md`](../docs/rule-guides/testing.md). Read it for mock fields, test order, and fix proof details.
+**Full text:** [guide](../docs/rule-guides/testing.md). Read it for mock fields, test order, and fix proof details.

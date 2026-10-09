@@ -6,4 +6,4 @@ Search for what already does the ask, in full or in part. When something exists,
 
 **Enforcement:** the pull request gate denies a body with no "Existing work" section.
 
-**Full text:** [`docs/rule-guides/explore-thoroughly.md`](../docs/rule-guides/explore-thoroughly.md). Read it for search scope and depth.
+**Full text:** [guide](../docs/rule-guides/explore-thoroughly.md). Read it for search scope and depth.
