@@ -10,7 +10,10 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import artifact_template_pointer
-from hooks_constants.artifact_template_pointer_constants import ARTIFACT_TEMPLATE_PATH
+from hooks_constants.artifact_template_pointer_constants import (
+    ARTIFACT_TEMPLATE_PATH,
+    HTML_PLAN_TEMPLATE_README_PATH,
+)
 
 HOOK_SCRIPT = Path(__file__).resolve().parent / "artifact_template_pointer.py"
 
@@ -34,7 +37,10 @@ def test_artifact_quickstart_gets_the_template_pointer() -> None:
     hook_output = json.loads(_run_hook(_payload("Artifact", {"action": "quickstart", "intent": "other"})))
     specific_output = hook_output["hookSpecificOutput"]
     assert specific_output["hookEventName"] == "PreToolUse"
-    assert str(ARTIFACT_TEMPLATE_PATH) in specific_output["additionalContext"]
+    pointer_text = specific_output["additionalContext"]
+    assert pointer_text.index(str(HTML_PLAN_TEMPLATE_README_PATH)) < pointer_text.index(
+        str(ARTIFACT_TEMPLATE_PATH)
+    )
     assert "permissionDecision" not in specific_output
 
 

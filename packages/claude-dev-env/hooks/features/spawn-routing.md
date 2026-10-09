@@ -7,7 +7,6 @@ This family reminds the agent to gather context before a spawn, tells it that it
 - `routing/spawn_readiness_hook.py` adds context to a spawn that comes before a read step, or before an answered question or a settled-scope line. The spawn still runs.
 - `routing/spawn_oversight_hook.py` adds the orchestrator oversight directive to every spawn: watch the agent, check its output against the user's words and standards, and correct it before the output reaches the user. The spawn still runs.
 - `routing/thread_spawn_pace_hook.py` reshapes a thread request when usage is over pace or unreadable.
-- `routing/subagent_model_pin_hook.py` moves every Agent and Task subagent to Opus. A spawn that names Opus or Fable runs unchanged.
 - `routing/subagent_model_routing.mjs` allows a selected Luna model, remaps eligible requests, and denies unsupported model routing.
 
 ## When it fires
@@ -15,7 +14,6 @@ This family reminds the agent to gather context before a spawn, tells it that it
 - `routing/spawn_readiness_hook.py` runs on `PreToolUse` with matchers `Agent|Task`, `multi_agent_v1__spawn_agent`, `Workflow|mcp__github__actions_run_trigger`, and `mcp__hearthbot__start_thread_session`, each at `10` seconds in `hooks.json`. A workflow dispatch counts only when its inputs carry a `prompt`.
 - `routing/spawn_oversight_hook.py` runs on `PreToolUse` with matchers `Agent|Task`, `multi_agent_v1__spawn_agent`, `Workflow|mcp__github__actions_run_trigger`, `mcp__hearthbot__start_thread_session`, and `mcp__hearthbot__start_rc_session`, each at `10` seconds in `hooks.json`. A workflow dispatch counts only when its inputs carry a `prompt`.
 - `routing/thread_spawn_pace_hook.py` runs on `PreToolUse`, matcher `mcp__hearthbot__start_thread_session`, timeout `30` seconds in `hooks.json`.
-- `routing/subagent_model_pin_hook.py` runs on `PreToolUse`, matcher `Agent|Task`, timeout `10` seconds in `hooks.json`.
 - `routing/subagent_model_routing.mjs` runs on `PreToolUse`, matcher `multi_agent_v1__spawn_agent`, timeout `10` seconds through the quoted Node command in `hooks.json`.
 
 ## Proving it
@@ -27,7 +25,6 @@ Preconditions:
 - **Spawn readiness.** Input is a spawn after a read, a question, and its answer. Run `python -m pytest packages/claude-dev-env/hooks/routing/test_spawn_readiness_hook.py -q`. The adjacent test observes no output for a ready spawn and reminder context for each missing step.
 - **Spawn oversight.** Input is a spawn from each registered tool, a subagent's own spawn, and a non-spawn call. Run `python -m pytest packages/claude-dev-env/hooks/routing/test_spawn_oversight_hook.py -q`. The adjacent test observes the directive for every spawn and no output for the other calls.
 - **Thread pace.** Input is a thread spawn with usage over pace. Run `python -m pytest packages/claude-dev-env/hooks/routing/test_thread_spawn_pace_hook.py -q`. The adjacent test observes updated tool input with the selected model, effort, and advisor line.
-- **Model pin.** Input is an Agent spawn that names a Sonnet model. Run `python -m pytest packages/claude-dev-env/hooks/routing/test_subagent_model_pin_hook.py -q`. The adjacent test observes updated tool input with model `opus`.
 - **Model routing.** Input is a `multi_agent_v1__spawn_agent` payload with a model choice. Run `node --test packages/claude-dev-env/hooks/routing/subagent_model_routing.test.mjs`. The adjacent test observes an allow or deny decision with the routed model.
 
 ## Gotchas

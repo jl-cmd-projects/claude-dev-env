@@ -120,7 +120,7 @@ Behavioral rules loaded into every session.
 | `destructive-commands` | Allowed removal forms, and destructive literals kept out of command strings |
 | `doc-inventory-integrity` | A doc that inventories code stays in step with the directory |
 | `docstring-prose-matches-implementation` | A docstring's enumeration covers every behavior the body applies |
-| `explore-thoroughly` | Read before proposing, map patterns before committing |
+| `explore-thoroughly` | Search for existing work before acting on an ask, read before proposing |
 | `failure-blast-radius` | Name what a raise stops: the run, or one member of a batch |
 | `falsify-before-green` | A check's green counts once that check ran red on a named break |
 | `filesystem-search` | Every filesystem search names a scope |
@@ -204,6 +204,7 @@ that carry them.
 |-------|---------|
 | `build-eval` | Evaluate skills with a direct Codex review suite or `claude plugin eval` |
 | `codex-cleanse` | [Preview or archive local Codex sessions on demand after seven days without activity](packages/claude-dev-env/.agents/skills/codex-cleanse/SKILL.md) |
+| `context-audit` | Inventory every file an agent loads from a checkout and list what to clean up |
 | `correction` | Turn a correction into a short handoff brief for a corrections intake |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
@@ -212,6 +213,7 @@ that carry them.
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |
 | `grok-spawn` | Spawn headless grok worker fleets through preflight and batch spawn |
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
+| `mod-playbooks` | Drive a mod, open its menus and panes, and capture each screen |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
 | `pr-lifecycle` | Rules for commits, pushes, pull requests, review threads, and merges |
@@ -219,6 +221,7 @@ that carry them.
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |
 | `repairing-hook-boundaries` | Repair Claude and Codex hook failures at the first failing boundary |
+| `search-before-acting` | Search for what already does an ask and report it in four points before acting |
 | `second-account-workers` | Run local Claude workers through the second-account picker |
 | `skill-builder` | Author a skill package to the house conventions |
 | `step-notes` | Turn the step-note gate on or off |
@@ -253,9 +256,8 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Task\|Agent | `parallel-task-blocker` | Limits concurrent Task/Agent delegations |
 | AskUserQuestion | `attention-needed-notify` | Desktop notification when Claude needs your input |
 | mcp__hearthbot__start_thread_session | `thread_spawn_pace_hook` | When the five-hour or seven-day usage window runs ahead of its clock after its first 10%, or usage cannot be read, moves the thread to Opus 5.5 at low effort |
-| Agent\|Task | `subagent_model_pin_hook` | Moves a subagent that names Sonnet or Haiku, or names no model, to Opus |
 | Agent\|Task\|mcp__hearthbot__start_thread_session\|multi_agent_v1__spawn_agent\|Workflow\|mcp__github__actions_run_trigger | `spawn_readiness_hook` | Adds a reminder to an agent spawn when the transcript shows no read step since the request or no answer to an interactive question (AskUserQuestion, a decision card, or a widget). The spawn runs with its normal permission flow. A brief line that starts `Scope settled:` passes the interview check, and the hook logs it. A workflow dispatch counts when its inputs carry a `prompt`. A Codex spawn gets one reminder, because Codex documents its transcript format as unstable for hooks |
-| Artifact\|Skill | `artifact_template_pointer` | Adds one line naming the artifact page template when a session starts an artifact page (an `Artifact` quickstart or the `artifact-design` skill) |
+| Artifact\|Skill | `artifact_template_pointer` | Adds one line naming html-plan as the default page template, and the artifact page template as the alternative, when a session starts an artifact page (an `Artifact` quickstart or the `artifact-design` skill) |
 | * | `step_note_gate` | Off by default; after `/step-notes on`, asks for a short status line before each tool call |
 
 #### Other Events

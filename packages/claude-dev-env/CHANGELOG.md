@@ -1,5 +1,131 @@
 # Changelog
 
+## [8.71.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.70.0...claude-dev-env-v8.71.0) (2026-10-09)
+
+
+### Features
+
+* **artifact-pointer:** point new artifact pages at html-plan with a house stylesheet ([#1915](https://github.com/jl-cmd-projects/claude-dev-env/issues/1915)) ([78d2a0a](https://github.com/jl-cmd-projects/claude-dev-env/commit/78d2a0a7a4d6d3378fd3c502566802400a8dd400))
+
+## [8.70.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.1...claude-dev-env-v8.70.0) (2026-10-09)
+
+
+### Features
+
+* **correction:** file a correction as one labeled issue by hand ([#1917](https://github.com/jl-cmd-projects/claude-dev-env/issues/1917)) ([8228d6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/8228d6fe40ec7f8c37df5de61961c54665d0a361))
+
+## [8.69.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.0...claude-dev-env-v8.69.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **hooks:** drop screenshot attach step from artifact look gate ([#1948](https://github.com/jl-cmd-projects/claude-dev-env/issues/1948)) ([ddf8c63](https://github.com/jl-cmd-projects/claude-dev-env/commit/ddf8c635e653066090e277079f5ffac3d074d241))
+
+## [8.69.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.4...claude-dev-env-v8.69.0) (2026-10-09)
+
+
+### Features
+
+* **skills:** add a fix playbook to /correction ([#1946](https://github.com/jl-cmd-projects/claude-dev-env/issues/1946)) ([c0ac7cb](https://github.com/jl-cmd-projects/claude-dev-env/commit/c0ac7cb2537a46f3067d2a7aaacaa71d6da14363))
+
+## [8.68.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.3...claude-dev-env-v8.68.4) (2026-10-09)
+
+
+### Bug Fixes
+
+* **account-broker:** retry a failed Codex meter read and name why it failed ([#1943](https://github.com/jl-cmd-projects/claude-dev-env/issues/1943)) ([a2346db](https://github.com/jl-cmd-projects/claude-dev-env/commit/a2346db349f177fcf2854a54bccd7e6d97fef009))
+
+## [8.68.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.2...claude-dev-env-v8.68.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **hooks:** run nested project start hooks in the background ([#1940](https://github.com/jl-cmd-projects/claude-dev-env/issues/1940)) ([b6e1466](https://github.com/jl-cmd-projects/claude-dev-env/commit/b6e1466b6779fb7fdeb5ce8479bfc475198913d8))
+
+## [8.68.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.1...claude-dev-env-v8.68.2) (2026-10-08)
+
+
+### Refactoring
+
+* **hooks:** remove the subagent model pin hook ([#1939](https://github.com/jl-cmd-projects/claude-dev-env/issues/1939)) ([87f5c11](https://github.com/jl-cmd-projects/claude-dev-env/commit/87f5c11df1385a5a96e00cb961ae12d0637b6ca4))
+
+## [8.68.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.0...claude-dev-env-v8.68.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **review-closure:** report a reply cut short as a GitHubError ([#1937](https://github.com/jl-cmd-projects/claude-dev-env/issues/1937)) ([f1a6cc6](https://github.com/jl-cmd-projects/claude-dev-env/commit/f1a6cc6453676a1000b50bd8038fbbcd90ca84a3))
+
+## [8.68.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.67.0...claude-dev-env-v8.68.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** look at a page before it ships ([#1928](https://github.com/jl-cmd-projects/claude-dev-env/issues/1928)) ([324139f](https://github.com/jl-cmd-projects/claude-dev-env/commit/324139fe6167c58f16ce9607bdb8e06e8fe9f8a9))
+
+## [8.67.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.66.0...claude-dev-env-v8.67.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** deny an uncited causal claim in a chat reply ([#1932](https://github.com/jl-cmd-projects/claude-dev-env/issues/1932)) ([b136bb9](https://github.com/jl-cmd-projects/claude-dev-env/commit/b136bb9d2189f3930603877cefed453a9be9fbea))
+
+## [8.66.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.65.1...claude-dev-env-v8.66.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** deny an artifact page publish that is unreadable in dark mode ([#1929](https://github.com/jl-cmd-projects/claude-dev-env/issues/1929)) ([c1d25c2](https://github.com/jl-cmd-projects/claude-dev-env/commit/c1d25c2a199a8efd3300ddacb8627f2a7fe2ecb3))
+
+## [8.65.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.65.0...claude-dev-env-v8.65.1) (2026-10-08)
+
+
+### Maintenance
+
+* **user-layer:** trim session-start context and empty instruction stubs ([#1924](https://github.com/jl-cmd-projects/claude-dev-env/issues/1924)) ([801afc5](https://github.com/jl-cmd-projects/claude-dev-env/commit/801afc54e2f9e7ba118b7fbeadd17b9b04f5fe8c))
+
+## [8.65.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.64.0...claude-dev-env-v8.65.0) (2026-10-07)
+
+
+### Features
+
+* **skills:** add mod-playbooks, a map for driving and capturing mods ([#1922](https://github.com/jl-cmd-projects/claude-dev-env/issues/1922)) ([e444dbd](https://github.com/jl-cmd-projects/claude-dev-env/commit/e444dbd1f62962eae68a9be94c5ac79d45bcbfc9))
+
+## [8.64.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.63.0...claude-dev-env-v8.64.0) (2026-10-07)
+
+
+### Features
+
+* **rules:** search for existing work before acting on an ask ([#1914](https://github.com/jl-cmd-projects/claude-dev-env/issues/1914)) ([9e7d42f](https://github.com/jl-cmd-projects/claude-dev-env/commit/9e7d42f129e2fc16d3f103ec9d16fcedf98526d8))
+
+## [8.63.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.1...claude-dev-env-v8.63.0) (2026-10-07)
+
+
+### Features
+
+* **context-audit:** add a skill that inventories agent-loaded context ([#1921](https://github.com/jl-cmd-projects/claude-dev-env/issues/1921)) ([6b1b883](https://github.com/jl-cmd-projects/claude-dev-env/commit/6b1b8833045ce3f2ee5e0584b8ef254c4e169991))
+
+## [8.62.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.62.0...claude-dev-env-v8.62.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **hooks:** ask for the title when the remote title tool loads directly ([#1861](https://github.com/jl-cmd-projects/claude-dev-env/issues/1861)) ([8e0469b](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e0469b9d479078f66a4d6a9bd576ec0d50675f8))
+
+## [8.62.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.1...claude-dev-env-v8.62.0) (2026-10-07)
+
+
+### Features
+
+* **session:** ship a replacement session system prompt ([#1860](https://github.com/jl-cmd-projects/claude-dev-env/issues/1860)) ([b625953](https://github.com/jl-cmd-projects/claude-dev-env/commit/b625953890cbc8cf45d2c2ab103d4ac843601473))
+
+## [8.61.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.61.0...claude-dev-env-v8.61.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **hooks:** forward child PreToolUse context through the nested hooks forwarder ([#1907](https://github.com/jl-cmd-projects/claude-dev-env/issues/1907)) ([daff35d](https://github.com/jl-cmd-projects/claude-dev-env/commit/daff35d0811477113c13f6949db77023bb0cda60))
+
 ## [8.61.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.60.0...claude-dev-env-v8.61.0) (2026-10-06)
 
 
