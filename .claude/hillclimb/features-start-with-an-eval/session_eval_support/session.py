@@ -21,6 +21,7 @@ from session_eval_support.config.constants import (
     NEWLINE,
     REPOSITORY_ROOT,
     RESULT_EVENT_TYPE,
+    SESSION_SETTING_SOURCES,
     STREAM_FILE_NAME,
     TEXT_BLOCK_TYPE,
     TOOL_RESULT_BLOCK_TYPE,
@@ -128,6 +129,8 @@ def _session_command(
         "--output-format",
         "stream-json",
         "--verbose",
+        "--setting-sources",
+        SESSION_SETTING_SOURCES,
     ]
 
 

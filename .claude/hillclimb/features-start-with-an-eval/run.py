@@ -7,7 +7,9 @@
 
 Each case runs once per rep in a new git workspace copied from ``fixture/``.
 Variant ``baseline`` adds nothing. Variant ``v1`` installs the rule and its
-guide into the workspace's ``.claude/`` folder. Rows land in
+guide into the workspace's ``.claude/`` folder. Each session loads project and
+local settings only, so a rule installed in the home config stays out of both
+arms. Rows land in
 ``<variant>/results.jsonl`` as each case finishes, and a rerun skips every
 (case, rep) already there.
 """
@@ -47,10 +49,11 @@ from session_eval_support.config.constants import (
     MILLISECONDS_PER_SECOND,
     NEWLINE,
     RESULTS_FILE_NAME,
+    SESSION_SETTING_SOURCES,
     STATE_FILE,
     STATUS_OK,
-    TRACE_FILE_TEMPLATE,
     TRACES_DIRECTORY_NAME,
+    TRACE_FILE_TEMPLATE,
 )
 from session_eval_support.grading import (
     ToolCall,
@@ -171,6 +174,7 @@ def _row_meta(
             LATENCY_DECIMALS,
         ),
         "effort": settings.effort,
+        "setting_sources": SESSION_SETTING_SOURCES,
         "installed_digest": installed_files_digest(all_installs),
         "broker_account": decision.get("account")
         if isinstance(decision, dict)

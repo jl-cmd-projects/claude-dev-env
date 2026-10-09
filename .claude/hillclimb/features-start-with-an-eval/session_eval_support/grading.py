@@ -162,7 +162,7 @@ def grade_case(expected: str, all_calls: list[ToolCall]) -> dict[str, int]:
     correct = came_first if expected == EXPECTED_BUILD_EVAL else not invoked
     return {
         "correct": int(correct),
-        "build_eval_first": int(came_first),
+        "eval_skill_first": int(came_first),
         "local_build_eval": int(
             any(is_local_build_eval_call(each_call) for each_call in all_calls)
         ),

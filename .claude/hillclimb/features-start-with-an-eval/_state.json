@@ -2,7 +2,7 @@
   "flow": "features-start-with-an-eval",
   "metrics": [
     {"id": "correct", "label": "Correct", "kind": "binary"},
-    {"id": "build_eval_first", "label": "Eval first", "kind": "binary"},
+    {"id": "eval_skill_first", "label": "Eval first", "kind": "binary"},
     {"id": "local_build_eval", "label": "Local skill", "kind": "binary"}
   ],
   "perf_fields": ["latency_s", "tool_calls", "usage"],

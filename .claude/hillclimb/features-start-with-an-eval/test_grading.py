@@ -48,7 +48,7 @@ def _grade(expected: str, *all_blocks: dict[str, object]) -> dict[str, int]:
 def test_feature_session_with_build_eval_before_any_edit_should_pass() -> None:
     assert _grade("build-eval", READ, BUILD_EVAL, WRITE) == {
         "correct": 1,
-        "build_eval_first": 1,
+        "eval_skill_first": 1,
         "local_build_eval": 0,
     }
 
@@ -72,7 +72,7 @@ def test_feature_session_with_another_subcommand_should_fail() -> None:
 def test_feature_session_with_only_the_local_skill_should_fail_and_be_flagged() -> None:
     assert _grade("build-eval", LOCAL_SKILL, WRITE) == {
         "correct": 0,
-        "build_eval_first": 0,
+        "eval_skill_first": 0,
         "local_build_eval": 1,
     }
 
