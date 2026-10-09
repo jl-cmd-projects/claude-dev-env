@@ -6,7 +6,7 @@ Back to the [rules index](../../rules/index.md).
 
 Before each turn ends, set the title to `<emoji> <name>`. Use the red flag when the user must act, the check mark when the work is done, and the hourglass while work, CI, or a merge queue runs. The name has 25 characters or fewer, in sentence case, with concrete nouns and no IDs, dates, or branch names.
 
-**Enforcement:** `hooks/blocking/session_title_format_gate.py` denies a malformed title; `hooks/blocking/session_title_stop_gate.py` blocks a turn end with no title.
+**Enforcement:** `hooks/blocking/session_title_format_gate.py` denies a malformed title.
 
 **When this applies:** The session has a tool whose name ends in `__set_session_title`, such as `mcp__claude-code-remote__set_session_title` in a cloud session or `mcp__ccd_session_mgmt__set_session_title` in the desktop app.
 
@@ -14,7 +14,7 @@ Before each turn ends, set the title to `<emoji> <name>`. Use the red flag when 
 
 Before each turn ends, set the title to `<emoji> <name>`. Get the session id from `get_session` with no `session_id` when the tool asks for one.
 
-Set the title before the final reply, and set it in silence. The reply to the user carries no mention of the title, its emoji, or the reminder that asked for it. When a Stop hook asks for the title after the answer went out, make the call and end the turn with no text.
+Set the title before the final reply, and set it in silence. The reply to the user carries no mention of the title, its emoji, or the reminder that asked for it.
 
 ## Status emoji
 
@@ -30,4 +30,4 @@ The name has 25 characters or fewer and names the main change or outcome in conc
 
 ## Enforcement
 
-`hooks/blocking/session_title_format_gate.py` denies a malformed title. `hooks/blocking/session_title_stop_gate.py` blocks the end of a turn that set no title.
+`hooks/blocking/session_title_format_gate.py` denies a malformed title.
