@@ -8,8 +8,6 @@ SKILLS_DIRECTORY = PACKAGE_ROOT / ".agents" / "skills"
 
 ALWAYS_ON_RULE_NAMES = frozenset(
     {
-        "AGENTS.md",
-        "CLAUDE.md",
         "asd-ste100-language.md",
         "cleanup-temp-files.md",
         "correction-lens.md",

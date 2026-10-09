@@ -3,7 +3,7 @@
 
 Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
 naming ``docs/templates/html-plan/README.md`` as the default and
-``docs/templates/artifact-page/template.html`` as the alternative when a
+``docs/templates/artifact-page/README.md`` as the alternative when a
 session starts a new artifact page:
 
 ::

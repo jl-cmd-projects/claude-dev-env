@@ -6,6 +6,16 @@ Source: [Anthropic - Overthinking and Excessive Thoroughness](https://platform.c
 
 Note: This deliberately chooses exploration depth over the "commit and execute quickly" pattern from the same source. Thorough upfront exploration is preferred for the intended workflow.
 
+## Search for existing work first
+
+Before you log, plan, delegate, or build an ask, search for what already does it in full or in part. An ask is any request for new or changed behavior, a tool, a check, a workflow, a report, a tracker entry, or a plan. The `search-before-acting` skill holds the search places, the four-point report, and a playbook for each next move.
+
+When the search finds something, stop before you act and report what exists and where, what it covers of the ask, what is missing, and what the addition would add. When it covers the whole ask, tell the user they already have it. When the search finds nothing, say where you looked and continue.
+
+[`prefer-existing-tools.md`](../../rules/prefer-existing-tools.md) and [`build-needs-a-user.md`](../../rules/build-needs-a-user.md) load only when a session touches a script, hook, or manifest path. This rule loads in every session, so the search comes before the plan is set.
+
+The pull request gate reads the body of each new pull request for an "Existing work" heading. Under it, list what the search found with a link or `file:line` and what the pull request adds on top of it, or state that nothing was found and name the places searched.
+
 ## Before committing to an approach
 
 - Read the relevant files. Understand what exists before proposing what to change.

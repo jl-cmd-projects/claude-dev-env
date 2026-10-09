@@ -1,6 +1,7 @@
 """Behavior tests for the pull request lifecycle PreToolUse gate."""
 
 import json
+import subprocess
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
@@ -15,7 +16,10 @@ from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import MISSING_PROOF_REASON
 
-PROVEN_FOLLOWUP_BODY = "Follow-up to #1731\n\n## Proof in practice\nRan `python probe.py`.\n"
+PROVEN_FOLLOWUP_BODY = (
+    "Follow-up to #1731\n\n## Existing work\nNothing found in open or merged pull requests.\n\n"
+    "## Proof in practice\nRan `python probe.py`.\n"
+)
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
@@ -237,11 +241,24 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
     ]
 
 
+def _checkout_without_visible_changes(tmp_path: Path) -> str:
+    checkout_path = tmp_path / "checkout"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(checkout_path)], check=True)
+    (checkout_path / "tool.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(checkout_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(checkout_path), "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base"],
+        check=True,
+    )
+    return str(checkout_path)
+
+
 def test_loaded_skill_still_denies_a_second_followup_for_one_parent(tmp_path: Path) -> None:
     payload = {
         "tool_name": "mcp__github__create_pull_request",
         "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+        "cwd": _checkout_without_visible_changes(tmp_path),
     }
     open_followup = {"number": 1769, "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1769", "body": "Follow-up to #1731"}
     with patch.object(gate_dedupe, "read_open_pull_requests", return_value=[open_followup]):
@@ -256,6 +273,7 @@ def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> N
         "tool_name": "mcp__github__create_pull_request",
         "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
         "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+        "cwd": _checkout_without_visible_changes(tmp_path),
     }
     with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
         assert gate.decision_for(payload) is None

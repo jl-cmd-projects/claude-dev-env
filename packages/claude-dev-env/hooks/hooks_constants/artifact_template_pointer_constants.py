@@ -24,7 +24,10 @@ SKILL_TOOL_NAME = "Skill"
 SKILL_NAME_INPUT_KEY = "skill"
 ALL_ARTIFACT_DESIGN_SKILL_NAMES = frozenset({"artifact-design"})
 TEMPLATES_DIRECTORY = Path(__file__).resolve().parents[2] / "docs" / "templates"
-ARTIFACT_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "template.html"
+ARTIFACT_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "README.md"
 HTML_PLAN_TEMPLATE_README_PATH = TEMPLATES_DIRECTORY / "html-plan" / "README.md"
 POINTER_TEXT_PREFIX = "Build this artifact page from the html-plan skill, following "
-POINTER_ALTERNATIVE_PREFIX = ". When the request names the older artifact page template, build from "
+POINTER_ALTERNATIVE_PREFIX = (
+    ". When the request names the older artifact page template,"
+    " pick the one that fits the ask from "
+)
