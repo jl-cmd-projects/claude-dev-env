@@ -268,7 +268,8 @@ function fromHtml(src) {
     if (RAW_TAGS.has(name)) {
       const closeAt = src.toLowerCase().indexOf(`</${name}`, cursor);
       const bodyEnd = closeAt < 0 ? src.length : closeAt;
-      const closeEnd = closeAt < 0 ? src.length : src.indexOf('>', closeAt) + 1;
+      const closeTagEnd = closeAt < 0 ? -1 : src.indexOf('>', closeAt);
+      const closeEnd = closeTagEnd < 0 ? src.length : closeTagEnd + 1;
       node.text = name === 'script' || name === 'style' ? src.slice(cursor, bodyEnd) : decode(src.slice(cursor, bodyEnd));
       finish(node, bodyEnd, closeEnd);
       cursor = closeEnd;

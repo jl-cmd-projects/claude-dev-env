@@ -74,3 +74,8 @@ test('cell ids default to the slug of the row face and the column index', () => 
   assert.equal(cells[1].card, null);
   assert.equal(plan.grid.maxCount, 12);
 });
+
+test('should finish linting a page whose last raw tag close has no ">"', () => {
+  const errors = VisualPlan.lint(`${page({})}<script>x</script`).errors;
+  assert.deepEqual(errors, []);
+});
