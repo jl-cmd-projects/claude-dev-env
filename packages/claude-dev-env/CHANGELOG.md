@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.71.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.70.0...claude-dev-env-v8.71.0) (2026-10-09)
+
+
+### Features
+
+* **artifact-pointer:** point new artifact pages at html-plan with a house stylesheet ([#1915](https://github.com/jl-cmd-projects/claude-dev-env/issues/1915)) ([78d2a0a](https://github.com/jl-cmd-projects/claude-dev-env/commit/78d2a0a7a4d6d3378fd3c502566802400a8dd400))
+
 ## [8.70.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.69.1...claude-dev-env-v8.70.0) (2026-10-09)
 
 
