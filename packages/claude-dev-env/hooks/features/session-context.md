@@ -11,14 +11,14 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/orchestrator_auto_starter.py` injects an orchestrator directive when its environment flag is enabled.
 - `session/issue_tracker_session_starter.py` injects issue tracker guidance when enabled for a registered repository.
 - `session/artifact_template_pointer.py` points an agent that starts an artifact page at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
-- `advisory/auto_mode_denial_quick_fix.py` proposes one `autoMode.allow` entry and a PowerShell block that writes it after an auto mode denial. It never retries the denied call.
+- `advisory/auto_mode_denial_quick_fix.py` turns each auto mode denial into one plain-language approval phrase in a code block and a task card request. The card asks for a pull request that adds an `autoMode.allow` rule to `packages/claude-dev-env/settings.json`. A subagent returns the phrase to its parent unchanged. It never retries the denied call.
 
 ## When it fires
 
 - `session/skill_loaded_reminder.py` runs on `PreToolUse` matcher `Agent|Task` at `10` seconds, `UserPromptSubmit` matcher empty at `10` seconds, `SessionStart` matcher `compact` at `10` seconds, and `SubagentStart` matcher `workflow-subagent` at `10` seconds in `hooks.json`.
 - `session/task_tool_prompt.py`, `session/working_style_prompt.py`, `session/advisor_rules_prompt.py`, `session/orchestrator_auto_starter.py`, and `session/issue_tracker_session_starter.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.
 - `session/artifact_template_pointer.py` runs on `PreToolUse` matcher `Artifact|Skill` at `10` seconds in `hooks.json`. It speaks only on an `Artifact` call with action `quickstart` or a `Skill` call that loads `artifact-design`.
-- `advisory/auto_mode_denial_quick_fix.py` runs on `PermissionDenied`, matcher `*`, timeout `10` seconds in `hooks.json`.
+- `advisory/auto_mode_denial_quick_fix.py` runs on `PermissionDenied`, matcher `*`, and on `Stop` and `SubagentStop`, timeout `10` seconds each in `hooks.json`. Claude Code reads only `retry` from `PermissionDenied` output, so the denial event stores the context in a per-session file under the OS temp directory. The next `Stop` or `SubagentStop` for that session and agent replays it as `additionalContext` and removes the file.
 
 ## Proving it
 
@@ -33,7 +33,7 @@ Preconditions:
 - **Orchestrator start.** Input is SessionStart with its opt-in flag set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_orchestrator_auto_starter.py -q`. The adjacent test observes an orchestrator directive.
 - **Issue tracker start.** Input is SessionStart with its opt-in flag and a registered checkout. Run `python -m pytest packages/claude-dev-env/hooks/session/test_issue_tracker_session_starter.py -q`. The adjacent test observes issue tracker context.
 - **Artifact template pointer.** Input is an `Artifact` quickstart call. Run `python -m pytest packages/claude-dev-env/hooks/session/test_artifact_template_pointer.py -q`. The adjacent test observes the template path in `additionalContext`, and silence on a publish call or another skill.
-- **Denial quick fix.** Input is a `PermissionDenied` event with a bracketed rule label and a classifier verdict. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_auto_mode_denial_quick_fix.py -q`. The adjacent test observes the named rule, the allow entry, and the PowerShell block; a denial with no verdict gets a note and no block.
+- **Denial approval.** Input is a `PermissionDenied` event whose `reason` holds a bracketed rule label, then a `Stop` event for the same session. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_auto_mode_denial_quick_fix.py -q`. The adjacent test observes one phrase that names the program, the target and the risk, the task card text, one replay per stop, and silence on other events. A denial with no classifier verdict gets a note and no phrase.
 
 ## Gotchas
 
@@ -41,3 +41,4 @@ Preconditions:
 - The advisor prompt depends on settings and an environment disable flag. The two starter scripts each use separate opt-in checks.
 - The issue tracker starter requires the checkout to appear in the project path registry.
 - `advisory/auto_mode_denial_quick_fix.py` lives under `advisory/` but belongs here because its only output is agent context and a one-line user message.
+- An `autoMode.allow` rule cannot clear a `hard_deny` match. The denial `reason` does not say which list matched, so the task card can propose a rule that does not help.

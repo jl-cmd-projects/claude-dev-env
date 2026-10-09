@@ -1,10 +1,10 @@
-"""Behavior tests for the auto mode denial quick-fix advisor."""
+"""Behavior tests for the auto mode denial approval advisor."""
 
 from __future__ import annotations
 
 import io
 import json
-import subprocess
+import re
 import sys
 from pathlib import Path
 
@@ -15,99 +15,207 @@ if advisory_directory not in sys.path:
     sys.path.insert(0, advisory_directory)
 import auto_mode_denial_quick_fix
 
+PHRASE_PATTERN = re.compile(
+    r"^I approve this one action: (?P<action>.+?)\. I accept the risk that (?P<risk>.+?)\.$"
+)
+FENCED_PHRASE_PATTERN = re.compile(r"```\n(I approve this one action: [^\n]+)\n```")
+
+
+@pytest.fixture(autouse=True)
+def isolated_state_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    state_directory = tmp_path / "state"
+    monkeypatch.setattr(
+        auto_mode_denial_quick_fix, "state_directory", lambda: state_directory
+    )
+    return state_directory
+
 
 def _denial_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
+        "session_id": "session-1",
         "hook_event_name": "PermissionDenied",
-        "tool_name": "mcp__github__resolve_review_thread",
-        "tool_input": {"threadId": "PRRT_abc"},
-        "denial_reason": "[Security Weaken] resolving review threads bypasses review",
-        "classifier_verdict": "deny",
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": "git push --force-with-lease origin skill/role-templates",
+            "description": "Force push",
+        },
+        "tool_use_id": "toolu_1",
+        "reason": "[Git Destructive] force push rewrites remote history",
     }
     payload.update(overrides)
     return payload
 
 
-def test_should_name_the_bracketed_rule() -> None:
-    assert (
-        auto_mode_denial_quick_fix.rule_label_from("[Git Destructive] force") == "Git Destructive"
-    )
+def _stop_payload(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "session_id": "session-1",
+        "hook_event_name": "Stop",
+        "stop_hook_active": False,
+    }
+    payload.update(overrides)
+    return payload
 
 
-def test_should_fall_back_when_the_reason_has_no_label() -> None:
-    assert auto_mode_denial_quick_fix.rule_label_from("Blocked by classifier") == "unnamed rule"
+def _run_main(
+    payload_text: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> str:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload_text))
+    assert auto_mode_denial_quick_fix.main() == 0
+    return capsys.readouterr().out
 
 
-def test_should_summarize_a_bash_call_by_its_command() -> None:
-    summary = auto_mode_denial_quick_fix.action_summary_from(
-        {"command": "git push\n --force origin x"}
-    )
-    assert summary == "git push --force origin x"
+def _context_of(stdout_text: str) -> str:
+    return json.loads(stdout_text)["hookSpecificOutput"]["additionalContext"]
 
 
-def test_should_cut_a_long_summary_to_the_limit() -> None:
-    summary = auto_mode_denial_quick_fix.action_summary_from({"command": "x" * 500})
+def _phrase_of(context_text: str) -> str:
+    all_phrases = FENCED_PHRASE_PATTERN.findall(context_text)
+    assert len(all_phrases) == 1
+    return all_phrases[0]
+
+
+def test_should_read_the_rule_from_the_reason_field() -> None:
+    context_text = auto_mode_denial_quick_fix.denial_context(_denial_payload())
+    assert "[Git Destructive]" in context_text
+    risk_clause = PHRASE_PATTERN.match(_phrase_of(context_text)).group("risk")
+    assert "overwritten" in risk_clause
+
+
+def test_should_ignore_the_old_denial_reason_field() -> None:
+    payload = _denial_payload(reason="Blocked by classifier")
+    payload["denial_reason"] = "[Irreversible Local Destruction] stale field"
+    context_text = auto_mode_denial_quick_fix.denial_context(payload)
+    assert "Irreversible Local Destruction" not in context_text
+
+
+def test_should_write_one_phrase_naming_program_target_and_risk() -> None:
+    phrase = _phrase_of(auto_mode_denial_quick_fix.denial_context(_denial_payload()))
+    shape_match = PHRASE_PATTERN.match(phrase)
+    assert shape_match is not None
+    assert "git, the program that tracks code versions" in shape_match.group("action")
+    assert "skill/role-templates" in shape_match.group("action")
+    assert phrase.count("I approve this one action:") == 1
+
+
+def test_should_keep_the_start_and_the_target_of_a_long_command() -> None:
+    long_command = "cd /tmp/work && " + "git status && " * 20 + "git push --force origin feat/target-branch"
+    summary = auto_mode_denial_quick_fix.action_summary_from({"command": long_command})
     assert len(summary) == 160
-    assert summary.endswith("...")
+    assert summary.startswith("cd /tmp/work")
+    assert summary.endswith("origin feat/target-branch")
+    assert "..." in summary
 
 
-def test_should_escape_single_quotes_in_the_powershell_entry() -> None:
-    block = auto_mode_denial_quick_fix.powershell_block_for("it's allowed")
-    assert "$entry = 'it''s allowed'" in block
-    assert "$allowList.Add('$defaults')" in block
-
-
-def test_should_propose_rule_entry_and_block_for_a_classifier_denial() -> None:
-    hook_output = auto_mode_denial_quick_fix.build_hook_output(_denial_payload())
-    context_text = hook_output["hookSpecificOutput"]["additionalContext"]
-    assert "rule [Security Weaken]" in context_text
-    assert (
-        "Security Weaken exception: mcp__github__resolve_review_thread calls like" in context_text
+def test_should_fall_back_to_the_program_risk_when_the_reason_names_no_rule() -> None:
+    payload = _denial_payload(
+        tool_input={"command": 'cat "Run Theme Submissions.bat" | head -60'},
+        reason=(
+            "The server-side auto mode classifier judged this action dangerous "
+            "(it gave no explanation)"
+        ),
     )
-    assert "```powershell" in context_text
-    assert "retry" not in hook_output["hookSpecificOutput"]
-    assert hook_output["systemMessage"].startswith(
-        "Auto mode blocked mcp__github__resolve_review_thread"
+    risk_clause = PHRASE_PATTERN.match(
+        _phrase_of(auto_mode_denial_quick_fix.denial_context(payload))
+    ).group("risk")
+    assert "passwords" in risk_clause
+
+
+def test_should_name_a_helper_agent_and_tell_it_to_return_the_phrase() -> None:
+    context_text = auto_mode_denial_quick_fix.denial_context(
+        _denial_payload(agent_id="agent-7", agent_type="general-purpose")
     )
+    assert "a helper agent working for Claude" in _phrase_of(context_text)
+    assert "return the code block to your parent agent unchanged" in context_text
 
 
-def test_should_omit_the_block_when_no_verdict_exists() -> None:
-    payload = _denial_payload(denial_reason="classifier unavailable")
-    del payload["classifier_verdict"]
-    context_text = auto_mode_denial_quick_fix.build_hook_output(payload)["hookSpecificOutput"][
-        "additionalContext"
-    ]
-    assert "no classifier verdict" in context_text
-    assert "powershell" not in context_text
+def test_should_ask_for_a_task_card_with_the_fixed_rule_target() -> None:
+    context_text = auto_mode_denial_quick_fix.denial_context(_denial_payload())
+    assert "TaskCreate" in context_text
+    assert "autoMode.allow" in context_text
+    assert "packages/claude-dev-env/settings.json" in context_text
 
 
-def test_should_print_the_output_from_stdin(
+def test_should_keep_banned_style_out_of_every_output() -> None:
+    context_text = auto_mode_denial_quick_fix.denial_context(
+        _denial_payload(reason="[Data Exfiltration] sends data out")
+    )
+    assert chr(0x2014) not in context_text
+    assert not re.search(r"\breal(ly)?\b", context_text)
+
+
+def test_should_skip_the_phrase_when_the_classifier_gave_no_verdict() -> None:
+    context_text = auto_mode_denial_quick_fix.denial_context(
+        _denial_payload(reason="Classifier unavailable")
+    )
+    assert "I approve this one action" not in context_text
+    assert "TaskCreate" not in context_text
+
+
+def test_should_replay_the_denial_once_at_the_end_of_the_turn(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(_denial_payload())))
-    assert auto_mode_denial_quick_fix.main() == 0
-    assert (
-        json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"]
-        == "PermissionDenied"
-    )
+    _run_main(json.dumps(_denial_payload()), monkeypatch, capsys)
+    stop_output = json.loads(_run_main(json.dumps(_stop_payload()), monkeypatch, capsys))
+    assert stop_output["hookSpecificOutput"]["hookEventName"] == "Stop"
+    _phrase_of(stop_output["hookSpecificOutput"]["additionalContext"])
+    assert _run_main(json.dumps(_stop_payload()), monkeypatch, capsys) == ""
 
 
-def test_should_stay_quiet_on_malformed_input(
+def test_should_replay_a_subagent_denial_only_at_that_subagent_stop(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
-    assert auto_mode_denial_quick_fix.main() == 0
-    assert capsys.readouterr().out == ""
+    _run_main(json.dumps(_denial_payload(agent_id="agent-7")), monkeypatch, capsys)
+    assert _run_main(json.dumps(_stop_payload()), monkeypatch, capsys) == ""
+    subagent_stop_output = _run_main(
+        json.dumps(_stop_payload(hook_event_name="SubagentStop", agent_id="agent-7")),
+        monkeypatch,
+        capsys,
+    )
+    assert (
+        json.loads(subagent_stop_output)["hookSpecificOutput"]["hookEventName"]
+        == "SubagentStop"
+    )
 
 
-def test_should_write_the_entry_with_defaults_when_powershell_runs(tmp_path: Path) -> None:
-    block = (
-        auto_mode_denial_quick_fix.powershell_block_for("it's allowed")
-        .replace("claude auto-mode config", "")
-        .replace("Join-Path $HOME", f"Join-Path '{tmp_path}'")
+def test_should_replay_every_denial_of_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _run_main(json.dumps(_denial_payload()), monkeypatch, capsys)
+    _run_main(
+        json.dumps(_denial_payload(tool_input={"command": "gh pr ready 5510"})),
+        monkeypatch,
+        capsys,
     )
-    subprocess.run(["pwsh", "-NoProfile", "-Command", block], check=True)
-    written_settings = json.loads(
-        (tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8")
-    )
-    assert written_settings["autoMode"]["allow"] == ["$defaults", "it's allowed"]
+    context_text = _context_of(_run_main(json.dumps(_stop_payload()), monkeypatch, capsys))
+    assert len(FENCED_PHRASE_PATTERN.findall(context_text)) == 2
+
+
+def test_should_print_the_denial_context_on_the_denial_event(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stdout_text = _run_main(json.dumps(_denial_payload()), monkeypatch, capsys)
+    _phrase_of(_context_of(stdout_text))
+    assert "```" not in json.loads(stdout_text)["systemMessage"]
+
+
+@pytest.mark.parametrize(
+    "payload_text",
+    [
+        "",
+        "not json",
+        "{}",
+        "[]",
+        json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Bash"}),
+        json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
+    ],
+)
+def test_should_stay_quiet_on_anything_but_a_denial_or_a_stop(
+    payload_text: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run_main(payload_text, monkeypatch, capsys) == ""
