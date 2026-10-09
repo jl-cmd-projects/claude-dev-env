@@ -804,9 +804,7 @@ def test_dispatcher_allows_clean_apply_patch_add(tmp_path: Path) -> None:
     assert not is_deny, reason_text
 
 
-ALL_RETAINED_PATHS = {
-    "advisory/migration_safety_advisor.py",
-}
+ALL_RETAINED_PATHS: set[str] = set()
 ALL_RETIRED_PATHS = {
     "validation/hook_format_validator.py",
     "blocking/code_rules_enforcer.py",
