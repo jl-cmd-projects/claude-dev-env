@@ -1,6 +1,12 @@
-Back to the [rule entry](../../rules/filesystem-search.md).
+Back to the [rules index](../../rules/index.md).
 
 # Filesystem search
+
+## In brief
+
+Scope every search to a project, worktree, package, or narrowing filter. Never start at a filesystem root, drive root, bare home, or share root. Read a known path directly; use scoped `es.exe`, Glob, or Grep for discovery. After `es.exe` Error 8, retry twice before falling back within the same scope. Run one large shell walk at a time.
+
+**Enforcement:** none.
 
 **When this applies:** Any search for files by name, path, extension, size, or date. That includes `es.exe`, a shell `find`, a recursive `Get-ChildItem` / `gci` / `dir` / `ls -R`, or the harness Grep and Glob tools.
 

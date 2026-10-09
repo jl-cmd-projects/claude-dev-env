@@ -500,7 +500,7 @@ def build_deny_payload(deny_reason: str) -> dict[str, object]:
                 "only the current state. For example:\n"
                 '  BAD: "Uses X instead of Y"  →  GOOD: "Uses X"\n'
                 '  BAD: "Previously configured via Z"  →  GOOD: "Configured via Z"\n'
-                "Apply ~/.claude/rules/asd-ste100-language.md for user-facing language."
+                "Apply ~/.claude/docs/rule-guides/asd-ste100-language.md for user-facing language."
             ),
         },
         "systemMessage": "Agent wrote comparative/historical language - describe current state only",

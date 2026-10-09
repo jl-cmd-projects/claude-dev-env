@@ -1,0 +1,41 @@
+{
+  "rules": [
+    {
+      "key": "one_item",
+      "label": "More than one item",
+      "reminder": "Show one item per turn: one visual of that item and one short reply beside it. Put progress in the status line, and send the next item after the user answers this one."
+    },
+    {
+      "key": "no_picture",
+      "label": "No picture",
+      "reminder": "Show the item as one visual first, a widget or a published page. Then send one reply of one to three short sentences that states the outcome and each fact the user needs, and links the page."
+    },
+    {
+      "key": "too_many_words",
+      "label": "Too many words",
+      "reminder": "Cut the reply to three short sentences or fewer. Keep the outcome and each fact the user needs in the reply; the visual adds detail around them."
+    },
+    {
+      "key": "abbreviations",
+      "label": "Abbreviations",
+      "reminder": "Write each name in plain descriptive words. Spell out every abbreviation and drop tracker and item numbers. A pull request number stays only inside its link."
+    },
+    {
+      "key": "wall_of_text",
+      "label": "Wall of text",
+      "reminder": "Put each point, and each step the reader takes, on its own line."
+    }
+  ],
+  "allowed_capitalized_words": [
+    "I",
+    "OK"
+  ],
+  "lowercase_abbreviations": [
+    "e.g.",
+    "i.e.",
+    "etc.",
+    "vs.",
+    "approx.",
+    "w/"
+  ]
+}

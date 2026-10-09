@@ -1,0 +1,12 @@
+{
+  "flow": "rules-index",
+  "metrics": [
+    {"id": "followed", "label": "Followed", "kind": "binary"},
+    {"id": "opened_guide", "label": "Opened guide", "kind": "binary"}
+  ],
+  "perf_fields": ["latency_s", "tool_calls", "usage"],
+  "variants": {
+    "baseline": {"ref": "ff52917"},
+    "index": {"ref": "HEAD"}
+  }
+}

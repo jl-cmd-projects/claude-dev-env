@@ -1,4 +1,4 @@
-"""Each rule entry keeps the index shape, and the always-loaded entries stay inside a byte budget."""
+"""The rules index and each rule entry keep their shape, and the always-loaded rules stay inside a byte budget."""
 
 import re
 import sys
@@ -28,11 +28,16 @@ DOUBLED_WHEN_LEAD_IN_PATTERN = re.compile(
     r"^\*\*When(?: this applies)?:\*\* When\b", re.MULTILINE
 )
 
+INDEX_LINE_PATTERN = re.compile(r"^- \*\*[^*]+\*\*(?: \(\[guide\]\((\.\./docs/rule-guides/[^)#\s]+\.md)\)\))?\. \S")
+INDEX_SKILL_POINTER_PATTERN = re.compile(r"the `[a-z-]+` skill")
+
+INDEX_FILE_NAME = "index.md"
+INDEX_PATH = RULES_DIRECTORY / INDEX_FILE_NAME
 MAXIMUM_ENTRY_BYTES = 1_500
-MAXIMUM_ALWAYS_ON_BYTES = 12_000
-POINTER_ENTRY_NAMES = frozenset({"skill-pointers.md"})
+MAXIMUM_INDEX_BYTES = 4_000
+MAXIMUM_ALWAYS_ON_BYTES = 6_000
 CODEX_VERBATIM_ENTRY_NAMES = frozenset({"question-presentation.md"})
-INDEX_SHAPE_EXEMPT_ENTRY_NAMES = POINTER_ENTRY_NAMES | CODEX_VERBATIM_ENTRY_NAMES
+INDEX_SHAPE_EXEMPT_ENTRY_NAMES = CODEX_VERBATIM_ENTRY_NAMES
 CODEX_MATERIALIZED_GUIDE_NAMES = frozenset(
     Path(each_path).name for each_path in codex_instruction_rule_relative_paths
 )
@@ -43,6 +48,7 @@ def _entry_paths() -> list[Path]:
         each_path
         for each_path in RULES_DIRECTORY.glob("*.md")
         if each_path.name not in instruction_alias_filenames
+        and each_path.name != INDEX_FILE_NAME
     )
 
 
@@ -183,11 +189,59 @@ def test_each_entry_links_a_full_text_guide_that_exists() -> None:
     assert all_problems == []
 
 
+def _index_lines() -> list[str]:
+    return [
+        each_line
+        for each_line in INDEX_PATH.read_text(encoding="utf-8").splitlines()
+        if each_line.startswith("- ")
+    ]
+
+
+def _index_guide_names() -> list[str]:
+    return [
+        Path(each_match.group(1)).name
+        for each_line in _index_lines()
+        if (each_match := INDEX_LINE_PATTERN.match(each_line)) and each_match.group(1)
+    ]
+
+
+def test_each_index_line_names_a_rule_and_a_trigger() -> None:
+    malformed = [
+        each_line for each_line in _index_lines() if not INDEX_LINE_PATTERN.match(each_line)
+    ]
+    assert malformed == []
+
+
+def test_each_index_line_links_a_guide_or_names_a_skill() -> None:
+    unlinked = [
+        each_line
+        for each_line in _index_lines()
+        if not INDEX_LINE_PATTERN.match(each_line).group(1)
+        and not INDEX_SKILL_POINTER_PATTERN.search(each_line)
+    ]
+    assert unlinked == []
+
+
+def test_each_index_guide_exists() -> None:
+    missing = [
+        each_guide_name
+        for each_guide_name in _index_guide_names()
+        if not (RULE_GUIDES_DIRECTORY / each_guide_name).is_file()
+    ]
+    assert missing == []
+
+
+def test_index_stays_inside_its_byte_budget() -> None:
+    assert len(INDEX_PATH.read_bytes()) <= MAXIMUM_INDEX_BYTES
+
+
 def test_each_guide_has_exactly_one_owner() -> None:
     owners_by_guide: dict[str, list[str]] = {}
     for each_path in _entry_paths():
         for each_guide_name in _linked_guide_names(_entry_text(each_path)):
             owners_by_guide.setdefault(each_guide_name, []).append(each_path.name)
+    for each_guide_name in _index_guide_names():
+        owners_by_guide.setdefault(each_guide_name, []).append(INDEX_FILE_NAME)
     unowned = sorted(
         each_guide.name
         for each_guide in RULE_GUIDES_DIRECTORY.glob("*.md")
@@ -204,7 +258,7 @@ def test_each_guide_has_exactly_one_owner() -> None:
 
 
 def test_always_loaded_entries_stay_inside_the_total_byte_budget() -> None:
-    always_on_bytes = sum(
+    always_on_bytes = len(INDEX_PATH.read_bytes()) + sum(
         len(each_path.read_bytes())
         for each_path in _entry_paths()
         if _loads_in_every_session(_entry_text(each_path))

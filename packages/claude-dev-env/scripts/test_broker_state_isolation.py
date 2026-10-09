@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,6 +44,5 @@ def test_meter_cache_write_lands_outside_the_home_directory(
 
     home_state_path = fake_home / ".claude" / "account-broker" / "state.json"
     assert not home_state_path.exists()
-    assert f"claude:only:{account.home}" in isolated_broker_state_path.read_text(
-        encoding="utf-8"
-    )
+    state = json.loads(isolated_broker_state_path.read_text(encoding="utf-8"))
+    assert f"claude:only:{account.home}" in state["meters"]

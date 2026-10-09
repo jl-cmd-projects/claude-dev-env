@@ -11,6 +11,7 @@ so the repository code rules do not govern it::
 
 from __future__ import annotations
 
+import json
 import os
 from subprocess import CompletedProcess
 import tempfile
@@ -20,8 +21,9 @@ import pytest
 
 from blocking import _path_setup  # noqa: F401  (pins this checkout ahead of sibling worktrees)
 import code_rules_enforcer_test_support
+from blocking.code_rules_enforcer import main as enforcer_main
 from blocking.code_rules_shared import is_agent_home_tooling, is_ephemeral_path
-from code_rules_enforcer_test_support import run_precheck
+from code_rules_enforcer_test_support import run_precheck, run_serialized_payload_entrypoint
 
 _VIOLATING_PRODUCTION_SOURCE = "def process_data(payload: str) -> None:\n    print(payload)\n"
 
@@ -122,3 +124,54 @@ def test_enforcer_still_flags_the_same_source_in_a_project_path() -> None:
     completed = _check_as(_VIOLATING_PRODUCTION_SOURCE, target)
 
     assert completed.returncode != 0
+
+
+def _run_enforcer_with_payload(all_pretooluse_payload: dict[str, object]) -> str:
+    """Drive the enforcer's stdin entry point and return what it wrote to stdout."""
+    captured_stdout, _exit_code = run_serialized_payload_entrypoint(
+        enforcer_main, json.dumps(all_pretooluse_payload)
+    )
+    return captured_stdout
+
+
+def test_enforcer_applies_every_rule_to_a_repository_checked_out_under_the_agent_home(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    home_root = tmp_path_factory.mktemp("agent-home")
+    repository_directory = home_root / "home" / "example" / ".grok" / "runs" / "checkout"
+    service_module = repository_directory / "src" / "service.py"
+    service_module.parent.mkdir(parents=True)
+    service_module.write_text(
+        "def process_data(payload: str) -> None:\n    return None\n", encoding="utf-8"
+    )
+
+    captured_stdout = _run_enforcer_with_payload(
+        {
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": str(service_module),
+                "old_string": "    return None\n",
+                "new_string": "    print(payload)\n",
+            },
+            "cwd": str(repository_directory),
+        }
+    )
+
+    assert '"permissionDecision": "deny"' in captured_stdout
+    assert "Library print()" in captured_stdout
+    assert "banned noun word" in captured_stdout
+
+
+def test_enforcer_keeps_agent_home_tooling_outside_the_cwd_exempt() -> None:
+    helper_script = os.path.join("/home/example", ".grok", "runs", "worktree-health", "health.py")
+    repository_directory = os.path.join("/home/example", ".grok", "runs", "checkout")
+
+    captured_stdout = _run_enforcer_with_payload(
+        {
+            "tool_name": "Write",
+            "tool_input": {"file_path": helper_script, "content": _VIOLATING_PRODUCTION_SOURCE},
+            "cwd": repository_directory,
+        }
+    )
+
+    assert captured_stdout == ""

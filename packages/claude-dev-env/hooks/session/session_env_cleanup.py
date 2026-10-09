@@ -18,48 +18,22 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
-import stat
 import sys
 import time
 from pathlib import Path
-from typing import Callable
 
 _hooks_dir = str(Path(__file__).resolve().parent.parent)
 if _hooks_dir not in sys.path:
     sys.path.insert(0, _hooks_dir)
 
-from hooks_constants.session_env_cleanup_constants import (  # noqa: E402
-    ALL_RMTREE_ONEXC_PYTHON_VERSION_PARTS,
+from hooks_constants.session_env_cleanup_constants import (
     SESSION_ENV_DIRECTORY,
     SESSION_ID_PATTERN,
     SESSION_ID_PAYLOAD_KEY,
     STALE_AGE_SECONDS,
     WINDOWS_PLATFORM_TAG,
 )
-
-
-def _strip_read_only_and_retry(
-    removal_function: Callable[[str], None],
-    target_path: str,
-    *_unused_exception_info: object,
-) -> None:
-    try:
-        os.chmod(target_path, stat.S_IWRITE)
-        removal_function(target_path)
-    except OSError:
-        pass
-
-
-def _force_rmtree(target_path: str) -> None:
-    rmtree_onexc_python_version = ALL_RMTREE_ONEXC_PYTHON_VERSION_PARTS
-    try:
-        if sys.version_info >= rmtree_onexc_python_version:
-            shutil.rmtree(target_path, onexc=_strip_read_only_and_retry)
-        else:
-            shutil.rmtree(target_path, onerror=_strip_read_only_and_retry)
-    except OSError:
-        pass
+from hooks_constants.windows_filesystem import force_rmtree
 
 
 def prune_session_env(
@@ -71,7 +45,7 @@ def prune_session_env(
     if session_id:
         current_session_path = os.path.join(session_env_directory, session_id)
         if os.path.isdir(current_session_path):
-            _force_rmtree(current_session_path)
+            force_rmtree(current_session_path)
     if not os.path.isdir(session_env_directory):
         return
     stale_cutoff_seconds = time.time() - stale_age_seconds
@@ -87,7 +61,7 @@ def prune_session_env(
             continue
         if entry_mtime_seconds >= stale_cutoff_seconds:
             continue
-        _force_rmtree(entry_path)
+        force_rmtree(entry_path)
 
 
 def _read_session_id_from_stdin() -> str:

@@ -1,6 +1,10 @@
-Back to the [rule entry](../../rules/proof-before-pull-request.md).
+Back to the [rules index](../../rules/index.md).
 
 # Proof before a pull request
+
+## In brief
+
+Run the change where it runs, with and without it, and quote both results under "Proof in practice" in the body. A hook denies a body without one. Unproven: leave it unopened and tell the user.
 
 **When this applies:** Every session that builds a change and opens a pull request, in every project.
 
