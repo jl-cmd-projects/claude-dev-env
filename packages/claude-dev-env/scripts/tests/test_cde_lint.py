@@ -422,10 +422,9 @@ def test_should_exit_zero_and_record_a_followup_when_only_warnings_exist(
         lint_runner=lambda _request: warning_report,
         repository_root=tmp_path,
     )
-    ledger_path = tmp_path / ".claude" / "followups" / "smells.jsonl"
     all_ledger_records = [
-        json.loads(each_line)
-        for each_line in ledger_path.read_text(encoding="utf-8").splitlines()
+        json.loads(each_path.read_text(encoding="utf-8"))
+        for each_path in (tmp_path / ".claude" / "followups").glob("*.json")
     ]
     assert exit_code == 0
     assert "paired test gap" in stdout_text
@@ -445,4 +444,4 @@ def test_should_leave_the_ledger_absent_when_every_finding_is_an_error(
         ),
         repository_root=tmp_path,
     )
-    assert not (tmp_path / ".claude" / "followups" / "smells.jsonl").exists()
+    assert not list((tmp_path / ".claude" / "followups").glob("*.json"))

@@ -12,9 +12,8 @@ if _hooks_directory not in sys.path:
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
-    deduplicate_ledger,
-    deduplicated_lines,
-    followup_ledger_path,
+    finding_path,
+    followup_directory,
     head_commit,
     record_followup_finding,
 )
@@ -62,27 +61,29 @@ def test_all_recorded_findings_is_empty_without_a_ledger(tmp_path: Path) -> None
     assert all_recorded_findings(tmp_path) == ()
 
 
-def test_all_recorded_findings_skips_an_unreadable_line(tmp_path: Path) -> None:
+def test_all_recorded_findings_skips_an_unreadable_file(tmp_path: Path) -> None:
     finding = FollowupFinding(
         "instruction-mode", "docs/AGENTS.md", "wrong mode", "instruction-mode"
     )
     record_followup_finding(tmp_path, finding)
-    ledger_path = followup_ledger_path(tmp_path)
-    with ledger_path.open("a", encoding="utf-8") as ledger_file:
-        ledger_file.write("{ not json\n")
+    (followup_directory(tmp_path) / "damaged.json").write_text(
+        "{ not json\n", encoding="utf-8"
+    )
 
     assert all_recorded_findings(tmp_path) == (finding,)
 
 
-def test_record_followup_finding_writes_one_json_object_per_line(tmp_path: Path) -> None:
-    record_followup_finding(
-        tmp_path, FollowupFinding("instruction-mode", "docs/AGENTS.md", "wrong mode")
-    )
+def test_record_followup_finding_writes_one_json_file_per_finding(
+    tmp_path: Path,
+) -> None:
+    finding = FollowupFinding("instruction-mode", "docs/AGENTS.md", "wrong mode")
 
-    all_lines = followup_ledger_path(tmp_path).read_text(encoding="utf-8").splitlines()
+    record_followup_finding(tmp_path, finding)
 
-    assert len(all_lines) == 1
-    assert json.loads(all_lines[0])["rule_id"] == "instruction-mode"
+    all_record_paths = list(followup_directory(tmp_path).glob("*.json"))
+    assert all_record_paths == [finding_path(tmp_path, finding)]
+    recorded = json.loads(all_record_paths[0].read_text(encoding="utf-8"))
+    assert recorded["rule_id"] == "instruction-mode"
 
 
 def test_a_recorded_ledger_stays_out_of_git_status(tmp_path: Path) -> None:
@@ -98,7 +99,7 @@ def test_a_recorded_ledger_stays_out_of_git_status(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     )
-    assert followup_ledger_path(tmp_path).is_file()
+    assert any(followup_directory(tmp_path).glob("*.json"))
     assert status_result.stdout == ""
 
 
@@ -133,9 +134,9 @@ def test_a_recorded_finding_carries_its_check_severity_and_origin(
 def test_a_record_written_without_the_tracking_fields_still_reads(
     tmp_path: Path,
 ) -> None:
-    ledger_path = followup_ledger_path(tmp_path)
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    ledger_path.write_text(
+    record_path = followup_directory(tmp_path) / "older.json"
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text(
         json.dumps(
             {
                 "rule_id": "instruction-mode",
@@ -268,57 +269,75 @@ def test_head_commit_reads_a_packed_branch_from_a_linked_worktree(
     assert head_commit(worktree_root) == expected_commit
 
 
-def test_deduplicated_lines_keeps_the_first_of_each_exact_line_in_order() -> None:
-    assert deduplicated_lines(["a", "b", "a", "c", "b"]) == ["a", "b", "c"]
+def test_the_file_name_depends_on_the_tracking_key_alone(tmp_path: Path) -> None:
+    first = FollowupFinding("r1", "a.py", "m1", "r1", "smell", "aaa1111")
+    later = first._replace(origin_commit="bbb2222")
+    other = first._replace(message="m2")
+
+    assert finding_path(tmp_path, first) == finding_path(tmp_path, later)
+    assert finding_path(tmp_path, first) != finding_path(tmp_path, other)
 
 
-def test_record_followup_finding_removes_lines_a_union_merge_repeated(
-    tmp_path: Path,
-) -> None:
-    ledger_path = followup_ledger_path(tmp_path)
-    ledger_path.parent.mkdir(parents=True)
-    first_line = '{"rule_id": "r1", "file_path": "a.py", "message": "m1"}'
-    second_line = '{"rule_id": "r2", "file_path": "b.py", "message": "m2"}'
-    ledger_path.write_text(
-        f"{first_line}\n{second_line}\n{first_line}\n", encoding="utf-8"
+def _git(repository_root: Path, *all_arguments: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            *all_arguments,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
     )
 
-    record_followup_finding(tmp_path, FollowupFinding("r3", "c.py", "m3", "r3"))
 
-    all_ledger_lines = ledger_path.read_text(encoding="utf-8").splitlines()
-    assert all_ledger_lines[:2] == [first_line, second_line]
-    assert [json.loads(each_line)["rule_id"] for each_line in all_ledger_lines] == [
-        "r1",
-        "r2",
-        "r3",
-    ]
-
-
-def test_record_followup_finding_removes_a_repeat_of_an_already_recorded_finding(
-    tmp_path: Path,
-) -> None:
-    finding = FollowupFinding("r1", "a.py", "m1", "r1")
-    record_followup_finding(tmp_path, finding)
-    ledger_path = followup_ledger_path(tmp_path)
-    recorded_text = ledger_path.read_text(encoding="utf-8")
-    ledger_path.write_text(recorded_text * 2, encoding="utf-8")
-
-    record_followup_finding(tmp_path, finding)
-
-    assert ledger_path.read_text(encoding="utf-8") == recorded_text
+def _commit_finding_on_branch(
+    repository_root: Path, branch_name: str, finding: FollowupFinding
+) -> set[str]:
+    _git(repository_root, "checkout", "--quiet", "-b", branch_name, "main")
+    record_followup_finding(repository_root, finding)
+    _git(repository_root, "add", "--all")
+    _git(repository_root, "commit", "--quiet", "-m", branch_name)
+    changed_text = _git(
+        repository_root, "diff", "--name-only", "main", branch_name
+    ).stdout
+    return set(changed_text.split())
 
 
-def test_deduplicate_ledger_reports_how_many_lines_it_removed(tmp_path: Path) -> None:
-    ledger_path = followup_ledger_path(tmp_path)
-    ledger_path.parent.mkdir(parents=True)
-    ledger_path.write_text("x\ny\nx\nx\n", encoding="utf-8")
+def test_two_parallel_writers_share_no_file_and_merge_cleanly(tmp_path: Path) -> None:
+    repository_root = tmp_path / "repo"
+    subprocess.run(
+        ["git", "init", "--quiet", "-b", "main", str(repository_root)], check=True
+    )
+    ignore_path = followup_directory(repository_root) / ".gitignore"
+    ignore_path.parent.mkdir(parents=True)
+    ignore_path.write_text("!*.json\n", encoding="utf-8")
+    _git(repository_root, "add", "--all")
+    _git(repository_root, "commit", "--quiet", "-m", "start")
+    first = FollowupFinding("r1", "a.py", "m1", "r1")
+    second = FollowupFinding("r2", "b.py", "m2", "r2")
 
-    removed_count = deduplicate_ledger(tmp_path)
+    first_files = _commit_finding_on_branch(repository_root, "first", first)
+    second_files = _commit_finding_on_branch(repository_root, "second", second)
+    _git(repository_root, "checkout", "--quiet", "first")
+    merge_result = _git(repository_root, "merge", "--no-edit", "second")
 
-    assert removed_count == 2
-    assert ledger_path.read_text(encoding="utf-8") == "x\ny\n"
+    assert first_files and second_files
+    assert not first_files & second_files
+    assert merge_result.returncode == 0, merge_result.stdout + merge_result.stderr
+    assert all_recorded_findings(repository_root) == (first, second)
 
 
-def test_deduplicate_ledger_leaves_an_absent_ledger_absent(tmp_path: Path) -> None:
-    assert deduplicate_ledger(tmp_path) == 0
-    assert not followup_ledger_path(tmp_path).exists()
+def test_a_committed_ignore_file_is_left_as_it_stands(tmp_path: Path) -> None:
+    ignore_path = followup_directory(tmp_path) / ".gitignore"
+    ignore_path.parent.mkdir(parents=True)
+    ignore_path.write_text("!*.json\n", encoding="utf-8")
+
+    record_followup_finding(tmp_path, FollowupFinding("r1", "a.py", "m1", "r1"))
+
+    assert ignore_path.read_text(encoding="utf-8") == "!*.json\n"

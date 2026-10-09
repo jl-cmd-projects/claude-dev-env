@@ -13,7 +13,8 @@ Use `docs/rule-guides/asd-ste100-language.md` for user-facing wording.
 
 ## 1. Read the ledger
 
-Run `cde followup brief --repository-root <root>`.
+Run `cde followup brief --repository-root <root>`. The ledger is the
+`.claude/followups/` directory, one JSON file per finding.
 
 When it prints `no follow-ups recorded`, report that and stop. There is no
 work.
@@ -62,7 +63,9 @@ Push, then confirm the required checks report on the branch head.
 ## 5. Empty the ledger
 
 Once the pull request is open, run
-`cde followup clear --repository-root <root>`.
+`cde followup clear --repository-root <root>`. It removes every finding file.
+When the repository commits its ledger, commit those removals on the pull
+request branch and push.
 
 A finding the pull request left alone goes back in the ledger with
 `cde followup ingest`, so the next pass picks it up.

@@ -17,7 +17,8 @@ from followup_cli import main
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
-    followup_ledger_path,
+    finding_path,
+    followup_directory,
     record_followup_finding,
 )
 
@@ -307,17 +308,80 @@ def test_list_names_the_check_behind_each_finding(tmp_path: Path) -> None:
     assert "f00dcafe" in output_text
 
 
-def test_dedupe_removes_repeated_ledger_lines_and_keeps_the_order(
+def test_dedupe_moves_a_legacy_ledger_into_one_file_per_finding(
     tmp_path: Path,
 ) -> None:
-    ledger_path = followup_ledger_path(tmp_path)
-    ledger_path.parent.mkdir(parents=True)
-    ledger_path.write_text("first\nsecond\nfirst\n", encoding="utf-8")
+    first_line = json.dumps({"rule_id": "r1", "file_path": "a.py", "message": "m1"})
+    second_line = json.dumps({"rule_id": "r2", "file_path": "b.py", "message": "m2"})
+    legacy_path = followup_directory(tmp_path) / "smells.jsonl"
+    legacy_path.parent.mkdir(parents=True)
+    legacy_path.write_text(
+        f"{first_line}\n{second_line}\n{first_line}\n", encoding="utf-8"
+    )
 
     exit_code, output_text = run_command(
         ["dedupe", "--repository-root", str(tmp_path)]
     )
 
     assert exit_code == 0
-    assert output_text == DEDUPE_RESULT_TEMPLATE.format(removed_count=1) + "\n"
-    assert ledger_path.read_text(encoding="utf-8") == "first\nsecond\n"
+    assert output_text == (
+        DEDUPE_RESULT_TEMPLATE.format(migrated_count=3, removed_count=0) + "\n"
+    )
+    assert not legacy_path.exists()
+    assert [each.rule_id for each in all_recorded_findings(tmp_path)] == ["r1", "r2"]
+
+
+def test_dedupe_removes_a_misnamed_copy_of_a_recorded_finding(tmp_path: Path) -> None:
+    finding = FollowupFinding("r1", "a.py", "m1", "r1")
+    record_followup_finding(tmp_path, finding)
+    recorded_path = finding_path(tmp_path, finding)
+    copy_path = recorded_path.with_name("copy.json")
+    copy_path.write_text(recorded_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    exit_code, output_text = run_command(
+        ["dedupe", "--repository-root", str(tmp_path)]
+    )
+
+    assert exit_code == 0
+    assert output_text == (
+        DEDUPE_RESULT_TEMPLATE.format(migrated_count=0, removed_count=1) + "\n"
+    )
+    assert not copy_path.exists()
+    assert all_recorded_findings(tmp_path) == (finding,)
+
+
+def test_fix_followups_reads_the_brief_then_clears_every_finding(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "lint.json"
+    write_lint_report(
+        report_path,
+        [
+            {
+                "rule_id": "code-rules",
+                "check_id": "code-rules/constant-outside-config",
+                "message": "Constant TIMEOUT",
+                "location": {"path": "src/run.py"},
+            },
+            {
+                "rule_id": "test-pairing",
+                "message": "no paired test",
+                "location": {"path": "src/app.py"},
+            },
+        ],
+    )
+    root_arguments = ["--repository-root", str(tmp_path)]
+
+    ingest_exit_code, _ = run_command(["ingest", str(report_path), *root_arguments])
+    _, brief_text = run_command(["brief", *root_arguments])
+    clear_exit_code, _ = run_command(["clear", *root_arguments])
+    _, brief_after_clear = run_command(["brief", *root_arguments])
+
+    assert ingest_exit_code == 0
+    assert "- [code-rules/constant-outside-config] src/run.py: Constant TIMEOUT" in (
+        brief_text
+    )
+    assert "- [test-pairing] src/app.py: no paired test" in brief_text
+    assert clear_exit_code == 0
+    assert brief_after_clear == "no follow-ups recorded\n"
+    assert not list(followup_directory(tmp_path).glob("*.json"))
