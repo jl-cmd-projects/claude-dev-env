@@ -88,7 +88,9 @@ def _prior_policy(prior_text: str | None, policy_file: ModuleType, model: Module
         return None
 
 
-def _policy_messages(document: Document, load_module: HookModuleLoader) -> list[str]:
+def _policy_messages(
+    document: Document, repository_root: Path, load_module: HookModuleLoader
+) -> list[str]:
     policy_file = load_module(constants.CONTEXT_BUDGET_POLICY_FILE_MODULE)
     model = load_module(constants.CONTEXT_BUDGET_MODEL_MODULE)
     policy_path = document.path.as_posix()
@@ -104,7 +106,7 @@ def _policy_messages(document: Document, load_module: HookModuleLoader) -> list[
         all_messages = [
             each.message
             for each in policy_changes.policy_shrink_findings(
-                policy_path, prior_policy, current_policy
+                policy_path, prior_policy, current_policy, repository_root
             )
         ]
     return all_messages
@@ -117,15 +119,14 @@ def context_budget_policy_diagnostics(
 
     Args:
         document: Current policy text and its prior text.
-        repository_root: Repository root, unused by this check.
+        repository_root: Working tree that holds each hook's command script.
         load_module: Hook module loader.
 
     Returns:
         One diagnostic per loosening change, or one for an unparseable file.
     """
-    del repository_root
     rule_id = constants.CONTEXT_BUDGET_POLICY_RULE_ID
-    all_messages = _policy_messages(document, load_module)
+    all_messages = _policy_messages(document, repository_root, load_module)
     return tuple(_file_diagnostic(rule_id, each) for each in all_messages)
 
 

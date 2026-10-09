@@ -1,7 +1,9 @@
 """Report a policy file change that loosens the budget.
 
 The over-budget list may only shrink: a new or larger baseline entry, a raised
-limit, a section rule turned off, or a deleted kind or hook is a finding.
+limit, a section rule turned off, a deleted kind, or a deleted hook whose
+command script is still in the tree is a finding. A hook deleted together
+with its script passes.
 Existing kind patterns and precedence stay fixed. A null line count that
 becomes a number is larger. A policy file the change introduces passes.
 """
@@ -9,8 +11,15 @@ becomes a number is larger. A policy file the change introduces passes.
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
-from context_budget.model import BaselineEntry, BudgetFinding, BudgetPolicy, ContextKind
+from context_budget.model import (
+    BaselineEntry,
+    BudgetFinding,
+    BudgetPolicy,
+    ContextKind,
+    HookBudget,
+)
 from hooks_constants.context_budget_constants import (
     CHANGE_ADDS_FILE,
     CHANGE_ADDS_HOOK,
@@ -57,7 +66,9 @@ def _kind_changes(prior_kind: ContextKind, current_kind: ContextKind | None) -> 
     return all_changes
 
 
-def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
+def _limit_changes(
+    prior_policy: BudgetPolicy, current_policy: BudgetPolicy, repository_root: Path
+) -> list[str]:
     all_changes: list[str] = []
     prior_section_limit = prior_policy.section_detail_line_limit
     current_section_limit = current_policy.section_detail_line_limit
@@ -81,17 +92,32 @@ def _limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> 
         all_changes.extend(
             _kind_changes(each_prior_kind, current_kind_by_name.get(each_prior_kind.name))
         )
-    return all_changes + _hook_limit_changes(prior_policy, current_policy)
+    return all_changes + _hook_limit_changes(prior_policy, current_policy, repository_root)
 
 
-def _hook_limit_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
-    """Preserve each measured hook and hold its output limit to the prior budget."""
+def _has_script_in_tree(hook: HookBudget, repository_root: Path) -> bool:
+    return any(
+        not Path(each_part).is_absolute() and (repository_root / each_part).is_file()
+        for each_part in hook.all_command_parts
+    )
+
+
+def _deleted_hook_changes(prior_hook: HookBudget, repository_root: Path) -> list[str]:
+    if not _has_script_in_tree(prior_hook, repository_root):
+        return []
+    return [CHANGE_DELETES_HOOK.format(subject=prior_hook.name)]
+
+
+def _hook_limit_changes(
+    prior_policy: BudgetPolicy, current_policy: BudgetPolicy, repository_root: Path
+) -> list[str]:
+    """Preserve each measured hook whose script remains and hold its limit to the prior budget."""
     all_changes: list[str] = []
     current_hook_by_name = {each.name: each for each in current_policy.all_hooks}
     for each_prior_hook in prior_policy.all_hooks:
         current_hook = current_hook_by_name.get(each_prior_hook.name)
         if current_hook is None:
-            all_changes.append(CHANGE_DELETES_HOOK.format(subject=each_prior_hook.name))
+            all_changes.extend(_deleted_hook_changes(each_prior_hook, repository_root))
             continue
         current_limit = current_hook.char_limit
         if current_limit > each_prior_hook.char_limit:
@@ -157,7 +183,10 @@ def _hook_entry_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy
 
 
 def policy_shrink_findings(
-    policy_path: str, prior_policy: BudgetPolicy | None, current_policy: BudgetPolicy
+    policy_path: str,
+    prior_policy: BudgetPolicy | None,
+    current_policy: BudgetPolicy,
+    repository_root: Path,
 ) -> tuple[BudgetFinding, ...]:
     """Report each change to the policy file that loosens the budget.
 
@@ -165,6 +194,7 @@ def policy_shrink_findings(
         policy_path: Repository-relative path of the policy file.
         prior_policy: Policy before the change, or None when the change adds it.
         current_policy: Policy after the change.
+        repository_root: Working tree that holds each hook's command script.
 
     Returns:
         One finding per loosening change; empty when the file is new.
@@ -172,7 +202,7 @@ def policy_shrink_findings(
     if prior_policy is None:
         return ()
     all_changes = (
-        _limit_changes(prior_policy, current_policy)
+        _limit_changes(prior_policy, current_policy, repository_root)
         + _file_entry_changes(prior_policy, current_policy)
         + _hook_entry_changes(prior_policy, current_policy)
     )
