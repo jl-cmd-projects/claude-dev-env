@@ -8,21 +8,6 @@ description: >-
 
 # Pull request
 
-## Contents
-
-- [Principle](#principle)
-- [When this applies](#when-this-applies)
-- [Constraints](#constraints)
-- [Dependencies](#dependencies)
-- [Sub-skills](#sub-skills)
-- [Task seeding](#task-seeding)
-- [Process](#process)
-- [Exit handling](#exit-handling)
-- [Examples](#examples)
-- [Gotchas](#gotchas)
-- [File index](#file-index)
-- [Folder map](#folder-map)
-
 ## Principle
 
 Publish one GitHub pull request action from validated local files and a
@@ -151,12 +136,8 @@ failure. Never print the value.
 
 ### 6. Recover a selected legacy record
 
-Run `.agents/skills/pull-request/scripts/recover_legacy_author.py
-<exact-state-file> --confirm-inactive` only when the user selects one legacy
-state file. The command checks the record's age, secure file metadata, and
-contents. The confirmation flag records that the caller verified inactivity.
-Leave every other record untouched. Delete the selected record only after a
-successful restore. Mark this step `N/A` when no legacy state file is selected.
+Follow `reference/legacy-author-recovery.md` only when the user selects one
+legacy state file. Mark this step `N/A` otherwise.
 
 ### 7. Run the action
 
@@ -185,24 +166,12 @@ only after remote readback proves the requested state.
 
 ## Examples
 
-Create example: the writer produces `pr-body.md`. The linter exits `0` for
-`pr-create`. `pull_request.py create` publishes one ready pull request. The
-readback matches the title, body, head SHA, and draft state.
-
-Rejected comment example: the comment body names a worktree file. The linter
-returns a non-zero exit. No account lookup or GitHub request runs. Replace the
-path with inline text or a permanent artifact URL, then rerun.
-
-Recovery example: one old record remains after an interrupted legacy account
-swap. The user selects that exact file and confirms its session is inactive.
-The recovery command restores the named account and deletes only that record.
+Read `reference/examples.md` for a create, a rejected comment, and a recovery.
 
 ## Gotchas
 
 - Relative body-file paths depend on the caller directory. Use an absolute path
   when another process or worktree starts the command.
-- A record older than 30 minutes can still belong to a live session. Require
-  `--confirm-inactive` before recovery.
 - Normal pull request actions never call `gh auth switch`. If that command
   appears outside explicit recovery, stop.
 - `gh auth switch`, `login`, and `logout` change the account for every session
@@ -217,6 +186,8 @@ The recovery command restores the named account and deletes only that record.
 |---|---|
 | `SKILL.md` | Hub for pull request publication, validation, author selection, recovery, and readback |
 | `reference/publication-tasks.md` | Ordered tasks for every publication gate |
+| `reference/legacy-author-recovery.md` | Recovery of one selected legacy author record |
+| `reference/examples.md` | Worked create, rejected comment, and recovery examples |
 | `scripts/pull_request.py` | Command for author selection and create, edit, comment, and review actions |
 | `scripts/github_pr_command_constants/` | Constants for pull request actions, recovery, exit codes, and generic messages |
 | `scripts/test_pull_request.py` | Tests for `pull_request.py` |
@@ -226,18 +197,3 @@ The recovery command restores the named account and deletes only that record.
 | `<managed-root>/scripts/durable_post_lint.py` | Shared action-aware title, body, and path validator |
 | `scripts/gh_artifact_upload.py` | Helper for permanent GitHub binary evidence URLs |
 | `scripts/tests/test_gh_artifact_upload.py` | Tests for binary evidence upload |
-
-## Folder map
-
-```text
-pull-request/
-├── SKILL.md
-├── reference/
-│   └── publication-tasks.md
-└── scripts/
-    ├── pull_request.py
-    ├── github_pr_command_constants/
-    ├── recover_legacy_author.py
-    ├── test_pull_request.py
-    └── test_recover_legacy_author.py
-```

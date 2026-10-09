@@ -1,9 +1,9 @@
 # Explore thoroughly
 
-**When:** Choosing an implementation approach or recommending an architectural direction.
+**When:** Before you log, plan, delegate, or build an ask, or choose an approach.
 
-Read relevant files, map local patterns, and identify constraints before committing to an approach. Scale exploration to risk: inspect nearby files for a small change, broader examples for a new feature, and the full landscape for an architectural decision. Once the files, constraints, and success condition are known, act without repeating settled research.
+Search for what already does the ask, in full or in part. When something exists, stop and report it to the user in four points; run the `search-before-acting` skill. Then read files, patterns, and constraints, scaled to risk. Once the files, constraints, and success condition are known, act without repeating settled research.
 
-**Enforcement:** none, the agent applies it.
+**Enforcement:** the pull request gate denies a body with no "Existing work" section.
 
-**Full text:** [`docs/rule-guides/explore-thoroughly.md`](../docs/rule-guides/explore-thoroughly.md). Read it when setting exploration depth.
+**Full text:** [`docs/rule-guides/explore-thoroughly.md`](../docs/rule-guides/explore-thoroughly.md). Read it for search scope and depth.
