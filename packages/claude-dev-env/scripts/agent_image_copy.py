@@ -102,7 +102,7 @@ def parse_crop_box(crop_text: str) -> tuple[int, int, int, int]:
 
 
 def write_agent_copy(
-    source_path: Path, all_crop_coordinates: tuple[int, int, int, int] | None = None
+    source_path: Path, all_crop_coordinates: tuple[int, int, int, int] | None
 ) -> Path:
     """Write the capped copy beside the source and return its path.
 
@@ -111,7 +111,7 @@ def write_agent_copy(
 
     Args:
         source_path: The full-size image.
-        all_crop_coordinates: An optional LEFT, TOP, RIGHT, BOTTOM region cut before scaling.
+        all_crop_coordinates: A LEFT, TOP, RIGHT, BOTTOM region cut before scaling, or None for the whole image.
 
     Returns:
         The path of the written copy.
