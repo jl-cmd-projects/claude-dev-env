@@ -60,5 +60,6 @@ def test_should_name_every_slim_profile_flag_in_the_deny_reason() -> None:
         "--strict-mcp-config",
         "--autocompact 100k",
         "CLAUDE_CODE_DISABLE_CLAUDE_MDS=1",
+        "POSIX shell",
     ):
         assert each_flag in SLIM_PROFILE_DENY_REASON

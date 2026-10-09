@@ -26,10 +26,10 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
 from hooks_constants.haiku_spawn_slim_gate_constants import (
     DENY_DECISION,
     HAIKU_MODEL_FAMILY,
+    HOOK_EVENT_NAME,
     MODEL_INPUT_KEY,
     PERMISSION_DECISION_REASON_KEY,
     SLIM_PROFILE_DENY_REASON,
