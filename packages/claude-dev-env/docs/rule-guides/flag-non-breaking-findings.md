@@ -38,8 +38,11 @@ A message with no catalog entry resolves to `<rule>/unclassified`, which a parti
 | `cde followup brief` | Writes the task an agent fixes them from |
 | `cde followup clear` | Empties the ledger |
 | `cde followup count` | Reports the backlog against the threshold |
+| `cde followup dedupe` | Removes exact repeated lines and keeps the first of each |
 
 `count` exits non-zero once the backlog passes `FOLLOWUP_BACKLOG_THRESHOLD` in `scripts/dev_env_scripts_constants/followup_constants.py`, so a scheduled job escalates. The number is the repository's setting.
+
+`.gitattributes` marks the ledger `merge=union`, so a local `git merge` keeps both sides' appended lines without a conflict. GitHub's server-side merge ignores the attribute. Every ledger write drops exact repeated lines, and the `followup-ledger-duplicates` repository check fails a tree that still holds one.
 
 The `/fix-followups` command reads the brief, fixes each rule group, opens a pull request, and clears the ledger.
 

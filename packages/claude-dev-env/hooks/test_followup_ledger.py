@@ -12,6 +12,8 @@ if _hooks_directory not in sys.path:
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
+    deduplicate_ledger,
+    deduplicated_lines,
     followup_ledger_path,
     head_commit,
     record_followup_finding,
@@ -187,3 +189,59 @@ def test_head_commit_reads_a_detached_revision(tmp_path: Path) -> None:
 
 def test_head_commit_is_empty_outside_a_repository(tmp_path: Path) -> None:
     assert head_commit(tmp_path) == ""
+
+
+def test_deduplicated_lines_keeps_the_first_of_each_exact_line_in_order() -> None:
+    assert deduplicated_lines(["a", "b", "a", "c", "b"]) == ["a", "b", "c"]
+
+
+def test_record_followup_finding_removes_lines_a_union_merge_repeated(
+    tmp_path: Path,
+) -> None:
+    ledger_path = followup_ledger_path(tmp_path)
+    ledger_path.parent.mkdir(parents=True)
+    first_line = '{"rule_id": "r1", "file_path": "a.py", "message": "m1"}'
+    second_line = '{"rule_id": "r2", "file_path": "b.py", "message": "m2"}'
+    ledger_path.write_text(
+        f"{first_line}\n{second_line}\n{first_line}\n", encoding="utf-8"
+    )
+
+    record_followup_finding(tmp_path, FollowupFinding("r3", "c.py", "m3", "r3"))
+
+    all_ledger_lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert all_ledger_lines[:2] == [first_line, second_line]
+    assert [json.loads(each_line)["rule_id"] for each_line in all_ledger_lines] == [
+        "r1",
+        "r2",
+        "r3",
+    ]
+
+
+def test_record_followup_finding_removes_a_repeat_of_an_already_recorded_finding(
+    tmp_path: Path,
+) -> None:
+    finding = FollowupFinding("r1", "a.py", "m1", "r1")
+    record_followup_finding(tmp_path, finding)
+    ledger_path = followup_ledger_path(tmp_path)
+    recorded_text = ledger_path.read_text(encoding="utf-8")
+    ledger_path.write_text(recorded_text * 2, encoding="utf-8")
+
+    record_followup_finding(tmp_path, finding)
+
+    assert ledger_path.read_text(encoding="utf-8") == recorded_text
+
+
+def test_deduplicate_ledger_reports_how_many_lines_it_removed(tmp_path: Path) -> None:
+    ledger_path = followup_ledger_path(tmp_path)
+    ledger_path.parent.mkdir(parents=True)
+    ledger_path.write_text("x\ny\nx\nx\n", encoding="utf-8")
+
+    removed_count = deduplicate_ledger(tmp_path)
+
+    assert removed_count == 2
+    assert ledger_path.read_text(encoding="utf-8") == "x\ny\n"
+
+
+def test_deduplicate_ledger_leaves_an_absent_ledger_absent(tmp_path: Path) -> None:
+    assert deduplicate_ledger(tmp_path) == 0
+    assert not followup_ledger_path(tmp_path).exists()

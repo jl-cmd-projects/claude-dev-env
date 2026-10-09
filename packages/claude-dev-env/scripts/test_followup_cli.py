@@ -11,6 +11,7 @@ from dev_env_scripts_constants.followup_constants import (
     BACKLOG_EXCEEDED_EXIT_CODE,
     BACKLOG_EXCEEDED_TEMPLATE,
     BACKLOG_WITHIN_TEMPLATE,
+    DEDUPE_RESULT_TEMPLATE,
     FOLLOWUP_BACKLOG_THRESHOLD,
 )
 from followup_cli import main
@@ -22,6 +23,7 @@ if _hooks_directory not in sys.path:
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
+    followup_ledger_path,
     record_followup_finding,
 )
 
@@ -309,3 +311,19 @@ def test_list_names_the_check_behind_each_finding(tmp_path: Path) -> None:
 
     assert "code-rules/constant-outside-config" in output_text
     assert "f00dcafe" in output_text
+
+
+def test_dedupe_removes_repeated_ledger_lines_and_keeps_the_order(
+    tmp_path: Path,
+) -> None:
+    ledger_path = followup_ledger_path(tmp_path)
+    ledger_path.parent.mkdir(parents=True)
+    ledger_path.write_text("first\nsecond\nfirst\n", encoding="utf-8")
+
+    exit_code, output_text = run_command(
+        ["dedupe", "--repository-root", str(tmp_path)]
+    )
+
+    assert exit_code == 0
+    assert output_text == DEDUPE_RESULT_TEMPLATE.format(removed_count=1) + "\n"
+    assert ledger_path.read_text(encoding="utf-8") == "first\nsecond\n"

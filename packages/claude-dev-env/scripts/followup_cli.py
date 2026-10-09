@@ -12,7 +12,8 @@ work. This command reads those records back.
 ``list`` names what is outstanding, ``ingest`` adds the diagnostics from a
 policy-lint JSON report, ``brief`` writes the task an agent works from, and
 ``clear`` empties the ledger once the follow-up pull request carries the
-fixes.
+fixes, and ``dedupe`` removes exact repeated lines a ``merge=union`` merge
+left behind.
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ from dev_env_scripts_constants.followup_constants import (
     BACKLOG_EXCEEDED_TEMPLATE,
     BACKLOG_WITHIN_TEMPLATE,
     COUNT_COMMAND_NAME,
+    DEDUPE_COMMAND_NAME,
+    DEDUPE_RESULT_TEMPLATE,
     DIAGNOSTIC_CHECK_ID_KEY,
     FOLLOWUP_BACKLOG_THRESHOLD,
     BRIEF_COMMAND_NAME,
@@ -59,6 +62,7 @@ if _hooks_directory not in sys.path:
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
+    deduplicate_ledger,
     followup_ledger_path,
     head_commit,
     record_followup_finding,
@@ -310,6 +314,24 @@ def _run_clear(repository_root: Path) -> int:
     return SUCCESS_EXIT_CODE
 
 
+def _run_dedupe(repository_root: Path, stdout: TextIO) -> int:
+    """Remove exact repeated lines from the repository's ledger.
+
+    Args:
+        repository_root: The repository whose ledger to clean.
+        stdout: The stream the removed-line count goes to.
+
+    Returns:
+        SUCCESS_EXIT_CODE.
+    """
+    removed_line_count = deduplicate_ledger(repository_root)
+    stdout.write(
+        DEDUPE_RESULT_TEMPLATE.format(removed_count=removed_line_count)
+        + LINE_SEPARATOR
+    )
+    return SUCCESS_EXIT_CODE
+
+
 def main(all_arguments: list[str], stdout: TextIO = sys.stdout) -> int:
     """Run one follow-up command.
 
@@ -336,6 +358,8 @@ def main(all_arguments: list[str], stdout: TextIO = sys.stdout) -> int:
         return _run_brief(repository_root, stdout)
     if parsed_arguments.command == COUNT_COMMAND_NAME:
         return _run_count(repository_root, stdout)
+    if parsed_arguments.command == DEDUPE_COMMAND_NAME:
+        return _run_dedupe(repository_root, stdout)
     return _run_clear(repository_root)
 
 
