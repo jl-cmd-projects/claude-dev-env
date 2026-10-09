@@ -17,7 +17,7 @@ When you add a public function to a module whose test suite already exercises th
 
 Two complementary checks in `code_rules_paired_test.py` reach changed files through `code_rules_enforcer.py`, which the staged policy lint runs under its `code-rules` rule. No write-time hook runs them, so CI is where they report, against the merge base. The two checks cover the two write orders.
 
-Both checks record smells, per [`flag-non-breaking-findings.md`](../../rules/flag-non-breaking-findings.md). `SEVERITY_BY_CHECK_ID` in `scripts/policy_lint/config/check_catalog_constants.py` declares `code-rules/paired-test-missing-function` and `code-rules/paired-test-omitted-function` as smells. The lint prints each finding as a warning, records it in `.claude/followups/smells.jsonl`, and exits zero when every finding is a warning. A later pull request adds the missing tests.
+Both checks record smells, per [`flag-non-breaking-findings.md`](../../rules/flag-non-breaking-findings.md). `SEVERITY_BY_CHECK_ID` in `scripts/policy_lint/config/check_catalog_constants.py` declares `code-rules/paired-test-missing-function` and `code-rules/paired-test-omitted-function` as smells. The lint prints each finding as a warning, records it as one file in `.claude/followups/`, and exits zero when every finding is a warning. A later pull request adds the missing tests.
 
 `check_public_function_missing_paired_test` runs on a production Python write or edit and flags a public function when all of these hold:
 

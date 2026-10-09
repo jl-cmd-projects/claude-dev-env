@@ -45,7 +45,7 @@ export function createHelpText() {
         "  cde followup brief        Write the task an agent fixes them from",
         "  cde followup count        Report the backlog against the threshold",
         "  cde followup clear        Empty the ledger",
-        "  cde followup dedupe       Remove exact repeated ledger lines",
+        "  cde followup dedupe       Give each finding its own file, once",
         "",
         "Python may also be selected with CDE_PYTHON.",
     ].join("\n");

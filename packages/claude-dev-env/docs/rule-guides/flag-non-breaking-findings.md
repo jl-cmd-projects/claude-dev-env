@@ -10,7 +10,7 @@ A smell that blocks a commit stops delivery for something the reader could fix i
 
 ## The ledger
 
-Recorded findings land in `.claude/followups/smells.jsonl` at the repository root, one JSON object per line. `hooks/followup_ledger.py` writes and reads it. Ledger writes are fail-safe, so a ledger failure leaves the gate's decision unchanged.
+Recorded findings land in `.claude/followups/` at the repository root, one JSON file per finding. The file name is the first 16 hex digits of a SHA-256 hash over the check identifier, path, and message, so the same finding always writes the same file and two branches that record different findings never touch one file. `hooks/followup_ledger.py` writes and reads the directory. Ledger writes are fail-safe, so a ledger failure leaves the gate's decision unchanged.
 
 | Field | What it carries |
 |---|---|
@@ -21,7 +21,7 @@ Recorded findings land in `.claude/followups/smells.jsonl` at the repository roo
 | `severity` | The class the gate put it in |
 | `origin_commit` | The revision checked out when it was recorded |
 
-The origin commit groups a follow-up pull request by the change that raised the findings. A smell seen again under a later revision keeps the revision that first raised it, so one smell stays one record. The ledger is per-checkout state and stays out of the repository.
+The origin commit groups a follow-up pull request by the change that raised the findings. A smell seen again under a later revision keeps the revision that first raised it, so one smell stays one record. The first write into a directory with no `.gitignore` adds one holding `*`, so the ledger stays out of the repository by default. A repository that commits its findings commits its own `.gitignore`. This repository commits one holding `!*.json`.
 
 ## The check identifier
 
@@ -38,11 +38,9 @@ A message with no catalog entry resolves to `<rule>/unclassified`, which a parti
 | `cde followup brief` | Writes the task an agent fixes them from |
 | `cde followup clear` | Empties the ledger |
 | `cde followup count` | Reports the backlog against the threshold |
-| `cde followup dedupe` | Removes exact repeated lines and keeps the first of each |
+| `cde followup dedupe` | Moves a legacy `smells.jsonl` into finding files and removes duplicate finding files |
 
 `count` exits non-zero once the backlog passes `FOLLOWUP_BACKLOG_THRESHOLD` in `scripts/dev_env_scripts_constants/followup_constants.py`, so a scheduled job escalates. The number is the repository's setting.
-
-`.gitattributes` marks the ledger `merge=union`, so a local `git merge` keeps both sides' appended lines without a conflict. GitHub's server-side merge ignores the attribute. Every ledger write drops exact repeated lines, and the `followup-ledger-duplicates` repository check fails a tree that still holds one.
 
 The `/fix-followups` command reads the brief, fixes each rule group, opens a pull request, and clears the ledger.
 

@@ -12,8 +12,8 @@ work. This command reads those records back.
 ``list`` names what is outstanding, ``ingest`` adds the diagnostics from a
 policy-lint JSON report, ``brief`` writes the task an agent works from, and
 ``clear`` empties the ledger once the follow-up pull request carries the
-fixes, and ``dedupe`` removes exact repeated lines a ``merge=union`` merge
-left behind.
+fixes, and ``dedupe`` moves a legacy ``smells.jsonl`` into one file per
+finding and removes duplicate finding files.
 """
 
 from __future__ import annotations
@@ -62,11 +62,10 @@ if _hooks_directory not in sys.path:
 from followup_ledger import (
     FollowupFinding,
     all_recorded_findings,
-    deduplicate_ledger,
-    followup_ledger_path,
     head_commit,
     record_followup_finding,
 )
+from followup_ledger_maintenance import clear_recorded_findings, normalize_ledger
 from hooks_constants.followup_ledger_constants import SEVERITY_SMELL
 
 
@@ -307,26 +306,26 @@ def _run_clear(repository_root: Path) -> int:
     Returns:
         SUCCESS_EXIT_CODE.
     """
-    try:
-        followup_ledger_path(repository_root).unlink(missing_ok=True)
-    except OSError:
-        return SUCCESS_EXIT_CODE
+    clear_recorded_findings(repository_root)
     return SUCCESS_EXIT_CODE
 
 
 def _run_dedupe(repository_root: Path, stdout: TextIO) -> int:
-    """Remove exact repeated lines from the repository's ledger.
+    """Move every record to the file its tracking key names.
 
     Args:
         repository_root: The repository whose ledger to clean.
-        stdout: The stream the removed-line count goes to.
+        stdout: The stream the migrated and removed counts go to.
 
     Returns:
         SUCCESS_EXIT_CODE.
     """
-    removed_line_count = deduplicate_ledger(repository_root)
+    normalization = normalize_ledger(repository_root)
     stdout.write(
-        DEDUPE_RESULT_TEMPLATE.format(removed_count=removed_line_count)
+        DEDUPE_RESULT_TEMPLATE.format(
+            migrated_count=normalization.migrated_count,
+            removed_count=normalization.removed_count,
+        )
         + LINE_SEPARATOR
     )
     return SUCCESS_EXIT_CODE
