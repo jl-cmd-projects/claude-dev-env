@@ -187,3 +187,80 @@ def test_head_commit_reads_a_detached_revision(tmp_path: Path) -> None:
 
 def test_head_commit_is_empty_outside_a_repository(tmp_path: Path) -> None:
     assert head_commit(tmp_path) == ""
+
+
+def _committed_repository(repository_root: Path) -> str:
+    subprocess.run(["git", "init", "--quiet", str(repository_root)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "start",
+        ],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(repository_root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_head_commit_reads_a_linked_worktree_branch(tmp_path: Path) -> None:
+    main_root = tmp_path / "main"
+    worktree_root = tmp_path / "linked"
+    expected_commit = _committed_repository(main_root)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main_root),
+            "worktree",
+            "add",
+            "--quiet",
+            "-b",
+            "feature",
+            str(worktree_root),
+        ],
+        check=True,
+    )
+
+    assert head_commit(worktree_root) == expected_commit
+
+
+def test_head_commit_reads_a_packed_branch_from_a_linked_worktree(
+    tmp_path: Path,
+) -> None:
+    main_root = tmp_path / "main"
+    worktree_root = tmp_path / "linked"
+    expected_commit = _committed_repository(main_root)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main_root),
+            "worktree",
+            "add",
+            "--quiet",
+            "-b",
+            "feature",
+            str(worktree_root),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(main_root), "pack-refs", "--all"], check=True
+    )
+
+    assert not (main_root / ".git" / "refs" / "heads" / "feature").exists()
+    assert head_commit(worktree_root) == expected_commit
