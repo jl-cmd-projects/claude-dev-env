@@ -8,4 +8,4 @@ Find the native question tool and schema. Claude may use `AskUserQuestion`; Code
 
 When the user asks for option cards, or for a Codex visual comparison, read the full text first.
 
-**Full text:** [`docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).
+**Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).
