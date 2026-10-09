@@ -148,8 +148,7 @@ def invokes_skill_with_argument(
         Skill claude-api, args "migrate"                      -> False
         user "/claude-api" command, command-args "build-eval" -> True
 
-    Compaction boundaries do not reset the answer: an invocation stays counted
-    after the transcript compacts.
+    An invocation stays counted after a later compact boundary.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
@@ -161,8 +160,6 @@ def invokes_skill_with_argument(
         if not any(name in each_line for name in skill_names):
             continue
         all_entry_fields = _relevant_entry(each_line, skill_names)
-        if all_entry_fields is not None and _invokes_skill_with_argument(
-            all_entry_fields, skill_names, argument_word, command_marker
-        ):
+        if all_entry_fields and _invokes_skill_with_argument(all_entry_fields, skill_names, argument_word, command_marker):
             return True
     return False
