@@ -59,4 +59,3 @@ Makefile text eol=lf
 *.pdf binary
 *.whl binary
 *.pyc binary
-.claude/followups/smells.jsonl merge=union
