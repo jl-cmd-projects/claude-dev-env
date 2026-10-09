@@ -41,12 +41,14 @@ Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
 fenced blocks carry no words.
 
-With visual reply mode on, the default, the gate also runs the checks in
-``visual_reply_rules.py``. A reply or a decision card may hold no
-abbreviation and no tracker number outside a link. A reply of more than
-one sentence needs a widget or a page earlier in the turn. A turn sends one
-reply, so a reply after a delivered reply in the same turn is denied. A widget may
-hold no anchor link, since a widget link does not open in the Claude app.
+With visual reply mode on, the gate also runs the checks in
+``visual_reply_rules.py``. The mode is off until
+``~/.claude/visual-reply-mode.json`` holds ``{"enabled": true}``. A reply
+or a decision card may hold no abbreviation and no tracker number outside
+a link. A reply of more than one sentence needs a widget or a page earlier
+in the turn. A turn sends one reply, so a reply after a delivered reply in
+the same turn is denied. A widget may hold no anchor link, since a widget
+link does not open in the Claude app.
 
 A length limit is a smell elsewhere in this package, recorded and fixed in a
 later pass. A posted reply reaches the user the moment it sends and has no

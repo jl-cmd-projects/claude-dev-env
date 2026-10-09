@@ -211,11 +211,24 @@ def _read_transcript_lines(transcript_path: object) -> list[str] | None:
         return None
 
 
+def _result_ids(all_entries: list[dict[str, object]], is_error: bool) -> set[object]:
+    return {
+        each_block.get(TOOL_USE_ID_KEY)
+        for each_entry in all_entries
+        for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
+        if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
+        and bool(each_block.get(IS_ERROR_KEY)) is is_error
+    }
+
+
 def visual_shown_this_turn(all_transcript_lines: Iterable[str]) -> bool:
-    """Return True when a widget or page call follows the last prompt in the transcript."""
+    """Return True when a widget or page call after the last prompt did not come back with an error."""
+    all_entries = _entries_this_turn(all_transcript_lines)
+    all_errored_ids = _result_ids(all_entries, is_error=True)
     return any(
         str(each_use.get(BLOCK_NAME_KEY)).endswith(ALL_VISUAL_TOOL_NAME_SUFFIXES)
-        for each_entry in _entries_this_turn(all_transcript_lines)
+        and each_use.get(BLOCK_ID_KEY) not in all_errored_ids
+        for each_entry in all_entries
         for each_use in _tool_uses(each_entry)
     )
 
@@ -223,13 +236,7 @@ def visual_shown_this_turn(all_transcript_lines: Iterable[str]) -> bool:
 def replies_sent_this_turn(all_transcript_lines: Iterable[str]) -> int:
     """Count the reply calls after the last prompt that came back without an error."""
     all_entries = _entries_this_turn(all_transcript_lines)
-    all_delivered_ids = {
-        each_block.get(TOOL_USE_ID_KEY)
-        for each_entry in all_entries
-        for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
-        if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
-        and not each_block.get(IS_ERROR_KEY)
-    }
+    all_delivered_ids = _result_ids(all_entries, is_error=False)
     return sum(
         1
         for each_entry in all_entries

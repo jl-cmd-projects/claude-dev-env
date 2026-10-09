@@ -128,6 +128,27 @@ def test_replies_sent_this_turn_counts_delivered_replies_after_the_last_prompt()
     assert replies_sent_this_turn(all_lines) == 1
 
 
+def widget_use_line(tool_use_id: str) -> str:
+    return json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": tool_use_id, "name": "mcp__hearthbot__post_widget"}
+                ]
+            },
+        }
+    )
+
+
+def test_visual_shown_this_turn_skips_a_widget_that_came_back_with_an_error() -> None:
+    assert not visual_shown_this_turn(
+        [prompt_line("status"), widget_use_line("w"), result_line("w", True)]
+    )
+    assert visual_shown_this_turn([prompt_line("status"), widget_use_line("w"), result_line("w", False)])
+    assert visual_shown_this_turn([prompt_line("status"), widget_use_line("w")])
+
+
 def test_second_reply_violation_denies_only_after_a_delivered_reply(tmp_path: Path) -> None:
     transcript_path = tmp_path / "transcript.jsonl"
     transcript_path.write_text(
