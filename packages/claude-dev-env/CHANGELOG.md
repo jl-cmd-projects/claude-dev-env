@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.69.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.4...claude-dev-env-v8.69.0) (2026-10-09)
+
+
+### Features
+
+* **skills:** add a fix playbook to /correction ([#1946](https://github.com/jl-cmd-projects/claude-dev-env/issues/1946)) ([c0ac7cb](https://github.com/jl-cmd-projects/claude-dev-env/commit/c0ac7cb2537a46f3067d2a7aaacaa71d6da14363))
+
 ## [8.68.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.68.3...claude-dev-env-v8.68.4) (2026-10-09)
 
 
