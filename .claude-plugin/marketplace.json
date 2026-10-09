@@ -30,6 +30,14 @@
       "version": "0.3.0",
       "license": "MIT",
       "category": "development"
+    },
+    {
+      "name": "visual-plan",
+      "source": "./packages/visual-plan",
+      "description": "Write a plan as one interactive HTML page: a grid of problems and fixes, the decisions to answer, and the path, where every box opens a card of pictures and every item takes a note",
+      "version": "0.1.0",
+      "license": "MIT",
+      "category": "productivity"
     }
   ]
 }

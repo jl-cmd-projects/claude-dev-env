@@ -40,6 +40,7 @@ jobs:
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
       subagent_models: ${{ steps.filter.outputs.subagent_models }}
+      visual_plan: ${{ steps.filter.outputs.visual_plan }}
     steps:
       - uses: actions/checkout@v5
 
@@ -74,6 +75,9 @@ jobs:
               - '.github/workflows/ci-tests.yml'
             subagent_models:
               - 'packages/subagent-models/**'
+              - '.github/workflows/ci-tests.yml'
+            visual_plan:
+              - 'packages/visual-plan/**'
               - '.github/workflows/ci-tests.yml'
 
   python:
@@ -251,6 +255,23 @@ jobs:
           npm install --global @anthropic-ai/claude-code@2.1.288
           claude plugin validate .
           claude plugin test .
+
+  visual-plan:
+    name: visual-plan plugin (ubuntu)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.visual_plan == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run the visual-plan tests
+        working-directory: packages/visual-plan
+        run: node --test tests/
 
   install-playtest:
     name: Install playtest (ubuntu)
