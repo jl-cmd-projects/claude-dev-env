@@ -31,12 +31,14 @@ INGEST_COMMAND_NAME: str = "ingest"
 BRIEF_COMMAND_NAME: str = "brief"
 CLEAR_COMMAND_NAME: str = "clear"
 COUNT_COMMAND_NAME: str = "count"
+DEDUPE_COMMAND_NAME: str = "dedupe"
 ALL_COMMAND_NAMES: tuple[str, ...] = (
     LIST_COMMAND_NAME,
     INGEST_COMMAND_NAME,
     BRIEF_COMMAND_NAME,
     CLEAR_COMMAND_NAME,
     COUNT_COMMAND_NAME,
+    DEDUPE_COMMAND_NAME,
 )
 
 SUCCESS_EXIT_CODE: int = 0
@@ -61,8 +63,9 @@ ABSENT_LOCATION_PATH: str = ""
 LINE_SEPARATOR: str = "\n"
 EMPTY_LEDGER_MESSAGE: str = "no follow-ups recorded"
 UNREADABLE_REPORT_TEMPLATE: str = "cannot read the lint report: {report_path}"
+DEDUPE_RESULT_TEMPLATE: str = "removed {removed_count} duplicate ledger lines"
 USAGE_TEXT: str = (
-    "Usage: followup_cli.py <list|ingest|brief|clear|count> "
+    "Usage: followup_cli.py <list|ingest|brief|clear|count|dedupe> "
     "[--repository-root PATH]\n"
     "  list              Name every recorded follow-up\n"
     "  ingest REPORT     Record every diagnostic in a policy-lint JSON report\n"

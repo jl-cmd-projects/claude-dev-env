@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -74,6 +75,52 @@ class FollowupFinding(NamedTuple):
         return (self.check_id or self.rule_id, self.file_path, self.message)
 
 
+def deduplicated_lines(all_lines: Sequence[str]) -> list[str]:
+    """Return the lines with every exact repeat removed.
+
+    The first occurrence of each line keeps its place, so the ledger keeps its
+    record order after a ``merge=union`` merge writes both sides' lines.
+
+    Args:
+        all_lines: The ledger lines, in file order.
+
+    Returns:
+        The lines in file order, each exact line once.
+    """
+    return list(dict.fromkeys(all_lines))
+
+
+def deduplicate_ledger(repository_root: Path) -> int:
+    """Rewrite the repository's ledger without exact repeated lines.
+
+    An absent or unreadable ledger, and a ledger that cannot be rewritten, are
+    left as they are, so a ledger failure never becomes a gate failure.
+
+    Args:
+        repository_root: The repository whose ledger to clean.
+
+    Returns:
+        How many lines the rewrite removed.
+    """
+    ledger_path = followup_ledger_path(repository_root)
+    try:
+        all_ledger_lines = ledger_path.read_text(encoding=LEDGER_ENCODING).splitlines()
+    except (OSError, UnicodeError):
+        return 0
+    all_unique_lines = deduplicated_lines(all_ledger_lines)
+    removed_line_count = len(all_ledger_lines) - len(all_unique_lines)
+    if not removed_line_count:
+        return 0
+    try:
+        ledger_path.write_text(
+            "".join(each_line + "\n" for each_line in all_unique_lines),
+            encoding=LEDGER_ENCODING,
+        )
+    except OSError:
+        return 0
+    return removed_line_count
+
+
 def followup_ledger_path(repository_root: Path) -> Path:
     """Return the ledger path for one repository.
 
@@ -89,8 +136,10 @@ def followup_ledger_path(repository_root: Path) -> Path:
 def record_followup_finding(repository_root: Path, finding: FollowupFinding) -> None:
     """Append one finding to the repository's ledger, once.
 
-    A finding already present in the ledger is left alone, so a gate that runs
-    on every commit records a standing smell a single time. The ledger
+    The ledger first loses every exact repeated line, so lines a
+    ``merge=union`` merge wrote twice leave on the next write. A finding
+    already present in the ledger is left alone, so a gate that runs on every
+    commit records a standing smell a single time. The ledger
     directory carries a ``.gitignore`` matching every file in it, so the
     ledger stays out of ``git status`` in any repository. Every filesystem
     error is swallowed, so a ledger failure leaves the caller's gate decision
@@ -100,6 +149,7 @@ def record_followup_finding(repository_root: Path, finding: FollowupFinding) -> 
         repository_root: The repository whose ledger receives the finding.
         finding: The non-breaking finding to record.
     """
+    deduplicate_ledger(repository_root)
     all_recorded_keys = {
         each_finding.tracking_key()
         for each_finding in all_recorded_findings(repository_root)
