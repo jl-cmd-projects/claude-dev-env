@@ -1158,7 +1158,7 @@ function boot() {
     store.watch(
       (saved) => {
         Object.keys(answers).forEach((id) => delete answers[id]);
-        Object.entries(saved).forEach(([id, record]) => { if (record && typeof record.index === 'number') answers[id] = record.index; });
+        plan.asks.forEach((ask) => { const record = saved[ask.id]; if (record && Number.isInteger(record.index) && ask.options[record.index]) answers[ask.id] = record.index; });
         paint();
         paintCount();
       },
