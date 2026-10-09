@@ -14,9 +14,11 @@ from rules_eval_support.grading import (
     loads_pr_lifecycle_before_commit,
     opened_a_guide,
     scopes_every_search,
+    tool_check,
 )
 from rules_eval_support.install import prepare_workspace, variant_files
 from rules_eval_support.judge import parse_verdict
+from rules_eval_support.launch import launch_words
 from session_eval_support.grading import ToolCall
 
 
@@ -49,6 +51,12 @@ def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
     assert not loads_pr_lifecycle_before_commit([ToolCall("Edit", {})])
 
 
+def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases() -> None:
+    assert tool_check("no-rm") is keeps_rm_out
+    assert tool_check("skill-before-commit") is loads_pr_lifecycle_before_commit
+    assert tool_check("judge") is None
+
+
 def test_guide_check_sees_a_read_under_rule_guides() -> None:
     assert opened_a_guide([ToolCall("Read", {"file_path": ".claude/docs/rule-guides/research-mode.md"})])
     assert not opened_a_guide([ToolCall("Read", {"file_path": "README.md"})])
@@ -69,8 +77,6 @@ def test_index_variant_installs_the_index_and_guides_it_links() -> None:
 
 
 def test_direct_launch_skips_the_broker_and_brokered_launch_wraps_it() -> None:
-    from rules_eval_support.launch import launch_words
-
     all_words = ["claude", "-p", "hi"]
     assert launch_words(Path("r.json"), all_words, is_direct=True)[1:] == all_words[1:]
     brokered = launch_words(Path("r.json"), all_words, is_direct=False)

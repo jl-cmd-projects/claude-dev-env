@@ -10,6 +10,7 @@ from rules_eval_support.config.constants import (
     FIXTURE_OVERLAY_DIRECTORY,
     FRONTMATTER_DELIMITER,
     GUIDES_SOURCE_DIRECTORY,
+    GIT_EXECUTABLE,
     GUIDES_TARGET_DIRECTORY,
     LOG_FILE_TEXT,
     MARKDOWN_SUFFIX,
@@ -22,9 +23,9 @@ from rules_eval_support.config.constants import (
 )
 
 
-def _git_output(*all_arguments: str) -> str:
+def _read_git(*all_arguments: str) -> str:
     return subprocess.run(
-        ("git", *all_arguments),
+        (GIT_EXECUTABLE, *all_arguments),
         cwd=REPOSITORY_ROOT,
         check=True,
         capture_output=True,
@@ -35,7 +36,7 @@ def _git_output(*all_arguments: str) -> str:
 def _markdown_names(ref: str, directory: str) -> list[str]:
     return [
         each_path
-        for each_path in _git_output("ls-tree", "--name-only", f"{ref}:{directory}").split()
+        for each_path in _read_git("ls-tree", "--name-only", f"{ref}:{directory}").split()
         if each_path.endswith(MARKDOWN_SUFFIX)
     ]
 
@@ -69,11 +70,11 @@ def variant_files(ref: str) -> dict[str, str]:
     """
     files_by_target: dict[str, str] = {}
     for each_name in _markdown_names(ref, RULES_SOURCE_DIRECTORY):
-        rule_text = _git_output("show", f"{ref}:{RULES_SOURCE_DIRECTORY}/{each_name}")
+        rule_text = _read_git("show", f"{ref}:{RULES_SOURCE_DIRECTORY}/{each_name}")
         if _loads_in_every_session(rule_text):
             files_by_target[f"{RULES_TARGET_DIRECTORY}/{each_name}"] = rule_text
     for each_name in _markdown_names(ref, GUIDES_SOURCE_DIRECTORY):
-        files_by_target[f"{GUIDES_TARGET_DIRECTORY}/{each_name}"] = _git_output(
+        files_by_target[f"{GUIDES_TARGET_DIRECTORY}/{each_name}"] = _read_git(
             "show", f"{ref}:{GUIDES_SOURCE_DIRECTORY}/{each_name}"
         )
     return files_by_target
@@ -100,9 +101,9 @@ def prepare_workspace(files_by_target: dict[str, str]) -> Path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(each_text, encoding="utf-8")
     for each_command in (
-        ("git", "init", "-q", "-b", "main"),
-        ("git", "add", "-A"),
-        ("git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "-m", "fixture"),
+        (GIT_EXECUTABLE, "init", "-q", "-b", "main"),
+        (GIT_EXECUTABLE, "add", "-A"),
+        (GIT_EXECUTABLE, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "-m", "fixture"),
     ):
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace

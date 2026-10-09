@@ -48,6 +48,14 @@ def _read_events(stream_path: Path) -> list[dict[str, object]]:
     return all_events
 
 
+def _session_words(prompt: str, settings: SessionSettings) -> list[str]:
+    return [
+        "claude", "-p", prompt, "--model", settings.model, "--effort", settings.effort,
+        "--max-turns", str(settings.max_turns), "--output-format", "stream-json", "--verbose",
+        "--setting-sources", SESSION_SETTING_SOURCES,
+    ]
+
+
 def run_session(workspace: Path, prompt: str, settings: SessionSettings, is_direct: bool) -> SessionRun:
     """Run the prompt as one headless session in the workspace and read its stream.
 
@@ -63,16 +71,11 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings, is_dire
     capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
     stream_path = capture_directory / "stream.jsonl"
     report_path = capture_directory / "broker-report.json"
-    all_claude_words = [
-        "claude", "-p", prompt, "--model", settings.model, "--effort", settings.effort,
-        "--max-turns", str(settings.max_turns), "--output-format", "stream-json", "--verbose",
-        "--setting-sources", SESSION_SETTING_SOURCES,
-    ]
     started = time.monotonic()
     with stream_path.open("w", encoding="utf-8") as stream_file:
         try:
             exit_code: int | None = subprocess.run(
-                launch_words(report_path, all_claude_words, is_direct),
+                launch_words(report_path, _session_words(prompt, settings), is_direct),
                 cwd=workspace, stdout=stream_file, stderr=subprocess.DEVNULL,
                 timeout=settings.timeout_seconds, check=False,
             ).returncode

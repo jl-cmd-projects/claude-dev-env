@@ -69,15 +69,12 @@ def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | No
         The verdict (None when unreadable) and the judge's result event.
     """
     judge_directory = Path(tempfile.mkdtemp(prefix="rules-judge-"))
+    all_judge_words = [
+        "claude", "-p", prompt_text, "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
+        "--max-turns", "1", "--output-format", "json", "--setting-sources", JUDGE_SETTING_SOURCES,
+    ]
     completed = subprocess.run(
-        launch_words(
-            judge_directory.parent / (judge_directory.name + "-" + JUDGE_REPORT_FILE_NAME),
-            [
-                "claude", "-p", prompt_text, "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
-                "--max-turns", "1", "--output-format", "json", "--setting-sources", JUDGE_SETTING_SOURCES,
-            ],
-            is_direct,
-        ),
+        launch_words(judge_directory.parent / (judge_directory.name + "-" + JUDGE_REPORT_FILE_NAME), all_judge_words, is_direct),
         cwd=judge_directory,
         capture_output=True,
         text=True,
@@ -85,9 +82,9 @@ def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | No
         check=False,
     )
     try:
-        result_event = json.loads(completed.stdout)
+        judge_event = json.loads(completed.stdout)
     except json.JSONDecodeError:
         return None, {}
-    if not isinstance(result_event, dict):
+    if not isinstance(judge_event, dict):
         return None, {}
-    return parse_verdict(str(result_event.get("result", ""))), result_event
+    return parse_verdict(str(judge_event.get("result", ""))), judge_event

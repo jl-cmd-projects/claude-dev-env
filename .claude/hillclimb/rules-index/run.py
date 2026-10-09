@@ -23,9 +23,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 flow_directory = Path(__file__).resolve().parent
-for each_import_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval", flow_directory.parents[2] / "packages" / "claude-dev-env" / "scripts"):
-    if str(each_import_root) not in sys.path:
-        sys.path.insert(0, str(each_import_root))
+all_import_roots = [str(each_root) for each_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval", flow_directory.parents[2] / "packages" / "claude-dev-env" / "scripts")]
+sys.path[:0] = [each_root for each_root in all_import_roots if each_root not in sys.path]
 
 from contrast_framing import find_contrast_framing
 from rules_eval_support.config.constants import (
@@ -46,7 +45,9 @@ from rules_eval_support.config.constants import (
     FAILURE_MODEL_MISMATCH,
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
+    FIRST_TOOLS_SHOWN,
     FLOW_ROOT,
+    GROUP_SEPARATOR,
     JSON_INDENT,
     JUDGE_MODEL,
     LATENCY_DECIMALS,
@@ -57,7 +58,7 @@ from rules_eval_support.config.constants import (
     TRACE_FILE_TEMPLATE,
     TRACES_DIRECTORY_NAME,
 )
-from rules_eval_support.grading import TOOL_CHECK_BY_NAME, opened_a_guide
+from rules_eval_support.grading import opened_a_guide, tool_check
 from rules_eval_support.install import prepare_workspace, variant_files
 from rules_eval_support.judge import judge_prompt, run_judge
 from session_eval_support.grading import tool_calls, wilson_interval
@@ -116,8 +117,9 @@ def _unscorable(session: SessionRun, settings: SessionSettings) -> tuple[str, ob
 def _grade(case_by_field: dict[str, str], session: SessionRun, is_direct: bool) -> tuple[bool | None, dict[str, object]]:
     all_calls = tool_calls(session.all_events)
     check = case_by_field["check"]
-    if check in TOOL_CHECK_BY_NAME:
-        return TOOL_CHECK_BY_NAME[check](all_calls), {}
+    grader = tool_check(check)
+    if grader is not None:
+        return grader(all_calls), {}
     final_text = str((final_event(session.all_events) or {}).get("result", ""))
     if check == CHECK_CONTRAST:
         all_hits = find_contrast_framing(final_text)
@@ -146,26 +148,27 @@ def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, f
     if followed is None:
         _append_line(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": FAILURE_JUDGE, "detail": grade_record})
         return
+    _append_line(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, grade_record))
+
+
+def _scored_row(case_by_field: dict[str, str], rep: int, session: SessionRun, settings: SessionSettings, is_followed: bool, meta_by_field: dict[str, object]) -> dict[str, object]:
     final_by_field = final_event(session.all_events) or {}
     all_calls = tool_calls(session.all_events)
-    _append_line(
-        variant_directory / RESULTS_FILE_NAME,
-        {
-            "prompt_id": case_by_field["id"],
-            "rep": rep,
-            "prompt": case_by_field["prompt"],
-            "tags": [case_by_field["group"], case_by_field["rule"]],
-            "stop_reason": final_by_field.get("subtype"),
-            "status": STATUS_OK,
-            "grade": {"followed": int(followed), "opened_guide": int(opened_a_guide(all_calls))},
-            "model": settings.model,
-            "served_models": served_models(final_by_field),
-            "usage": final_by_field.get("usage"),
-            "latency_s": round(session.latency_seconds, LATENCY_DECIMALS),
-            "tool_calls": len(all_calls),
-            "meta": {"first_tools": [each_call.name for each_call in all_calls[:8]], "num_turns": final_by_field.get("num_turns"), **grade_record},
-        },
-    )
+    return {
+        "prompt_id": case_by_field["id"],
+        "rep": rep,
+        "prompt": case_by_field["prompt"],
+        "tags": [case_by_field["group"], case_by_field["rule"]],
+        "stop_reason": final_by_field.get("subtype"),
+        "status": STATUS_OK,
+        "grade": {"followed": int(is_followed), "opened_guide": int(opened_a_guide(all_calls))},
+        "model": settings.model,
+        "served_models": served_models(final_by_field),
+        "usage": final_by_field.get("usage"),
+        "latency_s": round(session.latency_seconds, LATENCY_DECIMALS),
+        "tool_calls": len(all_calls),
+        "meta": {"first_tools": [each_call.name for each_call in all_calls[:FIRST_TOOLS_SHOWN]], "num_turns": final_by_field.get("num_turns"), **meta_by_field},
+    }
 
 
 def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
@@ -174,7 +177,7 @@ def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
         passes_by_group[each_row["tags"][0]].append(each_row["grade"]["followed"])
     total_passes = sum(sum(each) for each in passes_by_group.values())
     low, high = wilson_interval(total_passes, len(all_rows))
-    group_text = ", ".join(f"{each_group} {sum(each)}/{len(each)}" for each_group, each in sorted(passes_by_group.items()))
+    group_text = GROUP_SEPARATOR.join(f"{each_group} {sum(each)}/{len(each)}" for each_group, each in sorted(passes_by_group.items()))
     guide_opens = sum(each_row["grade"]["opened_guide"] for each_row in all_rows)
     return f"followed {total_passes}/{len(all_rows)} (95% CI {low:.2f}-{high:.2f}) | {group_text} | opened a guide {guide_opens}/{len(all_rows)} | errors {error_count}"
 

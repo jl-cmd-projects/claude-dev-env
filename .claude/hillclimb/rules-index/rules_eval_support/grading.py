@@ -148,10 +148,25 @@ def opened_a_guide(all_calls: list[ToolCall]) -> bool:
     ) or any(GUIDE_PATH_MARKER in each for each in _bash_commands(all_calls))
 
 
-TOOL_CHECK_BY_NAME: Mapping[str, Callable[[list[ToolCall]], bool]] = {
-    CHECK_BUILD_EVAL_FIRST: build_eval_came_first,
-    CHECK_NO_SUBSTITUTION: keeps_substitution_out,
-    CHECK_NO_RM: keeps_rm_out,
-    CHECK_SCOPED_SEARCH: scopes_every_search,
-    CHECK_SKILL_BEFORE_COMMIT: loads_pr_lifecycle_before_commit,
-}
+def tool_check(check_name: str) -> Callable[[list[ToolCall]], bool] | None:
+    """Return the grader that scores a case from its tool calls alone.
+
+    ::
+
+        tool_check("no-rm")  -> keeps_rm_out
+        tool_check("judge")  -> None
+
+    Args:
+        check_name: The case's ``check`` field.
+
+    Returns:
+        The tool-call grader, or None when the case needs its final text or a judge.
+    """
+    grader_by_check: Mapping[str, Callable[[list[ToolCall]], bool]] = {
+        CHECK_BUILD_EVAL_FIRST: build_eval_came_first,
+        CHECK_NO_SUBSTITUTION: keeps_substitution_out,
+        CHECK_NO_RM: keeps_rm_out,
+        CHECK_SCOPED_SEARCH: scopes_every_search,
+        CHECK_SKILL_BEFORE_COMMIT: loads_pr_lifecycle_before_commit,
+    }
+    return grader_by_check.get(check_name)
