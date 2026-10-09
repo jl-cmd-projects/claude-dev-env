@@ -9,7 +9,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/working_style_prompt.py` injects the session's working style at session start.
 - `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled.
 - `session/orchestrator_auto_starter.py` injects an orchestrator directive when its environment flag is enabled.
-- `session/artifact_template_pointer.py` points an agent that starts an artifact page at `docs/templates/html-plan/README.md`. When the request names the older artifact page template, it points at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
+- `session/artifact_template_pointer.py` routes an agent that starts an artifact page by scope. One flow or one comparison is an inline SVG flowchart with minimal text. A multi-part plan or evidence is an html-plan page from `docs/templates/html-plan/README.md`. When the request names the older artifact page template, it points at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
 - `advisory/auto_mode_denial_quick_fix.py` proposes one `autoMode.allow` entry and a PowerShell block that writes it after an auto mode denial. It never retries the denied call.
 
 ## When it fires
