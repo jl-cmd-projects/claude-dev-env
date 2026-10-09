@@ -10,4 +10,4 @@ Within one skill, extract a shared module and import it at both call sites. Acro
 
 **Enforcement:** `code_rules_duplicate_body.py` blocks sibling-module copies and emits cross-skill advisories through `code_rules_enforcer.py`; the agent judges copy size.
 
-**Full text:** [`docs/rule-guides/no-cross-skill-duplicate-helpers.md`](../docs/rule-guides/no-cross-skill-duplicate-helpers.md). Read it when judging copy size or dependency ownership.
+**Full text:** [guide](../docs/rule-guides/no-cross-skill-duplicate-helpers.md). Read it when judging copy size or dependency ownership.
