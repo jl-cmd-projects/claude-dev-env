@@ -43,6 +43,16 @@ OUTPUT_FORMAT_FLAG: str = "--output-format"
 
 OUTPUT_FORMAT_JSON: str = "json"
 
+OUTPUT_FORMAT_STREAM_JSON: str = "stream-json"
+
+VERBOSE_FLAG: str = "--verbose"
+
+LIVE_LOG_FLAG: str = "--live-log"
+
+JSON_EVENT_TYPE_KEY: str = "type"
+
+RESULT_EVENT_TYPE: str = "result"
+
 SINGLE_PROMPT_FLAG: str = "-p"
 
 SECONDS_PER_MINUTE: int = 60
@@ -66,6 +76,8 @@ REPORT_IS_ERROR_KEY: str = JSON_IS_ERROR_KEY
 SUMMARY_LINE_TEMPLATE: str = "account={account} exit_code={exit_code} report={report_file}"
 
 INVALID_TIMEOUT_MESSAGE: str = "--timeout-minutes must be at least 1"
+
+UNWRITABLE_LIVE_LOG_MESSAGE: str = "live log file is unwritable"
 
 
 __all__ = [
