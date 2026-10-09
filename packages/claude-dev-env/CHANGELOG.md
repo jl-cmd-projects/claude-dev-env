@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.74.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.74.0...claude-dev-env-v8.74.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **followup-ledger:** read head_commit through a linked worktree ([#1965](https://github.com/jl-cmd-projects/claude-dev-env/issues/1965)) ([b9919a7](https://github.com/jl-cmd-projects/claude-dev-env/commit/b9919a70f17b9ef6a5226b645cea02a78800f8d3))
+
 ## [8.74.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.2...claude-dev-env-v8.74.0) (2026-10-09)
 
 
