@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.74.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.2...claude-dev-env-v8.74.0) (2026-10-09)
+
+
+### Features
+
+* **hooks:** ship auto-compact defaults and send Haiku spawns to a slim headless run ([#1960](https://github.com/jl-cmd-projects/claude-dev-env/issues/1960)) ([d4d7d90](https://github.com/jl-cmd-projects/claude-dev-env/commit/d4d7d90ebb69e370d4ceb0a1064e81d5628ec5ab))
+
 ## [8.73.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.73.1...claude-dev-env-v8.73.2) (2026-10-09)
 
 
