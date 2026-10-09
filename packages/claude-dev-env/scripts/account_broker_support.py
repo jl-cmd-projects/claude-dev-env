@@ -224,20 +224,24 @@ def read_claude_meters(account: Account) -> Meters | None:
     )
 
 
-def read_codex_account_meters(account: Account) -> Meters | None:
+def read_codex_account_meters(account: Account) -> Meters:
     """Probe one Codex account.
 
     Args:
         account: Account whose meter is read.
 
     Returns:
-        Its meters, or None when the probe fails.
+        Its meters, read again once when the first read fails.
+
+    Raises:
+        CodexMeterUnreadError: Both reads failed; the message is the second failure.
+        OSError: No Codex executable was found.
     """
+    codex_path = codex_account_meters.resolve_codex_path(None)
     try:
-        codex_path = codex_account_meters.resolve_codex_path(None)
         usage = codex_account_meters.read_codex_meters(codex_path, account.home)
-    except (codex_account_meters.CodexMeterUnreadError, OSError):
-        return None
+    except codex_account_meters.CodexMeterUnreadError:
+        usage = codex_account_meters.read_codex_meters(codex_path, account.home)
     weekly = [window for window in usage.all_windows if window.duration_minutes is None or window.duration_minutes >= WEEKLY_WINDOW_MINUTES]
     short = [window for window in usage.all_windows if window.duration_minutes is not None and window.duration_minutes < WEEKLY_WINDOW_MINUTES]
     weekly_window = max(weekly, key=lambda window: window.used_percent) if weekly else None
@@ -403,13 +407,16 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
     key = _state_key(account)
     cached = all_cache.get(key)
     if isinstance(cached, dict) and isinstance(cached.get("read_at"), (int, float)) and 0 <= now.timestamp() - cached["read_at"] < 60:
-        return Reading(account, _meters_from_payload(cached.get("meters"))), False
+        cached_reason = cached.get("unread_reason")
+        return Reading(account, _meters_from_payload(cached.get("meters")), cached_reason if isinstance(cached_reason, str) else None), False
+    unread_reason = None
     try:
         meters = adapter.read_meters(account)
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+    except (codex_account_meters.CodexMeterUnreadError, OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         meters = None
-    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters)}
-    return Reading(account, meters), True
+        unread_reason = str(error) or type(error).__name__
+    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters), "unread_reason": unread_reason}
+    return Reading(account, meters, unread_reason), True
 
 
 def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None) -> tuple[Reading, ...]:

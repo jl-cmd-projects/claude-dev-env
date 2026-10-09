@@ -75,6 +75,31 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
     )
 
 
+def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room() -> None:
+    codex_3 = _account("codex-3")
+    codex_4 = _account("codex-4")
+
+    def read_meter(account: Account) -> Meters:
+        if account is codex_3:
+            raise OSError("codex app-server failed: timed out")
+        return _meters(0, 40, short_reset=NOW + timedelta(hours=2))
+
+    adapter = ProductAdapter(lambda: (codex_3, codex_4), read_meter, "CODEX_HOME", ())
+    state = account_broker._load_state(account_broker.broker_state_path())
+    readings = account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+    payload = account_broker.readings_payload(readings)
+
+    assert decision.action == "wait"
+    assert decision.reason == (
+        "no readable account has room; meter unreadable for codex-3 (codex app-server failed: timed out); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+    assert payload[0]["unread_reason"] == "codex app-server failed: timed out"
+    assert payload[1]["unread_reason"] is None
+
+
 def test_should_rank_by_room_in_the_tighter_window() -> None:
     readings = (
         Reading(_account("first"), _meters(12, 80)),

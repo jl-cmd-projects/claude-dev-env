@@ -22,6 +22,6 @@ SKILL_TOOL_NAME = "Skill"
 SKILL_NAME_INPUT_KEY = "skill"
 ALL_ARTIFACT_DESIGN_SKILL_NAMES = frozenset({"artifact-design"})
 ARTIFACT_TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[2] / "docs" / "templates" / "artifact-page" / "template.html"
+    Path(__file__).resolve().parents[2] / "docs" / "templates" / "artifact-page" / "README.md"
 )
-POINTER_TEXT_PREFIX = "Build this artifact page from the template at "
+POINTER_TEXT_PREFIX = "Pick the artifact page template that fits the ask from "

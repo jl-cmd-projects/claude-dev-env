@@ -125,6 +125,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
             "is_main": each_reading.account.is_main,
             "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
+            "unread_reason": each_reading.unread_reason,
         }
         for each_reading in all_readings
     ]
