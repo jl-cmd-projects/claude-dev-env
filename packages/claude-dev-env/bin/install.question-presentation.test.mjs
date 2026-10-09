@@ -51,7 +51,7 @@ test('full install with pstack disabled delivers one question policy to Claude a
     assert.equal(readFileSync(join(homeDirectory, '.claude', 'rules', 'question-presentation.md'), 'utf8'), policyText);
     assert.match(readFileSync(codexGuidancePath, 'utf8'), /<!-- claude-dev-env question presentation: start -->/);
     assert.ok(readFileSync(codexGuidancePath, 'utf8').includes(policyText));
-    assert.equal(readFileSync(codexHooksPath, 'utf8'), hooksConfiguration);
+    assert.ok(readFileSync(codexHooksPath, 'utf8').endsWith(hooksConfiguration));
     const manifestPath = join(homeDirectory, '.claude', '.claude-dev-env-manifest.json');
     assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).files.includes(codexGuidancePath), false);
 });

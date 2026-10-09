@@ -4,7 +4,8 @@ description: >-
   Evaluate skills with a bounded direct Codex review suite or `claude plugin eval`.
   Use labeled inputs and deterministic grading for output correctness; use a plugin
   wrapper and with/without-plugin comparisons for discovery and contribution.
-  Use when the user asks to eval or test a skill.
+  Use when the user asks to eval or test a skill, asks whether a context file is
+  thin enough, or asks to check the context budget.
 ---
 
 # Build eval
@@ -16,6 +17,7 @@ It includes labeled cases, executable witnesses, related-group holdouts, a bound
 grading. Start with its validation command and two-case smoke. Preserve the distinction
 between grader validation, stored replay, a fresh recipe run and a complete workflow run.
 Use the plugin process below when measuring skill discovery or with/without-plugin contribution.
+To check whether a context file is thin enough, follow [the context budget page](reference/context-budget.md).
 
 ## Contents
 
@@ -101,10 +103,4 @@ Otherwise work the steps in order.
 - `SKILL.md`. Wrapper layout, gotchas, and process.
 - `reference/graders-and-commands.md`. Prompt frontmatter, grader types, case set, eval commands,
   and the `claude -p` recipe for flag-gated features.
-
-```text
-build-eval/
-├── SKILL.md
-└── reference/
-    └── graders-and-commands.md
-```
+- `reference/context-budget.md`. The context budget command and the fix for each finding.

@@ -35,6 +35,7 @@ def _run_main() -> str:
 @pytest.fixture
 def config_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv(CLAUDE_CONFIG_DIR_ENV_VAR, str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
     monkeypatch.delenv(ADVISOR_DISABLE_ENV_VAR, raising=False)
     return tmp_path
 
@@ -54,6 +55,16 @@ class TestAdvisorRulesPrompt:
         self, config_directory: Path
     ) -> None:
         _write_settings(config_directory, {"permissions": {}})
+        assert _run_main() == ""
+
+    def test_should_emit_nothing_while_the_session_prompts_mod_is_on(
+        self, config_directory: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(config_directory))
+        _write_settings(
+            config_directory,
+            {"advisorModel": "fable", "enabledPlugins": {"session-prompts@mods-marketplace": True}},
+        )
         assert _run_main() == ""
 
     def test_should_emit_nothing_when_advisor_model_is_blank(self, config_directory: Path) -> None:

@@ -9,4 +9,5 @@ The `spawn_oversight_hook` adds this duty to every spawn, at every level of the 
 - Before its output reaches the user, check it against the user's words and standards yourself.
 - Send the agent a correction when it misses, and check the corrected output the same way.
 - Give each piece of a multi-piece task its own reviewer or helper.
+- Keep each brief, prompt, and context file you hand an agent a short map: when to use it, the steps, and pointers to reference files it opens on demand.
 - Show the user you are involved: say what you checked and what you corrected.

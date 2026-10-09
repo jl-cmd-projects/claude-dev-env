@@ -9,6 +9,9 @@ The broker form runs ``python``, so its ``-- claude -p ...`` tail passes.
 Interactive ``claude`` and its subcommands, such as ``claude plugin eval`` or
 ``claude --version``, pass.
 
+A Claude Code cloud session, where ``CLAUDE_CODE_REMOTE`` is ``true``, has one
+account, so the gate passes every command there.
+
 Hosted by ``blocking/bash_pre_tool_use_dispatcher.py`` for the Bash and
 PowerShell tools.
 """
@@ -16,6 +19,7 @@ PowerShell tools.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -34,6 +38,8 @@ try:
         BROKER_COMMAND_DENY_REASON,
         CLAUDE_PROFILE_LAUNCHER_PREFIX,
         CLAUDE_PROGRAM_NAME,
+        CLOUD_SESSION_ENV_TRUE_VALUE,
+        CLOUD_SESSION_ENV_VAR,
         GATE_HOOK_NAME,
         PRINT_MODE_LONG_FLAG_WITH_VALUE_PREFIX,
     )
@@ -113,8 +119,15 @@ def starts_unbrokered_headless_claude(command: str) -> bool:
     )
 
 
+def is_cloud_session() -> bool:
+    """Return True when this hook runs inside a Claude Code cloud session."""
+    return os.environ.get(CLOUD_SESSION_ENV_VAR, "").strip().lower() == CLOUD_SESSION_ENV_TRUE_VALUE
+
+
 def main() -> None:
-    """Deny a headless Claude start that skips the broker, or stay quiet."""
+    """Deny a headless Claude start that skips the broker outside a cloud session, or stay quiet."""
+    if is_cloud_session():
+        return
     hook_payload = read_hook_input_dictionary_from_stdin()
     if hook_payload is None:
         return

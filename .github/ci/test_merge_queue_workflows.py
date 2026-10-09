@@ -129,3 +129,21 @@ def test_path_filter_step_skips_on_merge_group() -> None:
     )
 
     assert filter_step["if"] == "github.event_name != 'merge_group'"
+
+
+def test_package_suite_covers_usage_wrapup_with_required_runtimes() -> None:
+    workflow = load_workflow("ci-tests.yml")
+    all_steps = workflow["jobs"]["python"]["steps"]
+    suite_index = next(
+        index for index, step in enumerate(all_steps)
+        if "python -m pytest" in step.get("run", "")
+    )
+    assert "packages/usage-wrapup/tests" in all_steps[suite_index]["run"]
+    setup_steps = all_steps[:suite_index]
+    assert any(step.get("uses", "").startswith("oven-sh/setup-bun@") for step in setup_steps)
+    assert any("@anthropic-ai/claude-code@" in step.get("run", "") for step in setup_steps)
+    filter_step = next(
+        step for step in workflow["jobs"]["changes"]["steps"] if step.get("id") == "filter"
+    )
+    filters = yaml.safe_load(filter_step["with"]["filters"])
+    assert "packages/usage-wrapup/**" in filters["package_suite"]

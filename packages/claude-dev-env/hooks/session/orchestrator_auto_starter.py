@@ -19,6 +19,8 @@ _hooks_dir = str(Path(__file__).resolve().parent.parent)
 if _hooks_dir not in sys.path:
     sys.path.insert(0, _hooks_dir)
 
+from hooks_constants.mod_handoff import is_mod_plugin_enabled
+from hooks_constants.mod_handoff_constants import SESSION_PROMPTS_PLUGIN_NAME
 from hooks_constants.orchestrator_auto_starter_constants import (  # noqa: E402
     ALL_ORCHESTRATOR_STARTER_ENABLED_ENV_VALUES,
     ORCHESTRATOR_AUTO_STARTER_ENABLED_ENV_VAR,
@@ -88,7 +90,9 @@ def run_orchestrator_auto_starter(
 
 
 def main() -> None:
-    """Emit orchestrator additionalContext when opt-in is enabled; else exit 0."""
+    """Emit orchestrator additionalContext when opt-in is enabled and the session-prompts mod is off; else exit 0."""
+    if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
+        return
     payload_by_key = read_hook_input_dictionary_from_stdin()
     if payload_by_key is None:
         return
