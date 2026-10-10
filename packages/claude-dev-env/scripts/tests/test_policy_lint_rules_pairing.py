@@ -149,6 +149,44 @@ def test_pairing_keeps_non_python_changes_on_existing_matching_rules(
     assert len(all_diagnostics) == 1
 
 
+def test_pairing_accepts_a_new_empty_package_marker(tmp_path: Path) -> None:
+    package_marker_path = PurePosixPath("src/feature_constants/__init__.py")
+    all_paths = _diagnostic_paths(
+        tmp_path,
+        Document(
+            package_marker_path, "", None, frozenset(), ContentOrigin.REVISION_DIFF
+        ),
+    )
+    assert all_paths == ()
+
+
+def test_pairing_accepts_a_module_emptied_of_its_body(tmp_path: Path) -> None:
+    all_paths = _diagnostic_paths(
+        tmp_path,
+        Document(
+            PurePosixPath("src/feature.py"),
+            "\n",
+            _BODY_BEFORE,
+            frozenset({1}),
+            ContentOrigin.REVISION_DIFF,
+        ),
+    )
+    assert all_paths == ()
+
+
+def test_pairing_accepts_a_conftest_body_change(tmp_path: Path) -> None:
+    all_paths = _diagnostic_paths(
+        tmp_path, _body_change_at(PurePosixPath("src/conftest.py"))
+    )
+    assert all_paths == ()
+
+
+def test_pairing_rejects_a_package_marker_with_a_body(tmp_path: Path) -> None:
+    package_marker_path = PurePosixPath("src/feature/__init__.py")
+    all_paths = _diagnostic_paths(tmp_path, _body_change_at(package_marker_path))
+    assert all_paths == (package_marker_path,)
+
+
 _APPROVED_PRODUCTION_PATH = PurePosixPath(
     "packages/claude-dev-env/scripts/automatic_advisory/state.py"
 )

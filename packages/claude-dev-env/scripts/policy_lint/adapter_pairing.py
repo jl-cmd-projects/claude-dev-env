@@ -300,6 +300,10 @@ def _is_unpaired_production(
         return False
     if _is_test_path(production_path):
         return False
+    if production_path.name in constants.ALL_PAIRING_EXEMPT_FILE_NAMES:
+        return False
+    if not production_document.text.strip():
+        return False
     if _is_constants_only_python_document(production_document, load_module):
         return False
     if _is_docstring_only_python_document(production_document):
