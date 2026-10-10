@@ -94,6 +94,18 @@ def test_should_name_no_sonnet_model_in_the_reshaped_spawn(tmp_path: Path) -> No
     assert "sonnet" not in stdout.lower()
 
 
+def test_should_quote_a_capped_pace_verdict_in_the_reshape_context(tmp_path: Path) -> None:
+    long_verdict = {"over_pace": True, "detail": "x" * 1000}
+    decision = _hook_specific_output(
+        _run_hook(_write_pace_stub(tmp_path, 0, long_verdict), SPAWN_INPUT)
+    )
+    context_prefix = (
+        "Usage over pace or unreadable: this thread spawn now runs on "
+        "claude-opus-5-5 at low effort. Pace verdict: "
+    )
+    assert decision["additionalContext"] == context_prefix + json.dumps(long_verdict)[:600]
+
+
 @pytest.mark.parametrize(
     ("tool_input", "reason"),
     [

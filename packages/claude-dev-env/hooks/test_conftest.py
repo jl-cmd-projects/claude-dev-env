@@ -9,10 +9,15 @@ import sys
 from hooks_constants.harness_scratchpad_constants import (
     CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME,
 )
+from hooks_constants.headless_claude_broker_gate_constants import CLOUD_SESSION_ENV_VAR
 
 
 def test_live_session_id_is_absent_inside_each_test() -> None:
     assert CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME not in os.environ
+
+
+def test_cloud_session_marker_is_absent_inside_each_test() -> None:
+    assert CLOUD_SESSION_ENV_VAR not in os.environ
 
 
 def test_hook_subprocess_inherits_no_live_session_id() -> None:

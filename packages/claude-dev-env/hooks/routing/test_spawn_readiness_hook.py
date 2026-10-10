@@ -317,6 +317,20 @@ def test_should_read_a_workflow_script_from_its_path(tmp_path: Path) -> None:
     assert log_record["outcome"] == "scope_settled"
 
 
+def test_should_remind_a_workflow_whose_script_path_cannot_be_read(tmp_path: Path) -> None:
+    stdout = _run_hook(
+        tmp_path,
+        {
+            "tool_name": "Workflow",
+            "tool_input": {"scriptPath": str(tmp_path / "absent.js")},
+            "transcript_path": str(_write_transcript(tmp_path, [_user("Fix it."), READ_STEP])),
+        },
+    )
+    assert _reminder(stdout) == MISSING_INTERVIEW_REASON
+    [log_record] = _decision_log(tmp_path)
+    assert log_record["outcome"] == "reminded"
+
+
 @pytest.mark.parametrize(
     "tool_input",
     [

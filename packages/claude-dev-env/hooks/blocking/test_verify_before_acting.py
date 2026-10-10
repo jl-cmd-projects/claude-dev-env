@@ -653,3 +653,19 @@ def test_should_keep_the_hedge_word_when_trimming_a_long_sentence(
     assert quoted_sentence.startswith("...")
     assert quoted_sentence.endswith("...")
     assert len(quoted_sentence) <= 166
+
+
+@pytest.mark.parametrize(
+    "stdin_text",
+    ["not json", "[]", json.dumps({"tool_input": WRITE_INPUT, "tool_use_id": TOOL_USE_ID})],
+)
+def test_should_allow_silently_when_the_hook_input_names_no_tool(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    stdin_text: str,
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(stdin_text.encode("utf-8"))))
+    exit_code = verify_before_acting.main()
+    assert (exit_code, capsys.readouterr().out) == (0, "")
+    assert logged_outcomes(tmp_path) == []

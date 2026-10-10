@@ -95,9 +95,24 @@ def test_dispatch_writes_nothing_when_no_hosted_hook_printed_context(
     assert capsys.readouterr().out == ""
 
 
+def test_additional_context_from_hook_output_reads_context_under_hook_specific_output() -> None:
+    captured_stdout = json.dumps(
+        {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "PR #7"}}
+    )
+    assert additional_context_from_hook_output(captured_stdout) == "PR #7"
+
+
 @pytest.mark.parametrize(
     "captured_stdout",
-    ["", "   ", "not json", "[]", '{"decision": "block"}', '{"hookSpecificOutput": {}}'],
+    [
+        "",
+        "   ",
+        "not json",
+        "[]",
+        '{"decision": "block"}',
+        '{"hookSpecificOutput": {}}',
+        '{"additionalContext": "PR #7"}',
+    ],
 )
 def test_additional_context_from_hook_output_ignores_non_context_output(
     captured_stdout: str,
