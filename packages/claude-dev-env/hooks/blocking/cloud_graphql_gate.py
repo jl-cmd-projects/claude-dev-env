@@ -125,6 +125,21 @@ def is_cloud_session() -> bool:
     return os.environ.get(CLOUD_SESSION_ENV_VAR, "").strip().lower() == CLOUD_SESSION_ENV_TRUE_VALUE
 
 
+def _write_deny_decision() -> None:
+    sys.stdout.write(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": HOOK_EVENT_NAME,
+                    "permissionDecision": DENY_DECISION,
+                    "permissionDecisionReason": CLOUD_GRAPHQL_DENY_REASON,
+                }
+            }
+        )
+    )
+    sys.stdout.flush()
+
+
 def main() -> None:
     """Deny a GitHub GraphQL call inside a cloud session, or stay quiet."""
     if not is_cloud_session():
@@ -144,18 +159,7 @@ def main() -> None:
     log_hook_block(
         GATE_HOOK_NAME, HOOK_EVENT_NAME, CLOUD_GRAPHQL_DENY_REASON, str(tool_name), command
     )
-    sys.stdout.write(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": HOOK_EVENT_NAME,
-                    "permissionDecision": DENY_DECISION,
-                    "permissionDecisionReason": CLOUD_GRAPHQL_DENY_REASON,
-                }
-            }
-        )
-    )
-    sys.stdout.flush()
+    _write_deny_decision()
 
 
 if __name__ == "__main__":
