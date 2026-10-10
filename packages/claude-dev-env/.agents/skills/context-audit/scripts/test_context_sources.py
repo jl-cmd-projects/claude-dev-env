@@ -80,7 +80,7 @@ def test_should_find_import_targets_that_exist(tmp_path: Path) -> None:
     agents = _write(tmp_path, "AGENTS.md", "rules\n")
 
     all_targets = find_import_targets(
-        source, "@AGENTS.md\n@missing.md\n", tmp_path.resolve()
+        source, "\n".join(["@AGENTS.md", "@missing.md", ""]), tmp_path.resolve()
     )
 
     assert all_targets == [agents.resolve()]
