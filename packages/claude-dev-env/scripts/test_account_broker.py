@@ -1232,3 +1232,28 @@ def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monke
 
     assert outcome.returncode == 0
     assert captured_options["live_log"] == live_log
+
+
+def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
+    account = _account("codex-2")
+    decision = account_broker.Decision("run", account, None, "most room", "normal")
+
+    assert account_broker.decision_payload(decision) == {
+        "action": "run",
+        "account": "codex-2",
+        "home": str(Path("/profiles") / "codex-2"),
+        "reason": "most room",
+        "tier": "normal",
+        "resets_at": None,
+    }
+
+
+def test_decision_payload_should_leave_the_account_empty_and_give_the_reset_for_a_wait() -> None:
+    reset = datetime(2026, 10, 3, 4, 0, tzinfo=timezone(timedelta(hours=-4)))
+    decision = account_broker.Decision("wait", None, reset, "no account has room", "wait")
+
+    payload = account_broker.decision_payload(decision)
+
+    assert payload["account"] is None
+    assert payload["home"] is None
+    assert payload["resets_at"] == "2026-10-03T08:00:00+00:00"
