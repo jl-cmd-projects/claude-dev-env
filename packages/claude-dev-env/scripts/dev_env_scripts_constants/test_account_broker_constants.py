@@ -97,11 +97,21 @@ def test_parse_utc_time_rejects_values_without_a_timezone(timestamp: object) -> 
     assert broker_constants.parse_utc_time(timestamp) is None
 
 
+def test_tightest_percent_left_should_take_the_lower_known_window() -> None:
+    reset = datetime(2026, 10, 3, tzinfo=timezone.utc)
+
+    assert broker_constants.Meters(30.0, reset, 70.0, reset).tightest_percent_left == 30.0
+    assert broker_constants.Meters(80.0, reset, 20.0, reset).tightest_percent_left == 20.0
+    assert broker_constants.Meters(None, None, 45.0, reset).tightest_percent_left == 45.0
+    assert broker_constants.Meters(None, None, None, None).tightest_percent_left is None
+
+
 def test_parse_utc_time_converts_an_offset_timestamp() -> None:
     parsed = broker_constants.parse_utc_time("2026-10-03T07:30:00-04:00")
 
     assert parsed is not None
     assert parsed.isoformat() == "2026-10-03T11:30:00+00:00"
+
 
 def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
     if sys.platform.startswith("win32"):

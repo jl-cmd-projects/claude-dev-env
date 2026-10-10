@@ -65,3 +65,22 @@ def test_should_pass_the_live_log_to_the_runner_when_one_is_named(tmp_path: Path
     )
 
     assert captured_options["live_log"] == live_log
+
+
+def test_should_measure_the_time_the_runner_spends_on_the_job(tmp_path: Path) -> None:
+    current_seconds = [50.0]
+
+    def slow_runner(product: Product, argv: list[str], **options: object) -> JobOutcome:
+        current_seconds[0] += 42.0
+        return JobOutcome(0, "{}", "", "main", (), "served", None, None)
+
+    _, elapsed_seconds = invoke_worker(
+        all_arguments=["claude", "-p"],
+        cwd=tmp_path,
+        prompt_text="brief",
+        timeout_minutes=1,
+        runner=slow_runner,
+        monotonic_clock=lambda: current_seconds[0],
+    )
+
+    assert elapsed_seconds == 42.0

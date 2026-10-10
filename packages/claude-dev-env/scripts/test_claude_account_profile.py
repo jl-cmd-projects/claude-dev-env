@@ -389,3 +389,17 @@ def test_should_create_named_profile_and_launcher_without_changes_on_repeat(
 def test_should_reject_unsafe_profile_names(profile_name: str) -> None:
     with pytest.raises(ValueError):
         profile.default_profile_home(profile_name)
+
+
+def test_sync_report_payload_should_list_each_entry_under_its_own_key() -> None:
+    report = profile.ProfileSyncReport(
+        all_linked=("CLAUDE.md", "skills"),
+        all_moved_aside=("settings.json",),
+        all_unlinked=("rules",),
+    )
+
+    assert profile.sync_report_payload(report) == {
+        "linked": ["CLAUDE.md", "skills"],
+        "moved_aside": ["settings.json"],
+        "unlinked": ["rules"],
+    }

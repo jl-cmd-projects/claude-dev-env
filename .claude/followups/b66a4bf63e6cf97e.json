@@ -1,8 +1,0 @@
-{
-  "rule_id": "code-rules",
-  "file_path": "packages/claude-dev-env/scripts/agent_image_copy.py",
-  "message": "Line 81: public function 'parse_all_crop_coordinates' is exercised by no test in the module's paired test suite, though that suite already exercises this module (covering another public function or referencing a private helper) - add a behavioral test that calls this function and asserts on its return value or side effect (CODE_RULES TDD paired-test rule)",
-  "check_id": "code-rules/paired-test-missing-function",
-  "severity": "smell",
-  "origin_commit": "b7ddfb407208b61b7ae4fa5b06429ef3cf40e758"
-}

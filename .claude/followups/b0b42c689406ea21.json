@@ -1,8 +1,0 @@
-{
-  "rule_id": "code-rules",
-  "file_path": "",
-  "message": "agent_image_copy.py public function 'parse_all_crop_coordinates' is a public function this stem-matched test suite defines its module for but exercises nowhere, though the suite already covers another public function in that module - add a behavioral test that calls this function and asserts on its return value or side effect, or remove the function (CODE_RULES TDD paired-test rule)",
-  "check_id": "code-rules/paired-test-omitted-function",
-  "severity": "smell",
-  "origin_commit": "b7ddfb407208b61b7ae4fa5b06429ef3cf40e758"
-}
