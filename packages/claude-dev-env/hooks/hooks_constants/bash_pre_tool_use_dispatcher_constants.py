@@ -75,4 +75,8 @@ ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
         applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
         replaced_by_plugin_name=SHELL_GUARDS_PLUGIN_NAME,
     ),
+    BashHostedHookEntry(
+        script_relative_path="blocking/cloud_graphql_gate.py",
+        applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+    ),
 )
