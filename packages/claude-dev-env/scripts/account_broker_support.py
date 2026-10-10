@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
@@ -37,6 +38,10 @@ from dev_env_scripts_constants.account_broker_constants import (
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
+    METER_READ_ATTEMPTS,
+    METER_READ_DELAY_FACTOR,
+    METER_READ_FIRST_DELAY_SECONDS,
+    METER_READ_MAX_DELAY_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -210,12 +215,13 @@ def read_claude_meters(account: Account) -> Meters | None:
         account: Account whose meter is read.
 
     Returns:
-        Its meters, or None when the probe fails.
+        Its meters.
+
+    Raises:
+        WeeklyUtilizationProbeError: The usage meters could not be measured.
+        OSError: The credentials file could not be read.
     """
-    try:
-        usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME)
-    except (WeeklyUtilizationProbeError, OSError):
-        return None
+    usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME)
     return Meters(
         FULL_PERCENT - usage.session_utilization if usage.session_utilization is not None else None,
         usage.session_resets_at,
@@ -231,17 +237,14 @@ def read_codex_account_meters(account: Account) -> Meters:
         account: Account whose meter is read.
 
     Returns:
-        Its meters, read again once when the first read fails.
+        Its meters.
 
     Raises:
-        CodexMeterUnreadError: Both reads failed; the message is the second failure.
+        CodexMeterUnreadError: The meter read failed.
         OSError: No Codex executable was found.
     """
     codex_path = codex_account_meters.resolve_codex_path(None)
-    try:
-        usage = codex_account_meters.read_codex_meters(codex_path, account.home)
-    except codex_account_meters.CodexMeterUnreadError:
-        usage = codex_account_meters.read_codex_meters(codex_path, account.home)
+    usage = codex_account_meters.read_codex_meters(codex_path, account.home)
     weekly = [window for window in usage.all_windows if window.duration_minutes is None or window.duration_minutes >= WEEKLY_WINDOW_MINUTES]
     short = [window for window in usage.all_windows if window.duration_minutes is not None and window.duration_minutes < WEEKLY_WINDOW_MINUTES]
     weekly_window = max(weekly, key=lambda window: window.used_percent) if weekly else None
@@ -252,6 +255,35 @@ def read_codex_account_meters(account: Account) -> Meters:
         FULL_PERCENT - weekly_window.used_percent if weekly_window else None,
         weekly_window.resets_at if weekly_window else None,
     )
+
+
+def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None]:
+    """Read one account's meters, retrying a failed read with exponential backoff.
+
+    Args:
+        read_meters: The product's meter reader.
+        account: Account whose meter is read.
+
+    Returns:
+        The meters from the first read that succeeds, or None with the last
+        failure text once every attempt failed.
+    """
+    unread_reason = None
+    for each_attempt in range(METER_READ_ATTEMPTS):
+        if each_attempt:
+            time.sleep(min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (each_attempt - 1), METER_READ_MAX_DELAY_SECONDS))
+        try:
+            return read_meters(account), None
+        except (
+            codex_account_meters.CodexMeterUnreadError,
+            WeeklyUtilizationProbeError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            subprocess.SubprocessError,
+        ) as error:
+            unread_reason = str(error) or type(error).__name__
+    return None, unread_reason
 
 
 all_product_adapters = {
@@ -409,12 +441,7 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
     if isinstance(cached, dict) and isinstance(cached.get("read_at"), (int, float)) and 0 <= now.timestamp() - cached["read_at"] < 60:
         cached_reason = cached.get("unread_reason")
         return Reading(account, _meters_from_payload(cached.get("meters")), cached_reason if isinstance(cached_reason, str) else None), False
-    unread_reason = None
-    try:
-        meters = adapter.read_meters(account)
-    except (codex_account_meters.CodexMeterUnreadError, OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        meters = None
-        unread_reason = str(error) or type(error).__name__
+    meters, unread_reason = read_meters_with_backoff(adapter.read_meters, account)
     all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters), "unread_reason": unread_reason}
     return Reading(account, meters, unread_reason), True
 
