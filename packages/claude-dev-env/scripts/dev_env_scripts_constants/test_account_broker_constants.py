@@ -112,6 +112,7 @@ def test_parse_utc_time_converts_an_offset_timestamp() -> None:
     assert parsed is not None
     assert parsed.isoformat() == "2026-10-03T11:30:00+00:00"
 
+
 def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
     if sys.platform.startswith("win32"):
         importlib.import_module("_winapi").CreateJunction(
