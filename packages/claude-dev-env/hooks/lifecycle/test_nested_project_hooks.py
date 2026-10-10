@@ -115,6 +115,32 @@ def test_should_carry_child_session_start_output_as_additional_context(
     assert additional_context.index("alpha") < additional_context.index("beta")
 
 
+def test_should_carry_only_the_context_of_a_child_session_start_json_output(
+    tmp_path: pathlib.Path,
+) -> None:
+    child_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": "alpha loaded its rules",
+        }
+    }
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"SessionStart": [_command_group("", f"echo '{json.dumps(child_output)}'")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _session_start_payload())
+
+    assert completed_process.returncode == 0
+    assert json.loads(completed_process.stdout) == {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": "alpha loaded its rules",
+        }
+    }
+
+
 def test_should_block_a_tool_call_when_a_child_hook_exits_two(
     tmp_path: pathlib.Path,
 ) -> None:
