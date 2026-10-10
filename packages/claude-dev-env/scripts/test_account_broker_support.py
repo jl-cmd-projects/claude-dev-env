@@ -114,9 +114,12 @@ def test_should_read_claude_meters_through_injected_probe(
         weekly_utilization=30.0,
         weekly_resets_at=None,
     )
-    monkeypatch.setattr(support, "probe_account_meters", lambda _: usage)
+    all_refresh_helpers: list[object] = []
+    monkeypatch.setattr(support, "probe_account_meters", lambda _, refresh_login: all_refresh_helpers.append(refresh_login) or usage)
 
     meters = support.read_claude_meters(Account(Product.CLAUDE, "one", tmp_path))
+
+    assert all_refresh_helpers == [support.refresh_claude_login]
 
     assert meters.session_percent_left == 80.0
     assert meters.weekly_percent_left == 70.0
@@ -157,7 +160,7 @@ def _codex_meter_reads(
 def _claude_meter_reads(monkeypatch: pytest.MonkeyPatch, all_outcomes: list[object]) -> list[Path]:
     all_paths_read: list[Path] = []
 
-    def probe_account_meters(credentials_path: Path) -> object:
+    def probe_account_meters(credentials_path: Path, refresh_login: object) -> object:
         all_paths_read.append(credentials_path)
         outcome = all_outcomes.pop(0)
         if isinstance(outcome, Exception):
@@ -516,3 +519,35 @@ def test_should_match_order_names_to_an_account_named_by_its_windows_launcher_pa
     ranked = support._with_priorities((launcher_account,), ("claude-org-jon", "claude-editor"))
 
     assert ranked[0].priority == 1
+
+
+def test_should_run_the_cli_against_the_account_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_calls: list[tuple[list[str], str]] = []
+
+    def fake_run(command: list[str], **keyword_arguments: object) -> subprocess.CompletedProcess[bytes]:
+        environment = keyword_arguments["env"]
+        assert isinstance(environment, dict)
+        all_calls.append((command, environment["CLAUDE_CONFIG_DIR"]))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(support, "resolve_claude_path", lambda: Path("claude"))
+    monkeypatch.setattr(support.subprocess, "run", fake_run)
+
+    assert support.refresh_claude_login(tmp_path) is True
+    assert all_calls == [(["claude", "-p", "ok", "--model", "haiku"], str(tmp_path))]
+
+
+def test_should_skip_the_refresh_without_a_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(support, "resolve_claude_path", lambda: None)
+
+    assert support.refresh_claude_login(tmp_path) is False
+
+
+def test_should_find_the_cli_in_the_local_bin_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    local_claude = tmp_path / ".local" / "bin" / "claude"
+    local_claude.parent.mkdir(parents=True)
+    local_claude.write_text("", encoding="utf-8")
+    monkeypatch.setattr(support.shutil, "which", lambda name: None)
+    monkeypatch.setattr(support.Path, "home", classmethod(lambda cls: tmp_path))
+
+    assert support.resolve_claude_path() == local_claude

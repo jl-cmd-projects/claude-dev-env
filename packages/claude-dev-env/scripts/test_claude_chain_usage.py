@@ -191,3 +191,55 @@ def test_usage_module_imports_without_picker() -> None:
     )
 
     assert completed.returncode == 0, completed.stderr
+
+
+def _expiring_resolver(all_tokens: list[str | None], all_fetched_tokens: list[str]) -> object:
+    class Windows:
+        session_utilization = 10.0
+        session_resets_at = None
+        weekly_utilization = 40.0
+        weekly_resets_at = None
+
+    class Resolver:
+        def read_oauth_access_token(self, credentials_path: Path, now: datetime) -> str | None:
+            return all_tokens.pop(0)
+
+        def default_credentials_path(self) -> Path:
+            return Path("session") / ".credentials.json"
+
+        def read_session_ingress_token(self) -> None:
+            return None
+
+        def _fetch_usage_payload(self, access_token: str) -> dict[str, object]:
+            all_fetched_tokens.append(access_token)
+            return {}
+
+        def extract_usage_windows(self, payload: dict[str, object]) -> Windows:
+            return Windows()
+
+    return Resolver()
+
+
+def test_should_refresh_an_expired_login_and_read_the_meter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    account_home = tmp_path / "ev"
+    account_home.mkdir()
+    credentials_path = account_home / ".credentials.json"
+    credentials_path.write_text("{}", encoding="utf-8")
+    all_refreshed_homes: list[Path] = []
+    all_fetched_tokens: list[str] = []
+    monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: _expiring_resolver([None, "fresh-token"], all_fetched_tokens))
+
+    meters = usage.probe_account_meters(credentials_path, all_refreshed_homes.append)
+
+    assert all_refreshed_homes == [account_home]
+    assert all_fetched_tokens == ["fresh-token"]
+    assert meters.weekly_utilization == 40.0
+
+
+def test_should_report_no_token_when_the_refresh_saves_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    credentials_path = tmp_path / ".credentials.json"
+    credentials_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: _expiring_resolver([None, None], []))
+
+    with pytest.raises(usage.WeeklyUtilizationProbeError, match="bearer token"):
+        usage.probe_account_meters(credentials_path, lambda home: True)
