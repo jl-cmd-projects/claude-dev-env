@@ -58,6 +58,13 @@ BROKER_STATE_TEMP_SUFFIX = ".json"
 BROKER_STATE_LOCK_SUFFIX = ".lock"
 ALL_BATCH_FILE_EXTENSIONS = frozenset({".bat", ".cmd"})
 CMD_SHELL_METACHARACTERS = "&|<>^%!\"\r\n"
+CLAUDE_BINARY_NAME = "claude"
+ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
+    (".local", "bin", "claude.exe"),
+    (".local", "bin", "claude"),
+)
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
     "CLAUDE_CODE_REMOTE",

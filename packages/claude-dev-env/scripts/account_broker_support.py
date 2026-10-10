@@ -28,15 +28,19 @@ from claude_account_profile import default_profile_home, validate_profile_name
 from claude_chain_usage import WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_BATCH_FILE_EXTENSIONS,
+    ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS,
+    ALL_LOGIN_REFRESH_ARGUMENTS,
     BROKER_STATE_DIRECTORY_NAME,
     BROKER_STATE_FILE_NAME,
     BROKER_STATE_LOCK_SUFFIX,
     BROKER_STATE_TEMP_SUFFIX,
     Account,
     BrokerConfigurationError,
+    CLAUDE_BINARY_NAME,
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
+    LOGIN_REFRESH_TIMEOUT_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -203,6 +207,54 @@ def load_codex_accounts() -> tuple[Account, ...]:
     return tuple(Account(Product.CODEX, name, (profiles_root / name).resolve()) for name in names)
 
 
+def resolve_claude_path() -> Path | None:
+    """Find the Claude Code CLI.
+
+    Returns:
+        ``claude`` on PATH, else a known install path, else None.
+    """
+    on_path = shutil.which(CLAUDE_BINARY_NAME)
+    if on_path is not None:
+        return Path(on_path)
+    for each_parts in ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS:
+        candidate = Path.home().joinpath(*each_parts)
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def refresh_claude_login(account_home: Path) -> bool:
+    """Run one small CLI call so the CLI refreshes an expired login.
+
+    ::
+
+        ev token expired  ->  claude -p ok, CLAUDE_CONFIG_DIR=<ev home>  ->  new token saved
+
+    The CLI saves a new access token before it sends the request.
+
+    Args:
+        account_home: The account's Claude config folder.
+
+    Returns:
+        True when the call ran, False when no CLI was found or the call could not start.
+    """
+    claude_path = resolve_claude_path()
+    if claude_path is None:
+        return False
+    refresh_environment = {**os.environ, CLAUDE_CONFIG_DIR_ENV_VAR: str(account_home)}
+    try:
+        subprocess.run(
+            [str(claude_path), *ALL_LOGIN_REFRESH_ARGUMENTS],
+            env=refresh_environment,
+            capture_output=True,
+            timeout=LOGIN_REFRESH_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return True
+
+
 def read_claude_meters(account: Account) -> Meters | None:
     """Probe one Claude account.
 
@@ -213,7 +265,7 @@ def read_claude_meters(account: Account) -> Meters | None:
         Its meters, or None when the probe fails.
     """
     try:
-        usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME)
+        usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME, refresh_claude_login)
     except (WeeklyUtilizationProbeError, OSError):
         return None
     return Meters(

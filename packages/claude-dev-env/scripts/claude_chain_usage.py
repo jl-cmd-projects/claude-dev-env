@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
+from typing import Callable
 
 from dev_env_scripts_constants.claude_chain_usage_constants import (
     NO_ACCESS_TOKEN_ERROR_TEMPLATE,
@@ -111,13 +112,17 @@ class AccountUsageMeters:
 
 
 def _read_access_token(
-    usage_window_resolver: ModuleType, credentials_path: Path, now: datetime
+    usage_window_resolver: ModuleType,
+    credentials_path: Path,
+    now: datetime,
+    refresh_login: Callable[[Path], object] | None = None,
 ) -> str | None:
     """Return the bearer token that reads one account's meters.
 
     ::
 
         credential file holds a token                ->  that token
+        token expired, refresh_login saves a new one ->  the new token
         no token, the session's own credential path  ->  the session ingress token
         no token, another account's credential path  ->  None
 
@@ -128,6 +133,8 @@ def _read_access_token(
         usage_window_resolver: The loaded usage-pause resolver module.
         credentials_path: The account's CLI credential file.
         now: The current time, for the token expiry check.
+        refresh_login: Called with the account home when the stored token is
+            unusable, so a fresh token can be saved before one more read.
 
     Returns:
         A bearer token, or None when the account has none.
@@ -135,6 +142,11 @@ def _read_access_token(
     file_token = usage_window_resolver.read_oauth_access_token(credentials_path, now)
     if file_token is not None:
         return file_token
+    if refresh_login is not None and credentials_path.is_file():
+        refresh_login(credentials_path.parent)
+        refreshed_token = usage_window_resolver.read_oauth_access_token(credentials_path, datetime.now().astimezone())
+        if refreshed_token is not None:
+            return refreshed_token
     session_credentials_path = usage_window_resolver.default_credentials_path()
     if credentials_path.resolve() != session_credentials_path.resolve():
         return None
@@ -142,11 +154,13 @@ def _read_access_token(
 
 
 def _fetch_account_usage_payload(
-    usage_window_resolver: ModuleType, credentials_path: Path
+    usage_window_resolver: ModuleType,
+    credentials_path: Path,
+    refresh_login: Callable[[Path], object] | None,
 ) -> dict[str, object]:
     now = datetime.now().astimezone()
     try:
-        access_token = _read_access_token(usage_window_resolver, credentials_path, now)
+        access_token = _read_access_token(usage_window_resolver, credentials_path, now, refresh_login)
         if access_token is None:
             raise WeeklyUtilizationProbeError(
                 NO_ACCESS_TOKEN_ERROR_TEMPLATE.format(credentials_path=credentials_path)
@@ -166,10 +180,21 @@ def _fetch_account_usage_payload(
         ) from probe_error
 
 
-def probe_account_meters(credentials_path: Path) -> AccountUsageMeters:
-    """Read short and weekly usage meters for one account."""
+def probe_account_meters(
+    credentials_path: Path, refresh_login: Callable[[Path], object] | None = None
+) -> AccountUsageMeters:
+    """Read short and weekly usage meters for one account.
+
+    Args:
+        credentials_path: The account's CLI credential file.
+        refresh_login: Called with the account home when the stored token is
+            unusable, before one more token read.
+
+    Returns:
+        The account's meters.
+    """
     usage_window_resolver = _load_resolve_usage_window_module()
-    usage_payload = _fetch_account_usage_payload(usage_window_resolver, credentials_path)
+    usage_payload = _fetch_account_usage_payload(usage_window_resolver, credentials_path, refresh_login)
     usage_windows = usage_window_resolver.extract_usage_windows(usage_payload)
     return AccountUsageMeters(
         session_utilization=usage_windows.session_utilization,
