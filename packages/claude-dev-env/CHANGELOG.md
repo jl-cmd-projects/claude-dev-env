@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.75.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.2...claude-dev-env-v8.75.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* **account-broker:** retry every meter read with exponential backoff ([#1982](https://github.com/jl-cmd-projects/claude-dev-env/issues/1982)) ([7b4d930](https://github.com/jl-cmd-projects/claude-dev-env/commit/7b4d93067f5bbf58b34e434405bdaedd96ceb319))
+
 ## [8.75.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.1...claude-dev-env-v8.75.2) (2026-10-10)
 
 
