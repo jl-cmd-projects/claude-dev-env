@@ -4,11 +4,15 @@
 The Claude Code cloud proxy answers every request to
 ``api.github.com/graphql`` with HTTP 403, an unauthenticated one included, so
 no token or setting makes the call work there. Inside a cloud session, where
-``CLAUDE_CODE_REMOTE`` is ``true``, a command segment that runs ``gh api
-graphql`` or points an HTTP client such as ``curl`` at the GraphQL endpoint is
-denied, and the deny reason names the REST routes that do the same jobs. The
-program is read past wrappers and chained commands. Outside a cloud session the
-gate stays quiet, because GraphQL works there.
+``CLAUDE_CODE_REMOTE`` is ``true``, a command segment is denied when it runs
+a ``gh`` command that calls GraphQL or points an HTTP client such as ``curl``
+at the GraphQL endpoint. The deny reason names the REST routes that do the same
+jobs. ``gh`` calls GraphQL for ``api graphql``, for every ``pr`` and ``issue``
+subcommand except ``pr diff``, and for ``repo view``, ``repo clone``, ``repo
+list``, ``label list``, ``search prs``, ``search issues``, ``ruleset list`` and
+``gist list``. A ``gh`` call with ``--help`` or ``-h`` passes, because it
+reaches no network. The program is read past wrappers and chained commands.
+Outside a cloud session the gate stays quiet, because GraphQL works there.
 
 Hosted by ``blocking/bash_pre_tool_use_dispatcher.py`` for the Bash and
 PowerShell tools.
@@ -31,12 +35,16 @@ try:
         HOOK_EVENT_NAME,
     )
     from hooks_constants.cloud_graphql_gate_constants import (
+        ALL_GH_GRAPHQL_COMMAND_GROUPS,
+        ALL_GH_GRAPHQL_COMMAND_PATHS,
+        ALL_GH_HELP_FLAGS,
+        ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS,
         ALL_HTTP_CLIENT_PROGRAM_NAMES,
         CLOUD_GRAPHQL_DENY_REASON,
         CLOUD_SESSION_ENV_TRUE_VALUE,
         CLOUD_SESSION_ENV_VAR,
         GATE_HOOK_NAME,
-        GH_GRAPHQL_COMMAND_PATH,
+        GH_COMMAND_PATH_LENGTH,
         GH_PROGRAM_NAME,
         GITHUB_GRAPHQL_ENDPOINT_FRAGMENT,
     )
@@ -54,8 +62,26 @@ except ImportError as import_error:
     ) from import_error
 
 
+def _gh_arguments_call_graphql(all_arguments: list[str]) -> bool:
+    """Return True when gh, run with these arguments, sends a GraphQL request.
+
+    Args:
+        all_arguments: The tokens after the ``gh`` program name.
+    """
+    if any(each_argument in ALL_GH_HELP_FLAGS for each_argument in all_arguments):
+        return False
+    command_path = tuple(all_arguments[:GH_COMMAND_PATH_LENGTH])
+    if command_path in ALL_GH_GRAPHQL_COMMAND_PATHS:
+        return True
+    return (
+        len(command_path) == GH_COMMAND_PATH_LENGTH
+        and command_path[0] in ALL_GH_GRAPHQL_COMMAND_GROUPS
+        and command_path not in ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS
+    )
+
+
 def _calls_github_graphql(all_segment_tokens: list[str]) -> bool:
-    """Return True when a segment runs gh api graphql or sends an HTTP client to the endpoint.
+    """Return True when a segment runs a GraphQL gh command or sends an HTTP client to the endpoint.
 
     Args:
         all_segment_tokens: One command segment's shell tokens.
@@ -63,7 +89,7 @@ def _calls_github_graphql(all_segment_tokens: list[str]) -> bool:
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
     normalized_program_name = program_name.lower()
     if normalized_program_name == GH_PROGRAM_NAME:
-        return tuple(all_arguments[: len(GH_GRAPHQL_COMMAND_PATH)]) == GH_GRAPHQL_COMMAND_PATH
+        return _gh_arguments_call_graphql(all_arguments)
     if normalized_program_name in ALL_HTTP_CLIENT_PROGRAM_NAMES:
         return any(
             GITHUB_GRAPHQL_ENDPOINT_FRAGMENT in each_argument.lower()
@@ -78,8 +104,10 @@ def calls_github_graphql(command: str) -> bool:
     ::
 
         gh api graphql -f query='query{viewer{login}}'       -> True
+        gh pr create --title t --body-file b.md              -> True
         curl -X POST https://api.github.com/graphql -d @q    -> True
         gh api repos/o/r/pulls/1/ccr/review_threads          -> False
+        gh pr diff 12                                        -> False
         grep -rn "api.github.com/graphql" scripts            -> False
 
     Args:

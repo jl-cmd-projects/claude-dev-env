@@ -8,7 +8,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/msys_rev_path_rewriter.py` adds a narrow `MSYS2_ARG_CONV_EXCL` prefix for affected revision and path tokens.
 - `blocking/headless_claude_broker_gate.py` denies a headless `claude -p` or `claude --print` call and names the broker command to run instead.
 - `blocking/gh_global_account_switch_gate.py` denies `gh auth switch`, `gh auth login`, and `gh auth logout` and names the per-command `GH_TOKEN` form to run instead.
-- `blocking/cloud_graphql_gate.py` denies `gh api graphql` and an HTTP client call to `api.github.com/graphql` inside a cloud session, where the proxy answers GraphQL with HTTP 403, and names the REST routes to run instead.
+- `blocking/cloud_graphql_gate.py` denies the `gh` commands that call GraphQL (`gh api graphql`, `gh pr` and `gh issue` except `gh pr diff`, and a few `repo`, `label`, `search`, `ruleset` and `gist` reads) and an HTTP client call to `api.github.com/graphql` inside a cloud session, where the proxy answers GraphQL with HTTP 403, and names the REST routes to run instead.
 - `blocking/bash_post_call_dispatcher.py` runs hosted observers and joins their context output without blocking the call.
 - `advisory/pr_done_reminder.py` adds a pull request checklist after a successful push or pull request creation.
 

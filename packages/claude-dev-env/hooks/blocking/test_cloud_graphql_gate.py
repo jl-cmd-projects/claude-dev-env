@@ -40,6 +40,16 @@ def cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
         "curl -H 'Authorization: Bearer x' HTTPS://API.GITHUB.COM/GRAPHQL",
         "wget --post-data=@q.json https://api.github.com/graphql",
         "Invoke-RestMethod -Method Post -Uri https://api.github.com/graphql -Body $q",
+        "gh pr create --draft --title t --body-file b.md",
+        "gh pr view 12 --json title",
+        "gh pr checks 12",
+        "gh issue list -L 1",
+        "gh repo clone o/r",
+        "gh repo view o/r",
+        "gh label list",
+        "gh search prs repo:o/r",
+        "gh ruleset list",
+        "gh gist list",
     ],
 )
 def test_should_detect_a_github_graphql_call(command: str) -> None:
@@ -51,7 +61,14 @@ def test_should_detect_a_github_graphql_call(command: str) -> None:
     [
         "gh api repos/o/r/pulls/1/ccr/review_threads",
         "gh api user",
-        "gh pr view 12",
+        "gh pr diff 12",
+        "gh pr create --help",
+        "gh issue view -h",
+        "gh pr",
+        "gh run list -L 1",
+        "gh workflow list",
+        "gh label create bug",
+        "gh release view v1 --json name",
         "curl -sS https://api.github.com/repos/o/r",
         'grep -rn "api.github.com/graphql" scripts',
         'echo "gh api graphql"',
@@ -75,6 +92,7 @@ def test_should_deny_gh_api_graphql_in_a_cloud_session_and_name_the_rest_routes(
     reason = specific_output["permissionDecisionReason"]
     assert "GET /repos/{owner}/{repo}/pulls/{n}/ccr/review_threads" in reason
     assert "gh api repos/{owner}/{repo}/..." in reason
+    assert "mcp__github__create_pull_request" in reason
 
 
 def test_should_deny_a_powershell_endpoint_call_in_a_cloud_session(cloud_session: None) -> None:
