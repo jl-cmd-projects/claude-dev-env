@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.75.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.74.2...claude-dev-env-v8.75.0) (2026-10-10)
+
+
+### Features
+
+* **skills:** hand /correction off as a Suggested task card ([#1972](https://github.com/jl-cmd-projects/claude-dev-env/issues/1972)) ([1a3645d](https://github.com/jl-cmd-projects/claude-dev-env/commit/1a3645d6854d1af84d7c3353ade7438e8767b0b8))
+
 ## [8.74.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.74.1...claude-dev-env-v8.74.2) (2026-10-09)
 
 
