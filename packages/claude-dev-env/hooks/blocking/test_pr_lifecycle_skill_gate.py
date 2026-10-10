@@ -140,6 +140,14 @@ def test_unreadable_or_missing_transcript_allows_silently(tmp_path: Path) -> Non
     assert _run_main(payload) == (0, "")
 
 
+def test_unreadable_agent_transcript_beside_an_unloaded_session_allows_silently(
+    tmp_path: Path,
+) -> None:
+    payload = _payload("git push", _transcript(tmp_path))
+    payload["agent_transcript_path"] = str(tmp_path / "missing-agent.jsonl")
+    assert _run_main(payload) == (0, "")
+
+
 def test_action_command_shapes(tmp_path: Path) -> None:
     path = _transcript(tmp_path)
     commands = (

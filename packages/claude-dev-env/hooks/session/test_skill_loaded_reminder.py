@@ -291,6 +291,23 @@ class TestReminderFor:
             == COMPACTION_REMINDER
         )
 
+    def test_session_start_after_compaction_reminds_a_session_that_reloaded_the_skill(
+        self, tmp_path: Path
+    ) -> None:
+        transcript_path = _write_transcript(
+            tmp_path, [SKILL_CALL_LINE, COMPACT_BOUNDARY_LINE, SKILL_CALL_LINE]
+        )
+        assert (
+            reminder.reminder_for(
+                {
+                    "hook_event_name": "SessionStart",
+                    "source": "compact",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+            == COMPACTION_REMINDER
+        )
+
     def test_session_start_after_compaction_without_a_prior_skill_call_prints_nothing(
         self, tmp_path: Path
     ) -> None:

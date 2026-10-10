@@ -53,6 +53,10 @@ test('EVER_SHIPPED_SKILL_NAMES includes the windows scheduled task skill', () =>
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('windows-scheduled-task'), true);
 });
 
+test('EVER_SHIPPED_SKILL_NAMES includes the mod playbooks skill', () => {
+    assert.equal(EVER_SHIPPED_SKILL_NAMES.has('mod-playbooks'), true);
+});
+
 test('build-eval ships under its matching name without the retired active directory', () => {
     const sourceSkillsDirectory = join(
         PACKAGE_DIRECTORY,

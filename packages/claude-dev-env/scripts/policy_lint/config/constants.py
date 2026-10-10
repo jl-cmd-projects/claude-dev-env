@@ -198,6 +198,7 @@ ALL_INVENTORY_FILE_NAMES = frozenset(
     {"CHANGELOG.md", "README.md", "ever-shipped-skills.mjs"}
 )
 ALL_UNCALLED_EXEMPT_FILE_NAMES = frozenset({"__init__.py", "conftest.py"})
+ALL_PAIRING_EXEMPT_FILE_NAMES = frozenset({"conftest.py"})
 CALLER_NAME_PATTERN_TEMPLATE = r"(?<![\w-]){name}(?![\w-])"
 
 CONTEXT_BUDGET_RULE_ID = "context-budget"

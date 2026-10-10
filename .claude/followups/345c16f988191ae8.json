@@ -1,8 +1,0 @@
-{
-  "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/bin/ever-shipped-skills.mjs",
-  "message": "Changed production file has no changed matching test",
-  "check_id": "test-pairing",
-  "severity": "smell",
-  "origin_commit": "b98b4775ca2753ed84219a402a3a6e4cc4637e92"
-}
