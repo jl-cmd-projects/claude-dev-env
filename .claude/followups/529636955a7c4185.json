@@ -1,8 +1,0 @@
-{
-  "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/hooks/hooks_constants/visual_reply_rules_constants.py",
-  "message": "Changed production file has no changed matching test",
-  "check_id": "test-pairing",
-  "severity": "smell",
-  "origin_commit": "85b50b203754c3df348d76c5dc05129d6beafbc8"
-}

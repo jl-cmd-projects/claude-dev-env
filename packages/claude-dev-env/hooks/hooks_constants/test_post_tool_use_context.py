@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
+from unittest.mock import patch
 
 import pytest
 
@@ -20,3 +22,24 @@ def test_should_write_the_post_tool_use_payload_carrying_the_context_text(
             "additionalContext": "=== PR DONE CHECKLIST ===",
         }
     }
+
+
+class _FlushRecordingStream(StringIO):
+    def __init__(self) -> None:
+        super().__init__()
+        self.flushed_text: list[str] = []
+
+    def flush(self) -> None:
+        self.flushed_text.append(self.getvalue())
+        super().flush()
+
+
+def test_should_flush_the_whole_payload_so_the_dispatcher_reads_it_before_exit() -> None:
+    recording_stream = _FlushRecordingStream()
+    with patch("sys.stdout", recording_stream):
+        write_post_tool_use_context_to_stdout('line one\nline "two"')
+
+    assert recording_stream.flushed_text
+    assert json.loads(recording_stream.flushed_text[-1])["hookSpecificOutput"]["additionalContext"] == (
+        'line one\nline "two"'
+    )
