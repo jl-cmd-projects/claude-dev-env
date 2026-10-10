@@ -7,6 +7,7 @@ from io import StringIO
 from unittest.mock import patch
 
 from hooks_constants.pre_tool_use_allow_output import write_pre_tool_use_allow_to_stdout
+from hooks_constants.test_stdout_flush_support import FlushRecordingStream
 
 
 def _emitted_payload(updated_tool_input: dict[str, object]) -> dict[str, object]:
@@ -25,3 +26,13 @@ def test_emitter_writes_an_allow_decision_carrying_the_updated_input() -> None:
             "updatedInput": {"command": "git status", "description": "check"},
         }
     }
+
+
+def test_emitter_flushes_the_whole_payload_with_nested_input_intact() -> None:
+    nested_input = {"command": "echo hi", "options": {"timeout": 5, "flags": ["-n"]}}
+    recording_stream = FlushRecordingStream()
+    with patch("sys.stdout", recording_stream):
+        write_pre_tool_use_allow_to_stdout(nested_input)
+
+    assert recording_stream.flushed_text
+    assert json.loads(recording_stream.flushed_text[-1])["hookSpecificOutput"]["updatedInput"] == nested_input

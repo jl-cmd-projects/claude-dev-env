@@ -1,8 +1,0 @@
-{
-  "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/hooks/hooks_constants/image_read_size_gate_constants.py",
-  "message": "Changed production file has no changed matching test",
-  "check_id": "test-pairing",
-  "severity": "smell",
-  "origin_commit": "5c3c0f061c0417f19fc8c2ffb49b5bfb29768b4c"
-}
