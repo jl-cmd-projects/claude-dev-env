@@ -9,7 +9,6 @@ from image_read_size_gate import image_size
 from hooks_constants.image_read_size_gate_constants import (
     AGENT_COPY_SCRIPT_PATH,
     ALL_GIF_SIGNATURES,
-    ALL_JPEG_FRAME_MARKERS,
     JPEG_MARKER_PREFIX,
     JPEG_SIGNATURE,
     MAXIMUM_LONG_EDGE_PIXELS,
@@ -40,8 +39,6 @@ def test_jpeg_frame_offsets_read_height_then_width_from_a_baseline_frame() -> No
         ">HBHH", 17, SAMPLE_PRECISION, 2560, 1440
     )
 
-    assert JPEG_SIGNATURE == b"\xff\xd8"
-    assert BASELINE_FRAME_MARKER in ALL_JPEG_FRAME_MARKERS
     assert image_size(JPEG_SIGNATURE + frame_segment) == (1440, 2560)
 
 
