@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import account_broker
+import account_broker_support
 import claude_account_worker
 from account_broker import (
     Account,
@@ -75,7 +76,8 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
     )
 
 
-def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room() -> None:
+def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(account_broker_support.time, "sleep", lambda _: None)
     codex_3 = _account("codex-3")
     codex_4 = _account("codex-4")
 
