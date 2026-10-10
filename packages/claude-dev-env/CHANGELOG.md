@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.75.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.1...claude-dev-env-v8.75.2) (2026-10-10)
+
+
+### Tests
+
+* **followups:** pair the skills-bin-checks test-pairing findings ([#1978](https://github.com/jl-cmd-projects/claude-dev-env/issues/1978)) ([7e63256](https://github.com/jl-cmd-projects/claude-dev-env/commit/7e63256415f3d746b706b40709f658a22e09266e))
+
 ## [8.75.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.0...claude-dev-env-v8.75.1) (2026-10-10)
 
 
