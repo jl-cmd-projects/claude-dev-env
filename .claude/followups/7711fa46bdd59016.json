@@ -1,8 +1,0 @@
-{
-  "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/.agents/skills/correction/scripts/correction_task_card_constants/__init__.py",
-  "message": "Changed production file has no changed matching test",
-  "check_id": "test-pairing",
-  "severity": "smell",
-  "origin_commit": "6e3d91923246af4156564a45be02a0ed693fb60d"
-}
