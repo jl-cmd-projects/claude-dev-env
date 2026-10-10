@@ -270,7 +270,10 @@ def test_should_drop_the_gates_the_shell_guards_mod_holds_while_it_is_on(
 ) -> None:
     _enable_shell_guards(tmp_path, monkeypatch)
     all_script_paths = [each_entry.script_relative_path for each_entry in select_applicable_entries(BASH_TOOL_NAME)]
-    assert all_script_paths == ["blocking/msys_rev_path_rewriter.py"]
+    assert all_script_paths == [
+        "blocking/msys_rev_path_rewriter.py",
+        "blocking/cloud_graphql_gate.py",
+    ]
 
 
 def test_should_pass_a_headless_claude_command_while_the_shell_guards_mod_is_on(
