@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.75.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.3...claude-dev-env-v8.75.4) (2026-10-10)
+
+
+### Tests
+
+* **hooks:** pair tests with five hooks_constants modules ([#1975](https://github.com/jl-cmd-projects/claude-dev-env/issues/1975)) ([8245251](https://github.com/jl-cmd-projects/claude-dev-env/commit/82452514339ff4c81c5487b72522b3d18c3df347))
+
 ## [8.75.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.2...claude-dev-env-v8.75.3) (2026-10-10)
 
 
