@@ -86,7 +86,7 @@ function legacySettings() {
 
 function allCommands(settings) {
     return Object.values(settings.hooks).flatMap(groups =>
-        groups.flatMap(group => group.hooks.map(hook => hook.command)));
+        groups.flatMap(group => group.hooks.map(hook => hook.command ?? '')));
 }
 
 test('every retired write registration already has an installer-owned prune path', () => {

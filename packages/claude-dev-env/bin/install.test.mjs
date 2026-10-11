@@ -902,7 +902,7 @@ function countManagedRunAllValidatorsHooks(settings) {
     let runAllValidatorsCount = 0;
     for (const group of writeEditGroups) {
         for (const hook of group.hooks) {
-            if (hook.command.includes('run_all_validators')) {
+            if ((hook.command ?? '').includes('run_all_validators')) {
                 runAllValidatorsCount++;
             }
         }
@@ -1238,7 +1238,7 @@ test('retired hook registrations stay managed so reinstall removes them', () => 
         readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8')
     );
     const shippedCommands = Object.values(shippedHooks.hooks).flatMap(matcherGroups => (
-        matcherGroups.flatMap(matcherGroup => matcherGroup.hooks.map(hook => hook.command))
+        matcherGroups.flatMap(matcherGroup => matcherGroup.hooks.map(hook => hook.command ?? ''))
     ));
     assert.deepEqual(RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS, retiredPaths);
     for (const retiredPath of retiredPaths) {
@@ -1343,7 +1343,7 @@ test('mergeHooksIntoSettings into old folded-hooks settings yields exactly one d
     mergeHooksIntoSettings(settings, DISPATCHER_HOOKS_CONFIG, 'C:/Users/x/.claude', 'py -3');
 
     const allPreToolUseGroups = settings.hooks.PreToolUse || [];
-    const allHookCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command));
+    const allHookCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command ?? ''));
 
     const allDispatcherCommands = allHookCommands.filter(isPreToolUseDispatcherCommand);
     assert.equal(allDispatcherCommands.length, 1, 'exactly one dispatcher entry must be present');
@@ -1376,7 +1376,7 @@ test('mergeHooksIntoSettings is idempotent when run twice against an already-upd
     mergeHooksIntoSettings(settings, DISPATCHER_HOOKS_CONFIG, 'C:/Users/x/.claude', 'py -3');
 
     const allPreToolUseGroups = settings.hooks.PreToolUse || [];
-    const allHookCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command));
+    const allHookCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command ?? ''));
 
     const allDispatcherCommands = allHookCommands.filter(isPreToolUseDispatcherCommand);
     assert.equal(allDispatcherCommands.length, 1, 'dispatcher must appear exactly once after two merges');
@@ -1407,7 +1407,7 @@ test('shipped hooks.json keeps only nonblocking policy handlers and lifecycle ho
     );
 
     const allPreToolUseGroups = shippedHooksConfig.hooks.PreToolUse || [];
-    const allPreCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command));
+    const allPreCommands = allPreToolUseGroups.flatMap(group => group.hooks.map(hook => hook.command ?? ''));
     const preDispatcherCommands = allPreCommands.filter(isPreToolUseDispatcherCommand);
     assert.equal(preDispatcherCommands.length, 1, 'shipped hooks.json must register the PreToolUse dispatcher exactly once');
 
@@ -1419,18 +1419,18 @@ test('shipped hooks.json keeps only nonblocking policy handlers and lifecycle ho
 
     const allPostToolUseGroups = shippedHooksConfig.hooks.PostToolUse || [];
     const postDispatcherCommands = allPostToolUseGroups
-        .flatMap(group => group.hooks.map(hook => hook.command))
+        .flatMap(group => group.hooks.map(hook => hook.command ?? ''))
         .filter(cmd => cmd.includes('post_tool_use_dispatcher.py'));
     assert.equal(postDispatcherCommands.length, 1, 'shipped hooks.json must register the PostToolUse dispatcher exactly once');
     const allCommands = Object.values(shippedHooksConfig.hooks).flatMap(matcherGroups => (
-        matcherGroups.flatMap(matcherGroup => matcherGroup.hooks.map(hook => hook.command))
+        matcherGroups.flatMap(matcherGroup => matcherGroup.hooks.map(hook => hook.command ?? ''))
     ));
     for (const retiredPath of RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS) {
         assert.ok(allCommands.every(command => !command.includes(retiredPath)), retiredPath);
     }
 
     const allSessionStartCommands = (shippedHooksConfig.hooks.SessionStart || [])
-        .flatMap(group => group.hooks.map(hook => hook.command));
+        .flatMap(group => group.hooks.map(hook => hook.command ?? ''));
     assert.equal(
         allSessionStartCommands.some(command => command.includes('untracked_repo_detector.py')),
         false,
@@ -1439,7 +1439,7 @@ test('shipped hooks.json keeps only nonblocking policy handlers and lifecycle ho
 
     const writePathCommands = allPreToolUseGroups
         .filter(group => /Write|Edit|MultiEdit/.test(group.matcher || ''))
-        .flatMap(group => group.hooks.map(hook => hook.command));
+        .flatMap(group => group.hooks.map(hook => hook.command ?? ''));
     for (const foldedPath of FOLDED_HOOK_RELATIVE_PATHS) {
         const foldedBasename = foldedPath.split('/').pop();
         const standaloneFoldedCommands = writePathCommands.filter(
@@ -1543,7 +1543,7 @@ test('mergeHooksIntoSettings is idempotent for the PostToolUse dispatcher across
     mergeHooksIntoSettings(settings, POST_DISPATCHER_HOOKS_CONFIG, 'C:/Users/x/.claude', 'py -3');
 
     const writeEditGroup = settings.hooks.PostToolUse.find(group => group.matcher === 'Write|Edit');
-    const dispatcherCommands = writeEditGroup.hooks.filter(hook => hook.command.includes('post_tool_use_dispatcher.py'));
+    const dispatcherCommands = writeEditGroup.hooks.filter(hook => (hook.command ?? '').includes('post_tool_use_dispatcher.py'));
     assert.equal(dispatcherCommands.length, 1, 'PostToolUse dispatcher must appear exactly once after two merges');
     assert.equal(writeEditGroup.hooks.length, 1);
 });
@@ -1598,7 +1598,7 @@ test('mergeHooksIntoSettings prunes the inline run_all_validators runner when th
 
     const writeEditGroup = (settings.hooks.PreToolUse || []).find(group => group.matcher === 'Write|Edit');
     if (writeEditGroup) {
-        const runnerSurvivors = writeEditGroup.hooks.filter(hook => hook.command.includes('run_all_validators'));
+        const runnerSurvivors = writeEditGroup.hooks.filter(hook => (hook.command ?? '').includes('run_all_validators'));
         assert.equal(runnerSurvivors.length, 0);
     }
 

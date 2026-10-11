@@ -417,7 +417,7 @@ def _registered_auto_formatter_timeout() -> int:
     for each_event in hooks_configuration["hooks"].values():
         for each_matcher in each_event:
             for each_hook in each_matcher["hooks"]:
-                if POST_TOOL_USE_DISPATCHER_COMMAND_FRAGMENT in each_hook["command"]:
+                if POST_TOOL_USE_DISPATCHER_COMMAND_FRAGMENT in each_hook.get("command", ""):
                     return int(each_hook["timeout"])
     raise AssertionError(
         "post_tool_use_dispatcher (which hosts auto_formatter) is not registered in hooks.json"

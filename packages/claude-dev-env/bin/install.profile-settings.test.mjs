@@ -47,7 +47,7 @@ function runCoreInstall(homeDirectory, profileRoot) {
 function stopHookCommands(settingsPath) {
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     return (settings.hooks?.Stop ?? []).flatMap(
-        (eachGroup) => (eachGroup.hooks ?? []).map((eachHook) => eachHook.command.replace(/\\/g, '/')),
+        (eachGroup) => (eachGroup.hooks ?? []).map((eachHook) => (eachHook.command ?? '').replace(/\\/g, '/')),
     );
 }
 

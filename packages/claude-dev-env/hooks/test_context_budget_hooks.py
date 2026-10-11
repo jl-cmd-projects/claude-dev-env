@@ -39,7 +39,7 @@ def _context_adding_scripts() -> set[str]:
         for each_event in ALL_CONTEXT_EVENTS
         for each_group in registrations["hooks"].get(each_event, [])
         for each_hook in each_group["hooks"]
-        for each_script in SCRIPT_PATTERN.findall(each_hook["command"])
+        for each_script in SCRIPT_PATTERN.findall(each_hook.get("command", ""))
     }
     return {
         each_script
