@@ -1852,7 +1852,7 @@ function commandReferencesRetiredHook(commandString, retiredHookRelativePaths, o
  * shape, so a shape this installer does not recognize survives.
  *
  * @param {object[]} matcherGroups The event's matcher groups from settings.json.
- * @param {(hook: unknown) => boolean} shouldRemoveHook Names the hooks that leave.
+ * @param {(hook: unknown) => boolean} shouldRemoveHook Takes one hook entry, a command hook or a prompt hook, and returns true to drop it.
  * @returns {{keptGroups: object[], removedCount: number}} The surviving groups and how many hooks left.
  */
 function retainedMatcherGroups(matcherGroups, shouldRemoveHook) {
