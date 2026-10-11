@@ -2,7 +2,7 @@
 
 A pull request the agent made merges only after a code review of its head comes back clean. Loop it:
 
-1. Review the head with the review command the owner's instructions name. Where they name none, run `/code-review high --max-findings all` against the base.
+1. Review the head with the command `CLAUDE_MERGE_REVIEW_COMMAND` names. Where it is unset, run `/code-review high --max-findings all` against the base.
 2. Record the pass: `python3 ~/.claude/scripts/merge_review_receipt.py <owner>/<name> <number> <head sha> <finding count>`.
 3. Fix or answer every finding, push, and review the new head.
 4. Repeat until a pass records `CLEAN`.

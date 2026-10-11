@@ -35,6 +35,8 @@ OPTION_WITH_VALUE_PATTERN = re.compile(
 AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--auto(?:\s|$)")
 
 EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES"
+REVIEW_COMMAND_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_COMMAND"
+DEFAULT_REVIEW_COMMAND = "/code-review high --max-findings all"
 RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_RECEIPT_DIR"
 ALL_RECEIPT_DIRECTORY_SEGMENTS = (".claude", "merge-reviews")
 RECEIPT_FILE_NAME_TEMPLATE = "{owner}__{repo}__{number}.json"
@@ -45,7 +47,8 @@ RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} has no clean review on the head you are merging. Run the review "
-    "loop: review the pull request head, fix and push every finding, and review again "
+    "loop: review the pull request head with `{review_command}`, fix and push every "
+    "finding, and review again "
     "until a pass reports zero findings. Record that pass with `"
     + RECORD_COMMAND
     + " {slug} {number} <head sha> 0`, then merge pinned to that head."

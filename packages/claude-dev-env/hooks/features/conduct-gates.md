@@ -11,7 +11,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/step_note_gate.py` requires a status line before a tool call while its opt-in flag is on.
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
-- `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge to be pinned to that head, denies auto-merge, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`.
+- `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge to be pinned to that head, denies auto-merge, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`. Its deny reason names the review command `CLAUDE_MERGE_REVIEW_COMMAND` sets.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
 
 ## When it fires

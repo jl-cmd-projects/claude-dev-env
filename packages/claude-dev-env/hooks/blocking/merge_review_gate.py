@@ -11,6 +11,9 @@ names that exact head::
     auto-merge                                                        -> deny, merge pinned instead
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
 
+The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
+or ``/code-review high --max-findings all`` when it is unset.
+
 ``scripts/merge_review_receipt.py`` writes the receipt this reads.
 """
 
@@ -37,6 +40,7 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
@@ -59,6 +63,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_FIELD,
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
+    REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
@@ -228,6 +233,10 @@ def _clean_head(request: MergeRequest) -> str | None:
     return head if isinstance(head, str) and head else None
 
 
+def _review_command() -> str:
+    return os.environ.get(REVIEW_COMMAND_ENVIRONMENT_VARIABLE) or DEFAULT_REVIEW_COMMAND
+
+
 def _same_commit(first: str, second: str) -> bool:
     shorter, longer = sorted((first.casefold(), second.casefold()), key=len)
     return longer.startswith(shorter)
@@ -251,7 +260,7 @@ def deny_reason(request: MergeRequest) -> str | None:
         return AUTO_MERGE_REASON_TEMPLATE.format(**fields)
     clean_head = _clean_head(request)
     if clean_head is None:
-        return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(**fields)
+        return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(review_command=_review_command(), **fields)
     if request.pinned_head is None:
         return UNPINNED_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
     if not _same_commit(clean_head, request.pinned_head):

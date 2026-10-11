@@ -22,6 +22,7 @@ NEW_HEAD = "9999999aaaaaaa9999999aaaaaaa9999999aaaaa"
 def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(tmp_path))
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", raising=False)
+    monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
     return tmp_path
 
 
@@ -107,3 +108,8 @@ def test_should_read_a_gh_api_merge_with_a_sha_field() -> None:
 def test_should_ignore_commands_that_merge_nothing() -> None:
     assert gate.decision_for(_bash("gh pr view 12 --repo acme/tools")) is None
     assert gate.decision_for(_bash("git merge origin/main")) is None
+
+
+def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_COMMAND", "/team-review")
+    assert "`/team-review`" in _reason(_merge_tool(CLEAN_HEAD))
