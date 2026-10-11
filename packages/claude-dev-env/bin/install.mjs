@@ -1536,6 +1536,29 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
 }
 
 /**
+ * Drop every managed prompt hook from each event type settings.json holds.
+ *
+ * A prompt hook names no script, so the retired-script prune never reaches one
+ * the package stopped shipping. The merge clears them all first and writes back
+ * the ones the current hooks.json ships. An event type left with no groups is
+ * dropped.
+ *
+ * @param {object} settings The parsed settings.json object (mutated in place).
+ * @returns {void}
+ */
+function pruneManagedPromptHooksFromEveryEvent(settings) {
+    for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
+        if (!Array.isArray(matcherGroups)) continue;
+        const keptGroups = retainedMatcherGroups(matcherGroups, isManagedPromptHook).keptGroups;
+        if (keptGroups.length === 0) {
+            delete settings.hooks[eventType];
+            continue;
+        }
+        settings.hooks[eventType] = keptGroups;
+    }
+}
+
+/**
  * Give one event type a list of hook groups to merge into, warning when a value
  * of another shape leaves settings.json.
  *
@@ -1598,6 +1621,7 @@ export function mergeHooksIntoSettings(
     const pluginRootForward = pluginRootDir.replace(/\\/g, '/');
     const encodedPluginHooksPath = Buffer.from(`${pluginRootForward}/hooks`, 'utf8').toString('base64');
     if (!settings.hooks || typeof settings.hooks !== 'object') settings.hooks = {};
+    pruneManagedPromptHooksFromEveryEvent(settings);
     let groupCount = 0;
     for (const [eventType, matcherGroups] of Object.entries(hooksConfig.hooks)) {
         startEventFromHookGroupList(settings, eventType);
