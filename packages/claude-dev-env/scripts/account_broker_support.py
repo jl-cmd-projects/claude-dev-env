@@ -110,7 +110,10 @@ def _chain_entry(raw_entry: object, main_home: Path, chain_path: Path) -> Accoun
 
 def _chain_account_name(command: str) -> str:
     launcher_prefix, _, _ = CLAUDE_LAUNCHER_PROGRAM.file_name_template.partition("{")
-    return PureWindowsPath(command).stem.removeprefix(launcher_prefix)
+    launcher_stem = PureWindowsPath(command).stem
+    if not launcher_stem.casefold().startswith(launcher_prefix.casefold()):
+        return launcher_stem
+    return launcher_stem[len(launcher_prefix) :] or launcher_stem
 
 
 def _chain_entries(chain_path: Path, main_home: Path) -> tuple[Account, ...]:
