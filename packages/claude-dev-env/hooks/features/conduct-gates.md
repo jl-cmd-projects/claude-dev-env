@@ -11,6 +11,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/step_note_gate.py` requires a status line before a tool call while its opt-in flag is on.
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
+- `blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file until a `claude-api` Skill call with args `build-eval`, or the `/claude-api build-eval` command, appears in the transcript.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
 
 ## When it fires
@@ -22,6 +23,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/step_note_gate.py` runs on `PreToolUse`, matcher `*`, timeout `15` seconds in `hooks.json`.
 - `blocking/verify_before_acting.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Agent|Task|apply_patch|Bash|PowerShell|mcp__.*`, timeout `10` seconds in `hooks.json`.
 - `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)`, timeout `10` seconds in `hooks.json`.
+- `blocking/build_eval_before_eval_write_gate.py` runs on `PreToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 
 ## Proving it
@@ -37,6 +39,7 @@ Preconditions:
 - **Step note.** Input is a tool call after a transcript message without a status line while the flag is on. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_step_note_gate.py -q`. The adjacent test observes a block until a status line appears.
 - **Checked claim.** Input is a Write after hedged reasoning in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_verify_before_acting.py -q`. The adjacent test observes a block and a logged blocked outcome.
 - **Lifecycle skill.** Input is a `git commit` or `gh pr create` command with no `pr-lifecycle` invocation in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_pr_lifecycle_skill_gate.py -q`. The adjacent test observes a denial, then a silent allow once the skill or its slash command appears.
+- **Eval write.** Input is a Write to `evals/cases.json` with no build-eval call in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_build_eval_before_eval_write_gate.py -q`. The adjacent test observes a denial, then an allow once the call appears; a write outside an eval path passes.
 - **Dark mode page.** Input is an Artifact publish of a page that themes `html` but leaves `body` to the publish wrapper. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_dark_mode_gate.py -q`. The adjacent test observes a denial that names the text and its contrast; a page that themes `body` passes. The render tests skip on a host with no Node Playwright and Chromium.
 
 ## Gotchas
