@@ -389,16 +389,10 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
 
 def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime, product: Product) -> None:
     all_accounts_by_profile = {each_reading.account.profile: each_reading for each_reading in all_readings if each_reading.account.profile}
-    all_accounts_by_account_name = {each_reading.account.name: each_reading for each_reading in all_readings}
-    all_ambiguous_names = {
-        each_profile for each_profile, each_reading in all_accounts_by_profile.items() if all_accounts_by_account_name.get(each_profile, each_reading) is not each_reading
-    }
-    all_accounts_by_name = all_accounts_by_profile | all_accounts_by_account_name
-    for each_mark in all_marks:
-        reading, reset = _parse_spent_mark(all_accounts_by_name, each_mark, product)
-        if reading.account.name in all_ambiguous_names:
-            raise BrokerConfigurationError(f"spent mark {reading.account.name} names one account and the profile of another; mark it by its full name")
-        _mark_spent(all_state, reading, now, reset)
+    all_accounts_by_name = all_accounts_by_profile | {each_reading.account.name: each_reading for each_reading in all_readings}
+    all_parsed_marks = [_parse_spent_mark(all_accounts_by_name, each_mark, product) for each_mark in all_marks]
+    for each_reading, each_reset in all_parsed_marks:
+        _mark_spent(all_state, each_reading, now, each_reset)
 
 
 def _accounts_cli(product: Product) -> int:

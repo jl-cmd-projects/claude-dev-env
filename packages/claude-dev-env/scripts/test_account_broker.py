@@ -952,7 +952,7 @@ def test_should_mark_an_account_spent_by_its_profile(
     assert decision["account"] == "second"
 
 
-def test_should_refuse_a_spent_mark_that_names_one_account_and_the_profile_of_another(
+def test_should_mark_the_account_named_by_a_mark_that_is_also_another_profile(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd"
@@ -961,14 +961,28 @@ def test_should_refuse_a_spent_mark_that_names_one_account_and_the_profile_of_an
     monkeypatch.setitem(
         account_broker.all_product_adapters,
         Product.CLAUDE,
-        _adapter((profiled, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+        _adapter((second, profiled), {launcher_name: _meters(80, 80), "second": _meters(90, 90)}),
     )
     _freeze_clock(monkeypatch, NOW)
 
-    code = account_broker.main(("choose", "--product", "claude", "--spent", "second"))
+    code = account_broker.main(("choose", "--product", "claude", "--spent", f"second:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == launcher_name
+
+
+def test_should_save_no_spent_mark_when_a_later_mark_is_unreadable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "first", "--spent", "guest:tomorrow"))
 
     assert code == 2
-    assert "profile of another" in capsys.readouterr().err
+    assert "invalid reset" in capsys.readouterr().err
+    assert account_broker._load_state(account_broker.broker_state_path()).get("spent", {}) == {}
 
 
 def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> None:
