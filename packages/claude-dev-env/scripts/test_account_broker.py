@@ -936,20 +936,45 @@ def test_should_mark_an_account_spent_by_its_profile(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
-    first = Account(Product.CODEX, launcher_name, Path("/profiles/first"), profile="first")
-    second = _account("second")
+    first = Account(Product.CLAUDE, launcher_name, Path("/profiles/first"), command=launcher_name, profile="first")
+    second = _account("second", Product.CLAUDE)
     monkeypatch.setitem(
         account_broker.all_product_adapters,
-        Product.CODEX,
+        Product.CLAUDE,
         _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
     )
     _freeze_clock(monkeypatch, NOW)
 
-    code = account_broker.main(("choose", "--product", "codex", "--spent", f"first:{(NOW + timedelta(hours=2)).timestamp()}"))
+    code = account_broker.main(("choose", "--product", "claude", "--spent", f"first:{(NOW + timedelta(hours=2)).timestamp()}"))
 
     decision = json.loads(capsys.readouterr().out)["decision"]
     assert code == 0
     assert decision["account"] == "second"
+
+
+def test_should_refuse_a_spent_mark_that_names_one_account_and_the_profile_of_another(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd"
+    profiled = Account(Product.CLAUDE, launcher_name, Path("/profiles/second"), command=launcher_name, profile="second")
+    second = _account("second", Product.CLAUDE)
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CLAUDE,
+        _adapter((profiled, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "claude", "--spent", "second"))
+
+    assert code == 2
+    assert "profile of another" in capsys.readouterr().err
+
+
+def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> None:
+    home = Path("/profiles/first")
+
+    assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
 
 
 def test_should_reject_an_invalid_spent_reset(

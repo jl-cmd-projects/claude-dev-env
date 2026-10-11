@@ -77,6 +77,21 @@ def test_should_name_a_chain_account_profile_from_its_home(monkeypatch: pytest.M
     ]
 
 
+def test_should_name_an_extra_account_profile_from_its_resolved_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
+    (profiles_root / "target").mkdir(parents=True)
+    (profiles_root / "alias").symlink_to(profiles_root / "target", target_is_directory=True)
+    (main_home / "extra-profiles.json").write_text('["alias"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.command, each_account.profile) for each_account in accounts[1:]] == [("target", "target", "target")]
+
+
 def test_should_leave_claude_priorities_unset_without_an_order_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

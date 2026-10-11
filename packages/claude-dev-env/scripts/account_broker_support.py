@@ -194,7 +194,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
         _append_claude_account(all_accounts, all_seen, each_entry, main_home)
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
-        extra_account = Account(Product.CLAUDE, home.name, home, command=home.name, profile=each_home.name)
+        extra_account = Account(Product.CLAUDE, home.name, home, command=home.name, profile=home.name)
         _append_claude_account(all_accounts, all_seen, extra_account, main_home)
     return _with_priorities(all_accounts, _account_order(main_home))
 
