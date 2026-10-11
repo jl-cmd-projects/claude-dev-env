@@ -1556,13 +1556,8 @@ function pruneManagedPromptHooksFromUnlistedEvents(settings, hooksConfig) {
     if (!shipsManagedPromptHook) return;
     for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
         if (Object.hasOwn(hooksConfig.hooks, eventType) || !Array.isArray(matcherGroups)) continue;
-        if (!matcherGroups.some(group => groupHookEntries(group)?.some(isManagedPromptHook))) continue;
-        const keptGroups = matcherGroups.flatMap(group => {
-            const hookEntries = groupHookEntries(group);
-            if (!hookEntries?.some(isManagedPromptHook)) return [group];
-            const keptHooks = hookEntries.filter(hook => !isManagedPromptHook(hook));
-            return keptHooks.length > 0 ? [{ ...group, hooks: keptHooks }] : [];
-        });
+        const { keptGroups, removedCount } = retainedMatcherGroups(matcherGroups, isManagedPromptHook);
+        if (removedCount === 0) continue;
         if (keptGroups.length === 0) {
             delete settings.hooks[eventType];
             continue;
@@ -1602,8 +1597,8 @@ function startEventFromHookGroupList(settings, eventType) {
  * runner) from each event's existing matcher groups before appending the freshly
  * rewritten copies so repeated merges stay idempotent and a managed hook moved to
  * a new matcher group does not double-run. A config that ships managed prompt
- * hooks also clears them from event types it no longer lists. User-authored hooks are preserved as
- * entries, but residual $HOME / ${HOME} / ~/ tokens in every hook and statusLine
+ * hooks also clears them from event types it no longer lists. User-authored
+ * hooks are preserved as entries, but residual $HOME / ${HOME} / ~/ tokens in every hook and statusLine
  * command are expanded to absolute home paths so hosts that require referenced
  * env vars at load time (a third-party host on Windows) can execute them.
  *
@@ -1882,7 +1877,8 @@ function commandReferencesRetiredHook(commandString, retiredHookRelativePaths, o
 
 /**
  * Keep the matcher groups of one event, dropping each hook a predicate names and
- * each group the drop leaves empty.
+ * each group the drop leaves empty. A group the predicate removes nothing from is
+ * handed back as it was.
  *
  * Every settings walk shares this pass, so a settings.json a person or another
  * tool wrote meets one set of shape rules. A group carrying no hooks array is
@@ -1903,6 +1899,10 @@ function retainedMatcherGroups(matcherGroups, shouldRemoveHook) {
             continue;
         }
         const keptHooks = hookEntries.filter(hook => !shouldRemoveHook(hook));
+        if (keptHooks.length === hookEntries.length) {
+            keptGroups.push(group);
+            continue;
+        }
         removedCount += hookEntries.length - keptHooks.length;
         if (keptHooks.length > 0) keptGroups.push({ ...group, hooks: keptHooks });
     }
