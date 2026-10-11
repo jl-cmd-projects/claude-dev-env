@@ -41,6 +41,7 @@ WIDGET_CODE_KEY = "widget_code"
 WIDGET_INPUT_KEY = "input"
 FLOWCHART_SVG_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
 FLOWCHART_ARROW_PATTERN = re.compile(r"marker-end", re.IGNORECASE)
+FLOWCHART_MARKER_BLOCK_PATTERN = re.compile(r"<marker\b.*?</marker>", re.IGNORECASE | re.DOTALL)
 FLOWCHART_DIAMOND_PATTERN = re.compile(
     r"<polygon\b|<path\b[^>]*\bd=[\"']M[^\"']*L[^\"']*L[^\"']*L[^\"']*Z[\"']", re.IGNORECASE
 )

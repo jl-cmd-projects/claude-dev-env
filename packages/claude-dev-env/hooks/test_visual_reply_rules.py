@@ -8,6 +8,7 @@ _hooks_directory = str(Path(__file__).resolve().parent)
 if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
+from hooks_constants.visual_reply_rules_constants import RULES_FILE_PATH
 from visual_reply_rules import (
     abbreviation_violation,
     load_rules,
@@ -183,7 +184,26 @@ def test_widget_flowchart_advice_should_advise_on_cards_and_shapes_without_a_dec
     assert rules is not None
     card_input = {"widget_code": "<div class='card'>Merged</div>"}
     no_diamond_input = {"widget_code": '<svg><path marker-end="url(#a)"/></svg>'}
-    for each_input in (card_input, no_diamond_input):
+    arrowhead_only_input = {
+        "widget_code": '<svg><marker id="a"><polygon points="0 0,9 5,0 9"/></marker>'
+        '<rect/><path marker-end="url(#a)"/></svg>'
+    }
+    for each_input in (card_input, no_diamond_input, arrowhead_only_input):
         reason = widget_flowchart_advice("mcp__hearthbot__post_widget", each_input, rules)
         assert reason is not None and "diamond" in reason
     assert widget_flowchart_advice("mcp__hearthbot__reply", card_input, rules) is None
+
+
+def test_widget_flowchart_advice_should_stay_quiet_when_the_rule_list_has_no_flowchart_rule(
+    tmp_path: Path,
+) -> None:
+    shipped_document = json.loads(RULES_FILE_PATH.read_text(encoding="utf-8"))
+    shipped_document["rules"] = [
+        each for each in shipped_document["rules"] if each["key"] != "not_flowchart"
+    ]
+    rules_path = tmp_path / "rules.json"
+    rules_path.write_text(json.dumps(shipped_document), encoding="utf-8")
+    rules = load_rules(rules_path)
+    assert rules is not None
+    card_input = {"widget_code": "<div class='card'>Merged</div>"}
+    assert widget_flowchart_advice("mcp__hearthbot__post_widget", card_input, rules) is None
