@@ -72,9 +72,22 @@ test('should keep each shipped prompt hook once, under its own event and matcher
     mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
     mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
 
-    const placement = eachEntry => `${eachEntry.eventName} ${eachEntry.matcher} ${eachEntry.hook.statusMessage}`;
-    assert.deepEqual(
-        promptHookEntries(settings).map(placement),
-        promptHookEntries(SHIPPED_HOOKS_CONFIG).map(placement),
-    );
+    assert.deepEqual(promptHookEntries(settings), promptHookEntries(SHIPPED_HOOKS_CONFIG));
+});
+
+test('should drop a managed prompt hook left under a matcher the shipped config no longer lists', () => {
+    const staleMatcher = 'mcp__hearthbot__retired';
+    const settings = {
+        hooks: {
+            PreToolUse: [{
+                matcher: staleMatcher,
+                hooks: [{ type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS }, USER_PROMPT_HOOK],
+            }],
+        },
+    };
+
+    mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
+
+    const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
+    assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
 });
