@@ -85,9 +85,9 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
             ADDITIONAL_CONTEXT_KEY: POINTER_TEXT_TEMPLATE.format(
-                status_flowchart_path=STATUS_FLOWCHART_TEMPLATE_PATH,
-                html_plan_path=HTML_PLAN_TEMPLATE_README_PATH,
-                artifact_template_path=ARTIFACT_TEMPLATE_PATH,
+                path_of_status_flowchart=STATUS_FLOWCHART_TEMPLATE_PATH,
+                path_of_plan_readme=HTML_PLAN_TEMPLATE_README_PATH,
+                path_of_page_readme=ARTIFACT_TEMPLATE_PATH,
             ),
         }
     }
