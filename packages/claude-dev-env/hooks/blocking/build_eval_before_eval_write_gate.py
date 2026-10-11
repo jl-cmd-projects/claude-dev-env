@@ -17,7 +17,8 @@ from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_FILE_PATH_FIELDS,
     ALL_FILE_WRITE_TOOL_NAMES,
     ALL_SHELL_WRITE_TARGET_PATTERNS,
-    BASH_TOOL_NAME,
+    ALL_SHELL_TOOL_NAMES,
+    CHANGE_DIRECTORY_PATTERN,
     COMMAND_FIELD,
     EVAL_FILE_NAME_WORD_PATTERN,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
@@ -64,11 +65,14 @@ def is_eval_path(path: str) -> bool:
 
 
 def shell_write_targets(command: str) -> list[str]:
-    """Return the files a shell command writes through a redirect, tee, or sed -i.
+    """Return the files a shell command writes through a redirect, tee, sed -i, or a PowerShell content cmdlet.
+
+    A relative target also counts under each directory the command changes into.
 
     ::
 
         echo [] > evals/cases.json            -> ["evals/cases.json"]
+        cd evals && echo [] > cases.json      -> ["cases.json", "evals/cases.json"]
         cat a | tee -a log.txt evals/x.json   -> ["log.txt", "evals/x.json"]
         sed -i 's/a/b/' evals/x.json          -> ["evals/x.json"]
         cat evals/cases.json                  -> []
@@ -84,7 +88,12 @@ def shell_write_targets(command: str) -> list[str]:
                 for each_word in each_match.group(1).split()
                 if not each_word.startswith(OPTION_PREFIX)
             )
-    return all_targets
+    all_directories = [each.strip("'\"") for each in re.findall(CHANGE_DIRECTORY_PATTERN, command)]
+    return all_targets + [
+        posixpath.join(each_directory, each_target)
+        for each_directory in all_directories
+        for each_target in all_targets
+    ]
 
 
 def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
@@ -92,7 +101,7 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
     tool_input = all_payload_fields.get("tool_input")
     if not isinstance(tool_input, dict):
         return []
-    if tool_name == BASH_TOOL_NAME:
+    if tool_name in ALL_SHELL_TOOL_NAMES:
         command = tool_input.get(COMMAND_FIELD)
         return shell_write_targets(command) if isinstance(command, str) else []
     if tool_name not in ALL_FILE_WRITE_TOOL_NAMES:

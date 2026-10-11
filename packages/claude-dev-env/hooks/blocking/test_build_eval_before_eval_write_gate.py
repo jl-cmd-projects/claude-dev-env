@@ -109,7 +109,7 @@ def test_shell_write_targets_should_name_redirect_tee_and_sed_targets() -> None:
     assert gate.shell_write_targets("echo [] >> evals/cases.json") == ["evals/cases.json"]
     assert gate.shell_write_targets("cat a | tee -a log.txt evals/x.json") == ["log.txt", "evals/x.json"]
     assert gate.shell_write_targets("sed -i 's/a/b/' evals/x.json") == ["evals/x.json"]
-    assert gate.shell_write_targets("cat evals/cases.json 2>/dev/null") == []
+    assert gate.shell_write_targets("cat evals/cases.json 2>/dev/null") == ["/dev/null"]
 
 
 def test_eval_paths_should_be_recognized() -> None:
@@ -168,3 +168,22 @@ def test_script_should_print_a_deny_for_an_eval_write(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0
     assert json.loads(completed.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_shell_write_targets_should_name_numbered_clobber_and_cmdlet_targets() -> None:
+    assert gate.shell_write_targets("run 2> evals/a.json") == ["evals/a.json"]
+    assert gate.shell_write_targets("run &> evals/a.json") == ["evals/a.json"]
+    assert gate.shell_write_targets("echo [] >| evals/a.json") == ["evals/a.json"]
+    assert gate.shell_write_targets("run 2>&1") == []
+    assert gate.shell_write_targets("Set-Content -Path evals\\a.json -Value 1") == ["evals\\a.json"]
+
+
+def test_cd_into_an_eval_directory_then_redirect_should_be_denied(tmp_path: Path) -> None:
+    payload = _bash_payload("cd evals && echo [] > cases.json", _transcript(tmp_path, build_eval=False))
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+def test_powershell_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) -> None:
+    payload = _bash_payload("'[]' > evals\\cases.json", _transcript(tmp_path, build_eval=False))
+    payload["tool_name"] = "PowerShell"
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
