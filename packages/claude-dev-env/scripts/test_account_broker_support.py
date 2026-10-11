@@ -46,15 +46,20 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
 
 
 @pytest.mark.parametrize(
-    ("account", "expected_profile"),
+    ("home_parts", "is_main", "expected_profile"),
     [
-        (Account(Product.CLAUDE, "C:\\bin\\Claude-Editor.cmd", Path("/one"), command="C:\\bin\\Claude-Editor.cmd"), "editor"),
-        (Account(Product.CLAUDE, "C:\\bin\\claude-main.cmd", Path("/two"), command="C:\\bin\\claude-main.cmd"), "C:\\bin\\claude-main.cmd"),
-        (Account(Product.CLAUDE, "main", Path("/main"), True, "claude"), "main"),
-        (Account(Product.CLAUDE, "work", Path("/work"), command="work"), "work"),
+        (("profiles", "Editor"), False, "Editor"),
+        (("elsewhere", "editor"), False, None),
+        (("profiles", "main"), False, None),
+        ((".claude",), True, None),
     ],
 )
-def test_should_name_the_launcher_profile_of_an_account(account: Account, expected_profile: str) -> None:
+def test_should_name_the_profile_whose_home_an_account_uses(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, home_parts: tuple[str, ...], is_main: bool, expected_profile: str | None
+) -> None:
+    monkeypatch.setattr(support, "default_profile_home", lambda name: tmp_path / "profiles" / support.validate_profile_name(name))
+    account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", tmp_path.joinpath(*home_parts), is_main, "C:\\bin\\claude-editor.cmd")
+
     assert support.profile_name(account) == expected_profile
 
 

@@ -122,6 +122,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     return [
         {
             "name": each_reading.account.name,
+            "profile": support.profile_name(each_reading.account),
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
             "priority": each_reading.account.priority,
@@ -395,7 +396,7 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
 
 def _accounts_cli(product: Product) -> int:
     roster = all_product_adapters[product].load_accounts()
-    print(json.dumps({"accounts": [{"name": each_account.name, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
+    print(json.dumps({"accounts": [{"name": each_account.name, "profile": support.profile_name(each_account), "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
     return 0
 
 

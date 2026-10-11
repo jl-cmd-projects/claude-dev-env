@@ -441,7 +441,7 @@ def test_should_print_decision_and_meters_for_choose(
     assert account_broker.main(("choose", "--product", "codex")) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["decision"]["account"] == "roomy"
-    assert payload["decision"]["profile"] == "roomy"
+    assert payload["decision"]["profile"] is None
     assert payload["accounts"][0]["meters"]["session_percent_left"] == 80
     assert payload["state_path"].endswith("state.json")
 
@@ -782,7 +782,7 @@ def test_should_list_accounts_without_reading_meters(
 
     assert account_broker.main(("accounts", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out) == {
-        "accounts": [{"name": "listed", "home": str(account.home), "is_main": False}]
+        "accounts": [{"name": "listed", "profile": None, "home": str(account.home), "is_main": False}]
     }
 
 
@@ -1128,7 +1128,7 @@ def test_should_serialize_a_run_and_a_wait_decision() -> None:
     run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
     wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
 
-    assert run_payload == {"action": "run", "account": "first", "profile": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
+    assert run_payload == {"action": "run", "account": "first", "profile": None, "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
     assert wait_payload == {"action": "wait", "account": None, "profile": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
 
 
@@ -1244,7 +1244,7 @@ def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
     assert account_broker.decision_payload(decision) == {
         "action": "run",
         "account": "codex-2",
-        "profile": "codex-2",
+        "profile": None,
         "home": str(Path("/profiles") / "codex-2"),
         "reason": "most room",
         "tier": "normal",

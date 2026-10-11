@@ -169,29 +169,29 @@ def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequenc
     return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
 
 
-def profile_name(account: Account) -> str:
-    """Name the launcher profile a Claude chain account runs as.
+def profile_name(account: Account) -> str | None:
+    """Name the launcher profile whose home a Claude account uses.
 
-    A chain account keeps its launcher command as its name. Its profile is the
-    command's file name in lowercase without the launcher prefix::
+    A profile's home sits under the profiles root, so the home's folder name
+    is the profile name::
 
-        C:\\Users\\name\\.local\\bin\\Claude-Editor.cmd -> editor
+        home ~/.claude-profiles/Editor -> Editor, launched by claude-Editor.cmd
 
     Args:
         account: A roster account.
 
     Returns:
-        The profile name from the command, or the account name for the main
-        account, a Codex account, or a command that names no valid profile.
+        The profile name, or None for the main account, a Codex account, or a
+        home outside the profiles root.
     """
-    if account.is_main or account.product is not Product.CLAUDE or not account.command:
-        return account.name
-    launcher_prefix = CLAUDE_LAUNCHER_PROGRAM.file_name_template.partition("{")[0].casefold()
-    candidate = PureWindowsPath(account.command).stem.casefold().removeprefix(launcher_prefix)
+    if account.is_main or account.product is not Product.CLAUDE:
+        return None
+    candidate = account.home.name
     try:
-        return validate_profile_name(candidate)
+        profile_home = default_profile_home(candidate).resolve()
     except ValueError:
-        return account.name
+        return None
+    return candidate if profile_home == account.home.resolve() else None
 
 
 def load_claude_accounts() -> tuple[Account, ...]:
