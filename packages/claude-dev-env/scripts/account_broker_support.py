@@ -105,7 +105,12 @@ def _chain_entry(raw_entry: object, main_home: Path, chain_path: Path) -> Accoun
     if not isinstance(extra_args, list) or any(not isinstance(each_arg, str) for each_arg in extra_args):
         raise BrokerConfigurationError(f"invalid account list {chain_path}")
     home = Path(credential).expanduser().parent.resolve() if credential else main_home
-    return Account(Product.CLAUDE, command, home, command=command)
+    return Account(Product.CLAUDE, _chain_account_name(command), home, command=command)
+
+
+def _chain_account_name(command: str) -> str:
+    launcher_prefix, _, _ = CLAUDE_LAUNCHER_PROGRAM.file_name_template.partition("{")
+    return PureWindowsPath(command).stem.removeprefix(launcher_prefix)
 
 
 def _chain_entries(chain_path: Path, main_home: Path) -> tuple[Account, ...]:

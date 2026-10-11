@@ -36,6 +36,26 @@ def test_should_load_claude_roster_from_both_lists(
     assert accounts[1].home == (tmp_path / "alternate").resolve()
 
 
+def test_should_name_a_chain_account_by_its_launcher_account_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    launcher = "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd"
+    (main_home / "claude-chain.json").write_text(
+        json.dumps({"chain": [{"command": launcher, "credentials_path": str(tmp_path / "editor" / ".credentials.json")}]}),
+        encoding="utf-8",
+    )
+    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.name for each_account in accounts] == ["main", "editor", "extra"]
+    assert accounts[1].command == launcher
+
+
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
