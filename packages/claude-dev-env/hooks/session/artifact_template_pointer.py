@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PreToolUse hook: route an agent about to build an artifact page by scope.
 
-Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
+Registered on ``Artifact|Skill``. It adds one paragraph of ``additionalContext``
 when a session starts a new artifact page. A status or progress report
 prefers the status flowchart from
 ``docs/templates/artifact-page/status-flowchart.html``, unless the person asks
