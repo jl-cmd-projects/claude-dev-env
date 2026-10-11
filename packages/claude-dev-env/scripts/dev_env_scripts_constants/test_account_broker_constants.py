@@ -9,6 +9,7 @@ import shutil
 import sys
 import types
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,6 @@ from dev_env_scripts_constants.codex_account_constants import (
     LUNA_TIER_STOP_PERCENT_LEFT,
     NORMAL_TIER_MINIMUM_PERCENT_LEFT,
 )
-from directory_link_test_support import create_directory_link
 
 TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
 
@@ -115,7 +115,9 @@ def test_parse_utc_time_converts_an_offset_timestamp() -> None:
     assert parsed.isoformat() == "2026-10-03T11:30:00+00:00"
 
 
-def _build_install_layout(home: Path) -> tuple[Path, Path]:
+def _build_install_layout(
+    home: Path, create_directory_link: Callable[..., None]
+) -> tuple[Path, Path]:
     agents_constants_directory = (
         home / ".agents" / "scripts" / "dev_env_scripts_constants"
     )
@@ -163,10 +165,10 @@ def _load_module_from(
 
 @pytest.mark.parametrize("entry_point", ("through_scripts_link", "through_agents_path"))
 def test_codex_usage_limit_signatures_finds_shared_tree_beside_the_scripts_link(
-    entry_point: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    entry_point: str, tmp_path: Path, create_directory_link: Callable[..., None], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
-    linked_module, agents_module = _build_install_layout(tmp_path / "home")
+    linked_module, agents_module = _build_install_layout(tmp_path / "home", create_directory_link)
     module_file = (
         linked_module if entry_point == "through_scripts_link" else agents_module
     )

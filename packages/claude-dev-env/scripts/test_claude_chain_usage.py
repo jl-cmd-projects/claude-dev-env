@@ -6,13 +6,13 @@ import subprocess
 import sys
 import urllib.error
 from datetime import datetime, timezone
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 import claude_chain_usage as usage
 from dev_env_scripts_constants.claude_chain_usage_constants import RESOLVE_USAGE_WINDOW_MODULE_NAME
-from directory_link_test_support import create_directory_link
 
 
 def test_probe_reads_both_meters_and_resets(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,7 +104,7 @@ def test_probe_rejects_missing_access_token_for_another_account(
         usage.probe_account_meters(Path("home") / ".claude-profiles" / "ev" / ".credentials.json")
 
 
-def test_scripts_directory_follows_the_installed_scripts_link(tmp_path: Path) -> None:
+def test_scripts_directory_follows_the_installed_scripts_link(tmp_path: Path, create_directory_link: Callable[..., None]) -> None:
     home = tmp_path.resolve()
     (home / ".agents" / "scripts").mkdir(parents=True)
     (home / ".claude").mkdir()

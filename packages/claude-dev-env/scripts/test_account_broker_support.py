@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,7 +16,6 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
-from directory_link_test_support import create_directory_link
 
 
 def test_should_load_claude_roster_from_both_lists(
@@ -83,7 +83,7 @@ def test_should_name_a_chain_account_profile_from_its_home(monkeypatch: pytest.M
     [(("claude-profiles-link-target", "target"), None), ((".claude-profiles", "target"), "target")],
 )
 def test_should_name_an_extra_account_profile_from_its_resolved_home(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target_parts: tuple[str, str], expected_profile: str | None
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, create_directory_link: Callable[..., None], target_parts: tuple[str, str], expected_profile: str | None
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)

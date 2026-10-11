@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -18,10 +19,11 @@ from dev_env_scripts_constants.shared_tree_constants import (
     ADVISOR_DIRECTORY_NAME,
     TIER_MODEL_IDS_MODULE_FILENAME,
 )
-from directory_link_test_support import create_directory_link
 
 
-def _build_junction_scripts_layout(tmp_path: Path) -> Path:
+def _build_junction_scripts_layout(
+    tmp_path: Path, create_directory_link: Callable[..., None]
+) -> Path:
     linked_scripts_directory = tmp_path / "target" / SCRIPTS_DIRECTORY_NAME
     linked_scripts_directory.mkdir(parents=True)
     (linked_scripts_directory / "runner.py").write_text("", encoding="utf-8")
@@ -49,9 +51,9 @@ def _write_process_tree_kill_stub(from_root: Path) -> Path:
 
 
 def test_junction_scripts_dir_finds_shared_tree_on_unresolved_parent(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "root")
     resolved_scripts_directory = (
         shared_tree_paths.resolve_shared_process_tree_scripts_directory(
@@ -62,9 +64,9 @@ def test_junction_scripts_dir_finds_shared_tree_on_unresolved_parent(
 
 
 def test_resolved_parent_is_used_when_link_side_has_no_shared_tree(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "target")
     resolved_scripts_directory = (
         shared_tree_paths.resolve_shared_process_tree_scripts_directory(
@@ -75,9 +77,9 @@ def test_resolved_parent_is_used_when_link_side_has_no_shared_tree(
 
 
 def test_configured_root_is_used_when_neither_parent_holds_the_module(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     configured_root = tmp_path / "configured"
     expected_scripts_directory = _write_process_tree_kill_stub(configured_root)
     resolved_scripts_directory = (
@@ -92,9 +94,9 @@ def test_configured_root_is_used_when_neither_parent_holds_the_module(
 
 
 def test_unresolved_parent_wins_when_configured_root_also_holds_the_module(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "root")
     configured_root = tmp_path / "configured"
     _write_process_tree_kill_stub(configured_root)
@@ -109,8 +111,8 @@ def test_unresolved_parent_wins_when_configured_root_also_holds_the_module(
     assert resolved_scripts_directory == expected_scripts_directory
 
 
-def test_missing_module_returns_unresolved_candidate(tmp_path: Path) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+def test_missing_module_returns_unresolved_candidate(tmp_path: Path, create_directory_link: Callable[..., None]) -> None:
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = (
         tmp_path
         / "root"
@@ -130,9 +132,9 @@ def test_missing_module_returns_unresolved_candidate(tmp_path: Path) -> None:
 
 
 def test_junction_scripts_dir_finds_advisor_scripts_on_unresolved_parent(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = (
         tmp_path
         / "root"
@@ -184,7 +186,7 @@ def test_generalized_resolver_serves_a_deeper_anchor(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("managed_name", (".claude", "profile-a"))
 def test_resolved_agents_scripts_find_the_verified_managed_root(
-    tmp_path: Path, managed_name: str,
+    tmp_path: Path, create_directory_link: Callable[..., None], managed_name: str,
 ) -> None:
     agents_name = ".agents" if managed_name == ".claude" else f"{managed_name}.agents"
     agents_root = tmp_path / agents_name

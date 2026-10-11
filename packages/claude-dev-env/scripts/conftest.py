@@ -18,7 +18,9 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
+import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -52,3 +54,27 @@ def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         if getattr(each_module, "broker_state_path", None) is _live_broker_state_resolver:
             monkeypatch.setattr(each_module, "broker_state_path", lambda: isolated_path)
     return isolated_path
+
+
+def _link_directory(*, from_link: Path, to_target: Path) -> None:
+    if sys.platform.startswith("win32"):
+        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
+        return
+    try:
+        os.symlink(to_target, from_link, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlink creation is not available")
+
+
+@pytest.fixture
+def create_directory_link() -> Callable[..., None]:
+    """Return a helper that points a new directory link at a target folder.
+
+    Windows gets a junction, which needs no extra rights, so a failure there
+    fails the test. Other systems get a symlink, and a host that refuses it
+    skips the test.
+
+    Returns:
+        The helper, called as ``create_directory_link(from_link=..., to_target=...)``.
+    """
+    return _link_directory
