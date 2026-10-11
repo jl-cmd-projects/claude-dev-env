@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -285,6 +285,45 @@ def test_should_cache_account_reading_under_injected_state_path(
     assert support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0].meters is not None
     assert seen == ["one"]
     assert support.broker_state_path().is_file()
+
+
+def _read_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, all_results: list[object], gap: timedelta) -> object:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    _recorded_sleeps(monkeypatch)
+    account = Account(Product.CLAUDE, "claude-editor.cmd", tmp_path)
+    pending = list(all_results)
+
+    def reader(_selected: Account) -> Meters:
+        result = pending.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    adapter = ProductAdapter(lambda: (account,), reader, "CLAUDE_CONFIG_DIR", ())
+    state = support._load_state(support.broker_state_path())
+    first_read_at = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first_read_at)
+    return support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first_read_at + gap)[0]
+
+
+def test_should_keep_the_last_good_meters_when_the_usage_endpoint_rate_limits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429: Too Many Requests")
+    reading = _read_twice(monkeypatch, tmp_path, [Meters(74.0, None, 81.0, None), *[rate_limited] * 3], timedelta(minutes=5))
+
+    assert reading.meters == Meters(74.0, None, 81.0, None)
+    assert reading.unread_reason is None
+
+
+def test_should_drop_last_good_meters_older_than_the_fallback_window(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429: Too Many Requests")
+    reading = _read_twice(monkeypatch, tmp_path, [Meters(74.0, None, 81.0, None), *[rate_limited] * 3], timedelta(hours=2))
+
+    assert reading.meters is None
+    assert reading.unread_reason == "usage probe failed: HTTP Error 429: Too Many Requests"
 
 
 def test_should_extract_session_id_and_restore_runner() -> None:

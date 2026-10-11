@@ -41,6 +41,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
+    LAST_GOOD_METER_MAX_AGE_SECONDS,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
     METER_READ_DELAY_FACTOR,
@@ -494,8 +495,25 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
         cached_reason = cached.get("unread_reason")
         return Reading(account, _meters_from_payload(cached.get("meters")), cached_reason if isinstance(cached_reason, str) else None), False
     meters, unread_reason = read_meters_with_backoff(adapter.read_meters, account)
-    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters), "unread_reason": unread_reason}
+    measured_at = now.timestamp()
+    last_good = _last_good_meters(cached, now)
+    if meters is None and last_good is not None:
+        meters, measured_at = last_good
+        unread_reason = None
+    all_cache[key] = {"read_at": now.timestamp(), "measured_at": measured_at, "meters": _meter_payload(meters), "unread_reason": unread_reason}
     return Reading(account, meters, unread_reason), True
+
+
+def _last_good_meters(cached: object, now: datetime) -> tuple[Meters, float] | None:
+    if not isinstance(cached, dict) or cached.get("unread_reason") is not None:
+        return None
+    measured_at = cached.get("measured_at", cached.get("read_at"))
+    meters = _meters_from_payload(cached.get("meters"))
+    if meters is None or not isinstance(measured_at, (int, float)):
+        return None
+    if not 0 <= now.timestamp() - measured_at <= LAST_GOOD_METER_MAX_AGE_SECONDS:
+        return None
+    return meters, measured_at
 
 
 def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None) -> tuple[Reading, ...]:
