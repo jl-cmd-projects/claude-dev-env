@@ -902,7 +902,7 @@ function countManagedRunAllValidatorsHooks(settings) {
     let runAllValidatorsCount = 0;
     for (const group of writeEditGroups) {
         for (const hook of group.hooks) {
-            if (hook.command.includes('run_all_validators')) {
+            if ((hook.command ?? '').includes('run_all_validators')) {
                 runAllValidatorsCount++;
             }
         }
@@ -1543,7 +1543,7 @@ test('mergeHooksIntoSettings is idempotent for the PostToolUse dispatcher across
     mergeHooksIntoSettings(settings, POST_DISPATCHER_HOOKS_CONFIG, 'C:/Users/x/.claude', 'py -3');
 
     const writeEditGroup = settings.hooks.PostToolUse.find(group => group.matcher === 'Write|Edit');
-    const dispatcherCommands = writeEditGroup.hooks.filter(hook => hook.command.includes('post_tool_use_dispatcher.py'));
+    const dispatcherCommands = writeEditGroup.hooks.filter(hook => (hook.command ?? '').includes('post_tool_use_dispatcher.py'));
     assert.equal(dispatcherCommands.length, 1, 'PostToolUse dispatcher must appear exactly once after two merges');
     assert.equal(writeEditGroup.hooks.length, 1);
 });
@@ -1598,7 +1598,7 @@ test('mergeHooksIntoSettings prunes the inline run_all_validators runner when th
 
     const writeEditGroup = (settings.hooks.PreToolUse || []).find(group => group.matcher === 'Write|Edit');
     if (writeEditGroup) {
-        const runnerSurvivors = writeEditGroup.hooks.filter(hook => hook.command.includes('run_all_validators'));
+        const runnerSurvivors = writeEditGroup.hooks.filter(hook => (hook.command ?? '').includes('run_all_validators'));
         assert.equal(runnerSurvivors.length, 0);
     }
 
