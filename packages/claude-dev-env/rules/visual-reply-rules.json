@@ -28,7 +28,7 @@
     {
       "key": "not_flowchart",
       "label": "No flowchart",
-      "reminder": "Jon prefers a flowchart here. Redraw this widget as one SVG flowchart that runs left to right, with boxes for steps, a diamond for each yes or no check, and arrows between them, unless the item has no steps or checks."
+      "reminder": "Redraw this widget as one SVG flowchart that runs left to right, with boxes for steps, a diamond for each yes or no check, and arrows between them, unless the item has no steps or checks."
     }
   ],
   "allowed_capitalized_words": [

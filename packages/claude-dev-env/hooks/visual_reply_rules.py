@@ -114,7 +114,12 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
         if isinstance(each, dict)
         and all(field in each for field in (RULE_KEY_FIELD, RULE_LABEL_FIELD, RULE_REMINDER_FIELD))
     )
-    all_needed_keys = {ONE_ITEM_RULE_KEY, NO_PICTURE_RULE_KEY, ABBREVIATIONS_RULE_KEY}
+    all_needed_keys = {
+        ONE_ITEM_RULE_KEY,
+        NO_PICTURE_RULE_KEY,
+        ABBREVIATIONS_RULE_KEY,
+        FLOWCHART_RULE_KEY,
+    }
     if not all_needed_keys <= {each.key for each in all_rules}:
         return None
     return VisualReplyRules(

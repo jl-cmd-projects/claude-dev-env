@@ -649,7 +649,7 @@ def test_should_allow_widget_code_with_no_anchor_and_advise_a_flowchart(
     exit_code = reply_length_gate.main()
     assert exit_code == 0
     advice_output = json.loads(capsys.readouterr().out)
-    assert "prefers a flowchart" in advice_output["hookSpecificOutput"]["additionalContext"]
+    assert "Redraw this widget as one SVG flowchart" in advice_output["hookSpecificOutput"]["additionalContext"]
 
 
 def test_should_skip_the_mode_checks_when_the_switch_turns_the_mode_off(
