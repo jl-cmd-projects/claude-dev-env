@@ -932,6 +932,26 @@ def test_should_mark_a_windows_launcher_path_account_spent(
     assert decision["account"] == "second"
 
 
+def test_should_mark_an_account_spent_by_its_profile(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
+    first = Account(Product.CODEX, launcher_name, Path("/profiles/first"), profile="first")
+    second = _account("second")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"first:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "second"
+
+
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

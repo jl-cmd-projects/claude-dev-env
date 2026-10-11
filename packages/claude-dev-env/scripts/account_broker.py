@@ -388,7 +388,8 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
 
 
 def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime, product: Product) -> None:
-    all_accounts_by_name = {each_reading.account.name: each_reading for each_reading in all_readings}
+    all_accounts_by_profile = {each_reading.account.profile: each_reading for each_reading in all_readings if each_reading.account.profile}
+    all_accounts_by_name = all_accounts_by_profile | {each_reading.account.name: each_reading for each_reading in all_readings}
     for each_mark in all_marks:
         reading, reset = _parse_spent_mark(all_accounts_by_name, each_mark, product)
         _mark_spent(all_state, reading, now, reset)

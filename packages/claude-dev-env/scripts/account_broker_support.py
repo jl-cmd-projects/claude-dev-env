@@ -105,7 +105,7 @@ def _chain_entry(raw_entry: object, main_home: Path, chain_path: Path) -> Accoun
     if not isinstance(extra_args, list) or any(not isinstance(each_arg, str) for each_arg in extra_args):
         raise BrokerConfigurationError(f"invalid account list {chain_path}")
     home = Path(credential).expanduser().parent.resolve() if credential else main_home
-    return Account(Product.CLAUDE, command, home, command=command)
+    return Account(Product.CLAUDE, command, home, command=command, profile=_home_profile(home))
 
 
 def _chain_entries(chain_path: Path, main_home: Path) -> tuple[Account, ...]:
@@ -177,13 +177,6 @@ def _home_profile(home: Path) -> str | None:
     return home.name if profile_home == home else None
 
 
-def _with_profiles(all_accounts: Sequence[Account]) -> list[Account]:
-    return [
-        each_account if each_account.is_main else dataclasses.replace(each_account, profile=_home_profile(each_account.home))
-        for each_account in all_accounts
-    ]
-
-
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account roster.
 
@@ -201,8 +194,9 @@ def load_claude_accounts() -> tuple[Account, ...]:
         _append_claude_account(all_accounts, all_seen, each_entry, main_home)
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
-        _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return _with_priorities(_with_profiles(all_accounts), _account_order(main_home))
+        extra_account = Account(Product.CLAUDE, home.name, home, command=home.name, profile=each_home.name)
+        _append_claude_account(all_accounts, all_seen, extra_account, main_home)
+    return _with_priorities(all_accounts, _account_order(main_home))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:

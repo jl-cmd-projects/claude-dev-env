@@ -45,20 +45,20 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     return main_home
 
 
-def test_should_name_a_chain_account_profile_from_its_home(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_should_name_a_chain_account_profile_from_its_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / support.validate_profile_name(name))
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
     main_home = tmp_path / ".claude"
     main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
     launcher = "C:\\bin\\claude-editor.cmd"
     (main_home / "claude-chain.json").write_text(
         json.dumps(
             {
                 "chain": [
-                    {"command": launcher, "credentials_path": str(tmp_path / "profiles" / "Editor" / ".credentials.json")},
+                    {"command": launcher, "credentials_path": str(profiles_root / "editor" / ".credentials.json")},
                     {"command": "C:\\bin\\other.cmd", "credentials_path": str(tmp_path / "elsewhere" / ".credentials.json")},
+                    {"command": "C:\\bin\\reserved.cmd", "credentials_path": str(profiles_root / "main" / ".credentials.json")},
                 ]
             }
         ),
@@ -70,8 +70,9 @@ def test_should_name_a_chain_account_profile_from_its_home(
 
     assert [(each_account.name, each_account.profile) for each_account in accounts] == [
         ("main", None),
-        (launcher, "Editor"),
+        (launcher, "editor"),
         ("C:\\bin\\other.cmd", None),
+        ("C:\\bin\\reserved.cmd", None),
         ("extra", "extra"),
     ]
 
