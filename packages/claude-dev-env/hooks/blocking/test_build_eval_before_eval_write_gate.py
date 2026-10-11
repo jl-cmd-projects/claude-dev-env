@@ -97,6 +97,23 @@ def test_eval_paths_should_be_recognized() -> None:
     assert gate.is_eval_path("tools/search-evals.md")
 
 
+def test_notebook_edit_of_an_eval_notebook_should_be_denied(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "NotebookEdit",
+        "tool_input": {"notebook_path": "/repo/evals/grading.ipynb", "new_source": "x = 1"},
+        "transcript_path": str(_transcript(tmp_path, build_eval=False)),
+    }
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+def test_gate_source_files_should_not_be_recognized() -> None:
+    assert not gate.is_eval_path("hooks/blocking/build_eval_before_eval_write_gate.py")
+    assert not gate.is_eval_path("hooks/blocking/test_build_eval_before_eval_write_gate.py")
+    assert not gate.is_eval_path(
+        "hooks/hooks_constants/build_eval_before_eval_write_gate_constants.py"
+    )
+
+
 def test_non_eval_paths_should_not_be_recognized() -> None:
     assert not gate.is_eval_path("src/evaluate_score.py")
     assert not gate.is_eval_path("src/retrieval.py")

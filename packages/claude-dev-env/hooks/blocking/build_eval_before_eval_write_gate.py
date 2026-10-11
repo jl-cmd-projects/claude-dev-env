@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -18,7 +17,6 @@ from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_FILE_WRITE_TOOL_NAMES,
     EVAL_FILE_NAME_WORD_PATTERN,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
-    PATH_SEPARATOR_PATTERN,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
@@ -27,9 +25,10 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pr_lifecycle_skill_gate_constants import (
     DENY_DECISION,
     HOOK_EVENT_NAME,
+    PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_REASON_KEY,
 )
-from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 
 
 def is_eval_path(path: str) -> bool:
@@ -41,6 +40,8 @@ def is_eval_path(path: str) -> bool:
         .claude/hillclimb/feature/run.py     -> True
         tools/eval_runner.py                 -> True
         tests/test_search.eval.json          -> True
+        tools/search-evals.md                -> True
+        build_eval_before_eval_write_gate.py -> False
         src/evaluate_score.py                -> False
         src/retrieval.py                     -> False
 
@@ -97,11 +98,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
 
 def main() -> int:
     """Read one payload, print a deny when needed, and exit zero."""
-    payload = read_hook_input_dictionary_from_stdin()
-    decision = None if payload is None else decision_for(payload)
-    if decision is not None:
-        sys.stdout.write(json.dumps(decision) + "\n")
-    return 0
+    return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

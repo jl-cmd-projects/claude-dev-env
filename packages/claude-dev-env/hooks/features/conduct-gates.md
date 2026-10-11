@@ -55,6 +55,7 @@ Preconditions:
 - The reply gate counts each nonempty list line as a sentence. Link targets and code spans add no words. Its banned words come from `reply-banned-words.json` in the Claude home, or the file `CLAUDE_REPLY_BANNED_WORDS_PATH` names, with built-in defaults.
 - The edit marker gate scans replacement cards as well as the message text.
 - The handoff close gate reads the `body` and `comment` fields of issue tools only. A `gh issue close --comment` command in Bash and a pull request body that closes the issue with `Closes #N` do not reach it.
+- The eval write gate reads only Write, Edit, MultiEdit and NotebookEdit calls. A Bash redirect, `sed -i`, `tee`, or an `apply_patch` call writes an eval file without reaching it. A missing or unreadable transcript allows the write.
 - The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
 - The dark mode gate denies a page publish when Node, Playwright or Chromium is missing, and its reason names the install command. It checks both dark signals, `prefers-color-scheme: dark` and `data-theme="dark"` on the root element.
 - The clean-review gate trusts the receipt. A receipt the agent writes by hand with zero findings passes, so the pr-lifecycle skill names the review loop that writes it. A `gh pr merge` that names no repository is denied, because the gate cannot tell which repository the current branch belongs to.
