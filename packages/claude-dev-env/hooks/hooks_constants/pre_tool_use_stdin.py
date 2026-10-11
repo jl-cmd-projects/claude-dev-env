@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 
 from hooks_constants.setup_project_paths_constants import (
     DECODE_ERRORS_POLICY,
@@ -46,3 +47,22 @@ def read_hook_input_dictionary_from_stdin() -> dict[str, object] | None:
     if not isinstance(parsed_payload, dict):
         return None
     return parsed_payload
+
+
+def print_decision_from_stdin(
+    decision_for: Callable[[dict[str, object]], dict[str, object] | None],
+) -> int:
+    """Read one payload, print the decision the gate returns, and return zero.
+
+    Args:
+        decision_for: The gate's function from a payload to its hook output, or None.
+
+    Returns:
+        Zero, so the hook never fails the tool call on its own.
+    """
+    payload = read_hook_input_dictionary_from_stdin()
+    if payload is not None:
+        decision = decision_for(payload)
+        if decision is not None:
+            sys.stdout.write(json.dumps(decision) + "\n")
+    return 0

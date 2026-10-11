@@ -78,3 +78,20 @@ def test_read_returns_none_when_buffer_and_text_read_raise_attribute_error() -> 
 
     with patch("sys.stdin", BrokenStandardInput()):
         assert read_hook_input_dictionary_from_stdin() is None
+
+
+def test_print_decision_from_stdin_writes_the_gate_output() -> None:
+    output = io.StringIO()
+    with patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')), patch("sys.stdout", output):
+        exit_code = pre_tool_use_stdin.print_decision_from_stdin(
+            lambda payload: {"seen": payload["tool_name"]}
+        )
+    assert exit_code == 0
+    assert json.loads(output.getvalue()) == {"seen": "Bash"}
+
+
+def test_print_decision_from_stdin_writes_nothing_on_allow() -> None:
+    output = io.StringIO()
+    with patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')), patch("sys.stdout", output):
+        assert pre_tool_use_stdin.print_decision_from_stdin(lambda payload: None) == 0
+    assert output.getvalue() == ""
