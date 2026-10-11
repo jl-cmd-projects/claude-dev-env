@@ -156,7 +156,7 @@ def _account_order(main_home: Path) -> tuple[str, ...]:
 
 def _order_names(account: Account) -> frozenset[str]:
     launcher_name = Path(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=account.name)).stem
-    all_candidates = (account.name, account.command, launcher_name, account.profile)
+    all_candidates = (account.name, account.command, launcher_name)
     all_launcher_stems = tuple(PureWindowsPath(each_name).stem for each_name in all_candidates if each_name)
     return frozenset(each_name.casefold() for each_name in (*all_candidates, *all_launcher_stems) if each_name)
 

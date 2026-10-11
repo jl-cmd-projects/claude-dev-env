@@ -45,7 +45,7 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     return main_home
 
 
-def test_should_name_and_order_a_chain_account_by_the_profile_of_its_home(
+def test_should_name_a_chain_account_profile_from_its_home(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -65,7 +65,6 @@ def test_should_name_and_order_a_chain_account_by_the_profile_of_its_home(
         encoding="utf-8",
     )
     (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
-    (main_home / "claude-account-order.json").write_text('["Editor"]', encoding="utf-8")
 
     accounts = support.load_claude_accounts()
 
@@ -75,7 +74,6 @@ def test_should_name_and_order_a_chain_account_by_the_profile_of_its_home(
         ("C:\\bin\\other.cmd", None),
         ("extra", "extra"),
     ]
-    assert accounts[1].priority == 0
 
 
 def test_should_leave_claude_priorities_unset_without_an_order_file(
