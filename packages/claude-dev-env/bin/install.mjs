@@ -1540,8 +1540,8 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
  *
  * A prompt hook names no script, so the retired-script prune never reaches one
  * the package stopped shipping. The merge clears them all first and writes back
- * the ones the current hooks.json ships. An event type with no managed prompt
- * hook is left as it was, and one the prune leaves with no groups is dropped.
+ * the ones the current hooks.json ships. Only a group that held a managed prompt
+ * hook changes, and an event type the prune leaves with no groups is dropped.
  *
  * @param {object} settings The parsed settings.json object (mutated in place).
  * @returns {void}
@@ -1549,8 +1549,13 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
 function pruneManagedPromptHooksFromEveryEvent(settings) {
     for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
         if (!Array.isArray(matcherGroups)) continue;
-        const { keptGroups, removedCount } = retainedMatcherGroups(matcherGroups, isManagedPromptHook);
-        if (removedCount === 0) continue;
+        if (!matcherGroups.some(group => groupHookEntries(group)?.some(isManagedPromptHook))) continue;
+        const keptGroups = matcherGroups.flatMap(group => {
+            const hookEntries = groupHookEntries(group);
+            if (!hookEntries?.some(isManagedPromptHook)) return [group];
+            const keptHooks = hookEntries.filter(hook => !isManagedPromptHook(hook));
+            return keptHooks.length > 0 ? [{ ...group, hooks: keptHooks }] : [];
+        });
         if (keptGroups.length === 0) {
             delete settings.hooks[eventType];
             continue;

@@ -116,3 +116,12 @@ test('should leave empty user groups alone under an event with no managed prompt
     assert.deepEqual(settings.hooks.Stop, []);
     assert.deepEqual(settings.hooks.Notification, [{ matcher: '', hooks: [] }]);
 });
+
+test('should keep an empty user group beside a managed prompt hook it removes', () => {
+    const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
+    const settings = { hooks: { Stop: [{ matcher: 'x', hooks: [] }, { matcher: '', hooks: [oldJudge] }] } };
+
+    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
+
+    assert.deepEqual(settings.hooks.Stop, [{ matcher: 'x', hooks: [] }]);
+});
