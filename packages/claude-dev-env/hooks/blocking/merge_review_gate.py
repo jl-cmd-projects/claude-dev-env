@@ -8,7 +8,8 @@ names that exact head::
     merge, receipt at abc123, merge pinned to def456                 -> deny, review again
     merge, receipt at abc123, merge names no head                    -> deny, pin it
     merge, no receipt or the receipt counts findings                 -> deny, run the loop
-    auto-merge                                                        -> deny, merge pinned instead
+    auto-merge or enqueue pinned to the clean head                    -> allow
+    auto-merge that names no head                                     -> deny, pin it
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
 
 The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
@@ -256,11 +257,11 @@ def deny_reason(request: MergeRequest) -> str | None:
     if _is_exempt(request):
         return None
     fields = {"slug": request.slug, "number": request.number}
-    if request.is_auto_merge:
-        return AUTO_MERGE_REASON_TEMPLATE.format(**fields)
     clean_head = _clean_head(request)
     if clean_head is None:
         return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(review_command=_review_command(), **fields)
+    if request.pinned_head is None and request.is_auto_merge:
+        return AUTO_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
     if request.pinned_head is None:
         return UNPINNED_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
     if not _same_commit(clean_head, request.pinned_head):
