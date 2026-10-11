@@ -13,6 +13,7 @@ import artifact_template_pointer
 from hooks_constants.artifact_template_pointer_constants import (
     ARTIFACT_TEMPLATE_PATH,
     HTML_PLAN_TEMPLATE_README_PATH,
+    STATUS_FLOWCHART_TEMPLATE_PATH,
 )
 
 HOOK_SCRIPT = Path(__file__).resolve().parent / "artifact_template_pointer.py"
@@ -50,11 +51,27 @@ def test_pointer_routes_a_simple_visual_to_a_flowchart_ahead_of_html_plan() -> N
     )
     assert hook_output is not None
     pointer_text = hook_output["hookSpecificOutput"]["additionalContext"]
-    assert pointer_text.index("one flow or one comparison") < pointer_text.index("flowchart")
-    assert pointer_text.index("flowchart") < pointer_text.index("multi-part plan or evidence")
+    simple_visual_position = pointer_text.index("one flow or one comparison")
+    simple_flowchart_position = pointer_text.index("flowchart", simple_visual_position)
+    assert simple_flowchart_position < pointer_text.index("multi-part plan or evidence")
     assert pointer_text.index("multi-part plan or evidence") < pointer_text.index(
         str(HTML_PLAN_TEMPLATE_README_PATH)
     )
+
+
+def test_pointer_prefers_the_status_flowchart_for_a_status_visual_first() -> None:
+    hook_output = artifact_template_pointer.decide_hook_output(
+        _payload("Artifact", {"action": "quickstart", "intent": "other"})
+    )
+    assert hook_output is not None
+    pointer_text = hook_output["hookSpecificOutput"]["additionalContext"]
+    assert pointer_text.index("status or progress") < pointer_text.index(
+        str(STATUS_FLOWCHART_TEMPLATE_PATH)
+    )
+    assert pointer_text.index(str(STATUS_FLOWCHART_TEMPLATE_PATH)) < pointer_text.index(
+        "one flow or one comparison"
+    )
+    assert "another shape" in pointer_text
 
 
 def test_artifact_design_skill_gets_the_template_pointer() -> None:
