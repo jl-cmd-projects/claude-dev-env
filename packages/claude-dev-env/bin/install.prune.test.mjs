@@ -969,7 +969,7 @@ function allHookCommands(settings) {
     return Object.values(settings.hooks || {})
         .flat()
         .flatMap(group => group.hooks || [])
-        .map(hook => hook.command);
+        .map(hook => hook.command ?? '');
 }
 
 /**

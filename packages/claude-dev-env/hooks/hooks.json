@@ -133,6 +133,17 @@
         ]
       },
       {
+        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You check one chat message before it posts. The hook input JSON is: $ARGUMENTS\n\nRead the message prose in tool_input: the text, body, question, context, and option fields. Find each sentence that states as fact how code, a file, a tool, a service, a run, or a process behaves, what state it is in, or why something happened. Such a sentence passes only when it carries its own evidence: inline code that quotes output or a code line, a file:line reference, or a URL or markdown link to the run, file, or page that shows it. A sentence passes with no evidence when its subject is the author (I, we) reporting what they did, are doing, or will do, or when it describes a change the author made, asks a question, gives an instruction, or labels the claim as not yet checked. A sentence whose subject is code, a file, a tool, a service, a run, or a process is a claim and needs evidence. Evidence in a different sentence or in a command block does not count.\n\nWhen every sentence passes, return {\"ok\": true}. Otherwise return {\"ok\": false, \"reason\": \"Fact with no source: <the first failing sentence>. Put the file:line, the quoted output, or the link in that sentence, or say you have not checked it.\"}",
+            "timeout": 30,
+            "statusMessage": "claude-dev-env: checking each claim for its source"
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__update_message",
         "hooks": [
           {
