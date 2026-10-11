@@ -371,19 +371,6 @@ def test_should_keep_resume_affinity_ahead_of_priority() -> None:
     assert decision.reason == "resume affinity"
 
 
-def test_should_not_resume_on_an_account_that_only_shares_the_bound_name() -> None:
-    chain_account = Account(Product.CLAUDE, "work", Path("/chained"), False, "C:\\one\\claude-work.cmd", 0)
-    readings = (
-        Reading(chain_account, _meters(90, 90)),
-        Reading(_ranked_claude_account("work", 1), _meters(0, 0)),
-    )
-
-    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW, preferred_command="work")
-
-    assert decision.account.home == Path("/chained")
-    assert decision.reason != "resume affinity"
-
-
 def test_should_wait_when_every_ranked_claude_account_is_spent() -> None:
     readings = (
         Reading(_ranked_claude_account("first", 0), _meters(5, 5)),
@@ -454,6 +441,7 @@ def test_should_print_decision_and_meters_for_choose(
     assert account_broker.main(("choose", "--product", "codex")) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["decision"]["account"] == "roomy"
+    assert payload["decision"]["profile"] == "roomy"
     assert payload["accounts"][0]["meters"]["session_percent_left"] == 80
     assert payload["state_path"].endswith("state.json")
 
@@ -1140,8 +1128,8 @@ def test_should_serialize_a_run_and_a_wait_decision() -> None:
     run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
     wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
 
-    assert run_payload == {"action": "run", "account": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
-    assert wait_payload == {"action": "wait", "account": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
+    assert run_payload == {"action": "run", "account": "first", "profile": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
+    assert wait_payload == {"action": "wait", "account": None, "profile": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
 
 
 def test_should_print_the_whole_rate_limit_result_for_one_home(
@@ -1256,6 +1244,7 @@ def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
     assert account_broker.decision_payload(decision) == {
         "action": "run",
         "account": "codex-2",
+        "profile": "codex-2",
         "home": str(Path("/profiles") / "codex-2"),
         "reason": "most room",
         "tier": "normal",

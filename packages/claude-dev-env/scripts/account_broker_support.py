@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import collections
 import dataclasses
 import errno
 import importlib
@@ -106,16 +105,7 @@ def _chain_entry(raw_entry: object, main_home: Path, chain_path: Path) -> Accoun
     if not isinstance(extra_args, list) or any(not isinstance(each_arg, str) for each_arg in extra_args):
         raise BrokerConfigurationError(f"invalid account list {chain_path}")
     home = Path(credential).expanduser().parent.resolve() if credential else main_home
-    return Account(Product.CLAUDE, _chain_account_name(command), home, command=command)
-
-
-def _chain_account_name(command: str) -> str:
-    launcher_prefix = CLAUDE_LAUNCHER_PROGRAM.file_name_template.partition("{")[0].casefold()
-    profile_name = PureWindowsPath(command).stem.casefold().removeprefix(launcher_prefix)
-    try:
-        return validate_profile_name(profile_name)
-    except ValueError:
-        return command
+    return Account(Product.CLAUDE, command, home, command=command)
 
 
 def _chain_entries(chain_path: Path, main_home: Path) -> tuple[Account, ...]:
@@ -179,6 +169,31 @@ def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequenc
     return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
 
 
+def profile_name(account: Account) -> str:
+    """Name the launcher profile a Claude chain account runs as.
+
+    A chain account keeps its launcher command as its name. Its profile is the
+    command's file name in lowercase without the launcher prefix::
+
+        C:\\Users\\name\\.local\\bin\\Claude-Editor.cmd -> editor
+
+    Args:
+        account: A roster account.
+
+    Returns:
+        The profile name from the command, or the account name for the main
+        account, a Codex account, or a command that names no valid profile.
+    """
+    if account.is_main or account.product is not Product.CLAUDE or not account.command:
+        return account.name
+    launcher_prefix = CLAUDE_LAUNCHER_PROGRAM.file_name_template.partition("{")[0].casefold()
+    candidate = PureWindowsPath(account.command).stem.casefold().removeprefix(launcher_prefix)
+    try:
+        return validate_profile_name(candidate)
+    except ValueError:
+        return account.name
+
+
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account roster.
 
@@ -196,18 +211,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return _with_priorities(_with_distinct_names(all_accounts), _account_order(main_home))
-
-
-def _with_distinct_names(all_accounts: Sequence[Account]) -> list[Account]:
-    all_name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
-    all_named_accounts = []
-    for each_account in all_accounts:
-        if all_name_counts[each_account.name.casefold()] > 1 and not each_account.is_main:
-            print(f"warning: the account at {each_account.home} shares the name {each_account.name}", file=sys.stderr)
-            each_account = dataclasses.replace(each_account, name=each_account.command or each_account.name)
-        all_named_accounts.append(each_account)
-    return all_named_accounts
+    return _with_priorities(all_accounts, _account_order(main_home))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:

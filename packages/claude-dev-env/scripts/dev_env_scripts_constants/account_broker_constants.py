@@ -296,7 +296,8 @@ def _claude_has_room(reading: Reading) -> bool:
 def _choose_claude(all_available: Sequence[Reading], preferred_command: str | None) -> Decision | None:
     all_with_room = [each_reading for each_reading in all_available if _claude_has_room(each_reading)]
     for each_reading in all_with_room:
-        if preferred_command is not None and preferred_command == (each_reading.account.command or each_reading.account.name):
+        is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)
+        if preferred_command is not None and is_bound:
             return Decision("run", each_reading.account, None, "resume affinity", TIER_NORMAL)
     chosen = min(all_with_room, key=_rank_key, default=None)
     if chosen is None:

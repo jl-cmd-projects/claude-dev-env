@@ -36,70 +36,6 @@ def test_should_load_claude_roster_from_both_lists(
     assert accounts[1].home == (tmp_path / "alternate").resolve()
 
 
-def test_should_name_a_chain_account_by_its_launcher_account_name(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
-    main_home = tmp_path / ".claude"
-    main_home.mkdir()
-    launcher = "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd"
-    (main_home / "claude-chain.json").write_text(
-        json.dumps({"chain": [{"command": launcher, "credentials_path": str(tmp_path / "editor" / ".credentials.json")}]}),
-        encoding="utf-8",
-    )
-    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
-
-    accounts = support.load_claude_accounts()
-
-    assert [each_account.name for each_account in accounts] == ["main", "editor", "extra"]
-    assert accounts[1].command == launcher
-
-
-@pytest.mark.parametrize(
-    ("command", "expected_name"),
-    [
-        ("C:\\Users\\someone\\.local\\bin\\Claude-Editor.cmd", "editor"),
-        ("C:\\Users\\someone\\.local\\bin\\claude-.cmd", "C:\\Users\\someone\\.local\\bin\\claude-.cmd"),
-        ("C:\\Users\\someone\\.local\\bin\\claude-main.cmd", "C:\\Users\\someone\\.local\\bin\\claude-main.cmd"),
-        ("C:\\Users\\someone\\.local\\bin\\work.cmd", "work"),
-    ],
-)
-def test_should_name_a_chain_account_from_any_launcher_stem(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, command: str, expected_name: str
-) -> None:
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
-    main_home = tmp_path / ".claude"
-    main_home.mkdir()
-    (main_home / "claude-chain.json").write_text(json.dumps({"chain": [{"command": command, "credentials_path": str(tmp_path / "chained" / ".credentials.json")}]}), encoding="utf-8")
-    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
-
-    accounts = support.load_claude_accounts()
-
-    assert [each_account.name for each_account in accounts] == ["main", expected_name, "extra"]
-
-
-def test_should_keep_the_command_name_for_a_chain_account_that_shares_an_extra_profile_name(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
-    main_home = tmp_path / ".claude"
-    main_home.mkdir()
-    chain_launcher = "C:\\one\\claude-editor.cmd"
-    (main_home / "claude-chain.json").write_text(
-        json.dumps({"chain": [{"command": chain_launcher, "credentials_path": str(tmp_path / "one" / ".credentials.json")}]}),
-        encoding="utf-8",
-    )
-    (main_home / "extra-profiles.json").write_text('["editor"]', encoding="utf-8")
-
-    accounts = support.load_claude_accounts()
-
-    assert [each_account.name for each_account in accounts] == ["main", chain_launcher, "editor"]
-    assert f"{tmp_path / 'one'} shares the name editor" in capsys.readouterr().err
-
-
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
@@ -107,6 +43,19 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     main_home.mkdir()
     (main_home / "extra-profiles.json").write_text(json.dumps(extras), encoding="utf-8")
     return main_home
+
+
+@pytest.mark.parametrize(
+    ("account", "expected_profile"),
+    [
+        (Account(Product.CLAUDE, "C:\\bin\\Claude-Editor.cmd", Path("/one"), command="C:\\bin\\Claude-Editor.cmd"), "editor"),
+        (Account(Product.CLAUDE, "C:\\bin\\claude-main.cmd", Path("/two"), command="C:\\bin\\claude-main.cmd"), "C:\\bin\\claude-main.cmd"),
+        (Account(Product.CLAUDE, "main", Path("/main"), True, "claude"), "main"),
+        (Account(Product.CLAUDE, "work", Path("/work"), command="work"), "work"),
+    ],
+)
+def test_should_name_the_launcher_profile_of_an_account(account: Account, expected_profile: str) -> None:
+    assert support.profile_name(account) == expected_profile
 
 
 def test_should_leave_claude_priorities_unset_without_an_order_file(

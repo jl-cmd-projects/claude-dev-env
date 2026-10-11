@@ -102,6 +102,7 @@ def decision_payload(decision: Decision) -> dict[str, object]:
     return {
         "action": decision.action,
         "account": decision.account.name if decision.account else None,
+        "profile": support.profile_name(decision.account) if decision.account else None,
         "home": str(decision.account.home) if decision.account else None,
         "reason": decision.reason,
         "tier": decision.tier,
