@@ -59,8 +59,9 @@ def test_should_name_a_chain_account_by_its_launcher_account_name(
 @pytest.mark.parametrize(
     ("command", "expected_name"),
     [
-        ("C:\\Users\\someone\\.local\\bin\\Claude-Editor.cmd", "Editor"),
-        ("C:\\Users\\someone\\.local\\bin\\claude-.cmd", "claude-"),
+        ("C:\\Users\\someone\\.local\\bin\\Claude-Editor.cmd", "editor"),
+        ("C:\\Users\\someone\\.local\\bin\\claude-.cmd", "C:\\Users\\someone\\.local\\bin\\claude-.cmd"),
+        ("C:\\Users\\someone\\.local\\bin\\claude-main.cmd", "C:\\Users\\someone\\.local\\bin\\claude-main.cmd"),
         ("C:\\Users\\someone\\.local\\bin\\work.cmd", "work"),
     ],
 )
