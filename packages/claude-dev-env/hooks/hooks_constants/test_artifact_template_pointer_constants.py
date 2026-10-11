@@ -1,5 +1,8 @@
 """Behavioral tests for the artifact template pointer's path."""
 
+import json
+import re
+
 from hooks_constants import artifact_template_pointer_constants
 
 
@@ -11,6 +14,29 @@ def test_template_path_names_the_packaged_template_file() -> None:
 def test_html_plan_readme_path_names_the_packaged_readme_and_house_stylesheet() -> None:
     assert artifact_template_pointer_constants.HTML_PLAN_TEMPLATE_README_PATH.is_file()
     assert artifact_template_pointer_constants.HTML_PLAN_TEMPLATE_README_PATH.parent.joinpath("house.css").is_file()
+
+
+def test_status_flowchart_path_names_the_packaged_template_file() -> None:
+    template_text = artifact_template_pointer_constants.STATUS_FLOWCHART_TEMPLATE_PATH.read_text(
+        encoding="utf-8"
+    )
+    assert "<svg" in template_text
+    assert "detail-data" in template_text
+
+
+def test_status_flowchart_gives_every_shape_a_detail_entry() -> None:
+    template_text = artifact_template_pointer_constants.STATUS_FLOWCHART_TEMPLATE_PATH.read_text(
+        encoding="ascii"
+    )
+    all_shape_keys = set(re.findall(r'data-k="([^"]+)"', template_text))
+    detail_block = re.search(
+        r'<script type="application/json" id="detail-data">(.*?)</script>', template_text, re.DOTALL
+    )
+    assert detail_block is not None
+    all_detail_keys = set(json.loads(detail_block.group(1)))
+
+    assert all_shape_keys
+    assert all_shape_keys == all_detail_keys
 
 
 def test_every_exported_name_resolves_to_a_module_attribute() -> None:

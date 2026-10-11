@@ -29,6 +29,11 @@
       "key": "not_flowchart",
       "label": "No flowchart",
       "reminder": "Redraw this widget as one SVG flowchart that runs left to right, with boxes for steps, a diamond for each yes or no check, and arrows between them, unless the item has no steps or checks."
+    },
+    {
+      "key": "use_flowchart",
+      "label": "Use the flowchart",
+      "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click, unless the person asked for another shape."
     }
   ],
   "allowed_capitalized_words": [
