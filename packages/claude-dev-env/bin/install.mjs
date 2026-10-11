@@ -131,6 +131,7 @@ const AGENTS_HOME = INSTALL_ROOT_RESOLUTION.agentsHome;
 const MANIFEST_FILE = INSTALL_ROOT_RESOLUTION.manifestFilePath;
 const MYPY_INI_INSTALL_PATH = INSTALL_ROOT_RESOLUTION.mypyIniInstallPath;
 const PACKAGE_NAME = 'claude-dev-env';
+const MANAGED_PROMPT_HOOK_STATUS_PREFIX = `${PACKAGE_NAME}: `;
 const PACKAGE_VERSION = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')).version;
 const packageRequire = createRequire(import.meta.url);
 
@@ -1274,6 +1275,7 @@ export function managedHookScriptRelativePaths(hooksConfig) {
     for (const matcherGroups of Object.values(hooksConfig.hooks)) {
         for (const sourceGroup of matcherGroups) {
             for (const hook of sourceGroup.hooks) {
+                if (typeof hook.command !== 'string') continue;
                 for (const scriptMatch of hook.command.matchAll(scriptReferencePattern)) {
                     relativePaths.add(scriptMatch[1]);
                 }
@@ -1320,6 +1322,21 @@ function managedPackageSourceRoots() {
         .filter(group => group.packageRoot)
         .map(group => group.packageRoot);
     return [...new Set([PACKAGE_ROOT, ...dependencyRoots])];
+}
+
+/**
+ * Report whether a hook entry is a model-evaluated hook this installer wrote.
+ *
+ * A prompt or agent hook names no script, so the installer marks its own with a
+ * status message that starts with the managed prefix.
+ *
+ * @param {unknown} hook One hook entry from settings.json.
+ * @returns {boolean} True when the entry carries no command and the managed status prefix.
+ */
+export function isManagedPromptHook(hook) {
+    return typeof hook?.command !== 'string'
+        && typeof hook?.statusMessage === 'string'
+        && hook.statusMessage.startsWith(MANAGED_PROMPT_HOOK_STATUS_PREFIX);
 }
 
 /**
@@ -1512,8 +1529,8 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
     if (!Array.isArray(existingGroups)) return;
     settings.hooks[eventType] = retainedMatcherGroups(
         existingGroups,
-        commandString => commandReferencesManagedHook(
-            commandString, managedHookRelativePaths, sharedSettingsRealPath,
+        hook => isManagedPromptHook(hook) || commandReferencesManagedHook(
+            hook?.command, managedHookRelativePaths, sharedSettingsRealPath,
         ),
     ).keptGroups;
 }
@@ -1587,6 +1604,7 @@ export function mergeHooksIntoSettings(
         pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePaths, sharedSettingsRealPath);
         for (const sourceGroup of matcherGroups) {
             const rewrittenHooks = sourceGroup.hooks.map(hook => {
+                if (typeof hook.command !== 'string') return hook;
                 let command = hook.command;
                 command = command.replace(
                     /r(['"])\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\1/g,
@@ -1609,7 +1627,7 @@ export function mergeHooksIntoSettings(
             if (existingIndex >= 0) {
                 const existing = settings.hooks[eventType][existingIndex];
                 const userHooks = (groupHookEntries(existing) || []).filter(
-                    hook => !commandReferencesManagedHook(
+                    hook => !isManagedPromptHook(hook) && !commandReferencesManagedHook(
                         hook?.command, managedHookRelativePaths, sharedSettingsRealPath,
                     )
                 );
@@ -1647,7 +1665,7 @@ export function pruneManagedHooksFromSettings(settings, managedHookRelativePaths
         if (!Array.isArray(matcherGroups)) continue;
         const { keptGroups } = retainedMatcherGroups(
             matcherGroups,
-            commandString => commandReferencesManagedHook(commandString, managedHookRelativePaths),
+            hook => isManagedPromptHook(hook) || commandReferencesManagedHook(hook?.command, managedHookRelativePaths),
         );
         settings.hooks[eventType] = keptGroups;
         if (keptGroups.length === 0) delete settings.hooks[eventType];
@@ -1830,12 +1848,11 @@ function commandReferencesRetiredHook(commandString, retiredHookRelativePaths, o
  *
  * Every settings walk shares this pass, so a settings.json a person or another
  * tool wrote meets one set of shape rules. A group carrying no hooks array is
- * handed back untouched, and an entry whose command is not a string reaches the
- * predicate as-is — each predicate reads a non-string command as an entry this
- * installer never wrote — so a shape this installer does not recognize survives.
+ * handed back untouched, and each entry reaches the predicate as-is, whatever its
+ * shape, so a shape this installer does not recognize survives.
  *
  * @param {object[]} matcherGroups The event's matcher groups from settings.json.
- * @param {(commandString: unknown) => boolean} shouldRemoveHook Names the hooks that leave.
+ * @param {(hook: unknown) => boolean} shouldRemoveHook Takes one hook entry, a command hook or a prompt hook, and returns true to drop it.
  * @returns {{keptGroups: object[], removedCount: number}} The surviving groups and how many hooks left.
  */
 function retainedMatcherGroups(matcherGroups, shouldRemoveHook) {
@@ -1847,7 +1864,7 @@ function retainedMatcherGroups(matcherGroups, shouldRemoveHook) {
             keptGroups.push(group);
             continue;
         }
-        const keptHooks = hookEntries.filter(hook => !shouldRemoveHook(hook?.command));
+        const keptHooks = hookEntries.filter(hook => !shouldRemoveHook(hook));
         removedCount += hookEntries.length - keptHooks.length;
         if (keptHooks.length > 0) keptGroups.push({ ...group, hooks: keptHooks });
     }
@@ -1888,8 +1905,8 @@ function stripRetiredHookEntries(settings, retiredHookRelativePaths, ownership) 
         if (!Array.isArray(matcherGroups)) continue;
         const eventOutcome = retainedMatcherGroups(
             matcherGroups,
-            commandString => commandReferencesRetiredHook(
-                commandString, retiredHookRelativePaths, ownership,
+            hook => commandReferencesRetiredHook(
+                hook?.command, retiredHookRelativePaths, ownership,
             ),
         );
         removedCount += eventOutcome.removedCount;
