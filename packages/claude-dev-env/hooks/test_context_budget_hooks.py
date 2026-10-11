@@ -24,6 +24,7 @@ CONTEXT_OUTPUT_PATTERN = re.compile(r"additionalContext|ADDITIONAL_CONTEXT|addit
 UNMEASURED_REASON_BY_SCRIPT = {
     "blocking/pre_tool_use_dispatcher.py": "relays its hosted hooks' output",
     "blocking/bash_pre_tool_use_dispatcher.py": "relays its hosted hooks' output",
+    "blocking/reply_length_gate.py": "advises only on a widget while visual reply mode is on",
     "lifecycle/nested_project_hooks.py": "relays a nested project's own hooks",
     "routing/thread_spawn_pace_hook.py": "quotes a usage reading capped by its own constant",
     "session/issue_tracker_session_starter.py": "emits only for a repository the user's "
