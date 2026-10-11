@@ -75,6 +75,7 @@ from visual_reply_rules import (
     second_reply_violation,
     visual_violation,
     widget_anchor_violation,
+    widget_flowchart_violation,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -309,6 +310,9 @@ def tool_violation(
         anchor_violation = widget_anchor_violation(tool_name, all_tool_input)
         if anchor_violation is not None:
             return anchor_violation, str(all_tool_input)
+        flowchart_violation = widget_flowchart_violation(tool_name, all_tool_input, mode_rules)
+        if flowchart_violation is not None:
+            return flowchart_violation, str(all_tool_input)
     if tool_name == DECISION_CARD_TOOL_NAME:
         card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
         violation = card_violation(card_text, mode_rules)

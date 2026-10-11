@@ -36,6 +36,14 @@ TRACKER_NUMBER_PATTERN = re.compile(
     r"\b(?:issues?|items?|cards?|tickets?|tasks?)\s*#?\d+", re.IGNORECASE
 )
 WIDGET_ANCHOR_PATTERN = re.compile(r"<a\b[^>]*\bhref\s*=", re.IGNORECASE)
+FLOWCHART_RULE_KEY = "not_flowchart"
+WIDGET_CODE_KEY = "widget_code"
+WIDGET_INPUT_KEY = "input"
+FLOWCHART_SVG_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
+FLOWCHART_ARROW_PATTERN = re.compile(r"marker-end", re.IGNORECASE)
+FLOWCHART_DIAMOND_PATTERN = re.compile(
+    r"<polygon\b|<path\b[^>]*\bd=[\"']M[^\"']*L[^\"']*L[^\"']*L[^\"']*Z[\"']", re.IGNORECASE
+)
 
 TRANSCRIPT_ENCODING = "utf-8"
 ENTRY_TYPE_KEY = "type"
@@ -57,6 +65,7 @@ ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
 NO_VISUAL_MESSAGE = "This reply has {sentence_count} sentences and no visual this turn. {reminder}"
 SECOND_REPLY_MESSAGE = "A reply already went out this turn. {reminder}"
+NOT_FLOWCHART_MESSAGE = "The widget is no flowchart. {reminder}"
 WIDGET_ANCHOR_MESSAGE = (
     "A link sits inside the widget code, and a widget link does not open in the Claude app."
     " Remove the anchor and put the page link in the reply text."

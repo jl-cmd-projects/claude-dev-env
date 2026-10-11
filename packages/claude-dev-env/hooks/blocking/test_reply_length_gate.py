@@ -635,13 +635,25 @@ def test_should_deny_an_anchor_link_inside_widget_code(
     assert "does not open in the Claude app" in stderr_text
 
 
-def test_should_allow_widget_code_with_no_anchor(
+def test_should_allow_a_flowchart_widget_with_no_anchor(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(
+    flowchart_code = (
+        '<svg><path d="M0 20L40 0L80 20L40 40Z"/>'
+        '<path d="M80 20H120" marker-end="url(#a)"/></svg>'
+    )
+    exit_code, _ = run_gate(monkeypatch, capsys, WIDGET_TOOL_NAME, {"widget_code": flowchart_code})
+    assert exit_code == 0
+
+
+def test_should_deny_a_widget_that_is_no_flowchart(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
         monkeypatch, capsys, WIDGET_TOOL_NAME, {"widget_code": "<div>Three steps</div>"}
     )
-    assert exit_code == 0
+    assert exit_code == 2
+    assert "no flowchart" in stderr_text
 
 
 def test_should_skip_the_mode_checks_when_the_switch_turns_the_mode_off(

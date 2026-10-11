@@ -24,6 +24,11 @@
       "key": "wall_of_text",
       "label": "Wall of text",
       "reminder": "Put each point, and each step the reader takes, on its own line."
+    },
+    {
+      "key": "not_flowchart",
+      "label": "No flowchart",
+      "reminder": "Draw the widget as one SVG flowchart that runs left to right. Use boxes for steps, a diamond for each yes or no check, and arrows between them."
     }
   ],
   "allowed_capitalized_words": [
