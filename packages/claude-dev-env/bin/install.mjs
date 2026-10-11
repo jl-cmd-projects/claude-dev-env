@@ -1529,7 +1529,7 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
     if (!Array.isArray(existingGroups)) return;
     settings.hooks[eventType] = retainedMatcherGroups(
         existingGroups,
-        hook => isManagedPromptHook(hook) || commandReferencesManagedHook(
+        hook => commandReferencesManagedHook(
             hook?.command, managedHookRelativePaths, sharedSettingsRealPath,
         ),
     ).keptGroups;
@@ -1540,8 +1540,8 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
  *
  * A prompt hook names no script, so the retired-script prune never reaches one
  * the package stopped shipping. The merge clears them all first and writes back
- * the ones the current hooks.json ships. An event type left with no groups is
- * dropped.
+ * the ones the current hooks.json ships. An event type with no managed prompt
+ * hook is left as it was, and one the prune leaves with no groups is dropped.
  *
  * @param {object} settings The parsed settings.json object (mutated in place).
  * @returns {void}
@@ -1549,7 +1549,8 @@ function pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePath
 function pruneManagedPromptHooksFromEveryEvent(settings) {
     for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
         if (!Array.isArray(matcherGroups)) continue;
-        const keptGroups = retainedMatcherGroups(matcherGroups, isManagedPromptHook).keptGroups;
+        const { keptGroups, removedCount } = retainedMatcherGroups(matcherGroups, isManagedPromptHook);
+        if (removedCount === 0) continue;
         if (keptGroups.length === 0) {
             delete settings.hooks[eventType];
             continue;
@@ -1588,7 +1589,9 @@ function startEventFromHookGroupList(settings, eventType) {
  * pruning every prior managed hook (standalone script or inline validators
  * runner) from each event's existing matcher groups before appending the freshly
  * rewritten copies so repeated merges stay idempotent and a managed hook moved to
- * a new matcher group does not double-run. User-authored hooks are preserved as
+ * a new matcher group does not double-run. Managed prompt hooks leave every event
+ * type settings.json holds, so one under an event the package stopped shipping
+ * goes too. User-authored hooks are preserved as
  * entries, but residual $HOME / ${HOME} / ~/ tokens in every hook and statusLine
  * command are expanded to absolute home paths so hosts that require referenced
  * env vars at load time (a third-party host on Windows) can execute them.
@@ -1651,7 +1654,7 @@ export function mergeHooksIntoSettings(
             if (existingIndex >= 0) {
                 const existing = settings.hooks[eventType][existingIndex];
                 const userHooks = (groupHookEntries(existing) || []).filter(
-                    hook => !isManagedPromptHook(hook) && !commandReferencesManagedHook(
+                    hook => !commandReferencesManagedHook(
                         hook?.command, managedHookRelativePaths, sharedSettingsRealPath,
                     )
                 );

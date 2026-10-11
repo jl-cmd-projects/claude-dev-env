@@ -58,7 +58,7 @@ function promptHookEntries(hooksConfig) {
     ));
 }
 
-test('should own every prompt hook the shipped hooks.json registers, including the claim judge on reply', () => {
+test('should mark every prompt hook the shipped hooks.json registers as managed, with one claim judge on reply', () => {
     const shippedEntries = promptHookEntries(SHIPPED_HOOKS_CONFIG);
 
     const replyJudgeEntries = shippedEntries.filter(
@@ -106,4 +106,13 @@ test('should drop managed prompt hooks under an event the shipped config no long
 
     assert.deepEqual(settings.hooks.UserPromptSubmit, [{ matcher: '', hooks: [USER_PROMPT_HOOK] }]);
     assert.equal(Object.hasOwn(settings.hooks, 'Stop'), false);
+});
+
+test('should leave empty user groups alone under an event with no managed prompt hook', () => {
+    const settings = { hooks: { Stop: [], Notification: [{ matcher: '', hooks: [] }] } };
+
+    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
+
+    assert.deepEqual(settings.hooks.Stop, []);
+    assert.deepEqual(settings.hooks.Notification, [{ matcher: '', hooks: [] }]);
 });
