@@ -294,10 +294,10 @@ def _read_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, all_results: li
     pending = list(all_results)
 
     def reader(_selected: Account) -> Meters:
-        result = pending.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return result
+        next_outcome = pending.pop(0)
+        if isinstance(next_outcome, Exception):
+            raise next_outcome
+        return next_outcome
 
     adapter = ProductAdapter(lambda: (account,), reader, "CLAUDE_CONFIG_DIR", ())
     state = support._load_state(support.broker_state_path())
