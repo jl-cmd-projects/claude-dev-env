@@ -35,7 +35,8 @@ POINTER_TEXT_TEMPLATE = (
     " unless the person asks for another shape. For any other visual, pick by"
     " scope. For one flow or one comparison, draw an inline SVG flowchart artifact"
     " with minimal text, using the artifact-diagramming skill. For a multi-part"
-    " plan or evidence, build an html-plan page following {html_plan_path}. When"
+    " plan or evidence that is not a status report, build an html-plan page"
+    " following {html_plan_path}. When"
     " the request names the older artifact page template, pick the one that fits"
     " the ask from {artifact_template_path}."
 )
