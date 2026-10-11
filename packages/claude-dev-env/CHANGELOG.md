@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.78.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.0...claude-dev-env-v8.78.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **hooks:** allow auto-merge pinned to the clean-reviewed head ([#1996](https://github.com/jl-cmd-projects/claude-dev-env/issues/1996)) ([510b6e2](https://github.com/jl-cmd-projects/claude-dev-env/commit/510b6e23edbc4e12ad39e769038135985c5d8dde))
+
 ## [8.78.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.77.0...claude-dev-env-v8.78.0) (2026-10-11)
 
 
