@@ -87,7 +87,7 @@ def test_should_keep_the_launcher_path_name_for_a_chain_account_whose_name_is_ta
     main_home = tmp_path / ".claude"
     main_home.mkdir()
     first_launcher = "C:\\one\\claude-editor.cmd"
-    second_launcher = "C:\\two\\claude-review.cmd"
+    second_launcher = "C:\\two\\claude-main.cmd"
     (main_home / "claude-chain.json").write_text(
         json.dumps(
             {
@@ -103,7 +103,7 @@ def test_should_keep_the_launcher_path_name_for_a_chain_account_whose_name_is_ta
 
     accounts = support.load_claude_accounts()
 
-    assert [each_account.name for each_account in accounts] == ["main", first_launcher, "review", "editor"]
+    assert [each_account.name for each_account in accounts] == ["main", first_launcher, second_launcher, "editor"]
 
 
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:

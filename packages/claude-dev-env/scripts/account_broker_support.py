@@ -199,10 +199,13 @@ def load_claude_accounts() -> tuple[Account, ...]:
 
 
 def _with_distinct_names(all_accounts: Sequence[Account]) -> list[Account]:
-    name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
+    all_name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
     return [
         dataclasses.replace(each_account, name=each_account.command)
-        if each_account.command and name_counts[each_account.name.casefold()] > 1 and each_account.command != each_account.name
+        if not each_account.is_main
+        and each_account.command
+        and all_name_counts[each_account.name.casefold()] > 1
+        and each_account.command != each_account.name
         else each_account
         for each_account in all_accounts
     ]
