@@ -29,6 +29,14 @@ function replyHooks(settings) {
         .flatMap(eachGroup => eachGroup.hooks);
 }
 
+function promptHookEntries(hooksConfig) {
+    return Object.entries(hooksConfig.hooks).flatMap(([eventName, matcherGroups]) => matcherGroups.flatMap(
+        eachGroup => (eachGroup.hooks ?? [])
+            .filter(eachHook => eachHook.type === 'prompt')
+            .map(eachHook => ({ eventName, matcher: eachGroup.matcher, hook: eachHook })),
+    ));
+}
+
 test('should keep one managed prompt hook across reinstalls and carry the new prompt text', () => {
     const settings = { hooks: { PreToolUse: [{ matcher: REPLY_MATCHER, hooks: [USER_PROMPT_HOOK] }] } };
 
@@ -50,14 +58,6 @@ test('should remove the managed prompt hook on uninstall and keep the user promp
     assert.deepEqual(replyHooks(settings), [USER_PROMPT_HOOK]);
 });
 
-function promptHookEntries(hooksConfig) {
-    return Object.entries(hooksConfig.hooks).flatMap(([eventName, matcherGroups]) => matcherGroups.flatMap(
-        eachGroup => (eachGroup.hooks ?? [])
-            .filter(eachHook => eachHook.type === 'prompt')
-            .map(eachHook => ({ eventName, matcher: eachGroup.matcher, hook: eachHook })),
-    ));
-}
-
 test('should mark every prompt hook the shipped hooks.json registers as managed, with one claim judge on reply', () => {
     const shippedEntries = promptHookEntries(SHIPPED_HOOKS_CONFIG);
 
@@ -78,12 +78,14 @@ test('should keep each shipped prompt hook once, under its own event and matcher
 
 test('should drop a managed prompt hook left under a matcher the shipped config no longer lists', () => {
     const staleMatcher = 'mcp__hearthbot__retired';
+    const judgeOnlyMatcher = 'mcp__hearthbot__retired_alone';
+    const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
     const settings = {
         hooks: {
-            PreToolUse: [{
-                matcher: staleMatcher,
-                hooks: [{ type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS }, USER_PROMPT_HOOK],
-            }],
+            PreToolUse: [
+                { matcher: staleMatcher, hooks: [oldJudge, USER_PROMPT_HOOK] },
+                { matcher: judgeOnlyMatcher, hooks: [oldJudge] },
+            ],
         },
     };
 
@@ -91,4 +93,5 @@ test('should drop a managed prompt hook left under a matcher the shipped config 
 
     const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
     assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
+    assert.equal(settings.hooks.PreToolUse.some(eachGroup => eachGroup.matcher === judgeOnlyMatcher), false);
 });
