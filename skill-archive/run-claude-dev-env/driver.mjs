@@ -185,7 +185,7 @@ function main() {
             for (const matcherGroups of Object.values(settings.hooks ?? {})) {
                 for (const group of matcherGroups) {
                     for (const hook of group.hooks ?? []) {
-                        if ((hook.command ?? '').replace(/\\/g, '/').includes('/.claude/hooks')) {
+                        if (hook.command.replace(/\\/g, '/').includes('/.claude/hooks')) {
                             managedHookCount += 1;
                         }
                     }
