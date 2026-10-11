@@ -61,9 +61,10 @@ function promptHookEntries(hooksConfig) {
 test('should own every prompt hook the shipped hooks.json registers, including the claim judge on reply', () => {
     const shippedEntries = promptHookEntries(SHIPPED_HOOKS_CONFIG);
 
-    assert.ok(shippedEntries.some(
+    const replyJudgeEntries = shippedEntries.filter(
         eachEntry => eachEntry.eventName === 'PreToolUse' && eachEntry.matcher.split('|').includes(REPLY_MATCHER),
-    ));
+    );
+    assert.equal(replyJudgeEntries.length, 1);
     assert.ok(shippedEntries.every(eachEntry => isManagedPromptHook(eachEntry.hook)));
 });
 
@@ -90,4 +91,19 @@ test('should drop a managed prompt hook left under a matcher the shipped config 
 
     const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
     assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
+});
+
+test('should drop a managed prompt hook left under an event the shipped config no longer lists', () => {
+    const settings = {
+        hooks: {
+            UserPromptSubmit: [{
+                matcher: '',
+                hooks: [USER_PROMPT_HOOK, { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS }],
+            }],
+        },
+    };
+
+    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
+
+    assert.deepEqual(settings.hooks.UserPromptSubmit, [{ matcher: '', hooks: [USER_PROMPT_HOOK] }]);
 });
