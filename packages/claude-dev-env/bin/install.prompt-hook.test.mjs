@@ -92,36 +92,3 @@ test('should drop a managed prompt hook left under a matcher the shipped config 
     const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
     assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
 });
-
-test('should drop managed prompt hooks under an event the shipped config no longer lists', () => {
-    const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
-    const settings = {
-        hooks: {
-            UserPromptSubmit: [{ matcher: '', hooks: [USER_PROMPT_HOOK, oldJudge] }],
-            Stop: [{ matcher: '', hooks: [oldJudge] }],
-        },
-    };
-
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
-
-    assert.deepEqual(settings.hooks.UserPromptSubmit, [{ matcher: '', hooks: [USER_PROMPT_HOOK] }]);
-    assert.equal(Object.hasOwn(settings.hooks, 'Stop'), false);
-});
-
-test('should leave empty user groups alone under an event with no managed prompt hook', () => {
-    const settings = { hooks: { Stop: [], Notification: [{ matcher: '', hooks: [] }] } };
-
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
-
-    assert.deepEqual(settings.hooks.Stop, []);
-    assert.deepEqual(settings.hooks.Notification, [{ matcher: '', hooks: [] }]);
-});
-
-test('should keep an empty user group beside a managed prompt hook it removes', () => {
-    const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
-    const settings = { hooks: { Stop: [{ matcher: 'x', hooks: [] }, { matcher: '', hooks: [oldJudge] }] } };
-
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
-
-    assert.deepEqual(settings.hooks.Stop, [{ matcher: 'x', hooks: [] }]);
-});
