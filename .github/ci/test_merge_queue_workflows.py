@@ -147,3 +147,51 @@ def test_package_suite_covers_usage_wrapup_with_required_runtimes() -> None:
     )
     filters = yaml.safe_load(filter_step["with"]["filters"])
     assert "packages/usage-wrapup/**" in filters["package_suite"]
+
+
+@pytest.mark.parametrize(
+    ("head_status_json", "expected_queue_state"),
+    [
+        ('{"statuses": [{"context": "Merge review", "state": "success"}]}', "success"),
+        ('{"statuses": [{"context": "Merge review", "state": "failure"}]}', "failure"),
+        ('{"statuses": []}', "failure"),
+    ],
+)
+def test_merge_review_status_carries_the_head_verdict_to_the_queue_commit(
+    tmp_path: Path, head_status_json: str, expected_queue_state: str
+) -> None:
+    carry_step = load_workflow("merge-review-status.yml")["jobs"]["carry"]["steps"][0]
+    posted_path = tmp_path / "posted"
+    fake_gh = tmp_path / "gh"
+    fake_gh.write_text(
+        "#!/bin/sh\n"
+        'case "$2" in\n'
+        '  */pulls/1442) echo headsha ;;\n'
+        f"  */commits/headsha/status) echo '{head_status_json}' ;;\n"
+        f'  */statuses/queuesha) echo "$2 $4 $6" > {posted_path} ;;\n'
+        "esac\n",
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
+    queue_environment = {
+        **carry_step["env"],
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "GH_REPO": "owner/name",
+        "MERGE_GROUP_HEAD_REF": "refs/heads/gh-readonly-queue/main/pr-1442-0123456789abcdef",
+        "MERGE_GROUP_HEAD_SHA": "queuesha",
+    }
+
+    subprocess.run(
+        ["bash", "-c", carry_step["run"]],
+        env=queue_environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert posted_path.read_text(encoding="utf-8").split() == [
+        "repos/owner/name/statuses/queuesha",
+        f"state={expected_queue_state}",
+        "context=Merge",
+        "review",
+    ]
