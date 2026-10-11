@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import importlib
 import json
 import os
 import shutil
@@ -15,7 +16,16 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
-from test_shared_tree_paths import _create_directory_link
+
+
+def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
+    if sys.platform.startswith("win32"):
+        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
+        return
+    try:
+        os.symlink(to_target, from_link, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlink creation is not available")
 
 
 def test_should_load_claude_roster_from_both_lists(
