@@ -143,6 +143,18 @@
         ]
       },
       {
+        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You check one chat message before it posts. The hook input JSON is: $ARGUMENTS\n\nRead the message prose in tool_input: the text, body, question, context, reason, and option fields. Find each claim the message states as fact about how code, a file, a tool, a service, a run, or a process behaves, what state it is in, or why something happened.\n\nA claim passes when the message carries evidence that shows it: inline code that quotes output, an exit code, a count, a log line, or a code line; a file:line reference; or a URL or markdown link to the run, file, pull request, or page. A pull request or commit link covers what that change does, what it blocks or lets through, and the state of its checks, also in the later sentences about that same change. The evidence may sit in another sentence of the same message when it covers that claim. A link to one thing does not cover a claim about something else.\n\nThese pass with no evidence: the author's own actions, done, in progress, or planned, with or without \"I\", including what the action is aimed at, such as \"I'm finding where the check failed\"; a change the author made; a question; an instruction or request; a restatement of what the user said; a claim labeled as not yet checked; and an option's consequence on a decision card.\n\nWhen every claim passes, return {\"ok\": true}. Otherwise return {\"ok\": false, \"reason\": \"Fact with no source: <the first failing claim>. Put the file:line, the quoted output, or the link that shows it in the message, or say you have not checked it.\"}",
+            "timeout": 30,
+            "continueOnBlock": true,
+            "statusMessage": "claude-dev-env: checking each claim for its source"
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__update_message",
         "hooks": [
           {

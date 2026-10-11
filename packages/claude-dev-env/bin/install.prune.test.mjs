@@ -969,7 +969,7 @@ function allHookCommands(settings) {
     return Object.values(settings.hooks || {})
         .flat()
         .flatMap(group => group.hooks || [])
-        .map(hook => hook.command);
+        .map(hook => hook.command ?? '');
 }
 
 /**
@@ -992,7 +992,7 @@ function seedRetiredManagedHook(sandbox) {
     const settings = readSettings(sandbox.claudeDirectory);
     const liveGroup = settings.hooks[RETIRED_HOOK_EVENT_TYPE]
         .find(group => group.hooks.some(
-            hook => hook.command.includes(DISPATCHER_HOOK_COMMAND_SEGMENT),
+            hook => (hook.command ?? '').includes(DISPATCHER_HOOK_COMMAND_SEGMENT),
         ));
     liveGroup.hooks.push({ type: 'command', command: retiredHookCommand });
     liveGroup.hooks.push({ type: 'command', command: USER_HOOK_COMMAND });

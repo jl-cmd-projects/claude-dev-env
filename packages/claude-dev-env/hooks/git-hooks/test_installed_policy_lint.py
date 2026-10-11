@@ -123,7 +123,7 @@ def _install_twice(home: Path, settings_path: Path) -> bytes:
 def _assert_retired_registrations(managed_root: Path, settings_bytes: bytes, foreign_command: str) -> None:
     settings = json.loads(settings_bytes)
     all_commands = [
-        each_hook["command"]
+        each_hook.get("command", "")
         for each_groups in settings["hooks"].values()
         for each_group in each_groups
         for each_hook in each_group["hooks"]

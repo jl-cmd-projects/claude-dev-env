@@ -720,7 +720,7 @@ def test_folded_write_edit_hooks_have_no_standalone_hooks_json_entry() -> None:
     hooks_json_text = (_HOOKS_ROOT / "hooks.json").read_text(encoding="utf-8")
     hooks_configuration = json.loads(hooks_json_text)
     all_pre_tool_use_commands = [
-        each_hook["command"]
+        each_hook.get("command", "")
         for each_group in hooks_configuration["hooks"]["PreToolUse"]
         for each_hook in each_group["hooks"]
     ]
@@ -740,11 +740,11 @@ def test_folded_write_edit_hooks_have_no_standalone_hooks_json_entry() -> None:
 def _standalone_apply_patch_code_rules_commands(all_pre_tool_use_groups: list[dict]) -> list[str]:
     """Return every standalone apply_patch command naming code_rules_enforcer.py."""
     return [
-        each_hook["command"]
+        each_hook.get("command", "")
         for each_group in all_pre_tool_use_groups
         if each_group["matcher"] == APPLY_PATCH_TOOL_NAME
         for each_hook in each_group["hooks"]
-        if "code_rules_enforcer.py" in each_hook["command"]
+        if "code_rules_enforcer.py" in each_hook.get("command", "")
     ]
 
 
@@ -753,7 +753,7 @@ def _dispatcher_matchers(all_pre_tool_use_groups: list[dict]) -> list[str]:
     return [
         each_group["matcher"]
         for each_group in all_pre_tool_use_groups
-        if "pre_tool_use_dispatcher.py" in each_group["hooks"][0]["command"]
+        if "pre_tool_use_dispatcher.py" in each_group["hooks"][0].get("command", "")
     ]
 
 

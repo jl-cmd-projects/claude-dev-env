@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.78.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.2...claude-dev-env-v8.78.3) (2026-10-11)
+
+
+### Tests
+
+* tie the shipped claim judge to the installer's ownership check ([#2001](https://github.com/jl-cmd-projects/claude-dev-env/issues/2001)) ([f585cc2](https://github.com/jl-cmd-projects/claude-dev-env/commit/f585cc2e87288c0a6c52677163028bbfd4a9b8a8))
+
+## [8.78.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.1...claude-dev-env-v8.78.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **hooks:** judge each chat claim for its source with a prompt hook ([#1991](https://github.com/jl-cmd-projects/claude-dev-env/issues/1991)) ([a866e1a](https://github.com/jl-cmd-projects/claude-dev-env/commit/a866e1a79305aba2209bdb339ad145f073c13bc9))
+
 ## [8.78.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.0...claude-dev-env-v8.78.1) (2026-10-11)
 
 
