@@ -1627,7 +1627,7 @@ export function mergeHooksIntoSettings(
             if (existingIndex >= 0) {
                 const existing = settings.hooks[eventType][existingIndex];
                 const userHooks = (groupHookEntries(existing) || []).filter(
-                    hook => !commandReferencesManagedHook(
+                    hook => !isManagedPromptHook(hook) && !commandReferencesManagedHook(
                         hook?.command, managedHookRelativePaths, sharedSettingsRealPath,
                     )
                 );
