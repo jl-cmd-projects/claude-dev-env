@@ -102,7 +102,7 @@ def decision_payload(decision: Decision) -> dict[str, object]:
     return {
         "action": decision.action,
         "account": decision.account.name if decision.account else None,
-        "profile": support.profile_name(decision.account) if decision.account else None,
+        "profile": decision.account.profile if decision.account else None,
         "home": str(decision.account.home) if decision.account else None,
         "reason": decision.reason,
         "tier": decision.tier,
@@ -122,7 +122,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     return [
         {
             "name": each_reading.account.name,
-            "profile": support.profile_name(each_reading.account),
+            "profile": each_reading.account.profile,
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
             "priority": each_reading.account.priority,
@@ -396,7 +396,7 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
 
 def _accounts_cli(product: Product) -> int:
     roster = all_product_adapters[product].load_accounts()
-    print(json.dumps({"accounts": [{"name": each_account.name, "profile": support.profile_name(each_account), "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
+    print(json.dumps({"accounts": [{"name": each_account.name, "profile": each_account.profile, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
     return 0
 
 

@@ -1237,6 +1237,12 @@ def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monke
     assert captured_options["live_log"] == live_log
 
 
+def test_decision_payload_should_carry_the_profile_of_a_claude_account() -> None:
+    account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", Path("/profiles/editor"), command="C:\\bin\\claude-editor.cmd", profile="editor")
+
+    assert account_broker.decision_payload(account_broker.Decision("run", account, None, "most room", "normal"))["profile"] == "editor"
+
+
 def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
     account = _account("codex-2")
     decision = account_broker.Decision("run", account, None, "most room", "normal")

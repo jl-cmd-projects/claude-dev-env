@@ -156,7 +156,7 @@ def _account_order(main_home: Path) -> tuple[str, ...]:
 
 def _order_names(account: Account) -> frozenset[str]:
     launcher_name = Path(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=account.name)).stem
-    all_candidates = (account.name, account.command, launcher_name)
+    all_candidates = (account.name, account.command, launcher_name, account.profile)
     all_launcher_stems = tuple(PureWindowsPath(each_name).stem for each_name in all_candidates if each_name)
     return frozenset(each_name.casefold() for each_name in (*all_candidates, *all_launcher_stems) if each_name)
 
@@ -169,36 +169,27 @@ def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequenc
     return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
 
 
-def profile_name(account: Account) -> str | None:
-    """Name the launcher profile whose home a Claude account uses.
-
-    A profile's home sits under the profiles root, so the home's folder name
-    is the profile name::
-
-        home ~/.claude-profiles/Editor -> Editor, launched by claude-Editor.cmd
-
-    Args:
-        account: A roster account.
-
-    Returns:
-        The profile name, or None for the main account, a Codex account, or a
-        home outside the profiles root.
-    """
-    if account.is_main or account.product is not Product.CLAUDE:
-        return None
-    candidate = account.home.name
+def _home_profile(home: Path) -> str | None:
     try:
-        profile_home = default_profile_home(candidate).resolve()
+        profile_home = default_profile_home(home.name).resolve()
     except ValueError:
         return None
-    return candidate if profile_home == account.home.resolve() else None
+    return home.name if profile_home == home else None
+
+
+def _with_profiles(all_accounts: Sequence[Account]) -> list[Account]:
+    return [
+        each_account if each_account.is_main else dataclasses.replace(each_account, profile=_home_profile(each_account.home))
+        for each_account in all_accounts
+    ]
 
 
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account roster.
 
     Returns:
-        Main and additional accounts in configured order, each with its place in the account order file.
+        Main and additional accounts in configured order, each with its place in the account order file
+        and, for a home under the profiles root, its profile name.
 
     Raises:
         BrokerConfigurationError: An account list is unreadable.
@@ -211,7 +202,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return _with_priorities(all_accounts, _account_order(main_home))
+    return _with_priorities(_with_profiles(all_accounts), _account_order(main_home))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:

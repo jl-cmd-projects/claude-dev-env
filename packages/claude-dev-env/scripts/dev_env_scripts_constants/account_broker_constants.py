@@ -150,6 +150,7 @@ class Account:
     is_main: bool = False
     command: str | None = None
     priority: int | None = None
+    profile: str | None = None
 
 
 @dataclass(frozen=True)

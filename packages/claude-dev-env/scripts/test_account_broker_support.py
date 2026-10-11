@@ -45,22 +45,37 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     return main_home
 
 
-@pytest.mark.parametrize(
-    ("home_parts", "is_main", "expected_profile"),
-    [
-        (("profiles", "Editor"), False, "Editor"),
-        (("elsewhere", "editor"), False, None),
-        (("profiles", "main"), False, None),
-        ((".claude",), True, None),
-    ],
-)
-def test_should_name_the_profile_whose_home_an_account_uses(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, home_parts: tuple[str, ...], is_main: bool, expected_profile: str | None
+def test_should_name_and_order_a_chain_account_by_the_profile_of_its_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(support, "default_profile_home", lambda name: tmp_path / "profiles" / support.validate_profile_name(name))
-    account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", tmp_path.joinpath(*home_parts), is_main, "C:\\bin\\claude-editor.cmd")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / support.validate_profile_name(name))
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    launcher = "C:\\bin\\claude-editor.cmd"
+    (main_home / "claude-chain.json").write_text(
+        json.dumps(
+            {
+                "chain": [
+                    {"command": launcher, "credentials_path": str(tmp_path / "profiles" / "Editor" / ".credentials.json")},
+                    {"command": "C:\\bin\\other.cmd", "credentials_path": str(tmp_path / "elsewhere" / ".credentials.json")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
+    (main_home / "claude-account-order.json").write_text('["Editor"]', encoding="utf-8")
 
-    assert support.profile_name(account) == expected_profile
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.profile) for each_account in accounts] == [
+        ("main", None),
+        (launcher, "Editor"),
+        ("C:\\bin\\other.cmd", None),
+        ("extra", "extra"),
+    ]
+    assert accounts[1].priority == 0
 
 
 def test_should_leave_claude_priorities_unset_without_an_order_file(
