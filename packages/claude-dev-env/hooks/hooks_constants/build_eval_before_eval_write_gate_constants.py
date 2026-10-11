@@ -3,7 +3,7 @@
 ALL_FILE_WRITE_TOOL_NAMES = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 ALL_FILE_PATH_FIELDS = ("file_path", "notebook_path")
 ALL_EVAL_DIRECTORY_NAMES = frozenset({"eval", "evals", "hillclimb"})
-EVAL_FILE_NAME_WORD_PATTERN = r"^evals?(?:[._-]|$)|[._-]evals?\.[^.]+$|\.evals?\."
+EVAL_FILE_NAME_WORD_PATTERN = r"^evals?(?:[._-]|$)|\.evals?\."
 MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON = (
     "This file is part of an eval, and this session has not invoked /claude-api"
     " build-eval. An eval starts with that skill. Invoke the Skill tool with skill"

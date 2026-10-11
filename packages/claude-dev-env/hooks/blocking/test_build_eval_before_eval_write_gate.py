@@ -94,7 +94,6 @@ def test_eval_paths_should_be_recognized() -> None:
     assert gate.is_eval_path("C:\\repo\\eval\\grader.py")
     assert gate.is_eval_path("tools/eval_runner.py")
     assert gate.is_eval_path("tests/search.eval.json")
-    assert gate.is_eval_path("tools/search-evals.md")
 
 
 def test_notebook_edit_of_an_eval_notebook_should_be_denied(tmp_path: Path) -> None:
@@ -128,6 +127,7 @@ def test_gate_source_files_should_not_be_recognized() -> None:
 
 def test_non_eval_paths_should_not_be_recognized() -> None:
     assert not gate.is_eval_path("src/evaluate_score.py")
+    assert not gate.is_eval_path("docs/rule-guides/features-start-with-an-eval.md")
     assert not gate.is_eval_path("src/retrieval.py")
     assert not gate.is_eval_path("medieval/notes.md")
     assert not gate.is_eval_path("")

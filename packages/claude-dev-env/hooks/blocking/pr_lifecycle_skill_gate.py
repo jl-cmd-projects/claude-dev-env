@@ -282,12 +282,13 @@ def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    all_statuses = [
-        _scanned_transcript(each_path, _shows_build_eval)
-        for each_path in _transcript_paths(all_payload_fields)
-    ]
-    all_read_statuses = [each_status for each_status in all_statuses if each_status is not None]
-    return bool(all_read_statuses) and not any(all_read_statuses)
+    has_read_transcript = False
+    for each_path in _transcript_paths(all_payload_fields):
+        status = _scanned_transcript(each_path, _shows_build_eval)
+        if status:
+            return False
+        has_read_transcript = has_read_transcript or status is not None
+    return has_read_transcript
 
 
 def _deny(reason: str) -> dict[str, object]:

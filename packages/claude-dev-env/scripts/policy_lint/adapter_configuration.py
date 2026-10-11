@@ -168,8 +168,8 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     dark mode. It decides how a page renders and no code or safety policy.
 
     The eval write gate denies a write to an eval file until the session
-    invokes ``/claude-api build-eval``. It decides when a rule set loads and
-    no code or safety policy.
+    invokes ``/claude-api build-eval``. It decides which skill loads before
+    an eval file changes, and no code or safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

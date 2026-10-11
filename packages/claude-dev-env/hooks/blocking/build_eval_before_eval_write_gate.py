@@ -40,7 +40,7 @@ def is_eval_path(path: str) -> bool:
         .claude/hillclimb/feature/run.py     -> True
         tools/eval_runner.py                 -> True
         tests/test_search.eval.json          -> True
-        tools/search-evals.md                -> True
+        docs/features-start-with-an-eval.md  -> False
         build_eval_before_eval_write_gate.py -> False
         src/evaluate_score.py                -> False
         src/retrieval.py                     -> False
