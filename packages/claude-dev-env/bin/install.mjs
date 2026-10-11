@@ -1325,21 +1325,6 @@ function managedPackageSourceRoots() {
 }
 
 /**
- * Reports whether a settings.json hook command points at one of this installer's
- * managed scripts, no matter how the home directory was written ($HOME, ~,
- * ${HOME}, or an absolute path) or which path separator was used. Matching on
- * the `/.claude/hooks/<relative>` tail lets a reinstall prune stale entries from
- * earlier installs that used a different interpreter prefix, while leaving
- * user-authored hooks outside the managed set untouched.
- *
- * A command that is not a string belongs to an entry this installer never wrote,
- * so it counts as unmanaged and its entry stays.
- *
- * @param {unknown} commandString The hook command from settings.json.
- * @param {Set<string>} managedHookRelativePaths Managed script paths under hooks/.
- * @returns {boolean} True when the command references a managed script.
- */
-/**
  * Report whether a hook entry is a model-evaluated hook this installer wrote.
  *
  * A prompt or agent hook names no script, so the installer marks its own with a
@@ -1354,6 +1339,21 @@ export function isManagedPromptHook(hook) {
         && hook.statusMessage.startsWith(MANAGED_PROMPT_HOOK_STATUS_PREFIX);
 }
 
+/**
+ * Reports whether a settings.json hook command points at one of this installer's
+ * managed scripts, no matter how the home directory was written ($HOME, ~,
+ * ${HOME}, or an absolute path) or which path separator was used. Matching on
+ * the `/.claude/hooks/<relative>` tail lets a reinstall prune stale entries from
+ * earlier installs that used a different interpreter prefix, while leaving
+ * user-authored hooks outside the managed set untouched.
+ *
+ * A command that is not a string belongs to an entry this installer never wrote,
+ * so it counts as unmanaged and its entry stays.
+ *
+ * @param {unknown} commandString The hook command from settings.json.
+ * @param {Set<string>} managedHookRelativePaths Managed script paths under hooks/.
+ * @returns {boolean} True when the command references a managed script.
+ */
 export function commandReferencesManagedHook(
     commandString, managedHookRelativePaths, sharedSettingsRealPath = null,
 ) {
