@@ -1,0 +1,39 @@
+name: Merge review status
+
+on:
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  carry:
+    name: Carry the merge review verdict to the queue commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Copy the pull request head's Merge review status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          STATUS_CONTEXT: Merge review
+        run: |
+          set -euo pipefail
+          queue_branch_name="${MERGE_GROUP_HEAD_REF##*/}"
+          pull_request_number="${queue_branch_name#pr-}"
+          pull_request_number="${pull_request_number%%-*}"
+          head_sha=$(gh api "repos/$GH_REPO/pulls/$pull_request_number" --jq .head.sha)
+          state=$(gh api "repos/$GH_REPO/commits/$head_sha/status" | jq -r --arg c "$STATUS_CONTEXT" '[.statuses[] | select(.context == $c)][0].state // "missing"')
+          echo "Pull request $pull_request_number head $head_sha: $STATUS_CONTEXT is $state"
+          if [ "$state" = "success" ]; then
+            queue_state=success
+            description="A clean review covers pull request head $head_sha"
+          else
+            queue_state=failure
+            description="No clean review covers pull request head $head_sha"
+          fi
+          gh api "repos/$GH_REPO/statuses/$MERGE_GROUP_HEAD_SHA" -f state="$queue_state" -f context="$STATUS_CONTEXT" -f description="$description" >/dev/null
