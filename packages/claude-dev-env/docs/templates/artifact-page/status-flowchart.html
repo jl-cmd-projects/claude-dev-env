@@ -33,14 +33,14 @@ svg .lbl{font:700 13px var(--font)}
 </style>
 
 <div class="wrap">
-  <h1>PR 1803: where it stands</h1>
+  <h1>Broker install fix: where it stands</h1>
   <div class="key">
     <span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Done</span>
     <span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Stuck here now</span>
     <span><i style="border-color:var(--line);border-style:dashed"></i>Next</span>
   </div>
   <div class="scroll">
-    <svg viewBox="0 0 1100 320" role="img" aria-label="PR 1803 flowchart. Main merged and tests pass. Two checks are stuck: GitHub still shows a conflict, and no CI ran. Merge waits for both.">
+    <svg viewBox="0 0 1100 320" role="group" aria-label="Broker install fix flowchart. Main merged and tests pass. Two checks are stuck: GitHub still shows a conflict, and no checks ran. The merge waits for both.">
       <defs>
         <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor" opacity=".7"/></marker>
         <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--warn)"/></marker>
@@ -59,18 +59,18 @@ svg .lbl{font:700 13px var(--font)}
       <line class="e" x1="790" y1="150" x2="790" y2="208" marker-end="url(#a)"/>
       <text class="lbl no" x="802" y="185">no</text>
 
-      <path class="e loop" d="M520 240 H496 V130 H552" marker-end="url(#aw)"/>
+      <path class="e loop" d="M520 240 H496 V130 H560" marker-end="url(#aw)"/>
       <text class="lbl no" x="488" y="186" text-anchor="end">recheck</text>
-      <path class="e loop" d="M720 240 H694 V130 H756" marker-end="url(#aw)"/>
+      <path class="e loop" d="M720 240 H694 V130 H760" marker-end="url(#aw)"/>
 
-      <g class="n start" tabindex="0" data-k="start"><rect class="s" x="15" y="67" width="110" height="56" rx="28"/><text x="70" y="100" text-anchor="middle">Fix PR</text></g>
+      <g class="n start" tabindex="0" data-k="start"><rect class="s" x="15" y="67" width="110" height="56" rx="28"/><text x="70" y="100" text-anchor="middle">Start fix</text></g>
       <g class="n done" tabindex="0" data-k="merge"><rect class="s" x="170" y="67" width="132" height="56" rx="10"/><text x="236" y="100" text-anchor="middle">✓ Merge main</text></g>
       <g class="n done" tabindex="0" data-k="tests"><rect class="s" x="347" y="67" width="132" height="56" rx="10"/><text x="413" y="100" text-anchor="middle">✓ 12 tests</text></g>
       <g class="n ask" tabindex="0" data-k="q1"><polygon class="s" points="590,40 668,95 590,150 512,95"/><text x="590" y="91" text-anchor="middle">Conflict</text><text x="590" y="110" text-anchor="middle">cleared?</text></g>
       <g class="n ask" tabindex="0" data-k="q2"><polygon class="s" points="790,40 868,95 790,150 712,95"/><text x="790" y="91" text-anchor="middle">Checks</text><text x="790" y="110" text-anchor="middle">ran?</text></g>
-      <g class="n next" tabindex="0" data-k="end"><rect class="s" x="924" y="67" width="150" height="56" rx="28"/><text x="999" y="100" text-anchor="middle">Merge PR</text></g>
+      <g class="n next" tabindex="0" data-k="end"><rect class="s" x="924" y="67" width="150" height="56" rx="28"/><text x="999" y="100" text-anchor="middle">Merge</text></g>
       <g class="n wait" tabindex="0" data-k="w1"><rect class="s" x="520" y="210" width="140" height="60" rx="10"/><text x="590" y="236" text-anchor="middle">⏳ Still shows</text><text x="590" y="256" text-anchor="middle">conflict</text></g>
-      <g class="n wait" tabindex="0" data-k="w2"><rect class="s" x="720" y="210" width="140" height="60" rx="10"/><text x="790" y="236" text-anchor="middle">⏳ No CI on</text><text x="790" y="256" text-anchor="middle">new commit</text></g>
+      <g class="n wait" tabindex="0" data-k="w2"><rect class="s" x="720" y="210" width="140" height="60" rx="10"/><text x="790" y="236" text-anchor="middle">⏳ No checks on</text><text x="790" y="256" text-anchor="middle">new commit</text></g>
     </svg>
   </div>
   <div class="det" id="det" aria-live="polite"></div>
@@ -78,14 +78,14 @@ svg .lbl{font:700 13px var(--font)}
 
 <script type="application/json" id="detail-data">
 {
- "start":{"t":"Fix PR 1803","p":"Broker shared install path. A helper fixed it, then a hook blocked its commit. I committed and pushed."},
+ "start":{"t":"Start fix","p":"Broker shared install path. A helper fixed it, then a hook blocked its commit. I committed and pushed."},
  "merge":{"t":"Merge main: done","p":"Main merged in and pushed. 0 commits behind main. The test merge has no conflicts."},
  "tests":{"t":"12 tests: done","p":"All 12 broker tests pass on the new commit."},
  "q1":{"t":"Conflict cleared?","p":"GitHub's own merge check. It must clear before the merge."},
  "w1":{"t":"Stuck: GitHub still shows a conflict","p":"No change after 15 minutes of checks every 30 seconds. My test merge shows no conflict."},
  "q2":{"t":"Checks ran?","p":"A merge needs every check to pass on the current commit."},
- "w2":{"t":"Stuck: no CI on the new commit","p":"The only check runs are from October 3. Main and the branch have no workflow files."},
- "end":{"t":"Merge PR: next","p":"I hold the merge until both stuck items clear."}
+ "w2":{"t":"Stuck: no checks on the new commit","p":"The only check runs are from October 3. Main and the branch have no workflow files."},
+ "end":{"t":"Merge: next","p":"I hold the merge until both stuck items clear."}
 }
 </script>
 <script>

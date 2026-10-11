@@ -4,13 +4,13 @@ Three templates live here. Pick the one that fits the ask before you write a lin
 
 | Ask | Template |
 |---|---|
-| A status or progress report: what is done, where the work is stuck, and what comes next. Prefer it for every status visual unless the person asks for another shape | `status-flowchart.html` |
-| A tracker, board, review page or dashboard that people read and click | `template.html` |
+| A status or progress report on one piece of work: what is done, where it is stuck, and what comes next. Prefer it for every such report unless the person asks for another shape | `status-flowchart.html` |
+| A tracker, board, review page or dashboard that lists many items for people to read and click | `template.html` |
 | A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | `diagram.html` |
 
 `diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
 
-`status-flowchart.html` reads left to right. Done steps are green boxes, each yes-or-no check is a diamond, a stuck step is an amber box under its check with a dashed recheck loop back to it, and the next step is a dashed box. A click on any shape opens its detail from the `detail-data` block below the chart. Replace the shapes, the arrows and the `detail-data` entries with the work being reported, and keep each label to three words or fewer.
+`status-flowchart.html` reads left to right. Done steps are green boxes, each yes-or-no check is a diamond, a stuck step is an amber box under its check with a dashed recheck loop back to it, and the next step is a dashed box. A click on any shape opens its detail from the `detail-data` block below the chart. Replace the `<title>`, the `h1`, the svg `aria-label`, the shapes, the arrows and the `detail-data` entries with the work being reported. Keep each label to three words or fewer, in plain words with no abbreviations or item numbers.
 
 Render the page and look at the screenshot before you publish. Headless Chromium renders at least 500 pixels wide, so take the screenshot at 800 wide.
 

@@ -37,11 +37,9 @@ from hooks_constants.artifact_template_pointer_constants import (
     ARTIFACT_TEMPLATE_PATH,
     ARTIFACT_TOOL_NAME,
     HTML_PLAN_TEMPLATE_README_PATH,
-    POINTER_ALTERNATIVE_PREFIX,
-    POINTER_TEXT_PREFIX,
+    POINTER_TEXT_TEMPLATE,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
-    STATUS_FLOWCHART_POINTER_PREFIX,
     STATUS_FLOWCHART_TEMPLATE_PATH,
 )
 from hooks_constants.hook_specific_output_keys import (
@@ -86,10 +84,10 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
-            ADDITIONAL_CONTEXT_KEY: (
-                f"{STATUS_FLOWCHART_POINTER_PREFIX}{STATUS_FLOWCHART_TEMPLATE_PATH}"
-                f"{POINTER_TEXT_PREFIX}{HTML_PLAN_TEMPLATE_README_PATH}"
-                f"{POINTER_ALTERNATIVE_PREFIX}{ARTIFACT_TEMPLATE_PATH}."
+            ADDITIONAL_CONTEXT_KEY: POINTER_TEXT_TEMPLATE.format(
+                status_flowchart_path=STATUS_FLOWCHART_TEMPLATE_PATH,
+                html_plan_path=HTML_PLAN_TEMPLATE_README_PATH,
+                artifact_template_path=ARTIFACT_TEMPLATE_PATH,
             ),
         }
     }
