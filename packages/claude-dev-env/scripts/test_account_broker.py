@@ -371,17 +371,16 @@ def test_should_keep_resume_affinity_ahead_of_priority() -> None:
     assert decision.reason == "resume affinity"
 
 
-def test_should_resume_on_the_account_whose_command_matches_ahead_of_a_same_named_chain_account() -> None:
+def test_should_not_resume_on_an_account_that_only_shares_the_bound_name() -> None:
     chain_account = Account(Product.CLAUDE, "work", Path("/chained"), False, "C:\\one\\claude-work.cmd", 0)
     readings = (
         Reading(chain_account, _meters(90, 90)),
-        Reading(_ranked_claude_account("work", 1), _meters(40, 40)),
+        Reading(_ranked_claude_account("work", 1), _meters(0, 0)),
     )
 
     decision = choose_from_readings(Product.CLAUDE, readings, now=NOW, preferred_command="work")
 
-    assert decision.account.home == Path("/profiles") / "work"
-    assert decision.reason == "resume affinity"
+    assert decision.reason != "resume affinity"
 
 
 def test_should_wait_when_every_ranked_claude_account_is_spent() -> None:
