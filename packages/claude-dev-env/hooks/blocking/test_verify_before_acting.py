@@ -471,7 +471,7 @@ def test_should_register_a_matcher_covering_every_mutating_tool_name() -> None:
         each_entry["matcher"]
         for each_entry in hooks_configuration["hooks"]["PostToolUse"]
         if any(
-            "verify_before_acting.py" in each_hook.get("command", "") for each_hook in each_entry["hooks"]
+            "verify_before_acting.py" in each_hook["command"] for each_hook in each_entry["hooks"]
         )
     ]
     assert len(all_matchers) == 1
