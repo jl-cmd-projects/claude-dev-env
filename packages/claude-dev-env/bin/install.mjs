@@ -1598,9 +1598,10 @@ function startEventFromHookGroupList(settings, eventType) {
  * rewritten copies so repeated merges stay idempotent and a managed hook moved to
  * a new matcher group does not double-run. A config that ships managed prompt
  * hooks also clears them from event types it no longer lists. User-authored
- * hooks are preserved as entries, but residual $HOME / ${HOME} / ~/ tokens in every hook and statusLine
- * command are expanded to absolute home paths so hosts that require referenced
- * env vars at load time (a third-party host on Windows) can execute them.
+ * hooks are preserved as entries, but residual $HOME / ${HOME} / ~/ tokens in
+ * every hook and statusLine command are expanded to absolute home paths so hosts
+ * that require referenced env vars at load time (a third-party host on Windows)
+ * can execute them.
  *
  * The merge reads a settings file another tool or a person may have written, so
  * it recognizes the shapes it writes and steps around the rest: a `hooks` value
