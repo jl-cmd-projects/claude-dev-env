@@ -2,7 +2,10 @@
 """PreToolUse hook: route an agent about to build an artifact page by scope.
 
 Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
-when a session starts a new artifact page. One flow or one comparison is an
+when a session starts a new artifact page. A status or progress report
+prefers the status flowchart from
+``docs/templates/artifact-page/status-flowchart.html``, unless the person asks
+for another shape. One flow or one comparison is an
 inline SVG flowchart with minimal text. A multi-part plan or evidence is an
 html-plan page from ``docs/templates/html-plan/README.md``, and
 ``docs/templates/artifact-page/README.md`` stays the alternative:
@@ -38,6 +41,8 @@ from hooks_constants.artifact_template_pointer_constants import (
     POINTER_TEXT_PREFIX,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
+    STATUS_FLOWCHART_POINTER_PREFIX,
+    STATUS_FLOWCHART_TEMPLATE_PATH,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
@@ -82,6 +87,7 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
             ADDITIONAL_CONTEXT_KEY: (
+                f"{STATUS_FLOWCHART_POINTER_PREFIX}{STATUS_FLOWCHART_TEMPLATE_PATH}"
                 f"{POINTER_TEXT_PREFIX}{HTML_PLAN_TEMPLATE_README_PATH}"
                 f"{POINTER_ALTERNATIVE_PREFIX}{ARTIFACT_TEMPLATE_PATH}."
             ),

@@ -14,6 +14,8 @@ __all__ = [
     "POINTER_TEXT_PREFIX",
     "SKILL_NAME_INPUT_KEY",
     "SKILL_TOOL_NAME",
+    "STATUS_FLOWCHART_POINTER_PREFIX",
+    "STATUS_FLOWCHART_TEMPLATE_PATH",
     "ALL_ARTIFACT_DESIGN_SKILL_NAMES",
 ]
 
@@ -26,8 +28,15 @@ ALL_ARTIFACT_DESIGN_SKILL_NAMES = frozenset({"artifact-design"})
 TEMPLATES_DIRECTORY = Path(__file__).resolve().parents[2] / "docs" / "templates"
 ARTIFACT_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "README.md"
 HTML_PLAN_TEMPLATE_README_PATH = TEMPLATES_DIRECTORY / "html-plan" / "README.md"
+STATUS_FLOWCHART_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "status-flowchart.html"
+STATUS_FLOWCHART_POINTER_PREFIX = (
+    "For a status or progress report, prefer the status flowchart: done steps,"
+    " yes-or-no checks, stuck steps with recheck loops, and the next step, each"
+    " opening its detail on click. Build it from "
+)
 POINTER_TEXT_PREFIX = (
-    "Pick the visual by scope. For one flow or one comparison, draw an inline SVG"
+    ", unless the person asks for another shape."
+    " Otherwise pick the visual by scope. For one flow or one comparison, draw an inline SVG"
     " flowchart artifact with minimal text, using the artifact-diagramming skill."
     " For a multi-part plan or evidence, build an html-plan page following "
 )

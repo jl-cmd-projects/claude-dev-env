@@ -24,6 +24,11 @@
       "key": "wall_of_text",
       "label": "Wall of text",
       "reminder": "Put each point, and each step the reader takes, on its own line."
+    },
+    {
+      "key": "use_flowchart",
+      "label": "Use the flowchart",
+      "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click."
     }
   ],
   "allowed_capitalized_words": [

@@ -1,0 +1,98 @@
+<title>Status Flowchart</title>
+<style>
+:root{--bg:#f3f5f8;--surface:#ffffff;--fg:#18202c;--line:#7d8798;--ok:#16653d;--ok-soft:#e1f3e8;--warn:#7a4800;--warn-soft:#fdf0d6;--here:#2245a2;--here-soft:#e5ebfb;--font:"Segoe UI",system-ui,-apple-system,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11151b;--surface:#1a2029;--fg:#e8ebf1;--line:#7c879c;--ok:#72d6a3;--ok-soft:#163326;--warn:#f2bc63;--warn-soft:#382b13;--here:#a9c0ff;--here-soft:#1f2a46;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11151b;--surface:#1a2029;--fg:#e8ebf1;--line:#7c879c;--ok:#72d6a3;--ok-soft:#163326;--warn:#f2bc63;--warn-soft:#382b13;--here:#a9c0ff;--here-soft:#1f2a46;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 var(--font);margin:0;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1120px;margin:0 auto;display:grid;gap:14px}
+h1{font-size:22px;margin:0;text-wrap:balance}
+.scroll{overflow-x:auto;background:var(--surface);border:1.5px solid var(--line);border-radius:14px}
+svg{display:block;width:100%;min-width:820px;height:auto;color:var(--fg)}
+svg text{font:600 15px var(--font);fill:currentColor}
+svg .lbl{font:700 13px var(--font)}
+.n{cursor:pointer}
+.n:focus{outline:none}
+.n:focus-visible .s,.n.on .s{stroke:var(--here);stroke-width:4}
+.n:hover .s{stroke:var(--here)}
+.s{stroke-width:2.5}
+.done .s{fill:var(--ok-soft);stroke:var(--ok)}
+.wait .s{fill:var(--warn-soft);stroke:var(--warn)}
+.ask .s{fill:var(--surface);stroke:var(--line)}
+.next .s{fill:var(--surface);stroke:var(--line);stroke-dasharray:6 5}
+.start .s{fill:var(--here-soft);stroke:var(--here)}
+.e{stroke:var(--line);stroke-width:2.5;fill:none}
+.e.loop{stroke:var(--warn);stroke-dasharray:5 5}
+.y{fill:var(--ok)!important}.no{fill:var(--warn)!important}
+.det{background:var(--surface);border:2px solid var(--here);border-radius:14px;padding:12px 16px;display:grid;gap:4px;min-height:64px}
+.det b{font-size:18px}
+.det p{margin:0;max-width:70ch}
+.key{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;font-weight:600}
+.key span{display:inline-flex;align-items:center;gap:6px}
+.key i{width:16px;height:12px;border-radius:3px;border:2px solid}
+@media (prefers-reduced-motion:no-preference){.s{transition:stroke .12s}}
+</style>
+
+<div class="wrap">
+  <h1>PR 1803: where it stands</h1>
+  <div class="key">
+    <span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Done</span>
+    <span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Stuck here now</span>
+    <span><i style="border-color:var(--line);border-style:dashed"></i>Next</span>
+  </div>
+  <div class="scroll">
+    <svg viewBox="0 0 1100 320" role="img" aria-label="PR 1803 flowchart. Main merged and tests pass. Two checks are stuck: GitHub still shows a conflict, and no CI ran. Merge waits for both.">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor" opacity=".7"/></marker>
+        <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--warn)"/></marker>
+      </defs>
+
+      <line class="e" x1="125" y1="95" x2="168" y2="95" marker-end="url(#a)"/>
+      <line class="e" x1="302" y1="95" x2="345" y2="95" marker-end="url(#a)"/>
+      <line class="e" x1="479" y1="95" x2="512" y2="95" marker-end="url(#a)"/>
+      <line class="e" x1="668" y1="95" x2="712" y2="95" marker-end="url(#a)"/>
+      <text class="lbl y" x="690" y="85" text-anchor="middle">yes</text>
+      <line class="e" x1="868" y1="95" x2="922" y2="95" marker-end="url(#a)"/>
+      <text class="lbl y" x="895" y="85" text-anchor="middle">yes</text>
+
+      <line class="e" x1="590" y1="150" x2="590" y2="208" marker-end="url(#a)"/>
+      <text class="lbl no" x="602" y="185">no</text>
+      <line class="e" x1="790" y1="150" x2="790" y2="208" marker-end="url(#a)"/>
+      <text class="lbl no" x="802" y="185">no</text>
+
+      <path class="e loop" d="M520 240 H496 V130 H552" marker-end="url(#aw)"/>
+      <text class="lbl no" x="488" y="186" text-anchor="end">recheck</text>
+      <path class="e loop" d="M720 240 H694 V130 H756" marker-end="url(#aw)"/>
+
+      <g class="n start" tabindex="0" data-k="start"><rect class="s" x="15" y="67" width="110" height="56" rx="28"/><text x="70" y="100" text-anchor="middle">Fix PR</text></g>
+      <g class="n done" tabindex="0" data-k="merge"><rect class="s" x="170" y="67" width="132" height="56" rx="10"/><text x="236" y="100" text-anchor="middle">✓ Merge main</text></g>
+      <g class="n done" tabindex="0" data-k="tests"><rect class="s" x="347" y="67" width="132" height="56" rx="10"/><text x="413" y="100" text-anchor="middle">✓ 12 tests</text></g>
+      <g class="n ask" tabindex="0" data-k="q1"><polygon class="s" points="590,40 668,95 590,150 512,95"/><text x="590" y="91" text-anchor="middle">Conflict</text><text x="590" y="110" text-anchor="middle">cleared?</text></g>
+      <g class="n ask" tabindex="0" data-k="q2"><polygon class="s" points="790,40 868,95 790,150 712,95"/><text x="790" y="91" text-anchor="middle">Checks</text><text x="790" y="110" text-anchor="middle">ran?</text></g>
+      <g class="n next" tabindex="0" data-k="end"><rect class="s" x="924" y="67" width="150" height="56" rx="28"/><text x="999" y="100" text-anchor="middle">Merge PR</text></g>
+      <g class="n wait" tabindex="0" data-k="w1"><rect class="s" x="520" y="210" width="140" height="60" rx="10"/><text x="590" y="236" text-anchor="middle">⏳ Still shows</text><text x="590" y="256" text-anchor="middle">conflict</text></g>
+      <g class="n wait" tabindex="0" data-k="w2"><rect class="s" x="720" y="210" width="140" height="60" rx="10"/><text x="790" y="236" text-anchor="middle">⏳ No CI on</text><text x="790" y="256" text-anchor="middle">new commit</text></g>
+    </svg>
+  </div>
+  <div class="det" id="det" aria-live="polite"></div>
+</div>
+
+<script type="application/json" id="detail-data">
+{
+ "start":{"t":"Fix PR 1803","p":"Broker shared install path. A helper fixed it, then a hook blocked its commit. I committed and pushed."},
+ "merge":{"t":"Merge main: done","p":"Main merged in and pushed. 0 commits behind main. The test merge has no conflicts."},
+ "tests":{"t":"12 tests: done","p":"All 12 broker tests pass on the new commit."},
+ "q1":{"t":"Conflict cleared?","p":"GitHub's own merge check. It must clear before the merge."},
+ "w1":{"t":"Stuck: GitHub still shows a conflict","p":"No change after 15 minutes of checks every 30 seconds. My test merge shows no conflict."},
+ "q2":{"t":"Checks ran?","p":"A merge needs every check to pass on the current commit."},
+ "w2":{"t":"Stuck: no CI on the new commit","p":"The only check runs are from October 3. Main and the branch have no workflow files."},
+ "end":{"t":"Merge PR: next","p":"I hold the merge until both stuck items clear."}
+}
+</script>
+<script>
+const D=JSON.parse(document.getElementById('detail-data').textContent);
+const det=document.getElementById('det');
+const nodes=[...document.querySelectorAll('.n')];
+function show(g){nodes.forEach(n=>n.classList.toggle('on',n===g));const d=D[g.dataset.k];det.innerHTML='';const b=document.createElement('b');b.textContent=d.t;const p=document.createElement('p');p.textContent=d.p;det.append(b,p)}
+nodes.forEach(g=>{g.setAttribute('role','button');g.addEventListener('click',()=>show(g));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show(g)}})});
+show(nodes.find(n=>n.dataset.k==='w1'));
+</script>
