@@ -63,8 +63,9 @@ STALE_REVIEW_REASON_TEMPLATE = (
     "Review the new head until a pass reports zero findings, record it, then merge."
 )
 AUTO_MERGE_REASON_TEMPLATE = (
-    "Auto-merge on {slug}#{number} merges a future head no review has seen. Run the "
-    "review loop until it is clean, then merge directly, pinned to the reviewed head."
+    "Auto-merge on {slug}#{number} names no head, so it could merge a head no review "
+    "has seen. Run `gh pr merge {number} --repo {slug} --auto --match-head-commit {head}`, "
+    "which arms auto-merge or joins the merge queue only while the head is {head}."
 )
 UNKNOWN_TARGET_REASON = (
     "This merge names no repository and pull request number the review gate can read. "

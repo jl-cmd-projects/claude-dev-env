@@ -68,13 +68,13 @@ def test_should_deny_an_unpinned_merge_after_a_clean_review() -> None:
     assert "names no head" in _reason(_merge_tool())
 
 
-def test_should_deny_auto_merge_even_after_a_clean_review() -> None:
+def test_should_deny_auto_merge_that_names_no_head() -> None:
     merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
     payload = {
         "tool_name": "mcp__github__enable_pr_auto_merge",
         "tool_input": {"owner": "acme", "repo": "tools", "pullNumber": 12},
     }
-    assert "Auto-merge" in _reason(payload)
+    assert f"--match-head-commit {CLEAN_HEAD}" in _reason(payload)
 
 
 def test_should_allow_any_merge_in_an_exempt_repository(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -113,3 +113,20 @@ def test_should_ignore_commands_that_merge_nothing() -> None:
 def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_COMMAND", "/team-review")
     assert "`/team-review`" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_allow_auto_merge_pinned_to_the_clean_head() -> None:
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
+    command = f"gh pr merge 12 --repo acme/tools --auto --match-head-commit {CLEAN_HEAD}"
+    assert _reason(_bash(command)) is None
+
+
+def test_should_deny_pinned_auto_merge_with_no_clean_review() -> None:
+    command = f"gh pr merge 12 --repo acme/tools --auto --match-head-commit {CLEAN_HEAD}"
+    assert "no clean review" in _reason(_bash(command))
+
+
+def test_should_deny_auto_merge_pinned_to_a_newer_head() -> None:
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
+    command = f"gh pr merge 12 --repo acme/tools --auto --match-head-commit {NEW_HEAD}"
+    assert "Review the new head" in _reason(_bash(command))

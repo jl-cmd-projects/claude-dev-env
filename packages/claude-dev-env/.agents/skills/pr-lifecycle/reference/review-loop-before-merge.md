@@ -8,4 +8,4 @@ A pull request the agent made merges only after a code review of its head comes 
 4. Repeat until a pass records `CLEAN`.
 5. Merge pinned to that head: `expectedHeadSha` on the merge tool, or `--match-head-commit` on `gh pr merge`.
 
-`hooks/blocking/merge_review_gate.py` denies any other merge and any auto-merge. A repository whose own CI and merge queue review and merge its pull requests is listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`, comma separated as `owner/name`, and skips the gate.
+`hooks/blocking/merge_review_gate.py` denies any other merge. In a merge-queue repository, enqueue with `gh pr merge <number> --repo <owner>/<name> --auto --match-head-commit <head sha>`; auto-merge that names no head is denied. A repository whose own CI and merge queue review and merge its pull requests is listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`, comma separated as `owner/name`, and skips the gate.
