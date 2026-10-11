@@ -290,7 +290,7 @@ def test_should_cache_account_reading_under_injected_state_path(
 def _read_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, all_results: list[object], gap: timedelta) -> object:
     monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
     _recorded_sleeps(monkeypatch)
-    account = Account(Product.CLAUDE, "claude-editor.cmd", tmp_path)
+    account = Account(Product.CLAUDE, "second", tmp_path)
     pending = list(all_results)
 
     def reader(_selected: Account) -> Meters:
