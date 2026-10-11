@@ -31,6 +31,7 @@ function mergeInto(settings, hooksConfig) {
 }
 
 function hooksConfigWithPrompt(promptText) {
+    assert.ok(MANAGED_STATUS?.startsWith('claude-dev-env: '), 'the shipped claim judge needs the managed status prefix');
     return {
         hooks: {
             PreToolUse: [
@@ -44,9 +45,9 @@ function hooksConfigWithPrompt(promptText) {
 }
 
 function replyHooks(settings) {
-    return modelHookEntries(settings)
-        .filter(eachEntry => eachEntry.eventName === 'PreToolUse' && eachEntry.matcher === REPLY_MATCHER)
-        .map(eachEntry => eachEntry.hook);
+    return (settings.hooks?.PreToolUse ?? [])
+        .filter(eachGroup => eachGroup.matcher === REPLY_MATCHER)
+        .flatMap(eachGroup => eachGroup.hooks ?? []);
 }
 
 test('should keep one managed prompt hook across reinstalls and carry the new prompt text', () => {
@@ -70,12 +71,12 @@ test('should remove the managed prompt hook on uninstall and keep the user promp
     assert.deepEqual(replyHooks(settings), [USER_PROMPT_HOOK]);
 });
 
-test('should mark every model hook the shipped hooks.json registers as managed, with a claim judge on reply', () => {
+test('should mark the shipped claim judge on reply, and any other shipped model hook, as managed', () => {
     assert.ok(shippedReplyJudgeEntries().length > 0);
     assert.ok(modelHookEntries(SHIPPED_HOOKS_CONFIG).every(eachEntry => isManagedPromptHook(eachEntry.hook)));
 });
 
-test('should keep each shipped model hook once, under its own event and matcher, after two installs', () => {
+test('should keep the shipped claim judge once, under its own event and matcher, after two installs', () => {
     const settings = {};
     mergeInto(settings, structuredClone(SHIPPED_HOOKS_CONFIG));
     mergeInto(settings, structuredClone(SHIPPED_HOOKS_CONFIG));
