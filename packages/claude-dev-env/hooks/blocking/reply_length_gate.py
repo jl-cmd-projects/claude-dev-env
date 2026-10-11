@@ -80,6 +80,10 @@ from visual_reply_rules import (
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.hook_specific_output_keys import (
+    HOOK_EVENT_NAME_KEY,
+    HOOK_SPECIFIC_OUTPUT_KEY,
+)
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
     ALL_DECISION_CARD_PROSE_KEYS,
@@ -105,8 +109,6 @@ from hooks_constants.reply_length_gate_constants import (
     FENCED_BLOCK_PATTERN,
     ADDITIONAL_CONTEXT_KEY,
     HOOK_EVENT_NAME,
-    HOOK_EVENT_NAME_KEY,
-    HOOK_SPECIFIC_OUTPUT_KEY,
     INLINE_CODE_PATTERN,
     LINE_BREAK_PATTERN,
     LINK_TARGET_PATTERN,

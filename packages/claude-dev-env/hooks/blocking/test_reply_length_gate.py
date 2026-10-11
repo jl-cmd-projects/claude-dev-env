@@ -638,11 +638,16 @@ def test_should_deny_an_anchor_link_inside_widget_code(
 def test_should_allow_widget_code_with_no_anchor_and_advise_a_flowchart(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(
-        monkeypatch, capsys, WIDGET_TOOL_NAME, {"widget_code": "<div>Three steps</div>"}
+    hook_input = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": WIDGET_TOOL_NAME,
+        "tool_input": {"widget_code": "<div>Three steps</div>"},
+    }
+    monkeypatch.setattr(
+        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
     )
+    exit_code = reply_length_gate.main()
     assert exit_code == 0
-    reply_length_gate.write_flowchart_advice(WIDGET_TOOL_NAME, {"widget_code": "<div>Three steps</div>"})
     advice_output = json.loads(capsys.readouterr().out)
     assert "prefers a flowchart" in advice_output["hookSpecificOutput"]["additionalContext"]
 
