@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/scripts/dev_env_scripts_constants/account_broker_constants.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "6e41d9e24746459e4f7cfc02336e95ae6da03da1"
+}
