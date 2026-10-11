@@ -12,6 +12,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
 - `blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file until a `claude-api` Skill call with args `build-eval`, or the `/claude-api build-eval` command, appears in the transcript.
+- `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge to be pinned to that head, denies auto-merge, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`. Its deny reason names the review command `CLAUDE_MERGE_REVIEW_COMMAND` sets.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
 
 ## When it fires
@@ -24,6 +25,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/verify_before_acting.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Agent|Task|apply_patch|Bash|PowerShell|mcp__.*`, timeout `10` seconds in `hooks.json`.
 - `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)`, timeout `10` seconds in `hooks.json`.
 - `blocking/build_eval_before_eval_write_gate.py` runs on `PreToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit`, timeout `10` seconds in `hooks.json`.
+- `blocking/merge_review_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 
 ## Proving it
@@ -32,7 +34,7 @@ Preconditions:
 
 - Run each command from the repository root with Python and pytest available. The tests create transcript and payload fixtures.
 
-- **Reply length.** Input is a reply with four sentences, a plain pull request number, an abbreviation, two sentences with no widget this turn, or widget code with an anchor link. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_reply_length_gate.py -q`. The adjacent test observes a denial and its count, link, or mode reason.
+- **Reply length.** Input is a reply with four sentences, a plain pull request number, an abbreviation, two sentences with no widget this turn, or widget code with an anchor link. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_reply_length_gate.py -q`. The adjacent test observes a denial and its count, link, or mode reason. Widget code with no flowchart passes with a flowchart reminder in `additionalContext`.
 - **Edit marker.** Input is an update message with strikethrough or an edit note. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_edit_marker_gate.py -q`. The adjacent test observes a denial; clean replacement text passes.
 - **Handoff close.** Input is an issue comment that says the issue is closed and that the found defect belongs to another issue. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_issue_close_handoff_gate.py -q`. The adjacent test observes a denial; a close with a plain cross-reference and a routing comment on an open issue both pass.
 - **Session title.** Input is a set session title call with no leading emoji or a name over 25 characters. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_session_title_format_gate.py -q`. The adjacent test observes a denial that names the broken rule; a well-formed title passes.
@@ -40,6 +42,7 @@ Preconditions:
 - **Checked claim.** Input is a Write after hedged reasoning in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_verify_before_acting.py -q`. The adjacent test observes a block and a logged blocked outcome.
 - **Lifecycle skill.** Input is a `git commit` or `gh pr create` command with no `pr-lifecycle` invocation in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_pr_lifecycle_skill_gate.py -q`. The adjacent test observes a denial, then a silent allow once the skill or its slash command appears.
 - **Eval write.** Input is a Write to `evals/cases.json` with no build-eval call in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_build_eval_before_eval_write_gate.py -q`. The adjacent test observes a denial, then an allow once the call appears; a write outside an eval path passes.
+- **Clean review.** Input is a merge with no receipt, a receipt with findings, a merge pinned to a newer head, an unpinned merge, or auto-merge. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_review_gate.py -q`. The adjacent test observes a denial for each; a merge pinned to the clean head and a merge in an exempt repository pass.
 - **Dark mode page.** Input is an Artifact publish of a page that themes `html` but leaves `body` to the publish wrapper. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_dark_mode_gate.py -q`. The adjacent test observes a denial that names the text and its contrast; a page that themes `body` passes. The render tests skip on a host with no Node Playwright and Chromium.
 
 ## Gotchas
@@ -51,3 +54,4 @@ Preconditions:
 - The handoff close gate reads the `body` and `comment` fields of issue tools only. A `gh issue close --comment` command in Bash and a pull request body that closes the issue with `Closes #N` do not reach it.
 - The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
 - The dark mode gate denies a page publish when Node, Playwright or Chromium is missing, and its reason names the install command. It checks both dark signals, `prefers-color-scheme: dark` and `data-theme="dark"` on the root element.
+- The clean-review gate trusts the receipt. A receipt the agent writes by hand with zero findings passes, so the pr-lifecycle skill names the review loop that writes it. A `gh pr merge` that names no repository is denied, because the gate cannot tell which repository the current branch belongs to.

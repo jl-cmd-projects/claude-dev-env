@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.78.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.77.0...claude-dev-env-v8.78.0) (2026-10-11)
+
+
+### Features
+
+* **hooks:** hold an agent's merge until a review of its head is clean ([#1992](https://github.com/jl-cmd-projects/claude-dev-env/issues/1992)) ([6284d5c](https://github.com/jl-cmd-projects/claude-dev-env/commit/6284d5c2682928a4e680d62809bc05ccd13728b3))
+
+## [8.77.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.76.0...claude-dev-env-v8.77.0) (2026-10-11)
+
+
+### Features
+
+* **hooks:** advise a flowchart for visual reply widgets ([#1988](https://github.com/jl-cmd-projects/claude-dev-env/issues/1988)) ([601ae7d](https://github.com/jl-cmd-projects/claude-dev-env/commit/601ae7d265da9c92cae1ffdcff9db08e6f217188))
+
 ## [8.76.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.5...claude-dev-env-v8.76.0) (2026-10-11)
 
 

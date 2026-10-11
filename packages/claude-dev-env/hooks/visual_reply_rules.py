@@ -58,6 +58,14 @@ from hooks_constants.visual_reply_rules_constants import (
     TRANSCRIPT_ENCODING,
     USER_ENTRY_TYPE,
     WIDGET_ANCHOR_MESSAGE,
+    FLOWCHART_ARROW_PATTERN,
+    FLOWCHART_DIAMOND_PATTERN,
+    FLOWCHART_MARKER_BLOCK_PATTERN,
+    FLOWCHART_RULE_KEY,
+    FLOWCHART_SVG_PATTERN,
+    NOT_FLOWCHART_MESSAGE,
+    WIDGET_CODE_KEY,
+    WIDGET_INPUT_KEY,
     WIDGET_ANCHOR_PATTERN,
     WIDGET_TOOL_NAME_SUFFIX,
 )
@@ -151,6 +159,35 @@ def widget_anchor_violation(tool_name: str, all_tool_input: dict[str, object]) -
         return None
     serialized_input = json.dumps(all_tool_input)
     return WIDGET_ANCHOR_MESSAGE if WIDGET_ANCHOR_PATTERN.search(serialized_input) else None
+
+
+def widget_flowchart_advice(
+    tool_name: str, all_tool_input: dict[str, object], rules: VisualReplyRules
+) -> str | None:
+    """Return the advice for widget code that is not a flowchart, else None.
+
+    The gate passes this advice to the session and still allows the call.
+
+    A flowchart widget is one SVG with at least one arrow marker and one
+    diamond shape for a yes or no check. Shapes inside a ``<marker>`` block
+    are arrowheads, so they never count as the diamond::
+
+        <svg><path d="M0 0L9 5L0 9L-9 5Z"/><path marker-end="url(#a)"/></svg>
+    """
+    all_rule_keys = {each.key for each in rules.all_rules}
+    if not tool_name.endswith(WIDGET_TOOL_NAME_SUFFIX) or FLOWCHART_RULE_KEY not in all_rule_keys:
+        return None
+    widget_code = all_tool_input.get(WIDGET_CODE_KEY)
+    if widget_code is None:
+        widget_input = all_tool_input.get(WIDGET_INPUT_KEY)
+        widget_code = widget_input.get(WIDGET_CODE_KEY) if isinstance(widget_input, dict) else None
+    code_text = FLOWCHART_MARKER_BLOCK_PATTERN.sub(
+        "", widget_code if isinstance(widget_code, str) else ""
+    )
+    all_shape_patterns = (FLOWCHART_SVG_PATTERN, FLOWCHART_ARROW_PATTERN, FLOWCHART_DIAMOND_PATTERN)
+    if all(each_pattern.search(code_text) for each_pattern in all_shape_patterns):
+        return None
+    return NOT_FLOWCHART_MESSAGE.format(reminder=rules.reminder(FLOWCHART_RULE_KEY))
 
 
 def _parsed_entries(all_transcript_lines: Iterable[str]) -> list[dict[str, object]]:

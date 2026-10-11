@@ -247,7 +247,6 @@
           "The verdict belongs to CI",
           "A repository that runs no CI",
           "Rule",
-          "Rule",
           "Optimize every image before it reaches GitHub",
           "Volatile paths that must not appear in a post body",
           "Validation",
