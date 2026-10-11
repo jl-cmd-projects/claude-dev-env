@@ -28,7 +28,7 @@
     {
       "key": "use_flowchart",
       "label": "Use the flowchart",
-      "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click."
+      "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click, unless the person asked for another shape."
     }
   ],
   "allowed_capitalized_words": [
