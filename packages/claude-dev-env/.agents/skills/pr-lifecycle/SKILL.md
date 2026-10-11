@@ -298,7 +298,7 @@ Three things stay with the owner, and nothing else does:
 - A change the owner said they want to read first.
 - A repository whose branch rule requires an approving review the agent cannot give.
 
-Where the branch rule requires zero approvals and one status check, that check is the gate, and the agent merges on its verdict.
+Where the branch rule requires zero approvals and one status check, that check is the gate, and the agent merges on its verdict. Where the owner's instructions name a review loop for a repository, the newest review of the head is part of the gate. Fix each finding, push, review the new head, and merge once a review lists no findings.
 
 Validation is the precondition, and green means every check reported on the exact head commit. A branch rule that requires one status check names the floor a merge needs; a pull request whose other checks are red or still running is held until they report.
 
