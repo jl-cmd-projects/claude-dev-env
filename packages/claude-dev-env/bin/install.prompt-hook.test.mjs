@@ -7,8 +7,28 @@ import { isManagedPromptHook, mergeHooksIntoSettings, pruneManagedHooksFromSetti
 const SHIPPED_HOOKS_CONFIG = JSON.parse(readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8'));
 
 const REPLY_MATCHER = 'mcp__hearthbot__reply';
-const MANAGED_STATUS = 'claude-dev-env: checking each claim for its source';
+const EXAMPLE_HOME = '/home/example';
 const USER_PROMPT_HOOK = { type: 'prompt', prompt: 'User check. $ARGUMENTS', statusMessage: 'my own check' };
+
+function modelHookEntries(hooksConfig) {
+    return Object.entries(hooksConfig.hooks).flatMap(([eventName, matcherGroups]) => matcherGroups.flatMap(
+        eachGroup => (eachGroup.hooks ?? [])
+            .filter(eachHook => typeof eachHook.command !== 'string')
+            .map(eachHook => ({ eventName, matcher: eachGroup.matcher ?? '', hook: eachHook })),
+    ));
+}
+
+function shippedReplyJudgeEntries() {
+    return modelHookEntries(SHIPPED_HOOKS_CONFIG).filter(
+        eachEntry => eachEntry.eventName === 'PreToolUse' && eachEntry.matcher.split('|').includes(REPLY_MATCHER),
+    );
+}
+
+const MANAGED_STATUS = shippedReplyJudgeEntries()[0]?.hook.statusMessage;
+
+function mergeInto(settings, hooksConfig) {
+    mergeHooksIntoSettings(settings, hooksConfig, `${EXAMPLE_HOME}/.claude`, 'python3', null, EXAMPLE_HOME);
+}
 
 function hooksConfigWithPrompt(promptText) {
     return {
@@ -24,24 +44,16 @@ function hooksConfigWithPrompt(promptText) {
 }
 
 function replyHooks(settings) {
-    return (settings.hooks?.PreToolUse ?? [])
-        .filter(eachGroup => eachGroup.matcher === REPLY_MATCHER)
-        .flatMap(eachGroup => eachGroup.hooks);
-}
-
-function promptHookEntries(hooksConfig) {
-    return Object.entries(hooksConfig.hooks).flatMap(([eventName, matcherGroups]) => matcherGroups.flatMap(
-        eachGroup => (eachGroup.hooks ?? [])
-            .filter(eachHook => eachHook.type === 'prompt')
-            .map(eachHook => ({ eventName, matcher: eachGroup.matcher, hook: eachHook })),
-    ));
+    return modelHookEntries(settings)
+        .filter(eachEntry => eachEntry.eventName === 'PreToolUse' && eachEntry.matcher === REPLY_MATCHER)
+        .map(eachEntry => eachEntry.hook);
 }
 
 test('should keep one managed prompt hook across reinstalls and carry the new prompt text', () => {
     const settings = { hooks: { PreToolUse: [{ matcher: REPLY_MATCHER, hooks: [USER_PROMPT_HOOK] }] } };
 
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('First judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Second judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
+    mergeInto(settings, hooksConfigWithPrompt('First judge. $ARGUMENTS'));
+    mergeInto(settings, hooksConfigWithPrompt('Second judge. $ARGUMENTS'));
 
     assert.deepEqual(
         replyHooks(settings).map(eachHook => eachHook.prompt),
@@ -51,32 +63,27 @@ test('should keep one managed prompt hook across reinstalls and carry the new pr
 
 test('should remove the managed prompt hook on uninstall and keep the user prompt hook', () => {
     const settings = { hooks: { PreToolUse: [{ matcher: REPLY_MATCHER, hooks: [USER_PROMPT_HOOK] }] } };
-    mergeHooksIntoSettings(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'), '/home/example/.claude', 'python3');
+    mergeInto(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'));
 
     pruneManagedHooksFromSettings(settings, new Set());
 
     assert.deepEqual(replyHooks(settings), [USER_PROMPT_HOOK]);
 });
 
-test('should mark every prompt hook the shipped hooks.json registers as managed, with one claim judge on reply', () => {
-    const shippedEntries = promptHookEntries(SHIPPED_HOOKS_CONFIG);
-
-    const replyJudgeEntries = shippedEntries.filter(
-        eachEntry => eachEntry.eventName === 'PreToolUse' && eachEntry.matcher.split('|').includes(REPLY_MATCHER),
-    );
-    assert.equal(replyJudgeEntries.length, 1);
-    assert.ok(shippedEntries.every(eachEntry => isManagedPromptHook(eachEntry.hook)));
+test('should mark every model hook the shipped hooks.json registers as managed, with a claim judge on reply', () => {
+    assert.ok(shippedReplyJudgeEntries().length > 0);
+    assert.ok(modelHookEntries(SHIPPED_HOOKS_CONFIG).every(eachEntry => isManagedPromptHook(eachEntry.hook)));
 });
 
-test('should keep each shipped prompt hook once, under its own event and matcher, after two installs', () => {
+test('should keep each shipped model hook once, under its own event and matcher, after two installs', () => {
     const settings = {};
-    mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
-    mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
+    mergeInto(settings, structuredClone(SHIPPED_HOOKS_CONFIG));
+    mergeInto(settings, structuredClone(SHIPPED_HOOKS_CONFIG));
 
-    assert.deepEqual(promptHookEntries(settings), promptHookEntries(SHIPPED_HOOKS_CONFIG));
+    assert.deepEqual(modelHookEntries(settings), modelHookEntries(SHIPPED_HOOKS_CONFIG));
 });
 
-test('should drop a managed prompt hook left under a matcher the shipped config no longer lists', () => {
+test('should drop a managed prompt hook left under a retired matcher of an event the shipped config lists', () => {
     const staleMatcher = 'mcp__hearthbot__retired';
     const judgeOnlyMatcher = 'mcp__hearthbot__retired_alone';
     const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
@@ -89,7 +96,7 @@ test('should drop a managed prompt hook left under a matcher the shipped config 
         },
     };
 
-    mergeHooksIntoSettings(settings, structuredClone(SHIPPED_HOOKS_CONFIG), '/home/example/.claude', 'python3');
+    mergeInto(settings, structuredClone(SHIPPED_HOOKS_CONFIG));
 
     const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
     assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
