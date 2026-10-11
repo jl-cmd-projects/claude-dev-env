@@ -203,10 +203,9 @@ def _with_distinct_names(all_accounts: Sequence[Account]) -> list[Account]:
     all_name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
     all_named_accounts = []
     for each_account in all_accounts:
-        is_shared = all_name_counts[each_account.name.casefold()] > 1
-        if is_shared and not each_account.is_main and each_account.command != each_account.name:
-            print(f"warning: {each_account.command} shares the name {each_account.name}; it keeps its command as its name", file=sys.stderr)
-            each_account = dataclasses.replace(each_account, name=each_account.command)
+        if all_name_counts[each_account.name.casefold()] > 1 and not each_account.is_main:
+            print(f"warning: the account at {each_account.home} shares the name {each_account.name}", file=sys.stderr)
+            each_account = dataclasses.replace(each_account, name=each_account.command or each_account.name)
         all_named_accounts.append(each_account)
     return all_named_accounts
 

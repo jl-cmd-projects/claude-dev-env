@@ -97,7 +97,7 @@ def test_should_keep_the_command_name_for_a_chain_account_that_shares_an_extra_p
     accounts = support.load_claude_accounts()
 
     assert [each_account.name for each_account in accounts] == ["main", chain_launcher, "editor"]
-    assert "shares the name editor" in capsys.readouterr().err
+    assert f"{tmp_path / 'one'} shares the name editor" in capsys.readouterr().err
 
 
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:

@@ -380,6 +380,7 @@ def test_should_not_resume_on_an_account_that_only_shares_the_bound_name() -> No
 
     decision = choose_from_readings(Product.CLAUDE, readings, now=NOW, preferred_command="work")
 
+    assert decision.account.home == Path("/chained")
     assert decision.reason != "resume affinity"
 
 
