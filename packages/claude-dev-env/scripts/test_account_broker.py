@@ -985,12 +985,6 @@ def test_should_save_no_spent_mark_when_a_later_mark_is_unreadable(
     assert account_broker._load_state(account_broker.broker_state_path()).get("spent", {}) == {}
 
 
-def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> None:
-    home = Path("/profiles/first")
-
-    assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
-
-
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

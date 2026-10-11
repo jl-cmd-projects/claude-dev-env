@@ -21,7 +21,9 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_CODEX_FLOORS,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     CMD_SHELL_METACHARACTERS,
+    Account,
     JobOutcome,
+    Product,
 )
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
@@ -188,3 +190,9 @@ def test_parent_session_variables_name_the_session_link_and_leave_the_account_ho
     assert "CLAUDE_CODE_SESSION_ID" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
     assert "CLAUDECODE" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
     assert "CLAUDE_CONFIG_DIR" not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+
+
+def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> None:
+    home = Path("/profiles/first")
+
+    assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
