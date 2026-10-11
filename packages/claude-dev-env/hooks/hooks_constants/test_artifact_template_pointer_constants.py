@@ -17,7 +17,11 @@ def test_html_plan_readme_path_names_the_packaged_readme_and_house_stylesheet() 
 
 
 def test_status_flowchart_path_names_the_packaged_template_file() -> None:
-    assert artifact_template_pointer_constants.STATUS_FLOWCHART_TEMPLATE_PATH.is_file()
+    template_text = artifact_template_pointer_constants.STATUS_FLOWCHART_TEMPLATE_PATH.read_text(
+        encoding="utf-8"
+    )
+    assert "<svg" in template_text
+    assert "detail-data" in template_text
 
 
 def test_status_flowchart_gives_every_shape_a_detail_entry() -> None:
