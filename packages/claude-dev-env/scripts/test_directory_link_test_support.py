@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,8 @@ def test_should_link_a_folder_to_its_target(tmp_path: Path) -> None:
     assert (tmp_path / "link" / "marker.txt").read_text(encoding="utf-8") == "found"
 
 
-def test_should_skip_when_the_link_cannot_be_created(tmp_path: Path) -> None:
+@pytest.mark.skipif(sys.platform.startswith("win32"), reason="Windows links with a junction")
+def test_should_skip_when_the_symlink_cannot_be_created(tmp_path: Path) -> None:
     target = tmp_path / "target"
     target.mkdir()
     occupied = tmp_path / "occupied"

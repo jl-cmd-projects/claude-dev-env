@@ -11,21 +11,20 @@ import pytest
 
 
 def create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    """Point a new directory link at a target folder, or skip the test.
+    """Point a new directory link at a target folder.
 
-    Windows gets a junction and other systems get a symlink. A host that
-    refuses the link skips the calling test.
+    Windows gets a junction, which needs no extra rights, so a failure there
+    fails the test. Other systems get a symlink, and a host that refuses it
+    skips the calling test.
 
     Args:
         from_link: Where the new link goes.
         to_target: The folder the link points at.
     """
+    if sys.platform.startswith("win32"):
+        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
+        return
     try:
-        if sys.platform.startswith("win32"):
-            importlib.import_module("_winapi").CreateJunction(
-                str(to_target), str(from_link)
-            )
-        else:
-            os.symlink(to_target, from_link, target_is_directory=True)
+        os.symlink(to_target, from_link, target_is_directory=True)
     except OSError:
-        pytest.skip("directory link creation is not available")
+        pytest.skip("directory symlink creation is not available")

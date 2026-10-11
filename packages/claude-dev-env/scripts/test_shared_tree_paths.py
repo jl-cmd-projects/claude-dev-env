@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -25,14 +22,14 @@ from directory_link_test_support import create_directory_link
 
 
 def _build_junction_scripts_layout(tmp_path: Path) -> Path:
-    real_scripts_directory = tmp_path / "real" / SCRIPTS_DIRECTORY_NAME
-    real_scripts_directory.mkdir(parents=True)
-    (real_scripts_directory / "runner.py").write_text("", encoding="utf-8")
+    linked_scripts_directory = tmp_path / "target" / SCRIPTS_DIRECTORY_NAME
+    linked_scripts_directory.mkdir(parents=True)
+    (linked_scripts_directory / "runner.py").write_text("", encoding="utf-8")
     managed_root = tmp_path / "root"
     managed_root.mkdir()
     create_directory_link(
         from_link=managed_root / SCRIPTS_DIRECTORY_NAME,
-        to_target=real_scripts_directory,
+        to_target=linked_scripts_directory,
     )
     return managed_root / SCRIPTS_DIRECTORY_NAME / "runner.py"
 
@@ -68,7 +65,7 @@ def test_resolved_parent_is_used_when_link_side_has_no_shared_tree(
     tmp_path: Path,
 ) -> None:
     module_file = _build_junction_scripts_layout(tmp_path)
-    expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "real")
+    expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "target")
     resolved_scripts_directory = (
         shared_tree_paths.resolve_shared_process_tree_scripts_directory(
             module_file, all_environment={}
