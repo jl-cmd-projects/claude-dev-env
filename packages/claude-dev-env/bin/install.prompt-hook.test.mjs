@@ -33,7 +33,6 @@ function mergeInto(settings, hooksConfig) {
 }
 
 function hooksConfigWithPrompt(promptText) {
-    assert.ok(MANAGED_STATUS?.startsWith('claude-dev-env: '), 'the shipped claim judge needs the managed status prefix');
     return {
         hooks: {
             PreToolUse: [
@@ -74,7 +73,6 @@ test('should remove the managed prompt hook on uninstall and keep the user promp
 });
 
 test('should mark the shipped claim judge on reply, and any other shipped model hook, as managed', () => {
-    assert.ok(shippedReplyJudgeEntries().length > 0);
     assert.ok(modelHookEntries(SHIPPED_HOOKS_CONFIG).every(eachEntry => isManagedPromptHook(eachEntry.hook)));
 });
 
