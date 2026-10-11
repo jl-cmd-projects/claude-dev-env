@@ -103,6 +103,16 @@
         ]
       },
       {
+        "matcher": "Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/merge_review_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Read",
         "hooks": [
           {
