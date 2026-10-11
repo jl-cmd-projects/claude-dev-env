@@ -79,31 +79,26 @@ def test_should_name_a_chain_account_from_any_launcher_stem(
     assert [each_account.name for each_account in accounts] == ["main", expected_name, "extra"]
 
 
-def test_should_keep_the_launcher_path_name_for_a_chain_account_whose_name_is_taken(
+def test_should_keep_a_chain_account_state_key_when_an_extra_profile_shares_its_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
     main_home = tmp_path / ".claude"
     main_home.mkdir()
-    first_launcher = "C:\\one\\claude-editor.cmd"
-    second_launcher = "C:\\two\\claude-main.cmd"
+    chain_launcher = "C:\\one\\claude-editor.cmd"
     (main_home / "claude-chain.json").write_text(
-        json.dumps(
-            {
-                "chain": [
-                    {"command": first_launcher, "credentials_path": str(tmp_path / "one" / ".credentials.json")},
-                    {"command": second_launcher, "credentials_path": str(tmp_path / "two" / ".credentials.json")},
-                ]
-            }
-        ),
+        json.dumps({"chain": [{"command": chain_launcher, "credentials_path": str(tmp_path / "one" / ".credentials.json")}]}),
         encoding="utf-8",
     )
-    (main_home / "extra-profiles.json").write_text('["editor"]', encoding="utf-8")
+    extra_profiles_path = main_home / "extra-profiles.json"
+    extra_profiles_path.write_text('["work"]', encoding="utf-8")
+    key_without_collision = support._state_key(support.load_claude_accounts()[1])
+    extra_profiles_path.write_text('["work", "editor"]', encoding="utf-8")
 
-    accounts = support.load_claude_accounts()
+    key_with_collision = support._state_key(support.load_claude_accounts()[1])
 
-    assert [each_account.name for each_account in accounts] == ["main", first_launcher, second_launcher, "editor"]
+    assert key_with_collision == key_without_collision == f"claude:editor:{tmp_path / 'one'}"
 
 
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:

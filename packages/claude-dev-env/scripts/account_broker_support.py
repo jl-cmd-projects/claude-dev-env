@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import collections
 import dataclasses
 import errno
 import importlib
@@ -195,20 +194,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    return _with_priorities(_with_distinct_names(all_accounts), _account_order(main_home))
-
-
-def _with_distinct_names(all_accounts: Sequence[Account]) -> list[Account]:
-    all_name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
-    return [
-        dataclasses.replace(each_account, name=each_account.command)
-        if not each_account.is_main
-        and each_account.command
-        and all_name_counts[each_account.name.casefold()] > 1
-        and each_account.command != each_account.name
-        else each_account
-        for each_account in all_accounts
-    ]
+    return _with_priorities(all_accounts, _account_order(main_home))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:
