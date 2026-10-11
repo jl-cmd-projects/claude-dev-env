@@ -17,7 +17,7 @@ from visual_reply_rules import (
     visual_shown_this_turn,
     visual_violation,
     widget_anchor_violation,
-    widget_flowchart_violation,
+    widget_flowchart_advice,
 )
 
 SHIPPED_RULES = load_rules()
@@ -171,19 +171,19 @@ FLOWCHART_CODE = (
 )
 
 
-def test_widget_flowchart_violation_should_pass_an_svg_with_a_diamond_and_arrows() -> None:
+def test_widget_flowchart_advice_should_pass_an_svg_with_a_diamond_and_arrows() -> None:
     rules = load_rules()
     assert rules is not None
     nested_input = {"input": {"widget_code": FLOWCHART_CODE}}
-    assert widget_flowchart_violation("mcp__hearthbot__post_widget", nested_input, rules) is None
+    assert widget_flowchart_advice("mcp__hearthbot__post_widget", nested_input, rules) is None
 
 
-def test_widget_flowchart_violation_should_deny_cards_and_shapes_without_a_decision() -> None:
+def test_widget_flowchart_advice_should_advise_on_cards_and_shapes_without_a_decision() -> None:
     rules = load_rules()
     assert rules is not None
     card_input = {"widget_code": "<div class='card'>Merged</div>"}
     no_diamond_input = {"widget_code": '<svg><path marker-end="url(#a)"/></svg>'}
     for each_input in (card_input, no_diamond_input):
-        reason = widget_flowchart_violation("mcp__hearthbot__post_widget", each_input, rules)
+        reason = widget_flowchart_advice("mcp__hearthbot__post_widget", each_input, rules)
         assert reason is not None and "diamond" in reason
-    assert widget_flowchart_violation("mcp__hearthbot__reply", card_input, rules) is None
+    assert widget_flowchart_advice("mcp__hearthbot__reply", card_input, rules) is None

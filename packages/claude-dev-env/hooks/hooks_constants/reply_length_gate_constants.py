@@ -88,3 +88,7 @@ BANNED_WORD_MESSAGE = 'Banned word "{banned_word}". Delete it and name the evide
 LONG_SENTENCE_MESSAGE = (
     'Sentence too long: {word_count} words, limit {word_limit}: "{sentence_preview}".'
 )
+
+HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
+HOOK_EVENT_NAME_KEY = "hookEventName"
+ADDITIONAL_CONTEXT_KEY = "additionalContext"

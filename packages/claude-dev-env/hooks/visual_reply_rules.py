@@ -160,10 +160,12 @@ def widget_anchor_violation(tool_name: str, all_tool_input: dict[str, object]) -
     return WIDGET_ANCHOR_MESSAGE if WIDGET_ANCHOR_PATTERN.search(serialized_input) else None
 
 
-def widget_flowchart_violation(
+def widget_flowchart_advice(
     tool_name: str, all_tool_input: dict[str, object], rules: VisualReplyRules
 ) -> str | None:
-    """Return the deny reason for widget code that is not a flowchart.
+    """Return the advice for widget code that is not a flowchart, else None.
+
+    The gate passes this advice to the session and still allows the call.
 
     A flowchart widget is one SVG with at least one arrow marker and one
     diamond shape for a yes or no check::

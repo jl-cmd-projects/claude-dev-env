@@ -65,7 +65,7 @@ ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
 NO_VISUAL_MESSAGE = "This reply has {sentence_count} sentences and no visual this turn. {reminder}"
 SECOND_REPLY_MESSAGE = "A reply already went out this turn. {reminder}"
-NOT_FLOWCHART_MESSAGE = "The widget is no flowchart. {reminder}"
+NOT_FLOWCHART_MESSAGE = "This widget is no flowchart. {reminder}"
 WIDGET_ANCHOR_MESSAGE = (
     "A link sits inside the widget code, and a widget link does not open in the Claude app."
     " Remove the anchor and put the page link in the reply text."

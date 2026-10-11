@@ -57,6 +57,7 @@ later pass, so this gate denies it and the model resends a shorter one.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -75,7 +76,7 @@ from visual_reply_rules import (
     second_reply_violation,
     visual_violation,
     widget_anchor_violation,
-    widget_flowchart_violation,
+    widget_flowchart_advice,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -102,7 +103,10 @@ from hooks_constants.reply_length_gate_constants import (
     EM_DASH_MESSAGE,
     EM_DASH_PATTERN,
     FENCED_BLOCK_PATTERN,
+    ADDITIONAL_CONTEXT_KEY,
     HOOK_EVENT_NAME,
+    HOOK_EVENT_NAME_KEY,
+    HOOK_SPECIFIC_OUTPUT_KEY,
     INLINE_CODE_PATTERN,
     LINE_BREAK_PATTERN,
     LINK_TARGET_PATTERN,
@@ -310,9 +314,6 @@ def tool_violation(
         anchor_violation = widget_anchor_violation(tool_name, all_tool_input)
         if anchor_violation is not None:
             return anchor_violation, str(all_tool_input)
-        flowchart_violation = widget_flowchart_violation(tool_name, all_tool_input, mode_rules)
-        if flowchart_violation is not None:
-            return flowchart_violation, str(all_tool_input)
     if tool_name == DECISION_CARD_TOOL_NAME:
         card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
         violation = card_violation(card_text, mode_rules)
@@ -326,6 +327,18 @@ def tool_violation(
     return None if violation is None else (violation, reply_text)
 
 
+def write_flowchart_advice(tool_name: object, all_tool_input: dict[str, object]) -> None:
+    """Print the flowchart advice for an allowed widget call that is not a flowchart."""
+    mode_rules = active_mode_rules()
+    if not isinstance(tool_name, str) or mode_rules is None:
+        return
+    advice = widget_flowchart_advice(tool_name, all_tool_input, mode_rules)
+    if advice is None:
+        return
+    hook_event_output = {HOOK_EVENT_NAME_KEY: HOOK_EVENT_NAME, ADDITIONAL_CONTEXT_KEY: advice}
+    sys.stdout.write(json.dumps({HOOK_SPECIFIC_OUTPUT_KEY: hook_event_output}))
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
@@ -336,6 +349,7 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     checked = tool_violation(tool_name, tool_input, hook_input.get(TRANSCRIPT_PATH_KEY))
     if checked is None:
+        write_flowchart_advice(tool_name, tool_input)
         return ALLOW_EXIT_CODE
     violation, reply_text = checked
     block_reason = violation + RETRY_INSTRUCTION
