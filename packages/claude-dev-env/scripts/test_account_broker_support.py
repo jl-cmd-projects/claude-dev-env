@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import errno
-import importlib
 import json
 import os
 import shutil
@@ -16,16 +15,7 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
-
-
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
-        return
-    try:
-        os.symlink(to_target, from_link, target_is_directory=True)
-    except OSError:
-        pytest.skip("directory symlink creation is not available")
+from directory_link_test_support import create_directory_link
 
 
 def test_should_load_claude_roster_from_both_lists(
@@ -103,7 +93,7 @@ def test_should_name_an_extra_account_profile_from_its_resolved_home(
     profiles_root.mkdir()
     target = tmp_path.joinpath(*target_parts)
     target.mkdir(parents=True)
-    _create_directory_link(from_link=profiles_root / "alias", to_target=target)
+    create_directory_link(from_link=profiles_root / "alias", to_target=target)
     (main_home / "extra-profiles.json").write_text('["alias"]', encoding="utf-8")
 
     accounts = support.load_claude_accounts()

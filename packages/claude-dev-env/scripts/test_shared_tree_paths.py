@@ -21,18 +21,7 @@ from dev_env_scripts_constants.shared_tree_constants import (
     ADVISOR_DIRECTORY_NAME,
     TIER_MODEL_IDS_MODULE_FILENAME,
 )
-
-
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(
-            str(to_target), str(from_link)
-        )
-        return
-    try:
-        os.symlink(to_target, from_link, target_is_directory=True)
-    except OSError:
-        pytest.skip("directory symlink creation is not available")
+from directory_link_test_support import create_directory_link
 
 
 def _build_junction_scripts_layout(tmp_path: Path) -> Path:
@@ -41,7 +30,7 @@ def _build_junction_scripts_layout(tmp_path: Path) -> Path:
     (real_scripts_directory / "runner.py").write_text("", encoding="utf-8")
     managed_root = tmp_path / "root"
     managed_root.mkdir()
-    _create_directory_link(
+    create_directory_link(
         from_link=managed_root / SCRIPTS_DIRECTORY_NAME,
         to_target=real_scripts_directory,
     )
@@ -208,7 +197,7 @@ def test_resolved_agents_scripts_find_the_verified_managed_root(
     module_file.write_text("", encoding="utf-8")
     managed_root = tmp_path / managed_name
     managed_root.mkdir()
-    _create_directory_link(from_link=managed_root / "scripts", to_target=scripts_directory)
+    create_directory_link(from_link=managed_root / "scripts", to_target=scripts_directory)
     expected = _write_process_tree_kill_stub(managed_root)
     resolved_directory = shared_tree_paths.resolve_shared_process_tree_scripts_directory(module_file, {})
     assert resolved_directory == expected

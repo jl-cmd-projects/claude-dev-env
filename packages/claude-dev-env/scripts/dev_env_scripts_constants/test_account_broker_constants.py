@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import importlib.util
-import os
 import shutil
 import sys
 import types
@@ -36,6 +35,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     LUNA_TIER_STOP_PERCENT_LEFT,
     NORMAL_TIER_MINIMUM_PERCENT_LEFT,
 )
+from directory_link_test_support import create_directory_link
 
 TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
 
@@ -115,15 +115,6 @@ def test_parse_utc_time_converts_an_offset_timestamp() -> None:
     assert parsed.isoformat() == "2026-10-03T11:30:00+00:00"
 
 
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(
-            str(to_target), str(from_link)
-        )
-        return
-    os.symlink(to_target, from_link, target_is_directory=True)
-
-
 def _build_install_layout(home: Path) -> tuple[Path, Path]:
     agents_constants_directory = (
         home / ".agents" / "scripts" / "dev_env_scripts_constants"
@@ -145,7 +136,7 @@ def _build_install_layout(home: Path) -> tuple[Path, Path]:
     (classifier_directory / "classifier_constants.py").write_text(
         f"ALL_USAGE_LIMIT_MARKERS = ({TEMP_TREE_MARKER!r},)\n", encoding="utf-8"
     )
-    _create_directory_link(
+    create_directory_link(
         from_link=home / ".claude" / "scripts", to_target=home / ".agents" / "scripts"
     )
     linked_module = (

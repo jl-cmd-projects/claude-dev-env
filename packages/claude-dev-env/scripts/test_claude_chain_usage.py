@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import os
 import subprocess
 import sys
 import urllib.error
@@ -14,6 +12,7 @@ import pytest
 
 import claude_chain_usage as usage
 from dev_env_scripts_constants.claude_chain_usage_constants import RESOLVE_USAGE_WINDOW_MODULE_NAME
+from directory_link_test_support import create_directory_link
 
 
 def test_probe_reads_both_meters_and_resets(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,18 +104,11 @@ def test_probe_rejects_missing_access_token_for_another_account(
         usage.probe_account_meters(Path("home") / ".claude-profiles" / "ev" / ".credentials.json")
 
 
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
-        return
-    os.symlink(to_target, from_link, target_is_directory=True)
-
-
 def test_scripts_directory_follows_the_installed_scripts_link(tmp_path: Path) -> None:
     home = tmp_path.resolve()
     (home / ".agents" / "scripts").mkdir(parents=True)
     (home / ".claude").mkdir()
-    _create_directory_link(
+    create_directory_link(
         from_link=home / ".claude" / "scripts", to_target=home / ".agents" / "scripts"
     )
 
