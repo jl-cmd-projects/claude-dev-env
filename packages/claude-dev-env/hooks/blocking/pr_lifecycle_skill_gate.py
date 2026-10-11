@@ -276,8 +276,14 @@ def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
     return not any(status is None or status for status in statuses)
 
 
-def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
-    """Return whether every readable transcript lacks a /claude-api build-eval call.
+def eval_skill_call_status(all_payload_fields: dict[str, object]) -> bool | None:
+    """Return whether the session's transcripts show a /claude-api build-eval call.
+
+    ::
+
+        one transcript shows the call         -> True
+        transcripts read, none shows the call -> False
+        no transcript could be read           -> None
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -286,9 +292,18 @@ def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
     for each_path in _transcript_paths(all_payload_fields):
         status = _scanned_transcript(each_path, _shows_build_eval)
         if status:
-            return False
+            return True
         has_read_transcript = has_read_transcript or status is not None
-    return has_read_transcript
+    return False if has_read_transcript else None
+
+
+def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
+    """Return whether every readable transcript lacks a /claude-api build-eval call.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    return eval_skill_call_status(all_payload_fields) is False
 
 
 def _deny(reason: str) -> dict[str, object]:

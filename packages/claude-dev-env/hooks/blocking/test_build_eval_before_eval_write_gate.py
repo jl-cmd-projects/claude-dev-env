@@ -12,6 +12,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import build_eval_before_eval_write_gate as gate
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
+    UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON,
 )
 
 GATE_SCRIPT = Path(gate.__file__)
@@ -76,17 +77,39 @@ def test_source_write_without_build_eval_should_pass(tmp_path: Path) -> None:
     )
 
 
-def test_eval_write_with_unreadable_transcript_should_pass(tmp_path: Path) -> None:
-    assert gate.decision_for(_payload("/repo/evals/cases.json", tmp_path / "missing.jsonl")) is None
+def test_eval_write_with_unreadable_transcript_should_be_denied(tmp_path: Path) -> None:
+    decision = gate.decision_for(_payload("/repo/evals/cases.json", tmp_path / "missing.jsonl"))
+    assert _reason(decision) == UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON
 
 
-def test_bash_tool_should_pass(tmp_path: Path) -> None:
-    payload = {
+def _bash_payload(command: str, transcript_path: Path) -> dict[str, object]:
+    return {
         "tool_name": "Bash",
-        "tool_input": {"command": "cat evals/cases.json"},
-        "transcript_path": str(_transcript(tmp_path, build_eval=False)),
+        "tool_input": {"command": command},
+        "transcript_path": str(transcript_path),
     }
+
+
+def test_bash_read_of_an_eval_file_should_pass(tmp_path: Path) -> None:
+    payload = _bash_payload("cat evals/cases.json", _transcript(tmp_path, build_eval=False))
     assert gate.decision_for(payload) is None
+
+
+def test_bash_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) -> None:
+    payload = _bash_payload("echo [] > evals/cases.json", _transcript(tmp_path, build_eval=False))
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+def test_bash_redirect_after_build_eval_should_pass(tmp_path: Path) -> None:
+    payload = _bash_payload("echo [] > evals/cases.json", _transcript(tmp_path, build_eval=True))
+    assert gate.decision_for(payload) is None
+
+
+def test_shell_write_targets_should_name_redirect_tee_and_sed_targets() -> None:
+    assert gate.shell_write_targets("echo [] >> evals/cases.json") == ["evals/cases.json"]
+    assert gate.shell_write_targets("cat a | tee -a log.txt evals/x.json") == ["log.txt", "evals/x.json"]
+    assert gate.shell_write_targets("sed -i 's/a/b/' evals/x.json") == ["evals/x.json"]
+    assert gate.shell_write_targets("cat evals/cases.json 2>/dev/null") == []
 
 
 def test_eval_paths_should_be_recognized() -> None:
@@ -127,6 +150,7 @@ def test_gate_source_files_should_not_be_recognized() -> None:
 
 def test_non_eval_paths_should_not_be_recognized() -> None:
     assert not gate.is_eval_path("src/evaluate_score.py")
+    assert not gate.is_eval_path("evals/../src/app.py")
     assert not gate.is_eval_path("docs/rule-guides/features-start-with-an-eval.md")
     assert not gate.is_eval_path("src/retrieval.py")
     assert not gate.is_eval_path("medieval/notes.md")

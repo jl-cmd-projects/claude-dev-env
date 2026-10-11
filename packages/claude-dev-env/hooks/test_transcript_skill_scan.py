@@ -88,8 +88,12 @@ def test_build_eval_argument_followed_by_more_words_should_count() -> None:
     assert _invokes_build_eval([_skill_entry_with_arguments("claude-api", "build-eval   extra words")])
 
 
-def test_plugin_prefixed_claude_api_with_build_eval_should_count() -> None:
-    assert _invokes_build_eval([_skill_entry_with_arguments("plugin:claude-api", "build-eval")])
+def test_plugin_prefixed_claude_api_with_build_eval_should_not_count() -> None:
+    assert not _invokes_build_eval([_skill_entry_with_arguments("plugin:claude-api", "build-eval")])
+
+
+def test_build_eval_argument_in_another_case_should_count() -> None:
+    assert _invokes_build_eval([_skill_entry_with_arguments("claude-api", "Build-Eval")])
 
 
 def test_claude_api_with_another_argument_should_not_count() -> None:

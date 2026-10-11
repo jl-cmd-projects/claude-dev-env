@@ -413,3 +413,14 @@ def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_pat
 def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
     assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None
+
+
+def test_eval_skill_call_status_should_separate_called_missing_and_unreadable(tmp_path: Path) -> None:
+    called_path = tmp_path / "called.jsonl"
+    skill_call = {"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}
+    called_path.write_text(
+        json.dumps({"type": "assistant", "message": {"content": [skill_call]}}) + "\n", encoding="utf-8"
+    )
+    assert gate.eval_skill_call_status(_payload("git status", called_path)) is True
+    assert gate.eval_skill_call_status(_payload("git status", _transcript(tmp_path))) is False
+    assert gate.eval_skill_call_status(_payload("git status", tmp_path / "missing.jsonl")) is None
