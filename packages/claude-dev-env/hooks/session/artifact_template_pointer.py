@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """PreToolUse hook: route an agent about to build an artifact page by scope.
 
-Registered on ``Artifact|Skill``. It adds one line of ``additionalContext``
-when a session starts a new artifact page. One flow or one comparison is an
+Registered on ``Artifact|Skill``. It adds one paragraph of ``additionalContext``
+when a session starts a new artifact page. A status or progress report
+prefers the status flowchart from
+``docs/templates/artifact-page/status-flowchart.html``, unless the person asks
+for another shape. One flow or one comparison is an
 inline SVG flowchart with minimal text. A multi-part plan or evidence is an
 html-plan page from ``docs/templates/html-plan/README.md``, and
 ``docs/templates/artifact-page/README.md`` stays the alternative:
@@ -34,10 +37,10 @@ from hooks_constants.artifact_template_pointer_constants import (
     ARTIFACT_TEMPLATE_PATH,
     ARTIFACT_TOOL_NAME,
     HTML_PLAN_TEMPLATE_README_PATH,
-    POINTER_ALTERNATIVE_PREFIX,
-    POINTER_TEXT_PREFIX,
+    POINTER_TEXT_TEMPLATE,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
+    STATUS_FLOWCHART_TEMPLATE_PATH,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
@@ -81,9 +84,10 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
-            ADDITIONAL_CONTEXT_KEY: (
-                f"{POINTER_TEXT_PREFIX}{HTML_PLAN_TEMPLATE_README_PATH}"
-                f"{POINTER_ALTERNATIVE_PREFIX}{ARTIFACT_TEMPLATE_PATH}."
+            ADDITIONAL_CONTEXT_KEY: POINTER_TEXT_TEMPLATE.format(
+                path_of_status_flowchart=STATUS_FLOWCHART_TEMPLATE_PATH,
+                path_of_plan_readme=HTML_PLAN_TEMPLATE_README_PATH,
+                path_of_page_readme=ARTIFACT_TEMPLATE_PATH,
             ),
         }
     }
