@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.78.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.1...claude-dev-env-v8.78.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **hooks:** judge each chat claim for its source with a prompt hook ([#1991](https://github.com/jl-cmd-projects/claude-dev-env/issues/1991)) ([a866e1a](https://github.com/jl-cmd-projects/claude-dev-env/commit/a866e1a79305aba2209bdb339ad145f073c13bc9))
+
 ## [8.78.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.0...claude-dev-env-v8.78.1) (2026-10-11)
 
 
