@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.76.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.5...claude-dev-env-v8.76.0) (2026-10-11)
+
+
+### Features
+
+* **templates:** prefer a status flowchart for status visuals ([#1989](https://github.com/jl-cmd-projects/claude-dev-env/issues/1989)) ([8674bcd](https://github.com/jl-cmd-projects/claude-dev-env/commit/8674bcd8fa5f081d4d276e0a2f1bfdc8ca34e51b))
+
 ## [8.75.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.4...claude-dev-env-v8.75.5) (2026-10-11)
 
 
