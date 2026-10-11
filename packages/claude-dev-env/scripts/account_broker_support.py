@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections
 import dataclasses
 import errno
 import importlib
@@ -185,7 +186,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
         Main and additional accounts in configured order, each with its place in the account order file.
 
     Raises:
-        BrokerConfigurationError: An account list is unreadable, or two accounts share a name.
+        BrokerConfigurationError: An account list is unreadable.
     """
     main_home = (Path.home() / MAIN_CLAUDE_HOME_DIRECTORY_NAME).resolve()
     all_accounts = [Account(Product.CLAUDE, "main", main_home, True, "claude")]
@@ -195,22 +196,19 @@ def load_claude_accounts() -> tuple[Account, ...]:
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
         _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
-    _require_distinct_names(all_accounts)
-    return _with_priorities(all_accounts, _account_order(main_home))
+    return _with_priorities(_with_distinct_names(all_accounts), _account_order(main_home))
 
 
-def _require_distinct_names(all_accounts: Sequence[Account]) -> None:
-    all_first_by_name: dict[str, Account] = {}
-    all_clashes = [
-        (first_account, each_account)
-        for each_account in all_accounts
-        if (first_account := all_first_by_name.setdefault(each_account.name.casefold(), each_account)) is not each_account
-    ]
-    if all_clashes:
-        first_account, clashing_account = all_clashes[0]
-        raise BrokerConfigurationError(
-            f"accounts at {first_account.home} and {clashing_account.home} share the name {clashing_account.name}"
-        )
+def _with_distinct_names(all_accounts: Sequence[Account]) -> list[Account]:
+    all_name_counts = collections.Counter(each_account.name.casefold() for each_account in all_accounts)
+    all_named_accounts = []
+    for each_account in all_accounts:
+        is_shared = all_name_counts[each_account.name.casefold()] > 1
+        if is_shared and not each_account.is_main and each_account.command != each_account.name:
+            print(f"warning: {each_account.command} shares the name {each_account.name}; it keeps its command as its name", file=sys.stderr)
+            each_account = dataclasses.replace(each_account, name=each_account.command)
+        all_named_accounts.append(each_account)
+    return all_named_accounts
 
 
 def load_codex_accounts() -> tuple[Account, ...]:
