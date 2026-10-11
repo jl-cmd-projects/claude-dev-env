@@ -1599,11 +1599,6 @@ export function mergeHooksIntoSettings(
     const encodedPluginHooksPath = Buffer.from(`${pluginRootForward}/hooks`, 'utf8').toString('base64');
     if (!settings.hooks || typeof settings.hooks !== 'object') settings.hooks = {};
     let groupCount = 0;
-    for (const eventType of Object.keys(settings.hooks)) {
-        if (!Object.hasOwn(hooksConfig.hooks, eventType)) {
-            pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePaths, sharedSettingsRealPath);
-        }
-    }
     for (const [eventType, matcherGroups] of Object.entries(hooksConfig.hooks)) {
         startEventFromHookGroupList(settings, eventType);
         pruneManagedHooksFromEvent(settings, eventType, managedHookRelativePaths, sharedSettingsRealPath);
