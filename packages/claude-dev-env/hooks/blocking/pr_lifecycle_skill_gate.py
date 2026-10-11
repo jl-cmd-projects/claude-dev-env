@@ -257,7 +257,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     look_reason = missing_look_reason(all_payload_fields)
     if look_reason is not None:
         return _deny(look_reason)
-    if is_feature_pull_request(all_payload_fields) and _is_build_eval_missing(all_payload_fields):
+    if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
         return _deny(MISSING_BUILD_EVAL_REASON)
     duplicate_reason = duplicate_followup_reason(all_payload_fields)
     return None if duplicate_reason is None else _deny(duplicate_reason)
@@ -277,7 +277,12 @@ def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
     return not any(status is None or status for status in statuses)
 
 
-def _is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
+def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
+    """Return whether every readable transcript lacks a /claude-api build-eval call.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
     all_statuses = [
         _scanned_transcript(each_path, _shows_build_eval)
         for each_path in _transcript_paths(all_payload_fields)

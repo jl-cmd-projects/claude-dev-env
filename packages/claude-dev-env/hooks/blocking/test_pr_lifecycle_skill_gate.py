@@ -343,6 +343,14 @@ def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: P
     assert gate.decision_for(_create_payload(tmp_path, "feat: add a gate", transcript_path)) is None
 
 
+def test_is_build_eval_missing_should_follow_the_transcript(tmp_path: Path) -> None:
+    without_call = _transcript_with_lines(tmp_path, "without.jsonl", [SKILL_LOAD_LINE])
+    with_call = _transcript_with_lines(tmp_path, "with.jsonl", [BUILD_EVAL_LINE])
+    assert gate.is_build_eval_missing({"transcript_path": str(without_call)})
+    assert not gate.is_build_eval_missing({"transcript_path": str(with_call)})
+    assert not gate.is_build_eval_missing({"transcript_path": str(tmp_path / "missing.jsonl")})
+
+
 def test_non_feature_pull_request_without_build_eval_invocation_should_pass(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "fix: repair a gate", transcript_path)) is None

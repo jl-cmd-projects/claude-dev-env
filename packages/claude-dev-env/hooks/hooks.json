@@ -103,6 +103,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/build_eval_before_eval_write_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Read",
         "hooks": [
           {

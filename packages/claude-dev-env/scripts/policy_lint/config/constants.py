@@ -73,6 +73,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/image_read_size_gate.py",
     "blocking/artifact_dark_mode_gate.py",
     "blocking/haiku_spawn_slim_gate.py",
+    "blocking/build_eval_before_eval_write_gate.py",
 )
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests"})
 ALL_TEST_FILE_PREFIXES = ("test_",)
