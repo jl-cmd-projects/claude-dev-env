@@ -106,6 +106,18 @@ def test_notebook_edit_of_an_eval_notebook_should_be_denied(tmp_path: Path) -> N
     assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
 
 
+def test_multi_edit_of_an_eval_file_should_be_denied(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "MultiEdit",
+        "tool_input": {
+            "file_path": "/repo/evals/cases.json",
+            "edits": [{"old_string": "[]", "new_string": "[1]"}],
+        },
+        "transcript_path": str(_transcript(tmp_path, build_eval=False)),
+    }
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
 def test_gate_source_files_should_not_be_recognized() -> None:
     assert not gate.is_eval_path("hooks/blocking/build_eval_before_eval_write_gate.py")
     assert not gate.is_eval_path("hooks/blocking/test_build_eval_before_eval_write_gate.py")
