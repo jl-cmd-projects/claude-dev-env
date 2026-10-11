@@ -24,7 +24,9 @@ function shippedReplyJudgeEntries() {
     );
 }
 
-const MANAGED_STATUS = shippedReplyJudgeEntries()[0]?.hook.statusMessage;
+const [SHIPPED_REPLY_JUDGE_ENTRY] = shippedReplyJudgeEntries();
+assert.ok(SHIPPED_REPLY_JUDGE_ENTRY, 'the shipped hooks.json needs a claim judge on reply');
+const MANAGED_STATUS = SHIPPED_REPLY_JUDGE_ENTRY.hook.statusMessage;
 
 function mergeInto(settings, hooksConfig) {
     mergeHooksIntoSettings(settings, hooksConfig, `${EXAMPLE_HOME}/.claude`, 'python3', null, EXAMPLE_HOME);
@@ -102,4 +104,30 @@ test('should drop a managed prompt hook left under a retired matcher of an event
     const staleGroup = settings.hooks.PreToolUse.find(eachGroup => eachGroup.matcher === staleMatcher);
     assert.deepEqual(staleGroup.hooks, [USER_PROMPT_HOOK]);
     assert.equal(settings.hooks.PreToolUse.some(eachGroup => eachGroup.matcher === judgeOnlyMatcher), false);
+});
+
+test('should drop a managed prompt hook under an event the shipped config no longer lists, and keep the rest', () => {
+    const oldJudge = { type: 'prompt', prompt: 'Old judge. $ARGUMENTS', statusMessage: MANAGED_STATUS };
+    const settings = {
+        hooks: {
+            Stop: [{ matcher: '', hooks: [oldJudge] }],
+            Notification: [{ matcher: 'x', hooks: [] }, { matcher: '', hooks: [USER_PROMPT_HOOK, oldJudge] }],
+            SessionEnd: [{ matcher: '', hooks: [] }],
+        },
+    };
+
+    mergeInto(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'));
+
+    assert.equal(Object.hasOwn(settings.hooks, 'Stop'), false);
+    assert.deepEqual(settings.hooks.Notification, [{ matcher: 'x', hooks: [] }, { matcher: '', hooks: [USER_PROMPT_HOOK] }]);
+    assert.deepEqual(settings.hooks.SessionEnd, [{ matcher: '', hooks: [] }]);
+});
+
+test('should keep managed prompt hooks when the merged config ships none, as a second package root does', () => {
+    const settings = {};
+    mergeInto(settings, hooksConfigWithPrompt('Judge. $ARGUMENTS'));
+
+    mergeInto(settings, { hooks: { Stop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop' }] }] } });
+
+    assert.deepEqual(replyHooks(settings).map(eachHook => eachHook.prompt), ['Judge. $ARGUMENTS']);
 });
