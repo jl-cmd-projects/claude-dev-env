@@ -79,6 +79,33 @@ def test_should_name_a_chain_account_from_any_launcher_stem(
     assert [each_account.name for each_account in accounts] == ["main", expected_name, "extra"]
 
 
+def test_should_keep_the_launcher_path_name_for_a_chain_account_whose_name_is_taken(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    first_launcher = "C:\\one\\claude-editor.cmd"
+    second_launcher = "C:\\two\\claude-review.cmd"
+    (main_home / "claude-chain.json").write_text(
+        json.dumps(
+            {
+                "chain": [
+                    {"command": first_launcher, "credentials_path": str(tmp_path / "one" / ".credentials.json")},
+                    {"command": second_launcher, "credentials_path": str(tmp_path / "two" / ".credentials.json")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (main_home / "extra-profiles.json").write_text('["editor"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.name for each_account in accounts] == ["main", first_launcher, "review", "editor"]
+
+
 def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, extras: list[str]) -> Path:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(support, "default_profile_home", lambda name="extra": tmp_path / "profiles" / name)
