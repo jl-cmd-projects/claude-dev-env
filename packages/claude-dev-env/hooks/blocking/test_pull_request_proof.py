@@ -103,6 +103,26 @@ def test_proof_with_several_test_runners_should_be_denied() -> None:
     assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
 
 
+def test_proof_with_a_test_run_and_file_references_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest tests/x.py` against `gate.py:12` and `src/x.py`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest x | tee log`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_test_run_piped_into_tail_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest x 2>&1 | tail -5`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_live_script_piped_into_tail_should_pass() -> None:
+    body = "## Proof in practice\nRan `pytest x` and `./run.sh --input a.txt | tail -5`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
 def test_proof_with_a_fenced_live_command_beside_a_test_run_should_pass() -> None:
     body = "## Proof in practice\nRan `pytest`.\n```\n$ python run.py\ndenied\n```\n"
     assert gate.missing_proof_reason(_mcp_create(body)) is None

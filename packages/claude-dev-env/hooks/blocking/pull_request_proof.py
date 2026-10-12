@@ -47,6 +47,9 @@ from hooks_constants.pull_request_proof_constants import (
     INLINE_COMMAND_PATTERN,
     TEST_ONLY_PROOF_REASON,
     UNITTEST_MODULE_NAME,
+    ALL_PASSTHROUGH_PROGRAM_NAMES,
+    PATH_WITH_LINE_PATTERN,
+    SINGLE_FILE_NAME_PATTERN,
 )
 from hooks_constants.piped_pytest_blocker_constants import (
     MODULE_RUN_FLAG,
@@ -267,7 +270,14 @@ def _proof_commands(section: str) -> list[str]:
             is_inside_fence = not is_inside_fence
             continue
         all_commands.extend(_line_commands(each_line, is_inside_fence))
-    return all_commands
+    return [each_command for each_command in all_commands if _reads_as_command(each_command)]
+
+
+def _reads_as_command(span: str) -> bool:
+    all_words = span.split()
+    if not all_words or re.match(PATH_WITH_LINE_PATTERN, all_words[0]):
+        return False
+    return len(all_words) > 1 or re.match(SINGLE_FILE_NAME_PATTERN, all_words[0]) is None
 
 
 def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
@@ -286,8 +296,14 @@ def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
 
 
 def _command_runs_tests(command: str) -> bool:
-    all_segments = [each_segment for each_segment, _each_following_operator in pipeline_segments_for_command(command)]
-    return bool(all_segments) and all(_segment_runs_tests(each_segment) for each_segment in all_segments)
+    all_working_segments = [
+        each_segment
+        for each_segment, _each_following_operator in pipeline_segments_for_command(command)
+        if segment_program_and_arguments(each_segment)[0] not in ALL_PASSTHROUGH_PROGRAM_NAMES
+    ]
+    return bool(all_working_segments) and all(
+        _segment_runs_tests(each_segment) for each_segment in all_working_segments
+    )
 
 
 def _proof_runs_only_tests(section: str) -> bool:
@@ -309,9 +325,11 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
 
     The proof section is a 'Proof in practice' heading whose text names at
     least one command in backticks. A command is an inline backticked span, or
-    a line that starts with '$ ' inside a fenced block. When every command runs
-    a test runner, such as pytest, python -m unittest, npm test, npx vitest,
-    jest, go test or cargo test, the section is denied.
+    a line that starts with '$ ' inside a fenced block. A span that starts
+    with a path:line, or is one path or file name, is not a command. When every
+    command runs a test runner, such as pytest, python -m unittest, npm test,
+    npx vitest, jest, go test or cargo test, the section is denied. A pipe into
+    tee, tail, head, grep or cat keeps a test run a test run.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.

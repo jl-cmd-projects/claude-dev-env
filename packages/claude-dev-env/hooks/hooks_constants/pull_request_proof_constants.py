@@ -28,6 +28,9 @@ INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
 CODE_FENCE_MARKER = "```"
 FENCED_COMMAND_PROMPT = "$ "
 UNITTEST_MODULE_NAME = "unittest"
+PATH_WITH_LINE_PATTERN = r"^\S+:\d+(?:[-:]\d+)?$"
+SINGLE_FILE_NAME_PATTERN = r"^\S*[/\\]\S*$|^[\w.-]+\.[A-Za-z0-9]+$"
+ALL_PASSTHROUGH_PROGRAM_NAMES = frozenset({"tee", "tail", "head", "grep", "cat"})
 ALL_TEST_RUNNER_COMMAND_PREFIXES = frozenset(
     {
         ("jest",),
