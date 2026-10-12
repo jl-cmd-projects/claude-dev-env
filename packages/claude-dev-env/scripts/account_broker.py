@@ -47,6 +47,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _wait_decision,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
+    PLACEHOLDER_NAME_SLOT,
     REPORT_INDENT_SPACES,
     TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
@@ -102,6 +103,7 @@ def decision_payload(decision: Decision) -> dict[str, object]:
     return {
         "action": decision.action,
         "account": decision.account.name if decision.account else None,
+        "profile": decision.account.profile if decision.account else None,
         "home": str(decision.account.home) if decision.account else None,
         "reason": decision.reason,
         "tier": decision.tier,
@@ -121,6 +123,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     return [
         {
             "name": each_reading.account.name,
+            "profile": each_reading.account.profile,
             "home": str(each_reading.account.home),
             "is_main": each_reading.account.is_main,
             "priority": each_reading.account.priority,
@@ -151,11 +154,16 @@ def _spent_for_readings(all_readings: Sequence[Reading], all_state: dict[str, ob
     return frozenset(spent), spent
 
 
-def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime, reset: datetime | None = None) -> datetime:
+def _record_spent(all_state: dict[str, object], reading: Reading, now: datetime, reset: datetime | None = None) -> datetime:
     until = reset or _account_reset(reading, is_spent=True) or now + timedelta(hours=1)
     if until <= now:
         until = now + timedelta(hours=1)
     all_state["spent"][_state_key(reading.account)] = until.timestamp()
+    return until
+
+
+def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime) -> datetime:
+    until = _record_spent(all_state, reading, now)
     _save_state(broker_state_path(), all_state)
     return until
 
@@ -163,8 +171,7 @@ def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime, r
 def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> dict[str, datetime]:
     marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
     all_roster_names = {each_reading.account.name for each_reading in all_readings}
-    prefix = f"{product.value}:"
-    placeholder_suffix = f":{Path()}"
+    prefix, _, placeholder_suffix = _state_key(Account(product, PLACEHOLDER_NAME_SLOT, Path(), False)).partition(PLACEHOLDER_NAME_SLOT)
     all_resets_by_name = {}
     for each_key, each_raw in marks.items():
         if not (isinstance(each_key, str) and each_key.startswith(prefix) and each_key.endswith(placeholder_suffix)):
@@ -377,25 +384,30 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
     try:
         reset = datetime.fromtimestamp(float(reset_text), timezone.utc) if separator else None
     except (ValueError, OSError, OverflowError) as error:
-        raise BrokerConfigurationError(f"invalid reset for account {name}") from error
+        raise BrokerConfigurationError(f"invalid reset in spent mark {mark!r}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
-        if all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME:
-            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
         return Reading(Account(product, name, Path(), False), None), reset
     return reading, reset
 
 
 def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Reading], all_state: dict[str, object], now: datetime, product: Product) -> None:
-    all_accounts_by_name = {each_reading.account.name: each_reading for each_reading in all_readings}
-    for each_mark in all_marks:
-        reading, reset = _parse_spent_mark(all_accounts_by_name, each_mark, product)
-        _mark_spent(all_state, reading, now, reset)
+    all_accounts_by_profile = {each_reading.account.profile: each_reading for each_reading in all_readings if each_reading.account.profile}
+    all_accounts_by_name = all_accounts_by_profile | {each_reading.account.name: each_reading for each_reading in all_readings}
+    all_parsed_marks = [_parse_spent_mark(all_accounts_by_name, each_mark, product) for each_mark in all_marks]
+    for each_reading, each_reset in all_parsed_marks:
+        _record_spent(all_state, each_reading, now, each_reset)
+    if all_parsed_marks:
+        _save_state(broker_state_path(), all_state)
+    for each_reading, _ in all_parsed_marks:
+        name = each_reading.account.name
+        if name not in all_accounts_by_name and (all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME):
+            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
 
 
 def _accounts_cli(product: Product) -> int:
     roster = all_product_adapters[product].load_accounts()
-    print(json.dumps({"accounts": [{"name": each_account.name, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
+    print(json.dumps({"accounts": [{"name": each_account.name, "profile": each_account.profile, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
     return 0
 
 

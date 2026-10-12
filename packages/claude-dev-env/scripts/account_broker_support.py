@@ -107,7 +107,7 @@ def _chain_entry(raw_entry: object, main_home: Path, chain_path: Path) -> Accoun
     if not isinstance(extra_args, list) or any(not isinstance(each_arg, str) for each_arg in extra_args):
         raise BrokerConfigurationError(f"invalid account list {chain_path}")
     home = Path(credential).expanduser().parent.resolve() if credential else main_home
-    return Account(Product.CLAUDE, command, home, command=command)
+    return Account(Product.CLAUDE, command, home, command=command, profile=_home_profile(home))
 
 
 def _chain_entries(chain_path: Path, main_home: Path) -> tuple[Account, ...]:
@@ -171,11 +171,20 @@ def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequenc
     return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
 
 
+def _home_profile(home: Path) -> str | None:
+    try:
+        profile_home = default_profile_home(home.name).resolve()
+    except ValueError:
+        return None
+    return home.name if profile_home == home else None
+
+
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account roster.
 
     Returns:
-        Main and additional accounts in configured order, each with its place in the account order file.
+        Main and additional accounts in configured order, each with its place in the account order file
+        and, for a home under the profiles root, its profile name.
 
     Raises:
         BrokerConfigurationError: An account list is unreadable.
@@ -187,7 +196,8 @@ def load_claude_accounts() -> tuple[Account, ...]:
         _append_claude_account(all_accounts, all_seen, each_entry, main_home)
     for each_home in _extra_homes(main_home):
         home = each_home.resolve()
-        _append_claude_account(all_accounts, all_seen, Account(Product.CLAUDE, home.name, home, command=home.name), main_home)
+        extra_account = Account(Product.CLAUDE, home.name, home, command=home.name, profile=_home_profile(home))
+        _append_claude_account(all_accounts, all_seen, extra_account, main_home)
     return _with_priorities(all_accounts, _account_order(main_home))
 
 
@@ -311,6 +321,20 @@ def read_codex_account_meters(account: Account) -> Meters:
     )
 
 
+def _read_meters_once(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None]:
+    try:
+        return read_meters(account), None
+    except (
+        codex_account_meters.CodexMeterUnreadError,
+        WeeklyUtilizationProbeError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ) as error:
+        return None, str(error) or type(error).__name__
+
+
 def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None, bool]:
     """Read one account's meters, retrying a failed read with exponential backoff.
 
@@ -320,25 +344,18 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
 
     Returns:
         The meters from the first read that succeeds, or None with the last
-        failure text once every attempt failed.
+        failure text once every attempt failed, and whether the usage
+        endpoint rate-limited the read, which stops the retries.
     """
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
             time.sleep(min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (each_attempt - 1), METER_READ_MAX_DELAY_SECONDS))
-        try:
-            return read_meters(account), None, False
-        except (
-            codex_account_meters.CodexMeterUnreadError,
-            WeeklyUtilizationProbeError,
-            OSError,
-            ValueError,
-            RuntimeError,
-            subprocess.SubprocessError,
-        ) as error:
-            unread_reason = str(error) or type(error).__name__
-            if isinstance(error, WeeklyUtilizationProbeError) and "HTTP Error 429" in unread_reason:
-                return None, unread_reason, True
+        meters, unread_reason = _read_meters_once(read_meters, account)
+        if unread_reason is None:
+            return meters, None, False
+        if "HTTP Error 429" in unread_reason:
+            return None, unread_reason, True
     return None, unread_reason, False
 
 

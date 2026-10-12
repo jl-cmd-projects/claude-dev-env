@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -43,6 +44,61 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     main_home.mkdir()
     (main_home / "extra-profiles.json").write_text(json.dumps(extras), encoding="utf-8")
     return main_home
+
+
+def test_should_name_a_chain_account_profile_from_its_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
+    launcher = "C:\\bin\\claude-editor.cmd"
+    (main_home / "claude-chain.json").write_text(
+        json.dumps(
+            {
+                "chain": [
+                    {"command": launcher, "credentials_path": str(profiles_root / "editor" / ".credentials.json")},
+                    {"command": "C:\\bin\\other.cmd", "credentials_path": str(tmp_path / "elsewhere" / ".credentials.json")},
+                    {"command": "C:\\bin\\reserved.cmd", "credentials_path": str(profiles_root / "main" / ".credentials.json")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.profile) for each_account in accounts] == [
+        ("main", None),
+        (launcher, "editor"),
+        ("C:\\bin\\other.cmd", None),
+        ("C:\\bin\\reserved.cmd", None),
+        ("extra", "extra"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("target_parts", "expected_profile"),
+    [(("claude-profiles-link-target", "target"), None), ((".claude-profiles", "target"), "target")],
+)
+def test_should_name_an_extra_account_profile_from_its_resolved_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, create_directory_link: Callable[..., None], target_parts: tuple[str, str], expected_profile: str | None
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
+    profiles_root.mkdir()
+    target = tmp_path.joinpath(*target_parts)
+    target.mkdir(parents=True)
+    create_directory_link(from_link=profiles_root / "alias", to_target=target)
+    (main_home / "extra-profiles.json").write_text('["alias"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.profile) for each_account in accounts[1:]] == [("target", expected_profile)]
 
 
 def test_should_leave_claude_priorities_unset_without_an_order_file(

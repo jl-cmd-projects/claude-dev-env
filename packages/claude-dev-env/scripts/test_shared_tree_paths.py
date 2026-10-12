@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import importlib
-import os
-import sys
+import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+import claude_account_profile
 import shared_tree_paths
 from dev_env_scripts_constants.grok_worker_constants import (
     CLAUDE_CONFIG_DIR_ENV_VAR,
@@ -23,27 +23,17 @@ from dev_env_scripts_constants.shared_tree_constants import (
 )
 
 
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(
-            str(to_target), str(from_link)
-        )
-        return
-    try:
-        os.symlink(to_target, from_link, target_is_directory=True)
-    except OSError:
-        pytest.skip("directory symlink creation is not available")
-
-
-def _build_junction_scripts_layout(tmp_path: Path) -> Path:
-    real_scripts_directory = tmp_path / "real" / SCRIPTS_DIRECTORY_NAME
-    real_scripts_directory.mkdir(parents=True)
-    (real_scripts_directory / "runner.py").write_text("", encoding="utf-8")
+def _build_junction_scripts_layout(
+    tmp_path: Path, create_directory_link: Callable[..., None]
+) -> Path:
+    linked_scripts_directory = tmp_path / "target" / SCRIPTS_DIRECTORY_NAME
+    linked_scripts_directory.mkdir(parents=True)
+    (linked_scripts_directory / "runner.py").write_text("", encoding="utf-8")
     managed_root = tmp_path / "root"
     managed_root.mkdir()
-    _create_directory_link(
+    create_directory_link(
         from_link=managed_root / SCRIPTS_DIRECTORY_NAME,
-        to_target=real_scripts_directory,
+        to_target=linked_scripts_directory,
     )
     return managed_root / SCRIPTS_DIRECTORY_NAME / "runner.py"
 
@@ -63,9 +53,9 @@ def _write_process_tree_kill_stub(from_root: Path) -> Path:
 
 
 def test_junction_scripts_dir_finds_shared_tree_on_unresolved_parent(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "root")
     resolved_scripts_directory = (
         shared_tree_paths.resolve_shared_process_tree_scripts_directory(
@@ -76,10 +66,10 @@ def test_junction_scripts_dir_finds_shared_tree_on_unresolved_parent(
 
 
 def test_resolved_parent_is_used_when_link_side_has_no_shared_tree(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
-    expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "real")
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
+    expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "target")
     resolved_scripts_directory = (
         shared_tree_paths.resolve_shared_process_tree_scripts_directory(
             module_file, all_environment={}
@@ -89,9 +79,9 @@ def test_resolved_parent_is_used_when_link_side_has_no_shared_tree(
 
 
 def test_configured_root_is_used_when_neither_parent_holds_the_module(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     configured_root = tmp_path / "configured"
     expected_scripts_directory = _write_process_tree_kill_stub(configured_root)
     resolved_scripts_directory = (
@@ -106,9 +96,9 @@ def test_configured_root_is_used_when_neither_parent_holds_the_module(
 
 
 def test_unresolved_parent_wins_when_configured_root_also_holds_the_module(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = _write_process_tree_kill_stub(tmp_path / "root")
     configured_root = tmp_path / "configured"
     _write_process_tree_kill_stub(configured_root)
@@ -123,8 +113,8 @@ def test_unresolved_parent_wins_when_configured_root_also_holds_the_module(
     assert resolved_scripts_directory == expected_scripts_directory
 
 
-def test_missing_module_returns_unresolved_candidate(tmp_path: Path) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+def test_missing_module_returns_unresolved_candidate(tmp_path: Path, create_directory_link: Callable[..., None]) -> None:
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = (
         tmp_path
         / "root"
@@ -144,9 +134,9 @@ def test_missing_module_returns_unresolved_candidate(tmp_path: Path) -> None:
 
 
 def test_junction_scripts_dir_finds_advisor_scripts_on_unresolved_parent(
-    tmp_path: Path,
+    tmp_path: Path, create_directory_link: Callable[..., None],
 ) -> None:
-    module_file = _build_junction_scripts_layout(tmp_path)
+    module_file = _build_junction_scripts_layout(tmp_path, create_directory_link)
     expected_scripts_directory = (
         tmp_path
         / "root"
@@ -198,7 +188,7 @@ def test_generalized_resolver_serves_a_deeper_anchor(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("managed_name", (".claude", "profile-a"))
 def test_resolved_agents_scripts_find_the_verified_managed_root(
-    tmp_path: Path, managed_name: str,
+    tmp_path: Path, create_directory_link: Callable[..., None], managed_name: str,
 ) -> None:
     agents_name = ".agents" if managed_name == ".claude" else f"{managed_name}.agents"
     agents_root = tmp_path / agents_name
@@ -208,7 +198,7 @@ def test_resolved_agents_scripts_find_the_verified_managed_root(
     module_file.write_text("", encoding="utf-8")
     managed_root = tmp_path / managed_name
     managed_root.mkdir()
-    _create_directory_link(from_link=managed_root / "scripts", to_target=scripts_directory)
+    create_directory_link(from_link=managed_root / "scripts", to_target=scripts_directory)
     expected = _write_process_tree_kill_stub(managed_root)
     resolved_directory = shared_tree_paths.resolve_shared_process_tree_scripts_directory(module_file, {})
     assert resolved_directory == expected
@@ -227,3 +217,35 @@ def test_neighboring_managed_root_cannot_supply_a_foreign_shared_tree(tmp_path: 
     resolved_directory = shared_tree_paths.resolve_shared_process_tree_scripts_directory(module_file, {})
     expected = agents_root / "_shared" / "process-tree" / "scripts"
     assert resolved_directory == expected
+
+
+def test_should_fail_with_the_link_command_output_when_a_link_cannot_be_made(
+    tmp_path: Path,
+    create_directory_link: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse_link(source_path: Path, link_path: Path) -> None:
+        raise subprocess.CalledProcessError(1, ["mklink"], b"", b"Access is denied.")
+
+    monkeypatch.setattr(claude_account_profile, "_link_directory", refuse_link)
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        create_directory_link(from_link=tmp_path / "link", to_target=tmp_path)
+
+    assert "Access is denied." in str(failure.value)
+
+
+def test_should_fail_with_the_os_error_when_a_symlink_cannot_be_made(
+    tmp_path: Path,
+    create_directory_link: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse_link(source_path: Path, link_path: Path) -> None:
+        raise PermissionError("Operation not permitted")
+
+    monkeypatch.setattr(claude_account_profile, "_link_directory", refuse_link)
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        create_directory_link(from_link=tmp_path / "link", to_target=tmp_path)
+
+    assert "Operation not permitted" in str(failure.value)
