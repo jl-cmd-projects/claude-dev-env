@@ -457,12 +457,26 @@ def test_should_count_failed_meter_read_as_spent() -> None:
 
 
 def test_should_serialize_readings_with_named_fields() -> None:
-    reading = Reading(_account("one"), _meters(80, 70))
+    reading = Reading(_account("one"), _meters(80, 70), measured_at=NOW)
 
     payload = account_broker.readings_payload((reading,))
 
     assert payload[0]["name"] == "one"
     assert payload[0]["meters"]["weekly_percent_left"] == 70
+    assert payload[0]["measured_at"] == NOW.isoformat()
+
+
+def test_should_wait_until_the_rate_limit_probe_after_stale_meters_expire() -> None:
+    reading = Reading(
+        _account("one", Product.CLAUDE), None,
+        "usage probe failed: HTTP Error 429", NOW - timedelta(minutes=25),
+        NOW + timedelta(minutes=5),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == NOW + timedelta(minutes=5)
 
 
 def test_should_wait_when_all_meter_reads_fail() -> None:
