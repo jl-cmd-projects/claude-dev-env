@@ -56,6 +56,7 @@ WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
 REPORT_INDENT_SPACES = 2
+PLACEHOLDER_NAME_SLOT = "{name}"
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
@@ -150,6 +151,7 @@ class Account:
     is_main: bool = False
     command: str | None = None
     priority: int | None = None
+    profile: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
