@@ -41,8 +41,18 @@ from hooks_constants.pull_request_proof_constants import (
     PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
+    ALL_TEST_RUNNER_COMMAND_PREFIXES,
+    CODE_FENCE_MARKER,
+    FENCED_COMMAND_PROMPT,
+    INLINE_COMMAND_PATTERN,
+    TEST_ONLY_PROOF_REASON,
+    UNITTEST_MODULE_NAME,
 )
-from hooks_constants.pytest_invocation import unquoted_token
+from hooks_constants.piped_pytest_blocker_constants import (
+    MODULE_RUN_FLAG,
+    PYTHON_INTERPRETER_BASENAME_PATTERN,
+)
+from hooks_constants.pytest_invocation import segment_runs_pytest, unquoted_token
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import (
@@ -240,6 +250,51 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
     return None
 
 
+def _line_commands(line: str, is_inside_fence: bool) -> list[str]:
+    if not is_inside_fence:
+        return re.findall(INLINE_COMMAND_PATTERN, line)
+    stripped_line = line.strip()
+    if stripped_line.startswith(FENCED_COMMAND_PROMPT):
+        return [stripped_line[len(FENCED_COMMAND_PROMPT) :]]
+    return []
+
+
+def _proof_commands(section: str) -> list[str]:
+    all_commands: list[str] = []
+    is_inside_fence = False
+    for each_line in section.splitlines():
+        if each_line.strip().startswith(CODE_FENCE_MARKER):
+            is_inside_fence = not is_inside_fence
+            continue
+        all_commands.extend(_line_commands(each_line, is_inside_fence))
+    return all_commands
+
+
+def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
+    if segment_runs_pytest(all_segment_tokens):
+        return True
+    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if PYTHON_INTERPRETER_BASENAME_PATTERN.fullmatch(program):
+        return all_arguments[:2] == [MODULE_RUN_FLAG, UNITTEST_MODULE_NAME] or all_arguments[:1] == [
+            MODULE_RUN_FLAG + UNITTEST_MODULE_NAME
+        ]
+    command_words = (program, *all_arguments)
+    return any(
+        command_words[: len(each_prefix)] == each_prefix
+        for each_prefix in ALL_TEST_RUNNER_COMMAND_PREFIXES
+    )
+
+
+def _command_runs_tests(command: str) -> bool:
+    all_segments = [each_segment for each_segment, _each_following_operator in pipeline_segments_for_command(command)]
+    return bool(all_segments) and all(_segment_runs_tests(each_segment) for each_segment in all_segments)
+
+
+def _proof_runs_only_tests(section: str) -> bool:
+    all_commands = _proof_commands(section)
+    return bool(all_commands) and all(_command_runs_tests(each_command) for each_command in all_commands)
+
+
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     """Return a deny reason when a new pull request's body has no proof, else None.
 
@@ -247,11 +302,16 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
 
         gh pr create --body-file body.md, body has the section -> None
         mcp__github__create_pull_request, body without it      -> MISSING_PROOF_REASON
+        proof whose only commands run tests, like `pytest`      -> TEST_ONLY_PROOF_REASON
+        proof with `pytest` and `python run.py`                 -> None
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
     The proof section is a 'Proof in practice' heading whose text names at
-    least one command in backticks.
+    least one command in backticks. A command is an inline backticked span, or
+    a line that starts with '$ ' inside a fenced block. When every command runs
+    a test runner, such as pytest, python -m unittest, npm test, npx vitest,
+    jest, go test or cargo test, the section is denied.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -262,6 +322,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         section = proof_section(each_body)
         if not section or COMMAND_MARKER not in section:
             return MISSING_PROOF_REASON
+        if _proof_runs_only_tests(section):
+            return TEST_ONLY_PROOF_REASON
     return None
 
 

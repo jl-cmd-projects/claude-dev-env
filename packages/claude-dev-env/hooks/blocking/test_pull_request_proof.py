@@ -14,6 +14,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
     MISSING_PROOF_REASON,
+    TEST_ONLY_PROOF_REASON,
     UNREADABLE_CHANGES_REASON,
 )
 
@@ -77,6 +78,45 @@ def test_gh_create_body_file_without_proof_should_be_denied(tmp_path: Path) -> N
     (tmp_path / "body.md").write_text(UNPROVEN_BODY, encoding="utf-8")
     payload = _shell("gh pr create -F body.md", tmp_path)
     assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+
+
+def test_proof_whose_only_command_is_a_test_run_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest tests/test_x.py`.\n> 4 passed\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_test_run_and_a_live_command_should_pass() -> None:
+    body = "## Proof in practice\nRan `pytest tests/test_x.py` and `python run.py --input a.txt`.\n> denied\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_only_a_live_command_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py --input a.txt`.\n> denied\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_several_test_runners_should_be_denied() -> None:
+    body = (
+        "## Proof in practice\n`python -m pytest -q`, `python3 -m unittest discover`,"
+        " `uv run pytest`, `npm test`, `npx vitest run`, `jest`, `go test ./...`, `cargo test`\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_fenced_live_command_beside_a_test_run_should_pass() -> None:
+    body = "## Proof in practice\nRan `pytest`.\n```\n$ python run.py\ndenied\n```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_only_a_fenced_test_run_should_be_denied() -> None:
+    body = "## Proof in practice\n```\n$ npm test\n12 passing\n```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_gh_create_body_file_with_test_only_proof_should_be_denied(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("## Proof in practice\nRan `go test ./...`.\n", encoding="utf-8")
+    payload = _shell("gh pr create --draft --body-file body.md", tmp_path)
+    assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON
 
 
 def test_gh_create_with_fill_should_ask_for_a_body() -> None:
