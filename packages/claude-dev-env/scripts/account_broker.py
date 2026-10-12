@@ -152,11 +152,16 @@ def _spent_for_readings(all_readings: Sequence[Reading], all_state: dict[str, ob
     return frozenset(spent), spent
 
 
-def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime, reset: datetime | None = None) -> datetime:
+def _record_spent(all_state: dict[str, object], reading: Reading, now: datetime, reset: datetime | None = None) -> datetime:
     until = reset or _account_reset(reading, is_spent=True) or now + timedelta(hours=1)
     if until <= now:
         until = now + timedelta(hours=1)
     all_state["spent"][_state_key(reading.account)] = until.timestamp()
+    return until
+
+
+def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime) -> datetime:
+    until = _record_spent(all_state, reading, now)
     _save_state(broker_state_path(), all_state)
     return until
 
@@ -392,7 +397,9 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
     all_accounts_by_name = all_accounts_by_profile | {each_reading.account.name: each_reading for each_reading in all_readings}
     all_parsed_marks = [_parse_spent_mark(all_accounts_by_name, each_mark, product) for each_mark in all_marks]
     for each_reading, each_reset in all_parsed_marks:
-        _mark_spent(all_state, each_reading, now, each_reset)
+        _record_spent(all_state, each_reading, now, each_reset)
+    if all_parsed_marks:
+        _save_state(broker_state_path(), all_state)
 
 
 def _accounts_cli(product: Product) -> int:

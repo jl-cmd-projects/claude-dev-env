@@ -1320,3 +1320,26 @@ def test_decision_payload_should_leave_the_account_empty_and_give_the_reset_for_
     assert payload["account"] is None
     assert payload["home"] is None
     assert payload["resets_at"] == "2026-10-03T08:00:00+00:00"
+
+
+def test_should_record_no_spent_mark_when_the_batch_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    all_saved_marks: list[dict[str, object]] = []
+
+    def save_or_fail(path: Path, all_state: dict[str, object]) -> None:
+        all_saved_marks.append(dict(all_state["spent"]))
+        raise OSError("disk full")
+
+    monkeypatch.setattr(account_broker, "_save_state", save_or_fail)
+
+    with pytest.raises(OSError):
+        account_broker.main(("choose", "--product", "codex", "--spent", "first", "--spent", "second"))
+
+    assert len(all_saved_marks) == 1
+    assert len(all_saved_marks[0]) == 2
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}

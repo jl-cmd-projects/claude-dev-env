@@ -60,19 +60,15 @@ def _link_directory(*, from_link: Path, to_target: Path) -> None:
     if sys.platform.startswith("win32"):
         importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
         return
-    try:
-        os.symlink(to_target, from_link, target_is_directory=True)
-    except OSError:
-        pytest.skip("directory symlink creation is not available")
+    os.symlink(to_target, from_link, target_is_directory=True)
 
 
 @pytest.fixture
 def create_directory_link() -> Callable[..., None]:
     """Return a helper that points a new directory link at a target folder.
 
-    Windows gets a junction, which needs no extra rights, so a failure there
-    fails the test. Other systems get a symlink, and a host that refuses it
-    skips the test.
+    Windows gets a junction, which needs no extra rights. Other systems get a
+    symlink. A link that cannot be made fails the test on either system.
 
     Returns:
         The helper, called as ``create_directory_link(from_link=..., to_target=...)``.
