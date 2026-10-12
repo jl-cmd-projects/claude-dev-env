@@ -233,3 +233,19 @@ def test_should_fail_with_the_link_command_output_when_a_link_cannot_be_made(
         create_directory_link(from_link=tmp_path / "link", to_target=tmp_path)
 
     assert "Access is denied." in str(failure.value)
+
+
+def test_should_fail_with_the_os_error_when_a_symlink_cannot_be_made(
+    tmp_path: Path,
+    create_directory_link: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse_link(source_path: Path, link_path: Path) -> None:
+        raise PermissionError("Operation not permitted")
+
+    monkeypatch.setattr(claude_account_profile, "_link_directory", refuse_link)
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        create_directory_link(from_link=tmp_path / "link", to_target=tmp_path)
+
+    assert "Operation not permitted" in str(failure.value)

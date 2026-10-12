@@ -62,6 +62,8 @@ def _link_directory(*, from_link: Path, to_target: Path) -> None:
     except subprocess.CalledProcessError as error:
         link_output = (error.stderr or error.stdout or b"").decode(errors="replace").strip()
         pytest.fail(f"directory link {from_link} -> {to_target} failed: {link_output}")
+    except OSError as error:
+        pytest.fail(f"directory link {from_link} -> {to_target} failed: {error}")
 
 
 @pytest.fixture

@@ -1191,17 +1191,20 @@ def test_should_print_no_outside_roster_warning_when_a_later_mark_is_unreadable(
     assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
 
 
-def test_should_name_the_whole_mark_when_an_outside_launcher_path_has_no_reset(
+def test_should_save_an_outside_launcher_path_given_with_an_explicit_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     account = _account("first")
     monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    reset = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp())
 
-    code = account_broker.main(("choose", "--product", "codex", "--spent", "C:\\bin\\old.cmd"))
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"C:\\bin\\old.cmd:{reset}"))
 
-    all_error_lines = capsys.readouterr().err.splitlines()
-    assert code == 2
-    assert "invalid reset in spent mark 'C:\\\\bin\\\\old.cmd'" in all_error_lines[0]
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    all_saved_marks = account_broker._load_state(account_broker.broker_state_path())["spent"]
+    assert code == WAIT_EXIT_CODE
+    assert "C:\\bin\\old.cmd" in all_warning_lines[0]
+    assert all_saved_marks == {f"codex:C:\\bin\\old.cmd:{Path()}": float(reset)}
 
 
 @pytest.mark.parametrize("mark", ["", ":1800000000"])
@@ -1366,7 +1369,7 @@ def test_decision_payload_should_leave_the_account_empty_and_give_the_reset_for_
     assert payload["resets_at"] == "2026-10-03T08:00:00+00:00"
 
 
-def test_should_record_no_spent_mark_when_the_batch_write_fails(
+def test_should_save_every_spent_mark_in_one_write(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     accounts = (_account("first"), _account("second"))
@@ -1386,4 +1389,3 @@ def test_should_record_no_spent_mark_when_the_batch_write_fails(
 
     assert len(all_saved_marks) == 1
     assert len(all_saved_marks[0]) == 2
-    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
