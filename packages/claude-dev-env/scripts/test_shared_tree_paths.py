@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+import claude_account_profile
 import shared_tree_paths
 from dev_env_scripts_constants.grok_worker_constants import (
     CLAUDE_CONFIG_DIR_ENV_VAR,
@@ -215,3 +217,19 @@ def test_neighboring_managed_root_cannot_supply_a_foreign_shared_tree(tmp_path: 
     resolved_directory = shared_tree_paths.resolve_shared_process_tree_scripts_directory(module_file, {})
     expected = agents_root / "_shared" / "process-tree" / "scripts"
     assert resolved_directory == expected
+
+
+def test_should_fail_with_the_link_command_output_when_a_link_cannot_be_made(
+    tmp_path: Path,
+    create_directory_link: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse_link(source_path: Path, link_path: Path) -> None:
+        raise subprocess.CalledProcessError(1, ["mklink"], b"", b"Access is denied.")
+
+    monkeypatch.setattr(claude_account_profile, "_link_directory", refuse_link)
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        create_directory_link(from_link=tmp_path / "link", to_target=tmp_path)
+
+    assert "Access is denied." in str(failure.value)

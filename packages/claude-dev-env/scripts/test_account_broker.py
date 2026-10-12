@@ -1187,8 +1187,21 @@ def test_should_print_no_outside_roster_warning_when_a_later_mark_is_unreadable(
     all_error_lines = capsys.readouterr().err.splitlines()
     assert code == 2
     assert len(all_error_lines) == 1
-    assert "invalid reset for account first" in all_error_lines[0]
+    assert "invalid reset in spent mark 'first:notanumber'" in all_error_lines[0]
     assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
+def test_should_name_the_whole_mark_when_an_outside_launcher_path_has_no_reset(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "C:\\bin\\old.cmd"))
+
+    all_error_lines = capsys.readouterr().err.splitlines()
+    assert code == 2
+    assert "invalid reset in spent mark 'C:\\\\bin\\\\old.cmd'" in all_error_lines[0]
 
 
 @pytest.mark.parametrize("mark", ["", ":1800000000"])

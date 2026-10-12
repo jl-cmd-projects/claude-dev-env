@@ -383,7 +383,7 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
     try:
         reset = datetime.fromtimestamp(float(reset_text), timezone.utc) if separator else None
     except (ValueError, OSError, OverflowError) as error:
-        raise BrokerConfigurationError(f"invalid reset for account {name}") from error
+        raise BrokerConfigurationError(f"invalid reset in spent mark {mark!r}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
         return Reading(Account(product, name, Path(), False), None), reset

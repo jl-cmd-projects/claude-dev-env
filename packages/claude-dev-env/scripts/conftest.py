@@ -18,6 +18,7 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -35,7 +36,6 @@ for each_import_directory in (
         sys.path.insert(0, str(each_import_directory))
 
 _live_broker_state_resolver = importlib.import_module("account_broker_support").broker_state_path
-_production_link_directory = importlib.import_module("claude_account_profile")._link_directory
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +57,11 @@ def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:
-    _production_link_directory(to_target, from_link)
+    try:
+        importlib.import_module("claude_account_profile")._link_directory(to_target, from_link)
+    except subprocess.CalledProcessError as error:
+        link_output = (error.stderr or error.stdout or b"").decode(errors="replace").strip()
+        pytest.fail(f"directory link {from_link} -> {to_target} failed: {link_output}")
 
 
 @pytest.fixture
