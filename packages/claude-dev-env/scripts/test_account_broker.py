@@ -1160,6 +1160,21 @@ def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
     assert "outside the roster" in all_warning_lines[0]
 
 
+def test_should_print_no_outside_roster_warning_when_a_later_mark_is_unreadable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "visitor", "--spent", "first:notanumber"))
+
+    all_error_lines = capsys.readouterr().err.splitlines()
+    assert code == 2
+    assert len(all_error_lines) == 1
+    assert "invalid reset for account first" in all_error_lines[0]
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
 @pytest.mark.parametrize("mark", ["", ":1800000000"])
 def test_should_reject_a_spent_mark_without_an_account_name(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], mark: str

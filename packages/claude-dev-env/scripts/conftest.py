@@ -25,6 +25,9 @@ from pathlib import Path
 
 import pytest
 
+if sys.platform == "win32":
+    import _winapi
+
 _scripts_directory = Path(__file__).resolve().parent
 _hooks_directory = _scripts_directory.parent / "hooks"
 for each_import_directory in (
@@ -57,8 +60,8 @@ def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(str(to_target), str(from_link))
+    if sys.platform == "win32":
+        _winapi.CreateJunction(str(to_target), str(from_link))
         return
     os.symlink(to_target, from_link, target_is_directory=True)
 

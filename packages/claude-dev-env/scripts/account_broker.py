@@ -386,8 +386,6 @@ def _parse_spent_mark(all_accounts_by_name: Mapping[str, Reading], mark: str, pr
         raise BrokerConfigurationError(f"invalid reset for account {name}") from error
     reading = all_accounts_by_name.get(name)
     if reading is None:
-        if all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME:
-            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
         return Reading(Account(product, name, Path(), False), None), reset
     return reading, reset
 
@@ -400,6 +398,10 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
         _record_spent(all_state, each_reading, now, each_reset)
     if all_parsed_marks:
         _save_state(broker_state_path(), all_state)
+    for each_reading, _ in all_parsed_marks:
+        name = each_reading.account.name
+        if name not in all_accounts_by_name and (all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME):
+            print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
 
 
 def _accounts_cli(product: Product) -> int:
