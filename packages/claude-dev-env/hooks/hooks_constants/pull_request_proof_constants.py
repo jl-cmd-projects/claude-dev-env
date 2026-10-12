@@ -58,7 +58,7 @@ TEST_ONLY_PROOF_REASON = (
     " command in backticks and quote the output lines that show the difference. Keep the"
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
-EXISTING_WORK_HEADING_PATTERN =r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
+EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (
     "This pull request body has no 'Existing work' section. Before you open a pull"
