@@ -1098,6 +1098,22 @@ def test_should_run_past_a_stored_spent_mark_beyond_the_platform_range(
     assert decision["action"] == "run"
 
 
+def test_should_wait_on_an_outside_spent_mark_under_another_state_key_layout(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    monkeypatch.setattr(account_broker, "_state_key", lambda marked: f"{marked.product.value}|{marked.name}|{marked.home}")
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"visitor:{int(reset.timestamp())}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert decision["action"] == "wait"
+    assert "account visitor outside the roster is spent" in decision["reason"]
+
+
 def test_should_name_the_outside_spent_mark_when_it_forces_a_wait(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

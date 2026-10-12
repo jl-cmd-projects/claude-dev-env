@@ -47,6 +47,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _wait_decision,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     COMMAND_MISSING_EXIT_CODE,
+    PLACEHOLDER_NAME_SLOT,
     REPORT_INDENT_SPACES,
     TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
@@ -169,8 +170,7 @@ def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime) -
 def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> dict[str, datetime]:
     marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
     all_roster_names = {each_reading.account.name for each_reading in all_readings}
-    prefix = f"{product.value}:"
-    placeholder_suffix = f":{Path()}"
+    prefix, _, placeholder_suffix = _state_key(Account(product, PLACEHOLDER_NAME_SLOT, Path(), False)).partition(PLACEHOLDER_NAME_SLOT)
     all_resets_by_name = {}
     for each_key, each_raw in marks.items():
         if not (isinstance(each_key, str) and each_key.startswith(prefix) and each_key.endswith(placeholder_suffix)):

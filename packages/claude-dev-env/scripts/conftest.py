@@ -18,15 +18,11 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-
-if sys.platform == "win32":
-    import _winapi
 
 _scripts_directory = Path(__file__).resolve().parent
 _hooks_directory = _scripts_directory.parent / "hooks"
@@ -39,6 +35,7 @@ for each_import_directory in (
         sys.path.insert(0, str(each_import_directory))
 
 _live_broker_state_resolver = importlib.import_module("account_broker_support").broker_state_path
+_production_link_directory = importlib.import_module("claude_account_profile")._link_directory
 
 
 @pytest.fixture(autouse=True)
@@ -60,10 +57,7 @@ def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform == "win32":
-        _winapi.CreateJunction(str(to_target), str(from_link))
-        return
-    os.symlink(to_target, from_link, target_is_directory=True)
+    _production_link_directory(to_target, from_link)
 
 
 @pytest.fixture
