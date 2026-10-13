@@ -732,8 +732,12 @@ def test_should_allow_a_reply_with_no_causal_claim(
     "vague_text",
     ["Its parts sit in order.", "Check kept captures.", "The fix lands next."],
 )
-def test_should_deny_a_vague_phrase_seen_on_2026_10_13(vague_text: str) -> None:
-    assert reply_length_gate.vague_phrase_violation(vague_text) is not None
+def test_should_deny_a_vague_phrase_seen_on_2026_10_13(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], vague_text: str
+) -> None:
+    exit_code, error_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": vague_text})
+    assert exit_code == 2
+    assert "Vague phrase" in error_text
 
 
 @pytest.mark.parametrize(
@@ -744,5 +748,8 @@ def test_should_deny_a_vague_phrase_seen_on_2026_10_13(vague_text: str) -> None:
         "The icon grid now has 24 icons.",
     ],
 )
-def test_should_allow_a_phrase_with_concrete_detail(concrete_text: str) -> None:
-    assert reply_length_gate.vague_phrase_violation(concrete_text) is None
+def test_should_allow_a_phrase_with_concrete_detail(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], concrete_text: str
+) -> None:
+    _, error_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": concrete_text})
+    assert "Vague phrase" not in error_text

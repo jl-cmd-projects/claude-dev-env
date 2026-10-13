@@ -208,13 +208,17 @@ def unsourced_cause_violation(reply_text: str) -> str | None:
 
 def vague_phrase_violation(reply_text: str) -> str | None:
     """Return the deny reason for the first sentence that names nothing the reader can picture, or None."""
-    for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text)):
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line):
-            has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
-            if has_evidence or CONCRETE_DETAIL_PATTERN.search(each_sentence):
-                continue
-            if VAGUE_METAPHOR_VERB_PATTERN.search(each_sentence) or BARE_IMPERATIVE_PATTERN.match(each_sentence):
-                return VAGUE_PHRASE_MESSAGE.format(sentence=each_sentence.strip())
+    all_sentences = [
+        each_sentence
+        for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text))
+        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    ]
+    for each_sentence in all_sentences:
+        has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
+        is_concrete = has_evidence or CONCRETE_DETAIL_PATTERN.search(each_sentence) is not None
+        is_vague = VAGUE_METAPHOR_VERB_PATTERN.search(each_sentence) or BARE_IMPERATIVE_PATTERN.match(each_sentence)
+        if is_vague and not is_concrete:
+            return VAGUE_PHRASE_MESSAGE.format(sentence=each_sentence.strip())
     return None
 
 
