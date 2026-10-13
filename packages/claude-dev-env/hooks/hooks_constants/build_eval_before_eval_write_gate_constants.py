@@ -4,6 +4,7 @@ ALL_FILE_WRITE_TOOL_NAMES = frozenset({"Write", "Edit", "MultiEdit", "NotebookEd
 ALL_FILE_PATH_FIELDS = ("file_path", "notebook_path")
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 COMMAND_FIELD = "command"
+APPLY_PATCH_TOOL_NAME = "apply_patch"
 ALL_EVAL_DIRECTORY_NAMES = frozenset({"eval", "evals", "hillclimb"})
 EVAL_FILE_NAME_WORD_PATTERN = r"^evals?(?:[._-]|$)|\.evals?\."
 MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON = (

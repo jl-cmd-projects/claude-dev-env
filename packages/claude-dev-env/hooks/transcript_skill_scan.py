@@ -156,13 +156,14 @@ def invokes_skill_with_argument(
         Skill claude-api, args "migrate"                      -> False
         user "/claude-api" command, command-args "build-eval" -> True
 
-    An invocation stays counted after a later compact boundary. The skill
-    name must match exactly, so a same-named skill from another plugin does
-    not count. The argument word matches without regard to case.
+    An invocation stays counted after a later compact boundary. A Skill tool
+    call must name the skill exactly, so a same-named skill from another
+    plugin does not count. A user command counts by its ``command_marker``
+    alone. The argument word matches without regard to case.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
-        skill_names: Accepted skill names, matched exactly.
+        skill_names: Skill tool names, matched exactly.
         argument_word: The first whitespace-separated word the arguments must carry.
         command_marker: The user command tag that names the skill.
     """

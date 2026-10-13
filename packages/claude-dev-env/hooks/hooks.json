@@ -103,7 +103,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|apply_patch|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",

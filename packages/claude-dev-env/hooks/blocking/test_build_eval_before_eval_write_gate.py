@@ -186,3 +186,19 @@ def test_shell_command_paths_should_list_words_of_a_write_and_nothing_for_a_read
 def test_quoted_redirect_text_in_a_write_should_pass(tmp_path: Path) -> None:
     payload = _bash_payload("gh pr create --body 'use > evals/x.json'", _transcript(tmp_path, build_eval=False))
     assert gate.decision_for(payload) is None
+
+
+def test_commit_message_naming_an_eval_file_should_pass(tmp_path: Path) -> None:
+    payload = _bash_payload('git commit -m "update evals/cases.json"', _transcript(tmp_path, build_eval=False))
+    assert gate.decision_for(payload) is None
+
+
+def test_apply_patch_to_an_eval_file_should_be_denied(tmp_path: Path) -> None:
+    patch = "*** Begin Patch\n*** Add File: evals/cases.json\n+[]\n*** End Patch\n"
+    payload = {
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch},
+        "cwd": str(tmp_path),
+        "transcript_path": str(_transcript(tmp_path, build_eval=False)),
+    }
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON

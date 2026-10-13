@@ -11,12 +11,14 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.codex_apply_patch import payload_patch_target_paths
 from blocking.pr_lifecycle_skill_gate import deny_decision, eval_skill_call_status
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_EVAL_DIRECTORY_NAMES,
     ALL_FILE_PATH_FIELDS,
     ALL_FILE_WRITE_TOOL_NAMES,
     ALL_SHELL_TOOL_NAMES,
+    APPLY_PATCH_TOOL_NAME,
     COMMAND_FIELD,
     EVAL_FILE_NAME_WORD_PATTERN,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
@@ -55,7 +57,7 @@ def is_eval_path(path: str) -> bool:
 
 
 def shell_command_paths(command: str) -> list[str]:
-    """Return the words of a file-writing shell command, or nothing for a read.
+    """Return the single words of a file-writing shell command, or nothing for a read.
 
     ::
 
@@ -64,7 +66,8 @@ def shell_command_paths(command: str) -> list[str]:
         cat evals/cases.json              -> []
 
     The words come from the shared quote-aware tokenizer, and the write test is
-    the shared mutating-command check, so a quoted literal never reads as a path.
+    the shared mutating-command check. A quoted phrase with spaces, such as a
+    commit message, is left out.
 
     Args:
         command: The shell command a Bash or PowerShell tool call runs.
@@ -75,6 +78,7 @@ def shell_command_paths(command: str) -> list[str]:
         each_word
         for each_tokenization in all_operator_aware_tokenizations(command)
         for each_word in each_tokenization
+        if not any(each_character.isspace() for each_character in each_word)
     ]
 
 
@@ -86,6 +90,8 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
     if tool_name in ALL_SHELL_TOOL_NAMES:
         command = tool_input.get(COMMAND_FIELD)
         return shell_command_paths(command) if isinstance(command, str) else []
+    if tool_name == APPLY_PATCH_TOOL_NAME:
+        return list(payload_patch_target_paths(all_payload_fields, tool_input))
     if tool_name not in ALL_FILE_WRITE_TOOL_NAMES:
         return []
     return [
