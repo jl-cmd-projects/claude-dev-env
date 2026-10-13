@@ -583,7 +583,7 @@
   {
     "id": "4f4e5a3736",
     "split": "held_out",
-    "text": "The repo `Echo-Visuals-Inc/python-automation` is reachable, but I didn't attach it, because the sync needs the project-files mount anyway.",
+    "text": "The repo `acme/automation` is reachable, but I didn't attach it, because the sync needs the project-files mount anyway.",
     "expected": "fail",
     "label_source": "blank-haiku"
   },

@@ -25,7 +25,7 @@
 {"id": "da7032e928", "split": "held_out", "text": "The paste prompt gate PR needs a call from you.", "expected": "pass", "label_source": "blank", "flagged": false}
 {"id": "39b192e049", "split": "held_out", "text": "That thread was supposed to stay idle during the usage pause, so I'd decline unless you expected it.", "expected": "pass", "label_source": "jon", "flagged": false}
 {"id": "013773c85c", "split": "held_out", "text": "A search for verdict files found 0 matches, so the pass has not run.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
-{"id": "4f4e5a3736", "split": "held_out", "text": "The repo `Echo-Visuals-Inc/python-automation` is reachable, but I didn't attach it, because the sync needs the project-files mount anyway.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
+{"id": "4f4e5a3736", "split": "held_out", "text": "The repo `acme/automation` is reachable, but I didn't attach it, because the sync needs the project-files mount anyway.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
 {"id": "2d51dba996", "split": "held_out", "text": "Claude Code moves hook output over 10,000 characters into a file].", "expected": "pass", "label_source": "jon", "flagged": false}
 {"id": "6494a6bb6e", "split": "held_out", "text": "Save the Rejected list and reason modal pages, and test the rejection step against them.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
 {"id": "60aaf949f2", "split": "held_out", "text": "No report lists slots that kept old art by slot and member; the verifier warning lacks slot ids.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
