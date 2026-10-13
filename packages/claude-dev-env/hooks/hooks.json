@@ -165,6 +165,16 @@
         ]
       },
       {
+        "matcher": "AskUserQuestion|mcp__.*__ask_decision",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/merge_over_review_offer_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__(add_issue_comment|issue_write|update_issue_comment)",
         "hooks": [
           {
