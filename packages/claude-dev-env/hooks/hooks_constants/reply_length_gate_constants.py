@@ -10,6 +10,10 @@ CARD_TEXT_SEPARATOR = "\n"
 ALL_DECISION_CARD_PROSE_KEYS = ("question", "context")
 DECISION_CARD_OPTIONS_KEY = "options"
 ALL_DECISION_OPTION_PROSE_KEYS = ("label", "consequence")
+DECISION_CARD_CONTEXT_KEY = "context"
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT = 2
+ALL_DECISION_CARD_LENGTH_KEYS = ("question", "context", "reason")
+ALL_DECISION_OPTION_LENGTH_KEYS = ("consequence",)
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
@@ -35,6 +39,9 @@ WORD_SEPARATOR = " "
 SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
+CARD_CONTEXT_TOO_LONG_MESSAGE = (
+    "Card context too long: {sentence_count} sentences, limit {sentence_limit}."
+)
 UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
 MID_SENTENCE_COLON_MESSAGE = (
     "A colon joins two clauses on one line. Write two sentences, or end the line with the colon"

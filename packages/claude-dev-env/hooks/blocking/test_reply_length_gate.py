@@ -354,24 +354,76 @@ def test_should_deny_a_decision_card_that_hedges_in_an_option(
     assert '"probably"' in stderr_text
 
 
-def test_should_allow_a_long_decision_card_with_no_hedge(
+def short_card(**all_overrides: object) -> dict[str, object]:
+    card: dict[str, object] = {
+        "question": "Exclude the call button?",
+        "context": "Crops show the call button flagged in 7 themes.",
+        "reason": "Seven themes pass with it excluded.",
+        "options": [
+            {"label": "Exclude it", "consequence": "Seven themes pass."},
+            {"label": "Leave it", "consequence": "Seven themes keep a warning."},
+        ],
+        "recommended": 0,
+    }
+    card.update(all_overrides)
+    return card
+
+
+def test_should_allow_a_card_context_of_two_fifteen_word_sentences(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         DECISION_TOOL_NAME,
-        {
-            "question": "Exclude the call button?",
-            "context": " ".join([FIFTEEN_WORD_SENTENCE] * 5),
-            "options": [
-                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
-                {"label": "Leave it", "consequence": "Three themes keep a warning."},
-            ],
-            "recommended": 0,
-        },
+        short_card(context=" ".join([FIFTEEN_WORD_SENTENCE] * 2)),
     )
     assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_deny_a_card_context_of_four_sentences(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context="One. Two. Three. Four."),
+    )
+    assert exit_code == 2
+    assert "Card context too long: 4 sentences, limit 2." in stderr_text
+
+
+def test_should_deny_a_long_card_consequence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(
+            options=[
+                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
+                {"label": "Leave it", "consequence": "Seven themes keep a warning."},
+            ]
+        ),
+    )
+    assert exit_code == 2
+    assert "Sentence too long: 16 words, limit 15" in stderr_text
+
+
+@pytest.mark.parametrize("card_field_name", ["question", "reason"])
+def test_should_deny_a_long_sentence_in_the_card_question_and_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], card_field_name: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(**{card_field_name: SIXTEEN_WORD_SENTENCE}),
+    )
+    assert exit_code == 2
+    assert "Sentence too long: 16 words" in stderr_text
 
 
 @pytest.mark.parametrize(

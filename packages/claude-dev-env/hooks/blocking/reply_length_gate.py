@@ -35,7 +35,10 @@ list there, it uses ALL_DEFAULT_BANNED_WORDS.
 
 The banned-word check also reads the prose of a decision card: its question,
 its context, and each option's label and consequence.
-A decision card gets no length check.
+A decision card gets a length check on its question, context, reason, and
+each option's consequence. No sentence there runs longer than
+MAXIMUM_WORDS_PER_SENTENCE words, and the context holds at most
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences.
 
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
@@ -86,7 +89,9 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
+    ALL_DECISION_CARD_LENGTH_KEYS,
     ALL_DECISION_CARD_PROSE_KEYS,
+    ALL_DECISION_OPTION_LENGTH_KEYS,
     ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
     ALL_EVIDENCE_PATTERNS,
@@ -98,10 +103,12 @@ from hooks_constants.reply_length_gate_constants import (
     BANNED_WORDS_JSON_KEY,
     BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
+    CARD_CONTEXT_TOO_LONG_MESSAGE,
     CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
+    DECISION_CARD_CONTEXT_KEY,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
     EM_DASH_MESSAGE,
@@ -114,6 +121,7 @@ from hooks_constants.reply_length_gate_constants import (
     LINK_TARGET_PATTERN,
     LONG_SENTENCE_MESSAGE,
     MARKDOWN_LINK_PATTERN,
+    MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
     MAXIMUM_SENTENCE_COUNT,
     MAXIMUM_WORDS_PER_SENTENCE,
     MID_SENTENCE_COLON_MESSAGE,
@@ -162,7 +170,12 @@ def length_violation(reply_text: str) -> str | None:
         return TOO_MANY_SENTENCES_MESSAGE.format(
             sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
         )
-    for each_sentence in all_sentences:
+    return long_sentence_violation(reply_text)
+
+
+def long_sentence_violation(prose_text: str) -> str | None:
+    """Return the deny reason for the first sentence over the word limit, or None."""
+    for each_sentence in sentence_word_lists(prose_text):
         if len(each_sentence) > MAXIMUM_WORDS_PER_SENTENCE:
             sentence_preview = WORD_SEPARATOR.join(each_sentence[:SENTENCE_PREVIEW_WORD_COUNT])
             return LONG_SENTENCE_MESSAGE.format(
@@ -254,21 +267,45 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
     return None
 
 
-def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
-    """Collect the prose fields of a decision card: question, context, and each option's text."""
+def all_card_texts(
+    all_card_input: dict[str, object],
+    all_card_keys: tuple[str, ...] = ALL_DECISION_CARD_PROSE_KEYS,
+    all_option_keys: tuple[str, ...] = ALL_DECISION_OPTION_PROSE_KEYS,
+) -> list[str]:
+    """Collect the named string fields of a decision card and of each of its options."""
     all_options = all_card_input.get(DECISION_CARD_OPTIONS_KEY)
     all_option_fields = [
         each_option.get(each_key)
         for each_option in (all_options if isinstance(all_options, list) else [])
         if isinstance(each_option, dict)
-        for each_key in ALL_DECISION_OPTION_PROSE_KEYS
+        for each_key in all_option_keys
     ]
-    all_card_fields = [all_card_input.get(each_key) for each_key in ALL_DECISION_CARD_PROSE_KEYS]
+    all_card_fields = [all_card_input.get(each_key) for each_key in all_card_keys]
     return [
         each_field
         for each_field in all_card_fields + all_option_fields
         if isinstance(each_field, str)
     ]
+
+
+def card_length_violation(all_card_input: dict[str, object]) -> str | None:
+    """Return the deny reason for an over-long card context or card sentence, or None."""
+    context_text = all_card_input.get(DECISION_CARD_CONTEXT_KEY)
+    if isinstance(context_text, str):
+        context_sentence_count = len(sentence_word_lists(context_text))
+        if context_sentence_count > MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT:
+            return CARD_CONTEXT_TOO_LONG_MESSAGE.format(
+                sentence_count=context_sentence_count,
+                sentence_limit=MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+            )
+    all_length_checked_texts = all_card_texts(
+        all_card_input, ALL_DECISION_CARD_LENGTH_KEYS, ALL_DECISION_OPTION_LENGTH_KEYS
+    )
+    for each_text in all_length_checked_texts:
+        violation = long_sentence_violation(each_text)
+        if violation is not None:
+            return violation
+    return None
 
 
 def active_mode_rules() -> VisualReplyRules | None:
@@ -318,7 +355,7 @@ def tool_violation(
             return anchor_violation, str(all_tool_input)
     if tool_name == DECISION_CARD_TOOL_NAME:
         card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
-        violation = card_violation(card_text, mode_rules)
+        violation = card_length_violation(all_tool_input) or card_violation(card_text, mode_rules)
         return None if violation is None else (violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
         return None
