@@ -136,6 +136,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
+        hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -170,6 +171,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The eval write gate denies a write to an eval file until the session
     invokes ``/claude-api build-eval``. It decides which skill loads before
     an eval file changes, and no code or safety policy.
+
+    The merge offer gate denies a decision card that offers a merge over open
+    review findings. It decides what a chat card offers and no code or safety
+    policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

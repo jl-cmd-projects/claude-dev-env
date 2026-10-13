@@ -14,6 +14,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
 - `blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file until a `claude-api` Skill call with args `build-eval`, or the `/claude-api build-eval` command, appears in the transcript.
 - `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge, auto-merge or merge-queue entry to be pinned to that head, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`. Its deny reason names the review command `CLAUDE_MERGE_REVIEW_COMMAND` sets.
+- `blocking/merge_over_review_offer_gate.py` denies a decision card that offers a merge while the card names review findings, a red check, or an override.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
 
 ## When it fires
@@ -28,6 +29,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)`, timeout `10` seconds in `hooks.json`.
 - `blocking/build_eval_before_eval_write_gate.py` runs on `PreToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell`, timeout `10` seconds in `hooks.json`.
 - `blocking/merge_review_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)`, timeout `10` seconds in `hooks.json`.
+- `blocking/merge_over_review_offer_gate.py` runs on `PreToolUse`, matcher `mcp__.*__ask_decision`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 
 ## Proving it
@@ -46,6 +48,7 @@ Preconditions:
 - **Lifecycle skill.** Input is a `git commit` or `gh pr create` command with no `pr-lifecycle` invocation in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_pr_lifecycle_skill_gate.py -q`. The adjacent test observes a denial, then a silent allow once the skill or its slash command appears.
 - **Eval write.** Input is a Write to `evals/cases.json` with no build-eval call in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_build_eval_before_eval_write_gate.py -q`. The adjacent test observes a denial, then an allow once the call appears; a write outside an eval path passes.
 - **Clean review.** Input is a merge with no receipt, a receipt with findings, a merge pinned to a newer head, an unpinned merge, or auto-merge with no head. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_review_gate.py -q`. The adjacent test observes a denial for each; a merge or auto-merge pinned to the clean head and a merge in an exempt repository pass.
+- **Merge offer.** Input is a decision card with a "Merge now" option and context naming open review findings. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_over_review_offer_gate.py -q`. The adjacent test observes a denial; a card with no merge option, or a merge option after a clean review, passes.
 - **Dark mode page.** Input is an Artifact publish of a page that themes `html` but leaves `body` to the publish wrapper. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_dark_mode_gate.py -q`. The adjacent test observes a denial that names the text and its contrast; a page that themes `body` passes. The render tests skip on a host with no Node Playwright and Chromium.
 
 ## Gotchas
