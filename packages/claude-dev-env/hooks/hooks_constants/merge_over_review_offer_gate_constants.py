@@ -4,6 +4,7 @@ import re
 
 ALL_CARD_TEXT_FIELDS = ("question", "context", "reason")
 OPTIONS_FIELD = "options"
+TEXT_SEPARATOR = " "
 ALL_OPTION_TEXT_FIELDS = ("label", "consequence")
 MERGE_OFFER_PATTERN = re.compile(r"\bmerge\b", re.IGNORECASE)
 OPEN_REVIEW_PATTERN = re.compile(
