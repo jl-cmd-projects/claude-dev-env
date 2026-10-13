@@ -65,16 +65,16 @@ def is_eval_path(path: str) -> bool:
 
 
 def shell_write_targets(command: str) -> list[str]:
-    """Return the files a shell command writes through a redirect, tee, sed -i, or a PowerShell content cmdlet.
+    """Return the files a shell command writes through a redirect, tee, sed -i, cp, mv, install, or a PowerShell content or copy cmdlet.
 
     A relative target also counts under each directory the command changes into.
 
     ::
 
         echo [] > evals/cases.json            -> ["evals/cases.json"]
-        cd evals && echo [] > cases.json      -> ["cases.json", "evals/cases.json"]
         cat a | tee -a log.txt evals/x.json   -> ["log.txt", "evals/x.json"]
         sed -i 's/a/b/' evals/x.json          -> ["evals/x.json"]
+        cp /tmp/cases.json evals/cases.json   -> ["evals/cases.json"]
         cat evals/cases.json                  -> []
 
     Args:
@@ -110,7 +110,7 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
         path
         for path in (tool_input.get(each_field) for each_field in ALL_FILE_PATH_FIELDS)
         if isinstance(path, str) and path
-    ][:1]
+    ]
 
 
 def _deny(reason: str) -> dict[str, object]:

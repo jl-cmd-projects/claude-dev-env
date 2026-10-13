@@ -187,3 +187,9 @@ def test_powershell_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) 
     payload = _bash_payload("'[]' > evals\\cases.json", _transcript(tmp_path, build_eval=False))
     payload["tool_name"] = "PowerShell"
     assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+def test_shell_write_targets_should_name_the_copy_and_move_destination() -> None:
+    assert gate.shell_write_targets("cp /tmp/cases.json evals/cases.json") == ["evals/cases.json"]
+    assert gate.shell_write_targets("mv -f a.json evals/a.json && ls") == ["evals/a.json"]
+    assert gate.shell_write_targets("cp evals/cases.json /tmp/backup.json") == ["/tmp/backup.json"]

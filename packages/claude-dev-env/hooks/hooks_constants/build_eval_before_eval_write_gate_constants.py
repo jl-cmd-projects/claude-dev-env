@@ -7,6 +7,7 @@ COMMAND_FIELD = "command"
 OPTION_PREFIX = "-"
 ALL_SHELL_WRITE_TARGET_PATTERNS = (
     r"(?<!>)(?:&|[0-9]*)>>?\|?\s*([^\s;&|<>()]+)",
+    r"\b(?:cp|mv|install|Copy-Item|Move-Item)\s+(?:[^;&|<>()]*\s)?([^\s;&|<>()]+)\s*(?:$|[;&|])",
     r"\b(?:Set-Content|Add-Content|Out-File)\s+(?:-(?:Path|FilePath|LiteralPath)\s+)?([^\s;&|<>()]+)",
     r"\btee((?:\s+[^\s;&|<>()]+)+)",
     r"\bsed\s+(?:-[^\s]*\s+)*-i\S*\s+(?:-[^\s]*\s+)*(?:'[^']*'|\"[^\"]*\"|\S+)((?:\s+[^\s;&|<>()]+)+)",
