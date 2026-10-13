@@ -103,6 +103,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|apply_patch|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/build_eval_before_eval_write_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)",
         "hooks": [
           {

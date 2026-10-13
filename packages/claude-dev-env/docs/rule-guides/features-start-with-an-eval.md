@@ -6,7 +6,7 @@ Back to the [rules index](../../rules/index.md).
 
 Your first action is the Skill tool with skill `claude-api` and args `build-eval`. Build the feature against that eval. When the work touches an existing feature with no eval, start a separate session to build that eval in parallel. An Agent-tool subagent does not count. You own its result.
 
-**Enforcement:** `hooks/blocking/pr_lifecycle_skill_gate.py` denies a `feat` pull request with no "Eval" section or no build-eval call.
+**Enforcement:** `hooks/blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file before the build-eval call. `hooks/blocking/pr_lifecycle_skill_gate.py` denies a `feat` pull request with no "Eval" section or no build-eval call.
 
 **When this applies:** A user asks for a new feature or a change in behavior, in any project.
 
@@ -43,4 +43,6 @@ You own that session's result. Check its pull request, and link it from your own
 - its body has no "Eval" heading, or the text under that heading names no command in backticks;
 - the session's transcript is readable and shows no `claude-api` Skill call with args `build-eval`, and no `/claude-api build-eval` command.
 
-The gate checks that the section and the call are there. Whether the eval measures the feature stays a judgment for the author and the reviewer. The order of the first action and the separate session for an existing feature are not checked by a hook, so the agent applies them.
+`hooks/blocking/build_eval_before_eval_write_gate.py` runs before each Write, Edit, MultiEdit, NotebookEdit, apply_patch, Bash, and PowerShell call. It denies a write to an eval file while the session's readable transcript shows no build-eval call. An eval file sits under an `eval`, `evals`, or `hillclimb` folder, or has a file name that starts with `eval` or `evals` before a separator, such as `eval_runner.py`, or carries `.eval.` or `.evals.`, such as `search.eval.json`. Only a Skill call named exactly `claude-api` counts; a plugin-prefixed name such as `plugin:claude-api` does not.
+
+The gate checks that the section and the call are there. Whether the eval measures the feature stays a judgment for the author and the reviewer. Edits outside eval files before the build-eval call and the separate session for an existing feature are not checked by a hook, so the agent applies them.

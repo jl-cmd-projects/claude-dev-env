@@ -343,6 +343,14 @@ def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: P
     assert gate.decision_for(_create_payload(tmp_path, "feat: add a gate", transcript_path)) is None
 
 
+def test_is_build_eval_missing_should_follow_the_transcript(tmp_path: Path) -> None:
+    without_call = _transcript_with_lines(tmp_path, "without.jsonl", [SKILL_LOAD_LINE])
+    with_call = _transcript_with_lines(tmp_path, "with.jsonl", [BUILD_EVAL_LINE])
+    assert gate.is_build_eval_missing({"transcript_path": str(without_call)})
+    assert not gate.is_build_eval_missing({"transcript_path": str(with_call)})
+    assert not gate.is_build_eval_missing({"transcript_path": str(tmp_path / "missing.jsonl")})
+
+
 def test_non_feature_pull_request_without_build_eval_invocation_should_pass(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "fix: repair a gate", transcript_path)) is None
@@ -405,3 +413,20 @@ def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_pat
 def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
     assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None
+
+
+def test_eval_skill_call_status_should_separate_called_missing_and_unreadable(tmp_path: Path) -> None:
+    called_path = tmp_path / "called.jsonl"
+    skill_call = {"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}
+    called_path.write_text(
+        json.dumps({"type": "assistant", "message": {"content": [skill_call]}}) + "\n", encoding="utf-8"
+    )
+    assert gate.eval_skill_call_status(_payload("git status", called_path)) is True
+    assert gate.eval_skill_call_status(_payload("git status", _transcript(tmp_path))) is False
+    assert gate.eval_skill_call_status(_payload("git status", tmp_path / "missing.jsonl")) is None
+
+
+def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
+    output = gate.deny_decision("Load the skill first.")["hookSpecificOutput"]
+    assert output["permissionDecision"] == "deny"
+    assert output["permissionDecisionReason"] == "Load the skill first."
