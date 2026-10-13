@@ -1,0 +1,58 @@
+{"id": "3e49212981", "split": "held_out", "text": "On it, starting the first pass now.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "094089c4f8", "split": "held_out", "text": "I resumed the pitfall plan review.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "ba68df3538", "split": "held_out", "text": "Manual wakes started fresh sessions without the repo.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "520c93305e", "split": "held_out", "text": "The handoff is ready in the pitfall plan thread.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "30025f6f68", "split": "held_out", "text": "No verifier counts preview composites against the screen list or ties them to the final theme file.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "2739bd4ce7", "split": "held_out", "text": "No test reads the Rejected modal or report download, and no saved portal page exists to replay.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
+{"id": "a3ec2ade8c", "split": "held_out", "text": "The pitfall plan, memory sync, idle cleanup and instructions cleanse are paused until the weekly reset.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "08c2c3065a", "split": "held_out", "text": "Two rerun named assets tests fail at main, because their fake lacks a newer preview option.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "e37e51c506", "split": "held_out", "text": "Add the missing option to the test fake, and assert the rerun reuses saved source shots.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "f4405f7623", "split": "held_out", "text": "A single Convert exits 1 on a failed Dialer, but the sheet already says Ready to Check.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "6fb995542f", "split": "held_out", "text": "Memory sync fired without project files, so its owner thread is rerunning it.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "229e500673", "split": "held_out", "text": "Add a page indicator drive scenario with a stubbed image maker and an identical indicator pair.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "b5789cd335", "split": "held_out", "text": "Five icon eval grader tests fail at main, because the grader rejects the test's bound trace.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "9e5a4243f6", "split": "held_out", "text": "Write an unassigned slots list with slot, member and reason into the job and batch outcome files.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "fcd1966d09", "split": "held_out", "text": "Correction: memory sync isn't blocked.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "e5f089ade5", "split": "held_out", "text": "Until someone trims it, every project's memory sync push fails, this one included.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "0a51bda8d9", "split": "held_out", "text": "Hold the Ready to Check write until the Dialer outcome is known, and test it.", "expected": "pass", "label_source": "blank", "flagged": true}
+{"id": "47ceb2f811", "split": "held_out", "text": "That file belongs to Agent Platform.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "aa689a1e52", "split": "held_out", "text": "The prep check picks its expected theme file the same way Prep does, so a wrong-generation copy passes.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "178e1c7c2a", "split": "held_out", "text": "Messages are now refused if a paste-in agent prompt lists no files.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "35e35e0cfa", "split": "held_out", "text": "Waiting for queued Review closure run, then re-run Codex review", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "1c6847b42d", "split": "held_out", "text": "The vague-words check is open as draft PR 2013, at the static analysis layer.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "26b5c730d6", "split": "held_out", "text": "I'm waking the paused routines through the usage watcher.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "1687d7a235", "split": "held_out", "text": "No cert queue drive files a page indicator title, so this fix never runs through the whole queue.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "da7032e928", "split": "held_out", "text": "The paste prompt gate PR needs a call from you.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "39b192e049", "split": "held_out", "text": "That thread was supposed to stay idle during the usage pause, so I'd decline unless you expected it.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "013773c85c", "split": "held_out", "text": "A search for verdict files found 0 matches, so the pass has not run.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "4f4e5a3736", "split": "held_out", "text": "The repo `Echo-Visuals-Inc/python-automation` is reachable, but I didn't attach it, because the sync needs the project-files mount anyway.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
+{"id": "2d51dba996", "split": "held_out", "text": "Claude Code moves hook output over 10,000 characters into a file].", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "6494a6bb6e", "split": "held_out", "text": "Save the Rejected list and reason modal pages, and test the rejection step against them.", "expected": "fail", "label_source": "blank-haiku", "flagged": false}
+{"id": "60aaf949f2", "split": "held_out", "text": "No report lists slots that kept old art by slot and member; the verifier warning lacks slot ids.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "6023cc25c2", "split": "held_out", "text": "The pitfall plan stays with your new session.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "f4c2d7addf", "split": "held_out", "text": "Routines now get woken by message, and two index lines become note files.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "51b9c5f1e0", "split": "held_out", "text": "That thread posted plan v15 and unsubscribed from the pull request.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "a2b80c66bc", "split": "held_out", "text": "I'll compare the installed version before and after.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "bfe0aade7a", "split": "held_out", "text": "The next run will retry.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "997c496d95", "split": "held_out", "text": "PR 6257 blocks a walk publish until every card passes a cold read.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "461a9a18b3", "split": "held_out", "text": "One blocker sits outside this project.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "82bd54963b", "split": "held_out", "text": "Write a contact sheet of the extracted images to the prep evidence folder and list it in the verdict.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "6ce7e9afc6", "split": "held_out", "text": "Memory sync blocked, nothing was run.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "5f5768a920", "split": "held_out", "text": "Add a preview step to the drive checks, recording captured, blocked or unavailable with the reason.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "999b284832", "split": "held_out", "text": "Commit the Acorn label background member as a fixture, and point the tests at it.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "982b9b4285", "split": "held_out", "text": "All 87 reply-check tests pass.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "f49f77369a", "split": "held_out", "text": "Ran the hooks suite, one failure also fails on the base", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "044496fbfa", "split": "held_out", "text": "The reviewer bot wants separate checks for repository, commands and target.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "2fd3f24868", "split": "held_out", "text": "Add a prep check that the chosen source theme file has the older generation suffix.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "833a7bcba3", "split": "held_out", "text": "Tests cover a source found in Themes and a miss; the 2018 and Theme Editor branches have none.", "expected": "fail", "label_source": "blank-haiku", "flagged": true}
+{"id": "b19902d120", "split": "held_out", "text": "Rewrite the guide to the refuse-and-rename rule, and make the single-theme prep check look for collisions first.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "016a258b8a", "split": "held_out", "text": "Checked CI: Tip Local waits for ready, as drafts skip it", "expected": "fail", "label_source": "jon", "flagged": false}
+{"id": "d67882b957", "split": "held_out", "text": "On a test page, an edited card printed verdict is for older text.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "d8ec9d3343", "split": "held_out", "text": "I skipped them; my reply there says why.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "a7bc12151e", "split": "held_out", "text": "Any large new turn before Friday's reset uses up the rest, per the usage watcher.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "cb4a71f585", "split": "held_out", "text": "Today Rerunning named assets passes or", "expected": "pass", "label_source": "jon", "flagged": true}
+{"id": "acd3a3bfe9", "split": "held_out", "text": "The nine-patch Studio preview needs Windows Chrome and the Y: snapshot, and the tool fails to start here.", "expected": "pass", "label_source": "blank", "flagged": false}
+{"id": "af9be0daf1", "split": "held_out", "text": "Find why the grader rejects that trace and correct it, so the grader tests pass.", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "e13ace0972", "split": "held_out", "text": "Only the usage watcher and the thread check-in keep running.", "expected": "pass", "label_source": "jon", "flagged": false}
+{"id": "e7ae69cc79", "split": "held_out", "text": "Picked layer 2, a hook on the existing handoff rule", "expected": "fail", "label_source": "jon", "flagged": true}
+{"id": "24f7e7539a", "split": "held_out", "text": "Style tests crash in the cloud.", "expected": "pass", "label_source": "jon", "flagged": false}
