@@ -132,10 +132,6 @@ from hooks_constants.reply_length_gate_constants import (
     UNLINKED_PULL_REQUEST_MESSAGE,
     UNLINKED_PULL_REQUEST_PATTERN,
     UNSOURCED_CAUSE_MESSAGE,
-    BARE_IMPERATIVE_PATTERN,
-    CONCRETE_DETAIL_PATTERN,
-    VAGUE_METAPHOR_VERB_PATTERN,
-    VAGUE_PHRASE_MESSAGE,
     URL_PATTERN,
     WORD_PATTERN,
     WORD_SEPARATOR,
@@ -205,22 +201,6 @@ def unsourced_cause_violation(reply_text: str) -> str | None:
         has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
         if is_causal and not has_evidence:
             return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
-    return None
-
-
-def vague_phrase_violation(reply_text: str) -> str | None:
-    """Return the deny reason for the first sentence that names nothing the reader can picture, or None."""
-    all_sentences = [
-        each_sentence
-        for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text))
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
-    ]
-    for each_sentence in all_sentences:
-        has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
-        is_concrete = has_evidence or CONCRETE_DETAIL_PATTERN.search(each_sentence) is not None
-        is_vague = VAGUE_METAPHOR_VERB_PATTERN.search(each_sentence) or BARE_IMPERATIVE_PATTERN.match(each_sentence)
-        if is_vague and not is_concrete:
-            return VAGUE_PHRASE_MESSAGE.format(sentence=each_sentence.strip())
     return None
 
 
@@ -314,7 +294,6 @@ def card_violation(card_text: str, mode_rules: VisualReplyRules | None) -> str |
     """Return the deny reason for a decision card's prose, or None."""
     return (
         banned_word_violation(card_text, configured_banned_words())
-        or vague_phrase_violation(card_text)
         or code_name_violation(card_text)
     ) or (
         None if mode_rules is None else abbreviation_violation(prose_outside_links(card_text), mode_rules)
@@ -331,7 +310,6 @@ def reply_violation(
         or em_dash_violation(reply_text)
         or unlinked_pull_request_violation(reply_text)
         or unsourced_cause_violation(reply_text)
-        or vague_phrase_violation(reply_text)
         or code_name_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
