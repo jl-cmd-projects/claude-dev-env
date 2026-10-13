@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import shlex
 import sys
@@ -54,7 +53,7 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
 )
-from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
 from blocking.pull_request_proof import (
@@ -298,12 +297,7 @@ def _deny(reason: str) -> dict[str, object]:
 
 def main() -> int:
     """Read one payload, print a deny when needed, and exit zero."""
-    payload = read_hook_input_dictionary_from_stdin()
-    if payload is not None:
-        decision = decision_for(payload)
-        if decision is not None:
-            sys.stdout.write(json.dumps(decision) + "\n")
-    return 0
+    return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

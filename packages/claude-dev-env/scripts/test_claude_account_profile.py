@@ -184,6 +184,29 @@ class TestSyncProfile:
         assert not os.path.lexists(profile_home / "rules")
         assert report.all_unlinked == ("rules",)
 
+    def test_should_keep_a_link_whose_target_refuses_access(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        main_home = build_main_home(tmp_path)
+        (main_home / ".pytest_cache").mkdir()
+        profile_home = tmp_path / "ev"
+        profile_home.mkdir()
+        locked_link = profile_home / ".pytest_cache"
+        locked_link.symlink_to(main_home / ".pytest_cache", target_is_directory=True)
+        unlocked_stat = Path.stat
+
+        def stat_refusing_the_locked_link(
+            self: Path, *, follow_symlinks: bool = True
+        ) -> os.stat_result:
+            if self == locked_link and follow_symlinks:
+                raise PermissionError(5, "Access is denied", str(self))
+            return unlocked_stat(self, follow_symlinks=follow_symlinks)
+
+        monkeypatch.setattr(Path, "stat", stat_refusing_the_locked_link)
+        report = sync(main_home, profile_home)
+        assert profile.links_to(locked_link, main_home / ".pytest_cache")
+        assert ".pytest_cache" not in report.all_unlinked
+
 
     def test_should_remove_a_main_link_left_under_an_account_local_name(
         self, tmp_path: Path
@@ -389,3 +412,17 @@ def test_should_create_named_profile_and_launcher_without_changes_on_repeat(
 def test_should_reject_unsafe_profile_names(profile_name: str) -> None:
     with pytest.raises(ValueError):
         profile.default_profile_home(profile_name)
+
+
+def test_sync_report_payload_should_list_each_entry_under_its_own_key() -> None:
+    report = profile.ProfileSyncReport(
+        all_linked=("CLAUDE.md", "skills"),
+        all_moved_aside=("settings.json",),
+        all_unlinked=("rules",),
+    )
+
+    assert profile.sync_report_payload(report) == {
+        "linked": ["CLAUDE.md", "skills"],
+        "moved_aside": ["settings.json"],
+        "unlinked": ["rules"],
+    }

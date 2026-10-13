@@ -45,7 +45,12 @@ def _hook_group(matcher: str, *all_hook_commands: str) -> dict[str, object]:
 
 
 def _hook_commands(manifest: dict[str, Any], event_name: str) -> list[str]:
-    return [each_hook["command"] for each_group in manifest["hooks"][event_name] for each_hook in each_group["hooks"]]
+    return [
+        each_hook["command"]
+        for each_group in manifest["hooks"][event_name]
+        for each_hook in each_group["hooks"]
+        if "command" in each_hook
+    ]
 
 
 def test_conversion_escapes_toml_content() -> None:

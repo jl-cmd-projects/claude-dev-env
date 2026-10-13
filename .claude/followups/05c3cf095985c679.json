@@ -1,8 +1,0 @@
-{
-  "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/scripts/claude_account_profile.py",
-  "message": "Changed production file has no changed matching test",
-  "check_id": "test-pairing",
-  "severity": "smell",
-  "origin_commit": "af3d30b32e5f463f82a139f7543ef0e322b71999"
-}

@@ -78,7 +78,7 @@ function expectedCountByScript(hooksConfig) {
     for (const matcherGroups of Object.values(hooksConfig.hooks)) {
         for (const group of matcherGroups) {
             for (const hook of group.hooks) {
-                for (const match of hook.command.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/(\S+?\.(?:py|mjs))/g)) {
+                for (const match of (hook.command ?? '').matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/(\S+?\.(?:py|mjs))/g)) {
                     countByScript.set(match[1], (countByScript.get(match[1]) ?? 0) + 1);
                 }
             }

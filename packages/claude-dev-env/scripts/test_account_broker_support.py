@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -43,6 +44,61 @@ def _claude_home_with_extras(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, ex
     main_home.mkdir()
     (main_home / "extra-profiles.json").write_text(json.dumps(extras), encoding="utf-8")
     return main_home
+
+
+def test_should_name_a_chain_account_profile_from_its_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
+    launcher = "C:\\bin\\claude-editor.cmd"
+    (main_home / "claude-chain.json").write_text(
+        json.dumps(
+            {
+                "chain": [
+                    {"command": launcher, "credentials_path": str(profiles_root / "editor" / ".credentials.json")},
+                    {"command": "C:\\bin\\other.cmd", "credentials_path": str(tmp_path / "elsewhere" / ".credentials.json")},
+                    {"command": "C:\\bin\\reserved.cmd", "credentials_path": str(profiles_root / "main" / ".credentials.json")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (main_home / "extra-profiles.json").write_text('["extra"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.profile) for each_account in accounts] == [
+        ("main", None),
+        (launcher, "editor"),
+        ("C:\\bin\\other.cmd", None),
+        ("C:\\bin\\reserved.cmd", None),
+        ("extra", "extra"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("target_parts", "expected_profile"),
+    [(("claude-profiles-link-target", "target"), None), ((".claude-profiles", "target"), "target")],
+)
+def test_should_name_an_extra_account_profile_from_its_resolved_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, create_directory_link: Callable[..., None], target_parts: tuple[str, str], expected_profile: str | None
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("LLM_SETTINGS_PROFILES_ROOT", raising=False)
+    main_home = tmp_path / ".claude"
+    main_home.mkdir()
+    profiles_root = tmp_path / ".claude-profiles"
+    profiles_root.mkdir()
+    target = tmp_path.joinpath(*target_parts)
+    target.mkdir(parents=True)
+    create_directory_link(from_link=profiles_root / "alias", to_target=target)
+    (main_home / "extra-profiles.json").write_text('["alias"]', encoding="utf-8")
+
+    accounts = support.load_claude_accounts()
+
+    assert [(each_account.name, each_account.profile) for each_account in accounts[1:]] == [("target", expected_profile)]
 
 
 def test_should_leave_claude_priorities_unset_without_an_order_file(
@@ -114,9 +170,12 @@ def test_should_read_claude_meters_through_injected_probe(
         weekly_utilization=30.0,
         weekly_resets_at=None,
     )
-    monkeypatch.setattr(support, "probe_account_meters", lambda _: usage)
+    all_refresh_helpers: list[object] = []
+    monkeypatch.setattr(support, "probe_account_meters", lambda _, refresh_login: all_refresh_helpers.append(refresh_login) or usage)
 
     meters = support.read_claude_meters(Account(Product.CLAUDE, "one", tmp_path))
+
+    assert all_refresh_helpers == [support.refresh_claude_login]
 
     assert meters.session_percent_left == 80.0
     assert meters.weekly_percent_left == 70.0
@@ -154,40 +213,113 @@ def _codex_meter_reads(
     return all_homes_read
 
 
-def test_should_read_codex_meters_again_after_one_failed_read(
+def _claude_meter_reads(monkeypatch: pytest.MonkeyPatch, all_outcomes: list[object]) -> list[Path]:
+    all_paths_read: list[Path] = []
+
+    def probe_account_meters(credentials_path: Path, refresh_login: object) -> object:
+        all_paths_read.append(credentials_path)
+        outcome = all_outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(support, "probe_account_meters", probe_account_meters)
+    return all_paths_read
+
+
+def _recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    all_delays: list[float] = []
+    monkeypatch.setattr(support.time, "sleep", all_delays.append)
+    return all_delays
+
+
+def _first_reading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, account: Account, read_meters: object) -> object:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    adapter = ProductAdapter(lambda: (account,), read_meters, "HOME", ())
+    state = support._load_state(support.broker_state_path())
+    now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    return support.read_accounts(account.product, adapter, all_state=state, now=now)[0], adapter, state, now
+
+
+def test_should_read_claude_meters_after_transient_failures_with_growing_delays(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    usage = SimpleNamespace(session_utilization=20.0, session_resets_at=None, weekly_utilization=30.0, weekly_resets_at=None)
+    unread = support.WeeklyUtilizationProbeError("usage endpoint timed out")
+    all_paths_read = _claude_meter_reads(monkeypatch, [unread, unread, usage])
+    all_delays = _recorded_sleeps(monkeypatch)
+
+    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)[0]
+
+    assert reading.meters is not None
+    assert reading.meters.weekly_percent_left == 70.0
+    assert reading.unread_reason is None
+    assert len(all_paths_read) == 3
+    assert all_delays == [1.0, 2.0]
+
+
+def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
     usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None)
     unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
-    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, usage])
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, unread, usage])
+    all_delays = _recorded_sleeps(monkeypatch)
 
-    meters = support.read_codex_account_meters(Account(Product.CODEX, "one", tmp_path))
+    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
 
-    assert meters is not None
-    assert meters.weekly_percent_left == 70.0
-    assert all_homes_read == [tmp_path, tmp_path]
+    assert reading.meters is not None
+    assert reading.meters.weekly_percent_left == 70.0
+    assert all_homes_read == [tmp_path, tmp_path, tmp_path]
+    assert all_delays == [1.0, 2.0]
 
 
-def test_should_keep_the_unread_reason_after_two_failed_codex_reads(
+def test_should_keep_the_unread_reason_after_every_claude_read_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
-    first_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server failed: timed out")
-    second_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
-    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [first_unread, second_unread])
-    account = Account(Product.CODEX, "codex-3", tmp_path)
-    adapter = ProductAdapter(lambda: (account,), support.read_codex_account_meters, "CODEX_HOME", ())
-    state = support._load_state(support.broker_state_path())
-    now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    all_failures = [support.WeeklyUtilizationProbeError(f"usage endpoint failed {each_number}") for each_number in range(3)]
+    all_paths_read = _claude_meter_reads(monkeypatch, all_failures)
+    all_delays = _recorded_sleeps(monkeypatch)
 
-    first_reading = support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0]
+    reading, adapter, state, now = _first_reading(monkeypatch, tmp_path, Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)
+    cached_reading = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=now)[0]
+
+    assert reading.meters is None
+    assert reading.unread_reason == "usage endpoint failed 2"
+    assert cached_reading.unread_reason == "usage endpoint failed 2"
+    assert len(all_paths_read) == 3
+    assert all_delays == [1.0, 2.0]
+
+
+def test_should_keep_the_unread_reason_after_every_codex_read_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    first_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server failed: timed out")
+    last_unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [first_unread, first_unread, last_unread])
+    _recorded_sleeps(monkeypatch)
+
+    reading, adapter, state, now = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "codex-3", tmp_path), support.read_codex_account_meters)
     cached_reading = support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0]
 
-    assert first_reading.meters is None
-    assert first_reading.unread_reason == "codex app-server sent no rate-limit reply"
+    assert reading.meters is None
+    assert reading.unread_reason == "codex app-server sent no rate-limit reply"
     assert cached_reading.unread_reason == "codex app-server sent no rate-limit reply"
-    assert all_homes_read == [tmp_path, tmp_path]
+    assert all_homes_read == [tmp_path, tmp_path, tmp_path]
+
+
+def test_should_cap_the_meter_read_delay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(support, "METER_READ_ATTEMPTS", 6)
+    all_delays = _recorded_sleeps(monkeypatch)
+    all_failures = [support.WeeklyUtilizationProbeError("down") for _ in range(6)]
+    _claude_meter_reads(monkeypatch, all_failures)
+
+    meters, unread_reason = support.read_meters_with_backoff(support.read_claude_meters, Account(Product.CLAUDE, "one", tmp_path))
+
+    assert meters is None
+    assert unread_reason == "down"
+    assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]
 
 
 def test_should_cache_account_reading_under_injected_state_path(
@@ -443,3 +575,35 @@ def test_should_match_order_names_to_an_account_named_by_its_windows_launcher_pa
     ranked = support._with_priorities((launcher_account,), ("claude-org-jon", "claude-editor"))
 
     assert ranked[0].priority == 1
+
+
+def test_should_run_the_cli_against_the_account_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_calls: list[tuple[list[str], str]] = []
+
+    def fake_run(command: list[str], **keyword_arguments: object) -> subprocess.CompletedProcess[bytes]:
+        environment = keyword_arguments["env"]
+        assert isinstance(environment, dict)
+        all_calls.append((command, environment["CLAUDE_CONFIG_DIR"]))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(support, "resolve_claude_path", lambda: Path("claude"))
+    monkeypatch.setattr(support.subprocess, "run", fake_run)
+
+    assert support.refresh_claude_login(tmp_path) is True
+    assert all_calls == [(["claude", "-p", "ok", "--model", "haiku"], str(tmp_path))]
+
+
+def test_should_skip_the_refresh_without_a_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(support, "resolve_claude_path", lambda: None)
+
+    assert support.refresh_claude_login(tmp_path) is False
+
+
+def test_should_find_the_cli_in_the_local_bin_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    local_claude = tmp_path / ".local" / "bin" / "claude"
+    local_claude.parent.mkdir(parents=True)
+    local_claude.write_text("", encoding="utf-8")
+    monkeypatch.setattr(support.shutil, "which", lambda name: None)
+    monkeypatch.setattr(support.Path, "home", classmethod(lambda cls: tmp_path))
+
+    assert support.resolve_claude_path() == local_claude

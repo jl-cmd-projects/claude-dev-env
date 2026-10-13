@@ -1,5 +1,68 @@
 # Changelog
 
+## [8.78.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.2...claude-dev-env-v8.78.3) (2026-10-11)
+
+
+### Tests
+
+* tie the shipped claim judge to the installer's ownership check ([#2001](https://github.com/jl-cmd-projects/claude-dev-env/issues/2001)) ([f585cc2](https://github.com/jl-cmd-projects/claude-dev-env/commit/f585cc2e87288c0a6c52677163028bbfd4a9b8a8))
+
+## [8.78.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.1...claude-dev-env-v8.78.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **hooks:** judge each chat claim for its source with a prompt hook ([#1991](https://github.com/jl-cmd-projects/claude-dev-env/issues/1991)) ([a866e1a](https://github.com/jl-cmd-projects/claude-dev-env/commit/a866e1a79305aba2209bdb339ad145f073c13bc9))
+
+## [8.78.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.0...claude-dev-env-v8.78.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **hooks:** allow auto-merge pinned to the clean-reviewed head ([#1996](https://github.com/jl-cmd-projects/claude-dev-env/issues/1996)) ([510b6e2](https://github.com/jl-cmd-projects/claude-dev-env/commit/510b6e23edbc4e12ad39e769038135985c5d8dde))
+
+## [8.78.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.77.0...claude-dev-env-v8.78.0) (2026-10-11)
+
+
+### Features
+
+* **hooks:** hold an agent's merge until a review of its head is clean ([#1992](https://github.com/jl-cmd-projects/claude-dev-env/issues/1992)) ([6284d5c](https://github.com/jl-cmd-projects/claude-dev-env/commit/6284d5c2682928a4e680d62809bc05ccd13728b3))
+
+## [8.77.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.76.0...claude-dev-env-v8.77.0) (2026-10-11)
+
+
+### Features
+
+* **hooks:** advise a flowchart for visual reply widgets ([#1988](https://github.com/jl-cmd-projects/claude-dev-env/issues/1988)) ([601ae7d](https://github.com/jl-cmd-projects/claude-dev-env/commit/601ae7d265da9c92cae1ffdcff9db08e6f217188))
+
+## [8.76.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.5...claude-dev-env-v8.76.0) (2026-10-11)
+
+
+### Features
+
+* **templates:** prefer a status flowchart for status visuals ([#1989](https://github.com/jl-cmd-projects/claude-dev-env/issues/1989)) ([8674bcd](https://github.com/jl-cmd-projects/claude-dev-env/commit/8674bcd8fa5f081d4d276e0a2f1bfdc8ca34e51b))
+
+## [8.75.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.4...claude-dev-env-v8.75.5) (2026-10-11)
+
+
+### Bug Fixes
+
+* **account-profile:** keep a link whose target refuses access ([#1986](https://github.com/jl-cmd-projects/claude-dev-env/issues/1986)) ([50191c1](https://github.com/jl-cmd-projects/claude-dev-env/commit/50191c16b8bd6f9aa4fd8f20a7d4e4bc2b330a79))
+
+## [8.75.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.3...claude-dev-env-v8.75.4) (2026-10-10)
+
+
+### Tests
+
+* **hooks:** pair tests with five hooks_constants modules ([#1975](https://github.com/jl-cmd-projects/claude-dev-env/issues/1975)) ([8245251](https://github.com/jl-cmd-projects/claude-dev-env/commit/82452514339ff4c81c5487b72522b3d18c3df347))
+
+## [8.75.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.2...claude-dev-env-v8.75.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* **account-broker:** retry every meter read with exponential backoff ([#1982](https://github.com/jl-cmd-projects/claude-dev-env/issues/1982)) ([7b4d930](https://github.com/jl-cmd-projects/claude-dev-env/commit/7b4d93067f5bbf58b34e434405bdaedd96ceb319))
+
 ## [8.75.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.75.1...claude-dev-env-v8.75.2) (2026-10-10)
 
 

@@ -115,6 +115,7 @@ export function hookCommandsForEvent(settingsPath, eventName) {
     const allCommands = [];
     for (const eachGroup of allMatcherGroups) {
         for (const eachHook of eachGroup.hooks ?? []) {
+            if (typeof eachHook.command !== 'string') continue;
             allCommands.push({ matcher: eachGroup.matcher ?? '', command: eachHook.command });
         }
     }

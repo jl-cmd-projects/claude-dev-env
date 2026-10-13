@@ -24,6 +24,7 @@ CONTEXT_OUTPUT_PATTERN = re.compile(r"additionalContext|ADDITIONAL_CONTEXT|addit
 UNMEASURED_REASON_BY_SCRIPT = {
     "blocking/pre_tool_use_dispatcher.py": "relays its hosted hooks' output",
     "blocking/bash_pre_tool_use_dispatcher.py": "relays its hosted hooks' output",
+    "blocking/reply_length_gate.py": "advises only on a widget while visual reply mode is on",
     "lifecycle/nested_project_hooks.py": "relays a nested project's own hooks",
     "routing/thread_spawn_pace_hook.py": "quotes a usage reading capped by its own constant",
     "session/issue_tracker_session_starter.py": "emits only for a repository the user's "
@@ -38,7 +39,7 @@ def _context_adding_scripts() -> set[str]:
         for each_event in ALL_CONTEXT_EVENTS
         for each_group in registrations["hooks"].get(each_event, [])
         for each_hook in each_group["hooks"]
-        for each_script in SCRIPT_PATTERN.findall(each_hook["command"])
+        for each_script in SCRIPT_PATTERN.findall(each_hook.get("command", ""))
     }
     return {
         each_script

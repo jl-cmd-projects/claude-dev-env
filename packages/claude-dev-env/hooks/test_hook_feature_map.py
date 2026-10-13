@@ -34,6 +34,7 @@ def registered_hook_commands() -> list[str]:
         for all_groups in registrations["hooks"].values()
         for group in all_groups
         for hook in group["hooks"]
+        if "command" in hook
     ]
 
 

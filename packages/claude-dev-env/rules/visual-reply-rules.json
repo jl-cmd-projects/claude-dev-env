@@ -8,7 +8,7 @@
     {
       "key": "no_picture",
       "label": "No picture",
-      "reminder": "Show the item as one visual first, a widget or a published page. Then send one reply of one to three short sentences that states the outcome and each fact the user needs, and links the page."
+      "reminder": "Show the item as one visual first, a widget or a published page. Prefer a flowchart that runs left to right, with boxes for steps, a diamond for each yes or no check, and arrows between them. Then send one reply of one to three short sentences that states the outcome and each fact the user needs, and links the page."
     },
     {
       "key": "too_many_words",
@@ -24,6 +24,16 @@
       "key": "wall_of_text",
       "label": "Wall of text",
       "reminder": "Put each point, and each step the reader takes, on its own line."
+    },
+    {
+      "key": "not_flowchart",
+      "label": "No flowchart",
+      "reminder": "Redraw this widget as one SVG flowchart that runs left to right, with boxes for steps, a diamond for each yes or no check, and arrows between them, unless the item has no steps or checks."
+    },
+    {
+      "key": "use_flowchart",
+      "label": "Use the flowchart",
+      "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click, unless the person asked for another shape."
     }
   ],
   "allowed_capitalized_words": [

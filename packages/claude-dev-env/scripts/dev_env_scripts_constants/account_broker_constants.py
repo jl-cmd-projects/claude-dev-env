@@ -48,16 +48,28 @@ ALL_CODEX_FLOORS = {
     "luna_short_minimum_left": LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
 }
 
+METER_READ_ATTEMPTS = 3
+METER_READ_FIRST_DELAY_SECONDS = 1.0
+METER_READ_DELAY_FACTOR = 2.0
+METER_READ_MAX_DELAY_SECONDS = 8.0
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
 REPORT_INDENT_SPACES = 2
+PLACEHOLDER_NAME_SLOT = "{name}"
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
 BROKER_STATE_LOCK_SUFFIX = ".lock"
 ALL_BATCH_FILE_EXTENSIONS = frozenset({".bat", ".cmd"})
 CMD_SHELL_METACHARACTERS = "&|<>^%!\"\r\n"
+CLAUDE_BINARY_NAME = "claude"
+ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
+    (".local", "bin", "claude.exe"),
+    (".local", "bin", "claude"),
+)
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
     "CLAUDE_CODE_REMOTE",
@@ -139,6 +151,7 @@ class Account:
     is_main: bool = False
     command: str | None = None
     priority: int | None = None
+    profile: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)

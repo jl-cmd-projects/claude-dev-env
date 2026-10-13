@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import account_broker
+import account_broker_support
 import claude_account_worker
 from account_broker import (
     Account,
@@ -75,7 +76,8 @@ def _adapter(accounts: tuple[Account, ...], meters: dict[str, Meters | None]) ->
     )
 
 
-def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room() -> None:
+def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(account_broker_support.time, "sleep", lambda _: None)
     codex_3 = _account("codex-3")
     codex_4 = _account("codex-4")
 
@@ -439,6 +441,7 @@ def test_should_print_decision_and_meters_for_choose(
     assert account_broker.main(("choose", "--product", "codex")) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["decision"]["account"] == "roomy"
+    assert payload["decision"]["profile"] is None
     assert payload["accounts"][0]["meters"]["session_percent_left"] == 80
     assert payload["state_path"].endswith("state.json")
 
@@ -779,7 +782,7 @@ def test_should_list_accounts_without_reading_meters(
 
     assert account_broker.main(("accounts", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out) == {
-        "accounts": [{"name": "listed", "home": str(account.home), "is_main": False}]
+        "accounts": [{"name": "listed", "profile": None, "home": str(account.home), "is_main": False}]
     }
 
 
@@ -929,6 +932,59 @@ def test_should_mark_a_windows_launcher_path_account_spent(
     assert decision["account"] == "second"
 
 
+def test_should_mark_an_account_spent_by_its_profile(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-first.cmd"
+    first = Account(Product.CLAUDE, launcher_name, Path("/profiles/first"), command=launcher_name, profile="first")
+    second = _account("second", Product.CLAUDE)
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CLAUDE,
+        _adapter((first, second), {launcher_name: _meters(80, 80), "second": _meters(80, 80)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "claude", "--spent", f"first:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "second"
+
+
+def test_should_mark_the_account_named_by_a_mark_that_is_also_another_profile(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    launcher_name = "C:\\Users\\someone\\.local\\bin\\claude-editor.cmd"
+    profiled = Account(Product.CLAUDE, launcher_name, Path("/profiles/second"), command=launcher_name, profile="second")
+    second = _account("second", Product.CLAUDE)
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CLAUDE,
+        _adapter((second, profiled), {launcher_name: _meters(80, 80), "second": _meters(90, 90)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "claude", "--spent", f"second:{(NOW + timedelta(hours=2)).timestamp()}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == launcher_name
+
+
+def test_should_save_no_spent_mark_when_a_later_mark_is_unreadable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "first", "--spent", "guest:tomorrow"))
+
+    assert code == 2
+    assert "invalid reset" in capsys.readouterr().err
+    assert account_broker._load_state(account_broker.broker_state_path()).get("spent", {}) == {}
+
+
 def test_should_reject_an_invalid_spent_reset(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1042,6 +1098,22 @@ def test_should_run_past_a_stored_spent_mark_beyond_the_platform_range(
     assert decision["action"] == "run"
 
 
+def test_should_wait_on_an_outside_spent_mark_under_another_state_key_layout(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    monkeypatch.setattr(account_broker, "_state_key", lambda marked: f"{marked.product.value}|{marked.name}|{marked.home}")
+    _freeze_clock(monkeypatch, NOW)
+    reset = NOW + timedelta(hours=2)
+
+    account_broker.main(("choose", "--product", "codex", "--spent", f"visitor:{int(reset.timestamp())}"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert decision["action"] == "wait"
+    assert "account visitor outside the roster is spent" in decision["reason"]
+
+
 def test_should_name_the_outside_spent_mark_when_it_forces_a_wait(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1104,6 +1176,37 @@ def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
     assert "outside the roster" in all_warning_lines[0]
 
 
+def test_should_print_no_outside_roster_warning_when_a_later_mark_is_unreadable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "visitor", "--spent", "first:notanumber"))
+
+    all_error_lines = capsys.readouterr().err.splitlines()
+    assert code == 2
+    assert len(all_error_lines) == 1
+    assert "invalid reset in spent mark 'first:notanumber'" in all_error_lines[0]
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
+def test_should_save_an_outside_launcher_path_given_with_an_explicit_reset(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("first")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"first": _meters(80, 80)}))
+    reset = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp())
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", f"C:\\bin\\old.cmd:{reset}"))
+
+    all_warning_lines = capsys.readouterr().err.splitlines()
+    all_saved_marks = account_broker._load_state(account_broker.broker_state_path())["spent"]
+    assert code == WAIT_EXIT_CODE
+    assert "C:\\bin\\old.cmd" in all_warning_lines[0]
+    assert all_saved_marks == {f"codex:C:\\bin\\old.cmd:{Path()}": float(reset)}
+
+
 @pytest.mark.parametrize("mark", ["", ":1800000000"])
 def test_should_reject_a_spent_mark_without_an_account_name(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], mark: str
@@ -1125,8 +1228,8 @@ def test_should_serialize_a_run_and_a_wait_decision() -> None:
     run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
     wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
 
-    assert run_payload == {"action": "run", "account": "first", "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
-    assert wait_payload == {"action": "wait", "account": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
+    assert run_payload == {"action": "run", "account": "first", "profile": None, "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
+    assert wait_payload == {"action": "wait", "account": None, "profile": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
 
 
 def test_should_print_the_whole_rate_limit_result_for_one_home(
@@ -1232,3 +1335,57 @@ def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monke
 
     assert outcome.returncode == 0
     assert captured_options["live_log"] == live_log
+
+
+def test_decision_payload_should_carry_the_profile_of_a_claude_account() -> None:
+    account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", Path("/profiles/editor"), command="C:\\bin\\claude-editor.cmd", profile="editor")
+
+    assert account_broker.decision_payload(account_broker.Decision("run", account, None, "most room", "normal"))["profile"] == "editor"
+
+
+def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
+    account = _account("codex-2")
+    decision = account_broker.Decision("run", account, None, "most room", "normal")
+
+    assert account_broker.decision_payload(decision) == {
+        "action": "run",
+        "account": "codex-2",
+        "profile": None,
+        "home": str(Path("/profiles") / "codex-2"),
+        "reason": "most room",
+        "tier": "normal",
+        "resets_at": None,
+    }
+
+
+def test_decision_payload_should_leave_the_account_empty_and_give_the_reset_for_a_wait() -> None:
+    reset = datetime(2026, 10, 3, 4, 0, tzinfo=timezone(timedelta(hours=-4)))
+    decision = account_broker.Decision("wait", None, reset, "no account has room", "wait")
+
+    payload = account_broker.decision_payload(decision)
+
+    assert payload["account"] is None
+    assert payload["home"] is None
+    assert payload["resets_at"] == "2026-10-03T08:00:00+00:00"
+
+
+def test_should_save_every_spent_mark_in_one_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "first": _meters(80, 80), "second": _meters(70, 70)
+    }))
+    all_saved_marks: list[dict[str, object]] = []
+
+    def save_or_fail(path: Path, all_state: dict[str, object]) -> None:
+        all_saved_marks.append(dict(all_state["spent"]))
+        raise OSError("disk full")
+
+    monkeypatch.setattr(account_broker, "_save_state", save_or_fail)
+
+    with pytest.raises(OSError):
+        account_broker.main(("choose", "--product", "codex", "--spent", "first", "--spent", "second"))
+
+    assert len(all_saved_marks) == 1
+    assert len(all_saved_marks[0]) == 2
