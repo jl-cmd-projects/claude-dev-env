@@ -781,6 +781,8 @@ def test_should_deny_a_code_name_in_prose(
         "Both fixes merged in [PR 2013](https://github.com/owner/repo/pull/2013).",
         "Paste this into the agent.\n```\nOpen src/load_rows.py and fix line 11.\n```",
         "The run passed at 9:47 with 24 icons.",
+        "The gap is in [the repaint guide](https://github.com/owner/repo/blob/main/stp_icons/README.md#L11).",
+        "GitHub, PowerShell and ImageGen all ran.",
     ],
 )
 def test_should_allow_plain_words_without_code_names(
