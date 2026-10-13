@@ -275,8 +275,8 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
 
 def all_card_texts(
     all_card_input: dict[str, object],
-    all_card_keys: tuple[str, ...] = ALL_DECISION_CARD_PROSE_KEYS,
-    all_option_keys: tuple[str, ...] = ALL_DECISION_OPTION_PROSE_KEYS,
+    all_card_keys: tuple[str, ...],
+    all_option_keys: tuple[str, ...],
 ) -> list[str]:
     """Collect the named string fields of a decision card and of each of its options."""
     all_options = all_card_input.get(DECISION_CARD_OPTIONS_KEY)
@@ -368,7 +368,11 @@ def tool_violation(
         if anchor_violation is not None:
             return anchor_violation, str(all_tool_input)
     if tool_name == DECISION_CARD_TOOL_NAME:
-        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
+        card_text = CARD_TEXT_SEPARATOR.join(
+            all_card_texts(
+                all_tool_input, ALL_DECISION_CARD_PROSE_KEYS, ALL_DECISION_OPTION_PROSE_KEYS
+            )
+        )
         violation = card_length_violation(all_tool_input) or card_violation(card_text, mode_rules)
         return None if violation is None else (violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
