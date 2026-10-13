@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -14,8 +15,11 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         "console.log(JSON.stringify({low, note: wrapUpNote(low), "
         "aboveThreshold: lowest([{kind: 'five_hour', percentUsed: 94}], 5)}));"
     )
+    runtime = ["bun", "-e"] if shutil.which("bun") else [
+        "node", "--experimental-strip-types", "--input-type=module", "-e"
+    ]
     selection_run = subprocess.run(
-        ["bun", "-e", script],
+        [*runtime, script],
         cwd=root,
         capture_output=True,
         text=True,
