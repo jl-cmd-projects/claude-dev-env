@@ -105,7 +105,6 @@ def test_bash_redirect_after_build_eval_should_pass(tmp_path: Path) -> None:
     assert gate.decision_for(payload) is None
 
 
-
 def test_eval_paths_should_be_recognized() -> None:
     assert gate.is_eval_path("evals/cases.json")
     assert gate.is_eval_path("C:\\repo\\eval\\grader.py")
@@ -162,7 +161,6 @@ def test_script_should_print_a_deny_for_an_eval_write(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0
     assert json.loads(completed.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
-
 
 
 def test_cd_into_an_eval_directory_then_redirect_should_be_denied(tmp_path: Path) -> None:
