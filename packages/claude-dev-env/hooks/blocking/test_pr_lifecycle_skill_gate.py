@@ -424,3 +424,9 @@ def test_eval_skill_call_status_should_separate_called_missing_and_unreadable(tm
     assert gate.eval_skill_call_status(_payload("git status", called_path)) is True
     assert gate.eval_skill_call_status(_payload("git status", _transcript(tmp_path))) is False
     assert gate.eval_skill_call_status(_payload("git status", tmp_path / "missing.jsonl")) is None
+
+
+def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
+    output = gate.deny_decision("Load the skill first.")["hookSpecificOutput"]
+    assert output["permissionDecision"] == "deny"
+    assert output["permissionDecisionReason"] == "Load the skill first."

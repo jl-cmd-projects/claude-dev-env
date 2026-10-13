@@ -11,8 +11,9 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.pr_lifecycle_skill_gate import eval_skill_call_status
+from blocking.pr_lifecycle_skill_gate import deny_decision, eval_skill_call_status
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
+    ALL_COPY_DESTINATION_OPTIONS,
     ALL_EVAL_DIRECTORY_NAMES,
     ALL_FILE_PATH_FIELDS,
     ALL_FILE_WRITE_TOOL_NAMES,
@@ -26,16 +27,7 @@ from hooks_constants.build_eval_before_eval_write_gate_constants import (
     OPTION_PREFIX,
     UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON,
 )
-from hooks_constants.hook_specific_output_keys import (
-    HOOK_SPECIFIC_OUTPUT_KEY,
-    PERMISSION_DECISION_KEY,
-)
-from hooks_constants.pr_lifecycle_skill_gate_constants import (
-    DENY_DECISION,
-    HOOK_EVENT_NAME,
-    PATH_SEPARATOR_PATTERN,
-    PERMISSION_DECISION_REASON_KEY,
-)
+from hooks_constants.pr_lifecycle_skill_gate_constants import PATH_SEPARATOR_PATTERN
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 
 
@@ -65,6 +57,18 @@ def is_eval_path(path: str) -> bool:
     return re.search(EVAL_FILE_NAME_WORD_PATTERN, all_segments[-1]) is not None
 
 
+def _destination_words(all_words: list[str]) -> list[str]:
+    return [
+        each_next.strip("'\"")
+        for each_word, each_next in zip(all_words, all_words[1:])
+        if each_word in ALL_COPY_DESTINATION_OPTIONS
+    ] + [
+        each_word.split("=", 1)[1].strip("'\"")
+        for each_word in all_words
+        if each_word.split("=", 1)[0] in ALL_COPY_DESTINATION_OPTIONS and "=" in each_word
+    ]
+
+
 def _copy_destinations(command: str) -> list[str]:
     all_destinations: list[str] = []
     for each_match in re.finditer(COPY_ARGUMENTS_PATTERN, command):
@@ -73,7 +77,7 @@ def _copy_destinations(command: str) -> list[str]:
             for each_word in each_match.group(1).split()
             if not each_word.startswith(OPTION_PREFIX) and ">" not in each_word
         ]
-        all_destinations.extend(all_words[-1:])
+        all_destinations.extend(_destination_words(each_match.group(1).split()) or all_words[-1:])
     return all_destinations
 
 
@@ -126,15 +130,6 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
     ]
 
 
-def _deny(reason: str) -> dict[str, object]:
-    return {
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": HOOK_EVENT_NAME,
-            PERMISSION_DECISION_KEY: DENY_DECISION,
-            PERMISSION_DECISION_REASON_KEY: reason,
-        }
-    }
-
 
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
     """Return a deny for an eval file write with no build-eval call, else None.
@@ -154,8 +149,8 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         return None
     status = eval_skill_call_status(all_payload_fields)
     if status is None:
-        return _deny(UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON)
-    return None if status else _deny(MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON)
+        return deny_decision(UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON)
+    return None if status else deny_decision(MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON)
 
 
 def main() -> int:

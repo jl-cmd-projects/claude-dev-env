@@ -195,3 +195,6 @@ def test_shell_write_targets_should_name_the_copy_and_move_destination() -> None
     assert gate.shell_write_targets("cp evals/cases.json /tmp/backup.json") == ["/tmp/backup.json"]
     assert "evals/cases.json" in gate.shell_write_targets("cp /tmp/c.json evals/cases.json 2>/dev/null")
     assert gate.shell_write_targets("pip install evals") == []
+    assert gate.shell_write_targets("cp -t evals/ /tmp/cases.json") == ["evals/"]
+    assert gate.shell_write_targets("cp --target-directory=evals a.json") == ["evals"]
+    assert gate.shell_write_targets("Copy-Item -Destination evals -Path a.json") == ["evals"]

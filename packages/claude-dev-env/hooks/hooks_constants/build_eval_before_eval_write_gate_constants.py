@@ -11,6 +11,7 @@ ALL_SHELL_WRITE_TARGET_PATTERNS = (
     r"\btee((?:\s+[^\s;&|<>()]+)+)",
     r"\bsed\s+(?:-[^\s]*\s+)*-i\S*\s+(?:-[^\s]*\s+)*(?:'[^']*'|\"[^\"]*\"|\S+)((?:\s+[^\s;&|<>()]+)+)",
 )
+ALL_COPY_DESTINATION_OPTIONS = frozenset({"-t", "--target-directory", "-Destination"})
 COPY_ARGUMENTS_PATTERN = r"\b(?:cp|mv|Copy-Item|Move-Item)((?:\s+(?![0-9]*&?>)[^\s;&|<>()]+)+)"
 CHANGE_DIRECTORY_PATTERN = r"(?:^|[;&|]\s*)(?:cd|Set-Location|pushd)\s+([^\s;&|<>()]+)"
 ALL_EVAL_DIRECTORY_NAMES = frozenset({"eval", "evals", "hillclimb"})

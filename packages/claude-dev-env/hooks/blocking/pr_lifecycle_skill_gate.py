@@ -243,23 +243,23 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     if not _is_governed_action(all_payload_fields):
         return None
     if _is_skill_unloaded(all_payload_fields):
-        return _deny(DENY_REASON)
+        return deny_decision(DENY_REASON)
     proof_reason = missing_proof_reason(all_payload_fields)
     if proof_reason is not None:
-        return _deny(proof_reason)
+        return deny_decision(proof_reason)
     search_reason = missing_existing_work_reason(all_payload_fields)
     if search_reason is not None:
-        return _deny(search_reason)
+        return deny_decision(search_reason)
     eval_reason = missing_eval_section_reason(all_payload_fields)
     if eval_reason is not None:
-        return _deny(eval_reason)
+        return deny_decision(eval_reason)
     look_reason = missing_look_reason(all_payload_fields)
     if look_reason is not None:
-        return _deny(look_reason)
+        return deny_decision(look_reason)
     if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
-        return _deny(MISSING_BUILD_EVAL_REASON)
+        return deny_decision(MISSING_BUILD_EVAL_REASON)
     duplicate_reason = duplicate_followup_reason(all_payload_fields)
-    return None if duplicate_reason is None else _deny(duplicate_reason)
+    return None if duplicate_reason is None else deny_decision(duplicate_reason)
 
 
 def _transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
@@ -306,7 +306,12 @@ def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
     return eval_skill_call_status(all_payload_fields) is False
 
 
-def _deny(reason: str) -> dict[str, object]:
+def deny_decision(reason: str) -> dict[str, object]:
+    """Return the PreToolUse output that denies a tool call with this reason.
+
+    Args:
+        reason: The text the agent reads as the deny reason.
+    """
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": HOOK_EVENT_NAME,
