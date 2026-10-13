@@ -20,6 +20,7 @@ from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_SHELL_TOOL_NAMES,
     CHANGE_DIRECTORY_PATTERN,
     COMMAND_FIELD,
+    COPY_ARGUMENTS_PATTERN,
     EVAL_FILE_NAME_WORD_PATTERN,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
     OPTION_PREFIX,
@@ -64,8 +65,20 @@ def is_eval_path(path: str) -> bool:
     return re.search(EVAL_FILE_NAME_WORD_PATTERN, all_segments[-1]) is not None
 
 
+def _copy_destinations(command: str) -> list[str]:
+    all_destinations: list[str] = []
+    for each_match in re.finditer(COPY_ARGUMENTS_PATTERN, command):
+        all_words = [
+            each_word.strip("'\"")
+            for each_word in each_match.group(1).split()
+            if not each_word.startswith(OPTION_PREFIX) and ">" not in each_word
+        ]
+        all_destinations.extend(all_words[-1:])
+    return all_destinations
+
+
 def shell_write_targets(command: str) -> list[str]:
-    """Return the files a shell command writes through a redirect, tee, sed -i, cp, mv, install, or a PowerShell content or copy cmdlet.
+    """Return the files a shell command writes through a redirect, tee, sed -i, cp, mv, or a PowerShell content or copy cmdlet.
 
     A relative target also counts under each directory the command changes into.
 
@@ -80,7 +93,7 @@ def shell_write_targets(command: str) -> list[str]:
     Args:
         command: The shell command a Bash tool call runs.
     """
-    all_targets: list[str] = []
+    all_targets = _copy_destinations(command)
     for each_pattern in ALL_SHELL_WRITE_TARGET_PATTERNS:
         for each_match in re.finditer(each_pattern, command):
             all_targets.extend(

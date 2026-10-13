@@ -193,3 +193,5 @@ def test_shell_write_targets_should_name_the_copy_and_move_destination() -> None
     assert gate.shell_write_targets("cp /tmp/cases.json evals/cases.json") == ["evals/cases.json"]
     assert gate.shell_write_targets("mv -f a.json evals/a.json && ls") == ["evals/a.json"]
     assert gate.shell_write_targets("cp evals/cases.json /tmp/backup.json") == ["/tmp/backup.json"]
+    assert "evals/cases.json" in gate.shell_write_targets("cp /tmp/c.json evals/cases.json 2>/dev/null")
+    assert gate.shell_write_targets("pip install evals") == []

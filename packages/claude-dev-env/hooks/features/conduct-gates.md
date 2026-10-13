@@ -14,7 +14,6 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
 - `blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file until a `claude-api` Skill call with args `build-eval`, or the `/claude-api build-eval` command, appears in the transcript.
 - `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge, auto-merge or merge-queue entry to be pinned to that head, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`. Its deny reason names the review command `CLAUDE_MERGE_REVIEW_COMMAND` sets.
-- `blocking/merge_over_review_offer_gate.py` denies a decision card that offers a merge while the card names review findings, a red check, or an override.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
 
 ## When it fires
@@ -29,7 +28,6 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/pr_lifecycle_skill_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge|update_pull_request|actions_run_trigger)`, timeout `10` seconds in `hooks.json`.
 - `blocking/build_eval_before_eval_write_gate.py` runs on `PreToolUse`, matcher `Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell`, timeout `10` seconds in `hooks.json`.
 - `blocking/merge_review_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)`, timeout `10` seconds in `hooks.json`.
-- `blocking/merge_over_review_offer_gate.py` runs on `PreToolUse`, matcher `mcp__.*__ask_decision`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 
 ## Proving it
@@ -48,7 +46,6 @@ Preconditions:
 - **Lifecycle skill.** Input is a `git commit` or `gh pr create` command with no `pr-lifecycle` invocation in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_pr_lifecycle_skill_gate.py -q`. The adjacent test observes a denial, then a silent allow once the skill or its slash command appears.
 - **Eval write.** Input is a Write to `evals/cases.json` with no build-eval call in the transcript. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_build_eval_before_eval_write_gate.py -q`. The adjacent test observes a denial, then an allow once the call appears; a write outside an eval path passes.
 - **Clean review.** Input is a merge with no receipt, a receipt with findings, a merge pinned to a newer head, an unpinned merge, or auto-merge with no head. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_review_gate.py -q`. The adjacent test observes a denial for each; a merge or auto-merge pinned to the clean head and a merge in an exempt repository pass.
-- **Merge offer.** Input is a decision card with a "Merge now" option and context naming open review findings. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_over_review_offer_gate.py -q`. The adjacent test observes a denial; a card with no merge option, or a merge option after a clean review, passes.
 - **Dark mode page.** Input is an Artifact publish of a page that themes `html` but leaves `body` to the publish wrapper. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_dark_mode_gate.py -q`. The adjacent test observes a denial that names the text and its contrast; a page that themes `body` passes. The render tests skip on a host with no Node Playwright and Chromium.
 
 ## Gotchas
@@ -58,7 +55,7 @@ Preconditions:
 - The reply gate counts each nonempty list line as a sentence. Link targets and code spans add no words. Its banned words come from `reply-banned-words.json` in the Claude home, or the file `CLAUDE_REPLY_BANNED_WORDS_PATH` names, with built-in defaults.
 - The edit marker gate scans replacement cards as well as the message text.
 - The handoff close gate reads the `body` and `comment` fields of issue tools only. A `gh issue close --comment` command in Bash and a pull request body that closes the issue with `Closes #N` do not reach it.
-- The eval write gate reads Write, Edit, MultiEdit and NotebookEdit calls, and Bash or PowerShell redirects, `tee`, `sed -i`, `cp`, `mv`, `install`, `Copy-Item`, `Move-Item`, `Set-Content`, `Add-Content` and `Out-File` targets, joined to any `cd` directory in the command. Other shell writers, such as `python -c` or `dd`, and `apply_patch` calls reach an eval file without it. A missing or unreadable transcript denies the write.
+- The eval write gate reads Write, Edit, MultiEdit and NotebookEdit calls, and Bash or PowerShell redirects, `tee`, `sed -i`, `cp`, `mv`, `Copy-Item`, `Move-Item`, `Set-Content`, `Add-Content` and `Out-File` targets, joined to any `cd` directory in the command. A working directory set by an earlier call, `rm`, `dd`, interpreter one-liners such as `python -c`, and `apply_patch` calls reach an eval file without it. A missing or unreadable transcript denies the write.
 - The lifecycle gate counts only invocations after the last compaction, so a compacted session invokes `pr-lifecycle` again. A missing or unreadable transcript allows the call.
 - The dark mode gate denies a page publish when Node, Playwright or Chromium is missing, and its reason names the install command. It checks both dark signals, `prefers-color-scheme: dark` and `data-theme="dark"` on the root element.
 - The clean-review gate trusts the receipt. A receipt the agent writes by hand with zero findings passes, so the pr-lifecycle skill names the review loop that writes it. A `gh pr merge` that names no repository is denied, because the gate cannot tell which repository the current branch belongs to.
