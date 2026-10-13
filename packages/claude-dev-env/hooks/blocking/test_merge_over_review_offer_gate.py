@@ -52,9 +52,41 @@ def test_string_options_should_be_read() -> None:
     assert gate.offers_merge_over_review(card)
 
 
-def test_land_option_over_a_pending_check_should_be_offered_over_review() -> None:
-    card = _card("CI is pending.", ("Land it", "It lands today."), ("Wait", "It waits."))
+def test_merge_queue_option_over_findings_should_be_offered_over_review() -> None:
+    card = _card("9 findings remain.", ("Join the merge queue", "It waits for checks."), ("Wait", "It waits."))
     assert gate.offers_merge_over_review(card)
+
+
+def test_merge_offer_in_context_over_findings_should_be_offered_over_review() -> None:
+    card = {
+        "question": "Go ahead?",
+        "context": "The PR is green and I can merge it now, but the review reports 9 findings.",
+        "options": ["Yes", "No"],
+    }
+    assert gate.offers_merge_over_review(card)
+
+
+def test_offer_and_findings_in_separate_questions_should_be_offered_over_review() -> None:
+    card = {
+        "questions": [
+            {"question": "The review reports 9 findings. Which next?", "options": ["Keep fixing", "Split it"]},
+            {"question": "Merge it now?", "options": ["Yes", "No"]},
+        ]
+    }
+    assert gate.offers_merge_over_review(card)
+
+
+def test_merge_option_over_unaddressed_review_comments_should_be_offered_over_review() -> None:
+    card = _card("3 review comments are unaddressed; 2 changes requested.", ("Merge now", "It lands."))
+    assert gate.offers_merge_over_review(card)
+
+
+def test_ship_card_about_a_pending_translation_should_pass() -> None:
+    card = {
+        "question": "Ship the README update now? The pending translation can follow.",
+        "options": ["Ship it", "Wait"],
+    }
+    assert not gate.offers_merge_over_review(card)
 
 
 def test_ask_user_question_merge_option_over_findings_should_be_offered_over_review() -> None:
