@@ -4,16 +4,6 @@ ALL_FILE_WRITE_TOOL_NAMES = frozenset({"Write", "Edit", "MultiEdit", "NotebookEd
 ALL_FILE_PATH_FIELDS = ("file_path", "notebook_path")
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 COMMAND_FIELD = "command"
-OPTION_PREFIX = "-"
-ALL_SHELL_WRITE_TARGET_PATTERNS = (
-    r"(?<!>)(?:&|[0-9]*)>>?\|?\s*([^\s;&|<>()]+)",
-    r"\b(?:Set-Content|Add-Content|Out-File)\s+(?:-(?:Path|FilePath|LiteralPath)\s+)?([^\s;&|<>()]+)",
-    r"\btee((?:\s+[^\s;&|<>()]+)+)",
-    r"\bsed\s+(?:-[^\s]*\s+)*-i\S*\s+(?:-[^\s]*\s+)*(?:'[^']*'|\"[^\"]*\"|\S+)((?:\s+[^\s;&|<>()]+)+)",
-)
-ALL_COPY_DESTINATION_OPTIONS = frozenset({"-t", "--target-directory", "-Destination"})
-COPY_ARGUMENTS_PATTERN = r"\b(?:cp|mv|Copy-Item|Move-Item)((?:\s+(?![0-9]*&?>)[^\s;&|<>()]+)+)"
-CHANGE_DIRECTORY_PATTERN = r"(?:^|[;&|]\s*)(?:cd|Set-Location|pushd)\s+([^\s;&|<>()]+)"
 ALL_EVAL_DIRECTORY_NAMES = frozenset({"eval", "evals", "hillclimb"})
 EVAL_FILE_NAME_WORD_PATTERN = r"^evals?(?:[._-]|$)|\.evals?\."
 MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON = (

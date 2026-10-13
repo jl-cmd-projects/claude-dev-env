@@ -13,21 +13,18 @@ if hooks_directory not in sys.path:
 
 from blocking.pr_lifecycle_skill_gate import deny_decision, eval_skill_call_status
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
-    ALL_COPY_DESTINATION_OPTIONS,
     ALL_EVAL_DIRECTORY_NAMES,
     ALL_FILE_PATH_FIELDS,
     ALL_FILE_WRITE_TOOL_NAMES,
-    ALL_SHELL_WRITE_TARGET_PATTERNS,
     ALL_SHELL_TOOL_NAMES,
-    CHANGE_DIRECTORY_PATTERN,
     COMMAND_FIELD,
-    COPY_ARGUMENTS_PATTERN,
     EVAL_FILE_NAME_WORD_PATTERN,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
-    OPTION_PREFIX,
     UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON,
 )
 from hooks_constants.pr_lifecycle_skill_gate_constants import PATH_SEPARATOR_PATTERN
+from hooks_constants.shell_command_mutation import is_mutating_shell_command
+from hooks_constants.shell_command_pipeline import all_operator_aware_tokenizations
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 
 
@@ -57,59 +54,27 @@ def is_eval_path(path: str) -> bool:
     return re.search(EVAL_FILE_NAME_WORD_PATTERN, all_segments[-1]) is not None
 
 
-def _destination_words(all_words: list[str]) -> list[str]:
-    return [
-        each_next.strip("'\"")
-        for each_word, each_next in zip(all_words, all_words[1:], strict=False)
-        if each_word in ALL_COPY_DESTINATION_OPTIONS
-    ] + [
-        each_word.split("=", 1)[1].strip("'\"")
-        for each_word in all_words
-        if each_word.split("=", 1)[0] in ALL_COPY_DESTINATION_OPTIONS and "=" in each_word
-    ]
-
-
-def _copy_destinations(command: str) -> list[str]:
-    all_destinations: list[str] = []
-    for each_match in re.finditer(COPY_ARGUMENTS_PATTERN, command):
-        all_words = [
-            each_word.strip("'\"")
-            for each_word in each_match.group(1).split()
-            if not each_word.startswith(OPTION_PREFIX) and ">" not in each_word
-        ]
-        all_destinations.extend(_destination_words(each_match.group(1).split()) or all_words[-1:])
-    return all_destinations
-
-
-def shell_write_targets(command: str) -> list[str]:
-    """Return the files a shell command writes through a redirect, tee, sed -i, cp, mv, or a PowerShell content or copy cmdlet.
-
-    A relative target also counts under each directory the command changes into.
+def shell_command_paths(command: str) -> list[str]:
+    """Return the words of a file-writing shell command, or nothing for a read.
 
     ::
 
-        echo [] > evals/cases.json            -> ["evals/cases.json"]
-        cat a | tee -a log.txt evals/x.json   -> ["log.txt", "evals/x.json"]
-        sed -i 's/a/b/' evals/x.json          -> ["evals/x.json"]
-        cp /tmp/cases.json evals/cases.json   -> ["evals/cases.json"]
-        cat evals/cases.json                  -> []
+        echo [] > evals/cases.json        -> ["echo", "[]", ">", "evals/cases.json"]
+        cd evals && echo [] > cases.json  -> ["cd", "evals", "&&", ...]
+        cat evals/cases.json              -> []
+
+    The words come from the shared quote-aware tokenizer, and the write test is
+    the shared mutating-command check, so a quoted literal never reads as a path.
 
     Args:
-        command: The shell command a Bash tool call runs.
+        command: The shell command a Bash or PowerShell tool call runs.
     """
-    all_targets = _copy_destinations(command)
-    for each_pattern in ALL_SHELL_WRITE_TARGET_PATTERNS:
-        for each_match in re.finditer(each_pattern, command):
-            all_targets.extend(
-                each_word.strip("'\"")
-                for each_word in each_match.group(1).split()
-                if not each_word.startswith(OPTION_PREFIX)
-            )
-    all_directories = [each.strip("'\"") for each in re.findall(CHANGE_DIRECTORY_PATTERN, command)]
-    return all_targets + [
-        posixpath.join(each_directory, each_target)
-        for each_directory in all_directories
-        for each_target in all_targets
+    if not is_mutating_shell_command(command):
+        return []
+    return [
+        each_word
+        for each_tokenization in all_operator_aware_tokenizations(command)
+        for each_word in each_tokenization
     ]
 
 
@@ -120,7 +85,7 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
         return []
     if tool_name in ALL_SHELL_TOOL_NAMES:
         command = tool_input.get(COMMAND_FIELD)
-        return shell_write_targets(command) if isinstance(command, str) else []
+        return shell_command_paths(command) if isinstance(command, str) else []
     if tool_name not in ALL_FILE_WRITE_TOOL_NAMES:
         return []
     return [
@@ -128,7 +93,6 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
         for path in (tool_input.get(each_field) for each_field in ALL_FILE_PATH_FIELDS)
         if isinstance(path, str) and path
     ]
-
 
 
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:

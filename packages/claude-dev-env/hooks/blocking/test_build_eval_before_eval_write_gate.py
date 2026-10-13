@@ -105,12 +105,6 @@ def test_bash_redirect_after_build_eval_should_pass(tmp_path: Path) -> None:
     assert gate.decision_for(payload) is None
 
 
-def test_shell_write_targets_should_name_redirect_tee_and_sed_targets() -> None:
-    assert gate.shell_write_targets("echo [] >> evals/cases.json") == ["evals/cases.json"]
-    assert gate.shell_write_targets("cat a | tee -a log.txt evals/x.json") == ["log.txt", "evals/x.json"]
-    assert gate.shell_write_targets("sed -i 's/a/b/' evals/x.json") == ["evals/x.json"]
-    assert gate.shell_write_targets("cat evals/cases.json 2>/dev/null") == ["/dev/null"]
-
 
 def test_eval_paths_should_be_recognized() -> None:
     assert gate.is_eval_path("evals/cases.json")
@@ -170,13 +164,6 @@ def test_script_should_print_a_deny_for_an_eval_write(tmp_path: Path) -> None:
     assert json.loads(completed.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
-def test_shell_write_targets_should_name_numbered_clobber_and_cmdlet_targets() -> None:
-    assert gate.shell_write_targets("run 2> evals/a.json") == ["evals/a.json"]
-    assert gate.shell_write_targets("run &> evals/a.json") == ["evals/a.json"]
-    assert gate.shell_write_targets("echo [] >| evals/a.json") == ["evals/a.json"]
-    assert gate.shell_write_targets("run 2>&1") == []
-    assert gate.shell_write_targets("Set-Content -Path evals\\a.json -Value 1") == ["evals\\a.json"]
-
 
 def test_cd_into_an_eval_directory_then_redirect_should_be_denied(tmp_path: Path) -> None:
     payload = _bash_payload("cd evals && echo [] > cases.json", _transcript(tmp_path, build_eval=False))
@@ -189,12 +176,13 @@ def test_powershell_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) 
     assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
 
 
-def test_shell_write_targets_should_name_the_copy_and_move_destination() -> None:
-    assert gate.shell_write_targets("cp /tmp/cases.json evals/cases.json") == ["evals/cases.json"]
-    assert gate.shell_write_targets("mv -f a.json evals/a.json && ls") == ["evals/a.json"]
-    assert gate.shell_write_targets("cp evals/cases.json /tmp/backup.json") == ["/tmp/backup.json"]
-    assert "evals/cases.json" in gate.shell_write_targets("cp /tmp/c.json evals/cases.json 2>/dev/null")
-    assert gate.shell_write_targets("pip install evals") == []
-    assert gate.shell_write_targets("cp -t evals/ /tmp/cases.json") == ["evals/"]
-    assert gate.shell_write_targets("cp --target-directory=evals a.json") == ["evals"]
-    assert gate.shell_write_targets("Copy-Item -Destination evals -Path a.json") == ["evals"]
+def test_shell_command_paths_should_list_words_of_a_write_and_nothing_for_a_read() -> None:
+    assert "evals/cases.json" in gate.shell_command_paths("cp /tmp/c.json evals/cases.json 2>/dev/null")
+    assert "evals/x.json" in gate.shell_command_paths("sed -n -i 's/a/b/' evals/x.json")
+    assert gate.shell_command_paths("grep tee evals/cases.json") == []
+    assert gate.shell_command_paths("cat evals/cases.json") == []
+
+
+def test_quoted_redirect_text_in_a_write_should_pass(tmp_path: Path) -> None:
+    payload = _bash_payload("gh pr create --body 'use > evals/x.json'", _transcript(tmp_path, build_eval=False))
+    assert gate.decision_for(payload) is None
