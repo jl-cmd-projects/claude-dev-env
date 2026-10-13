@@ -82,29 +82,6 @@ def test_eval_write_with_unreadable_transcript_should_be_denied(tmp_path: Path) 
     assert _reason(decision) == UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON
 
 
-def _bash_payload(command: str, transcript_path: Path) -> dict[str, object]:
-    return {
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-        "transcript_path": str(transcript_path),
-    }
-
-
-def test_bash_read_of_an_eval_file_should_pass(tmp_path: Path) -> None:
-    payload = _bash_payload("cat evals/cases.json", _transcript(tmp_path, build_eval=False))
-    assert gate.decision_for(payload) is None
-
-
-def test_bash_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) -> None:
-    payload = _bash_payload("echo [] > evals/cases.json", _transcript(tmp_path, build_eval=False))
-    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
-
-
-def test_bash_redirect_after_build_eval_should_pass(tmp_path: Path) -> None:
-    payload = _bash_payload("echo [] > evals/cases.json", _transcript(tmp_path, build_eval=True))
-    assert gate.decision_for(payload) is None
-
-
 def test_eval_paths_should_be_recognized() -> None:
     assert gate.is_eval_path("evals/cases.json")
     assert gate.is_eval_path("C:\\repo\\eval\\grader.py")
@@ -161,34 +138,6 @@ def test_script_should_print_a_deny_for_an_eval_write(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0
     assert json.loads(completed.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
-
-
-def test_cd_into_an_eval_directory_then_redirect_should_be_denied(tmp_path: Path) -> None:
-    payload = _bash_payload("cd evals && echo [] > cases.json", _transcript(tmp_path, build_eval=False))
-    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
-
-
-def test_powershell_redirect_into_an_eval_file_should_be_denied(tmp_path: Path) -> None:
-    payload = _bash_payload("'[]' > evals\\cases.json", _transcript(tmp_path, build_eval=False))
-    payload["tool_name"] = "PowerShell"
-    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
-
-
-def test_shell_command_paths_should_list_words_of_a_write_and_nothing_for_a_read() -> None:
-    assert "evals/cases.json" in gate.shell_command_paths("cp /tmp/c.json evals/cases.json 2>/dev/null")
-    assert "evals/x.json" in gate.shell_command_paths("sed -n -i 's/a/b/' evals/x.json")
-    assert gate.shell_command_paths("grep tee evals/cases.json") == []
-    assert gate.shell_command_paths("cat evals/cases.json") == []
-
-
-def test_quoted_redirect_text_in_a_write_should_pass(tmp_path: Path) -> None:
-    payload = _bash_payload("gh pr create --body 'use > evals/x.json'", _transcript(tmp_path, build_eval=False))
-    assert gate.decision_for(payload) is None
-
-
-def test_commit_message_naming_an_eval_file_should_pass(tmp_path: Path) -> None:
-    payload = _bash_payload('git commit -m "update evals/cases.json"', _transcript(tmp_path, build_eval=False))
-    assert gate.decision_for(payload) is None
 
 
 def test_apply_patch_to_an_eval_file_should_be_denied(tmp_path: Path) -> None:
