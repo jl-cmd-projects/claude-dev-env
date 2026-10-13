@@ -60,7 +60,7 @@ def is_eval_path(path: str) -> bool:
 def _destination_words(all_words: list[str]) -> list[str]:
     return [
         each_next.strip("'\"")
-        for each_word, each_next in zip(all_words, all_words[1:])
+        for each_word, each_next in zip(all_words, all_words[1:], strict=False)
         if each_word in ALL_COPY_DESTINATION_OPTIONS
     ] + [
         each_word.split("=", 1)[1].strip("'\"")
