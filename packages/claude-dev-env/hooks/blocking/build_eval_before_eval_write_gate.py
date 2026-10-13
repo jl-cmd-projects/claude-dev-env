@@ -11,7 +11,7 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.codex_apply_patch import payload_patch_target_paths
+from blocking.codex_apply_patch import payload_patch_command, payload_patch_target_paths
 from blocking.pr_lifecycle_skill_gate import deny_decision, eval_skill_call_status
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_EVAL_DIRECTORY_NAMES,
@@ -58,7 +58,11 @@ def _written_paths(all_payload_fields: dict[str, object]) -> list[str]:
     if not isinstance(tool_input, dict):
         return []
     if tool_name == APPLY_PATCH_TOOL_NAME:
-        return list(payload_patch_target_paths(all_payload_fields, tool_input))
+        all_target_paths = payload_patch_target_paths(all_payload_fields, tool_input)
+        if all_target_paths:
+            return list(all_target_paths)
+        patch_command, _working_directory = payload_patch_command(all_payload_fields, tool_input)
+        return patch_command.split()
     if tool_name not in ALL_FILE_WRITE_TOOL_NAMES:
         return []
     return [

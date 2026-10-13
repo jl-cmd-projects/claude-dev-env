@@ -149,3 +149,14 @@ def test_apply_patch_to_an_eval_file_should_be_denied(tmp_path: Path) -> None:
         "transcript_path": str(_transcript(tmp_path, build_eval=False)),
     }
     assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+def test_unparseable_apply_patch_naming_an_eval_file_should_be_denied(tmp_path: Path) -> None:
+    patch = "*** Begin Patch\n*** Add File: evals/cases.json\n+[]\n"
+    payload = {
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch},
+        "cwd": str(tmp_path),
+        "transcript_path": str(_transcript(tmp_path, build_eval=False)),
+    }
+    assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
