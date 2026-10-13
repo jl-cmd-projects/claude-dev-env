@@ -50,6 +50,17 @@ UNSOURCED_CAUSE_MESSAGE = (
     'Cause with no source: "{sentence}". Quote the log line or output in backticks,'
     " or link the run or file and line that shows it."
 )
+VAGUE_METAPHOR_VERB_PATTERN = re.compile(
+    r"\b(?:sits?|sitting|lands?|landing|lives?|holds?|carries|carry)\b", re.IGNORECASE
+)
+CONCRETE_DETAIL_PATTERN = re.compile(r"[0-9/\\]")
+BARE_IMPERATIVE_PATTERN = re.compile(
+    r"^\W*(?:check|confirm|verify|run|fix|review)(?:\s+[A-Za-z']+){1,3}\W*$", re.IGNORECASE
+)
+VAGUE_PHRASE_MESSAGE = (
+    'Vague phrase: "{sentence}". Name the file, number, or step the reader can picture,'
+    " or say what the thing does in plain words."
+)
 ALL_DEFAULT_BANNED_WORDS = (
     "real",
     "really",

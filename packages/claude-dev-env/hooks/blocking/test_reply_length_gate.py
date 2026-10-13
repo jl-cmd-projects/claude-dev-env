@@ -726,3 +726,23 @@ def test_should_allow_a_reply_with_no_causal_claim(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The runner restarted. Also, so far so good."}
     )
     assert exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "vague_text",
+    ["Its parts sit in order.", "Check kept captures.", "The fix lands next."],
+)
+def test_should_deny_a_vague_phrase_seen_on_2026_10_13(vague_text: str) -> None:
+    assert reply_length_gate.vague_phrase_violation(vague_text) is not None
+
+
+@pytest.mark.parametrize(
+    "concrete_text",
+    [
+        "Run `pytest tests/test_card_lint.py` and confirm 12 tests pass.",
+        "The tests sit in tests/unit.",
+        "The icon grid now has 24 icons.",
+    ],
+)
+def test_should_allow_a_phrase_with_concrete_detail(concrete_text: str) -> None:
+    assert reply_length_gate.vague_phrase_violation(concrete_text) is None
