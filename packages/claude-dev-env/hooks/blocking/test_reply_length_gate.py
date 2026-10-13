@@ -392,6 +392,22 @@ def test_should_deny_a_card_context_of_four_sentences(
     )
     assert exit_code == 2
     assert "Card context too long: 4 sentences, limit 2." in stderr_text
+    assert "publish an Artifact page with a tap button per item and a Send button" in stderr_text
+
+
+def test_should_deny_a_card_context_that_lists_several_items_and_name_the_page_flow(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context="Three themes fail.\n- Cedar\n- Birch"),
+    )
+    assert exit_code == 2
+    assert "Card context holds a list of items" in stderr_text
+    assert "publish an Artifact page with a tap button per item and a Send button" in stderr_text
+    assert "send a short reply that links the page" in stderr_text
 
 
 def test_should_deny_a_long_card_consequence(

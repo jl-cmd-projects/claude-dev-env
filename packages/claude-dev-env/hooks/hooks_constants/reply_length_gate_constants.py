@@ -42,6 +42,13 @@ TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit 
 CARD_CONTEXT_TOO_LONG_MESSAGE = (
     "Card context too long: {sentence_count} sentences, limit {sentence_limit}."
 )
+CARD_CONTEXT_LIST_MESSAGE = "Card context holds a list of items, and a card cannot format a list."
+CARD_LIST_ITEM_PATTERN = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\S", re.MULTILINE)
+CARD_FORMAT_FLOW_INSTRUCTION = (
+    " For a list or several items, publish an Artifact page with a tap button per item"
+    " and a Send button, with the capability that republishes its state so the watching"
+    " session wakes. Then send a short reply that links the page."
+)
 UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
 MID_SENTENCE_COLON_MESSAGE = (
     "A colon joins two clauses on one line. Write two sentences, or end the line with the colon"

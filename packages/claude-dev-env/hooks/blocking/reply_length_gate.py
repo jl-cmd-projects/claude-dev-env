@@ -38,7 +38,10 @@ its context, and each option's label and consequence.
 A decision card gets a length check on its question, context, reason, and
 each option's consequence. No sentence there runs longer than
 MAXIMUM_WORDS_PER_SENTENCE words, and the context holds at most
-MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences.
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences. A context may hold no list
+item line, such as "- Cedar" or "1. Cedar". A card refused for length or for
+a list names the page flow to use instead: an Artifact page with a tap button
+per item and a Send button, then a short reply that links the page.
 
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
@@ -103,7 +106,10 @@ from hooks_constants.reply_length_gate_constants import (
     BANNED_WORDS_JSON_KEY,
     BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
+    CARD_CONTEXT_LIST_MESSAGE,
     CARD_CONTEXT_TOO_LONG_MESSAGE,
+    CARD_FORMAT_FLOW_INSTRUCTION,
+    CARD_LIST_ITEM_PATTERN,
     CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
@@ -289,9 +295,17 @@ def all_card_texts(
 
 
 def card_length_violation(all_card_input: dict[str, object]) -> str | None:
-    """Return the deny reason for an over-long card context or card sentence, or None."""
+    """Return the deny reason, with the page flow to use, for an over-long or listed card."""
+    violation = card_shape_violation(all_card_input)
+    return None if violation is None else violation + CARD_FORMAT_FLOW_INSTRUCTION
+
+
+def card_shape_violation(all_card_input: dict[str, object]) -> str | None:
+    """Return the deny reason for a listed or over-long card context or card sentence, or None."""
     context_text = all_card_input.get(DECISION_CARD_CONTEXT_KEY)
     if isinstance(context_text, str):
+        if CARD_LIST_ITEM_PATTERN.search(countable_text(context_text)) is not None:
+            return CARD_CONTEXT_LIST_MESSAGE
         context_sentence_count = len(sentence_word_lists(context_text))
         if context_sentence_count > MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT:
             return CARD_CONTEXT_TOO_LONG_MESSAGE.format(
