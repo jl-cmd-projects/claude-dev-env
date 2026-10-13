@@ -135,6 +135,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/verify_before_acting.py           -> exempt
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
+        hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -165,6 +166,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.
+
+    The merge offer gate denies a decision card whose text offers a merge and
+    names open review findings. It reads only the wording of a chat card and
+    decides no code or safety policy; the merge review gate holds the merge.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.
