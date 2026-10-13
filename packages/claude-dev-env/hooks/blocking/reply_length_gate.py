@@ -101,6 +101,8 @@ from hooks_constants.reply_length_gate_constants import (
     CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
     CLAUDE_HOME_DIRECTORY_NAME,
+    CODE_NAME_MESSAGE,
+    CODE_NAME_PATTERN,
     CONFIG_FILE_ENCODING,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
@@ -222,6 +224,16 @@ def vague_phrase_violation(reply_text: str) -> str | None:
     return None
 
 
+def code_name_violation(reply_text: str) -> str | None:
+    """Return the deny reason for the first path, hash, or identifier outside fenced blocks and links, or None."""
+    without_fences = FENCED_BLOCK_PATTERN.sub(" ", reply_text)
+    without_link_targets = LINK_TARGET_PATTERN.sub("]", without_fences)
+    code_name_match = CODE_NAME_PATTERN.search(URL_PATTERN.sub(" ", without_link_targets))
+    if code_name_match is None:
+        return None
+    return CODE_NAME_MESSAGE.format(code_name=code_name_match.group(0))
+
+
 def prose_outside_links(reply_text: str) -> str:
     """Remove fenced blocks, code spans, whole markdown links and URLs."""
     without_fences = FENCED_BLOCK_PATTERN.sub(" ", reply_text)
@@ -303,6 +315,7 @@ def card_violation(card_text: str, mode_rules: VisualReplyRules | None) -> str |
     return (
         banned_word_violation(card_text, configured_banned_words())
         or vague_phrase_violation(card_text)
+        or code_name_violation(card_text)
     ) or (
         None if mode_rules is None else abbreviation_violation(prose_outside_links(card_text), mode_rules)
     )
@@ -319,6 +332,7 @@ def reply_violation(
         or unlinked_pull_request_violation(reply_text)
         or unsourced_cause_violation(reply_text)
         or vague_phrase_violation(reply_text)
+        or code_name_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
     )
     if violation is not None or mode_rules is None:

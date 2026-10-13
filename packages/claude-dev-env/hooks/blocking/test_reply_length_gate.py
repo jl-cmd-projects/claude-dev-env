@@ -283,7 +283,7 @@ def test_should_deny_default_banned_words_in_any_case_and_spacing(
     "reply_text",
     [
         "I realized the cache missed.",
-        "Run `actual_count` again.",
+        "Run `pytest -k actual` again.",
         "See https://example.com/likely.",
     ],
 )
@@ -753,3 +753,54 @@ def test_should_allow_a_phrase_with_concrete_detail(
 ) -> None:
     _, error_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": concrete_text})
     assert "Vague phrase" not in error_text
+
+
+@pytest.mark.parametrize(
+    "code_name_text",
+    [
+        "The gap is in stp_generic_icon_repaint/README.md:11.",
+        "See `stp_generic_icon_repaint/README.md:11` for the gap.",
+        "The fix renames parse_theme_rows.",
+        "Commit 51269b49 holds the fix.",
+        "The loader calls readThemeRows on start.",
+        "It fails inside load_rows() at start.",
+    ],
+)
+def test_should_deny_a_code_name_in_prose(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], code_name_text: str
+) -> None:
+    exit_code, error_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": code_name_text})
+    assert exit_code == 2
+    assert "Code name" in error_text
+
+
+@pytest.mark.parametrize(
+    "plain_text",
+    [
+        "The generic icon repaint guide skips the tray icons.",
+        "Both fixes merged in [PR 2013](https://github.com/owner/repo/pull/2013).",
+        "Paste this into the agent.\n```\nOpen src/load_rows.py and fix line 11.\n```",
+        "The run passed at 9:47 with 24 icons.",
+    ],
+)
+def test_should_allow_plain_words_without_code_names(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], plain_text: str
+) -> None:
+    _, error_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": plain_text})
+    assert "Code name" not in error_text
+
+
+def test_should_deny_a_code_name_in_a_decision_card(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card = {
+        "question": "Merge the repaint fix now?",
+        "options": [
+            {"label": "Merge", "consequence": "The tray icons repaint."},
+            {"label": "Wait", "consequence": "Nothing changes in tray_icons.json."},
+        ],
+        "recommended": 0,
+    }
+    exit_code, error_text = run_gate(monkeypatch, capsys, DECISION_TOOL_NAME, card)
+    assert exit_code == 2
+    assert "Code name" in error_text

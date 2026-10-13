@@ -61,6 +61,18 @@ VAGUE_PHRASE_MESSAGE = (
     'Vague phrase: "{sentence}". Name the file, number, or step the reader can picture,'
     " or say what the thing does in plain words."
 )
+CODE_NAME_PATTERN = re.compile(
+    r"[\w.-]*\.(?:py|md|json|ya?ml|toml|ts|tsx|js|mjs|sh|ps1|txt|html|css|sql|cfg|ini)\b(?::\d+)?"
+    r"|\b[\w.-]+/[\w./-]*\w"
+    r"|\b[A-Za-z]\w*_\w*[A-Za-z0-9]\b"
+    r"|\b[a-z]{2,}[A-Z]\w*"
+    r"|\b\w+\(\)"
+    r"|\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b"
+)
+CODE_NAME_MESSAGE = (
+    'Code name "{code_name}" in text a person reads. Drop the path, line, hash, or identifier'
+    " and say what the thing does in plain words. A fenced block may keep it."
+)
 ALL_DEFAULT_BANNED_WORDS = (
     "real",
     "really",
