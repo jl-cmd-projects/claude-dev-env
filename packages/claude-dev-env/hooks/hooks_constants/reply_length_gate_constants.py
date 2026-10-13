@@ -63,7 +63,7 @@ VAGUE_PHRASE_MESSAGE = (
 )
 CODE_NAME_PATTERN = re.compile(
     r"[\w.-]*\.(?:py|md|json|ya?ml|toml|ts|tsx|js|mjs|sh|ps1|txt|html|css|sql|cfg|ini)\b(?::\d+)?"
-    r"|\b[\w.-]+/[\w./-]*\w"
+    r"|\b[\w.-]+/[\w./-]*\w(?::\d+)?"
     r"|\b[A-Za-z]\w*_\w*[A-Za-z0-9]\b"
     r"|\b[a-z]{2,}[A-Z]\w*"
     r"|\b\w+\(\)"
