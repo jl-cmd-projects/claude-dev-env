@@ -48,7 +48,7 @@ def test_policy_defaults_are_independent_and_frozen() -> None:
     assert first.baseline_entry_by_path is not second.baseline_entry_by_path
     assert first.baseline_characters_by_hook_name is not second.baseline_characters_by_hook_name
     with pytest.raises(FrozenInstanceError):
-        setattr(first, "section_detail_line_limit", 20)
+        first.section_detail_line_limit = 20
 
 
 def test_measure_and_finding_keep_the_scanned_section() -> None:
