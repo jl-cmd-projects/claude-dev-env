@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,7 @@ from hooks_constants.chat_reply_gate_constants import (
     DRAFTER_MODEL_ENV_VAR,
     DRAFTER_REQUEST_TEMPLATE,
     DRAFTER_ERROR_KEY,
+    DRAFTER_EXECUTABLE_NAME,
     DRAFTER_RESULT_KEY,
     DRAFTER_RULES,
     DRAFTER_TIMEOUT_SECONDS,
@@ -108,7 +110,7 @@ def write_state_text(state_path: Path, state_text: str) -> None:
 def drafter_command() -> list[str]:
     """Return the headless claude command that drafts with no settings and no tools."""
     return [
-        "claude",
+        shutil.which(DRAFTER_EXECUTABLE_NAME) or DRAFTER_EXECUTABLE_NAME,
         "-p",
         "--model",
         os.environ.get(DRAFTER_MODEL_ENV_VAR, DEFAULT_DRAFTER_MODEL),
@@ -183,15 +185,13 @@ def shown_text(all_hook_input: dict[str, object]) -> str | None:
         write_state_text(held_path, message_text)
         return ""
     held_path.unlink(missing_ok=True)
+    shown_draft_path = state_file_path(SHOWN_DRAFT_FILE_PREFIX, all_hook_input.get(SESSION_ID_KEY))
     violation = reply_violation(message_text, None, None)
-    if violation is None:
+    draft_text = None if violation is None else compliant_draft(message_text, violation)
+    if violation is None or draft_text is None:
+        shown_draft_path.unlink(missing_ok=True)
         return message_text if held_text else None
-    draft_text = compliant_draft(message_text, violation)
-    if draft_text is None:
-        return message_text if held_text else None
-    write_state_text(
-        state_file_path(SHOWN_DRAFT_FILE_PREFIX, all_hook_input.get(SESSION_ID_KEY)), draft_text
-    )
+    write_state_text(shown_draft_path, draft_text)
     log_hook_block(
         Path(__file__).name,
         MESSAGE_DISPLAY_EVENT_NAME,

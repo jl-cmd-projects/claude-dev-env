@@ -173,13 +173,14 @@ def test_ask_drafter_should_read_the_result_field(monkeypatch: pytest.MonkeyPatc
         stdout = json.dumps({"result": f"  {PASSING_DRAFT}\n"})
 
     all_commands: list[list[str]] = []
+    monkeypatch.setattr(chat_reply_gate.shutil, "which", lambda _name: "C:/npm/claude.cmd")
     monkeypatch.setattr(
         chat_reply_gate.subprocess,
         "run",
         lambda command, **_kwargs: all_commands.append(command) or CompletedDrafter(),
     )
     assert chat_reply_gate.ask_drafter(FOUR_SENTENCE_REPLY, "too long") == PASSING_DRAFT
-    assert all_commands[0][:4] == ["claude", "-p", "--model", "haiku"]
+    assert all_commands[0][:4] == ["C:/npm/claude.cmd", "-p", "--model", "haiku"]
 
 
 def test_ask_drafter_should_return_none_for_an_error_result(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -188,6 +189,17 @@ def test_ask_drafter_should_return_none_for_an_error_result(monkeypatch: pytest.
 
     monkeypatch.setattr(chat_reply_gate.subprocess, "run", lambda *_args, **_kwargs: FailedDrafter())
     assert chat_reply_gate.ask_drafter(FOUR_SENTENCE_REPLY, "too long") is None
+
+
+def test_should_forget_the_shown_draft_when_a_later_reply_passes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
+    run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    run_hook(monkeypatch, capsys, {**display_input(THREE_SENTENCE_REPLY), "message_id": "m2"})
+    _, hook_output = run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
+    assert hook_output is not None
+    assert PASSING_DRAFT not in str(hook_output["additionalContext"])
 
 
 def test_should_show_a_batch_without_a_message_id_as_it_is(

@@ -99,10 +99,12 @@ def ask_helper(original_reply: str, violation: str) -> tuple[str | None, float]:
             check=False,
         )
         helper_result = json.loads(completed.stdout)
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        draft_text = helper_result.get("result")
+        cost = float(helper_result.get("total_cost_usd") or 0.0)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, AttributeError, ValueError):
         return None, 0.0
-    draft_text = helper_result.get("result")
-    cost = float(helper_result.get("total_cost_usd") or 0.0)
+    if helper_result.get("is_error") is True:
+        return None, cost
     if not isinstance(draft_text, str) or not draft_text.strip():
         return None, cost
     return draft_text.strip(), cost
