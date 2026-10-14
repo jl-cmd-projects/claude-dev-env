@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
+    mkdirSync,
     mkdtempSync,
     rmSync,
     writeFileSync,
@@ -300,6 +301,29 @@ test('a missing default is added and a user-set value is kept', () => {
         addedKeys: [],
     });
     assert.equal(userSettings.advisorModel, 'sonnet');
+});
+
+test('install adds the idle compaction variable to an env block and keeps a user value on rerun', () => {
+    const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
+    try {
+        const settingsPath = join(sandboxHome, '.claude', 'settings.json');
+        mkdirSync(join(sandboxHome, '.claude'), { recursive: true });
+        writeFileSync(settingsPath, JSON.stringify({ env: { EDITOR: 'vim' } }, null, 4) + '\n');
+        const firstRun = runInstallerInSandbox(sandboxHome);
+        assert.equal(firstRun.status, 0, firstRun.stderr);
+        assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')).env, {
+            EDITOR: 'vim',
+            CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000',
+        });
+        const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
+        userChoice.env.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS = '300000';
+        writeFileSync(settingsPath, JSON.stringify(userChoice, null, 4) + '\n');
+        const secondRun = runInstallerInSandbox(sandboxHome);
+        assert.equal(secondRun.status, 0, secondRun.stderr);
+        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).env.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS, '300000');
+    } finally {
+        rmSync(sandboxHome, { recursive: true, force: true });
+    }
 });
 
 test('install adds advisorModel when missing and keeps a user choice on rerun', () => {

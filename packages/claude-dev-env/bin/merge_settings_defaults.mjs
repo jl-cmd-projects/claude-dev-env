@@ -13,30 +13,38 @@
  */
 
 export const MANAGED_LIST_SETTING_KEYS = Object.freeze(['permissions']);
-export const PER_MODEL_SETTING_KEYS = Object.freeze(['modelSettings']);
-export const PER_FIELD_SETTING_KEYS = Object.freeze(['env']);
-
 function isPlainObject(candidate) {
     return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
+}
+
+function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
+    const addedKeys = [];
+    for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
+        if (Object.hasOwn(targetFields, fieldName)) continue;
+        targetFields[fieldName] = structuredClone(fieldDefault);
+        addedKeys.push(`${keyPrefix}.${fieldName}`);
+    }
+    return addedKeys;
 }
 
 function mergeMissingPerModelFields(targetPerModel, defaultPerModel, settingKey) {
     const addedKeys = [];
     for (const [modelName, defaultFields] of Object.entries(defaultPerModel)) {
         if (!Object.hasOwn(targetPerModel, modelName)) {
-            targetPerModel[modelName] = { ...defaultFields };
+            targetPerModel[modelName] = structuredClone(defaultFields);
             addedKeys.push(`${settingKey}.${modelName}`);
             continue;
         }
         if (!isPlainObject(targetPerModel[modelName])) continue;
-        for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
-            if (Object.hasOwn(targetPerModel[modelName], fieldName)) continue;
-            targetPerModel[modelName][fieldName] = fieldDefault;
-            addedKeys.push(`${settingKey}.${modelName}.${fieldName}`);
-        }
+        addedKeys.push(...mergeMissingFields(targetPerModel[modelName], defaultFields, `${settingKey}.${modelName}`));
     }
     return addedKeys;
 }
+
+export const NESTED_MERGE_BY_SETTING_KEY = Object.freeze({
+    modelSettings: mergeMissingPerModelFields,
+    env: mergeMissingFields,
+});
 
 /**
  * Read the setting defaults from a package settings source object.
@@ -65,22 +73,13 @@ export function settingsDefaultsFromPackageSettings(packageSettings) {
 export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
     const addedKeys = [];
     for (const [settingKey, defaultValue] of Object.entries(settingsDefaults)) {
-        const isPerModelMerge = PER_MODEL_SETTING_KEYS.includes(settingKey)
+        const mergeNested = Object.hasOwn(NESTED_MERGE_BY_SETTING_KEY, settingKey)
             && isPlainObject(targetSettings[settingKey])
-            && isPlainObject(defaultValue);
-        if (isPerModelMerge) {
-            addedKeys.push(...mergeMissingPerModelFields(targetSettings[settingKey], defaultValue, settingKey));
-            continue;
-        }
-        const isPerFieldMerge = PER_FIELD_SETTING_KEYS.includes(settingKey)
-            && isPlainObject(targetSettings[settingKey])
-            && isPlainObject(defaultValue);
-        if (isPerFieldMerge) {
-            for (const [fieldName, fieldDefault] of Object.entries(defaultValue)) {
-                if (Object.hasOwn(targetSettings[settingKey], fieldName)) continue;
-                targetSettings[settingKey][fieldName] = structuredClone(fieldDefault);
-                addedKeys.push(`${settingKey}.${fieldName}`);
-            }
+            && isPlainObject(defaultValue)
+            ? NESTED_MERGE_BY_SETTING_KEY[settingKey]
+            : null;
+        if (mergeNested) {
+            addedKeys.push(...mergeNested(targetSettings[settingKey], defaultValue, settingKey));
             continue;
         }
         if (Object.hasOwn(targetSettings, settingKey)) continue;
