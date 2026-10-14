@@ -38,6 +38,8 @@ def test_should_return_only_the_command_when_no_wrapper_runs() -> None:
         'bash -c "git add -A && git push"; echo done',
         "bash -c \"pwsh -Command 'git push; git status'\"",
         "sudo bash -c 'gh pr list' | head",
+        'echo "$(git push)"',
+        "x=`git push`",
     ],
 )
 def test_should_return_the_segments_of_every_wrapped_command_text(command: str) -> None:
@@ -71,6 +73,13 @@ def test_should_return_the_segments_of_every_wrapped_command_text(command: str) 
         (["time", "sudo", "git", "push"], ("git", ["push"])),
         (["'/usr/bin/git'", "push"], ("git", ["push"])),
         (["VAR=x"], ("", [])),
+        (["if", "git", "push"], ("git", ["push"])),
+        (["then", "git", "push"], ("git", ["push"])),
+        (["if", "!", "git", "push"], ("git", ["push"])),
+        (["while", "git", "push"], ("git", ["push"])),
+        (["command", "git", "push"], ("git", ["push"])),
+        (["command", "-p", "git", "push"], ("git", ["push"])),
+        (["exec", "-a", "name", "git", "push"], ("git", ["push"])),
     ],
 )
 def test_should_return_the_program_past_its_wrappers(
@@ -80,3 +89,29 @@ def test_should_return_the_program_past_its_wrappers(
         shell_command_wrappers.segment_program_and_arguments(all_segment_tokens)
         == expected_program_and_arguments
     )
+
+
+@pytest.mark.parametrize(
+    ("command", "all_expected_texts"),
+    [
+        ('echo "$(gh pr list)"', ["gh pr list"]),
+        ("x=`git push`", ["git push"]),
+        ("echo $(echo $(git push))", ["echo $(git push)"]),
+        ("echo $(cat <(ls))", ["cat <(ls)"]),
+        ("echo '$(gh pr list)'", []),
+        ("echo \\$(gh pr list)", []),
+        ("git push", []),
+    ],
+)
+def test_should_return_each_command_substitution_body_outside_single_quotes(
+    command: str, all_expected_texts: list[str]
+) -> None:
+    assert shell_command_wrappers.all_command_substitution_texts(command) == all_expected_texts
+
+
+def test_should_unwrap_a_command_substitution_in_turn() -> None:
+    all_command_texts = shell_command_wrappers.all_wrapped_command_texts(
+        "echo \"$(bash -c 'git push')\""
+    )
+    assert "bash -c 'git push'" in all_command_texts
+    assert "git push" in all_command_texts

@@ -11,17 +11,20 @@ jobs. ``gh`` calls GraphQL for ``api graphql``, for every ``pr``, ``issue``,
 ``project`` and ``discussion`` subcommand except ``pr diff`` and ``pr list
 --web``, and for ``status``, ``org list``, ``repo view``, ``repo clone``,
 ``repo list``, ``repo archive``, ``repo unarchive``, ``label list``, ``search
-prs``, ``search issues``, ``ruleset list`` and ``gist list``. ``repo edit``,
-``repo create`` and ``repo sync`` call GraphQL only for some flags (an
+prs``, ``search issues``, ``ruleset list``, ``gist list``, ``release list``,
+``release view`` with a tag, and ``workflow run`` without ``--ref``. ``repo
+edit``, ``repo create`` and ``repo sync`` call GraphQL only for some flags (an
 interactive edit, ``--template``, no ``--branch``), so they pass. The command
-words skip options and the ``-R``/``--repo`` value, so ``gh -R o/r pr list``
+words skip options and the values of ``-R``, ``--json`` and the like, so ``gh -R o/r pr list``
 and ``gh api -X POST graphql`` read as ``pr list`` and ``api graphql``. A
 ``gh`` call with ``--help`` or ``-h`` passes, because it reaches no network,
-unless the flag follows another option as its value. An HTTP client is denied
-when an argument names ``api.github.com/graphql``, with or without a port; a
-URL held in a shell variable is not expanded in the command text, so the gate
-cannot see it. The program is read past wrappers and chained commands. Outside
-a cloud session the gate stays quiet, because GraphQL works there.
+unless the flag follows another option as its value. An HTTP client or a script
+interpreter such as ``python -c`` is denied when an argument names
+``api.github.com/graphql``, with or without a port. A URL held in a shell
+variable, or built inside a script file, is not in the command text, so the
+gate cannot see it. The program is read past wrappers, shell keywords such as
+``if`` and ``!``, command substitutions and chained commands. Outside a cloud
+session the gate stays quiet, because GraphQL works there.
 
 Hosted by ``blocking/bash_pre_tool_use_dispatcher.py`` for the Bash and
 PowerShell tools.
@@ -44,14 +47,15 @@ try:
         HOOK_EVENT_NAME,
     )
     from hooks_constants.cloud_graphql_gate_constants import (
-        ALL_GH_BROWSER_ONLY_COMMAND_PATHS,
+        ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND,
         ALL_GH_GRAPHQL_COMMAND_GROUPS,
         ALL_GH_GRAPHQL_COMMAND_PATHS,
         ALL_GH_HELP_FLAGS,
-        ALL_GH_REPOSITORY_OPTIONS,
+        ALL_GH_OPTIONS_WITH_A_VALUE,
         ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS,
-        ALL_GH_WEB_FLAGS,
+        ALL_GH_REST_OPTIONS_BY_COMMAND_PATH,
         ALL_HTTP_CLIENT_PROGRAM_NAMES,
+        ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES,
         CLOUD_GRAPHQL_DENY_REASON,
         GATE_HOOK_NAME,
         GH_API_SUBCOMMAND,
@@ -59,6 +63,7 @@ try:
         GH_ENDPOINT_PATH_SEPARATOR,
         GH_GRAPHQL_ENDPOINT,
         GH_OPTION_PREFIX,
+        GH_OPTION_VALUE_SEPARATOR,
         GH_PROGRAM_NAME,
         GITHUB_GRAPHQL_ENDPOINT_PATTERN,
     )
@@ -77,7 +82,7 @@ except ImportError as import_error:
 
 
 def _gh_command_words(all_arguments: list[str]) -> list[str]:
-    """Return the gh arguments that are neither an option nor a ``-R``/``--repo`` value.
+    """Return the gh arguments that are neither an option nor the value of one such as ``--repo``.
 
     Args:
         all_arguments: The tokens after the ``gh`` program name.
@@ -86,7 +91,7 @@ def _gh_command_words(all_arguments: list[str]) -> list[str]:
         each_argument
         for each_previous_argument, each_argument in itertools.pairwise(["", *all_arguments])
         if not each_argument.startswith(GH_OPTION_PREFIX)
-        and each_previous_argument not in ALL_GH_REPOSITORY_OPTIONS
+        and each_previous_argument not in ALL_GH_OPTIONS_WITH_A_VALUE
     ]
 
 
@@ -123,10 +128,14 @@ def _gh_arguments_call_graphql(all_arguments: list[str]) -> bool:
     if all_command_words[:1] == [GH_API_SUBCOMMAND]:
         return any(_is_graphql_endpoint(each_word) for each_word in all_command_words[1:])
     command_path = tuple(all_command_words[:GH_COMMAND_PATH_LENGTH])
-    if command_path in ALL_GH_BROWSER_ONLY_COMMAND_PATHS and any(
-        each_argument in ALL_GH_WEB_FLAGS for each_argument in all_arguments
+    all_rest_options = ALL_GH_REST_OPTIONS_BY_COMMAND_PATH.get(command_path, frozenset())
+    if any(
+        each_argument.split(GH_OPTION_VALUE_SEPARATOR, 1)[0] in all_rest_options
+        for each_argument in all_arguments
     ):
         return False
+    if command_path in ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND:
+        return len(all_command_words) > GH_COMMAND_PATH_LENGTH
     if any(
         command_path[: len(each_path)] == each_path for each_path in ALL_GH_GRAPHQL_COMMAND_PATHS
     ):
@@ -148,7 +157,10 @@ def _calls_github_graphql(all_segment_tokens: list[str]) -> bool:
     normalized_program_name = program_name.lower()
     if normalized_program_name == GH_PROGRAM_NAME:
         return _gh_arguments_call_graphql(all_arguments)
-    if normalized_program_name in ALL_HTTP_CLIENT_PROGRAM_NAMES:
+    if (
+        normalized_program_name in ALL_HTTP_CLIENT_PROGRAM_NAMES
+        or normalized_program_name in ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES
+    ):
         return any(
             GITHUB_GRAPHQL_ENDPOINT_PATTERN.search(each_argument) is not None
             for each_argument in all_arguments

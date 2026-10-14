@@ -1,11 +1,12 @@
 """Constants for the gate that stops cloud sessions from calling GitHub GraphQL.
 
 Holds the ``gh`` commands that call GraphQL, the ``gh`` subcommands inside
-those groups that call REST, the ``gh`` options read while finding the command
-words, the help flags that reach no network, the browser-only forms, the HTTP
-client programs and the GraphQL endpoint pattern they could name, the hook name
-the block log records, and the deny message that names the REST routes to run
-instead.
+those groups that call REST, the options that keep a GraphQL command on REST,
+the commands that call GraphQL only with an operand, the ``gh`` options read
+while finding the command words, the help flags that reach no network, the HTTP
+client and script interpreter programs and the GraphQL endpoint pattern they
+could name, the hook name the block log records, and the deny message that
+names the REST routes to run instead.
 """
 
 from __future__ import annotations
@@ -22,11 +23,13 @@ __all__ = [
     "ALL_GH_GRAPHQL_COMMAND_GROUPS",
     "ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS",
     "ALL_GH_GRAPHQL_COMMAND_PATHS",
-    "ALL_GH_REPOSITORY_OPTIONS",
+    "ALL_GH_OPTIONS_WITH_A_VALUE",
     "ALL_GH_HELP_FLAGS",
-    "ALL_GH_WEB_FLAGS",
-    "ALL_GH_BROWSER_ONLY_COMMAND_PATHS",
+    "ALL_GH_REST_OPTIONS_BY_COMMAND_PATH",
+    "ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND",
+    "GH_OPTION_VALUE_SEPARATOR",
     "ALL_HTTP_CLIENT_PROGRAM_NAMES",
+    "ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES",
     "GITHUB_GRAPHQL_ENDPOINT_PATTERN",
     "GATE_HOOK_NAME",
     "CLOUD_GRAPHQL_DENY_REASON",
@@ -56,14 +59,27 @@ ALL_GH_GRAPHQL_COMMAND_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("search", "issues"),
         ("ruleset", "list"),
         ("gist", "list"),
+        ("release", "list"),
+        ("workflow", "run"),
     }
 )
-ALL_GH_REPOSITORY_OPTIONS: frozenset[str] = frozenset({"-R", "--repo"})
+ALL_GH_OPTIONS_WITH_A_VALUE: frozenset[str] = frozenset(
+    {"-R", "--repo", "--json", "-q", "--jq", "-t", "--template"}
+)
 ALL_GH_HELP_FLAGS: frozenset[str] = frozenset({"--help", "-h"})
-ALL_GH_WEB_FLAGS: frozenset[str] = frozenset({"--web", "-w"})
-ALL_GH_BROWSER_ONLY_COMMAND_PATHS: frozenset[tuple[str, ...]] = frozenset({("pr", "list")})
+ALL_GH_REST_OPTIONS_BY_COMMAND_PATH: dict[tuple[str, ...], frozenset[str]] = {
+    ("pr", "list"): frozenset({"--web", "-w"}),
+    ("workflow", "run"): frozenset({"--ref", "-r"}),
+}
+ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND: frozenset[tuple[str, ...]] = frozenset(
+    {("release", "view")}
+)
+GH_OPTION_VALUE_SEPARATOR: str = "="
 ALL_HTTP_CLIENT_PROGRAM_NAMES: frozenset[str] = frozenset(
     {"curl", "wget", "http", "https", "invoke-restmethod", "invoke-webrequest", "irm", "iwr"}
+)
+ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES: frozenset[str] = frozenset(
+    {"python", "python3", "py", "node", "deno", "bun", "ruby", "perl", "php"}
 )
 GITHUB_GRAPHQL_ENDPOINT_PATTERN: re.Pattern[str] = re.compile(
     r"api\.github\.com(?::\d+)?/graphql", re.IGNORECASE
@@ -74,7 +90,8 @@ CLOUD_GRAPHQL_DENY_REASON: str = (
     "HTTP 403, whatever the token. gh api graphql calls it, and so do gh pr and gh issue "
     "(all but gh pr diff and gh pr list --web), gh project, gh discussion, gh status, "
     "gh org list, gh repo view/clone/list/archive/unarchive, gh label list, "
-    "gh search prs/issues, gh ruleset list, and gh gist list. "
+    "gh search prs/issues, gh ruleset list, gh gist list, gh release list, "
+    "gh release view with a tag, and gh workflow run without --ref. "
     "Use REST through gh api repos/{owner}/{repo}/... or the mcp__github__ tools. "
     "Open a PR: mcp__github__create_pull_request, or gh api repos/{owner}/{repo}/pulls "
     "--input pr.json with title, head, base, body and draft in the JSON. "

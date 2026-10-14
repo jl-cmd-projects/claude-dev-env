@@ -8,6 +8,7 @@ A wrapper either runs its own operands, as ``sudo``, ``xargs``, ``env``, and
     env GIT_DIR=x git push                git, ["push"]
     echo origin | xargs git push          git, ["push"]
     bash -lc "git commit -F m.txt"        "git commit -F m.txt" unwraps in turn
+    echo "$(git push)"                    "git push" unwraps in turn
 
 ``pytest_invocation`` owns the wrapper and string-exec parsing, and this module
 composes it into the answers a hook asks about any program.
@@ -22,6 +23,14 @@ from hooks_constants.pytest_invocation import (
     unquoted_token,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
+from hooks_constants.shell_command_substitution_constants import (
+    ALL_PARENTHESIS_DEPTH_CHANGES,
+    BACKTICK,
+    COMMAND_SUBSTITUTION_OPENER,
+    DOUBLE_QUOTE,
+    SHELL_ESCAPE_CHARACTER,
+    SINGLE_QUOTE,
+)
 from hooks_constants.shell_command_segments import (
     effective_leading_program,
     token_basename,
@@ -31,6 +40,7 @@ __all__ = [
     "segment_program_and_arguments",
     "all_wrapped_command_texts",
     "all_wrapped_command_segments",
+    "all_command_substitution_texts",
 ]
 
 
@@ -51,37 +61,111 @@ def segment_program_and_arguments(all_segment_tokens: list[str]) -> tuple[str, l
     return program_name, all_unwrapped_tokens[program_index + 1 :]
 
 
+def _closing_parenthesis_index(command: str, body_start_index: int) -> int:
+    """Return the index of the parenthesis that closes a substitution, or the command length."""
+    depth = 1
+    for each_index in range(body_start_index, len(command)):
+        depth += ALL_PARENTHESIS_DEPTH_CHANGES.get(command[each_index], 0)
+        if depth == 0:
+            return each_index
+    return len(command)
+
+
+def _substitution_body_span(command: str, character_index: int) -> tuple[int, int] | None:
+    """Return the body start and end of a substitution that opens at the index, else None."""
+    if command.startswith(COMMAND_SUBSTITUTION_OPENER, character_index):
+        body_start_index = character_index + len(COMMAND_SUBSTITUTION_OPENER)
+        return body_start_index, _closing_parenthesis_index(command, body_start_index)
+    if command[character_index] != BACKTICK:
+        return None
+    body_end_index = command.find(BACKTICK, character_index + 1)
+    return character_index + 1, len(command) if body_end_index == -1 else body_end_index
+
+
+def _quote_state_after(
+    character: str, is_in_single_quotes: bool, is_in_double_quotes: bool
+) -> tuple[bool, bool]:
+    """Return the single and double quote state after one character."""
+    if is_in_single_quotes:
+        return character != SINGLE_QUOTE, False
+    if character == SINGLE_QUOTE and not is_in_double_quotes:
+        return True, False
+    if character == DOUBLE_QUOTE:
+        return False, not is_in_double_quotes
+    return False, is_in_double_quotes
+
+
+def all_command_substitution_texts(command: str) -> list[str]:
+    """Return the command text inside each ``$(...)`` and backtick pair outside single quotes.
+
+    ::
+
+        echo "$(gh pr list)"        ["gh pr list"]
+        x=`git push`                ["git push"]
+        echo '$(gh pr list)'        []
+    """
+    all_substitution_texts: list[str] = []
+    is_in_single_quotes = False
+    is_in_double_quotes = False
+    character_index = 0
+    while character_index < len(command):
+        body_span = (
+            None if is_in_single_quotes else _substitution_body_span(command, character_index)
+        )
+        if body_span is not None:
+            all_substitution_texts.append(command[body_span[0] : body_span[1]])
+            character_index = body_span[1] + 1
+            continue
+        if not is_in_single_quotes and command[character_index] == SHELL_ESCAPE_CHARACTER:
+            character_index += 2
+            continue
+        is_in_single_quotes, is_in_double_quotes = _quote_state_after(
+            command[character_index], is_in_single_quotes, is_in_double_quotes
+        )
+        character_index += 1
+    return all_substitution_texts
+
+
+def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]]]:
+    """Return each command text with its segments, the command first, each parsed once.
+
+    The texts after the command are the command string every shell wrapper
+    inside it runs and the body of every command substitution, unwrapped in turn.
+    """
+    all_command_segments = [
+        each_segment for each_segment, _following_operator in pipeline_segments_for_command(command)
+    ]
+    all_inner_commands = [
+        *(string_exec_inner_command(each_segment) for each_segment in all_command_segments),
+        *all_command_substitution_texts(command),
+    ]
+    all_parses = [(command, all_command_segments)]
+    for each_inner_command in all_inner_commands:
+        if each_inner_command is not None:
+            all_parses.extend(_all_wrapped_command_parses(each_inner_command))
+    return all_parses
+
+
 def all_wrapped_command_texts(command: str) -> list[str]:
-    """Return the command plus the command string every shell wrapper inside it runs.
+    """Return the command plus the command string every shell wrapper or substitution inside it runs.
 
     The segments come from the quote-aware pipeline parser, so the quoted
     script in ``powershell -Command "git add -A; git push"`` stays whole until
-    its own turn. Nested wrappers unwrap in turn.
+    its own turn. Nested wrappers and ``$(...)`` or backtick substitutions
+    unwrap in turn.
     """
-    all_inner_commands = [
-        string_exec_inner_command(each_segment)
-        for each_segment, _following_operator in pipeline_segments_for_command(command)
-    ]
-    all_command_texts = [command]
-    for each_inner_command in all_inner_commands:
-        if each_inner_command is not None:
-            all_command_texts.extend(all_wrapped_command_texts(each_inner_command))
-    return all_command_texts
+    return [each_text for each_text, _all_segments in _all_wrapped_command_parses(command)]
 
 
 def all_wrapped_command_segments(command: str) -> list[list[str]]:
-    """Return every segment of the command and of each command string a shell wrapper inside it runs.
+    """Return every segment of the command and of each command string a wrapper or substitution inside it runs.
 
     Each command string is parsed once, so a hook that grades segments reads
     ``bash -c "gh pr list"`` as its outer segment plus ``gh pr list`` without
     tokenizing either text a second time.
     """
-    all_command_segments = [
-        each_segment for each_segment, _following_operator in pipeline_segments_for_command(command)
+    return [
+        each_segment
+        for _each_text, all_segments in _all_wrapped_command_parses(command)
+        for each_segment in all_segments
     ]
-    all_segments = list(all_command_segments)
-    for each_segment in all_command_segments:
-        inner_command = string_exec_inner_command(each_segment)
-        if inner_command is not None:
-            all_segments.extend(all_wrapped_command_segments(inner_command))
-    return all_segments

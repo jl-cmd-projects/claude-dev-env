@@ -1,0 +1,23 @@
+"""Characters the command substitution scan reads in a shell command."""
+
+from __future__ import annotations
+
+__all__ = [
+    "COMMAND_SUBSTITUTION_OPENER",
+    "BACKTICK",
+    "SINGLE_QUOTE",
+    "DOUBLE_QUOTE",
+    "SHELL_ESCAPE_CHARACTER",
+    "OPENING_PARENTHESIS",
+    "CLOSING_PARENTHESIS",
+    "ALL_PARENTHESIS_DEPTH_CHANGES",
+]
+
+COMMAND_SUBSTITUTION_OPENER: str = "$("
+BACKTICK: str = "`"
+SINGLE_QUOTE: str = "'"
+DOUBLE_QUOTE: str = '"'
+SHELL_ESCAPE_CHARACTER: str = "\\"
+OPENING_PARENTHESIS: str = "("
+CLOSING_PARENTHESIS: str = ")"
+ALL_PARENTHESIS_DEPTH_CHANGES: dict[str, int] = {OPENING_PARENTHESIS: 1, CLOSING_PARENTHESIS: -1}

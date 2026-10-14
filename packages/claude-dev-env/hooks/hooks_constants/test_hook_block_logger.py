@@ -39,6 +39,33 @@ def test_log_hook_block_writes_parseable_json_line(tmp_path: Path) -> None:
     assert parsed["preview"] == "echo hello"
 
 
+@pytest.mark.parametrize(
+    ("command", "secret"),
+    [
+        ("gh api graphql -H 'Authorization: token abc123secret' -f q=1", "abc123secret"),
+        ('curl -H "Authorization: Bearer eyJhbGciOi.x.y" https://x', "eyJhbGciOi.x.y"),
+        ("GH_TOKEN=ghp_A1b2C3d4E5f6G7h8I9j0 gh pr list", "ghp_A1b2C3d4E5f6G7h8I9j0"),
+        ("git clone https://x:github_pat_11AB_cd@github.com/o/r", "github_pat_11AB_cd"),
+    ],
+)
+def test_log_hook_block_redacts_secrets_in_the_preview(
+    tmp_path: Path, command: str, secret: str
+) -> None:
+    with patch.object(Path, "home", return_value=tmp_path):
+        log_hook_block(
+            calling_hook_name="test_hook.py",
+            hook_event="PreToolUse",
+            block_reason="test block reason",
+            tool_name="Bash",
+            offending_input_preview=command,
+        )
+
+    log_path = tmp_path / ".claude" / "logs" / "hook-blocks.log"
+    preview = json.loads(log_path.read_text(encoding="utf-8").strip())["preview"]
+    assert secret not in preview
+    assert "[REDACTED]" in preview
+
+
 def test_log_hook_block_creates_logs_directory(tmp_path: Path) -> None:
     with patch.object(Path, "home", return_value=tmp_path):
         log_hook_block(
