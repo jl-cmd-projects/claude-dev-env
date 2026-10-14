@@ -12,10 +12,11 @@ type Low = { kind: string; left: number; resetsAt?: string }
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
   for (const l of limits) {
-    const left = Math.max(0, Math.round((100 - l.percentUsed) * 10) / 10)
+    const left = Math.max(0, 100 - l.percentUsed)
     if (!worst || left < worst.left) worst = { kind: l.kind, left, resetsAt: l.resetsAt }
   }
-  return worst && worst.left <= threshold ? worst : undefined
+  if (!worst || worst.left > threshold) return undefined
+  return { ...worst, left: Math.round(worst.left * 10) / 10 }
 }
 
 function describe(low: Low): string {
@@ -57,7 +58,7 @@ export const register: Register = (on, options) => {
       try {
         limits = (await $.session.usage()).rateLimits
       } catch {
-        limits = []
+        return ran
       }
     }
     const low = lowest(limits, threshold)

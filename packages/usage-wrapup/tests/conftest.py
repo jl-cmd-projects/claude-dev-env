@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+COMMAND_TIMEOUT_SECONDS = 120
 
 
 @pytest.fixture
@@ -22,6 +23,7 @@ def run_repository_command() -> Callable[[list[str]], subprocess.CompletedProces
             cwd=REPOSITORY_ROOT,
             capture_output=True,
             encoding="utf-8",
+            timeout=COMMAND_TIMEOUT_SECONDS,
         )
         assert (
             completed_run.returncode == 0
