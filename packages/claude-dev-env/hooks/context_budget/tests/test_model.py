@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from typing import Any
 
 import pytest
 
@@ -32,6 +32,7 @@ def test_policy_holds_kinds_hooks_and_baselines() -> None:
         is_baseline_the_prior_text=True,
     )
 
+    assert policy.section_detail_line_limit == 12
     assert policy.all_kinds == (SKILL_ENTRY_KIND,)
     assert policy.all_hooks == (hook,)
     assert policy.baseline_entry_by_path["a/SKILL.md"] == baseline
@@ -46,23 +47,49 @@ def test_baseline_entry_holds_no_line_count_for_a_section_only_file() -> None:
     assert entry.all_section_headings == ("Steps", "Steps")
 
 
-def test_policy_defaults_are_independent() -> None:
-    first = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
-    second = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
-
-    assert first.all_hooks == ()
-    assert first.baseline_entry_by_path == {}
-    assert first.baseline_characters_by_hook_name == {}
-    assert first.baseline_entry_by_path is not second.baseline_entry_by_path
-    assert first.baseline_characters_by_hook_name is not second.baseline_characters_by_hook_name
-    assert first.is_baseline_the_prior_text is False
-
-
-def test_policy_rejects_field_rebinding() -> None:
+def test_policy_defaults_are_empty() -> None:
     policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
 
-    with pytest.raises(FrozenInstanceError):
-        policy.section_detail_line_limit = 20
+    assert policy.all_hooks == ()
+    assert policy.baseline_entry_by_path == {}
+    assert policy.baseline_characters_by_hook_name == {}
+    assert policy.is_baseline_the_prior_text is False
+
+
+def test_policy_maps_ignore_later_changes_to_their_source() -> None:
+    entry_by_path = {"a/SKILL.md": BaselineEntry(210, ("Plan",))}
+    characters_by_hook_name = {"startup print": 5200}
+    policy = BudgetPolicy(
+        section_detail_line_limit=12,
+        all_kinds=(),
+        baseline_entry_by_path=entry_by_path,
+        baseline_characters_by_hook_name=characters_by_hook_name,
+    )
+
+    entry_by_path["b/SKILL.md"] = BaselineEntry(None, ("Steps",))
+    characters_by_hook_name["startup print"] = 1
+
+    assert policy.baseline_entry_by_path == {"a/SKILL.md": BaselineEntry(210, ("Plan",))}
+    assert policy.baseline_characters_by_hook_name == {"startup print": 5200}
+
+
+def test_policy_maps_reject_item_assignment() -> None:
+    policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
+    entry_by_path: Any = policy.baseline_entry_by_path
+    characters_by_hook_name: Any = policy.baseline_characters_by_hook_name
+
+    with pytest.raises(TypeError):
+        entry_by_path["a/SKILL.md"] = BaselineEntry(1, ())
+    with pytest.raises(TypeError):
+        characters_by_hook_name["startup print"] = 1
+
+
+def test_equal_policies_hash_alike() -> None:
+    first = BudgetPolicy(12, (), (), {"a/SKILL.md": BaselineEntry(210, ("Plan",))}, {"hook": 5})
+    second = BudgetPolicy(12, (), (), {"a/SKILL.md": BaselineEntry(210, ("Plan",))}, {"hook": 5})
+
+    assert first == second
+    assert hash(first) == hash(second)
 
 
 def test_measure_and_finding_hold_their_fields() -> None:

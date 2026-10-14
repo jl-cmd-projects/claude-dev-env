@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 
 
 class ContextBudgetPolicyError(ValueError):
@@ -84,9 +85,19 @@ class BudgetPolicy:
     section_detail_line_limit: int
     all_kinds: tuple[ContextKind, ...]
     all_hooks: tuple[HookBudget, ...] = ()
-    baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=dict)
-    baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict)
+    baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=dict, hash=False)
+    baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict, hash=False)
     is_baseline_the_prior_text: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "baseline_entry_by_path", MappingProxyType(dict(self.baseline_entry_by_path))
+        )
+        object.__setattr__(
+            self,
+            "baseline_characters_by_hook_name",
+            MappingProxyType(dict(self.baseline_characters_by_hook_name)),
+        )
 
 
 @dataclass(frozen=True)
