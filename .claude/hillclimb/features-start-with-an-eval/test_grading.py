@@ -1,12 +1,5 @@
 """Grader controls: known-good, known-bad and borderline sessions score as expected."""
 
-import sys
-from pathlib import Path
-
-flow_directory = str(Path(__file__).resolve().parent)
-if flow_directory not in sys.path:
-    sys.path.insert(0, flow_directory)
-
 from session_eval_support.grading import grade_case, tool_calls, wilson_interval
 from session_eval_support.session import trace_turns
 

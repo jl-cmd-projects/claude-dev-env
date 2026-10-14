@@ -5,7 +5,8 @@
     python3 run.py --variant baseline --cases f01,n01,n02
     python3 run.py --variant v1 --cases f01,n01,n02
 
-Each case runs once per rep in a new git workspace copied from ``fixture/``.
+Each case runs once per rep in a new git workspace copied from ``fixture/``,
+deleted once the session ends.
 Variant ``baseline`` adds nothing. Variant ``v1`` installs the rule and its
 guide into the workspace's ``.claude/`` folder. Each session loads project and
 local settings only, so a rule installed in the home config stays out of both
@@ -17,6 +18,7 @@ arms. Rows land in
 import argparse
 import json
 import logging
+import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -25,10 +27,16 @@ from pathlib import Path
 flow_directory = str(Path(__file__).resolve().parent)
 if flow_directory not in sys.path:
     sys.path.insert(0, flow_directory)
+hooks_directory = str(
+    Path(__file__).resolve().parents[3] / "packages" / "claude-dev-env" / "hooks"
+)
+if hooks_directory not in sys.path:
+    sys.path.insert(0, hooks_directory)
 
 from session_eval_support.config.constants import (
     ALL_SCORABLE_SUBTYPES,
     BROKER_WAIT_EXIT_CODE,
+    CASE_ID_LIST_SEPARATOR,
     CASES_FILE,
     DEFAULT_EFFORT,
     DEFAULT_MAX_TURNS,
@@ -67,6 +75,7 @@ from session_eval_support.session import (
     final_event,
     installed_files_digest,
     prepare_workspace,
+    remove_directory,
     run_session,
     served_models,
     trace_turns,
@@ -92,16 +101,32 @@ def _parse_arguments() -> argparse.Namespace:
 def _read_rows(path: Path) -> list[dict[str, object]]:
     if not path.is_file():
         return []
-    return [
-        json.loads(each_line)
-        for each_line in path.read_text(encoding="utf-8").splitlines()
-        if each_line
-    ]
+    all_rows: list[dict[str, object]] = []
+    for each_number, each_line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not each_line:
+            continue
+        try:
+            all_rows.append(json.loads(each_line))
+        except json.JSONDecodeError:
+            logger.warning("skipped unreadable line %d of %s", each_number, path)
+    return all_rows
+
+
+def _ends_inside_a_line(path: Path) -> bool:
+    if not path.is_file() or path.stat().st_size == 0:
+        return False
+    with path.open("rb") as jsonl_file:
+        jsonl_file.seek(-1, os.SEEK_END)
+        return jsonl_file.read(1) != NEWLINE.encode()
 
 
 def _append_line(path: Path, row_by_field: dict[str, object]) -> None:
-    with write_lock, path.open("a", encoding="utf-8") as jsonl_file:
-        jsonl_file.write(json.dumps(row_by_field) + NEWLINE)
+    with write_lock:
+        line_break = NEWLINE if _ends_inside_a_line(path) else ""
+        with path.open("a", encoding="utf-8") as jsonl_file:
+            jsonl_file.write(line_break + json.dumps(row_by_field) + NEWLINE)
 
 
 def _failure(
@@ -216,7 +241,10 @@ def _run_one(
     settings: SessionSettings,
 ) -> None:
     workspace = prepare_workspace(all_installs)
-    session = run_session(workspace, case_by_field["prompt"], settings)
+    try:
+        session = run_session(workspace, case_by_field["prompt"], settings)
+    finally:
+        remove_directory(workspace)
     failure = _unscorable(session, settings)
     if failure is not None:
         _append_line(
@@ -250,10 +278,20 @@ def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
 
 
 def _selected_cases(case_ids: str) -> list[dict[str, str]]:
-    all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
+    all_wanted_ids = {
+        each_id.strip() for each_id in case_ids.split(",") if each_id.strip()
+    }
+    if case_ids.strip() and not all_wanted_ids:
+        raise SystemExit(f"no case ids in --cases {case_ids!r}")
+    all_cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
+    if all_unknown_ids:
+        raise SystemExit(
+            f"unknown case ids: {CASE_ID_LIST_SEPARATOR.join(sorted(all_unknown_ids))}"
+        )
     return [
         each_case
-        for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8"))
+        for each_case in all_cases
         if not all_wanted_ids or each_case["id"] in all_wanted_ids
     ]
 
@@ -273,14 +311,24 @@ def _pending_runs(
     ]
 
 
-def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -> str:
+def _variant_summary(
+    all_cases: list[dict[str, str]], reps: int, variant_directory: Path
+) -> str:
     all_wanted = {each_case["id"] for each_case in all_cases}
     all_rows = [
         each_row
         for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)
         if each_row["prompt_id"] in all_wanted
     ]
-    error_count = len(_read_rows(variant_directory / ERRORS_FILE_NAME))
+    all_scored = {(each_row["prompt_id"], each_row["rep"]) for each_row in all_rows}
+    error_count = len(
+        {
+            (each_row["prompt_id"], each_row["rep"])
+            for each_row in _read_rows(variant_directory / ERRORS_FILE_NAME)
+            if each_row["prompt_id"] in all_wanted and each_row["rep"] < reps
+        }
+        - all_scored
+    )
     return _summary_line(all_rows, error_count)
 
 
@@ -292,13 +340,18 @@ def _run_pending(
     parallel: int,
 ) -> None:
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        for each_future in [
+        all_futures = [
             executor.submit(
                 _run_one, each_case, each_rep, variant_directory, all_installs, settings
             )
             for each_case, each_rep in all_pending
-        ]:
-            each_future.result()
+        ]
+        try:
+            for each_future in all_futures:
+                each_future.result()
+        finally:
+            for each_future in all_futures:
+                each_future.cancel()
 
 
 def main() -> int:
@@ -328,7 +381,7 @@ def main() -> int:
         arguments.parallel,
     )
     logger.info(
-        "%s: %s", arguments.variant, _variant_summary(all_cases, variant_directory)
+        "%s: %s", arguments.variant, _variant_summary(all_cases, arguments.reps, variant_directory)
     )
     return 0
 
