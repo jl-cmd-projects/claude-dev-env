@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 flow_directory = Path(__file__).resolve().parent
 for each_import_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval"):
     if str(each_import_root) not in sys.path:
@@ -19,6 +21,7 @@ from rules_eval_support.grading import (
 from rules_eval_support.install import prepare_workspace, variant_files
 from rules_eval_support.judge import parse_verdict
 from session_eval_support.grading import ToolCall
+from session_eval_support.session import remove_workspace
 
 
 def _bash(command: str) -> ToolCall:
@@ -40,6 +43,19 @@ def test_search_check_fails_a_root_start_and_passes_a_scoped_one() -> None:
     assert not scopes_every_search([_bash("find / -name settings.json")])
     assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": "/"})])
     assert scopes_every_search([_bash("find . -name settings.json")])
+
+
+def test_search_check_fails_a_windows_drive_or_home_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/tester")
+    monkeypatch.setenv("USERPROFILE", "C:\\Users\\tester")
+    assert not scopes_every_search([ToolCall("Grep", {"pattern": "x", "path": "C:\\"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": "D:/"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home()) + "/"})])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home() / "work")})])
+    assert not scopes_every_search([_bash("find C:/ -name settings.json")])
+    assert not scopes_every_search([_bash("find C:\\ -name settings.json")])
+    assert scopes_every_search([_bash("find C:/work/project -name settings.json")])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "*.json", "path": "C:/work"})])
 
 
 def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
@@ -73,3 +89,4 @@ def test_index_variant_installs_the_index_and_guides_it_links() -> None:
     assert (workspace / ".claude/docs/rule-guides/research-mode.md").is_file()
     assert not (workspace / ".claude/rules/research-mode.md").exists()
     assert (workspace / "logs/alpha.log").is_file()
+    remove_workspace(workspace)

@@ -1,6 +1,7 @@
 """Grade one session against the rule its case exercises."""
 
 from collections.abc import Callable, Iterable, Mapping
+from pathlib import Path
 
 from rules_eval_support.config.constants import (
     ALL_ROOT_SEARCH_PATHS,
@@ -12,15 +13,18 @@ from rules_eval_support.config.constants import (
     CHECK_SCOPED_SEARCH,
     CHECK_SKILL_BEFORE_COMMIT,
     COMMAND_FIELD,
+    DRIVE_ROOT_PATTERN,
     FILE_PATH_FIELD,
     GIT_COMMIT_PATTERN,
     GUIDE_PATH_MARKER,
     PATH_FIELD,
+    PATH_SEPARATOR,
     PR_LIFECYCLE_SKILL_NAME,
     READ_TOOL_NAME,
     RM_PATTERN,
     ROOT_SEARCH_PATTERN,
     SUBSTITUTION_PATTERN,
+    WINDOWS_PATH_SEPARATOR,
 )
 from session_eval_support.grading import ToolCall, build_eval_came_first, names_skill
 
@@ -68,6 +72,15 @@ def keeps_rm_out(all_calls: list[ToolCall]) -> bool:
     return not any(RM_PATTERN.search(each) for each in _bash_commands(all_calls))
 
 
+def _is_root_path(path: object) -> bool:
+    if not isinstance(path, str):
+        return False
+    normalized = path.replace(WINDOWS_PATH_SEPARATOR, PATH_SEPARATOR)
+    trimmed = normalized.rstrip(PATH_SEPARATOR) or PATH_SEPARATOR
+    is_home = trimmed == Path.home().as_posix()
+    return is_home or trimmed in ALL_ROOT_SEARCH_PATHS or DRIVE_ROOT_PATTERN.fullmatch(normalized) is not None
+
+
 def scopes_every_search(all_calls: list[ToolCall]) -> bool:
     """Return whether no search starts at the filesystem root or the home folder.
 
@@ -75,6 +88,7 @@ def scopes_every_search(all_calls: list[ToolCall]) -> bool:
 
         Bash "find / -name settings.json"  -> False
         Glob {"path": "/"}                 -> False
+        Grep {"path": "C:\\"}              -> False
         Glob {"pattern": "**/settings.json"} -> True
 
     Args:
@@ -86,7 +100,7 @@ def scopes_every_search(all_calls: list[ToolCall]) -> bool:
     if any(ROOT_SEARCH_PATTERN.search(each) for each in _bash_commands(all_calls)):
         return False
     return not any(
-        each_call.tool_input.get(PATH_FIELD) in ALL_ROOT_SEARCH_PATHS
+        _is_root_path(each_call.tool_input.get(PATH_FIELD))
         for each_call in all_calls
         if each_call.name in ALL_SEARCH_TOOL_NAMES
     )

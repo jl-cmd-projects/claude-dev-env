@@ -1,6 +1,5 @@
 """Build one variant's workspace: the fixture project plus the rules that variant loads."""
 
-import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -16,7 +15,6 @@ from rules_eval_support.config.constants import (
     LOG_FILE_TEXT,
     MARKDOWN_SUFFIX,
     PATH_LIST_SEPARATOR,
-    DIGEST_LENGTH,
     PATHS_FRONTMATTER_KEY,
     REPOSITORY_ROOT,
     RULES_SOURCE_DIRECTORY,
@@ -25,6 +23,7 @@ from rules_eval_support.config.constants import (
     WORKSPACE_PREFIX,
 )
 from session_eval_support.config.constants import ALL_GIT_INIT_COMMANDS
+from session_eval_support.session import files_digest
 
 
 def _read_git(*all_arguments: str) -> str:
@@ -86,19 +85,15 @@ def variant_files(ref: str) -> dict[str, str]:
 
 
 def installed_digest(files_by_target: dict[str, str]) -> str:
-    """Return a short sha256 over a variant's workspace paths and texts.
+    """Return the files_digest of a variant's files as prepare_workspace writes them.
 
     Args:
         files_by_target: The variant's files from variant_files.
 
     Returns:
-        The first 12 hex digits of the digest.
+        The digest over each workspace path and its UTF-8 bytes.
     """
-    digest = hashlib.sha256()
-    for each_target, each_text in sorted(files_by_target.items()):
-        digest.update(each_target.encode("utf-8"))
-        digest.update(each_text.encode("utf-8"))
-    return digest.hexdigest()[:DIGEST_LENGTH]
+    return files_digest({each_target: each_text.encode("utf-8") for each_target, each_text in files_by_target.items()})
 
 
 def prepare_workspace(files_by_target: dict[str, str]) -> Path:
@@ -120,7 +115,7 @@ def prepare_workspace(files_by_target: dict[str, str]) -> Path:
     for each_target, each_text in files_by_target.items():
         target_path = workspace / each_target
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(each_text, encoding="utf-8")
+        target_path.write_text(each_text, encoding="utf-8", newline="")
     for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace

@@ -4,6 +4,7 @@ from pathlib import Path
 
 FLOW_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = FLOW_ROOT.parents[2]
+HOOKS_DIRECTORY = REPOSITORY_ROOT / "packages" / "claude-dev-env" / "hooks"
 FIXTURE_DIRECTORY = FLOW_ROOT / "fixture"
 CASES_FILE = FLOW_ROOT / "cases.json"
 STATE_FILE = FLOW_ROOT / "_state.json"
@@ -24,7 +25,6 @@ DEFAULT_PARALLEL = 2
 SESSION_SETTING_SOURCES = "project,local"
 BROKER_WAIT_EXIT_CODE = 3
 EXPECTED_BUILD_EVAL = "build-eval"
-EXPECTED_NONE = "none"
 BUILD_EVAL_SKILL_NAME = "claude-api"
 BUILD_EVAL_ARGUMENT_WORD = "build-eval"
 LOCAL_BUILD_EVAL_SKILL_NAME = "build-eval"
@@ -59,6 +59,12 @@ FIRST_TOOLS_PER_TURN = 2
 NEWLINE = "\n"
 ID_LIST_SEPARATOR = ", "
 USAGE_ERROR_EXIT_CODE = 2
+DIGEST_LENGTH = 12
+DIGEST_SEPARATOR = b"\0"
+INSTALLED_DIGEST_FIELD = "installed_digest"
+META_FIELD = "meta"
+WINDOWS_PLATFORM = "win32"
+ALL_TREE_KILL_WORDS = ("taskkill", "/F", "/T", "/PID")
 ALL_GIT_INIT_COMMANDS = (
     ("git", "init", "-q", "-b", "main"),
     ("git", "add", "-A"),

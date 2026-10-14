@@ -1,11 +1,16 @@
-"""Read and append the JSON-lines files a run writes, and pick the cases it runs."""
+"""Read and append the JSON-lines files a run writes, and pick the variant and cases it runs."""
 
 import json
 import os
 import threading
 from pathlib import Path
 
-from session_eval_support.config.constants import ID_LIST_SEPARATOR, NEWLINE
+from session_eval_support.config.constants import (
+    ID_LIST_SEPARATOR,
+    INSTALLED_DIGEST_FIELD,
+    META_FIELD,
+    NEWLINE,
+)
 
 write_lock = threading.Lock()
 
@@ -35,6 +40,33 @@ def read_rows(path: Path) -> list[dict[str, object]]:
         if isinstance(each_row, dict):
             all_rows.append(each_row)
     return all_rows
+
+
+def rows_for_install(
+    path: Path, digest: str, all_case_ids: set[str]
+) -> list[dict[str, object]]:
+    """Return the rows one install set wrote for the selected cases.
+
+    ::
+
+        rows tagged meta.installed_digest "aaa" and "bbb", digest "aaa" -> the "aaa" rows
+
+    Args:
+        path: A results or errors JSON-lines file.
+        digest: The current install set's digest.
+        all_case_ids: The ids of the cases this run selected.
+
+    Returns:
+        Each row whose ``meta.installed_digest`` equals the digest and whose
+        ``prompt_id`` is selected. A row with no digest belongs to no install set.
+    """
+    return [
+        each_row
+        for each_row in read_rows(path)
+        if each_row.get("prompt_id") in all_case_ids
+        and isinstance(each_row.get(META_FIELD), dict)
+        and each_row[META_FIELD].get(INSTALLED_DIGEST_FIELD) == digest
+    ]
 
 
 def _ends_mid_line(path: Path) -> bool:
@@ -87,3 +119,24 @@ def select_cases(
         for each_case in all_cases
         if not all_wanted_ids or each_case["id"] in all_wanted_ids
     ]
+
+
+def select_variant(
+    variant_by_name: dict[str, dict[str, object]], variant_name: str
+) -> dict[str, object]:
+    """Return one variant's settings from the flow's state file.
+
+    Args:
+        variant_by_name: The state file's ``variants`` map.
+        variant_name: The ``--variant`` argument.
+
+    Returns:
+        That variant's settings.
+
+    Raises:
+        ValueError: The name matches no variant.
+    """
+    if variant_name not in variant_by_name:
+        known_names = ID_LIST_SEPARATOR.join(sorted(variant_by_name))
+        raise ValueError(f"unknown variant: {variant_name} (known: {known_names})")
+    return variant_by_name[variant_name]

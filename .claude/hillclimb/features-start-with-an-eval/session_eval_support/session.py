@@ -2,27 +2,34 @@
 
 import hashlib
 import json
+import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping
+from typing import IO
 from dataclasses import dataclass
 from pathlib import Path
 
 from session_eval_support.config.constants import (
     ALL_GIT_INIT_COMMANDS,
     ALL_SCORABLE_SUBTYPES,
+    ALL_TREE_KILL_WORDS,
     ASSISTANT_EVENT_TYPE,
     BROKER_REPORT_FILE_NAME,
     BROKER_SCRIPT,
     BROKER_WAIT_EXIT_CODE,
+    DIGEST_LENGTH,
+    DIGEST_SEPARATOR,
     FAILURE_BROKER_WAIT,
     FAILURE_MODEL_MISMATCH,
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
     FIXTURE_DIRECTORY,
+    HOOKS_DIRECTORY,
     JSON_INDENT,
     NEWLINE,
     REPOSITORY_ROOT,
@@ -34,8 +41,14 @@ from session_eval_support.config.constants import (
     TOOL_RESULT_PREVIEW_LENGTH,
     TOOL_USE_BLOCK_TYPE,
     USER_EVENT_TYPE,
+    WINDOWS_PLATFORM,
     WORKSPACE_PREFIX,
 )
+
+if str(HOOKS_DIRECTORY) not in sys.path:
+    sys.path.append(str(HOOKS_DIRECTORY))
+
+from hooks_constants.windows_filesystem import force_rmtree
 
 
 @dataclass(frozen=True)
@@ -58,21 +71,42 @@ class SessionRun:
     broker_report: dict[str, object]
 
 
+def files_digest(bytes_by_target: Mapping[str, bytes]) -> str:
+    """Return a short sha256 over a variant's workspace paths and file bytes.
+
+    ::
+
+        files_digest({".claude/rules/index.md": b"Index."}) -> "3f0c9a1b2d4e"
+
+    Args:
+        bytes_by_target: Each workspace path mapped to the bytes installed there.
+
+    Returns:
+        The first 12 hex digits of the digest. Each path and its bytes are
+        hashed apart, so moving or editing a file changes the digest.
+    """
+    digest = hashlib.sha256()
+    for each_target, each_bytes in sorted(bytes_by_target.items()):
+        digest.update(each_target.encode("utf-8") + DIGEST_SEPARATOR)
+        digest.update(each_bytes + DIGEST_SEPARATOR)
+    return digest.hexdigest()[:DIGEST_LENGTH]
+
+
 def installed_files_digest(all_installs: list[tuple[str, str]]) -> str:
-    """Return a short sha256 over the files a variant installs, or an empty string.
+    """Return the files_digest of the files a variant installs.
 
     Args:
         all_installs: Pairs of a repository path and its workspace path.
 
     Returns:
-        The first 12 hex digits of the digest, or an empty string for no installs.
+        The digest over each workspace path and its source file's bytes.
     """
-    if not all_installs:
-        return ""
-    digest = hashlib.sha256()
-    for each_install in all_installs:
-        digest.update((REPOSITORY_ROOT / each_install[0]).read_bytes())
-    return digest.hexdigest()[:12]
+    return files_digest(
+        {
+            each_target: (REPOSITORY_ROOT / each_source).read_bytes()
+            for each_source, each_target in all_installs
+        }
+    )
 
 
 def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
@@ -93,6 +127,15 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
     for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace
+
+
+def remove_workspace(workspace: Path) -> None:
+    """Delete a workspace once its session is read, read-only git objects included.
+
+    Args:
+        workspace: A directory from prepare_workspace.
+    """
+    force_rmtree(str(workspace))
 
 
 def _read_events(stream_path: Path) -> list[dict[str, object]]:
@@ -177,6 +220,62 @@ def _read_broker_report(report_path: Path) -> dict[str, object]:
     return loaded if isinstance(loaded, dict) else {}
 
 
+def _kill_tree(process: subprocess.Popen[bytes]) -> None:
+    if sys.platform == WINDOWS_PLATFORM:
+        subprocess.run(
+            (*ALL_TREE_KILL_WORDS, str(process.pid)), capture_output=True, check=False
+        )
+    else:
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait()
+
+
+def _start_process_group(
+    all_command_words: list[str],
+    working_directory: Path,
+    capture_file: IO[bytes] | IO[str],
+    has_input: bool,
+) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(
+        all_command_words,
+        cwd=working_directory,
+        stdin=subprocess.PIPE if has_input else subprocess.DEVNULL,
+        stdout=capture_file,
+        stderr=subprocess.DEVNULL,
+        start_new_session=sys.platform != WINDOWS_PLATFORM,
+    )
+
+
+def run_until_timeout(
+    all_command_words: list[str],
+    working_directory: Path,
+    capture_file: IO[bytes] | IO[str],
+    timeout_seconds: int,
+    input_bytes: bytes | None,
+) -> int | None:
+    """Run a command, and on timeout stop it with every process it started.
+
+    Args:
+        all_command_words: The command and its arguments.
+        working_directory: The command's working directory.
+        capture_file: Where standard output goes.
+        timeout_seconds: The wall-clock ceiling.
+        input_bytes: Standard input, or None for none.
+
+    Returns:
+        The exit code, or None when the command timed out.
+    """
+    process = _start_process_group(
+        all_command_words, working_directory, capture_file, input_bytes is not None
+    )
+    try:
+        process.communicate(input=input_bytes, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        _kill_tree(process)
+        return None
+    return process.returncode
+
+
 def _run_command(
     all_command_words: list[str],
     workspace: Path,
@@ -184,18 +283,9 @@ def _run_command(
     timeout_seconds: int,
 ) -> int | None:
     with stream_path.open("w", encoding="utf-8") as stream_file:
-        try:
-            completed = subprocess.run(
-                all_command_words,
-                cwd=workspace,
-                stdout=stream_file,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout_seconds,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            return None
-    return completed.returncode
+        return run_until_timeout(
+            all_command_words, workspace, stream_file, timeout_seconds, None
+        )
 
 
 def _run_in_capture(

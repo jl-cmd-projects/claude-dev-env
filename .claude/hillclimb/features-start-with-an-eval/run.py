@@ -10,8 +10,9 @@ Variant ``baseline`` adds nothing. Variant ``v1`` installs the rule and its
 guide into the workspace's ``.claude/`` folder. Each session loads project and
 local settings only, so a rule installed in the home config stays out of both
 arms. Rows land in
-``<variant>/results.jsonl`` as each case finishes, and a rerun skips every
-(case, rep) already there.
+``<variant>/results.jsonl`` as each case finishes, each tagged with a digest
+of the installed files. A rerun skips every (case, rep) already there under
+the same digest, and the headline counts only those rows and errors.
 """
 
 import argparse
@@ -37,8 +38,10 @@ from session_eval_support.config.constants import (
     EXPECTED_BUILD_EVAL,
     FIRST_TOOLS_PER_TURN,
     FLOW_ROOT,
+    INSTALLED_DIGEST_FIELD,
     JSON_INDENT,
     LATENCY_DECIMALS,
+    META_FIELD,
     MILLISECONDS_PER_SECOND,
     RESULTS_FILE_NAME,
     SESSION_SETTING_SOURCES,
@@ -54,13 +57,19 @@ from session_eval_support.grading import (
     tool_calls,
     wilson_interval,
 )
-from session_eval_support.rows import append_row, read_rows, select_cases
+from session_eval_support.rows import (
+    append_row,
+    rows_for_install,
+    select_cases,
+    select_variant,
+)
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
     installed_files_digest,
     prepare_workspace,
+    remove_workspace,
     run_session,
     served_models,
     trace_turns,
@@ -84,13 +93,18 @@ def _parse_arguments() -> argparse.Namespace:
 
 
 def _failure(
-    case_by_field: dict[str, str], rep: int, failure_class: str, detail: object
+    case_by_field: dict[str, str],
+    rep: int,
+    digest: str,
+    failure_class: str,
+    detail: object,
 ) -> dict[str, object]:
     return {
         "prompt_id": case_by_field["id"],
         "rep": rep,
         "failure_class": failure_class,
         "detail": detail,
+        META_FIELD: {INSTALLED_DIGEST_FIELD: digest},
     }
 
 
@@ -135,10 +149,11 @@ def _row_meta(
         "duration_s": round(
             float(final_by_field.get("duration_ms") or 0) / MILLISECONDS_PER_SECOND,
             LATENCY_DECIMALS,
+    META_FIELD,
         ),
         "effort": settings.effort,
         "setting_sources": SESSION_SETTING_SOURCES,
-        "installed_digest": installed_files_digest(all_installs),
+        INSTALLED_DIGEST_FIELD: installed_files_digest(all_installs),
         "broker_account": decision.get("account")
         if isinstance(decision, dict)
         else None,
@@ -179,12 +194,15 @@ def _run_one(
     settings: SessionSettings,
 ) -> None:
     workspace = prepare_workspace(all_installs)
-    session = run_session(workspace, case_by_field["prompt"], settings)
+    try:
+        session = run_session(workspace, case_by_field["prompt"], settings)
+    finally:
+        remove_workspace(workspace)
     failure = unscorable(session, settings)
     if failure is not None:
         append_row(
             variant_directory / ERRORS_FILE_NAME,
-            _failure(case_by_field, rep, *failure),
+            _failure(case_by_field, rep, installed_files_digest(all_installs), *failure),
         )
         return
     _write_trace(case_by_field, rep, variant_directory, session)
@@ -213,11 +231,14 @@ def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
 
 
 def _pending_runs(
-    all_cases: list[dict[str, str]], reps: int, variant_directory: Path
+    all_cases: list[dict[str, str]], reps: int, variant_directory: Path, digest: str
 ) -> list[tuple[dict[str, str], int]]:
+    all_case_ids = {each_case["id"] for each_case in all_cases}
     all_done = {
         (each_row["prompt_id"], each_row["rep"])
-        for each_row in read_rows(variant_directory / RESULTS_FILE_NAME)
+        for each_row in rows_for_install(
+            variant_directory / RESULTS_FILE_NAME, digest, all_case_ids
+        )
     }
     return [
         (each_case, each_rep)
@@ -227,15 +248,13 @@ def _pending_runs(
     ]
 
 
-def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -> str:
-    all_wanted = {each_case["id"] for each_case in all_cases}
-    all_rows = [
-        each_row
-        for each_row in read_rows(variant_directory / RESULTS_FILE_NAME)
-        if each_row["prompt_id"] in all_wanted
-    ]
-    error_count = len(read_rows(variant_directory / ERRORS_FILE_NAME))
-    return _summary_line(all_rows, error_count)
+def _variant_summary(
+    all_cases: list[dict[str, str]], variant_directory: Path, digest: str
+) -> str:
+    all_case_ids = {each_case["id"] for each_case in all_cases}
+    all_rows = rows_for_install(variant_directory / RESULTS_FILE_NAME, digest, all_case_ids)
+    all_errors = rows_for_install(variant_directory / ERRORS_FILE_NAME, digest, all_case_ids)
+    return _summary_line(all_rows, len(all_errors))
 
 
 def _run_pending(
@@ -264,31 +283,32 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    all_installs = [
-        tuple(each_pair)
-        for each_pair in state["variants"][arguments.variant]["install"]
-    ]
     try:
+        variant = select_variant(state["variants"], arguments.variant)
         all_cases = select_cases(
             json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases
         )
     except ValueError as error:
         logger.error("%s", error)
         return USAGE_ERROR_EXIT_CODE
+    all_installs = [tuple(each_pair) for each_pair in variant["install"]]
+    digest = installed_files_digest(all_installs)
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(
         arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s
     )
     _run_pending(
-        _pending_runs(all_cases, arguments.reps, variant_directory),
+        _pending_runs(all_cases, arguments.reps, variant_directory, digest),
         variant_directory,
         all_installs,
         settings,
         arguments.parallel,
     )
     logger.info(
-        "%s: %s", arguments.variant, _variant_summary(all_cases, variant_directory)
+        "%s: %s",
+        arguments.variant,
+        _variant_summary(all_cases, variant_directory, digest),
     )
     return 0
 
