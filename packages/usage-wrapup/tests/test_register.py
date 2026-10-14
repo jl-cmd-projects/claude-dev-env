@@ -20,8 +20,11 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
         "justAboveThreshold: justAbove === undefined ? 'undefined' : justAbove, "
         "empty: empty === undefined ? 'undefined' : empty, "
         "overspent: lowest([{kind: 'five_hour', percentUsed: 101}], 5), "
-        "fractionalAtThreshold: lowest([{kind: 'five_hour', percentUsed: 99.1}], 0.9), "
-        "fractionalBelowThreshold: lowest([{kind: 'five_hour', percentUsed: 98.9}], 1.1)}));"
+        "atThresholdWithFloatExcess: lowest([{kind: 'five_hour', percentUsed: 99.1}], 0.9), "
+        "atThresholdWithFloatShortfall: lowest([{kind: 'five_hour', percentUsed: 98.9}], 1.1), "
+        "unreadableWindowSkipped: lowest([{kind: 'five_hour', percentUsed: NaN}, "
+        "{kind: 'seven_day', percentUsed: 99}], 5), "
+        "unreadableThreshold: String(lowest([{kind: 'five_hour', percentUsed: 40}], NaN))}));"
     )
     selection_run = run_repository_command(["bun", "-e", script])
     selection_report = json.loads(selection_run.stdout)
@@ -36,8 +39,10 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
     assert selection_report["justAboveThreshold"] == "undefined"
     assert selection_report["empty"] == "undefined"
     assert selection_report["overspent"] == {"kind": "five_hour", "left": 0}
-    assert selection_report["fractionalAtThreshold"] == {"kind": "five_hour", "left": 0.9}
-    assert selection_report["fractionalBelowThreshold"] == {"kind": "five_hour", "left": 1.1}
+    assert selection_report["atThresholdWithFloatExcess"] == {"kind": "five_hour", "left": 0.9}
+    assert selection_report["atThresholdWithFloatShortfall"] == {"kind": "five_hour", "left": 1.1}
+    assert selection_report["unreadableWindowSkipped"] == {"kind": "seven_day", "left": 1}
+    assert selection_report["unreadableThreshold"] == "undefined"
 
 
 def test_tool_call_skips_usage_after_a_failed_read_until_the_next_measurement(
@@ -67,4 +72,39 @@ def test_tool_call_skips_usage_after_a_failed_read_until_the_next_measurement(
     assert measurement_report["usageReads"] == 1
     assert "5-hour usage limit: only 1% left." in "\n".join(
         measurement_report["third"]["context"]
+    )
+
+
+def test_tool_call_reads_usage_again_after_the_retry_cooldown(
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    script = (
+        "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
+        "const handlers = {}; "
+        "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "let now = 0; "
+        "Date.now = () => now; "
+        "let usageReads = 0; "
+        "const $ = {session: {usage: async () => { usageReads += 1; "
+        "if (usageReads === 1) throw new Error('usage read failed'); "
+        "return {rateLimits: [{kind: 'five_hour', percentUsed: 99}]}; }}}; "
+        "const next = async () => ({result: 'ok'}); "
+        "const first = await handlers['tool.call']($, undefined, next); "
+        "now = 1000; "
+        "const withinCooldown = await handlers['tool.call']($, undefined, next); "
+        "const readsWithinCooldown = usageReads; "
+        "now = 61000; "
+        "const afterCooldown = await handlers['tool.call']($, undefined, next); "
+        "console.log(JSON.stringify({first, withinCooldown, readsWithinCooldown, "
+        "afterCooldown, usageReads}));"
+    )
+    cooldown_run = run_repository_command(["bun", "-e", script])
+    cooldown_report = json.loads(cooldown_run.stdout)
+
+    assert cooldown_report["first"] == {"result": "ok"}
+    assert cooldown_report["withinCooldown"] == {"result": "ok"}
+    assert cooldown_report["readsWithinCooldown"] == 1
+    assert cooldown_report["usageReads"] == 2
+    assert "5-hour usage limit: only 1% left." in "\n".join(
+        cooldown_report["afterCooldown"]["context"]
     )

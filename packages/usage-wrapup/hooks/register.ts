@@ -9,15 +9,17 @@ const LABEL: Record<string, string> = {
 type Low = { kind: string; left: number; resetsAt?: string }
 
 const THRESHOLD_TOLERANCE = 1e-9
+const USAGE_RETRY_MILLISECONDS = 60_000
 
 /** The window with the least left, when it is at or below the threshold. */
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
   for (const l of limits) {
     const left = Math.max(0, 100 - l.percentUsed)
+    if (!Number.isFinite(left)) continue
     if (!worst || left < worst.left) worst = { kind: l.kind, left, resetsAt: l.resetsAt }
   }
-  if (!worst || worst.left > threshold + THRESHOLD_TOLERANCE) return undefined
+  if (!worst || !(worst.left <= threshold + THRESHOLD_TOLERANCE)) return undefined
   return { ...worst, left: Math.round(worst.left * 10) / 10 }
 }
 
@@ -43,6 +45,7 @@ export const register: Register = (on, options) => {
   const threshold = Number(options.threshold ?? 1)
   let limits: readonly SessionRateLimit[] | undefined
   let wasWarned = false
+  let usageReadFailedAt: number | undefined
 
   on('session.measure', ($, e, next) => {
     limits = e.rateLimits
@@ -57,10 +60,12 @@ export const register: Register = (on, options) => {
     const ran = await next(e)
     if ('deny' in ran && ran.deny !== undefined) return ran
     if (!limits) {
+      if (usageReadFailedAt !== undefined && Date.now() - usageReadFailedAt < USAGE_RETRY_MILLISECONDS) return ran
       try {
         limits = (await $.session.usage()).rateLimits
       } catch {
-        limits = []
+        usageReadFailedAt = Date.now()
+        return ran
       }
     }
     const low = lowest(limits, threshold)
