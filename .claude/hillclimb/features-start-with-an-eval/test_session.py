@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 from pathlib import Path
@@ -12,13 +13,14 @@ from session_eval_support.session import (
     SessionSettings,
     brokered_words,
     files_digest,
-    installed_files_digest,
+    installed_files,
     prepare_workspace,
     remove_workspace,
     run_session,
     run_until_timeout,
     session_words,
     unscorable,
+    write_trace,
 )
 
 STREAM_AND_TRUNCATED_REPORT = (
@@ -35,6 +37,11 @@ START_A_BEATING_GRANDCHILD = (
     "subprocess.Popen([sys.executable, '-c', beat, sys.argv[1]])\n"
     "time.sleep(60)\n"
 )
+ECHO_THE_PROMPT_AS_A_RESULT = (
+    "import json, sys\n"
+    "print(json.dumps({'type': 'result', 'result': sys.stdin.read()}))\n"
+)
+
 
 def test_unscorable_reports_a_broker_wait_before_examining_events() -> None:
     session = SessionRun([], 0.0, 3, {"final_decision": "wait"})
@@ -52,10 +59,10 @@ def test_unscorable_reports_a_timeout_and_a_served_model_mismatch() -> None:
 
 
 def test_brokered_words_wrap_the_session_command_after_the_report_path() -> None:
-    all_words = session_words("hi", SessionSettings("model", "low", 2, 10))
+    all_words = session_words(SessionSettings("model", "low", 2, 10))
     brokered = brokered_words(Path("report.json"), all_words)
 
-    assert all_words[:3] == ["claude", "-p", "hi"]
+    assert all_words[:4] == ["claude", "-p", "--model", "model"]
     assert brokered[brokered.index("--report") + 1] == "report.json"
     assert brokered[-len(all_words) - 1 :] == ["--", *all_words]
 
@@ -85,18 +92,51 @@ def test_files_digest_changes_with_a_path_or_bytes_and_keeps_fields_apart() -> N
     assert files_digest({"a": b"bc"}) != files_digest({"ab": b"c"})
 
 
-def test_installed_files_digest_hashes_each_source_under_its_workspace_path() -> None:
+def test_installed_files_reads_each_source_under_its_workspace_path() -> None:
     all_installs = [("packages/claude-dev-env/rules/index.md", ".claude/rules/index.md")]
     repository_root = Path(__file__).resolve().parents[3]
 
-    assert installed_files_digest(all_installs) == files_digest(
-        {".claude/rules/index.md": (repository_root / "packages/claude-dev-env/rules/index.md").read_bytes()}
-    )
-    assert installed_files_digest([]) == files_digest({})
+    assert installed_files(all_installs) == {
+        ".claude/rules/index.md": (repository_root / "packages/claude-dev-env/rules/index.md").read_bytes()
+    }
+    assert installed_files([]) == {}
+
+
+def test_prepare_workspace_installs_the_bytes_it_is_given() -> None:
+    workspace = prepare_workspace({".claude/rules/index.md": b"Read once.\n"})
+    try:
+        assert (workspace / ".claude/rules/index.md").read_bytes() == b"Read once.\n"
+    finally:
+        remove_workspace(workspace)
+
+
+def test_run_session_sends_the_prompt_on_standard_input(tmp_path: Path) -> None:
+    all_claude_words: list[list[str]] = []
+
+    def echo_the_prompt(report_path: Path, claude_words: list[str]) -> list[str]:
+        all_claude_words.append(claude_words)
+        return [sys.executable, "-c", ECHO_THE_PROMPT_AS_A_RESULT]
+
+    session = run_session(tmp_path, 'Fix the typo "recieve" & commit', SessionSettings("model", "low", 1, 60), echo_the_prompt)
+
+    assert session.all_events == [{"type": "result", "result": 'Fix the typo "recieve" & commit'}]
+    assert not any("recieve" in each_word for each_word in all_claude_words[0])
+
+
+def test_write_trace_writes_the_turns_under_the_case_and_rep(tmp_path: Path) -> None:
+    (tmp_path / "traces").mkdir()
+    session = SessionRun([{"type": "assistant", "message": {"content": [{"type": "text", "text": "done"}]}}], 0.0, 0, {})
+
+    write_trace({"id": "f01", "prompt": "the ask"}, 2, tmp_path, session)
+
+    assert json.loads((tmp_path / "traces/f01_rep2.json").read_text(encoding="utf-8")) == [
+        {"role": "user", "content": "the ask"},
+        {"role": "assistant", "content": "done"},
+    ]
 
 
 def test_remove_workspace_deletes_a_committed_workspace_with_read_only_objects() -> None:
-    workspace = prepare_workspace([])
+    workspace = prepare_workspace({})
     assert (workspace / ".git").is_dir()
 
     remove_workspace(workspace)

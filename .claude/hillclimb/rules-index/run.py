@@ -29,6 +29,7 @@ sys.path[:0] = [each_root for each_root in all_import_roots if each_root not in 
 from contrast_framing import find_contrast_framing
 from rules_eval_support.config.constants import (
     CASES_FILE,
+    ALL_TEXT_CHECKS,
     CHECK_CONTRAST,
     CHECK_JUDGE,
     DEFAULT_EFFORT,
@@ -50,18 +51,16 @@ from session_eval_support.config.constants import (
     DEFAULT_REPS,
     DEFAULT_TIMEOUT_SECONDS,
     ERRORS_FILE_NAME,
+    ID_LIST_SEPARATOR,
     INSTALLED_DIGEST_FIELD,
-    JSON_INDENT,
     LATENCY_DECIMALS,
-    META_FIELD,
     RESULTS_FILE_NAME,
     STATUS_OK,
-    TRACE_FILE_TEMPLATE,
     TRACES_DIRECTORY_NAME,
     USAGE_ERROR_EXIT_CODE,
 )
 from session_eval_support.grading import tool_calls, wilson_interval
-from session_eval_support.rows import append_row, rows_for_install, select_cases, select_variant
+from session_eval_support.rows import append_row, failure_row, rows_for_install, select_cases, select_variant
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
@@ -70,6 +69,7 @@ from session_eval_support.session import (
     served_models,
     trace_turns,
     unscorable,
+    write_trace,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,8 +110,10 @@ def _grade(case_by_field: dict[str, str], session: SessionRun, is_direct: bool) 
     raise KeyError(check)
 
 
-def _failure_row(case_by_field: dict[str, str], rep: int, digest: str, failure_class: str, detail: object) -> dict[str, object]:
-    return {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": failure_class, "detail": detail, META_FIELD: {INSTALLED_DIGEST_FIELD: digest}}
+def _refuse_unknown_checks(all_cases: list[dict[str, str]]) -> None:
+    all_unknown_checks = {each_case["check"] for each_case in all_cases if tool_check(each_case["check"]) is None and each_case["check"] not in ALL_TEXT_CHECKS}
+    if all_unknown_checks:
+        raise ValueError(f"unknown checks in {CASES_FILE.name}: {ID_LIST_SEPARATOR.join(sorted(all_unknown_checks))}")
 
 
 def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, files_by_target: dict[str, str], settings: SessionSettings, is_direct: bool) -> None:
@@ -123,14 +125,12 @@ def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, f
     digest = installed_digest(files_by_target)
     failure = unscorable(session, settings)
     if failure is not None:
-        append_row(variant_directory / ERRORS_FILE_NAME, _failure_row(case_by_field, rep, digest, *failure))
+        append_row(variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, digest, *failure))
         return
-    (variant_directory / TRACES_DIRECTORY_NAME / TRACE_FILE_TEMPLATE.format(case_id=case_by_field["id"], rep=rep)).write_text(
-        json.dumps(trace_turns(case_by_field["prompt"], session.all_events), indent=JSON_INDENT), encoding="utf-8"
-    )
+    write_trace(case_by_field, rep, variant_directory, session)
     followed, grade_record = _grade(case_by_field, session, is_direct)
     if followed is None:
-        append_row(variant_directory / ERRORS_FILE_NAME, _failure_row(case_by_field, rep, digest, FAILURE_JUDGE, grade_record))
+        append_row(variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, digest, FAILURE_JUDGE, grade_record))
         return
     append_row(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, {**grade_record, INSTALLED_DIGEST_FIELD: digest}))
 
@@ -178,6 +178,7 @@ def main() -> int:
     try:
         variant = select_variant(state["variants"], arguments.variant)
         all_cases = select_cases(json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases)
+        _refuse_unknown_checks(all_cases)
     except ValueError as error:
         logger.error("%s", error)
         return USAGE_ERROR_EXIT_CODE

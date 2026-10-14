@@ -51,6 +51,7 @@ def test_search_check_fails_a_windows_drive_or_home_start(monkeypatch: pytest.Mo
     assert not scopes_every_search([ToolCall("Grep", {"pattern": "x", "path": "C:\\"})])
     assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": "D:/"})])
     assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home()) + "/"})])
+    assert not scopes_every_search([ToolCall("Grep", {"pattern": "x", "path": str(Path.home()).upper()})])
     assert scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home() / "work")})])
     assert not scopes_every_search([_bash("find C:/ -name settings.json")])
     assert not scopes_every_search([_bash("find C:\\ -name settings.json")])

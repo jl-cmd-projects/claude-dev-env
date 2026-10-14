@@ -39,16 +39,13 @@ from session_eval_support.config.constants import (
     FIRST_TOOLS_PER_TURN,
     FLOW_ROOT,
     INSTALLED_DIGEST_FIELD,
-    JSON_INDENT,
     LATENCY_DECIMALS,
-    META_FIELD,
     MILLISECONDS_PER_SECOND,
     RESULTS_FILE_NAME,
     SESSION_SETTING_SOURCES,
     STATE_FILE,
     STATUS_OK,
     TRACES_DIRECTORY_NAME,
-    TRACE_FILE_TEMPLATE,
     USAGE_ERROR_EXIT_CODE,
 )
 from session_eval_support.grading import (
@@ -59,6 +56,7 @@ from session_eval_support.grading import (
 )
 from session_eval_support.rows import (
     append_row,
+    failure_row,
     rows_for_install,
     select_cases,
     select_variant,
@@ -67,13 +65,14 @@ from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
-    installed_files_digest,
+    files_digest,
+    installed_files,
     prepare_workspace,
     remove_workspace,
     run_session,
     served_models,
-    trace_turns,
     unscorable,
+    write_trace,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,47 +91,11 @@ def _parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _failure(
-    case_by_field: dict[str, str],
-    rep: int,
-    digest: str,
-    failure_class: str,
-    detail: object,
-) -> dict[str, object]:
-    return {
-        "prompt_id": case_by_field["id"],
-        "rep": rep,
-        "failure_class": failure_class,
-        "detail": detail,
-        META_FIELD: {INSTALLED_DIGEST_FIELD: digest},
-    }
-
-
-def _write_trace(
-    case_by_field: dict[str, str],
-    rep: int,
-    variant_directory: Path,
-    session: SessionRun,
-) -> None:
-    trace_path = (
-        variant_directory
-        / TRACES_DIRECTORY_NAME
-        / TRACE_FILE_TEMPLATE.format(case_id=case_by_field["id"], rep=rep)
-    )
-    trace_path.write_text(
-        json.dumps(
-            trace_turns(case_by_field["prompt"], session.all_events),
-            indent=JSON_INDENT,
-        ),
-        encoding="utf-8",
-    )
-
-
 def _row_meta(
     session: SessionRun,
     final_by_field: dict[str, object],
     all_calls: list[ToolCall],
-    all_installs: list[tuple[str, str]],
+    digest: str,
     settings: SessionSettings,
 ) -> dict[str, object]:
     permission_denials = final_by_field.get("permission_denials")
@@ -149,11 +112,10 @@ def _row_meta(
         "duration_s": round(
             float(final_by_field.get("duration_ms") or 0) / MILLISECONDS_PER_SECOND,
             LATENCY_DECIMALS,
-    META_FIELD,
         ),
         "effort": settings.effort,
         "setting_sources": SESSION_SETTING_SOURCES,
-        INSTALLED_DIGEST_FIELD: installed_files_digest(all_installs),
+        INSTALLED_DIGEST_FIELD: digest,
         "broker_account": decision.get("account")
         if isinstance(decision, dict)
         else None,
@@ -164,7 +126,7 @@ def _scored_row(
     case_by_field: dict[str, str],
     rep: int,
     session: SessionRun,
-    all_installs: list[tuple[str, str]],
+    digest: str,
     settings: SessionSettings,
 ) -> dict[str, object]:
     final_by_field = final_event(session.all_events) or {}
@@ -182,7 +144,7 @@ def _scored_row(
         "usage": final_by_field.get("usage"),
         "latency_s": round(session.latency_seconds, LATENCY_DECIMALS),
         "tool_calls": len(all_calls),
-        "meta": _row_meta(session, final_by_field, all_calls, all_installs, settings),
+        "meta": _row_meta(session, final_by_field, all_calls, digest, settings),
     }
 
 
@@ -190,10 +152,11 @@ def _run_one(
     case_by_field: dict[str, str],
     rep: int,
     variant_directory: Path,
-    all_installs: list[tuple[str, str]],
+    bytes_by_target: dict[str, bytes],
+    digest: str,
     settings: SessionSettings,
 ) -> None:
-    workspace = prepare_workspace(all_installs)
+    workspace = prepare_workspace(bytes_by_target)
     try:
         session = run_session(workspace, case_by_field["prompt"], settings)
     finally:
@@ -202,13 +165,13 @@ def _run_one(
     if failure is not None:
         append_row(
             variant_directory / ERRORS_FILE_NAME,
-            _failure(case_by_field, rep, installed_files_digest(all_installs), *failure),
+            failure_row(case_by_field, rep, digest, *failure),
         )
         return
-    _write_trace(case_by_field, rep, variant_directory, session)
+    write_trace(case_by_field, rep, variant_directory, session)
     append_row(
         variant_directory / RESULTS_FILE_NAME,
-        _scored_row(case_by_field, rep, session, all_installs, settings),
+        _scored_row(case_by_field, rep, session, digest, settings),
     )
 
 
@@ -260,14 +223,21 @@ def _variant_summary(
 def _run_pending(
     all_pending: list[tuple[dict[str, str], int]],
     variant_directory: Path,
-    all_installs: list[tuple[str, str]],
+    bytes_by_target: dict[str, bytes],
+    digest: str,
     settings: SessionSettings,
     parallel: int,
 ) -> None:
     with ThreadPoolExecutor(max_workers=parallel) as executor:
         for each_future in [
             executor.submit(
-                _run_one, each_case, each_rep, variant_directory, all_installs, settings
+                _run_one,
+                each_case,
+                each_rep,
+                variant_directory,
+                bytes_by_target,
+                digest,
+                settings,
             )
             for each_case, each_rep in all_pending
         ]:
@@ -291,8 +261,10 @@ def main() -> int:
     except ValueError as error:
         logger.error("%s", error)
         return USAGE_ERROR_EXIT_CODE
-    all_installs = [tuple(each_pair) for each_pair in variant["install"]]
-    digest = installed_files_digest(all_installs)
+    bytes_by_target = installed_files(
+        [tuple(each_pair) for each_pair in variant["install"]]
+    )
+    digest = files_digest(bytes_by_target)
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(
@@ -301,7 +273,8 @@ def main() -> int:
     _run_pending(
         _pending_runs(all_cases, arguments.reps, variant_directory, digest),
         variant_directory,
-        all_installs,
+        bytes_by_target,
+        digest,
         settings,
         arguments.parallel,
     )

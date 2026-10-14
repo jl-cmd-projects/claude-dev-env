@@ -9,6 +9,7 @@ if flow_directory not in sys.path:
 
 from session_eval_support.rows import (
     append_row,
+    failure_row,
     read_rows,
     rows_for_install,
     select_cases,
@@ -36,6 +37,7 @@ def test_select_cases_refuses_an_unknown_id_and_keeps_file_order() -> None:
 
     assert select_cases(all_cases, "s01,w02") == [{"id": "w02"}, {"id": "s01"}]
     assert select_cases(all_cases, "") == all_cases
+    assert select_cases(all_cases, " w02 , s01 ") == [{"id": "w02"}, {"id": "s01"}]
     with pytest.raises(ValueError, match="b02x, b03x"):
         select_cases(all_cases, "w02,b03x,b02x")
 
@@ -60,3 +62,12 @@ def test_select_variant_refuses_an_unknown_name() -> None:
     assert select_variant(variant_by_name, "index") == {"ref": "HEAD"}
     with pytest.raises(ValueError, match="unknown variant: indx"):
         select_variant(variant_by_name, "indx")
+
+
+def test_failure_row_tags_the_digest_so_rows_for_install_counts_it(tmp_path: Path) -> None:
+    errors = tmp_path / "errors.jsonl"
+    row = failure_row({"id": "w02", "prompt": "ask"}, 1, "aaa", "timeout", 600)
+    append_row(errors, row)
+
+    assert row == {"prompt_id": "w02", "rep": 1, "failure_class": "timeout", "detail": 600, "meta": {"installed_digest": "aaa"}}
+    assert rows_for_install(errors, "aaa", {"w02"}) == [row]

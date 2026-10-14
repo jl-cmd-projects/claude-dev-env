@@ -77,7 +77,7 @@ def _is_root_path(path: object) -> bool:
         return False
     normalized = path.replace(WINDOWS_PATH_SEPARATOR, PATH_SEPARATOR)
     trimmed = normalized.rstrip(PATH_SEPARATOR) or PATH_SEPARATOR
-    is_home = trimmed == Path.home().as_posix()
+    is_home = trimmed.casefold() == Path.home().as_posix().casefold()
     return is_home or trimmed in ALL_ROOT_SEARCH_PATHS or DRIVE_ROOT_PATTERN.fullmatch(normalized) is not None
 
 

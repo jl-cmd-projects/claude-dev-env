@@ -3,6 +3,7 @@
 import json
 import os
 import threading
+from collections.abc import Mapping
 from pathlib import Path
 
 from session_eval_support.config.constants import (
@@ -98,6 +99,7 @@ def select_cases(
     ::
 
         select_cases(cases, "w02,b02") -> [w02 case, b02 case]
+        select_cases(cases, "w02, b02") -> [w02 case, b02 case]
         select_cases(cases, "w02,b02x") -> ValueError naming b02x
 
     Args:
@@ -110,7 +112,7 @@ def select_cases(
     Raises:
         ValueError: An id names no case.
     """
-    all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
+    all_wanted_ids = {each_id.strip() for each_id in case_ids.split(",") if each_id.strip()}
     all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
     if all_unknown_ids:
         raise ValueError(f"unknown case ids: {ID_LIST_SEPARATOR.join(sorted(all_unknown_ids))}")
@@ -140,3 +142,31 @@ def select_variant(
         known_names = ID_LIST_SEPARATOR.join(sorted(variant_by_name))
         raise ValueError(f"unknown variant: {variant_name} (known: {known_names})")
     return variant_by_name[variant_name]
+
+
+def failure_row(
+    case_by_field: Mapping[str, str],
+    rep: int,
+    digest: str,
+    failure_class: str,
+    detail: object,
+) -> dict[str, object]:
+    """Return the errors-file row for a session that could not be scored.
+
+    Args:
+        case_by_field: The case, with its ``id``.
+        rep: The repetition number.
+        digest: The install set's digest.
+        failure_class: Why the session could not be scored.
+        detail: The evidence for that class.
+
+    Returns:
+        The row, tagged with the digest so rows_for_install can scope it.
+    """
+    return {
+        "prompt_id": case_by_field["id"],
+        "rep": rep,
+        "failure_class": failure_class,
+        "detail": detail,
+        META_FIELD: {INSTALLED_DIGEST_FIELD: digest},
+    }

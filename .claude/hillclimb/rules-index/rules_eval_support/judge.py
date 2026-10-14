@@ -32,8 +32,9 @@ def _transcript_within_limit(all_turns: list[dict[str, str]]) -> str:
 def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> str:
     """Return the judge's ask for one session, with the transcript cut to its limit.
 
-    The transcript stays valid JSON: the first turn, the user's ask, stays,
-    and whole turns after it drop, oldest first, until the JSON fits.
+    The transcript stays valid JSON. The first turn, the user's ask, always
+    stays. Whole turns after it drop, oldest first, until the JSON fits the
+    limit or only the ask is left, so an ask longer than the limit goes whole.
 
     Args:
         prompt: The case's ask.

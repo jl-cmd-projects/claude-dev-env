@@ -40,3 +40,13 @@ def test_main_refuses_an_unknown_variant_with_a_usage_error(monkeypatch: pytest.
 
     assert run.main() == 2
     assert "unknown variant: indx" in caplog.text
+
+
+def test_main_refuses_a_case_whose_check_has_no_grader(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, tmp_path: Path) -> None:
+    cases_file = tmp_path / "cases.json"
+    cases_file.write_text('[{"id": "s02", "check": "no_rm", "prompt": "Delete build."}, {"id": "w01", "check": "judge", "prompt": "Write steps."}]', encoding="utf-8")
+    monkeypatch.setattr(run, "CASES_FILE", cases_file)
+    monkeypatch.setattr(sys, "argv", ["run.py", "--variant", "index"])
+
+    assert run.main() == 2
+    assert "unknown checks in cases.json: no_rm" in caplog.text

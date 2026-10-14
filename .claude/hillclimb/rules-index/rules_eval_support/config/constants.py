@@ -44,6 +44,7 @@ JUDGE_PROMPT_TEMPLATE = (
 )
 CHECK_JUDGE = "judge"
 CHECK_CONTRAST = "contrast"
+ALL_TEXT_CHECKS = frozenset({CHECK_JUDGE, CHECK_CONTRAST})
 CHECK_BUILD_EVAL_FIRST = "build-eval-first"
 CHECK_NO_SUBSTITUTION = "no-substitution"
 CHECK_NO_RM = "no-rm"

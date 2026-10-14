@@ -40,6 +40,8 @@ from session_eval_support.config.constants import (
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_RESULT_PREVIEW_LENGTH,
     TOOL_USE_BLOCK_TYPE,
+    TRACE_FILE_TEMPLATE,
+    TRACES_DIRECTORY_NAME,
     USER_EVENT_TYPE,
     WINDOWS_PLATFORM,
     WORKSPACE_PREFIX,
@@ -92,38 +94,36 @@ def files_digest(bytes_by_target: Mapping[str, bytes]) -> str:
     return digest.hexdigest()[:DIGEST_LENGTH]
 
 
-def installed_files_digest(all_installs: list[tuple[str, str]]) -> str:
-    """Return the files_digest of the files a variant installs.
+def installed_files(all_installs: list[tuple[str, str]]) -> dict[str, bytes]:
+    """Read the files a variant installs once, keyed by workspace path.
 
     Args:
         all_installs: Pairs of a repository path and its workspace path.
 
     Returns:
-        The digest over each workspace path and its source file's bytes.
+        Each workspace path mapped to its source file's bytes.
     """
-    return files_digest(
-        {
-            each_target: (REPOSITORY_ROOT / each_source).read_bytes()
-            for each_source, each_target in all_installs
-        }
-    )
+    return {
+        each_target: (REPOSITORY_ROOT / each_source).read_bytes()
+        for each_source, each_target in all_installs
+    }
 
 
-def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
+def prepare_workspace(bytes_by_target: Mapping[str, bytes]) -> Path:
     """Copy the fixture project and the variant's files into a new git workspace.
 
     Args:
-        all_installs: Pairs of a repository path and the workspace path it goes to.
+        bytes_by_target: Each workspace path mapped to the bytes installed there.
 
     Returns:
         The workspace directory, committed on branch main.
     """
     workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
     shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_source, each_target in all_installs:
+    for each_target, each_bytes in bytes_by_target.items():
         target_path = workspace / each_target
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPOSITORY_ROOT / each_source, target_path)
+        target_path.write_bytes(each_bytes)
     for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace
@@ -154,11 +154,12 @@ def _read_events(stream_path: Path) -> list[dict[str, object]]:
     return all_events
 
 
-def session_words(prompt: str, settings: SessionSettings) -> list[str]:
+def session_words(settings: SessionSettings) -> list[str]:
     """Return the headless claude command for one session, before any launcher wraps it.
 
+    The prompt goes on standard input, so no launcher shim reparses it.
+
     Args:
-        prompt: The case's ask, sent as the first user turn.
         settings: The model, effort and turn cap.
 
     Returns:
@@ -167,7 +168,6 @@ def session_words(prompt: str, settings: SessionSettings) -> list[str]:
     return [
         "claude",
         "-p",
-        prompt,
         "--model",
         settings.model,
         "--effort",
@@ -281,22 +281,33 @@ def _run_command(
     workspace: Path,
     stream_path: Path,
     timeout_seconds: int,
+    prompt_bytes: bytes,
 ) -> int | None:
     with stream_path.open("w", encoding="utf-8") as stream_file:
         return run_until_timeout(
-            all_command_words, workspace, stream_file, timeout_seconds, None
+            all_command_words, workspace, stream_file, timeout_seconds, prompt_bytes
         )
 
 
 def _run_in_capture(
     capture_directory: Path,
     workspace: Path,
-    all_command_words: list[str],
-    timeout_seconds: int,
+    prompt: str,
+    settings: SessionSettings,
+    launch: Callable[[Path, list[str]], list[str]],
 ) -> SessionRun:
     stream_path = capture_directory / STREAM_FILE_NAME
+    all_command_words = launch(
+        capture_directory / BROKER_REPORT_FILE_NAME, session_words(settings)
+    )
     started = time.monotonic()
-    exit_code = _run_command(all_command_words, workspace, stream_path, timeout_seconds)
+    exit_code = _run_command(
+        all_command_words,
+        workspace,
+        stream_path,
+        settings.timeout_seconds,
+        prompt.encode("utf-8"),
+    )
     latency_seconds = time.monotonic() - started
     return SessionRun(
         _read_events(stream_path),
@@ -319,7 +330,7 @@ def run_session(
 
     Args:
         workspace: The prepared workspace, used as the session's directory.
-        prompt: The case's ask, sent as the first user turn.
+        prompt: The case's ask, sent on standard input as the first user turn.
         settings: The model, effort, turn cap and wall-clock ceiling.
         launch: Builds the command from the report path and the claude words.
 
@@ -329,13 +340,7 @@ def run_session(
     with tempfile.TemporaryDirectory(
         prefix=workspace.name + "-out-", ignore_cleanup_errors=True
     ) as capture_name:
-        capture_directory = Path(capture_name)
-        all_command_words = launch(
-            capture_directory / BROKER_REPORT_FILE_NAME, session_words(prompt, settings)
-        )
-        return _run_in_capture(
-            capture_directory, workspace, all_command_words, settings.timeout_seconds
-        )
+        return _run_in_capture(Path(capture_name), workspace, prompt, settings, launch)
 
 
 def unscorable(
@@ -361,6 +366,31 @@ def unscorable(
     if not any(each_model.startswith(settings.model) for each_model in all_served):
         return FAILURE_MODEL_MISMATCH, all_served
     return None
+
+
+def write_trace(
+    case_by_field: Mapping[str, str], rep: int, variant_directory: Path, session: SessionRun
+) -> None:
+    """Write one session's trace turns under the variant's traces folder.
+
+    Args:
+        case_by_field: The case, with its ``id`` and ``prompt``.
+        rep: The repetition number.
+        variant_directory: The variant's results folder.
+        session: What the session left behind.
+    """
+    trace_path = (
+        variant_directory
+        / TRACES_DIRECTORY_NAME
+        / TRACE_FILE_TEMPLATE.format(case_id=case_by_field["id"], rep=rep)
+    )
+    trace_path.write_text(
+        json.dumps(
+            trace_turns(case_by_field["prompt"], session.all_events),
+            indent=JSON_INDENT,
+        ),
+        encoding="utf-8",
+    )
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
