@@ -3,10 +3,7 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
 
-
-@pytest.mark.usefixtures("require_bun")
 def test_entry_point_registers_both_hook_groups() -> None:
     root = Path(__file__).resolve().parents[3]
     script = (
