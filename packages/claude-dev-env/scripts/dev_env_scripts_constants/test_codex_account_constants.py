@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from dev_env_scripts_constants import codex_account_constants as constants
+from dev_env_scripts_constants.account_broker_constants import METER_READ_ATTEMPTS, meter_read_delay_seconds
 from dev_env_scripts_constants.claude_account_constants import ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS
 
 CODEX_ACCOUNTS_DOC_PATH = Path(__file__).resolve().parents[2] / "docs" / "codex-accounts.md"
@@ -94,6 +95,16 @@ def test_tier_bars_match_the_documented_table() -> None:
     section_text = documented_section("Which account a job uses")
     for each_row in all_expected_rows:
         assert each_row in section_text
+
+
+def test_meter_retries_match_the_documented_table() -> None:
+    all_delays = [meter_read_delay_seconds(each_attempt) for each_attempt in range(1, METER_READ_ATTEMPTS)]
+    all_delay_texts = [f"{each_delay:g} second" + ("" if each_delay == 1 else "s") for each_delay in all_delays]
+    expected_row = (
+        f"| A meter read fails | The broker reads it again, up to {METER_READ_ATTEMPTS} reads, "
+        f"waiting {' and then '.join(all_delay_texts)} |"
+    )
+    assert expected_row in documented_section("Which account a job uses")
 
 
 def test_documented_choose_sample_runs_normal_on_the_tightest_window() -> None:

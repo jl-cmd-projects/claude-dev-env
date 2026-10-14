@@ -95,8 +95,8 @@ A window that reports no length counts as weekly.
 | No account over 10%, one or more over 1% | `luna` on the account with the most room |
 | An account that reports a window shorter than a week, such as the 5-hour window, with under 20% of that window left | never takes `luna` |
 | No account over 1% | `wait`, naming the next reset when known |
-| A meter read fails | The broker reads it once more |
-| A meter is unread after both reads | The account has `meters: null` and the failure text in `unread_reason`; a `wait` reason names the account and that text |
+| A meter read fails | The broker reads it again, up to 3 reads, waiting 1 second and then 2 seconds |
+| A meter is unread after every read | The account has `meters: null` and the failure text in `unread_reason`; a `wait` reason names the account and that text |
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product codex

@@ -112,6 +112,11 @@ def codex_usage_limit_signatures() -> tuple[str, ...]:
     return module.ALL_USAGE_LIMIT_MARKERS
 
 
+def meter_read_delay_seconds(attempt_index: int) -> float:
+    """Seconds to wait before a meter read retry, where the first retry has index 1."""
+    return min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (attempt_index - 1), METER_READ_MAX_DELAY_SECONDS)
+
+
 def utc_time_text(moment: datetime | None) -> str | None:
     return moment.astimezone(timezone.utc).isoformat() if moment is not None else None
 

@@ -43,9 +43,6 @@ from dev_env_scripts_constants.account_broker_constants import (
     JobOutcome,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
-    METER_READ_DELAY_FACTOR,
-    METER_READ_FIRST_DELAY_SECONDS,
-    METER_READ_MAX_DELAY_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -54,6 +51,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     REPORT_INDENT_SPACES,
     SubprocessRunner,
     codex_usage_limit_signatures,
+    meter_read_delay_seconds,
     parse_utc_time,
     utc_time_text,
 )
@@ -333,7 +331,7 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
-            time.sleep(min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (each_attempt - 1), METER_READ_MAX_DELAY_SECONDS))
+            time.sleep(meter_read_delay_seconds(each_attempt))
         try:
             return read_meters(account), None
         except (
