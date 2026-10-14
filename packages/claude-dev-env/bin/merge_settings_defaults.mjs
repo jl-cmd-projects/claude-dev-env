@@ -41,7 +41,7 @@ function mergeMissingPerModelFields(targetPerModel, defaultPerModel, settingKey)
     return addedKeys;
 }
 
-export const NESTED_MERGE_BY_SETTING_KEY = Object.freeze({
+const NESTED_MERGE_BY_SETTING_KEY = Object.freeze({
     modelSettings: mergeMissingPerModelFields,
     env: mergeMissingFields,
 });
@@ -73,13 +73,12 @@ export function settingsDefaultsFromPackageSettings(packageSettings) {
 export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
     const addedKeys = [];
     for (const [settingKey, defaultValue] of Object.entries(settingsDefaults)) {
-        const mergeNested = Object.hasOwn(NESTED_MERGE_BY_SETTING_KEY, settingKey)
+        if (
+            Object.hasOwn(NESTED_MERGE_BY_SETTING_KEY, settingKey)
             && isPlainObject(targetSettings[settingKey])
             && isPlainObject(defaultValue)
-            ? NESTED_MERGE_BY_SETTING_KEY[settingKey]
-            : null;
-        if (mergeNested) {
-            addedKeys.push(...mergeNested(targetSettings[settingKey], defaultValue, settingKey));
+        ) {
+            addedKeys.push(...NESTED_MERGE_BY_SETTING_KEY[settingKey](targetSettings[settingKey], defaultValue, settingKey));
             continue;
         }
         if (Object.hasOwn(targetSettings, settingKey)) continue;

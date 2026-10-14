@@ -114,3 +114,23 @@ test('mergeMissingSettingsDefaults should add a missing env variable to a presen
         },
     });
 });
+
+test('mergeMissingSettingsDefaults should add the whole env block when the user settings have none', () => {
+    const targetSettings = {};
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, { env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' } }),
+        { addedKeys: ['env'] },
+    );
+    assert.deepEqual(targetSettings, { env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' } });
+});
+
+test('mergeMissingSettingsDefaults should keep a non-object env value as the user set it', () => {
+    const targetSettings = { env: null };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, { env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' } }),
+        { addedKeys: [] },
+    );
+    assert.deepEqual(targetSettings, { env: null });
+});
