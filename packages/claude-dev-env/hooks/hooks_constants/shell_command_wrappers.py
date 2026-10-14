@@ -10,7 +10,7 @@ A wrapper either runs its own operands, as ``sudo``, ``xargs``, ``env``, and
     bash -lc "git commit -F m.txt"        "git commit -F m.txt" unwraps in turn
 
 ``pytest_invocation`` owns the wrapper and string-exec parsing, and this module
-composes it into the two answers a hook asks about any program.
+composes it into the answers a hook asks about any program.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ from hooks_constants.shell_command_segments import (
 __all__ = [
     "segment_program_and_arguments",
     "all_wrapped_command_texts",
+    "all_wrapped_command_segments",
 ]
 
 
@@ -66,3 +67,19 @@ def all_wrapped_command_texts(command: str) -> list[str]:
         if each_inner_command is not None:
             all_command_texts.extend(all_wrapped_command_texts(each_inner_command))
     return all_command_texts
+
+
+def all_wrapped_command_segments(command: str) -> list[list[str]]:
+    """Return every segment of the command and of each command string a shell wrapper inside it runs.
+
+    Each command string is parsed once, so a hook that grades segments reads
+    ``bash -c "gh pr list"`` as its outer segment plus ``gh pr list`` without
+    tokenizing either text a second time.
+    """
+    all_segments: list[list[str]] = []
+    for each_segment, _following_operator in pipeline_segments_for_command(command):
+        all_segments.append(each_segment)
+        inner_command = string_exec_inner_command(each_segment)
+        if inner_command is not None:
+            all_segments.extend(all_wrapped_command_segments(inner_command))
+    return all_segments

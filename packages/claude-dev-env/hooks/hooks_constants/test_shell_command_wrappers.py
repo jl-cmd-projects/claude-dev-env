@@ -32,6 +32,27 @@ def test_should_return_only_the_command_when_no_wrapper_runs() -> None:
 
 
 @pytest.mark.parametrize(
+    "command",
+    [
+        "git push",
+        'bash -c "git add -A && git push"; echo done',
+        "bash -c \"pwsh -Command 'git push; git status'\"",
+        "sudo bash -c 'gh pr list' | head",
+    ],
+)
+def test_should_return_the_segments_of_every_wrapped_command_text(command: str) -> None:
+    all_segments_from_texts = [
+        each_segment
+        for each_text in shell_command_wrappers.all_wrapped_command_texts(command)
+        for each_segment, _following_operator in (
+            shell_command_wrappers.pipeline_segments_for_command(each_text)
+        )
+    ]
+    all_segments = shell_command_wrappers.all_wrapped_command_segments(command)
+    assert sorted(all_segments) == sorted(all_segments_from_texts)
+
+
+@pytest.mark.parametrize(
     ("all_segment_tokens", "expected_program_and_arguments"),
     [
         (["git", "push"], ("git", ["push"])),
