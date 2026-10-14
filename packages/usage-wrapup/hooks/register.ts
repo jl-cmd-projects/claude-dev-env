@@ -9,28 +9,6 @@ const LABEL: Record<string, string> = {
 
 type Low = { kind: string; left: number; resetsAt?: string }
 
-type UsageRead =
-  | { kind: 'pending'; limits: Promise<readonly SessionRateLimit[] | undefined> }
-  | { kind: 'failed'; at: number }
-
-const USAGE_RETRY_MILLISECONDS = 60_000
-
-function isCoolingDown(read: UsageRead | undefined, now: number): boolean {
-  if (read?.kind !== 'failed') return false
-  const sinceFailure = now - read.at
-  return sinceFailure >= 0 && sinceFailure < USAGE_RETRY_MILLISECONDS
-}
-
-async function readUsageLimits(
-  readUsage: () => Promise<{ rateLimits?: readonly SessionRateLimit[] }>,
-): Promise<readonly SessionRateLimit[] | undefined> {
-  try {
-    return (await readUsage())?.rateLimits
-  } catch {
-    return undefined
-  }
-}
-
 /** The readable window with the least left, when it is at or below the threshold. Windows with no finite reading are skipped. */
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
@@ -66,16 +44,6 @@ export const register: Register = (on, options) => {
   const threshold = Number(options.threshold ?? 1)
   let limits: readonly SessionRateLimit[] | undefined
   let wasWarned = false
-  let usageRead: UsageRead | undefined
-
-  const startUsageRead = (readUsage: () => Promise<{ rateLimits?: readonly SessionRateLimit[] }>) => {
-    const pending = readUsageLimits(readUsage)
-    usageRead = { kind: 'pending', limits: pending }
-    void pending.then((read) => {
-      usageRead = read ? undefined : { kind: 'failed', at: Date.now() }
-    })
-    return pending
-  }
 
   on('session.measure', ($, e, next) => {
     limits = e.rateLimits
@@ -90,11 +58,11 @@ export const register: Register = (on, options) => {
     const ran = await next(e)
     if ('deny' in ran && ran.deny !== undefined) return ran
     if (!limits) {
-      if (isCoolingDown(usageRead, Date.now())) return ran
-      const pending = usageRead?.kind === 'pending' ? usageRead.limits : startUsageRead(() => $.session.usage())
-      const read = await pending
-      limits ??= read
-      if (!limits) return ran
+      try {
+        limits = (await $.session.usage()).rateLimits
+      } catch {
+        limits = []
+      }
     }
     const low = lowest(limits, threshold)
     if (!low) return ran
