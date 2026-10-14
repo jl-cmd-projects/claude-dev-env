@@ -17,15 +17,14 @@ from dev_env_scripts_constants.account_broker_constants import (
     ProductAdapter,
 )
 
+_user_home_at_import = Path.home()
+
 
 def test_meter_cache_write_lands_outside_the_home_directory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     isolated_broker_state_path: Path,
 ) -> None:
-    fake_home = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(fake_home))
-    monkeypatch.setenv("USERPROFILE", str(fake_home))
     account = Account(Product.CLAUDE, "only", tmp_path / "only")
     reset_at = datetime(2026, 10, 5, tzinfo=timezone.utc)
     adapter = ProductAdapter(
@@ -42,7 +41,6 @@ def test_meter_cache_write_lands_outside_the_home_directory(
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
 
-    home_state_path = fake_home / ".claude" / "account-broker" / "state.json"
-    assert not home_state_path.exists()
+    assert not isolated_broker_state_path.is_relative_to(_user_home_at_import)
     state = json.loads(isolated_broker_state_path.read_text(encoding="utf-8"))
     assert f"claude:only:{account.home}" in state["meters"]

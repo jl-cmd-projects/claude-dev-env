@@ -35,25 +35,22 @@ for each_import_directory in (
     if str(each_import_directory) not in sys.path:
         sys.path.insert(0, str(each_import_directory))
 
-_live_broker_state_resolver = importlib.import_module("account_broker_support").broker_state_path
-
-
 @pytest.fixture(autouse=True)
 def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point every module's ``broker_state_path`` at a per-test file.
+    """Point the home directory at a per-test folder.
 
-    ``account_broker`` binds ``broker_state_path`` by name from
-    ``account_broker_support``, so each bound copy is replaced. A test that
-    patches only one copy still keeps the other off the home directory.
+    ``broker_state_path`` builds its path from ``Path.home()``, which reads
+    ``HOME`` on POSIX and ``USERPROFILE`` on Windows. Redirecting both keeps
+    every bound copy of the resolver, and every other home-derived path, off
+    the user's home directory.
 
     Returns:
         The isolated broker state path for this test.
     """
-    isolated_path = tmp_path / "account-broker" / "state.json"
-    for each_module in list(sys.modules.values()):
-        if getattr(each_module, "broker_state_path", None) is _live_broker_state_resolver:
-            monkeypatch.setattr(each_module, "broker_state_path", lambda: isolated_path)
-    return isolated_path
+    isolated_home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(isolated_home))
+    monkeypatch.setenv("USERPROFILE", str(isolated_home))
+    return importlib.import_module("account_broker_support").broker_state_path()
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:
