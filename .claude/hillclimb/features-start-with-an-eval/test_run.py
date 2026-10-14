@@ -6,8 +6,16 @@ from pathlib import Path
 import pytest
 
 import run
-from run import _append_line, _pending_runs, _read_rows, _run_one, _unscorable
+from run import (
+    _append_line,
+    _pending_runs,
+    _read_rows,
+    _run_one,
+    _unscorable,
+    _variant_summary,
+)
 from session_eval_support.config.constants import (
+    ERRORS_FILE_NAME,
     FAILURE_NO_RESULT,
     MAX_TURNS_SUBTYPE,
     RESULTS_FILE_NAME,
@@ -103,3 +111,17 @@ def test_run_one_deletes_the_workspace_when_the_session_fails(
         _run_one({"id": "case-a", "prompt": "ask"}, 0, tmp_path, [], SETTINGS)
 
     assert not workspace.exists()
+
+
+def test_variant_summary_counts_errors_only_for_the_selected_cases(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text("")
+    (tmp_path / ERRORS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0})
+        + "\n"
+        + json.dumps({"prompt_id": "case-b", "rep": 0})
+        + "\n"
+    )
+
+    assert _variant_summary([{"id": "case-a"}], tmp_path).endswith("errors 1")

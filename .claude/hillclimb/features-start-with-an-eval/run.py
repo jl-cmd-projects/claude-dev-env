@@ -307,7 +307,10 @@ def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -
         for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)
         if each_row["prompt_id"] in all_wanted
     ]
-    error_count = len(_read_rows(variant_directory / ERRORS_FILE_NAME))
+    error_count = sum(
+        each_row["prompt_id"] in all_wanted
+        for each_row in _read_rows(variant_directory / ERRORS_FILE_NAME)
+    )
     return _summary_line(all_rows, error_count)
 
 
