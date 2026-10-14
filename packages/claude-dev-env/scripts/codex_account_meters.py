@@ -3,10 +3,13 @@
 
 Codex reports usage through ``codex app-server`` and the JSON-RPC method
 ``account/rateLimits/read``. The reply names up to two windows, a short one
-(5 hours) and a weekly one. The account's room is the smaller of the two::
+(5 hours) and a weekly one. The account's room is the smaller of the two.
+The reply also names the account's plan, such as ``pro`` or ``team``::
 
     5-hour window 30% used, week 85% used  -> 15% left
     week window only, 40% used             -> 60% left
+    planType "promax"                      -> plan_type "promax"
+    no planType                            -> plan_type None
     no window, error reply, no reply       -> CodexMeterUnreadError
 
 Every failure raises ``CodexMeterUnreadError``. The caller decides what an
@@ -80,9 +83,10 @@ class UsageWindow:
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows, with percent_left, short_window_percent_left and resets_before_room."""
+    """One account's windows and plan, with percent_left, short_window_percent_left and resets_before_room."""
 
     all_windows: tuple[UsageWindow, ...]
+    plan_type: str | None = None
 
     @property
     def percent_left(self) -> float:
@@ -189,14 +193,16 @@ def parse_rate_limits_reply(reply_text: str) -> CodexAccountMeters:
     ::
 
         {"id": 2, "result": {"rateLimits": {"primary": {"usedPercent": 30, ...},
-                                            "secondary": {"usedPercent": 85, ...}}}}
-        -> CodexAccountMeters with two windows, 15% left
+                                            "secondary": {"usedPercent": 85, ...},
+                                            "planType": "promax"}}}
+        -> CodexAccountMeters with two windows, 15% left, plan_type "promax"
+        the same reply without "planType" -> plan_type None
 
     Args:
         reply_text: One line the ``codex app-server`` process wrote.
 
     Returns:
-        The windows the reply carries.
+        The windows and the plan type the reply carries.
 
     Raises:
         CodexMeterUnreadError: The line is no reply, an error reply, or names
@@ -210,7 +216,8 @@ def parse_rate_limits_reply(reply_text: str) -> CodexAccountMeters:
     )
     if not all_windows:
         raise CodexMeterUnreadError("rate-limit reply names no usage window")
-    return CodexAccountMeters(all_windows=all_windows)
+    plan_type = rate_limits.get("planType")
+    return CodexAccountMeters(all_windows=all_windows, plan_type=plan_type if isinstance(plan_type, str) else None)
 
 
 def request_messages() -> list[dict[str, object]]:

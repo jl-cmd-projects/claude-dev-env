@@ -99,6 +99,9 @@ LUNA_TIER_STOP_PERCENT_LEFT: float = 1.0
 LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT: float = 20.0
 """An account with a window shorter than a week runs Luna only with this much of it left."""
 
+ALL_PRO_PLAN_TYPES: frozenset[str] = frozenset({"pro", "prolite", "promax"})
+"""Plan types of a personal Codex Pro subscription. The broker tries these accounts first."""
+
 WEEKLY_WINDOW_MINUTES: int = 10080
 """Length of the weekly window. Any shorter window is a short window, such as 5 hours."""
 
