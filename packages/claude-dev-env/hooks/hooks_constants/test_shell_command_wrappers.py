@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 
 from hooks_constants import shell_command_wrappers
@@ -118,3 +120,36 @@ def test_should_unwrap_a_command_substitution_in_turn() -> None:
     )
     assert "bash -c 'git push'" in all_command_texts
     assert "git push" in all_command_texts
+
+
+_ENCODED_GIT_PUSH = base64.b64encode("git push".encode("utf-16-le")).decode()
+
+
+@pytest.mark.parametrize(
+    ("all_segment_tokens", "expected_inner_command"),
+    [
+        (["eval", "git push"], "git push"),
+        (["eval", "git", "push"], "git push"),
+        (["Invoke-Expression", "'git push'"], "git push"),
+        (["iex", '"git push"'], "git push"),
+        (["find", ".", "-exec", "git", "push", ";"], "git push"),
+        (["find", ".", "-execdir", "git", "push", "{}", "+"], "git push {}"),
+        (["pwsh", "-EncodedCommand", _ENCODED_GIT_PUSH], "git push"),
+        (["powershell.exe", "-enc", _ENCODED_GIT_PUSH], "git push"),
+        (["pwsh", "-e", _ENCODED_GIT_PUSH], "git push"),
+        (["pwsh", "-ec", _ENCODED_GIT_PUSH], "git push"),
+        (["pwsh", "-e", "not-base64!"], None),
+        (["find", ".", "-name", "x"], None),
+        (["git", "push"], None),
+    ],
+)
+def test_should_return_the_command_an_evaluating_program_runs(
+    all_segment_tokens: list[str], expected_inner_command: str | None
+) -> None:
+    assert (
+        shell_command_wrappers.evaluated_inner_command(all_segment_tokens) == expected_inner_command
+    )
+
+
+def test_should_unwrap_an_evaluated_command_in_turn() -> None:
+    assert "git push" in shell_command_wrappers.all_wrapped_command_texts('eval "git push"')

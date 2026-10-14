@@ -96,6 +96,6 @@ CLOUD_GRAPHQL_DENY_REASON: str = (
     "Auto-merge: PUT or DELETE /repos/{owner}/{repo}/pulls/{n}/ccr/auto_merge. "
     "Draft state: POST /repos/{owner}/{repo}/pulls/{n}/ccr/ready_for_review "
     "or /ccr/convert_to_draft. "
-    "A query with no REST route runs in a bridge session on the user's PC or in a "
-    "GitHub Actions workflow."
+    "A query with no REST route cannot run in this session; it needs a machine outside "
+    "the cloud proxy."
 )

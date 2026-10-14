@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from io import StringIO
 from unittest.mock import patch
@@ -21,6 +22,9 @@ def _stdout_from_main(payload: dict[str, object]) -> str:
     ):
         gate.main()
     return captured_stdout.getvalue()
+
+
+_ENCODED_GH_PR_LIST = base64.b64encode("gh pr list".encode("utf-16-le")).decode()
 
 
 @pytest.fixture
@@ -91,6 +95,11 @@ def cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
         'echo $(echo "$(gh api graphql -f query=@q)")',
         "python3.12 -c \"u('https://api.github.com/graphql')\"",
         "pypy3 -c \"u('https://api.github.com/graphql')\"",
+        'eval "gh api graphql -f query=@q"',
+        "find . -maxdepth 0 -exec gh api graphql -f query=@q \\;",
+        "Invoke-Expression 'gh pr list'",
+        'iex "gh issue list"',
+        "pwsh -EncodedCommand " + _ENCODED_GH_PR_LIST,
     ],
 )
 def test_should_detect_a_github_graphql_call(command: str) -> None:
@@ -124,6 +133,8 @@ def test_should_detect_a_github_graphql_call(command: str) -> None:
         "gh search repos claude-dev-env",
         "gh run view 12",
         "python3 scripts/review_closure.py o/r 1",
+        'eval "gh api repos/o/r/pulls/1"',
+        "find . -name '*.py' -exec grep -l graphql {} +",
         "gh pr",
         "gh run list -L 1",
         "gh workflow list",

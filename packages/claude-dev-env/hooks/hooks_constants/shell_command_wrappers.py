@@ -16,11 +16,28 @@ composes it into the answers a hook asks about any program.
 
 from __future__ import annotations
 
-from hooks_constants.piped_pytest_blocker_constants import WINDOWS_EXECUTABLE_SUFFIX
+import base64
+import itertools
+
+from hooks_constants.piped_pytest_blocker_constants import (
+    WINDOWS_EXECUTABLE_SUFFIX,
+    WRAPPED_COMMAND_TOKEN_JOIN,
+)
 from hooks_constants.pytest_invocation import (
     all_tokens_after_wrappers,
     string_exec_inner_command,
     unquoted_token,
+)
+from hooks_constants.shell_command_evaluation_constants import (
+    ALL_FIND_EXEC_ACTIONS,
+    ALL_FIND_EXEC_TERMINATORS,
+    ALL_POWERSHELL_PROGRAM_NAMES,
+    ALL_STRING_EVALUATING_PROGRAM_NAMES,
+    ENCODED_COMMAND_OPTION,
+    ENCODED_COMMAND_SHORT_ALIAS,
+    ENCODED_COMMAND_TEXT_ENCODING,
+    FIND_PROGRAM_NAME,
+    MINIMUM_ENCODED_COMMAND_PREFIX_LENGTH,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_substitution_constants import (
@@ -42,6 +59,7 @@ __all__ = [
     "all_wrapped_command_texts",
     "all_wrapped_command_segments",
     "all_command_substitution_texts",
+    "evaluated_inner_command",
 ]
 
 
@@ -156,6 +174,66 @@ def all_command_substitution_texts(command: str) -> list[str]:
     return all_substitution_texts
 
 
+def _find_exec_command(all_arguments: list[str]) -> str | None:
+    """Return the command a ``find -exec`` action runs, up to its terminator, else None."""
+    for each_index, each_argument in enumerate(all_arguments):
+        if unquoted_token(each_argument) in ALL_FIND_EXEC_ACTIONS:
+            all_command_tokens = itertools.takewhile(
+                lambda each_token: unquoted_token(each_token) not in ALL_FIND_EXEC_TERMINATORS,
+                all_arguments[each_index + 1 :],
+            )
+            return WRAPPED_COMMAND_TOKEN_JOIN.join(all_command_tokens)
+    return None
+
+
+def _is_encoded_command_option(argument: str) -> bool:
+    lowered_argument = unquoted_token(argument).lower()
+    return lowered_argument == ENCODED_COMMAND_SHORT_ALIAS or (
+        len(lowered_argument) >= MINIMUM_ENCODED_COMMAND_PREFIX_LENGTH
+        and ENCODED_COMMAND_OPTION.startswith(lowered_argument)
+    )
+
+
+def _decoded_utf16_base64_text(encoded_text: str) -> str | None:
+    """Return the UTF-16LE text a base64 string holds, else None."""
+    try:
+        return base64.b64decode(encoded_text, validate=True).decode(ENCODED_COMMAND_TEXT_ENCODING)
+    except ValueError:
+        return None
+
+
+def _decoded_powershell_command(all_arguments: list[str]) -> str | None:
+    """Return the text a PowerShell ``-EncodedCommand`` value decodes to, else None."""
+    for each_previous_argument, each_argument in itertools.pairwise(all_arguments):
+        if _is_encoded_command_option(each_previous_argument):
+            return _decoded_utf16_base64_text(unquoted_token(each_argument))
+    return None
+
+
+def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
+    """Return the command an ``eval``, ``Invoke-Expression``, ``find -exec`` or encoded PowerShell call runs.
+
+    ::
+
+        eval "gh pr list"                      gh pr list
+        iex 'gh pr list'                       gh pr list
+        find . -exec gh pr list +              gh pr list
+        pwsh -EncodedCommand ZwBoACAA...       the decoded text
+        gh pr list                             None
+    """
+    program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    normalized_program_name = program_name.lower()
+    if normalized_program_name in ALL_STRING_EVALUATING_PROGRAM_NAMES:
+        return WRAPPED_COMMAND_TOKEN_JOIN.join(
+            unquoted_token(each_argument) for each_argument in all_arguments
+        )
+    if normalized_program_name == FIND_PROGRAM_NAME:
+        return _find_exec_command(all_arguments)
+    if normalized_program_name in ALL_POWERSHELL_PROGRAM_NAMES:
+        return _decoded_powershell_command(all_arguments)
+    return None
+
+
 def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]]]:
     """Return each command text with its segments, the command first, each parsed once.
 
@@ -167,6 +245,7 @@ def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]
     ]
     all_inner_commands = [
         *(string_exec_inner_command(each_segment) for each_segment in all_command_segments),
+        *(evaluated_inner_command(each_segment) for each_segment in all_command_segments),
         *all_command_substitution_texts(command),
     ]
     all_parses = [(command, all_command_segments)]

@@ -23,8 +23,11 @@ interpreter such as ``python -c`` is denied when an argument names
 ``api.github.com/graphql``, with or without a port. A URL held in a shell
 variable, or built inside a script file, is not in the command text, so the
 gate cannot see it. The program is read past wrappers, shell keywords such as
-``if`` and ``!``, command substitutions and chained commands. Outside a cloud
-session the gate stays quiet, because GraphQL works there.
+``if`` and ``!``, command substitutions, ``eval``, ``Invoke-Expression``,
+``find -exec``, PowerShell ``-EncodedCommand`` and chained commands. Outside a
+cloud session the gate stays quiet, because GraphQL works there. Section 7.1 of
+``docs/references/cloud-pr-loop-compatibility.md`` holds the probe or gh source
+line behind each command in the map.
 
 Hosted by ``blocking/bash_pre_tool_use_dispatcher.py`` for the Bash and
 PowerShell tools.
