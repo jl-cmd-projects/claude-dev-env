@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import copy
+import dataclasses
+import pickle
 from typing import Any
 
 import pytest
@@ -84,12 +87,48 @@ def test_policy_maps_reject_item_assignment() -> None:
         characters_by_hook_name["startup print"] = 1
 
 
+def _policy_with_baselines(baseline_entry: BaselineEntry) -> BudgetPolicy:
+    return BudgetPolicy(
+        section_detail_line_limit=12,
+        all_kinds=(),
+        baseline_entry_by_path={"a/SKILL.md": baseline_entry},
+        baseline_characters_by_hook_name={"startup print": 5200},
+    )
+
+
 def test_equal_policies_hash_alike() -> None:
-    first = BudgetPolicy(12, (), (), {"a/SKILL.md": BaselineEntry(210, ("Plan",))}, {"hook": 5})
-    second = BudgetPolicy(12, (), (), {"a/SKILL.md": BaselineEntry(210, ("Plan",))}, {"hook": 5})
+    first = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
+    second = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
 
     assert first == second
     assert hash(first) == hash(second)
+
+
+def test_policies_differing_only_in_baselines_hash_apart() -> None:
+    first = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
+    second = _policy_with_baselines(BaselineEntry(211, ("Plan",)))
+
+    assert hash(first) != hash(second)
+
+
+def test_policy_survives_copy_pickle_and_asdict() -> None:
+    policy = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
+
+    assert copy.deepcopy(policy) == policy
+    assert pickle.loads(pickle.dumps(policy)) == policy
+    assert dataclasses.asdict(policy)["baseline_characters_by_hook_name"] == {"startup print": 5200}
+
+
+def test_replaced_policy_keeps_read_only_maps() -> None:
+    policy = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
+    replaced = dataclasses.replace(
+        policy, baseline_entry_by_path={"b/SKILL.md": BaselineEntry(None, ())}
+    )
+    entry_by_path: Any = replaced.baseline_entry_by_path
+
+    assert replaced.baseline_entry_by_path == {"b/SKILL.md": BaselineEntry(None, ())}
+    with pytest.raises(TypeError):
+        entry_by_path["c/SKILL.md"] = BaselineEntry(1, ())
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
