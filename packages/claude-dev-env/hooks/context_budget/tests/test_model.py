@@ -10,14 +10,16 @@ from context_budget.model import (
     BaselineEntry,
     BudgetFinding,
     BudgetPolicy,
-    ContextKind,
     FileMeasure,
     HookBudget,
     SectionScan,
 )
-from hooks_constants.context_budget_constants import ALL_DEFAULT_KIND_SPECS
+from context_budget.policy_file import default_policy
 
-SKILL_ENTRY_KIND = ContextKind(*ALL_DEFAULT_KIND_SPECS[0])
+SKILL_ENTRY_KIND_NAME = "skill entry"
+SKILL_ENTRY_KIND = next(
+    each_kind for each_kind in default_policy().all_kinds if each_kind.name == SKILL_ENTRY_KIND_NAME
+)
 
 
 def test_policy_holds_kinds_hooks_and_baselines() -> None:
@@ -48,7 +50,7 @@ def test_baseline_entry_holds_no_line_count_for_a_section_only_file() -> None:
     assert entry.all_section_headings == ("Steps", "Steps")
 
 
-def test_policy_defaults_are_independent_and_reject_field_rebinding() -> None:
+def test_policy_defaults_are_independent() -> None:
     first = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
     second = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
 
@@ -58,8 +60,13 @@ def test_policy_defaults_are_independent_and_reject_field_rebinding() -> None:
     assert first.baseline_entry_by_path is not second.baseline_entry_by_path
     assert first.baseline_characters_by_hook_name is not second.baseline_characters_by_hook_name
     assert first.is_baseline_the_prior_text is False
+
+
+def test_policy_rejects_field_rebinding() -> None:
+    policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
+
     with pytest.raises(FrozenInstanceError):
-        first.section_detail_line_limit = 20
+        policy.section_detail_line_limit = 20
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
