@@ -1,13 +1,15 @@
 """Deny an agent's merge until a review of the merged head came back clean.
 
 The agent that drives a pull request loops a code review on it, fixing and
-pushing each finding, until one pass reports zero findings. The merge then
+pushing each finding, until one pass reports zero findings or every finding
+it reports is ruled out with a link to the posted rulings. The merge then
 names that exact head::
 
     merge, receipt says 0 findings at abc123, merge pinned to abc123 -> allow
+    merge, receipt rules out all 3 findings with a link, pinned       -> allow
     merge, receipt at abc123, merge pinned to def456                 -> deny, review again
     merge, receipt at abc123, merge names no head                    -> deny, pin it
-    merge, no receipt or the receipt counts findings                 -> deny, run the loop
+    merge, no receipt or the receipt counts open findings            -> deny, run the loop
     auto-merge or enqueue pinned to the clean head                    -> allow
     auto-merge that names no head                                     -> deny, pin it
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
@@ -61,10 +63,13 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_FILE_NAME_TEMPLATE,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
+    RECEIPT_RULED_OUT_KEY,
+    RECEIPT_RULINGS_KEY,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
+    RULINGS_LINK_PATTERN,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
@@ -228,10 +233,67 @@ def _clean_head(request: MergeRequest) -> str | None:
         )
     except (OSError, ValueError):
         return None
-    if not isinstance(receipt, dict) or receipt.get(RECEIPT_FINDINGS_KEY) != 0:
+    if not isinstance(receipt, dict) or not is_clean_receipt(
+        receipt, request.owner, request.repo, request.number
+    ):
         return None
     head = receipt.get(RECEIPT_HEAD_KEY)
     return head if isinstance(head, str) and head else None
+
+
+def is_clean_receipt(
+    all_receipt_fields: dict[str, object], owner: str, repo: str, number: int
+) -> bool:
+    """Return whether a recorded pass lets the merge through.
+
+    A pass is clean when it reported zero findings, or when every finding it
+    reported is ruled out and the receipt links the rulings comment posted on
+    this same pull request::
+
+        findings 0                                                -> clean
+        findings 2, ruled out 2, .../acme/tools/pull/12#issuecomment-9 -> clean
+        findings 2, ruled out 2, .../acme/other/pull/12#issuecomment-9 -> not clean
+
+    Args:
+        all_receipt_fields: The parsed receipt of one review pass.
+        owner: Owner of the pull request the merge targets.
+        repo: Repository of the pull request the merge targets.
+        number: Number of the pull request the merge targets.
+
+    Returns:
+        True when the pass counts as clean.
+    """
+    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
+    if not _is_count(finding_count):
+        return False
+    return finding_count == 0 or _rules_out_every_finding(
+        all_receipt_fields, finding_count, owner, repo, number
+    )
+
+
+def _is_count(candidate: object) -> bool:
+    return isinstance(candidate, int) and not isinstance(candidate, bool) and candidate >= 0
+
+
+def _rules_out_every_finding(
+    all_receipt_fields: dict[str, object], finding_count: object, owner: str, repo: str, number: int
+) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
+    return (
+        _is_count(ruled_out_count)
+        and ruled_out_count == finding_count
+        and _links_rulings_on(all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number)
+    )
+
+
+def _links_rulings_on(rulings: object, owner: str, repo: str, number: int) -> bool:
+    rulings_match = RULINGS_LINK_PATTERN.fullmatch(rulings) if isinstance(rulings, str) else None
+    return (
+        rulings_match is not None
+        and rulings_match["owner"].casefold() == owner.casefold()
+        and rulings_match["repo"].casefold() == repo.casefold()
+        and int(rulings_match["number"]) == number
+    )
 
 
 def _review_command() -> str:

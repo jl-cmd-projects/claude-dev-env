@@ -25,6 +25,10 @@ PR_NUMBER_PATTERN = re.compile(r"(?:^|\s)#?(?P<number>\d+)(?:\s|$)")
 PR_URL_PATTERN = re.compile(
     r"github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
 )
+RULINGS_LINK_PATTERN = re.compile(
+    r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
+    r"#issuecomment-\d+"
+)
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
@@ -43,15 +47,21 @@ RECEIPT_FILE_NAME_TEMPLATE = "{owner}__{repo}__{number}.json"
 REPOSITORY_SEPARATOR = ","
 RECEIPT_HEAD_KEY = "head"
 RECEIPT_FINDINGS_KEY = "findings"
+RECEIPT_RULED_OUT_KEY = "ruled_out"
+RECEIPT_RULINGS_KEY = "rulings"
 RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} has no clean review on the head you are merging. Run the review "
     "loop: review the pull request head with `{review_command}`, fix and push every "
     "finding, and review again "
-    "until a pass reports zero findings. Record that pass with `"
+    "until a pass reports zero findings or every finding is ruled out with file:line "
+    "evidence. Record that pass with `"
     + RECORD_COMMAND
-    + " {slug} {number} <head sha> 0`, then merge pinned to that head."
+    + " {slug} {number} <head sha> <finding count>`, adding `--ruled-out <finding count> "
+    "--rulings <link to the rulings comment on this pull request>` when every finding is "
+    "ruled out, then merge "
+    "pinned to that head."
 )
 UNPINNED_MERGE_REASON_TEMPLATE = (
     "{slug}#{number} has a clean review for {head}, but this merge names no head. "
@@ -60,7 +70,8 @@ UNPINNED_MERGE_REASON_TEMPLATE = (
 )
 STALE_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} was reviewed clean at {head}, and this merge names {pinned}. "
-    "Review the new head until a pass reports zero findings, record it, then merge."
+    "Review the new head until a pass reports zero findings or every finding is ruled "
+    "out, record it, then merge."
 )
 AUTO_MERGE_REASON_TEMPLATE = (
     "Auto-merge on {slug}#{number} names no head, so it could merge a head no review "
