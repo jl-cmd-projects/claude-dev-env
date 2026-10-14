@@ -22,7 +22,7 @@ from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
 )
 
 
-def test_bash_roster_starts_only_the_msys_rewriter_and_the_two_gates() -> None:
+def test_bash_roster_starts_only_the_msys_rewriter_and_the_three_gates() -> None:
     assert ALL_BASH_HOSTED_HOOK_ENTRIES == (
         BashHostedHookEntry(
             script_relative_path="blocking/msys_rev_path_rewriter.py",
@@ -37,5 +37,9 @@ def test_bash_roster_starts_only_the_msys_rewriter_and_the_two_gates() -> None:
             script_relative_path="blocking/gh_global_account_switch_gate.py",
             applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
             replaced_by_plugin_name="shell-guards",
+        ),
+        BashHostedHookEntry(
+            script_relative_path="blocking/cloud_graphql_gate.py",
+            applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
         ),
     )
