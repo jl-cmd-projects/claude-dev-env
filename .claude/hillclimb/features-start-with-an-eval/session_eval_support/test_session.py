@@ -1,12 +1,5 @@
 """Behavior tests for session event reading."""
 
-import sys
-from pathlib import Path
-
-flow_directory = str(Path(__file__).resolve().parents[1])
-if flow_directory not in sys.path:
-    sys.path.insert(0, flow_directory)
-
 from session_eval_support.session import final_event, served_models
 
 

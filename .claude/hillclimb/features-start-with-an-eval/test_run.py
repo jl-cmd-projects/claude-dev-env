@@ -1,15 +1,29 @@
 """Behavior tests for eval run selection."""
 
 import json
-import sys
 from pathlib import Path
 
-flow_directory = str(Path(__file__).resolve().parent)
-if flow_directory not in sys.path:
-    sys.path.insert(0, flow_directory)
+from run import _pending_runs, _unscorable
+from session_eval_support.config.constants import (
+    FAILURE_NO_RESULT,
+    MAX_TURNS_SUBTYPE,
+    RESULTS_FILE_NAME,
+    SUCCESS_SUBTYPE,
+)
+from session_eval_support.session import SessionRun, SessionSettings
 
-from run import _pending_runs
-from session_eval_support.config.constants import RESULTS_FILE_NAME
+SETTINGS = SessionSettings(
+    model="claude-haiku", effort="low", max_turns=1, timeout_seconds=1
+)
+
+
+def _finished_session(subtype: str) -> SessionRun:
+    result_event = {
+        "type": "result",
+        "subtype": subtype,
+        "modelUsage": {"claude-haiku-5-5": {}},
+    }
+    return SessionRun([result_event], 0.0, 0, {})
 
 
 def test_pending_runs_skip_completed_case_and_rep(tmp_path: Path) -> None:
@@ -23,3 +37,15 @@ def test_pending_runs_skip_completed_case_and_rep(tmp_path: Path) -> None:
         (cases[1], 0),
         (cases[1], 1),
     ]
+
+
+def test_success_and_turn_limit_sessions_are_scored() -> None:
+    assert _unscorable(_finished_session(SUCCESS_SUBTYPE), SETTINGS) is None
+    assert _unscorable(_finished_session(MAX_TURNS_SUBTYPE), SETTINGS) is None
+
+
+def test_other_result_subtypes_are_unscorable() -> None:
+    assert _unscorable(_finished_session("error_during_execution"), SETTINGS) == (
+        FAILURE_NO_RESULT,
+        "error_during_execution",
+    )
