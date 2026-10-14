@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, NoReturn, TypeVar
 
 
 class ContextBudgetPolicyError(ValueError):
@@ -68,36 +67,6 @@ class BaselineEntry:
     all_section_headings: tuple[str, ...]
 
 
-KeyT = TypeVar("KeyT")
-ValueT = TypeVar("ValueT")
-
-
-class FrozenDict(dict[KeyT, ValueT]):
-    """A dict that refuses changes after construction."""
-
-    def _refuse_change(self, *all_arguments: Any, **all_keyword_arguments: Any) -> NoReturn:
-        raise TypeError(f"{type(self).__name__} is read-only")
-
-    __setitem__ = _refuse_change
-    __delitem__ = _refuse_change
-    __ior__ = _refuse_change
-    clear = _refuse_change
-    pop = _refuse_change
-    popitem = _refuse_change
-    setdefault = _refuse_change
-    update = _refuse_change
-
-    @classmethod
-    def of(cls, mapping: Mapping[KeyT, ValueT]) -> FrozenDict[KeyT, ValueT]:
-        """Return ``mapping`` itself when it is already a FrozenDict, else a FrozenDict copy."""
-        if isinstance(mapping, FrozenDict):
-            return mapping
-        return cls(mapping)
-
-    def __reduce__(self) -> tuple[type[FrozenDict[KeyT, ValueT]], tuple[dict[KeyT, ValueT]]]:
-        return (type(self), (dict(self),))
-
-
 @dataclass(frozen=True)
 class BudgetPolicy:
     """A parsed ``.claude/context-budget.json``.
@@ -115,31 +84,9 @@ class BudgetPolicy:
     section_detail_line_limit: int
     all_kinds: tuple[ContextKind, ...]
     all_hooks: tuple[HookBudget, ...] = ()
-    baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=FrozenDict)
-    baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=FrozenDict)
+    baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=dict)
+    baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict)
     is_baseline_the_prior_text: bool = False
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "baseline_entry_by_path", FrozenDict.of(self.baseline_entry_by_path)
-        )
-        object.__setattr__(
-            self,
-            "baseline_characters_by_hook_name",
-            FrozenDict.of(self.baseline_characters_by_hook_name),
-        )
-
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.section_detail_line_limit,
-                self.all_kinds,
-                self.all_hooks,
-                frozenset(self.baseline_entry_by_path.items()),
-                frozenset(self.baseline_characters_by_hook_name.items()),
-                self.is_baseline_the_prior_text,
-            )
-        )
 
 
 @dataclass(frozen=True)
