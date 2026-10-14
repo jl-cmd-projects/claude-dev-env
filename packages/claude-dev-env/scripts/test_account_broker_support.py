@@ -233,8 +233,7 @@ def _recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return all_delays
 
 
-def _first_reading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, account: Account, read_meters: object) -> object:
-    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+def _first_reading(account: Account, read_meters: object) -> object:
     adapter = ProductAdapter(lambda: (account,), read_meters, "HOME", ())
     state = support._load_state(support.broker_state_path())
     now = datetime(2026, 10, 3, tzinfo=timezone.utc)
@@ -249,7 +248,7 @@ def test_should_read_claude_meters_after_transient_failures_with_growing_delays(
     all_paths_read = _claude_meter_reads(monkeypatch, [unread, unread, usage])
     all_delays = _recorded_sleeps(monkeypatch)
 
-    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)[0]
+    reading = _first_reading(Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)[0]
 
     assert reading.meters is not None
     assert reading.meters.weekly_percent_left == 70.0
@@ -267,7 +266,7 @@ def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, unread, usage])
     all_delays = _recorded_sleeps(monkeypatch)
 
-    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
+    reading = _first_reading(Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
 
     assert reading.meters is not None
     assert reading.meters.weekly_percent_left == 70.0
@@ -282,7 +281,7 @@ def test_should_keep_the_unread_reason_after_every_claude_read_fails(
     all_paths_read = _claude_meter_reads(monkeypatch, all_failures)
     all_delays = _recorded_sleeps(monkeypatch)
 
-    reading, adapter, state, now = _first_reading(monkeypatch, tmp_path, Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)
+    reading, adapter, state, now = _first_reading(Account(Product.CLAUDE, "org-jon", tmp_path), support.read_claude_meters)
     cached_reading = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=now)[0]
 
     assert reading.meters is None
@@ -300,7 +299,7 @@ def test_should_keep_the_unread_reason_after_every_codex_read_fails(
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [first_unread, first_unread, last_unread])
     _recorded_sleeps(monkeypatch)
 
-    reading, adapter, state, now = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "codex-3", tmp_path), support.read_codex_account_meters)
+    reading, adapter, state, now = _first_reading(Account(Product.CODEX, "codex-3", tmp_path), support.read_codex_account_meters)
     cached_reading = support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0]
 
     assert reading.meters is None
