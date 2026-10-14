@@ -6,7 +6,7 @@ from pathlib import Path
 FLOW_ROOT = Path(__file__).resolve().parents[2]
 HOOKS_CONFIG_PATH = FLOW_ROOT.parents[2] / "packages" / "claude-dev-env" / "hooks" / "hooks.json"
 CASES_PATH = FLOW_ROOT / "cases.json"
-JUDGE_STATUS_MESSAGE = "claude-dev-env: checking each line reads plainly"
+JUDGE_STATUS_MESSAGE = "claude-dev-env: checking the message against Jon's writing rules"
 REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 ARGUMENTS_PLACEHOLDER = "$ARGUMENTS"
 JUDGE_MODEL = "haiku"
