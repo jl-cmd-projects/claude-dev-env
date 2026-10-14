@@ -16,7 +16,7 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
-from codex_account_meters import CodexAccountMeters, CodexExecutableNotFoundError, UsageWindow
+from codex_account_meters import CodexAccountMeters, UsageWindow
 
 
 def test_should_load_claude_roster_from_both_lists(
@@ -286,11 +286,11 @@ def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
 def test_should_stop_at_once_when_no_codex_executable_is_found(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    def missing_codex(_explicit_path: object) -> Path:
-        raise CodexExecutableNotFoundError("no codex executable on PATH or at its install path")
-
+    unpatched_resolve_codex_path = support.codex_account_meters.resolve_codex_path
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [])
-    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", missing_codex)
+    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", unpatched_resolve_codex_path)
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     all_delays = _recorded_sleeps(monkeypatch)
 
     reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]

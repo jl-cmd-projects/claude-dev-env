@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from codex_account_meters import (
+    CodexExecutableNotFoundError,
     CodexMeterUnreadError,
     exchange_with_app_server,
     parse_rate_limits_reply,
@@ -223,5 +224,5 @@ class TestResolveCodexPath:
     ) -> None:
         monkeypatch.setenv("PATH", "")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(CodexExecutableNotFoundError):
             resolve_codex_path(None)

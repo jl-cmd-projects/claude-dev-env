@@ -9,8 +9,10 @@ Codex reports usage through ``codex app-server`` and the JSON-RPC method
     week window only, 40% used             -> 60% left
     no window, error reply, no reply       -> CodexMeterUnreadError
 
-Every failure raises ``CodexMeterUnreadError``. The caller decides what an
-unread account means; this module never guesses a number.
+Every read failure raises ``CodexMeterUnreadError``. A missing Codex
+executable raises ``CodexExecutableNotFoundError`` from ``resolve_codex_path``.
+The caller decides what an unread account means; this module never guesses a
+number.
 """
 
 from __future__ import annotations

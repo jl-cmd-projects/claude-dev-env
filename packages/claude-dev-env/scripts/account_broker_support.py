@@ -300,7 +300,8 @@ def read_codex_account_meters(account: Account) -> Meters:
 
     Raises:
         CodexMeterUnreadError: The meter read failed.
-        OSError: No Codex executable was found.
+        CodexExecutableNotFoundError: No Codex executable was found, so
+            read_meters_with_backoff stops without a retry.
     """
     codex_path = codex_account_meters.resolve_codex_path(None)
     usage = codex_account_meters.read_codex_meters(codex_path, account.home)
