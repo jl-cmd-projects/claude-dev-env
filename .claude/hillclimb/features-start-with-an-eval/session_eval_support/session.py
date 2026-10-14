@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,8 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+from hooks_constants.windows_filesystem import force_rmtree
 
 from session_eval_support.config.constants import (
     ALL_GIT_INIT_COMMANDS,
@@ -30,6 +33,9 @@ from session_eval_support.config.constants import (
     USER_EVENT_TYPE,
     WORKSPACE_PREFIX,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -76,17 +82,35 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
         all_installs: Pairs of a repository path and the workspace path it goes to.
 
     Returns:
-        The workspace directory, committed on branch main.
+        The workspace directory, committed on branch main. A setup step that
+        fails deletes the directory before the error propagates.
     """
     workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
-    shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_source, each_target in all_installs:
-        target_path = workspace / each_target
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPOSITORY_ROOT / each_source, target_path)
-    for each_command in ALL_GIT_INIT_COMMANDS:
-        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
+    try:
+        shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
+        for each_source, each_target in all_installs:
+            target_path = workspace / each_target
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPOSITORY_ROOT / each_source, target_path)
+        for each_command in ALL_GIT_INIT_COMMANDS:
+            subprocess.run(
+                each_command, cwd=workspace, check=True, capture_output=True
+            )
+    except (OSError, subprocess.CalledProcessError):
+        remove_directory(workspace)
+        raise
     return workspace
+
+
+def remove_directory(directory: Path) -> None:
+    """Delete a workspace or capture directory, and log one that stays behind.
+
+    Args:
+        directory: The directory to delete.
+    """
+    force_rmtree(str(directory))
+    if directory.exists():
+        logger.warning("could not delete %s", directory)
 
 
 def _read_events(stream_path: Path) -> list[dict[str, object]]:
@@ -169,7 +193,8 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
     """Run the prompt as one headless session in the workspace and read its stream.
 
     The broker picks the account. The stream and the broker report land in a
-    sibling directory, so the session under test never sees them.
+    sibling directory, so the session under test never sees them. That
+    directory is deleted once both are read.
 
     Args:
         workspace: The prepared workspace, used as the session's directory.
@@ -182,18 +207,21 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
     capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
     stream_path = capture_directory / STREAM_FILE_NAME
     report_path = capture_directory / BROKER_REPORT_FILE_NAME
-    started = time.monotonic()
-    exit_code = _run_command(
-        _session_command(report_path, prompt, settings),
-        workspace,
-        stream_path,
-        settings.timeout_seconds,
-    )
-    latency_seconds = time.monotonic() - started
-    broker_report = _read_broker_report(report_path)
-    return SessionRun(
-        _read_events(stream_path), latency_seconds, exit_code, broker_report
-    )
+    try:
+        started = time.monotonic()
+        exit_code = _run_command(
+            _session_command(report_path, prompt, settings),
+            workspace,
+            stream_path,
+            settings.timeout_seconds,
+        )
+        latency_seconds = time.monotonic() - started
+        broker_report = _read_broker_report(report_path)
+        return SessionRun(
+            _read_events(stream_path), latency_seconds, exit_code, broker_report
+        )
+    finally:
+        remove_directory(capture_directory)
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
