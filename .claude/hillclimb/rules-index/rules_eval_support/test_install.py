@@ -1,7 +1,9 @@
+import pytest
+
 from rules_eval_support import install
 
 
-def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch) -> None:
+def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch: pytest.MonkeyPatch) -> None:
     sources = {
         "HEAD:packages/claude-dev-env/rules": "index.md\nscoped.md\n",
         "HEAD:packages/claude-dev-env/docs/rule-guides": "guide.md\n",
