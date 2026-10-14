@@ -52,6 +52,7 @@ def test_tool_call_skips_usage_after_a_failed_read_until_the_next_measurement(
         "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
         "const handlers = {}; "
         "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "Date.now = () => 0; "
         "let usageReads = 0; "
         "const $ = {ui: {status: () => {}, toast: () => {}}, "
         "session: {usage: async () => { usageReads += 1; "
@@ -108,3 +109,55 @@ def test_tool_call_reads_usage_again_after_the_retry_cooldown(
     assert "5-hour usage limit: only 1% left." in "\n".join(
         cooldown_report["afterCooldown"]["context"]
     )
+
+
+def test_tool_call_reads_usage_again_when_the_clock_moves_back(
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    script = (
+        "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
+        "const handlers = {}; "
+        "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "let now = 3600000; "
+        "Date.now = () => now; "
+        "let usageReads = 0; "
+        "const $ = {session: {usage: async () => { usageReads += 1; "
+        "if (usageReads === 1) throw new Error('usage read failed'); "
+        "return {rateLimits: [{kind: 'five_hour', percentUsed: 99}]}; }}}; "
+        "const next = async () => ({result: 'ok'}); "
+        "await handlers['tool.call']($, undefined, next); "
+        "now = 0; "
+        "const afterClockStep = await handlers['tool.call']($, undefined, next); "
+        "console.log(JSON.stringify({afterClockStep, usageReads}));"
+    )
+    clock_run = run_repository_command(["bun", "-e", script])
+    clock_report = json.loads(clock_run.stdout)
+
+    assert clock_report["usageReads"] == 2
+    assert "5-hour usage limit: only 1% left." in "\n".join(
+        clock_report["afterClockStep"]["context"]
+    )
+
+
+def test_concurrent_tool_calls_share_one_usage_read(
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    script = (
+        "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
+        "const handlers = {}; "
+        "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "let usageReads = 0; "
+        "const $ = {session: {usage: async () => { usageReads += 1; "
+        "await new Promise((resolve) => setTimeout(resolve, 10)); "
+        "return {rateLimits: [{kind: 'five_hour', percentUsed: 99}]}; }}}; "
+        "const next = async () => ({result: 'ok'}); "
+        "const results = await Promise.all([1, 2, 3].map(() => "
+        "handlers['tool.call']($, undefined, next))); "
+        "console.log(JSON.stringify({results, usageReads}));"
+    )
+    concurrency_run = run_repository_command(["bun", "-e", script])
+    concurrency_report = json.loads(concurrency_run.stdout)
+
+    assert concurrency_report["usageReads"] == 1
+    for each_result in concurrency_report["results"]:
+        assert "5-hour usage limit: only 1% left." in "\n".join(each_result["context"])
