@@ -80,3 +80,29 @@ def test_should_report_reviewed_when_some_findings_stay_open() -> None:
 def test_should_refuse_a_ruled_out_count_it_cannot_back(extra_arguments: list[str]) -> None:
     with pytest.raises(SystemExit):
         merge_review_receipt.main(["acme/tools", "12", HEAD, "3", *extra_arguments], StringIO())
+
+
+@pytest.mark.parametrize(
+    "all_arguments",
+    [
+        ["acme/tools", "12", HEAD, "-1"],
+        ["acme/tools", "12", HEAD, "2", "--rulings", RULINGS_LINK],
+    ],
+)
+def test_should_refuse_counts_and_links_it_cannot_record(
+    all_arguments: list[str], receipt_folder: Path
+) -> None:
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(all_arguments, StringIO())
+    assert list(receipt_folder.iterdir()) == []
+
+
+def test_should_report_reviewed_when_the_rulings_link_points_at_another_pull_request() -> None:
+    verdict_stream = StringIO()
+    other_link = "https://github.com/acme/tools/pull/13#issuecomment-1"
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--ruled-out", "2", "--rulings", other_link],
+        verdict_stream,
+    )
+    assert exit_code == 1
+    assert verdict_stream.getvalue() == f"REVIEWED acme/tools#12 {HEAD} 2 findings\n"

@@ -25,6 +25,10 @@ PR_NUMBER_PATTERN = re.compile(r"(?:^|\s)#?(?P<number>\d+)(?:\s|$)")
 PR_URL_PATTERN = re.compile(
     r"github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
 )
+RULINGS_LINK_PATTERN = re.compile(
+    r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
+    r"#issuecomment-\d+"
+)
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
@@ -55,7 +59,8 @@ NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "evidence. Record that pass with `"
     + RECORD_COMMAND
     + " {slug} {number} <head sha> <finding count>`, adding `--ruled-out <finding count> "
-    "--rulings <link to the posted rulings>` when every finding is ruled out, then merge "
+    "--rulings <link to the rulings comment on this pull request>` when every finding is "
+    "ruled out, then merge "
     "pinned to that head."
 )
 UNPINNED_MERGE_REASON_TEMPLATE = (

@@ -69,6 +69,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
+    RULINGS_LINK_PATTERN,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
@@ -232,20 +233,32 @@ def _clean_head(request: MergeRequest) -> str | None:
         )
     except (OSError, ValueError):
         return None
-    if not isinstance(receipt, dict) or not is_clean_receipt(receipt):
+    if not isinstance(receipt, dict) or not is_clean_receipt(
+        receipt, request.owner, request.repo, request.number
+    ):
         return None
     head = receipt.get(RECEIPT_HEAD_KEY)
     return head if isinstance(head, str) and head else None
 
 
-def is_clean_receipt(all_receipt_fields: dict[str, object]) -> bool:
+def is_clean_receipt(
+    all_receipt_fields: dict[str, object], owner: str, repo: str, number: int
+) -> bool:
     """Return whether a recorded pass lets the merge through.
 
     A pass is clean when it reported zero findings, or when every finding it
-    reported is ruled out and the receipt links the posted rulings.
+    reported is ruled out and the receipt links the rulings comment posted on
+    this same pull request::
+
+        findings 0                                                -> clean
+        findings 2, ruled out 2, .../acme/tools/pull/12#issuecomment-9 -> clean
+        findings 2, ruled out 2, .../acme/other/pull/12#issuecomment-9 -> not clean
 
     Args:
         all_receipt_fields: The parsed receipt of one review pass.
+        owner: Owner of the pull request the merge targets.
+        repo: Repository of the pull request the merge targets.
+        number: Number of the pull request the merge targets.
 
     Returns:
         True when the pass counts as clean.
@@ -255,11 +268,18 @@ def is_clean_receipt(all_receipt_fields: dict[str, object]) -> bool:
         return False
     if finding_count == 0:
         return True
-    rulings = all_receipt_fields.get(RECEIPT_RULINGS_KEY)
+    return all_receipt_fields.get(RECEIPT_RULED_OUT_KEY) == finding_count and _links_rulings_on(
+        all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number
+    )
+
+
+def _links_rulings_on(rulings: object, owner: str, repo: str, number: int) -> bool:
+    rulings_match = RULINGS_LINK_PATTERN.fullmatch(rulings) if isinstance(rulings, str) else None
     return (
-        all_receipt_fields.get(RECEIPT_RULED_OUT_KEY) == finding_count
-        and isinstance(rulings, str)
-        and bool(rulings.strip())
+        rulings_match is not None
+        and rulings_match["owner"].casefold() == owner.casefold()
+        and rulings_match["repo"].casefold() == repo.casefold()
+        and int(rulings_match["number"]) == number
     )
 
 
