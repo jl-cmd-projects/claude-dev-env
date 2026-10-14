@@ -18,7 +18,6 @@ from rules_eval_support.grading import (
 )
 from rules_eval_support.install import prepare_workspace, variant_files
 from rules_eval_support.judge import parse_verdict
-from rules_eval_support.launch import launch_words
 from session_eval_support.grading import ToolCall
 
 
@@ -74,10 +73,3 @@ def test_index_variant_installs_the_index_and_guides_it_links() -> None:
     assert (workspace / ".claude/docs/rule-guides/research-mode.md").is_file()
     assert not (workspace / ".claude/rules/research-mode.md").exists()
     assert (workspace / "logs/alpha.log").is_file()
-
-
-def test_direct_launch_skips_the_broker_and_brokered_launch_wraps_it() -> None:
-    all_words = ["claude", "-p", "hi"]
-    assert launch_words(Path("r.json"), all_words, is_direct=True)[1:] == all_words[1:]
-    brokered = launch_words(Path("r.json"), all_words, is_direct=False)
-    assert brokered[-3:] == all_words and "--" in brokered

@@ -1,6 +1,33 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
+flow_directory = Path(__file__).resolve().parents[1]
+all_import_roots = [str(flow_directory), str(flow_directory.parent / "features-start-with-an-eval")]
+sys.path[:0] = all_import_roots
+
 from rules_eval_support import install
+
+READ_A_UTF8_RULE = (
+    "from rules_eval_support.install import _read_git\n"
+    "print(ascii(_read_git('show', 'HEAD:packages/claude-dev-env/rules/code-standards.md')))\n"
+)
+
+
+def _commit_files(repository: Path, text_by_path: dict[str, str]) -> None:
+    for each_path, each_text in text_by_path.items():
+        target = repository / each_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(each_text, encoding="utf-8")
+    for each_command in (
+        ("git", "init", "-q", "-b", "main"),
+        ("git", "add", "-A"),
+        ("git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-q", "-m", "rules"),
+    ):
+        subprocess.run(each_command, cwd=repository, check=True, capture_output=True)
 
 
 def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -17,3 +44,36 @@ def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch: pytest.M
         ".claude/rules/index.md": "Always loaded.\n",
         ".claude/docs/rule-guides/guide.md": "Guide.\n",
     }
+
+
+def test_variant_files_includes_rules_and_guides_in_subfolders(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _commit_files(
+        tmp_path,
+        {
+            "packages/claude-dev-env/rules/index.md": "Index.\n",
+            "packages/claude-dev-env/rules/team/nested.md": "Nested.\n",
+            "packages/claude-dev-env/docs/rule-guides/shell/guide.md": "Guide.\n",
+        },
+    )
+    monkeypatch.setattr(install, "REPOSITORY_ROOT", tmp_path)
+
+    assert install.variant_files("HEAD") == {
+        ".claude/rules/index.md": "Index.\n",
+        ".claude/rules/team/nested.md": "Nested.\n",
+        ".claude/docs/rule-guides/shell/guide.md": "Guide.\n",
+    }
+
+
+def test_read_git_decodes_utf8_rule_text_under_an_ascii_locale() -> None:
+    environment = {**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONPATH": os.pathsep.join(all_import_roots)}
+
+    completed = subprocess.run(
+        [sys.executable, "-X", "utf8=0", "-c", READ_A_UTF8_RULE],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "\\xa7" in completed.stdout

@@ -16,15 +16,14 @@ from rules_eval_support.config.constants import (
     GIT_COMMIT_PATTERN,
     GUIDE_PATH_MARKER,
     PATH_FIELD,
-    PLUGIN_SEPARATOR,
     PR_LIFECYCLE_SKILL_NAME,
     READ_TOOL_NAME,
     RM_PATTERN,
     ROOT_SEARCH_PATTERN,
     SKILL_FIELD,
-    SKILL_TOOL_NAME,
     SUBSTITUTION_PATTERN,
 )
+from session_eval_support.config.constants import PLUGIN_SEPARATOR, SKILL_TOOL_NAME
 from session_eval_support.grading import ToolCall, build_eval_came_first
 
 

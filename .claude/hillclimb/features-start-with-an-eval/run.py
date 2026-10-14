@@ -18,7 +18,6 @@ import argparse
 import json
 import logging
 import sys
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -27,8 +26,6 @@ if flow_directory not in sys.path:
     sys.path.insert(0, flow_directory)
 
 from session_eval_support.config.constants import (
-    ALL_SCORABLE_SUBTYPES,
-    BROKER_WAIT_EXIT_CODE,
     CASES_FILE,
     DEFAULT_EFFORT,
     DEFAULT_MAX_TURNS,
@@ -38,16 +35,11 @@ from session_eval_support.config.constants import (
     DEFAULT_TIMEOUT_SECONDS,
     ERRORS_FILE_NAME,
     EXPECTED_BUILD_EVAL,
-    FAILURE_BROKER_WAIT,
-    FAILURE_MODEL_MISMATCH,
-    FAILURE_NO_RESULT,
-    FAILURE_TIMEOUT,
     FIRST_TOOLS_PER_TURN,
     FLOW_ROOT,
     JSON_INDENT,
     LATENCY_DECIMALS,
     MILLISECONDS_PER_SECOND,
-    NEWLINE,
     RESULTS_FILE_NAME,
     SESSION_SETTING_SOURCES,
     STATE_FILE,
@@ -61,6 +53,7 @@ from session_eval_support.grading import (
     tool_calls,
     wilson_interval,
 )
+from session_eval_support.rows import append_row, read_rows, select_cases
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
@@ -70,10 +63,10 @@ from session_eval_support.session import (
     run_session,
     served_models,
     trace_turns,
+    unscorable,
 )
 
 logger = logging.getLogger(__name__)
-write_lock = threading.Lock()
 
 
 def _parse_arguments() -> argparse.Namespace:
@@ -89,21 +82,6 @@ def _parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _read_rows(path: Path) -> list[dict[str, object]]:
-    if not path.is_file():
-        return []
-    return [
-        json.loads(each_line)
-        for each_line in path.read_text(encoding="utf-8").splitlines()
-        if each_line
-    ]
-
-
-def _append_line(path: Path, row_by_field: dict[str, object]) -> None:
-    with write_lock, path.open("a", encoding="utf-8") as jsonl_file:
-        jsonl_file.write(json.dumps(row_by_field) + NEWLINE)
-
-
 def _failure(
     case_by_field: dict[str, str], rep: int, failure_class: str, detail: object
 ) -> dict[str, object]:
@@ -113,22 +91,6 @@ def _failure(
         "failure_class": failure_class,
         "detail": detail,
     }
-
-
-def _unscorable(
-    session: SessionRun, settings: SessionSettings
-) -> tuple[str, object] | None:
-    if session.exit_code == BROKER_WAIT_EXIT_CODE:
-        return FAILURE_BROKER_WAIT, session.broker_report.get("final_decision")
-    if session.exit_code is None:
-        return FAILURE_TIMEOUT, settings.timeout_seconds
-    final = final_event(session.all_events)
-    if final is None or final.get("subtype") not in ALL_SCORABLE_SUBTYPES:
-        return FAILURE_NO_RESULT, None if final is None else final.get("subtype")
-    all_served = served_models(final)
-    if not any(each_model.startswith(settings.model) for each_model in all_served):
-        return FAILURE_MODEL_MISMATCH, all_served
-    return None
 
 
 def _write_trace(
@@ -217,15 +179,15 @@ def _run_one(
 ) -> None:
     workspace = prepare_workspace(all_installs)
     session = run_session(workspace, case_by_field["prompt"], settings)
-    failure = _unscorable(session, settings)
+    failure = unscorable(session, settings)
     if failure is not None:
-        _append_line(
+        append_row(
             variant_directory / ERRORS_FILE_NAME,
             _failure(case_by_field, rep, *failure),
         )
         return
     _write_trace(case_by_field, rep, variant_directory, session)
-    _append_line(
+    append_row(
         variant_directory / RESULTS_FILE_NAME,
         _scored_row(case_by_field, rep, session, all_installs, settings),
     )
@@ -249,21 +211,12 @@ def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
     )
 
 
-def _selected_cases(case_ids: str) -> list[dict[str, str]]:
-    all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
-    return [
-        each_case
-        for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8"))
-        if not all_wanted_ids or each_case["id"] in all_wanted_ids
-    ]
-
-
 def _pending_runs(
     all_cases: list[dict[str, str]], reps: int, variant_directory: Path
 ) -> list[tuple[dict[str, str], int]]:
     all_done = {
         (each_row["prompt_id"], each_row["rep"])
-        for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)
+        for each_row in read_rows(variant_directory / RESULTS_FILE_NAME)
     }
     return [
         (each_case, each_rep)
@@ -277,10 +230,10 @@ def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -
     all_wanted = {each_case["id"] for each_case in all_cases}
     all_rows = [
         each_row
-        for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)
+        for each_row in read_rows(variant_directory / RESULTS_FILE_NAME)
         if each_row["prompt_id"] in all_wanted
     ]
-    error_count = len(_read_rows(variant_directory / ERRORS_FILE_NAME))
+    error_count = len(read_rows(variant_directory / ERRORS_FILE_NAME))
     return _summary_line(all_rows, error_count)
 
 
@@ -314,7 +267,9 @@ def main() -> int:
         tuple(each_pair)
         for each_pair in state["variants"][arguments.variant]["install"]
     ]
-    all_cases = _selected_cases(arguments.cases)
+    all_cases = select_cases(
+        json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases
+    )
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(

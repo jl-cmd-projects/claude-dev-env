@@ -7,15 +7,21 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from session_eval_support.config.constants import (
     ALL_GIT_INIT_COMMANDS,
+    ALL_SCORABLE_SUBTYPES,
     ASSISTANT_EVENT_TYPE,
     BROKER_REPORT_FILE_NAME,
     BROKER_SCRIPT,
+    BROKER_WAIT_EXIT_CODE,
+    FAILURE_BROKER_WAIT,
+    FAILURE_MODEL_MISMATCH,
+    FAILURE_NO_RESULT,
+    FAILURE_TIMEOUT,
     FIXTURE_DIRECTORY,
     JSON_INDENT,
     NEWLINE,
@@ -105,18 +111,17 @@ def _read_events(stream_path: Path) -> list[dict[str, object]]:
     return all_events
 
 
-def _session_command(
-    report_path: Path, prompt: str, settings: SessionSettings
-) -> list[str]:
+def session_words(prompt: str, settings: SessionSettings) -> list[str]:
+    """Return the headless claude command for one session, before any launcher wraps it.
+
+    Args:
+        prompt: The case's ask, sent as the first user turn.
+        settings: The model, effort and turn cap.
+
+    Returns:
+        The claude command and its arguments.
+    """
     return [
-        sys.executable,
-        str(BROKER_SCRIPT),
-        "run",
-        "--product",
-        "claude",
-        "--report",
-        str(report_path),
-        "--",
         "claude",
         "-p",
         prompt,
@@ -131,6 +136,34 @@ def _session_command(
         "--verbose",
         "--setting-sources",
         SESSION_SETTING_SOURCES,
+    ]
+
+
+def brokered_words(report_path: Path, all_claude_words: list[str]) -> list[str]:
+    """Return the command that runs a claude command through the account broker.
+
+    ::
+
+        brokered_words(r, ["claude", "-p", "hi"])
+        -> [python, account_broker.py, "run", "--product", "claude", "--report", r, "--", "claude", "-p", "hi"]
+
+    Args:
+        report_path: Where the broker writes its report.
+        all_claude_words: The claude command and its arguments.
+
+    Returns:
+        The full argument list for subprocess.
+    """
+    return [
+        sys.executable,
+        str(BROKER_SCRIPT),
+        "run",
+        "--product",
+        "claude",
+        "--report",
+        str(report_path),
+        "--",
+        *all_claude_words,
     ]
 
 
@@ -165,35 +198,73 @@ def _run_command(
     return completed.returncode
 
 
-def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> SessionRun:
+def run_session(
+    workspace: Path,
+    prompt: str,
+    settings: SessionSettings,
+    launch: Callable[[Path, list[str]], list[str]] = brokered_words,
+) -> SessionRun:
     """Run the prompt as one headless session in the workspace and read its stream.
 
-    The broker picks the account. The stream and the broker report land in a
-    sibling directory, so the session under test never sees them.
+    The stream and the launcher's report land in a temporary sibling
+    directory, so the session under test never sees them, and the directory
+    is removed once both are read.
 
     Args:
         workspace: The prepared workspace, used as the session's directory.
         prompt: The case's ask, sent as the first user turn.
         settings: The model, effort, turn cap and wall-clock ceiling.
+        launch: Builds the full command from the report path and the claude
+            words; the broker picks the account by default.
 
     Returns:
         The stream, latency, exit code (None on timeout) and broker report.
     """
-    capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
-    stream_path = capture_directory / STREAM_FILE_NAME
-    report_path = capture_directory / BROKER_REPORT_FILE_NAME
-    started = time.monotonic()
-    exit_code = _run_command(
-        _session_command(report_path, prompt, settings),
-        workspace,
-        stream_path,
-        settings.timeout_seconds,
-    )
-    latency_seconds = time.monotonic() - started
-    broker_report = _read_broker_report(report_path)
-    return SessionRun(
-        _read_events(stream_path), latency_seconds, exit_code, broker_report
-    )
+    with tempfile.TemporaryDirectory(
+        prefix=workspace.name + "-out-", ignore_cleanup_errors=True
+    ) as capture_name:
+        capture_directory = Path(capture_name)
+        stream_path = capture_directory / STREAM_FILE_NAME
+        report_path = capture_directory / BROKER_REPORT_FILE_NAME
+        started = time.monotonic()
+        exit_code = _run_command(
+            launch(report_path, session_words(prompt, settings)),
+            workspace,
+            stream_path,
+            settings.timeout_seconds,
+        )
+        latency_seconds = time.monotonic() - started
+        return SessionRun(
+            _read_events(stream_path),
+            latency_seconds,
+            exit_code,
+            _read_broker_report(report_path),
+        )
+
+
+def unscorable(
+    session: SessionRun, settings: SessionSettings
+) -> tuple[str, object] | None:
+    """Return the failure class and detail for a session that cannot be graded.
+
+    Args:
+        session: What the session left behind.
+        settings: The settings the session ran with.
+
+    Returns:
+        The failure class and its detail, or None when the session is scorable.
+    """
+    if session.exit_code == BROKER_WAIT_EXIT_CODE:
+        return FAILURE_BROKER_WAIT, session.broker_report.get("final_decision")
+    if session.exit_code is None:
+        return FAILURE_TIMEOUT, settings.timeout_seconds
+    final = final_event(session.all_events)
+    if final is None or final.get("subtype") not in ALL_SCORABLE_SUBTYPES:
+        return FAILURE_NO_RESULT, None if final is None else final.get("subtype")
+    all_served = served_models(final)
+    if not any(each_model.startswith(settings.model) for each_model in all_served):
+        return FAILURE_MODEL_MISMATCH, all_served
+    return None
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:

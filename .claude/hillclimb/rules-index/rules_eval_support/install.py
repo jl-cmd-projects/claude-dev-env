@@ -21,6 +21,7 @@ from rules_eval_support.config.constants import (
     SIBLING_FLOW_ROOT,
     WORKSPACE_PREFIX,
 )
+from session_eval_support.config.constants import ALL_GIT_INIT_COMMANDS
 
 
 def _read_git(*all_arguments: str) -> str:
@@ -29,14 +30,14 @@ def _read_git(*all_arguments: str) -> str:
         cwd=REPOSITORY_ROOT,
         check=True,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     ).stdout
 
 
 def _markdown_names(ref: str, directory: str) -> list[str]:
     return [
         each_path
-        for each_path in _read_git("ls-tree", "--name-only", f"{ref}:{directory}").split()
+        for each_path in _read_git("ls-tree", "-r", "--name-only", f"{ref}:{directory}").split()
         if each_path.endswith(MARKDOWN_SUFFIX)
     ]
 
@@ -66,7 +67,8 @@ def variant_files(ref: str) -> dict[str, str]:
 
     Returns:
         Each workspace path mapped to its text. Rules scoped by ``paths:``
-        stay out, because no case opens a file they match.
+        stay out of both variants, so the comparison covers the
+        always-loaded rules only.
     """
     files_by_target: dict[str, str] = {}
     for each_name in _markdown_names(ref, RULES_SOURCE_DIRECTORY):
@@ -100,10 +102,6 @@ def prepare_workspace(files_by_target: dict[str, str]) -> Path:
         target_path = workspace / each_target
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(each_text, encoding="utf-8")
-    for each_command in (
-        (GIT_EXECUTABLE, "init", "-q", "-b", "main"),
-        (GIT_EXECUTABLE, "add", "-A"),
-        (GIT_EXECUTABLE, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "-m", "fixture"),
-    ):
+    for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace
