@@ -1,10 +1,12 @@
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.usefixtures("require_bun")
 def test_lowest_selects_the_window_below_the_threshold() -> None:
     root = Path(__file__).resolve().parents[3]
     script = (
@@ -13,13 +15,10 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         "{kind: 'seven_day', percentUsed: 99}]; "
         "const low = lowest(limits, 5); "
         "console.log(JSON.stringify({low, note: wrapUpNote(low), "
-        "aboveThreshold: lowest([{kind: 'five_hour', percentUsed: 94}], 5)}));"
+        "aboveThreshold: lowest([{kind: 'five_hour', percentUsed: 94}], 5) ?? null}));"
     )
-    runtime = ["bun", "-e"] if shutil.which("bun") else [
-        "node", "--experimental-strip-types", "--input-type=module", "-e"
-    ]
     selection_run = subprocess.run(
-        [*runtime, script],
+        ["bun", "-e", script],
         cwd=root,
         capture_output=True,
         text=True,
@@ -33,4 +32,4 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         "left": 1,
     }
     assert "weekly usage limit: only 1% left." in selection_report["note"]
-    assert "aboveThreshold" not in selection_report
+    assert selection_report["aboveThreshold"] is None
