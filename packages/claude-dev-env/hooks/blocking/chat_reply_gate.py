@@ -77,12 +77,13 @@ def read_rewrite_count(count_path: Path) -> int:
         return 0
 
 
-def write_rewrite_count(count_path: Path, rewrite_count: int) -> None:
-    """Store the rewrite count; a failed write leaves the gate decision unchanged."""
+def write_rewrite_count(count_path: Path, rewrite_count: int) -> bool:
+    """Store the rewrite count and return whether the write succeeded."""
     try:
         count_path.write_text(str(rewrite_count), encoding=REWRITE_COUNT_ENCODING)
     except OSError:
-        return
+        return False
+    return True
 
 
 def delete_rewrite_count(count_path: Path) -> None:
@@ -105,7 +106,8 @@ def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     rewrite_count = read_rewrite_count(count_path)
     if rewrite_count >= MAXIMUM_REWRITES_PER_TURN:
         return None
-    write_rewrite_count(count_path, rewrite_count + 1)
+    if not write_rewrite_count(count_path, rewrite_count + 1):
+        return None
     return violation + REWRITE_INSTRUCTION
 
 

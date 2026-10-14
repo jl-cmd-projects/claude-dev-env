@@ -109,6 +109,7 @@
       ],
       "stdin": {
         "hook_event_name": "UserPromptSubmit",
+        "session_id": "context-budget",
         "prompt": "status?"
       },
       "char_limit": 1500

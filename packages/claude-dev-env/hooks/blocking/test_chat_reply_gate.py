@@ -23,7 +23,8 @@ def run_hook(
     hook_input: dict[str, object],
 ) -> tuple[int, str, str]:
     monkeypatch.setattr(
-        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+        "sys.stdin",
+        io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")), encoding="utf-8"),
     )
     exit_code = chat_reply_gate.main()
     captured = capsys.readouterr()
@@ -122,6 +123,21 @@ def test_write_rewrite_count_should_store_the_count(tmp_path: Path) -> None:
     count_path = tmp_path / "count.txt"
     chat_reply_gate.write_rewrite_count(count_path, 2)
     assert chat_reply_gate.read_rewrite_count(count_path) == 2
+
+
+def test_should_allow_stop_when_the_rewrite_count_cannot_be_stored(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        chat_reply_gate.tempfile, "gettempdir", lambda: str(tmp_path / "missing-directory")
+    )
+    exit_code, _, error_text = run_hook(
+        monkeypatch,
+        capsys,
+        {"hook_event_name": "Stop", "session_id": "abc", "last_assistant_message": FOUR_SENTENCE_REPLY},
+    )
+    assert exit_code == 0
+    assert error_text == ""
 
 
 def test_delete_rewrite_count_should_remove_the_file(tmp_path: Path) -> None:
