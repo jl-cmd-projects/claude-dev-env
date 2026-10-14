@@ -41,6 +41,6 @@ def test_meter_cache_write_lands_outside_the_home_directory(
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
 
-    assert not isolated_broker_state_path.is_relative_to(_user_home_at_import)
+    assert not isolated_broker_state_path.is_relative_to(_user_home_at_import / ".claude")
     state = json.loads(isolated_broker_state_path.read_text(encoding="utf-8"))
     assert f"claude:only:{account.home}" in state["meters"]
