@@ -86,7 +86,7 @@ aside.
 
 ## Which account a job uses
 
-Room is the smaller of an account's two windows: the 5-hour window and the week.
+Room is the least percent left across an account's windows, such as the 5-hour window and the week.
 
 | Condition | Answer |
 |---|---|
