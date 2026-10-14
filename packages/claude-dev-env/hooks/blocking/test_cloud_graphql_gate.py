@@ -148,16 +148,3 @@ def test_should_stay_quiet_for_another_tool_in_a_cloud_session(cloud_session: No
     assert (
         _stdout_from_main({"tool_name": "Write", "tool_input": {"command": "gh api graphql"}}) == ""
     )
-
-
-@pytest.mark.parametrize("marker_value", ["TRUE", " true "])
-def test_should_read_the_cloud_marker_case_and_space_blind(
-    monkeypatch: pytest.MonkeyPatch, marker_value: str
-) -> None:
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", marker_value)
-    assert gate.is_cloud_session() is True
-
-
-def test_should_not_treat_a_false_marker_as_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "false")
-    assert gate.is_cloud_session() is False

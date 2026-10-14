@@ -76,9 +76,11 @@ def all_wrapped_command_segments(command: str) -> list[list[str]]:
     ``bash -c "gh pr list"`` as its outer segment plus ``gh pr list`` without
     tokenizing either text a second time.
     """
-    all_segments: list[list[str]] = []
-    for each_segment, _following_operator in pipeline_segments_for_command(command):
-        all_segments.append(each_segment)
+    all_command_segments = [
+        each_segment for each_segment, _following_operator in pipeline_segments_for_command(command)
+    ]
+    all_segments = list(all_command_segments)
+    for each_segment in all_command_segments:
         inner_command = string_exec_inner_command(each_segment)
         if inner_command is not None:
             all_segments.extend(all_wrapped_command_segments(inner_command))

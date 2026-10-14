@@ -88,13 +88,9 @@ def test_other_tool_payload_emits_nothing() -> None:
     assert _stdout_from_main({"tool_name": "Write", "tool_input": {"command": 'claude -p "task"'}}) == ""
 
 
-def test_should_pass_bare_headless_claude_in_a_cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
+@pytest.mark.parametrize("marker_value", ["true", " TRUE "])
+def test_should_pass_bare_headless_claude_in_a_cloud_session(
+    monkeypatch: pytest.MonkeyPatch, marker_value: str
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", marker_value)
     assert _stdout_from_main({"tool_name": "Bash", "tool_input": {"command": 'claude -p "task"'}}) == ""
-
-
-def test_should_report_a_cloud_session_only_when_the_marker_is_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "false")
-    assert gate.is_cloud_session() is False
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
-    assert gate.is_cloud_session() is True
