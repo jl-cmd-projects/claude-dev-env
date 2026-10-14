@@ -21,7 +21,7 @@ from dev_env_scripts_constants.account_broker_constants import (
 def test_meter_cache_write_lands_in_the_isolated_home(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    isolated_broker_state_path: Path,
+    isolated_home: Path,
 ) -> None:
     account = Account(Product.CLAUDE, "only", tmp_path / "only")
     reset_at = datetime(2026, 10, 5, tzinfo=timezone.utc)
@@ -36,9 +36,10 @@ def test_meter_cache_write_lands_in_the_isolated_home(
     def runner(argv: list[str], **options: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 0, "", "")
 
-    assert Path.home().is_relative_to(tmp_path)
-    assert isolated_broker_state_path.is_relative_to(tmp_path)
-    assert account_broker.broker_state_path() == isolated_broker_state_path
+    isolated_broker_state_path = account_broker.broker_state_path()
+    assert Path.home() == isolated_home
+    assert isolated_broker_state_path.is_relative_to(isolated_home)
+    assert isolated_home.is_relative_to(tmp_path)
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
 

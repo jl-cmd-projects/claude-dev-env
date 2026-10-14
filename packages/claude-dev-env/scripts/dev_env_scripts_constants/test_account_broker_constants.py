@@ -19,6 +19,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_FLOORS,
     ALL_CODEX_FLOORS,
+    ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     CMD_SHELL_METACHARACTERS,
     Account,
@@ -28,14 +29,19 @@ from dev_env_scripts_constants.account_broker_constants import (
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
+    PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
 from dev_env_scripts_constants.codex_account_constants import (
+    CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
+    CODEX_HOME_ENVIRONMENT_VARIABLE,
+    CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     LUNA_TIER_STOP_PERCENT_LEFT,
     NORMAL_TIER_MINIMUM_PERCENT_LEFT,
 )
+from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
 TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
 
@@ -54,6 +60,16 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
         "normal_minimum_left": NORMAL_TIER_MINIMUM_PERCENT_LEFT,
         "luna_stop_left": LUNA_TIER_STOP_PERCENT_LEFT,
         "luna_short_minimum_left": LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
+    }
+
+
+def test_should_name_every_account_root_override_as_a_home_override() -> None:
+    assert set(ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES) == {
+        CLAUDE_CONFIG_DIR_ENV_VAR,
+        CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
+        CODEX_HOME_ENVIRONMENT_VARIABLE,
+        CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
+        PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     }
 
 

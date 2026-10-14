@@ -35,6 +35,8 @@ for each_import_directory in (
     if str(each_import_directory) not in sys.path:
         sys.path.insert(0, str(each_import_directory))
 
+from dev_env_scripts_constants.account_broker_constants import ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES
+
 
 @pytest.fixture(autouse=True)
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -53,19 +55,9 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     isolated_home_directory = tmp_path / "home"
     monkeypatch.setenv("HOME", str(isolated_home_directory))
     monkeypatch.setenv("USERPROFILE", str(isolated_home_directory))
-    for each_home_override in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "CODEX_ACCOUNT_PROFILES", "LLM_SETTINGS_PROFILES_ROOT"):
+    for each_home_override in ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(each_home_override, raising=False)
     return isolated_home_directory
-
-
-@pytest.fixture
-def isolated_broker_state_path(isolated_home: Path) -> Path:
-    """Return the broker state path that resolves under the per-test home.
-
-    Returns:
-        The isolated broker state path for this test.
-    """
-    return importlib.import_module("account_broker_support").broker_state_path()
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:
