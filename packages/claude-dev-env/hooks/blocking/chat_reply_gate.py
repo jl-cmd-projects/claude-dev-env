@@ -126,7 +126,9 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     event_name = hook_input.get(HOOK_EVENT_NAME_INPUT_KEY)
     if event_name == USER_PROMPT_SUBMIT_EVENT_NAME:
-        write_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)), 0)
+        count_path = rewrite_count_path(hook_input.get(SESSION_ID_KEY))
+        if not write_rewrite_count(count_path, 0):
+            delete_rewrite_count(count_path)
         write_reply_limit_reminder()
         return ALLOW_EXIT_CODE
     if event_name == SESSION_END_EVENT_NAME:

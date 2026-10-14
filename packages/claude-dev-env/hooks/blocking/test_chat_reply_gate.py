@@ -140,6 +140,16 @@ def test_should_allow_stop_when_the_rewrite_count_cannot_be_stored(
     assert error_text == ""
 
 
+def test_should_delete_the_rewrite_count_when_the_prompt_reset_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    count_path = chat_reply_gate.rewrite_count_path("abc")
+    chat_reply_gate.write_rewrite_count(count_path, 3)
+    monkeypatch.setattr(chat_reply_gate, "write_rewrite_count", lambda *_args: False)
+    run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
+    assert not count_path.exists()
+
+
 def test_delete_rewrite_count_should_remove_the_file(tmp_path: Path) -> None:
     count_path = tmp_path / "count.txt"
     chat_reply_gate.write_rewrite_count(count_path, 2)
