@@ -1,4 +1,6 @@
 import json
+import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -297,8 +299,12 @@ def test_run_digest_keys_a_harness_file_outside_the_repository_by_its_path(monke
 
 
 class _FakeKernel:
-    def __init__(self, job_handle: int | None, resume_status: int = 0) -> None:
-        self.reply_by_name: dict[str, int | None] = {"CreateJobObjectW": job_handle, "NtResumeProcess": resume_status}
+    def __init__(self, job_handle: int | None, resume_status: int = 0, process_handle: int | None = 77) -> None:
+        self.reply_by_name: dict[str, int | None] = {
+            "CreateJobObjectW": job_handle,
+            "NtResumeProcess": resume_status,
+            "OpenProcess": process_handle,
+        }
         self.all_calls: list[str] = []
 
     def __getattr__(self, name: str) -> object:
@@ -308,13 +314,13 @@ class _FakeKernel:
         return record
 
 
-def _run_as_windows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kernel: _FakeKernel) -> int | None:
+def _run_as_windows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kernel: _FakeKernel, script: str = "pass") -> int | None:
     monkeypatch.setattr(session, "_windows_kernel", lambda: kernel)
     monkeypatch.setattr(session, "_windows_native", lambda: kernel)
     monkeypatch.setattr(session, "_popen_options", lambda: {})
     monkeypatch.setattr(session.sys, "platform", "win32")
     with (tmp_path / "capture.txt").open("wb") as capture_file:
-        return run_until_timeout([sys.executable, "-c", "pass"], tmp_path, capture_file, 30, b"")
+        return run_until_timeout([sys.executable, "-c", script], tmp_path, capture_file, 30, b"")
 
 
 def test_windows_runs_start_suspended_join_a_job_and_end_it_after_a_clean_exit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -352,3 +358,71 @@ def test_popen_options_start_suspended_on_windows_and_in_a_new_session_elsewhere
     assert session._popen_options() == {"creationflags": 4}
     monkeypatch.setattr(session.sys, "platform", "linux")
     assert session._popen_options() == {"start_new_session": True}
+
+
+def test_windows_runs_kill_a_command_whose_handle_cannot_be_opened(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    kernel = _FakeKernel(job_handle=55, process_handle=None)
+
+    assert _run_as_windows(monkeypatch, tmp_path, kernel, IGNORE_STDIN_AND_SLEEP) == -signal.SIGKILL
+    assert kernel.all_calls == ["OpenProcess"]
+    assert "no handle for pid" in caplog.text
+
+
+def test_windows_runs_kill_the_command_when_joining_a_job_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_processes: list[subprocess.Popen[bytes]] = []
+    start_process = subprocess.Popen
+
+    def record(*all_arguments: object, **all_options: object) -> subprocess.Popen[bytes]:
+        process = start_process(*all_arguments, **all_options)
+        all_processes.append(process)
+        return process
+
+    def missing_native() -> object:
+        raise AttributeError("NtResumeProcess")
+
+    monkeypatch.setattr(session.subprocess, "Popen", record)
+    monkeypatch.setattr(session, "_windows_kernel", lambda: _FakeKernel(job_handle=55))
+    monkeypatch.setattr(session, "_windows_native", missing_native)
+    monkeypatch.setattr(session, "_popen_options", lambda: {})
+    monkeypatch.setattr(session.sys, "platform", "win32")
+
+    with pytest.raises(AttributeError), (tmp_path / "capture.txt").open("wb") as capture_file:
+        run_until_timeout([sys.executable, "-c", IGNORE_STDIN_AND_SLEEP], tmp_path, capture_file, 30, b"")
+    assert all_processes[0].returncode == -signal.SIGKILL
+
+
+def test_run_until_timeout_stops_the_group_before_the_leader_is_reaped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_leader_states: list[object] = []
+    kill_group = os.killpg
+
+    def check_leader_then_kill(process_group: int, signal_number: int) -> None:
+        all_leader_states.append(os.waitid(os.P_PID, process_group, os.WEXITED | os.WNOHANG | os.WNOWAIT))
+        kill_group(process_group, signal_number)
+
+    monkeypatch.setattr(session.os, "killpg", check_leader_then_kill)
+    with (tmp_path / "capture.txt").open("wb") as capture_file:
+        exit_code = run_until_timeout([sys.executable, "-c", "raise SystemExit(4)"], tmp_path, capture_file, 30, b"")
+
+    assert exit_code == 4
+    assert all_leader_states[0] is not None
+
+
+def test_trace_turns_skip_events_whose_types_are_not_strings() -> None:
+    all_events = [{"type": ["assistant"], "message": {"content": [{"type": {"text": 1}, "text": "x"}]}}]
+
+    assert session.trace_turns("ask", all_events) == [{"role": "user", "content": "ask"}]
+
+
+def test_run_digest_keys_a_symlinked_harness_folder_by_its_repository_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "grading.py").write_text("PASS = 1\n", encoding="utf-8")
+    repository.mkdir()
+    (repository / "flow").symlink_to(elsewhere, target_is_directory=True)
+    monkeypatch.setattr(session, "REPOSITORY_ROOT", repository)
+
+    assert session._repository_key(repository / "flow" / "grading.py") == "flow/grading.py"
+    assert harness_sources(repository / "flow") == [repository / "flow" / "grading.py"]

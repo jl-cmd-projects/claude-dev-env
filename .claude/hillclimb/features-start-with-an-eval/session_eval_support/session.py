@@ -31,6 +31,7 @@ from session_eval_support.config.constants import (
     FAILURE_MODEL_MISMATCH,
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
+    EXIT_POLL_SECONDS,
     FIXTURE_DIRECTORY,
     CREATE_SUSPENDED_FLAG,
     JOB_ASSIGN_ACCESS,
@@ -131,7 +132,7 @@ def harness_sources(*all_roots: Path) -> list[Path]:
     for each_root in all_roots:
         all_candidates = [each_root] if each_root.is_file() else each_root.rglob(PYTHON_SOURCE_GLOB)
         all_files.update(
-            each_path.resolve()
+            each_path.absolute()
             for each_path in all_candidates
             if not each_path.name.startswith(TEST_FILE_PREFIX)
             and PYTHON_CACHE_DIRECTORY_NAME not in each_path.parts
@@ -140,11 +141,10 @@ def harness_sources(*all_roots: Path) -> list[Path]:
 
 
 def _repository_key(path: Path) -> str:
-    resolved = path.resolve()
     try:
-        return resolved.relative_to(REPOSITORY_ROOT.resolve()).as_posix()
+        return Path(os.path.relpath(path.absolute(), REPOSITORY_ROOT.absolute())).as_posix()
     except ValueError:
-        return resolved.as_posix()
+        return path.name
 
 
 def run_digest(
@@ -323,7 +323,9 @@ def _windows_kernel() -> ctypes.CDLL:
 
 
 def _windows_native() -> ctypes.CDLL:
-    return ctypes.WinDLL(NTDLL_LIBRARY_NAME)
+    native = ctypes.WinDLL(NTDLL_LIBRARY_NAME)
+    native.NtResumeProcess.restype = ctypes.c_uint32
+    return native
 
 
 def _popen_options() -> dict[str, object]:
@@ -348,15 +350,18 @@ def _resume_or_terminate(kernel: ctypes.CDLL, process_handle: int, pid: int) -> 
         kernel.TerminateProcess(ctypes.c_void_p(process_handle), JOB_EXIT_CODE)
 
 
-def _join_new_job(pid: int) -> int | None:
+def _join_new_job(process: subprocess.Popen[bytes]) -> int | None:
     kernel = _windows_kernel()
-    process_handle = kernel.OpenProcess(JOB_ASSIGN_ACCESS, False, pid)
+    process_handle = kernel.OpenProcess(JOB_ASSIGN_ACCESS, False, process.pid)
+    if not process_handle:
+        logger.warning("no handle for pid %d, so it is terminated before it runs", process.pid)
+        process.kill()
+        return None
     job_handle = _assigned_job(kernel, process_handle)
     if job_handle is None:
-        logger.warning("no job object for pid %d, so its children may outlive it", pid)
-    if process_handle:
-        _resume_or_terminate(kernel, process_handle, pid)
-        kernel.CloseHandle(ctypes.c_void_p(process_handle))
+        logger.warning("no job object for pid %d, so its children may outlive it", process.pid)
+    _resume_or_terminate(kernel, process_handle, process.pid)
+    kernel.CloseHandle(ctypes.c_void_p(process_handle))
     return job_handle
 
 
@@ -398,6 +403,30 @@ def _write_input(process: subprocess.Popen[bytes], input_bytes: bytes) -> None:
             process.stdin.close()
 
 
+def _windows_job_or_none(process: subprocess.Popen[bytes]) -> int | None:
+    if sys.platform != WINDOWS_PLATFORM:
+        return None
+    try:
+        return _join_new_job(process)
+    except (OSError, AttributeError):
+        process.kill()
+        process.wait()
+        raise
+
+
+def _exited_before(process: subprocess.Popen[bytes], timeout_seconds: int) -> bool:
+    if sys.platform == WINDOWS_PLATFORM:
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=timeout_seconds)
+        return process.returncode is not None
+    deadline = time.monotonic() + timeout_seconds
+    while os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is None:
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(EXIT_POLL_SECONDS)
+    return True
+
+
 def _start_with_input(
     all_command_words: list[str],
     working_directory: Path,
@@ -412,8 +441,7 @@ def _start_with_input(
         stderr=subprocess.DEVNULL,
         **_popen_options(),
     )
-    is_windows = sys.platform == WINDOWS_PLATFORM
-    command = _StartedCommand(process, _join_new_job(process.pid) if is_windows else None)
+    command = _StartedCommand(process, _windows_job_or_none(process))
     threading.Thread(target=_write_input, args=(process, input_bytes), daemon=True).start()
     return command
 
@@ -443,11 +471,9 @@ def run_until_timeout(
         The exit code, or None when the command timed out.
     """
     command = _start_with_input(all_command_words, working_directory, capture_file, input_bytes)
-    with contextlib.suppress(subprocess.TimeoutExpired):
-        command.process.wait(timeout=timeout_seconds)
-    exit_code = command.process.returncode
+    has_exited = _exited_before(command.process, timeout_seconds)
     _stop_group(command)
-    return exit_code
+    return command.process.returncode if has_exited else None
 
 
 def _run_in_capture(
@@ -619,7 +645,7 @@ def _event_turns(event_by_field: Mapping[str, object]) -> list[dict[str, str]]:
         if not isinstance(each_block, dict):
             continue
         build_turn = turn_builder_by_type.get(
-            (event_by_field.get("type"), each_block.get("type"))
+            (str(event_by_field.get("type")), str(each_block.get("type")))
         )
         if build_turn is not None:
             all_turns.append(build_turn(each_block))
