@@ -35,8 +35,6 @@ if blocking_directory not in sys.path:
 
 from reply_length_gate import reply_violation
 from hooks_constants.chat_reply_gate_constants import (
-    ALLOW_EXIT_CODE,
-    BLOCK_EXIT_CODE,
     HOOK_EVENT_NAME_INPUT_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
     MAXIMUM_REWRITES_PER_TURN,
@@ -49,25 +47,23 @@ from hooks_constants.chat_reply_gate_constants import (
     STOP_EVENT_NAME,
     USER_PROMPT_SUBMIT_EVENT_NAME,
 )
-from hooks_constants.session_edit_stage_gate_constants import (
-    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
-    STATE_FILE_DEFAULT_SESSION_ID,
-)
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from hooks_constants.reply_length_gate_constants import ADDITIONAL_CONTEXT_KEY
+from hooks_constants.reply_length_gate_constants import (
+    ADDITIONAL_CONTEXT_KEY,
+    ALLOW_EXIT_CODE,
+    BLOCK_EXIT_CODE,
+)
+from hooks_constants.session_file_id import session_file_id
 
 
 def rewrite_count_path(session_id: object) -> Path:
     """Return the temp file that holds this session's rewrite count for the turn."""
-    raw_session_id = session_id if isinstance(session_id, str) else ""
-    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", raw_session_id)
-    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
-    file_name = f"{REWRITE_COUNT_FILE_PREFIX}{effective_session_id}{REWRITE_COUNT_FILE_SUFFIX}"
+    file_name = f"{REWRITE_COUNT_FILE_PREFIX}{session_file_id(session_id)}{REWRITE_COUNT_FILE_SUFFIX}"
     return Path(tempfile.gettempdir()) / file_name
 
 

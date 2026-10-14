@@ -14,8 +14,6 @@ MAXIMUM_REWRITES_PER_TURN = 3
 REWRITE_COUNT_FILE_PREFIX = "claude-chat-reply-rewrites-"
 REWRITE_COUNT_FILE_SUFFIX = ".txt"
 REWRITE_COUNT_ENCODING = "utf-8"
-ALLOW_EXIT_CODE = 0
-BLOCK_EXIT_CODE = 2
 REWRITE_INSTRUCTION = (
     " Rewrite the reply in plain words, like one person talking to another, and send it again."
     " Cut detail the user did not ask for."
