@@ -11,6 +11,7 @@ USER_PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 SESSION_END_EVENT_NAME = "SessionEnd"
 LAST_ASSISTANT_MESSAGE_KEY = "last_assistant_message"
 SESSION_ID_KEY = "session_id"
+STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
 MAXIMUM_REWRITES_PER_TURN = 3
 REWRITE_COUNT_FILE_PREFIX = "claude-chat-reply-rewrites-"
 REWRITE_COUNT_FILE_SUFFIX = ".txt"

@@ -11,8 +11,9 @@ the same checks on it::
     Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
     SessionEnd                               -> delete the rewrite count file
 
-The rewrite count lives in one temp file per session, and each user
-prompt sets it back to zero.
+The rewrite count lives in one temp file per session. Each user prompt
+sets it back to zero, and so does each Stop whose ``stop_hook_active``
+is not true, because that Stop ends a fresh reply and not a rewrite.
 
 The checks come from ``reply_length_gate.reply_violation``: at most
 MAXIMUM_SENTENCE_COUNT sentences of at most MAXIMUM_WORDS_PER_SENTENCE
@@ -47,6 +48,7 @@ from hooks_constants.chat_reply_gate_constants import (
     SESSION_END_EVENT_NAME,
     SESSION_ID_KEY,
     STOP_EVENT_NAME,
+    STOP_HOOK_ACTIVE_KEY,
     USER_PROMPT_SUBMIT_EVENT_NAME,
 )
 from hooks_constants.hook_block_logger import log_hook_block
@@ -103,7 +105,8 @@ def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     if violation is None:
         return None
     count_path = rewrite_count_path(all_hook_input.get(SESSION_ID_KEY))
-    rewrite_count = read_rewrite_count(count_path)
+    is_rewrite_of_blocked_reply = all_hook_input.get(STOP_HOOK_ACTIVE_KEY) is True
+    rewrite_count = read_rewrite_count(count_path) if is_rewrite_of_blocked_reply else 0
     if rewrite_count >= MAXIMUM_REWRITES_PER_TURN:
         return None
     if not write_rewrite_count(count_path, rewrite_count + 1):

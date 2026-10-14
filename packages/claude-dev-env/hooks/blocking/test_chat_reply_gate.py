@@ -59,13 +59,27 @@ def test_should_allow_stop_when_reply_fits_the_limit(
 def test_should_allow_stop_after_three_rewrites_in_one_turn(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    stop_input = {
+    fresh_stop_input = {
         "hook_event_name": "Stop",
         "session_id": "abc",
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
-    all_exit_codes = [run_hook(monkeypatch, capsys, stop_input)[0] for _ in range(4)]
-    assert all_exit_codes == [2, 2, 2, 0]
+    rewrite_stop_input = {**fresh_stop_input, "stop_hook_active": True}
+    first_exit_code = run_hook(monkeypatch, capsys, fresh_stop_input)[0]
+    all_rewrite_exit_codes = [run_hook(monkeypatch, capsys, rewrite_stop_input)[0] for _ in range(3)]
+    assert [first_exit_code, *all_rewrite_exit_codes] == [2, 2, 2, 0]
+
+
+def test_should_block_a_fresh_stop_after_the_cap_without_a_user_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    chat_reply_gate.write_rewrite_count(chat_reply_gate.rewrite_count_path("abc"), 3)
+    exit_code, _, _ = run_hook(
+        monkeypatch,
+        capsys,
+        {"hook_event_name": "Stop", "session_id": "abc", "last_assistant_message": FOUR_SENTENCE_REPLY},
+    )
+    assert exit_code == 2
 
 
 def test_should_block_again_after_the_next_user_prompt(
@@ -74,6 +88,7 @@ def test_should_block_again_after_the_next_user_prompt(
     stop_input = {
         "hook_event_name": "Stop",
         "session_id": "abc",
+        "stop_hook_active": True,
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
     for _ in range(3):
