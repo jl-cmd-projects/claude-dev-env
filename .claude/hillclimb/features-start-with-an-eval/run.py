@@ -278,7 +278,9 @@ def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
 
 
 def _selected_cases(case_ids: str) -> list[dict[str, str]]:
-    all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
+    all_wanted_ids = {
+        each_id.strip() for each_id in case_ids.split(",") if each_id.strip()
+    }
     all_cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))
     all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
     if all_unknown_ids:
@@ -307,7 +309,9 @@ def _pending_runs(
     ]
 
 
-def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -> str:
+def _variant_summary(
+    all_cases: list[dict[str, str]], reps: int, variant_directory: Path
+) -> str:
     all_wanted = {each_case["id"] for each_case in all_cases}
     all_rows = [
         each_row
@@ -319,7 +323,7 @@ def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -
         {
             (each_row["prompt_id"], each_row["rep"])
             for each_row in _read_rows(variant_directory / ERRORS_FILE_NAME)
-            if each_row["prompt_id"] in all_wanted
+            if each_row["prompt_id"] in all_wanted and each_row["rep"] < reps
         }
         - all_scored
     )
@@ -370,7 +374,7 @@ def main() -> int:
         arguments.parallel,
     )
     logger.info(
-        "%s: %s", arguments.variant, _variant_summary(all_cases, variant_directory)
+        "%s: %s", arguments.variant, _variant_summary(all_cases, arguments.reps, variant_directory)
     )
     return 0
 
