@@ -15,10 +15,13 @@ from context_budget.model import (
     HookBudget,
     SectionScan,
 )
+from hooks_constants.context_budget_constants import ALL_DEFAULT_KIND_SPECS
+
+SKILL_ENTRY_KIND = ContextKind(*ALL_DEFAULT_KIND_SPECS[0])
 
 
 def test_policy_holds_kinds_hooks_and_baselines() -> None:
-    kind = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
+    kind = SKILL_ENTRY_KIND
     hook = HookBudget("startup print", ("python", "hook.py"), "{}", 1500)
     baseline = BaselineEntry(210, ("Plan",))
 
@@ -38,7 +41,14 @@ def test_policy_holds_kinds_hooks_and_baselines() -> None:
     assert policy.is_baseline_the_prior_text is True
 
 
-def test_policy_defaults_are_independent_and_frozen() -> None:
+def test_baseline_entry_holds_no_line_count_for_a_section_only_file() -> None:
+    entry = BaselineEntry(None, ("Steps", "Steps"))
+
+    assert entry.lines is None
+    assert entry.all_section_headings == ("Steps", "Steps")
+
+
+def test_policy_defaults_are_independent_and_reject_field_rebinding() -> None:
     first = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
     second = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
 
@@ -47,12 +57,13 @@ def test_policy_defaults_are_independent_and_frozen() -> None:
     assert first.baseline_characters_by_hook_name == {}
     assert first.baseline_entry_by_path is not second.baseline_entry_by_path
     assert first.baseline_characters_by_hook_name is not second.baseline_characters_by_hook_name
+    assert first.is_baseline_the_prior_text is False
     with pytest.raises(FrozenInstanceError):
         first.section_detail_line_limit = 20
 
 
-def test_measure_and_finding_keep_the_scanned_section() -> None:
-    kind = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
+def test_measure_and_finding_hold_their_fields() -> None:
+    kind = SKILL_ENTRY_KIND
     section = SectionScan("Plan", 15, False)
     measure = FileMeasure(kind, 210, (section,))
     finding = BudgetFinding("a/SKILL.md", "Plan", "section exceeds limit")
@@ -61,5 +72,5 @@ def test_measure_and_finding_keep_the_scanned_section() -> None:
     assert measure.line_count == 210
     assert measure.all_over_limit_sections == (section,)
     assert finding.path == "a/SKILL.md"
-    assert finding.scope == section.heading
+    assert finding.scope == "Plan"
     assert finding.message == "section exceeds limit"
