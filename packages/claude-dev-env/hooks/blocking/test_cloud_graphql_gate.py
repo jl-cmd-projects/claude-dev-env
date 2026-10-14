@@ -107,6 +107,7 @@ def cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
         "gh repo edit --enable-advanced-security=false",
         'Start-Process gh -ArgumentList "api graphql -f query=@q"',
         "Start-Process -FilePath gh -ArgumentList 'pr','list' -Wait",
+        "Start-Process -FilePath:gh -ArgumentList:'api graphql -f query=@q'",
         "GH.EXE pr list",
         "pwsh -EncodedCommand " + _ENCODED_GH_PR_LIST,
     ],

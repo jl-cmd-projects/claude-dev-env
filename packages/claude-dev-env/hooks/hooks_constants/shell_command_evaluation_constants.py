@@ -5,8 +5,9 @@
 ``-EncodedCommand`` runs a base64 string of UTF-16LE text. PowerShell accepts
 any prefix of ``-EncodedCommand`` from ``-e`` on, plus the ``-ec`` alias.
 ``Start-Process`` runs its file path with its argument list, which may be
-comma-separated; the values of its other parameters are not part of the
-command. Unwrapping stops past ``MAXIMUM_UNWRAP_DEPTH`` nested levels, so a
+comma-separated, and a parameter may carry its value after a colon, as in
+``-ArgumentList:'pr list'``; the values of its other parameters are not part
+of the command. Unwrapping stops past ``MAXIMUM_UNWRAP_DEPTH`` nested levels, so a
 deeply nested command cannot exhaust the parser.
 """
 
@@ -27,6 +28,7 @@ __all__ = [
     "ALL_START_PROCESS_NON_COMMAND_PARAMETERS",
     "START_PROCESS_PARAMETER_PREFIX",
     "START_PROCESS_ARGUMENT_SEPARATOR",
+    "START_PROCESS_PARAMETER_VALUE_SEPARATOR",
     "MAXIMUM_UNWRAP_DEPTH",
     "ALL_LINE_BREAK_CHARACTERS",
     "QUOTED_LINE_BREAK_REPLACEMENT",
@@ -59,6 +61,7 @@ ALL_START_PROCESS_NON_COMMAND_PARAMETERS: frozenset[str] = frozenset(
 )
 START_PROCESS_PARAMETER_PREFIX: str = "-"
 START_PROCESS_ARGUMENT_SEPARATOR: str = ","
+START_PROCESS_PARAMETER_VALUE_SEPARATOR: str = ":"
 MAXIMUM_UNWRAP_DEPTH: int = 16
 ALL_LINE_BREAK_CHARACTERS: frozenset[str] = frozenset({"\n", "\r"})
 QUOTED_LINE_BREAK_REPLACEMENT: str = " "

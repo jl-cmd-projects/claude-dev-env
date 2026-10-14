@@ -148,6 +148,8 @@ _ENCODED_GIT_PUSH = base64.b64encode("git push".encode("utf-16-le")).decode()
             "git push origin",
         ),
         (["saps", "git", "-WorkingDirectory", "C:/repo", "-ArgumentList", "push"], "git push"),
+        (["Start-Process", "-FilePath:git", "-ArgumentList:'push'"], "git push"),
+        (["Start-Process", "git", "-WorkingDirectory:C:/repo", "-ArgumentList:push"], "git push"),
         (["find", ".", "-name", "x"], None),
         (["git", "push"], None),
     ],

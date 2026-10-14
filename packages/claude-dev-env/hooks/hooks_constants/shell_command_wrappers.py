@@ -47,6 +47,7 @@ from hooks_constants.shell_command_evaluation_constants import (
     QUOTED_LINE_BREAK_REPLACEMENT,
     START_PROCESS_ARGUMENT_SEPARATOR,
     START_PROCESS_PARAMETER_PREFIX,
+    START_PROCESS_PARAMETER_VALUE_SEPARATOR,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_substitution_constants import (
@@ -232,13 +233,28 @@ def _decoded_powershell_command(all_arguments: list[str]) -> str | None:
     return None
 
 
+def _start_process_tokens(all_arguments: list[str]) -> list[str]:
+    """Return the ``Start-Process`` arguments with each ``-Name:value`` split in two."""
+    all_tokens: list[str] = []
+    for each_argument in all_arguments:
+        is_bound_parameter = each_argument.startswith(START_PROCESS_PARAMETER_PREFIX)
+        if is_bound_parameter and START_PROCESS_PARAMETER_VALUE_SEPARATOR in each_argument:
+            all_tokens.extend(each_argument.split(START_PROCESS_PARAMETER_VALUE_SEPARATOR, 1))
+            continue
+        all_tokens.append(each_argument)
+    return all_tokens
+
+
 def _start_process_command(all_arguments: list[str]) -> str | None:
     """Return the program and arguments a ``Start-Process`` call runs, else None."""
+    all_start_process_tokens = _start_process_tokens(all_arguments)
     all_command_words = [
         unquoted_token(each_argument).replace(
             START_PROCESS_ARGUMENT_SEPARATOR, WRAPPED_COMMAND_TOKEN_JOIN
         )
-        for each_previous_argument, each_argument in itertools.pairwise(["", *all_arguments])
+        for each_previous_argument, each_argument in itertools.pairwise(
+            ["", *all_start_process_tokens]
+        )
         if not each_argument.startswith(START_PROCESS_PARAMETER_PREFIX)
         and each_previous_argument.lower() not in ALL_START_PROCESS_NON_COMMAND_PARAMETERS
     ]
