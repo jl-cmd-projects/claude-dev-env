@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from codex_account_meters import (
+    CodexExecutableNotFoundError,
     CodexMeterUnreadError,
     exchange_with_app_server,
     parse_rate_limits_reply,
@@ -30,7 +31,7 @@ def reply_line(rate_limits: object) -> str:
 
 
 class TestParseRateLimitsReply:
-    def should_measure_room_by_the_tightest_window(self) -> None:
+    def should_read_every_window(self) -> None:
         meters = parse_rate_limits_reply(
             reply_line(
                 {
@@ -47,7 +48,7 @@ class TestParseRateLimitsReply:
                 }
             )
         )
-        assert meters.percent_left == 15.0
+        assert [each.used_percent for each in meters.all_windows] == [30.0, 85.0]
         assert [each.duration_minutes for each in meters.all_windows] == [300, 10080]
         assert meters.all_windows[0].resets_at == datetime.fromtimestamp(
             RESET_SECONDS, tz=timezone.utc
@@ -62,11 +63,11 @@ class TestParseRateLimitsReply:
                 }
             )
         )
-        assert meters.percent_left == 60.0
+        assert [each.used_percent for each in meters.all_windows] == [40.0]
 
     def should_clamp_used_percent_past_full(self) -> None:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 130}}))
-        assert meters.percent_left == 0.0
+        assert [each.used_percent for each in meters.all_windows] == [100.0]
 
     @pytest.mark.parametrize(
         "line",
@@ -103,20 +104,31 @@ class TestShortWindowPercentLeft:
         )
         assert meters.short_window_percent_left is None
 
+    def should_count_a_window_without_a_length_as_weekly(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 90}}))
+        assert meters.short_window_percent_left is None
+        assert meters.weekly_window is not None
+        assert meters.weekly_window.used_percent == 90.0
 
-class TestBlockingReset:
-    def should_name_when_the_last_blocking_window_resets(self) -> None:
+
+class TestTightestWindows:
+    def should_pick_the_most_used_window_in_each_class(self) -> None:
         meters = parse_rate_limits_reply(
             reply_line(
                 {
-                    "primary": {"usedPercent": 95, "resetsAt": RESET_SECONDS},
-                    "secondary": {"usedPercent": 99, "resetsAt": RESET_SECONDS + 3600},
+                    "primary": {"usedPercent": 70, "windowDurationMins": 300, "resetsAt": RESET_SECONDS},
+                    "secondary": {"usedPercent": 20, "windowDurationMins": 10080, "resetsAt": RESET_SECONDS + 3600},
                 }
             )
         )
-        assert meters.resets_before_room(10.0) == datetime.fromtimestamp(
-            RESET_SECONDS + 3600, tz=timezone.utc
-        )
+        assert meters.short_window is not None
+        assert meters.short_window.resets_at == datetime.fromtimestamp(RESET_SECONDS, tz=timezone.utc)
+        assert meters.weekly_window is not None
+        assert meters.weekly_window.resets_at == datetime.fromtimestamp(RESET_SECONDS + 3600, tz=timezone.utc)
+
+    def should_name_no_weekly_window_for_a_short_only_account(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 70, "windowDurationMins": 300}}))
+        assert meters.weekly_window is None
 
 
 class TestReadCodexMeters:
@@ -141,7 +153,7 @@ class TestReadCodexMeters:
             ]
 
         meters = read_codex_meters(Path("codex"), Path("profiles") / "codex-1", fake_exchange)
-        assert meters.percent_left == 80.0
+        assert [each.used_percent for each in meters.all_windows] == [20.0]
         assert all_calls == [
             (
                 Path("codex"),
@@ -215,7 +227,7 @@ class TestExchangeWithAppServer:
 
         meters = read_codex_meters(fake_codex, tmp_path / "codex-2", exchange_with_app_server)
 
-        assert meters.percent_left == 88.0
+        assert [each.used_percent for each in meters.all_windows] == [12.0]
 
 
 class TestRequestMessages:
@@ -234,5 +246,5 @@ class TestResolveCodexPath:
     ) -> None:
         monkeypatch.setenv("PATH", "")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(CodexExecutableNotFoundError):
             resolve_codex_path(None)

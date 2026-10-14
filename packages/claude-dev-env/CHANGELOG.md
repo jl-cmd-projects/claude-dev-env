@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.79.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.3...claude-dev-env-v8.79.0) (2026-10-14)
+
+
+### Features
+
+* **hooks:** deny a decision card that offers a merge over open review findings ([#2010](https://github.com/jl-cmd-projects/claude-dev-env/issues/2010)) ([51269b4](https://github.com/jl-cmd-projects/claude-dev-env/commit/51269b494dc414517dcdd196fb9bd80b2766bd4d))
+
+
+### Bug Fixes
+
+* **account-broker:** report the launcher profile of a chain account ([#1999](https://github.com/jl-cmd-projects/claude-dev-env/issues/1999)) ([fac5650](https://github.com/jl-cmd-projects/claude-dev-env/commit/fac56505cd56dd3000a563b3971e3b1736ccd5b4))
+
 ## [8.78.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.2...claude-dev-env-v8.78.3) (2026-10-11)
 
 

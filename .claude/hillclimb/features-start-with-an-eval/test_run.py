@@ -1,0 +1,205 @@
+"""Behavior tests for eval run selection."""
+
+import json
+import time
+from pathlib import Path
+
+import pytest
+
+import run
+from run import (
+    _append_line,
+    _pending_runs,
+    _read_rows,
+    _run_one,
+    _run_pending,
+    _selected_cases,
+    _unscorable,
+    _variant_summary,
+)
+from session_eval_support.config.constants import (
+    ERRORS_FILE_NAME,
+    FAILURE_NO_RESULT,
+    MAX_TURNS_SUBTYPE,
+    RESULTS_FILE_NAME,
+    SUCCESS_SUBTYPE,
+)
+from session_eval_support.session import SessionRun, SessionSettings
+
+SETTINGS = SessionSettings(
+    model="claude-haiku", effort="low", max_turns=1, timeout_seconds=1
+)
+
+
+def _finished_session(subtype: str) -> SessionRun:
+    result_event = {
+        "type": "result",
+        "subtype": subtype,
+        "modelUsage": {"claude-haiku-5-5": {}},
+    }
+    return SessionRun([result_event], 0.0, 0, {})
+
+
+def test_pending_runs_skip_completed_case_and_rep(tmp_path: Path) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n"
+    )
+    cases = [{"id": "case-a"}, {"id": "case-b"}]
+
+    assert _pending_runs(cases, 2, tmp_path) == [
+        (cases[0], 1),
+        (cases[1], 0),
+        (cases[1], 1),
+    ]
+
+
+def test_success_and_turn_limit_sessions_are_scored() -> None:
+    assert _unscorable(_finished_session(SUCCESS_SUBTYPE), SETTINGS) is None
+    assert _unscorable(_finished_session(MAX_TURNS_SUBTYPE), SETTINGS) is None
+
+
+def test_other_result_subtypes_are_unscorable() -> None:
+    assert _unscorable(_finished_session("error_during_execution"), SETTINGS) == (
+        FAILURE_NO_RESULT,
+        "error_during_execution",
+    )
+
+
+def test_a_cut_off_results_line_is_skipped_and_the_next_row_starts_fresh(
+    tmp_path: Path,
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n" + '{"prompt_id": "case-b'
+    )
+
+    _append_line(results_path, {"prompt_id": "case-b", "rep": 0})
+
+    assert _pending_runs([{"id": "case-a"}, {"id": "case-b"}], 1, tmp_path) == []
+
+
+def test_an_unreadable_results_line_is_logged_with_its_number(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\nnot json\n')
+
+    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
+    assert f"skipped unreadable line 2 of {results_path}" in caplog.text
+
+
+def test_blank_results_lines_are_skipped_without_a_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\n\n')
+
+    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
+    assert "skipped" not in caplog.text
+
+
+def test_run_one_deletes_the_workspace_when_the_session_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / ".git").mkdir(parents=True)
+    monkeypatch.setattr(run, "prepare_workspace", lambda all_installs: workspace)
+
+    def _fail(*all_arguments: object) -> SessionRun:
+        raise RuntimeError("session crashed")
+
+    monkeypatch.setattr(run, "run_session", _fail)
+
+    with pytest.raises(RuntimeError):
+        _run_one({"id": "case-a", "prompt": "ask"}, 0, tmp_path, [], SETTINGS)
+
+    assert not workspace.exists()
+
+
+def test_variant_summary_counts_errors_only_for_the_selected_cases(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text("")
+    (tmp_path / ERRORS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0})
+        + "\n"
+        + json.dumps({"prompt_id": "case-b", "rep": 0})
+        + "\n"
+    )
+
+    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 1")
+
+
+def test_variant_summary_drops_errors_a_later_rerun_scored(tmp_path: Path) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text(
+        json.dumps(
+            {
+                "prompt_id": "case-a",
+                "rep": 0,
+                "tags": ["feature", "build-eval"],
+                "grade": {"correct": 1},
+            }
+        )
+        + "\n"
+    )
+    (tmp_path / ERRORS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n"
+    )
+
+    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 0")
+
+
+def test_selected_cases_rejects_an_unknown_case_id() -> None:
+    with pytest.raises(SystemExit, match="unknown case ids: f99"):
+        _selected_cases("f01,f99")
+
+
+def test_selected_cases_returns_the_named_cases() -> None:
+    assert [each_case["id"] for each_case in _selected_cases("n01,f01")] == [
+        "f01",
+        "n01",
+    ]
+
+
+def test_variant_summary_ignores_errors_on_reps_past_the_current_run(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text("")
+    (tmp_path / ERRORS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 2}) + "\n"
+    )
+
+    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 0")
+    assert _variant_summary([{"id": "case-a"}], 3, tmp_path).endswith("errors 1")
+
+
+def test_selected_cases_strips_spaces_around_each_id() -> None:
+    assert [each_case["id"] for each_case in _selected_cases("f01, n01")] == [
+        "f01",
+        "n01",
+    ]
+
+
+def test_selected_cases_rejects_a_value_with_no_case_ids() -> None:
+    with pytest.raises(SystemExit, match="no case ids"):
+        _selected_cases(" , ")
+
+
+def test_run_pending_cancels_queued_runs_after_one_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_started: list[str] = []
+
+    def _record_then_fail_first(case_by_field: dict[str, str], *_: object) -> None:
+        all_started.append(case_by_field["id"])
+        if case_by_field["id"] == "case-a":
+            raise OSError("disk full")
+        time.sleep(0.2)
+
+    monkeypatch.setattr(run, "_run_one", _record_then_fail_first)
+    all_pending = [({"id": each_id}, 0) for each_id in ("case-a", "case-b", "case-c")]
+
+    with pytest.raises(OSError):
+        _run_pending(all_pending, tmp_path, [], SETTINGS, 1)
+
+    assert "case-c" not in all_started
