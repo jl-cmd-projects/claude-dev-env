@@ -17,12 +17,18 @@ function isPlainObject(candidate) {
     return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
 }
 
+function addMissingField(targetFields, fieldName, fieldDefault) {
+    if (Object.hasOwn(targetFields, fieldName)) return false;
+    targetFields[fieldName] = structuredClone(fieldDefault);
+    return true;
+}
+
 function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
     const addedKeys = [];
     for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
-        if (Object.hasOwn(targetFields, fieldName)) continue;
-        targetFields[fieldName] = structuredClone(fieldDefault);
-        addedKeys.push(`${keyPrefix}.${fieldName}`);
+        if (addMissingField(targetFields, fieldName, fieldDefault)) {
+            addedKeys.push(`${keyPrefix}.${fieldName}`);
+        }
     }
     return addedKeys;
 }
@@ -30,8 +36,7 @@ function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
 function mergeMissingPerModelFields(targetPerModel, defaultPerModel, settingKey) {
     const addedKeys = [];
     for (const [modelName, defaultFields] of Object.entries(defaultPerModel)) {
-        if (!Object.hasOwn(targetPerModel, modelName)) {
-            targetPerModel[modelName] = structuredClone(defaultFields);
+        if (addMissingField(targetPerModel, modelName, defaultFields)) {
             addedKeys.push(`${settingKey}.${modelName}`);
             continue;
         }
@@ -64,7 +69,8 @@ export function settingsDefaultsFromPackageSettings(packageSettings) {
 }
 
 /**
- * Add each default whose key the target settings lack.
+ * Add each default whose key the target settings lack, and fill the missing
+ * entries and fields inside an existing `modelSettings` or `env` object.
  *
  * @param {Record<string, unknown>} targetSettings Mutated in place.
  * @param {Record<string, unknown>} settingsDefaults
@@ -81,9 +87,9 @@ export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
             addedKeys.push(...NESTED_MERGE_BY_SETTING_KEY[settingKey](targetSettings[settingKey], defaultValue, settingKey));
             continue;
         }
-        if (Object.hasOwn(targetSettings, settingKey)) continue;
-        targetSettings[settingKey] = structuredClone(defaultValue);
-        addedKeys.push(settingKey);
+        if (addMissingField(targetSettings, settingKey, defaultValue)) {
+            addedKeys.push(settingKey);
+        }
     }
     return { addedKeys };
 }
