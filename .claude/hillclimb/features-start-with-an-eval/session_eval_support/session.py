@@ -1,6 +1,7 @@
 """Run one case as a fresh headless Claude Code session through the account broker."""
 
 import contextlib
+import ctypes
 import hashlib
 import json
 import logging
@@ -20,7 +21,6 @@ from pathlib import Path
 from session_eval_support.config.constants import (
     ALL_GIT_INIT_COMMANDS,
     ALL_SCORABLE_SUBTYPES,
-    ALL_TREE_KILL_WORDS,
     ASSISTANT_EVENT_TYPE,
     BROKER_REPORT_FILE_NAME,
     BROKER_SCRIPT,
@@ -32,6 +32,9 @@ from session_eval_support.config.constants import (
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
     FIXTURE_DIRECTORY,
+    JOB_ASSIGN_ACCESS,
+    JOB_EXIT_CODE,
+    KERNEL32_LIBRARY_NAME,
     PYTHON_CACHE_DIRECTORY_NAME,
     PYTHON_SOURCE_GLOB,
     HOOKS_DIRECTORY,
@@ -133,6 +136,14 @@ def harness_sources(*all_roots: Path) -> list[Path]:
     return sorted(all_files)
 
 
+def _repository_key(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(REPOSITORY_ROOT.resolve()).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
 def run_digest(
     bytes_by_target: Mapping[str, bytes],
     setting_by_name: Mapping[str, object],
@@ -155,7 +166,7 @@ def run_digest(
             **{RUN_KEY_INSTALL_PREFIX + each_target: each_bytes for each_target, each_bytes in bytes_by_target.items()},
             RUN_KEY_SETTINGS: json.dumps(setting_by_name, sort_keys=True).encode("utf-8"),
             **{
-                RUN_KEY_HARNESS_PREFIX + each_path.resolve().relative_to(REPOSITORY_ROOT.resolve()).as_posix(): each_path.read_bytes()
+                RUN_KEY_HARNESS_PREFIX + _repository_key(each_path): each_path.read_bytes()
                 for each_path in all_harness_paths
             },
         }
@@ -225,7 +236,7 @@ def _read_events(stream_path: Path) -> list[dict[str, object]]:
         return all_events
     for each_line in stream_path.read_text(
         encoding="utf-8", errors="replace"
-    ).splitlines():
+    ).split(NEWLINE):
         try:
             each_event = json.loads(each_line)
         except json.JSONDecodeError:
@@ -295,21 +306,43 @@ def _read_broker_report(report_path: Path) -> dict[str, object]:
     if not report_path.is_file():
         return {}
     try:
-        loaded = json.loads(report_path.read_text(encoding="utf-8"))
+        loaded = json.loads(report_path.read_text(encoding="utf-8", errors="replace"))
     except json.JSONDecodeError:
         return {}
     return loaded if isinstance(loaded, dict) else {}
 
 
-def _stop_group(process: subprocess.Popen[bytes]) -> None:
-    if sys.platform == WINDOWS_PLATFORM:
-        subprocess.run(
-            (*ALL_TREE_KILL_WORDS, str(process.pid)), capture_output=True, check=False
-        )
+def _windows_kernel() -> ctypes.CDLL:
+    kernel = ctypes.WinDLL(KERNEL32_LIBRARY_NAME, use_last_error=True)
+    kernel.CreateJobObjectW.restype = ctypes.c_void_p
+    kernel.OpenProcess.restype = ctypes.c_void_p
+    return kernel
+
+
+def _join_new_job(pid: int) -> int:
+    kernel = _windows_kernel()
+    job_handle = kernel.CreateJobObjectW(None, None)
+    process_handle = kernel.OpenProcess(JOB_ASSIGN_ACCESS, False, pid)
+    kernel.AssignProcessToJobObject(ctypes.c_void_p(job_handle), ctypes.c_void_p(process_handle))
+    kernel.CloseHandle(ctypes.c_void_p(process_handle))
+    return job_handle
+
+
+@dataclass(frozen=True)
+class _StartedCommand:
+    process: subprocess.Popen[bytes]
+    job_handle: int | None
+
+
+def _stop_group(command: _StartedCommand) -> None:
+    if command.job_handle is not None:
+        kernel = _windows_kernel()
+        kernel.TerminateJobObject(ctypes.c_void_p(command.job_handle), JOB_EXIT_CODE)
+        kernel.CloseHandle(ctypes.c_void_p(command.job_handle))
     else:
         with contextlib.suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGKILL)
-    process.wait()
+            os.killpg(command.process.pid, signal.SIGKILL)
+    command.process.wait()
 
 
 def _write_input(process: subprocess.Popen[bytes], input_bytes: bytes) -> None:
@@ -327,17 +360,19 @@ def _start_with_input(
     working_directory: Path,
     capture_file: IO[bytes] | IO[str],
     input_bytes: bytes,
-) -> subprocess.Popen[bytes]:
+) -> _StartedCommand:
+    is_windows = sys.platform == WINDOWS_PLATFORM
     process = subprocess.Popen(
         all_command_words,
         cwd=working_directory,
         stdin=subprocess.PIPE,
         stdout=capture_file,
         stderr=subprocess.DEVNULL,
-        start_new_session=sys.platform != WINDOWS_PLATFORM,
+        start_new_session=not is_windows,
     )
+    command = _StartedCommand(process, _join_new_job(process.pid) if is_windows else None)
     threading.Thread(target=_write_input, args=(process, input_bytes), daemon=True).start()
-    return process
+    return command
 
 
 def run_until_timeout(
@@ -352,7 +387,7 @@ def run_until_timeout(
     ::
 
         ignores 10 MB of input, timeout 2s    -> None after about 2s
-        leaves a background child and exits   -> 0, the child stopped
+        leaves a background child and exits   -> 0, child stopped via group or job
 
     Args:
         all_command_words: The command and its arguments.
@@ -364,11 +399,11 @@ def run_until_timeout(
     Returns:
         The exit code, or None when the command timed out.
     """
-    process = _start_with_input(all_command_words, working_directory, capture_file, input_bytes)
+    command = _start_with_input(all_command_words, working_directory, capture_file, input_bytes)
     with contextlib.suppress(subprocess.TimeoutExpired):
-        process.wait(timeout=timeout_seconds)
-    exit_code = process.returncode
-    _stop_group(process)
+        command.process.wait(timeout=timeout_seconds)
+    exit_code = command.process.returncode
+    _stop_group(command)
     return exit_code
 
 

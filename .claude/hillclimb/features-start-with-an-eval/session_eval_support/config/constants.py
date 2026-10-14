@@ -70,7 +70,9 @@ RUN_KEY_SETTINGS = "settings"
 RUN_DIGEST_FIELD = "run_digest"
 META_FIELD = "meta"
 WINDOWS_PLATFORM = "win32"
-ALL_TREE_KILL_WORDS = ("taskkill", "/F", "/T", "/PID")
+KERNEL32_LIBRARY_NAME = "kernel32"
+JOB_ASSIGN_ACCESS = 0x0101
+JOB_EXIT_CODE = 1
 ALL_GIT_INIT_COMMANDS = (
     ("git", "init", "-q", "-b", "main"),
     ("git", "add", "-A"),

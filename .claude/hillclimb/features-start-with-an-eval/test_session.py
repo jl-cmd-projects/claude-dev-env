@@ -40,6 +40,12 @@ STREAM_AND_TRUNCATED_REPORT = (
 )
 IGNORE_STDIN_AND_SLEEP = "import time; time.sleep(60)"
 CLOSE_STDIN_AND_WAIT = "import os, time; os.close(0); time.sleep(1)"
+PRINT_A_SEPARATED_RESULT_AND_A_CUT_REPORT = (
+    "import sys\n"
+    "from pathlib import Path\n"
+    "sys.stdout.buffer.write('{\"type\": \"result\", \"result\": \"one\\u2028two\"}\\n'.encode('utf-8'))\n"
+    "Path(sys.argv[1]).write_bytes(b'{\"final_decision\": \"caf\\xc3')\n"
+)
 LEAVE_A_BEATING_GRANDCHILD_AND_EXIT = (
     "import subprocess, sys\n"
     "beat = 'import sys, time\\nfrom pathlib import Path\\nwhile True:\\n    Path(sys.argv[1]).write_text(str(time.monotonic()), encoding=\\'utf-8\\')\\n    time.sleep(0.05)\\n'\n"
@@ -269,3 +275,46 @@ def test_run_until_timeout_logs_a_failed_input_write_and_still_returns(tmp_path:
 
     assert exit_code == 0
     assert "standard input to pid" in caplog.text
+
+
+def test_run_session_keeps_an_event_with_a_line_separator_and_survives_a_cut_report(tmp_path: Path) -> None:
+    def print_and_cut(report_path: Path, claude_words: list[str]) -> list[str]:
+        return [sys.executable, "-c", PRINT_A_SEPARATED_RESULT_AND_A_CUT_REPORT, str(report_path)]
+
+    session_run = run_session(tmp_path, "ask", SessionSettings("model", "low", 1, 60), print_and_cut)
+
+    assert session_run.all_events == [{"type": "result", "result": "one\u2028two"}]
+    assert session_run.broker_report == {}
+
+
+def test_run_digest_keys_a_harness_file_outside_the_repository_by_its_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(session, "REPOSITORY_ROOT", tmp_path / "repository")
+    outside_grader = tmp_path / "elsewhere" / "grading.py"
+    outside_grader.parent.mkdir()
+    outside_grader.write_text("PASS = 1\n", encoding="utf-8")
+
+    assert len(run_digest({}, {}, [outside_grader])) == 12
+
+
+class _FakeKernel:
+    def __init__(self) -> None:
+        self.all_calls: list[tuple[str, tuple[object, ...]]] = []
+
+    def __getattr__(self, name: str) -> object:
+        def record(*all_arguments: object) -> int:
+            self.all_calls.append((name, all_arguments))
+            return 77
+        return record
+
+
+def test_windows_runs_join_a_job_that_ends_after_a_clean_exit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    kernel = _FakeKernel()
+    monkeypatch.setattr(session, "_windows_kernel", lambda: kernel)
+    monkeypatch.setattr(session.sys, "platform", "win32")
+
+    with (tmp_path / "capture.txt").open("wb") as capture_file:
+        exit_code = run_until_timeout([sys.executable, "-c", "pass"], tmp_path, capture_file, 30, b"")
+
+    all_names = [each_name for each_name, _ in kernel.all_calls]
+    assert exit_code == 0
+    assert all_names == ["CreateJobObjectW", "OpenProcess", "AssignProcessToJobObject", "CloseHandle", "TerminateJobObject", "CloseHandle"]

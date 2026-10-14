@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -42,6 +43,8 @@ def test_select_cases_refuses_an_unknown_id_and_keeps_file_order() -> None:
     assert select_cases(all_cases, " w02 , s01 ") == [{"id": "w02"}, {"id": "s01"}]
     with pytest.raises(ValueError, match="b02x, b03x"):
         select_cases(all_cases, "w02,b03x,b02x")
+    with pytest.raises(ValueError, match="no case ids"):
+        select_cases(all_cases, " , ")
 
 
 def test_rows_for_install_keeps_rows_of_the_digest_and_the_selected_cases(tmp_path: Path) -> None:
@@ -80,3 +83,11 @@ def test_open_errors_drops_an_error_a_later_retry_scored() -> None:
     all_results = [{"prompt_id": "w02", "rep": 0}]
 
     assert open_errors(all_errors, all_results) == all_errors[1:]
+
+
+def test_read_rows_keeps_a_row_with_a_line_separator_and_skips_a_cut_character(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    row = {"prompt_id": "w02", "rep": 0, "detail": "one\u2028two"}
+    results.write_bytes(json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n" + b'{"prompt_id": "b02", "detail": "caf\xc3')
+
+    assert read_rows(results) == [row]

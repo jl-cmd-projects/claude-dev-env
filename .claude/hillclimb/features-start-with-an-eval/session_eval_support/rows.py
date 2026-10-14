@@ -43,7 +43,7 @@ def read_rows(path: Path) -> list[dict[str, object]]:
     """
     if not path.is_file():
         return []
-    all_lines = path.read_text(encoding="utf-8").splitlines()
+    all_lines = path.read_text(encoding="utf-8", errors="replace").split(NEWLINE)
     all_parsed = [_parsed_row(each_line) for each_line in all_lines]
     for each_number, each_line, each_row in zip(range(1, len(all_lines) + 1), all_lines, all_parsed):
         if each_row is None and each_line.strip():
@@ -119,6 +119,13 @@ def append_row(path: Path, row_by_field: dict[str, object]) -> None:
             jsonl_file.write(line_start + json.dumps(row_by_field) + NEWLINE)
 
 
+def _wanted_ids(case_ids: str) -> set[str]:
+    all_wanted_ids = {each_id.strip() for each_id in case_ids.split(",") if each_id.strip()}
+    if case_ids.strip() and not all_wanted_ids:
+        raise ValueError(f"no case ids in --cases {case_ids!r}")
+    return all_wanted_ids
+
+
 def select_cases(
     all_cases: list[dict[str, str]], case_ids: str
 ) -> list[dict[str, str]]:
@@ -126,9 +133,9 @@ def select_cases(
 
     ::
 
-        select_cases(cases, "w02,b02") -> [w02 case, b02 case]
         select_cases(cases, "w02, b02") -> [w02 case, b02 case]
         select_cases(cases, "w02,b02x") -> ValueError naming b02x
+        select_cases(cases, ",")        -> ValueError, no id given
 
     Args:
         all_cases: Every case in the flow's cases file.
@@ -140,7 +147,7 @@ def select_cases(
     Raises:
         ValueError: An id names no case.
     """
-    all_wanted_ids = {each_id.strip() for each_id in case_ids.split(",") if each_id.strip()}
+    all_wanted_ids = _wanted_ids(case_ids)
     all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
     if all_unknown_ids:
         raise ValueError(f"unknown case ids: {ID_LIST_SEPARATOR.join(sorted(all_unknown_ids))}")
