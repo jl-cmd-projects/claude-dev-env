@@ -130,3 +130,108 @@ def test_write_reply_limit_reminder_should_print_additional_context(
     chat_reply_gate.write_reply_limit_reminder()
     hook_output = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
     assert "Lead with the outcome" in hook_output["additionalContext"]
+
+
+MID_TURN_NARRATION = (
+    "These numbers mean the hook never fired. Each headless run reported this session's id,"
+    " and the eval settings had no UserPromptSubmit entry to reset the counter."
+)
+PROMPT_ENTRY = {"type": "user", "message": {"role": "user", "content": "Enforce it everywhere."}}
+
+
+def assistant_entry(block: dict[str, object]) -> dict[str, object]:
+    return {"type": "assistant", "message": {"id": "m1", "role": "assistant", "content": [block]}}
+
+
+def text_entry(text: str) -> dict[str, object]:
+    return assistant_entry({"type": "text", "text": text})
+
+
+def call_entry(tool_use_id: str) -> dict[str, object]:
+    return assistant_entry({"type": "tool_use", "id": tool_use_id, "name": "Bash", "input": {}})
+
+
+def result_entry(tool_use_id: str) -> dict[str, object]:
+    return {
+        "type": "user",
+        "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use_id}]},
+    }
+
+
+def post_tool_use_input(transcript_path: Path, tool_use_id: str) -> dict[str, object]:
+    return {
+        "hook_event_name": "PostToolUse",
+        "tool_use_id": tool_use_id,
+        "transcript_path": str(transcript_path),
+    }
+
+
+def write_transcript(transcript_path: Path, all_entries: list[dict[str, object]]) -> Path:
+    transcript_path.write_text(
+        "".join(json.dumps(each_entry) + "\n" for each_entry in all_entries), encoding="utf-8"
+    )
+    return transcript_path
+
+
+def test_should_block_post_tool_use_when_mid_turn_text_breaks_the_rule(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl",
+        [PROMPT_ENTRY, call_entry("call_1"), result_entry("call_1"), text_entry(MID_TURN_NARRATION), call_entry("call_2")],
+    )
+    exit_code, _, error_text = run_hook(monkeypatch, capsys, post_tool_use_input(transcript_path, "call_2"))
+    assert exit_code == 2
+    assert error_text.startswith("The text you sent before this tool call breaks the reply rule.")
+    assert "Sentence too long: 19 words, limit 15" in error_text
+
+
+def test_should_allow_post_tool_use_when_mid_turn_text_is_a_short_status_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl",
+        [PROMPT_ENTRY, text_entry("Running the eval again."), call_entry("call_1")],
+    )
+    exit_code, _, error_text = run_hook(monkeypatch, capsys, post_tool_use_input(transcript_path, "call_1"))
+    assert exit_code == 0
+    assert error_text == ""
+
+
+def test_should_allow_post_tool_use_from_a_subagent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl", [PROMPT_ENTRY, text_entry(MID_TURN_NARRATION), call_entry("call_1")]
+    )
+    hook_input = post_tool_use_input(transcript_path, "call_1") | {"agent_id": "agent_7"}
+    exit_code, _, _ = run_hook(monkeypatch, capsys, hook_input)
+    assert exit_code == 0
+
+
+def test_text_before_call_should_give_sibling_calls_no_text() -> None:
+    all_entries = [PROMPT_ENTRY, text_entry(MID_TURN_NARRATION), call_entry("call_1"), call_entry("call_2")]
+    assert chat_reply_gate.text_before_call(all_entries, "call_1") == MID_TURN_NARRATION
+    assert chat_reply_gate.text_before_call(all_entries, "call_2") == ""
+
+
+def test_text_before_call_should_return_none_for_an_unwritten_call() -> None:
+    assert chat_reply_gate.text_before_call([PROMPT_ENTRY], "call_9") is None
+
+
+def test_wait_for_text_before_call_should_read_the_transcript(tmp_path: Path) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl", [PROMPT_ENTRY, text_entry("Checking."), call_entry("call_1")]
+    )
+    assert chat_reply_gate.wait_for_text_before_call(transcript_path, "call_1") == "Checking."
+
+
+def test_mid_turn_block_reason_should_name_the_violation(tmp_path: Path) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl", [PROMPT_ENTRY, text_entry(MID_TURN_NARRATION), call_entry("call_1")]
+    )
+    block_reason = chat_reply_gate.mid_turn_block_reason(
+        {"tool_use_id": "call_1", "transcript_path": str(transcript_path)}
+    )
+    assert block_reason is not None
+    assert block_reason.endswith("with no process talk.")

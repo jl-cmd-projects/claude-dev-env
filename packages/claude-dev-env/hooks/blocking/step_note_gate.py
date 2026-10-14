@@ -103,15 +103,9 @@ def is_step_note(block: dict) -> bool:
     return block.get("type") == TEXT_BLOCK_TYPE and bool(str(block.get("text", "")).strip())
 
 
-def check_step_note(all_entries: list[dict], tool_use_id: str) -> NoteCheck:
-    """Report whether a text block sits between the last user entry and this call.
-
-    A user entry is either a tool result or a prompt, so it marks where the
-    previous step ended. Sibling calls in one message share the note that
-    opens the message.
-    """
-    all_blocks = list(transcript_blocks(all_entries))
-    call_position = next(
+def tool_use_position(all_blocks: list[tuple[str, dict]], tool_use_id: str) -> int | None:
+    """Return the index of this call's tool_use block, or None when it is not written yet."""
+    return next(
         (
             position
             for position, (role, block) in enumerate(all_blocks)
@@ -121,6 +115,17 @@ def check_step_note(all_entries: list[dict], tool_use_id: str) -> NoteCheck:
         ),
         None,
     )
+
+
+def check_step_note(all_entries: list[dict], tool_use_id: str) -> NoteCheck:
+    """Report whether a text block sits between the last user entry and this call.
+
+    A user entry is either a tool result or a prompt, so it marks where the
+    previous step ended. Sibling calls in one message share the note that
+    opens the message.
+    """
+    all_blocks = list(transcript_blocks(all_entries))
+    call_position = tool_use_position(all_blocks, tool_use_id)
     if call_position is None:
         return NoteCheck.CALL_NOT_WRITTEN
     for each_preceding_role, each_preceding_block in reversed(all_blocks[:call_position]):
