@@ -17,7 +17,9 @@ def test_window_to_compact_skips_a_window_with_no_finite_reading(
         "unreadable: unreadable === undefined ? 'undefined' : unreadable, "
         "missing: missing === undefined ? 'undefined' : missing, "
         "readable: windowToCompact([{kind: 'five_hour', percentUsed: NaN, resetsAt: 'A'}, "
-        "{kind: 'seven_day', percentUsed: 99, resetsAt: 'C'}], thresholds, {})}));"
+        "{kind: 'seven_day', percentUsed: 99, resetsAt: 'C'}], thresholds, {}), "
+        "atThresholdWithFloatShortfall: windowToCompact("
+        "[{kind: 'five_hour', percentUsed: 96.99999999999999, resetsAt: 'D'}], thresholds, {})}));"
     )
     compact_run = run_repository_command(["bun", "-e", script])
     compact_report = json.loads(compact_run.stdout)
@@ -25,3 +27,4 @@ def test_window_to_compact_skips_a_window_with_no_finite_reading(
     assert compact_report["unreadable"] == "undefined"
     assert compact_report["missing"] == "undefined"
     assert compact_report["readable"] == {"kind": "seven_day", "resetsAt": "C"}
+    assert compact_report["atThresholdWithFloatShortfall"] == {"kind": "five_hour", "resetsAt": "D"}

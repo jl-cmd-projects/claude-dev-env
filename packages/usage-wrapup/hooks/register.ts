@@ -1,4 +1,5 @@
 import type { Register, SessionRateLimit } from 'claude-code'
+import { isAtOrBelow, readablePercentUsed } from './usage'
 
 const LABEL: Record<string, string> = {
   five_hour: '5-hour',
@@ -8,22 +9,26 @@ const LABEL: Record<string, string> = {
 
 type Low = { kind: string; left: number; resetsAt?: string }
 
-const THRESHOLD_TOLERANCE = 1e-9
+type UsageRead =
+  | { kind: 'pending'; limits: Promise<readonly SessionRateLimit[] | undefined> }
+  | { kind: 'failed'; at: number }
+
 const USAGE_RETRY_MILLISECONDS = 60_000
 
-/** The window's percent used, or undefined when the host sent no finite reading. */
-export function readablePercentUsed(limit: SessionRateLimit): number | undefined {
-  return Number.isFinite(limit.percentUsed) ? limit.percentUsed : undefined
-}
-
-function isAtOrBelow(left: number, threshold: number): boolean {
-  return left <= threshold + THRESHOLD_TOLERANCE
-}
-
-function isCoolingDown(failedAt: number | undefined, now: number): boolean {
-  if (failedAt === undefined) return false
-  const sinceFailure = now - failedAt
+function isCoolingDown(read: UsageRead | undefined, now: number): boolean {
+  if (read?.kind !== 'failed') return false
+  const sinceFailure = now - read.at
   return sinceFailure >= 0 && sinceFailure < USAGE_RETRY_MILLISECONDS
+}
+
+async function readUsageLimits(
+  readUsage: () => Promise<{ rateLimits?: readonly SessionRateLimit[] }>,
+): Promise<readonly SessionRateLimit[] | undefined> {
+  try {
+    return (await readUsage())?.rateLimits
+  } catch {
+    return undefined
+  }
 }
 
 /** The window with the least left, when it is at or below the threshold. */
@@ -61,8 +66,16 @@ export const register: Register = (on, options) => {
   const threshold = Number(options.threshold ?? 1)
   let limits: readonly SessionRateLimit[] | undefined
   let wasWarned = false
-  let usageReadFailedAt: number | undefined
-  let usageRead: Promise<readonly SessionRateLimit[] | undefined> | undefined
+  let usageRead: UsageRead | undefined
+
+  const startUsageRead = (readUsage: () => Promise<{ rateLimits?: readonly SessionRateLimit[] }>) => {
+    const pending = readUsageLimits(readUsage)
+    usageRead = { kind: 'pending', limits: pending }
+    void pending.then((read) => {
+      usageRead = read ? undefined : { kind: 'failed', at: Date.now() }
+    })
+    return pending
+  }
 
   on('session.measure', ($, e, next) => {
     limits = e.rateLimits
@@ -77,20 +90,10 @@ export const register: Register = (on, options) => {
     const ran = await next(e)
     if ('deny' in ran && ran.deny !== undefined) return ran
     if (!limits) {
-      if (isCoolingDown(usageReadFailedAt, Date.now())) return ran
-      usageRead ??= $.session
-        .usage()
-        .then(
-          (usage) => usage.rateLimits,
-          () => {
-            usageReadFailedAt = Date.now()
-            return undefined
-          },
-        )
-        .finally(() => {
-          usageRead = undefined
-        })
-      limits = await usageRead
+      if (isCoolingDown(usageRead, Date.now())) return ran
+      const pending = usageRead?.kind === 'pending' ? usageRead.limits : startUsageRead(() => $.session.usage())
+      const read = await pending
+      limits ??= read
       if (!limits) return ran
     }
     const low = lowest(limits, threshold)

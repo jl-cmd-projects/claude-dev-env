@@ -45,7 +45,7 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
     assert selection_report["unreadableThreshold"] == "undefined"
 
 
-def test_tool_call_skips_usage_after_a_failed_read_until_the_next_measurement(
+def test_measurement_supplies_limits_during_the_retry_cooldown(
     run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
 ) -> None:
     script = (
@@ -161,3 +161,60 @@ def test_concurrent_tool_calls_share_one_usage_read(
     assert concurrency_report["usageReads"] == 1
     for each_result in concurrency_report["results"]:
         assert "5-hour usage limit: only 1% left." in "\n".join(each_result["context"])
+
+
+def test_tool_call_survives_a_throwing_or_empty_usage_read(
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    script = (
+        "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
+        "const handlers = {}; "
+        "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "let now = 0; "
+        "Date.now = () => now; "
+        "let usageReads = 0; "
+        "const $ = {session: {usage: () => { usageReads += 1; "
+        "if (usageReads === 1) throw new Error('usage threw synchronously'); "
+        "return Promise.resolve({}); }}}; "
+        "const next = async () => ({result: 'ok'}); "
+        "const afterThrow = await handlers['tool.call']($, undefined, next); "
+        "now = 61000; "
+        "const afterEmpty = await handlers['tool.call']($, undefined, next); "
+        "now = 62000; "
+        "const withinCooldown = await handlers['tool.call']($, undefined, next); "
+        "console.log(JSON.stringify({afterThrow, afterEmpty, withinCooldown, usageReads}));"
+    )
+    empty_run = run_repository_command(["bun", "-e", script])
+    empty_report = json.loads(empty_run.stdout)
+
+    assert empty_report["afterThrow"] == {"result": "ok"}
+    assert empty_report["afterEmpty"] == {"result": "ok"}
+    assert empty_report["withinCooldown"] == {"result": "ok"}
+    assert empty_report["usageReads"] == 2
+
+
+def test_a_pending_usage_read_keeps_a_newer_measurement(
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    script = (
+        "import {register} from './packages/usage-wrapup/hooks/register.ts'; "
+        "const handlers = {}; "
+        "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
+        "let finishRead; "
+        "const $ = {ui: {status: () => {}, toast: () => {}}, "
+        "session: {usage: () => new Promise((resolve) => { finishRead = resolve; })}}; "
+        "const next = async (event) => (event ?? {result: 'ok'}); "
+        "const pendingCall = handlers['tool.call']($, undefined, next); "
+        "await new Promise((resolve) => setTimeout(resolve, 0)); "
+        "await handlers['session.measure']($, "
+        "{rateLimits: [{kind: 'five_hour', percentUsed: 99}]}, next); "
+        "finishRead({rateLimits: [{kind: 'five_hour', percentUsed: 10}]}); "
+        "const raced = await pendingCall; "
+        "const later = await handlers['tool.call']($, undefined, next); "
+        "console.log(JSON.stringify({raced, later}));"
+    )
+    race_run = run_repository_command(["bun", "-e", script])
+    race_report = json.loads(race_run.stdout)
+
+    assert "5-hour usage limit: only 1% left." in "\n".join(race_report["raced"]["context"])
+    assert "5-hour usage limit: only 1% left." in "\n".join(race_report["later"]["context"])
