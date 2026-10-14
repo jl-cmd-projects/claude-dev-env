@@ -156,6 +156,7 @@ def test_action_command_shapes(tmp_path: Path) -> None:
         "git --git-dir=.git push origin head",
         "gh pr create",
         "gh -R owner/repo pr --repo owner/repo merge",
+        "gh -R owner/repo api -X PUT repos/owner/repo/pulls/1/merge",
         "gh api -X PUT repos/owner/repo/pulls/1/merge",
         "gh api graphql -f query='mutation { enablePullRequestAutoMerge }'",
         "gh api graphql -f name=auto-merge",
@@ -180,6 +181,8 @@ def test_non_action_command_shapes(tmp_path: Path) -> None:
         "gh api repos/owner/repo/pulls/1/mergeability",
         "gh issue create --body-file message.txt",
         "gh pr",
+        "gh pr --repo owner/repo",
+        "gh api -H 'Accept: x' repos/owner/repo/pulls/1/mergeability",
         "GH_TOKEN=x gh issue list",
         "env -u GH_TOKEN git status",
     )

@@ -43,9 +43,6 @@ from dev_env_scripts_constants.account_broker_constants import (
     JobOutcome,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
-    METER_READ_DELAY_FACTOR,
-    METER_READ_FIRST_DELAY_SECONDS,
-    METER_READ_MAX_DELAY_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -54,6 +51,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     REPORT_INDENT_SPACES,
     SubprocessRunner,
     codex_usage_limit_signatures,
+    meter_read_delay_seconds,
     parse_utc_time,
     utc_time_text,
 )
@@ -70,7 +68,6 @@ from dev_env_scripts_constants.codex_account_constants import (
     CODEX_ACCOUNT_LAUNCHERS_FILE_NAME,
     CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
-    WEEKLY_WINDOW_MINUTES,
 )
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 from shared_tree_paths import resolve_shared_process_tree_scripts_directory
@@ -303,14 +300,13 @@ def read_codex_account_meters(account: Account) -> Meters:
 
     Raises:
         CodexMeterUnreadError: The meter read failed.
-        OSError: No Codex executable was found.
+        CodexExecutableNotFoundError: No Codex executable was found, so
+            read_meters_with_backoff stops without a retry.
     """
     codex_path = codex_account_meters.resolve_codex_path(None)
     usage = codex_account_meters.read_codex_meters(codex_path, account.home)
-    weekly = [window for window in usage.all_windows if window.duration_minutes is None or window.duration_minutes >= WEEKLY_WINDOW_MINUTES]
-    short = [window for window in usage.all_windows if window.duration_minutes is not None and window.duration_minutes < WEEKLY_WINDOW_MINUTES]
-    weekly_window = max(weekly, key=lambda window: window.used_percent) if weekly else None
-    short_window = max(short, key=lambda window: window.used_percent) if short else None
+    short_window = usage.short_window
+    weekly_window = usage.weekly_window
     return Meters(
         usage.short_window_percent_left,
         short_window.resets_at if short_window else None,
@@ -328,14 +324,17 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
 
     Returns:
         The meters from the first read that succeeds, or None with the last
-        failure text once every attempt failed.
+        failure text once every attempt failed. A missing Codex executable
+        fails at once, without a retry.
     """
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
-            time.sleep(min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (each_attempt - 1), METER_READ_MAX_DELAY_SECONDS))
+            time.sleep(meter_read_delay_seconds(each_attempt))
         try:
             return read_meters(account), None
+        except codex_account_meters.CodexExecutableNotFoundError as error:
+            return None, str(error)
         except (
             codex_account_meters.CodexMeterUnreadError,
             WeeklyUtilizationProbeError,
