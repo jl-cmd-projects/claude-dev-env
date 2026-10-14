@@ -72,12 +72,24 @@ def test_search_check_fails_flags_before_a_root_powershell_recursion_and_rooted_
     assert scopes_every_search([ToolCall("Glob", {"pattern": "jobs/**/*.py"})])
 
 
+def test_search_check_reads_recursion_per_command() -> None:
+    assert not scopes_every_search([_bash("grep -r TODO /")])
+    assert not scopes_every_search([_bash("grep -Rn TODO /")])
+    assert not scopes_every_search([_bash("rg TODO /")])
+    assert not scopes_every_search([_bash("ls -laR /")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "gci -r C:\\ -Filter *.json"})])
+    assert scopes_every_search([_bash("ls -r /")])
+    assert scopes_every_search([_bash("grep TODO /etc/hosts")])
+    assert scopes_every_search([_bash("rg TODO jobs")])
+
+
 def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
     skill = ToolCall("Skill", {"skill": "pr-lifecycle"})
     commit = _bash("git commit -am 'fix typo'")
     assert loads_pr_lifecycle_before_commit([skill, commit])
     assert not loads_pr_lifecycle_before_commit([commit, skill])
     assert not loads_pr_lifecycle_before_commit([ToolCall("Edit", {})])
+    assert not loads_pr_lifecycle_before_commit([ToolCall("PowerShell", {"command": "git commit -m x"}), skill])
 
 
 def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases() -> None:

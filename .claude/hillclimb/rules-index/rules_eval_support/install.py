@@ -13,11 +13,11 @@ from rules_eval_support.config.constants import (
     MARKDOWN_SUFFIX,
     PATH_LIST_SEPARATOR,
     PATHS_FRONTMATTER_KEY,
-    PYTHON_CACHE_DIRECTORY_NAME,
     REPOSITORY_ROOT,
     RULES_SOURCE_DIRECTORY,
     RULES_TARGET_DIRECTORY,
 )
+from session_eval_support.config.constants import PYTHON_CACHE_DIRECTORY_NAME
 
 
 def _read_git(*all_arguments: str) -> str:
@@ -26,8 +26,7 @@ def _read_git(*all_arguments: str) -> str:
         cwd=REPOSITORY_ROOT,
         check=True,
         capture_output=True,
-        encoding="utf-8",
-    ).stdout
+    ).stdout.decode("utf-8")
 
 
 def _markdown_names(ref: str, directory: str) -> list[str]:

@@ -3,6 +3,7 @@
 import contextlib
 import hashlib
 import json
+import logging
 import os
 import shutil
 import signal
@@ -31,16 +32,19 @@ from session_eval_support.config.constants import (
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
     FIXTURE_DIRECTORY,
+    PYTHON_CACHE_DIRECTORY_NAME,
+    PYTHON_SOURCE_GLOB,
     HOOKS_DIRECTORY,
     JSON_INDENT,
     NEWLINE,
     REPOSITORY_ROOT,
     RESULT_EVENT_TYPE,
-    RUN_KEY_GRADER_PREFIX,
+    RUN_KEY_HARNESS_PREFIX,
     RUN_KEY_INSTALL_PREFIX,
     RUN_KEY_SETTINGS,
     SESSION_SETTING_SOURCES,
     STREAM_FILE_NAME,
+    TEST_FILE_PREFIX,
     TEXT_BLOCK_TYPE,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_RESULT_PREVIEW_LENGTH,
@@ -56,6 +60,8 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.append(str(HOOKS_DIRECTORY))
 
 from hooks_constants.windows_filesystem import force_rmtree
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -101,28 +107,57 @@ def files_digest(bytes_by_target: Mapping[str, bytes]) -> str:
     return digest.hexdigest()[:DIGEST_LENGTH]
 
 
+def harness_sources(*all_roots: Path) -> list[Path]:
+    """Return the Python source files of an eval harness, tests left out.
+
+    ::
+
+        harness_sources(rules_eval_support_dir, run_py)
+        -> [.../config/constants.py, .../grading.py, ..., .../run.py]
+
+    Args:
+        all_roots: Source files, or directories searched for ``*.py`` files.
+
+    Returns:
+        Each source file once, sorted, without ``test_*.py`` files or caches.
+    """
+    all_files: set[Path] = set()
+    for each_root in all_roots:
+        all_candidates = [each_root] if each_root.is_file() else each_root.rglob(PYTHON_SOURCE_GLOB)
+        all_files.update(
+            each_path.resolve()
+            for each_path in all_candidates
+            if not each_path.name.startswith(TEST_FILE_PREFIX)
+            and PYTHON_CACHE_DIRECTORY_NAME not in each_path.parts
+        )
+    return sorted(all_files)
+
+
 def run_digest(
     bytes_by_target: Mapping[str, bytes],
     setting_by_name: Mapping[str, object],
-    all_grader_paths: Iterable[Path],
+    all_harness_paths: Iterable[Path],
 ) -> str:
     """Return the digest that keys resumed rows to everything that shapes a score.
 
     Args:
         bytes_by_target: The files the workspace installs.
         setting_by_name: The run's session settings, such as model and turn cap.
-        all_grader_paths: The source files that grade a session.
+        all_harness_paths: The harness source files, from harness_sources.
 
     Returns:
         The files_digest over the installed files, the settings as sorted
-        JSON, and each grader file's bytes, so a change to any of them starts
-        a fresh set of rows.
+        JSON, and each harness file's bytes keyed by its repository path, so
+        a change to any of them starts a fresh set of rows.
     """
     return files_digest(
         {
             **{RUN_KEY_INSTALL_PREFIX + each_target: each_bytes for each_target, each_bytes in bytes_by_target.items()},
             RUN_KEY_SETTINGS: json.dumps(setting_by_name, sort_keys=True).encode("utf-8"),
-            **{RUN_KEY_GRADER_PREFIX + each_path.name: each_path.read_bytes() for each_path in all_grader_paths},
+            **{
+                RUN_KEY_HARNESS_PREFIX + each_path.resolve().relative_to(REPOSITORY_ROOT.resolve()).as_posix(): each_path.read_bytes()
+                for each_path in all_harness_paths
+            },
         }
     )
 
@@ -142,6 +177,16 @@ def installed_files(all_installs: list[tuple[str, str]]) -> dict[str, bytes]:
     }
 
 
+def _fill_workspace(workspace: Path, bytes_by_target: Mapping[str, bytes]) -> None:
+    shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
+    for each_target, each_bytes in bytes_by_target.items():
+        target_path = workspace / each_target
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(each_bytes)
+    for each_command in ALL_GIT_INIT_COMMANDS:
+        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
+
+
 def prepare_workspace(bytes_by_target: Mapping[str, bytes]) -> Path:
     """Copy the fixture project and the variant's files into a new git workspace.
 
@@ -150,15 +195,18 @@ def prepare_workspace(bytes_by_target: Mapping[str, bytes]) -> Path:
 
     Returns:
         The workspace directory, committed on branch main.
+
+    Raises:
+        OSError: A copy or write failed; the directory is removed first.
+        subprocess.CalledProcessError: A git step failed; the directory is
+            removed first.
     """
     workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
-    shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_target, each_bytes in bytes_by_target.items():
-        target_path = workspace / each_target
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_bytes(each_bytes)
-    for each_command in ALL_GIT_INIT_COMMANDS:
-        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
+    try:
+        _fill_workspace(workspace, bytes_by_target)
+    except (OSError, subprocess.CalledProcessError):
+        remove_workspace(workspace)
+        raise
     return workspace
 
 
@@ -265,9 +313,13 @@ def _stop_group(process: subprocess.Popen[bytes]) -> None:
 
 
 def _write_input(process: subprocess.Popen[bytes], input_bytes: bytes) -> None:
-    with contextlib.suppress(OSError):
+    try:
         process.stdin.write(input_bytes)
-        process.stdin.close()
+    except OSError as error:
+        logger.warning("standard input to pid %d failed: %s", process.pid, error)
+    finally:
+        with contextlib.suppress(OSError):
+            process.stdin.close()
 
 
 def _start_with_input(

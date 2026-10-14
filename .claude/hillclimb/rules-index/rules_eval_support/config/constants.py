@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from types import MappingProxyType
 
 FLOW_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = FLOW_ROOT.parents[2]
@@ -19,7 +20,6 @@ FRONTMATTER_DELIMITER = "---"
 PATHS_FRONTMATTER_KEY = "paths:"
 ALL_LOG_FILE_NAMES = ("logs/alpha.log", "logs/beta.log")
 LOG_FILE_TEXT = "job finished\n"
-PYTHON_CACHE_DIRECTORY_NAME = "__pycache__"
 GIT_EXECUTABLE = "git"
 FIRST_TOOLS_SHOWN = 8
 GROUP_SEPARATOR = ", "
@@ -63,9 +63,12 @@ SUBSTITUTION_PATTERN = re.compile(r"\$\(|`|<\(|>\(")
 RM_PATTERN = re.compile(r"(?:^|[\s;&|(])rm(?:\s|$)")
 GIT_COMMIT_PATTERN = re.compile(r"\bgit\b[^;&|]*\bcommit\b")
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
-ALL_ALWAYS_RECURSIVE_COMMAND_NAMES = frozenset({"find", "du", "locate"})
-ALL_RECURSE_FLAG_COMMAND_NAMES = frozenset({"ls", "dir", "gci", "get-childitem"})
-ALL_RECURSE_FLAGS = frozenset({"-r", "-recurse"})
+ALL_ALWAYS_RECURSIVE_COMMAND_NAMES = frozenset({"find", "du", "locate", "rg"})
+ALL_POWERSHELL_LISTING_NAMES = frozenset({"dir", "gci", "get-childitem"})
+POWERSHELL_RECURSE_FLAG = "-recurse"
+LONG_RECURSIVE_FLAG = "--recursive"
+LONG_FLAG_PREFIX = "--"
+RECURSE_LETTERS_BY_COMMAND_NAME = MappingProxyType({"ls": "R", "grep": "rR", "egrep": "rR"})
 COMMAND_SEPARATOR_PATTERN = re.compile(r"[;&|\n]+")
 QUOTE_CHARACTERS = "\"'"
 FLAG_PREFIX = "-"

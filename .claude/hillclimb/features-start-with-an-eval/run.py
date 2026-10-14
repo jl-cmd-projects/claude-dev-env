@@ -11,7 +11,7 @@ guide into the workspace's ``.claude/`` folder. Each session loads project and
 local settings only, so a rule installed in the home config stays out of both
 arms. Rows land in
 ``<variant>/results.jsonl`` as each case finishes, each tagged with a run
-digest over the installed files, the session settings and the grader source.
+digest over the installed files, the session settings and the harness source.
 A rerun skips every (case, rep) already there under the same digest, and the
 headline counts only those rows and the errors no retry has scored.
 """
@@ -69,6 +69,7 @@ from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
+    harness_sources,
     installed_files,
     prepare_workspace,
     remove_workspace,
@@ -271,7 +272,11 @@ def main() -> int:
     settings = SessionSettings(
         arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s
     )
-    digest = run_digest(bytes_by_target, asdict(settings), [Path(grading.__file__)])
+    digest = run_digest(
+        bytes_by_target,
+        asdict(settings),
+        harness_sources(Path(grading.__file__).parent, Path(__file__)),
+    )
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     _run_pending(

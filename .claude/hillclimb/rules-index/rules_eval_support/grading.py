@@ -5,11 +5,14 @@ from pathlib import Path
 
 from rules_eval_support.config.constants import (
     ALL_ALWAYS_RECURSIVE_COMMAND_NAMES,
-    ALL_RECURSE_FLAG_COMMAND_NAMES,
-    ALL_RECURSE_FLAGS,
+    ALL_POWERSHELL_LISTING_NAMES,
     ALL_SHELL_TOOL_NAMES,
     COMMAND_SEPARATOR_PATTERN,
     FLAG_PREFIX,
+    LONG_FLAG_PREFIX,
+    LONG_RECURSIVE_FLAG,
+    POWERSHELL_RECURSE_FLAG,
+    RECURSE_LETTERS_BY_COMMAND_NAME,
     GLOB_TOOL_NAME,
     PATTERN_FIELD,
     QUOTE_CHARACTERS,
@@ -98,17 +101,26 @@ def _is_root_path(path: object) -> bool:
     return is_home or trimmed in ALL_ROOT_SEARCH_PATHS or DRIVE_ROOT_PATTERN.fullmatch(normalized) is not None
 
 
+def _is_recursive(command_name: str, all_flags: list[str]) -> bool:
+    if command_name in ALL_ALWAYS_RECURSIVE_COMMAND_NAMES:
+        return True
+    if command_name in ALL_POWERSHELL_LISTING_NAMES:
+        return any(len(each_flag) > 1 and POWERSHELL_RECURSE_FLAG.startswith(each_flag.casefold()) for each_flag in all_flags)
+    recurse_letters = RECURSE_LETTERS_BY_COMMAND_NAME.get(command_name, "")
+    return bool(recurse_letters) and any(
+        each_flag == LONG_RECURSIVE_FLAG
+        or (not each_flag.startswith(LONG_FLAG_PREFIX) and any(each_letter in recurse_letters for each_letter in each_flag[1:]))
+        for each_flag in all_flags
+    )
+
+
 def _searches_from_a_root(command: str) -> bool:
     for each_segment in COMMAND_SEPARATOR_PATTERN.split(command):
         all_words = [each_word.strip(QUOTE_CHARACTERS) for each_word in each_segment.split()]
         if not all_words:
             continue
-        command_name = all_words[0].casefold()
-        all_flags = {each_word.casefold() for each_word in all_words[1:] if each_word.startswith(FLAG_PREFIX)}
-        is_recursive = command_name in ALL_ALWAYS_RECURSIVE_COMMAND_NAMES or (
-            command_name in ALL_RECURSE_FLAG_COMMAND_NAMES and not all_flags.isdisjoint(ALL_RECURSE_FLAGS)
-        )
-        if is_recursive and any(_is_root_path(each_word) for each_word in all_words[1:] if not each_word.startswith(FLAG_PREFIX)):
+        all_flags = [each_word for each_word in all_words[1:] if each_word.startswith(FLAG_PREFIX)]
+        if _is_recursive(all_words[0].casefold(), all_flags) and any(_is_root_path(each_word) for each_word in all_words[1:] if not each_word.startswith(FLAG_PREFIX)):
             return True
     return False
 
@@ -157,12 +169,13 @@ def loads_pr_lifecycle_before_commit(all_calls: list[ToolCall]) -> bool:
         all_calls: The session's tool calls in order.
 
     Returns:
-        Whether a pr-lifecycle Skill call precedes every git commit command.
+        Whether a pr-lifecycle Skill call precedes every git commit in a
+        Bash or PowerShell command.
     """
     for each_call in all_calls:
         if names_skill(each_call, PR_LIFECYCLE_SKILL_NAME):
             return True
-        if each_call.name == BASH_TOOL_NAME and GIT_COMMIT_PATTERN.search(
+        if each_call.name in ALL_SHELL_TOOL_NAMES and GIT_COMMIT_PATTERN.search(
             str(each_call.tool_input.get(COMMAND_FIELD, ""))
         ):
             return False

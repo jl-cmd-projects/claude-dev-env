@@ -1,18 +1,24 @@
 import json
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
+
+import pytest
 
 
 flow_directory = str(Path(__file__).resolve().parent)
 if flow_directory not in sys.path:
     sys.path.insert(0, flow_directory)
 
+from session_eval_support import session
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     brokered_words,
     files_digest,
+    harness_sources,
     run_digest,
     installed_files,
     prepare_workspace,
@@ -33,6 +39,7 @@ STREAM_AND_TRUNCATED_REPORT = (
     "Path(sys.argv[1]).write_text('{\"final_decision\": ', encoding='utf-8')\n"
 )
 IGNORE_STDIN_AND_SLEEP = "import time; time.sleep(60)"
+CLOSE_STDIN_AND_WAIT = "import os, time; os.close(0); time.sleep(1)"
 LEAVE_A_BEATING_GRANDCHILD_AND_EXIT = (
     "import subprocess, sys\n"
     "beat = 'import sys, time\\nfrom pathlib import Path\\nwhile True:\\n    Path(sys.argv[1]).write_text(str(time.monotonic()), encoding=\\'utf-8\\')\\n    time.sleep(0.05)\\n'\n"
@@ -204,15 +211,61 @@ def test_run_until_timeout_stops_a_background_process_left_by_a_clean_exit(tmp_p
     assert (heartbeat_path.read_text(encoding="utf-8") if heartbeat_path.exists() else "") == beat_after_exit
 
 
-def test_run_digest_changes_with_files_settings_or_grader_source(tmp_path: Path) -> None:
-    grader_path = tmp_path / "grading.py"
-    grader_path.write_text("PASS = 1\n", encoding="utf-8")
+def test_run_digest_changes_with_files_settings_or_harness_source(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(session, "REPOSITORY_ROOT", tmp_path)
+    rules_grader = tmp_path / "rules" / "grading.py"
+    shared_grader = tmp_path / "shared" / "grading.py"
+    for each_path in (rules_grader, shared_grader):
+        each_path.parent.mkdir()
+        each_path.write_text("PASS = 1\n", encoding="utf-8")
     files = {".claude/rules/index.md": b"Index."}
     settings = {"model": "claude-opus-5-5", "max_turns": 6}
-    digest = run_digest(files, settings, [grader_path])
+    digest = run_digest(files, settings, [rules_grader, shared_grader])
 
-    assert digest == run_digest(dict(files), dict(settings), [grader_path])
-    assert digest != run_digest({".claude/rules/index.md": b"Index!"}, settings, [grader_path])
-    assert digest != run_digest(files, {**settings, "max_turns": 3}, [grader_path])
-    grader_path.write_text("PASS = 2\n", encoding="utf-8")
-    assert digest != run_digest(files, settings, [grader_path])
+    assert digest == run_digest(dict(files), dict(settings), [rules_grader, shared_grader])
+    assert digest != run_digest(files, settings, [shared_grader])
+    assert digest != run_digest({".claude/rules/index.md": b"Index!"}, settings, [rules_grader, shared_grader])
+    assert digest != run_digest(files, {**settings, "max_turns": 3}, [rules_grader, shared_grader])
+    rules_grader.write_text("PASS = 2\n", encoding="utf-8")
+    assert digest != run_digest(files, settings, [rules_grader, shared_grader])
+
+
+def test_harness_sources_keeps_source_files_and_leaves_out_tests_and_caches(tmp_path: Path) -> None:
+    package = tmp_path / "support"
+    (package / "config").mkdir(parents=True)
+    (package / "__pycache__").mkdir()
+    for each_name in ("grading.py", "config/constants.py", "test_grading.py", "__pycache__/grading.py", "notes.md"):
+        (package / each_name).write_text("x = 1\n", encoding="utf-8")
+    runner = tmp_path / "run.py"
+    runner.write_text("x = 1\n", encoding="utf-8")
+
+    assert harness_sources(package, runner) == sorted(
+        [(package / "grading.py").resolve(), (package / "config/constants.py").resolve(), runner.resolve()]
+    )
+
+
+def test_prepare_workspace_removes_the_directory_when_filling_it_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_created: list[Path] = []
+    make_directory = tempfile.mkdtemp
+
+    def record(**all_options: str) -> str:
+        created = make_directory(**all_options)
+        all_created.append(Path(created))
+        return created
+
+    monkeypatch.setattr(session.tempfile, "mkdtemp", record)
+    monkeypatch.setattr(session, "ALL_GIT_INIT_COMMANDS", (("git", "no-such-subcommand"),))
+
+    with pytest.raises(subprocess.CalledProcessError):
+        prepare_workspace({})
+    assert not all_created[0].exists()
+
+
+def test_run_until_timeout_logs_a_failed_input_write_and_still_returns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    with (tmp_path / "capture.txt").open("wb") as capture_file:
+        exit_code = run_until_timeout(
+            [sys.executable, "-c", CLOSE_STDIN_AND_WAIT], tmp_path, capture_file, 30, b"x" * 10_000_000
+        )
+
+    assert exit_code == 0
+    assert "standard input to pid" in caplog.text

@@ -11,7 +11,7 @@ session loads project and local settings only, so the home config's rules,
 hooks and skills stay out of both arms. Rows land in
 ``<variant>/results.jsonl`` as each case finishes, each tagged with a run
 digest over the workspace files, the session settings, ``--direct`` and the
-grader source. A rerun skips every (case, rep) already there under the same
+harness source. A rerun skips every (case, rep) already there under the same
 digest, and the headline counts only those rows and the errors no retry has
 scored.
 """
@@ -46,7 +46,7 @@ from rules_eval_support.config.constants import (
     STATE_FILE,
 )
 from rules_eval_support.grading import opened_a_guide, tool_check
-from rules_eval_support import grading, judge
+from rules_eval_support import grading
 from rules_eval_support.install import variant_files, workspace_files
 from rules_eval_support.judge import judge_prompt, run_judge
 from rules_eval_support.launch import run_session
@@ -71,6 +71,7 @@ from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
+    harness_sources,
     prepare_workspace,
     remove_workspace,
     run_digest,
@@ -138,8 +139,8 @@ class RunPlan:
 def _plan(arguments: argparse.Namespace, setting_by_name: dict[str, object]) -> RunPlan:
     bytes_by_target = workspace_files(variant_files(str(setting_by_name["ref"])))
     settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
-    all_grader_paths = [Path(each_module.__file__) for each_module in (grading, judge, session_grading, contrast_framing)]
-    digest = run_digest(bytes_by_target, {**asdict(settings), "direct": arguments.direct}, all_grader_paths)
+    all_harness_paths = harness_sources(Path(grading.__file__).parent, Path(session_grading.__file__).parent, Path(__file__), Path(contrast_framing.__file__))
+    digest = run_digest(bytes_by_target, {**asdict(settings), "direct": arguments.direct}, all_harness_paths)
     return RunPlan(FLOW_ROOT / (arguments.label or arguments.variant), bytes_by_target, digest, settings, arguments.direct)
 
 
