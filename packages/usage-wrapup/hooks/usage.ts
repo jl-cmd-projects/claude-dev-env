@@ -11,3 +11,8 @@ export function readablePercentUsed(limit: SessionRateLimit): number | undefined
 export function isAtOrBelow(value: number, bound: number): boolean {
   return value <= bound + THRESHOLD_TOLERANCE
 }
+
+/** Whether value has reached bound within float error; false when either is NaN. */
+export function isAtOrPast(value: number, bound: number): boolean {
+  return isAtOrBelow(bound, value)
+}

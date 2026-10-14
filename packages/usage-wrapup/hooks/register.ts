@@ -31,7 +31,7 @@ async function readUsageLimits(
   }
 }
 
-/** The window with the least left, when it is at or below the threshold. */
+/** The readable window with the least left, when it is at or below the threshold. Windows with no finite reading are skipped. */
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
   for (const l of limits) {
