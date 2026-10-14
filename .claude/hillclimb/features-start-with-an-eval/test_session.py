@@ -297,14 +297,14 @@ def test_run_digest_keys_a_harness_file_outside_the_repository_by_its_path(monke
 
 
 class _FakeKernel:
-    def __init__(self, job_handle: int | None) -> None:
-        self.job_handle = job_handle
+    def __init__(self, job_handle: int | None, resume_status: int = 0) -> None:
+        self.reply_by_name: dict[str, int | None] = {"CreateJobObjectW": job_handle, "NtResumeProcess": resume_status}
         self.all_calls: list[str] = []
 
     def __getattr__(self, name: str) -> object:
         def record(*all_arguments: object) -> int | None:
             self.all_calls.append(name)
-            return self.job_handle if name == "CreateJobObjectW" else 77
+            return self.reply_by_name.get(name, 77)
         return record
 
 
@@ -335,6 +335,16 @@ def test_windows_runs_resume_and_stop_the_process_when_the_job_cannot_be_made(
     assert _run_as_windows(monkeypatch, tmp_path, kernel) == 0
     assert kernel.all_calls == ["OpenProcess", "CreateJobObjectW", "NtResumeProcess", "CloseHandle"]
     assert "no job object for pid" in caplog.text
+
+
+def test_windows_runs_terminate_a_command_that_fails_to_resume(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    kernel = _FakeKernel(job_handle=55, resume_status=0xC0000008)
+
+    assert _run_as_windows(monkeypatch, tmp_path, kernel) == 0
+    assert kernel.all_calls[:5] == ["OpenProcess", "CreateJobObjectW", "AssignProcessToJobObject", "NtResumeProcess", "TerminateProcess"]
+    assert "resuming pid" in caplog.text and "0xc0000008" in caplog.text
 
 
 def test_popen_options_start_suspended_on_windows_and_in_a_new_session_elsewhere(monkeypatch: pytest.MonkeyPatch) -> None:

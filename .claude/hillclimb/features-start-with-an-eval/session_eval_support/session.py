@@ -36,6 +36,7 @@ from session_eval_support.config.constants import (
     JOB_ASSIGN_ACCESS,
     JOB_EXIT_CODE,
     KERNEL32_LIBRARY_NAME,
+    NT_SUCCESS_STATUS,
     NTDLL_LIBRARY_NAME,
     PYTHON_CACHE_DIRECTORY_NAME,
     PYTHON_SOURCE_GLOB,
@@ -340,6 +341,13 @@ def _assigned_job(kernel: ctypes.CDLL, process_handle: int | None) -> int | None
     return None
 
 
+def _resume_or_terminate(kernel: ctypes.CDLL, process_handle: int, pid: int) -> None:
+    resume_status = _windows_native().NtResumeProcess(ctypes.c_void_p(process_handle))
+    if resume_status != NT_SUCCESS_STATUS:
+        logger.warning("resuming pid %d failed with status %#x, so it is terminated", pid, resume_status)
+        kernel.TerminateProcess(ctypes.c_void_p(process_handle), JOB_EXIT_CODE)
+
+
 def _join_new_job(pid: int) -> int | None:
     kernel = _windows_kernel()
     process_handle = kernel.OpenProcess(JOB_ASSIGN_ACCESS, False, pid)
@@ -347,7 +355,7 @@ def _join_new_job(pid: int) -> int | None:
     if job_handle is None:
         logger.warning("no job object for pid %d, so its children may outlive it", pid)
     if process_handle:
-        _windows_native().NtResumeProcess(ctypes.c_void_p(process_handle))
+        _resume_or_terminate(kernel, process_handle, pid)
         kernel.CloseHandle(ctypes.c_void_p(process_handle))
     return job_handle
 
