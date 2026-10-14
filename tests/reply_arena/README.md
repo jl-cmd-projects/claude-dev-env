@@ -1,14 +1,14 @@
-# Chat reply arena
+# Reply arena
 
-This harness compares ways to keep a chat reply short and correct while the user reads one reply per turn.
+This harness compares ways to keep each reply short and correct while the user reads one reply per turn.
 Each contender is a settings file of hooks. The harness runs every contender on every prompt in `prompts.json` with headless `claude -p`.
 
 ## Run it
 
 ```bash
-python3 tests/chat_reply_arena/run_arena.py --out /tmp/arena/rep1 --model opus --parallel 8
-python3 tests/chat_reply_arena/run_arena.py --out /tmp/arena/rep2 --model opus --parallel 8
-python3 tests/chat_reply_arena/score_arena.py --runs /tmp/arena --judge-model sonnet
+python3 tests/reply_arena/run_arena.py --out /tmp/arena/rep1 --model opus --parallel 8
+python3 tests/reply_arena/run_arena.py --out /tmp/arena/rep2 --model opus --parallel 8
+python3 tests/reply_arena/score_arena.py --runs /tmp/arena --judge-model sonnet
 ```
 
 Each run gets a fresh `--session-id`, an empty `CLAUDE_CONFIG_DIR`, `--setting-sources ""`, and a work folder that holds only copies of `chat_reply_gate.py` and `reply_length_gate.py`.

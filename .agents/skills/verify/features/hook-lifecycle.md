@@ -1,6 +1,6 @@
 # Hook lifecycle
 
-The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and Stop hooks. A hook adds context or rewrites a tool input. The Stop hook, `chat_reply_gate.py`, sends a chat reply over the reply limit back for a rewrite, up to three times a turn. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
+The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and MessageDisplay hooks. A hook adds context or rewrites a tool input. The MessageDisplay hook, `chat_reply_gate.py`, shows a short draft in place of a chat reply that breaks the reply rules. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
 
 ## Sub-features
 
