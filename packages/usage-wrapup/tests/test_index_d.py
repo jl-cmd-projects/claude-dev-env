@@ -12,4 +12,4 @@ def test_plugin_state_declares_compacted_windows(
     assert (
         "types ./types/index.d.ts declares state: usage-wrapup.compacted"
         in plugin_validation_run.stdout
-    ), plugin_validation_run.stdout
+    ), f"{plugin_validation_run.stdout}\n{plugin_validation_run.stderr}"

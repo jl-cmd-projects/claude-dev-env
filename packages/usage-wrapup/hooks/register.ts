@@ -8,6 +8,8 @@ const LABEL: Record<string, string> = {
 
 type Low = { kind: string; left: number; resetsAt?: string }
 
+const THRESHOLD_TOLERANCE = 1e-9
+
 /** The window with the least left, when it is at or below the threshold. */
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
@@ -15,7 +17,7 @@ export function lowest(limits: readonly SessionRateLimit[], threshold: number): 
     const left = Math.max(0, 100 - l.percentUsed)
     if (!worst || left < worst.left) worst = { kind: l.kind, left, resetsAt: l.resetsAt }
   }
-  if (!worst || worst.left > threshold) return undefined
+  if (!worst || worst.left > threshold + THRESHOLD_TOLERANCE) return undefined
   return { ...worst, left: Math.round(worst.left * 10) / 10 }
 }
 
@@ -58,7 +60,7 @@ export const register: Register = (on, options) => {
       try {
         limits = (await $.session.usage()).rateLimits
       } catch {
-        return ran
+        limits = []
       }
     }
     const low = lowest(limits, threshold)

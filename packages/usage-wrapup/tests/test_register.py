@@ -19,7 +19,9 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
         "aboveThreshold: above === undefined ? 'undefined' : above, "
         "justAboveThreshold: justAbove === undefined ? 'undefined' : justAbove, "
         "empty: empty === undefined ? 'undefined' : empty, "
-        "overspent: lowest([{kind: 'five_hour', percentUsed: 101}], 5)}));"
+        "overspent: lowest([{kind: 'five_hour', percentUsed: 101}], 5), "
+        "fractionalAtThreshold: lowest([{kind: 'five_hour', percentUsed: 99.1}], 0.9), "
+        "fractionalBelowThreshold: lowest([{kind: 'five_hour', percentUsed: 98.9}], 1.1)}));"
     )
     selection_run = run_repository_command(["bun", "-e", script])
     selection_report = json.loads(selection_run.stdout)
@@ -34,9 +36,11 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
     assert selection_report["justAboveThreshold"] == "undefined"
     assert selection_report["empty"] == "undefined"
     assert selection_report["overspent"] == {"kind": "five_hour", "left": 0}
+    assert selection_report["fractionalAtThreshold"] == {"kind": "five_hour", "left": 0.9}
+    assert selection_report["fractionalBelowThreshold"] == {"kind": "five_hour", "left": 1.1}
 
 
-def test_tool_call_reads_usage_again_after_a_failed_read(
+def test_tool_call_skips_usage_after_a_failed_read_until_the_next_measurement(
     run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
 ) -> None:
     script = (
@@ -44,17 +48,23 @@ def test_tool_call_reads_usage_again_after_a_failed_read(
         "const handlers = {}; "
         "register((name, handler) => { handlers[name] = handler; }, {threshold: 5}); "
         "let usageReads = 0; "
-        "const $ = {session: {usage: async () => { usageReads += 1; "
-        "if (usageReads === 1) throw new Error('usage read failed'); "
-        "return {rateLimits: [{kind: 'five_hour', percentUsed: 99}]}; }}}; "
-        "const next = async () => ({result: 'ok'}); "
-        "const first = await handlers['tool.call']($, {}, next); "
-        "const second = await handlers['tool.call']($, {}, next); "
-        "console.log(JSON.stringify({first, second, usageReads}));"
+        "const $ = {ui: {status: () => {}, toast: () => {}}, "
+        "session: {usage: async () => { usageReads += 1; "
+        "throw new Error('usage read failed'); }}}; "
+        "const next = async (event) => (event ?? {result: 'ok'}); "
+        "const first = await handlers['tool.call']($, undefined, next); "
+        "const second = await handlers['tool.call']($, undefined, next); "
+        "await handlers['session.measure']($, "
+        "{rateLimits: [{kind: 'five_hour', percentUsed: 99}]}, next); "
+        "const third = await handlers['tool.call']($, undefined, next); "
+        "console.log(JSON.stringify({first, second, third, usageReads}));"
     )
-    retry_run = run_repository_command(["bun", "-e", script])
-    retry_report = json.loads(retry_run.stdout)
+    measurement_run = run_repository_command(["bun", "-e", script])
+    measurement_report = json.loads(measurement_run.stdout)
 
-    assert retry_report["first"] == {"result": "ok"}
-    assert "5-hour usage limit: only 1% left." in "\n".join(retry_report["second"]["context"])
-    assert retry_report["usageReads"] == 2
+    assert measurement_report["first"] == {"result": "ok"}
+    assert measurement_report["second"] == {"result": "ok"}
+    assert measurement_report["usageReads"] == 1
+    assert "5-hour usage limit: only 1% left." in "\n".join(
+        measurement_report["third"]["context"]
+    )
