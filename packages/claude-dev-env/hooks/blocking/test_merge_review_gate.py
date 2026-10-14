@@ -95,6 +95,8 @@ def test_should_deny_a_merge_with_a_finding_left_open() -> None:
         },
         {"head": CLEAN_HEAD, "findings": True},
         {"head": CLEAN_HEAD, "findings": "0"},
+        {"head": CLEAN_HEAD, "findings": 1, "ruled_out": True, "rulings": RULINGS_LINK},
+        {"head": CLEAN_HEAD, "findings": -1, "ruled_out": -1, "rulings": RULINGS_LINK},
     ],
 )
 def test_is_clean_receipt_should_reject_a_receipt_it_cannot_back(receipt: dict[str, object]) -> None:
@@ -105,8 +107,13 @@ def test_is_clean_receipt_should_accept_zero_findings() -> None:
     assert gate.is_clean_receipt({"head": CLEAN_HEAD, "findings": 0}, "acme", "tools", 12) is True
 
 
-def test_should_deny_a_merge_whose_rulings_link_is_not_a_comment_on_this_pull_request() -> None:
-    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, 2, "x")
+@pytest.mark.parametrize(
+    "rulings", ["x", "https://github.com/acme/tools/pull/13#issuecomment-1"]
+)
+def test_should_deny_a_merge_whose_rulings_link_is_not_a_comment_on_this_pull_request(
+    rulings: str,
+) -> None:
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, 2, rulings)
     assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
 
 

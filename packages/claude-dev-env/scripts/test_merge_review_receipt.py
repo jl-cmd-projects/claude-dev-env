@@ -51,6 +51,22 @@ def test_should_print_clean_when_every_finding_is_ruled_out_with_a_link() -> Non
     )
 
 
+def test_should_record_the_rulings_link_without_surrounding_whitespace(
+    receipt_folder: Path,
+) -> None:
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--ruled-out", "2", "--rulings", f" {RULINGS_LINK}\n"],
+        verdict_stream,
+    )
+    assert exit_code == 0
+    assert verdict_stream.getvalue() == (
+        f"CLEAN acme/tools#12 {HEAD} (2 findings ruled out: {RULINGS_LINK})\n"
+    )
+    (receipt_file,) = receipt_folder.rglob("*.json")
+    assert json.loads(receipt_file.read_text(encoding="utf-8"))["rulings"] == RULINGS_LINK
+
+
 def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
     receipt_folder: Path,
 ) -> None:

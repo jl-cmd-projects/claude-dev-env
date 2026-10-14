@@ -60,11 +60,15 @@ def record_review(
     Returns:
         The receipt path written.
     """
+    receipt = _receipt_fields(head, finding_count, ruled_out_count, rulings)
+    return _write_receipt(slug, number, receipt)
+
+
+def _write_receipt(slug: str, number: int, all_receipt_fields: dict[str, object]) -> Path:
     owner, repo = slug.split("/", 1)
     path = receipt_path(owner, repo, number)
     path.parent.mkdir(parents=True, exist_ok=True)
-    receipt = _receipt_fields(head, finding_count, ruled_out_count, rulings)
-    path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(all_receipt_fields) + "\n", encoding="utf-8")
     return path
 
 
@@ -98,20 +102,19 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
     )
     parser.add_argument("--rulings", default="", help="Link to the posted rulings.")
     parsed = parser.parse_args(all_arguments)
+    rulings = parsed.rulings.strip()
     if parsed.ruled_out < 0 or parsed.ruled_out > parsed.findings:
         parser.error("--ruled-out must be between 0 and the finding count")
-    if parsed.ruled_out and not parsed.rulings.strip():
+    if parsed.ruled_out and not rulings:
         parser.error("--ruled-out needs --rulings, a link to the posted rulings")
-    if parsed.rulings and not parsed.ruled_out:
+    if rulings and not parsed.ruled_out:
         parser.error("--rulings needs --ruled-out, the count of findings it rules out")
-    record_review(
-        parsed.slug, parsed.number, parsed.head, parsed.findings, parsed.ruled_out, parsed.rulings
-    )
+    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, rulings)
+    _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)
-    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, parsed.rulings)
     if is_clean_receipt(receipt, owner, repo, parsed.number):
         ruled_out_note = (
-            f" ({parsed.ruled_out} findings ruled out: {parsed.rulings})" if parsed.ruled_out else ""
+            f" ({parsed.ruled_out} findings ruled out: {rulings})" if parsed.ruled_out else ""
         )
         stdout.write(f"CLEAN {parsed.slug}#{parsed.number} {parsed.head}{ruled_out_note}\n")
         return 0

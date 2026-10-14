@@ -264,12 +264,25 @@ def is_clean_receipt(
         True when the pass counts as clean.
     """
     finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
-    if not isinstance(finding_count, int) or isinstance(finding_count, bool):
+    if not _is_count(finding_count):
         return False
-    if finding_count == 0:
-        return True
-    return all_receipt_fields.get(RECEIPT_RULED_OUT_KEY) == finding_count and _links_rulings_on(
-        all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number
+    return finding_count == 0 or _rules_out_every_finding(
+        all_receipt_fields, finding_count, owner, repo, number
+    )
+
+
+def _is_count(candidate: object) -> bool:
+    return isinstance(candidate, int) and not isinstance(candidate, bool) and candidate >= 0
+
+
+def _rules_out_every_finding(
+    all_receipt_fields: dict[str, object], finding_count: object, owner: str, repo: str, number: int
+) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
+    return (
+        _is_count(ruled_out_count)
+        and ruled_out_count == finding_count
+        and _links_rulings_on(all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number)
     )
 
 
