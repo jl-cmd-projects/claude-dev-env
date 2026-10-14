@@ -35,14 +35,15 @@ for each_import_directory in (
     if str(each_import_directory) not in sys.path:
         sys.path.insert(0, str(each_import_directory))
 
+
 @pytest.fixture(autouse=True)
 def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Point the home directory at a per-test folder.
 
     ``broker_state_path`` builds its path from ``Path.home()``, which reads
     ``HOME`` on POSIX and ``USERPROFILE`` on Windows. Redirecting both keeps
-    every bound copy of the resolver, and every other home-derived path, off
-    the user's home directory.
+    every bound copy of the resolver off the user's home directory. A value
+    built from ``Path.home()`` at import time keeps the user's home.
 
     Returns:
         The isolated broker state path for this test.
