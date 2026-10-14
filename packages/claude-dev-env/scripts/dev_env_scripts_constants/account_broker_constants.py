@@ -260,22 +260,30 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
         return min((reset for reset in (meters.session_resets_at, meters.weekly_resets_at) if reset is not None), default=None)
     is_claude_main = reading.account.product is Product.CLAUDE and reading.account.is_main
     if is_claude_main:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"], meters.weekly_resets_at),
+        all_blocking_flags = (
+            _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]),
+            _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]),
         )
     elif reading.account.product is Product.CLAUDE:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"], meters.weekly_resets_at),
+        all_blocking_flags = (
+            _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]),
+            _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]),
         )
     else:
-        blocking = (
-            (meters.session_percent_left, ALL_CODEX_FLOORS["luna_short_minimum_left"], meters.session_resets_at),
-            (meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"], meters.weekly_resets_at),
+        all_blocking_flags = (
+            meters.session_percent_left is not None and meters.session_percent_left < ALL_CODEX_FLOORS["luna_short_minimum_left"],
+            _is_at_or_under(meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"]),
         )
-    all_blocking_resets = [reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None]
-    return max(all_blocking_resets, default=None)
+    all_resets = (meters.session_resets_at, meters.weekly_resets_at)
+    all_blocking_resets = [reset for is_blocking, reset in zip(all_blocking_flags, all_resets) if is_blocking]
+    all_known_resets = [reset for reset in all_blocking_resets if reset is not None]
+    if len(all_known_resets) < len(all_blocking_resets):
+        return None
+    return max(all_known_resets, default=None)
+
+
+def _is_at_or_under(room: float | None, floor: float) -> bool:
+    return room is not None and room <= floor
 
 
 def _rank_key(reading: Reading) -> tuple[bool, int, float]:

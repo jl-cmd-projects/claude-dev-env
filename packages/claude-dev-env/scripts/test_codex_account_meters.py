@@ -103,20 +103,9 @@ class TestShortWindowPercentLeft:
         )
         assert meters.short_window_percent_left is None
 
-
-class TestBlockingReset:
-    def should_name_when_the_last_blocking_window_resets(self) -> None:
-        meters = parse_rate_limits_reply(
-            reply_line(
-                {
-                    "primary": {"usedPercent": 95, "resetsAt": RESET_SECONDS},
-                    "secondary": {"usedPercent": 99, "resetsAt": RESET_SECONDS + 3600},
-                }
-            )
-        )
-        assert meters.resets_before_room(10.0) == datetime.fromtimestamp(
-            RESET_SECONDS + 3600, tz=timezone.utc
-        )
+    def should_count_a_window_without_a_length_as_weekly(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 90}}))
+        assert meters.short_window_percent_left is None
 
 
 class TestReadCodexMeters:

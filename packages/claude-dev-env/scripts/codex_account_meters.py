@@ -69,6 +69,10 @@ class CodexMeterUnreadError(Exception):
     """Raised when one account's rate-limit windows cannot be read."""
 
 
+class CodexExecutableNotFoundError(FileNotFoundError):
+    """Raised when no Codex executable is on PATH or at its install path."""
+
+
 @dataclass(frozen=True)
 class UsageWindow:
     """One rate-limit window: its length, the percent used, and when it resets."""
@@ -77,10 +81,15 @@ class UsageWindow:
     used_percent: float
     resets_at: datetime | None
 
+    @property
+    def is_short(self) -> bool:
+        """Whether the window reports a length shorter than a week. A window with no length counts as weekly."""
+        return self.duration_minutes is not None and self.duration_minutes < WEEKLY_WINDOW_MINUTES
+
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows, with percent_left, short_window_percent_left and resets_before_room."""
+    """One account's windows, with percent_left and short_window_percent_left."""
 
     all_windows: tuple[UsageWindow, ...]
 
@@ -93,40 +102,10 @@ class CodexAccountMeters:
     @property
     def short_window_percent_left(self) -> float | None:
         """Room left in the windows shorter than a week, or None when the account has none."""
-        all_short_used = [
-            each_window.used_percent
-            for each_window in self.all_windows
-            if each_window.duration_minutes is not None
-            and each_window.duration_minutes < WEEKLY_WINDOW_MINUTES
-        ]
+        all_short_used = [each_window.used_percent for each_window in self.all_windows if each_window.is_short]
         if not all_short_used:
             return None
         return max(0.0, FULL_PERCENT - max(all_short_used))
-
-    def resets_before_room(self, minimum_percent_left: float) -> datetime | None:
-        """When every window that holds the account at or under a bar has reset.
-
-        Args:
-            minimum_percent_left: The percent left the account must pass.
-
-        Returns:
-            The latest reset among the blocking windows, or None when one
-            carries no reset time or none blocks.
-        """
-        all_blocking = [
-            each_window
-            for each_window in self.all_windows
-            if FULL_PERCENT - each_window.used_percent <= minimum_percent_left
-        ]
-        if not all_blocking or any(
-            each_window.resets_at is None for each_window in all_blocking
-        ):
-            return None
-        return max(
-            each_window.resets_at
-            for each_window in all_blocking
-            if each_window.resets_at is not None
-        )
 
 
 def _finite_number(raw_number: object) -> float | None:
@@ -396,7 +375,7 @@ def resolve_codex_path(explicit_path: Path | None) -> Path:
         The named path, else ``codex`` on PATH, else a known install path.
 
     Raises:
-        FileNotFoundError: No Codex executable was found.
+        CodexExecutableNotFoundError: No Codex executable was found.
     """
     if explicit_path is not None:
         return explicit_path
@@ -407,4 +386,4 @@ def resolve_codex_path(explicit_path: Path | None) -> Path:
         candidate = Path.home().joinpath(*each_parts)
         if candidate.is_file():
             return candidate
-    raise FileNotFoundError("no codex executable on PATH or at its install path")
+    raise CodexExecutableNotFoundError("no codex executable on PATH or at its install path")
