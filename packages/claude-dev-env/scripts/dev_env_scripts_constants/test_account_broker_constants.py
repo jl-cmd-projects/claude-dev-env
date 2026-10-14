@@ -189,3 +189,14 @@ def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> N
     home = Path("/profiles/first")
 
     assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
+
+
+def test_should_wait_until_a_rate_limited_meter_may_be_probed_again() -> None:
+    now = datetime(2026, 10, 11, 19, 31, tzinfo=timezone.utc)
+    probe_again_at = now + timedelta(minutes=5)
+    account = Account(Product.CLAUDE, "second", Path("second"))
+    reading = broker_constants.Reading(account, None, "usage probe failed: HTTP Error 429", None, probe_again_at)
+
+    decision = broker_constants._wait_decision([reading], now, frozenset(), {})
+
+    assert decision.resets_at == probe_again_at
