@@ -226,6 +226,18 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
     assert decision.resets_at == short_reset
 
 
+def test_should_check_main_again_in_an_hour_when_a_blocking_window_has_no_reset() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        Meters(5, None, 1, NOW + timedelta(hours=4)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == NOW + timedelta(hours=1)
+
+
 @pytest.mark.parametrize(
     ("short_left", "weekly_left", "weekly_reset", "expected_reset"),
     (
