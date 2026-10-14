@@ -1,26 +1,70 @@
 """Ask a second model whether a session followed its case's rule."""
 
+import bisect
 import json
-import subprocess
 import tempfile
 from pathlib import Path
 
 from rules_eval_support.launch import launch_words
 from rules_eval_support.config.constants import (
-    JSON_INDENT,
     JUDGE_EFFORT,
     JUDGE_MODEL,
     JUDGE_PROMPT_TEMPLATE,
+    JUDGE_REPLY_FILE_NAME,
     JUDGE_REPORT_FILE_NAME,
-    JUDGE_SETTING_SOURCES,
     JUDGE_TIMEOUT_SECONDS,
     JUDGE_TRANSCRIPT_CHARACTER_LIMIT,
-    JUDGE_VERDICT_PATTERN,
+    JUDGE_WORK_DIRECTORY_NAME,
+    TRIM_MARKER_ROLE,
+    QUOTE_PAIR_SIZE,
+    UNESCAPED_QUOTE_PATTERN,
+    CUT_TEXT_PREFIX,
+    TRIM_MARKER_TEMPLATE,
+    OBJECT_START,
 )
+from session_eval_support.config.constants import JSON_INDENT, SESSION_SETTING_SOURCES
+from session_eval_support.session import run_until_timeout
+
+
+def _transcript_without(all_turns: list[dict[str, str]], dropped_count: int) -> str:
+    if dropped_count == 0:
+        return json.dumps(all_turns, indent=JSON_INDENT)
+    marker_turn = {"role": TRIM_MARKER_ROLE, "content": TRIM_MARKER_TEMPLATE.format(count=dropped_count)}
+    return json.dumps([all_turns[0], marker_turn, *all_turns[1 + dropped_count :]], indent=JSON_INDENT)
+
+
+def _transcript_with_cut_last_turn(all_turns: list[dict[str, str]]) -> str:
+    last_turn = all_turns[-1]
+    kept_text = str(last_turn.get("content", ""))
+    while True:
+        cut_turn = {**last_turn, "content": CUT_TEXT_PREFIX + kept_text}
+        transcript = _transcript_without([*all_turns[:-1], cut_turn], len(all_turns[1:-1]))
+        overflow = len(transcript) - JUDGE_TRANSCRIPT_CHARACTER_LIMIT
+        if overflow <= 0 or not kept_text:
+            return transcript
+        kept_text = kept_text[overflow:]
+
+
+def _transcript_within_limit(all_turns: list[dict[str, str]]) -> str:
+    def fits(dropped_count: int) -> bool:
+        return len(_transcript_without(all_turns, dropped_count)) <= JUDGE_TRANSCRIPT_CHARACTER_LIMIT
+
+    most_droppable = len(all_turns) - 1
+    fewest_dropped = bisect.bisect_left(range(most_droppable), True, key=fits)
+    if fewest_dropped < most_droppable or most_droppable == 0:
+        return _transcript_without(all_turns, fewest_dropped)
+    return _transcript_with_cut_last_turn(all_turns)
 
 
 def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> str:
     """Return the judge's ask for one session, with the transcript cut to its limit.
+
+    The transcript stays valid JSON. The first turn, the user's ask, always
+    stays. The fewest whole turns after it drop, oldest first, for the JSON
+    to fit the limit, and a note turn after the ask says how many dropped.
+    When the last turn alone still does not fit, it stays with its text cut
+    from the front, so the session's final answer reaches the judge. An ask
+    longer than the limit goes whole.
 
     Args:
         prompt: The case's ask.
@@ -30,8 +74,7 @@ def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> s
     Returns:
         The full text sent to the judge.
     """
-    transcript = json.dumps(all_turns, indent=JSON_INDENT)[-JUDGE_TRANSCRIPT_CHARACTER_LIMIT:]
-    return JUDGE_PROMPT_TEMPLATE.format(prompt=prompt, rubric=rubric, transcript=transcript)
+    return JUDGE_PROMPT_TEMPLATE.format(prompt=prompt, rubric=rubric, transcript=_transcript_within_limit(all_turns))
 
 
 def parse_verdict(judge_reply: str) -> dict[str, object] | None:
@@ -40,49 +83,71 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
     ::
 
         'Done. {"pass": true, "reason": "Read the README."}' -> {"pass": True, ...}
+        '{"pass": false, "reason": "uses {x}"}'              -> {"pass": False, ...}
+        '{"pass": true, "evidence": {"pass": false}}'        -> {"pass": True, ...}
+        '{"pass": false, "reason": "said {"pass": true}"}'  -> None
         "I cannot tell."                                    -> None
 
     Args:
         judge_reply: The judge's final text.
 
     Returns:
-        The last JSON object in the reply that has a boolean ``pass`` field.
+        The last top-level JSON object in the reply that has a boolean
+        ``pass`` field. Braces inside strings and nested objects belong to
+        the object around them, and an object that starts inside an open
+        quote, such as one quoted in a malformed reply, is not a verdict.
     """
-    for each_match in reversed(JUDGE_VERDICT_PATTERN.findall(judge_reply)):
+    decoder = json.JSONDecoder()
+    verdict: dict[str, object] | None = None
+    object_start = judge_reply.find(OBJECT_START)
+    while object_start >= 0:
         try:
-            verdict = json.loads(each_match)
+            candidate, object_end = decoder.raw_decode(judge_reply, object_start)
         except json.JSONDecodeError:
+            object_start = judge_reply.find(OBJECT_START, object_start + 1)
             continue
-        if isinstance(verdict.get("pass"), bool):
-            return verdict
-    return None
+        is_quoted = len(UNESCAPED_QUOTE_PATTERN.findall(judge_reply, 0, object_start)) % QUOTE_PAIR_SIZE == 1
+        if not is_quoted and isinstance(candidate, dict) and isinstance(candidate.get("pass"), bool):
+            verdict = candidate
+        object_start = judge_reply.find(OBJECT_START, object_end)
+    return verdict
 
 
 def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | None, dict[str, object]]:
-    """Run the judge once, headless, in an empty folder.
+    """Run the judge once, headless, in an empty folder that is removed afterward.
+
+    The prompt goes on standard input, so a long transcript stays clear of
+    the command-line length limit and of shell parsing in a launcher shim.
 
     Args:
         prompt_text: The text from judge_prompt.
         is_direct: Whether to skip the broker and run on the caller's account.
 
     Returns:
-        The verdict (None when unreadable) and the judge's result event.
+        The verdict (None when unreadable or timed out) and the judge's result event.
     """
-    judge_directory = Path(tempfile.mkdtemp(prefix="rules-judge-"))
     all_judge_words = [
-        "claude", "-p", prompt_text, "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
-        "--max-turns", "1", "--output-format", "json", "--setting-sources", JUDGE_SETTING_SOURCES,
+        "claude", "-p", "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
+        "--max-turns", "1", "--output-format", "json", "--setting-sources", SESSION_SETTING_SOURCES,
     ]
-    completed = subprocess.run(
-        launch_words(judge_directory.parent / (judge_directory.name + "-" + JUDGE_REPORT_FILE_NAME), all_judge_words, is_direct),
-        cwd=judge_directory,
-        capture_output=True,
-        text=True,
-        timeout=JUDGE_TIMEOUT_SECONDS,
-        check=False,
-    )
+    with tempfile.TemporaryDirectory(prefix="rules-judge-", ignore_cleanup_errors=True) as judge_root_name:
+        judge_root = Path(judge_root_name)
+        judge_directory = judge_root / JUDGE_WORK_DIRECTORY_NAME
+        judge_directory.mkdir()
+        reply_path = judge_root / JUDGE_REPLY_FILE_NAME
+        with reply_path.open("wb") as reply_file:
+            exit_code = run_until_timeout(
+                launch_words(judge_root / JUDGE_REPORT_FILE_NAME, all_judge_words, is_direct),
+                judge_directory,
+                reply_file,
+                JUDGE_TIMEOUT_SECONDS,
+                prompt_text.encode("utf-8"),
+            )
+        reply_text = reply_path.read_text(encoding="utf-8", errors="replace")
+    if exit_code is None:
+        return None, {}
     try:
-        judge_event = json.loads(completed.stdout)
+        judge_event = json.loads(reply_text)
     except json.JSONDecodeError:
         return None, {}
     if not isinstance(judge_event, dict):
