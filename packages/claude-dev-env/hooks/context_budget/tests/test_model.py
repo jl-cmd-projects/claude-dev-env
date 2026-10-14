@@ -10,33 +10,29 @@ from context_budget.model import (
     BaselineEntry,
     BudgetFinding,
     BudgetPolicy,
+    ContextKind,
     FileMeasure,
     HookBudget,
     SectionScan,
 )
-from context_budget.policy_file import default_policy
 
-SKILL_ENTRY_KIND_NAME = "skill entry"
-SKILL_ENTRY_KIND = next(
-    each_kind for each_kind in default_policy().all_kinds if each_kind.name == SKILL_ENTRY_KIND_NAME
-)
+SKILL_ENTRY_KIND = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
 
 
 def test_policy_holds_kinds_hooks_and_baselines() -> None:
-    kind = SKILL_ENTRY_KIND
     hook = HookBudget("startup print", ("python", "hook.py"), "{}", 1500)
     baseline = BaselineEntry(210, ("Plan",))
 
     policy = BudgetPolicy(
         section_detail_line_limit=12,
-        all_kinds=(kind,),
+        all_kinds=(SKILL_ENTRY_KIND,),
         all_hooks=(hook,),
         baseline_entry_by_path={"a/SKILL.md": baseline},
         baseline_characters_by_hook_name={"startup print": 5200},
         is_baseline_the_prior_text=True,
     )
 
-    assert policy.all_kinds == (kind,)
+    assert policy.all_kinds == (SKILL_ENTRY_KIND,)
     assert policy.all_hooks == (hook,)
     assert policy.baseline_entry_by_path["a/SKILL.md"] == baseline
     assert policy.baseline_characters_by_hook_name["startup print"] == 5200
@@ -70,12 +66,11 @@ def test_policy_rejects_field_rebinding() -> None:
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
-    kind = SKILL_ENTRY_KIND
     section = SectionScan("Plan", 15, False)
-    measure = FileMeasure(kind, 210, (section,))
+    measure = FileMeasure(SKILL_ENTRY_KIND, 210, (section,))
     finding = BudgetFinding("a/SKILL.md", "Plan", "section exceeds limit")
 
-    assert measure.kind == kind
+    assert measure.kind == SKILL_ENTRY_KIND
     assert measure.line_count == 210
     assert measure.all_over_limit_sections == (section,)
     assert finding.path == "a/SKILL.md"
