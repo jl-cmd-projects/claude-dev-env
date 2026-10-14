@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hooks_constants.gh_command_words import gh_command_words, gh_standalone_options
+from hooks_constants.gh_command_words import gh_command_words, gh_command_words_and_options
 
 
 @pytest.mark.parametrize(
@@ -35,9 +35,10 @@ def test_should_return_the_words_past_options_and_their_values(
         (["pr", "view", "-w", "-h"], ["-w", "-h"]),
         (["workflow", "run", "ci.yml", "--ref=main"], ["--ref"]),
         (["api", "graphql", "-f", "-X"], ["-f"]),
+        (["repo", "create", "n", "-p", "o/t"], ["-p"]),
     ],
 )
 def test_should_return_each_option_that_is_not_another_option_value(
     all_arguments: list[str], all_expected_options: list[str]
 ) -> None:
-    assert gh_standalone_options(all_arguments) == all_expected_options
+    assert gh_command_words_and_options(all_arguments)[1] == all_expected_options

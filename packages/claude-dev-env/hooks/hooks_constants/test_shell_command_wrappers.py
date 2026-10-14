@@ -139,6 +139,8 @@ _ENCODED_GIT_PUSH = base64.b64encode("git push".encode("utf-16-le")).decode()
         (["pwsh", "-e", _ENCODED_GIT_PUSH], "git push"),
         (["pwsh", "-ec", _ENCODED_GIT_PUSH], "git push"),
         (["pwsh", "-e", "not-base64!"], None),
+        (["find", ".", "-exec", "true", ";", "-exec", "git", "push", ";"], "true ; git push"),
+        (["-exec", "git", "push", "\\"], "git push \\"),
         (["find", ".", "-name", "x"], None),
         (["git", "push"], None),
     ],

@@ -525,7 +525,10 @@ and the exit code. A source row reads `cli/cli` at commit `e2590dd`.
 | `gh repo archive`, `gh repo unarchive` | GraphQL | Source: `pkg/cmd/repo/archive/archive.go:107` calls `FetchRepository` |
 | `gh discussion` | GraphQL | Source: `pkg/cmd/discussion/client/client.go` has no REST call |
 | `gh workflow run` without `--ref` | GraphQL | Source: `pkg/cmd/workflow/run/run.go:276` calls `RepoDefaultBranch` |
-| `gh repo edit`, `gh repo create`, `gh repo sync` | GraphQL only for an interactive edit, `--template`, or no `--branch` | Source: `edit.go:279`, `create.go:368`, `sync.go:128` |
+| `gh repo create --template`, `gh repo sync` without `--branch` | GraphQL | Source: `create.go:368`, `sync.go:128` |
+| `gh repo edit` with `--enable-advanced-security`, `--enable-secret-scanning` or `--enable-secret-scanning-push-protection` | GraphQL | Source: `edit.go:290` calls `FetchRepository` |
+| `gh repo edit` with no flags | No request when no terminal is attached | Source: `edit.go:176` stops with a flag error before `edit.go:279` |
+| `gh repo create` without `--template`, `gh repo sync --branch`, `gh repo edit` with other flags | REST | Source: the same files |
 | `gh repo fork`, `gh repo rename` | REST | Source: `api/queries_repo.go` `ForkRepo` and `RenameRepo` call `client.REST` |
 
 ## 8. User-facing actions

@@ -18,11 +18,17 @@ from hooks_constants.gh_command_words_constants import (
     GH_OPTION_VALUE_SEPARATOR,
 )
 
-__all__ = ["gh_command_words", "gh_standalone_options"]
+__all__ = ["gh_command_words", "gh_command_words_and_options"]
 
 
-def _gh_tokens_by_kind(all_arguments: list[str]) -> tuple[list[str], list[str]]:
-    """Return the command words and the option names, skipping each option's separate value."""
+def gh_command_words_and_options(all_arguments: list[str]) -> tuple[list[str], list[str]]:
+    """Return the command words and the option names in one pass, skipping each option's separate value.
+
+    An option name drops any ``=value`` part.
+
+    Args:
+        all_arguments: The tokens after the ``gh`` program name.
+    """
     all_command_words: list[str] = []
     all_option_names: list[str] = []
     is_option_value = False
@@ -42,13 +48,4 @@ def gh_command_words(all_arguments: list[str]) -> list[str]:
     Args:
         all_arguments: The tokens after the ``gh`` program name.
     """
-    return _gh_tokens_by_kind(all_arguments)[0]
-
-
-def gh_standalone_options(all_arguments: list[str]) -> list[str]:
-    """Return the option names a gh call sets, without any ``=value`` part or separate value.
-
-    Args:
-        all_arguments: The tokens after the ``gh`` program name.
-    """
-    return _gh_tokens_by_kind(all_arguments)[1]
+    return gh_command_words_and_options(all_arguments)[0]

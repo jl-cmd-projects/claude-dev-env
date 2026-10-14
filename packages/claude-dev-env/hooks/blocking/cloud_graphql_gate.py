@@ -12,9 +12,10 @@ jobs. ``gh`` calls GraphQL for ``api graphql``, for every ``pr``, ``issue``,
 --web``, and for ``status``, ``org list``, ``repo view``, ``repo clone``,
 ``repo list``, ``repo archive``, ``repo unarchive``, ``label list``, ``search
 prs``, ``search issues``, ``ruleset list``, ``gist list``, ``release list``,
-``release view`` with a tag, and ``workflow run`` without ``--ref``. ``repo
-edit``, ``repo create`` and ``repo sync`` call GraphQL only for some flags (an
-interactive edit, ``--template``, no ``--branch``), so they pass. The command
+``release view`` with a tag, ``workflow run`` without ``--ref``, ``repo sync``
+without ``--branch``, ``repo create --template``, and ``repo edit`` with a
+security setting. An interactive ``repo edit`` needs a terminal, which an agent
+call lacks, so gh stops before any request. The command
 words skip options and the values of ``-R``, ``--json`` and the like, so ``gh -R o/r pr list``
 and ``gh api -X POST graphql`` read as ``pr list`` and ``api graphql``. A
 ``gh`` call with ``--help`` or ``-h`` passes, because it reaches no network,
@@ -22,7 +23,9 @@ unless the flag is the separate value of an option such as ``--body``. An HTTP c
 interpreter such as ``python -c`` is denied when an argument names
 ``api.github.com/graphql``, with or without a port. A URL held in a shell
 variable, or built inside a script file, is not in the command text, so the
-gate cannot see it. The program is read past wrappers, shell keywords such as
+gate cannot see it. The programs checked for the endpoint are a fixed list, so
+another program that names it, such as ``java`` or ``dotnet``, passes and gets
+the proxy's 403. The program is read past wrappers, shell keywords such as
 ``if`` and ``!``, command substitutions, ``eval``, ``Invoke-Expression``,
 ``find -exec``, PowerShell ``-EncodedCommand`` and chained commands. Outside a
 cloud session the gate stays quiet, because GraphQL works there. Section 7.1 of
@@ -52,6 +55,7 @@ try:
         ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND,
         ALL_GH_GRAPHQL_COMMAND_GROUPS,
         ALL_GH_GRAPHQL_COMMAND_PATHS,
+        ALL_GH_GRAPHQL_OPTIONS_BY_COMMAND_PATH,
         ALL_GH_HELP_FLAGS,
         ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS,
         ALL_GH_REST_OPTIONS_BY_COMMAND_PATH,
@@ -67,7 +71,7 @@ try:
         GITHUB_GRAPHQL_ENDPOINT_PATTERN,
     )
     from hooks_constants.cloud_session import is_cloud_session
-    from hooks_constants.gh_command_words import gh_command_words, gh_standalone_options
+    from hooks_constants.gh_command_words import gh_command_words_and_options
     from hooks_constants.hook_block_logger import log_hook_block
     from hooks_constants.piped_pytest_blocker_constants import PYTHON_INTERPRETER_BASENAME_PATTERN
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -96,16 +100,18 @@ def _gh_arguments_call_graphql(all_arguments: list[str]) -> bool:
     Args:
         all_arguments: The tokens after the ``gh`` program name.
     """
-    all_option_names = gh_standalone_options(all_arguments)
+    all_command_words, all_option_names = gh_command_words_and_options(all_arguments)
     if any(each_option in ALL_GH_HELP_FLAGS for each_option in all_option_names):
         return False
-    all_command_words = gh_command_words(all_arguments)
     if all_command_words[:1] == [GH_API_SUBCOMMAND]:
         return any(_is_graphql_endpoint(each_word) for each_word in all_command_words[1:])
     command_path = tuple(all_command_words[:GH_COMMAND_PATH_LENGTH])
     all_rest_options = ALL_GH_REST_OPTIONS_BY_COMMAND_PATH.get(command_path, frozenset())
     if any(each_option in all_rest_options for each_option in all_option_names):
         return False
+    all_graphql_options = ALL_GH_GRAPHQL_OPTIONS_BY_COMMAND_PATH.get(command_path, frozenset())
+    if any(each_option in all_graphql_options for each_option in all_option_names):
+        return True
     if command_path in ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND:
         return len(all_command_words) > GH_COMMAND_PATH_LENGTH
     if any(

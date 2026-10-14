@@ -13,6 +13,7 @@ __all__ = [
     "FIND_PROGRAM_NAME",
     "ALL_FIND_EXEC_ACTIONS",
     "ALL_FIND_EXEC_TERMINATORS",
+    "FIND_EXEC_COMMAND_SEPARATOR",
     "ALL_POWERSHELL_PROGRAM_NAMES",
     "ENCODED_COMMAND_OPTION",
     "ENCODED_COMMAND_SHORT_ALIAS",
@@ -26,6 +27,7 @@ ALL_STRING_EVALUATING_PROGRAM_NAMES: frozenset[str] = frozenset(
 FIND_PROGRAM_NAME: str = "find"
 ALL_FIND_EXEC_ACTIONS: frozenset[str] = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
 ALL_FIND_EXEC_TERMINATORS: frozenset[str] = frozenset({";", "\\;", "+"})
+FIND_EXEC_COMMAND_SEPARATOR: str = " ; "
 ALL_POWERSHELL_PROGRAM_NAMES: frozenset[str] = frozenset({"pwsh", "powershell"})
 ENCODED_COMMAND_OPTION: str = "-encodedcommand"
 ENCODED_COMMAND_SHORT_ALIAS: str = "-ec"

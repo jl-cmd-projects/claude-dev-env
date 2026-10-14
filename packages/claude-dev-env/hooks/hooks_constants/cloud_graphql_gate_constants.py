@@ -2,7 +2,7 @@
 
 Holds the ``gh`` commands that call GraphQL, the ``gh`` subcommands inside
 those groups that call REST, the options that keep a GraphQL command on REST,
-the commands that call GraphQL only with an operand, the help flags that reach
+the commands that call GraphQL only with an operand or only with certain options, the help flags that reach
 no network, the HTTP client and script interpreter programs and the GraphQL endpoint pattern they
 could name, the hook name the block log records, and the deny message that
 names the REST routes to run instead.
@@ -24,6 +24,7 @@ __all__ = [
     "ALL_GH_HELP_FLAGS",
     "ALL_GH_REST_OPTIONS_BY_COMMAND_PATH",
     "ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND",
+    "ALL_GH_GRAPHQL_OPTIONS_BY_COMMAND_PATH",
     "ALL_HTTP_CLIENT_PROGRAM_NAMES",
     "ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES",
     "GITHUB_GRAPHQL_ENDPOINT_PATTERN",
@@ -56,12 +57,24 @@ ALL_GH_GRAPHQL_COMMAND_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("gist", "list"),
         ("release", "list"),
         ("workflow", "run"),
+        ("repo", "sync"),
     }
 )
 ALL_GH_HELP_FLAGS: frozenset[str] = frozenset({"--help", "-h"})
 ALL_GH_REST_OPTIONS_BY_COMMAND_PATH: dict[tuple[str, ...], frozenset[str]] = {
     ("pr", "list"): frozenset({"--web", "-w"}),
     ("workflow", "run"): frozenset({"--ref", "-r"}),
+    ("repo", "sync"): frozenset({"--branch", "-b"}),
+}
+ALL_GH_GRAPHQL_OPTIONS_BY_COMMAND_PATH: dict[tuple[str, ...], frozenset[str]] = {
+    ("repo", "create"): frozenset({"--template", "-p"}),
+    ("repo", "edit"): frozenset(
+        {
+            "--enable-advanced-security",
+            "--enable-secret-scanning",
+            "--enable-secret-scanning-push-protection",
+        }
+    ),
 }
 ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND: frozenset[tuple[str, ...]] = frozenset(
     {("release", "view")}
@@ -82,7 +95,8 @@ CLOUD_GRAPHQL_DENY_REASON: str = (
     "(all but gh pr diff and gh pr list --web), gh project, gh discussion, gh status, "
     "gh org list, gh repo view/clone/list/archive/unarchive, gh label list, "
     "gh search prs/issues, gh ruleset list, gh gist list, gh release list, "
-    "gh release view with a tag, and gh workflow run without --ref. "
+    "gh release view with a tag, gh workflow run without --ref, gh repo sync without "
+    "--branch, gh repo create --template, and gh repo edit with a security setting. "
     "Use REST through gh api repos/{owner}/{repo}/... or the mcp__github__ tools. "
     "Open a PR: mcp__github__create_pull_request, or gh api repos/{owner}/{repo}/pulls "
     "--input pr.json with title, head, base, body and draft in the JSON. "

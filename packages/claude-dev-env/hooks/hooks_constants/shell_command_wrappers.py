@@ -36,6 +36,7 @@ from hooks_constants.shell_command_evaluation_constants import (
     ENCODED_COMMAND_OPTION,
     ENCODED_COMMAND_SHORT_ALIAS,
     ENCODED_COMMAND_TEXT_ENCODING,
+    FIND_EXEC_COMMAND_SEPARATOR,
     FIND_PROGRAM_NAME,
     MINIMUM_ENCODED_COMMAND_PREFIX_LENGTH,
 )
@@ -175,15 +176,23 @@ def all_command_substitution_texts(command: str) -> list[str]:
 
 
 def _find_exec_command(all_arguments: list[str]) -> str | None:
-    """Return the command a ``find -exec`` action runs, up to its terminator, else None."""
-    for each_index, each_argument in enumerate(all_arguments):
-        if unquoted_token(each_argument) in ALL_FIND_EXEC_ACTIONS:
-            all_command_tokens = itertools.takewhile(
+    """Return the commands every ``find -exec`` action runs, joined as one command list, else None."""
+    all_action_indexes = [
+        each_index
+        for each_index, each_argument in enumerate(all_arguments)
+        if unquoted_token(each_argument) in ALL_FIND_EXEC_ACTIONS
+    ]
+    if not all_action_indexes:
+        return None
+    return FIND_EXEC_COMMAND_SEPARATOR.join(
+        WRAPPED_COMMAND_TOKEN_JOIN.join(
+            itertools.takewhile(
                 lambda each_token: unquoted_token(each_token) not in ALL_FIND_EXEC_TERMINATORS,
-                all_arguments[each_index + 1 :],
+                all_arguments[each_action_index + 1 :],
             )
-            return WRAPPED_COMMAND_TOKEN_JOIN.join(all_command_tokens)
-    return None
+        )
+        for each_action_index in all_action_indexes
+    )
 
 
 def _is_encoded_command_option(argument: str) -> bool:
@@ -220,7 +229,12 @@ def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
         find . -exec gh pr list +              gh pr list
         pwsh -EncodedCommand ZwBoACAA...       the decoded text
         gh pr list                             None
+
+    The pipeline parser splits a ``find`` call at an escaped ``\\;``, so a
+    segment that starts with a ``-exec`` action is the rest of that call.
     """
+    if all_segment_tokens and unquoted_token(all_segment_tokens[0]) in ALL_FIND_EXEC_ACTIONS:
+        return _find_exec_command(all_segment_tokens)
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
     normalized_program_name = program_name.lower()
     if normalized_program_name in ALL_STRING_EVALUATING_PROGRAM_NAMES:
@@ -269,9 +283,10 @@ def all_wrapped_command_texts(command: str) -> list[str]:
 def all_wrapped_command_segments(command: str) -> list[list[str]]:
     """Return every segment of the command and of each command string a wrapper or substitution inside it runs.
 
-    Each command string is parsed once, so a hook that grades segments reads
-    ``bash -c "gh pr list"`` as its outer segment plus ``gh pr list`` without
-    tokenizing either text a second time.
+    Each command text goes through the pipeline parser once, and both this
+    function and ``all_wrapped_command_texts`` read that one parse, so a hook
+    that grades segments reads ``bash -c "gh pr list"`` as its outer segment
+    plus ``gh pr list``.
     """
     return [
         each_segment

@@ -2,7 +2,7 @@
 
 A reader of a ``gh`` command skips the token after each of these options, so
 ``gh -R o/r pr list`` reads as ``pr list`` and ``gh pr merge 12 --body -h``
-reads ``-h`` as the body text. ``-f``, ``-F``, ``-H`` and ``-t`` take a value in
+reads ``-h`` as the body text. ``-f``, ``-F``, ``-H``, ``-p`` and ``-t`` take a value in
 ``gh api``, ``gh workflow run`` and ``gh pr create`` alike.
 """
 
@@ -35,6 +35,7 @@ ALL_GH_OPTIONS_WITH_A_VALUE: frozenset[str] = frozenset(
         "--jq",
         "-t",
         "--template",
+        "-p",
         "--title",
         "--cache",
         "--json",
