@@ -32,8 +32,8 @@ def _commit_files(repository: Path, text_by_path: dict[str, str]) -> None:
 
 def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch: pytest.MonkeyPatch) -> None:
     sources = {
-        "HEAD:packages/claude-dev-env/rules": "index.md\nscoped.md\n",
-        "HEAD:packages/claude-dev-env/docs/rule-guides": "guide.md\n",
+        "HEAD:packages/claude-dev-env/rules": "index.md\0scoped.md\0",
+        "HEAD:packages/claude-dev-env/docs/rule-guides": "guide.md\0",
         "HEAD:packages/claude-dev-env/rules/index.md": "Always loaded.\n",
         "HEAD:packages/claude-dev-env/rules/scoped.md": "---\npaths: src/**\n---\nScoped.\n",
         "HEAD:packages/claude-dev-env/docs/rule-guides/guide.md": "Guide.\n",
@@ -46,12 +46,13 @@ def test_variant_files_keeps_unscoped_rules_and_all_guides(monkeypatch: pytest.M
     }
 
 
-def test_variant_files_includes_rules_and_guides_in_subfolders(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_variant_files_includes_rules_in_subfolders_and_with_spaces(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _commit_files(
         tmp_path,
         {
             "packages/claude-dev-env/rules/index.md": "Index.\n",
             "packages/claude-dev-env/rules/team/nested.md": "Nested.\n",
+            "packages/claude-dev-env/rules/my rule.md": "Spaced.\n",
             "packages/claude-dev-env/docs/rule-guides/shell/guide.md": "Guide.\n",
         },
     )
@@ -60,6 +61,7 @@ def test_variant_files_includes_rules_and_guides_in_subfolders(monkeypatch: pyte
     assert install.variant_files("HEAD") == {
         ".claude/rules/index.md": "Index.\n",
         ".claude/rules/team/nested.md": "Nested.\n",
+        ".claude/rules/my rule.md": "Spaced.\n",
         ".claude/docs/rule-guides/shell/guide.md": "Guide.\n",
     }
 
@@ -87,3 +89,11 @@ def test_prepare_workspace_commits_the_fixture_and_the_variant_files() -> None:
     assert (workspace / "logs/alpha.log").read_text(encoding="utf-8") == "job finished\n"
     tracked = subprocess.run(("git", "ls-files"), cwd=workspace, check=True, capture_output=True, text=True).stdout.split()
     assert ".claude/rules/index.md" in tracked
+
+
+def test_installed_digest_changes_with_a_rule_text_or_path() -> None:
+    files_by_target = {".claude/rules/index.md": "Index.\n"}
+
+    assert install.installed_digest(files_by_target) == install.installed_digest(dict(files_by_target))
+    assert install.installed_digest(files_by_target) != install.installed_digest({".claude/rules/index.md": "Index!\n"})
+    assert install.installed_digest(files_by_target) != install.installed_digest({".claude/rules/other.md": "Index.\n"})

@@ -9,8 +9,9 @@ Variant ``baseline`` installs the always-loaded rules and guides from the
 commit before the index. Variant ``index`` installs them from ``HEAD``. Each
 session loads project and local settings only, so the home config's rules,
 hooks and skills stay out of both arms. Rows land in
-``<variant>/results.jsonl`` as each case finishes, and a rerun skips every
-(case, rep) already there.
+``<variant>/results.jsonl`` as each case finishes, each tagged with a digest
+of the installed rules. A rerun skips every (case, rep) already there under
+the same digest, and the headline counts only those rows.
 """
 
 import argparse
@@ -40,7 +41,7 @@ from rules_eval_support.config.constants import (
     STATE_FILE,
 )
 from rules_eval_support.grading import opened_a_guide, tool_check
-from rules_eval_support.install import prepare_workspace, variant_files
+from rules_eval_support.install import installed_digest, prepare_workspace, variant_files
 from rules_eval_support.judge import judge_prompt, run_judge
 from rules_eval_support.launch import run_session
 from session_eval_support.config.constants import (
@@ -55,6 +56,7 @@ from session_eval_support.config.constants import (
     STATUS_OK,
     TRACE_FILE_TEMPLATE,
     TRACES_DIRECTORY_NAME,
+    USAGE_ERROR_EXIT_CODE,
 )
 from session_eval_support.grading import tool_calls, wilson_interval
 from session_eval_support.rows import append_row, read_rows, select_cases
@@ -119,7 +121,8 @@ def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, f
     if followed is None:
         append_row(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": FAILURE_JUDGE, "detail": grade_record})
         return
-    append_row(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, grade_record))
+    meta_by_field = {**grade_record, "installed_digest": installed_digest(files_by_target)}
+    append_row(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, meta_by_field))
 
 
 def _scored_row(case_by_field: dict[str, str], rep: int, session: SessionRun, settings: SessionSettings, is_followed: bool, meta_by_field: dict[str, object]) -> dict[str, object]:
@@ -153,6 +156,10 @@ def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
     return f"followed {total_passes}/{len(all_rows)} (95% CI {low:.2f}-{high:.2f}) | {group_text} | opened a guide {guide_opens}/{len(all_rows)} | errors {error_count}"
 
 
+def _rows_for_install(variant_directory: Path, digest: str) -> list[dict[str, object]]:
+    return [each_row for each_row in read_rows(variant_directory / RESULTS_FILE_NAME) if each_row.get("meta", {}).get("installed_digest") == digest]
+
+
 def main() -> int:
     """Run every pending (case, rep) for one variant and print the headline.
 
@@ -163,16 +170,21 @@ def main() -> int:
     arguments = _parse_arguments()
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     files_by_target = variant_files(state["variants"][arguments.variant]["ref"])
-    all_cases = select_cases(json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases)
+    try:
+        all_cases = select_cases(json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases)
+    except ValueError as error:
+        logger.error("%s", error)
+        return USAGE_ERROR_EXIT_CODE
     variant_directory = FLOW_ROOT / (arguments.label or arguments.variant)
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
-    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in read_rows(variant_directory / RESULTS_FILE_NAME)}
+    digest = installed_digest(files_by_target)
+    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in _rows_for_install(variant_directory, digest)}
     all_pending = [(each_case, each_rep) for each_case in all_cases for each_rep in range(arguments.reps) if (each_case["id"], each_rep) not in all_done]
     with ThreadPoolExecutor(max_workers=arguments.parallel) as executor:
         for each_future in [executor.submit(_run_one, each_case, each_rep, variant_directory, files_by_target, settings, arguments.direct) for each_case, each_rep in all_pending]:
             each_future.result()
-    all_rows = [each_row for each_row in read_rows(variant_directory / RESULTS_FILE_NAME) if each_row["prompt_id"] in {each_case["id"] for each_case in all_cases}]
+    all_rows = [each_row for each_row in _rows_for_install(variant_directory, digest) if each_row["prompt_id"] in {each_case["id"] for each_case in all_cases}]
     logger.info("%s: %s", arguments.variant, _summary(all_rows, len(read_rows(variant_directory / ERRORS_FILE_NAME))))
     return 0
 

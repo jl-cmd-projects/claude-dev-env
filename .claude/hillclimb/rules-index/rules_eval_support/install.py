@@ -1,5 +1,6 @@
 """Build one variant's workspace: the fixture project plus the rules that variant loads."""
 
+import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -14,6 +15,8 @@ from rules_eval_support.config.constants import (
     GUIDES_TARGET_DIRECTORY,
     LOG_FILE_TEXT,
     MARKDOWN_SUFFIX,
+    PATH_LIST_SEPARATOR,
+    DIGEST_LENGTH,
     PATHS_FRONTMATTER_KEY,
     REPOSITORY_ROOT,
     RULES_SOURCE_DIRECTORY,
@@ -37,7 +40,7 @@ def _read_git(*all_arguments: str) -> str:
 def _markdown_names(ref: str, directory: str) -> list[str]:
     return [
         each_path
-        for each_path in _read_git("ls-tree", "-r", "--name-only", f"{ref}:{directory}").split()
+        for each_path in _read_git("ls-tree", "-r", "-z", "--name-only", f"{ref}:{directory}").split(PATH_LIST_SEPARATOR)
         if each_path.endswith(MARKDOWN_SUFFIX)
     ]
 
@@ -80,6 +83,22 @@ def variant_files(ref: str) -> dict[str, str]:
             "show", f"{ref}:{GUIDES_SOURCE_DIRECTORY}/{each_name}"
         )
     return files_by_target
+
+
+def installed_digest(files_by_target: dict[str, str]) -> str:
+    """Return a short sha256 over a variant's workspace paths and texts.
+
+    Args:
+        files_by_target: The variant's files from variant_files.
+
+    Returns:
+        The first 12 hex digits of the digest.
+    """
+    digest = hashlib.sha256()
+    for each_target, each_text in sorted(files_by_target.items()):
+        digest.update(each_target.encode("utf-8"))
+        digest.update(each_text.encode("utf-8"))
+    return digest.hexdigest()[:DIGEST_LENGTH]
 
 
 def prepare_workspace(files_by_target: dict[str, str]) -> Path:

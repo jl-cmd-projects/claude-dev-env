@@ -45,3 +45,29 @@ def test_run_judge_reports_a_timeout_as_unreadable_and_leaves_no_folder(monkeypa
 
     assert run_judge("grade this", is_direct=True) == (None, {})
     assert not all_judge_directories[0].exists()
+
+
+def test_parse_verdict_keeps_the_top_level_verdict_over_a_nested_pass() -> None:
+    assert parse_verdict('{"pass": true, "reason": "ok", "evidence": {"pass": false}}') == {
+        "pass": True,
+        "reason": "ok",
+        "evidence": {"pass": False},
+    }
+
+
+def test_run_judge_sends_the_prompt_on_standard_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_calls: list[tuple[list[str], object]] = []
+
+    def answer(all_words: list[str], **all_options: object) -> subprocess.CompletedProcess[str]:
+        all_calls.append((all_words, all_options["input"]))
+        return subprocess.CompletedProcess(all_words, 0, '{"result": "{\\"pass\\": true, \\"reason\\": \\"ok\\"}"}', "")
+
+    monkeypatch.setattr(judge.subprocess, "run", answer)
+    long_prompt = "transcript " * 5000
+
+    verdict, judge_event = run_judge(long_prompt, is_direct=True)
+
+    assert verdict == {"pass": True, "reason": "ok"}
+    assert judge_event["result"] == '{"pass": true, "reason": "ok"}'
+    assert all_calls[0][1] == long_prompt
+    assert long_prompt not in all_calls[0][0]

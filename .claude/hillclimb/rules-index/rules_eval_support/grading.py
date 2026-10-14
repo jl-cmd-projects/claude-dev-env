@@ -20,11 +20,9 @@ from rules_eval_support.config.constants import (
     READ_TOOL_NAME,
     RM_PATTERN,
     ROOT_SEARCH_PATTERN,
-    SKILL_FIELD,
     SUBSTITUTION_PATTERN,
 )
-from session_eval_support.config.constants import PLUGIN_SEPARATOR, SKILL_TOOL_NAME
-from session_eval_support.grading import ToolCall, build_eval_came_first
+from session_eval_support.grading import ToolCall, build_eval_came_first, names_skill
 
 
 def _bash_commands(all_calls: Iterable[ToolCall]) -> list[str]:
@@ -94,18 +92,6 @@ def scopes_every_search(all_calls: list[ToolCall]) -> bool:
     )
 
 
-def _names_pr_lifecycle(call: ToolCall) -> bool:
-    invoked = call.tool_input.get(SKILL_FIELD)
-    return (
-        call.name == SKILL_TOOL_NAME
-        and isinstance(invoked, str)
-        and (
-            invoked == PR_LIFECYCLE_SKILL_NAME
-            or invoked.endswith(PLUGIN_SEPARATOR + PR_LIFECYCLE_SKILL_NAME)
-        )
-    )
-
-
 def loads_pr_lifecycle_before_commit(all_calls: list[ToolCall]) -> bool:
     """Return whether the pr-lifecycle skill came before any git commit.
 
@@ -122,7 +108,7 @@ def loads_pr_lifecycle_before_commit(all_calls: list[ToolCall]) -> bool:
         Whether a pr-lifecycle Skill call precedes every git commit command.
     """
     for each_call in all_calls:
-        if _names_pr_lifecycle(each_call):
+        if names_skill(each_call, PR_LIFECYCLE_SKILL_NAME):
             return True
         if each_call.name == BASH_TOOL_NAME and GIT_COMMIT_PATTERN.search(
             str(each_call.tool_input.get(COMMAND_FIELD, ""))

@@ -7,7 +7,7 @@ flow_directory = str(Path(__file__).resolve().parent)
 if flow_directory not in sys.path:
     sys.path.insert(0, flow_directory)
 
-from session_eval_support.grading import grade_case, tool_calls, wilson_interval
+from session_eval_support.grading import ToolCall, grade_case, names_skill, tool_calls, wilson_interval
 from session_eval_support.session import trace_turns
 
 BUILD_EVAL = {
@@ -109,3 +109,10 @@ def test_trace_should_list_the_prompt_then_each_tool_call_in_order() -> None:
         "tool_call",
     ]
     assert all_turns[1]["name"] == "Skill"
+
+
+def test_names_skill_matches_a_bare_or_plugin_name_on_a_skill_call_only() -> None:
+    assert names_skill(ToolCall("Skill", {"skill": "pr-lifecycle"}), "pr-lifecycle")
+    assert names_skill(ToolCall("Skill", {"skill": "tools:pr-lifecycle"}), "pr-lifecycle")
+    assert not names_skill(ToolCall("Skill", {"skill": "pr-lifecycle-extra"}), "pr-lifecycle")
+    assert not names_skill(ToolCall("Read", {"skill": "pr-lifecycle"}), "pr-lifecycle")

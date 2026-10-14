@@ -58,6 +58,7 @@ TOOL_RESULT_PREVIEW_LENGTH = 2000
 FIRST_TOOLS_PER_TURN = 2
 NEWLINE = "\n"
 ID_LIST_SEPARATOR = ", "
+USAGE_ERROR_EXIT_CODE = 2
 ALL_GIT_INIT_COMMANDS = (
     ("git", "init", "-q", "-b", "main"),
     ("git", "add", "-A"),

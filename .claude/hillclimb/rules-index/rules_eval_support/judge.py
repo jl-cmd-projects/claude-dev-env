@@ -41,30 +41,37 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
 
         'Done. {"pass": true, "reason": "Read the README."}' -> {"pass": True, ...}
         '{"pass": false, "reason": "uses {x}"}'              -> {"pass": False, ...}
+        '{"pass": true, "evidence": {"pass": false}}'        -> {"pass": True, ...}
         "I cannot tell."                                    -> None
 
     Args:
         judge_reply: The judge's final text.
 
     Returns:
-        The JSON object starting last in the reply that has a boolean ``pass``
-        field. Braces inside the reason do not end the object.
+        The last top-level JSON object in the reply that has a boolean
+        ``pass`` field. Braces inside strings and nested objects belong to
+        the object around them.
     """
     decoder = json.JSONDecoder()
-    object_start = judge_reply.rfind(OBJECT_START)
+    verdict: dict[str, object] | None = None
+    object_start = judge_reply.find(OBJECT_START)
     while object_start >= 0:
         try:
-            verdict, _ = decoder.raw_decode(judge_reply, object_start)
+            candidate, object_end = decoder.raw_decode(judge_reply, object_start)
         except json.JSONDecodeError:
-            verdict = None
-        if isinstance(verdict, dict) and isinstance(verdict.get("pass"), bool):
-            return verdict
-        object_start = judge_reply.rfind(OBJECT_START, 0, object_start)
-    return None
+            object_start = judge_reply.find(OBJECT_START, object_start + 1)
+            continue
+        if isinstance(candidate, dict) and isinstance(candidate.get("pass"), bool):
+            verdict = candidate
+        object_start = judge_reply.find(OBJECT_START, object_end)
+    return verdict
 
 
 def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | None, dict[str, object]]:
     """Run the judge once, headless, in an empty folder that is removed afterward.
+
+    The prompt goes on standard input, so a long transcript stays clear of
+    the command-line length limit and of shell parsing in a launcher shim.
 
     Args:
         prompt_text: The text from judge_prompt.
@@ -74,7 +81,7 @@ def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | No
         The verdict (None when unreadable or timed out) and the judge's result event.
     """
     all_judge_words = [
-        "claude", "-p", prompt_text, "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
+        "claude", "-p", "--model", JUDGE_MODEL, "--effort", JUDGE_EFFORT,
         "--max-turns", "1", "--output-format", "json", "--setting-sources", SESSION_SETTING_SOURCES,
     ]
     with tempfile.TemporaryDirectory(prefix="rules-judge-", ignore_cleanup_errors=True) as judge_root_name:
@@ -85,6 +92,7 @@ def run_judge(prompt_text: str, is_direct: bool) -> tuple[dict[str, object] | No
             completed = subprocess.run(
                 launch_words(judge_root / JUDGE_REPORT_FILE_NAME, all_judge_words, is_direct),
                 cwd=judge_directory,
+                input=prompt_text,
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",

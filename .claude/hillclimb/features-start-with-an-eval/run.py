@@ -46,6 +46,7 @@ from session_eval_support.config.constants import (
     STATUS_OK,
     TRACES_DIRECTORY_NAME,
     TRACE_FILE_TEMPLATE,
+    USAGE_ERROR_EXIT_CODE,
 )
 from session_eval_support.grading import (
     ToolCall,
@@ -267,9 +268,13 @@ def main() -> int:
         tuple(each_pair)
         for each_pair in state["variants"][arguments.variant]["install"]
     ]
-    all_cases = select_cases(
-        json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases
-    )
+    try:
+        all_cases = select_cases(
+            json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases
+        )
+    except ValueError as error:
+        logger.error("%s", error)
+        return USAGE_ERROR_EXIT_CODE
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(
