@@ -181,15 +181,6 @@ REASON_ALL_EXTRAS_WAIT_TEMPLATE: str = (
 )
 """Reason when every configured extra profile is blocked."""
 
-REASON_WAIT_TEMPLATE: str = (
-    "second account is at {weekly_used_percent:.0f}% of its week"
-    " and {session_used_percent:.0f}% of its 5-hour window; next reset {next_reset}"
-)
-"""Reason when neither account has room."""
-
-UNKNOWN_RESET_TEXT: str = "unknown"
-"""Reset text when the blocking meter carries no reset time."""
-
 JSON_ACCOUNT_KEY: str = "account"
 """Picker JSON key naming the chosen account."""
 

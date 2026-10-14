@@ -1,5 +1,6 @@
 import type { Register, SessionRateLimit } from 'claude-code'
 import type { CompactedWindows } from '../types'
+import { isAtOrPast, readablePercentUsed } from './usage'
 
 export const DEFAULT_FIVE_HOUR_PERCENT_USED = 97
 export const DEFAULT_SEVEN_DAY_PERCENT_USED = 99
@@ -19,7 +20,8 @@ export function windowToCompact(
 ): Window | undefined {
   for (const limit of limits) {
     const threshold = thresholdByKind[limit.kind]
-    if (threshold === undefined || limit.percentUsed < threshold) continue
+    const used = readablePercentUsed(limit)
+    if (threshold === undefined || used === undefined || !isAtOrPast(used, threshold)) continue
     const resetsAt = limit.resetsAt ?? ''
     if (alreadyCompacted[limit.kind] !== resetsAt) return { kind: limit.kind, resetsAt }
   }

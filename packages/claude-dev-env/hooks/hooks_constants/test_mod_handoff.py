@@ -89,12 +89,13 @@ def test_should_let_local_project_settings_turn_a_user_plugin_off(
     assert is_mod_plugin_enabled("session-prompts") is False
 
 
+@pytest.mark.parametrize("marker_value", ["true", " TRUE "])
 def test_should_keep_the_hook_in_a_cloud_session_with_the_plugin_on(
-    settings_homes: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch,
+    settings_homes: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch, marker_value: str,
 ) -> None:
     _, project_directory = settings_homes
     _write_enabled_plugins(
         project_directory / ".claude" / "settings.json", {"session-prompts@market": True}
     )
-    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", marker_value)
     assert is_mod_plugin_enabled("session-prompts") is False
