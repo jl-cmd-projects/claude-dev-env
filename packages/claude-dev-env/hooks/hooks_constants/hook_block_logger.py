@@ -15,7 +15,7 @@ _MAX_PREVIEW_LENGTH = 500
 _REDACTION_MARKER = "[REDACTED]"
 _GITHUB_TOKEN_PATTERN = re.compile(r"\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+")
 _AUTHORIZATION_VALUE_PATTERN = re.compile(
-    r"(?P<header>authorization:\s*(?:token|bearer|basic)\s+)[^\s'\"]+", re.IGNORECASE
+    r"(?P<header>authorization:\s*)[^'\"\r\n]+", re.IGNORECASE
 )
 
 

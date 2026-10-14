@@ -57,6 +57,14 @@ _FINE_GRAINED_TOKEN_PREFIX = "github" + "_pat_"
             _PLACEHOLDER_VALUE,
         ),
         (
+            f"curl -H '{_AUTHORIZATION_HEADER_NAME}: Digest username={_PLACEHOLDER_VALUE}' x",
+            _PLACEHOLDER_VALUE,
+        ),
+        (
+            f'curl -H "{_AUTHORIZATION_HEADER_NAME}: {_PLACEHOLDER_VALUE}" x',
+            _PLACEHOLDER_VALUE,
+        ),
+        (
             f"GH_TOKEN={_CLASSIC_TOKEN_PREFIX}{_PLACEHOLDER_VALUE} gh pr list",
             _CLASSIC_TOKEN_PREFIX + _PLACEHOLDER_VALUE,
         ),
