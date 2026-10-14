@@ -22,9 +22,10 @@ __all__ = ["gh_command_words", "gh_command_words_and_options"]
 
 
 def gh_command_words_and_options(all_arguments: list[str]) -> tuple[list[str], list[str]]:
-    """Return the command words and the option names in one pass, skipping each option's separate value.
+    """Return the command words and the option names in one pass.
 
-    An option name drops any ``=value`` part.
+    Each option's separate value is skipped, and an option name drops any
+    ``=value`` part.
 
     Args:
         all_arguments: The tokens after the ``gh`` program name.

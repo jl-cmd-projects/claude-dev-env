@@ -27,7 +27,8 @@ gate cannot see it. The programs checked for the endpoint are a fixed list, so
 another program that names it, such as ``java`` or ``dotnet``, passes and gets
 the proxy's 403. The program is read past wrappers, shell keywords such as
 ``if`` and ``!``, command substitutions, ``eval``, ``Invoke-Expression``,
-``find -exec``, PowerShell ``-EncodedCommand`` and chained commands. Outside a
+``find -exec``, ``Start-Process``, PowerShell ``-EncodedCommand`` and chained
+commands. Outside a
 cloud session the gate stays quiet, because GraphQL works there. Section 7.1 of
 ``docs/references/cloud-pr-loop-compatibility.md`` holds the probe or gh source
 line behind each command in the map.

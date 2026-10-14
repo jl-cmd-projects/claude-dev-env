@@ -141,6 +141,13 @@ _ENCODED_GIT_PUSH = base64.b64encode("git push".encode("utf-16-le")).decode()
         (["pwsh", "-e", "not-base64!"], None),
         (["find", ".", "-exec", "true", ";", "-exec", "git", "push", ";"], "true ; git push"),
         (["-exec", "git", "push", "\\"], "git push \\"),
+        (["pwsh", "-e", f"'{_ENCODED_GIT_PUSH[:8]} {_ENCODED_GIT_PUSH[8:]}'"], "git push"),
+        (["Start-Process", "git", "-ArgumentList", "'push'"], "git push"),
+        (
+            ["Start-Process", "-FilePath", "git", "-ArgumentList", "push,origin", "-Wait"],
+            "git push origin",
+        ),
+        (["saps", "git", "-WorkingDirectory", "C:/repo", "-ArgumentList", "push"], "git push"),
         (["find", ".", "-name", "x"], None),
         (["git", "push"], None),
     ],
@@ -155,3 +162,23 @@ def test_should_return_the_command_an_evaluating_program_runs(
 
 def test_should_unwrap_an_evaluated_command_in_turn() -> None:
     assert "git push" in shell_command_wrappers.all_wrapped_command_texts('eval "git push"')
+
+
+def test_should_read_a_quoted_value_that_spans_lines() -> None:
+    command = f'pwsh -EncodedCommand "{_ENCODED_GIT_PUSH[:8]}\n{_ENCODED_GIT_PUSH[8:]}"'
+    assert "git push" in shell_command_wrappers.all_wrapped_command_texts(command)
+
+
+def test_should_stop_unwrapping_past_the_depth_limit_without_error() -> None:
+    nesting_depth = 1000
+    command = "echo " + "$(" * nesting_depth + "git push" + ")" * nesting_depth
+    all_command_texts = shell_command_wrappers.all_wrapped_command_texts(command)
+    assert all_command_texts[0] == command
+    assert len(all_command_texts) <= nesting_depth
+
+
+def test_should_parse_a_repeated_inner_command_once() -> None:
+    all_command_texts = shell_command_wrappers.all_wrapped_command_texts(
+        'bash -c "git push"; bash -c "git push"'
+    )
+    assert all_command_texts.count("git push") == 1

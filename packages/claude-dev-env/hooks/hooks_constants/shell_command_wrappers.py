@@ -17,6 +17,7 @@ composes it into the answers a hook asks about any program.
 from __future__ import annotations
 
 import base64
+import collections
 import itertools
 
 from hooks_constants.piped_pytest_blocker_constants import (
@@ -32,13 +33,20 @@ from hooks_constants.shell_command_evaluation_constants import (
     ALL_FIND_EXEC_ACTIONS,
     ALL_FIND_EXEC_TERMINATORS,
     ALL_POWERSHELL_PROGRAM_NAMES,
+    ALL_START_PROCESS_NON_COMMAND_PARAMETERS,
+    ALL_START_PROCESS_PROGRAM_NAMES,
     ALL_STRING_EVALUATING_PROGRAM_NAMES,
     ENCODED_COMMAND_OPTION,
     ENCODED_COMMAND_SHORT_ALIAS,
     ENCODED_COMMAND_TEXT_ENCODING,
     FIND_EXEC_COMMAND_SEPARATOR,
     FIND_PROGRAM_NAME,
+    ALL_LINE_BREAK_CHARACTERS,
+    MAXIMUM_UNWRAP_DEPTH,
     MINIMUM_ENCODED_COMMAND_PREFIX_LENGTH,
+    QUOTED_LINE_BREAK_REPLACEMENT,
+    START_PROCESS_ARGUMENT_SEPARATOR,
+    START_PROCESS_PARAMETER_PREFIX,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_substitution_constants import (
@@ -95,7 +103,10 @@ def _quote_state_after(
 
 
 def _closing_parenthesis_index(command: str, body_start_index: int) -> int:
-    """Return the index of the unquoted parenthesis that closes a substitution, or the command length."""
+    """Return the index of the unquoted parenthesis that closes a substitution.
+
+    Returns the command length when no parenthesis closes it.
+    """
     depth = 1
     is_in_single_quotes = False
     is_in_double_quotes = False
@@ -136,7 +147,7 @@ def _backtick_body(command: str, body_start_index: int) -> tuple[str, int]:
 
 
 def _substitution_at(command: str, character_index: int) -> tuple[str, int] | None:
-    """Return the body of a substitution that opens at the index and its closing index, else None."""
+    """Return the body and closing index of a substitution that opens at the index, else None."""
     if command.startswith(COMMAND_SUBSTITUTION_OPENER, character_index):
         body_start_index = character_index + len(COMMAND_SUBSTITUTION_OPENER)
         body_end_index = _closing_parenthesis_index(command, body_start_index)
@@ -176,7 +187,7 @@ def all_command_substitution_texts(command: str) -> list[str]:
 
 
 def _find_exec_command(all_arguments: list[str]) -> str | None:
-    """Return the commands every ``find -exec`` action runs, joined as one command list, else None."""
+    """Return the commands every ``find -exec`` action runs as one command list, else None."""
     all_action_indexes = [
         each_index
         for each_index, each_argument in enumerate(all_arguments)
@@ -206,7 +217,9 @@ def _is_encoded_command_option(argument: str) -> bool:
 def _decoded_utf16_base64_text(encoded_text: str) -> str | None:
     """Return the UTF-16LE text a base64 string holds, else None."""
     try:
-        return base64.b64decode(encoded_text, validate=True).decode(ENCODED_COMMAND_TEXT_ENCODING)
+        return base64.b64decode("".join(encoded_text.split()), validate=True).decode(
+            ENCODED_COMMAND_TEXT_ENCODING
+        )
     except ValueError:
         return None
 
@@ -219,8 +232,21 @@ def _decoded_powershell_command(all_arguments: list[str]) -> str | None:
     return None
 
 
+def _start_process_command(all_arguments: list[str]) -> str | None:
+    """Return the program and arguments a ``Start-Process`` call runs, else None."""
+    all_command_words = [
+        unquoted_token(each_argument).replace(
+            START_PROCESS_ARGUMENT_SEPARATOR, WRAPPED_COMMAND_TOKEN_JOIN
+        )
+        for each_previous_argument, each_argument in itertools.pairwise(["", *all_arguments])
+        if not each_argument.startswith(START_PROCESS_PARAMETER_PREFIX)
+        and each_previous_argument.lower() not in ALL_START_PROCESS_NON_COMMAND_PARAMETERS
+    ]
+    return WRAPPED_COMMAND_TOKEN_JOIN.join(all_command_words) or None
+
+
 def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
-    """Return the command an ``eval``, ``Invoke-Expression``, ``find -exec`` or encoded PowerShell call runs.
+    """Return the command that an evaluating program in the segment runs, else None.
 
     ::
 
@@ -228,6 +254,7 @@ def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
         iex 'gh pr list'                       gh pr list
         find . -exec gh pr list +              gh pr list
         pwsh -EncodedCommand ZwBoACAA...       the decoded text
+        Start-Process gh -ArgumentList 'pr list'   gh pr list
         gh pr list                             None
 
     The pipeline parser splits a ``find`` call at an escaped ``\\;``, so a
@@ -245,32 +272,77 @@ def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
         return _find_exec_command(all_arguments)
     if normalized_program_name in ALL_POWERSHELL_PROGRAM_NAMES:
         return _decoded_powershell_command(all_arguments)
+    if normalized_program_name in ALL_START_PROCESS_PROGRAM_NAMES:
+        return _start_process_command(all_arguments)
     return None
 
 
-def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]]]:
-    """Return each command text with its segments, the command first, each parsed once.
+def _quoted_line_breaks_joined(command: str) -> str:
+    """Return a copy of the command that holds a space at each quoted line break.
 
-    The texts after the command are the command string every shell wrapper
-    inside it runs and the body of every command substitution, unwrapped in turn.
+    The pipeline parser splits a command at every line break, so a quoted
+    value that spans lines, such as an encoded PowerShell command, reads whole
+    only in this copy.
     """
-    all_command_segments = [
-        each_segment for each_segment, _following_operator in pipeline_segments_for_command(command)
-    ]
+    all_characters: list[str] = []
+    is_in_single_quotes = False
+    is_in_double_quotes = False
+    for each_character in command:
+        is_quoted = is_in_single_quotes or is_in_double_quotes
+        is_quoted_line_break = is_quoted and each_character in ALL_LINE_BREAK_CHARACTERS
+        all_characters.append(
+            QUOTED_LINE_BREAK_REPLACEMENT if is_quoted_line_break else each_character
+        )
+        is_in_single_quotes, is_in_double_quotes = _quote_state_after(
+            each_character, is_in_single_quotes, is_in_double_quotes
+        )
+    return "".join(all_characters)
+
+
+def _inner_commands(command: str, all_command_segments: list[list[str]]) -> list[str]:
+    """Return each command string that a wrapper, evaluating program or substitution runs.
+
+    A copy of the command with its quoted line breaks joined comes last when it differs.
+    """
+    joined_command = _quoted_line_breaks_joined(command)
     all_inner_commands = [
+        joined_command if joined_command != command else None,
         *(string_exec_inner_command(each_segment) for each_segment in all_command_segments),
         *(evaluated_inner_command(each_segment) for each_segment in all_command_segments),
         *all_command_substitution_texts(command),
     ]
-    all_parses = [(command, all_command_segments)]
-    for each_inner_command in all_inner_commands:
-        if each_inner_command is not None:
-            all_parses.extend(_all_wrapped_command_parses(each_inner_command))
+    return [each_command for each_command in all_inner_commands if each_command is not None]
+
+
+def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]]]:
+    """Return each command text with its segments, the command first, each text parsed once.
+
+    The texts after the command are the command string every shell wrapper,
+    evaluating program and command substitution inside it runs, unwrapped in
+    turn to ``MAXIMUM_UNWRAP_DEPTH`` levels. A text met twice is parsed once.
+    """
+    all_parses: list[tuple[str, list[list[str]]]] = []
+    all_seen_texts: set[str] = set()
+    all_pending_texts = collections.deque([(command, 0)])
+    while all_pending_texts:
+        each_text, each_depth = all_pending_texts.popleft()
+        if each_text in all_seen_texts or each_depth > MAXIMUM_UNWRAP_DEPTH:
+            continue
+        all_seen_texts.add(each_text)
+        all_command_segments = [
+            each_segment
+            for each_segment, _following_operator in pipeline_segments_for_command(each_text)
+        ]
+        all_parses.append((each_text, all_command_segments))
+        all_pending_texts.extend(
+            (each_inner_command, each_depth + 1)
+            for each_inner_command in _inner_commands(each_text, all_command_segments)
+        )
     return all_parses
 
 
 def all_wrapped_command_texts(command: str) -> list[str]:
-    """Return the command plus the command string every shell wrapper or substitution inside it runs.
+    """Return the command plus each command string a wrapper or substitution inside it runs.
 
     The segments come from the quote-aware pipeline parser, so the quoted
     script in ``powershell -Command "git add -A; git push"`` stays whole until
@@ -281,7 +353,7 @@ def all_wrapped_command_texts(command: str) -> list[str]:
 
 
 def all_wrapped_command_segments(command: str) -> list[list[str]]:
-    """Return every segment of the command and of each command string a wrapper or substitution inside it runs.
+    """Return every segment of the command and of each command string a wrapper inside it runs.
 
     Each command text goes through the pipeline parser once, and both this
     function and ``all_wrapped_command_texts`` read that one parse, so a hook

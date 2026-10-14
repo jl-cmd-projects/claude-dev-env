@@ -16,6 +16,7 @@ from hooks_constants.gh_command_words import gh_command_words, gh_command_words_
         (["api", "-X", "POST", "graphql", "-f", "query=x"], ["api", "graphql"]),
         (["api", "-H", "Accept: application/json", "graphql"], ["api", "graphql"]),
         (["release", "view", "--json", "name"], ["release", "view"]),
+        (["api", "repos/o/r", "--preview", "graphql"], ["api", "repos/o/r"]),
         (["pr", "merge", "12", "--body", "-h"], ["pr", "merge", "12"]),
         (["pr", "list", "--repo=o/r"], ["pr", "list"]),
     ],

@@ -2,10 +2,11 @@
 
 Holds the ``gh`` commands that call GraphQL, the ``gh`` subcommands inside
 those groups that call REST, the options that keep a GraphQL command on REST,
-the commands that call GraphQL only with an operand or only with certain options, the help flags that reach
-no network, the HTTP client and script interpreter programs and the GraphQL endpoint pattern they
-could name, the hook name the block log records, and the deny message that
-names the REST routes to run instead.
+the commands that call GraphQL only with an operand or only with certain
+options, the help flags that reach no network, the HTTP client and script
+interpreter programs and the GraphQL endpoint pattern they could name, the
+hook name the block log records, and the deny message that names the REST
+routes to run instead.
 """
 
 from __future__ import annotations

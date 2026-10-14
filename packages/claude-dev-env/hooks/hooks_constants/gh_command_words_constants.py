@@ -36,6 +36,7 @@ ALL_GH_OPTIONS_WITH_A_VALUE: frozenset[str] = frozenset(
         "-t",
         "--template",
         "-p",
+        "--preview",
         "--title",
         "--cache",
         "--json",
