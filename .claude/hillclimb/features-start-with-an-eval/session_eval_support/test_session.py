@@ -1,5 +1,7 @@
 """Behavior tests for session event reading and capture cleanup."""
 
+import string
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -9,8 +11,13 @@ from session_eval_support import session
 from session_eval_support.session import (
     SessionSettings,
     final_event,
+    installed_files_digest,
+    prepare_workspace,
     served_models,
+    trace_turns,
 )
+
+INSTALLED_RULE = "packages/claude-dev-env/rules/index.md"
 
 
 def test_final_event_returns_last_result() -> None:
@@ -53,3 +60,56 @@ def test_run_session_reads_the_stream_then_deletes_its_capture_directory(
 
     assert session_run.all_events == [{"type": "result", "subtype": "success"}]
     assert [each_path.name for each_path in tmp_path.iterdir()] == ["workspace"]
+
+
+def test_installed_files_digest_is_empty_without_installs_and_short_hex_with_them() -> (
+    None
+):
+    assert installed_files_digest([]) == ""
+    digest = installed_files_digest([(INSTALLED_RULE, ".claude/rules/index.md")])
+    assert len(digest) == 12
+    assert set(digest) <= set(string.hexdigits.lower())
+
+
+def test_prepare_workspace_commits_the_fixture_and_the_installed_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+
+    workspace = prepare_workspace([(INSTALLED_RULE, ".claude/rules/index.md")])
+
+    assert (workspace / "jobs" / "cli.py").is_file()
+    assert (workspace / ".claude" / "rules" / "index.md").is_file()
+    committed = subprocess.run(
+        ["git", "log", "--format=%s"],
+        cwd=workspace,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert committed.stdout == "fixture\n"
+
+
+def test_trace_turns_lists_the_prompt_then_each_block_in_stream_order() -> None:
+    all_events = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Starting."},
+                    {"type": "tool_use", "name": "Skill", "input": {"skill": "a"}},
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {"content": [{"type": "tool_result", "content": "done"}]},
+        },
+    ]
+
+    assert [each_turn["role"] for each_turn in trace_turns("ask", all_events)] == [
+        "user",
+        "assistant",
+        "tool_call",
+        "tool_result",
+    ]

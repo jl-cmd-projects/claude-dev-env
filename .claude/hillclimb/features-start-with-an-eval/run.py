@@ -24,13 +24,14 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-flow_directory = Path(__file__).resolve().parent
-for each_import_root in (
-    flow_directory,
-    flow_directory.parents[2] / "packages" / "claude-dev-env" / "hooks",
-):
-    if str(each_import_root) not in sys.path:
-        sys.path.insert(0, str(each_import_root))
+flow_directory = str(Path(__file__).resolve().parent)
+if flow_directory not in sys.path:
+    sys.path.insert(0, flow_directory)
+hooks_directory = str(
+    Path(__file__).resolve().parents[3] / "packages" / "claude-dev-env" / "hooks"
+)
+if hooks_directory not in sys.path:
+    sys.path.insert(0, hooks_directory)
 
 from hooks_constants.windows_filesystem import force_rmtree
 
