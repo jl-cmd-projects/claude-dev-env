@@ -259,3 +259,11 @@ def test_should_allow_a_call_whose_message_outgrows_the_tail_window(
     exit_code, _ = run_gate(monkeypatch, capsys, transcript, "call_1")
 
     assert exit_code == 0
+
+
+def test_tool_use_position_should_find_the_call_and_miss_an_unwritten_one() -> None:
+    all_blocks = list(
+        step_note_gate.transcript_blocks([PROMPT_ENTRY, note_entry("m1", "Listing."), call_entry("m1", "call_1")])
+    )
+    assert step_note_gate.tool_use_position(all_blocks, "call_1") == 2
+    assert step_note_gate.tool_use_position(all_blocks, "call_9") is None
