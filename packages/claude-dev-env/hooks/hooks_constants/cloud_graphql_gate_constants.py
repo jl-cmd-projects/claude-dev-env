@@ -2,9 +2,8 @@
 
 Holds the ``gh`` commands that call GraphQL, the ``gh`` subcommands inside
 those groups that call REST, the options that keep a GraphQL command on REST,
-the commands that call GraphQL only with an operand, the ``gh`` options read
-while finding the command words, the help flags that reach no network, the HTTP
-client and script interpreter programs and the GraphQL endpoint pattern they
+the commands that call GraphQL only with an operand, the help flags that reach
+no network, the HTTP client and script interpreter programs and the GraphQL endpoint pattern they
 could name, the hook name the block log records, and the deny message that
 names the REST routes to run instead.
 """
@@ -18,16 +17,13 @@ __all__ = [
     "GH_API_SUBCOMMAND",
     "GH_GRAPHQL_ENDPOINT",
     "GH_ENDPOINT_PATH_SEPARATOR",
-    "GH_OPTION_PREFIX",
     "GH_COMMAND_PATH_LENGTH",
     "ALL_GH_GRAPHQL_COMMAND_GROUPS",
     "ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS",
     "ALL_GH_GRAPHQL_COMMAND_PATHS",
-    "ALL_GH_OPTIONS_WITH_A_VALUE",
     "ALL_GH_HELP_FLAGS",
     "ALL_GH_REST_OPTIONS_BY_COMMAND_PATH",
     "ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND",
-    "GH_OPTION_VALUE_SEPARATOR",
     "ALL_HTTP_CLIENT_PROGRAM_NAMES",
     "ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES",
     "GITHUB_GRAPHQL_ENDPOINT_PATTERN",
@@ -39,7 +35,6 @@ GH_PROGRAM_NAME: str = "gh"
 GH_API_SUBCOMMAND: str = "api"
 GH_GRAPHQL_ENDPOINT: str = "graphql"
 GH_ENDPOINT_PATH_SEPARATOR: str = "/"
-GH_OPTION_PREFIX: str = "-"
 GH_COMMAND_PATH_LENGTH: int = 2
 ALL_GH_GRAPHQL_COMMAND_GROUPS: frozenset[str] = frozenset({"pr", "issue", "project", "discussion"})
 ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS: frozenset[tuple[str, ...]] = frozenset(
@@ -63,9 +58,6 @@ ALL_GH_GRAPHQL_COMMAND_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("workflow", "run"),
     }
 )
-ALL_GH_OPTIONS_WITH_A_VALUE: frozenset[str] = frozenset(
-    {"-R", "--repo", "--json", "-q", "--jq", "-t", "--template"}
-)
 ALL_GH_HELP_FLAGS: frozenset[str] = frozenset({"--help", "-h"})
 ALL_GH_REST_OPTIONS_BY_COMMAND_PATH: dict[tuple[str, ...], frozenset[str]] = {
     ("pr", "list"): frozenset({"--web", "-w"}),
@@ -74,12 +66,11 @@ ALL_GH_REST_OPTIONS_BY_COMMAND_PATH: dict[tuple[str, ...], frozenset[str]] = {
 ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND: frozenset[tuple[str, ...]] = frozenset(
     {("release", "view")}
 )
-GH_OPTION_VALUE_SEPARATOR: str = "="
 ALL_HTTP_CLIENT_PROGRAM_NAMES: frozenset[str] = frozenset(
     {"curl", "wget", "http", "https", "invoke-restmethod", "invoke-webrequest", "irm", "iwr"}
 )
 ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES: frozenset[str] = frozenset(
-    {"python", "python3", "py", "node", "deno", "bun", "ruby", "perl", "php"}
+    {"node", "deno", "bun", "ruby", "perl", "php"}
 )
 GITHUB_GRAPHQL_ENDPOINT_PATTERN: re.Pattern[str] = re.compile(
     r"api\.github\.com(?::\d+)?/graphql", re.IGNORECASE

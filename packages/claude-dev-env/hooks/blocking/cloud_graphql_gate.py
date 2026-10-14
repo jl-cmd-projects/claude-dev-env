@@ -18,7 +18,7 @@ interactive edit, ``--template``, no ``--branch``), so they pass. The command
 words skip options and the values of ``-R``, ``--json`` and the like, so ``gh -R o/r pr list``
 and ``gh api -X POST graphql`` read as ``pr list`` and ``api graphql``. A
 ``gh`` call with ``--help`` or ``-h`` passes, because it reaches no network,
-unless the flag follows another option as its value. An HTTP client or a script
+unless the flag is the separate value of an option such as ``--body``. An HTTP client or a script
 interpreter such as ``python -c`` is denied when an argument names
 ``api.github.com/graphql``, with or without a port. A URL held in a shell
 variable, or built inside a script file, is not in the command text, so the
@@ -32,7 +32,6 @@ PowerShell tools.
 
 from __future__ import annotations
 
-import itertools
 import json
 import sys
 from pathlib import Path
@@ -51,7 +50,6 @@ try:
         ALL_GH_GRAPHQL_COMMAND_GROUPS,
         ALL_GH_GRAPHQL_COMMAND_PATHS,
         ALL_GH_HELP_FLAGS,
-        ALL_GH_OPTIONS_WITH_A_VALUE,
         ALL_GH_REST_COMMAND_PATHS_IN_GRAPHQL_GROUPS,
         ALL_GH_REST_OPTIONS_BY_COMMAND_PATH,
         ALL_HTTP_CLIENT_PROGRAM_NAMES,
@@ -62,13 +60,13 @@ try:
         GH_COMMAND_PATH_LENGTH,
         GH_ENDPOINT_PATH_SEPARATOR,
         GH_GRAPHQL_ENDPOINT,
-        GH_OPTION_PREFIX,
-        GH_OPTION_VALUE_SEPARATOR,
         GH_PROGRAM_NAME,
         GITHUB_GRAPHQL_ENDPOINT_PATTERN,
     )
     from hooks_constants.cloud_session import is_cloud_session
+    from hooks_constants.gh_command_words import gh_command_words, gh_standalone_options
     from hooks_constants.hook_block_logger import log_hook_block
+    from hooks_constants.piped_pytest_blocker_constants import PYTHON_INTERPRETER_BASENAME_PATTERN
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
     from hooks_constants.shell_command_wrappers import (
         all_wrapped_command_segments,
@@ -79,33 +77,6 @@ except ImportError as import_error:
         "The cloud GraphQL gate cannot import its dependencies; "
         "ensure the hooks directory is importable."
     ) from import_error
-
-
-def _gh_command_words(all_arguments: list[str]) -> list[str]:
-    """Return the gh arguments that are neither an option nor the value of one such as ``--repo``.
-
-    Args:
-        all_arguments: The tokens after the ``gh`` program name.
-    """
-    return [
-        each_argument
-        for each_previous_argument, each_argument in itertools.pairwise(["", *all_arguments])
-        if not each_argument.startswith(GH_OPTION_PREFIX)
-        and each_previous_argument not in ALL_GH_OPTIONS_WITH_A_VALUE
-    ]
-
-
-def _asks_gh_for_help(all_arguments: list[str]) -> bool:
-    """Return True when a help flag stands as its own option, not as another option's value.
-
-    Args:
-        all_arguments: The tokens after the ``gh`` program name.
-    """
-    return any(
-        each_argument in ALL_GH_HELP_FLAGS
-        and not each_previous_argument.startswith(GH_OPTION_PREFIX)
-        for each_previous_argument, each_argument in itertools.pairwise(["", *all_arguments])
-    )
 
 
 def _is_graphql_endpoint(endpoint: str) -> bool:
@@ -122,17 +93,15 @@ def _gh_arguments_call_graphql(all_arguments: list[str]) -> bool:
     Args:
         all_arguments: The tokens after the ``gh`` program name.
     """
-    if _asks_gh_for_help(all_arguments):
+    all_option_names = gh_standalone_options(all_arguments)
+    if any(each_option in ALL_GH_HELP_FLAGS for each_option in all_option_names):
         return False
-    all_command_words = _gh_command_words(all_arguments)
+    all_command_words = gh_command_words(all_arguments)
     if all_command_words[:1] == [GH_API_SUBCOMMAND]:
         return any(_is_graphql_endpoint(each_word) for each_word in all_command_words[1:])
     command_path = tuple(all_command_words[:GH_COMMAND_PATH_LENGTH])
     all_rest_options = ALL_GH_REST_OPTIONS_BY_COMMAND_PATH.get(command_path, frozenset())
-    if any(
-        each_argument.split(GH_OPTION_VALUE_SEPARATOR, 1)[0] in all_rest_options
-        for each_argument in all_arguments
-    ):
+    if any(each_option in all_rest_options for each_option in all_option_names):
         return False
     if command_path in ALL_GH_COMMAND_PATHS_CALLING_GRAPHQL_WITH_AN_OPERAND:
         return len(all_command_words) > GH_COMMAND_PATH_LENGTH
@@ -160,6 +129,7 @@ def _calls_github_graphql(all_segment_tokens: list[str]) -> bool:
     if (
         normalized_program_name in ALL_HTTP_CLIENT_PROGRAM_NAMES
         or normalized_program_name in ALL_SCRIPT_INTERPRETER_PROGRAM_NAMES
+        or PYTHON_INTERPRETER_BASENAME_PATTERN.fullmatch(normalized_program_name) is not None
     ):
         return any(
             GITHUB_GRAPHQL_ENDPOINT_PATTERN.search(each_argument) is not None

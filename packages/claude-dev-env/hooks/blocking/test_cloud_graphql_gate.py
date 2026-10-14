@@ -84,6 +84,13 @@ def cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
         "gh release list -L 1",
         "gh release view v1 --json name",
         "gh workflow run ci.yml",
+        "gh workflow run ci.yml -f -r",
+        "gh pr list --search -w",
+        "echo \"$(printf ')'; gh pr list)\"",
+        "x=`echo \\`gh pr list\\``",
+        'echo $(echo "$(gh api graphql -f query=@q)")',
+        "python3.12 -c \"u('https://api.github.com/graphql')\"",
+        "pypy3 -c \"u('https://api.github.com/graphql')\"",
     ],
 )
 def test_should_detect_a_github_graphql_call(command: str) -> None:
@@ -108,6 +115,8 @@ def test_should_detect_a_github_graphql_call(command: str) -> None:
         "gh repo rename new-name",
         "echo '$(gh pr list)'",
         "command -v gh",
+        "gh pr view -w -h",
+        "gh pr list --state open --web",
         "gh release view --json name",
         "gh workflow run ci.yml --ref main",
         "gh workflow run ci.yml -r main",

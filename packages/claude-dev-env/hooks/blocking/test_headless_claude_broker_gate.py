@@ -94,3 +94,12 @@ def test_should_pass_bare_headless_claude_in_a_cloud_session(
 ) -> None:
     monkeypatch.setenv("CLAUDE_CODE_REMOTE", marker_value)
     assert _stdout_from_main({"tool_name": "Bash", "tool_input": {"command": 'claude -p "task"'}}) == ""
+
+
+@pytest.mark.parametrize("marker_value", ["false", "1", ""])
+def test_should_deny_bare_headless_claude_when_the_marker_is_not_true(
+    monkeypatch: pytest.MonkeyPatch, marker_value: str
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", marker_value)
+    decision = json.loads(_stdout_from_main({"tool_name": "Bash", "tool_input": {"command": 'claude -p "task"'}}))
+    assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"

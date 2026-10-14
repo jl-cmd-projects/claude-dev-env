@@ -24,6 +24,7 @@ from hooks_constants.pytest_invocation import (
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_substitution_constants import (
+    ALL_BACKTICK_ESCAPED_CHARACTERS,
     ALL_PARENTHESIS_DEPTH_CHANGES,
     BACKTICK,
     COMMAND_SUBSTITUTION_OPENER,
@@ -61,27 +62,6 @@ def segment_program_and_arguments(all_segment_tokens: list[str]) -> tuple[str, l
     return program_name, all_unwrapped_tokens[program_index + 1 :]
 
 
-def _closing_parenthesis_index(command: str, body_start_index: int) -> int:
-    """Return the index of the parenthesis that closes a substitution, or the command length."""
-    depth = 1
-    for each_index in range(body_start_index, len(command)):
-        depth += ALL_PARENTHESIS_DEPTH_CHANGES.get(command[each_index], 0)
-        if depth == 0:
-            return each_index
-    return len(command)
-
-
-def _substitution_body_span(command: str, character_index: int) -> tuple[int, int] | None:
-    """Return the body start and end of a substitution that opens at the index, else None."""
-    if command.startswith(COMMAND_SUBSTITUTION_OPENER, character_index):
-        body_start_index = character_index + len(COMMAND_SUBSTITUTION_OPENER)
-        return body_start_index, _closing_parenthesis_index(command, body_start_index)
-    if command[character_index] != BACKTICK:
-        return None
-    body_end_index = command.find(BACKTICK, character_index + 1)
-    return character_index + 1, len(command) if body_end_index == -1 else body_end_index
-
-
 def _quote_state_after(
     character: str, is_in_single_quotes: bool, is_in_double_quotes: bool
 ) -> tuple[bool, bool]:
@@ -93,6 +73,58 @@ def _quote_state_after(
     if character == DOUBLE_QUOTE:
         return False, not is_in_double_quotes
     return False, is_in_double_quotes
+
+
+def _closing_parenthesis_index(command: str, body_start_index: int) -> int:
+    """Return the index of the unquoted parenthesis that closes a substitution, or the command length."""
+    depth = 1
+    is_in_single_quotes = False
+    is_in_double_quotes = False
+    character_index = body_start_index
+    while character_index < len(command):
+        character = command[character_index]
+        if character == SHELL_ESCAPE_CHARACTER and not is_in_single_quotes:
+            character_index += 2
+            continue
+        if not (is_in_single_quotes or is_in_double_quotes):
+            depth += ALL_PARENTHESIS_DEPTH_CHANGES.get(character, 0)
+        if depth == 0:
+            return character_index
+        is_in_single_quotes, is_in_double_quotes = _quote_state_after(
+            character, is_in_single_quotes, is_in_double_quotes
+        )
+        character_index += 1
+    return len(command)
+
+
+def _backtick_body(command: str, body_start_index: int) -> tuple[str, int]:
+    """Return a backtick substitution's body with its escapes removed, and its closing index."""
+    all_body_characters: list[str] = []
+    character_index = body_start_index
+    while character_index < len(command) and command[character_index] != BACKTICK:
+        character = command[character_index]
+        next_character = command[character_index + 1 : character_index + 2]
+        if (
+            character == SHELL_ESCAPE_CHARACTER
+            and next_character in ALL_BACKTICK_ESCAPED_CHARACTERS
+        ):
+            all_body_characters.append(next_character)
+            character_index += 2
+            continue
+        all_body_characters.append(character)
+        character_index += 1
+    return "".join(all_body_characters), character_index
+
+
+def _substitution_at(command: str, character_index: int) -> tuple[str, int] | None:
+    """Return the body of a substitution that opens at the index and its closing index, else None."""
+    if command.startswith(COMMAND_SUBSTITUTION_OPENER, character_index):
+        body_start_index = character_index + len(COMMAND_SUBSTITUTION_OPENER)
+        body_end_index = _closing_parenthesis_index(command, body_start_index)
+        return command[body_start_index:body_end_index], body_end_index
+    if command[character_index] != BACKTICK:
+        return None
+    return _backtick_body(command, character_index + 1)
 
 
 def all_command_substitution_texts(command: str) -> list[str]:
@@ -109,12 +141,10 @@ def all_command_substitution_texts(command: str) -> list[str]:
     is_in_double_quotes = False
     character_index = 0
     while character_index < len(command):
-        body_span = (
-            None if is_in_single_quotes else _substitution_body_span(command, character_index)
-        )
-        if body_span is not None:
-            all_substitution_texts.append(command[body_span[0] : body_span[1]])
-            character_index = body_span[1] + 1
+        substitution = None if is_in_single_quotes else _substitution_at(command, character_index)
+        if substitution is not None:
+            all_substitution_texts.append(substitution[0])
+            character_index = substitution[1] + 1
             continue
         if not is_in_single_quotes and command[character_index] == SHELL_ESCAPE_CHARACTER:
             character_index += 2
