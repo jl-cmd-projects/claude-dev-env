@@ -8,7 +8,10 @@ the same checks on it::
     UserPromptSubmit                         -> additionalContext states the limit
     Stop, last reply within the limit        -> allow
     Stop, last reply over the limit          -> block, reason sent back for a rewrite
-    Stop, stop_hook_active (rewrite already) -> allow, so a turn never loops
+    Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
+
+The rewrite count lives in one temp file per session, and each user
+prompt sets it back to zero.
 
 The checks come from ``reply_length_gate.reply_violation``: at most
 MAXIMUM_SENTENCE_COUNT sentences of at most MAXIMUM_WORDS_PER_SENTENCE
@@ -20,6 +23,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -35,11 +39,19 @@ from hooks_constants.chat_reply_gate_constants import (
     BLOCK_EXIT_CODE,
     HOOK_EVENT_NAME_INPUT_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
+    MAXIMUM_REWRITES_PER_TURN,
     REPLY_LIMIT_REMINDER,
+    REWRITE_COUNT_ENCODING,
+    REWRITE_COUNT_FILE_PREFIX,
+    REWRITE_COUNT_FILE_SUFFIX,
     REWRITE_INSTRUCTION,
+    SESSION_ID_KEY,
     STOP_EVENT_NAME,
-    STOP_HOOK_ACTIVE_KEY,
     USER_PROMPT_SUBMIT_EVENT_NAME,
+)
+from hooks_constants.session_edit_stage_gate_constants import (
+    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
+    STATE_FILE_DEFAULT_SESSION_ID,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.hook_specific_output_keys import (
@@ -50,15 +62,45 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.reply_length_gate_constants import ADDITIONAL_CONTEXT_KEY
 
 
+def rewrite_count_path(session_id: object) -> Path:
+    """Return the temp file that holds this session's rewrite count for the turn."""
+    raw_session_id = session_id if isinstance(session_id, str) else ""
+    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", raw_session_id)
+    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
+    file_name = f"{REWRITE_COUNT_FILE_PREFIX}{effective_session_id}{REWRITE_COUNT_FILE_SUFFIX}"
+    return Path(tempfile.gettempdir()) / file_name
+
+
+def read_rewrite_count(count_path: Path) -> int:
+    """Return the stored rewrite count, or 0 when the file is absent or unreadable."""
+    try:
+        return int(count_path.read_text(encoding=REWRITE_COUNT_ENCODING).strip())
+    except (OSError, ValueError):
+        return 0
+
+
+def write_rewrite_count(count_path: Path, rewrite_count: int) -> None:
+    """Store the rewrite count; a failed write leaves the gate decision unchanged."""
+    try:
+        count_path.write_text(str(rewrite_count), encoding=REWRITE_COUNT_ENCODING)
+    except OSError:
+        return
+
+
 def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     """Return the rewrite reason for the turn's last reply, or None when it passes."""
-    if all_hook_input.get(STOP_HOOK_ACTIVE_KEY) is True:
-        return None
     reply_text = all_hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(reply_text, str):
         return None
     violation = reply_violation(reply_text, None, None)
-    return None if violation is None else violation + REWRITE_INSTRUCTION
+    if violation is None:
+        return None
+    count_path = rewrite_count_path(all_hook_input.get(SESSION_ID_KEY))
+    rewrite_count = read_rewrite_count(count_path)
+    if rewrite_count >= MAXIMUM_REWRITES_PER_TURN:
+        return None
+    write_rewrite_count(count_path, rewrite_count + 1)
+    return violation + REWRITE_INSTRUCTION
 
 
 def write_reply_limit_reminder() -> None:
@@ -76,6 +118,7 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     event_name = hook_input.get(HOOK_EVENT_NAME_INPUT_KEY)
     if event_name == USER_PROMPT_SUBMIT_EVENT_NAME:
+        write_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)), 0)
         write_reply_limit_reminder()
         return ALLOW_EXIT_CODE
     if event_name != STOP_EVENT_NAME:
