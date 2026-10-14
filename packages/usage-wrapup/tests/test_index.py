@@ -1,24 +1,17 @@
 import json
-import os
 import subprocess
-from pathlib import Path
+from collections.abc import Callable
 
 
-def test_entry_point_registers_both_hook_groups() -> None:
-    root = Path(__file__).resolve().parents[3]
+def test_entry_point_registers_both_hook_groups(
+    run_from_repository_root: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
     script = (
         "import {register} from './packages/usage-wrapup/hooks/index.ts'; "
         "const events = []; "
         "register((event) => events.push(event), {}); "
         "console.log(JSON.stringify(events));"
     )
-    registration_run = subprocess.run(
-        ["bun", "-e", script],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        shell=os.name == "nt",
-    )
-    assert registration_run.returncode == 0, registration_run.stderr
+    registration_run = run_from_repository_root(["bun", "-e", script])
 
     assert json.loads(registration_run.stdout) == ["session.measure", "tool.call", "turn.complete"]

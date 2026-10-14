@@ -1,15 +1,15 @@
 import subprocess
-from pathlib import Path
+from collections.abc import Callable
 
 
-def test_plugin_state_declares_compacted_windows() -> None:
-    root = Path(__file__).resolve().parents[3]
-    plugin_validation_run = subprocess.run(
-        ["claude", "plugin", "validate", "packages/usage-wrapup"],
-        cwd=root,
-        capture_output=True,
-        text=True,
+def test_plugin_state_declares_compacted_windows(
+    run_from_repository_root: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> None:
+    plugin_validation_run = run_from_repository_root(
+        ["claude", "plugin", "validate", "packages/usage-wrapup"]
     )
-    assert plugin_validation_run.returncode == 0, plugin_validation_run.stderr
 
-    assert "types ./types/index.d.ts declares state: usage-wrapup.compacted" in plugin_validation_run.stdout
+    assert (
+        "types ./types/index.d.ts declares state: usage-wrapup.compacted"
+        in plugin_validation_run.stdout
+    ), plugin_validation_run.stdout
