@@ -8,11 +8,12 @@
  * A per-model key (`modelSettings`) merges one level deeper: install adds each
  * model entry, and each field inside an entry, that the user settings lack.
  *
- * A per-field key (`env`) merges one level deep: install adds each variable
+ * A per-field key (`env`) merges one level deep. Install adds each variable
  * the user's block lacks and keeps each variable the user already set.
  */
 
 export const MANAGED_LIST_SETTING_KEYS = Object.freeze(['permissions']);
+
 function isPlainObject(candidate) {
     return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
 }
