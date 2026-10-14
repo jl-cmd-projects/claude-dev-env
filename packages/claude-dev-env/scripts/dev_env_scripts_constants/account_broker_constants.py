@@ -20,6 +20,7 @@ from dev_env_scripts_constants.claude_account_constants import (
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
 from dev_env_scripts_constants.codex_account_constants import (
+    ALL_PRO_PLAN_TYPES,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     LUNA_TIER_STOP_PERCENT_LEFT,
@@ -160,6 +161,7 @@ class Meters:
     session_resets_at: datetime | None
     weekly_percent_left: float | None
     weekly_resets_at: datetime | None
+    plan_type: str | None = None
 
     @property
     def tightest_percent_left(self) -> float | None:
@@ -273,10 +275,11 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
     return max(all_blocking_resets, default=None)
 
 
-def _rank_key(reading: Reading) -> tuple[bool, int, float]:
+def _rank_key(reading: Reading) -> tuple[bool, int, bool, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
     priority = reading.account.priority
-    return (priority is None, priority or 0, -(room if room is not None else -1.0))
+    is_pro_plan = reading.meters is not None and reading.meters.plan_type in ALL_PRO_PLAN_TYPES
+    return (priority is None, priority or 0, not is_pro_plan, -(room if room is not None else -1.0))
 
 
 def _main_has_room(meters: Meters | None) -> bool:

@@ -186,7 +186,7 @@ def test_should_read_codex_meters_through_injected_reader(
 ) -> None:
     short = SimpleNamespace(duration_minutes=300, used_percent=20.0, resets_at=None)
     weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(short, weekly), short_window_percent_left=80.0)
+    usage = SimpleNamespace(all_windows=(short, weekly), short_window_percent_left=80.0, plan_type="promax")
     monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
     monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", lambda *_: usage)
 
@@ -194,6 +194,19 @@ def test_should_read_codex_meters_through_injected_reader(
 
     assert meters.session_percent_left == 80.0
     assert meters.weekly_percent_left == 70.0
+    assert meters.plan_type == "promax"
+
+
+def test_should_keep_the_plan_through_the_cached_meter_payload() -> None:
+    meters = Meters(80.0, None, 70.0, None, "pro")
+
+    assert support._meters_from_payload(support._meter_payload(meters)) == meters
+
+
+def test_should_load_a_cached_meter_payload_saved_without_a_plan() -> None:
+    old_payload = {"session_percent_left": 80.0, "session_resets_at": None, "weekly_percent_left": 70.0, "weekly_resets_at": None}
+
+    assert support._meters_from_payload(old_payload) == Meters(80.0, None, 70.0, None, None)
 
 
 def _codex_meter_reads(
@@ -262,7 +275,7 @@ def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None)
+    usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None, plan_type=None)
     unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, unread, usage])
     all_delays = _recorded_sleeps(monkeypatch)
