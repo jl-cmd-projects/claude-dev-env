@@ -297,24 +297,48 @@ def test_run_digest_keys_a_harness_file_outside_the_repository_by_its_path(monke
 
 
 class _FakeKernel:
-    def __init__(self) -> None:
-        self.all_calls: list[tuple[str, tuple[object, ...]]] = []
+    def __init__(self, job_handle: int | None) -> None:
+        self.job_handle = job_handle
+        self.all_calls: list[str] = []
 
     def __getattr__(self, name: str) -> object:
-        def record(*all_arguments: object) -> int:
-            self.all_calls.append((name, all_arguments))
-            return 77
+        def record(*all_arguments: object) -> int | None:
+            self.all_calls.append(name)
+            return self.job_handle if name == "CreateJobObjectW" else 77
         return record
 
 
-def test_windows_runs_join_a_job_that_ends_after_a_clean_exit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    kernel = _FakeKernel()
+def _run_as_windows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kernel: _FakeKernel) -> int | None:
     monkeypatch.setattr(session, "_windows_kernel", lambda: kernel)
+    monkeypatch.setattr(session, "_windows_native", lambda: kernel)
+    monkeypatch.setattr(session, "_popen_options", lambda: {})
     monkeypatch.setattr(session.sys, "platform", "win32")
-
     with (tmp_path / "capture.txt").open("wb") as capture_file:
-        exit_code = run_until_timeout([sys.executable, "-c", "pass"], tmp_path, capture_file, 30, b"")
+        return run_until_timeout([sys.executable, "-c", "pass"], tmp_path, capture_file, 30, b"")
 
-    all_names = [each_name for each_name, _ in kernel.all_calls]
-    assert exit_code == 0
-    assert all_names == ["CreateJobObjectW", "OpenProcess", "AssignProcessToJobObject", "CloseHandle", "TerminateJobObject", "CloseHandle"]
+
+def test_windows_runs_start_suspended_join_a_job_and_end_it_after_a_clean_exit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    kernel = _FakeKernel(job_handle=55)
+
+    assert _run_as_windows(monkeypatch, tmp_path, kernel) == 0
+    assert kernel.all_calls == [
+        "OpenProcess", "CreateJobObjectW", "AssignProcessToJobObject", "NtResumeProcess", "CloseHandle",
+        "TerminateJobObject", "CloseHandle",
+    ]
+
+
+def test_windows_runs_resume_and_stop_the_process_when_the_job_cannot_be_made(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    kernel = _FakeKernel(job_handle=None)
+
+    assert _run_as_windows(monkeypatch, tmp_path, kernel) == 0
+    assert kernel.all_calls == ["OpenProcess", "CreateJobObjectW", "NtResumeProcess", "CloseHandle"]
+    assert "no job object for pid" in caplog.text
+
+
+def test_popen_options_start_suspended_on_windows_and_in_a_new_session_elsewhere(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(session.sys, "platform", "win32")
+    assert session._popen_options() == {"creationflags": 4}
+    monkeypatch.setattr(session.sys, "platform", "linux")
+    assert session._popen_options() == {"start_new_session": True}

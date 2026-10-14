@@ -32,9 +32,11 @@ from session_eval_support.config.constants import (
     FAILURE_NO_RESULT,
     FAILURE_TIMEOUT,
     FIXTURE_DIRECTORY,
+    CREATE_SUSPENDED_FLAG,
     JOB_ASSIGN_ACCESS,
     JOB_EXIT_CODE,
     KERNEL32_LIBRARY_NAME,
+    NTDLL_LIBRARY_NAME,
     PYTHON_CACHE_DIRECTORY_NAME,
     PYTHON_SOURCE_GLOB,
     HOOKS_DIRECTORY,
@@ -319,12 +321,34 @@ def _windows_kernel() -> ctypes.CDLL:
     return kernel
 
 
-def _join_new_job(pid: int) -> int:
-    kernel = _windows_kernel()
+def _windows_native() -> ctypes.CDLL:
+    return ctypes.WinDLL(NTDLL_LIBRARY_NAME)
+
+
+def _popen_options() -> dict[str, object]:
+    if sys.platform == WINDOWS_PLATFORM:
+        return {"creationflags": CREATE_SUSPENDED_FLAG}
+    return {"start_new_session": True}
+
+
+def _assigned_job(kernel: ctypes.CDLL, process_handle: int | None) -> int | None:
     job_handle = kernel.CreateJobObjectW(None, None)
+    if job_handle and process_handle and kernel.AssignProcessToJobObject(ctypes.c_void_p(job_handle), ctypes.c_void_p(process_handle)):
+        return job_handle
+    if job_handle:
+        kernel.CloseHandle(ctypes.c_void_p(job_handle))
+    return None
+
+
+def _join_new_job(pid: int) -> int | None:
+    kernel = _windows_kernel()
     process_handle = kernel.OpenProcess(JOB_ASSIGN_ACCESS, False, pid)
-    kernel.AssignProcessToJobObject(ctypes.c_void_p(job_handle), ctypes.c_void_p(process_handle))
-    kernel.CloseHandle(ctypes.c_void_p(process_handle))
+    job_handle = _assigned_job(kernel, process_handle)
+    if job_handle is None:
+        logger.warning("no job object for pid %d, so its children may outlive it", pid)
+    if process_handle:
+        _windows_native().NtResumeProcess(ctypes.c_void_p(process_handle))
+        kernel.CloseHandle(ctypes.c_void_p(process_handle))
     return job_handle
 
 
@@ -334,14 +358,25 @@ class _StartedCommand:
     job_handle: int | None
 
 
+def _end_job(job_handle: int) -> None:
+    kernel = _windows_kernel()
+    kernel.TerminateJobObject(ctypes.c_void_p(job_handle), JOB_EXIT_CODE)
+    kernel.CloseHandle(ctypes.c_void_p(job_handle))
+
+
+def _kill_without_job(process: subprocess.Popen[bytes]) -> None:
+    if sys.platform == WINDOWS_PLATFORM:
+        process.kill()
+    else:
+        os.killpg(process.pid, signal.SIGKILL)
+
+
 def _stop_group(command: _StartedCommand) -> None:
     if command.job_handle is not None:
-        kernel = _windows_kernel()
-        kernel.TerminateJobObject(ctypes.c_void_p(command.job_handle), JOB_EXIT_CODE)
-        kernel.CloseHandle(ctypes.c_void_p(command.job_handle))
+        _end_job(command.job_handle)
     else:
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(command.process.pid, signal.SIGKILL)
+        with contextlib.suppress(OSError):
+            _kill_without_job(command.process)
     command.process.wait()
 
 
@@ -361,15 +396,15 @@ def _start_with_input(
     capture_file: IO[bytes] | IO[str],
     input_bytes: bytes,
 ) -> _StartedCommand:
-    is_windows = sys.platform == WINDOWS_PLATFORM
     process = subprocess.Popen(
         all_command_words,
         cwd=working_directory,
         stdin=subprocess.PIPE,
         stdout=capture_file,
         stderr=subprocess.DEVNULL,
-        start_new_session=not is_windows,
+        **_popen_options(),
     )
+    is_windows = sys.platform == WINDOWS_PLATFORM
     command = _StartedCommand(process, _join_new_job(process.pid) if is_windows else None)
     threading.Thread(target=_write_input, args=(process, input_bytes), daemon=True).start()
     return command
