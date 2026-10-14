@@ -107,6 +107,28 @@ class TestShortWindowPercentLeft:
     def should_count_a_window_without_a_length_as_weekly(self) -> None:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 90}}))
         assert meters.short_window_percent_left is None
+        assert meters.weekly_window is not None
+        assert meters.weekly_window.used_percent == 90.0
+
+
+class TestTightestWindows:
+    def should_pick_the_most_used_window_in_each_class(self) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line(
+                {
+                    "primary": {"usedPercent": 70, "windowDurationMins": 300, "resetsAt": RESET_SECONDS},
+                    "secondary": {"usedPercent": 20, "windowDurationMins": 10080, "resetsAt": RESET_SECONDS + 3600},
+                }
+            )
+        )
+        assert meters.short_window is not None
+        assert meters.short_window.resets_at == datetime.fromtimestamp(RESET_SECONDS, tz=timezone.utc)
+        assert meters.weekly_window is not None
+        assert meters.weekly_window.resets_at == datetime.fromtimestamp(RESET_SECONDS + 3600, tz=timezone.utc)
+
+    def should_name_no_weekly_window_for_a_short_only_account(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 70, "windowDurationMins": 300}}))
+        assert meters.weekly_window is None
 
 
 class TestReadCodexMeters:

@@ -226,12 +226,22 @@ def _is_at_or_under(room: float | None, floor: float) -> bool:
     return room is not None and room <= floor
 
 
+def _claude_blocking_flags(meters: Meters, is_main: bool) -> tuple[bool, bool]:
+    session_key, weekly_key = (
+        ("main_session_used_ceiling", "main_weekly_used_ceiling")
+        if is_main
+        else ("extra_session_used_ceiling", "extra_weekly_used_ceiling")
+    )
+    return (
+        _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[session_key]),
+        _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[weekly_key]),
+    )
+
+
 def _claude_extra_tier(meters: Meters | None) -> str | None:
     if meters is None or meters.tightest_percent_left is None:
         return None
-    if _is_at_or_under(
-        meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]
-    ) or _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]):
+    if any(_claude_blocking_flags(meters, is_main=False)):
         return None
     return "normal"
 
@@ -258,17 +268,8 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
         return None
     if is_spent:
         return min((reset for reset in (meters.session_resets_at, meters.weekly_resets_at) if reset is not None), default=None)
-    is_claude_main = reading.account.product is Product.CLAUDE and reading.account.is_main
-    if is_claude_main:
-        all_blocking_flags = (
-            _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]),
-            _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]),
-        )
-    elif reading.account.product is Product.CLAUDE:
-        all_blocking_flags = (
-            _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]),
-            _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]),
-        )
+    if reading.account.product is Product.CLAUDE:
+        all_blocking_flags = _claude_blocking_flags(meters, reading.account.is_main)
     else:
         all_blocking_flags = (
             meters.session_percent_left is not None and meters.session_percent_left < ALL_CODEX_FLOORS["luna_short_minimum_left"],
@@ -293,8 +294,7 @@ def _main_has_room(meters: Meters | None) -> bool:
         meters is not None
         and meters.session_percent_left is not None
         and meters.weekly_percent_left is not None
-        and not _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"])
-        and not _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"])
+        and not any(_claude_blocking_flags(meters, is_main=True))
     )
 
 

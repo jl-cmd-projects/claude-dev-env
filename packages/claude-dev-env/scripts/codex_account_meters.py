@@ -92,17 +92,28 @@ class UsageWindow:
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows, with short_window_percent_left."""
+    """One account's windows, with its tightest short window and its tightest weekly window."""
 
     all_windows: tuple[UsageWindow, ...]
 
     @property
+    def short_window(self) -> UsageWindow | None:
+        """The most used window shorter than a week, or None when the account has none."""
+        all_short_windows = [each_window for each_window in self.all_windows if each_window.is_short]
+        return max(all_short_windows, key=lambda each_window: each_window.used_percent, default=None)
+
+    @property
+    def weekly_window(self) -> UsageWindow | None:
+        """The most used window of a week or of no reported length, or None when the account has none."""
+        all_weekly_windows = [each_window for each_window in self.all_windows if not each_window.is_short]
+        return max(all_weekly_windows, key=lambda each_window: each_window.used_percent, default=None)
+
+    @property
     def short_window_percent_left(self) -> float | None:
         """Room left in the windows shorter than a week, or None when the account has none."""
-        all_short_used = [each_window.used_percent for each_window in self.all_windows if each_window.is_short]
-        if not all_short_used:
+        if self.short_window is None:
             return None
-        return max(0.0, FULL_PERCENT - max(all_short_used))
+        return FULL_PERCENT - self.short_window.used_percent
 
 
 def _finite_number(raw_number: object) -> float | None:

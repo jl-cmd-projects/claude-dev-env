@@ -305,10 +305,8 @@ def read_codex_account_meters(account: Account) -> Meters:
     """
     codex_path = codex_account_meters.resolve_codex_path(None)
     usage = codex_account_meters.read_codex_meters(codex_path, account.home)
-    all_weekly_windows = [each_window for each_window in usage.all_windows if not each_window.is_short]
-    all_short_windows = [each_window for each_window in usage.all_windows if each_window.is_short]
-    weekly_window = max(all_weekly_windows, key=lambda each_window: each_window.used_percent, default=None)
-    short_window = max(all_short_windows, key=lambda each_window: each_window.used_percent, default=None)
+    short_window = usage.short_window
+    weekly_window = usage.weekly_window
     return Meters(
         usage.short_window_percent_left,
         short_window.resets_at if short_window else None,
