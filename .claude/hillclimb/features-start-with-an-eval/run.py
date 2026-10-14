@@ -5,7 +5,8 @@
     python3 run.py --variant baseline --cases f01,n01,n02
     python3 run.py --variant v1 --cases f01,n01,n02
 
-Each case runs once per rep in a new git workspace copied from ``fixture/``.
+Each case runs once per rep in a new git workspace copied from ``fixture/``,
+deleted once the session ends.
 Variant ``baseline`` adds nothing. Variant ``v1`` installs the rule and its
 guide into the workspace's ``.claude/`` folder. Each session loads project and
 local settings only, so a rule installed in the home config stays out of both
@@ -17,6 +18,7 @@ arms. Rows land in
 import argparse
 import json
 import logging
+import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -67,6 +69,7 @@ from session_eval_support.session import (
     final_event,
     installed_files_digest,
     prepare_workspace,
+    remove_directory,
     run_session,
     served_models,
     trace_turns,
@@ -92,16 +95,28 @@ def _parse_arguments() -> argparse.Namespace:
 def _read_rows(path: Path) -> list[dict[str, object]]:
     if not path.is_file():
         return []
-    return [
-        json.loads(each_line)
-        for each_line in path.read_text(encoding="utf-8").splitlines()
-        if each_line
-    ]
+    all_rows: list[dict[str, object]] = []
+    for each_line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            all_rows.append(json.loads(each_line))
+        except json.JSONDecodeError:
+            continue
+    return all_rows
+
+
+def _ends_inside_a_line(path: Path) -> bool:
+    if not path.is_file() or path.stat().st_size == 0:
+        return False
+    with path.open("rb") as jsonl_file:
+        jsonl_file.seek(-1, os.SEEK_END)
+        return jsonl_file.read(1) != NEWLINE.encode()
 
 
 def _append_line(path: Path, row_by_field: dict[str, object]) -> None:
-    with write_lock, path.open("a", encoding="utf-8") as jsonl_file:
-        jsonl_file.write(json.dumps(row_by_field) + NEWLINE)
+    with write_lock:
+        line_break = NEWLINE if _ends_inside_a_line(path) else ""
+        with path.open("a", encoding="utf-8") as jsonl_file:
+            jsonl_file.write(line_break + json.dumps(row_by_field) + NEWLINE)
 
 
 def _failure(
@@ -216,7 +231,10 @@ def _run_one(
     settings: SessionSettings,
 ) -> None:
     workspace = prepare_workspace(all_installs)
-    session = run_session(workspace, case_by_field["prompt"], settings)
+    try:
+        session = run_session(workspace, case_by_field["prompt"], settings)
+    finally:
+        remove_directory(workspace)
     failure = _unscorable(session, settings)
     if failure is not None:
         _append_line(

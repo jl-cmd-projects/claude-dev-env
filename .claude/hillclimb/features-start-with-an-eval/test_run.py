@@ -3,7 +3,10 @@
 import json
 from pathlib import Path
 
-from run import _pending_runs, _unscorable
+import pytest
+
+import run
+from run import _append_line, _pending_runs, _run_one, _unscorable
 from session_eval_support.config.constants import (
     FAILURE_NO_RESULT,
     MAX_TURNS_SUBTYPE,
@@ -49,3 +52,34 @@ def test_other_result_subtypes_are_unscorable() -> None:
         FAILURE_NO_RESULT,
         "error_during_execution",
     )
+
+
+def test_a_cut_off_results_line_is_skipped_and_the_next_row_starts_fresh(
+    tmp_path: Path,
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n" + '{"prompt_id": "case-b'
+    )
+
+    _append_line(results_path, {"prompt_id": "case-b", "rep": 0})
+
+    assert _pending_runs([{"id": "case-a"}, {"id": "case-b"}], 1, tmp_path) == []
+
+
+def test_run_one_deletes_the_workspace_when_the_session_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / ".git").mkdir(parents=True)
+    monkeypatch.setattr(run, "prepare_workspace", lambda all_installs: workspace)
+
+    def _fail(*all_arguments: object) -> SessionRun:
+        raise RuntimeError("session crashed")
+
+    monkeypatch.setattr(run, "run_session", _fail)
+
+    with pytest.raises(RuntimeError):
+        _run_one({"id": "case-a", "prompt": "ask"}, 0, tmp_path, [], SETTINGS)
+
+    assert not workspace.exists()

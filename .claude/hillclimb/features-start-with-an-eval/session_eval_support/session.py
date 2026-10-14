@@ -3,6 +3,7 @@
 import hashlib
 import json
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -89,6 +90,18 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
     return workspace
 
 
+def remove_directory(directory: Path) -> None:
+    """Delete a directory tree, including the read-only object files git writes.
+
+    Args:
+        directory: The workspace or capture directory to delete.
+    """
+    for each_path in directory.rglob("*"):
+        if each_path.is_file() and not each_path.is_symlink():
+            each_path.chmod(stat.S_IREAD | stat.S_IWRITE)
+    shutil.rmtree(directory)
+
+
 def _read_events(stream_path: Path) -> list[dict[str, object]]:
     all_events: list[dict[str, object]] = []
     if not stream_path.is_file():
@@ -169,7 +182,8 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
     """Run the prompt as one headless session in the workspace and read its stream.
 
     The broker picks the account. The stream and the broker report land in a
-    sibling directory, so the session under test never sees them.
+    sibling directory, so the session under test never sees them. That
+    directory is deleted once both are read.
 
     Args:
         workspace: The prepared workspace, used as the session's directory.
@@ -182,18 +196,21 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
     capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
     stream_path = capture_directory / STREAM_FILE_NAME
     report_path = capture_directory / BROKER_REPORT_FILE_NAME
-    started = time.monotonic()
-    exit_code = _run_command(
-        _session_command(report_path, prompt, settings),
-        workspace,
-        stream_path,
-        settings.timeout_seconds,
-    )
-    latency_seconds = time.monotonic() - started
-    broker_report = _read_broker_report(report_path)
-    return SessionRun(
-        _read_events(stream_path), latency_seconds, exit_code, broker_report
-    )
+    try:
+        started = time.monotonic()
+        exit_code = _run_command(
+            _session_command(report_path, prompt, settings),
+            workspace,
+            stream_path,
+            settings.timeout_seconds,
+        )
+        latency_seconds = time.monotonic() - started
+        broker_report = _read_broker_report(report_path)
+        return SessionRun(
+            _read_events(stream_path), latency_seconds, exit_code, broker_report
+        )
+    finally:
+        remove_directory(capture_directory)
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
