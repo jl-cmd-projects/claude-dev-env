@@ -3,9 +3,9 @@ from collections.abc import Callable
 
 
 def test_plugin_state_declares_compacted_windows(
-    run_from_repository_root: Callable[[list[str]], subprocess.CompletedProcess[str]],
+    run_repository_command: Callable[[list[str]], subprocess.CompletedProcess[str]],
 ) -> None:
-    plugin_validation_run = run_from_repository_root(
+    plugin_validation_run = run_repository_command(
         ["claude", "plugin", "validate", "packages/usage-wrapup"]
     )
 
