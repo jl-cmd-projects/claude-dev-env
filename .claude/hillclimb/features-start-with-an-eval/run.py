@@ -281,6 +281,8 @@ def _selected_cases(case_ids: str) -> list[dict[str, str]]:
     all_wanted_ids = {
         each_id.strip() for each_id in case_ids.split(",") if each_id.strip()
     }
+    if case_ids.strip() and not all_wanted_ids:
+        raise SystemExit(f"no case ids in --cases {case_ids!r}")
     all_cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))
     all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
     if all_unknown_ids:
@@ -338,13 +340,18 @@ def _run_pending(
     parallel: int,
 ) -> None:
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        for each_future in [
+        all_futures = [
             executor.submit(
                 _run_one, each_case, each_rep, variant_directory, all_installs, settings
             )
             for each_case, each_rep in all_pending
-        ]:
-            each_future.result()
+        ]
+        try:
+            for each_future in all_futures:
+                each_future.result()
+        finally:
+            for each_future in all_futures:
+                each_future.cancel()
 
 
 def main() -> int:

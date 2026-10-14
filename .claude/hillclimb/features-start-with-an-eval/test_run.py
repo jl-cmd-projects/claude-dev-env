@@ -1,6 +1,7 @@
 """Behavior tests for eval run selection."""
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from run import (
     _pending_runs,
     _read_rows,
     _run_one,
+    _run_pending,
     _selected_cases,
     _unscorable,
     _variant_summary,
@@ -176,3 +178,28 @@ def test_selected_cases_strips_spaces_around_each_id() -> None:
         "f01",
         "n01",
     ]
+
+
+def test_selected_cases_rejects_a_value_with_no_case_ids() -> None:
+    with pytest.raises(SystemExit, match="no case ids"):
+        _selected_cases(" , ")
+
+
+def test_run_pending_cancels_queued_runs_after_one_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_started: list[str] = []
+
+    def _record_then_fail_first(case_by_field: dict[str, str], *_: object) -> None:
+        all_started.append(case_by_field["id"])
+        if case_by_field["id"] == "case-a":
+            raise OSError("disk full")
+        time.sleep(0.2)
+
+    monkeypatch.setattr(run, "_run_one", _record_then_fail_first)
+    all_pending = [({"id": each_id}, 0) for each_id in ("case-a", "case-b", "case-c")]
+
+    with pytest.raises(OSError):
+        _run_pending(all_pending, tmp_path, [], SETTINGS, 1)
+
+    assert "case-c" not in all_started
