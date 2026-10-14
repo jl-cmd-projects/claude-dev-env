@@ -13,7 +13,9 @@ arms. Rows land in
 ``<variant>/results.jsonl`` as each case finishes, each tagged with a run
 digest over the installed files, the session settings and the harness source.
 A rerun skips every (case, rep) already there under the same digest, and the
-headline counts only those rows and the errors no retry has scored.
+headline counts only those rows and the errors no retry has scored. Any
+change to the digest, even a new --timeout-s or an edited harness comment,
+reruns every stored (case, rep), at the cost of a full run.
 """
 
 import argparse

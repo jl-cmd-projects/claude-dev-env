@@ -88,13 +88,15 @@ def open_errors(
         all_scored_rows: Rows from the results file.
 
     Returns:
-        The errors still open; one a later retry scored is dropped.
+        The latest error of each (case, rep) still open, once per run; an
+        error a later retry scored is dropped.
     """
     all_scored = {(each_row["prompt_id"], each_row["rep"]) for each_row in all_scored_rows}
+    latest_error_by_run = {(each_row["prompt_id"], each_row["rep"]): each_row for each_row in all_error_rows}
     return [
         each_row
-        for each_row in all_error_rows
-        if (each_row["prompt_id"], each_row["rep"]) not in all_scored
+        for each_run, each_row in latest_error_by_run.items()
+        if each_run not in all_scored
     ]
 
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from rules_eval_support.config.constants import (
     ALL_ALWAYS_RECURSIVE_COMMAND_NAMES,
     ALL_POWERSHELL_LISTING_NAMES,
+    ALL_SEARCH_COMMAND_NAMES,
     ALL_SHELL_TOOL_NAMES,
     COMMAND_SEPARATOR_PATTERN,
     FLAG_PREFIX,
@@ -27,7 +28,10 @@ from rules_eval_support.config.constants import (
     COMMAND_FIELD,
     DRIVE_ROOT_PATTERN,
     FILE_PATH_FIELD,
-    GIT_COMMIT_PATTERN,
+    ALL_GIT_OPTIONS_WITH_VALUE,
+    EXECUTABLE_SUFFIX,
+    GIT_COMMIT_SUBCOMMAND,
+    GIT_EXECUTABLE,
     GUIDE_PATH_MARKER,
     PATH_FIELD,
     PATH_SEPARATOR,
@@ -114,13 +118,45 @@ def _is_recursive(command_name: str, all_flags: list[str]) -> bool:
     )
 
 
+def _command_name(word: str) -> str:
+    base_name = word.replace(WINDOWS_PATH_SEPARATOR, PATH_SEPARATOR).rsplit(PATH_SEPARATOR, 1)[-1]
+    return base_name.casefold().removesuffix(EXECUTABLE_SUFFIX)
+
+
+def _segment_words(command: str) -> list[list[str]]:
+    return [
+        [each_word.strip(QUOTE_CHARACTERS) for each_word in each_segment.split()]
+        for each_segment in COMMAND_SEPARATOR_PATTERN.split(command)
+    ]
+
+
 def _searches_from_a_root(command: str) -> bool:
-    for each_segment in COMMAND_SEPARATOR_PATTERN.split(command):
-        all_words = [each_word.strip(QUOTE_CHARACTERS) for each_word in each_segment.split()]
-        if not all_words:
+    for each_segment_words in _segment_words(command):
+        all_search_positions = [each_index for each_index, each_word in enumerate(each_segment_words) if _command_name(each_word) in ALL_SEARCH_COMMAND_NAMES]
+        if not all_search_positions:
             continue
-        all_flags = [each_word for each_word in all_words[1:] if each_word.startswith(FLAG_PREFIX)]
-        if _is_recursive(all_words[0].casefold(), all_flags) and any(_is_root_path(each_word) for each_word in all_words[1:] if not each_word.startswith(FLAG_PREFIX)):
+        all_arguments = each_segment_words[all_search_positions[0] + 1 :]
+        all_flags = [each_word for each_word in all_arguments if each_word.startswith(FLAG_PREFIX)]
+        command_name = _command_name(each_segment_words[all_search_positions[0]])
+        if _is_recursive(command_name, all_flags) and any(_is_root_path(each_word) for each_word in all_arguments if not each_word.startswith(FLAG_PREFIX)):
+            return True
+    return False
+
+
+def _git_subcommand(all_arguments: list[str]) -> str | None:
+    is_option_argument = False
+    for each_word in all_arguments:
+        if is_option_argument or each_word.startswith(FLAG_PREFIX):
+            is_option_argument = not is_option_argument and each_word in ALL_GIT_OPTIONS_WITH_VALUE
+            continue
+        return each_word
+    return None
+
+
+def _runs_git_commit(command: str) -> bool:
+    for each_segment_words in _segment_words(command):
+        all_git_positions = [each_index for each_index, each_word in enumerate(each_segment_words) if _command_name(each_word) == GIT_EXECUTABLE]
+        if all_git_positions and _git_subcommand(each_segment_words[all_git_positions[0] + 1 :]) == GIT_COMMIT_SUBCOMMAND:
             return True
     return False
 
@@ -175,9 +211,7 @@ def loads_pr_lifecycle_before_commit(all_calls: list[ToolCall]) -> bool:
     for each_call in all_calls:
         if names_skill(each_call, PR_LIFECYCLE_SKILL_NAME):
             return True
-        if each_call.name in ALL_SHELL_TOOL_NAMES and GIT_COMMIT_PATTERN.search(
-            str(each_call.tool_input.get(COMMAND_FIELD, ""))
-        ):
+        if each_call.name in ALL_SHELL_TOOL_NAMES and _runs_git_commit(str(each_call.tool_input.get(COMMAND_FIELD, ""))):
             return False
     return False
 

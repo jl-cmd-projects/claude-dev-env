@@ -67,6 +67,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.append(str(HOOKS_DIRECTORY))
 
 from hooks_constants.windows_filesystem import force_rmtree
+from session_eval_support.rows import read_rows
 
 logger = logging.getLogger(__name__)
 
@@ -231,22 +232,8 @@ def remove_workspace(workspace: Path) -> None:
         workspace: A directory from prepare_workspace.
     """
     force_rmtree(str(workspace))
-
-
-def _read_events(stream_path: Path) -> list[dict[str, object]]:
-    all_events: list[dict[str, object]] = []
-    if not stream_path.is_file():
-        return all_events
-    for each_line in stream_path.read_text(
-        encoding="utf-8", errors="replace"
-    ).split(NEWLINE):
-        try:
-            each_event = json.loads(each_line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(each_event, dict):
-            all_events.append(each_event)
-    return all_events
+    if workspace.exists():
+        logger.warning("workspace %s could not be removed", workspace)
 
 
 def session_words(settings: SessionSettings) -> list[str]:
@@ -357,11 +344,15 @@ def _join_new_job(process: subprocess.Popen[bytes]) -> int | None:
         logger.warning("no handle for pid %d, so it is terminated before it runs", process.pid)
         process.kill()
         return None
-    job_handle = _assigned_job(kernel, process_handle)
-    if job_handle is None:
-        logger.warning("no job object for pid %d, so its children may outlive it", process.pid)
-    _resume_or_terminate(kernel, process_handle, process.pid)
-    kernel.CloseHandle(ctypes.c_void_p(process_handle))
+    try:
+        job_handle = _assigned_job(kernel, process_handle)
+        if job_handle is None:
+            logger.warning("no job object for pid %d, so it is terminated before it runs", process.pid)
+            kernel.TerminateProcess(ctypes.c_void_p(process_handle), JOB_EXIT_CODE)
+        else:
+            _resume_or_terminate(kernel, process_handle, process.pid)
+    finally:
+        kernel.CloseHandle(ctypes.c_void_p(process_handle))
     return job_handle
 
 
@@ -498,7 +489,7 @@ def _run_in_capture(
         )
     latency_seconds = time.monotonic() - started
     return SessionRun(
-        _read_events(stream_path),
+        read_rows(stream_path),
         latency_seconds,
         exit_code,
         _read_broker_report(capture_directory / BROKER_REPORT_FILE_NAME),

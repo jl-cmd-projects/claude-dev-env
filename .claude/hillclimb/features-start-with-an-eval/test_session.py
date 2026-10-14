@@ -333,13 +333,13 @@ def test_windows_runs_start_suspended_join_a_job_and_end_it_after_a_clean_exit(m
     ]
 
 
-def test_windows_runs_resume_and_stop_the_process_when_the_job_cannot_be_made(
+def test_windows_runs_terminate_the_command_when_the_job_cannot_be_made(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     kernel = _FakeKernel(job_handle=None)
 
     assert _run_as_windows(monkeypatch, tmp_path, kernel) == 0
-    assert kernel.all_calls == ["OpenProcess", "CreateJobObjectW", "NtResumeProcess", "CloseHandle"]
+    assert kernel.all_calls == ["OpenProcess", "CreateJobObjectW", "TerminateProcess", "CloseHandle"]
     assert "no job object for pid" in caplog.text
 
 
@@ -426,3 +426,21 @@ def test_run_digest_keys_a_symlinked_harness_folder_by_its_repository_path(monke
 
     assert session._repository_key(repository / "flow" / "grading.py") == "flow/grading.py"
     assert harness_sources(repository / "flow") == [repository / "flow" / "grading.py"]
+
+
+def test_run_session_warns_about_an_unreadable_stream_line(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    def print_a_broken_line(report_path: Path, claude_words: list[str]) -> list[str]:
+        return [sys.executable, "-c", "print('not json'); print('{\"type\": \"result\"}')"]
+
+    session_run = run_session(tmp_path, "ask", SessionSettings("model", "low", 1, 60), print_a_broken_line)
+
+    assert session_run.all_events == [{"type": "result"}]
+    assert "skipped unreadable line 1" in caplog.text
+
+
+def test_remove_workspace_warns_when_the_directory_stays(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    monkeypatch.setattr(session, "force_rmtree", lambda target_path: None)
+
+    remove_workspace(tmp_path)
+
+    assert f"workspace {tmp_path} could not be removed" in caplog.text

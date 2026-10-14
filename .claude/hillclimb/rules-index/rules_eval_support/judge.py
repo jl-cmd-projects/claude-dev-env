@@ -16,6 +16,9 @@ from rules_eval_support.config.constants import (
     JUDGE_TRANSCRIPT_CHARACTER_LIMIT,
     JUDGE_WORK_DIRECTORY_NAME,
     TRIM_MARKER_ROLE,
+    QUOTE_PAIR_SIZE,
+    UNESCAPED_QUOTE_PATTERN,
+    CUT_TEXT_PREFIX,
     TRIM_MARKER_TEMPLATE,
     OBJECT_START,
 )
@@ -30,13 +33,27 @@ def _transcript_without(all_turns: list[dict[str, str]], dropped_count: int) -> 
     return json.dumps([all_turns[0], marker_turn, *all_turns[1 + dropped_count :]], indent=JSON_INDENT)
 
 
+def _transcript_with_cut_last_turn(all_turns: list[dict[str, str]]) -> str:
+    last_turn = all_turns[-1]
+    kept_text = str(last_turn.get("content", ""))
+    while True:
+        cut_turn = {**last_turn, "content": CUT_TEXT_PREFIX + kept_text}
+        transcript = _transcript_without([*all_turns[:-1], cut_turn], len(all_turns[1:-1]))
+        overflow = len(transcript) - JUDGE_TRANSCRIPT_CHARACTER_LIMIT
+        if overflow <= 0 or not kept_text:
+            return transcript
+        kept_text = kept_text[overflow:]
+
+
 def _transcript_within_limit(all_turns: list[dict[str, str]]) -> str:
     def fits(dropped_count: int) -> bool:
         return len(_transcript_without(all_turns, dropped_count)) <= JUDGE_TRANSCRIPT_CHARACTER_LIMIT
 
     most_droppable = len(all_turns) - 1
     fewest_dropped = bisect.bisect_left(range(most_droppable), True, key=fits)
-    return _transcript_without(all_turns, fewest_dropped)
+    if fewest_dropped < most_droppable or most_droppable == 0:
+        return _transcript_without(all_turns, fewest_dropped)
+    return _transcript_with_cut_last_turn(all_turns)
 
 
 def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> str:
@@ -45,7 +62,9 @@ def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> s
     The transcript stays valid JSON. The first turn, the user's ask, always
     stays. The fewest whole turns after it drop, oldest first, for the JSON
     to fit the limit, and a note turn after the ask says how many dropped.
-    An ask longer than the limit goes whole.
+    When the last turn alone still does not fit, it stays with its text cut
+    from the front, so the session's final answer reaches the judge. An ask
+    longer than the limit goes whole.
 
     Args:
         prompt: The case's ask.
@@ -66,6 +85,7 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
         'Done. {"pass": true, "reason": "Read the README."}' -> {"pass": True, ...}
         '{"pass": false, "reason": "uses {x}"}'              -> {"pass": False, ...}
         '{"pass": true, "evidence": {"pass": false}}'        -> {"pass": True, ...}
+        '{"pass": false, "reason": "said {"pass": true}"}'  -> None
         "I cannot tell."                                    -> None
 
     Args:
@@ -74,7 +94,8 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
     Returns:
         The last top-level JSON object in the reply that has a boolean
         ``pass`` field. Braces inside strings and nested objects belong to
-        the object around them.
+        the object around them, and an object that starts inside an open
+        quote, such as one quoted in a malformed reply, is not a verdict.
     """
     decoder = json.JSONDecoder()
     verdict: dict[str, object] | None = None
@@ -85,7 +106,8 @@ def parse_verdict(judge_reply: str) -> dict[str, object] | None:
         except json.JSONDecodeError:
             object_start = judge_reply.find(OBJECT_START, object_start + 1)
             continue
-        if isinstance(candidate, dict) and isinstance(candidate.get("pass"), bool):
+        is_quoted = len(UNESCAPED_QUOTE_PATTERN.findall(judge_reply, 0, object_start)) % QUOTE_PAIR_SIZE == 1
+        if not is_quoted and isinstance(candidate, dict) and isinstance(candidate.get("pass"), bool):
             verdict = candidate
         object_start = judge_reply.find(OBJECT_START, object_end)
     return verdict

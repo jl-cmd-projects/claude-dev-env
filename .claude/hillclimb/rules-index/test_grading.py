@@ -81,6 +81,9 @@ def test_search_check_reads_recursion_per_command() -> None:
     assert scopes_every_search([_bash("ls -r /")])
     assert scopes_every_search([_bash("grep TODO /etc/hosts")])
     assert scopes_every_search([_bash("rg TODO jobs")])
+    assert not scopes_every_search([_bash("timeout 60 find / -name settings.json")])
+    assert not scopes_every_search([_bash("/usr/bin/find / -name settings.json")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "C:\\Windows\\system32\\find.exe / x"})])
 
 
 def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
@@ -90,6 +93,8 @@ def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
     assert not loads_pr_lifecycle_before_commit([commit, skill])
     assert not loads_pr_lifecycle_before_commit([ToolCall("Edit", {})])
     assert not loads_pr_lifecycle_before_commit([ToolCall("PowerShell", {"command": "git commit -m x"}), skill])
+    assert not loads_pr_lifecycle_before_commit([_bash("git -C repo commit -m x"), skill])
+    assert loads_pr_lifecycle_before_commit([_bash("git log --grep=commit"), _bash("git diff commit.txt"), skill, commit])
 
 
 def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases() -> None:

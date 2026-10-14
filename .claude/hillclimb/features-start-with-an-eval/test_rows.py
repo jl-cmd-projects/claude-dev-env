@@ -83,6 +83,8 @@ def test_open_errors_drops_an_error_a_later_retry_scored() -> None:
     all_results = [{"prompt_id": "w02", "rep": 0}]
 
     assert open_errors(all_errors, all_results) == all_errors[1:]
+    all_retried = [{"prompt_id": "b02", "rep": 0, "failure_class": "timeout"}, {"prompt_id": "b02", "rep": 0, "failure_class": "no-result"}]
+    assert open_errors(all_retried, []) == all_retried[1:]
 
 
 def test_read_rows_keeps_a_row_with_a_line_separator_and_skips_a_cut_character(tmp_path: Path) -> None:

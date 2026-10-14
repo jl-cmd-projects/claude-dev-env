@@ -13,7 +13,8 @@ hooks and skills stay out of both arms. Rows land in
 digest over the workspace files, the session settings, ``--direct`` and the
 harness source. A rerun skips every (case, rep) already there under the same
 digest, and the headline counts only those rows and the errors no retry has
-scored.
+scored. Any change to the digest, even a new --timeout-s or an edited harness
+comment, reruns every stored (case, rep), at the cost of a full run.
 """
 
 import argparse

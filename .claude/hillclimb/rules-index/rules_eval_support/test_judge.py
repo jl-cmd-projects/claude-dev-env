@@ -90,3 +90,22 @@ def test_judge_prompt_drops_whole_early_turns_and_keeps_the_ask_and_valid_json()
     assert kept_turns[2]["content"].startswith(f"step {dropped_count} ")
     assert kept_turns[-1]["content"].startswith("step 29 ")
     assert len(json.dumps(one_fewer_dropped, indent=2)) > 40000
+
+
+def test_judge_prompt_keeps_the_tail_of_a_last_turn_longer_than_the_limit() -> None:
+    all_turns = [{"role": "user", "content": "the ask"}, {"role": "assistant", "content": "early"}, {"role": "assistant", "content": "x" * 60000 + "FINAL ANSWER"}]
+
+    prompt = judge_prompt("the ask", "rubric", all_turns)
+    transcript = prompt.split("grade what the agent attempted and said):\n", 1)[1].split("\n\nReply with one line", 1)[0]
+    kept_turns = json.loads(transcript)
+
+    assert len(transcript) <= 40000
+    assert kept_turns[0] == {"role": "user", "content": "the ask"}
+    assert kept_turns[1]["role"] == "note"
+    assert kept_turns[-1]["content"].startswith("[earlier text removed] ")
+    assert kept_turns[-1]["content"].endswith("FINAL ANSWER")
+
+
+def test_parse_verdict_rejects_a_verdict_quoted_inside_a_malformed_reply() -> None:
+    assert parse_verdict('{"pass": false, "reason": "the rule said {"pass": true}"}') is None
+    assert parse_verdict('He said "done". {"pass": true, "reason": "ok"}') == {"pass": True, "reason": "ok"}
