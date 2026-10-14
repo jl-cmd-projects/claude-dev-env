@@ -35,23 +35,23 @@ function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
     return addedKeys;
 }
 
-function mergeMissingPerModelFields(targetPerModel, defaultPerModel, settingKey) {
+function mergeMissingPerModelFields(targetPerModel, defaultPerModel, keyPrefix) {
     const addedKeys = [];
     for (const [modelName, defaultFields] of Object.entries(defaultPerModel)) {
         if (addMissingField(targetPerModel, modelName, defaultFields)) {
-            addedKeys.push(`${settingKey}.${modelName}`);
+            addedKeys.push(`${keyPrefix}.${modelName}`);
             continue;
         }
         if (!isPlainObject(targetPerModel[modelName])) continue;
-        addedKeys.push(...mergeMissingFields(targetPerModel[modelName], defaultFields, `${settingKey}.${modelName}`));
+        addedKeys.push(...mergeMissingFields(targetPerModel[modelName], defaultFields, `${keyPrefix}.${modelName}`));
     }
     return addedKeys;
 }
 
-const NESTED_MERGE_BY_SETTING_KEY = Object.freeze({
-    modelSettings: mergeMissingPerModelFields,
-    env: mergeMissingFields,
-});
+const NESTED_MERGE_BY_SETTING_KEY = new Map([
+    ['modelSettings', mergeMissingPerModelFields],
+    ['env', mergeMissingFields],
+]);
 
 /**
  * Read the setting defaults from a package settings source object.
@@ -81,9 +81,7 @@ export function settingsDefaultsFromPackageSettings(packageSettings) {
 export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
     const addedKeys = [];
     for (const [settingKey, defaultValue] of Object.entries(settingsDefaults)) {
-        const mergeNested = Object.hasOwn(NESTED_MERGE_BY_SETTING_KEY, settingKey)
-            ? NESTED_MERGE_BY_SETTING_KEY[settingKey]
-            : undefined;
+        const mergeNested = NESTED_MERGE_BY_SETTING_KEY.get(settingKey);
         if (mergeNested && isPlainObject(targetSettings[settingKey]) && isPlainObject(defaultValue)) {
             addedKeys.push(...mergeNested(targetSettings[settingKey], defaultValue, settingKey));
             continue;

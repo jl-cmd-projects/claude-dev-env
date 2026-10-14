@@ -126,11 +126,13 @@ test('mergeMissingSettingsDefaults should add the whole env block when the user 
 });
 
 test('mergeMissingSettingsDefaults should keep a non-object env value as the user set it', () => {
-    const targetSettings = { env: null };
+    for (const userEnv of [null, ['CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS=300000']]) {
+        const targetSettings = { env: structuredClone(userEnv) };
 
-    assert.deepEqual(
-        mergeMissingSettingsDefaults(targetSettings, { env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' } }),
-        { addedKeys: [] },
-    );
-    assert.deepEqual(targetSettings, { env: null });
+        assert.deepEqual(
+            mergeMissingSettingsDefaults(targetSettings, { env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' } }),
+            { addedKeys: [] },
+        );
+        assert.deepEqual(targetSettings, { env: userEnv });
+    }
 });
