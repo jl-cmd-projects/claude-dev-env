@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from dev_env_scripts_constants import account_broker_constants as broker_constants
-from dev_env_scripts_constants import claude_account_constants, codex_account_constants
+from dev_env_scripts_constants import claude_account_constants, codex_account_constants, shared_tree_constants
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_ACCOUNT_ENVIRONMENT_VARIABLES,
     ALL_BATCH_FILE_EXTENSIONS,
@@ -38,7 +38,6 @@ from dev_env_scripts_constants.codex_account_constants import (
     LUNA_TIER_STOP_PERCENT_LEFT,
     NORMAL_TIER_MINIMUM_PERCENT_LEFT,
 )
-from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
 TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
 
@@ -63,11 +62,11 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
 def test_should_list_every_account_environment_variable() -> None:
     all_declared_variables = {
         each_value
-        for each_module in (claude_account_constants, codex_account_constants)
+        for each_module in (claude_account_constants, codex_account_constants, shared_tree_constants)
         for each_name, each_value in vars(each_module).items()
-        if each_name.endswith("_ENVIRONMENT_VARIABLE")
+        if each_name.endswith(("_ENVIRONMENT_VARIABLE", "_ENV_VAR"))
     }
-    assert all_declared_variables | {CLAUDE_CONFIG_DIR_ENV_VAR} == set(ALL_ACCOUNT_ENVIRONMENT_VARIABLES)
+    assert all_declared_variables == set(ALL_ACCOUNT_ENVIRONMENT_VARIABLES)
 
 
 def test_batch_command_boundaries_include_shell_metacharacters() -> None:

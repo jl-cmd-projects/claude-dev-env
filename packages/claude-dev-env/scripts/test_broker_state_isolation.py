@@ -39,6 +39,7 @@ def test_meter_cache_write_lands_in_the_isolated_home(
     isolated_broker_state_path = account_broker.broker_state_path()
     assert Path.home() == isolated_home
     assert isolated_broker_state_path.is_relative_to(isolated_home)
+    assert not isolated_broker_state_path.exists()
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
 
