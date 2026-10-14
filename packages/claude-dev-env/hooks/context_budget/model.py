@@ -87,6 +87,13 @@ class FrozenDict(dict[KeyT, ValueT]):
     setdefault = _refuse_change
     update = _refuse_change
 
+    @classmethod
+    def of(cls, mapping: Mapping[KeyT, ValueT]) -> FrozenDict[KeyT, ValueT]:
+        """Return ``mapping`` itself when it is already a FrozenDict, else a FrozenDict copy."""
+        if isinstance(mapping, FrozenDict):
+            return mapping
+        return cls(mapping)
+
     def __reduce__(self) -> tuple[type[FrozenDict[KeyT, ValueT]], tuple[dict[KeyT, ValueT]]]:
         return (type(self), (dict(self),))
 
@@ -113,11 +120,13 @@ class BudgetPolicy:
     is_baseline_the_prior_text: bool = False
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "baseline_entry_by_path", FrozenDict(self.baseline_entry_by_path))
+        object.__setattr__(
+            self, "baseline_entry_by_path", FrozenDict.of(self.baseline_entry_by_path)
+        )
         object.__setattr__(
             self,
             "baseline_characters_by_hook_name",
-            FrozenDict(self.baseline_characters_by_hook_name),
+            FrozenDict.of(self.baseline_characters_by_hook_name),
         )
 
     def __hash__(self) -> int:

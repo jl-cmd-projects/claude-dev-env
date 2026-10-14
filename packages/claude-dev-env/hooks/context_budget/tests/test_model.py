@@ -131,6 +131,14 @@ def test_replaced_policy_keeps_read_only_maps() -> None:
         entry_by_path["c/SKILL.md"] = BaselineEntry(1, ())
 
 
+def test_policy_reuses_a_map_that_is_already_frozen() -> None:
+    policy = _policy_with_baselines(BaselineEntry(210, ("Plan",)))
+    replaced = dataclasses.replace(policy, is_baseline_the_prior_text=True)
+
+    assert replaced.baseline_entry_by_path is policy.baseline_entry_by_path
+    assert replaced.baseline_characters_by_hook_name is policy.baseline_characters_by_hook_name
+
+
 def test_measure_and_finding_hold_their_fields() -> None:
     section = SectionScan("Plan", 15, False)
     measure = FileMeasure(SKILL_ENTRY_KIND, 210, (section,))
