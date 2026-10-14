@@ -15,11 +15,12 @@ from pathlib import Path
 import pytest
 
 from dev_env_scripts_constants import account_broker_constants as broker_constants
+from dev_env_scripts_constants import claude_account_constants, codex_account_constants
 from dev_env_scripts_constants.account_broker_constants import (
+    ALL_ACCOUNT_ENVIRONMENT_VARIABLES,
     ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_FLOORS,
     ALL_CODEX_FLOORS,
-    ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     CMD_SHELL_METACHARACTERS,
     Account,
@@ -29,14 +30,10 @@ from dev_env_scripts_constants.account_broker_constants import (
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
-    PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
 from dev_env_scripts_constants.codex_account_constants import (
-    CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
-    CODEX_HOME_ENVIRONMENT_VARIABLE,
-    CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     LUNA_TIER_STOP_PERCENT_LEFT,
     NORMAL_TIER_MINIMUM_PERCENT_LEFT,
@@ -63,14 +60,14 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
     }
 
 
-def test_should_name_every_account_root_override_as_a_home_override() -> None:
-    assert set(ALL_HOME_OVERRIDE_ENVIRONMENT_VARIABLES) == {
-        CLAUDE_CONFIG_DIR_ENV_VAR,
-        CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
-        CODEX_HOME_ENVIRONMENT_VARIABLE,
-        CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
-        PROFILES_ROOT_ENVIRONMENT_VARIABLE,
+def test_should_list_every_account_environment_variable() -> None:
+    all_declared_variables = {
+        each_value
+        for each_module in (claude_account_constants, codex_account_constants)
+        for each_name, each_value in vars(each_module).items()
+        if each_name.endswith("_ENVIRONMENT_VARIABLE")
     }
+    assert all_declared_variables | {CLAUDE_CONFIG_DIR_ENV_VAR} == set(ALL_ACCOUNT_ENVIRONMENT_VARIABLES)
 
 
 def test_batch_command_boundaries_include_shell_metacharacters() -> None:
