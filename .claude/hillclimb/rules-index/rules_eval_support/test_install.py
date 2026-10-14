@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +11,7 @@ all_import_roots = [str(flow_directory), str(flow_directory.parent / "features-s
 sys.path[:0] = all_import_roots
 
 from rules_eval_support import install
-from session_eval_support.session import files_digest, remove_workspace
+from session_eval_support.session import prepare_workspace, remove_workspace
 
 READ_A_UTF8_RULE = (
     "import sys\n"
@@ -19,6 +20,7 @@ READ_A_UTF8_RULE = (
     "install.REPOSITORY_ROOT = Path(sys.argv[1])\n"
     "print(ascii(install._read_git('show', 'HEAD:packages/claude-dev-env/rules/section.md')))\n"
 )
+
 
 def _commit_files(repository: Path, text_by_path: dict[str, str]) -> None:
     for each_path, each_text in text_by_path.items():
@@ -85,24 +87,25 @@ def test_read_git_decodes_utf8_rule_text_under_an_ascii_locale(tmp_path: Path) -
     assert "\\xa78" in completed.stdout
 
 
-def test_prepare_workspace_commits_the_variant_files_with_the_bytes_the_digest_covers() -> None:
-    files_by_target = {".claude/rules/index.md": "Index.\nSecond line.\n"}
-    workspace = install.prepare_workspace(files_by_target)
+def test_workspace_files_holds_the_overlay_logs_and_variant_files_without_caches(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    overlay = tmp_path / "fixture_overlay"
+    shutil.copytree(install.FIXTURE_OVERLAY_DIRECTORY, overlay, ignore=shutil.ignore_patterns("__pycache__"))
+    (overlay / "jobs" / "__pycache__").mkdir()
+    (overlay / "jobs" / "__pycache__" / "durations.cpython-313.pyc").write_bytes(b"cache")
+    monkeypatch.setattr(install, "FIXTURE_OVERLAY_DIRECTORY", overlay)
+
+    bytes_by_target = install.workspace_files({".claude/rules/index.md": "Index.\nSecond line.\n"})
+
+    assert bytes_by_target[".claude/rules/index.md"] == b"Index.\nSecond line.\n"
+    assert bytes_by_target["logs/alpha.log"] == b"job finished\n"
+    assert bytes_by_target["jobs/durations.py"] == (install.FIXTURE_OVERLAY_DIRECTORY / "jobs/durations.py").read_bytes()
+    assert not any("__pycache__" in each_target for each_target in bytes_by_target)
+
+
+def test_workspace_files_install_into_a_committed_workspace() -> None:
+    workspace = prepare_workspace(install.workspace_files({".claude/rules/index.md": "Index.\n"}))
     try:
-        installed_bytes = (workspace / ".claude/rules/index.md").read_bytes()
         tracked = subprocess.run(("git", "ls-files"), cwd=workspace, check=True, capture_output=True, text=True).stdout.split()
-        assert installed_bytes == b"Index.\nSecond line.\n"
-        assert install.installed_digest(files_by_target) == files_digest({".claude/rules/index.md": installed_bytes})
-        assert (workspace / "jobs/durations.py").is_file()
-        assert (workspace / "logs/alpha.log").read_text(encoding="utf-8") == "job finished\n"
-        assert ".claude/rules/index.md" in tracked
+        assert {".claude/rules/index.md", "jobs/durations.py", "logs/alpha.log", "README.md"} <= set(tracked)
     finally:
         remove_workspace(workspace)
-
-
-def test_installed_digest_changes_with_a_rule_text_or_path() -> None:
-    files_by_target = {".claude/rules/index.md": "Index.\n"}
-
-    assert install.installed_digest(files_by_target) == install.installed_digest(dict(files_by_target))
-    assert install.installed_digest(files_by_target) != install.installed_digest({".claude/rules/index.md": "Index!\n"})
-    assert install.installed_digest(files_by_target) != install.installed_digest({".claude/rules/other.md": "Index.\n"})

@@ -1,6 +1,7 @@
 """Read and append the JSON-lines files a run writes, and pick the variant and cases it runs."""
 
 import json
+import logging
 import os
 import threading
 from collections.abc import Mapping
@@ -8,12 +9,21 @@ from pathlib import Path
 
 from session_eval_support.config.constants import (
     ID_LIST_SEPARATOR,
-    INSTALLED_DIGEST_FIELD,
+    RUN_DIGEST_FIELD,
     META_FIELD,
     NEWLINE,
 )
 
+logger = logging.getLogger(__name__)
 write_lock = threading.Lock()
+
+
+def _parsed_row(line: str) -> dict[str, object] | None:
+    try:
+        parsed = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def read_rows(path: Path) -> list[dict[str, object]]:
@@ -21,52 +31,70 @@ def read_rows(path: Path) -> list[dict[str, object]]:
 
     ::
 
-        '{"rep": 0}\\n{"rep": 1' -> [{"rep": 0}]
+        '{"rep": 0}\\n{"rep": 1' -> [{"rep": 0}], with a warning naming line 2
 
     Args:
         path: The JSON-lines file; a missing file has no rows.
 
     Returns:
-        Each line that parses as a JSON object. A partial line left by a
-        killed run is skipped, so its (case, rep) runs again.
+        Each line that parses as a JSON object. A line that does not, such as
+        a partial line left by a killed run, is skipped with a warning that
+        names it, so its (case, rep) runs again.
     """
     if not path.is_file():
         return []
-    all_rows: list[dict[str, object]] = []
-    for each_line in path.read_text(encoding="utf-8").splitlines():
-        try:
-            each_row = json.loads(each_line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(each_row, dict):
-            all_rows.append(each_row)
-    return all_rows
+    all_lines = path.read_text(encoding="utf-8").splitlines()
+    all_parsed = [_parsed_row(each_line) for each_line in all_lines]
+    for each_number, each_line, each_row in zip(range(1, len(all_lines) + 1), all_lines, all_parsed):
+        if each_row is None and each_line.strip():
+            logger.warning("skipped unreadable line %d of %s", each_number, path)
+    return [each_row for each_row in all_parsed if each_row is not None]
 
 
 def rows_for_install(
     path: Path, digest: str, all_case_ids: set[str]
 ) -> list[dict[str, object]]:
-    """Return the rows one install set wrote for the selected cases.
+    """Return the rows one run digest wrote for the selected cases.
 
     ::
 
-        rows tagged meta.installed_digest "aaa" and "bbb", digest "aaa" -> the "aaa" rows
+        rows tagged meta.run_digest "aaa" and "bbb", digest "aaa" -> the "aaa" rows
 
     Args:
         path: A results or errors JSON-lines file.
-        digest: The current install set's digest.
+        digest: The current run digest from session.run_digest.
         all_case_ids: The ids of the cases this run selected.
 
     Returns:
-        Each row whose ``meta.installed_digest`` equals the digest and whose
-        ``prompt_id`` is selected. A row with no digest belongs to no install set.
+        Each row whose ``meta.run_digest`` equals the digest and whose
+        ``prompt_id`` is selected. A row with no digest belongs to no run.
     """
     return [
         each_row
         for each_row in read_rows(path)
         if each_row.get("prompt_id") in all_case_ids
         and isinstance(each_row.get(META_FIELD), dict)
-        and each_row[META_FIELD].get(INSTALLED_DIGEST_FIELD) == digest
+        and each_row[META_FIELD].get(RUN_DIGEST_FIELD) == digest
+    ]
+
+
+def open_errors(
+    all_error_rows: list[dict[str, object]], all_scored_rows: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Return the error rows whose (case, rep) never produced a scored row.
+
+    Args:
+        all_error_rows: Rows from the errors file.
+        all_scored_rows: Rows from the results file.
+
+    Returns:
+        The errors still open; one a later retry scored is dropped.
+    """
+    all_scored = {(each_row["prompt_id"], each_row["rep"]) for each_row in all_scored_rows}
+    return [
+        each_row
+        for each_row in all_error_rows
+        if (each_row["prompt_id"], each_row["rep"]) not in all_scored
     ]
 
 
@@ -156,7 +184,7 @@ def failure_row(
     Args:
         case_by_field: The case, with its ``id``.
         rep: The repetition number.
-        digest: The install set's digest.
+        digest: The run digest.
         failure_class: Why the session could not be scored.
         detail: The evidence for that class.
 
@@ -168,5 +196,5 @@ def failure_row(
         "rep": rep,
         "failure_class": failure_class,
         "detail": detail,
-        META_FIELD: {INSTALLED_DIGEST_FIELD: digest},
+        META_FIELD: {RUN_DIGEST_FIELD: digest},
     }

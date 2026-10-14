@@ -83,6 +83,10 @@ def test_judge_prompt_drops_whole_early_turns_and_keeps_the_ask_and_valid_json()
     kept_turns = json.loads(transcript)
 
     assert len(transcript) <= 40000
+    dropped_count = len(all_turns) + 1 - len(kept_turns)
+    one_fewer_dropped = [all_turns[0], {"role": "note", "content": f"{dropped_count - 1} earlier turns were removed to fit the transcript limit."}, *all_turns[dropped_count:]]
     assert kept_turns[0] == {"role": "user", "content": "the ask"}
+    assert kept_turns[1] == {"role": "note", "content": f"{dropped_count} earlier turns were removed to fit the transcript limit."}
+    assert kept_turns[2]["content"].startswith(f"step {dropped_count} ")
     assert kept_turns[-1]["content"].startswith("step 29 ")
-    assert len(kept_turns) < len(all_turns)
+    assert len(json.dumps(one_fewer_dropped, indent=2)) > 40000

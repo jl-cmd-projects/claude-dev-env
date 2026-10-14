@@ -30,7 +30,7 @@ def test_scored_row_carries_the_grade_duration_and_digest() -> None:
     assert row["grade"]["correct"] == 1
     assert row["latency_s"] == 3.2
     assert row["meta"]["duration_s"] == 1.5
-    assert row["meta"]["installed_digest"] == "aaa"
+    assert row["meta"]["run_digest"] == "aaa"
     assert row["meta"]["broker_account"] == "org-a"
 
 
@@ -47,6 +47,6 @@ def test_run_one_scores_the_session_with_the_run_digest_and_removes_the_workspac
 
     features_run._run_one(case, 0, tmp_path, {".claude/rules/index.md": b"Index.\n"}, "aaa", SessionSettings("claude-opus-5-5", "low", 6, 600))
 
-    assert [each_row["meta"]["installed_digest"] for each_row in read_rows(tmp_path / "results.jsonl")] == ["aaa"]
+    assert [each_row["meta"]["run_digest"] for each_row in read_rows(tmp_path / "results.jsonl")] == ["aaa"]
     assert (tmp_path / "traces/n02_rep0.json").is_file()
     assert not all_workspaces[0].exists()

@@ -10,6 +10,7 @@ if flow_directory not in sys.path:
 from session_eval_support.rows import (
     append_row,
     failure_row,
+    open_errors,
     read_rows,
     rows_for_install,
     select_cases,
@@ -17,11 +18,12 @@ from session_eval_support.rows import (
 )
 
 
-def test_rows_survive_a_partial_line_left_by_a_killed_run(tmp_path: Path) -> None:
+def test_rows_survive_a_partial_line_left_by_a_killed_run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     results = tmp_path / "results.jsonl"
     results.write_text('{"prompt_id": "w02", "rep": 0}\n{"prompt_id": "b02", "re', encoding="utf-8")
 
     assert read_rows(results) == [{"prompt_id": "w02", "rep": 0}]
+    assert "skipped unreadable line 2" in caplog.text
 
     append_row(results, {"prompt_id": "s01", "rep": 0})
 
@@ -45,9 +47,9 @@ def test_select_cases_refuses_an_unknown_id_and_keeps_file_order() -> None:
 def test_rows_for_install_keeps_rows_of_the_digest_and_the_selected_cases(tmp_path: Path) -> None:
     results = tmp_path / "results.jsonl"
     all_rows = [
-        {"prompt_id": "w02", "rep": 0, "meta": {"installed_digest": "aaa"}},
-        {"prompt_id": "w02", "rep": 1, "meta": {"installed_digest": "bbb"}},
-        {"prompt_id": "b02", "rep": 0, "meta": {"installed_digest": "aaa"}},
+        {"prompt_id": "w02", "rep": 0, "meta": {"run_digest": "aaa"}},
+        {"prompt_id": "w02", "rep": 1, "meta": {"run_digest": "bbb"}},
+        {"prompt_id": "b02", "rep": 0, "meta": {"run_digest": "aaa"}},
         {"prompt_id": "s01", "rep": 0},
     ]
     for each_row in all_rows:
@@ -69,5 +71,12 @@ def test_failure_row_tags_the_digest_so_rows_for_install_counts_it(tmp_path: Pat
     row = failure_row({"id": "w02", "prompt": "ask"}, 1, "aaa", "timeout", 600)
     append_row(errors, row)
 
-    assert row == {"prompt_id": "w02", "rep": 1, "failure_class": "timeout", "detail": 600, "meta": {"installed_digest": "aaa"}}
+    assert row == {"prompt_id": "w02", "rep": 1, "failure_class": "timeout", "detail": 600, "meta": {"run_digest": "aaa"}}
     assert rows_for_install(errors, "aaa", {"w02"}) == [row]
+
+
+def test_open_errors_drops_an_error_a_later_retry_scored() -> None:
+    all_errors = [{"prompt_id": "w02", "rep": 0, "failure_class": "timeout"}, {"prompt_id": "b02", "rep": 0, "failure_class": "timeout"}]
+    all_results = [{"prompt_id": "w02", "rep": 0}]
+
+    assert open_errors(all_errors, all_results) == all_errors[1:]

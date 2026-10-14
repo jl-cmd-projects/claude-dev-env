@@ -9,9 +9,11 @@ Variant ``baseline`` installs the always-loaded rules and guides from the
 commit before the index. Variant ``index`` installs them from ``HEAD``. Each
 session loads project and local settings only, so the home config's rules,
 hooks and skills stay out of both arms. Rows land in
-``<variant>/results.jsonl`` as each case finishes, each tagged with a digest
-of the installed rules. A rerun skips every (case, rep) already there under
-the same digest, and the headline counts only those rows and errors.
+``<variant>/results.jsonl`` as each case finishes, each tagged with a run
+digest over the workspace files, the session settings, ``--direct`` and the
+grader source. A rerun skips every (case, rep) already there under the same
+digest, and the headline counts only those rows and the errors no retry has
+scored.
 """
 
 import argparse
@@ -20,12 +22,14 @@ import logging
 import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 flow_directory = Path(__file__).resolve().parent
 all_import_roots = [str(each_root) for each_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval", flow_directory.parents[2] / "packages" / "claude-dev-env" / "scripts")]
 sys.path[:0] = [each_root for each_root in all_import_roots if each_root not in sys.path]
 
+import contrast_framing
 from contrast_framing import find_contrast_framing
 from rules_eval_support.config.constants import (
     CASES_FILE,
@@ -42,7 +46,8 @@ from rules_eval_support.config.constants import (
     STATE_FILE,
 )
 from rules_eval_support.grading import opened_a_guide, tool_check
-from rules_eval_support.install import installed_digest, prepare_workspace, variant_files
+from rules_eval_support import grading, judge
+from rules_eval_support.install import variant_files, workspace_files
 from rules_eval_support.judge import judge_prompt, run_judge
 from rules_eval_support.launch import run_session
 from session_eval_support.config.constants import (
@@ -52,20 +57,23 @@ from session_eval_support.config.constants import (
     DEFAULT_TIMEOUT_SECONDS,
     ERRORS_FILE_NAME,
     ID_LIST_SEPARATOR,
-    INSTALLED_DIGEST_FIELD,
+    RUN_DIGEST_FIELD,
     LATENCY_DECIMALS,
     RESULTS_FILE_NAME,
     STATUS_OK,
     TRACES_DIRECTORY_NAME,
     USAGE_ERROR_EXIT_CODE,
 )
+from session_eval_support import grading as session_grading
 from session_eval_support.grading import tool_calls, wilson_interval
-from session_eval_support.rows import append_row, failure_row, rows_for_install, select_cases, select_variant
+from session_eval_support.rows import append_row, failure_row, open_errors, rows_for_install, select_cases, select_variant
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
+    prepare_workspace,
     remove_workspace,
+    run_digest,
     served_models,
     trace_turns,
     unscorable,
@@ -116,23 +124,41 @@ def _refuse_unknown_checks(all_cases: list[dict[str, str]]) -> None:
         raise ValueError(f"unknown checks in {CASES_FILE.name}: {ID_LIST_SEPARATOR.join(sorted(all_unknown_checks))}")
 
 
-def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, files_by_target: dict[str, str], settings: SessionSettings, is_direct: bool) -> None:
-    workspace = prepare_workspace(files_by_target)
+@dataclass(frozen=True)
+class RunPlan:
+    """What every session in one variant run shares."""
+
+    variant_directory: Path
+    bytes_by_target: dict[str, bytes]
+    digest: str
+    settings: SessionSettings
+    is_direct: bool
+
+
+def _plan(arguments: argparse.Namespace, setting_by_name: dict[str, object]) -> RunPlan:
+    bytes_by_target = workspace_files(variant_files(str(setting_by_name["ref"])))
+    settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
+    all_grader_paths = [Path(each_module.__file__) for each_module in (grading, judge, session_grading, contrast_framing)]
+    digest = run_digest(bytes_by_target, {**asdict(settings), "direct": arguments.direct}, all_grader_paths)
+    return RunPlan(FLOW_ROOT / (arguments.label or arguments.variant), bytes_by_target, digest, settings, arguments.direct)
+
+
+def _run_one(case_by_field: dict[str, str], rep: int, plan: RunPlan) -> None:
+    workspace = prepare_workspace(plan.bytes_by_target)
     try:
-        session = run_session(workspace, case_by_field["prompt"], settings, is_direct)
+        session = run_session(workspace, case_by_field["prompt"], plan.settings, plan.is_direct)
     finally:
         remove_workspace(workspace)
-    digest = installed_digest(files_by_target)
-    failure = unscorable(session, settings)
+    failure = unscorable(session, plan.settings)
     if failure is not None:
-        append_row(variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, digest, *failure))
+        append_row(plan.variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, plan.digest, *failure))
         return
-    write_trace(case_by_field, rep, variant_directory, session)
-    followed, grade_record = _grade(case_by_field, session, is_direct)
+    write_trace(case_by_field, rep, plan.variant_directory, session)
+    followed, grade_record = _grade(case_by_field, session, plan.is_direct)
     if followed is None:
-        append_row(variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, digest, FAILURE_JUDGE, grade_record))
+        append_row(plan.variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, plan.digest, FAILURE_JUDGE, grade_record))
         return
-    append_row(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, {**grade_record, INSTALLED_DIGEST_FIELD: digest}))
+    append_row(plan.variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, plan.settings, followed, {**grade_record, RUN_DIGEST_FIELD: plan.digest}))
 
 
 def _scored_row(case_by_field: dict[str, str], rep: int, session: SessionRun, settings: SessionSettings, is_followed: bool, meta_by_field: dict[str, object]) -> dict[str, object]:
@@ -182,20 +208,17 @@ def main() -> int:
     except ValueError as error:
         logger.error("%s", error)
         return USAGE_ERROR_EXIT_CODE
-    files_by_target = variant_files(str(variant["ref"]))
-    digest = installed_digest(files_by_target)
+    plan = _plan(arguments, variant)
     all_case_ids = {each_case["id"] for each_case in all_cases}
-    variant_directory = FLOW_ROOT / (arguments.label or arguments.variant)
-    (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
-    settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
-    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in rows_for_install(variant_directory / RESULTS_FILE_NAME, digest, all_case_ids)}
+    (plan.variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
+    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)}
     all_pending = [(each_case, each_rep) for each_case in all_cases for each_rep in range(arguments.reps) if (each_case["id"], each_rep) not in all_done]
     with ThreadPoolExecutor(max_workers=arguments.parallel) as executor:
-        for each_future in [executor.submit(_run_one, each_case, each_rep, variant_directory, files_by_target, settings, arguments.direct) for each_case, each_rep in all_pending]:
+        for each_future in [executor.submit(_run_one, each_case, each_rep, plan) for each_case, each_rep in all_pending]:
             each_future.result()
-    all_rows = rows_for_install(variant_directory / RESULTS_FILE_NAME, digest, all_case_ids)
-    all_errors = rows_for_install(variant_directory / ERRORS_FILE_NAME, digest, all_case_ids)
-    logger.info("%s: %s", arguments.variant, _summary(all_rows, len(all_errors)))
+    all_rows = rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)
+    all_errors = rows_for_install(plan.variant_directory / ERRORS_FILE_NAME, plan.digest, all_case_ids)
+    logger.info("%s: %s", arguments.variant, _summary(all_rows, len(open_errors(all_errors, all_rows))))
     return 0
 
 

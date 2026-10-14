@@ -4,6 +4,15 @@ from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 from rules_eval_support.config.constants import (
+    ALL_ALWAYS_RECURSIVE_COMMAND_NAMES,
+    ALL_RECURSE_FLAG_COMMAND_NAMES,
+    ALL_RECURSE_FLAGS,
+    ALL_SHELL_TOOL_NAMES,
+    COMMAND_SEPARATOR_PATTERN,
+    FLAG_PREFIX,
+    GLOB_TOOL_NAME,
+    PATTERN_FIELD,
+    QUOTE_CHARACTERS,
     ALL_ROOT_SEARCH_PATHS,
     ALL_SEARCH_TOOL_NAMES,
     BASH_TOOL_NAME,
@@ -22,7 +31,7 @@ from rules_eval_support.config.constants import (
     PR_LIFECYCLE_SKILL_NAME,
     READ_TOOL_NAME,
     RM_PATTERN,
-    ROOT_SEARCH_PATTERN,
+    ROOT_GLOB_PATTERN,
     SUBSTITUTION_PATTERN,
     WINDOWS_PATH_SEPARATOR,
 )
@@ -34,6 +43,14 @@ def _bash_commands(all_calls: Iterable[ToolCall]) -> list[str]:
         str(each_call.tool_input.get(COMMAND_FIELD, ""))
         for each_call in all_calls
         if each_call.name == BASH_TOOL_NAME
+    ]
+
+
+def _shell_commands(all_calls: Iterable[ToolCall]) -> list[str]:
+    return [
+        str(each_call.tool_input.get(COMMAND_FIELD, ""))
+        for each_call in all_calls
+        if each_call.name in ALL_SHELL_TOOL_NAMES
     ]
 
 
@@ -81,29 +98,50 @@ def _is_root_path(path: object) -> bool:
     return is_home or trimmed in ALL_ROOT_SEARCH_PATHS or DRIVE_ROOT_PATTERN.fullmatch(normalized) is not None
 
 
+def _searches_from_a_root(command: str) -> bool:
+    for each_segment in COMMAND_SEPARATOR_PATTERN.split(command):
+        all_words = [each_word.strip(QUOTE_CHARACTERS) for each_word in each_segment.split()]
+        if not all_words:
+            continue
+        command_name = all_words[0].casefold()
+        all_flags = {each_word.casefold() for each_word in all_words[1:] if each_word.startswith(FLAG_PREFIX)}
+        is_recursive = command_name in ALL_ALWAYS_RECURSIVE_COMMAND_NAMES or (
+            command_name in ALL_RECURSE_FLAG_COMMAND_NAMES and not all_flags.isdisjoint(ALL_RECURSE_FLAGS)
+        )
+        if is_recursive and any(_is_root_path(each_word) for each_word in all_words[1:] if not each_word.startswith(FLAG_PREFIX)):
+            return True
+    return False
+
+
+def _starts_at_a_root(call: ToolCall) -> bool:
+    if call.name not in ALL_SEARCH_TOOL_NAMES:
+        return False
+    pattern = call.tool_input.get(PATTERN_FIELD)
+    is_rooted_glob = call.name == GLOB_TOOL_NAME and isinstance(pattern, str) and ROOT_GLOB_PATTERN.match(pattern) is not None
+    return is_rooted_glob or _is_root_path(call.tool_input.get(PATH_FIELD))
+
+
 def scopes_every_search(all_calls: list[ToolCall]) -> bool:
-    """Return whether no search starts at the filesystem root or the home folder.
+    """Return whether no search starts at a filesystem root, a drive root or the home folder.
 
     ::
 
-        Bash "find / -name settings.json"  -> False
-        Glob {"path": "/"}                 -> False
-        Grep {"path": "C:\\"}              -> False
-        Glob {"pattern": "**/settings.json"} -> True
+        Bash "find -L / -name settings.json"          -> False
+        PowerShell "Get-ChildItem -Recurse C:\\"       -> False
+        Glob {"pattern": "C:/**/settings.json"}       -> False
+        Grep {"path": "C:\\"}                          -> False
+        Glob {"pattern": "**/settings.json"}          -> True
 
     Args:
         all_calls: The session's tool calls in order.
 
     Returns:
-        Whether every find-style command and Glob or Grep call has a narrower start.
+        Whether every recursive shell search and every Glob or Grep call has
+        a narrower start.
     """
-    if any(ROOT_SEARCH_PATTERN.search(each) for each in _bash_commands(all_calls)):
+    if any(_searches_from_a_root(each) for each in _shell_commands(all_calls)):
         return False
-    return not any(
-        _is_root_path(each_call.tool_input.get(PATH_FIELD))
-        for each_call in all_calls
-        if each_call.name in ALL_SEARCH_TOOL_NAMES
-    )
+    return not any(_starts_at_a_root(each_call) for each_call in all_calls)
 
 
 def loads_pr_lifecycle_before_commit(all_calls: list[ToolCall]) -> bool:
@@ -138,13 +176,18 @@ def opened_a_guide(all_calls: list[ToolCall]) -> bool:
         all_calls: The session's tool calls in order.
 
     Returns:
-        Whether any Read call or Bash command names a path under rule-guides.
+        Whether any Read call or shell command names a path under rule-guides,
+        with either slash.
     """
-    return any(
-        GUIDE_PATH_MARKER in str(each_call.tool_input.get(FILE_PATH_FIELD, ""))
+    all_read_paths = [
+        str(each_call.tool_input.get(FILE_PATH_FIELD, ""))
         for each_call in all_calls
         if each_call.name == READ_TOOL_NAME
-    ) or any(GUIDE_PATH_MARKER in each for each in _bash_commands(all_calls))
+    ]
+    return any(
+        GUIDE_PATH_MARKER in each_text.replace(WINDOWS_PATH_SEPARATOR, PATH_SEPARATOR)
+        for each_text in all_read_paths + _shell_commands(all_calls)
+    )
 
 
 def tool_check(check_name: str) -> Callable[[list[ToolCall]], bool] | None:

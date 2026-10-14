@@ -10,9 +10,10 @@ Variant ``baseline`` adds nothing. Variant ``v1`` installs the rule and its
 guide into the workspace's ``.claude/`` folder. Each session loads project and
 local settings only, so a rule installed in the home config stays out of both
 arms. Rows land in
-``<variant>/results.jsonl`` as each case finishes, each tagged with a digest
-of the installed files. A rerun skips every (case, rep) already there under
-the same digest, and the headline counts only those rows and errors.
+``<variant>/results.jsonl`` as each case finishes, each tagged with a run
+digest over the installed files, the session settings and the grader source.
+A rerun skips every (case, rep) already there under the same digest, and the
+headline counts only those rows and the errors no retry has scored.
 """
 
 import argparse
@@ -20,6 +21,7 @@ import json
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from pathlib import Path
 
 flow_directory = str(Path(__file__).resolve().parent)
@@ -38,7 +40,7 @@ from session_eval_support.config.constants import (
     EXPECTED_BUILD_EVAL,
     FIRST_TOOLS_PER_TURN,
     FLOW_ROOT,
-    INSTALLED_DIGEST_FIELD,
+    RUN_DIGEST_FIELD,
     LATENCY_DECIMALS,
     MILLISECONDS_PER_SECOND,
     RESULTS_FILE_NAME,
@@ -48,6 +50,7 @@ from session_eval_support.config.constants import (
     TRACES_DIRECTORY_NAME,
     USAGE_ERROR_EXIT_CODE,
 )
+from session_eval_support import grading
 from session_eval_support.grading import (
     ToolCall,
     grade_case,
@@ -57,6 +60,7 @@ from session_eval_support.grading import (
 from session_eval_support.rows import (
     append_row,
     failure_row,
+    open_errors,
     rows_for_install,
     select_cases,
     select_variant,
@@ -65,10 +69,10 @@ from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
-    files_digest,
     installed_files,
     prepare_workspace,
     remove_workspace,
+    run_digest,
     run_session,
     served_models,
     unscorable,
@@ -115,7 +119,7 @@ def _row_meta(
         ),
         "effort": settings.effort,
         "setting_sources": SESSION_SETTING_SOURCES,
-        INSTALLED_DIGEST_FIELD: digest,
+        RUN_DIGEST_FIELD: digest,
         "broker_account": decision.get("account")
         if isinstance(decision, dict)
         else None,
@@ -217,7 +221,7 @@ def _variant_summary(
     all_case_ids = {each_case["id"] for each_case in all_cases}
     all_rows = rows_for_install(variant_directory / RESULTS_FILE_NAME, digest, all_case_ids)
     all_errors = rows_for_install(variant_directory / ERRORS_FILE_NAME, digest, all_case_ids)
-    return _summary_line(all_rows, len(all_errors))
+    return _summary_line(all_rows, len(open_errors(all_errors, all_rows)))
 
 
 def _run_pending(
@@ -264,12 +268,12 @@ def main() -> int:
     bytes_by_target = installed_files(
         [tuple(each_pair) for each_pair in variant["install"]]
     )
-    digest = files_digest(bytes_by_target)
-    variant_directory = FLOW_ROOT / arguments.variant
-    (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     settings = SessionSettings(
         arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s
     )
+    digest = run_digest(bytes_by_target, asdict(settings), [Path(grading.__file__)])
+    variant_directory = FLOW_ROOT / arguments.variant
+    (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     _run_pending(
         _pending_runs(all_cases, arguments.reps, variant_directory, digest),
         variant_directory,

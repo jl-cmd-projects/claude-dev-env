@@ -1,9 +1,6 @@
-"""Build one variant's workspace: the fixture project plus the rules that variant loads."""
+"""Gather one variant's workspace files: the fixture overlay, the logs, and the rules that variant loads."""
 
-import shutil
 import subprocess
-import tempfile
-from pathlib import Path
 
 from rules_eval_support.config.constants import (
     ALL_LOG_FILE_NAMES,
@@ -16,14 +13,11 @@ from rules_eval_support.config.constants import (
     MARKDOWN_SUFFIX,
     PATH_LIST_SEPARATOR,
     PATHS_FRONTMATTER_KEY,
+    PYTHON_CACHE_DIRECTORY_NAME,
     REPOSITORY_ROOT,
     RULES_SOURCE_DIRECTORY,
     RULES_TARGET_DIRECTORY,
-    SIBLING_FLOW_ROOT,
-    WORKSPACE_PREFIX,
 )
-from session_eval_support.config.constants import ALL_GIT_INIT_COMMANDS
-from session_eval_support.session import files_digest
 
 
 def _read_git(*all_arguments: str) -> str:
@@ -84,38 +78,28 @@ def variant_files(ref: str) -> dict[str, str]:
     return files_by_target
 
 
-def installed_digest(files_by_target: dict[str, str]) -> str:
-    """Return the files_digest of a variant's files as prepare_workspace writes them.
+def workspace_files(files_by_target: dict[str, str]) -> dict[str, bytes]:
+    """Return every file a rules workspace adds to the fixture project, as bytes.
+
+    ::
+
+        workspace_files({".claude/rules/index.md": "..."})
+        -> {"jobs/durations.py": b"...", "logs/alpha.log": b"job finished\\n",
+            ".claude/rules/index.md": b"...", ...}
 
     Args:
         files_by_target: The variant's files from variant_files.
 
     Returns:
-        The digest over each workspace path and its UTF-8 bytes.
+        The fixture overlay, the log files, and the variant's rules and
+        guides, each workspace path mapped to its bytes. Compiled Python
+        caches in the overlay stay out.
     """
-    return files_digest({each_target: each_text.encode("utf-8") for each_target, each_text in files_by_target.items()})
-
-
-def prepare_workspace(files_by_target: dict[str, str]) -> Path:
-    """Copy the fixture project, its overlay, and a variant's rules into a new git workspace.
-
-    Args:
-        files_by_target: The variant's files from variant_files.
-
-    Returns:
-        The workspace directory, committed on branch main.
-    """
-    workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
-    shutil.copytree(SIBLING_FLOW_ROOT / "fixture", workspace, dirs_exist_ok=True)
-    shutil.copytree(FIXTURE_OVERLAY_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_log_name in ALL_LOG_FILE_NAMES:
-        log_path = workspace / each_log_name
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(LOG_FILE_TEXT, encoding="utf-8")
-    for each_target, each_text in files_by_target.items():
-        target_path = workspace / each_target
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(each_text, encoding="utf-8", newline="")
-    for each_command in ALL_GIT_INIT_COMMANDS:
-        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
-    return workspace
+    bytes_by_target = {
+        each_path.relative_to(FIXTURE_OVERLAY_DIRECTORY).as_posix(): each_path.read_bytes()
+        for each_path in sorted(FIXTURE_OVERLAY_DIRECTORY.rglob("*"))
+        if each_path.is_file() and PYTHON_CACHE_DIRECTORY_NAME not in each_path.parts
+    }
+    bytes_by_target.update({each_log_name: LOG_FILE_TEXT.encode("utf-8") for each_log_name in ALL_LOG_FILE_NAMES})
+    bytes_by_target.update({each_target: each_text.encode("utf-8") for each_target, each_text in files_by_target.items()})
+    return bytes_by_target

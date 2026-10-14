@@ -18,10 +18,10 @@ from rules_eval_support.grading import (
     scopes_every_search,
     tool_check,
 )
-from rules_eval_support.install import prepare_workspace, variant_files
+from rules_eval_support.install import variant_files, workspace_files
 from rules_eval_support.judge import parse_verdict
 from session_eval_support.grading import ToolCall
-from session_eval_support.session import remove_workspace
+from session_eval_support.session import prepare_workspace, remove_workspace
 
 
 def _bash(command: str) -> ToolCall:
@@ -59,6 +59,19 @@ def test_search_check_fails_a_windows_drive_or_home_start(monkeypatch: pytest.Mo
     assert scopes_every_search([ToolCall("Glob", {"pattern": "*.json", "path": "C:/work"})])
 
 
+def test_search_check_fails_flags_before_a_root_powershell_recursion_and_rooted_globs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/tester")
+    monkeypatch.setenv("USERPROFILE", "C:\\Users\\tester")
+    assert not scopes_every_search([_bash("find -L / -name CLAUDE.md")])
+    assert not scopes_every_search([_bash("cd jobs && du -sh /")])
+    assert not scopes_every_search([_bash(f"find {Path.home()} -name settings.json")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "Get-ChildItem -Recurse -Path C:\\ -Filter settings.json"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "C:/**/settings.json"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "/**/settings.json", "path": "jobs"})])
+    assert scopes_every_search([ToolCall("PowerShell", {"command": "Get-ChildItem C:\\"})])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "jobs/**/*.py"})])
+
+
 def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
     skill = ToolCall("Skill", {"skill": "pr-lifecycle"})
     commit = _bash("git commit -am 'fix typo'")
@@ -76,6 +89,8 @@ def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases()
 def test_guide_check_sees_a_read_under_rule_guides() -> None:
     assert opened_a_guide([ToolCall("Read", {"file_path": ".claude/docs/rule-guides/research-mode.md"})])
     assert not opened_a_guide([ToolCall("Read", {"file_path": "README.md"})])
+    assert opened_a_guide([ToolCall("Read", {"file_path": "C:\\work\\.claude\\docs\\rule-guides\\research-mode.md"})])
+    assert opened_a_guide([ToolCall("PowerShell", {"command": "Get-Content .claude\\docs\\rule-guides\\shell-invocation.md"})])
 
 
 def test_judge_verdict_parse_takes_the_last_verdict_and_skips_prose() -> None:
@@ -85,7 +100,7 @@ def test_judge_verdict_parse_takes_the_last_verdict_and_skips_prose() -> None:
 
 def test_index_variant_installs_the_index_and_guides_it_links() -> None:
     files_by_target = variant_files("HEAD")
-    workspace = prepare_workspace(files_by_target)
+    workspace = prepare_workspace(workspace_files(files_by_target))
     assert (workspace / ".claude/rules/index.md").is_file()
     assert (workspace / ".claude/docs/rule-guides/research-mode.md").is_file()
     assert not (workspace / ".claude/rules/research-mode.md").exists()

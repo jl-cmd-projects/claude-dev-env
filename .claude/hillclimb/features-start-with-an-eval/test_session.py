@@ -13,6 +13,7 @@ from session_eval_support.session import (
     SessionSettings,
     brokered_words,
     files_digest,
+    run_digest,
     installed_files,
     prepare_workspace,
     remove_workspace,
@@ -30,6 +31,12 @@ STREAM_AND_TRUNCATED_REPORT = (
     "print('[]')\n"
     "print('{\"type\": \"result\"}')\n"
     "Path(sys.argv[1]).write_text('{\"final_decision\": ', encoding='utf-8')\n"
+)
+IGNORE_STDIN_AND_SLEEP = "import time; time.sleep(60)"
+LEAVE_A_BEATING_GRANDCHILD_AND_EXIT = (
+    "import subprocess, sys\n"
+    "beat = 'import sys, time\\nfrom pathlib import Path\\nwhile True:\\n    Path(sys.argv[1]).write_text(str(time.monotonic()), encoding=\\'utf-8\\')\\n    time.sleep(0.05)\\n'\n"
+    "subprocess.Popen([sys.executable, '-c', beat, sys.argv[1]])\n"
 )
 START_A_BEATING_GRANDCHILD = (
     "import subprocess, sys, time\n"
@@ -90,6 +97,8 @@ def test_files_digest_changes_with_a_path_or_bytes_and_keeps_fields_apart() -> N
     assert digest != files_digest({"b/rule.md": b"Rule."})
     assert digest != files_digest({"a/rule.md": b"Rule!"})
     assert files_digest({"a": b"bc"}) != files_digest({"ab": b"c"})
+    assert files_digest({"a": b"x\0b\0"}) != files_digest({"a": b"x", "b": b""})
+    assert files_digest({".claude/rules/index.md": b"Index."}) == "34db5a63f317"
 
 
 def test_installed_files_reads_each_source_under_its_workspace_path() -> None:
@@ -148,7 +157,7 @@ def test_run_until_timeout_stops_the_grandchild_a_launcher_started(tmp_path: Pat
     heartbeat_path = tmp_path / "heartbeat.txt"
     with (tmp_path / "capture.txt").open("wb") as capture_file:
         exit_code = run_until_timeout(
-            [sys.executable, "-c", START_A_BEATING_GRANDCHILD, str(heartbeat_path)], tmp_path, capture_file, 3, None
+            [sys.executable, "-c", START_A_BEATING_GRANDCHILD, str(heartbeat_path)], tmp_path, capture_file, 3, b""
         )
     time.sleep(0.5)
     beat_after_timeout = heartbeat_path.read_text(encoding="utf-8")
@@ -170,3 +179,40 @@ def test_run_until_timeout_passes_standard_input_and_returns_the_exit_code(tmp_p
 
     assert exit_code == 3
     assert (tmp_path / "capture.txt").read_text(encoding="utf-8") == "JUDGE ME"
+
+
+def test_run_until_timeout_times_out_while_a_child_ignores_large_input(tmp_path: Path) -> None:
+    started = time.monotonic()
+    with (tmp_path / "capture.txt").open("wb") as capture_file:
+        exit_code = run_until_timeout([sys.executable, "-c", IGNORE_STDIN_AND_SLEEP], tmp_path, capture_file, 2, b"x" * 10_000_000)
+
+    assert exit_code is None
+    assert time.monotonic() - started < 20
+
+
+def test_run_until_timeout_stops_a_background_process_left_by_a_clean_exit(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeat.txt"
+    with (tmp_path / "capture.txt").open("wb") as capture_file:
+        exit_code = run_until_timeout(
+            [sys.executable, "-c", LEAVE_A_BEATING_GRANDCHILD_AND_EXIT, str(heartbeat_path)], tmp_path, capture_file, 30, b""
+        )
+    time.sleep(0.5)
+    beat_after_exit = heartbeat_path.read_text(encoding="utf-8") if heartbeat_path.exists() else ""
+    time.sleep(0.5)
+
+    assert exit_code == 0
+    assert (heartbeat_path.read_text(encoding="utf-8") if heartbeat_path.exists() else "") == beat_after_exit
+
+
+def test_run_digest_changes_with_files_settings_or_grader_source(tmp_path: Path) -> None:
+    grader_path = tmp_path / "grading.py"
+    grader_path.write_text("PASS = 1\n", encoding="utf-8")
+    files = {".claude/rules/index.md": b"Index."}
+    settings = {"model": "claude-opus-5-5", "max_turns": 6}
+    digest = run_digest(files, settings, [grader_path])
+
+    assert digest == run_digest(dict(files), dict(settings), [grader_path])
+    assert digest != run_digest({".claude/rules/index.md": b"Index!"}, settings, [grader_path])
+    assert digest != run_digest(files, {**settings, "max_turns": 3}, [grader_path])
+    grader_path.write_text("PASS = 2\n", encoding="utf-8")
+    assert digest != run_digest(files, settings, [grader_path])

@@ -1,5 +1,6 @@
 """Run one case as a fresh headless Claude Code session through the account broker."""
 
+import contextlib
 import hashlib
 import json
 import os
@@ -8,8 +9,9 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import IO
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,7 +25,7 @@ from session_eval_support.config.constants import (
     BROKER_SCRIPT,
     BROKER_WAIT_EXIT_CODE,
     DIGEST_LENGTH,
-    DIGEST_SEPARATOR,
+    DIGEST_LENGTH_PREFIX_SIZE,
     FAILURE_BROKER_WAIT,
     FAILURE_MODEL_MISMATCH,
     FAILURE_NO_RESULT,
@@ -34,6 +36,9 @@ from session_eval_support.config.constants import (
     NEWLINE,
     REPOSITORY_ROOT,
     RESULT_EVENT_TYPE,
+    RUN_KEY_GRADER_PREFIX,
+    RUN_KEY_INSTALL_PREFIX,
+    RUN_KEY_SETTINGS,
     SESSION_SETTING_SOURCES,
     STREAM_FILE_NAME,
     TEXT_BLOCK_TYPE,
@@ -78,20 +83,48 @@ def files_digest(bytes_by_target: Mapping[str, bytes]) -> str:
 
     ::
 
-        files_digest({".claude/rules/index.md": b"Index."}) -> "3f0c9a1b2d4e"
+        files_digest({".claude/rules/index.md": b"Index."}) -> "34db5a63f317"
 
     Args:
         bytes_by_target: Each workspace path mapped to the bytes installed there.
 
     Returns:
-        The first 12 hex digits of the digest. Each path and its bytes are
-        hashed apart, so moving or editing a file changes the digest.
+        The first 12 hex digits of the digest. Each path and its bytes go in
+        with their lengths first, so no two different file sets hash alike
+        by shifting bytes between fields.
     """
     digest = hashlib.sha256()
     for each_target, each_bytes in sorted(bytes_by_target.items()):
-        digest.update(each_target.encode("utf-8") + DIGEST_SEPARATOR)
-        digest.update(each_bytes + DIGEST_SEPARATOR)
+        for each_field in (each_target.encode("utf-8"), each_bytes):
+            digest.update(len(each_field).to_bytes(DIGEST_LENGTH_PREFIX_SIZE, "big"))
+            digest.update(each_field)
     return digest.hexdigest()[:DIGEST_LENGTH]
+
+
+def run_digest(
+    bytes_by_target: Mapping[str, bytes],
+    setting_by_name: Mapping[str, object],
+    all_grader_paths: Iterable[Path],
+) -> str:
+    """Return the digest that keys resumed rows to everything that shapes a score.
+
+    Args:
+        bytes_by_target: The files the workspace installs.
+        setting_by_name: The run's session settings, such as model and turn cap.
+        all_grader_paths: The source files that grade a session.
+
+    Returns:
+        The files_digest over the installed files, the settings as sorted
+        JSON, and each grader file's bytes, so a change to any of them starts
+        a fresh set of rows.
+    """
+    return files_digest(
+        {
+            **{RUN_KEY_INSTALL_PREFIX + each_target: each_bytes for each_target, each_bytes in bytes_by_target.items()},
+            RUN_KEY_SETTINGS: json.dumps(setting_by_name, sort_keys=True).encode("utf-8"),
+            **{RUN_KEY_GRADER_PREFIX + each_path.name: each_path.read_bytes() for each_path in all_grader_paths},
+        }
+    )
 
 
 def installed_files(all_installs: list[tuple[str, str]]) -> dict[str, bytes]:
@@ -220,30 +253,39 @@ def _read_broker_report(report_path: Path) -> dict[str, object]:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def _kill_tree(process: subprocess.Popen[bytes]) -> None:
+def _stop_group(process: subprocess.Popen[bytes]) -> None:
     if sys.platform == WINDOWS_PLATFORM:
         subprocess.run(
             (*ALL_TREE_KILL_WORDS, str(process.pid)), capture_output=True, check=False
         )
     else:
-        os.killpg(process.pid, signal.SIGKILL)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
     process.wait()
 
 
-def _start_process_group(
+def _write_input(process: subprocess.Popen[bytes], input_bytes: bytes) -> None:
+    with contextlib.suppress(OSError):
+        process.stdin.write(input_bytes)
+        process.stdin.close()
+
+
+def _start_with_input(
     all_command_words: list[str],
     working_directory: Path,
     capture_file: IO[bytes] | IO[str],
-    has_input: bool,
+    input_bytes: bytes,
 ) -> subprocess.Popen[bytes]:
-    return subprocess.Popen(
+    process = subprocess.Popen(
         all_command_words,
         cwd=working_directory,
-        stdin=subprocess.PIPE if has_input else subprocess.DEVNULL,
+        stdin=subprocess.PIPE,
         stdout=capture_file,
         stderr=subprocess.DEVNULL,
         start_new_session=sys.platform != WINDOWS_PLATFORM,
     )
+    threading.Thread(target=_write_input, args=(process, input_bytes), daemon=True).start()
+    return process
 
 
 def run_until_timeout(
@@ -251,42 +293,31 @@ def run_until_timeout(
     working_directory: Path,
     capture_file: IO[bytes] | IO[str],
     timeout_seconds: int,
-    input_bytes: bytes | None,
+    input_bytes: bytes,
 ) -> int | None:
-    """Run a command, and on timeout stop it with every process it started.
+    """Run a command with input on standard input, then stop what it started.
+
+    ::
+
+        ignores 10 MB of input, timeout 2s    -> None after about 2s
+        leaves a background child and exits   -> 0, the child stopped
 
     Args:
         all_command_words: The command and its arguments.
         working_directory: The command's working directory.
         capture_file: Where standard output goes.
         timeout_seconds: The wall-clock ceiling.
-        input_bytes: Standard input, or None for none.
+        input_bytes: Standard input, written from its own thread.
 
     Returns:
         The exit code, or None when the command timed out.
     """
-    process = _start_process_group(
-        all_command_words, working_directory, capture_file, input_bytes is not None
-    )
-    try:
-        process.communicate(input=input_bytes, timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
-        _kill_tree(process)
-        return None
-    return process.returncode
-
-
-def _run_command(
-    all_command_words: list[str],
-    workspace: Path,
-    stream_path: Path,
-    timeout_seconds: int,
-    prompt_bytes: bytes,
-) -> int | None:
-    with stream_path.open("w", encoding="utf-8") as stream_file:
-        return run_until_timeout(
-            all_command_words, workspace, stream_file, timeout_seconds, prompt_bytes
-        )
+    process = _start_with_input(all_command_words, working_directory, capture_file, input_bytes)
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        process.wait(timeout=timeout_seconds)
+    exit_code = process.returncode
+    _stop_group(process)
+    return exit_code
 
 
 def _run_in_capture(
@@ -301,13 +332,14 @@ def _run_in_capture(
         capture_directory / BROKER_REPORT_FILE_NAME, session_words(settings)
     )
     started = time.monotonic()
-    exit_code = _run_command(
-        all_command_words,
-        workspace,
-        stream_path,
-        settings.timeout_seconds,
-        prompt.encode("utf-8"),
-    )
+    with stream_path.open("wb") as stream_file:
+        exit_code = run_until_timeout(
+            all_command_words,
+            workspace,
+            stream_file,
+            settings.timeout_seconds,
+            prompt.encode("utf-8"),
+        )
     latency_seconds = time.monotonic() - started
     return SessionRun(
         _read_events(stream_path),

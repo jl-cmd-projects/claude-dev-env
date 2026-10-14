@@ -1,5 +1,6 @@
 """Ask a second model whether a session followed its case's rule."""
 
+import bisect
 import json
 import tempfile
 from pathlib import Path
@@ -14,27 +15,37 @@ from rules_eval_support.config.constants import (
     JUDGE_TIMEOUT_SECONDS,
     JUDGE_TRANSCRIPT_CHARACTER_LIMIT,
     JUDGE_WORK_DIRECTORY_NAME,
+    TRIM_MARKER_ROLE,
+    TRIM_MARKER_TEMPLATE,
     OBJECT_START,
 )
 from session_eval_support.config.constants import JSON_INDENT, SESSION_SETTING_SOURCES
 from session_eval_support.session import run_until_timeout
 
 
+def _transcript_without(all_turns: list[dict[str, str]], dropped_count: int) -> str:
+    if dropped_count == 0:
+        return json.dumps(all_turns, indent=JSON_INDENT)
+    marker_turn = {"role": TRIM_MARKER_ROLE, "content": TRIM_MARKER_TEMPLATE.format(count=dropped_count)}
+    return json.dumps([all_turns[0], marker_turn, *all_turns[1 + dropped_count :]], indent=JSON_INDENT)
+
+
 def _transcript_within_limit(all_turns: list[dict[str, str]]) -> str:
-    all_kept = list(all_turns)
-    transcript = json.dumps(all_kept, indent=JSON_INDENT)
-    while len(transcript) > JUDGE_TRANSCRIPT_CHARACTER_LIMIT and len(all_kept) > 1:
-        del all_kept[1]
-        transcript = json.dumps(all_kept, indent=JSON_INDENT)
-    return transcript
+    def fits(dropped_count: int) -> bool:
+        return len(_transcript_without(all_turns, dropped_count)) <= JUDGE_TRANSCRIPT_CHARACTER_LIMIT
+
+    most_droppable = len(all_turns) - 1
+    fewest_dropped = bisect.bisect_left(range(most_droppable), True, key=fits)
+    return _transcript_without(all_turns, fewest_dropped)
 
 
 def judge_prompt(prompt: str, rubric: str, all_turns: list[dict[str, str]]) -> str:
     """Return the judge's ask for one session, with the transcript cut to its limit.
 
     The transcript stays valid JSON. The first turn, the user's ask, always
-    stays. Whole turns after it drop, oldest first, until the JSON fits the
-    limit or only the ask is left, so an ask longer than the limit goes whole.
+    stays. The fewest whole turns after it drop, oldest first, for the JSON
+    to fit the limit, and a note turn after the ask says how many dropped.
+    An ask longer than the limit goes whole.
 
     Args:
         prompt: The case's ask.
