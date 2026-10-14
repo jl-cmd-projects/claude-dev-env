@@ -42,8 +42,10 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
     ``Path.home()`` reads ``HOME`` on POSIX and ``USERPROFILE`` on Windows, so
     redirecting both keeps call-time home lookups, such as
-    ``broker_state_path``, off the user's home directory. A value built from
-    ``Path.home()`` at import time keeps the user's home.
+    ``broker_state_path``, off the user's home directory. The account and
+    profile root variables that take precedence over ``Path.home()`` are
+    cleared, so those lookups fall back to the per-test home. A value built
+    from ``Path.home()`` at import time keeps the user's home.
 
     Returns:
         The per-test home directory.
@@ -51,6 +53,8 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     isolated_home_directory = tmp_path / "home"
     monkeypatch.setenv("HOME", str(isolated_home_directory))
     monkeypatch.setenv("USERPROFILE", str(isolated_home_directory))
+    for each_home_override in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "CODEX_ACCOUNT_PROFILES", "LLM_SETTINGS_PROFILES_ROOT"):
+        monkeypatch.delenv(each_home_override, raising=False)
     return isolated_home_directory
 
 

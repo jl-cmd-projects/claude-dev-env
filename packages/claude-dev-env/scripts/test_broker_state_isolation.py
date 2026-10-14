@@ -37,6 +37,7 @@ def test_meter_cache_write_lands_in_the_isolated_home(
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     assert Path.home().is_relative_to(tmp_path)
+    assert isolated_broker_state_path.is_relative_to(tmp_path)
     assert account_broker.broker_state_path() == isolated_broker_state_path
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
