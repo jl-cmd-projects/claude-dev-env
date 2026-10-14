@@ -19,9 +19,6 @@ The agent gets the `Read`, `Grep`, and `Glob` tools. Three prompts ask about the
 
 | Name | Settings |
 |---|---|
-| A | `chat_reply_gate.py` on UserPromptSubmit and Stop, cap 3 |
-| B | A with `MAXIMUM_REWRITES_PER_TURN = 1` |
-| C | A, and the Stop block reason carries a draft from a headless Haiku helper |
 | D | A stronger UserPromptSubmit reminder with the full rule list, no Stop block |
 | E | Baseline reminder plus a MessageDisplay hook, no Stop block |
 | F | D's reminder plus E's MessageDisplay hook |

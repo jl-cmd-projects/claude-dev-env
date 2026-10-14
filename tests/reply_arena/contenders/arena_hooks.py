@@ -5,8 +5,6 @@ Run as ``arena_hooks.py <role>``. Each role reads one hook payload on stdin::
 
     display-log     MessageDisplay   record the text as shown, change nothing
     display-gate    MessageDisplay   show a passing reply as is, a failing one as a helper draft
-    capped-gate     UserPromptSubmit, Stop   chat_reply_gate with the cap from ARENA_REWRITE_CAP
-    drafting-gate   UserPromptSubmit, Stop   chat_reply_gate whose block reason carries a helper draft
     strong-reminder UserPromptSubmit full rule list, no Stop block
     seen-reminder   UserPromptSubmit baseline reminder plus the condensed text the user last saw
 
@@ -28,7 +26,6 @@ for each_path in (contenders_directory, hooks_directory, hooks_directory / "bloc
     if str(each_path) not in sys.path:
         sys.path.insert(0, str(each_path))
 
-import chat_reply_gate
 from hooks_constants.chat_reply_gate_constants import REPLY_LIMIT_REMINDER
 from hooks_constants.reply_length_gate_constants import (
     MAXIMUM_SENTENCE_COUNT,
@@ -42,14 +39,9 @@ from reply_drafter import (
 from reply_length_gate import reply_violation
 
 DISPLAY_LOG_FILE_NAME = "display.jsonl"
-REWRITE_CAP_ENV_VAR = "ARENA_REWRITE_CAP"
 BUFFER_FILE_PREFIX = "claude-chat-reply-display-"
 SEEN_FILE_PREFIX = "claude-chat-reply-seen-"
 TEXT_FILE_SUFFIX = ".txt"
-DRAFT_INSTRUCTION = (
-    " A rewrite that passes is below. Send it as your whole reply, word for word,"
-    " unless a fact in it is wrong. Then fix only that fact.\n\n"
-)
 STRONG_REMINDER = (
     f"Your reply to the user is final and gets no second pass. Keep it to {MAXIMUM_SENTENCE_COUNT}"
     f" sentences or fewer, each {MAXIMUM_WORDS_PER_SENTENCE} words or fewer."
@@ -152,34 +144,6 @@ def run_display_gate(payload: dict[str, object]) -> int:
     return 0
 
 
-def run_capped_gate() -> int:
-    """Run chat_reply_gate with its rewrite cap taken from ARENA_REWRITE_CAP."""
-    chat_reply_gate.MAXIMUM_REWRITES_PER_TURN = int(
-        os.environ.get(REWRITE_CAP_ENV_VAR, "3")
-    )
-    return chat_reply_gate.main()
-
-
-def run_drafting_gate(payload: dict[str, object]) -> int:
-    """Run chat_reply_gate, and on a Stop block hand the agent a passing draft."""
-    if payload.get("hook_event_name") != "Stop":
-        chat_reply_gate.write_rewrite_count(
-            chat_reply_gate.rewrite_count_path(payload.get("session_id")), 0
-        )
-        chat_reply_gate.write_reply_limit_reminder()
-        return 0
-    block_reason = chat_reply_gate.stop_block_reason(payload)
-    if block_reason is None:
-        return 0
-    reply_text = str(payload.get("last_assistant_message") or "")
-    violation = reply_violation(reply_text, None, None) or ""
-    draft_text = draft_compliant_reply(reply_text, violation)
-    if draft_text is not None:
-        block_reason = violation + DRAFT_INSTRUCTION + draft_text
-    sys.stderr.write(block_reason)
-    return 2
-
-
 def run_seen_reminder(payload: dict[str, object]) -> int:
     """Print the baseline reminder plus the condensed text the user saw last turn."""
     seen_path = session_text_path(SEEN_FILE_PREFIX, payload.get("session_id"))
@@ -195,15 +159,11 @@ def main() -> int:
     if os.environ.get(DRAFTER_GUARD_ENV_VAR):
         return 0
     role = sys.argv[1] if len(sys.argv) > 1 else ""
-    if role == "capped-gate":
-        return run_capped_gate()
     payload = read_payload()
     if role == "display-log":
         return run_display_log(payload)
     if role == "display-gate":
         return run_display_gate(payload)
-    if role == "drafting-gate":
-        return run_drafting_gate(payload)
     if role == "strong-reminder":
         write_prompt_context(STRONG_REMINDER)
         return 0

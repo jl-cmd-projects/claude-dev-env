@@ -51,6 +51,7 @@ from hooks_constants.chat_reply_gate_constants import (
     DRAFTER_GUARD_ENV_VAR,
     DRAFTER_MODEL_ENV_VAR,
     DRAFTER_REQUEST_TEMPLATE,
+    DRAFTER_ERROR_KEY,
     DRAFTER_RESULT_KEY,
     DRAFTER_RULES,
     DRAFTER_TIMEOUT_SECONDS,
@@ -145,8 +146,11 @@ def ask_drafter(reply_text: str, violation: str) -> str | None:
             env=drafter_environment(),
             check=False,
         )
-        draft_text = json.loads(completed.stdout).get(DRAFTER_RESULT_KEY)
+        drafter_output = json.loads(completed.stdout)
+        draft_text = drafter_output.get(DRAFTER_RESULT_KEY)
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, AttributeError):
+        return None
+    if drafter_output.get(DRAFTER_ERROR_KEY) is True:
         return None
     if not isinstance(draft_text, str) or not draft_text.strip():
         return None
@@ -169,7 +173,10 @@ def compliant_draft(reply_text: str, violation: str) -> str | None:
 
 def shown_text(all_hook_input: dict[str, object]) -> str | None:
     """Return the text to show for this batch, or None to show the batch as it is."""
-    held_path = state_file_path(HELD_TEXT_FILE_PREFIX, all_hook_input.get(MESSAGE_ID_KEY))
+    message_id = all_hook_input.get(MESSAGE_ID_KEY)
+    if not isinstance(message_id, str) or not message_id:
+        return None
+    held_path = state_file_path(HELD_TEXT_FILE_PREFIX, message_id)
     held_text = read_state_text(held_path)
     message_text = held_text + str(all_hook_input.get(DELTA_KEY) or "")
     if not all_hook_input.get(FINAL_KEY):

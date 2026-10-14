@@ -80,21 +80,6 @@ def contender_settings() -> dict[str, dict[str, object]]:
     display_log = event(arena_hook("display-log"))
     display_gate = event(arena_hook("display-gate", DISPLAY_TIMEOUT_SECONDS))
     return {
-        "A": {
-            "UserPromptSubmit": event(baseline_gate),
-            "Stop": event(baseline_gate),
-            "MessageDisplay": display_log,
-        },
-        "B": {
-            "UserPromptSubmit": event(arena_hook("capped-gate")),
-            "Stop": event(arena_hook("capped-gate")),
-            "MessageDisplay": display_log,
-        },
-        "C": {
-            "UserPromptSubmit": event(arena_hook("drafting-gate")),
-            "Stop": event(arena_hook("drafting-gate", STOP_TIMEOUT_SECONDS)),
-            "MessageDisplay": display_log,
-        },
         "D": {
             "UserPromptSubmit": event(arena_hook("strong-reminder")),
             "MessageDisplay": display_log,
@@ -164,7 +149,6 @@ def run_one(
     }
     environment["CLAUDE_CONFIG_DIR"] = str(config_directory)
     environment["ARENA_RUN_DIR"] = str(run_directory)
-    environment["ARENA_REWRITE_CAP"] = "1"
     command = [
         "claude",
         "-p",

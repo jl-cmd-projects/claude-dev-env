@@ -182,6 +182,24 @@ def test_ask_drafter_should_read_the_result_field(monkeypatch: pytest.MonkeyPatc
     assert all_commands[0][:4] == ["claude", "-p", "--model", "haiku"]
 
 
+def test_ask_drafter_should_return_none_for_an_error_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FailedDrafter:
+        stdout = json.dumps({"is_error": True, "result": "Credit balance is too low"})
+
+    monkeypatch.setattr(chat_reply_gate.subprocess, "run", lambda *_args, **_kwargs: FailedDrafter())
+    assert chat_reply_gate.ask_drafter(FOUR_SENTENCE_REPLY, "too long") is None
+
+
+def test_should_show_a_batch_without_a_message_id_as_it_is(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: pytest.fail("drafter called"))
+    batch_input = {**display_input("PR one merged. PR two", is_final=False), "message_id": None}
+    exit_code, hook_output = run_hook(monkeypatch, capsys, batch_input)
+    assert exit_code == 0
+    assert hook_output is None
+
+
 def test_drafter_environment_should_carry_the_guard(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent")
     environment = chat_reply_gate.drafter_environment()
