@@ -16,6 +16,7 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
+from codex_account_meters import CodexAccountMeters, UsageWindow
 
 
 def test_should_load_claude_roster_from_both_lists(
@@ -184,16 +185,24 @@ def test_should_read_claude_meters_through_injected_probe(
 def test_should_read_codex_meters_through_injected_reader(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    short = SimpleNamespace(duration_minutes=300, used_percent=20.0, resets_at=None)
-    weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(short, weekly), short_window_percent_left=80.0)
+    short_reset = datetime(2026, 10, 3, 5, tzinfo=timezone.utc)
+    unknown_length_reset = datetime(2026, 10, 9, tzinfo=timezone.utc)
+    usage = CodexAccountMeters(
+        (
+            UsageWindow(300, 20.0, short_reset),
+            UsageWindow(10080, 30.0, None),
+            UsageWindow(None, 50.0, unknown_length_reset),
+        )
+    )
     monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
     monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", lambda *_: usage)
 
     meters = support.read_codex_account_meters(Account(Product.CODEX, "one", tmp_path))
 
     assert meters.session_percent_left == 80.0
-    assert meters.weekly_percent_left == 70.0
+    assert meters.session_resets_at == short_reset
+    assert meters.weekly_percent_left == 50.0
+    assert meters.weekly_resets_at == unknown_length_reset
 
 
 def _codex_meter_reads(
@@ -261,8 +270,7 @@ def test_should_read_claude_meters_after_transient_failures_with_growing_delays(
 def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None)
+    usage = CodexAccountMeters((UsageWindow(10080, 30.0, None),))
     unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, unread, usage])
     all_delays = _recorded_sleeps(monkeypatch)
@@ -273,6 +281,24 @@ def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     assert reading.meters.weekly_percent_left == 70.0
     assert all_homes_read == [tmp_path, tmp_path, tmp_path]
     assert all_delays == [1.0, 2.0]
+
+
+def test_should_stop_at_once_when_no_codex_executable_is_found(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unpatched_resolve_codex_path = support.codex_account_meters.resolve_codex_path
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [])
+    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", unpatched_resolve_codex_path)
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    all_delays = _recorded_sleeps(monkeypatch)
+
+    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
+
+    assert reading.meters is None
+    assert reading.unread_reason == "no codex executable on PATH or at its install path"
+    assert all_homes_read == []
+    assert all_delays == []
 
 
 def test_should_keep_the_unread_reason_after_every_claude_read_fails(

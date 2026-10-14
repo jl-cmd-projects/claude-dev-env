@@ -174,26 +174,8 @@ EXIT_CODE_ROOM: int = 0
 EXIT_CODE_NO_ROOM: int = 3
 """Check answer: the account is at or below the floor, or its meter is unread."""
 
-REASON_NORMAL_TEMPLATE: str = "{account} has {percent_left:.0f}% left"
-"""Reason when an account takes the job at its normal model."""
-
-REASON_LUNA_TEMPLATE: str = (
-    "every account is at or under {bar:.0f}% left; {account} has"
-    " {percent_left:.0f}% and runs Luna until {stop:.0f}%"
-)
-"""Reason when the job falls back to Luna."""
-
-REASON_WAIT_TEMPLATE: str = "no account has room; {account} resets first, at {reset}"
-"""Reason when every account is out of room."""
-
-REASON_WAIT_UNREAD: str = "no account meter could be read"
-"""Reason when no account's meter reads at all."""
-
 UNREAD_NOT_SIGNED_IN: str = "not signed in"
 """Unread reason when the account's Codex home holds no sign-in."""
-
-UNKNOWN_RESET_TEXT: str = "an unknown time"
-"""Reset text when no blocking window carries a reset time."""
 
 TEXT_ENCODING: str = "utf-8"
 """Encoding for the server pipes and the JSON reports."""

@@ -32,7 +32,6 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     DENY_REASON,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
     GH_API_COMMAND,
-    GH_OPTIONS_WITH_VALUE,
     GH_PULL_REQUEST_COMMAND,
     GIT_ACTIONS,
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
@@ -49,6 +48,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
     SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
 )
+from hooks_constants.gh_command_words import gh_command_words
 from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
@@ -113,13 +113,12 @@ def _is_git_action(all_words: list[str]) -> bool:
 
 
 def _is_gh_action(all_words: list[str]) -> bool:
-    action, next_index = _next_command_word(all_words, 1, GH_OPTIONS_WITH_VALUE)
-    if action == GH_PULL_REQUEST_COMMAND:
-        subcommand, _ = _next_command_word(all_words, next_index, GH_OPTIONS_WITH_VALUE)
-        return subcommand is not None
-    if action != GH_API_COMMAND:
+    all_gh_words = gh_command_words(all_words[1:])
+    if all_gh_words[:1] == [GH_PULL_REQUEST_COMMAND]:
+        return len(all_gh_words) > 1
+    if all_gh_words[:1] != [GH_API_COMMAND]:
         return False
-    all_api_arguments = all_words[next_index:]
+    all_api_arguments = all_words[all_words.index(GH_API_COMMAND, 1) + 1 :]
     if any(each_name in each_word for each_word in all_api_arguments for each_name in ALL_API_ACTION_NAMES):
         return True
     return any(
