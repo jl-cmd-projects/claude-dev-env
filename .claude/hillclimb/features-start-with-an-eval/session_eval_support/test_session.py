@@ -137,3 +137,17 @@ def test_remove_directory_logs_a_directory_it_could_not_delete(
     remove_directory(directory)
 
     assert f"could not delete {directory}" in caplog.text
+
+
+def test_prepare_workspace_deletes_the_directory_when_setup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(
+        session, "ALL_GIT_INIT_COMMANDS", (("git", "not-a-git-command"),)
+    )
+
+    with pytest.raises(subprocess.CalledProcessError):
+        prepare_workspace([])
+
+    assert list(tmp_path.iterdir()) == []

@@ -11,6 +11,7 @@ from run import (
     _pending_runs,
     _read_rows,
     _run_one,
+    _selected_cases,
     _unscorable,
     _variant_summary,
 )
@@ -125,3 +126,34 @@ def test_variant_summary_counts_errors_only_for_the_selected_cases(
     )
 
     assert _variant_summary([{"id": "case-a"}], tmp_path).endswith("errors 1")
+
+
+def test_variant_summary_drops_errors_a_later_rerun_scored(tmp_path: Path) -> None:
+    (tmp_path / RESULTS_FILE_NAME).write_text(
+        json.dumps(
+            {
+                "prompt_id": "case-a",
+                "rep": 0,
+                "tags": ["feature", "build-eval"],
+                "grade": {"correct": 1},
+            }
+        )
+        + "\n"
+    )
+    (tmp_path / ERRORS_FILE_NAME).write_text(
+        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n"
+    )
+
+    assert _variant_summary([{"id": "case-a"}], tmp_path).endswith("errors 0")
+
+
+def test_selected_cases_rejects_an_unknown_case_id() -> None:
+    with pytest.raises(SystemExit, match="unknown case ids: f99"):
+        _selected_cases("f01,f99")
+
+
+def test_selected_cases_returns_the_named_cases() -> None:
+    assert [each_case["id"] for each_case in _selected_cases("n01,f01")] == [
+        "f01",
+        "n01",
+    ]

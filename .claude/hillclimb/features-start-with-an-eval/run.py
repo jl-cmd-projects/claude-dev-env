@@ -36,6 +36,7 @@ if hooks_directory not in sys.path:
 from session_eval_support.config.constants import (
     ALL_SCORABLE_SUBTYPES,
     BROKER_WAIT_EXIT_CODE,
+    CASE_ID_LIST_SEPARATOR,
     CASES_FILE,
     DEFAULT_EFFORT,
     DEFAULT_MAX_TURNS,
@@ -278,9 +279,15 @@ def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
 
 def _selected_cases(case_ids: str) -> list[dict[str, str]]:
     all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
+    all_cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
+    if all_unknown_ids:
+        raise SystemExit(
+            f"unknown case ids: {CASE_ID_LIST_SEPARATOR.join(sorted(all_unknown_ids))}"
+        )
     return [
         each_case
-        for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8"))
+        for each_case in all_cases
         if not all_wanted_ids or each_case["id"] in all_wanted_ids
     ]
 
@@ -307,9 +314,14 @@ def _variant_summary(all_cases: list[dict[str, str]], variant_directory: Path) -
         for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)
         if each_row["prompt_id"] in all_wanted
     ]
-    error_count = sum(
-        each_row["prompt_id"] in all_wanted
-        for each_row in _read_rows(variant_directory / ERRORS_FILE_NAME)
+    all_scored = {(each_row["prompt_id"], each_row["rep"]) for each_row in all_rows}
+    error_count = len(
+        {
+            (each_row["prompt_id"], each_row["rep"])
+            for each_row in _read_rows(variant_directory / ERRORS_FILE_NAME)
+            if each_row["prompt_id"] in all_wanted
+        }
+        - all_scored
     )
     return _summary_line(all_rows, error_count)
 

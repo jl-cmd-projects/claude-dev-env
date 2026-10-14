@@ -82,16 +82,23 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
         all_installs: Pairs of a repository path and the workspace path it goes to.
 
     Returns:
-        The workspace directory, committed on branch main.
+        The workspace directory, committed on branch main. A setup step that
+        fails deletes the directory before the error propagates.
     """
     workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
-    shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_source, each_target in all_installs:
-        target_path = workspace / each_target
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPOSITORY_ROOT / each_source, target_path)
-    for each_command in ALL_GIT_INIT_COMMANDS:
-        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
+    try:
+        shutil.copytree(FIXTURE_DIRECTORY, workspace, dirs_exist_ok=True)
+        for each_source, each_target in all_installs:
+            target_path = workspace / each_target
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPOSITORY_ROOT / each_source, target_path)
+        for each_command in ALL_GIT_INIT_COMMANDS:
+            subprocess.run(
+                each_command, cwd=workspace, check=True, capture_output=True
+            )
+    except (OSError, subprocess.CalledProcessError):
+        remove_directory(workspace)
+        raise
     return workspace
 
 
