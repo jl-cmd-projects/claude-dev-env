@@ -13,6 +13,7 @@ from session_eval_support.session import (
     final_event,
     installed_files_digest,
     prepare_workspace,
+    remove_directory,
     served_models,
     trace_turns,
 )
@@ -113,3 +114,26 @@ def test_trace_turns_lists_the_prompt_then_each_block_in_stream_order() -> None:
         "tool_call",
         "tool_result",
     ]
+
+
+def test_remove_directory_deletes_the_tree(tmp_path: Path) -> None:
+    directory = tmp_path / "workspace"
+    (directory / ".git").mkdir(parents=True)
+
+    remove_directory(directory)
+
+    assert not directory.exists()
+
+
+def test_remove_directory_logs_a_directory_it_could_not_delete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    directory = tmp_path / "workspace"
+    directory.mkdir()
+    monkeypatch.setattr(session, "force_rmtree", lambda target_path: None)
+
+    remove_directory(directory)
+
+    assert f"could not delete {directory}" in caplog.text

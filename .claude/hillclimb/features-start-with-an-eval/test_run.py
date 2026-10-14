@@ -77,6 +77,16 @@ def test_an_unreadable_results_line_is_logged_with_its_number(
     assert f"skipped unreadable line 2 of {results_path}" in caplog.text
 
 
+def test_blank_results_lines_are_skipped_without_a_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\n\n')
+
+    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
+    assert "skipped" not in caplog.text
+
+
 def test_run_one_deletes_the_workspace_when_the_session_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -177,7 +177,7 @@ jobs:
 
       - name: Enforce the root suite collect-count floor
         env:
-          ROOT_SUITE_COLLECT_FLOOR: "189"
+          ROOT_SUITE_COLLECT_FLOOR: "192"
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh

@@ -33,8 +33,6 @@ hooks_directory = str(
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from hooks_constants.windows_filesystem import force_rmtree
-
 from session_eval_support.config.constants import (
     ALL_SCORABLE_SUBTYPES,
     BROKER_WAIT_EXIT_CODE,
@@ -76,6 +74,7 @@ from session_eval_support.session import (
     final_event,
     installed_files_digest,
     prepare_workspace,
+    remove_directory,
     run_session,
     served_models,
     trace_turns,
@@ -105,6 +104,8 @@ def _read_rows(path: Path) -> list[dict[str, object]]:
     for each_number, each_line in enumerate(
         path.read_text(encoding="utf-8").splitlines(), start=1
     ):
+        if not each_line:
+            continue
         try:
             all_rows.append(json.loads(each_line))
         except json.JSONDecodeError:
@@ -242,7 +243,7 @@ def _run_one(
     try:
         session = run_session(workspace, case_by_field["prompt"], settings)
     finally:
-        force_rmtree(str(workspace))
+        remove_directory(workspace)
     failure = _unscorable(session, settings)
     if failure is not None:
         _append_line(

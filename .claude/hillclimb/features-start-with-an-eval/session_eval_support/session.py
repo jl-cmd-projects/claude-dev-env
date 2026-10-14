@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,9 @@ from session_eval_support.config.constants import (
     USER_EVENT_TYPE,
     WORKSPACE_PREFIX,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,17 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
     for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace
+
+
+def remove_directory(directory: Path) -> None:
+    """Delete a workspace or capture directory, and log one that stays behind.
+
+    Args:
+        directory: The directory to delete.
+    """
+    force_rmtree(str(directory))
+    if directory.exists():
+        logger.warning("could not delete %s", directory)
 
 
 def _read_events(stream_path: Path) -> list[dict[str, object]]:
@@ -199,7 +214,7 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
             _read_events(stream_path), latency_seconds, exit_code, broker_report
         )
     finally:
-        force_rmtree(str(capture_directory))
+        remove_directory(capture_directory)
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:
