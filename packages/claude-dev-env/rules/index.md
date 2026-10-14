@@ -1,5 +1,5 @@
 # Rules
-Each line gives a rule in brief. When its trigger matches your task, open the guide and follow it in full. Correction lens and question presentation load as their own files.
+Each line gives a rule in brief. When its trigger matches your task, open the guide and follow it in full. Correction lens, question presentation, and the agent board load as their own files.
 
 **Writing**
 - **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step, each fact said once.
@@ -25,9 +25,6 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 - **Pull request lifecycle**. Before a commit, push, pull request action, or merge. Invoke the `pr-lifecycle` skill; a hook denies those commands until it loads.
 - **Proof before a pull request** ([guide](../docs/rule-guides/proof-before-pull-request.md)). Before you open a pull request. Run the change with and without it, and quote both under "Proof in practice".
 - **Session title** ([guide](../docs/rule-guides/session-title.md)). The session has a tool whose name ends in `__set_session_title`. Set `<emoji> <name>` before each turn ends.
-
-**Coordination**
-- **Agent board** ([guide](../docs/rule-guides/agent-board.md)). `NTFY_SERVER` is set. Read `board-rules.md` in the agent-channels repository, take the project name from your project instructions or ask your coordinator, and post `joined: <project>` to `agentch-2` on first board use.
 
 **Memory**
 - **Durable facts only** ([guide](../docs/rule-guides/memory-stores-durable-facts.md)). Writing auto-memory or a `MEMORY.md` entry. Keep only a fact that helps a fresh session weeks later.
