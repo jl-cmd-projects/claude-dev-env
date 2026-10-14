@@ -2,8 +2,9 @@
  * Merge package-owned scalar setting defaults into a settings object.
  *
  * Every top-level key in the package settings.json other than the managed
- * lists (`permissions`) is a default. Install adds a default only when the
- * user settings lack that key, so a value the user already set stays as is.
+ * lists (`permissions`) is a default. Install adds a scalar default only when
+ * the user settings lack that key, so a value the user already set stays as
+ * is. The nested keys below merge field by field instead.
  *
  * A per-model key (`modelSettings`) merges one level deeper: install adds each
  * model entry, and each field inside an entry, that the user settings lack.
