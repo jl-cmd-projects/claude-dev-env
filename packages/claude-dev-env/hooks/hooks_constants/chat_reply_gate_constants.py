@@ -8,6 +8,7 @@ from hooks_constants.reply_length_gate_constants import (
 HOOK_EVENT_NAME_INPUT_KEY = "hook_event_name"
 STOP_EVENT_NAME = "Stop"
 USER_PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
+SESSION_END_EVENT_NAME = "SessionEnd"
 LAST_ASSISTANT_MESSAGE_KEY = "last_assistant_message"
 SESSION_ID_KEY = "session_id"
 MAXIMUM_REWRITES_PER_TURN = 3
@@ -15,7 +16,8 @@ REWRITE_COUNT_FILE_PREFIX = "claude-chat-reply-rewrites-"
 REWRITE_COUNT_FILE_SUFFIX = ".txt"
 REWRITE_COUNT_ENCODING = "utf-8"
 REWRITE_INSTRUCTION = (
-    " Rewrite the reply in plain words, like one person talking to another, and send it again."
+    " Rewrite the reply in plain words, like one person talking to another,"
+    " and write it out again as plain chat text."
     " Cut detail the user did not ask for."
 )
 REPLY_LIMIT_REMINDER = (

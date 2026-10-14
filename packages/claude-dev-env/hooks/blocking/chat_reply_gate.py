@@ -9,6 +9,7 @@ the same checks on it::
     Stop, last reply within the limit        -> allow
     Stop, last reply over the limit          -> block, reason sent back for a rewrite
     Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
+    SessionEnd                               -> delete the rewrite count file
 
 The rewrite count lives in one temp file per session, and each user
 prompt sets it back to zero.
@@ -43,6 +44,7 @@ from hooks_constants.chat_reply_gate_constants import (
     REWRITE_COUNT_FILE_PREFIX,
     REWRITE_COUNT_FILE_SUFFIX,
     REWRITE_INSTRUCTION,
+    SESSION_END_EVENT_NAME,
     SESSION_ID_KEY,
     STOP_EVENT_NAME,
     USER_PROMPT_SUBMIT_EVENT_NAME,
@@ -83,6 +85,14 @@ def write_rewrite_count(count_path: Path, rewrite_count: int) -> None:
         return
 
 
+def delete_rewrite_count(count_path: Path) -> None:
+    """Remove the session's rewrite count file; a failed delete leaves the session unaffected."""
+    try:
+        count_path.unlink(missing_ok=True)
+    except OSError:
+        return
+
+
 def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     """Return the rewrite reason for the turn's last reply, or None when it passes."""
     reply_text = all_hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)
@@ -116,6 +126,9 @@ def main() -> int:
     if event_name == USER_PROMPT_SUBMIT_EVENT_NAME:
         write_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)), 0)
         write_reply_limit_reminder()
+        return ALLOW_EXIT_CODE
+    if event_name == SESSION_END_EVENT_NAME:
+        delete_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)))
         return ALLOW_EXIT_CODE
     if event_name != STOP_EVENT_NAME:
         return ALLOW_EXIT_CODE

@@ -124,6 +124,31 @@ def test_write_rewrite_count_should_store_the_count(tmp_path: Path) -> None:
     assert chat_reply_gate.read_rewrite_count(count_path) == 2
 
 
+def test_delete_rewrite_count_should_remove_the_file(tmp_path: Path) -> None:
+    count_path = tmp_path / "count.txt"
+    chat_reply_gate.write_rewrite_count(count_path, 2)
+    chat_reply_gate.delete_rewrite_count(count_path)
+    assert not count_path.exists()
+
+
+def test_should_delete_the_rewrite_count_at_session_end(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stop_input = {
+        "hook_event_name": "Stop",
+        "session_id": "abc",
+        "last_assistant_message": FOUR_SENTENCE_REPLY,
+    }
+    run_hook(monkeypatch, capsys, stop_input)
+    count_path = chat_reply_gate.rewrite_count_path("abc")
+    assert count_path.exists()
+    exit_code, _, _ = run_hook(
+        monkeypatch, capsys, {"hook_event_name": "SessionEnd", "session_id": "abc"}
+    )
+    assert exit_code == 0
+    assert not count_path.exists()
+
+
 def test_write_reply_limit_reminder_should_print_additional_context(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
