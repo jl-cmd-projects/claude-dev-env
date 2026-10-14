@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/blocking/chat_reply_gate.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "95bcb2b111db96076f1ebd7c87f6effcc391a4a3"
+}
