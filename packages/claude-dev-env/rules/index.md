@@ -26,5 +26,8 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 - **Proof before a pull request** ([guide](../docs/rule-guides/proof-before-pull-request.md)). Before you open a pull request. Run the change with and without it, and quote both under "Proof in practice".
 - **Session title** ([guide](../docs/rule-guides/session-title.md)). The session has a tool whose name ends in `__set_session_title`. Set `<emoji> <name>` before each turn ends.
 
+**Coordination**
+- **Agent board** ([guide](../docs/rule-guides/agent-board.md)). `NTFY_SERVER` is set. Read `board-rules.md` in the agent-channels repository, take the project name from your project instructions or ask your coordinator, and post `joined: <project>` to `agentch-2` on first board use.
+
 **Memory**
 - **Durable facts only** ([guide](../docs/rule-guides/memory-stores-durable-facts.md)). Writing auto-memory or a `MEMORY.md` entry. Keep only a fact that helps a fresh session weeks later.
