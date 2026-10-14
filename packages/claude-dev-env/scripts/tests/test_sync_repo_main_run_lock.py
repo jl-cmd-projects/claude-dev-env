@@ -8,10 +8,8 @@ import subprocess
 import time
 from pathlib import Path
 
-import pytest
-
 _SCRIPT_PATH = Path(__file__).resolve().parents[1] / "Sync-RepoMain.ps1"
-_PWSH = shutil.which("pwsh")
+_PWSH = shutil.which("pwsh") or "pwsh"
 _SKIPPED_EXIT_CODE = 3
 _SUCCESS_EXIT_CODE = 0
 _LOCK_READY_TIMEOUT_SECONDS = 20
@@ -83,7 +81,6 @@ def _run_sync(mirror_path: Path, log_path: Path) -> int:
     return completed.returncode
 
 
-@pytest.mark.skipif(_PWSH is None, reason="pwsh is not installed")
 def test_should_skip_without_fetching_while_another_run_holds_the_lock(
     tmp_path: Path,
 ) -> None:
