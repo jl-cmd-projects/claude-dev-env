@@ -37,20 +37,30 @@ for each_import_directory in (
 
 
 @pytest.fixture(autouse=True)
-def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point the home directory at a per-test folder.
+def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Point the home directory at a per-test folder for every test here.
 
-    ``broker_state_path`` builds its path from ``Path.home()``, which reads
-    ``HOME`` on POSIX and ``USERPROFILE`` on Windows. Redirecting both keeps
-    every bound copy of the resolver off the user's home directory. A value
-    built from ``Path.home()`` at import time keeps the user's home.
+    ``Path.home()`` reads ``HOME`` on POSIX and ``USERPROFILE`` on Windows, so
+    redirecting both keeps call-time home lookups, such as
+    ``broker_state_path``, off the user's home directory. A value built from
+    ``Path.home()`` at import time keeps the user's home.
+
+    Returns:
+        The per-test home directory.
+    """
+    isolated_home_directory = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(isolated_home_directory))
+    monkeypatch.setenv("USERPROFILE", str(isolated_home_directory))
+    return isolated_home_directory
+
+
+@pytest.fixture
+def isolated_broker_state_path(isolated_home: Path) -> Path:
+    """Return the broker state path that resolves under the per-test home.
 
     Returns:
         The isolated broker state path for this test.
     """
-    isolated_home = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(isolated_home))
-    monkeypatch.setenv("USERPROFILE", str(isolated_home))
     return importlib.import_module("account_broker_support").broker_state_path()
 
 
