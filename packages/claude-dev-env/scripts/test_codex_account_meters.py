@@ -31,7 +31,7 @@ def reply_line(rate_limits: object) -> str:
 
 
 class TestParseRateLimitsReply:
-    def should_measure_room_by_the_tightest_window(self) -> None:
+    def should_read_every_window(self) -> None:
         meters = parse_rate_limits_reply(
             reply_line(
                 {
@@ -48,7 +48,7 @@ class TestParseRateLimitsReply:
                 }
             )
         )
-        assert meters.percent_left == 15.0
+        assert [each.used_percent for each in meters.all_windows] == [30.0, 85.0]
         assert [each.duration_minutes for each in meters.all_windows] == [300, 10080]
         assert meters.all_windows[0].resets_at == datetime.fromtimestamp(
             RESET_SECONDS, tz=timezone.utc
@@ -63,11 +63,11 @@ class TestParseRateLimitsReply:
                 }
             )
         )
-        assert meters.percent_left == 60.0
+        assert [each.used_percent for each in meters.all_windows] == [40.0]
 
     def should_clamp_used_percent_past_full(self) -> None:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 130}}))
-        assert meters.percent_left == 0.0
+        assert [each.used_percent for each in meters.all_windows] == [100.0]
 
     @pytest.mark.parametrize(
         "line",
@@ -131,7 +131,7 @@ class TestReadCodexMeters:
             ]
 
         meters = read_codex_meters(Path("codex"), Path("profiles") / "codex-1", fake_exchange)
-        assert meters.percent_left == 80.0
+        assert [each.used_percent for each in meters.all_windows] == [20.0]
         assert all_calls == [
             (
                 Path("codex"),
@@ -205,7 +205,7 @@ class TestExchangeWithAppServer:
 
         meters = read_codex_meters(fake_codex, tmp_path / "codex-2", exchange_with_app_server)
 
-        assert meters.percent_left == 88.0
+        assert [each.used_percent for each in meters.all_windows] == [12.0]
 
 
 class TestRequestMessages:

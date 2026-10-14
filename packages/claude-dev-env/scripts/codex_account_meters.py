@@ -3,7 +3,8 @@
 
 Codex reports usage through ``codex app-server`` and the JSON-RPC method
 ``account/rateLimits/read``. The reply names up to two windows, a short one
-(5 hours) and a weekly one. The account's room is the smaller of the two::
+(5 hours) and a weekly one. The account broker counts the account's room as
+the smaller of the two::
 
     5-hour window 30% used, week 85% used  -> 15% left
     week window only, 40% used             -> 60% left
@@ -91,15 +92,9 @@ class UsageWindow:
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows, with percent_left and short_window_percent_left."""
+    """One account's windows, with short_window_percent_left."""
 
     all_windows: tuple[UsageWindow, ...]
-
-    @property
-    def percent_left(self) -> float:
-        """Room left in the tightest window, from 0 to 100."""
-        most_used = max(each_window.used_percent for each_window in self.all_windows)
-        return max(0.0, FULL_PERCENT - most_used)
 
     @property
     def short_window_percent_left(self) -> float | None:

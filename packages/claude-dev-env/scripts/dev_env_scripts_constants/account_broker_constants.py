@@ -222,16 +222,16 @@ class ProductAdapter:
     usage_limit_signatures: tuple[str, ...]
 
 
+def _is_at_or_under(room: float | None, floor: float) -> bool:
+    return room is not None and room <= floor
+
+
 def _claude_extra_tier(meters: Meters | None) -> str | None:
     if meters is None or meters.tightest_percent_left is None:
         return None
-    if (
-        meters.weekly_percent_left is not None
-        and meters.weekly_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]
-    ) or (
-        meters.session_percent_left is not None
-        and meters.session_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]
-    ):
+    if _is_at_or_under(
+        meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]
+    ) or _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]):
         return None
     return "normal"
 
@@ -282,10 +282,6 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
     return max(all_known_resets, default=None)
 
 
-def _is_at_or_under(room: float | None, floor: float) -> bool:
-    return room is not None and room <= floor
-
-
 def _rank_key(reading: Reading) -> tuple[bool, int, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
     priority = reading.account.priority
@@ -297,8 +293,8 @@ def _main_has_room(meters: Meters | None) -> bool:
         meters is not None
         and meters.session_percent_left is not None
         and meters.weekly_percent_left is not None
-        and meters.session_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]
-        and meters.weekly_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]
+        and not _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"])
+        and not _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"])
     )
 
 
