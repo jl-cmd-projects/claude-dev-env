@@ -9,7 +9,7 @@ def test_plugin_state_declares_compacted_windows() -> None:
         cwd=root,
         capture_output=True,
         text=True,
-        check=True,
     )
+    assert plugin_validation_run.returncode == 0, plugin_validation_run.stderr
 
     assert "types ./types/index.d.ts declares state: usage-wrapup.compacted" in plugin_validation_run.stdout

@@ -17,7 +17,6 @@ def test_entry_point_registers_both_hook_groups() -> None:
         cwd=root,
         capture_output=True,
         text=True,
-        check=False,
         shell=os.name == "nt",
     )
     assert registration_run.returncode == 0, registration_run.stderr

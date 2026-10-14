@@ -20,7 +20,6 @@ def test_lowest_selects_the_window_below_the_threshold() -> None:
         cwd=root,
         capture_output=True,
         text=True,
-        check=False,
         shell=os.name == "nt",
     )
     assert selection_run.returncode == 0, selection_run.stderr
