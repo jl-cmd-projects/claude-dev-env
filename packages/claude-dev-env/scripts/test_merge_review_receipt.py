@@ -11,6 +11,7 @@ import pytest
 import merge_review_receipt
 
 HEAD = "abc1234def5678abc1234def5678abc1234def56"
+RULINGS_LINK = "https://github.com/acme/tools/pull/12#issuecomment-1"
 
 
 @pytest.fixture(autouse=True)
@@ -36,3 +37,46 @@ def test_record_review_replaces_the_previous_pass(receipt_folder: Path) -> None:
     path = merge_review_receipt.record_review("Acme/Tools", 12, HEAD, 0)
     assert path == receipt_folder / "acme__tools__12.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD, "findings": 0}
+
+
+def test_should_print_clean_when_every_finding_is_ruled_out_with_a_link() -> None:
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--ruled-out", "2", "--rulings", RULINGS_LINK],
+        verdict_stream,
+    )
+    assert exit_code == 0
+    assert verdict_stream.getvalue() == (
+        f"CLEAN acme/tools#12 {HEAD} (2 findings ruled out: {RULINGS_LINK})\n"
+    )
+
+
+def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
+    receipt_folder: Path,
+) -> None:
+    path = merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, 2, RULINGS_LINK)
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "head": HEAD,
+        "findings": 2,
+        "ruled_out": 2,
+        "rulings": RULINGS_LINK,
+    }
+
+
+def test_should_report_reviewed_when_some_findings_stay_open() -> None:
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "3", "--ruled-out", "2", "--rulings", RULINGS_LINK],
+        verdict_stream,
+    )
+    assert exit_code == 1
+    assert verdict_stream.getvalue() == f"REVIEWED acme/tools#12 {HEAD} 3 findings\n"
+
+
+@pytest.mark.parametrize(
+    "extra_arguments",
+    [["--ruled-out", "2"], ["--ruled-out", "4", "--rulings", RULINGS_LINK], ["--ruled-out", "-1"]],
+)
+def test_should_refuse_a_ruled_out_count_it_cannot_back(extra_arguments: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(["acme/tools", "12", HEAD, "3", *extra_arguments], StringIO())

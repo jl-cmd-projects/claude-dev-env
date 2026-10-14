@@ -16,6 +16,7 @@ from blocking import merge_review_gate as gate
 
 CLEAN_HEAD = "abc1234def5678abc1234def5678abc1234def56"
 NEW_HEAD = "9999999aaaaaaa9999999aaaaaaa9999999aaaaa"
+RULINGS_LINK = "https://github.com/acme/tools/pull/12#issuecomment-1"
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +57,37 @@ def test_should_deny_a_merge_whose_last_pass_found_findings() -> None:
 def test_should_allow_a_merge_pinned_to_the_clean_head() -> None:
     merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
     assert _reason(_merge_tool(CLEAN_HEAD)) is None
+
+
+def test_should_allow_a_merge_whose_findings_are_all_ruled_out_with_a_link() -> None:
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, 2, RULINGS_LINK)
+    assert _reason(_merge_tool(CLEAN_HEAD)) is None
+
+
+def test_should_deny_a_merge_with_a_finding_left_open() -> None:
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 3, 2, RULINGS_LINK)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [
+        {"head": CLEAN_HEAD, "findings": 2, "ruled_out": 2},
+        {"head": CLEAN_HEAD, "findings": 2, "ruled_out": 2, "rulings": "  "},
+        {"head": CLEAN_HEAD, "findings": True},
+        {"head": CLEAN_HEAD, "findings": "0"},
+    ],
+)
+def test_is_clean_receipt_should_reject_a_receipt_it_cannot_back(receipt: dict[str, object]) -> None:
+    assert gate.is_clean_receipt(receipt) is False
+
+
+def test_is_clean_receipt_should_accept_zero_findings() -> None:
+    assert gate.is_clean_receipt({"head": CLEAN_HEAD, "findings": 0}) is True
+
+
+def test_should_name_the_ruled_out_route_in_the_deny_reason() -> None:
+    assert "--ruled-out" in _reason(_merge_tool(CLEAN_HEAD))
 
 
 def test_should_deny_a_merge_pinned_to_a_head_pushed_after_the_review() -> None:
