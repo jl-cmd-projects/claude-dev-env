@@ -77,3 +77,13 @@ def test_read_git_decodes_utf8_rule_text_under_an_ascii_locale() -> None:
 
     assert completed.returncode == 0, completed.stderr
     assert "\\xa7" in completed.stdout
+
+
+def test_prepare_workspace_commits_the_fixture_and_the_variant_files() -> None:
+    workspace = install.prepare_workspace({".claude/rules/index.md": "Index.\n"})
+
+    assert (workspace / ".claude/rules/index.md").read_text(encoding="utf-8") == "Index.\n"
+    assert (workspace / "jobs/durations.py").is_file()
+    assert (workspace / "logs/alpha.log").read_text(encoding="utf-8") == "job finished\n"
+    tracked = subprocess.run(("git", "ls-files"), cwd=workspace, check=True, capture_output=True, text=True).stdout.split()
+    assert ".claude/rules/index.md" in tracked

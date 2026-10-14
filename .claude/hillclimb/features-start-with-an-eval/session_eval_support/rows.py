@@ -5,7 +5,7 @@ import os
 import threading
 from pathlib import Path
 
-from session_eval_support.config.constants import NEWLINE
+from session_eval_support.config.constants import ID_LIST_SEPARATOR, NEWLINE
 
 write_lock = threading.Lock()
 
@@ -81,7 +81,7 @@ def select_cases(
     all_wanted_ids = {each_id for each_id in case_ids.split(",") if each_id}
     all_unknown_ids = all_wanted_ids - {each_case["id"] for each_case in all_cases}
     if all_unknown_ids:
-        raise ValueError(f"unknown case ids: {', '.join(sorted(all_unknown_ids))}")
+        raise ValueError(f"unknown case ids: {ID_LIST_SEPARATOR.join(sorted(all_unknown_ids))}")
     return [
         each_case
         for each_case in all_cases

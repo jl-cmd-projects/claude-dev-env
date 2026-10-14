@@ -198,6 +198,24 @@ def _run_command(
     return completed.returncode
 
 
+def _run_in_capture(
+    capture_directory: Path,
+    workspace: Path,
+    all_command_words: list[str],
+    timeout_seconds: int,
+) -> SessionRun:
+    stream_path = capture_directory / STREAM_FILE_NAME
+    started = time.monotonic()
+    exit_code = _run_command(all_command_words, workspace, stream_path, timeout_seconds)
+    latency_seconds = time.monotonic() - started
+    return SessionRun(
+        _read_events(stream_path),
+        latency_seconds,
+        exit_code,
+        _read_broker_report(capture_directory / BROKER_REPORT_FILE_NAME),
+    )
+
+
 def run_session(
     workspace: Path,
     prompt: str,
@@ -207,15 +225,13 @@ def run_session(
     """Run the prompt as one headless session in the workspace and read its stream.
 
     The stream and the launcher's report land in a temporary sibling
-    directory, so the session under test never sees them, and the directory
-    is removed once both are read.
+    directory that is removed once both are read.
 
     Args:
         workspace: The prepared workspace, used as the session's directory.
         prompt: The case's ask, sent as the first user turn.
         settings: The model, effort, turn cap and wall-clock ceiling.
-        launch: Builds the full command from the report path and the claude
-            words; the broker picks the account by default.
+        launch: Builds the command from the report path and the claude words.
 
     Returns:
         The stream, latency, exit code (None on timeout) and broker report.
@@ -224,21 +240,11 @@ def run_session(
         prefix=workspace.name + "-out-", ignore_cleanup_errors=True
     ) as capture_name:
         capture_directory = Path(capture_name)
-        stream_path = capture_directory / STREAM_FILE_NAME
-        report_path = capture_directory / BROKER_REPORT_FILE_NAME
-        started = time.monotonic()
-        exit_code = _run_command(
-            launch(report_path, session_words(prompt, settings)),
-            workspace,
-            stream_path,
-            settings.timeout_seconds,
+        all_command_words = launch(
+            capture_directory / BROKER_REPORT_FILE_NAME, session_words(prompt, settings)
         )
-        latency_seconds = time.monotonic() - started
-        return SessionRun(
-            _read_events(stream_path),
-            latency_seconds,
-            exit_code,
-            _read_broker_report(report_path),
+        return _run_in_capture(
+            capture_directory, workspace, all_command_words, settings.timeout_seconds
         )
 
 

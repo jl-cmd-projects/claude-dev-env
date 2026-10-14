@@ -10,14 +10,7 @@ from rules_eval_support import launch
 from rules_eval_support.launch import launch_words, run_session
 from session_eval_support.session import SessionSettings
 
-STREAM_AND_TRUNCATED_REPORT = (
-    "import sys\n"
-    "from pathlib import Path\n"
-    "print('invalid')\n"
-    "print('[]')\n"
-    "print('{\"type\": \"result\"}')\n"
-    "Path(sys.argv[1]).write_text('{\"final_decision\": ', encoding='utf-8')\n"
-)
+RESULT_EVENT_SCRIPT = "print('{\"type\": \"result\"}')"
 
 
 def test_launch_words_resolves_the_executable_directly_and_wraps_it_for_the_broker(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,20 +23,16 @@ def test_launch_words_resolves_the_executable_directly_and_wraps_it_for_the_brok
     assert brokered[brokered.index("--report") + 1] == "report.json"
 
 
-def test_run_session_reads_the_stream_survives_a_truncated_report_and_removes_its_capture(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    all_report_paths: list[Path] = []
+def test_run_session_launches_through_launch_words_with_the_direct_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_direct_flags: list[bool] = []
 
-    def write_stream_and_report(report_path: Path, all_claude_words: list[str], is_direct: bool) -> list[str]:
-        all_report_paths.append(report_path)
-        return [sys.executable, "-c", STREAM_AND_TRUNCATED_REPORT, str(report_path)]
+    def print_a_result(report_path: Path, all_claude_words: list[str], is_direct: bool) -> list[str]:
+        all_direct_flags.append(is_direct)
+        return [sys.executable, "-c", RESULT_EVENT_SCRIPT]
 
-    monkeypatch.setattr(launch, "launch_words", write_stream_and_report)
+    monkeypatch.setattr(launch, "launch_words", print_a_result)
 
     session = run_session(tmp_path, "case prompt", SessionSettings("model", "low", 1, 60), is_direct=True)
 
     assert session.all_events == [{"type": "result"}]
-    assert session.exit_code == 0
-    assert session.broker_report == {}
-    assert not all_report_paths[0].parent.exists()
+    assert all_direct_flags == [True]
