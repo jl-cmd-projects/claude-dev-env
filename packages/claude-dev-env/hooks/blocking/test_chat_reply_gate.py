@@ -41,7 +41,7 @@ def test_should_block_stop_when_reply_has_four_sentences(
     )
     assert exit_code == 2
     assert "Reply too long: 4 sentences, limit 3." in error_text
-    assert "Rewrite the reply" in error_text
+    assert "Send only the corrected reply" in error_text
 
 
 def test_should_allow_stop_when_reply_fits_the_limit(
@@ -56,7 +56,7 @@ def test_should_allow_stop_when_reply_fits_the_limit(
     assert error_text == ""
 
 
-def test_should_allow_stop_after_three_rewrites_in_one_turn(
+def test_should_allow_stop_after_one_rewrite_in_one_turn(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     stop_input = {
@@ -64,8 +64,8 @@ def test_should_allow_stop_after_three_rewrites_in_one_turn(
         "session_id": "abc",
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
-    all_exit_codes = [run_hook(monkeypatch, capsys, stop_input)[0] for _ in range(4)]
-    assert all_exit_codes == [2, 2, 2, 0]
+    all_exit_codes = [run_hook(monkeypatch, capsys, stop_input)[0] for _ in range(3)]
+    assert all_exit_codes == [2, 0, 0]
 
 
 def test_should_block_again_after_the_next_user_prompt(
@@ -76,8 +76,7 @@ def test_should_block_again_after_the_next_user_prompt(
         "session_id": "abc",
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
-    for _ in range(3):
-        run_hook(monkeypatch, capsys, stop_input)
+    run_hook(monkeypatch, capsys, stop_input)
     run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
     exit_code, _, _ = run_hook(monkeypatch, capsys, stop_input)
     assert exit_code == 2
@@ -99,7 +98,22 @@ def test_should_add_the_reply_limit_on_each_user_prompt(
     hook_output = json.loads(output_text)["hookSpecificOutput"]
     assert exit_code == 0
     assert hook_output["hookEventName"] == "UserPromptSubmit"
-    assert "3 sentences or fewer" in hook_output["additionalContext"]
+    assert "At most 3 sentences, each at most 15 words" in hook_output["additionalContext"]
+
+
+def test_reply_limit_reminder_should_name_every_rule_and_the_configured_banned_words(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    banned_words_path = tmp_path / "banned.json"
+    banned_words_path.write_text(json.dumps({"banned_words": ["zorp", "blarg"]}), encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_REPLY_BANNED_WORDS_PATH", str(banned_words_path))
+    chat_reply_gate.write_reply_limit_reminder()
+    reminder = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "No colon with more text after it" in reminder
+    assert "No em dash" in reminder
+    assert "markdown link" in reminder
+    assert "needs inline code, a URL, or a link" in reminder
+    assert "Never use these words: zorp, blarg." in reminder
 
 
 def test_stop_block_reason_should_name_an_em_dash() -> None:

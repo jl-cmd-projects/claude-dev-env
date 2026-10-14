@@ -5,7 +5,7 @@
 A reply typed straight into the chat is no tool call, so this hook runs
 the same checks on it::
 
-    UserPromptSubmit                         -> additionalContext states the limit
+    UserPromptSubmit                         -> additionalContext states every rule
     Stop, last reply within the limit        -> allow
     Stop, last reply over the limit          -> block, reason sent back for a rewrite
     Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
@@ -34,7 +34,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
-from reply_length_gate import reply_violation
+from reply_length_gate import configured_banned_words, reply_violation
 from hooks_constants.chat_reply_gate_constants import (
     HOOK_EVENT_NAME_INPUT_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
@@ -112,10 +112,12 @@ def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
 
 
 def write_reply_limit_reminder() -> None:
-    """Print the reply limit as UserPromptSubmit additionalContext."""
+    """Print every reply rule, with the configured banned words, as UserPromptSubmit additionalContext."""
     hook_event_output = {
         HOOK_EVENT_NAME_KEY: USER_PROMPT_SUBMIT_EVENT_NAME,
-        ADDITIONAL_CONTEXT_KEY: REPLY_LIMIT_REMINDER,
+        ADDITIONAL_CONTEXT_KEY: REPLY_LIMIT_REMINDER.format(
+            banned_words=", ".join(configured_banned_words())
+        ),
     }
     sys.stdout.write(json.dumps({HOOK_SPECIFIC_OUTPUT_KEY: hook_event_output}))
 
