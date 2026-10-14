@@ -94,3 +94,23 @@ test('mergeMissingSettingsDefaults should keep a per-model value the user alread
     );
     assert.deepEqual(targetSettings.modelSettings, { 'claude-haiku-5-5': { autoCompactWindow: 150000 } });
 });
+
+test('mergeMissingSettingsDefaults should add a missing env variable to a present env block and keep the user values', () => {
+    const targetSettings = {
+        env: { CLAUDE_MERGE_REVIEW_COMMAND: 'review', CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '300000' },
+    };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, {
+            env: { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000', EDITOR: 'code' },
+        }),
+        { addedKeys: ['env.EDITOR'] },
+    );
+    assert.deepEqual(targetSettings, {
+        env: {
+            CLAUDE_MERGE_REVIEW_COMMAND: 'review',
+            CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '300000',
+            EDITOR: 'code',
+        },
+    });
+});

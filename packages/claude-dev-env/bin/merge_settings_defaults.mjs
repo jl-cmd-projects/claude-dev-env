@@ -7,10 +7,14 @@
  *
  * A per-model key (`modelSettings`) merges one level deeper: install adds each
  * model entry, and each field inside an entry, that the user settings lack.
+ *
+ * A per-field key (`env`) merges one level deep: install adds each variable
+ * the user's block lacks and keeps each variable the user already set.
  */
 
 export const MANAGED_LIST_SETTING_KEYS = Object.freeze(['permissions']);
 export const PER_MODEL_SETTING_KEYS = Object.freeze(['modelSettings']);
+export const PER_FIELD_SETTING_KEYS = Object.freeze(['env']);
 
 function isPlainObject(candidate) {
     return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
@@ -66,6 +70,17 @@ export function mergeMissingSettingsDefaults(targetSettings, settingsDefaults) {
             && isPlainObject(defaultValue);
         if (isPerModelMerge) {
             addedKeys.push(...mergeMissingPerModelFields(targetSettings[settingKey], defaultValue, settingKey));
+            continue;
+        }
+        const isPerFieldMerge = PER_FIELD_SETTING_KEYS.includes(settingKey)
+            && isPlainObject(targetSettings[settingKey])
+            && isPlainObject(defaultValue);
+        if (isPerFieldMerge) {
+            for (const [fieldName, fieldDefault] of Object.entries(defaultValue)) {
+                if (Object.hasOwn(targetSettings[settingKey], fieldName)) continue;
+                targetSettings[settingKey][fieldName] = structuredClone(fieldDefault);
+                addedKeys.push(`${settingKey}.${fieldName}`);
+            }
             continue;
         }
         if (Object.hasOwn(targetSettings, settingKey)) continue;
