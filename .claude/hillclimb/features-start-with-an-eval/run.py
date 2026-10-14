@@ -24,9 +24,15 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-flow_directory = str(Path(__file__).resolve().parent)
-if flow_directory not in sys.path:
-    sys.path.insert(0, flow_directory)
+flow_directory = Path(__file__).resolve().parent
+for each_import_root in (
+    flow_directory,
+    flow_directory.parents[2] / "packages" / "claude-dev-env" / "hooks",
+):
+    if str(each_import_root) not in sys.path:
+        sys.path.insert(0, str(each_import_root))
+
+from hooks_constants.windows_filesystem import force_rmtree
 
 from session_eval_support.config.constants import (
     ALL_SCORABLE_SUBTYPES,
@@ -69,7 +75,6 @@ from session_eval_support.session import (
     final_event,
     installed_files_digest,
     prepare_workspace,
-    remove_directory,
     run_session,
     served_models,
     trace_turns,
@@ -96,11 +101,13 @@ def _read_rows(path: Path) -> list[dict[str, object]]:
     if not path.is_file():
         return []
     all_rows: list[dict[str, object]] = []
-    for each_line in path.read_text(encoding="utf-8").splitlines():
+    for each_number, each_line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         try:
             all_rows.append(json.loads(each_line))
         except json.JSONDecodeError:
-            continue
+            logger.warning("skipped unreadable line %d of %s", each_number, path)
     return all_rows
 
 
@@ -234,7 +241,7 @@ def _run_one(
     try:
         session = run_session(workspace, case_by_field["prompt"], settings)
     finally:
-        remove_directory(workspace)
+        force_rmtree(str(workspace))
     failure = _unscorable(session, settings)
     if failure is not None:
         _append_line(

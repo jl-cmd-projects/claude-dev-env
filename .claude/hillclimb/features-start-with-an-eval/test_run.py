@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import run
-from run import _append_line, _pending_runs, _run_one, _unscorable
+from run import _append_line, _pending_runs, _read_rows, _run_one, _unscorable
 from session_eval_support.config.constants import (
     FAILURE_NO_RESULT,
     MAX_TURNS_SUBTYPE,
@@ -65,6 +65,16 @@ def test_a_cut_off_results_line_is_skipped_and_the_next_row_starts_fresh(
     _append_line(results_path, {"prompt_id": "case-b", "rep": 0})
 
     assert _pending_runs([{"id": "case-a"}, {"id": "case-b"}], 1, tmp_path) == []
+
+
+def test_an_unreadable_results_line_is_logged_with_its_number(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    results_path = tmp_path / RESULTS_FILE_NAME
+    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\nnot json\n')
+
+    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
+    assert f"skipped unreadable line 2 of {results_path}" in caplog.text
 
 
 def test_run_one_deletes_the_workspace_when_the_session_fails(

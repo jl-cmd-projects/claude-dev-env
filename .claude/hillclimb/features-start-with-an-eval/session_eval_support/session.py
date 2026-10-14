@@ -3,7 +3,6 @@
 import hashlib
 import json
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
@@ -11,6 +10,8 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+from hooks_constants.windows_filesystem import force_rmtree
 
 from session_eval_support.config.constants import (
     ALL_GIT_INIT_COMMANDS,
@@ -88,18 +89,6 @@ def prepare_workspace(all_installs: list[tuple[str, str]]) -> Path:
     for each_command in ALL_GIT_INIT_COMMANDS:
         subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
     return workspace
-
-
-def remove_directory(directory: Path) -> None:
-    """Delete a directory tree, including the read-only object files git writes.
-
-    Args:
-        directory: The workspace or capture directory to delete.
-    """
-    for each_path in directory.rglob("*"):
-        if each_path.is_file() and not each_path.is_symlink():
-            each_path.chmod(stat.S_IREAD | stat.S_IWRITE)
-    shutil.rmtree(directory)
 
 
 def _read_events(stream_path: Path) -> list[dict[str, object]]:
@@ -210,7 +199,7 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings) -> Sess
             _read_events(stream_path), latency_seconds, exit_code, broker_report
         )
     finally:
-        remove_directory(capture_directory)
+        force_rmtree(str(capture_directory))
 
 
 def final_event(all_events: list[dict[str, object]]) -> dict[str, object] | None:

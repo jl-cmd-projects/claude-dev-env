@@ -1,6 +1,5 @@
-"""Behavior tests for session event reading and directory cleanup."""
+"""Behavior tests for session event reading and capture cleanup."""
 
-import stat
 import tempfile
 from pathlib import Path
 
@@ -10,7 +9,6 @@ from session_eval_support import session
 from session_eval_support.session import (
     SessionSettings,
     final_event,
-    remove_directory,
     served_models,
 )
 
@@ -29,18 +27,6 @@ def test_final_event_returns_last_result() -> None:
 def test_served_models_sorts_usage_keys() -> None:
     assert served_models({"modelUsage": {"z": {}, "a": {}}}) == ["a", "z"]
     assert served_models({}) == []
-
-
-def test_remove_directory_deletes_read_only_files(tmp_path: Path) -> None:
-    directory = tmp_path / "workspace"
-    object_file = directory / ".git" / "objects" / "ab" / "cdef"
-    object_file.parent.mkdir(parents=True)
-    object_file.write_text("object")
-    object_file.chmod(stat.S_IREAD)
-
-    remove_directory(directory)
-
-    assert not directory.exists()
 
 
 def test_run_session_reads_the_stream_then_deletes_its_capture_directory(
