@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from dev_env_scripts_constants import codex_account_constants as constants
 from dev_env_scripts_constants.claude_account_constants import ALL_LAUNCHER_DIRECTORY_RELATIVE_PARTS
 
 CODEX_ACCOUNTS_DOC_PATH = Path(__file__).resolve().parents[2] / "docs" / "codex-accounts.md"
 SECTION_HEADING_PREFIX = "## "
+CHOOSE_COMMAND_SUFFIX = "choose --product codex"
+CODE_FENCE = "```"
 
 
-def documented_section(heading: str) -> str:
+def documented_section_lines(heading: str) -> list[str]:
     all_doc_lines = CODEX_ACCOUNTS_DOC_PATH.read_text(encoding="utf-8").splitlines()
     heading_index = all_doc_lines.index(SECTION_HEADING_PREFIX + heading)
     all_section_lines: list[str] = []
@@ -19,7 +23,20 @@ def documented_section(heading: str) -> str:
         if each_line.startswith(SECTION_HEADING_PREFIX):
             break
         all_section_lines.append(each_line)
-    return " ".join(" ".join(all_section_lines).split())
+    return all_section_lines
+
+
+def documented_section(heading: str) -> str:
+    return " ".join(" ".join(documented_section_lines(heading)).split())
+
+
+def documented_choose_sample() -> dict[str, Any]:
+    all_section_lines = documented_section_lines("Which account a job uses")
+    command_index = next(
+        index for index, each_line in enumerate(all_section_lines) if each_line.endswith(CHOOSE_COMMAND_SUFFIX)
+    )
+    fence_index = all_section_lines.index(CODE_FENCE, command_index)
+    return json.loads("\n".join(all_section_lines[command_index + 1 : fence_index]))
 
 
 def documented_list(all_names: list[str]) -> str:
@@ -48,6 +65,8 @@ def test_shared_home_entries_match_the_documented_list() -> None:
 
 
 def test_sign_in_file_stays_per_account() -> None:
+    expected_sentence = f"The sign-in lives in that folder's `{constants.CODEX_AUTH_FILE_NAME}`."
+    assert expected_sentence in documented_section("Sign in once")
     assert constants.CODEX_AUTH_FILE_NAME not in constants.ALL_SHARED_CODEX_HOME_NAMES
 
 
@@ -77,5 +96,13 @@ def test_tier_bars_match_the_documented_table() -> None:
         assert each_row in section_text
 
 
-def test_documented_choose_sample_names_the_normal_tier() -> None:
-    assert f'"tier": "{constants.TIER_NORMAL}"' in documented_section("Which account a job uses")
+def test_documented_choose_sample_runs_normal_on_the_tightest_window() -> None:
+    sample = documented_choose_sample()
+    decision = sample["decision"]
+    chosen_meters = next(
+        each_account["meters"] for each_account in sample["accounts"] if each_account["name"] == decision["account"]
+    )
+    room = min(chosen_meters["session_percent_left"], chosen_meters["weekly_percent_left"])
+    assert decision["tier"] == constants.TIER_NORMAL
+    assert room > constants.NORMAL_TIER_MINIMUM_PERCENT_LEFT
+    assert decision["reason"] == f"{decision['account']} has {room:g}% left"

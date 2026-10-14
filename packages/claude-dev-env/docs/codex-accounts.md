@@ -87,6 +87,7 @@ aside.
 ## Which account a job uses
 
 Room is the least percent left across an account's windows, such as the 5-hour window and the week.
+A window that reports no length counts as weekly.
 
 | Condition | Answer |
 |---|---|
