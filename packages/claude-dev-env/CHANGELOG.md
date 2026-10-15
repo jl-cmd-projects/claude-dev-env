@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.80.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.79.0...claude-dev-env-v8.80.0) (2026-10-15)
+
+
+### Features
+
+* **hooks:** deny GitHub GraphQL calls in cloud sessions ([#1981](https://github.com/jl-cmd-projects/claude-dev-env/issues/1981)) ([55b6a5d](https://github.com/jl-cmd-projects/claude-dev-env/commit/55b6a5de82a8fcfc6140fc1567489409028fbda7))
+* **hooks:** let a fully ruled-out review pass clear the merge gate ([#2019](https://github.com/jl-cmd-projects/claude-dev-env/issues/2019)) ([9945670](https://github.com/jl-cmd-projects/claude-dev-env/commit/9945670c67fc6e78756b6c2c13ffb00cee7ed9ab))
+* **settings:** lower idle compaction minimum to 100k tokens ([#2018](https://github.com/jl-cmd-projects/claude-dev-env/issues/2018)) ([be548d9](https://github.com/jl-cmd-projects/claude-dev-env/commit/be548d92f0331a8aeb22b8176f15718be236bbeb))
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1780](https://github.com/jl-cmd-projects/claude-dev-env/issues/1780) ([#2006](https://github.com/jl-cmd-projects/claude-dev-env/issues/2006)) ([8c3b78f](https://github.com/jl-cmd-projects/claude-dev-env/commit/8c3b78f3d22822d8046453af911871d549a34cea))
+
 ## [8.79.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.3...claude-dev-env-v8.79.0) (2026-10-14)
 
 
