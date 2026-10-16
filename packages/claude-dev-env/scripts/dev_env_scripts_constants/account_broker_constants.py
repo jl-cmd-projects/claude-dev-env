@@ -68,7 +68,23 @@ ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
     (".local", "bin", "claude.exe"),
     (".local", "bin", "claude"),
 )
-ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = (
+    "-p",
+    "ok",
+    "--model",
+    "haiku",
+    "--setting-sources",
+    "local",
+    "--settings",
+    '{"enabledPlugins": {}, "autoMemoryEnabled": false}',
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers": {}}',
+)
+LOGIN_REFRESH_ENVIRONMENT: dict[str, str] = {
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+}
 LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
