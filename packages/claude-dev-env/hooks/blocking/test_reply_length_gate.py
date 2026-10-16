@@ -807,6 +807,8 @@ def test_should_deny_each_unvalidated_claim_shape(
         "The gate now refuses `guess` and `assumed`.",
         "The job takes 39 minutes, see run 18239174012.",
         "The hook cannot run on Windows.",
+        "The crash is not a test problem.",
+        "That is not the check that failed.",
     ],
 )
 def test_should_allow_a_reply_with_no_unvalidated_claim(
