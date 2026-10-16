@@ -22,12 +22,15 @@ from hooks_constants.pre_tool_use_dispatcher_constants import (
 from pre_tool_use_dispatcher import HostedHookResult, aggregate_hosted_hook_results
 
 
-def test_roster_hosts_only_the_context_budget_gate() -> None:
-    assert len(ALL_HOSTED_HOOK_ENTRIES) == 1
-    entry = ALL_HOSTED_HOOK_ENTRIES[0]
-    assert entry.script_relative_path == "blocking/context_budget_blocker.py"
-    assert entry.is_blocking
-    assert entry.applicable_tool_names == ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES
+def test_roster_hosts_the_context_budget_and_proof_edit_gates() -> None:
+    assert len(ALL_HOSTED_HOOK_ENTRIES) == 2
+    context_budget_entry, proof_edit_entry = ALL_HOSTED_HOOK_ENTRIES
+    assert context_budget_entry.script_relative_path == "blocking/context_budget_blocker.py"
+    assert context_budget_entry.is_blocking
+    assert context_budget_entry.applicable_tool_names == ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES
+    assert proof_edit_entry.script_relative_path == "blocking/pull_request_proof_edit_gate.py"
+    assert proof_edit_entry.is_blocking
+    assert proof_edit_entry.applicable_tool_names == ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES
 
 
 def test_every_hosted_script_path_exists_under_the_hooks_root() -> None:
