@@ -124,6 +124,7 @@ from hooks_constants.reply_length_gate_constants import (
     CURLY_APOSTROPHE,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
+    DURATION_CLAIM_PATTERN,
     EM_DASH_MESSAGE,
     EM_DASH_PATTERN,
     FENCED_BLOCK_PATTERN,
@@ -213,14 +214,18 @@ def em_dash_violation(reply_text: str) -> str | None:
     return EM_DASH_MESSAGE
 
 
-def unsourced_cause_violation(reply_text: str) -> str | None:
-    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
-    all_sentences = [
-        each_sentence
+def prose_sentences(reply_text: str) -> list[str]:
+    """Split the text outside fenced blocks into sentences, one per line or terminal mark."""
+    return [
+        each_sentence.strip()
         for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text))
         for each_sentence in SENTENCE_END_PATTERN.split(each_line)
     ]
-    for each_sentence in all_sentences:
+
+
+def unsourced_cause_violation(reply_text: str) -> str | None:
+    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
+    for each_sentence in prose_sentences(reply_text):
         is_causal = CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence))
         has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
         if is_causal and not has_evidence:
@@ -281,14 +286,22 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
 
 
 def unvalidated_claim_violation(reply_text: str) -> str | None:
-    """Return the deny reason quoting the first sentence that guesses or admits a skipped check, or None."""
-    all_sentences = [
-        each_sentence.strip()
-        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
-    ]
-    for each_sentence in all_sentences:
-        if UNVALIDATED_CLAIM_PATTERN.search(each_sentence.replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)):
+    """Return the deny reason quoting the first sentence that guesses or admits a skipped check, or None.
+
+    A duration counts as a guess unless its sentence cites the run, job, check,
+    or pull request that measured it::
+
+        flag: It should take about 40 minutes.
+        ok:   The last queue build took 39 minutes, run 18239174012.
+    """
+    for each_sentence in prose_sentences(reply_text):
+        prose_text = countable_text(each_sentence).replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)
+        is_guess = UNVALIDATED_CLAIM_PATTERN.search(prose_text) is not None
+        is_uncited_duration = (
+            DURATION_CLAIM_PATTERN.search(prose_text) is not None
+            and CITED_NUMBER_PATTERN.search(each_sentence) is None
+        )
+        if is_guess or is_uncited_duration:
             return UNVALIDATED_CLAIM_MESSAGE.format(claim=each_sentence)
     return None
 
@@ -296,12 +309,15 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
 def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
     """Return the deny reason for the first cited run, job, check, or pull request no tool result shows.
 
-    Returns None when the transcript cannot be read.
+    Returns None when the text cites nothing or the transcript cannot be read.
     """
+    all_citations = list(CITED_NUMBER_PATTERN.finditer(FENCED_BLOCK_PATTERN.sub(" ", reply_text)))
+    if not all_citations:
+        return None
     result_text = successful_result_text(transcript_path)
     if result_text is None:
         return None
-    for each_match in CITED_NUMBER_PATTERN.finditer(FENCED_BLOCK_PATTERN.sub(" ", reply_text)):
+    for each_match in all_citations:
         cited_number = next(each_group for each_group in each_match.groups() if each_group)
         if re.search(CITED_NUMBER_IN_RESULT_TEMPLATE.format(number=cited_number), result_text) is None:
             return UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))

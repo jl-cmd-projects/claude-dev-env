@@ -106,12 +106,17 @@ NEGATION_PATTERN = (
     r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
 )
 CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
+SKIPPED_RUN_PATTERN = r"(?:(?:did|have|has|was|were)(?:\s+not|n't)|not\s+yet)\s+(?:\w+\s+){0,2}run"
 UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"\b(?:guess(?:es|ed|ing)?|estimat(?:e|es|ed|ing)|eta|ballpark"
     r"|assum(?:e|es|ed|ing)|i think|i expect"
     r"|un(?:confirmed|verified|validated|checked|tested))\b"
-    rf"|\b{NEGATION_PATTERN}\s+(?:\w+\s+)?{CHECK_VERB_PATTERN}\b"
-    rf"|\btakes?\s+(?:about\s+)?{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b"
+    rf"|\b{NEGATION_PATTERN}\s+(?:\w+\s+){{0,2}}{CHECK_VERB_PATTERN}\b"
+    rf"|\b{SKIPPED_RUN_PATTERN}\b",
+    re.IGNORECASE,
+)
+DURATION_CLAIM_PATTERN = re.compile(
+    rf"\btakes?\s+(?:about\s+)?{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b"
     rf"|\b{QUANTITY_PATTERN}\s+(?:more\s+)?{DURATION_UNIT_PATTERN}\s+(?:left|remaining|to go)\b"
     rf"|\b(?:about|around|approximately|roughly|another)\s+{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b"
     rf"|\b{QUANTITY_PATTERN}\s*(?:to|-|or)\s*{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b",
@@ -119,7 +124,7 @@ UNVALIDATED_CLAIM_PATTERN = re.compile(
 )
 UNVALIDATED_CLAIM_MESSAGE = (
     'No tool validated this: "{claim}". Run the check yourself or through a subagent,'
-    " then state what the run, log line, output, or file and line shows."
+    " then state what the run, log line, output, or file and line shows, or leave the claim out."
 )
 CITED_NUMBER_PATTERN = re.compile(
     r"/actions/runs/(\d+)|/pull/(\d+)|\b(?:run|job|check)\s+#?(\d{5,})\b", re.IGNORECASE

@@ -35,6 +35,7 @@ def run_gate(
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_REPLY_BANNED_WORDS_PATH", raising=False)
 
 
 def write_tool_result_transcript(transcript_path: Path, result_text: str) -> Path:

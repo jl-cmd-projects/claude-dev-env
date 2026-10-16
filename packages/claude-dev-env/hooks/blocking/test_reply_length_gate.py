@@ -785,6 +785,9 @@ def test_should_deny_an_estimate_and_quote_it(
         "It will take two hours.",
         "ETA is 3-4 hours.",
         "Estimate from the last check is two builds.",
+        "I did not run the suite.",
+        "The tests have not yet been run.",
+        "The job takes 39 minutes.",
     ],
 )
 def test_should_deny_each_unvalidated_claim_shape(
@@ -802,6 +805,8 @@ def test_should_deny_each_unvalidated_claim_shape(
         "I will check the queue again within 15 minutes.",
         "The last queue build took 39 minutes.",
         "The gate now refuses `guess` and `assumed`.",
+        "The job takes 39 minutes, see run 18239174012.",
+        "The hook cannot run on Windows.",
     ],
 )
 def test_should_allow_a_reply_with_no_unvalidated_claim(
@@ -891,9 +896,25 @@ def test_should_collect_each_question_card_prose_field() -> None:
 def test_should_quote_the_hedged_sentence() -> None:
     assert reply_length_gate.unvalidated_claim_violation("Done. It should take a few minutes.") == (
         'No tool validated this: "It should take a few minutes.". Run the check yourself or through'
-        " a subagent, then state what the run, log line, output, or file and line shows."
+        " a subagent, then state what the run, log line, output, or file and line shows, or leave"
+        " the claim out."
     )
 
 
 def test_should_skip_the_citation_check_without_a_transcript() -> None:
     assert reply_length_gate.unseen_citation_violation(RUN_LINK_REPLY, None) is None
+
+
+def test_should_leave_the_transcript_unread_when_the_text_cites_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    all_read_paths: list[object] = []
+    monkeypatch.setattr(reply_length_gate, "successful_result_text", all_read_paths.append)
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "nothing cited")
+    assert reply_length_gate.unseen_citation_violation("Two builds left.", transcript_path) is None
+    assert all_read_paths == []
+
+
+def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
+    reply_text = "First one. Second one?\n```\nskipped. code\n```\nThird"
+    assert reply_length_gate.prose_sentences(reply_text) == ["First one.", "Second one?", "", "Third"]
