@@ -788,6 +788,8 @@ def test_should_deny_an_estimate_and_quote_it(
         "I did not run the suite.",
         "The tests have not yet been run.",
         "The job takes 39 minutes.",
+        "The migration takes seventy minutes.",
+        "I was not able to verify the fix.",
     ],
 )
 def test_should_deny_each_unvalidated_claim_shape(

@@ -98,15 +98,16 @@ CURLY_APOSTROPHE = "\u2019"
 STRAIGHT_APOSTROPHE = "'"
 QUANTITY_PATTERN = (
     r"(?:\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten"
-    r"|eleven|twelve|fifteen|twenty|thirty|forty(?:-five)?|fifty|sixty|ninety"
-    r"|half an?|a couple(?: of)?|a few|several)"
+    r"|eleven|twelve|(?:thir|four|fif|six|seven|eigh|nine)teen"
+    r"|twenty|thirty|forty(?:-five)?|fifty|sixty|seventy|eighty|ninety"
+    r"|(?:an?\s+|one\s+)?hundred|half an?|a couple(?: of)?|a few|several)"
 )
 DURATION_UNIT_PATTERN = r"(?:hours?|hrs?|minutes?|mins?|days?|weeks?)"
 NEGATION_PATTERN = (
     r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
 )
 CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
-FILLER_WORDS_PATTERN = r"(?:(?!(?:a|an|the|to|what|which|something|anything)\b)\w+\s+){0,2}"
+FILLER_WORDS_PATTERN = r"(?:(?!(?:a|an|the|what|which|something|anything)\b)\w+\s+){0,2}"
 SKIPPED_RUN_PATTERN = rf"(?:(?:did|have|has|was|were)(?:\s+not|n't)|not\s+yet)\s+{FILLER_WORDS_PATTERN}run(?!\s+(?:into|out)\b)"
 UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"\b(?:guess(?:es|ed|ing)?|estimat(?:e|es|ed|ing)|eta|ballpark"
