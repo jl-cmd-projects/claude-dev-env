@@ -4,12 +4,18 @@ import re
 
 MAXIMUM_SENTENCE_COUNT = 3
 MAXIMUM_WORDS_PER_SENTENCE = 15
-ALL_CHECKED_TOOL_NAMES = frozenset({"mcp__hearthbot__reply", "mcp__hearthbot__post_message"})
+ALL_CHECKED_TOOL_NAMES = frozenset(
+    {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
+)
 DECISION_CARD_TOOL_NAME = "mcp__hearthbot__ask_decision"
 CARD_TEXT_SEPARATOR = "\n"
 ALL_DECISION_CARD_PROSE_KEYS = ("question", "context")
 DECISION_CARD_OPTIONS_KEY = "options"
 ALL_DECISION_OPTION_PROSE_KEYS = ("label", "consequence")
+QUESTION_CARD_TOOL_NAME = "AskUserQuestion"
+QUESTION_CARD_QUESTIONS_KEY = "questions"
+ALL_QUESTION_CARD_PROSE_KEYS = ("question", "header")
+ALL_QUESTION_OPTION_PROSE_KEYS = ("label", "description")
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 TEXT_KEY = "text"
@@ -87,6 +93,41 @@ CONFIG_FILE_ENCODING = "utf-8"
 BANNED_WORD_MESSAGE = 'Banned word "{banned_word}". Delete it and name the evidence: the log line, the check, the file and line.'
 LONG_SENTENCE_MESSAGE = (
     'Sentence too long: {word_count} words, limit {word_limit}: "{sentence_preview}".'
+)
+CURLY_APOSTROPHE = "\u2019"
+STRAIGHT_APOSTROPHE = "'"
+QUANTITY_PATTERN = (
+    r"(?:\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten"
+    r"|eleven|twelve|fifteen|twenty|thirty|forty(?:-five)?|fifty|sixty|ninety"
+    r"|half an?|a couple(?: of)?|a few|several)"
+)
+DURATION_UNIT_PATTERN = r"(?:hours?|hrs?|minutes?|mins?|days?|weeks?)"
+NEGATION_PATTERN = (
+    r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
+)
+CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
+UNVALIDATED_CLAIM_PATTERN = re.compile(
+    r"\b(?:guess(?:es|ed|ing)?|estimat(?:e|es|ed|ing)|eta|ballpark"
+    r"|assum(?:e|es|ed|ing)|i think|i expect"
+    r"|un(?:confirmed|verified|validated|checked|tested))\b"
+    rf"|\b{NEGATION_PATTERN}\s+(?:\w+\s+)?{CHECK_VERB_PATTERN}\b"
+    rf"|\btakes?\s+(?:about\s+)?{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b"
+    rf"|\b{QUANTITY_PATTERN}\s+(?:more\s+)?{DURATION_UNIT_PATTERN}\s+(?:left|remaining|to go)\b"
+    rf"|\b(?:about|around|approximately|roughly|another)\s+{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b"
+    rf"|\b{QUANTITY_PATTERN}\s*(?:to|-|or)\s*{QUANTITY_PATTERN}\s+{DURATION_UNIT_PATTERN}\b",
+    re.IGNORECASE,
+)
+UNVALIDATED_CLAIM_MESSAGE = (
+    'No tool validated this: "{claim}". Run the check yourself or through a subagent,'
+    " then state what the run, log line, output, or file and line shows."
+)
+CITED_NUMBER_PATTERN = re.compile(
+    r"/actions/runs/(\d+)|/pull/(\d+)|\b(?:run|job|check)\s+#?(\d{5,})\b", re.IGNORECASE
+)
+CITED_NUMBER_IN_RESULT_TEMPLATE = r"(?<!\d){number}(?!\d)"
+UNSEEN_CITATION_MESSAGE = (
+    'The text cites "{citation}", and no tool result in this session shows it.'
+    " Read it yourself or through a subagent first."
 )
 
 ADDITIONAL_CONTEXT_KEY = "additionalContext"

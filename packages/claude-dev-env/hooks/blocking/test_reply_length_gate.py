@@ -726,3 +726,174 @@ def test_should_allow_a_reply_with_no_causal_claim(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The runner restarted. Also, so far so good."}
     )
     assert exit_code == 0
+
+
+UPDATE_TOOL_NAME = "mcp__hearthbot__update_message"
+QUESTION_CARD_TOOL_NAME = "AskUserQuestion"
+RUN_LINK_REPLY = (
+    "The last build passed in [run 18239174012]"
+    "(https://github.com/owner/repo/actions/runs/18239174012)."
+)
+
+
+def write_tool_result_transcript(transcript_path: Path, result_text: str, is_error: bool = False) -> Path:
+    all_entries = [
+        {"type": "user", "message": {"content": "how close are we"}},
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}]},
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t1",
+                        "is_error": is_error,
+                        "content": [{"type": "text", "text": result_text}],
+                    }
+                ]
+            },
+        },
+    ]
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_entry) for each_entry in all_entries), encoding="utf-8"
+    )
+    return transcript_path
+
+
+@pytest.mark.parametrize("tool_name", [REPLY_TOOL_NAME, POST_TOOL_NAME, UPDATE_TOOL_NAME])
+def test_should_deny_an_estimate_and_quote_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tool_name: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, tool_name, {"text": "My estimate is one to two hours."}
+    )
+    assert exit_code == 2
+    assert 'No tool validated this: "My estimate is one to two hours."' in stderr_text
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "I didn\u2019t confirm this one.",
+        "I have not checked the queue.",
+        "I assumed the build passed.",
+        "Run 18239174012 is unverified.",
+        "About 20 minutes left.",
+        "It will take two hours.",
+        "ETA is 3-4 hours.",
+        "Estimate from the last check is two builds.",
+    ],
+)
+def test_should_deny_each_unvalidated_claim_shape(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2
+    assert "No tool validated this" in stderr_text
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "Two builds are left in the queue.",
+        "I will check the queue again within 15 minutes.",
+        "The last queue build took 39 minutes.",
+        "The gate now refuses `guess` and `assumed`.",
+    ],
+)
+def test_should_allow_a_reply_with_no_unvalidated_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    assert run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text}) == (0, "")
+
+
+def test_should_deny_a_run_no_tool_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "run 18239170000 ok")
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+    assert 'cites "run 18239174012"' in stderr_text
+
+
+def test_should_deny_a_run_only_an_error_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(
+        tmp_path / "s.jsonl", "run 18239174012 ok", is_error=True
+    )
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+    assert "no tool result in this session shows it" in stderr_text
+
+
+def test_should_allow_a_run_a_tool_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "run 18239174012 took 39m")
+    assert run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    ) == (0, "")
+
+
+def test_should_deny_a_question_card_that_admits_a_skipped_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card = {
+        "questions": [
+            {
+                "question": "Ship the gate now?",
+                "header": "Ship",
+                "options": [
+                    {"label": "Ship", "description": "I did not test the Stop hook."},
+                    {"label": "Wait", "description": "Run the suite first."},
+                ],
+            }
+        ]
+    }
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, QUESTION_CARD_TOOL_NAME, card)
+    assert exit_code == 2
+    assert "I did not test the Stop hook." in stderr_text
+
+
+def test_should_allow_a_question_card_with_no_unvalidated_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card = {
+        "questions": [
+            {
+                "question": "Which gate design?",
+                "header": "Design",
+                "options": [{"label": "Fold in", "description": "One gate checks every reply."}],
+            }
+        ]
+    }
+    assert run_gate(monkeypatch, capsys, QUESTION_CARD_TOOL_NAME, card) == (0, "")
+
+
+def test_should_collect_each_question_card_prose_field() -> None:
+    card = {
+        "questions": [
+            {"question": "Q?", "header": "H", "options": [{"label": "L", "description": "D"}, "x"]},
+            "not a question",
+        ]
+    }
+    assert reply_length_gate.all_question_card_texts(card) == ["Q?", "H", "L", "D"]
+
+
+def test_should_quote_the_hedged_sentence() -> None:
+    assert reply_length_gate.unvalidated_claim_violation("Done. It should take a few minutes.") == (
+        'No tool validated this: "It should take a few minutes.". Run the check yourself or through'
+        " a subagent, then state what the run, log line, output, or file and line shows."
+    )
+
+
+def test_should_skip_the_citation_check_without_a_transcript() -> None:
+    assert reply_length_gate.unseen_citation_violation(RUN_LINK_REPLY, None) is None
