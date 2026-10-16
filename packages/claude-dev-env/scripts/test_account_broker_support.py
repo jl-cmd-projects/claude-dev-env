@@ -638,9 +638,17 @@ def test_should_run_the_cli_against_the_account_home(monkeypatch: pytest.MonkeyP
     assert json.loads(command[command.index("--settings") + 1]) == {"enabledPlugins": {}, "autoMemoryEnabled": False}
     assert "--strict-mcp-config" in command
     assert json.loads(command[command.index("--mcp-config") + 1]) == {"mcpServers": {}}
+    assert "--no-session-persistence" in command
+    assert "--disable-slash-commands" in command
+    assert command[command.index("--tools") + 1] == ""
+    assert command[command.index("--max-turns") + 1] == "1"
     assert environment["CLAUDE_CONFIG_DIR"] == str(tmp_path)
     assert environment["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
     assert environment["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    assert environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
+    assert environment["DISABLE_TELEMETRY"] == "1"
+    assert environment["DISABLE_ERROR_REPORTING"] == "1"
+    assert environment["DISABLE_AUTOUPDATER"] == "1"
 
 
 def test_should_skip_the_refresh_without_a_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
