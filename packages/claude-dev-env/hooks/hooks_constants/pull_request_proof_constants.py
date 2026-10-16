@@ -47,7 +47,16 @@ ALL_DEFAULT_BRANCH_REFERENCES = ("origin/HEAD", "origin/main", "main")
 REMOTE_BRANCH_PREFIX = "origin/"
 ALL_HEAD_FLAGS = frozenset({"--head", "-H"})
 HEAD_FLAG_ASSIGNMENT_PREFIX = "--head="
+ALL_BASE_FLAGS = frozenset({"--base", "-B"})
+BASE_FLAG_ASSIGNMENT_PREFIX = "--base="
+ALL_REPOSITORY_FLAGS = frozenset({"--repo", "-R"})
+REPOSITORY_FLAG_ASSIGNMENT_PREFIX = "--repo="
 GIT_TIMEOUT_SECONDS = 5
+GH_TIMEOUT_SECONDS = 15
+COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
+COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
+DEFAULT_BRANCH_QUERY = ".default_branch"
 MISSING_LOOK_REASON = (
     "This pull request changes files people see ({changed_files}), and its 'Proof in"
     " practice' section shows no picture. Render the change, open the screenshot with the"
@@ -58,8 +67,9 @@ MISSING_LOOK_REASON = (
 )
 CHANGED_FILES_SEPARATOR = ", "
 UNREADABLE_CHANGES_REASON = (
-    "Git in this directory cannot list the files this pull request changes, so the"
-    " picture check cannot tell whether people see the change. Run the create call"
+    "Neither git in this directory nor the GitHub compare API can list the files this"
+    " pull request changes, so the picture check cannot tell whether people see the change."
+    " Name the repository and head branch with --repo and --head, run the create call"
     " from a checkout of the head branch with origin fetched, or put a screenshot"
     " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
