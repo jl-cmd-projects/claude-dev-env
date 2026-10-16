@@ -33,11 +33,10 @@ from inventory_intent_records.config.intent_records_constants import (
 )
 
 from hooks_constants.session_edit_stage_gate_constants import (
-    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
     STATE_FILE_ATOMIC_WRITE_SUFFIX,
-    STATE_FILE_DEFAULT_SESSION_ID,
     STATE_FILE_JSON_INDENT_SPACES,
 )
+from hooks_constants.session_file_id import session_file_id
 
 
 def _intent_file_path(session_id: str) -> Path:
@@ -50,9 +49,7 @@ def _intent_file_path(session_id: str) -> Path:
     Returns:
         The absolute path of this session's intent-records file.
     """
-    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", session_id)
-    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
-    file_name = f"{INTENT_FILE_PREFIX}{effective_session_id}{INTENT_FILE_SUFFIX}"
+    file_name = f"{INTENT_FILE_PREFIX}{session_file_id(session_id)}{INTENT_FILE_SUFFIX}"
     return Path(tempfile.gettempdir()) / file_name
 
 

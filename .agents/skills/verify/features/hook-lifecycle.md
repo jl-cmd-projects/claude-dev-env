@@ -1,6 +1,6 @@
 # Hook lifecycle
 
-The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, and InstructionsLoaded hooks, and no Stop hook. A hook adds context or rewrites a tool input. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
+The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and MessageDisplay hooks. A hook adds context or rewrites a tool input. The MessageDisplay hook, `chat_reply_gate.py`, shows a short draft in place of a chat reply that breaks the reply rules. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
 
 ## Sub-features
 
@@ -29,7 +29,7 @@ Preconditions:
 - `<scratch>` is an empty directory under the OS temporary root or the session scratchpad.
 
 - **Install and start two hooks.** Run `node packages/claude-dev-env/scripts/ci/install-playtest.mjs --home <scratch> --evidence <scratch>-evidence` from the repository root. Exit code `0`. Three `[PASS] playtest` lines name `install`, `session_start_hook`, and `blocking_hook`, each with an evidence path and a `sha256=` digest.
-- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.PreToolUse` has an `Agent|Task` group, `hooks.SessionStart` has a `compact` group, and `hooks.SubagentStart` has a `workflow-subagent` group. Each group runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. No `Stop` key is present.
+- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.PreToolUse` has an `Agent|Task` group, `hooks.SessionStart` has a `compact` group, and `hooks.SubagentStart` has a `workflow-subagent` group. Each group runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. `hooks.MessageDisplay` has one group that runs `<scratch>/.claude/hooks/blocking/chat_reply_gate.py`.
 - **Spawn rewrite.** Pipe `{"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"prompt":"Reply leaf."}}` into `python3 <scratch>/.claude/hooks/session/skill_loaded_reminder.py`. Stdout is one envelope with `permissionDecision` `allow` and an `updatedInput.prompt` that starts `Before any other work, invoke the poteto-mode skill`.
 - **Self-loading agent.** Add `"subagent_type":"pstack:poteto-agent"` to the same `tool_input`. Stdout is empty and the exit code is `0`.
 - **Codex spawn.** Pipe `{"hook_event_name":"PreToolUse","tool_name":"spawn_agent","tool_input":{"message":"Fix it."}}` into `python3 <scratch>/.codex/hooks/session/skill_loaded_reminder.py`. `updatedInput.message` is `$poteto-mode` followed by a blank line and `Fix it.`.

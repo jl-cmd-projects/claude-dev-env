@@ -35,9 +35,10 @@ test('reinstall drops the retired style reminder and keeps one skill reminder ho
     mergeHooksIntoSettings(settings, hooksConfig, 'C:/Users/example/.claude', 'python');
 
     const userPromptHooks = settings.hooks.UserPromptSubmit.flatMap(eachGroup => eachGroup.hooks);
-    assert.equal(userPromptHooks.length, 2);
+    assert.equal(userPromptHooks.length, 3);
     assert.equal(userPromptHooks[0].command, userCommand);
     assert.match(userPromptHooks[1].command, /session\/skill_loaded_reminder\.py$/);
+    assert.match(userPromptHooks[2].command, /blocking\/chat_reply_gate\.py$/);
     assert.ok(userPromptHooks.every(eachHook => !eachHook.command.includes('style_reminder_prompt')));
 
     const firstMerge = JSON.stringify(settings);

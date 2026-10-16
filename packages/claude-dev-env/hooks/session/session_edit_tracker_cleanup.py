@@ -35,11 +35,10 @@ from hooks_constants.pre_tool_use_stdin import (  # noqa: E402
 from hooks_constants.session_edit_stage_gate_constants import (  # noqa: E402
     SESSION_EDIT_FILE_PREFIX,
     SESSION_EDIT_FILE_SUFFIX,
-    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
     SESSION_START_SOURCE_FRESH_STARTUP,
     SESSION_START_SOURCE_PAYLOAD_KEY,
-    STATE_FILE_DEFAULT_SESSION_ID,
 )
+from hooks_constants.session_file_id import session_file_id
 
 
 def _delete_file(target_file: Path) -> None:
@@ -66,9 +65,7 @@ def _current_session_file_name(session_id: str) -> str:
         The tracker file name for the sanitized session id, falling back to
         the default id when sanitizing leaves an empty string.
     """
-    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", session_id)
-    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
-    return f"{SESSION_EDIT_FILE_PREFIX}{effective_session_id}{SESSION_EDIT_FILE_SUFFIX}"
+    return f"{SESSION_EDIT_FILE_PREFIX}{session_file_id(session_id)}{SESSION_EDIT_FILE_SUFFIX}"
 
 
 def _is_tracker_deletion_lifecycle_event(payload_by_field: dict[str, object]) -> bool:
