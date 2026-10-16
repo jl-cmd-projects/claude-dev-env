@@ -106,8 +106,8 @@ NEGATION_PATTERN = (
     r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
 )
 CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
-FILLER_WORDS_PATTERN = r"(?:(?!(?:a|an|the)\b)\w+\s+){0,2}"
-SKIPPED_RUN_PATTERN = rf"(?:(?:did|have|has|was|were)(?:\s+not|n't)|not\s+yet)\s+{FILLER_WORDS_PATTERN}run"
+FILLER_WORDS_PATTERN = r"(?:(?!(?:a|an|the|to|what|which|something|anything)\b)\w+\s+){0,2}"
+SKIPPED_RUN_PATTERN = rf"(?:(?:did|have|has|was|were)(?:\s+not|n't)|not\s+yet)\s+{FILLER_WORDS_PATTERN}run(?!\s+(?:into|out)\b)"
 UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"\b(?:guess(?:es|ed|ing)?|estimat(?:e|es|ed|ing)|eta|ballpark"
     r"|assum(?:e|es|ed|ing)|i think|i expect"

@@ -809,6 +809,10 @@ def test_should_deny_each_unvalidated_claim_shape(
         "The hook cannot run on Windows.",
         "The crash is not a test problem.",
         "That is not the check that failed.",
+        "The migration did not run out of memory.",
+        "We did not run into any errors.",
+        "This is not something to check before the release.",
+        "The result is not what we tested for.",
     ],
 )
 def test_should_allow_a_reply_with_no_unvalidated_claim(

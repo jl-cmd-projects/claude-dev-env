@@ -173,12 +173,9 @@ def countable_text(reply_text: str) -> str:
 
 def sentence_word_lists(reply_text: str) -> list[list[str]]:
     """Split the text into sentences, one per line or terminal mark, as word lists."""
-    all_sentence_texts = [
-        each_sentence
-        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    all_word_lists = [
+        WORD_PATTERN.findall(each_sentence) for each_sentence in prose_sentences(countable_text(reply_text))
     ]
-    all_word_lists = [WORD_PATTERN.findall(each_sentence) for each_sentence in all_sentence_texts]
     return [each_word_list for each_word_list in all_word_lists if each_word_list]
 
 
