@@ -408,13 +408,7 @@ def remote_visible_changed_files(
     repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
     """Return the changed files people see, read from the GitHub compare API, or None when it cannot tell.
-
-    The base is the named base branch, else the repository's default branch::
-
-        o/r, base main, head feature, page.html changed -> ["page.html"]
-        o/r, no base, head feature, tool.py changed      -> []
-        no repository or no head named                   -> None
-        gh fails or is missing                           -> None
+    The base is the named base branch, else the repository's default branch.
 
     Args:
         repository: The owner/name the create call names, or None.
