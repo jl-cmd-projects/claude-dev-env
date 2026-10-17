@@ -45,7 +45,7 @@ that no successful tool result in the transcript shows. A subagent's report
 is the result of its Agent call. With no readable transcript, this check
 is skipped.
 
-The banned-word and unvalidated claim checks also read the prose of a
+The banned-word, unvalidated claim, and citation checks also read the prose of a
 decision card: its question, its context, and each option's label and
 consequence. They read an AskUserQuestion card the same way: each
 question, its header, and each option's label and description.
