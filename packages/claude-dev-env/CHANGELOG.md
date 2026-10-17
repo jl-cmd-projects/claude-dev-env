@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.81.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.80.0...claude-dev-env-v8.81.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** hold an edit to the proof gate until its named route is taken ([#2032](https://github.com/jl-cmd-projects/claude-dev-env/issues/2032)) ([36be54e](https://github.com/jl-cmd-projects/claude-dev-env/commit/36be54e0b10644a7ab4413ba05ec80802813e8f0))
+
 ## [8.80.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.79.0...claude-dev-env-v8.80.0) (2026-10-15)
 
 
