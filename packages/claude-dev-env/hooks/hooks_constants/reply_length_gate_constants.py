@@ -106,15 +106,22 @@ DURATION_UNIT_PATTERN = r"(?:hours?|hrs?|minutes?|mins?|days?|weeks?)"
 NEGATION_PATTERN = (
     r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
 )
+FIRST_PERSON_PATTERN = r"(?:i|we)"
 CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
+CHECKED_PARTICIPLE_PATTERN = r"(?:confirmed|verified|validated|checked|tested)"
+PASSIVE_NEGATION_PATTERN = (
+    r"(?:(?:has|have)(?:\s+not|n't)(?:\s+yet)?\s+been"
+    r"|(?:was|were|is|are)(?:\s+not|n't)(?:\s+yet)?(?:\s+been)?"
+    r"|can(?:not|'t)\s+be)"
+)
 FILLER_WORDS_PATTERN = r"(?:(?!(?:a|an|the|what|which|something|anything)\b)\w+\s+){0,2}"
-SKIPPED_RUN_PATTERN = rf"(?:(?:did|have|has|was|were)(?:\s+not|n't)|not\s+yet)\s+{FILLER_WORDS_PATTERN}run(?!\s+(?:into|out)\b)"
 UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"\b(?:guess(?:es|ed|ing)?|estimat(?:e|es|ed|ing)|eta|ballpark"
     r"|assum(?:e|es|ed|ing)|i think|i expect"
     r"|un(?:confirmed|verified|validated|checked|tested))\b"
-    rf"|\b{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}{CHECK_VERB_PATTERN}\b"
-    rf"|\b{SKIPPED_RUN_PATTERN}\b",
+    rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}{CHECK_VERB_PATTERN}\b"
+    rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}run\b(?!\s+(?:into|out)\b)"
+    rf"|\b{PASSIVE_NEGATION_PATTERN}\s+(?:{CHECKED_PARTICIPLE_PATTERN}|run)\b",
     re.IGNORECASE,
 )
 DURATION_CLAIM_PATTERN = re.compile(

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -250,14 +250,18 @@ def _read_transcript_lines(transcript_path: object) -> list[str] | None:
         return None
 
 
-def _result_ids(all_entries: list[dict[str, object]], is_error: bool) -> set[object]:
-    return {
-        each_block.get(TOOL_USE_ID_KEY)
+def _result_blocks(all_entries: Iterable[dict[str, object]], is_error: bool) -> Iterator[dict[str, object]]:
+    return (
+        each_block
         for each_entry in all_entries
         for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
         if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
         and bool(each_block.get(IS_ERROR_KEY)) is is_error
-    }
+    )
+
+
+def _result_ids(all_entries: list[dict[str, object]], is_error: bool) -> set[object]:
+    return {each_block.get(TOOL_USE_ID_KEY) for each_block in _result_blocks(all_entries, is_error)}
 
 
 def _result_texts(result_content: object) -> list[str]:
@@ -281,9 +285,7 @@ def successful_result_text(transcript_path: object) -> str | None:
         return None
     return RESULT_TEXT_SEPARATOR.join(
         each_text
-        for each_entry in _parsed_entries(all_lines)
-        for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
-        if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE and not each_block.get(IS_ERROR_KEY)
+        for each_block in _result_blocks(_parsed_entries(all_lines), is_error=False)
         for each_text in _result_texts(each_block.get(CONTENT_KEY))
     )
 

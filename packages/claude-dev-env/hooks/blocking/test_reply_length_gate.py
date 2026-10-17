@@ -790,6 +790,7 @@ def test_should_deny_an_estimate_and_quote_it(
         "The job takes 39 minutes.",
         "The migration takes seventy minutes.",
         "I was not able to verify the fix.",
+        "The fix has not been validated.",
     ],
 )
 def test_should_deny_each_unvalidated_claim_shape(
@@ -815,6 +816,9 @@ def test_should_deny_each_unvalidated_claim_shape(
         "We did not run into any errors.",
         "This is not something to check before the release.",
         "The result is not what we tested for.",
+        "The migration did not run on the replica.",
+        "The old parser did not validate the header length.",
+        "The job has not run yet.",
     ],
 )
 def test_should_allow_a_reply_with_no_unvalidated_claim(
