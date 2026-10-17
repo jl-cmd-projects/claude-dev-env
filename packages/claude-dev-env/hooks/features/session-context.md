@@ -9,6 +9,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/working_style_prompt.py` injects the session's working style at session start.
 - `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled.
 - `session/orchestrator_auto_starter.py` injects an orchestrator directive when its environment flag is enabled.
+- `session/deepen_first_prompt.py` rewrites a first interactive user task so the worker does the omitted expert job.
 - `session/artifact_template_pointer.py` routes an agent that starts an artifact page by scope. A status or progress report prefers the status flowchart from `docs/templates/artifact-page/status-flowchart.html`, unless the person asks for another shape. One flow or one comparison is an inline SVG flowchart with minimal text. A multi-part plan or evidence is an html-plan page from `docs/templates/html-plan/README.md`. When the request names the older artifact page template, it points at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
 - `advisory/auto_mode_denial_quick_fix.py` proposes one `autoMode.allow` entry and a PowerShell block that writes it after an auto mode denial. It never retries the denied call.
 
@@ -16,6 +17,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 
 - `session/skill_loaded_reminder.py` runs on `PreToolUse` matcher `Agent|Task` at `10` seconds, `UserPromptSubmit` matcher empty at `10` seconds, `SessionStart` matcher `compact` at `10` seconds, and `SubagentStart` matcher `workflow-subagent` at `10` seconds in `hooks.json`.
 - `session/task_tool_prompt.py`, `session/working_style_prompt.py`, `session/advisor_rules_prompt.py`, and `session/orchestrator_auto_starter.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.
+- `session/deepen_first_prompt.py` runs on `UserPromptSubmit`, matcher empty, timeout `10` seconds in `hooks.json`.
 - `session/artifact_template_pointer.py` runs on `PreToolUse` matcher `Artifact|Skill` at `10` seconds in `hooks.json`. It speaks only on an `Artifact` call with action `quickstart` or a `Skill` call that loads `artifact-design`.
 - `advisory/auto_mode_denial_quick_fix.py` runs on `PermissionDenied`, matcher `*`, timeout `10` seconds in `hooks.json`.
 
@@ -30,6 +32,7 @@ Preconditions:
 - **Working style.** Input is a SessionStart event. Run `python -m pytest packages/claude-dev-env/hooks/session/test_working_style_prompt.py -q`. The adjacent test observes the fixed context text.
 - **Advisor guidance.** Input is SessionStart with `advisorModel` set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_advisor_rules_prompt.py -q`. The adjacent test observes guidance only when the advisor setting is enabled.
 - **Orchestrator start.** Input is SessionStart with its opt-in flag set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_orchestrator_auto_starter.py -q`. The adjacent test observes an orchestrator directive.
+- **First-task deepen.** Input is a first UserPromptSubmit task. Run `python -m pytest packages/claude-dev-env/hooks/session/test_deepen_first_prompt.py -q`. The adjacent test observes a skip table and a rewrite that names the four omitted answers.
 - **Artifact template pointer.** Input is an `Artifact` quickstart call. Run `python -m pytest packages/claude-dev-env/hooks/session/test_artifact_template_pointer.py -q`. The adjacent test observes the status flowchart path first, the html-plan path ahead of the template path in `additionalContext`, and silence on a publish call or another skill.
 - **Denial quick fix.** Input is a `PermissionDenied` event with a bracketed rule label and a classifier verdict. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_auto_mode_denial_quick_fix.py -q`. The adjacent test observes the named rule, the allow entry, and the PowerShell block; a denial with no verdict gets a note and no block.
 
