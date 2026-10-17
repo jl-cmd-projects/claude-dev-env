@@ -102,13 +102,13 @@ QUANTITY_PATTERN = (
     r"|twenty|thirty|forty(?:-five)?|fifty|sixty|seventy|eighty|ninety"
     r"|(?:an?\s+|one\s+)?hundred|half an?|a couple(?: of)?|a few|several)"
 )
-DURATION_UNIT_PATTERN = r"(?:hours?|hrs?|minutes?|mins?|days?|weeks?)"
+DURATION_UNIT_PATTERN = r"(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?)"
 NEGATION_PATTERN = (
     r"(?:(?:did|have|has|could|was|were|is|are)(?:\s+not|n't)|can(?:not|'t)|not\s+yet|never)"
 )
 FIRST_PERSON_PATTERN = r"(?:i|we)"
 CHECK_VERB_PATTERN = r"(?:confirm|verif(?:y|ied)|validate|check|test)(?:ed)?"
-CHECKED_PARTICIPLE_PATTERN = r"(?:confirmed|verified|validated|checked|tested)"
+CHECKED_PARTICIPLE_PATTERN = r"(?:confirmed|verified|validated|tested|checked(?!\s+(?:in|out)\b))"
 PASSIVE_NEGATION_PATTERN = (
     r"(?:(?:has|have)(?:\s+not|n't)(?:\s+yet)?\s+been"
     r"|(?:was|were|is|are)(?:\s+not|n't)(?:\s+yet)?(?:\s+been)?"
@@ -121,7 +121,7 @@ UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"|un(?:confirmed|verified|validated|checked|tested))\b"
     rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}{CHECK_VERB_PATTERN}\b"
     rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}run\b(?!\s+(?:into|out)\b)"
-    rf"|\b{PASSIVE_NEGATION_PATTERN}\s+(?:{CHECKED_PARTICIPLE_PATTERN}|run)\b(?!\s+(?:in|into|out)\b)",
+    rf"|\b{PASSIVE_NEGATION_PATTERN}\s+(?:{CHECKED_PARTICIPLE_PATTERN}|run)\b",
     re.IGNORECASE,
 )
 DURATION_CLAIM_PATTERN = re.compile(
