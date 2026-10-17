@@ -19,15 +19,15 @@ export const register: Register = on => {
     const sessionId = await $.session.id().catch(() => undefined)
     const stdin = deepenHookInput(e.text, sessionId)
     for (const eachLauncher of ALL_PYTHON_LAUNCHERS) {
-      const result = await $.process
+      const gateRun = await $.process
         .run([...eachLauncher, scriptPath], {
           env: { CDE_DEEPEN_OUTPUT: DEEPEN_OUTPUT_MODE },
           stdin,
           timeoutMs: HOOK_TIMEOUT_MILLISECONDS,
         })
         .catch(() => undefined)
-      if (result === undefined || result.exitCode !== 0) continue
-      const rewritten = rewrittenPromptFrom(result.stdout)
+      if (gateRun === undefined || gateRun.exitCode !== 0) continue
+      const rewritten = rewrittenPromptFrom(gateRun.stdout)
       return next(rewritten === undefined ? e : { ...e, text: rewritten })
     }
     return next(e)
