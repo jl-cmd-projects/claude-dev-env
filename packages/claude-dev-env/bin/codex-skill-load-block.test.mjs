@@ -11,6 +11,7 @@ import {
     SKILL_LOAD_BLOCK_END,
     SKILL_LOAD_BLOCK_START,
     SKILL_LOAD_INSTRUCTION,
+    removeCodexDeepenGuidance,
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     withSkillLoadBlock,
@@ -373,4 +374,15 @@ test('should write the deepen block into Codex AGENTS.md', (context) => {
     assert.ok(guidanceText.includes(DEEPEN_GUIDANCE_BLOCK_END));
     assert.ok(guidanceText.includes(DEEPEN_GUIDANCE_TEXT.split('\n')[0]));
     assert.equal(writeCodexDeepenGuidance(homes.codexHome), null);
+});
+
+test('should restore the custom guidance bytes when the deepen block is removed', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    const customGuidance = '# My notes\n\nKeep this line.\n';
+    writeFileSync(homes.agentsPath, customGuidance);
+
+    assert.equal(writeCodexDeepenGuidance(homes.codexHome), homes.agentsPath);
+    assert.equal(removeCodexDeepenGuidance(homes.codexHome), homes.agentsPath);
+    assert.equal(readFileSync(homes.agentsPath, 'utf8'), customGuidance);
 });

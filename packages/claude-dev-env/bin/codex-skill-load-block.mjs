@@ -134,7 +134,7 @@ export function writeCodexDeepenGuidance(codexHome, deepenText = DEEPEN_GUIDANCE
     const replacedText = withBlockReplaced(
         currentText, DEEPEN_GUIDANCE_BLOCK_START, DEEPEN_GUIDANCE_BLOCK_END, block,
     );
-    const separator = currentText && !currentText.endsWith('\n') ? '\n\n' : currentText ? '\n' : '';
+    const separator = currentText && !currentText.endsWith('\n') ? '\n' : '';
     const updatedText = replacedText ?? `${currentText}${separator}${block}`;
     if (updatedText === currentText) return null;
     mkdirSync(codexHome, { recursive: true });
