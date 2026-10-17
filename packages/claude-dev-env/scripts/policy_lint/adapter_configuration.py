@@ -137,6 +137,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/merge_over_review_offer_gate.py   -> exempt
+        hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons

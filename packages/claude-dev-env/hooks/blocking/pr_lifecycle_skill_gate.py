@@ -261,14 +261,24 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     return None if duplicate_reason is None else _deny(duplicate_reason)
 
 
-def _transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+    """Return each transcript path a hook payload names, with the subagent transcript last.
+
+    ::
+
+        transcript_path only                     -> [transcript_path]
+        transcript_path and a known agent_id     -> [transcript_path, <session>/subagents/agent-<id>.jsonl]
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
     paths.append(_subagent_transcript_path(all_payload_fields))
     return list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
 
 
 def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
-    readable_paths = _transcript_paths(all_payload_fields)
+    readable_paths = transcript_paths(all_payload_fields)
     if not readable_paths:
         return False
     statuses = [_scanned_transcript(path, _shows_skill_load) for path in readable_paths]
@@ -278,7 +288,7 @@ def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
 def _is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
     all_statuses = [
         _scanned_transcript(each_path, _shows_build_eval)
-        for each_path in _transcript_paths(all_payload_fields)
+        for each_path in transcript_paths(all_payload_fields)
     ]
     all_read_statuses = [each_status for each_status in all_statuses if each_status is not None]
     return bool(all_read_statuses) and not any(all_read_statuses)
