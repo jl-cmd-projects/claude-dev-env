@@ -16,7 +16,7 @@ import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 _hooks_dir = str(Path(__file__).resolve().parent.parent)
@@ -65,7 +65,7 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 
 
-class SkipReason(str, Enum):
+class SkipReason(StrEnum):
     """Why the first-task gate left a prompt unchanged."""
 
     LATER_TURN = "later-turn"
