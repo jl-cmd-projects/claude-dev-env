@@ -10,19 +10,19 @@ const REWRITTEN_TASK = 'CDE_DEEPEN:v1\n\nShip contrast tokens with the theme and
 function engine(on: On, answerFor: (request: RunRequest) => RunAnswer, allMessages: unknown[] = []) {
   const allRequests: RunRequest[] = []
   const allSubmittedTexts: string[] = []
-  on('session.messages', () => allMessages as never)
-  on('session.id', () => 'session-deepen' as never)
-  on('env.get', (_$, e) => ((e as { name: string }).name === 'HOME' ? '/home/tester' : undefined) as never)
+  on('session.messages', () => ({ value: allMessages }) as never)
+  on('session.id', () => ({ value: 'session-deepen' }) as never)
+  on('env.get', (_$, e) => ({ value: (e as { name: string }).name === 'HOME' ? '/home/tester' : undefined }) as never)
   on('process.run', (_$, e) => {
     const request = e as unknown as RunRequest
     allRequests.push(request)
     const answer = answerFor(request)
     if (answer instanceof Error) throw answer
-    return answer as never
+    return { value: answer } as never
   })
   on('prompt.submit', (_$, e) => {
     allSubmittedTexts.push(e.text)
-    return {} as never
+    return { text: e.text }
   })
   return { allRequests, allSubmittedTexts }
 }
