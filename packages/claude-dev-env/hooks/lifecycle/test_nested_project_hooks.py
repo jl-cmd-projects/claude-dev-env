@@ -62,6 +62,10 @@ def _session_start_payload() -> dict[str, object]:
     return {"hook_event_name": "SessionStart", "source": "startup"}
 
 
+def _user_prompt_submit_payload(prompt: str) -> dict[str, object]:
+    return {"hook_event_name": "UserPromptSubmit", "prompt": prompt}
+
+
 def test_should_run_a_child_session_start_hook_inside_that_child(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -350,6 +354,52 @@ def test_should_let_the_call_through_when_a_child_hook_fails_to_start(
     completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
 
     assert completed_process.returncode == 0
+
+
+def test_should_carry_child_user_prompt_submit_output_as_additional_context(
+    tmp_path: pathlib.Path,
+) -> None:
+    context_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": "CDE_DEEPEN:v1\nTreat the submitted prompt as this rewritten task.",
+        }
+    }
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {
+            "UserPromptSubmit": [
+                _command_group("", f"echo '{json.dumps(context_output)}'")
+            ]
+        },
+    )
+
+    completed_process = _run_hook(
+        tmp_path, _user_prompt_submit_payload("Add dark mode to the settings page")
+    )
+
+    assert completed_process.returncode == 0
+    hook_output = json.loads(completed_process.stdout)
+    assert hook_output["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert "CDE_DEEPEN:v1" in hook_output["hookSpecificOutput"]["additionalContext"]
+
+
+def test_should_stay_quiet_on_an_event_it_does_not_forward(
+    tmp_path: pathlib.Path,
+) -> None:
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"SessionStart": [_command_group("", "echo should not run")]},
+    )
+
+    completed_process = _run_hook(
+        tmp_path, {"hook_event_name": "SessionEnd", "prompt": "Add dark mode"}
+    )
+
+    assert completed_process.returncode == 0
+    assert completed_process.stdout.strip() == ""
 
 
 @pytest.mark.parametrize("unreadable_settings", ["{not json", "[]", '{"hooks": []}'])
