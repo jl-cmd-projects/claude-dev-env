@@ -42,12 +42,6 @@ def _freeze_clock(monkeypatch: pytest.MonkeyPatch, instant: datetime) -> None:
     monkeypatch.setattr(account_broker, "datetime", _FrozenClock)
 
 
-@pytest.fixture(autouse=True)
-def isolated_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(account_broker, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
-    monkeypatch.setattr(account_broker.support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
-
-
 def _account(name: str, product: Product = Product.CODEX, main: bool = False) -> Account:
     return Account(product, name, Path("/profiles") / name, main, name)
 
