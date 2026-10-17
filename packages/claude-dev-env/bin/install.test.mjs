@@ -3042,6 +3042,7 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
         };
         const argumentsForCoreInstall = [PSTACK_TEST_INSTALLER_PATH, '--only', 'core'];
         const firstRun = spawnSync(process.execPath, argumentsForCoreInstall, {
@@ -3456,6 +3457,27 @@ for (const [caseName, extraArguments, environmentOverrides] of [
             false,
         );
         assert.doesNotMatch(installerOutput, /Subagent-models \(/);
+    });
+}
+
+for (const [caseName, extraArguments, environmentOverrides] of [
+    ['--no-deepen-first-prompt', ['--no-deepen-first-prompt'], { CDE_INSTALL_DEEPEN_FIRST_PROMPT: '1' }],
+    ['CDE_INSTALL_DEEPEN_FIRST_PROMPT=0', [], { CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0' }],
+    ['an --only run', ['--only', 'core'], { CDE_INSTALL_DEEPEN_FIRST_PROMPT: '1' }],
+]) {
+    test(`should skip deepen-first-prompt on ${caseName}`, t => {
+        const sandbox = pstackPluginSandbox(t);
+
+        const installerOutput = runPstackInstaller(sandbox.homeDirectory, extraArguments, {
+            ...sandbox.environment,
+            ...environmentOverrides,
+        });
+
+        assert.equal(
+            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('deepen-first-prompt')),
+            false,
+        );
+        assert.doesNotMatch(installerOutput, /Deepen-first-prompt \(/);
     });
 }
 
