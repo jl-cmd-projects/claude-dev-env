@@ -61,6 +61,8 @@ BLOCK_ID_KEY = "id"
 TOOL_USE_ID_KEY = "tool_use_id"
 IS_ERROR_KEY = "is_error"
 IS_META_KEY = "isMeta"
+BLOCK_TEXT_KEY = "text"
+RESULT_TEXT_SEPARATOR = "\n"
 
 ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
