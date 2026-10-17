@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.83.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.1...claude-dev-env-v8.83.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** deepen the first interactive user task ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+* **hooks:** deepen the first interactive user task ([#2037](https://github.com/jl-cmd-projects/claude-dev-env/issues/2037)) ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+
 ## [8.82.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.0...claude-dev-env-v8.82.1) (2026-10-17)
 
 
