@@ -522,7 +522,7 @@ function runDeepenInstallSurfaceStage(scratchHome, evidenceDirectory) {
     const codexAgentsPath = join(scratchHome, '.codex', 'AGENTS.md');
     const codexAgentsText = existsSync(codexAgentsPath) ? readFileSync(codexAgentsPath, 'utf8') : '';
     if (!codexAgentsText.includes('<!-- claude-dev-env deepen: start -->')) {
-        throw new Error('The installed Codex AGENTS.md carries no deepen guidance block');
+        throw new Error(`The install wrote no deepen block into ${codexAgentsPath}`);
     }
     const evidencePath = writeEvidence(
         evidenceDirectory,

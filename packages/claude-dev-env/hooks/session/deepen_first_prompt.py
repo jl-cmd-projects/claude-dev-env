@@ -35,6 +35,7 @@ from hooks_constants.deepen_first_prompt_constants import (
     CLAUDE_HOST_TRUE_VALUE,
     DEEPEN_AGENT_MARKER,
     DEEPEN_COMMAND_ENV_VAR,
+    DEEPEN_COMMAND_TIMEOUT_SECONDS,
     DEEPEN_FIRST_PROMPT_PLUGIN_NAME,
     DEEPEN_MARKER,
     DEEPEN_OUTPUT_ENV_VAR,
@@ -42,7 +43,6 @@ from hooks_constants.deepen_first_prompt_constants import (
     DEEPEN_OUTPUT_REWRITE,
     DEEPEN_REWRITE_ENV_VAR,
     DEEPEN_SLASH_COMMAND,
-    DEEPEN_TIMEOUT_SECONDS,
     DEEPEN_TURN_MARKER_SUFFIX,
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
@@ -81,7 +81,7 @@ class SkipReason(str, Enum):
 
 @dataclass(frozen=True)
 class Skip:
-    """Leave the submitted prompt unchanged."""
+    """Leave the submitted prompt text unchanged."""
 
     reason: SkipReason
 
@@ -98,7 +98,7 @@ DeepenDecision = Skip | Deepen
 
 
 def submitted_prompt_text(all_hook_fields: dict[str, object]) -> str:
-    """Return the submitted prompt string, or empty when the payload has none."""
+    """Return the submitted prompt text, or empty when the payload has none."""
     prompt = all_hook_fields.get(PROMPT_FIELD_NAME)
     if isinstance(prompt, str):
         return prompt
@@ -120,30 +120,34 @@ def _first_token(prompt: str) -> str:
     return stripped.split(None, 1)[0]
 
 
+def _parsed_transcript_entry(transcript_line: str) -> dict[str, object] | None:
+    stripped_line = transcript_line.strip()
+    if not stripped_line:
+        return None
+    try:
+        parsed_entry = json.loads(stripped_line)
+    except json.JSONDecodeError:
+        return None
+    return parsed_entry if isinstance(parsed_entry, dict) else None
+
+
+def _is_user_entry(all_entry_fields: dict[str, object] | None) -> bool:
+    if all_entry_fields is None:
+        return False
+    if all_entry_fields.get(JSONL_TYPE_KEY) == USER_TYPE_NAME:
+        return True
+    message = all_entry_fields.get("message")
+    return isinstance(message, dict) and message.get(JSONL_ROLE_KEY) == USER_ROLE_NAME
+
+
 def _transcript_has_prior_user_turn(transcript_path: object) -> bool:
     if not isinstance(transcript_path, str) or not transcript_path:
         return False
-    path = Path(transcript_path)
     try:
-        with path.open(encoding=UTF8_ENCODING) as transcript:
-            for each_line in transcript:
-                stripped_line = each_line.strip()
-                if not stripped_line:
-                    continue
-                try:
-                    parsed_entry = json.loads(stripped_line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(parsed_entry, dict):
-                    continue
-                if parsed_entry.get(JSONL_TYPE_KEY) == USER_TYPE_NAME:
-                    return True
-                message = parsed_entry.get("message")
-                if isinstance(message, dict) and message.get(JSONL_ROLE_KEY) == USER_ROLE_NAME:
-                    return True
+        with Path(transcript_path).open(encoding=UTF8_ENCODING) as transcript:
+            return any(_is_user_entry(_parsed_transcript_entry(each_line)) for each_line in transcript)
     except OSError:
         return False
-    return False
 
 
 def _turn_marker_path(all_hook_fields: dict[str, object]) -> Path | None:
@@ -172,18 +176,17 @@ def write_turn_marker(all_hook_fields: dict[str, object]) -> None:
         return
 
 
-def skip_reason_for(all_hook_fields: dict[str, object]) -> SkipReason | None:
-    """Return the first skip that matches, or None when the gate should deepen."""
-    event_name = all_hook_fields.get("hook_event_name")
-    if event_name not in (USER_PROMPT_SUBMIT_EVENT_NAME, None, ""):
-        return SkipReason.LATER_TURN
-    prompt = submitted_prompt_text(all_hook_fields)
+def _environment_skip_reason() -> SkipReason | None:
     if os.environ.get(SKIP_DEEPEN_ENV_VAR, "").strip() == SKIP_DEEPEN_TRUE_VALUE:
         return SkipReason.SKIP_FLAG
     if _env_flag_is_true(NONINTERACTIVE_PRINT_ENV_VAR) or _env_flag_is_true(
         NONINTERACTIVE_CODEX_ENV_VAR
     ):
         return SkipReason.NONINTERACTIVE
+    return None
+
+
+def _marker_skip_reason(prompt: str) -> SkipReason | None:
     if DEEPEN_MARKER in prompt:
         return SkipReason.MARKER_PRESENT
     if DEEPEN_AGENT_MARKER in prompt:
@@ -194,15 +197,29 @@ def skip_reason_for(all_hook_fields: dict[str, object]) -> SkipReason | None:
         return SkipReason.LOOP_OR_HELPER
     if any(each_marker in prompt.lower() for each_marker in ALL_HELPER_REPORT_MARKERS):
         return SkipReason.LOOP_OR_HELPER
+    return None
+
+
+def _shape_skip_reason(prompt: str) -> SkipReason | None:
     first_token = _first_token(prompt)
     if first_token.startswith("/") and first_token.lower() != DEEPEN_SLASH_COMMAND:
         return SkipReason.SLASH_COMMAND
     if first_token.lower() == DEEPEN_SLASH_COMMAND and prompt.strip().lower() == DEEPEN_SLASH_COMMAND:
         return SkipReason.SLASH_COMMAND
-    if _normalized_prompt(prompt) in ALL_TRIVIAL_PROMPTS:
+    if _normalized_prompt(prompt) in ALL_TRIVIAL_PROMPTS or not prompt.strip():
         return SkipReason.TRIVIAL
-    if not prompt.strip():
-        return SkipReason.TRIVIAL
+    return None
+
+
+def skip_reason_for(all_hook_fields: dict[str, object]) -> SkipReason | None:
+    """Return the first skip that matches, or None when the gate should deepen."""
+    event_name = all_hook_fields.get("hook_event_name")
+    if event_name not in (USER_PROMPT_SUBMIT_EVENT_NAME, None, ""):
+        return SkipReason.LATER_TURN
+    prompt = submitted_prompt_text(all_hook_fields)
+    reason = _environment_skip_reason() or _marker_skip_reason(prompt) or _shape_skip_reason(prompt)
+    if reason is not None:
+        return reason
     if _turn_marker_exists(all_hook_fields) or _transcript_has_prior_user_turn(
         all_hook_fields.get(TRANSCRIPT_PATH_FIELD_NAME)
     ):
@@ -220,35 +237,35 @@ def task_text_for_deepen(prompt: str) -> str:
     return remainder or stripped
 
 
-def expand_first_task(prompt: str) -> str:
-    """Rewrite a first task so the worker does the omitted expert job."""
-    stub_rewrite = os.environ.get(DEEPEN_REWRITE_ENV_VAR, "").strip()
-    task_text = task_text_for_deepen(prompt)
-    if stub_rewrite:
-        rewritten_body = stub_rewrite.replace("{prompt}", task_text)
-        if DEEPEN_MARKER not in rewritten_body:
-            return f"{DEEPEN_MARKER}\n\n{rewritten_body}"
+def _with_deepen_marker(rewritten_body: str) -> str:
+    if DEEPEN_MARKER in rewritten_body:
         return rewritten_body
+    return f"{DEEPEN_MARKER}\n\n{rewritten_body}"
+
+
+def _command_rewrite(task_text: str) -> str | None:
     command = os.environ.get(DEEPEN_COMMAND_ENV_VAR, "").strip()
-    if command:
-        try:
-            completed = subprocess.run(
-                shlex.split(command),
-                input=task_text,
-                capture_output=True,
-                text=True,
-                timeout=DEEPEN_TIMEOUT_SECONDS - 2,
-                check=False,
-                creationflags=hidden_window_creation_flags(),
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            completed = None
-        if completed is not None and completed.returncode == 0:
-            command_text = completed.stdout.strip()
-            if command_text:
-                if DEEPEN_MARKER not in command_text:
-                    return f"{DEEPEN_MARKER}\n\n{command_text}"
-                return command_text
+    if not command:
+        return None
+    try:
+        completed = subprocess.run(
+            shlex.split(command),
+            input=task_text,
+            capture_output=True,
+            text=True,
+            timeout=DEEPEN_COMMAND_TIMEOUT_SECONDS,
+            check=False,
+            creationflags=hidden_window_creation_flags(),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    command_text = completed.stdout.strip()
+    if completed.returncode != 0 or not command_text:
+        return None
+    return _with_deepen_marker(command_text)
+
+
+def _default_rewrite(task_text: str) -> str:
     return (
         f"{DEEPEN_MARKER}\n\n"
         "Do this task as a leading practitioner in its field would.\n\n"
@@ -260,6 +277,18 @@ def expand_first_task(prompt: str) -> str:
         "4. What besides the agent or Jon would show the result is right.\n"
         "Then do exactly that job."
     )
+
+
+def expand_first_task(prompt: str) -> str:
+    """Rewrite a first task so the worker does the omitted expert job."""
+    stub_rewrite = os.environ.get(DEEPEN_REWRITE_ENV_VAR, "").strip()
+    task_text = task_text_for_deepen(prompt)
+    if stub_rewrite:
+        return _with_deepen_marker(stub_rewrite.replace("{prompt}", task_text))
+    command_rewrite = _command_rewrite(task_text)
+    if command_rewrite is not None:
+        return command_rewrite
+    return _default_rewrite(task_text)
 
 
 def additional_context_for(rewritten_prompt: str) -> str:

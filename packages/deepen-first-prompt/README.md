@@ -6,7 +6,7 @@ A Claude Code mod on `prompt.submit`. It rewrites the first interactive user tas
 
 - On a submitted prompt, it runs the claude-dev-env gate `hooks/session/deepen_first_prompt.py` under `CLAUDE_CONFIG_DIR`, or under `~/.claude` when that variable is unset.
 - It sends the gate a `UserPromptSubmit` payload with the prompt and the session id, and sets `CDE_DEEPEN_OUTPUT=rewrite`.
-- When the gate prints a task that opens with `CDE_DEEPEN:v1`, that task replaces the submitted text.
+- When the gate prints a task that opens with `CDE_DEEPEN:v1`, the mod submits that task as the prompt text.
 - When the gate prints nothing, the prompt goes through unchanged. The gate skips a thanks, a slash command, a `/loop`, a spawn rewrite, a later turn, and `CDE_SKIP_DEEPEN=1`.
 - A session that already holds a user message goes through unchanged, and the gate does not run.
 - It tries `python3`, then `python`. Each run stops after 8 seconds. When no launcher answers, the prompt goes through unchanged.
