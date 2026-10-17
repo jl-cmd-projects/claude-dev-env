@@ -121,7 +121,7 @@ UNVALIDATED_CLAIM_PATTERN = re.compile(
     r"|un(?:confirmed|verified|validated|checked|tested))\b"
     rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}{CHECK_VERB_PATTERN}\b"
     rf"|\b{FIRST_PERSON_PATTERN}\s+{NEGATION_PATTERN}\s+{FILLER_WORDS_PATTERN}run\b(?!\s+(?:into|out)\b)"
-    rf"|\b{PASSIVE_NEGATION_PATTERN}\s+(?:{CHECKED_PARTICIPLE_PATTERN}|run)\b",
+    rf"|\b{PASSIVE_NEGATION_PATTERN}\s+(?:{CHECKED_PARTICIPLE_PATTERN}|run)\b(?!\s+(?:in|into|out)\b)",
     re.IGNORECASE,
 )
 DURATION_CLAIM_PATTERN = re.compile(

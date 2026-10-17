@@ -819,6 +819,8 @@ def test_should_deny_each_unvalidated_claim_shape(
         "The migration did not run on the replica.",
         "The old parser did not validate the header length.",
         "The job has not run yet.",
+        "The config file is not checked in.",
+        "The release branch is not checked out.",
     ],
 )
 def test_should_allow_a_reply_with_no_unvalidated_claim(
