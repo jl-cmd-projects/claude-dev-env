@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.82.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.81.0...claude-dev-env-v8.82.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** refuse unvalidated claims in every user-facing reply ([899e95f](https://github.com/jl-cmd-projects/claude-dev-env/commit/899e95fe4b996d21f8bacd787fee6e3aaae487d4))
+
 ## [8.81.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.80.0...claude-dev-env-v8.81.0) (2026-10-17)
 
 
