@@ -257,6 +257,11 @@ test('CORE_SKILLS ships ELI5 as the leaf presentation skill', () => {
     assert.equal(INSTALL_GROUPS.core.skills.includes('eli5'), true);
 });
 
+test('CORE_SKILLS ships deepen so the first-task skill installs with core', () => {
+    assert.ok(CORE_SKILLS.includes('deepen'), 'deepen must be in CORE_SKILLS');
+    assert.equal(INSTALL_GROUPS.core.skills.includes('deepen'), true);
+});
+
 test('CORE_SKILLS ships test-runner for explicit Django and Playwright readiness checks', () => {
     assert.ok(CORE_SKILLS.includes('test-runner'));
     assert.equal(INSTALL_GROUPS.core.skills.includes('test-runner'), true);
@@ -3090,6 +3095,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             CDE_INSTALL_PSTACK: '1',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             ...environmentOverrides,
         },
     });
@@ -3402,15 +3408,18 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
+    assert.match(helpRun.stdout, /--no-deepen-first-prompt .*CDE_INSTALL_DEEPEN_FIRST_PROMPT=0/);
 });
 
 const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin uninstall usage-wrapup@claude-dev-env',
     'claude plugin uninstall subagent-models@claude-dev-env',
+    'claude plugin uninstall deepen-first-prompt@claude-dev-env',
     'claude plugin marketplace remove claude-dev-env',
-    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
+    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models packages/deepen-first-prompt',
     'claude plugin install usage-wrapup@claude-dev-env',
     'claude plugin install subagent-models@claude-dev-env',
+    'claude plugin install deepen-first-prompt@claude-dev-env',
 ]);
 
 test('should install subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
@@ -3420,11 +3429,13 @@ test('should install subagent-models beside usage-wrapup with one marketplace ad
         ...sandbox.environment,
         CDE_INSTALL_USAGE_WRAPUP: '1',
         CDE_INSTALL_SUBAGENT_MODELS: '1',
+        CDE_INSTALL_DEEPEN_FIRST_PROMPT: '1',
     });
 
     assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), REPOSITORY_PLUGIN_CLAUDE_COMMANDS);
     assert.match(installerOutput, /Usage-wrapup \(claude\): installed/);
     assert.match(installerOutput, /Subagent-models \(claude\): installed/);
+    assert.match(installerOutput, /Deepen-first-prompt \(claude\): installed/);
 });
 
 for (const [caseName, extraArguments, environmentOverrides] of [
