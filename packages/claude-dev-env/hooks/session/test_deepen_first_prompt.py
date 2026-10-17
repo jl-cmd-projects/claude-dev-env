@@ -214,10 +214,31 @@ class TestDecideFirstPrompt:
         )
         monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_directory))
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("CLAUDECODE", "1")
         monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
         monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
         transcript_path = tmp_path / "fresh.jsonl"
         assert _run_main(_payload("Add dark mode to the settings page", str(transcript_path))) == ""
+
+    def test_should_emit_context_for_codex_when_the_claude_mod_is_on(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        config_directory = tmp_path / "claude-config"
+        config_directory.mkdir()
+        (config_directory / "settings.json").write_text(
+            json.dumps({"enabledPlugins": {"deepen-first-prompt@claude-dev-env": True}}),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_directory))
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        transcript_path = tmp_path / "codex-fresh.jsonl"
+        printed = _run_main(_payload("Add dark mode to the settings page", str(transcript_path)))
+        envelope = json.loads(printed)
+        assert envelope["hookSpecificOutput"]["hookEventName"] == USER_PROMPT_SUBMIT_EVENT_NAME
+        assert "Deeper task body" in envelope["hookSpecificOutput"]["additionalContext"]
 
     def test_should_still_emit_context_in_a_cloud_session_when_the_mod_is_on(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

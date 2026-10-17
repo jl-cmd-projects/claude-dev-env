@@ -31,6 +31,8 @@ from hooks_constants.deepen_first_prompt_constants import (
     ALL_NONINTERACTIVE_ENV_TRUE_VALUES,
     ALL_SPAWN_REWRITE_PREFIXES,
     ALL_TRIVIAL_PROMPTS,
+    CLAUDE_HOST_ENV_VAR,
+    CLAUDE_HOST_TRUE_VALUE,
     DEEPEN_AGENT_MARKER,
     DEEPEN_COMMAND_ENV_VAR,
     DEEPEN_FIRST_PROMPT_PLUGIN_NAME,
@@ -313,8 +315,17 @@ def _print_additional_context(deepen: Deepen) -> None:
 
 
 def should_leave_rewrite_to_mod() -> bool:
-    """Return True when the Claude prompt.submit mod will rewrite the visible text."""
-    return is_mod_plugin_enabled(DEEPEN_FIRST_PROMPT_PLUGIN_NAME) and not is_cloud_session()
+    """Return True when the Claude prompt.submit mod will rewrite the visible text.
+
+    Claude Code sets ``CLAUDECODE=1`` for every command hook. Codex reads the same
+    Claude settings file but runs no Claude mod, so a Codex run keeps the envelope.
+    """
+    is_claude_host = os.environ.get(CLAUDE_HOST_ENV_VAR, "").strip() == CLAUDE_HOST_TRUE_VALUE
+    return (
+        is_claude_host
+        and is_mod_plugin_enabled(DEEPEN_FIRST_PROMPT_PLUGIN_NAME)
+        and not is_cloud_session()
+    )
 
 
 def emit_decision(decision: DeepenDecision, all_hook_fields: dict[str, object]) -> None:
