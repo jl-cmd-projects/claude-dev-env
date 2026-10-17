@@ -348,6 +348,32 @@ test('uninstall removes the routing hook and keeps a Codex user hook', () => {
     }
 });
 
+test('should ship the deepen skill to Cursor and the deepen block to Codex, and remove both on uninstall', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-deepen-surfaces-'));
+    try {
+        const sourceSkillPath = join(PACKAGE_DIRECTORY, '.agents', 'skills', 'deepen', 'SKILL.md');
+        const cursorSkillPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'skills', 'deepen', 'SKILL.md');
+        const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
+        const manifestPath = join(homeDirectory, '.claude', '.claude-dev-env-manifest.json');
+
+        runInstaller(homeDirectory, []);
+
+        assert.equal(readFileSync(cursorSkillPath, 'utf8'), readFileSync(sourceSkillPath, 'utf8'));
+        assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).files.includes(cursorSkillPath), true);
+        const codexGuidance = readFileSync(codexGuidancePath, 'utf8');
+        assert.match(codexGuidance, /<!-- claude-dev-env deepen: start -->/);
+        assert.match(codexGuidance, /CDE_DEEPEN:v1/);
+
+        runInstaller(homeDirectory, ['--uninstall']);
+
+        assert.equal(existsSync(cursorSkillPath), false);
+        const remainingGuidance = existsSync(codexGuidancePath) ? readFileSync(codexGuidancePath, 'utf8') : '';
+        assert.doesNotMatch(remainingGuidance, /claude-dev-env deepen/);
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
 test('malformed Codex hooks restore the staged install', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-routing-malformed-'));
     try {
