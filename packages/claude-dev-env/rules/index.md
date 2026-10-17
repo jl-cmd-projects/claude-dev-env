@@ -1,5 +1,5 @@
 # Rules
-Each line gives a rule in brief. When its trigger matches your task, open the guide and follow it in full. Correction lens and question presentation load as their own files.
+Each line gives a rule in brief. When its trigger matches your task, open the guide and follow it in full. Correction lens, question presentation, and the agent board load as their own files.
 
 **Writing**
 - **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step, each fact said once.
