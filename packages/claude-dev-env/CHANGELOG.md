@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.82.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.0...claude-dev-env-v8.82.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **account-broker:** stop refreshing signed-out accounts and slim the refresh spawn ([#2030](https://github.com/jl-cmd-projects/claude-dev-env/issues/2030)) ([adbbe03](https://github.com/jl-cmd-projects/claude-dev-env/commit/adbbe03cba987e668a492b5cdd57a163281cc2e3))
+
 ## [8.82.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.81.0...claude-dev-env-v8.82.0) (2026-10-17)
 
 
