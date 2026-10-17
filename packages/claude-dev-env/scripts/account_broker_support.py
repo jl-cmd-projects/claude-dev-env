@@ -41,7 +41,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
-    LOGIN_REFRESH_ENVIRONMENT,
+    ALL_LOGIN_REFRESH_ENVIRONMENT,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
     Meters,
@@ -254,7 +254,7 @@ def refresh_claude_login(account_home: Path) -> bool:
     claude_path = resolve_claude_path()
     if claude_path is None:
         return False
-    refresh_environment = {**os.environ, **LOGIN_REFRESH_ENVIRONMENT, CLAUDE_CONFIG_DIR_ENV_VAR: str(account_home)}
+    refresh_environment = {**os.environ, **ALL_LOGIN_REFRESH_ENVIRONMENT, CLAUDE_CONFIG_DIR_ENV_VAR: str(account_home)}
     try:
         subprocess.run(
             [str(claude_path), *ALL_LOGIN_REFRESH_ARGUMENTS],
