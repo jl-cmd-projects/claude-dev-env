@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +26,7 @@ from hooks_constants.visual_reply_rules_constants import (
     ASSISTANT_ENTRY_TYPE,
     BLOCK_ID_KEY,
     BLOCK_NAME_KEY,
+    BLOCK_TEXT_KEY,
     BLOCK_TYPE_KEY,
     CAPITALIZED_ABBREVIATION_PATTERN,
     CONTENT_KEY,
@@ -45,6 +46,7 @@ from hooks_constants.visual_reply_rules_constants import (
     RULE_KEY_FIELD,
     RULE_LABEL_FIELD,
     RULE_REMINDER_FIELD,
+    RESULT_TEXT_SEPARATOR,
     RULES_FILE_ENCODING,
     RULES_FILE_PATH,
     RULES_LIST_KEY,
@@ -248,14 +250,44 @@ def _read_transcript_lines(transcript_path: object) -> list[str] | None:
         return None
 
 
-def _result_ids(all_entries: list[dict[str, object]], is_error: bool) -> set[object]:
-    return {
-        each_block.get(TOOL_USE_ID_KEY)
+def _result_blocks(all_entries: Iterable[dict[str, object]], is_error: bool) -> Iterator[dict[str, object]]:
+    return (
+        each_block
         for each_entry in all_entries
         for each_block in _content_blocks(each_entry, USER_ENTRY_TYPE)
         if each_block.get(BLOCK_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
         and bool(each_block.get(IS_ERROR_KEY)) is is_error
-    }
+    )
+
+
+def _result_ids(all_entries: list[dict[str, object]], is_error: bool) -> set[object]:
+    return {each_block.get(TOOL_USE_ID_KEY) for each_block in _result_blocks(all_entries, is_error)}
+
+
+def _result_texts(result_content: object) -> list[str]:
+    if isinstance(result_content, str):
+        return [result_content]
+    return [
+        each_block[BLOCK_TEXT_KEY]
+        for each_block in (result_content if isinstance(result_content, list) else [])
+        if isinstance(each_block, dict) and isinstance(each_block.get(BLOCK_TEXT_KEY), str)
+    ]
+
+
+def successful_result_text(transcript_path: object) -> str | None:
+    """Join the text of every tool result in the session that came back without an error.
+
+    A subagent's report is the result of its Agent call, so it counts. Returns None
+    when the transcript cannot be read.
+    """
+    all_lines = _read_transcript_lines(transcript_path)
+    if all_lines is None:
+        return None
+    return RESULT_TEXT_SEPARATOR.join(
+        each_text
+        for each_block in _result_blocks(_parsed_entries(all_lines), is_error=False)
+        for each_text in _result_texts(each_block.get(CONTENT_KEY))
+    )
 
 
 def visual_shown_this_turn(all_transcript_lines: Iterable[str]) -> bool:

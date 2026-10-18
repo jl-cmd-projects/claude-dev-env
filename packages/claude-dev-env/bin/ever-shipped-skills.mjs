@@ -24,6 +24,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'copilot-review',
     'correction',
     'deep-research',
+    'deepen',
     'descriptions',
     'e-code-review',
     'e-simplify',

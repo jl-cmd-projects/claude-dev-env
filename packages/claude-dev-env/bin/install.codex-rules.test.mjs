@@ -61,6 +61,7 @@ function runInstaller(homeDirectory, extraArguments) {
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
@@ -93,6 +94,7 @@ function scanTextWithProductionPiiScanner(scannedText) {
                     CDE_INSTALL_PSTACK: '0',
                     CDE_INSTALL_USAGE_WRAPUP: '0',
                     CDE_INSTALL_SUBAGENT_MODELS: '0',
+                    CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
                     PYTHONPATH: BLOCKING_HOOKS_DIRECTORY,
                     CLAUDE_LOCAL_IDENTITY_PATH: join(
                         temporaryDirectory,
