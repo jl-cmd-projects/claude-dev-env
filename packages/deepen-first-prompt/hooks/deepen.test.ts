@@ -29,6 +29,7 @@ test('should take the gate output only when it opens with the marker', async () 
   expect(rewrittenPromptFrom('  CDE_DEEPEN:v1\n\nDo the expert job.\n')).toBe('CDE_DEEPEN:v1\n\nDo the expert job.')
   expect(rewrittenPromptFrom('')).toBe(undefined)
   expect(rewrittenPromptFrom('{"decision": "skip"}')).toBe(undefined)
+  expect(rewrittenPromptFrom('{"decision": "refuse", "reason": "restates-four-questions"}')).toBe(undefined)
 })
 
 test('should count only a different user message as a prior turn', async () => {
