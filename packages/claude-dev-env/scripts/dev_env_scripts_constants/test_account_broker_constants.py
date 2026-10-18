@@ -200,3 +200,45 @@ def test_should_wait_until_a_rate_limited_meter_may_be_probed_again() -> None:
     decision = broker_constants._wait_decision([reading], now, frozenset(), {})
 
     assert decision.resets_at == probe_again_at
+
+
+def _codex_reading(meters: broker_constants.Meters) -> broker_constants.Reading:
+    return broker_constants.Reading(Account(Product.CODEX, "codex-1", Path("/profiles/codex-1")), meters)
+
+
+def test_should_let_a_codex_account_at_the_short_window_floor_take_luna() -> None:
+    weekly_reset = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    session_reset = weekly_reset + timedelta(hours=4)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, weekly_reset
+    )
+
+    assert broker_constants._codex_tier(
+        dataclasses.replace(meters, weekly_percent_left=NORMAL_TIER_MINIMUM_PERCENT_LEFT)
+    ) == "luna"
+    assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
+
+
+def test_should_name_no_codex_reset_when_a_blocking_window_has_none() -> None:
+    session_reset = datetime(2026, 10, 3, 2, tzinfo=timezone.utc)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, None
+    )
+
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_name_the_latest_codex_reset_when_every_blocking_window_has_one() -> None:
+    session_reset = datetime(2026, 10, 3, 2, tzinfo=timezone.utc)
+    weekly_reset = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, weekly_reset
+    )
+
+    assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
+
+
+def test_should_double_the_meter_read_delay_up_to_its_cap() -> None:
+    all_delays = [broker_constants.meter_read_delay_seconds(each_attempt) for each_attempt in range(1, 6)]
+
+    assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]

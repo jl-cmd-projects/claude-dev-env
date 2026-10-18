@@ -19,8 +19,9 @@ that consumes these program, wrapper, and option constants lives in
 ``pytest_invocation``.
 
 Two wrapper shapes reach the program behind them differently. ``sudo``,
-``uvx``, ``xargs``, ``env``, and ``timeout`` take their own options and then the
-command, and ``ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME`` names each one's
+``uvx``, ``xargs``, ``env``, ``timeout``, ``command``, and ``exec`` take their own
+options and then the command, and a shell keyword such as ``if``, ``then``,
+``do``, or ``!`` runs the command after it, and ``ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME`` names each one's
 value-taking options, its flag-only options, and the operands it reads before
 the command, so ``xargs -I {} rm {}`` and ``timeout --signal KILL 5 git push``
 both reach the program. ``uv``, ``poetry``, ``pipenv``, ``pdm``, ``hatch``, ``rye``, and
@@ -149,6 +150,8 @@ __all__ = [
     "WrapperOptionGrammar",
     "WINDOWS_EXECUTABLE_SUFFIX",
     "RUN_SUBCOMMAND_OPTION_GRAMMAR",
+    "SHELL_KEYWORD_OPTION_GRAMMAR",
+    "ALL_SHELL_KEYWORDS_BEFORE_A_COMMAND",
     "ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME",
     "ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS",
     "RUN_SUBCOMMAND_NAME",
@@ -312,6 +315,14 @@ RUN_SUBCOMMAND_OPTION_GRAMMAR = WrapperOptionGrammar(
     all_flag_options=frozenset(),
     leading_operand_count=0,
 )
+SHELL_KEYWORD_OPTION_GRAMMAR = WrapperOptionGrammar(
+    all_value_taking_options=frozenset(),
+    all_flag_options=frozenset(),
+    leading_operand_count=0,
+)
+ALL_SHELL_KEYWORDS_BEFORE_A_COMMAND: frozenset[str] = frozenset(
+    {"if", "then", "elif", "else", "while", "until", "do", "!", "{"}
+)
 ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME: dict[str, WrapperOptionGrammar] = {
     "sudo": WrapperOptionGrammar(
         all_value_taking_options=frozenset(
@@ -365,6 +376,20 @@ ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME: dict[str, WrapperOptionGrammar] = {
         all_flag_options=frozenset({"-v", "--verbose", "--preserve-status", "--foreground"}),
         leading_operand_count=1,
     ),
+    "command": WrapperOptionGrammar(
+        all_value_taking_options=frozenset(),
+        all_flag_options=frozenset({"-p"}),
+        leading_operand_count=0,
+    ),
+    "exec": WrapperOptionGrammar(
+        all_value_taking_options=frozenset({"-a"}),
+        all_flag_options=frozenset({"-c", "-l"}),
+        leading_operand_count=0,
+    ),
+    **{
+        each_keyword: SHELL_KEYWORD_OPTION_GRAMMAR
+        for each_keyword in ALL_SHELL_KEYWORDS_BEFORE_A_COMMAND
+    },
 }
 ALL_RUN_SUBCOMMAND_WRAPPER_COMMANDS: frozenset[str] = frozenset(
     {

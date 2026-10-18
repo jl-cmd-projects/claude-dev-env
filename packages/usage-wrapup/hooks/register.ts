@@ -1,4 +1,5 @@
 import type { Register, SessionRateLimit } from 'claude-code'
+import { isAtOrBelow, readablePercentUsed } from './usage'
 
 const LABEL: Record<string, string> = {
   five_hour: '5-hour',
@@ -8,14 +9,17 @@ const LABEL: Record<string, string> = {
 
 type Low = { kind: string; left: number; resetsAt?: string }
 
-/** The window with the least left, when it is at or below the threshold. */
+/** The readable window with the least left, when it is at or below the threshold. Windows with no finite reading are skipped. */
 export function lowest(limits: readonly SessionRateLimit[], threshold: number): Low | undefined {
   let worst: Low | undefined
   for (const l of limits) {
-    const left = Math.max(0, Math.round((100 - l.percentUsed) * 10) / 10)
+    const used = readablePercentUsed(l)
+    if (used === undefined) continue
+    const left = Math.max(0, 100 - used)
     if (!worst || left < worst.left) worst = { kind: l.kind, left, resetsAt: l.resetsAt }
   }
-  return worst && worst.left <= threshold ? worst : undefined
+  if (!worst || !isAtOrBelow(worst.left, threshold)) return undefined
+  return { ...worst, left: Math.round(worst.left * 10) / 10 }
 }
 
 function describe(low: Low): string {

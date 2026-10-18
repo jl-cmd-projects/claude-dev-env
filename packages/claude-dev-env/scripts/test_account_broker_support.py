@@ -16,6 +16,7 @@ import pytest
 
 import account_broker_support as support
 from account_broker_support import Account, Meters, Product, ProductAdapter
+from codex_account_meters import CodexAccountMeters, UsageWindow
 
 
 def test_should_load_claude_roster_from_both_lists(
@@ -184,16 +185,24 @@ def test_should_read_claude_meters_through_injected_probe(
 def test_should_read_codex_meters_through_injected_reader(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    short = SimpleNamespace(duration_minutes=300, used_percent=20.0, resets_at=None)
-    weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(short, weekly), short_window_percent_left=80.0)
+    short_reset = datetime(2026, 10, 3, 5, tzinfo=timezone.utc)
+    unknown_length_reset = datetime(2026, 10, 9, tzinfo=timezone.utc)
+    usage = CodexAccountMeters(
+        (
+            UsageWindow(300, 20.0, short_reset),
+            UsageWindow(10080, 30.0, None),
+            UsageWindow(None, 50.0, unknown_length_reset),
+        )
+    )
     monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
     monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", lambda *_: usage)
 
     meters = support.read_codex_account_meters(Account(Product.CODEX, "one", tmp_path))
 
     assert meters.session_percent_left == 80.0
-    assert meters.weekly_percent_left == 70.0
+    assert meters.session_resets_at == short_reset
+    assert meters.weekly_percent_left == 50.0
+    assert meters.weekly_resets_at == unknown_length_reset
 
 
 def _codex_meter_reads(
@@ -261,8 +270,7 @@ def test_should_read_claude_meters_after_transient_failures_with_growing_delays(
 def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    weekly = SimpleNamespace(duration_minutes=10080, used_percent=30.0, resets_at=None)
-    usage = SimpleNamespace(all_windows=(weekly,), short_window_percent_left=None)
+    usage = CodexAccountMeters((UsageWindow(10080, 30.0, None),))
     unread = support.codex_account_meters.CodexMeterUnreadError("codex app-server sent no rate-limit reply")
     all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [unread, unread, usage])
     all_delays = _recorded_sleeps(monkeypatch)
@@ -273,6 +281,24 @@ def test_should_read_codex_meters_after_transient_failures_with_growing_delays(
     assert reading.meters.weekly_percent_left == 70.0
     assert all_homes_read == [tmp_path, tmp_path, tmp_path]
     assert all_delays == [1.0, 2.0]
+
+
+def test_should_stop_at_once_when_no_codex_executable_is_found(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unpatched_resolve_codex_path = support.codex_account_meters.resolve_codex_path
+    all_homes_read = _codex_meter_reads(monkeypatch, tmp_path, [])
+    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", unpatched_resolve_codex_path)
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    all_delays = _recorded_sleeps(monkeypatch)
+
+    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
+
+    assert reading.meters is None
+    assert reading.unread_reason == "no codex executable on PATH or at its install path"
+    assert all_homes_read == []
+    assert all_delays == []
 
 
 def test_should_keep_the_unread_reason_after_every_claude_read_fails(
@@ -321,6 +347,23 @@ def test_should_cap_the_meter_read_delay(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert unread_reason == "down"
     assert not is_rate_limited
     assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]
+
+
+def test_should_read_a_signed_out_claude_account_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_delays = _recorded_sleeps(monkeypatch)
+    all_reads: list[Account] = []
+
+    def signed_out_reader(account: Account) -> Meters:
+        all_reads.append(account)
+        raise support.ClaudeSignedOutError("no usable bearer token")
+
+    meters, unread_reason, is_rate_limited = support.read_meters_with_backoff(signed_out_reader, Account(Product.CLAUDE, "main", tmp_path))
+
+    assert meters is None
+    assert unread_reason == "no usable bearer token"
+    assert not is_rate_limited
+    assert len(all_reads) == 1
+    assert all_delays == []
 
 
 def test_should_cache_account_reading_under_injected_state_path(
@@ -735,19 +778,35 @@ def test_should_match_order_names_to_an_account_named_by_its_windows_launcher_pa
 
 
 def test_should_run_the_cli_against_the_account_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    all_calls: list[tuple[list[str], str]] = []
+    all_calls: list[tuple[list[str], dict[str, str]]] = []
 
     def fake_run(command: list[str], **keyword_arguments: object) -> subprocess.CompletedProcess[bytes]:
         environment = keyword_arguments["env"]
         assert isinstance(environment, dict)
-        all_calls.append((command, environment["CLAUDE_CONFIG_DIR"]))
+        all_calls.append((command, environment))
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(support, "resolve_claude_path", lambda: Path("claude"))
     monkeypatch.setattr(support.subprocess, "run", fake_run)
 
     assert support.refresh_claude_login(tmp_path) is True
-    assert all_calls == [(["claude", "-p", "ok", "--model", "haiku"], str(tmp_path))]
+    [(command, environment)] = all_calls
+    assert command[:5] == ["claude", "-p", "ok", "--model", "haiku"]
+    assert command[command.index("--setting-sources") + 1] == "local"
+    assert json.loads(command[command.index("--settings") + 1]) == {"enabledPlugins": {}, "autoMemoryEnabled": False}
+    assert "--strict-mcp-config" in command
+    assert json.loads(command[command.index("--mcp-config") + 1]) == {"mcpServers": {}}
+    assert "--no-session-persistence" in command
+    assert "--disable-slash-commands" in command
+    assert command[command.index("--tools") + 1] == ""
+    assert command[command.index("--max-turns") + 1] == "1"
+    assert environment["CLAUDE_CONFIG_DIR"] == str(tmp_path)
+    assert environment["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
+    assert environment["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    assert environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
+    assert environment["DISABLE_TELEMETRY"] == "1"
+    assert environment["DISABLE_ERROR_REPORTING"] == "1"
+    assert environment["DISABLE_AUTOUPDATER"] == "1"
 
 
 def test_should_skip_the_refresh_without_a_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

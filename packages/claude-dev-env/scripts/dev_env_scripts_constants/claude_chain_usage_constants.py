@@ -42,6 +42,12 @@ JSON_ERROR_KEY: str = "error"
 CLI_CONFIG_PATH_FLAG: str = "--config-path"
 """CLI flag that overrides the chain configuration file path."""
 
+CREDENTIALS_OAUTH_SECTION_KEY: str = "claudeAiOauth"
+"""Credential file key holding the CLI's OAuth login."""
+
+CREDENTIALS_REFRESH_TOKEN_KEY: str = "refreshToken"
+"""OAuth section key holding the token the CLI renews a login from; empty when signed out."""
+
 NO_ACCESS_TOKEN_ERROR_TEMPLATE: str = (
     "no usable bearer token from the OAuth credential file at {credentials_path}"
 )

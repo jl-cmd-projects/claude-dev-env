@@ -1,0 +1,9 @@
+{
+  "name": "deepen-first-prompt",
+  "version": "0.1.0",
+  "description": "Rewrites the first interactive user task on prompt.submit so the worker does the omitted expert job.",
+  "author": {
+    "name": "jl-cmd"
+  },
+  "license": "MIT"
+}

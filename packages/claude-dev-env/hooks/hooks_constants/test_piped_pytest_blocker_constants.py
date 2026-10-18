@@ -12,3 +12,14 @@ def test_pipe_and_wrapper_tokens_preserve_command_boundaries() -> None:
     assert ";;" in constants.ALL_SEGMENT_RESET_OPERATOR_TOKENS
     assert "-u" in constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["sudo"].all_value_taking_options
     assert constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["timeout"].leading_operand_count == 1
+
+
+def test_shell_keywords_and_builtins_step_to_the_command_they_run() -> None:
+    assert {"if", "then", "do", "!"} <= constants.ALL_SHELL_KEYWORDS_BEFORE_A_COMMAND
+    for each_keyword in constants.ALL_SHELL_KEYWORDS_BEFORE_A_COMMAND:
+        assert (
+            constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME[each_keyword]
+            == constants.SHELL_KEYWORD_OPTION_GRAMMAR
+        )
+    assert "-a" in constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["exec"].all_value_taking_options
+    assert "-p" in constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["command"].all_flag_options
