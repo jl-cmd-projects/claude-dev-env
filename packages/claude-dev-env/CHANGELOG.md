@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.85.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.0...claude-dev-env-v8.85.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **install:** drop the Codex order to load pstack:poteto-mode ([#2044](https://github.com/jl-cmd-projects/claude-dev-env/issues/2044)) ([08978d2](https://github.com/jl-cmd-projects/claude-dev-env/commit/08978d2666de71f185826bfc9f49a03ced699bf3))
+
 ## [8.85.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.84.1...claude-dev-env-v8.85.0) (2026-10-18)
 
 
