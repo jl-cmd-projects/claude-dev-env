@@ -1,6 +1,6 @@
 # Install pstack across hosts
 
-A full `claude-dev-env` install also installs [pstack](https://github.com/jl-cmd/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. The `jl-cmd/pstack-claude` fork of the Claude and Codex port owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files. A nightly workflow in the fork runs the port's own sync tool against Cursor's upstream pstack and publishes each new upstream release.
+A full `claude-dev-env` install also installs [pstack](https://github.com/jl-cmd/pstack-claude) as a plugin from its own marketplace, so `npx -y claude-dev-env@latest` needs no second command. The plugin ships its own skills, agents, model defaults, and SessionStart hook. The `jl-cmd/pstack-claude` fork of the Claude and Codex port owns every one of those, so this repository holds no pstack tree, no pinned commit, and no adapter files. The fork tracks [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude), which ports each Cursor pstack release. A nightly workflow in the fork rebuilds `main` from that upstream `main` and keeps the fork's own `.github` folder.
 
 ## What the install step runs
 

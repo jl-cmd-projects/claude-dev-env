@@ -236,7 +236,7 @@ def _run_pending(
     parallel: int,
 ) -> None:
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        for each_future in [
+        all_futures = [
             executor.submit(
                 _run_one,
                 each_case,
@@ -247,8 +247,13 @@ def _run_pending(
                 settings,
             )
             for each_case, each_rep in all_pending
-        ]:
-            each_future.result()
+        ]
+        try:
+            for each_future in all_futures:
+                each_future.result()
+        finally:
+            for each_future in all_futures:
+                each_future.cancel()
 
 
 def main() -> int:

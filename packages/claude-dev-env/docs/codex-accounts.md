@@ -12,7 +12,7 @@ A job asks the broker which account to use.
 | `scripts/account_broker.py` | `choose --product codex` names the account and tier a job runs on; `check --product codex` reports whether any account has room |
 | `scripts/codex_account_choice.py` | `sync` links the shared setup into every account's home; `setup` and `install` write one launcher per account |
 | `scripts/codex_account_meters.py` | Reads one account's rate-limit windows through `codex app-server` with `CODEX_HOME` set to that account's home |
-| `scripts/dev_env_scripts_constants/codex_account_constants.py` | The fallback account names, the roster variable and file, the launcher template, the shared entry names, the 10% bar, the 1% Luna stop, and the 20% 5-hour floor for Luna |
+| `scripts/dev_env_scripts_constants/codex_account_constants.py` | The fallback account names, the roster variable and file, the launcher template, the shared entry names, the 10% bar, the 1% Luna stop, and the 20% short-window floor for Luna |
 
 ## Names and order
 
@@ -86,16 +86,17 @@ aside.
 
 ## Which account a job uses
 
-Room is the smaller of an account's two windows: the 5-hour window and the week.
+Room is the least percent left across an account's windows, such as the 5-hour window and the week.
+A window that reports no length counts as weekly.
 
 | Condition | Answer |
 |---|---|
 | One or more accounts with more than 10% left | `normal` on the account with the most room |
 | No account over 10%, one or more over 1% | `luna` on the account with the most room |
-| An account that reports a 5-hour window, with under 20% of that window left | never takes `luna` |
+| An account that reports a window shorter than a week, such as the 5-hour window, with under 20% of that window left | never takes `luna` |
 | No account over 1% | `wait`, naming the next reset when known |
-| A meter read fails | The broker reads it once more |
-| A meter is unread after both reads | The account has `meters: null` and the failure text in `unread_reason`; a `wait` reason names the account and that text |
+| A meter read fails | The broker reads it again, up to 3 reads, waiting 1 second and then 2 seconds |
+| A meter is unread after every read | The account has `meters: null` and the failure text in `unread_reason`; a `wait` reason names the account and that text |
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product codex

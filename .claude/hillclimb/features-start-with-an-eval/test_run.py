@@ -50,3 +50,27 @@ def test_run_one_scores_the_session_with_the_run_digest_and_removes_the_workspac
     assert [each_row["meta"]["run_digest"] for each_row in read_rows(tmp_path / "results.jsonl")] == ["aaa"]
     assert (tmp_path / "traces/n02_rep0.json").is_file()
     assert not all_workspaces[0].exists()
+
+
+def test_run_pending_cancels_queued_runs_after_one_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_started: list[str] = []
+
+    def fail_first(case_by_field: dict[str, str], *_arguments: object) -> None:
+        all_started.append(case_by_field["id"])
+        if case_by_field["id"] == "case-a":
+            raise OSError("disk full")
+
+    monkeypatch.setattr(features_run, "_run_one", fail_first)
+    all_pending = [({"id": each_id}, 0) for each_id in ("case-a", "case-b", "case-c")]
+
+    with pytest.raises(OSError, match="disk full"):
+        features_run._run_pending(
+            all_pending,
+            tmp_path,
+            {},
+            "aaa",
+            SessionSettings("claude-opus-5-5", "low", 1, 1),
+            1,
+        )
+
+    assert all_started == ["case-a"]

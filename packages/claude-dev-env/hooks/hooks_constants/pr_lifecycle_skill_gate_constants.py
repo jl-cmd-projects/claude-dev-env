@@ -25,7 +25,6 @@ COMMAND_SEPARATORS = ";|&\n()`"
 COMMAND_WHITESPACE = " \t\r"
 OPTION_AND_VALUE_WORD_COUNT = 2
 GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
-GH_OPTIONS_WITH_VALUE = frozenset({"-R", "--repo", "--hostname", "--config", "-H", "--header", "-X", "--method", "-F", "--field", "-f", "--raw-field", "--input", "--jq", "-q", "--template", "-t", "--cache"})
 GIT_ACTIONS = frozenset({"commit", "push"})
 GH_PULL_REQUEST_COMMAND = "pr"
 GH_API_COMMAND = "api"

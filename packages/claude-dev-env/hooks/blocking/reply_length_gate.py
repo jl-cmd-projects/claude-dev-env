@@ -33,9 +33,23 @@ The gate uses the ``banned_words`` list in ``~/.claude/reply-banned-words.json``
 or in the file that CLAUDE_REPLY_BANNED_WORDS_PATH names. Without a valid
 list there, it uses ALL_DEFAULT_BANNED_WORDS.
 
-The banned-word check also reads the prose of a decision card: its question,
-its context, and each option's label and consequence.
-A decision card gets no length check.
+It denies a sentence that guesses, estimates, hedges a duration, or admits
+a check did not run::
+
+    flag: My guess is one to two hours.
+    flag: I didn't confirm this one.
+    ok:   The last build took 39 minutes.
+
+It denies an Actions run, a pull request link, or a run, job, or check id
+that no successful tool result in the transcript shows. A subagent's report
+is the result of its Agent call. With no readable transcript, this check
+is skipped.
+
+The banned-word, unvalidated claim, and citation checks also read the prose of a
+decision card: its question, its context, and each option's label and
+consequence. They read an AskUserQuestion card the same way: each
+question, its header, and each option's label and description.
+A card gets no length check.
 
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
@@ -74,6 +88,7 @@ from visual_reply_rules import (
     load_rules,
     mode_enabled,
     second_reply_violation,
+    successful_result_text,
     visual_violation,
     widget_anchor_violation,
     widget_flowchart_advice,
@@ -90,6 +105,8 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
     ALL_EVIDENCE_PATTERNS,
+    ALL_QUESTION_CARD_PROSE_KEYS,
+    ALL_QUESTION_OPTION_PROSE_KEYS,
     ALLOW_EXIT_CODE,
     BANNED_WORD_MESSAGE,
     BANNED_WORD_PART_SEPARATOR,
@@ -100,10 +117,14 @@ from hooks_constants.reply_length_gate_constants import (
     BLOCK_EXIT_CODE,
     CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
+    CITED_NUMBER_IN_RESULT_TEMPLATE,
+    CITED_NUMBER_PATTERN,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
+    CURLY_APOSTROPHE,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
+    DURATION_CLAIM_PATTERN,
     EM_DASH_MESSAGE,
     EM_DASH_PATTERN,
     FENCED_BLOCK_PATTERN,
@@ -118,10 +139,13 @@ from hooks_constants.reply_length_gate_constants import (
     MAXIMUM_WORDS_PER_SENTENCE,
     MID_SENTENCE_COLON_MESSAGE,
     MID_SENTENCE_COLON_PATTERN,
+    QUESTION_CARD_QUESTIONS_KEY,
+    QUESTION_CARD_TOOL_NAME,
     RETRY_INSTRUCTION,
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
     SENTENCE_PREVIEW_WORD_COUNT,
+    STRAIGHT_APOSTROPHE,
     TEXT_KEY,
     TOO_MANY_SENTENCES_MESSAGE,
     TOOL_INPUT_KEY,
@@ -129,7 +153,10 @@ from hooks_constants.reply_length_gate_constants import (
     TRANSCRIPT_PATH_KEY,
     UNLINKED_PULL_REQUEST_MESSAGE,
     UNLINKED_PULL_REQUEST_PATTERN,
+    UNSEEN_CITATION_MESSAGE,
     UNSOURCED_CAUSE_MESSAGE,
+    UNVALIDATED_CLAIM_MESSAGE,
+    UNVALIDATED_CLAIM_PATTERN,
     URL_PATTERN,
     WORD_PATTERN,
     WORD_SEPARATOR,
@@ -146,12 +173,9 @@ def countable_text(reply_text: str) -> str:
 
 def sentence_word_lists(reply_text: str) -> list[list[str]]:
     """Split the text into sentences, one per line or terminal mark, as word lists."""
-    all_sentence_texts = [
-        each_sentence
-        for each_line in LINE_BREAK_PATTERN.split(countable_text(reply_text))
-        for each_sentence in SENTENCE_END_PATTERN.split(each_line)
+    all_word_lists = [
+        WORD_PATTERN.findall(each_sentence) for each_sentence in prose_sentences(countable_text(reply_text))
     ]
-    all_word_lists = [WORD_PATTERN.findall(each_sentence) for each_sentence in all_sentence_texts]
     return [each_word_list for each_word_list in all_word_lists if each_word_list]
 
 
@@ -187,14 +211,18 @@ def em_dash_violation(reply_text: str) -> str | None:
     return EM_DASH_MESSAGE
 
 
-def unsourced_cause_violation(reply_text: str) -> str | None:
-    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
-    all_sentences = [
-        each_sentence
+def prose_sentences(reply_text: str) -> list[str]:
+    """Split the text outside fenced blocks into sentences, one per line or terminal mark."""
+    return [
+        each_sentence.strip()
         for each_line in LINE_BREAK_PATTERN.split(FENCED_BLOCK_PATTERN.sub(" ", reply_text))
         for each_sentence in SENTENCE_END_PATTERN.split(each_line)
     ]
-    for each_sentence in all_sentences:
+
+
+def unsourced_cause_violation(reply_text: str) -> str | None:
+    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
+    for each_sentence in prose_sentences(reply_text):
         is_causal = CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence))
         has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
         if is_causal and not has_evidence:
@@ -254,6 +282,45 @@ def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) ->
     return None
 
 
+def unvalidated_claim_violation(reply_text: str) -> str | None:
+    """Return the deny reason quoting the first sentence that guesses or admits a skipped check, or None.
+
+    A duration counts as a guess unless its sentence cites the run, job, check,
+    or pull request that measured it::
+
+        flag: It should take about 40 minutes.
+        ok:   The last queue build took 39 minutes, run 18239174012.
+    """
+    for each_sentence in prose_sentences(reply_text):
+        prose_text = countable_text(each_sentence).replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)
+        is_guess = UNVALIDATED_CLAIM_PATTERN.search(prose_text) is not None
+        is_uncited_duration = (
+            DURATION_CLAIM_PATTERN.search(prose_text) is not None
+            and CITED_NUMBER_PATTERN.search(each_sentence) is None
+        )
+        if is_guess or is_uncited_duration:
+            return UNVALIDATED_CLAIM_MESSAGE.format(claim=each_sentence)
+    return None
+
+
+def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
+    """Return the deny reason for the first cited run, job, check, or pull request no tool result shows.
+
+    Returns None when the text cites nothing or the transcript cannot be read.
+    """
+    all_citations = list(CITED_NUMBER_PATTERN.finditer(FENCED_BLOCK_PATTERN.sub(" ", reply_text)))
+    if not all_citations:
+        return None
+    result_text = successful_result_text(transcript_path)
+    if result_text is None:
+        return None
+    for each_match in all_citations:
+        cited_number = next(each_group for each_group in each_match.groups() if each_group)
+        if re.search(CITED_NUMBER_IN_RESULT_TEMPLATE.format(number=cited_number), result_text) is None:
+            return UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+    return None
+
+
 def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
     """Collect the prose fields of a decision card: question, context, and each option's text."""
     all_options = all_card_input.get(DECISION_CARD_OPTIONS_KEY)
@@ -271,6 +338,24 @@ def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
     ]
 
 
+def all_question_card_texts(all_card_input: dict[str, object]) -> list[str]:
+    """Collect the prose fields of a question card: each question, its header, and each option's text."""
+    all_questions = all_card_input.get(QUESTION_CARD_QUESTIONS_KEY)
+    all_question_fields: list[object] = []
+    for each_question in all_questions if isinstance(all_questions, list) else []:
+        if not isinstance(each_question, dict):
+            continue
+        all_question_fields.extend(each_question.get(each_key) for each_key in ALL_QUESTION_CARD_PROSE_KEYS)
+        all_options = each_question.get(DECISION_CARD_OPTIONS_KEY)
+        all_question_fields.extend(
+            each_option.get(each_key)
+            for each_option in (all_options if isinstance(all_options, list) else [])
+            if isinstance(each_option, dict)
+            for each_key in ALL_QUESTION_OPTION_PROSE_KEYS
+        )
+    return [each_field for each_field in all_question_fields if isinstance(each_field, str)]
+
+
 def active_mode_rules() -> VisualReplyRules | None:
     """Return the visual reply rules when the mode is on and the rule file parses."""
     if not mode_enabled(Path.home() / CLAUDE_HOME_DIRECTORY_NAME):
@@ -280,7 +365,10 @@ def active_mode_rules() -> VisualReplyRules | None:
 
 def card_violation(card_text: str, mode_rules: VisualReplyRules | None) -> str | None:
     """Return the deny reason for a decision card's prose, or None."""
-    return banned_word_violation(card_text, configured_banned_words()) or (
+    return (
+        banned_word_violation(card_text, configured_banned_words())
+        or unvalidated_claim_violation(card_text)
+    ) or (
         None if mode_rules is None else abbreviation_violation(prose_outside_links(card_text), mode_rules)
     )
 
@@ -296,6 +384,8 @@ def reply_violation(
         or unlinked_pull_request_violation(reply_text)
         or unsourced_cause_violation(reply_text)
         or banned_word_violation(reply_text, configured_banned_words())
+        or unvalidated_claim_violation(reply_text)
+        or unseen_citation_violation(reply_text, transcript_path)
     )
     if violation is not None or mode_rules is None:
         return violation
@@ -316,9 +406,16 @@ def tool_violation(
         anchor_violation = widget_anchor_violation(tool_name, all_tool_input)
         if anchor_violation is not None:
             return anchor_violation, str(all_tool_input)
-    if tool_name == DECISION_CARD_TOOL_NAME:
-        card_text = CARD_TEXT_SEPARATOR.join(all_card_texts(all_tool_input))
-        violation = card_violation(card_text, mode_rules)
+    if tool_name in (DECISION_CARD_TOOL_NAME, QUESTION_CARD_TOOL_NAME):
+        all_texts = (
+            all_card_texts(all_tool_input)
+            if tool_name == DECISION_CARD_TOOL_NAME
+            else all_question_card_texts(all_tool_input)
+        )
+        card_text = CARD_TEXT_SEPARATOR.join(all_texts)
+        violation = card_violation(card_text, mode_rules) or unseen_citation_violation(
+            card_text, transcript_path
+        )
         return None if violation is None else (violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
         return None

@@ -23,7 +23,7 @@ _CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
 ).CLAUDE_SESSION_ID_ENVIRONMENT_VARIABLE_NAME
 
 _CLOUD_SESSION_ENVIRONMENT_VARIABLE_NAME = importlib.import_module(
-    "hooks_constants.headless_claude_broker_gate_constants"
+    "hooks_constants.cloud_session_constants"
 ).CLOUD_SESSION_ENV_VAR
 
 _ROOT_ANCHORED_PROBE_PATH = "/tmp/scratch.py"
