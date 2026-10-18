@@ -117,6 +117,14 @@ def test_subagent_without_invocation_is_denied(tmp_path: Path) -> None:
     _assert_denied(payload)
 
 
+def test_transcript_paths_should_add_the_subagent_transcript_after_the_session(tmp_path: Path) -> None:
+    session_path = _transcript(tmp_path)
+    subagent_path = _subagent_transcript(tmp_path, "a8865a3f3c71595ce", None)
+    payload = {"transcript_path": str(session_path), "agent_id": "a8865a3f3c71595ce"}
+    assert gate.transcript_paths(payload) == [str(session_path), str(subagent_path)]
+    assert gate.transcript_paths({"transcript_path": str(session_path)}) == [str(session_path)]
+
+
 def test_missing_subagent_transcript_keeps_session_deny(tmp_path: Path) -> None:
     payload = _payload("git push", _transcript(tmp_path))
     payload["agent_id"] = "a8865a3f3c71595ce"

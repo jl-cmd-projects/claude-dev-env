@@ -26,7 +26,7 @@ else:
 import codex_account_choice
 import codex_account_meters
 from claude_account_profile import default_profile_home, validate_profile_name
-from claude_chain_usage import WeeklyUtilizationProbeError, probe_account_meters
+from claude_chain_usage import ClaudeSignedOutError, WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS,
@@ -41,6 +41,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
+    ALL_LOGIN_REFRESH_ENVIRONMENT,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
     Meters,
@@ -253,7 +254,7 @@ def refresh_claude_login(account_home: Path) -> bool:
     claude_path = resolve_claude_path()
     if claude_path is None:
         return False
-    refresh_environment = {**os.environ, CLAUDE_CONFIG_DIR_ENV_VAR: str(account_home)}
+    refresh_environment = {**os.environ, **ALL_LOGIN_REFRESH_ENVIRONMENT, CLAUDE_CONFIG_DIR_ENV_VAR: str(account_home)}
     try:
         subprocess.run(
             [str(claude_path), *ALL_LOGIN_REFRESH_ARGUMENTS],
@@ -325,7 +326,7 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
     Returns:
         The meters from the first read that succeeds, or None with the last
         failure text once every attempt failed. A missing Codex executable
-        fails at once, without a retry.
+        or a signed-out Claude account fails at once, without a retry.
     """
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
@@ -333,7 +334,7 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
             time.sleep(meter_read_delay_seconds(each_attempt))
         try:
             return read_meters(account), None
-        except codex_account_meters.CodexExecutableNotFoundError as error:
+        except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
             return None, str(error)
         except (
             codex_account_meters.CodexMeterUnreadError,
