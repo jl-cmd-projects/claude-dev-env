@@ -91,8 +91,8 @@ A window that reports no length counts as weekly.
 
 | Condition | Answer |
 |---|---|
-| One or more accounts with more than 10% left | `normal` on the account with the most room |
-| No account over 10%, one or more over 1% | `luna` on the account with the most room |
+| One or more accounts with more than 10% left | `normal` on a Pro plan account (`pro`, `prolite` and `promax`) before any other account in this tier; among accounts of the same kind, the one with the most room |
+| No account over 10%, one or more over 1% | `luna` on a Pro plan account (`pro`, `prolite` and `promax`) before any other account in this tier; among accounts of the same kind, the one with the most room |
 | An account that reports a window shorter than a week, such as the 5-hour window, with under 20% of that window left | never takes `luna` |
 | No account over 1% | `wait`, naming the next reset when known |
 | A meter read fails | The broker reads it again, up to 3 reads, waiting 1 second and then 2 seconds |
