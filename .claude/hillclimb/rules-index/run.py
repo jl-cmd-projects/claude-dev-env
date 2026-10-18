@@ -22,7 +22,7 @@ import json
 import logging
 import sys
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -194,15 +194,23 @@ def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
     return f"followed {total_passes}/{len(all_rows)} (95% CI {low:.2f}-{high:.2f}) | {group_text} | opened a guide {guide_opens}/{len(all_rows)} | errors {error_count}"
 
 
+def _wait_for_pending(all_futures: list[Future[None]]) -> None:
+    for each_future in all_futures:
+        each_future.result()
+
+
+def _cancel_pending(all_futures: list[Future[None]]) -> None:
+    for each_future in all_futures:
+        each_future.cancel()
+
+
 def _run_pending(all_pending: list[tuple[dict[str, str], int]], plan: RunPlan, parallel: int) -> None:
     with ThreadPoolExecutor(max_workers=parallel) as executor:
         all_futures = [executor.submit(_run_one, each_case, each_rep, plan) for each_case, each_rep in all_pending]
         try:
-            for each_future in all_futures:
-                each_future.result()
+            _wait_for_pending(all_futures)
         finally:
-            for each_future in all_futures:
-                each_future.cancel()
+            _cancel_pending(all_futures)
 
 
 def main() -> int:
