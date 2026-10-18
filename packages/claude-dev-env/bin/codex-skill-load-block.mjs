@@ -3,9 +3,6 @@ import { dirname, join, resolve } from 'node:path';
 
 export const SKILL_LOAD_BLOCK_START = '<!-- claude-dev-env skill load: start -->';
 export const SKILL_LOAD_BLOCK_END = '<!-- claude-dev-env skill load: end -->';
-export const SKILL_LOAD_INSTRUCTION = 'Load the pstack:poteto-mode skill before your first tool call or reply: '
-    + 'open its SKILL.md from your skills list and follow it. This binds every Codex agent, '
-    + 'including a helper started with spawn_agent, whatever its task message says.';
 export const PACKAGE_GUIDANCE_BLOCK_START = '<!-- claude-dev-env package guidance: start -->';
 export const PACKAGE_GUIDANCE_BLOCK_END = '<!-- claude-dev-env package guidance: end -->';
 export const QUESTION_PRESENTATION_BLOCK_START = '<!-- claude-dev-env question presentation: start -->';
@@ -39,17 +36,24 @@ function withBlockReplaced(guidanceText, blockStart, blockEnd, block) {
 }
 
 /**
- * Return the Codex guidance text with the package's skill-load block in it.
+ * Return guidance text with every complete skill-load block removed.
  *
- * Codex starts a spawn_agent helper without running any hook, so the global
- * AGENTS.md is the one channel that reaches every helper. A block already in
- * the text is replaced where it stands; otherwise the block goes first.
+ * When a block is the start of the remaining text, one following blank line is
+ * removed with it. A start marker with no end marker stays.
  */
-export function withSkillLoadBlock(guidanceText) {
-    const block = managedBlock(SKILL_LOAD_BLOCK_START, SKILL_LOAD_INSTRUCTION, SKILL_LOAD_BLOCK_END);
-    const replacedText = withBlockReplaced(guidanceText, SKILL_LOAD_BLOCK_START, SKILL_LOAD_BLOCK_END, block);
-    if (replacedText !== null) return replacedText;
-    return guidanceText ? `${block}\n${guidanceText}` : block;
+export function withoutSkillLoadBlock(guidanceText) {
+    let remainingText = guidanceText;
+    let removedBlockCount = 0;
+    while (remainingText.includes(SKILL_LOAD_BLOCK_START)) {
+        const blockStartsAtTop = remainingText.startsWith(SKILL_LOAD_BLOCK_START);
+        const replacedText = withBlockReplaced(remainingText, SKILL_LOAD_BLOCK_START, SKILL_LOAD_BLOCK_END, '');
+        if (replacedText === null || replacedText === remainingText) break;
+        removedBlockCount += 1;
+        remainingText = blockStartsAtTop && replacedText.startsWith('\n')
+            ? replacedText.slice(1)
+            : replacedText;
+    }
+    return removedBlockCount === 0 ? guidanceText : remainingText;
 }
 
 function withPackageGuidanceBlock(guidanceText, packageGuidanceText) {
@@ -84,7 +88,7 @@ function writeCodexGuidanceFile(codexHome, allPackageGuidancePaths, transformGui
     const isPackageGuidanceLink = agentsEntry?.isSymbolicLink() ?? false;
     if (isPackageGuidanceLink && !linksToPackageGuidance(agentsPath, allPackageGuidancePaths)) return null;
     const currentText = agentsEntry && !isPackageGuidanceLink ? readFileSync(agentsPath, 'utf8') : '';
-    const updatedText = transformGuidance(currentText);
+    const updatedText = transformGuidance(withoutSkillLoadBlock(currentText));
     if (!isPackageGuidanceLink && updatedText === currentText) return null;
     mkdirSync(codexHome, { recursive: true });
     if (isPackageGuidanceLink) unlinkSync(agentsPath);
@@ -93,29 +97,24 @@ function writeCodexGuidanceFile(codexHome, allPackageGuidancePaths, transformGui
 }
 
 /**
- * Keep CODEX_HOME/AGENTS.md carrying the skill-load block and the package guidance.
+ * Remove a skill-load block and write package guidance into CODEX_HOME/AGENTS.md.
  *
- * The skill-load block goes first, and the package-guidance block holds the
- * current guidance text. A symbolic link that points at the package guidance
- * (the shared agents-home copy, or the retired copy under the Claude home) is
- * replaced by a regular file holding both blocks, so Codex keeps both after
- * the package moves its guidance. A link to any other file is left alone.
- *
- * Returns the file path when the file changed, and null otherwise.
+ * Link handling matches writeCodexPackageGuidance. Returns the file path when
+ * the file changed, and null otherwise.
  */
 export function writeCodexAgentsGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths) {
-    return writeCodexGuidanceFile(
-        codexHome,
-        allPackageGuidancePaths,
-        currentText => withPackageGuidanceBlock(withSkillLoadBlock(currentText), packageGuidanceText),
-    );
+    return writeCodexPackageGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths);
 }
 
 /**
  * Keep CODEX_HOME/AGENTS.md carrying the package guidance, with no skill-load block.
  *
- * Links follow the same rule as writeCodexAgentsGuidance. Returns the file
- * path when the file changed, and null otherwise.
+ * An existing skill-load block is removed. A symbolic link that points at the
+ * package guidance, the shared agents-home copy or the retired copy under the
+ * Claude home, is replaced by a regular file. A link to any other file is left
+ * alone.
+ *
+ * Returns the file path when the file changed, and null otherwise.
  */
 export function writeCodexPackageGuidance(codexHome, packageGuidanceText, allPackageGuidancePaths) {
     return writeCodexGuidanceFile(

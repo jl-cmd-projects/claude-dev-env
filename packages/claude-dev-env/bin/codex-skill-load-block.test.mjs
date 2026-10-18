@@ -10,11 +10,10 @@ import {
     QUESTION_PRESENTATION_BLOCK_START,
     SKILL_LOAD_BLOCK_END,
     SKILL_LOAD_BLOCK_START,
-    SKILL_LOAD_INSTRUCTION,
     removeCodexDeepenGuidance,
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
-    withSkillLoadBlock,
+    withoutSkillLoadBlock,
     DEEPEN_GUIDANCE_BLOCK_END,
     DEEPEN_GUIDANCE_BLOCK_START,
     DEEPEN_GUIDANCE_TEXT,
@@ -24,7 +23,10 @@ import {
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
 
-const EXPECTED_BLOCK = `${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n${SKILL_LOAD_BLOCK_END}\n`;
+const STALE_SKILL_LOAD_SENTENCE = 'Load the pstack:poteto-mode skill before your first tool call or reply: '
+    + 'open its SKILL.md from your skills list and follow it. This binds every Codex agent, '
+    + 'including a helper started with spawn_agent, whatever its task message says.';
+const STALE_SKILL_LOAD_BLOCK = `${SKILL_LOAD_BLOCK_START}\n${STALE_SKILL_LOAD_SENTENCE}\n${SKILL_LOAD_BLOCK_END}\n`;
 const PACKAGE_GUIDANCE = 'Status\n\nChanged / proof / blocked.\n';
 const QUESTION_POLICY = '# Present questions clearly\n\nAsk one question.\n';
 
@@ -52,34 +54,44 @@ function writeGuidance(homes) {
     return writeCodexAgentsGuidance(homes.codexHome, PACKAGE_GUIDANCE, homes.allPackageGuidancePaths);
 }
 
-test('the instruction names the skill and binds spawned helpers', () => {
-    assert.match(SKILL_LOAD_INSTRUCTION, /pstack:poteto-mode/);
-    assert.match(SKILL_LOAD_INSTRUCTION, /spawn_agent/);
+test('a complete skill-load block is removed and the lines around it stay', () => {
+    assert.equal(withoutSkillLoadBlock(`Intro\n${STALE_SKILL_LOAD_BLOCK}Outro\n`), 'Intro\nOutro\n');
+    assert.equal(withoutSkillLoadBlock(`${STALE_SKILL_LOAD_BLOCK}\nNotes\n`), 'Notes\n');
+    assert.equal(
+        withoutSkillLoadBlock(`${STALE_SKILL_LOAD_BLOCK}\n${STALE_SKILL_LOAD_BLOCK}\nNotes\n`),
+        'Notes\n',
+    );
+    assert.equal(
+        withoutSkillLoadBlock(`${SKILL_LOAD_BLOCK_START}\nHalf a block\n`),
+        `${SKILL_LOAD_BLOCK_START}\nHalf a block\n`,
+    );
 });
 
-test('a missing Codex guidance file is created holding the skill-load block and the package guidance', (context) => {
+test('a missing Codex guidance file is created holding the package guidance', (context) => {
     const homes = makeHomes(context);
 
     const writtenPath = writeGuidance(homes);
 
     assert.equal(writtenPath, homes.agentsPath);
-    assert.equal(
-        readFileSync(homes.agentsPath, 'utf8'),
-        `${EXPECTED_BLOCK}\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
-    );
+    const rendered = readFileSync(homes.agentsPath, 'utf8');
+    assert.equal(rendered, guidanceBlock(PACKAGE_GUIDANCE));
+    assert.equal(rendered.includes('pstack:poteto-mode'), false);
+    assert.equal(rendered.includes(SKILL_LOAD_BLOCK_START), false);
 });
 
-test('existing guidance keeps every line between the skill-load block and the package guidance', (context) => {
+test('existing guidance keeps its lines and gains the package guidance', (context) => {
     const homes = makeHomes(context);
     mkdirSync(homes.codexHome);
     writeFileSync(homes.agentsPath, '# pstack model configuration\n\nbug-fix: gpt-6-astra\n');
 
     writeGuidance(homes);
 
+    const rendered = readFileSync(homes.agentsPath, 'utf8');
     assert.equal(
-        readFileSync(homes.agentsPath, 'utf8'),
-        `${EXPECTED_BLOCK}\n# pstack model configuration\n\nbug-fix: gpt-6-astra\n\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
+        rendered,
+        `# pstack model configuration\n\nbug-fix: gpt-6-astra\n\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
     );
+    assert.equal(rendered.includes('pstack:poteto-mode'), false);
 });
 
 test('a repeat install leaves the file unchanged and reports no write', (context) => {
@@ -93,20 +105,43 @@ test('a repeat install leaves the file unchanged and reports no write', (context
     assert.equal(readFileSync(homes.agentsPath, 'utf8'), afterFirstInstall);
 });
 
-test('an outdated block is replaced in place and the text around it is kept', () => {
-    const outdated = `Intro\n${SKILL_LOAD_BLOCK_START}\nOld wording\n${SKILL_LOAD_BLOCK_END}\nOutro\n`;
+test('a stale skill-load sentence is removed and question and deepen blocks stay', (context) => {
+    const homes = makeHomes(context);
+    mkdirSync(homes.codexHome);
+    const questionBlock = `${QUESTION_PRESENTATION_BLOCK_START}\n${QUESTION_POLICY}${QUESTION_PRESENTATION_BLOCK_END}\n`;
+    const deepenBlock = `${DEEPEN_GUIDANCE_BLOCK_START}\n${DEEPEN_GUIDANCE_TEXT}\n${DEEPEN_GUIDANCE_BLOCK_END}\n`;
+    writeFileSync(
+        homes.agentsPath,
+        `${STALE_SKILL_LOAD_BLOCK}\n${guidanceBlock('Old guidance\n')}${questionBlock}${deepenBlock}`,
+    );
 
-    assert.equal(withSkillLoadBlock(outdated), `Intro\n${EXPECTED_BLOCK}Outro\n`);
+    writeGuidance(homes);
+
+    const rendered = readFileSync(homes.agentsPath, 'utf8');
+    assert.equal(rendered.includes(STALE_SKILL_LOAD_SENTENCE), false);
+    assert.equal(rendered.includes('pstack:poteto-mode'), false);
+    assert.equal(rendered.includes(SKILL_LOAD_BLOCK_START), false);
+    assert.ok(rendered.includes(guidanceBlock(PACKAGE_GUIDANCE)));
+    assert.ok(rendered.includes(questionBlock));
+    assert.ok(rendered.includes(deepenBlock));
 });
 
-test('a start marker with no end marker gets a fresh block and keeps the stray text', () => {
+test('a start marker with no end marker stays and no skill name is added', (context) => {
+    const homes = makeHomes(context);
     const broken = `${SKILL_LOAD_BLOCK_START}\nHalf a block\n`;
+    mkdirSync(homes.codexHome);
+    writeFileSync(homes.agentsPath, broken);
 
-    assert.equal(withSkillLoadBlock(broken), `${EXPECTED_BLOCK}\n${broken}`);
+    writeGuidance(homes);
+
+    const rendered = readFileSync(homes.agentsPath, 'utf8');
+    assert.ok(rendered.startsWith(broken));
+    assert.equal(rendered.includes('pstack:poteto-mode'), false);
+    assert.ok(rendered.includes(PACKAGE_GUIDANCE_BLOCK_START));
 });
 
 for (const linkName of ['retiredGuidancePath', 'sharedGuidancePath']) {
-    test(`a link to package guidance at ${linkName} becomes a file with both blocks`, (context) => {
+    test(`a link to package guidance at ${linkName} becomes a file with the package block`, (context) => {
         const homes = makeHomes(context);
         mkdirSync(homes.codexHome);
         symlinkSync(homes[linkName], homes.agentsPath);
@@ -115,24 +150,21 @@ for (const linkName of ['retiredGuidancePath', 'sharedGuidancePath']) {
 
         assert.equal(writtenPath, homes.agentsPath);
         assert.equal(lstatSync(homes.agentsPath).isSymbolicLink(), false);
-        assert.equal(
-            readFileSync(homes.agentsPath, 'utf8'),
-            `${EXPECTED_BLOCK}\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
-        );
+        assert.equal(readFileSync(homes.agentsPath, 'utf8'), guidanceBlock(PACKAGE_GUIDANCE));
+        assert.equal(readFileSync(homes.agentsPath, 'utf8').includes('pstack:poteto-mode'), false);
     });
 }
 
-test('a converted file takes the new package guidance on the next install', (context) => {
+test('a converted file takes the new package guidance and drops a stale skill-load block', (context) => {
     const homes = makeHomes(context);
     mkdirSync(homes.codexHome);
-    writeFileSync(homes.agentsPath, `${EXPECTED_BLOCK}\n${guidanceBlock('Old guidance\n')}`);
+    writeFileSync(homes.agentsPath, `${STALE_SKILL_LOAD_BLOCK}\n${guidanceBlock('Old guidance\n')}`);
 
     writeGuidance(homes);
 
-    assert.equal(
-        readFileSync(homes.agentsPath, 'utf8'),
-        `${EXPECTED_BLOCK}\n${guidanceBlock(PACKAGE_GUIDANCE)}`,
-    );
+    const rendered = readFileSync(homes.agentsPath, 'utf8');
+    assert.equal(rendered, guidanceBlock(PACKAGE_GUIDANCE));
+    assert.equal(rendered.includes('pstack:poteto-mode'), false);
 });
 
 test('a link to a file the package does not own is left alone', (context) => {
