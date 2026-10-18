@@ -18,6 +18,7 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
+import site
 import subprocess
 import sys
 from collections.abc import Callable
@@ -35,25 +36,33 @@ for each_import_directory in (
     if str(each_import_directory) not in sys.path:
         sys.path.insert(0, str(each_import_directory))
 
-_live_broker_state_resolver = importlib.import_module("account_broker_support").broker_state_path
+from dev_env_scripts_constants.account_broker_constants import ALL_ACCOUNT_ENVIRONMENT_VARIABLES
 
 
 @pytest.fixture(autouse=True)
-def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point every module's ``broker_state_path`` at a per-test file.
+def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Point the home directory at a per-test folder for every test here.
 
-    ``account_broker`` binds ``broker_state_path`` by name from
-    ``account_broker_support``, so each bound copy is replaced. A test that
-    patches only one copy still keeps the other off the home directory.
+    ``Path.home()`` reads ``HOME`` on POSIX and ``USERPROFILE`` on Windows, so
+    redirecting both keeps call-time home lookups, such as
+    ``broker_state_path``, off the user's home directory. The variables in
+    ``ALL_ACCOUNT_ENVIRONMENT_VARIABLES`` are cleared, so account roots fall
+    back to the per-test home and no developer roster applies. A value built
+    from ``Path.home()`` at import time keeps the user's home.
+    ``PYTHONUSERBASE`` stays on the user base captured before the redirect, so
+    a new interpreter still imports packages installed for this user.
 
     Returns:
-        The isolated broker state path for this test.
+        The per-test home directory.
     """
-    isolated_path = tmp_path / "account-broker" / "state.json"
-    for each_module in list(sys.modules.values()):
-        if getattr(each_module, "broker_state_path", None) is _live_broker_state_resolver:
-            monkeypatch.setattr(each_module, "broker_state_path", lambda: isolated_path)
-    return isolated_path
+    user_base = site.getuserbase()
+    isolated_home_directory = tmp_path / "home"
+    monkeypatch.setenv("PYTHONUSERBASE", user_base)
+    monkeypatch.setenv("HOME", str(isolated_home_directory))
+    monkeypatch.setenv("USERPROFILE", str(isolated_home_directory))
+    for each_account_variable in ALL_ACCOUNT_ENVIRONMENT_VARIABLES:
+        monkeypatch.delenv(each_account_variable, raising=False)
+    return isolated_home_directory
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:

@@ -1,4 +1,4 @@
-"""Broker state written during a test stays out of the home directory."""
+"""Broker state written during a test lands in the per-test home directory."""
 
 from __future__ import annotations
 
@@ -18,14 +18,11 @@ from dev_env_scripts_constants.account_broker_constants import (
 )
 
 
-def test_meter_cache_write_lands_outside_the_home_directory(
+def test_meter_cache_write_lands_in_the_isolated_home(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    isolated_broker_state_path: Path,
+    isolated_home: Path,
 ) -> None:
-    fake_home = tmp_path / "home"
-    monkeypatch.setenv("HOME", str(fake_home))
-    monkeypatch.setenv("USERPROFILE", str(fake_home))
     account = Account(Product.CLAUDE, "only", tmp_path / "only")
     reset_at = datetime(2026, 10, 5, tzinfo=timezone.utc)
     adapter = ProductAdapter(
@@ -39,10 +36,12 @@ def test_meter_cache_write_lands_outside_the_home_directory(
     def runner(argv: list[str], **options: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 0, "", "")
 
+    isolated_broker_state_path = account_broker.broker_state_path()
+    assert Path.home() == isolated_home
+    assert isolated_broker_state_path.is_relative_to(isolated_home)
+    assert not isolated_broker_state_path.exists()
     with account_broker.override_subprocess_runner(runner):
         account_broker.run_job(Product.CLAUDE, ["claude"])
 
-    home_state_path = fake_home / ".claude" / "account-broker" / "state.json"
-    assert not home_state_path.exists()
     state = json.loads(isolated_broker_state_path.read_text(encoding="utf-8"))
     assert f"claude:only:{account.home}" in state["meters"]
