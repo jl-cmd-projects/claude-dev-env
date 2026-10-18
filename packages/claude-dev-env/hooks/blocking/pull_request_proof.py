@@ -543,6 +543,32 @@ def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
     return completed.stdout.splitlines() if completed.returncode == 0 else None
 
 
+def _compare_base_branch(repository: str, base_branch: str | None) -> str | None:
+    if base_branch:
+        return base_branch
+    all_default_branch_lines = _gh_api_lines(
+        REPOSITORY_ENDPOINT_TEMPLATE.format(repository=repository), DEFAULT_BRANCH_QUERY
+    )
+    if not all_default_branch_lines:
+        return None
+    return all_default_branch_lines[0]
+
+
+def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) -> list[str] | None:
+    all_changed_paths = _gh_api_lines(
+        COMPARE_ENDPOINT_TEMPLATE.format(
+            repository=repository, base_branch=base_branch, head_branch=head_branch
+        ),
+        COMPARE_FILE_NAMES_QUERY,
+    )
+    if all_changed_paths is None:
+        return None
+    all_visible_paths = _visible_paths(all_changed_paths)
+    if all_visible_paths or len(all_changed_paths) < COMPARE_FILE_LIST_LIMIT:
+        return all_visible_paths
+    return None
+
+
 def remote_visible_changed_files(
     repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
@@ -567,28 +593,10 @@ def remote_visible_changed_files(
     """
     if not repository or not head_branch:
         return None
-    resolved_base_branch = base_branch
-    if not resolved_base_branch:
-        all_default_branch_lines = _gh_api_lines(
-            REPOSITORY_ENDPOINT_TEMPLATE.format(repository=repository), DEFAULT_BRANCH_QUERY
-        )
-        if not all_default_branch_lines:
-            return None
-        resolved_base_branch = all_default_branch_lines[0]
-    all_changed_paths = _gh_api_lines(
-        COMPARE_ENDPOINT_TEMPLATE.format(
-            repository=repository, base_branch=resolved_base_branch, head_branch=head_branch
-        ),
-        COMPARE_FILE_NAMES_QUERY,
-    )
-    if all_changed_paths is None:
+    resolved_base_branch = _compare_base_branch(repository, base_branch)
+    if resolved_base_branch is None:
         return None
-    all_visible_paths = _visible_paths(all_changed_paths)
-    if all_visible_paths:
-        return all_visible_paths
-    if len(all_changed_paths) >= COMPARE_FILE_LIST_LIMIT:
-        return None
-    return all_visible_paths
+    return _visible_compare_paths(repository, resolved_base_branch, head_branch)
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
