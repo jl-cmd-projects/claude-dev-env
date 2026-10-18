@@ -1,11 +1,11 @@
-"""Constants for the role-stack retirement inventory."""
+"""Constants for the DeepStack retirement inventory."""
 
 from __future__ import annotations
 
 UTF8_ENCODING: str = "utf-8"
 MANIFEST_RELATIVE_PATH: str = "rules-archived/ARCHIVE-MANIFEST.md"
-ROLE_STACK_SECTION_HEADING: str = "## Role stack replacements"
-ROLE_STACK_SKILL_RELATIVE_PATH: str = ".agents/skills/role-stack/SKILL.md"
+DEEPSTACK_SECTION_HEADING: str = "## DeepStack replacements"
+DEEPSTACK_SKILL_RELATIVE_PATH: str = "plugins/deepstack/skills/deepstack-mode/SKILL.md"
 EVAL_GUIDE_PATH_SUFFIX: str = "features-start-with-an-eval.md"
 FIRST_ACTION_BEHAVIOR_PREFIX: str = "Your first action is the Skill tool"
 RETIRED_PATH_HEADER: str = "retired path"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diff the role-stack retirement manifest against the active tree.
+"""Diff the DeepStack retirement manifest against the active tree.
 
 Each row names a retired path, the behavior it required, the trigger that
 replaces it, and the requirement that stays. The eval row keeps a
@@ -17,9 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from active_capability_references import unresolved_active_capabilities
-from dev_env_scripts_constants.role_stack_inventory_constants import (
+from dev_env_scripts_constants.deepstack_inventory_constants import (
     ALL_EVAL_OPTIONAL_MARKERS,
     ALL_TRUST_CARD_LINES,
+    DEEPSTACK_SECTION_HEADING,
+    DEEPSTACK_SKILL_RELATIVE_PATH,
     EVAL_GUIDE_PATH_SUFFIX,
     FINDING_BEHAVIOR_STILL_ACTIVE,
     FINDING_DROPS_FIRST_ACTION_NOTE,
@@ -33,8 +35,6 @@ from dev_env_scripts_constants.role_stack_inventory_constants import (
     PATH_NONE,
     REPRODUCIBLE_CHECK_SENTENCE,
     RETIRED_PATH_HEADER,
-    ROLE_STACK_SECTION_HEADING,
-    ROLE_STACK_SKILL_RELATIVE_PATH,
     UTF8_ENCODING,
 )
 
@@ -78,12 +78,12 @@ def _table_cells(line: str) -> tuple[str, ...] | None:
 
 
 def replacement_rows(manifest_text: str) -> tuple[ReplacementRow, ...]:
-    """Return the rows under the role-stack heading, or none when it is absent."""
+    """Return the rows under the DeepStack heading, or none when it is absent."""
     all_lines = manifest_text.splitlines()
     in_section = False
     all_rows: list[ReplacementRow] = []
     for each_line in all_lines:
-        if each_line.startswith(ROLE_STACK_SECTION_HEADING):
+        if each_line.startswith(DEEPSTACK_SECTION_HEADING):
             in_section = True
             continue
         if in_section and each_line.startswith("## "):
@@ -211,10 +211,10 @@ def findings_for_rows(
 
 
 def inventory_findings(package_root: Path) -> tuple[InventoryFinding, ...]:
-    """Return role-stack findings plus leftover retired capability names."""
+    """Return DeepStack findings plus leftover retired capability names."""
     manifest_text = _read_text(package_root / MANIFEST_RELATIVE_PATH)
     all_rows = replacement_rows(manifest_text)
-    skill_text = _read_text(package_root / ROLE_STACK_SKILL_RELATIVE_PATH)
+    skill_text = _read_text(package_root / DEEPSTACK_SKILL_RELATIVE_PATH)
     all_findings = list(findings_for_rows(package_root, all_rows, skill_text))
     for each_reference in unresolved_active_capabilities(package_root):
         all_findings.append(
