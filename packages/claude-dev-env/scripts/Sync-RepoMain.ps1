@@ -189,6 +189,35 @@ function Invoke-AdoptCopiedTree {
     return $false
 }
 
+function Get-RunLockName {
+    $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator([System.IO.Path]::GetFullPath($RepoPath))
+    $resolveLinkTarget = [System.IO.Directory].GetMethod('ResolveLinkTarget', [type[]]([string], [bool]))
+    if ((Test-Path -LiteralPath $lockPath) -and ($null -ne $resolveLinkTarget)) {
+        $finalTarget = [System.IO.Directory]::ResolveLinkTarget($lockPath, $true)
+        if ($null -ne $finalTarget) {
+            $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator($finalTarget.FullName)
+        }
+    }
+    $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($lockPath.ToLowerInvariant())
+    $pathHash = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($pathBytes))
+    return "Global\SyncRepoMain-$pathHash"
+}
+
+$runLock = [System.Threading.Mutex]::new($false, (Get-RunLockName))
+try {
+    $hasRunLock = $runLock.WaitOne(0)
+}
+catch [System.Threading.AbandonedMutexException] {
+    $hasRunLock = $true
+}
+if (-not $hasRunLock) {
+    Write-SyncLog -Level 'SKIP' -Message "another sync of $RepoPath is still running"
+    exit 3
+}
+
+$env:GIT_TERMINAL_PROMPT = '0'
+$env:GCM_INTERACTIVE = 'never'
+
 try {
     if (-not (Test-Path -LiteralPath $RepoPath)) {
         Write-SyncLog -Level 'ERROR' -Message "repo path missing: $RepoPath"
@@ -212,7 +241,7 @@ try {
         exit 3
     }
 
-    $null = Invoke-GitOrExit -Arguments @('fetch', $Remote, $Branch) `
+    $null = Invoke-GitOrExit -Arguments @('-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=60', 'fetch', $Remote, $Branch) `
         -FailureMessage "fetch $Remote $Branch failed" -FailureExitCode 1
 
     $tipOutput = Invoke-GitOrExit -Arguments @('rev-parse', $Branch, "$Remote/$Branch") `
