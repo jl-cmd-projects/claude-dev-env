@@ -28,4 +28,4 @@ The peer skills own their audit rules and finding priorities.
 
 ## Completion
 
-Deliver a focused, tested, pushed existing pull request, or a replacement stack with explicit parent-child links. Keep merge authority with the user.
+Deliver a focused, tested, pushed existing pull request, or a replacement stack with explicit parent-child links.

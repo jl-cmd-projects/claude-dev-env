@@ -37,8 +37,7 @@ Required input: a pull request URL, number, or branch. If the target is missing,
 respond exactly: `Give a GitHub PR number, URL, or branch for pr-cleanup.`
 
 Use the repository that owns the target pull request. Keep every pull request in
-draft state until its applicable Ready gate is complete. Keep merge authority
-with the user.
+draft state until its applicable Ready gate is complete.
 
 ## Composition
 
