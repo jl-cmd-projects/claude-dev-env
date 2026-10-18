@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.83.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.1...claude-dev-env-v8.83.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **scripts:** keep Sync-RepoMain runs from piling up ([#2021](https://github.com/jl-cmd-projects/claude-dev-env/issues/2021)) ([4e5a31a](https://github.com/jl-cmd-projects/claude-dev-env/commit/4e5a31a2eca0ebac7627b733dc5bdbb1d8bfc151))
+
 ## [8.83.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.0...claude-dev-env-v8.83.1) (2026-10-18)
 
 
