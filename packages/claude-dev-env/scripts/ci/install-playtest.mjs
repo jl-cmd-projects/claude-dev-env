@@ -65,6 +65,9 @@ export const DEEPEN_REWRITE_STAGE_NAME = 'deepen_mod_text';
 export const DEEPEN_NESTED_STAGE_NAME = 'deepen_nested_home';
 export const DEEPEN_CLOUD_GAP_STAGE_NAME = 'deepen_cloud_gaps';
 export const DEEPEN_STUB_REWRITE = [
+    'SCOPE (role): Ship a contrast change the screen can show',
+    'EXAMPLES (illustration only): none',
+    'ZOOM-IN BLOCKER: none',
     'Omitted: ship contrast tokens with the theme.',
     'Source: src/settings/theme.ts',
     'Methods: existing token file and a visual check.',

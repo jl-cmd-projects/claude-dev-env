@@ -26,6 +26,8 @@ if _hooks_dir not in sys.path:
 from hooks_constants.cloud_session import is_cloud_session
 from hooks_constants.deepen_first_prompt_constants import (
     ADDITIONAL_CONTEXT_KEY,
+    ALL_FOUR_QUESTION_STEMS,
+    QUESTION_LINE_SEPARATOR,
     ALL_HELPER_REPORT_MARKERS,
     ALL_LOOP_PROMPT_PREFIXES,
     ALL_NONINTERACTIVE_ENV_TRUE_VALUES,
@@ -63,6 +65,7 @@ from hooks_constants.deepen_first_prompt_constants import (
 from hooks_constants.mod_handoff import is_mod_plugin_enabled
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.subprocess_window import hidden_window_creation_flags
+from deepen_role_gate import refusal_reason
 
 
 class SkipReason(StrEnum):
@@ -94,7 +97,14 @@ class Deepen:
     additional_context: str
 
 
-DeepenDecision = Skip | Deepen
+@dataclass(frozen=True)
+class Refuse:
+    """Leave the submitted prompt unchanged because the candidate rewrite failed."""
+
+    reason: str
+
+
+DeepenDecision = Skip | Deepen | Refuse
 
 
 def submitted_prompt_text(all_hook_fields: dict[str, object]) -> str:
@@ -266,15 +276,17 @@ def _command_rewrite(task_text: str) -> str | None:
 
 
 def _default_rewrite(task_text: str) -> str:
+    """Return the paste path: the four question stems and an order to do the job."""
+    numbered_stems = QUESTION_LINE_SEPARATOR.join(
+        f"{each_index}. {each_stem}"
+        for each_index, each_stem in enumerate(ALL_FOUR_QUESTION_STEMS, start=1)
+    )
     return (
         f"{DEEPEN_MARKER}\n\n"
         "Do this task as a leading practitioner in its field would.\n\n"
         f"{task_text}\n\n"
         "Cover four things the original prompt left out:\n"
-        "1. What a top person in that field would do that this prompt omitted.\n"
-        "2. The raw source to start from.\n"
-        "3. The methods and tools they would use.\n"
-        "4. What besides the agent or Jon would show the result is right.\n"
+        f"{numbered_stems}\n"
         "Then do exactly that job."
     )
 
@@ -301,11 +313,15 @@ def additional_context_for(rewritten_prompt: str) -> str:
 
 
 def decide_first_prompt(all_hook_fields: dict[str, object]) -> DeepenDecision:
-    """Skip or deepen one UserPromptSubmit payload."""
+    """Skip, refuse, or deepen one UserPromptSubmit payload."""
     reason = skip_reason_for(all_hook_fields)
     if reason is not None:
         return Skip(reason)
-    rewritten_prompt = expand_first_task(submitted_prompt_text(all_hook_fields))
+    prompt = submitted_prompt_text(all_hook_fields)
+    rewritten_prompt = expand_first_task(prompt)
+    refusal = refusal_reason(task_text_for_deepen(prompt), rewritten_prompt)
+    if refusal is not None:
+        return Refuse(refusal)
     return Deepen(
         rewritten_prompt=rewritten_prompt,
         additional_context=additional_context_for(rewritten_prompt),
@@ -314,6 +330,10 @@ def decide_first_prompt(all_hook_fields: dict[str, object]) -> DeepenDecision:
 
 def _print_skip_json(reason: SkipReason) -> None:
     sys.stdout.write(json.dumps({"decision": "skip", "reason": reason.value}) + "\n")
+
+
+def _print_refuse_json(reason: str) -> None:
+    sys.stdout.write(json.dumps({"decision": "refuse", "reason": reason}) + "\n")
 
 
 def _print_deepen_json(deepen: Deepen) -> None:
@@ -363,6 +383,10 @@ def emit_decision(decision: DeepenDecision, all_hook_fields: dict[str, object]) 
     if isinstance(decision, Skip):
         if output_mode == DEEPEN_OUTPUT_JSON:
             _print_skip_json(decision.reason)
+        return
+    if isinstance(decision, Refuse):
+        if output_mode == DEEPEN_OUTPUT_JSON:
+            _print_refuse_json(decision.reason)
         return
     write_turn_marker(all_hook_fields)
     if output_mode == DEEPEN_OUTPUT_JSON:
