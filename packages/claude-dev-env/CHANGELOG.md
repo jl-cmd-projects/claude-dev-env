@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.84.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.84.0...claude-dev-env-v8.84.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **hooks:** read a pull request's changed files from the compare API when git cannot ([#2029](https://github.com/jl-cmd-projects/claude-dev-env/issues/2029)) ([410b485](https://github.com/jl-cmd-projects/claude-dev-env/commit/410b4851ce1bc28cde03a79e76e5909bba379dfd))
+
 ## [8.84.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.2...claude-dev-env-v8.84.0) (2026-10-18)
 
 
