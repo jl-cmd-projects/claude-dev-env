@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.87.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.86.0...claude-dev-env-v8.87.0) (2026-10-18)
+
+
+### Features
+
+* **hooks:** refuse a first-task rewrite that restates the questions ([#2050](https://github.com/jl-cmd-projects/claude-dev-env/issues/2050)) ([721d44b](https://github.com/jl-cmd-projects/claude-dev-env/commit/721d44b72d986eb1622ed09314594ffe39fb7dc9))
+
+
+### Documentation
+
+* **skills:** retire instructions DeepStack intake replaces ([#2052](https://github.com/jl-cmd-projects/claude-dev-env/issues/2052)) ([f9a6756](https://github.com/jl-cmd-projects/claude-dev-env/commit/f9a675671f6ef400644c40fa9701cf7fb617a102))
+
 ## [8.86.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.3...claude-dev-env-v8.86.0) (2026-10-18)
 
 
