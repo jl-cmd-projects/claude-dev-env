@@ -86,9 +86,14 @@ def test_tier_bars_match_the_documented_table() -> None:
     normal_bar = documented_percent(constants.NORMAL_TIER_MINIMUM_PERCENT_LEFT)
     luna_stop = documented_percent(constants.LUNA_TIER_STOP_PERCENT_LEFT)
     luna_short_window_floor = documented_percent(constants.LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT)
+    pro_plans = documented_list(sorted(constants.ALL_PRO_PLAN_TYPES))
+    pro_preference = (
+        f"on a Pro plan account ({pro_plans}) before any other account in this tier; "
+        "among accounts of the same kind, the one with the most room"
+    )
     all_expected_rows = [
-        f"| One or more accounts with more than {normal_bar} left | `{constants.TIER_NORMAL}` on the account with the most room |",
-        f"| No account over {normal_bar}, one or more over {luna_stop} | `{constants.TIER_LUNA}` on the account with the most room |",
+        f"| One or more accounts with more than {normal_bar} left | `{constants.TIER_NORMAL}` {pro_preference} |",
+        f"| No account over {normal_bar}, one or more over {luna_stop} | `{constants.TIER_LUNA}` {pro_preference} |",
         f"| An account that reports a window shorter than a week, such as the 5-hour window, with under {luna_short_window_floor} of that window left | never takes `{constants.TIER_LUNA}` |",
         f"| No account over {luna_stop} | `{constants.TIER_WAIT}`, naming the next reset when known |",
     ]

@@ -58,12 +58,14 @@ def _meters(
     *,
     short_reset: datetime | None = None,
     weekly_reset: datetime | None = None,
+    plan_type: str | None = None,
 ) -> Meters:
     return Meters(
         short_left,
         short_reset or NOW + timedelta(hours=5),
         weekly_left,
         weekly_reset or NOW + timedelta(days=3),
+        plan_type,
     )
 
 
@@ -123,6 +125,30 @@ def test_should_put_unread_accounts_after_readable_accounts() -> None:
     decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
 
     assert decision.account == readings[1].account
+
+
+def test_should_pick_a_pro_plan_account_over_a_roomier_team_account() -> None:
+    readings = (
+        Reading(_account("team-mel"), _meters(90, 85, plan_type="team")),
+        Reading(_account("personal"), _meters(40, 30, plan_type="promax")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
+
+
+def test_should_pick_a_team_account_in_the_normal_tier_over_a_pro_plan_account_below_the_floor() -> None:
+    readings = (
+        Reading(_account("personal"), _meters(50, 8, plan_type="pro")),
+        Reading(_account("team-jon"), _meters(40, 30, plan_type="team")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
 
 
 def test_should_keep_list_order_when_tighter_windows_tie() -> None:

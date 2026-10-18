@@ -315,6 +315,7 @@ def read_codex_account_meters(account: Account) -> Meters:
         short_window.resets_at if short_window else None,
         FULL_PERCENT - weekly_window.used_percent if weekly_window else None,
         weekly_window.resets_at if weekly_window else None,
+        usage.plan_type,
     )
 
 
@@ -500,6 +501,7 @@ def _meter_payload(meters: Meters | None) -> dict[str, object] | None:
         "session_resets_at": utc_time_text(meters.session_resets_at),
         "weekly_percent_left": meters.weekly_percent_left,
         "weekly_resets_at": utc_time_text(meters.weekly_resets_at),
+        "plan_type": meters.plan_type,
     }
 
 
@@ -509,7 +511,14 @@ def _meters_from_payload(raw_meters: object) -> Meters | None:
     all_percentages = (raw_meters.get("session_percent_left"), raw_meters.get("weekly_percent_left"))
     if any(each_percent is not None and not isinstance(each_percent, (int, float)) for each_percent in all_percentages):
         return None
-    return Meters(all_percentages[0], parse_utc_time(raw_meters.get("session_resets_at")), all_percentages[1], parse_utc_time(raw_meters.get("weekly_resets_at")))
+    plan_type = raw_meters.get("plan_type")
+    return Meters(
+        all_percentages[0],
+        parse_utc_time(raw_meters.get("session_resets_at")),
+        all_percentages[1],
+        parse_utc_time(raw_meters.get("weekly_resets_at")),
+        plan_type if isinstance(plan_type, str) else None,
+    )
 
 
 def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict[str, object], now: datetime) -> tuple[Reading, bool]:

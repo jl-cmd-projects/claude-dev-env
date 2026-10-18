@@ -65,6 +65,16 @@ class TestParseRateLimitsReply:
         )
         assert [each.used_percent for each in meters.all_windows] == [40.0]
 
+    def should_read_the_plan_type_beside_the_windows(self) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line({"primary": {"usedPercent": 40}, "planType": "promax"})
+        )
+        assert meters.plan_type == "promax"
+
+    def should_read_a_reply_without_a_plan_type(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 40}}))
+        assert meters.plan_type is None
+
     def should_clamp_used_percent_past_full(self) -> None:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 130}}))
         assert [each.used_percent for each in meters.all_windows] == [100.0]

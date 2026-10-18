@@ -192,7 +192,8 @@ def test_should_read_codex_meters_through_injected_reader(
             UsageWindow(300, 20.0, short_reset),
             UsageWindow(10080, 30.0, None),
             UsageWindow(None, 50.0, unknown_length_reset),
-        )
+        ),
+        plan_type="promax",
     )
     monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
     monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", lambda *_: usage)
@@ -203,6 +204,19 @@ def test_should_read_codex_meters_through_injected_reader(
     assert meters.session_resets_at == short_reset
     assert meters.weekly_percent_left == 50.0
     assert meters.weekly_resets_at == unknown_length_reset
+    assert meters.plan_type == "promax"
+
+
+def test_should_keep_the_plan_through_the_cached_meter_payload() -> None:
+    meters = Meters(80.0, None, 70.0, None, "pro")
+
+    assert support._meters_from_payload(support._meter_payload(meters)) == meters
+
+
+def test_should_load_a_cached_meter_payload_saved_without_a_plan() -> None:
+    old_payload = {"session_percent_left": 80.0, "session_resets_at": None, "weekly_percent_left": 70.0, "weekly_resets_at": None}
+
+    assert support._meters_from_payload(old_payload) == Meters(80.0, None, 70.0, None, None)
 
 
 def _codex_meter_reads(
