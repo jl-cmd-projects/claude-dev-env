@@ -42,8 +42,10 @@ from dev_env_scripts_constants.account_broker_constants import (
     Decision,
     JobOutcome,
     ALL_LOGIN_REFRESH_ENVIRONMENT,
+    LAST_GOOD_METER_MAX_AGE_SECONDS,
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
+    METER_RATE_LIMIT_COOLDOWN_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -316,7 +318,28 @@ def read_codex_account_meters(account: Account) -> Meters:
     )
 
 
-def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None]:
+def _read_meter_attempt(
+    read_meters: Callable[[Account], Meters | None], account: Account
+) -> tuple[bool, Meters | None, str | None, bool]:
+    try:
+        return True, read_meters(account), None, False
+    except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
+        return True, None, str(error), False
+    except (
+        codex_account_meters.CodexMeterUnreadError,
+        WeeklyUtilizationProbeError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ) as error:
+        unread_reason = str(error) or type(error).__name__
+        if "HTTP Error 429" in unread_reason:
+            return True, None, unread_reason, True
+        return False, None, unread_reason, False
+
+
+def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None, bool]:
     """Read one account's meters, retrying a failed read with exponential backoff.
 
     Args:
@@ -325,27 +348,19 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
 
     Returns:
         The meters from the first read that succeeds, or None with the last
-        failure text once every attempt failed. A missing Codex executable
-        or a signed-out Claude account fails at once, without a retry.
+        failure text once every attempt failed, and whether the usage
+        endpoint rate-limited the read, which stops the retries. A missing
+        Codex executable or a signed-out Claude account fails at once,
+        without a retry.
     """
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
             time.sleep(meter_read_delay_seconds(each_attempt))
-        try:
-            return read_meters(account), None
-        except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
-            return None, str(error)
-        except (
-            codex_account_meters.CodexMeterUnreadError,
-            WeeklyUtilizationProbeError,
-            OSError,
-            ValueError,
-            RuntimeError,
-            subprocess.SubprocessError,
-        ) as error:
-            unread_reason = str(error) or type(error).__name__
-    return None, unread_reason
+        is_final, meters, unread_reason, is_rate_limited = _read_meter_attempt(read_meters, account)
+        if is_final:
+            return meters, unread_reason, is_rate_limited
+    return None, unread_reason, False
 
 
 all_product_adapters = {
@@ -434,7 +449,7 @@ def _state_lock(path: Path) -> Iterator[None]:
 def _read_at(entry: object) -> float:
     if not isinstance(entry, dict):
         return float("-inf")
-    read_at = entry.get("read_at")
+    read_at = entry.get("measured_at", entry.get("read_at"))
     return float(read_at) if isinstance(read_at, (int, float)) else float("-inf")
 
 
@@ -499,13 +514,45 @@ def _meters_from_payload(raw_meters: object) -> Meters | None:
 
 def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict[str, object], now: datetime) -> tuple[Reading, bool]:
     key = _state_key(account)
-    cached = all_cache.get(key)
-    if isinstance(cached, dict) and isinstance(cached.get("read_at"), (int, float)) and 0 <= now.timestamp() - cached["read_at"] < 60:
+    raw_cached = all_cache.get(key)
+    cached = raw_cached if isinstance(raw_cached, dict) else {}
+    retry_at = cached.get("retry_at")
+    is_held = isinstance(retry_at, (int, float)) and now.timestamp() < retry_at
+    if isinstance(cached.get("read_at"), (int, float)) and (0 <= now.timestamp() - cached["read_at"] < 60 or is_held):
         cached_reason = cached.get("unread_reason")
-        return Reading(account, _meters_from_payload(cached.get("meters")), cached_reason if isinstance(cached_reason, str) else None), False
-    meters, unread_reason = read_meters_with_backoff(adapter.read_meters, account)
-    all_cache[key] = {"read_at": now.timestamp(), "meters": _meter_payload(meters), "unread_reason": unread_reason}
-    return Reading(account, meters, unread_reason), True
+        measured_at = cached.get("measured_at", cached.get("read_at"))
+        measured = datetime.fromtimestamp(measured_at, timezone.utc) if isinstance(measured_at, (int, float)) else None
+        cached_meters = _meters_from_payload(cached.get("meters"))
+        if cached_reason is not None and cached_meters is not None and _last_good_meters(cached, now) is None:
+            cached_meters = None
+        next_probe = datetime.fromtimestamp(retry_at, timezone.utc) if is_held else None
+        return Reading(account, cached_meters, cached_reason if isinstance(cached_reason, str) else None, measured, next_probe), False
+    meters, unread_reason, is_rate_limited = read_meters_with_backoff(adapter.read_meters, account)
+    measured_at = now.timestamp()
+    is_rate_limited = account.product is Product.CLAUDE and is_rate_limited
+    last_good = _last_good_meters(cached, now) if is_rate_limited else None
+    if last_good is not None:
+        meters, measured_at = last_good
+    all_cache[key] = {"read_at": now.timestamp(), "measured_at": measured_at, "meters": _meter_payload(meters), "unread_reason": unread_reason}
+    if is_rate_limited:
+        all_cache[key]["retry_at"] = now.timestamp() + METER_RATE_LIMIT_COOLDOWN_SECONDS
+    next_probe = datetime.fromtimestamp(all_cache[key]["retry_at"], timezone.utc) if is_rate_limited else None
+    return Reading(account, meters, unread_reason, datetime.fromtimestamp(measured_at, timezone.utc), next_probe), True
+
+
+def _last_good_meters(all_cached_fields: dict[str, object], now: datetime) -> tuple[Meters, float] | None:
+    unread_reason = all_cached_fields.get("unread_reason")
+    if unread_reason is not None and not (isinstance(unread_reason, str) and "HTTP Error 429" in unread_reason):
+        return None
+    measured_at = all_cached_fields.get("measured_at", all_cached_fields.get("read_at"))
+    meters = _meters_from_payload(all_cached_fields.get("meters"))
+    if meters is None or not isinstance(measured_at, (int, float)):
+        return None
+    if not 0 <= now.timestamp() - measured_at <= LAST_GOOD_METER_MAX_AGE_SECONDS:
+        return None
+    if any(reset is not None and reset <= now for reset in (meters.session_resets_at, meters.weekly_resets_at)):
+        return None
+    return meters, measured_at
 
 
 def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None) -> tuple[Reading, ...]:

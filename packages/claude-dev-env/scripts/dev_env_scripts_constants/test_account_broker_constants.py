@@ -191,6 +191,21 @@ def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> N
     assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
 
 
+def test_should_wait_until_a_rate_limited_meter_may_be_probed_again() -> None:
+    now = datetime(2026, 10, 11, 19, 31, tzinfo=timezone.utc)
+    probe_again_at = now + timedelta(minutes=5)
+    account = Account(Product.CLAUDE, "second", Path("second"))
+    reading = broker_constants.Reading(account, None, "usage probe failed: HTTP Error 429", None, probe_again_at)
+
+    decision = broker_constants._wait_decision([reading], now, frozenset(), {})
+
+    assert decision.resets_at == probe_again_at
+    assert decision.reason == (
+        "no account meter could be read (second (usage probe failed: HTTP Error 429)); "
+        "next check at 2026-10-11T19:36:00+00:00"
+    )
+
+
 def _codex_reading(meters: broker_constants.Meters) -> broker_constants.Reading:
     return broker_constants.Reading(Account(Product.CODEX, "codex-1", Path("/profiles/codex-1")), meters)
 

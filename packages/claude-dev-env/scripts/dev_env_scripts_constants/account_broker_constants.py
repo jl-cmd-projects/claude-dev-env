@@ -52,6 +52,8 @@ METER_READ_ATTEMPTS = 3
 METER_READ_FIRST_DELAY_SECONDS = 1.0
 METER_READ_DELAY_FACTOR = 2.0
 METER_READ_MAX_DELAY_SECONDS = 8.0
+LAST_GOOD_METER_MAX_AGE_SECONDS = 1800.0
+METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
@@ -203,6 +205,8 @@ class Reading:
     account: Account
     meters: Meters | None
     unread_reason: str | None = None
+    measured_at: datetime | None = None
+    retry_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -391,9 +395,13 @@ def _wait_decision(
     all_retry_times = []
     for each_reading in all_readings:
         is_spent = each_reading.account in all_spent_accounts
-        reset = all_spent_resets.get(each_reading.account) if is_spent else None
-        reset = reset or _account_reset(each_reading, is_spent)
-        all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
+        spent_reset = all_spent_resets.get(each_reading.account) if is_spent else None
+        known_reset = spent_reset or _account_reset(each_reading, is_spent)
+        chosen_reset = known_reset or each_reading.retry_at
+        if chosen_reset is not None and chosen_reset > now:
+            all_retry_times.append(_RetryTime(chosen_reset, is_known_reset=known_reset is not None))
+        else:
+            all_retry_times.append(next_check)
     soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
     all_unreadable_names = [
         _unreadable_text(each_reading)
