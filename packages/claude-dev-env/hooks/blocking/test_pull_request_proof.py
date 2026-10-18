@@ -4,12 +4,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
+    COMPARE_FILE_LIST_LIMIT,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -304,6 +307,147 @@ def test_visible_changed_files_skips_a_different_head_branch(tmp_path: Path) -> 
 def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(tmp_path: Path) -> None:
     payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
     assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+
+
+def _fake_gh_api(all_responses: dict[str, list[str] | None], all_endpoints: list[str]):
+    def fake_gh_api_lines(endpoint: str, query: str) -> list[str] | None:
+        all_endpoints.append(endpoint)
+        return all_responses.get(endpoint)
+
+    return fake_gh_api_lines
+
+
+def _shell_create_elsewhere(tmp_path: Path, extra_flags: str) -> dict[str, object]:
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    return _shell(f"gh pr create --title t --body-file {body_path} {extra_flags}", tmp_path)
+
+
+def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot_read_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]
+
+
+def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": ["web/page.html", "tool.py"]}
+    all_endpoints: list[str] = []
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
+    reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "-R o/r --head=feature"))
+    assert reason is not None
+    assert "web/page.html" in reason
+    assert "tool.py" not in reason
+    assert all_endpoints == ["repos/o/r", "repos/o/r/compare/trunk...feature"]
+
+
+def test_should_deny_as_unreadable_when_the_compare_api_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, []))
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    reason = gate.missing_look_reason(payload)
+    assert reason == UNREADABLE_CHANGES_REASON
+    assert reason is not None
+    assert "compare API" in reason
+    assert "--repo" in reason
+    assert "--head" in reason
+    assert "origin fetched" in reason
+    assert "Artifact" in reason
+    assert "before any change to this gate" in reason
+
+
+def _python_paths(count: int) -> list[str]:
+    return [f"pkg/module_{each_index}.py" for each_index in range(count)]
+
+
+def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate,
+        "_gh_api_lines",
+        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT)}, all_endpoints),
+    )
+    assert COMPARE_FILE_LIST_LIMIT == 300
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+    assert all_endpoints == [compare_endpoint, compare_endpoint]
+
+
+def test_should_allow_a_short_compare_page_that_lists_only_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate,
+        "_gh_api_lines",
+        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT - 1)}, all_endpoints),
+    )
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
+    assert gate.missing_look_reason(payload) is None
+
+
+def test_should_deny_a_visible_file_on_a_full_compare_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_paths = [*_python_paths(COMPARE_FILE_LIST_LIMIT - 1), "web/page.html"]
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_paths}, all_endpoints))
+    reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
+    assert reason is not None
+    assert "web/page.html" in reason
+    assert "module_0.py" not in reason
+
+
+def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["page.html"]}, all_endpoints))
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY + "https://claude.ai/code/artifact/abc-123\n", encoding="utf-8")
+    payload = _shell(
+        f"gh pr create --title t --body-file {body_path} --repo o/r --base main --head feature",
+        tmp_path,
+    )
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]
+
+
+def test_should_skip_the_compare_api_without_a_named_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, all_endpoints))
+    payload = _shell_create_elsewhere(tmp_path, "--base main --head feature")
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+    assert all_endpoints == []
+
+
+def test_should_read_owner_and_repo_of_an_mcp_create_for_the_compare_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
+    payload["tool_input"].update(owner="o", repo="r", base="main")
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]
 
 
 def test_visible_changed_files_falls_back_to_origin_main_without_origin_head(tmp_path: Path) -> None:

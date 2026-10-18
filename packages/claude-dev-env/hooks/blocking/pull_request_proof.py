@@ -21,10 +21,20 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
+    ALL_BASE_FLAGS,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
+    ALL_REPOSITORY_FLAGS,
+    BASE_FLAG_ASSIGNMENT_PREFIX,
+    COMPARE_ENDPOINT_TEMPLATE,
+    COMPARE_FILE_LIST_LIMIT,
+    COMPARE_FILE_NAMES_QUERY,
+    DEFAULT_BRANCH_QUERY,
+    GH_TIMEOUT_SECONDS,
     HEAD_FLAG_ASSIGNMENT_PREFIX,
     REMOTE_BRANCH_PREFIX,
+    REPOSITORY_ENDPOINT_TEMPLATE,
+    REPOSITORY_FLAG_ASSIGNMENT_PREFIX,
     UNREADABLE_CHANGES_REASON,
     EVAL_HEADING_PATTERN,
     EXISTING_WORK_HEADING_PATTERN,
@@ -174,28 +184,55 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
     ]
 
 
-def _head_flag_value(all_create_arguments: list[str]) -> str | None:
+def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assignment_prefix: str) -> str | None:
     for each_position, each_argument in enumerate(all_create_arguments):
-        if each_argument in ALL_HEAD_FLAGS and each_position + 1 < len(all_create_arguments):
-            return all_create_arguments[each_position + 1]
-        if each_argument.startswith(HEAD_FLAG_ASSIGNMENT_PREFIX):
-            return each_argument[len(HEAD_FLAG_ASSIGNMENT_PREFIX) :]
+        if each_argument in all_flags and each_position + 1 < len(all_create_arguments):
+            return unquoted_token(all_create_arguments[each_position + 1])
+        if each_argument.startswith(assignment_prefix):
+            return unquoted_token(each_argument[len(assignment_prefix) :])
     return None
 
 
-def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
-    create_fields = create_tool_fields(all_payload_fields)
-    head_branch = None if create_fields is None else create_fields.get("head")
-    if isinstance(head_branch, str):
-        return head_branch
+def _shell_flag_value(
+    all_payload_fields: Mapping[str, object], all_flags: frozenset[str], assignment_prefix: str
+) -> str | None:
     command = _shell_command(all_payload_fields)
     if command is None:
         return None
-    all_head_flag_values = [
-        _head_flag_value(all_create_arguments)
+    all_flag_values = [
+        _flag_value(all_create_arguments, all_flags, assignment_prefix)
         for all_create_arguments in _all_create_argument_lists(command)
     ]
-    return next((each_value for each_value in all_head_flag_values if each_value), None)
+    return next((each_value for each_value in all_flag_values if each_value), None)
+
+
+def _named_create_field(
+    all_payload_fields: Mapping[str, object], field_name: str, all_flags: frozenset[str], assignment_prefix: str
+) -> str | None:
+    create_fields = create_tool_fields(all_payload_fields)
+    field_value = None if create_fields is None else create_fields.get(field_name)
+    if isinstance(field_value, str) and field_value:
+        return field_value
+    return _shell_flag_value(all_payload_fields, all_flags, assignment_prefix)
+
+
+def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
+    return _named_create_field(all_payload_fields, "head", ALL_HEAD_FLAGS, HEAD_FLAG_ASSIGNMENT_PREFIX)
+
+
+def _named_base_branch(all_payload_fields: Mapping[str, object]) -> str | None:
+    return _named_create_field(all_payload_fields, "base", ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX)
+
+
+def _named_repository(all_payload_fields: Mapping[str, object]) -> str | None:
+    create_fields = create_tool_fields(all_payload_fields)
+    if create_fields is not None:
+        owner = create_fields.get("owner")
+        repository_name = create_fields.get("repo")
+        if isinstance(owner, str) and owner and isinstance(repository_name, str) and repository_name:
+            return f"{owner}/{repository_name}"
+        return None
+    return _shell_flag_value(all_payload_fields, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX)
 
 
 def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
@@ -485,7 +522,81 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     all_changed_paths = _git_lines(working_directory, "diff", "--name-only", merge_base, head_reference)
     if all_changed_paths is None:
         return None
+    return _visible_paths(all_changed_paths)
+
+
+def _visible_paths(all_changed_paths: list[str]) -> list[str]:
     return [each_path for each_path in all_changed_paths if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)]
+
+
+def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
+    try:
+        completed = subprocess.run(
+            ["gh", "api", endpoint, "--jq", query],
+            capture_output=True,
+            text=True,
+            timeout=GH_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.splitlines() if completed.returncode == 0 else None
+
+
+def _compare_base_branch(repository: str, base_branch: str | None) -> str | None:
+    if base_branch:
+        return base_branch
+    all_default_branch_lines = _gh_api_lines(
+        REPOSITORY_ENDPOINT_TEMPLATE.format(repository=repository), DEFAULT_BRANCH_QUERY
+    )
+    if not all_default_branch_lines:
+        return None
+    return all_default_branch_lines[0]
+
+
+def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) -> list[str] | None:
+    all_changed_paths = _gh_api_lines(
+        COMPARE_ENDPOINT_TEMPLATE.format(
+            repository=repository, base_branch=base_branch, head_branch=head_branch
+        ),
+        COMPARE_FILE_NAMES_QUERY,
+    )
+    if all_changed_paths is None:
+        return None
+    all_visible_paths = _visible_paths(all_changed_paths)
+    if all_visible_paths or len(all_changed_paths) < COMPARE_FILE_LIST_LIMIT:
+        return all_visible_paths
+    return None
+
+
+def remote_visible_changed_files(
+    repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str] | None:
+    """Return the changed files people see, read from the GitHub compare API, or None when it cannot tell.
+
+    ::
+
+        compare lists tool.py                          -> []
+        compare lists web/page.html                    -> ["web/page.html"]
+        compare returns 300 paths and none are visible -> None
+        repository or head missing                     -> None
+
+    The base is the named base branch, else the repository's default branch.
+    A page of 300 paths is the compare API's file cap. A visible file on that
+    page is returned. A full page with none is None, because a later file can
+    still be one people see.
+
+    Args:
+        repository: The owner/name the create call names, or None.
+        base_branch: The base branch the create call names, or None.
+        head_branch: The head branch the create call names, or None.
+    """
+    if not repository or not head_branch:
+        return None
+    resolved_base_branch = _compare_base_branch(repository, base_branch)
+    if resolved_base_branch is None:
+        return None
+    return _visible_compare_paths(repository, resolved_base_branch, head_branch)
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -496,7 +607,9 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         branch changes page.html, proof has ![after](https://x/after.png) -> None
         branch changes page.html, proof quotes only command output        -> MISSING_LOOK_REASON
         branch changes only .py files                                     -> None
-        git cannot read the branch, proof shows no picture                -> UNREADABLE_CHANGES_REASON
+        git cannot read the branch, compare API lists only .py files      -> None
+        git cannot read the branch, compare API returns 300 .py files     -> UNREADABLE_CHANGES_REASON
+        neither git nor the compare API can read it, no picture           -> UNREADABLE_CHANGES_REASON
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -505,9 +618,12 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     if not all_bodies:
         return None
     working_directory = all_payload_fields.get("cwd")
-    all_visible_files = visible_changed_files(
-        str(working_directory or ""), _named_head_branch(all_payload_fields)
-    )
+    head_branch = _named_head_branch(all_payload_fields)
+    all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
+    if all_visible_files is None:
+        all_visible_files = remote_visible_changed_files(
+            _named_repository(all_payload_fields), _named_base_branch(all_payload_fields), head_branch
+        )
     if all_visible_files == []:
         return None
     for each_body in all_bodies:
