@@ -1,6 +1,6 @@
 # Skill archive
 
-This directory holds 19 retired Claude Dev Environment skills, copied unchanged from `packages/claude-dev-env/.agents/skills/` at commit `f5a984af48df0eb0f87f5211d4e92421c38df91b`. Each copy includes scripts, tests, templates, references, and instruction files. `source-trees.json` records the source commit and original Git tree ID for every skill.
+This directory holds 19 retired Claude Dev Environment skills, copied from `packages/claude-dev-env/.agents/skills/` at commit `f5a984af48df0eb0f87f5211d4e92421c38df91b`. Each copy includes scripts, tests, templates, references, and instruction files. `source-trees.json` records that source commit and the Git tree ID of each skill directory in this archive. `pr-cleanup`, `pr-refinement`, and `pr-shared-extraction` differ from that source commit, because the lines that left the merge with the user were removed.
 
 The older archive at `packages/claude-dev-env/.agents/skills-archived/` stays in place. This batch uses the same unpacked-directory format at `skill-archive/`.
 

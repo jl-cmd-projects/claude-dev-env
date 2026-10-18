@@ -65,9 +65,13 @@ The agent that drives the pull request merges it, once the gates above pass.
 This repository runs no merge queue, so the merge is a direct call on the pull
 request.
 
-No agent overrides a red check. A person merges by hand only when the owner says
-to merge. Writes to production systems, to production databases, and to the
-owner's machine outside a self-hosted runner job stay behind the owner's word.
+Every PR gets /efficient-review run through Cursor cloud agents, looped until
+clean, with all required checks green; then the agent merges it. The owner
+never merges. Load the efficient-review skill from the user's dev environment.
+
+No agent overrides a red check. Writes to production systems, to production
+databases, and to the owner's machine outside a self-hosted runner job stay
+behind the owner's word.
 
 ## Rollback
 
