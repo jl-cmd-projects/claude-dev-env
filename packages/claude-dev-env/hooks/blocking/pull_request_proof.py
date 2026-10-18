@@ -27,6 +27,7 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_REPOSITORY_FLAGS,
     BASE_FLAG_ASSIGNMENT_PREFIX,
     COMPARE_ENDPOINT_TEMPLATE,
+    COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_NAMES_QUERY,
     DEFAULT_BRANCH_QUERY,
     GH_TIMEOUT_SECONDS,
@@ -546,7 +547,18 @@ def remote_visible_changed_files(
     repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
     """Return the changed files people see, read from the GitHub compare API, or None when it cannot tell.
+
+    ::
+
+        compare lists tool.py                          -> []
+        compare lists web/page.html                    -> ["web/page.html"]
+        compare returns 300 paths and none are visible -> None
+        repository or head missing                     -> None
+
     The base is the named base branch, else the repository's default branch.
+    A page of 300 paths is the compare API's file cap. A visible file on that
+    page is returned. A full page with none is None, because a later file can
+    still be one people see.
 
     Args:
         repository: The owner/name the create call names, or None.
@@ -571,7 +583,12 @@ def remote_visible_changed_files(
     )
     if all_changed_paths is None:
         return None
-    return _visible_paths(all_changed_paths)
+    all_visible_paths = _visible_paths(all_changed_paths)
+    if all_visible_paths:
+        return all_visible_paths
+    if len(all_changed_paths) >= COMPARE_FILE_LIST_LIMIT:
+        return None
+    return all_visible_paths
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -583,6 +600,7 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         branch changes page.html, proof quotes only command output        -> MISSING_LOOK_REASON
         branch changes only .py files                                     -> None
         git cannot read the branch, compare API lists only .py files      -> None
+        git cannot read the branch, compare API returns 300 .py files     -> UNREADABLE_CHANGES_REASON
         neither git nor the compare API can read it, no picture           -> UNREADABLE_CHANGES_REASON
 
     Args:

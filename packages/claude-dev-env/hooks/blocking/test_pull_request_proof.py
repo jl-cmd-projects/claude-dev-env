@@ -12,6 +12,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
+    COMPARE_FILE_LIST_LIMIT,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -360,6 +361,55 @@ def test_should_deny_as_unreadable_when_the_compare_api_fails(
     assert "origin fetched" in reason
     assert "Artifact" in reason
     assert "before any change to this gate" in reason
+
+
+def _python_paths(count: int) -> list[str]:
+    return [f"pkg/module_{each_index}.py" for each_index in range(count)]
+
+
+def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate,
+        "_gh_api_lines",
+        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT)}, all_endpoints),
+    )
+    assert COMPARE_FILE_LIST_LIMIT == 300
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+    assert all_endpoints == [compare_endpoint, compare_endpoint]
+
+
+def test_should_allow_a_short_compare_page_that_lists_only_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate,
+        "_gh_api_lines",
+        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT - 1)}, all_endpoints),
+    )
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
+    assert gate.missing_look_reason(payload) is None
+
+
+def test_should_deny_a_visible_file_on_a_full_compare_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_paths = [*_python_paths(COMPARE_FILE_LIST_LIMIT - 1), "web/page.html"]
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_paths}, all_endpoints))
+    reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
+    assert reason is not None
+    assert "web/page.html" in reason
+    assert "module_0.py" not in reason
 
 
 def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artifact(

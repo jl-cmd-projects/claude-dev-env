@@ -93,6 +93,7 @@ GIT_TIMEOUT_SECONDS = 5
 GH_TIMEOUT_SECONDS = 15
 COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
 COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
 DEFAULT_BRANCH_QUERY = ".default_branch"
 MISSING_LOOK_REASON = (
