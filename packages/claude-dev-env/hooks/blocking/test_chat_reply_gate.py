@@ -296,8 +296,30 @@ def test_mid_turn_block_reason_should_name_the_violation(tmp_path: Path) -> None
     transcript_path = write_transcript(
         tmp_path / "session.jsonl", [PROMPT_ENTRY, text_entry(MID_TURN_NARRATION), call_entry("call_1")]
     )
-    block_reason = chat_reply_gate.mid_turn_block_reason(
+    mid_turn_block = chat_reply_gate.mid_turn_block_reason(
         {"tool_use_id": "call_1", "transcript_path": str(transcript_path)}
     )
-    assert block_reason is not None
+    assert mid_turn_block is not None
+    block_reason, blocked_text = mid_turn_block
     assert block_reason.endswith("with no process talk.")
+    assert blocked_text == MID_TURN_NARRATION
+
+
+def test_should_log_the_mid_turn_text_when_an_em_dash_blocks_the_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    logged_preview: dict[str, object] = {}
+
+    def capture_log(*_args: object, **kwargs: object) -> None:
+        logged_preview["preview"] = kwargs.get("offending_input_preview")
+
+    monkeypatch.setattr(chat_reply_gate, "log_hook_block", capture_log)
+    em_dash_status = "Checking the gate \u2014 then running the command."
+    transcript_path = write_transcript(
+        tmp_path / "session.jsonl", [PROMPT_ENTRY, text_entry(em_dash_status), call_entry("call_1")]
+    )
+    exit_code, _, error_text = run_hook(monkeypatch, capsys, post_tool_use_input(transcript_path, "call_1"))
+    assert exit_code == 2
+    assert "An em dash is in the text." in error_text
+    assert em_dash_status not in error_text
+    assert logged_preview["preview"] == em_dash_status

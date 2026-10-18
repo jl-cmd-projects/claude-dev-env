@@ -167,8 +167,8 @@ def wait_for_text_before_call(transcript_path: Path, tool_use_id: str) -> str | 
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
-def mid_turn_block_reason(all_hook_input: dict[str, object]) -> str | None:
-    """Return the reason the text before this tool call breaks the reply rule, or None."""
+def mid_turn_block_reason(all_hook_input: dict[str, object]) -> tuple[str, str] | None:
+    """Return the block reason and the text that tripped it, or None when the call passes."""
     if all_hook_input.get(AGENT_ID_KEY):
         return None
     tool_use_id = all_hook_input.get(TOOL_USE_ID_KEY)
@@ -183,7 +183,7 @@ def mid_turn_block_reason(all_hook_input: dict[str, object]) -> str | None:
     violation = reply_violation(mid_turn_text, None, None)
     if violation is None:
         return None
-    return MID_TURN_TEXT_PREFIX + violation + MID_TURN_INSTRUCTION
+    return MID_TURN_TEXT_PREFIX + violation + MID_TURN_INSTRUCTION, mid_turn_text
 
 
 def write_reply_limit_reminder() -> None:
@@ -210,18 +210,22 @@ def main() -> int:
         delete_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)))
         return ALLOW_EXIT_CODE
     if event_name == POST_TOOL_USE_EVENT_NAME:
-        block_reason = mid_turn_block_reason(hook_input)
+        mid_turn_block = mid_turn_block_reason(hook_input)
+        if mid_turn_block is None:
+            return ALLOW_EXIT_CODE
+        block_reason, offending_preview = mid_turn_block
     elif event_name == STOP_EVENT_NAME:
         block_reason = stop_block_reason(hook_input)
+        if block_reason is None:
+            return ALLOW_EXIT_CODE
+        offending_preview = str(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY))
     else:
-        return ALLOW_EXIT_CODE
-    if block_reason is None:
         return ALLOW_EXIT_CODE
     log_hook_block(
         Path(__file__).name,
         str(event_name),
         block_reason,
-        offending_input_preview=str(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)),
+        offending_input_preview=offending_preview,
     )
     sys.stderr.write(block_reason)
     return BLOCK_EXIT_CODE
