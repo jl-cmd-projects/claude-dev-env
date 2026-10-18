@@ -1,4 +1,4 @@
-"""Choose and run Claude or Codex jobs through one account roster."""
+"""Choose and run Claude or Codex jobs through one account list."""
 
 from __future__ import annotations
 
@@ -178,7 +178,7 @@ def _home_profile(home: Path) -> str | None:
 
 
 def load_claude_accounts() -> tuple[Account, ...]:
-    """Read the Claude account roster.
+    """Read the Claude account list.
 
     Returns:
         Main and additional accounts in configured order, each with its place in the account order file
@@ -200,7 +200,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
 
 
 def load_codex_accounts() -> tuple[Account, ...]:
-    """Read the Codex account roster.
+    """Read the Codex account list.
 
     Returns:
         Configured accounts, or an empty tuple when none are configured.

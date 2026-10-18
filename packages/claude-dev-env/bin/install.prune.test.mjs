@@ -813,10 +813,16 @@ test('a fresh scoped core install includes efficient-review', () => {
         assert.match(skillText, /^name: efficient-review$/m);
         assert.match(skillText, /\/efficient-review/);
         assert.equal(readManifest(sandbox.manifestPath).skills.includes('efficient-review'), true);
-        assert.equal(
-            existsSync(join(sandbox.skillsDirectory, 'efficient-review', 'defaults.json')),
-            true,
-        );
+        const skillDirectory = join(sandbox.skillsDirectory, 'efficient-review');
+        assert.equal(existsSync(join(skillDirectory, 'README.md')), true);
+        assert.equal(existsSync(join(skillDirectory, 'reference', 'criteria.md')), true);
+        assert.equal(existsSync(join(skillDirectory, 'tools', 'efficient_review.py')), true);
+        assert.equal(existsSync(join(skillDirectory, 'settings.json')), false);
+        assert.equal(existsSync(join(skillDirectory, 'reference', 'cloud-session.md')), false);
+        const readme = readFileSync(join(skillDirectory, 'README.md'), 'utf8');
+        assert.match(readme, /python -m tools\.efficient_review plan/);
+        assert.equal(readme.includes('dispatch_repository'), false);
+        assert.equal(readme.includes('read_token'), false);
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
     }

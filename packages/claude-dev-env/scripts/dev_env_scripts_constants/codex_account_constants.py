@@ -10,13 +10,13 @@ from __future__ import annotations
 from dev_env_scripts_constants.claude_account_constants import LauncherProgram
 
 ALL_CODEX_ACCOUNT_NAMES: tuple[str, ...] = ("codex-1", "codex-2", "codex-3", "codex-4")
-"""Fallback Codex accounts, in try order, when no account roster is saved or set."""
+"""Fallback Codex accounts, in try order, when no account list is saved or set."""
 
 CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE: str = "CODEX_ACCOUNT_PROFILES"
-"""Environment variable naming the account roster, comma-separated, over the saved file."""
+"""Environment variable naming the account list, comma-separated, over the saved file."""
 
 CODEX_ACCOUNT_LAUNCHERS_FILE_NAME: str = "account-launchers.json"
-"""File under the profiles root that holds the saved account roster as a JSON list."""
+"""File under the profiles root that holds the saved account list as a JSON list."""
 
 CODEX_ACCOUNT_NAME_SEPARATOR: str = ","
 """Separator between account names in the roster environment variable."""
