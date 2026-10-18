@@ -1,16 +1,10 @@
 """Start a headless Claude Code session, through the account broker or on the caller's account."""
 
-import json
 import shutil
-import subprocess
-import sys
-import tempfile
-import time
 from pathlib import Path
 
-from rules_eval_support.config.constants import BROKER_SCRIPT
-from session_eval_support.config.constants import SESSION_SETTING_SOURCES
-from session_eval_support.session import SessionRun, SessionSettings
+from session_eval_support import session
+from session_eval_support.session import SessionRun, SessionSettings, brokered_words
 
 
 def launch_words(report_path: Path, all_claude_words: list[str], is_direct: bool) -> list[str]:
@@ -33,27 +27,7 @@ def launch_words(report_path: Path, all_claude_words: list[str], is_direct: bool
     """
     if is_direct:
         return [shutil.which(all_claude_words[0]) or all_claude_words[0], *all_claude_words[1:]]
-    return [sys.executable, str(BROKER_SCRIPT), "run", "--product", "claude", "--report", str(report_path), "--", *all_claude_words]
-
-
-def _read_events(stream_path: Path) -> list[dict[str, object]]:
-    all_events: list[dict[str, object]] = []
-    for each_line in stream_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            each_event = json.loads(each_line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(each_event, dict):
-            all_events.append(each_event)
-    return all_events
-
-
-def _session_words(prompt: str, settings: SessionSettings) -> list[str]:
-    return [
-        "claude", "-p", prompt, "--model", settings.model, "--effort", settings.effort,
-        "--max-turns", str(settings.max_turns), "--output-format", "stream-json", "--verbose",
-        "--setting-sources", SESSION_SETTING_SOURCES,
-    ]
+    return brokered_words(report_path, all_claude_words)
 
 
 def run_session(workspace: Path, prompt: str, settings: SessionSettings, is_direct: bool) -> SessionRun:
@@ -68,19 +42,9 @@ def run_session(workspace: Path, prompt: str, settings: SessionSettings, is_dire
     Returns:
         The stream, latency, exit code (None on timeout) and broker report.
     """
-    capture_directory = Path(tempfile.mkdtemp(prefix=workspace.name + "-out-"))
-    stream_path = capture_directory / "stream.jsonl"
-    report_path = capture_directory / "broker-report.json"
-    started = time.monotonic()
-    with stream_path.open("w", encoding="utf-8") as stream_file:
-        try:
-            exit_code: int | None = subprocess.run(
-                launch_words(report_path, _session_words(prompt, settings), is_direct),
-                cwd=workspace, stdout=stream_file, stderr=subprocess.DEVNULL,
-                timeout=settings.timeout_seconds, check=False,
-            ).returncode
-        except subprocess.TimeoutExpired:
-            exit_code = None
-    latency_seconds = time.monotonic() - started
-    broker_report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else {}
-    return SessionRun(_read_events(stream_path), latency_seconds, exit_code, broker_report)
+    return session.run_session(
+        workspace,
+        prompt,
+        settings,
+        lambda report_path, all_claude_words: launch_words(report_path, all_claude_words, is_direct),
+    )

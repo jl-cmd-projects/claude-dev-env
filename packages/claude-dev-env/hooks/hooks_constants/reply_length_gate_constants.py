@@ -12,6 +12,10 @@ CARD_TEXT_SEPARATOR = "\n"
 ALL_DECISION_CARD_PROSE_KEYS = ("question", "context")
 DECISION_CARD_OPTIONS_KEY = "options"
 ALL_DECISION_OPTION_PROSE_KEYS = ("label", "consequence")
+DECISION_CARD_CONTEXT_KEY = "context"
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT = 2
+ALL_DECISION_CARD_LENGTH_KEYS = ("question", "context", "reason")
+ALL_DECISION_OPTION_LENGTH_KEYS = ("consequence",)
 QUESTION_CARD_TOOL_NAME = "AskUserQuestion"
 QUESTION_CARD_QUESTIONS_KEY = "questions"
 ALL_QUESTION_CARD_PROSE_KEYS = ("question", "header")
@@ -41,6 +45,16 @@ WORD_SEPARATOR = " "
 SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
+CARD_CONTEXT_TOO_LONG_MESSAGE = (
+    "Card context too long: {sentence_count} sentences, limit {sentence_limit}."
+)
+CARD_CONTEXT_LIST_MESSAGE = "Card context holds a list of items, and a card cannot format a list."
+CARD_LIST_ITEM_PATTERN = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\S", re.MULTILINE)
+CARD_FORMAT_FLOW_INSTRUCTION = (
+    " For a list or several items, publish an Artifact page with a tap button per item"
+    " and a Send button, with the capability that republishes its state so the watching"
+    " session wakes. Then send a short reply that links the page."
+)
 UNLINKED_PULL_REQUEST_MESSAGE = 'Pull request "{reference}" has no link. Write it as [PR N](https://github.com/<owner>/<repo>/pull/N).'
 MID_SENTENCE_COLON_MESSAGE = (
     "A colon joins two clauses on one line. Write two sentences, or end the line with the colon"

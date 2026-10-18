@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Stop hook that checks the closing chat reply for an unvalidated claim.
 
 The reply length gate checks the chat tools. This gate checks the reply the

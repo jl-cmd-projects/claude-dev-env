@@ -15,7 +15,9 @@ from pathlib import Path
 import pytest
 
 from dev_env_scripts_constants import account_broker_constants as broker_constants
+from dev_env_scripts_constants import claude_account_constants, codex_account_constants, shared_tree_constants
 from dev_env_scripts_constants.account_broker_constants import (
+    ALL_ACCOUNT_ENVIRONMENT_VARIABLES,
     ALL_BATCH_FILE_EXTENSIONS,
     ALL_CLAUDE_FLOORS,
     ALL_CODEX_FLOORS,
@@ -55,6 +57,16 @@ def test_should_keep_codex_floors_tied_to_the_tier_limits() -> None:
         "luna_stop_left": LUNA_TIER_STOP_PERCENT_LEFT,
         "luna_short_minimum_left": LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     }
+
+
+def test_should_list_every_account_environment_variable() -> None:
+    all_declared_variables = {
+        each_value
+        for each_module in (claude_account_constants, codex_account_constants, shared_tree_constants)
+        for each_name, each_value in vars(each_module).items()
+        if each_name.endswith(("_ENVIRONMENT_VARIABLE", "_ENV_VAR"))
+    }
+    assert all_declared_variables == set(ALL_ACCOUNT_ENVIRONMENT_VARIABLES)
 
 
 def test_batch_command_boundaries_include_shell_metacharacters() -> None:
@@ -189,6 +201,21 @@ def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> N
     home = Path("/profiles/first")
 
     assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
+
+
+def test_should_wait_until_a_rate_limited_meter_may_be_probed_again() -> None:
+    now = datetime(2026, 10, 11, 19, 31, tzinfo=timezone.utc)
+    probe_again_at = now + timedelta(minutes=5)
+    account = Account(Product.CLAUDE, "second", Path("second"))
+    reading = broker_constants.Reading(account, None, "usage probe failed: HTTP Error 429", None, probe_again_at)
+
+    decision = broker_constants._wait_decision([reading], now, frozenset(), {})
+
+    assert decision.resets_at == probe_again_at
+    assert decision.reason == (
+        "no account meter could be read (second (usage probe failed: HTTP Error 429)); "
+        "next check at 2026-10-11T19:36:00+00:00"
+    )
 
 
 def _codex_reading(meters: broker_constants.Meters) -> broker_constants.Reading:

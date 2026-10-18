@@ -138,6 +138,14 @@ def test_new_artifact_page_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_eval_write_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/build_eval_before_eval_write_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_blocker_in_staged_change_is_rejected(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/new.py"],

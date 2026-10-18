@@ -49,7 +49,13 @@ The banned-word, unvalidated claim, and citation checks also read the prose of a
 decision card: its question, its context, and each option's label and
 consequence. They read an AskUserQuestion card the same way: each
 question, its header, and each option's label and description.
-A card gets no length check.
+A decision card gets a length check on its question, context, reason, and
+each option's consequence. No sentence there runs longer than
+MAXIMUM_WORDS_PER_SENTENCE words, and the context holds at most
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences. A context may hold no list
+item line, such as "- Cedar" or "1. Cedar". A card refused for length or for
+a list names the page flow to use instead: an Artifact page with a tap button
+per item and a Send button, then a short reply that links the page.
 
 Each non-empty line counts as its own sentence, so a list counts one
 sentence per item. URLs, markdown link targets, inline code spans, and
@@ -101,7 +107,9 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_TOOL_NAMES,
+    ALL_DECISION_CARD_LENGTH_KEYS,
     ALL_DECISION_CARD_PROSE_KEYS,
+    ALL_DECISION_OPTION_LENGTH_KEYS,
     ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
     ALL_EVIDENCE_PATTERNS,
@@ -115,6 +123,10 @@ from hooks_constants.reply_length_gate_constants import (
     BANNED_WORDS_JSON_KEY,
     BANNED_WORDS_PATH_ENV_VAR,
     BLOCK_EXIT_CODE,
+    CARD_CONTEXT_LIST_MESSAGE,
+    CARD_CONTEXT_TOO_LONG_MESSAGE,
+    CARD_FORMAT_FLOW_INSTRUCTION,
+    CARD_LIST_ITEM_PATTERN,
     CAUSAL_CLAIM_PATTERN,
     CARD_TEXT_SEPARATOR,
     CITED_NUMBER_IN_RESULT_TEMPLATE,
@@ -122,6 +134,7 @@ from hooks_constants.reply_length_gate_constants import (
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
     CURLY_APOSTROPHE,
+    DECISION_CARD_CONTEXT_KEY,
     DECISION_CARD_OPTIONS_KEY,
     DECISION_CARD_TOOL_NAME,
     DURATION_CLAIM_PATTERN,
@@ -135,6 +148,7 @@ from hooks_constants.reply_length_gate_constants import (
     LINK_TARGET_PATTERN,
     LONG_SENTENCE_MESSAGE,
     MARKDOWN_LINK_PATTERN,
+    MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
     MAXIMUM_SENTENCE_COUNT,
     MAXIMUM_WORDS_PER_SENTENCE,
     MID_SENTENCE_COLON_MESSAGE,
@@ -186,7 +200,12 @@ def length_violation(reply_text: str) -> str | None:
         return TOO_MANY_SENTENCES_MESSAGE.format(
             sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
         )
-    for each_sentence in all_sentences:
+    return long_sentence_violation(reply_text)
+
+
+def long_sentence_violation(prose_text: str) -> str | None:
+    """Return the deny reason for the first sentence over the word limit, or None."""
+    for each_sentence in sentence_word_lists(prose_text):
         if len(each_sentence) > MAXIMUM_WORDS_PER_SENTENCE:
             sentence_preview = WORD_SEPARATOR.join(each_sentence[:SENTENCE_PREVIEW_WORD_COUNT])
             return LONG_SENTENCE_MESSAGE.format(
@@ -321,21 +340,53 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
     return None
 
 
-def all_card_texts(all_card_input: dict[str, object]) -> list[str]:
-    """Collect the prose fields of a decision card: question, context, and each option's text."""
+def all_card_texts(
+    all_card_input: dict[str, object],
+    all_card_keys: tuple[str, ...],
+    all_option_keys: tuple[str, ...],
+) -> list[str]:
+    """Collect the named string fields of a decision card and of each of its options."""
     all_options = all_card_input.get(DECISION_CARD_OPTIONS_KEY)
     all_option_fields = [
         each_option.get(each_key)
         for each_option in (all_options if isinstance(all_options, list) else [])
         if isinstance(each_option, dict)
-        for each_key in ALL_DECISION_OPTION_PROSE_KEYS
+        for each_key in all_option_keys
     ]
-    all_card_fields = [all_card_input.get(each_key) for each_key in ALL_DECISION_CARD_PROSE_KEYS]
+    all_card_fields = [all_card_input.get(each_key) for each_key in all_card_keys]
     return [
         each_field
         for each_field in all_card_fields + all_option_fields
         if isinstance(each_field, str)
     ]
+
+
+def card_length_violation(all_card_input: dict[str, object]) -> str | None:
+    """Return the deny reason, with the page flow to use, for an over-long or listed card."""
+    violation = card_shape_violation(all_card_input)
+    return None if violation is None else violation + CARD_FORMAT_FLOW_INSTRUCTION
+
+
+def card_shape_violation(all_card_input: dict[str, object]) -> str | None:
+    """Return the deny reason for a listed or over-long card context or card sentence, or None."""
+    context_text = all_card_input.get(DECISION_CARD_CONTEXT_KEY)
+    if isinstance(context_text, str):
+        if CARD_LIST_ITEM_PATTERN.search(FENCED_BLOCK_PATTERN.sub(" ", context_text)) is not None:
+            return CARD_CONTEXT_LIST_MESSAGE
+        context_sentence_count = len(sentence_word_lists(context_text))
+        if context_sentence_count > MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT:
+            return CARD_CONTEXT_TOO_LONG_MESSAGE.format(
+                sentence_count=context_sentence_count,
+                sentence_limit=MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+            )
+    all_length_checked_texts = all_card_texts(
+        all_card_input, ALL_DECISION_CARD_LENGTH_KEYS, ALL_DECISION_OPTION_LENGTH_KEYS
+    )
+    for each_text in all_length_checked_texts:
+        violation = long_sentence_violation(each_text)
+        if violation is not None:
+            return violation
+    return None
 
 
 def all_question_card_texts(all_card_input: dict[str, object]) -> list[str]:
@@ -407,14 +458,19 @@ def tool_violation(
         if anchor_violation is not None:
             return anchor_violation, str(all_tool_input)
     if tool_name in (DECISION_CARD_TOOL_NAME, QUESTION_CARD_TOOL_NAME):
-        all_texts = (
-            all_card_texts(all_tool_input)
-            if tool_name == DECISION_CARD_TOOL_NAME
-            else all_question_card_texts(all_tool_input)
-        )
+        if tool_name == DECISION_CARD_TOOL_NAME:
+            all_texts = all_card_texts(
+                all_tool_input, ALL_DECISION_CARD_PROSE_KEYS, ALL_DECISION_OPTION_PROSE_KEYS
+            )
+            shape_violation = card_length_violation(all_tool_input)
+        else:
+            all_texts = all_question_card_texts(all_tool_input)
+            shape_violation = None
         card_text = CARD_TEXT_SEPARATOR.join(all_texts)
-        violation = card_violation(card_text, mode_rules) or unseen_citation_violation(
-            card_text, transcript_path
+        violation = (
+            shape_violation
+            or card_violation(card_text, mode_rules)
+            or unseen_citation_violation(card_text, transcript_path)
         )
         return None if violation is None else (violation, card_text)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:

@@ -115,6 +115,20 @@
       "char_limit": 1500
     },
     {
+      "name": "deepen first prompt",
+      "command": [
+        "env",
+        "CDE_DEEPEN_REWRITE=Omitted: ship contrast tokens with the theme.\nSource: src/settings/theme.ts\nMethods: existing token file and a visual check.\nProof: screenshot of the settings page in dark mode.",
+        "python3",
+        "packages/claude-dev-env/hooks/session/deepen_first_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": "Add dark mode to the settings page"
+      },
+      "char_limit": 4000
+    },
+    {
       "name": "spawn readiness reminder",
       "command": [
         "python3",

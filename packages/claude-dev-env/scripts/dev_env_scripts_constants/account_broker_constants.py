@@ -16,11 +16,15 @@ from dev_env_scripts_constants.claude_account_constants import (
     FULL_PERCENT,
     MAIN_SESSION_USED_CEILING_PERCENT,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
+    PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
 from dev_env_scripts_constants.codex_account_constants import (
+    ALL_PRO_PLAN_TYPES,
+    CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
+    CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
     LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
     LUNA_TIER_STOP_PERCENT_LEFT,
     MAIN_CODEX_HOME_DIRECTORY_NAME,
@@ -29,6 +33,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     TIER_NORMAL,
 )
 from dev_env_scripts_constants.shared_tree_constants import (
+    CLAUDE_CONFIG_DIR_ENV_VAR,
     CODEX_CLASSIFIER_CONSTANTS_RELATIVE_PATH,
     CONSTANTS_PACKAGE_ANCHOR_DEPTH,
     PR_LOOP_DIRECTORY_NAME,
@@ -52,6 +57,8 @@ METER_READ_ATTEMPTS = 3
 METER_READ_FIRST_DELAY_SECONDS = 1.0
 METER_READ_DELAY_FACTOR = 2.0
 METER_READ_MAX_DELAY_SECONDS = 8.0
+LAST_GOOD_METER_MAX_AGE_SECONDS = 1800.0
+METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
@@ -61,6 +68,14 @@ BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
 BROKER_STATE_LOCK_SUFFIX = ".lock"
+ALL_ACCOUNT_ENVIRONMENT_VARIABLES = (
+    CLAUDE_CONFIG_DIR_ENV_VAR,
+    CODEX_HOME_ENVIRONMENT_VARIABLE,
+    CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
+    CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
+    PROFILES_ROOT_ENVIRONMENT_VARIABLE,
+)
+"""Variables that point the account tools at a developer's own account roots, Codex home and Codex roster."""
 ALL_BATCH_FILE_EXTENSIONS = frozenset({".bat", ".cmd"})
 CMD_SHELL_METACHARACTERS = "&|<>^%!\"\r\n"
 CLAUDE_BINARY_NAME = "claude"
@@ -68,7 +83,33 @@ ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
     (".local", "bin", "claude.exe"),
     (".local", "bin", "claude"),
 )
-ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = (
+    "-p",
+    "ok",
+    "--model",
+    "haiku",
+    "--setting-sources",
+    "local",
+    "--settings",
+    '{"enabledPlugins": {}, "autoMemoryEnabled": false}',
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers": {}}',
+    "--no-session-persistence",
+    "--disable-slash-commands",
+    "--tools",
+    "",
+    "--max-turns",
+    "1",
+)
+ALL_LOGIN_REFRESH_ENVIRONMENT: dict[str, str] = {
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_AUTOUPDATER": "1",
+}
 LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
@@ -165,6 +206,7 @@ class Meters:
     session_resets_at: datetime | None
     weekly_percent_left: float | None
     weekly_resets_at: datetime | None
+    plan_type: str | None = None
 
     @property
     def tightest_percent_left(self) -> float | None:
@@ -177,6 +219,8 @@ class Reading:
     account: Account
     meters: Meters | None
     unread_reason: str | None = None
+    measured_at: datetime | None = None
+    retry_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -283,10 +327,11 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
     return max(all_known_resets, default=None)
 
 
-def _rank_key(reading: Reading) -> tuple[bool, int, float]:
+def _rank_key(reading: Reading) -> tuple[bool, int, bool, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
     priority = reading.account.priority
-    return (priority is None, priority or 0, -(room if room is not None else -1.0))
+    is_pro_plan = reading.meters is not None and reading.meters.plan_type in ALL_PRO_PLAN_TYPES
+    return (priority is None, priority or 0, not is_pro_plan, -(room if room is not None else -1.0))
 
 
 def _main_has_room(meters: Meters | None) -> bool:
@@ -365,9 +410,13 @@ def _wait_decision(
     all_retry_times = []
     for each_reading in all_readings:
         is_spent = each_reading.account in all_spent_accounts
-        reset = all_spent_resets.get(each_reading.account) if is_spent else None
-        reset = reset or _account_reset(each_reading, is_spent)
-        all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
+        spent_reset = all_spent_resets.get(each_reading.account) if is_spent else None
+        known_reset = spent_reset or _account_reset(each_reading, is_spent)
+        chosen_reset = known_reset or each_reading.retry_at
+        if chosen_reset is not None and chosen_reset > now:
+            all_retry_times.append(_RetryTime(chosen_reset, is_known_reset=known_reset is not None))
+        else:
+            all_retry_times.append(next_check)
     soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
     all_unreadable_names = [
         _unreadable_text(each_reading)

@@ -9,70 +9,80 @@ Variant ``baseline`` installs the always-loaded rules and guides from the
 commit before the index. Variant ``index`` installs them from ``HEAD``. Each
 session loads project and local settings only, so the home config's rules,
 hooks and skills stay out of both arms. Rows land in
-``<variant>/results.jsonl`` as each case finishes, and a rerun skips every
-(case, rep) already there.
+``<variant>/results.jsonl`` as each case finishes, each tagged with a run
+digest over the workspace files, the session settings, ``--direct`` and the
+harness source. A rerun skips every (case, rep) already there under the same
+digest, and the headline counts only those rows and the errors no retry has
+scored. Any change to the digest, even a new --timeout-s or an edited harness
+comment, reruns every stored (case, rep), at the cost of a full run.
 """
 
 import argparse
 import json
 import logging
 import sys
-import threading
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 flow_directory = Path(__file__).resolve().parent
 all_import_roots = [str(each_root) for each_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval", flow_directory.parents[2] / "packages" / "claude-dev-env" / "scripts")]
 sys.path[:0] = [each_root for each_root in all_import_roots if each_root not in sys.path]
 
+import contrast_framing
 from contrast_framing import find_contrast_framing
 from rules_eval_support.config.constants import (
-    ALL_SCORABLE_SUBTYPES,
-    BROKER_WAIT_EXIT_CODE,
     CASES_FILE,
+    ALL_TEXT_CHECKS,
     CHECK_CONTRAST,
     CHECK_JUDGE,
     DEFAULT_EFFORT,
     DEFAULT_MAX_TURNS,
+    FAILURE_JUDGE,
+    FIRST_TOOLS_SHOWN,
+    FLOW_ROOT,
+    GROUP_SEPARATOR,
+    JUDGE_MODEL,
+    STATE_FILE,
+)
+from rules_eval_support.grading import opened_a_guide, tool_check
+from rules_eval_support import grading
+from rules_eval_support.install import variant_files, workspace_files
+from rules_eval_support.judge import judge_prompt, run_judge
+from rules_eval_support.launch import run_session
+from session_eval_support.config.constants import (
     DEFAULT_MODEL,
     DEFAULT_PARALLEL,
     DEFAULT_REPS,
     DEFAULT_TIMEOUT_SECONDS,
     ERRORS_FILE_NAME,
-    FAILURE_BROKER_WAIT,
-    FAILURE_JUDGE,
-    FAILURE_MODEL_MISMATCH,
-    FAILURE_NO_RESULT,
-    FAILURE_TIMEOUT,
-    FIRST_TOOLS_SHOWN,
-    FLOW_ROOT,
-    GROUP_SEPARATOR,
-    JSON_INDENT,
-    JUDGE_MODEL,
+    ID_LIST_SEPARATOR,
+    RUN_DIGEST_FIELD,
     LATENCY_DECIMALS,
-    NEWLINE,
     RESULTS_FILE_NAME,
-    STATE_FILE,
     STATUS_OK,
-    TRACE_FILE_TEMPLATE,
     TRACES_DIRECTORY_NAME,
+    USAGE_ERROR_EXIT_CODE,
 )
-from rules_eval_support.grading import opened_a_guide, tool_check
-from rules_eval_support.install import prepare_workspace, variant_files
-from rules_eval_support.judge import judge_prompt, run_judge
+from session_eval_support import grading as session_grading
 from session_eval_support.grading import tool_calls, wilson_interval
-from rules_eval_support.launch import run_session
+from session_eval_support.rows import append_row, failure_row, open_errors, rows_for_install, select_cases, select_variant
 from session_eval_support.session import (
     SessionRun,
     SessionSettings,
     final_event,
+    harness_sources,
+    prepare_workspace,
+    remove_workspace,
+    run_digest,
     served_models,
     trace_turns,
+    unscorable,
+    write_trace,
 )
 
 logger = logging.getLogger(__name__)
-write_lock = threading.Lock()
 
 
 def _parse_arguments() -> argparse.Namespace:
@@ -88,30 +98,6 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--label", default="", help="results folder name; defaults to the variant name")
     parser.add_argument("--direct", action="store_true", help="run every session and judge on this session's account, skipping the broker")
     return parser.parse_args()
-
-
-def _read_rows(path: Path) -> list[dict[str, object]]:
-    if not path.is_file():
-        return []
-    return [json.loads(each_line) for each_line in path.read_text(encoding="utf-8").splitlines() if each_line]
-
-
-def _append_line(path: Path, row_by_field: dict[str, object]) -> None:
-    with write_lock, path.open("a", encoding="utf-8") as jsonl_file:
-        jsonl_file.write(json.dumps(row_by_field) + NEWLINE)
-
-
-def _unscorable(session: SessionRun, settings: SessionSettings) -> tuple[str, object] | None:
-    if session.exit_code == BROKER_WAIT_EXIT_CODE:
-        return FAILURE_BROKER_WAIT, session.broker_report.get("final_decision")
-    if session.exit_code is None:
-        return FAILURE_TIMEOUT, settings.timeout_seconds
-    final = final_event(session.all_events)
-    if final is None or final.get("subtype") not in ALL_SCORABLE_SUBTYPES:
-        return FAILURE_NO_RESULT, None if final is None else final.get("subtype")
-    if not any(each_model.startswith(settings.model) for each_model in served_models(final)):
-        return FAILURE_MODEL_MISMATCH, served_models(final)
-    return None
 
 
 def _grade(case_by_field: dict[str, str], session: SessionRun, is_direct: bool) -> tuple[bool | None, dict[str, object]]:
@@ -134,21 +120,47 @@ def _grade(case_by_field: dict[str, str], session: SessionRun, is_direct: bool) 
     raise KeyError(check)
 
 
-def _run_one(case_by_field: dict[str, str], rep: int, variant_directory: Path, files_by_target: dict[str, str], settings: SessionSettings, is_direct: bool) -> None:
-    workspace = prepare_workspace(files_by_target)
-    session = run_session(workspace, case_by_field["prompt"], settings, is_direct)
-    failure = _unscorable(session, settings)
+def _refuse_unknown_checks(all_cases: list[dict[str, str]]) -> None:
+    all_unknown_checks = {each_case["check"] for each_case in all_cases if tool_check(each_case["check"]) is None and each_case["check"] not in ALL_TEXT_CHECKS}
+    if all_unknown_checks:
+        raise ValueError(f"unknown checks in {CASES_FILE.name}: {ID_LIST_SEPARATOR.join(sorted(all_unknown_checks))}")
+
+
+@dataclass(frozen=True)
+class RunPlan:
+    """What every session in one variant run shares."""
+
+    variant_directory: Path
+    bytes_by_target: dict[str, bytes]
+    digest: str
+    settings: SessionSettings
+    is_direct: bool
+
+
+def _plan(arguments: argparse.Namespace, setting_by_name: dict[str, object]) -> RunPlan:
+    bytes_by_target = workspace_files(variant_files(str(setting_by_name["ref"])))
+    settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
+    all_harness_paths = harness_sources(Path(grading.__file__).parent, Path(session_grading.__file__).parent, Path(__file__), Path(contrast_framing.__file__))
+    digest = run_digest(bytes_by_target, {**asdict(settings), "direct": arguments.direct}, all_harness_paths)
+    return RunPlan(FLOW_ROOT / (arguments.label or arguments.variant), bytes_by_target, digest, settings, arguments.direct)
+
+
+def _run_one(case_by_field: dict[str, str], rep: int, plan: RunPlan) -> None:
+    workspace = prepare_workspace(plan.bytes_by_target)
+    try:
+        session = run_session(workspace, case_by_field["prompt"], plan.settings, plan.is_direct)
+    finally:
+        remove_workspace(workspace)
+    failure = unscorable(session, plan.settings)
     if failure is not None:
-        _append_line(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": failure[0], "detail": failure[1]})
+        append_row(plan.variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, plan.digest, *failure))
         return
-    (variant_directory / TRACES_DIRECTORY_NAME / TRACE_FILE_TEMPLATE.format(case_id=case_by_field["id"], rep=rep)).write_text(
-        json.dumps(trace_turns(case_by_field["prompt"], session.all_events), indent=JSON_INDENT), encoding="utf-8"
-    )
-    followed, grade_record = _grade(case_by_field, session, is_direct)
+    write_trace(case_by_field, rep, plan.variant_directory, session)
+    followed, grade_record = _grade(case_by_field, session, plan.is_direct)
     if followed is None:
-        _append_line(variant_directory / ERRORS_FILE_NAME, {"prompt_id": case_by_field["id"], "rep": rep, "failure_class": FAILURE_JUDGE, "detail": grade_record})
+        append_row(plan.variant_directory / ERRORS_FILE_NAME, failure_row(case_by_field, rep, plan.digest, FAILURE_JUDGE, grade_record))
         return
-    _append_line(variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, settings, followed, grade_record))
+    append_row(plan.variant_directory / RESULTS_FILE_NAME, _scored_row(case_by_field, rep, session, plan.settings, followed, {**grade_record, RUN_DIGEST_FIELD: plan.digest}))
 
 
 def _scored_row(case_by_field: dict[str, str], rep: int, session: SessionRun, settings: SessionSettings, is_followed: bool, meta_by_field: dict[str, object]) -> dict[str, object]:
@@ -182,6 +194,25 @@ def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
     return f"followed {total_passes}/{len(all_rows)} (95% CI {low:.2f}-{high:.2f}) | {group_text} | opened a guide {guide_opens}/{len(all_rows)} | errors {error_count}"
 
 
+def _wait_for_pending(all_futures: list[Future[None]]) -> None:
+    for each_future in all_futures:
+        each_future.result()
+
+
+def _cancel_pending(all_futures: list[Future[None]]) -> None:
+    for each_future in all_futures:
+        each_future.cancel()
+
+
+def _run_pending(all_pending: list[tuple[dict[str, str], int]], plan: RunPlan, parallel: int) -> None:
+    with ThreadPoolExecutor(max_workers=parallel) as executor:
+        all_futures = [executor.submit(_run_one, each_case, each_rep, plan) for each_case, each_rep in all_pending]
+        try:
+            _wait_for_pending(all_futures)
+        finally:
+            _cancel_pending(all_futures)
+
+
 def main() -> int:
     """Run every pending (case, rep) for one variant and print the headline.
 
@@ -191,19 +222,22 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    files_by_target = variant_files(state["variants"][arguments.variant]["ref"])
-    all_wanted_ids = {each_id for each_id in arguments.cases.split(",") if each_id}
-    all_cases = [each_case for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8")) if not all_wanted_ids or each_case["id"] in all_wanted_ids]
-    variant_directory = FLOW_ROOT / (arguments.label or arguments.variant)
-    (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
-    settings = SessionSettings(arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s)
-    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME)}
+    try:
+        variant = select_variant(state["variants"], arguments.variant)
+        all_cases = select_cases(json.loads(CASES_FILE.read_text(encoding="utf-8")), arguments.cases)
+        _refuse_unknown_checks(all_cases)
+    except ValueError as error:
+        logger.error("%s", error)
+        return USAGE_ERROR_EXIT_CODE
+    plan = _plan(arguments, variant)
+    all_case_ids = {each_case["id"] for each_case in all_cases}
+    (plan.variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
+    all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)}
     all_pending = [(each_case, each_rep) for each_case in all_cases for each_rep in range(arguments.reps) if (each_case["id"], each_rep) not in all_done]
-    with ThreadPoolExecutor(max_workers=arguments.parallel) as executor:
-        for each_future in [executor.submit(_run_one, each_case, each_rep, variant_directory, files_by_target, settings, arguments.direct) for each_case, each_rep in all_pending]:
-            each_future.result()
-    all_rows = [each_row for each_row in _read_rows(variant_directory / RESULTS_FILE_NAME) if each_row["prompt_id"] in {each_case["id"] for each_case in all_cases}]
-    logger.info("%s: %s", arguments.variant, _summary(all_rows, len(_read_rows(variant_directory / ERRORS_FILE_NAME))))
+    _run_pending(all_pending, plan, arguments.parallel)
+    all_rows = rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)
+    all_errors = rows_for_install(plan.variant_directory / ERRORS_FILE_NAME, plan.digest, all_case_ids)
+    logger.info("%s: %s", arguments.variant, _summary(all_rows, len(open_errors(all_errors, all_rows))))
     return 0
 
 

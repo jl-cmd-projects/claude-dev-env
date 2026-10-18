@@ -1,5 +1,48 @@
 # Changelog
 
+## [8.84.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.84.0...claude-dev-env-v8.84.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **hooks:** read a pull request's changed files from the compare API when git cannot ([#2029](https://github.com/jl-cmd-projects/claude-dev-env/issues/2029)) ([410b485](https://github.com/jl-cmd-projects/claude-dev-env/commit/410b4851ce1bc28cde03a79e76e5909bba379dfd))
+
+## [8.84.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.2...claude-dev-env-v8.84.0) (2026-10-18)
+
+
+### Features
+
+* **account-broker:** choose a Codex Pro plan account first ([#2020](https://github.com/jl-cmd-projects/claude-dev-env/issues/2020)) ([4896a91](https://github.com/jl-cmd-projects/claude-dev-env/commit/4896a91e3b4c3b3b43f2ae78d638cc9c15f124d2))
+
+## [8.83.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.1...claude-dev-env-v8.83.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **scripts:** keep Sync-RepoMain runs from piling up ([#2021](https://github.com/jl-cmd-projects/claude-dev-env/issues/2021)) ([4e5a31a](https://github.com/jl-cmd-projects/claude-dev-env/commit/4e5a31a2eca0ebac7627b733dc5bdbb1d8bfc151))
+
+## [8.83.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.0...claude-dev-env-v8.83.1) (2026-10-18)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1931](https://github.com/jl-cmd-projects/claude-dev-env/issues/1931), [#1910](https://github.com/jl-cmd-projects/claude-dev-env/issues/1910), [#1903](https://github.com/jl-cmd-projects/claude-dev-env/issues/1903), [#1790](https://github.com/jl-cmd-projects/claude-dev-env/issues/1790) ([#2015](https://github.com/jl-cmd-projects/claude-dev-env/issues/2015)) ([2dc3d86](https://github.com/jl-cmd-projects/claude-dev-env/commit/2dc3d86615bd158dbc4f2643f196268911dab0e1))
+
+## [8.83.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.1...claude-dev-env-v8.83.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** deepen the first interactive user task ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+* **hooks:** deepen the first interactive user task ([#2037](https://github.com/jl-cmd-projects/claude-dev-env/issues/2037)) ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+
+## [8.82.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.0...claude-dev-env-v8.82.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **account-broker:** stop refreshing signed-out accounts and slim the refresh spawn ([#2030](https://github.com/jl-cmd-projects/claude-dev-env/issues/2030)) ([adbbe03](https://github.com/jl-cmd-projects/claude-dev-env/commit/adbbe03cba987e668a492b5cdd57a163281cc2e3))
+
 ## [8.82.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.81.0...claude-dev-env-v8.82.0) (2026-10-17)
 
 

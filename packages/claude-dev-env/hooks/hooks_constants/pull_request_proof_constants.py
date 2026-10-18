@@ -24,6 +24,44 @@ MISSING_PROOF_REASON = (
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
+CODE_FENCE_MARKER = "```"
+FENCED_COMMAND_PROMPT = "$ "
+UNITTEST_MODULE_NAME = "unittest"
+PATH_WITH_LINE_PATTERN = r"^\S+:\d+(?:[-:]\d+)?$"
+SINGLE_FILE_NAME_PATTERN = r"^\S*[/\\]\S*$|^[\w.-]+\.[A-Za-z0-9]+$"
+ALL_PASSTHROUGH_PROGRAM_NAMES = frozenset({"tee", "tail", "head", "grep", "cat"})
+ALL_TEST_RUNNER_COMMAND_PREFIXES = frozenset(
+    {
+        ("jest",),
+        ("vitest",),
+        ("mocha",),
+        ("npm", "test"),
+        ("npm", "t"),
+        ("npm", "run", "test"),
+        ("yarn", "test"),
+        ("yarn", "run", "test"),
+        ("pnpm", "test"),
+        ("pnpm", "run", "test"),
+        ("bun", "test"),
+        ("npx", "jest"),
+        ("npx", "vitest"),
+        ("npx", "mocha"),
+        ("go", "test"),
+        ("cargo", "test"),
+        ("deno", "test"),
+        ("dotnet", "test"),
+        ("unittest",),
+    }
+)
+UNIT_TESTS_GUIDE_LINE = "Unit tests are welcome as extra evidence. The live run is the proof."
+TEST_ONLY_PROOF_REASON = (
+    "Every command under this pull request's 'Proof in practice' heading runs a test"
+    " suite. The proof rule says: \"" + UNIT_TESTS_GUIDE_LINE + "\" Run the changed thing"
+    " the way its user runs it, once without the change and once with it. List each"
+    " command in backticks and quote the output lines that show the difference. Keep the"
+    " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (
@@ -47,7 +85,17 @@ ALL_DEFAULT_BRANCH_REFERENCES = ("origin/HEAD", "origin/main", "main")
 REMOTE_BRANCH_PREFIX = "origin/"
 ALL_HEAD_FLAGS = frozenset({"--head", "-H"})
 HEAD_FLAG_ASSIGNMENT_PREFIX = "--head="
+ALL_BASE_FLAGS = frozenset({"--base", "-B"})
+BASE_FLAG_ASSIGNMENT_PREFIX = "--base="
+ALL_REPOSITORY_FLAGS = frozenset({"--repo", "-R"})
+REPOSITORY_FLAG_ASSIGNMENT_PREFIX = "--repo="
 GIT_TIMEOUT_SECONDS = 5
+GH_TIMEOUT_SECONDS = 15
+COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
+COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+COMPARE_FILE_LIST_LIMIT = 300
+REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
+DEFAULT_BRANCH_QUERY = ".default_branch"
 MISSING_LOOK_REASON = (
     "This pull request changes files people see ({changed_files}), and its 'Proof in"
     " practice' section shows no picture. Render the change, open the screenshot with the"
@@ -58,11 +106,14 @@ MISSING_LOOK_REASON = (
 )
 CHANGED_FILES_SEPARATOR = ", "
 UNREADABLE_CHANGES_REASON = (
-    "Git in this directory cannot list the files this pull request changes, so the"
-    " picture check cannot tell whether people see the change. Put a screenshot or"
-    " Artifact link in the 'Proof in practice' section and run the create call again,"
-    " or run it from a checkout of the head branch with origin fetched. Take one of"
-    " these routes now, before any change to this gate. Read " + PROOF_GUIDE_PATH + " for the full rule."
+    "Neither git in this directory nor the GitHub compare API can list the files this"
+    " pull request changes, so the picture check cannot tell whether people see the change."
+    " Name the repository and head branch with --repo and --head, run the create call"
+    " from a checkout of the head branch with origin fetched, or put a screenshot or"
+    " Artifact link in the 'Proof in practice' section and run the create call again."
+    " Take one of these routes now, before any change to this gate. Read "
+    + PROOF_GUIDE_PATH
+    + " for the full rule."
 )
 FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
 EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"

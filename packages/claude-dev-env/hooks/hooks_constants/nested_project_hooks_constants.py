@@ -20,9 +20,11 @@ ALL_MATCH_EVERYTHING_MATCHERS: frozenset[str] = frozenset({"", "*"})
 HOOK_EVENT_NAME_KEY: str = "hook_event_name"
 PRE_TOOL_USE_EVENT: str = "PreToolUse"
 SESSION_START_EVENT: str = "SessionStart"
+USER_PROMPT_SUBMIT_EVENT: str = "UserPromptSubmit"
 ALL_MATCH_TARGET_KEYS_BY_EVENT: dict[str, str] = {
     PRE_TOOL_USE_EVENT: "tool_name",
     SESSION_START_EVENT: "source",
+    USER_PROMPT_SUBMIT_EVENT: "prompt",
 }
 
 ALL_SHELL_PROGRAM_NAMES: tuple[str, ...] = ("bash", "sh")

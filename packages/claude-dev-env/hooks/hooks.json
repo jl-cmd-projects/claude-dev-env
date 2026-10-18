@@ -103,6 +103,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/build_eval_before_eval_write_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)",
         "hooks": [
           {
@@ -273,6 +283,16 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/skill_loaded_reminder.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/deepen_first_prompt.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
+            "timeout": 120
           },
           {
             "type": "command",

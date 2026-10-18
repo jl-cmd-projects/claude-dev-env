@@ -25,7 +25,9 @@ def _user_command_text(all_entry_fields: dict[str, object]) -> str | None:
 
 
 def _named_skill_inputs(
-    all_entry_fields: dict[str, object], skill_names: Collection[str]
+    all_entry_fields: dict[str, object],
+    skill_names: Collection[str],
+    accepts_plugin_prefix: bool = True,
 ) -> Iterator[dict[str, object]]:
     message = all_entry_fields.get("message")
     if all_entry_fields.get("type") != ASSISTANT_ENTRY_TYPE or not isinstance(message, dict):
@@ -40,7 +42,8 @@ def _named_skill_inputs(
             continue
         invoked_name = each_block["input"].get("skill")
         if isinstance(invoked_name, str) and any(
-            invoked_name == name or invoked_name.endswith(":" + name) for name in skill_names
+            invoked_name == name or (accepts_plugin_prefix and invoked_name.endswith(":" + name))
+            for name in skill_names
         ):
             yield each_block["input"]
 
@@ -57,7 +60,9 @@ def _invokes_skill(
 
 
 def _first_word_is(text: object, argument_word: str) -> bool:
-    return isinstance(text, str) and text.split()[:1] == [argument_word]
+    return isinstance(text, str) and [
+        each_word.casefold() for each_word in text.split()[:1]
+    ] == [argument_word.casefold()]
 
 
 def _invokes_skill_with_argument(
@@ -76,7 +81,9 @@ def _invokes_skill_with_argument(
         )
     return any(
         _first_word_is(each_input.get("args"), argument_word)
-        for each_input in _named_skill_inputs(all_entry_fields, skill_names)
+        for each_input in _named_skill_inputs(
+            all_entry_fields, skill_names, accepts_plugin_prefix=False
+        )
     )
 
 
@@ -144,15 +151,19 @@ def invokes_skill_with_argument(
     ::
 
         Skill claude-api, args "build-eval extra"            -> True
-        Skill plugin:claude-api, args "build-eval"            -> True
+        Skill claude-api, args "Build-Eval"                   -> True
+        Skill plugin:claude-api, args "build-eval"            -> False
         Skill claude-api, args "migrate"                      -> False
         user "/claude-api" command, command-args "build-eval" -> True
 
-    An invocation stays counted after a later compact boundary.
+    An invocation stays counted after a later compact boundary. A Skill tool
+    call must name the skill exactly, so a same-named skill from another
+    plugin does not count. A user command counts by its ``command_marker``
+    alone. The argument word matches without regard to case.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
-        skill_names: Accepted skill names, with plugin prefixes accepted.
+        skill_names: Skill tool names, matched exactly.
         argument_word: The first whitespace-separated word the arguments must carry.
         command_marker: The user command tag that names the skill.
     """
