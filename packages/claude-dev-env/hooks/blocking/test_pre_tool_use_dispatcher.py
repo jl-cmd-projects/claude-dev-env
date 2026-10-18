@@ -806,6 +806,7 @@ def test_dispatcher_allows_clean_apply_patch_add(tmp_path: Path) -> None:
 
 ALL_RETAINED_PATHS = {
     "blocking/context_budget_blocker.py",
+    "blocking/pull_request_proof_edit_gate.py",
 }
 ALL_RETIRED_PATHS = {
     "validation/hook_format_validator.py",

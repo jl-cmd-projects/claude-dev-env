@@ -13,7 +13,7 @@ This family runs nested checkout hooks, refreshes a worktree base, and clears st
 
 ## When it fires
 
-- `lifecycle/nested_project_hooks.py` runs on `PreToolUse` matcher `*` at `120` seconds and `SessionStart` matcher empty at `1800` seconds in `hooks.json`.
+- `lifecycle/nested_project_hooks.py` runs on `PreToolUse` matcher `*` at `120` seconds, `UserPromptSubmit` matcher empty at `120` seconds, and `SessionStart` matcher empty at `1800` seconds in `hooks.json`.
 - `lifecycle/enter_worktree_origin_prefetch.py` runs on `PreToolUse`, matcher `EnterWorktree`, timeout `25` seconds in `hooks.json`.
 - `lifecycle/session_end_cleanup.py` runs on `SessionEnd`, matcher empty, timeout `3` seconds in `hooks.json`.
 - `session/plugin_data_dir_cleanup.py` and `session/session_env_cleanup.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.

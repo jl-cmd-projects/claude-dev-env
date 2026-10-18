@@ -87,4 +87,8 @@ ALL_HOSTED_HOOK_ENTRIES: tuple[HostedHookEntry, ...] = (
         script_relative_path="blocking/context_budget_blocker.py",
         applicable_tool_names=ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES,
     ),
+    HostedHookEntry(
+        script_relative_path="blocking/pull_request_proof_edit_gate.py",
+        applicable_tool_names=ALL_WRITE_EDIT_MULTI_EDIT_APPLY_PATCH_TOOL_NAMES,
+    ),
 )

@@ -54,6 +54,7 @@ import {
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
+    DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
     installMarketplacePlugins,
@@ -68,9 +69,11 @@ import {
     writeCodexSolSetting,
 } from './codex-trimmed-sol.mjs';
 import {
+    removeCodexDeepenGuidance,
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     writeCodexAgentsGuidance,
+    writeCodexDeepenGuidance,
     writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
@@ -223,6 +226,7 @@ export const CORE_SKILLS = [
     'issue-tracker',
     'task-build',
     'eli5',
+    'deepen',
 ];
 
 export function collectPackageSourceConflicts(packageDirectory) {
@@ -2207,12 +2211,14 @@ function mergeHooksAtPath(
 
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
+    const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
     return {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
                 ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
                 : [],
+            UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
         },
     };
 }
@@ -2876,6 +2882,23 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     }
     summary.skills = { created: skillsCreated, updated: skillsUpdated, pruned: 0, paths: skillPaths };
     allInstalledFiles.push(...skillPaths);
+    if (copiedSkillNames.has('deepen')) {
+        for (const sourceRoot of allSourceRoots) {
+            const deepenSourceDirectory = join(
+                resolvePackageManagedDirectory(sourceRoot, MANAGED_SKILLS_DIRECTORY_NAME),
+                'deepen',
+            );
+            if (!existsSync(deepenSourceDirectory)) continue;
+            const cursorDeepenDirectory = join(
+                INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
+                'skills',
+                'deepen',
+            );
+            const cursorSkillStats = copyTree(deepenSourceDirectory, cursorDeepenDirectory);
+            allInstalledFiles.push(...cursorSkillStats.paths);
+            break;
+        }
+    }
     if (!selectedGroups) {
         summary.retiredSessionContinuity = {
             changedPaths: removeRetiredSessionContinuityHooks(),
@@ -2915,8 +2938,11 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         }
         printPluginHostOutcomes([PSTACK_PLUGIN_SPEC], pstackPlugin);
     }
-    const allRepositoryPluginSpecs = [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC]
-        .filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
+    const allRepositoryPluginSpecs = [
+        USAGE_WRAPUP_PLUGIN_SPEC,
+        SUBAGENT_MODELS_PLUGIN_SPEC,
+        DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
+    ].filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
     if (!selectedGroups && allRepositoryPluginSpecs.length > 0) {
         const repositoryPlugins = installMarketplacePlugins(allRepositoryPluginSpecs, {
             claudeRoot: CLAUDE_HOME,
@@ -2939,6 +2965,10 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
         );
         if (questionGuidancePath) allCodexGuidancePaths.push(questionGuidancePath);
+        const deepenGuidancePath = writeCodexDeepenGuidance(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+        );
+        if (deepenGuidancePath) allCodexGuidancePaths.push(deepenGuidancePath);
         const solSettingPath = writeCodexSolSetting(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             join(CLAUDE_HOME, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
@@ -3307,6 +3337,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     removeCodexPackageGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexQuestionGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
+    removeCodexDeepenGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     removeCodexSolSetting(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
     throwIfFault(FAULT_PHASES.AFTER_FILE_STAGING);
 
@@ -3455,6 +3486,7 @@ Usage:
   npx ${PACKAGE_NAME} --no-pstack  Full install without the pstack plugin (also CDE_INSTALL_PSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
+  npx ${PACKAGE_NAME} --no-deepen-first-prompt  Full install without the deepen-first-prompt plugin (also CDE_INSTALL_DEEPEN_FIRST_PROMPT=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

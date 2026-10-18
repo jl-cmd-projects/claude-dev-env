@@ -10,6 +10,16 @@ export const PACKAGE_GUIDANCE_BLOCK_START = '<!-- claude-dev-env package guidanc
 export const PACKAGE_GUIDANCE_BLOCK_END = '<!-- claude-dev-env package guidance: end -->';
 export const QUESTION_PRESENTATION_BLOCK_START = '<!-- claude-dev-env question presentation: start -->';
 export const QUESTION_PRESENTATION_BLOCK_END = '<!-- claude-dev-env question presentation: end -->';
+export const DEEPEN_GUIDANCE_BLOCK_START = '<!-- claude-dev-env deepen: start -->';
+export const DEEPEN_GUIDANCE_BLOCK_END = '<!-- claude-dev-env deepen: end -->';
+export const DEEPEN_GUIDANCE_TEXT = [
+    'Deepen the first interactive user task before any work starts.',
+    'Answer four things the prompt left out: what a top person in that field would do, the raw source to start from, the methods and tools they would use, and what besides the agent or Jon would show the result is right.',
+    'Then rewrite the task to ask for exactly that job. The rewrite carries the marker CDE_DEEPEN:v1.',
+    'On demand, follow the deepen skill or /deepen with a task.',
+    'Cursor Cloud has no user hooks.json and defers sessionStart, so the launch prompt is already sent. Use the deepen skill under ~/.cursor/skills there.',
+    'Codex cloud orchestration skips command hooks. This block is the local Codex instruction.',
+].join('\n');
 
 const WINDOWS_LONG_PATH_PREFIX = '\\\\?\\';
 
@@ -115,6 +125,23 @@ export function writeCodexPackageGuidance(codexHome, packageGuidanceText, allPac
     );
 }
 
+export function writeCodexDeepenGuidance(codexHome, deepenText = DEEPEN_GUIDANCE_TEXT) {
+    const agentsPath = join(codexHome, 'AGENTS.md');
+    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
+    if (agentsEntry && !agentsEntry.isFile()) return null;
+    const currentText = agentsEntry ? readFileSync(agentsPath, 'utf8') : '';
+    const block = managedBlock(DEEPEN_GUIDANCE_BLOCK_START, deepenText, DEEPEN_GUIDANCE_BLOCK_END);
+    const replacedText = withBlockReplaced(
+        currentText, DEEPEN_GUIDANCE_BLOCK_START, DEEPEN_GUIDANCE_BLOCK_END, block,
+    );
+    const separator = currentText && !currentText.endsWith('\n') ? '\n' : '';
+    const updatedText = replacedText ?? `${currentText}${separator}${block}`;
+    if (updatedText === currentText) return null;
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(agentsPath, updatedText, 'utf8');
+    return agentsPath;
+}
+
 export function writeCodexQuestionGuidance(codexHome, policyText) {
     const agentsPath = join(codexHome, 'AGENTS.md');
     const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
@@ -136,6 +163,7 @@ const ALL_PACKAGE_MANAGED_BLOCK_MARKERS = [
     [SKILL_LOAD_BLOCK_START, SKILL_LOAD_BLOCK_END],
     [PACKAGE_GUIDANCE_BLOCK_START, PACKAGE_GUIDANCE_BLOCK_END],
     [QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END],
+    [DEEPEN_GUIDANCE_BLOCK_START, DEEPEN_GUIDANCE_BLOCK_END],
 ];
 
 /**
@@ -179,6 +207,10 @@ export function removeCodexQuestionGuidance(codexHome) {
     return removeCodexGuidanceBlock(
         codexHome, QUESTION_PRESENTATION_BLOCK_START, QUESTION_PRESENTATION_BLOCK_END,
     );
+}
+
+export function removeCodexDeepenGuidance(codexHome) {
+    return removeCodexGuidanceBlock(codexHome, DEEPEN_GUIDANCE_BLOCK_START, DEEPEN_GUIDANCE_BLOCK_END);
 }
 
 /**
