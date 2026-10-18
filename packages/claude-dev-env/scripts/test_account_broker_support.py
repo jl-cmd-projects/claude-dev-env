@@ -306,7 +306,7 @@ def test_should_stop_at_once_when_no_codex_executable_is_found(
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     all_delays = _recorded_sleeps(monkeypatch)
 
-    reading = _first_reading(monkeypatch, tmp_path, Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
+    reading = _first_reading(Account(Product.CODEX, "one", tmp_path), support.read_codex_account_meters)[0]
 
     assert reading.meters is None
     assert reading.unread_reason == "no codex executable on PATH or at its install path"
