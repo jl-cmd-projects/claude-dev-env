@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.86.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.3...claude-dev-env-v8.86.0) (2026-10-18)
+
+
+### Features
+
+* **skills:** review from the installed skill alone ([#2056](https://github.com/jl-cmd-projects/claude-dev-env/issues/2056)) ([ac9afe0](https://github.com/jl-cmd-projects/claude-dev-env/commit/ac9afe0bae7b587c0c4d3b0eb45522c905b7b7d3))
+
 ## [8.85.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.2...claude-dev-env-v8.85.3) (2026-10-18)
 
 
