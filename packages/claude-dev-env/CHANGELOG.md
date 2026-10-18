@@ -1,5 +1,48 @@
 # Changelog
 
+## [8.83.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.1...claude-dev-env-v8.83.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** deepen the first interactive user task ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+* **hooks:** deepen the first interactive user task ([#2037](https://github.com/jl-cmd-projects/claude-dev-env/issues/2037)) ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+
+## [8.82.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.0...claude-dev-env-v8.82.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **account-broker:** stop refreshing signed-out accounts and slim the refresh spawn ([#2030](https://github.com/jl-cmd-projects/claude-dev-env/issues/2030)) ([adbbe03](https://github.com/jl-cmd-projects/claude-dev-env/commit/adbbe03cba987e668a492b5cdd57a163281cc2e3))
+
+## [8.82.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.81.0...claude-dev-env-v8.82.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** refuse unvalidated claims in every user-facing reply ([899e95f](https://github.com/jl-cmd-projects/claude-dev-env/commit/899e95fe4b996d21f8bacd787fee6e3aaae487d4))
+
+## [8.81.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.80.0...claude-dev-env-v8.81.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** hold an edit to the proof gate until its named route is taken ([#2032](https://github.com/jl-cmd-projects/claude-dev-env/issues/2032)) ([36be54e](https://github.com/jl-cmd-projects/claude-dev-env/commit/36be54e0b10644a7ab4413ba05ec80802813e8f0))
+
+## [8.80.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.79.0...claude-dev-env-v8.80.0) (2026-10-15)
+
+
+### Features
+
+* **hooks:** deny GitHub GraphQL calls in cloud sessions ([#1981](https://github.com/jl-cmd-projects/claude-dev-env/issues/1981)) ([55b6a5d](https://github.com/jl-cmd-projects/claude-dev-env/commit/55b6a5de82a8fcfc6140fc1567489409028fbda7))
+* **hooks:** let a fully ruled-out review pass clear the merge gate ([#2019](https://github.com/jl-cmd-projects/claude-dev-env/issues/2019)) ([9945670](https://github.com/jl-cmd-projects/claude-dev-env/commit/9945670c67fc6e78756b6c2c13ffb00cee7ed9ab))
+* **settings:** lower idle compaction minimum to 100k tokens ([#2018](https://github.com/jl-cmd-projects/claude-dev-env/issues/2018)) ([be548d9](https://github.com/jl-cmd-projects/claude-dev-env/commit/be548d92f0331a8aeb22b8176f15718be236bbeb))
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1780](https://github.com/jl-cmd-projects/claude-dev-env/issues/1780) ([#2006](https://github.com/jl-cmd-projects/claude-dev-env/issues/2006)) ([8c3b78f](https://github.com/jl-cmd-projects/claude-dev-env/commit/8c3b78f3d22822d8046453af911871d549a34cea))
+
 ## [8.79.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.78.3...claude-dev-env-v8.79.0) (2026-10-14)
 
 
