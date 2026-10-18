@@ -18,6 +18,7 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
+import site
 import subprocess
 import sys
 from collections.abc import Callable
@@ -48,11 +49,15 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     ``ALL_ACCOUNT_ENVIRONMENT_VARIABLES`` are cleared, so account roots fall
     back to the per-test home and no developer roster applies. A value built
     from ``Path.home()`` at import time keeps the user's home.
+    ``PYTHONUSERBASE`` stays on the user base captured before the redirect, so
+    a new interpreter still imports packages installed for this user.
 
     Returns:
         The per-test home directory.
     """
+    user_base = site.getuserbase()
     isolated_home_directory = tmp_path / "home"
+    monkeypatch.setenv("PYTHONUSERBASE", user_base)
     monkeypatch.setenv("HOME", str(isolated_home_directory))
     monkeypatch.setenv("USERPROFILE", str(isolated_home_directory))
     for each_account_variable in ALL_ACCOUNT_ENVIRONMENT_VARIABLES:

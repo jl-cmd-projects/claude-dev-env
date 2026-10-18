@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -33,3 +35,20 @@ def test_isolated_home_clears_the_exported_account_variables(
 ) -> None:
     for each_account_variable in ALL_ACCOUNT_ENVIRONMENT_VARIABLES:
         assert each_account_variable not in os.environ
+
+
+def test_isolated_home_keeps_the_python_user_base_for_a_new_interpreter(
+    isolated_home: Path,
+) -> None:
+    completed = subprocess.run(
+        [sys.executable, "-c", "import site; print(site.getuserbase())"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    child_user_base = Path(completed.stdout.strip())
+    assert str(child_user_base) == os.environ["PYTHONUSERBASE"]
+    assert child_user_base != isolated_home
+    assert isolated_home not in child_user_base.parents
