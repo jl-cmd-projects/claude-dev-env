@@ -179,3 +179,11 @@ export const ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS = new Set([
     CODEX_NATIVE_ROUTING_MATCHER,
     CODEX_SUBAGENT_PROMPT_MATCHER,
 ]);
+export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
+    'open_tasks_stop_gate.py',
+]);
+export const CURSOR_HOOKS_FILE_NAME = 'hooks.json';
+export const CURSOR_HOOK_TIMEOUT_SECONDS = 10;
+export const CURSOR_GUIDANCE_SESSION_MATCHER = 'startup|resume|clear|compact';
+export const CURSOR_GUIDANCE_HOOK_RELATIVE_PATH = Object.freeze(['session', 'cursor_agents_guidance.py']);
+export const CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH = Object.freeze(['blocking', 'open_tasks_stop_gate.py']);

@@ -135,7 +135,10 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         );
         assert.equal(firstSpawnPromptGroups.length, 1);
         assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'Stop']);
+        const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
+        assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
+        assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
         assert.ok(
             firstCodexHooks.hooks.UserPromptSubmit.some(group =>
                 group.hooks.some(hook => String(hook.command).includes('deepen_first_prompt.py')),
@@ -303,6 +306,10 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             .map(eachHook => eachHook.command);
         assert.ok(allPackagePromptCommands.some(eachCommand => eachCommand.includes('deepen_first_prompt.py')));
         delete migratedHooks.hooks.UserPromptSubmit;
+        const allPackageStopGroups = migratedHooks.hooks.Stop.filter(eachGroup =>
+            eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
+        assert.equal(allPackageStopGroups.length, 1);
+        migratedHooks.hooks.Stop = migratedHooks.hooks.Stop.filter(eachGroup => !allPackageStopGroups.includes(eachGroup));
         assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
         assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
         const firstInstall = readFileSync(codexHooksPath, 'utf8');
@@ -518,3 +525,33 @@ test('a blocked shared rule destination fails the install and keeps the existing
     }
 });
 
+
+test('a full install feeds AGENTS.md to Cursor sessions and registers the open tasks Stop gate; uninstall removes both', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-cursor-guidance-'));
+    try {
+        runInstaller(homeDirectory, []);
+        const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+        const cursorHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));
+        const guidanceCommand = cursorHooks.hooks.SessionStart
+            .flatMap(group => group.hooks)
+            .map(hook => hook.command)
+            .find(command => command.includes('cursor_agents_guidance.py'));
+        const guidancePath = join(homeDirectory, '.agents', 'AGENTS.md');
+        assert.ok(guidanceCommand.includes(guidancePath));
+        assert.match(readFileSync(guidancePath, 'utf8'), /\*\*Asks\*\*/);
+        const scriptPath = guidanceCommand.split("'")[1];
+        assert.equal(existsSync(scriptPath), true);
+        const sessionOutput = execFileSync('python3', [scriptPath, guidancePath], { input: '{}', encoding: 'utf8' });
+        assert.equal(JSON.parse(sessionOutput).additional_context, readFileSync(guidancePath, 'utf8'));
+        const stopCommands = cursorHooks.hooks.Stop.flatMap(group => group.hooks).map(hook => hook.command);
+        assert.equal(stopCommands.length, 1);
+        assert.equal(existsSync(stopCommands[0].split("'")[1]), true);
+
+        runInstaller(homeDirectory, ['--uninstall']);
+        const remainingHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));
+        assert.equal(JSON.stringify(remainingHooks).includes('cursor_agents_guidance.py'), false);
+        assert.equal(JSON.stringify(remainingHooks).includes('open_tasks_stop_gate.py'), false);
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
