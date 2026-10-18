@@ -64,6 +64,7 @@ const CORE_SKILL_DIRECTORIES = [
     'issue-tracker',
     'task-build',
     'eli5',
+    'efficient-review',
 ];
 const PRIOR_RUN_BACKUP_DIRECTORY_NAMES = [
     '2020-01-01T00-00-00-000Z',
@@ -796,6 +797,24 @@ test('a scoped --only install records the skill names it installed', () => {
             recordedSkills.has(SCOPED_GROUP_SKILL_DIRECTORY),
             true,
             'the skill the scoped run installed reaches the record uninstall reads',
+        );
+    } finally {
+        rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a fresh scoped core install includes efficient-review', () => {
+    const sandbox = createSandbox();
+    try {
+        runInstaller(sandbox.homeDirectory, ['--only', 'core']);
+        const skillPath = join(sandbox.skillsDirectory, 'efficient-review', 'SKILL.md');
+        const skillText = readFileSync(skillPath, 'utf8');
+        assert.match(skillText, /^name: efficient-review$/m);
+        assert.match(skillText, /\/efficient-review/);
+        assert.equal(readManifest(sandbox.manifestPath).skills.includes('efficient-review'), true);
+        assert.equal(
+            existsSync(join(sandbox.skillsDirectory, 'efficient-review', 'defaults.json')),
+            true,
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });

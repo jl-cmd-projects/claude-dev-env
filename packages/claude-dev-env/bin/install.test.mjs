@@ -262,6 +262,11 @@ test('CORE_SKILLS ships deepen so the first-task skill installs with core', () =
     assert.equal(INSTALL_GROUPS.core.skills.includes('deepen'), true);
 });
 
+test('CORE_SKILLS ships efficient-review so a core install includes the skill', () => {
+    assert.ok(CORE_SKILLS.includes('efficient-review'), 'efficient-review must be in CORE_SKILLS');
+    assert.equal(INSTALL_GROUPS.core.skills.includes('efficient-review'), true);
+});
+
 test('CORE_SKILLS ships test-runner for explicit Django and Playwright readiness checks', () => {
     assert.ok(CORE_SKILLS.includes('test-runner'));
     assert.equal(INSTALL_GROUPS.core.skills.includes('test-runner'), true);

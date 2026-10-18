@@ -227,6 +227,7 @@ export const CORE_SKILLS = [
     'task-build',
     'eli5',
     'deepen',
+    'efficient-review',
 ];
 
 export function collectPackageSourceConflicts(packageDirectory) {

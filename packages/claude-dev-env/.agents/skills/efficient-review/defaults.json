@@ -1,0 +1,12 @@
+{
+  "model": "haiku",
+  "effort": "high",
+  "level": "high",
+  "prompt": "/code-review {level} --max-findings all {base}",
+  "base": "main",
+  "profile": "slim",
+  "advisor": "none",
+  "validator": "off",
+  "mode": "auto",
+  "timeout_minutes": 60
+}
