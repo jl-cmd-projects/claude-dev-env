@@ -24,6 +24,44 @@ MISSING_PROOF_REASON = (
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
+CODE_FENCE_MARKER = "```"
+FENCED_COMMAND_PROMPT = "$ "
+UNITTEST_MODULE_NAME = "unittest"
+PATH_WITH_LINE_PATTERN = r"^\S+:\d+(?:[-:]\d+)?$"
+SINGLE_FILE_NAME_PATTERN = r"^\S*[/\\]\S*$|^[\w.-]+\.[A-Za-z0-9]+$"
+ALL_PASSTHROUGH_PROGRAM_NAMES = frozenset({"tee", "tail", "head", "grep", "cat"})
+ALL_TEST_RUNNER_COMMAND_PREFIXES = frozenset(
+    {
+        ("jest",),
+        ("vitest",),
+        ("mocha",),
+        ("npm", "test"),
+        ("npm", "t"),
+        ("npm", "run", "test"),
+        ("yarn", "test"),
+        ("yarn", "run", "test"),
+        ("pnpm", "test"),
+        ("pnpm", "run", "test"),
+        ("bun", "test"),
+        ("npx", "jest"),
+        ("npx", "vitest"),
+        ("npx", "mocha"),
+        ("go", "test"),
+        ("cargo", "test"),
+        ("deno", "test"),
+        ("dotnet", "test"),
+        ("unittest",),
+    }
+)
+UNIT_TESTS_GUIDE_LINE = "Unit tests are welcome as extra evidence. The live run is the proof."
+TEST_ONLY_PROOF_REASON = (
+    "Every command under this pull request's 'Proof in practice' heading runs a test"
+    " suite. The proof rule says: \"" + UNIT_TESTS_GUIDE_LINE + "\" Run the changed thing"
+    " the way its user runs it, once without the change and once with it. List each"
+    " command in backticks and quote the output lines that show the difference. Keep the"
+    " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (
