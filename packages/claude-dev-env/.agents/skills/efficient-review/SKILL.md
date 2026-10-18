@@ -42,14 +42,14 @@ Unless the owner named in `owner_display_name` says otherwise:
 | `rules_paths` | `docs/review/review.md` | Rule files read from `rules_root` for every review, whichever repository is reviewed. |
 | `dispatch_repository` | empty | `owner/name` whose workflow runs a cloud review. Empty means the current checkout, and only when it contains the workflow file. |
 | `dispatch_workflow_file` | `efficient-review.yml` | Workflow file to dispatch. This package does not ship that workflow. |
-| `dispatch_workflow_id` | empty | Optional numeric workflow id the model gate also accepts. |
+| `dispatch_workflow_id` | empty | Optional numeric workflow id the model-gate command accepts. |
 | `dispatch_ref` | `main` | Ref the workflow runs from. |
 | `results_branch_prefix` | `efficient-review-results` | Branch prefix that holds `review.md`. |
-| `read_token_environment` | empty | Environment variable name of the token used to check out another repository. Empty means the workflow's own token. |
+| `read_token_environment` | empty | Environment variable name of the token that checks out another repository. Empty means the workflow's own token. |
 | `hook_owner` | empty | When set with `hook_repository`, a dispatch must name this owner. |
 | `hook_repository` | empty | When set with `hook_owner`, a dispatch must name this repository. |
-| `hook_dispatch_tool` | the GitHub workflow trigger tool | Tool name the model gate watches for a dispatch. |
-| `hook_shell_tools` | `Bash`, `PowerShell` | Shell tools the model gate watches. |
+| `hook_dispatch_tool` | the GitHub workflow trigger tool | Tool name the model-gate command watches for a dispatch. |
+| `hook_shell_tools` | `Bash`, `PowerShell` | Shell tools the model-gate command watches. |
 
 ## Subcommands
 
@@ -94,16 +94,16 @@ The cloud container has no other Claude accounts, so the review runs on the host
 |---|---|
 | [`reference/cloud-session.md`](reference/cloud-session.md) | Dispatching the review from a cloud session and reading its results branch. |
 | [`defaults.json`](defaults.json) | The default model family, effort, level, prompt, base, profile, advisor, validator, mode and timeout. |
-| [`settings.json`](settings.json) | Host roster, rules root, dispatch target, and model-gate scope. |
+| [`settings.json`](settings.json) | Host roster, rules root, dispatch target, and model-gate command scope. |
 | [`tools/efficient_review.py`](tools/efficient_review.py) | `plan` reads the arguments, `accounts` lists the accounts, `run` runs a headless or auto review. |
 | [`tools/efficient_review_request.py`](tools/efficient_review_request.py) | Reads the defaults and the arguments into one review request. |
 | [`tools/efficient_review_launch.py`](tools/efficient_review_launch.py) | Builds the system prompt and the launcher command for one review. The system prompt asks for confirmed findings only, with no minimum count, in a closing JSON block. |
-| [`hooks/efficient_review_model_gate.py`](hooks/efficient_review_model_gate.py) | Model-gate script a host registers as PreToolUse. It covers a review dispatch or a `run` command on any family but haiku, unless the owner's newest message names that family as a directive. |
-| [`hooks/efficient_review_model_gate.sh`](hooks/efficient_review_model_gate.sh) | Shell command a host points PreToolUse at, so the model gate sees the tool call. |
+| [`hooks/efficient_review_model_gate.py`](hooks/efficient_review_model_gate.py) | Model-gate command a host registers as PreToolUse. It covers a review dispatch or a `run` command on any family but haiku, unless the owner's newest message names that family as a directive. |
+| [`hooks/efficient_review_model_gate.sh`](hooks/efficient_review_model_gate.sh) | Shell command a host points PreToolUse at, so the model-gate command sees the tool call. |
 
 ## Common pitfalls
 
-- **Picking a stronger model after several passes.** Fix the findings and run haiku again. The model gate refuses the switch when it is registered; a session whose host did not register the hook applies this rule itself.
+- **Picking a stronger model after several passes.** Fix the findings and run haiku again. The model-gate command refuses the switch when it is registered; a session whose host did not register the hook applies this rule itself.
 - **Setting a valid finding aside.** Check each finding against the code. Fix every one that holds in the same branch, even when it reaches files the diff did not touch or reads as a separate cleanup. Answer only the findings that fail the check, with the file and line that rules each out.
 - **Asking which model to use.** The answer is haiku. When the owner names another family, run it without a confirmation question.
 - **Spawning the review as a subagent.** The review loses the slim profile. Run it headless.

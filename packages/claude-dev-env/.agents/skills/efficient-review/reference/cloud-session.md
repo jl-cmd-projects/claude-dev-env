@@ -13,4 +13,4 @@ A review of another repository checks it out with the token in the environment v
 
 To review a pull request in the workflow's repository, pass its number as `pull_request` and leave `ref` blank. The run reviews the pull request head. Posting findings is the workflow's job.
 
-To review a pull request in another repository, pass `repository` and `pull_request` together. Pass `hook_owner` and `hook_repository` in settings when the model gate should accept a dispatch only for that repository.
+To review a pull request in another repository, pass `repository` and `pull_request` together. Pass `hook_owner` and `hook_repository` in settings when the model-gate command should accept a dispatch only for that repository.

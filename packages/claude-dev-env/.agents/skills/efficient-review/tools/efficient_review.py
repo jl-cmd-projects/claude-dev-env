@@ -109,7 +109,7 @@ def review_save_directory(requested: Path | None, repository: Path) -> Path:
         repository: The repository that must not contain the output folder.
 
     Returns:
-        The resolved folder used to save the review.
+        The resolved folder that holds the review.
 
     Raises:
         ReviewRequestRunFatal: The folder sits inside the repository.
