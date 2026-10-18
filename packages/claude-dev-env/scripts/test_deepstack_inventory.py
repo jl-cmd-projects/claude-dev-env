@@ -84,7 +84,7 @@ def test_should_reject_a_tree_whose_guide_still_orders_the_first_action(tmp_path
     guide = package_root / "docs" / "rule-guides" / "features-start-with-an-eval.md"
     guide.parent.mkdir(parents=True)
     guide.write_text(f"{_FIRST_ACTION}. Build the feature.\n", encoding="utf-8")
-    skill = package_root / "plugins" / "deepstack" / "skills" / "deepstack-mode" / "SKILL.md"
+    skill = package_root / "docs" / "decisions" / "deepstack-install.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("DeepStack reproducible-check leaf\n", encoding="utf-8")
     manifest = package_root / "rules-archived" / "ARCHIVE-MANIFEST.md"
@@ -101,7 +101,7 @@ def test_should_accept_a_tree_that_retires_only_the_first_action(tmp_path: Path)
     guide = package_root / "docs" / "rule-guides" / "features-start-with-an-eval.md"
     guide.parent.mkdir(parents=True)
     guide.write_text(_KEPT_INSTRUCTION + "\n", encoding="utf-8")
-    skill = package_root / "plugins" / "deepstack" / "skills" / "deepstack-mode" / "SKILL.md"
+    skill = package_root / "docs" / "decisions" / "deepstack-install.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("DeepStack reproducible-check leaf\n", encoding="utf-8")
     manifest = package_root / "rules-archived" / "ARCHIVE-MANIFEST.md"
@@ -114,6 +114,15 @@ def test_should_accept_a_tree_that_retires_only_the_first_action(tmp_path: Path)
     (package_root / "bin").mkdir()
     (package_root / "bin" / "ever-shipped-skills.mjs").write_text("'kept'\n", encoding="utf-8")
     assert inventory_findings(package_root) == ()
+
+
+def test_install_citation_names_the_plugin_repository_and_the_triggers() -> None:
+    text = (_PACKAGE_ROOT / "docs" / "decisions" / "deepstack-install.md").read_text(encoding="utf-8")
+    assert "jl-cmd-projects/DeepStack" in text
+    assert "deepstack@DeepStack" in text
+    assert "DeepStack intake" in text
+    assert "DeepStack search leaf" in text
+    assert "DeepStack reproducible-check leaf" in text
 
 
 def test_live_package_has_no_deepstack_rows_yet() -> None:
