@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.85.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.1...claude-dev-env-v8.85.2) (2026-10-18)
+
+
+### Documentation
+
+* **rules:** add the DeepStack wording rule that cites the gate ([#2047](https://github.com/jl-cmd-projects/claude-dev-env/issues/2047)) ([2f561f6](https://github.com/jl-cmd-projects/claude-dev-env/commit/2f561f6db759f30248043b40d28678cee887c953))
+
 ## [8.85.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.0...claude-dev-env-v8.85.1) (2026-10-18)
 
 
