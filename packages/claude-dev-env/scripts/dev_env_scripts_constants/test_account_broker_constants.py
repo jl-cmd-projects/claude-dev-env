@@ -200,6 +200,10 @@ def test_should_wait_until_a_rate_limited_meter_may_be_probed_again() -> None:
     decision = broker_constants._wait_decision([reading], now, frozenset(), {})
 
     assert decision.resets_at == probe_again_at
+    assert decision.reason == (
+        "no account meter could be read (second (usage probe failed: HTTP Error 429)); "
+        "next check at 2026-10-11T19:36:00+00:00"
+    )
 
 
 def _codex_reading(meters: broker_constants.Meters) -> broker_constants.Reading:

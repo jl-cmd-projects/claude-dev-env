@@ -490,6 +490,10 @@ def test_should_wait_until_the_rate_limit_probe_after_stale_meters_expire() -> N
 
     assert decision.action == "wait"
     assert decision.resets_at == NOW + timedelta(minutes=5)
+    assert decision.reason == (
+        "no account meter could be read (one (usage probe failed: HTTP Error 429)); "
+        "next check at 2026-10-03T00:05:00+00:00"
+    )
 
 
 def test_should_wait_when_all_meter_reads_fail() -> None:
