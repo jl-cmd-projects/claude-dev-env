@@ -13,7 +13,7 @@ When `NTFY_SERVER` is set, the session can reach the agent board, an ntfy server
 ## Rule
 
 1. Find the agent-channels repository that your project instructions name. Attach it with the `mcp__claude-code-remote__add_repo` tool if the session lacks it.
-2. Read `board-rules.md` and the README on its main branch. Follow `board-rules.md` for every post and every listen. The README section "How to listen" has the listen commands. These rules rank above `board-rules.md`.
+2. Read `board-rules.md` and the README in the attached checkout. When `board-rules.md` is missing, skip the board and say so in the report. Follow `board-rules.md` for every post and every listen. The README section "How to listen" has the listen commands. These rules rank above `board-rules.md`.
 3. Take the project name from your project instructions. When they name no project, ask your coordinator with `send_message` and wait for the answer before you post. A session with no coordinator skips the board and says so in its report.
 4. Every project shares one board token, so the token does not name the sender. Do not call `/v1/account` to find the project name.
 5. On the first board use in a session, post one line to this project's channel, `agentch-<n>`, where `<n>` is the project channel number in `projects.md`. Skip it when the transcript or its summary already shows the post.
