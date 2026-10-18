@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import NamedTuple
 from pathlib import Path
 
@@ -50,8 +50,25 @@ from hooks_constants.pull_request_proof_constants import (
     PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
+    ALL_TEST_RUNNER_COMMAND_PREFIXES,
+    CODE_FENCE_MARKER,
+    FENCED_COMMAND_PROMPT,
+    INLINE_COMMAND_PATTERN,
+    TEST_ONLY_PROOF_REASON,
+    UNITTEST_MODULE_NAME,
+    ALL_PASSTHROUGH_PROGRAM_NAMES,
+    PATH_WITH_LINE_PATTERN,
+    SINGLE_FILE_NAME_PATTERN,
 )
-from hooks_constants.pytest_invocation import unquoted_token
+from hooks_constants.piped_pytest_blocker_constants import (
+    MODULE_RUN_FLAG,
+    PYTHON_INTERPRETER_BASENAME_PATTERN,
+)
+from hooks_constants.pytest_invocation import (
+    _all_tokens_from_the_interpreter_module_flag,
+    segment_runs_pytest,
+    unquoted_token,
+)
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import (
@@ -139,15 +156,30 @@ def _create_arguments(all_segment_tokens: list[str]) -> list[str] | None:
     return _script_create_arguments(program, all_arguments)
 
 
+def _shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    return command
+
+
+def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
+    return (
+        all_create_arguments
+        for each_text in all_wrapped_command_texts(command)
+        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+        if (all_create_arguments := _create_arguments(each_segment)) is not None
+    )
+
+
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
     return [
         CreateCall(
             title_from_arguments(all_create_arguments),
             body_from_arguments(all_create_arguments, working_directory),
         )
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_create_arguments := _create_arguments(each_segment)) is not None
+        for all_create_arguments in _all_create_argument_lists(command)
     ]
 
 
@@ -163,15 +195,12 @@ def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assi
 def _shell_flag_value(
     all_payload_fields: Mapping[str, object], all_flags: frozenset[str], assignment_prefix: str
 ) -> str | None:
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = _shell_command(all_payload_fields)
+    if command is None:
         return None
     all_flag_values = [
         _flag_value(all_create_arguments, all_flags, assignment_prefix)
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_create_arguments := _create_arguments(each_segment)) is not None
+        for all_create_arguments in _all_create_argument_lists(command)
     ]
     return next((each_value for each_value in all_flag_values if each_value), None)
 
@@ -216,13 +245,30 @@ def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
                 body if isinstance(body, str) else "",
             )
         ]
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = _shell_command(all_payload_fields)
+    if command is None:
         return []
     working_directory = all_payload_fields.get("cwd")
     return _shell_create_calls(
         command, working_directory if isinstance(working_directory, str) else ""
+    )
+
+
+def is_create_call(all_payload_fields: Mapping[str, object]) -> bool:
+    """Return whether a tool call opens a pull request.
+
+    ::
+
+        gh pr create --title t --body-file b.md         -> True
+        mcp__github__create_pull_request                -> True
+        gh pr edit 7, git push, Read                    -> False
+
+    Args:
+        all_payload_fields: A tool name and input, shaped like a PreToolUse payload.
+    """
+    command = _shell_command(all_payload_fields)
+    return create_tool_fields(all_payload_fields) is not None or (
+        command is not None and next(_all_create_argument_lists(command), None) is not None
     )
 
 
@@ -276,6 +322,84 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
     return None
 
 
+def _line_commands(line: str, is_inside_fence: bool) -> list[str]:
+    if not is_inside_fence:
+        return re.findall(INLINE_COMMAND_PATTERN, line)
+    stripped_line = line.strip()
+    if stripped_line.startswith(FENCED_COMMAND_PROMPT):
+        return [stripped_line[len(FENCED_COMMAND_PROMPT) :]]
+    return []
+
+
+def _proof_commands(section: str) -> list[str]:
+    all_commands: list[str] = []
+    is_inside_fence = False
+    for each_line in section.splitlines():
+        if each_line.strip().startswith(CODE_FENCE_MARKER):
+            is_inside_fence = not is_inside_fence
+            continue
+        all_commands.extend(_line_commands(each_line, is_inside_fence))
+    return [each_command for each_command in all_commands if _reads_as_command(each_command)]
+
+
+def _reads_as_command(span: str) -> bool:
+    all_words = span.split()
+    if not all_words or re.match(PATH_WITH_LINE_PATTERN, all_words[0]):
+        return False
+    if len(all_words) > 1 or re.match(SINGLE_FILE_NAME_PATTERN, all_words[0]) is None:
+        return True
+    return _command_runs_tests(span)
+
+
+def _unquoted_arguments(all_arguments: list[str]) -> list[str]:
+    return [unquoted_token(each_argument) for each_argument in all_arguments]
+
+
+def _arguments_name_unittest(all_arguments: list[str]) -> bool:
+    all_module_tokens = _all_tokens_from_the_interpreter_module_flag(
+        _unquoted_arguments(all_arguments)
+    )
+    if not all_module_tokens:
+        return False
+    module_flag = unquoted_token(all_module_tokens[0])
+    if module_flag == MODULE_RUN_FLAG + UNITTEST_MODULE_NAME:
+        return True
+    return (
+        module_flag == MODULE_RUN_FLAG
+        and len(all_module_tokens) > 1
+        and unquoted_token(all_module_tokens[1]) == UNITTEST_MODULE_NAME
+    )
+
+
+def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
+    if segment_runs_pytest(all_segment_tokens):
+        return True
+    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if PYTHON_INTERPRETER_BASENAME_PATTERN.fullmatch(program):
+        return _arguments_name_unittest(all_arguments)
+    command_words = (program, *_unquoted_arguments(all_arguments))
+    return any(
+        command_words[: len(each_prefix)] == each_prefix
+        for each_prefix in ALL_TEST_RUNNER_COMMAND_PREFIXES
+    )
+
+
+def _command_runs_tests(command: str) -> bool:
+    all_working_segments = [
+        each_segment
+        for each_segment, _each_following_operator in pipeline_segments_for_command(command)
+        if segment_program_and_arguments(each_segment)[0] not in ALL_PASSTHROUGH_PROGRAM_NAMES
+    ]
+    return bool(all_working_segments) and all(
+        _segment_runs_tests(each_segment) for each_segment in all_working_segments
+    )
+
+
+def _proof_runs_only_tests(section: str) -> bool:
+    all_commands = _proof_commands(section)
+    return bool(all_commands) and all(_command_runs_tests(each_command) for each_command in all_commands)
+
+
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     """Return a deny reason when a new pull request's body has no proof, else None.
 
@@ -283,11 +407,23 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
 
         gh pr create --body-file body.md, body has the section -> None
         mcp__github__create_pull_request, body without it      -> MISSING_PROOF_REASON
+        proof whose only commands run tests, like `pytest`      -> TEST_ONLY_PROOF_REASON
+        proof whose only command is `py.test`                   -> TEST_ONLY_PROOF_REASON
+        proof whose only command is `python -q -m unittest`     -> TEST_ONLY_PROOF_REASON
+        proof with `pytest` and `python run.py`                 -> None
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
     The proof section is a 'Proof in practice' heading whose text names at
-    least one command in backticks.
+    least one command in backticks. A command is an inline backticked span, or
+    a line that starts with '$ ' inside a fenced block. A span that starts
+    with a path:line is not a command. A span that is one path or file name is
+    not a command unless that span runs a test runner, such as py.test or
+    pytest.exe. When every command runs a test runner, such as pytest,
+    python -m unittest, npm test, npx vitest, jest, go test or cargo test,
+    the section is denied. Quotes around a runner word still count. Interpreter
+    flags before -m unittest still count. coverage run -m unittest counts.
+    A pipe into tee, tail, head, grep or cat keeps a test run a test run.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -298,6 +434,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         section = proof_section(each_body)
         if not section or COMMAND_MARKER not in section:
             return MISSING_PROOF_REASON
+        if _proof_runs_only_tests(section):
+            return TEST_ONLY_PROOF_REASON
     return None
 
 

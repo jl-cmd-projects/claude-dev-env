@@ -1,9 +1,6 @@
-"""Build one variant's workspace: the fixture project plus the rules that variant loads."""
+"""Gather one variant's workspace files: the fixture overlay, the logs, and the rules that variant loads."""
 
-import shutil
 import subprocess
-import tempfile
-from pathlib import Path
 
 from rules_eval_support.config.constants import (
     ALL_LOG_FILE_NAMES,
@@ -14,13 +11,13 @@ from rules_eval_support.config.constants import (
     GUIDES_TARGET_DIRECTORY,
     LOG_FILE_TEXT,
     MARKDOWN_SUFFIX,
+    PATH_LIST_SEPARATOR,
     PATHS_FRONTMATTER_KEY,
     REPOSITORY_ROOT,
     RULES_SOURCE_DIRECTORY,
     RULES_TARGET_DIRECTORY,
-    SIBLING_FLOW_ROOT,
-    WORKSPACE_PREFIX,
 )
+from session_eval_support.config.constants import PYTHON_CACHE_DIRECTORY_NAME
 
 
 def _read_git(*all_arguments: str) -> str:
@@ -29,14 +26,13 @@ def _read_git(*all_arguments: str) -> str:
         cwd=REPOSITORY_ROOT,
         check=True,
         capture_output=True,
-        text=True,
-    ).stdout
+    ).stdout.decode("utf-8")
 
 
 def _markdown_names(ref: str, directory: str) -> list[str]:
     return [
         each_path
-        for each_path in _read_git("ls-tree", "--name-only", f"{ref}:{directory}").split()
+        for each_path in _read_git("ls-tree", "-r", "-z", "--name-only", f"{ref}:{directory}").split(PATH_LIST_SEPARATOR)
         if each_path.endswith(MARKDOWN_SUFFIX)
     ]
 
@@ -66,7 +62,8 @@ def variant_files(ref: str) -> dict[str, str]:
 
     Returns:
         Each workspace path mapped to its text. Rules scoped by ``paths:``
-        stay out, because no case opens a file they match.
+        stay out of both variants, so the comparison covers the
+        always-loaded rules only.
     """
     files_by_target: dict[str, str] = {}
     for each_name in _markdown_names(ref, RULES_SOURCE_DIRECTORY):
@@ -80,30 +77,28 @@ def variant_files(ref: str) -> dict[str, str]:
     return files_by_target
 
 
-def prepare_workspace(files_by_target: dict[str, str]) -> Path:
-    """Copy the fixture project, its overlay, and a variant's rules into a new git workspace.
+def workspace_files(files_by_target: dict[str, str]) -> dict[str, bytes]:
+    """Return every file a rules workspace adds to the fixture project, as bytes.
+
+    ::
+
+        workspace_files({".claude/rules/index.md": "..."})
+        -> {"jobs/durations.py": b"...", "logs/alpha.log": b"job finished\\n",
+            ".claude/rules/index.md": b"...", ...}
 
     Args:
         files_by_target: The variant's files from variant_files.
 
     Returns:
-        The workspace directory, committed on branch main.
+        The fixture overlay, the log files, and the variant's rules and
+        guides, each workspace path mapped to its bytes. Compiled Python
+        caches in the overlay stay out.
     """
-    workspace = Path(tempfile.mkdtemp(prefix=WORKSPACE_PREFIX))
-    shutil.copytree(SIBLING_FLOW_ROOT / "fixture", workspace, dirs_exist_ok=True)
-    shutil.copytree(FIXTURE_OVERLAY_DIRECTORY, workspace, dirs_exist_ok=True)
-    for each_log_name in ALL_LOG_FILE_NAMES:
-        log_path = workspace / each_log_name
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(LOG_FILE_TEXT, encoding="utf-8")
-    for each_target, each_text in files_by_target.items():
-        target_path = workspace / each_target
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(each_text, encoding="utf-8")
-    for each_command in (
-        (GIT_EXECUTABLE, "init", "-q", "-b", "main"),
-        (GIT_EXECUTABLE, "add", "-A"),
-        (GIT_EXECUTABLE, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "-m", "fixture"),
-    ):
-        subprocess.run(each_command, cwd=workspace, check=True, capture_output=True)
-    return workspace
+    bytes_by_target = {
+        each_path.relative_to(FIXTURE_OVERLAY_DIRECTORY).as_posix(): each_path.read_bytes()
+        for each_path in sorted(FIXTURE_OVERLAY_DIRECTORY.rglob("*"))
+        if each_path.is_file() and PYTHON_CACHE_DIRECTORY_NAME not in each_path.parts
+    }
+    bytes_by_target.update({each_log_name: LOG_FILE_TEXT.encode("utf-8") for each_log_name in ALL_LOG_FILE_NAMES})
+    bytes_by_target.update({each_target: each_text.encode("utf-8") for each_target, each_text in files_by_target.items()})
+    return bytes_by_target

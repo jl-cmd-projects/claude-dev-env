@@ -1,5 +1,41 @@
 # Changelog
 
+## [8.83.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.0...claude-dev-env-v8.83.1) (2026-10-18)
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#1931](https://github.com/jl-cmd-projects/claude-dev-env/issues/1931), [#1910](https://github.com/jl-cmd-projects/claude-dev-env/issues/1910), [#1903](https://github.com/jl-cmd-projects/claude-dev-env/issues/1903), [#1790](https://github.com/jl-cmd-projects/claude-dev-env/issues/1790) ([#2015](https://github.com/jl-cmd-projects/claude-dev-env/issues/2015)) ([2dc3d86](https://github.com/jl-cmd-projects/claude-dev-env/commit/2dc3d86615bd158dbc4f2643f196268911dab0e1))
+
+## [8.83.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.1...claude-dev-env-v8.83.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** deepen the first interactive user task ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+* **hooks:** deepen the first interactive user task ([#2037](https://github.com/jl-cmd-projects/claude-dev-env/issues/2037)) ([a96df7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a96df7bb3f1597f9734d6b4f7d2ac207b514869a))
+
+## [8.82.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.82.0...claude-dev-env-v8.82.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **account-broker:** stop refreshing signed-out accounts and slim the refresh spawn ([#2030](https://github.com/jl-cmd-projects/claude-dev-env/issues/2030)) ([adbbe03](https://github.com/jl-cmd-projects/claude-dev-env/commit/adbbe03cba987e668a492b5cdd57a163281cc2e3))
+
+## [8.82.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.81.0...claude-dev-env-v8.82.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** refuse unvalidated claims in every user-facing reply ([899e95f](https://github.com/jl-cmd-projects/claude-dev-env/commit/899e95fe4b996d21f8bacd787fee6e3aaae487d4))
+
+## [8.81.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.80.0...claude-dev-env-v8.81.0) (2026-10-17)
+
+
+### Features
+
+* **hooks:** hold an edit to the proof gate until its named route is taken ([#2032](https://github.com/jl-cmd-projects/claude-dev-env/issues/2032)) ([36be54e](https://github.com/jl-cmd-projects/claude-dev-env/commit/36be54e0b10644a7ab4413ba05ec80802813e8f0))
+
 ## [8.80.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.79.0...claude-dev-env-v8.80.0) (2026-10-15)
 
 

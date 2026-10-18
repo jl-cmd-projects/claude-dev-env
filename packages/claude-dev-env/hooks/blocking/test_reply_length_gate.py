@@ -354,24 +354,112 @@ def test_should_deny_a_decision_card_that_hedges_in_an_option(
     assert '"probably"' in stderr_text
 
 
-def test_should_allow_a_long_decision_card_with_no_hedge(
+def short_card(**all_overrides: object) -> dict[str, object]:
+    card: dict[str, object] = {
+        "question": "Exclude the call button?",
+        "context": "Crops show the call button flagged in 7 themes.",
+        "reason": "Seven themes pass with it excluded.",
+        "options": [
+            {"label": "Exclude it", "consequence": "Seven themes pass."},
+            {"label": "Leave it", "consequence": "Seven themes keep a warning."},
+        ],
+        "recommended": 0,
+    }
+    card.update(all_overrides)
+    return card
+
+
+def test_should_allow_a_card_context_of_two_fifteen_word_sentences(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         DECISION_TOOL_NAME,
-        {
-            "question": "Exclude the call button?",
-            "context": " ".join([FIFTEEN_WORD_SENTENCE] * 5),
-            "options": [
-                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
-                {"label": "Leave it", "consequence": "Three themes keep a warning."},
-            ],
-            "recommended": 0,
-        },
+        short_card(context=" ".join([FIFTEEN_WORD_SENTENCE] * 2)),
     )
     assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_deny_a_card_context_of_four_sentences(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context="One. Two. Three. Four."),
+    )
+    assert exit_code == 2
+    assert "Card context too long: 4 sentences, limit 2." in stderr_text
+    assert "publish an Artifact page with a tap button per item and a Send button" in stderr_text
+
+
+@pytest.mark.parametrize(
+    "context_text",
+    [
+        "Three themes fail.\n- `Cedar`\n- `Birch`",
+        "Open one.\n- https://github.com/owner/repo/pull/12\n- https://github.com/owner/repo/pull/13",
+    ],
+)
+def test_should_deny_a_card_context_list_whose_items_are_code_or_urls(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], context_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context=context_text),
+    )
+    assert exit_code == 2
+    assert "Card context holds a list of items" in stderr_text
+
+
+def test_should_deny_a_card_context_that_lists_several_items_and_name_the_page_flow(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context="Three themes fail.\n- Cedar\n- Birch"),
+    )
+    assert exit_code == 2
+    assert "Card context holds a list of items" in stderr_text
+    assert "publish an Artifact page with a tap button per item and a Send button" in stderr_text
+    assert "send a short reply that links the page" in stderr_text
+
+
+def test_should_deny_a_long_card_consequence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(
+            options=[
+                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
+                {"label": "Leave it", "consequence": "Seven themes keep a warning."},
+            ]
+        ),
+    )
+    assert exit_code == 2
+    assert "Sentence too long: 16 words, limit 15" in stderr_text
+
+
+@pytest.mark.parametrize("card_field_name", ["question", "reason"])
+def test_should_deny_a_long_sentence_in_the_card_question_and_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], card_field_name: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(**{card_field_name: SIXTEEN_WORD_SENTENCE}),
+    )
+    assert exit_code == 2
+    assert "Sentence too long: 16 words" in stderr_text
 
 
 @pytest.mark.parametrize(
@@ -726,3 +814,211 @@ def test_should_allow_a_reply_with_no_causal_claim(
         monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "The runner restarted. Also, so far so good."}
     )
     assert exit_code == 0
+
+
+UPDATE_TOOL_NAME = "mcp__hearthbot__update_message"
+QUESTION_CARD_TOOL_NAME = "AskUserQuestion"
+RUN_LINK_REPLY = (
+    "The last build passed in [run 18239174012]"
+    "(https://github.com/owner/repo/actions/runs/18239174012)."
+)
+
+
+def write_tool_result_transcript(transcript_path: Path, result_text: str, is_error: bool = False) -> Path:
+    all_entries = [
+        {"type": "user", "message": {"content": "how close are we"}},
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}]},
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t1",
+                        "is_error": is_error,
+                        "content": [{"type": "text", "text": result_text}],
+                    }
+                ]
+            },
+        },
+    ]
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_entry) for each_entry in all_entries), encoding="utf-8"
+    )
+    return transcript_path
+
+
+@pytest.mark.parametrize("tool_name", [REPLY_TOOL_NAME, POST_TOOL_NAME, UPDATE_TOOL_NAME])
+def test_should_deny_an_estimate_and_quote_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tool_name: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, tool_name, {"text": "My estimate is one to two hours."}
+    )
+    assert exit_code == 2
+    assert 'No tool validated this: "My estimate is one to two hours."' in stderr_text
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "I didn\u2019t confirm this one.",
+        "I have not checked the queue.",
+        "I assumed the build passed.",
+        "Run 18239174012 is unverified.",
+        "About 20 minutes left.",
+        "It will take two hours.",
+        "ETA is 3-4 hours.",
+        "Estimate from the last check is two builds.",
+        "I did not run the suite.",
+        "The tests have not yet been run.",
+        "The job takes 39 minutes.",
+        "The migration takes seventy minutes.",
+        "I was not able to verify the fix.",
+        "The fix has not been validated.",
+        "The fix was not verified in production.",
+        "The suite takes about 90 seconds.",
+    ],
+)
+def test_should_deny_each_unvalidated_claim_shape(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text})
+    assert exit_code == 2
+    assert "No tool validated this" in stderr_text
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "Two builds are left in the queue.",
+        "I will check the queue again within 15 minutes.",
+        "The last queue build took 39 minutes.",
+        "The gate now refuses `guess` and `assumed`.",
+        "The job takes 39 minutes, see run 18239174012.",
+        "The hook cannot run on Windows.",
+        "The crash is not a test problem.",
+        "That is not the check that failed.",
+        "The migration did not run out of memory.",
+        "We did not run into any errors.",
+        "This is not something to check before the release.",
+        "The result is not what we tested for.",
+        "The migration did not run on the replica.",
+        "The old parser did not validate the header length.",
+        "The job has not run yet.",
+        "The config file is not checked in.",
+        "The release branch is not checked out.",
+    ],
+)
+def test_should_allow_a_reply_with_no_unvalidated_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    assert run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": reply_text}) == (0, "")
+
+
+def test_should_deny_a_run_no_tool_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "run 18239170000 ok")
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+    assert 'cites "run 18239174012"' in stderr_text
+
+
+def test_should_deny_a_run_only_an_error_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(
+        tmp_path / "s.jsonl", "run 18239174012 ok", is_error=True
+    )
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    )
+    assert exit_code == 2
+    assert "no tool result in this session shows it" in stderr_text
+
+
+def test_should_allow_a_run_a_tool_result_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "run 18239174012 took 39m")
+    assert run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": RUN_LINK_REPLY}, transcript_path
+    ) == (0, "")
+
+
+def test_should_deny_a_question_card_that_admits_a_skipped_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card = {
+        "questions": [
+            {
+                "question": "Ship the gate now?",
+                "header": "Ship",
+                "options": [
+                    {"label": "Ship", "description": "I did not test the Stop hook."},
+                    {"label": "Wait", "description": "Run the suite first."},
+                ],
+            }
+        ]
+    }
+    exit_code, stderr_text = run_gate(monkeypatch, capsys, QUESTION_CARD_TOOL_NAME, card)
+    assert exit_code == 2
+    assert "I did not test the Stop hook." in stderr_text
+
+
+def test_should_allow_a_question_card_with_no_unvalidated_claim(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card = {
+        "questions": [
+            {
+                "question": "Which gate design?",
+                "header": "Design",
+                "options": [{"label": "Fold in", "description": "One gate checks every reply."}],
+            }
+        ]
+    }
+    assert run_gate(monkeypatch, capsys, QUESTION_CARD_TOOL_NAME, card) == (0, "")
+
+
+def test_should_collect_each_question_card_prose_field() -> None:
+    card = {
+        "questions": [
+            {"question": "Q?", "header": "H", "options": [{"label": "L", "description": "D"}, "x"]},
+            "not a question",
+        ]
+    }
+    assert reply_length_gate.all_question_card_texts(card) == ["Q?", "H", "L", "D"]
+
+
+def test_should_quote_the_hedged_sentence() -> None:
+    assert reply_length_gate.unvalidated_claim_violation("Done. It should take a few minutes.") == (
+        'No tool validated this: "It should take a few minutes.". Run the check yourself or through'
+        " a subagent, then state what the run, log line, output, or file and line shows, or leave"
+        " the claim out."
+    )
+
+
+def test_should_skip_the_citation_check_without_a_transcript() -> None:
+    assert reply_length_gate.unseen_citation_violation(RUN_LINK_REPLY, None) is None
+
+
+def test_should_leave_the_transcript_unread_when_the_text_cites_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    all_read_paths: list[object] = []
+    monkeypatch.setattr(reply_length_gate, "successful_result_text", all_read_paths.append)
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "nothing cited")
+    assert reply_length_gate.unseen_citation_violation("Two builds left.", transcript_path) is None
+    assert all_read_paths == []
+
+
+def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
+    reply_text = "First one. Second one?\n```\nskipped. code\n```\nThird"
+    assert reply_length_gate.prose_sentences(reply_text) == ["First one.", "Second one?", "", "Third"]

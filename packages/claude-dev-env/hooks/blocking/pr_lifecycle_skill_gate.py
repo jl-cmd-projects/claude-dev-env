@@ -242,49 +242,85 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     if not _is_governed_action(all_payload_fields):
         return None
     if _is_skill_unloaded(all_payload_fields):
-        return _deny(DENY_REASON)
+        return deny_decision(DENY_REASON)
     proof_reason = missing_proof_reason(all_payload_fields)
     if proof_reason is not None:
-        return _deny(proof_reason)
+        return deny_decision(proof_reason)
     search_reason = missing_existing_work_reason(all_payload_fields)
     if search_reason is not None:
-        return _deny(search_reason)
+        return deny_decision(search_reason)
     eval_reason = missing_eval_section_reason(all_payload_fields)
     if eval_reason is not None:
-        return _deny(eval_reason)
+        return deny_decision(eval_reason)
     look_reason = missing_look_reason(all_payload_fields)
     if look_reason is not None:
-        return _deny(look_reason)
-    if is_feature_pull_request(all_payload_fields) and _is_build_eval_missing(all_payload_fields):
-        return _deny(MISSING_BUILD_EVAL_REASON)
+        return deny_decision(look_reason)
+    if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
+        return deny_decision(MISSING_BUILD_EVAL_REASON)
     duplicate_reason = duplicate_followup_reason(all_payload_fields)
-    return None if duplicate_reason is None else _deny(duplicate_reason)
+    return None if duplicate_reason is None else deny_decision(duplicate_reason)
 
 
-def _transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+    """Return each transcript path a hook payload names, with the subagent transcript last.
+
+    ::
+
+        transcript_path only                     -> [transcript_path]
+        transcript_path and a known agent_id     -> [transcript_path, <session>/subagents/agent-<id>.jsonl]
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
     paths.append(_subagent_transcript_path(all_payload_fields))
     return list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
 
 
 def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
-    readable_paths = _transcript_paths(all_payload_fields)
+    readable_paths = transcript_paths(all_payload_fields)
     if not readable_paths:
         return False
     statuses = [_scanned_transcript(path, _shows_skill_load) for path in readable_paths]
     return not any(status is None or status for status in statuses)
 
 
-def _is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
-    all_statuses = [
-        _scanned_transcript(each_path, _shows_build_eval)
-        for each_path in _transcript_paths(all_payload_fields)
-    ]
-    all_read_statuses = [each_status for each_status in all_statuses if each_status is not None]
-    return bool(all_read_statuses) and not any(all_read_statuses)
+def eval_skill_call_status(all_payload_fields: dict[str, object]) -> bool | None:
+    """Return whether the session's transcripts show a /claude-api build-eval call.
+
+    ::
+
+        one transcript shows the call         -> True
+        transcripts read, none shows the call -> False
+        no transcript could be read           -> None
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    has_read_transcript = False
+    for each_path in transcript_paths(all_payload_fields):
+        status = _scanned_transcript(each_path, _shows_build_eval)
+        if status:
+            return True
+        has_read_transcript = has_read_transcript or status is not None
+    return False if has_read_transcript else None
 
 
-def _deny(reason: str) -> dict[str, object]:
+def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
+    """Return whether every readable transcript lacks a /claude-api build-eval call.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    return eval_skill_call_status(all_payload_fields) is False
+
+
+def deny_decision(reason: str) -> dict[str, object]:
+    """Return the PreToolUse output that denies a tool call with this reason.
+
+    Args:
+        reason: The text the agent reads as the deny reason.
+    """
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": HOOK_EVENT_NAME,

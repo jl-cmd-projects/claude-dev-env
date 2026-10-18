@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -341,11 +341,29 @@ def test_should_cap_the_meter_read_delay(monkeypatch: pytest.MonkeyPatch, tmp_pa
     all_failures = [support.WeeklyUtilizationProbeError("down") for _ in range(6)]
     _claude_meter_reads(monkeypatch, all_failures)
 
-    meters, unread_reason = support.read_meters_with_backoff(support.read_claude_meters, Account(Product.CLAUDE, "one", tmp_path))
+    meters, unread_reason, is_rate_limited = support.read_meters_with_backoff(support.read_claude_meters, Account(Product.CLAUDE, "one", tmp_path))
 
     assert meters is None
     assert unread_reason == "down"
+    assert not is_rate_limited
     assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]
+
+
+def test_should_read_a_signed_out_claude_account_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_delays = _recorded_sleeps(monkeypatch)
+    all_reads: list[Account] = []
+
+    def signed_out_reader(account: Account) -> Meters:
+        all_reads.append(account)
+        raise support.ClaudeSignedOutError("no usable bearer token")
+
+    meters, unread_reason, is_rate_limited = support.read_meters_with_backoff(signed_out_reader, Account(Product.CLAUDE, "main", tmp_path))
+
+    assert meters is None
+    assert unread_reason == "no usable bearer token"
+    assert not is_rate_limited
+    assert len(all_reads) == 1
+    assert all_delays == []
 
 
 def test_should_cache_account_reading_under_injected_state_path(
@@ -367,6 +385,162 @@ def test_should_cache_account_reading_under_injected_state_path(
     assert support.read_accounts(Product.CODEX, adapter, all_state=state, now=now)[0].meters is not None
     assert seen == ["one"]
     assert support.broker_state_path().is_file()
+
+
+def _read_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, all_results: list[object], gap: timedelta) -> object:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    _recorded_sleeps(monkeypatch)
+    account = Account(Product.CLAUDE, "second", tmp_path)
+    pending = list(all_results)
+
+    def reader(_selected: Account) -> Meters:
+        next_outcome = pending.pop(0)
+        if isinstance(next_outcome, Exception):
+            raise next_outcome
+        return next_outcome
+
+    adapter = ProductAdapter(lambda: (account,), reader, "CLAUDE_CONFIG_DIR", ())
+    state = support._load_state(support.broker_state_path())
+    first_read_at = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first_read_at)
+    return support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first_read_at + gap)[0]
+
+
+def test_should_keep_the_last_good_meters_when_the_usage_endpoint_rate_limits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429: Too Many Requests")
+    reading = _read_twice(monkeypatch, tmp_path, [Meters(74.0, None, 81.0, None), rate_limited], timedelta(minutes=5))
+
+    assert reading.meters == Meters(74.0, None, 81.0, None)
+    assert reading.unread_reason == str(rate_limited)
+    assert reading.measured_at == datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+
+
+def test_should_drop_last_good_meters_older_than_the_fallback_window(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429: Too Many Requests")
+    reading = _read_twice(monkeypatch, tmp_path, [Meters(74.0, None, 81.0, None), rate_limited], timedelta(hours=2))
+
+    assert reading.meters is None
+    assert reading.unread_reason == "usage probe failed: HTTP Error 429: Too Many Requests"
+
+
+def test_should_keep_last_good_meters_at_the_fallback_boundary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429")
+    reading = _read_twice(
+        monkeypatch, tmp_path,
+        [Meters(74.0, None, 81.0, None), rate_limited], timedelta(minutes=30),
+    )
+
+    assert reading.meters == Meters(74.0, None, 81.0, None)
+
+
+def test_should_drop_last_good_meters_after_a_window_reset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    first_read = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429")
+    reading = _read_twice(
+        monkeypatch, tmp_path,
+        [Meters(3.0, first_read + timedelta(minutes=10), 81.0, None), rate_limited],
+        timedelta(minutes=25),
+    )
+
+    assert reading.meters is None
+    assert reading.unread_reason == str(rate_limited)
+
+
+def test_should_drop_held_meters_when_a_window_resets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    account = Account(Product.CLAUDE, "second", tmp_path)
+    start = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    state = support._load_state(support.broker_state_path())
+    state["meters"][support._state_key(account)] = {
+        "read_at": start.timestamp(),
+        "measured_at": (start - timedelta(minutes=5)).timestamp(),
+        "meters": support._meter_payload(Meters(3.0, start + timedelta(minutes=1), 81.0, None)),
+        "unread_reason": "usage probe failed: HTTP Error 429",
+        "retry_at": (start + timedelta(minutes=5)).timestamp(),
+    }
+    adapter = ProductAdapter(lambda: (account,), lambda _: pytest.fail("probe during cooldown"), "CLAUDE_CONFIG_DIR", ())
+
+    reading = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=start + timedelta(minutes=2))[0]
+
+    assert reading.meters is None
+    assert reading.retry_at == start + timedelta(minutes=5)
+
+
+def test_should_reject_a_last_good_entry_with_an_unrelated_failure() -> None:
+    now = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    entry = {
+        "measured_at": now.timestamp(),
+        "meters": support._meter_payload(Meters(74.0, None, 81.0, None)),
+        "unread_reason": "credentials file missing",
+    }
+
+    assert support._last_good_meters(entry, now) is None
+
+
+def test_should_not_use_last_good_meters_after_a_file_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    reading = _read_twice(
+        monkeypatch, tmp_path,
+        [Meters(74.0, None, 81.0, None), *[OSError("credentials file missing") for _ in range(3)]],
+        timedelta(minutes=5),
+    )
+
+    assert reading.meters is None
+    assert reading.unread_reason == "credentials file missing"
+
+
+def test_should_keep_first_measurement_time_across_rate_limit_fallbacks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(support, "broker_state_path", lambda: tmp_path / "broker" / "state.json")
+    _recorded_sleeps(monkeypatch)
+    account = Account(Product.CLAUDE, "second", tmp_path)
+    rate_limited = support.WeeklyUtilizationProbeError("usage probe failed: HTTP Error 429")
+    pending = [Meters(74.0, None, 81.0, None), rate_limited, rate_limited]
+    calls = []
+
+    def reader(_selected: Account) -> Meters:
+        calls.append(1)
+        outcome = pending.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    adapter = ProductAdapter(lambda: (account,), reader, "CLAUDE_CONFIG_DIR", ())
+    state = support._load_state(support.broker_state_path())
+    first = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+    support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first)
+    second = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first + timedelta(minutes=5))[0]
+    held = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first + timedelta(minutes=6))[0]
+    third = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=first + timedelta(minutes=10))[0]
+
+    assert second.measured_at == first
+    assert held.measured_at == first
+    assert third.measured_at == first
+    assert len(calls) == 3
+
+
+def test_should_keep_newer_measurement_when_stale_fallback_saves_last(tmp_path: Path) -> None:
+    state_path = tmp_path / "broker" / "state.json"
+    account = Account(Product.CLAUDE, "second", tmp_path)
+    key = support._state_key(account)
+    old = {"meters": {key: {"read_at": 40.0, "measured_at": 10.0, "meters": support._meter_payload(Meters(74.0, None, 81.0, None)), "unread_reason": "HTTP Error 429"}}, "spent": {}, "affinity": {}}
+    newer = {"meters": {key: {"read_at": 30.0, "measured_at": 30.0, "meters": support._meter_payload(Meters(5.0, None, 81.0, None)), "unread_reason": None}}, "spent": {}, "affinity": {}}
+    support._save_state(state_path, newer)
+    support._save_state(state_path, old)
+
+    assert support._load_state(state_path)["meters"][key]["meters"]["session_percent_left"] == 5.0
 
 
 def test_should_extract_session_id_and_restore_runner() -> None:
@@ -604,19 +778,35 @@ def test_should_match_order_names_to_an_account_named_by_its_windows_launcher_pa
 
 
 def test_should_run_the_cli_against_the_account_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    all_calls: list[tuple[list[str], str]] = []
+    all_calls: list[tuple[list[str], dict[str, str]]] = []
 
     def fake_run(command: list[str], **keyword_arguments: object) -> subprocess.CompletedProcess[bytes]:
         environment = keyword_arguments["env"]
         assert isinstance(environment, dict)
-        all_calls.append((command, environment["CLAUDE_CONFIG_DIR"]))
+        all_calls.append((command, environment))
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(support, "resolve_claude_path", lambda: Path("claude"))
     monkeypatch.setattr(support.subprocess, "run", fake_run)
 
     assert support.refresh_claude_login(tmp_path) is True
-    assert all_calls == [(["claude", "-p", "ok", "--model", "haiku"], str(tmp_path))]
+    [(command, environment)] = all_calls
+    assert command[:5] == ["claude", "-p", "ok", "--model", "haiku"]
+    assert command[command.index("--setting-sources") + 1] == "local"
+    assert json.loads(command[command.index("--settings") + 1]) == {"enabledPlugins": {}, "autoMemoryEnabled": False}
+    assert "--strict-mcp-config" in command
+    assert json.loads(command[command.index("--mcp-config") + 1]) == {"mcpServers": {}}
+    assert "--no-session-persistence" in command
+    assert "--disable-slash-commands" in command
+    assert command[command.index("--tools") + 1] == ""
+    assert command[command.index("--max-turns") + 1] == "1"
+    assert environment["CLAUDE_CONFIG_DIR"] == str(tmp_path)
+    assert environment["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] == "1"
+    assert environment["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    assert environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
+    assert environment["DISABLE_TELEMETRY"] == "1"
+    assert environment["DISABLE_ERROR_REPORTING"] == "1"
+    assert environment["DISABLE_AUTOUPDATER"] == "1"
 
 
 def test_should_skip_the_refresh_without_a_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

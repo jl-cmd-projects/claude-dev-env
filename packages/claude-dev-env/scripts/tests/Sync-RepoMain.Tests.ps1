@@ -105,4 +105,29 @@ Describe 'Sync-RepoMain' {
         [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'added.txt')) | Should -Be "local only`n"
         [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'tracked.txt')) | Should -Be "new`n"
     }
+
+    It 'skips without fetching while another sync of the same repo holds the run lock' {
+        $fixture = New-MirrorBehindRemote -Name 'lock-held'
+        $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator([System.IO.Path]::GetFullPath($fixture.MirrorPath))
+        $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($lockPath.ToLowerInvariant())
+        $lockName = 'Global\SyncRepoMain-' + [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($pathBytes))
+        $readyPath = Join-Path $TestDrive 'lock-ready'
+        $holderCommand = "`$lock = [System.Threading.Mutex]::new(`$true, '$lockName'); Set-Content -LiteralPath '$readyPath' -Value ready; Start-Sleep -Seconds 30"
+        $holder = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', $holderCommand -PassThru
+        try {
+            $deadline = (Get-Date).AddSeconds(20)
+            while (-not (Test-Path -LiteralPath $readyPath) -and (Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 200
+            }
+
+            $exitCode = Invoke-SyncScript -Fixture $fixture
+        }
+        finally {
+            Stop-Process -Id $holder.Id -Force -ErrorAction SilentlyContinue
+        }
+
+        $exitCode | Should -Be 3
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.OldTip
+        (Get-Content -LiteralPath $fixture.LogPath -Raw) | Should -Match 'still running'
+    }
 }

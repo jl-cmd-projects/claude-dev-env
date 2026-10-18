@@ -35,6 +35,7 @@ function runInstaller(homeDirectory, extraArguments, environmentOverrides = {}) 
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -133,7 +134,12 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         );
         assert.equal(firstSpawnPromptGroups.length, 1);
         assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit']);
+        assert.ok(
+            firstCodexHooks.hooks.UserPromptSubmit.some(group =>
+                group.hooks.some(hook => String(hook.command).includes('deepen_first_prompt.py')),
+            ),
+        );
         assert.equal(
             firstCodexHooks.hooks.PreToolUse.some(group => group.matcher === 'Write|Edit|MultiEdit|apply_patch'),
             false,
@@ -291,6 +297,11 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
         assert.equal(allSpawnGroups.length, 2);
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
+        const allPackagePromptCommands = migratedHooks.hooks.UserPromptSubmit
+            .flatMap(eachGroup => eachGroup.hooks)
+            .map(eachHook => eachHook.command);
+        assert.ok(allPackagePromptCommands.some(eachCommand => eachCommand.includes('deepen_first_prompt.py')));
+        delete migratedHooks.hooks.UserPromptSubmit;
         assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
         assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
         const firstInstall = readFileSync(codexHooksPath, 'utf8');
@@ -332,6 +343,32 @@ test('uninstall removes the routing hook and keeps a Codex user hook', () => {
             ),
             true,
         );
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('should ship the deepen skill to Cursor and the deepen block to Codex, and remove both on uninstall', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-deepen-surfaces-'));
+    try {
+        const sourceSkillPath = join(PACKAGE_DIRECTORY, '.agents', 'skills', 'deepen', 'SKILL.md');
+        const cursorSkillPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'skills', 'deepen', 'SKILL.md');
+        const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
+        const manifestPath = join(homeDirectory, '.claude', '.claude-dev-env-manifest.json');
+
+        runInstaller(homeDirectory, []);
+
+        assert.equal(readFileSync(cursorSkillPath, 'utf8'), readFileSync(sourceSkillPath, 'utf8'));
+        assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).files.includes(cursorSkillPath), true);
+        const codexGuidance = readFileSync(codexGuidancePath, 'utf8');
+        assert.match(codexGuidance, /<!-- claude-dev-env deepen: start -->/);
+        assert.match(codexGuidance, /CDE_DEEPEN:v1/);
+
+        runInstaller(homeDirectory, ['--uninstall']);
+
+        assert.equal(existsSync(cursorSkillPath), false);
+        const remainingGuidance = existsSync(codexGuidancePath) ? readFileSync(codexGuidancePath, 'utf8') : '';
+        assert.doesNotMatch(remainingGuidance, /claude-dev-env deepen/);
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }

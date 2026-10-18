@@ -8,6 +8,7 @@ SKILLS_DIRECTORY = PACKAGE_ROOT / ".agents" / "skills"
 
 ALWAYS_ON_RULE_NAMES = frozenset(
     {
+        "agent-board.md",
         "correction-lens.md",
         "index.md",
         "question-presentation.md",

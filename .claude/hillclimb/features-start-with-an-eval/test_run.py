@@ -1,205 +1,76 @@
-"""Behavior tests for eval run selection."""
-
-import json
-import time
+import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
 
-import run
-from run import (
-    _append_line,
-    _pending_runs,
-    _read_rows,
-    _run_one,
-    _run_pending,
-    _selected_cases,
-    _unscorable,
-    _variant_summary,
-)
-from session_eval_support.config.constants import (
-    ERRORS_FILE_NAME,
-    FAILURE_NO_RESULT,
-    MAX_TURNS_SUBTYPE,
-    RESULTS_FILE_NAME,
-    SUCCESS_SUBTYPE,
-)
+flow_directory = Path(__file__).resolve().parent
+if str(flow_directory) not in sys.path:
+    sys.path.insert(0, str(flow_directory))
+
+from session_eval_support.rows import read_rows
 from session_eval_support.session import SessionRun, SessionSettings
 
-SETTINGS = SessionSettings(
-    model="claude-haiku", effort="low", max_turns=1, timeout_seconds=1
-)
+run_specification = importlib.util.spec_from_file_location("features_run", flow_directory / "run.py")
+features_run = importlib.util.module_from_spec(run_specification)
+run_specification.loader.exec_module(features_run)
+
+FINISHED_EVENTS = [
+    {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read", "input": {"file_path": "README.md"}}]}},
+    {"type": "result", "subtype": "success", "num_turns": 2, "duration_ms": 1530, "modelUsage": {"claude-opus-5-5": {}}},
+]
 
 
-def _finished_session(subtype: str) -> SessionRun:
-    result_event = {
-        "type": "result",
-        "subtype": subtype,
-        "modelUsage": {"claude-haiku-5-5": {}},
-    }
-    return SessionRun([result_event], 0.0, 0, {})
+def test_scored_row_carries_the_grade_duration_and_digest() -> None:
+    session = SessionRun(FINISHED_EVENTS, 3.21, 0, {"final_decision": {"account": "org-a"}})
+    settings = SessionSettings("claude-opus-5-5", "low", 6, 600)
+
+    row = features_run._scored_row({"id": "n02", "prompt": "ask", "group": "question", "expected": "none"}, 0, session, "aaa", settings)
+
+    assert row["grade"]["correct"] == 1
+    assert row["latency_s"] == 3.2
+    assert row["meta"]["duration_s"] == 1.5
+    assert row["meta"]["run_digest"] == "aaa"
+    assert row["meta"]["broker_account"] == "org-a"
 
 
-def test_pending_runs_skip_completed_case_and_rep(tmp_path: Path) -> None:
-    (tmp_path / RESULTS_FILE_NAME).write_text(
-        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n"
-    )
-    cases = [{"id": "case-a"}, {"id": "case-b"}]
+def test_run_one_scores_the_session_with_the_run_digest_and_removes_the_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    all_workspaces: list[Path] = []
 
-    assert _pending_runs(cases, 2, tmp_path) == [
-        (cases[0], 1),
-        (cases[1], 0),
-        (cases[1], 1),
-    ]
+    def finish(workspace: Path, prompt: str, settings: SessionSettings) -> SessionRun:
+        all_workspaces.append(workspace)
+        return SessionRun(FINISHED_EVENTS, 1.0, 0, {})
 
+    monkeypatch.setattr(features_run, "run_session", finish)
+    (tmp_path / "traces").mkdir()
+    case = {"id": "n02", "prompt": "ask", "group": "question", "expected": "none"}
 
-def test_success_and_turn_limit_sessions_are_scored() -> None:
-    assert _unscorable(_finished_session(SUCCESS_SUBTYPE), SETTINGS) is None
-    assert _unscorable(_finished_session(MAX_TURNS_SUBTYPE), SETTINGS) is None
+    features_run._run_one(case, 0, tmp_path, {".claude/rules/index.md": b"Index.\n"}, "aaa", SessionSettings("claude-opus-5-5", "low", 6, 600))
 
-
-def test_other_result_subtypes_are_unscorable() -> None:
-    assert _unscorable(_finished_session("error_during_execution"), SETTINGS) == (
-        FAILURE_NO_RESULT,
-        "error_during_execution",
-    )
+    assert [each_row["meta"]["run_digest"] for each_row in read_rows(tmp_path / "results.jsonl")] == ["aaa"]
+    assert (tmp_path / "traces/n02_rep0.json").is_file()
+    assert not all_workspaces[0].exists()
 
 
-def test_a_cut_off_results_line_is_skipped_and_the_next_row_starts_fresh(
-    tmp_path: Path,
-) -> None:
-    results_path = tmp_path / RESULTS_FILE_NAME
-    results_path.write_text(
-        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n" + '{"prompt_id": "case-b'
-    )
-
-    _append_line(results_path, {"prompt_id": "case-b", "rep": 0})
-
-    assert _pending_runs([{"id": "case-a"}, {"id": "case-b"}], 1, tmp_path) == []
-
-
-def test_an_unreadable_results_line_is_logged_with_its_number(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    results_path = tmp_path / RESULTS_FILE_NAME
-    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\nnot json\n')
-
-    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
-    assert f"skipped unreadable line 2 of {results_path}" in caplog.text
-
-
-def test_blank_results_lines_are_skipped_without_a_warning(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    results_path = tmp_path / RESULTS_FILE_NAME
-    results_path.write_text('{"prompt_id": "case-a", "rep": 0}\n\n')
-
-    assert _read_rows(results_path) == [{"prompt_id": "case-a", "rep": 0}]
-    assert "skipped" not in caplog.text
-
-
-def test_run_one_deletes_the_workspace_when_the_session_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    (workspace / ".git").mkdir(parents=True)
-    monkeypatch.setattr(run, "prepare_workspace", lambda all_installs: workspace)
-
-    def _fail(*all_arguments: object) -> SessionRun:
-        raise RuntimeError("session crashed")
-
-    monkeypatch.setattr(run, "run_session", _fail)
-
-    with pytest.raises(RuntimeError):
-        _run_one({"id": "case-a", "prompt": "ask"}, 0, tmp_path, [], SETTINGS)
-
-    assert not workspace.exists()
-
-
-def test_variant_summary_counts_errors_only_for_the_selected_cases(
-    tmp_path: Path,
-) -> None:
-    (tmp_path / RESULTS_FILE_NAME).write_text("")
-    (tmp_path / ERRORS_FILE_NAME).write_text(
-        json.dumps({"prompt_id": "case-a", "rep": 0})
-        + "\n"
-        + json.dumps({"prompt_id": "case-b", "rep": 0})
-        + "\n"
-    )
-
-    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 1")
-
-
-def test_variant_summary_drops_errors_a_later_rerun_scored(tmp_path: Path) -> None:
-    (tmp_path / RESULTS_FILE_NAME).write_text(
-        json.dumps(
-            {
-                "prompt_id": "case-a",
-                "rep": 0,
-                "tags": ["feature", "build-eval"],
-                "grade": {"correct": 1},
-            }
-        )
-        + "\n"
-    )
-    (tmp_path / ERRORS_FILE_NAME).write_text(
-        json.dumps({"prompt_id": "case-a", "rep": 0}) + "\n"
-    )
-
-    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 0")
-
-
-def test_selected_cases_rejects_an_unknown_case_id() -> None:
-    with pytest.raises(SystemExit, match="unknown case ids: f99"):
-        _selected_cases("f01,f99")
-
-
-def test_selected_cases_returns_the_named_cases() -> None:
-    assert [each_case["id"] for each_case in _selected_cases("n01,f01")] == [
-        "f01",
-        "n01",
-    ]
-
-
-def test_variant_summary_ignores_errors_on_reps_past_the_current_run(
-    tmp_path: Path,
-) -> None:
-    (tmp_path / RESULTS_FILE_NAME).write_text("")
-    (tmp_path / ERRORS_FILE_NAME).write_text(
-        json.dumps({"prompt_id": "case-a", "rep": 2}) + "\n"
-    )
-
-    assert _variant_summary([{"id": "case-a"}], 1, tmp_path).endswith("errors 0")
-    assert _variant_summary([{"id": "case-a"}], 3, tmp_path).endswith("errors 1")
-
-
-def test_selected_cases_strips_spaces_around_each_id() -> None:
-    assert [each_case["id"] for each_case in _selected_cases("f01, n01")] == [
-        "f01",
-        "n01",
-    ]
-
-
-def test_selected_cases_rejects_a_value_with_no_case_ids() -> None:
-    with pytest.raises(SystemExit, match="no case ids"):
-        _selected_cases(" , ")
-
-
-def test_run_pending_cancels_queued_runs_after_one_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_pending_cancels_queued_runs_after_one_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     all_started: list[str] = []
 
-    def _record_then_fail_first(case_by_field: dict[str, str], *_: object) -> None:
+    def fail_first(case_by_field: dict[str, str], *_arguments: object) -> None:
         all_started.append(case_by_field["id"])
         if case_by_field["id"] == "case-a":
             raise OSError("disk full")
-        time.sleep(0.2)
 
-    monkeypatch.setattr(run, "_run_one", _record_then_fail_first)
+    monkeypatch.setattr(features_run, "_run_one", fail_first)
     all_pending = [({"id": each_id}, 0) for each_id in ("case-a", "case-b", "case-c")]
 
-    with pytest.raises(OSError):
-        _run_pending(all_pending, tmp_path, [], SETTINGS, 1)
+    with pytest.raises(OSError, match="disk full"):
+        features_run._run_pending(
+            all_pending,
+            tmp_path,
+            {},
+            "aaa",
+            SessionSettings("claude-opus-5-5", "low", 1, 1),
+            1,
+        )
 
-    assert "case-c" not in all_started
+    assert all_started == ["case-a"]
