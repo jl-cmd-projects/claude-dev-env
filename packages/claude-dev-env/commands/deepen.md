@@ -1,5 +1,5 @@
 ---
-description: Deepen a task into the omitted expert job before work starts
+description: Deepen a task into the standing job before work starts
 argument-hint: [task to deepen]
 ---
 
@@ -7,13 +7,8 @@ Deepen this task before any work starts: `$ARGUMENTS`
 
 When `$ARGUMENTS` is empty, ask the user to paste the task and stop.
 
-When `$ARGUMENTS` holds a task, answer four things the prompt left out:
+When `$ARGUMENTS` holds a task, follow DeepStack intake at https://github.com/jl-cmd-projects/DeepStack/blob/main/plugins/deepstack/skills/deepstack-mode/references/intake.md.
 
-1. What a top person in that field would do that this prompt omitted.
-2. The raw source to start from.
-3. The methods and tools they would use.
-4. What besides the agent or Jon would show the result is right.
-
-Rewrite the task so it asks for exactly that job. Put `CDE_DEEPEN:v1` at the top of the rewrite. Then do only that job.
+Write `SCOPE (role):`, `EXAMPLES (illustration only):`, and `ZOOM-IN BLOCKER:` before any plan. Put `CDE_DEEPEN:v1` on line 1 of the worker prompt and carry the scope line there. The deepening pass writes that prompt and stops.
 
 Skip this command when the prompt already carries `CDE_DEEPEN:v1`.

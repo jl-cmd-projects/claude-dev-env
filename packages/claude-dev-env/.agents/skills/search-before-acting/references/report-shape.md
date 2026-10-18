@@ -1,6 +1,6 @@
 # Report shape
 
-Send this report when the search finds something that does the ask in full or in part. Send it before any log entry, plan, brief, or edit, and wait for the user.
+Send this report when the search finds something that does the ask in full or in part. Send it before any log entry, plan, brief, or edit. When the role-level job is already authorized, continue that job. When it is not, wait for the user.
 
 1. **What exists and where.** Each hit with a link or `file:line`, and whether it is live.
 2. **What it covers of the ask.** The parts of the outcome it already produces.

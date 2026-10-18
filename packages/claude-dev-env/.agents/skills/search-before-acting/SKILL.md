@@ -2,8 +2,9 @@
 name: search-before-acting
 description: >-
   Search for what already does an ask before logging, planning, delegating,
-  or building it, then report what exists in four points and wait for the
-  user. Use when a user asks for new or changed behavior, a tool, a check,
+  or building it, then report what exists in four points. When the role-level
+  job is already authorized, continue that job. Use when a user asks for new
+  or changed behavior, a tool, a check,
   a workflow, a report, a tracker entry, or a plan, and before writing a
   brief for a worker.
 ---
@@ -17,7 +18,7 @@ The user should hear about work that already does their ask before anyone duplic
 1. Restate the ask as the outcome the user wants, in their words.
 2. Search every place in [`references/search-places.md`](references/search-places.md) that this session can reach. Note each place you could not reach.
 3. Sort each hit as full, partial, or related. A hit is full when it already produces the outcome from step 1.
-4. When any hit is full or partial, stop. Send the four-point report from [`references/report-shape.md`](references/report-shape.md) and wait for the user. When a hit is full, tell the user they already have it.
+4. When any hit is full or partial, send the four-point report from [`references/report-shape.md`](references/report-shape.md). When the role-level job is already authorized, continue that job. When it is not, wait for the user. When a hit is full, tell the user they already have it.
 5. When nothing is found, say where you looked in one line, then continue with the playbook below.
 
 ## Playbooks
