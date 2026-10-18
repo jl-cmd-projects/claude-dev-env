@@ -108,7 +108,8 @@ Describe 'Sync-RepoMain' {
 
     It 'skips without fetching while another sync of the same repo holds the run lock' {
         $fixture = New-MirrorBehindRemote -Name 'lock-held'
-        $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($fixture.MirrorPath.ToLowerInvariant())
+        $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator([System.IO.Path]::GetFullPath($fixture.MirrorPath))
+        $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($lockPath.ToLowerInvariant())
         $lockName = 'Global\SyncRepoMain-' + [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($pathBytes))
         $readyPath = Join-Path $TestDrive 'lock-ready'
         $holderCommand = "`$lock = [System.Threading.Mutex]::new(`$true, '$lockName'); Set-Content -LiteralPath '$readyPath' -Value ready; Start-Sleep -Seconds 30"

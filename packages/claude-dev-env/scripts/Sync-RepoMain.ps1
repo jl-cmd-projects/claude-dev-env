@@ -190,7 +190,8 @@ function Invoke-AdoptCopiedTree {
 }
 
 function Get-RunLockName {
-    $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($RepoPath.ToLowerInvariant())
+    $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator([System.IO.Path]::GetFullPath($RepoPath))
+    $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($lockPath.ToLowerInvariant())
     $pathHash = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($pathBytes))
     return "Global\SyncRepoMain-$pathHash"
 }
