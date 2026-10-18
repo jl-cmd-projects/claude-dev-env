@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.85.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.2...claude-dev-env-v8.85.3) (2026-10-18)
+
+
+### Documentation
+
+* **rules:** require a new instruction to name the trigger it replaces ([#2049](https://github.com/jl-cmd-projects/claude-dev-env/issues/2049)) ([aac135c](https://github.com/jl-cmd-projects/claude-dev-env/commit/aac135c52719c3c27729c7163077fb64b72991ca))
+
 ## [8.85.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.1...claude-dev-env-v8.85.2) (2026-10-18)
 
 
