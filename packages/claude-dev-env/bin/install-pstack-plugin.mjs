@@ -34,6 +34,18 @@ export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     optOutVariable: 'CDE_INSTALL_USAGE_WRAPUP',
 });
 
+export const DEEPEN_FIRST_PROMPT_PLUGIN_SPEC = Object.freeze({
+    name: 'deepen-first-prompt',
+    label: 'Deepen-first-prompt',
+    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
+    marketplaceName: 'claude-dev-env',
+    sparsePaths: Object.freeze(['.claude-plugin', 'packages/deepen-first-prompt']),
+    pluginIdentifier: 'deepen-first-prompt@claude-dev-env',
+    hosts: Object.freeze(['claude']),
+    optOutFlag: '--no-deepen-first-prompt',
+    optOutVariable: 'CDE_INSTALL_DEEPEN_FIRST_PROMPT',
+});
+
 export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
     name: 'subagent-models',
     label: 'Subagent-models',

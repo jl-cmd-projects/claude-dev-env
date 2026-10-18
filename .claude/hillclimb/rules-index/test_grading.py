@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 flow_directory = Path(__file__).resolve().parent
 for each_import_root in (flow_directory, flow_directory.parent / "features-start-with-an-eval"):
     if str(each_import_root) not in sys.path:
@@ -16,10 +18,10 @@ from rules_eval_support.grading import (
     scopes_every_search,
     tool_check,
 )
-from rules_eval_support.install import prepare_workspace, variant_files
+from rules_eval_support.install import variant_files, workspace_files
 from rules_eval_support.judge import parse_verdict
-from rules_eval_support.launch import launch_words
 from session_eval_support.grading import ToolCall
+from session_eval_support.session import prepare_workspace, remove_workspace
 
 
 def _bash(command: str) -> ToolCall:
@@ -43,12 +45,56 @@ def test_search_check_fails_a_root_start_and_passes_a_scoped_one() -> None:
     assert scopes_every_search([_bash("find . -name settings.json")])
 
 
+def test_search_check_fails_a_windows_drive_or_home_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/tester")
+    monkeypatch.setenv("USERPROFILE", "C:\\Users\\tester")
+    assert not scopes_every_search([ToolCall("Grep", {"pattern": "x", "path": "C:\\"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": "D:/"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home()) + "/"})])
+    assert not scopes_every_search([ToolCall("Grep", {"pattern": "x", "path": str(Path.home()).upper()})])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "**/settings.json", "path": str(Path.home() / "work")})])
+    assert not scopes_every_search([_bash("find C:/ -name settings.json")])
+    assert not scopes_every_search([_bash("find C:\\ -name settings.json")])
+    assert scopes_every_search([_bash("find C:/work/project -name settings.json")])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "*.json", "path": "C:/work"})])
+
+
+def test_search_check_fails_flags_before_a_root_powershell_recursion_and_rooted_globs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/tester")
+    monkeypatch.setenv("USERPROFILE", "C:\\Users\\tester")
+    assert not scopes_every_search([_bash("find -L / -name CLAUDE.md")])
+    assert not scopes_every_search([_bash("cd jobs && du -sh /")])
+    assert not scopes_every_search([_bash(f"find {Path.home()} -name settings.json")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "Get-ChildItem -Recurse -Path C:\\ -Filter settings.json"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "C:/**/settings.json"})])
+    assert not scopes_every_search([ToolCall("Glob", {"pattern": "/**/settings.json", "path": "jobs"})])
+    assert scopes_every_search([ToolCall("PowerShell", {"command": "Get-ChildItem C:\\"})])
+    assert scopes_every_search([ToolCall("Glob", {"pattern": "jobs/**/*.py"})])
+
+
+def test_search_check_reads_recursion_per_command() -> None:
+    assert not scopes_every_search([_bash("grep -r TODO /")])
+    assert not scopes_every_search([_bash("grep -Rn TODO /")])
+    assert not scopes_every_search([_bash("rg TODO /")])
+    assert not scopes_every_search([_bash("ls -laR /")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "gci -r C:\\ -Filter *.json"})])
+    assert scopes_every_search([_bash("ls -r /")])
+    assert scopes_every_search([_bash("grep TODO /etc/hosts")])
+    assert scopes_every_search([_bash("rg TODO jobs")])
+    assert not scopes_every_search([_bash("timeout 60 find / -name settings.json")])
+    assert not scopes_every_search([_bash("/usr/bin/find / -name settings.json")])
+    assert not scopes_every_search([ToolCall("PowerShell", {"command": "C:\\Windows\\system32\\find.exe / x"})])
+
+
 def test_pr_lifecycle_check_needs_the_skill_before_the_commit() -> None:
     skill = ToolCall("Skill", {"skill": "pr-lifecycle"})
     commit = _bash("git commit -am 'fix typo'")
     assert loads_pr_lifecycle_before_commit([skill, commit])
     assert not loads_pr_lifecycle_before_commit([commit, skill])
     assert not loads_pr_lifecycle_before_commit([ToolCall("Edit", {})])
+    assert not loads_pr_lifecycle_before_commit([ToolCall("PowerShell", {"command": "git commit -m x"}), skill])
+    assert not loads_pr_lifecycle_before_commit([_bash("git -C repo commit -m x"), skill])
+    assert loads_pr_lifecycle_before_commit([_bash("git log --grep=commit"), _bash("git diff commit.txt"), skill, commit])
 
 
 def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases() -> None:
@@ -60,6 +106,8 @@ def test_tool_check_returns_the_grader_for_tool_cases_and_none_for_judge_cases()
 def test_guide_check_sees_a_read_under_rule_guides() -> None:
     assert opened_a_guide([ToolCall("Read", {"file_path": ".claude/docs/rule-guides/research-mode.md"})])
     assert not opened_a_guide([ToolCall("Read", {"file_path": "README.md"})])
+    assert opened_a_guide([ToolCall("Read", {"file_path": "C:\\work\\.claude\\docs\\rule-guides\\research-mode.md"})])
+    assert opened_a_guide([ToolCall("PowerShell", {"command": "Get-Content .claude\\docs\\rule-guides\\shell-invocation.md"})])
 
 
 def test_judge_verdict_parse_takes_the_last_verdict_and_skips_prose() -> None:
@@ -69,15 +117,9 @@ def test_judge_verdict_parse_takes_the_last_verdict_and_skips_prose() -> None:
 
 def test_index_variant_installs_the_index_and_guides_it_links() -> None:
     files_by_target = variant_files("HEAD")
-    workspace = prepare_workspace(files_by_target)
+    workspace = prepare_workspace(workspace_files(files_by_target))
     assert (workspace / ".claude/rules/index.md").is_file()
     assert (workspace / ".claude/docs/rule-guides/research-mode.md").is_file()
     assert not (workspace / ".claude/rules/research-mode.md").exists()
     assert (workspace / "logs/alpha.log").is_file()
-
-
-def test_direct_launch_skips_the_broker_and_brokered_launch_wraps_it() -> None:
-    all_words = ["claude", "-p", "hi"]
-    assert launch_words(Path("r.json"), all_words, is_direct=True)[1:] == all_words[1:]
-    brokered = launch_words(Path("r.json"), all_words, is_direct=False)
-    assert brokered[-3:] == all_words and "--" in brokered
+    remove_workspace(workspace)

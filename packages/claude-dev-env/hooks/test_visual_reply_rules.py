@@ -15,6 +15,7 @@ from visual_reply_rules import (
     mode_enabled,
     replies_sent_this_turn,
     second_reply_violation,
+    successful_result_text,
     visual_shown_this_turn,
     visual_violation,
     widget_anchor_violation,
@@ -207,3 +208,23 @@ def test_widget_flowchart_advice_should_stay_quiet_when_the_rule_list_has_no_flo
     assert rules is not None
     card_input = {"widget_code": "<div class='card'>Merged</div>"}
     assert widget_flowchart_advice("mcp__hearthbot__post_widget", card_input, rules) is None
+
+
+def test_successful_result_text_joins_only_results_without_an_error(tmp_path: Path) -> None:
+    all_entries = [
+        {"type": "user", "message": {"content": "run 111 from the prompt"}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "run 222 ok"}]}},
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "tool_result", "content": [{"type": "text", "text": "run 333 ok"}]},
+                    {"type": "tool_result", "is_error": True, "content": "run 444 failed"},
+                ]
+            },
+        },
+    ]
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(each) for each in all_entries), encoding="utf-8")
+    assert successful_result_text(str(transcript_path)) == "run 222 ok\nrun 333 ok"
+    assert successful_result_text(str(tmp_path / "missing.jsonl")) is None

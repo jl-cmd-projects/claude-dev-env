@@ -24,6 +24,44 @@ MISSING_PROOF_REASON = (
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
+CODE_FENCE_MARKER = "```"
+FENCED_COMMAND_PROMPT = "$ "
+UNITTEST_MODULE_NAME = "unittest"
+PATH_WITH_LINE_PATTERN = r"^\S+:\d+(?:[-:]\d+)?$"
+SINGLE_FILE_NAME_PATTERN = r"^\S*[/\\]\S*$|^[\w.-]+\.[A-Za-z0-9]+$"
+ALL_PASSTHROUGH_PROGRAM_NAMES = frozenset({"tee", "tail", "head", "grep", "cat"})
+ALL_TEST_RUNNER_COMMAND_PREFIXES = frozenset(
+    {
+        ("jest",),
+        ("vitest",),
+        ("mocha",),
+        ("npm", "test"),
+        ("npm", "t"),
+        ("npm", "run", "test"),
+        ("yarn", "test"),
+        ("yarn", "run", "test"),
+        ("pnpm", "test"),
+        ("pnpm", "run", "test"),
+        ("bun", "test"),
+        ("npx", "jest"),
+        ("npx", "vitest"),
+        ("npx", "mocha"),
+        ("go", "test"),
+        ("cargo", "test"),
+        ("deno", "test"),
+        ("dotnet", "test"),
+        ("unittest",),
+    }
+)
+UNIT_TESTS_GUIDE_LINE = "Unit tests are welcome as extra evidence. The live run is the proof."
+TEST_ONLY_PROOF_REASON = (
+    "Every command under this pull request's 'Proof in practice' heading runs a test"
+    " suite. The proof rule says: \"" + UNIT_TESTS_GUIDE_LINE + "\" Run the changed thing"
+    " the way its user runs it, once without the change and once with it. List each"
+    " command in backticks and quote the output lines that show the difference. Keep the"
+    " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (
@@ -59,9 +97,10 @@ MISSING_LOOK_REASON = (
 CHANGED_FILES_SEPARATOR = ", "
 UNREADABLE_CHANGES_REASON = (
     "Git in this directory cannot list the files this pull request changes, so the"
-    " picture check cannot tell whether people see the change. Run the create call"
-    " from a checkout of the head branch with origin fetched, or put a screenshot"
-    " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
+    " picture check cannot tell whether people see the change. Put a screenshot or"
+    " Artifact link in the 'Proof in practice' section and run the create call again,"
+    " or run it from a checkout of the head branch with origin fetched. Take one of"
+    " these routes now, before any change to this gate. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
 EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
@@ -83,3 +122,21 @@ MISSING_BUILD_EVAL_REASON = (
     + EVAL_GUIDE_PATH
     + " for the full rule."
 )
+ALL_PROOF_GATE_DENY_MARKERS = (PROOF_GUIDE_PATH, EXISTING_WORK_GUIDE_PATH, EVAL_GUIDE_PATH)
+ALL_PROOF_GATE_FILE_NAMES = frozenset(
+    {
+        "pull_request_proof.py",
+        "pull_request_proof_constants.py",
+        "pull_request_proof_edit_gate.py",
+        "pre_tool_use_dispatcher_constants.py",
+    }
+)
+GATE_EDIT_BEFORE_ROUTE_REASON = (
+    "The pull request proof gate denied a create call in this session, and its deny"
+    " named the way through. Take that route now. Add what the deny asked for, such as"
+    " a screenshot or Artifact link in the 'Proof in practice' section, then run the"
+    " create call again. The deny text is the instruction. Edit this gate only"
+    " after a create call passes it. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+WINDOWS_PATH_SEPARATOR = "\\"
+POSIX_PATH_SEPARATOR = "/"

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""SessionStart and PreToolUse hook: run the hooks of checkouts nested one level down.
+"""SessionStart, UserPromptSubmit, and PreToolUse hook: run nested checkout hooks.
 
 Claude Code reads project hooks from ``<project>/.claude/settings.json`` of the
 directory a session starts in. A cloud session that holds several repository
 checkouts starts in their parent directory, which has no settings of its own,
-and ``--add-dir`` loads no hooks from the checkouts. Their start hooks and tool
-guards then never run. This hook runs them::
+and ``--add-dir`` loads no hooks from the checkouts. Their start hooks, first
+prompt deepeners, and tool guards then never run. This hook runs them::
 
     session directory (no .git, no .claude/settings.json)
     |-- checkout-a/.claude/settings.json   hooks run with CLAUDE_PROJECT_DIR=checkout-a
@@ -15,7 +15,7 @@ Each child hook receives the same stdin payload, runs inside its checkout, and
 keeps its own matcher and timeout. A child ``exit 2`` blocks the tool call and a
 child ``deny`` or ``ask`` decision passes through; a child ``allow`` is dropped,
 so no child widens permissions for the session. The ``additionalContext`` of
-every child, at SessionStart and at PreToolUse, joins into one
+every child, at SessionStart, UserPromptSubmit, and PreToolUse, joins into one
 ``additionalContext``.
 
 When the session directory is itself a checkout or holds its own settings,
@@ -342,13 +342,15 @@ def _non_empty_sections(all_sections: Iterable[str]) -> list[str]:
     return [each_section for each_section in all_sections if each_section]
 
 
-def session_start_verdict(
+def additional_context_verdict(
     all_results: list[subprocess.CompletedProcess[str]],
+    event_name: str,
 ) -> HookVerdict:
-    """Join nested SessionStart output into one additional-context block.
+    """Join nested hook output into one additional-context block.
 
     Args:
         all_results: The completed nested hooks, in run order.
+        event_name: The envelope event name Claude Code expects.
 
     Returns:
         A pass whose stdout carries every child's context, or an empty pass
@@ -364,11 +366,18 @@ def session_start_verdict(
         return HookVerdict(0, "", stderr_text)
     hook_output = {
         HOOK_SPECIFIC_OUTPUT_KEY: {
-            HOOK_EVENT_NAME_OUTPUT_KEY: SESSION_START_EVENT,
+            HOOK_EVENT_NAME_OUTPUT_KEY: event_name,
             ADDITIONAL_CONTEXT_KEY: CONTEXT_SECTION_SEPARATOR.join(all_context_sections),
         }
     }
     return HookVerdict(0, json.dumps(hook_output), stderr_text)
+
+
+def session_start_verdict(
+    all_results: list[subprocess.CompletedProcess[str]],
+) -> HookVerdict:
+    """Join nested SessionStart output into one additional-context block."""
+    return additional_context_verdict(all_results, SESSION_START_EVENT)
 
 
 def _completed_results(
@@ -402,7 +411,7 @@ def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerd
     all_results = _completed_results(all_nested_hooks, payload_text)
     if event_name == PRE_TOOL_USE_EVENT:
         return pre_tool_use_verdict(all_results)
-    return session_start_verdict(all_results)
+    return additional_context_verdict(all_results, event_name)
 
 
 def main() -> None:

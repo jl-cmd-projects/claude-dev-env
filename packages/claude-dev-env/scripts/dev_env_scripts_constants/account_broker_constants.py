@@ -21,6 +21,7 @@ from dev_env_scripts_constants.claude_account_constants import (
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
 from dev_env_scripts_constants.codex_account_constants import (
+    ALL_PRO_PLAN_TYPES,
     CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE,
@@ -56,6 +57,8 @@ METER_READ_ATTEMPTS = 3
 METER_READ_FIRST_DELAY_SECONDS = 1.0
 METER_READ_DELAY_FACTOR = 2.0
 METER_READ_MAX_DELAY_SECONDS = 8.0
+LAST_GOOD_METER_MAX_AGE_SECONDS = 1800.0
+METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
@@ -80,7 +83,33 @@ ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
     (".local", "bin", "claude.exe"),
     (".local", "bin", "claude"),
 )
-ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = (
+    "-p",
+    "ok",
+    "--model",
+    "haiku",
+    "--setting-sources",
+    "local",
+    "--settings",
+    '{"enabledPlugins": {}, "autoMemoryEnabled": false}',
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers": {}}',
+    "--no-session-persistence",
+    "--disable-slash-commands",
+    "--tools",
+    "",
+    "--max-turns",
+    "1",
+)
+ALL_LOGIN_REFRESH_ENVIRONMENT: dict[str, str] = {
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_AUTOUPDATER": "1",
+}
 LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
@@ -122,6 +151,11 @@ def codex_usage_limit_signatures() -> tuple[str, ...]:
     except OSError as error:
         raise ImportError(f"cannot load usage markers from {constants_path}") from error
     return module.ALL_USAGE_LIMIT_MARKERS
+
+
+def meter_read_delay_seconds(attempt_index: int) -> float:
+    """Seconds to wait before a meter read retry, where the first retry has index 1."""
+    return min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (attempt_index - 1), METER_READ_MAX_DELAY_SECONDS)
 
 
 def utc_time_text(moment: datetime | None) -> str | None:
@@ -172,6 +206,7 @@ class Meters:
     session_resets_at: datetime | None
     weekly_percent_left: float | None
     weekly_resets_at: datetime | None
+    plan_type: str | None = None
 
     @property
     def tightest_percent_left(self) -> float | None:
@@ -184,6 +219,8 @@ class Reading:
     account: Account
     meters: Meters | None
     unread_reason: str | None = None
+    measured_at: datetime | None = None
+    retry_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -229,16 +266,26 @@ class ProductAdapter:
     usage_limit_signatures: tuple[str, ...]
 
 
+def _is_at_or_under(room: float | None, floor: float) -> bool:
+    return room is not None and room <= floor
+
+
+def _claude_blocking_flags(meters: Meters, is_main: bool) -> tuple[bool, bool]:
+    session_key, weekly_key = (
+        ("main_session_used_ceiling", "main_weekly_used_ceiling")
+        if is_main
+        else ("extra_session_used_ceiling", "extra_weekly_used_ceiling")
+    )
+    return (
+        _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[session_key]),
+        _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[weekly_key]),
+    )
+
+
 def _claude_extra_tier(meters: Meters | None) -> str | None:
     if meters is None or meters.tightest_percent_left is None:
         return None
-    if (
-        meters.weekly_percent_left is not None
-        and meters.weekly_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]
-    ) or (
-        meters.session_percent_left is not None
-        and meters.session_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]
-    ):
+    if any(_claude_blocking_flags(meters, is_main=False)):
         return None
     return "normal"
 
@@ -265,30 +312,26 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
         return None
     if is_spent:
         return min((reset for reset in (meters.session_resets_at, meters.weekly_resets_at) if reset is not None), default=None)
-    is_claude_main = reading.account.product is Product.CLAUDE and reading.account.is_main
-    if is_claude_main:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"], meters.weekly_resets_at),
-        )
-    elif reading.account.product is Product.CLAUDE:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"], meters.weekly_resets_at),
-        )
+    if reading.account.product is Product.CLAUDE:
+        all_blocking_flags = _claude_blocking_flags(meters, reading.account.is_main)
     else:
-        blocking = (
-            (meters.session_percent_left, ALL_CODEX_FLOORS["luna_short_minimum_left"], meters.session_resets_at),
-            (meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"], meters.weekly_resets_at),
+        all_blocking_flags = (
+            meters.session_percent_left is not None and meters.session_percent_left < ALL_CODEX_FLOORS["luna_short_minimum_left"],
+            _is_at_or_under(meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"]),
         )
-    all_blocking_resets = [reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None]
-    return max(all_blocking_resets, default=None)
+    all_resets = (meters.session_resets_at, meters.weekly_resets_at)
+    all_blocking_resets = [reset for is_blocking, reset in zip(all_blocking_flags, all_resets) if is_blocking]
+    all_known_resets = [reset for reset in all_blocking_resets if reset is not None]
+    if len(all_known_resets) < len(all_blocking_resets):
+        return None
+    return max(all_known_resets, default=None)
 
 
-def _rank_key(reading: Reading) -> tuple[bool, int, float]:
+def _rank_key(reading: Reading) -> tuple[bool, int, bool, float]:
     room = reading.meters.tightest_percent_left if reading.meters else None
     priority = reading.account.priority
-    return (priority is None, priority or 0, -(room if room is not None else -1.0))
+    is_pro_plan = reading.meters is not None and reading.meters.plan_type in ALL_PRO_PLAN_TYPES
+    return (priority is None, priority or 0, not is_pro_plan, -(room if room is not None else -1.0))
 
 
 def _main_has_room(meters: Meters | None) -> bool:
@@ -296,8 +339,7 @@ def _main_has_room(meters: Meters | None) -> bool:
         meters is not None
         and meters.session_percent_left is not None
         and meters.weekly_percent_left is not None
-        and meters.session_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]
-        and meters.weekly_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]
+        and not any(_claude_blocking_flags(meters, is_main=True))
     )
 
 
@@ -368,9 +410,13 @@ def _wait_decision(
     all_retry_times = []
     for each_reading in all_readings:
         is_spent = each_reading.account in all_spent_accounts
-        reset = all_spent_resets.get(each_reading.account) if is_spent else None
-        reset = reset or _account_reset(each_reading, is_spent)
-        all_retry_times.append(_RetryTime(reset, is_known_reset=True) if reset is not None and reset > now else next_check)
+        spent_reset = all_spent_resets.get(each_reading.account) if is_spent else None
+        known_reset = spent_reset or _account_reset(each_reading, is_spent)
+        chosen_reset = known_reset or each_reading.retry_at
+        if chosen_reset is not None and chosen_reset > now:
+            all_retry_times.append(_RetryTime(chosen_reset, is_known_reset=known_reset is not None))
+        else:
+            all_retry_times.append(next_check)
     soonest = min(all_retry_times, key=lambda each_retry_time: each_retry_time.at, default=next_check)
     all_unreadable_names = [
         _unreadable_text(each_reading)

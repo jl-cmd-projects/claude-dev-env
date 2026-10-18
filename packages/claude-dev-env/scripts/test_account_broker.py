@@ -52,12 +52,14 @@ def _meters(
     *,
     short_reset: datetime | None = None,
     weekly_reset: datetime | None = None,
+    plan_type: str | None = None,
 ) -> Meters:
     return Meters(
         short_left,
         short_reset or NOW + timedelta(hours=5),
         weekly_left,
         weekly_reset or NOW + timedelta(days=3),
+        plan_type,
     )
 
 
@@ -117,6 +119,30 @@ def test_should_put_unread_accounts_after_readable_accounts() -> None:
     decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
 
     assert decision.account == readings[1].account
+
+
+def test_should_pick_a_pro_plan_account_over_a_roomier_team_account() -> None:
+    readings = (
+        Reading(_account("team-mel"), _meters(90, 85, plan_type="team")),
+        Reading(_account("personal"), _meters(40, 30, plan_type="promax")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
+
+
+def test_should_pick_a_team_account_in_the_normal_tier_over_a_pro_plan_account_below_the_floor() -> None:
+    readings = (
+        Reading(_account("personal"), _meters(50, 8, plan_type="pro")),
+        Reading(_account("team-jon"), _meters(40, 30, plan_type="team")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
 
 
 def test_should_keep_list_order_when_tighter_windows_tie() -> None:
@@ -218,6 +244,18 @@ def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> 
 
     assert decision.action == "wait"
     assert decision.resets_at == short_reset
+
+
+def test_should_check_main_again_in_an_hour_when_a_blocking_window_has_no_reset() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        Meters(5, None, 1, NOW + timedelta(hours=4)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == NOW + timedelta(hours=1)
 
 
 @pytest.mark.parametrize(
@@ -452,12 +490,30 @@ def test_should_count_failed_meter_read_as_spent() -> None:
 
 
 def test_should_serialize_readings_with_named_fields() -> None:
-    reading = Reading(_account("one"), _meters(80, 70))
+    reading = Reading(_account("one"), _meters(80, 70), measured_at=NOW)
 
     payload = account_broker.readings_payload((reading,))
 
     assert payload[0]["name"] == "one"
     assert payload[0]["meters"]["weekly_percent_left"] == 70
+    assert payload[0]["measured_at"] == NOW.isoformat()
+
+
+def test_should_wait_until_the_rate_limit_probe_after_stale_meters_expire() -> None:
+    reading = Reading(
+        _account("one", Product.CLAUDE), None,
+        "usage probe failed: HTTP Error 429", NOW - timedelta(minutes=25),
+        NOW + timedelta(minutes=5),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == NOW + timedelta(minutes=5)
+    assert decision.reason == (
+        "no account meter could be read (one (usage probe failed: HTTP Error 429)); "
+        "next check at 2026-10-03T00:05:00+00:00"
+    )
 
 
 def test_should_wait_when_all_meter_reads_fail() -> None:

@@ -73,7 +73,21 @@ def _tool_call(block_by_field: Mapping[str, object]) -> ToolCall:
     )
 
 
-def _names_skill(call: ToolCall, skill_name: str) -> bool:
+def names_skill(call: ToolCall, skill_name: str) -> bool:
+    """Return whether a call is a Skill call naming one skill, bare or plugin-qualified.
+
+    ::
+
+        Skill {"skill": "pr-lifecycle"}         -> True for "pr-lifecycle"
+        Skill {"skill": "tools:pr-lifecycle"}   -> True for "pr-lifecycle"
+
+    Args:
+        call: One tool call from the session.
+        skill_name: The skill's bare name.
+
+    Returns:
+        Whether the call invokes that skill.
+    """
     invoked = call.tool_input.get("skill")
     return (
         call.name == SKILL_TOOL_NAME
@@ -100,7 +114,7 @@ def is_build_eval_call(call: ToolCall) -> bool:
     """
     arguments = call.tool_input.get("args")
     all_words = arguments.split() if isinstance(arguments, str) else []
-    return _names_skill(call, BUILD_EVAL_SKILL_NAME) and all_words[:1] == [
+    return names_skill(call, BUILD_EVAL_SKILL_NAME) and all_words[:1] == [
         BUILD_EVAL_ARGUMENT_WORD
     ]
 
@@ -114,7 +128,7 @@ def is_local_build_eval_call(call: ToolCall) -> bool:
     Returns:
         Whether the call is a Skill call naming the build-eval skill.
     """
-    return _names_skill(call, LOCAL_BUILD_EVAL_SKILL_NAME)
+    return names_skill(call, LOCAL_BUILD_EVAL_SKILL_NAME)
 
 
 def build_eval_came_first(all_calls: list[ToolCall]) -> bool:

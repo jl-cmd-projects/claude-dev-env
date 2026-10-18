@@ -66,6 +66,14 @@ def test_new_merge_offer_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_final_reply_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/final_reply_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_step_note_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/step_note_gate.py"],
@@ -117,6 +125,14 @@ def test_new_session_title_gate_registration_is_clean(tmp_path: Path) -> None:
 def test_new_artifact_page_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/artifact_dark_mode_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
+def test_new_eval_write_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/build_eval_before_eval_write_gate.py"],
         '{"hooks": {}}',
     )
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
