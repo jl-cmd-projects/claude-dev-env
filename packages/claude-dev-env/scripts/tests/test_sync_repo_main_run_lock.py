@@ -139,3 +139,30 @@ def test_should_skip_a_second_spelling_of_the_same_repo(tmp_path: Path) -> None:
     finally:
         holder.kill()
         holder.wait()
+
+
+def test_should_skip_when_the_repo_path_is_a_symlink(tmp_path: Path) -> None:
+    mirror_path = _mirror_one_commit_behind(tmp_path)
+    old_tip = _git(mirror_path, "rev-parse", "HEAD")
+    link_path = tmp_path / "mirror-link"
+    os.symlink(mirror_path, link_path, target_is_directory=True)
+    log_path = tmp_path / "sync.log"
+    ready_path = tmp_path / "lock-ready"
+    holder_command = (
+        f"$lock = [System.Threading.Mutex]::new($true, '{_run_lock_name(mirror_path)}'); "
+        f"Set-Content -LiteralPath '{ready_path}' -Value ready; Start-Sleep -Seconds 30"
+    )
+    holder = subprocess.Popen([_PWSH, "-NoProfile", "-Command", holder_command])
+    try:
+        deadline = time.monotonic() + _LOCK_READY_TIMEOUT_SECONDS
+        while not ready_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert ready_path.exists()
+        exit_code = _run_sync(mirror_path, log_path, repo_path=str(link_path))
+    finally:
+        holder.kill()
+        holder.wait()
+
+    assert exit_code == _SKIPPED_EXIT_CODE
+    assert _git(mirror_path, "rev-parse", "HEAD") == old_tip
+    assert "still running" in log_path.read_text(encoding="utf-8")
