@@ -150,7 +150,6 @@ Provide evidence: pytest output counts, not "should work".
 - Branch: `cursor/<topic>-593d` or existing PR branch
 - Commit message: `Extract <what> from <package> into shared_utils`
 - Update PR body: architecture table + test counts
-- Do not merge; draft PR unless user says otherwise
 
 ## Anti-patterns (flag these)
 
