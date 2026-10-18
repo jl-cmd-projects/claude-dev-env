@@ -125,11 +125,7 @@ def test_install_citation_names_the_plugin_repository_and_the_triggers() -> None
     assert "DeepStack reproducible-check leaf" in text
 
 
-def test_live_package_has_no_deepstack_rows_yet() -> None:
-    manifest_text = (_PACKAGE_ROOT / "rules-archived" / "ARCHIVE-MANIFEST.md").read_text(
-        encoding="utf-8"
-    )
-    assert replacement_rows(manifest_text) == ()
+def test_live_package_inventory_exits_clean() -> None:
     completed = subprocess.run(
         [sys.executable, str(_PACKAGE_ROOT / "scripts" / "deepstack_inventory.py")],
         capture_output=True,
