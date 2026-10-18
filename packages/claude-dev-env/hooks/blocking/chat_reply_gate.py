@@ -11,6 +11,7 @@ the same checks on it::
     Stop, last reply within the limit        -> allow
     Stop, last reply over the limit          -> block, reason sent back for a rewrite
     Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
+    SessionEnd                               -> delete the rewrite count file
 
 On PostToolUse the hook reads the transcript and checks the text blocks
 that sit between the last user entry and this call. Sibling calls in one
@@ -18,8 +19,9 @@ message share that text, so only the first call checks it. A subagent
 call, and a call that does not appear in the transcript before the poll
 limit, pass without a check.
 
-The rewrite count lives in one temp file per session, and each user
-prompt sets it back to zero.
+The rewrite count lives in one temp file per session. Each user prompt
+sets it back to zero, and so does each Stop whose ``stop_hook_active``
+is not true, because that Stop ends a fresh reply and not a rewrite.
 
 The checks come from ``reply_length_gate.reply_violation``: at most
 MAXIMUM_SENTENCE_COUNT sentences of at most MAXIMUM_WORDS_PER_SENTENCE
@@ -46,8 +48,6 @@ from reply_length_gate import reply_violation
 from step_note_gate import read_transcript_tail, tool_use_position, transcript_blocks
 from hooks_constants.chat_reply_gate_constants import (
     AGENT_ID_KEY,
-    ALLOW_EXIT_CODE,
-    BLOCK_EXIT_CODE,
     HOOK_EVENT_NAME_INPUT_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
     MAXIMUM_REWRITES_PER_TURN,
@@ -60,15 +60,13 @@ from hooks_constants.chat_reply_gate_constants import (
     REWRITE_COUNT_FILE_PREFIX,
     REWRITE_COUNT_FILE_SUFFIX,
     REWRITE_INSTRUCTION,
+    SESSION_END_EVENT_NAME,
     SESSION_ID_KEY,
     STOP_EVENT_NAME,
+    STOP_HOOK_ACTIVE_KEY,
     TOOL_USE_ID_KEY,
     TRANSCRIPT_PATH_KEY,
     USER_PROMPT_SUBMIT_EVENT_NAME,
-)
-from hooks_constants.session_edit_stage_gate_constants import (
-    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
-    STATE_FILE_DEFAULT_SESSION_ID,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.hook_specific_output_keys import (
@@ -76,7 +74,12 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from hooks_constants.reply_length_gate_constants import ADDITIONAL_CONTEXT_KEY
+from hooks_constants.reply_length_gate_constants import (
+    ADDITIONAL_CONTEXT_KEY,
+    ALLOW_EXIT_CODE,
+    BLOCK_EXIT_CODE,
+)
+from hooks_constants.session_file_id import session_file_id
 from hooks_constants.step_note_gate_constants import (
     POLL_INTERVAL_SECONDS,
     POLL_LIMIT_SECONDS,
@@ -88,10 +91,7 @@ from hooks_constants.step_note_gate_constants import (
 
 def rewrite_count_path(session_id: object) -> Path:
     """Return the temp file that holds this session's rewrite count for the turn."""
-    raw_session_id = session_id if isinstance(session_id, str) else ""
-    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", raw_session_id)
-    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
-    file_name = f"{REWRITE_COUNT_FILE_PREFIX}{effective_session_id}{REWRITE_COUNT_FILE_SUFFIX}"
+    file_name = f"{REWRITE_COUNT_FILE_PREFIX}{session_file_id(session_id)}{REWRITE_COUNT_FILE_SUFFIX}"
     return Path(tempfile.gettempdir()) / file_name
 
 
@@ -103,10 +103,19 @@ def read_rewrite_count(count_path: Path) -> int:
         return 0
 
 
-def write_rewrite_count(count_path: Path, rewrite_count: int) -> None:
-    """Store the rewrite count; a failed write leaves the gate decision unchanged."""
+def write_rewrite_count(count_path: Path, rewrite_count: int) -> bool:
+    """Store the rewrite count and return whether the write succeeded."""
     try:
         count_path.write_text(str(rewrite_count), encoding=REWRITE_COUNT_ENCODING)
+    except OSError:
+        return False
+    return True
+
+
+def delete_rewrite_count(count_path: Path) -> None:
+    """Remove the session's rewrite count file; a failed delete leaves the session unaffected."""
+    try:
+        count_path.unlink(missing_ok=True)
     except OSError:
         return
 
@@ -120,10 +129,12 @@ def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     if violation is None:
         return None
     count_path = rewrite_count_path(all_hook_input.get(SESSION_ID_KEY))
-    rewrite_count = read_rewrite_count(count_path)
+    is_rewrite_of_blocked_reply = all_hook_input.get(STOP_HOOK_ACTIVE_KEY) is True
+    rewrite_count = read_rewrite_count(count_path) if is_rewrite_of_blocked_reply else 0
     if rewrite_count >= MAXIMUM_REWRITES_PER_TURN:
         return None
-    write_rewrite_count(count_path, rewrite_count + 1)
+    if not write_rewrite_count(count_path, rewrite_count + 1):
+        return None
     return violation + REWRITE_INSTRUCTION
 
 
@@ -190,8 +201,13 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     event_name = hook_input.get(HOOK_EVENT_NAME_INPUT_KEY)
     if event_name == USER_PROMPT_SUBMIT_EVENT_NAME:
-        write_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)), 0)
+        count_path = rewrite_count_path(hook_input.get(SESSION_ID_KEY))
+        if not write_rewrite_count(count_path, 0):
+            delete_rewrite_count(count_path)
         write_reply_limit_reminder()
+        return ALLOW_EXIT_CODE
+    if event_name == SESSION_END_EVENT_NAME:
+        delete_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)))
         return ALLOW_EXIT_CODE
     if event_name == POST_TOOL_USE_EVENT_NAME:
         block_reason = mid_turn_block_reason(hook_input)

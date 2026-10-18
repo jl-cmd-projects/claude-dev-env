@@ -39,11 +39,10 @@ from hooks_constants.session_edit_stage_gate_constants import (  # noqa: E402
     APPLY_PATCH_TOOL_NAME,
     SESSION_EDIT_FILE_PREFIX,
     SESSION_EDIT_FILE_SUFFIX,
-    SESSION_ID_UNSAFE_CHARACTERS_PATTERN,
     STATE_FILE_ATOMIC_WRITE_SUFFIX,
-    STATE_FILE_DEFAULT_SESSION_ID,
     STATE_FILE_JSON_INDENT_SPACES,
 )
+from hooks_constants.session_file_id import session_file_id
 
 
 def _resolved_path_or_none(file_path: str) -> str | None:
@@ -74,9 +73,7 @@ def _session_edit_file_path(session_id: str) -> Path:
     Returns:
         Absolute path to this session's tracker file.
     """
-    sanitized_session_id = SESSION_ID_UNSAFE_CHARACTERS_PATTERN.sub("", session_id)
-    effective_session_id = sanitized_session_id or STATE_FILE_DEFAULT_SESSION_ID
-    file_name = f"{SESSION_EDIT_FILE_PREFIX}{effective_session_id}{SESSION_EDIT_FILE_SUFFIX}"
+    file_name = f"{SESSION_EDIT_FILE_PREFIX}{session_file_id(session_id)}{SESSION_EDIT_FILE_SUFFIX}"
     return Path(tempfile.gettempdir()) / file_name
 
 

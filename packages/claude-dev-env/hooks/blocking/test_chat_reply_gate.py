@@ -23,7 +23,8 @@ def run_hook(
     hook_input: dict[str, object],
 ) -> tuple[int, str, str]:
     monkeypatch.setattr(
-        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+        "sys.stdin",
+        io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")), encoding="utf-8"),
     )
     exit_code = chat_reply_gate.main()
     captured = capsys.readouterr()
@@ -58,13 +59,27 @@ def test_should_allow_stop_when_reply_fits_the_limit(
 def test_should_allow_stop_after_three_rewrites_in_one_turn(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    stop_input = {
+    fresh_stop_input = {
         "hook_event_name": "Stop",
         "session_id": "abc",
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
-    all_exit_codes = [run_hook(monkeypatch, capsys, stop_input)[0] for _ in range(4)]
-    assert all_exit_codes == [2, 2, 2, 0]
+    rewrite_stop_input = {**fresh_stop_input, "stop_hook_active": True}
+    first_exit_code = run_hook(monkeypatch, capsys, fresh_stop_input)[0]
+    all_rewrite_exit_codes = [run_hook(monkeypatch, capsys, rewrite_stop_input)[0] for _ in range(3)]
+    assert [first_exit_code, *all_rewrite_exit_codes] == [2, 2, 2, 0]
+
+
+def test_should_block_a_fresh_stop_after_the_cap_without_a_user_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    chat_reply_gate.write_rewrite_count(chat_reply_gate.rewrite_count_path("abc"), 3)
+    exit_code, _, _ = run_hook(
+        monkeypatch,
+        capsys,
+        {"hook_event_name": "Stop", "session_id": "abc", "last_assistant_message": FOUR_SENTENCE_REPLY},
+    )
+    assert exit_code == 2
 
 
 def test_should_block_again_after_the_next_user_prompt(
@@ -73,6 +88,7 @@ def test_should_block_again_after_the_next_user_prompt(
     stop_input = {
         "hook_event_name": "Stop",
         "session_id": "abc",
+        "stop_hook_active": True,
         "last_assistant_message": FOUR_SENTENCE_REPLY,
     }
     for _ in range(3):
@@ -122,6 +138,56 @@ def test_write_rewrite_count_should_store_the_count(tmp_path: Path) -> None:
     count_path = tmp_path / "count.txt"
     chat_reply_gate.write_rewrite_count(count_path, 2)
     assert chat_reply_gate.read_rewrite_count(count_path) == 2
+
+
+def test_should_allow_stop_when_the_rewrite_count_cannot_be_stored(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        chat_reply_gate.tempfile, "gettempdir", lambda: str(tmp_path / "missing-directory")
+    )
+    exit_code, _, error_text = run_hook(
+        monkeypatch,
+        capsys,
+        {"hook_event_name": "Stop", "session_id": "abc", "last_assistant_message": FOUR_SENTENCE_REPLY},
+    )
+    assert exit_code == 0
+    assert error_text == ""
+
+
+def test_should_delete_the_rewrite_count_when_the_prompt_reset_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    count_path = chat_reply_gate.rewrite_count_path("abc")
+    chat_reply_gate.write_rewrite_count(count_path, 3)
+    monkeypatch.setattr(chat_reply_gate, "write_rewrite_count", lambda *_args: False)
+    run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
+    assert not count_path.exists()
+
+
+def test_delete_rewrite_count_should_remove_the_file(tmp_path: Path) -> None:
+    count_path = tmp_path / "count.txt"
+    chat_reply_gate.write_rewrite_count(count_path, 2)
+    chat_reply_gate.delete_rewrite_count(count_path)
+    assert not count_path.exists()
+
+
+def test_should_delete_the_rewrite_count_at_session_end(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stop_input = {
+        "hook_event_name": "Stop",
+        "session_id": "abc",
+        "last_assistant_message": FOUR_SENTENCE_REPLY,
+    }
+    run_hook(monkeypatch, capsys, stop_input)
+    count_path = chat_reply_gate.rewrite_count_path("abc")
+    assert count_path.exists()
+    exit_code, _, _ = run_hook(
+        monkeypatch, capsys, {"hook_event_name": "SessionEnd", "session_id": "abc"}
+    )
+    assert exit_code == 0
+    assert not count_path.exists()
 
 
 def test_write_reply_limit_reminder_should_print_additional_context(
