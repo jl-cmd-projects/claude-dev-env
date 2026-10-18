@@ -13,9 +13,9 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
     if each_sys_path_entry not in sys.path:
         sys.path.insert(0, each_sys_path_entry)
 
-import grade_role_stack_replay as grader
+import grade_deepstack_replay as grader
 
-_FIXTURE_PATH = _SESSION_DIR / "fixtures" / "role_stack_replay.json"
+_FIXTURE_PATH = _SESSION_DIR / "fixtures" / "deepstack_replay.json"
 
 
 def test_should_score_the_login_failure_example_without_rewriting() -> None:
@@ -37,7 +37,7 @@ def test_should_leave_the_task_text_unchanged_in_the_fixture() -> None:
 
 def test_should_exit_zero_when_the_fixture_matches() -> None:
     completed = subprocess.run(
-        [sys.executable, str(_SESSION_DIR / "grade_role_stack_replay.py"), str(_FIXTURE_PATH)],
+        [sys.executable, str(_SESSION_DIR / "grade_deepstack_replay.py"), str(_FIXTURE_PATH)],
         capture_output=True,
         text=True,
         check=False,

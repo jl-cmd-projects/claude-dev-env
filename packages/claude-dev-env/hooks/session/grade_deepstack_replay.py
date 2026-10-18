@@ -58,7 +58,7 @@ def score_fixture(fixture: dict[str, object]) -> list[dict[str, str]]:
 def main(all_arguments: list[str]) -> int:
     """Read one fixture path and print a score line per case."""
     if len(all_arguments) != 1:
-        sys.stderr.write("usage: grade_role_stack_replay.py <fixture.json>\n")
+        sys.stderr.write("usage: grade_deepstack_replay.py <fixture.json>\n")
         return 2
     fixture_path = Path(all_arguments[0])
     fixture = json.loads(fixture_path.read_text(encoding=UTF8_ENCODING))
