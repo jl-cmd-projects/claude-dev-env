@@ -7,6 +7,7 @@ import {
     DEEPSTACK_MARKETPLACE_REPOSITORY,
     DEEPSTACK_PLUGIN_IDENTIFIER,
     DEEPSTACK_PLUGIN_SPEC,
+    deepStackCloneUrl,
     deepStackInstallPlan,
     installDeepStackCursor,
     installDeepStackForHosts,
@@ -25,6 +26,7 @@ test('Claude and Codex plans name jl-cmd-projects/DeepStack', () => {
         ['plugin', 'add', DEEPSTACK_PLUGIN_IDENTIFIER],
     ]);
     assert.equal(DEEPSTACK_MARKETPLACE_REPOSITORY, 'jl-cmd-projects/DeepStack');
+    assert.equal(deepStackCloneUrl(), 'https://github.com/jl-cmd-projects/DeepStack.git');
     assert.equal(plan.cursor.skillRelativePath, 'skills/deepstack-mode/SKILL.md');
     assert.equal(plan.cursor.firstTaskHookName, 'deepen_first_prompt.py');
     assert.throws(() => marketplacePluginsPlan([DEEPSTACK_PLUGIN_SPEC], 'cursor'), /cursor/);

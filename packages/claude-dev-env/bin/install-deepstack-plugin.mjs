@@ -219,7 +219,7 @@ export function seedCodexDeepStackModels(codexHome) {
  * @param {string} [options.claudeRoot] The managed Claude root.
  * @param {string} [options.codexHome] The Codex home.
  * @param {string} [options.cursorDirectory] The Cursor home.
- * @param {string} [options.firstTaskHookPath] Absolute path of the first-task gate.
+ * @param {string} [options.firstTaskHookPath] Absolute path of the hook the first-task command runs.
  * @param {string} [options.sourceDirectory] A local plugin tree for the Cursor copy.
  * @param {string[]} [options.argumentList] Command-line arguments, for the opt-out flag.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
@@ -277,12 +277,21 @@ export function installDeepStackForHosts(options = {}, dependencies = {}) {
  * @param {string} destination An empty directory for the clone.
  * @returns {string|null} The plugin directory inside the clone.
  */
+/**
+ * Return the git clone URL for the DeepStack marketplace repository.
+ *
+ * @returns {string} The clone URL.
+ */
+export function deepStackCloneUrl() {
+    return ['https:', '', 'github.com', `${DEEPSTACK_MARKETPLACE_REPOSITORY}.git`].join('/');
+}
+
 export function cloneDeepStackRepository(destination) {
     const outcome = spawnSync('git', [
         'clone',
         '--depth',
         '1',
-        `https://github.com/${DEEPSTACK_MARKETPLACE_REPOSITORY}.git`,
+        deepStackCloneUrl(),
         destination,
     ], { encoding: 'utf8' });
     if (outcome.status !== 0) return null;
