@@ -210,10 +210,8 @@ function namesAnAbsentCommand(outcome) {
         && COMMAND_NOT_FOUND_PATTERN.test(outcome.stderr ?? '');
 }
 
-function firstLine(text) {
-    const trimmed = (text ?? '').trim();
-    if (!trimmed) return '';
-    return trimmed.split(/\r?\n/).filter(Boolean).at(-1);
+function singleLineDetail(text) {
+    return (text ?? '').split(/\r?\n/).map(eachLine => eachLine.trim()).filter(Boolean).join(' ');
 }
 
 const ORPHANED_VERSION_MARKER = '.orphaned_at';
@@ -266,7 +264,7 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand) 
         });
         if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
         if (outcome.status !== 0 || outcome.error) {
-            const detail = firstLine(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+            const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
             return {
                 host,
                 executable,
