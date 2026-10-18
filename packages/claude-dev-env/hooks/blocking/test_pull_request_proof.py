@@ -139,6 +139,61 @@ def test_gh_create_body_file_with_test_only_proof_should_be_denied(tmp_path: Pat
     assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON
 
 
+def test_proof_with_only_py_test_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `py.test`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_only_a_fenced_pytest_exe_should_be_denied() -> None:
+    body = "## Proof in practice\n```\n$ pytest.exe\n```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_only_a_source_citation_should_pass() -> None:
+    body = "## Proof in practice\nSee `src/x.py`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_unittest_after_an_interpreter_flag_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python -q -m unittest discover`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_unittest_after_a_valued_interpreter_flag_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python -W default -m unittest`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_script_that_mentions_unittest_should_pass() -> None:
+    body = "## Proof in practice\nRan `python script.py -m unittest`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_a_module_other_than_unittest_should_pass() -> None:
+    body = "## Proof in practice\nRan `python -W default -m my_app`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_proof_with_a_quoted_test_runner_word_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `npm \"test\"` and `cargo \"test\"`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_a_quoted_unittest_module_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python -m \"unittest\"`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_coverage_running_unittest_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `coverage run -m unittest discover`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_with_coverage_running_an_application_should_pass() -> None:
+    body = "## Proof in practice\nRan `coverage run -m my_app`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
 def test_gh_create_with_fill_should_ask_for_a_body() -> None:
     assert gate.missing_proof_reason(_shell("gh pr create --fill")) == MISSING_BODY_REASON
 

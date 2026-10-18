@@ -55,7 +55,11 @@ from hooks_constants.piped_pytest_blocker_constants import (
     MODULE_RUN_FLAG,
     PYTHON_INTERPRETER_BASENAME_PATTERN,
 )
-from hooks_constants.pytest_invocation import segment_runs_pytest, unquoted_token
+from hooks_constants.pytest_invocation import (
+    _all_tokens_from_the_interpreter_module_flag,
+    segment_runs_pytest,
+    unquoted_token,
+)
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import (
@@ -306,7 +310,29 @@ def _reads_as_command(span: str) -> bool:
     all_words = span.split()
     if not all_words or re.match(PATH_WITH_LINE_PATTERN, all_words[0]):
         return False
-    return len(all_words) > 1 or re.match(SINGLE_FILE_NAME_PATTERN, all_words[0]) is None
+    if len(all_words) > 1 or re.match(SINGLE_FILE_NAME_PATTERN, all_words[0]) is None:
+        return True
+    return _command_runs_tests(span)
+
+
+def _unquoted_arguments(all_arguments: list[str]) -> list[str]:
+    return [unquoted_token(each_argument) for each_argument in all_arguments]
+
+
+def _arguments_name_unittest(all_arguments: list[str]) -> bool:
+    all_module_tokens = _all_tokens_from_the_interpreter_module_flag(
+        _unquoted_arguments(all_arguments)
+    )
+    if not all_module_tokens:
+        return False
+    module_flag = unquoted_token(all_module_tokens[0])
+    if module_flag == MODULE_RUN_FLAG + UNITTEST_MODULE_NAME:
+        return True
+    return (
+        module_flag == MODULE_RUN_FLAG
+        and len(all_module_tokens) > 1
+        and unquoted_token(all_module_tokens[1]) == UNITTEST_MODULE_NAME
+    )
 
 
 def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
@@ -314,10 +340,8 @@ def _segment_runs_tests(all_segment_tokens: list[str]) -> bool:
         return True
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
     if PYTHON_INTERPRETER_BASENAME_PATTERN.fullmatch(program):
-        return all_arguments[:2] == [MODULE_RUN_FLAG, UNITTEST_MODULE_NAME] or all_arguments[:1] == [
-            MODULE_RUN_FLAG + UNITTEST_MODULE_NAME
-        ]
-    command_words = (program, *all_arguments)
+        return _arguments_name_unittest(all_arguments)
+    command_words = (program, *_unquoted_arguments(all_arguments))
     return any(
         command_words[: len(each_prefix)] == each_prefix
         for each_prefix in ALL_TEST_RUNNER_COMMAND_PREFIXES
@@ -348,6 +372,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         gh pr create --body-file body.md, body has the section -> None
         mcp__github__create_pull_request, body without it      -> MISSING_PROOF_REASON
         proof whose only commands run tests, like `pytest`      -> TEST_ONLY_PROOF_REASON
+        proof whose only command is `py.test`                   -> TEST_ONLY_PROOF_REASON
+        proof whose only command is `python -q -m unittest`     -> TEST_ONLY_PROOF_REASON
         proof with `pytest` and `python run.py`                 -> None
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
@@ -355,10 +381,13 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     The proof section is a 'Proof in practice' heading whose text names at
     least one command in backticks. A command is an inline backticked span, or
     a line that starts with '$ ' inside a fenced block. A span that starts
-    with a path:line, or is one path or file name, is not a command. When every
-    command runs a test runner, such as pytest, python -m unittest, npm test,
-    npx vitest, jest, go test or cargo test, the section is denied. A pipe into
-    tee, tail, head, grep or cat keeps a test run a test run.
+    with a path:line is not a command. A span that is one path or file name is
+    not a command unless that span runs a test runner, such as py.test or
+    pytest.exe. When every command runs a test runner, such as pytest,
+    python -m unittest, npm test, npx vitest, jest, go test or cargo test,
+    the section is denied. Quotes around a runner word still count. Interpreter
+    flags before -m unittest still count. coverage run -m unittest counts.
+    A pipe into tee, tail, head, grep or cat keeps a test run a test run.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.

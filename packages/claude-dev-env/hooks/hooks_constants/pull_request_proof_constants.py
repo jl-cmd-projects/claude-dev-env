@@ -51,6 +51,7 @@ ALL_TEST_RUNNER_COMMAND_PREFIXES = frozenset(
         ("cargo", "test"),
         ("deno", "test"),
         ("dotnet", "test"),
+        ("unittest",),
     }
 )
 UNIT_TESTS_GUIDE_LINE = "Unit tests are welcome as extra evidence. The live run is the proof."
