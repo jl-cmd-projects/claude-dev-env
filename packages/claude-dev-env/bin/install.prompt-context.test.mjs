@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { mergeHooksIntoSettings } from './install.mjs';
 
-test('reinstall drops the retired style reminder and keeps one skill reminder hook', () => {
+test('reinstall drops the retired style reminder and keeps the skill and reply reminders', () => {
     const hooksConfig = JSON.parse(readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8'));
     const userCommand = 'python C:/Users/example/hooks/user_hook.py';
     const settings = {

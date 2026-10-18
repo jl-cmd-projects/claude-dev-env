@@ -6,10 +6,18 @@ A reply typed straight into the chat is no tool call, so this hook runs
 the same checks on it::
 
     UserPromptSubmit                         -> additionalContext states the limit
+    PostToolUse, text before the call fits   -> allow
+    PostToolUse, text before the call breaks -> exit 2, reason sent back mid-turn
     Stop, last reply within the limit        -> allow
     Stop, last reply over the limit          -> block, reason sent back for a rewrite
     Stop, MAXIMUM_REWRITES_PER_TURN reached  -> allow, so a turn never loops
     SessionEnd                               -> delete the rewrite count file
+
+On PostToolUse the hook reads the transcript and checks the text blocks
+that sit between the last user entry and this call. Sibling calls in one
+message share that text, so only the first call checks it. A subagent
+call, and a call that does not appear in the transcript before the poll
+limit, pass without a check.
 
 The rewrite count lives in one temp file per session. Each user prompt
 sets it back to zero, and so does each Stop whose ``stop_hook_active``
@@ -26,6 +34,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -36,10 +45,16 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from reply_length_gate import reply_violation
+from step_note_gate import read_transcript_tail, tool_use_position, transcript_blocks
 from hooks_constants.chat_reply_gate_constants import (
+    AGENT_ID_KEY,
     HOOK_EVENT_NAME_INPUT_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
     MAXIMUM_REWRITES_PER_TURN,
+    MID_TURN_INSTRUCTION,
+    MID_TURN_TEXT_PREFIX,
+    MID_TURN_TEXT_SEPARATOR,
+    POST_TOOL_USE_EVENT_NAME,
     REPLY_LIMIT_REMINDER,
     REWRITE_COUNT_ENCODING,
     REWRITE_COUNT_FILE_PREFIX,
@@ -49,6 +64,8 @@ from hooks_constants.chat_reply_gate_constants import (
     SESSION_ID_KEY,
     STOP_EVENT_NAME,
     STOP_HOOK_ACTIVE_KEY,
+    TOOL_USE_ID_KEY,
+    TRANSCRIPT_PATH_KEY,
     USER_PROMPT_SUBMIT_EVENT_NAME,
 )
 from hooks_constants.hook_block_logger import log_hook_block
@@ -63,6 +80,13 @@ from hooks_constants.reply_length_gate_constants import (
     BLOCK_EXIT_CODE,
 )
 from hooks_constants.session_file_id import session_file_id
+from hooks_constants.step_note_gate_constants import (
+    POLL_INTERVAL_SECONDS,
+    POLL_LIMIT_SECONDS,
+    TEXT_BLOCK_TYPE,
+    TOOL_USE_BLOCK_TYPE,
+    USER_ROLE,
+)
 
 
 def rewrite_count_path(session_id: object) -> Path:
@@ -114,6 +138,54 @@ def stop_block_reason(all_hook_input: dict[str, object]) -> str | None:
     return violation + REWRITE_INSTRUCTION
 
 
+def text_before_call(all_entries: list[dict], tool_use_id: str) -> str | None:
+    """Return the text that opens the step holding this call, or None when the call is not written.
+
+    A sibling call later in the same message gets an empty string, since the
+    first call of the message owns the text.
+    """
+    all_blocks = list(transcript_blocks(all_entries))
+    call_position = tool_use_position(all_blocks, tool_use_id)
+    if call_position is None:
+        return None
+    all_texts_newest_first: list[str] = []
+    for each_role, each_block in reversed(all_blocks[:call_position]):
+        if each_role == USER_ROLE or each_block.get("type") == TOOL_USE_BLOCK_TYPE:
+            break
+        if each_block.get("type") == TEXT_BLOCK_TYPE:
+            all_texts_newest_first.append(str(each_block.get("text", "")))
+    return MID_TURN_TEXT_SEPARATOR.join(reversed(all_texts_newest_first))
+
+
+def wait_for_text_before_call(transcript_path: Path, tool_use_id: str) -> str | None:
+    """Poll the transcript tail until this call is written, then return the text before it."""
+    deadline = time.monotonic() + POLL_LIMIT_SECONDS
+    while True:
+        mid_turn_text = text_before_call(read_transcript_tail(transcript_path), tool_use_id)
+        if mid_turn_text is not None or time.monotonic() >= deadline:
+            return mid_turn_text
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+
+def mid_turn_block_reason(all_hook_input: dict[str, object]) -> tuple[str, str] | None:
+    """Return the block reason and the text that tripped it, or None when the call passes."""
+    if all_hook_input.get(AGENT_ID_KEY):
+        return None
+    tool_use_id = all_hook_input.get(TOOL_USE_ID_KEY)
+    transcript_path = all_hook_input.get(TRANSCRIPT_PATH_KEY)
+    if not isinstance(tool_use_id, str) or not isinstance(transcript_path, str):
+        return None
+    if not tool_use_id or not transcript_path:
+        return None
+    mid_turn_text = wait_for_text_before_call(Path(transcript_path), tool_use_id)
+    if not mid_turn_text:
+        return None
+    violation = reply_violation(mid_turn_text, None, None)
+    if violation is None:
+        return None
+    return MID_TURN_TEXT_PREFIX + violation + MID_TURN_INSTRUCTION, mid_turn_text
+
+
 def write_reply_limit_reminder() -> None:
     """Print the reply limit as UserPromptSubmit additionalContext."""
     hook_event_output = {
@@ -137,16 +209,24 @@ def main() -> int:
     if event_name == SESSION_END_EVENT_NAME:
         delete_rewrite_count(rewrite_count_path(hook_input.get(SESSION_ID_KEY)))
         return ALLOW_EXIT_CODE
-    if event_name != STOP_EVENT_NAME:
-        return ALLOW_EXIT_CODE
-    block_reason = stop_block_reason(hook_input)
-    if block_reason is None:
+    if event_name == POST_TOOL_USE_EVENT_NAME:
+        mid_turn_block = mid_turn_block_reason(hook_input)
+        if mid_turn_block is None:
+            return ALLOW_EXIT_CODE
+        block_reason, offending_preview = mid_turn_block
+    elif event_name == STOP_EVENT_NAME:
+        stop_reason = stop_block_reason(hook_input)
+        if stop_reason is None:
+            return ALLOW_EXIT_CODE
+        block_reason = stop_reason
+        offending_preview = str(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY))
+    else:
         return ALLOW_EXIT_CODE
     log_hook_block(
         Path(__file__).name,
-        STOP_EVENT_NAME,
+        str(event_name),
         block_reason,
-        offending_input_preview=str(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)),
+        offending_input_preview=offending_preview,
     )
     sys.stderr.write(block_reason)
     return BLOCK_EXIT_CODE
