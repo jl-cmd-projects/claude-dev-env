@@ -19,7 +19,6 @@ PowerShell tools.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -32,14 +31,13 @@ try:
         DENY_DECISION,
         HOOK_EVENT_NAME,
     )
+    from hooks_constants.cloud_session import is_cloud_session
     from hooks_constants.headless_claude_broker_gate_constants import (
         ALL_PRINT_MODE_FLAGS,
         ALL_WINDOWS_LAUNCHER_SUFFIXES,
         BROKER_COMMAND_DENY_REASON,
         CLAUDE_PROFILE_LAUNCHER_PREFIX,
         CLAUDE_PROGRAM_NAME,
-        CLOUD_SESSION_ENV_TRUE_VALUE,
-        CLOUD_SESSION_ENV_VAR,
         GATE_HOOK_NAME,
         PRINT_MODE_LONG_FLAG_WITH_VALUE_PREFIX,
     )
@@ -117,11 +115,6 @@ def starts_unbrokered_headless_claude(command: str) -> bool:
         for each_text in all_wrapped_command_texts(command)
         for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
     )
-
-
-def is_cloud_session() -> bool:
-    """Return True when this hook runs inside a Claude Code cloud session."""
-    return os.environ.get(CLOUD_SESSION_ENV_VAR, "").strip().lower() == CLOUD_SESSION_ENV_TRUE_VALUE
 
 
 def main() -> None:

@@ -3,8 +3,9 @@
 
 Codex reports usage through ``codex app-server`` and the JSON-RPC method
 ``account/rateLimits/read``. The reply names up to two windows, a short one
-(5 hours) and a weekly one. The account's room is the smaller of the two.
-The reply also names the account's plan, such as ``pro`` or ``team``::
+(5 hours) and a weekly one. The account broker counts the account's room as
+the smaller of the two. The reply also names the account's plan, such as
+``pro`` or ``team``::
 
     5-hour window 30% used, week 85% used  -> 15% left
     week window only, 40% used             -> 60% left
@@ -12,8 +13,10 @@ The reply also names the account's plan, such as ``pro`` or ``team``::
     no planType                            -> plan_type None
     no window, error reply, no reply       -> CodexMeterUnreadError
 
-Every failure raises ``CodexMeterUnreadError``. The caller decides what an
-unread account means; this module never guesses a number.
+Every read failure raises ``CodexMeterUnreadError``. A missing Codex
+executable raises ``CodexExecutableNotFoundError`` from ``resolve_codex_path``.
+The caller decides what an unread account means; this module never guesses a
+number.
 """
 
 from __future__ import annotations
@@ -72,6 +75,10 @@ class CodexMeterUnreadError(Exception):
     """Raised when one account's rate-limit windows cannot be read."""
 
 
+class CodexExecutableNotFoundError(FileNotFoundError):
+    """Raised when no Codex executable is on PATH or at its install path."""
+
+
 @dataclass(frozen=True)
 class UsageWindow:
     """One rate-limit window: its length, the percent used, and when it resets."""
@@ -80,57 +87,37 @@ class UsageWindow:
     used_percent: float
     resets_at: datetime | None
 
+    @property
+    def is_short(self) -> bool:
+        """Whether the window reports a length shorter than a week. A window with no length counts as weekly."""
+        return self.duration_minutes is not None and self.duration_minutes < WEEKLY_WINDOW_MINUTES
+
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows and plan, with percent_left, short_window_percent_left and resets_before_room."""
+    """One account's windows and plan, with its tightest short window and its tightest weekly window."""
 
     all_windows: tuple[UsageWindow, ...]
     plan_type: str | None = None
 
     @property
-    def percent_left(self) -> float:
-        """Room left in the tightest window, from 0 to 100."""
-        most_used = max(each_window.used_percent for each_window in self.all_windows)
-        return max(0.0, FULL_PERCENT - most_used)
+    def short_window(self) -> UsageWindow | None:
+        """The most used window shorter than a week, or None when the account has none."""
+        all_short_windows = [each_window for each_window in self.all_windows if each_window.is_short]
+        return max(all_short_windows, key=lambda each_window: each_window.used_percent, default=None)
+
+    @property
+    def weekly_window(self) -> UsageWindow | None:
+        """The most used window of a week or of no reported length, or None when the account has none."""
+        all_weekly_windows = [each_window for each_window in self.all_windows if not each_window.is_short]
+        return max(all_weekly_windows, key=lambda each_window: each_window.used_percent, default=None)
 
     @property
     def short_window_percent_left(self) -> float | None:
         """Room left in the windows shorter than a week, or None when the account has none."""
-        all_short_used = [
-            each_window.used_percent
-            for each_window in self.all_windows
-            if each_window.duration_minutes is not None
-            and each_window.duration_minutes < WEEKLY_WINDOW_MINUTES
-        ]
-        if not all_short_used:
+        if self.short_window is None:
             return None
-        return max(0.0, FULL_PERCENT - max(all_short_used))
-
-    def resets_before_room(self, minimum_percent_left: float) -> datetime | None:
-        """When every window that holds the account at or under a bar has reset.
-
-        Args:
-            minimum_percent_left: The percent left the account must pass.
-
-        Returns:
-            The latest reset among the blocking windows, or None when one
-            carries no reset time or none blocks.
-        """
-        all_blocking = [
-            each_window
-            for each_window in self.all_windows
-            if FULL_PERCENT - each_window.used_percent <= minimum_percent_left
-        ]
-        if not all_blocking or any(
-            each_window.resets_at is None for each_window in all_blocking
-        ):
-            return None
-        return max(
-            each_window.resets_at
-            for each_window in all_blocking
-            if each_window.resets_at is not None
-        )
+        return FULL_PERCENT - self.short_window.used_percent
 
 
 def _finite_number(raw_number: object) -> float | None:
@@ -403,7 +390,7 @@ def resolve_codex_path(explicit_path: Path | None) -> Path:
         The named path, else ``codex`` on PATH, else a known install path.
 
     Raises:
-        FileNotFoundError: No Codex executable was found.
+        CodexExecutableNotFoundError: No Codex executable was found.
     """
     if explicit_path is not None:
         return explicit_path
@@ -414,4 +401,4 @@ def resolve_codex_path(explicit_path: Path | None) -> Path:
         candidate = Path.home().joinpath(*each_parts)
         if candidate.is_file():
             return candidate
-    raise FileNotFoundError("no codex executable on PATH or at its install path")
+    raise CodexExecutableNotFoundError("no codex executable on PATH or at its install path")

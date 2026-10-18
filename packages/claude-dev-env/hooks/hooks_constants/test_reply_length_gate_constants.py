@@ -5,9 +5,9 @@ def test_gate_limits_replies_to_three_sentences_of_fifteen_words() -> None:
     assert (constants.MAXIMUM_SENTENCE_COUNT, constants.MAXIMUM_WORDS_PER_SENTENCE) == (3, 15)
 
 
-def test_gate_checks_the_two_chat_tools_that_post_to_the_user() -> None:
+def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:
     assert constants.ALL_CHECKED_TOOL_NAMES == frozenset(
-        {"mcp__hearthbot__reply", "mcp__hearthbot__post_message"}
+        {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
     )
 
 
@@ -51,3 +51,11 @@ def test_colon_pattern_matches_a_colon_with_prose_after_it_on_the_line() -> None
     assert constants.MID_SENTENCE_COLON_PATTERN.search("matters: one message")
     assert constants.MID_SENTENCE_COLON_PATTERN.search("at 9:47") is None
     assert constants.MID_SENTENCE_COLON_PATTERN.search("items:\n- one") is None
+
+
+def test_gate_caps_card_context_at_two_sentences_and_checks_card_length_fields() -> None:
+    assert (
+        constants.MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+        constants.ALL_DECISION_CARD_LENGTH_KEYS,
+        constants.ALL_DECISION_OPTION_LENGTH_KEYS,
+    ) == (2, ("question", "context", "reason"), ("consequence",))
