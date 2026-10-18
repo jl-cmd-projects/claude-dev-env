@@ -102,6 +102,19 @@
       "char_limit": 1500
     },
     {
+      "name": "chat reply gate",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/blocking/chat_reply_gate.py"
+      ],
+      "stdin": {
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "context-budget",
+        "prompt": "status?"
+      },
+      "char_limit": 1500
+    },
+    {
       "name": "deepen first prompt",
       "command": [
         "env",

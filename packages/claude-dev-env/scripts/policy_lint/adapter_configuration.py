@@ -130,6 +130,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/pr_lifecycle_skill_gate.py        -> exempt
         hooks/blocking/step_note_gate.py                 -> exempt
         hooks/blocking/reply_length_gate.py              -> exempt
+        hooks/blocking/chat_reply_gate.py                -> exempt
         hooks/blocking/edit_marker_gate.py               -> exempt
         hooks/blocking/issue_close_handoff_gate.py       -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt
@@ -154,7 +155,8 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     It asks for a readable status line and decides no code or safety policy.
 
     The reply length gate caps the sentences in a chat reply to the user. It
-    decides the shape of prose and no code or safety policy.
+    decides the shape of prose and no code or safety policy. The chat reply
+    gate runs the same checks on a reply typed straight into the chat.
 
     The edit marker gate keeps strikethrough and edit notes out of an edited
     chat message. It decides the shape of prose and no code or safety policy.

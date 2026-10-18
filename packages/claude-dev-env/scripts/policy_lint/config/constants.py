@@ -67,6 +67,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/merge_review_gate.py",
     "blocking/step_note_gate.py",
     "blocking/reply_length_gate.py",
+    "blocking/chat_reply_gate.py",
     "blocking/edit_marker_gate.py",
     "blocking/issue_close_handoff_gate.py",
     "blocking/verify_before_acting.py",

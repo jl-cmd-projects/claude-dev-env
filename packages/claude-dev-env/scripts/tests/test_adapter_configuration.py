@@ -90,6 +90,14 @@ def test_new_reply_length_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_chat_reply_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/chat_reply_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_edit_marker_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/edit_marker_gate.py"],
