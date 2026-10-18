@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.85.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.84.1...claude-dev-env-v8.85.0) (2026-10-18)
+
+
+### Features
+
+* **hooks:** swap an over-limit chat reply for a short draft on display ([#2026](https://github.com/jl-cmd-projects/claude-dev-env/issues/2026)) ([1a0a0de](https://github.com/jl-cmd-projects/claude-dev-env/commit/1a0a0de9bdca57e53b051189bda835d36c4a3ebe))
+
 ## [8.84.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.84.0...claude-dev-env-v8.84.1) (2026-10-18)
 
 
