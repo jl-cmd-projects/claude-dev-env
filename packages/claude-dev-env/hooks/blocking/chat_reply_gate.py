@@ -215,9 +215,10 @@ def main() -> int:
             return ALLOW_EXIT_CODE
         block_reason, offending_preview = mid_turn_block
     elif event_name == STOP_EVENT_NAME:
-        block_reason = stop_block_reason(hook_input)
-        if block_reason is None:
+        stop_reason = stop_block_reason(hook_input)
+        if stop_reason is None:
             return ALLOW_EXIT_CODE
+        block_reason = stop_reason
         offending_preview = str(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY))
     else:
         return ALLOW_EXIT_CODE
