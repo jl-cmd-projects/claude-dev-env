@@ -57,12 +57,12 @@ import {
 } from './install.mjs';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
 import {
+    DEEPEN_GUIDANCE_BLOCK_START,
     PACKAGE_GUIDANCE_BLOCK_END,
     PACKAGE_GUIDANCE_BLOCK_START,
-    SKILL_LOAD_BLOCK_START,
-    SKILL_LOAD_INSTRUCTION,
     QUESTION_PRESENTATION_BLOCK_START,
-    withSkillLoadBlock,
+    SKILL_LOAD_BLOCK_END,
+    SKILL_LOAD_BLOCK_START,
 } from './codex-skill-load-block.mjs';
 
 
@@ -3124,6 +3124,17 @@ function pstackPluginSandbox(t) {
     };
 }
 
+const STALE_SKILL_LOAD_SENTENCE = 'Load the pstack:poteto-mode skill before your first tool call or reply: '
+    + 'open its SKILL.md from your skills list and follow it. This binds every Codex agent, '
+    + 'including a helper started with spawn_agent, whatever its task message says.';
+
+function assertOmitsSkillLoadSentence(codexGuidance) {
+    assert.equal(codexGuidance.includes(SKILL_LOAD_BLOCK_START), false);
+    assert.equal(codexGuidance.includes(SKILL_LOAD_BLOCK_END), false);
+    assert.equal(codexGuidance.includes('pstack:poteto-mode'), false);
+    assert.equal(codexGuidance.includes(STALE_SKILL_LOAD_SENTENCE), false);
+}
+
 test('a full install adds the pstack marketplace and plugin on both hosts', t => {
     const sandbox = pstackPluginSandbox(t);
 
@@ -3145,9 +3156,10 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const sheet = readFileSync(join(codexHome, 'pstack-models.md'), 'utf8');
     const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
     assert.match(sheet, /^session hook: on$/m);
+    assert.match(agents, /^# pstack model configuration\n/);
     assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
     assert.doesNotMatch(agents, /^session hook:/m);
-    assert.ok(agents.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assertOmitsSkillLoadSentence(agents);
     assert.equal(existsSync(join(sandbox.homeDirectory, '.claude', 'pstack-models.md')), false);
     const manifestPath = join(sandbox.homeDirectory, '.claude', '.claude-dev-env-manifest.json');
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -3159,14 +3171,19 @@ test('a repeat install preserves Codex pstack configuration', t => {
     const sandbox = pstackPluginSandbox(t);
     const codexHome = join(sandbox.homeDirectory, '.codex');
     runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
-    writeFileSync(join(codexHome, 'AGENTS.md'), 'Custom Codex guidance\n');
+    writeFileSync(
+        join(codexHome, 'AGENTS.md'),
+        `${SKILL_LOAD_BLOCK_START}\n${STALE_SKILL_LOAD_SENTENCE}\n${SKILL_LOAD_BLOCK_END}\nCustom Codex guidance\n`,
+    );
     writeFileSync(join(codexHome, 'pstack-models.md'), 'session hook: off\n');
 
     runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
 
     const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
-    assert.ok(codexGuidance.startsWith(withSkillLoadBlock('Custom Codex guidance\n')));
+    assert.ok(codexGuidance.startsWith('Custom Codex guidance\n'));
+    assertOmitsSkillLoadSentence(codexGuidance);
     assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+    assert.ok(codexGuidance.includes(DEEPEN_GUIDANCE_BLOCK_START));
     assert.equal(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), 'session hook: off\n');
 });
 
@@ -3185,7 +3202,7 @@ test('a Codex guidance link to the retired Claude copy becomes a file Codex can 
     );
     assert.equal(lstatSync(codexAgentsPath).isSymbolicLink(), false);
     const codexGuidance = readFileSync(codexAgentsPath, 'utf8');
-    assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assertOmitsSkillLoadSentence(codexGuidance);
     assert.ok(codexGuidance.includes(packageGuidance));
 });
 
@@ -3248,8 +3265,9 @@ test('a fresh full install writes the package guidance into Codex AGENTS.md', t 
 
     const codexGuidance = readFileSync(join(sandbox.homeDirectory, '.codex', 'AGENTS.md'), 'utf8');
     assertHoldsPackageGuidance(codexGuidance);
-    assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assertOmitsSkillLoadSentence(codexGuidance);
     assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+    assert.ok(codexGuidance.includes(DEEPEN_GUIDANCE_BLOCK_START));
 });
 
 test('--no-pstack writes package and question guidance without the skill-load block', t => {
@@ -3329,9 +3347,10 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
     assert.match(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
     const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
     assert.match(codexGuidance, /^feature, refactoring: gpt-6-sol$/m);
-    assert.ok(codexGuidance.startsWith(`${SKILL_LOAD_BLOCK_START}\n${SKILL_LOAD_INSTRUCTION}\n`));
+    assertOmitsSkillLoadSentence(codexGuidance);
     assertHoldsPackageGuidance(codexGuidance);
     assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));
+    assert.ok(codexGuidance.includes(DEEPEN_GUIDANCE_BLOCK_START));
 });
 
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([

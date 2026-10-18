@@ -2927,13 +2927,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                     allUserOwnedPreferencePaths.add(eachPath);
                 }
             }
-            const skillLoadGuidancePath = writeCodexAgentsGuidance(
+            const codexGuidancePath = writeCodexAgentsGuidance(
                 INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
                 packageGuidanceText,
                 allPackageGuidancePaths,
             );
-            if (skillLoadGuidancePath) {
-                console.log(`  \u2713 ${skillLoadGuidancePath} (Codex skill-load line)`);
+            if (codexGuidancePath) {
+                console.log(`  \u2713 ${codexGuidancePath} (Codex package guidance)`);
             }
         }
         printPluginHostOutcomes([PSTACK_PLUGIN_SPEC], pstackPlugin);

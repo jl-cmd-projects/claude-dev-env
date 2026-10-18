@@ -171,7 +171,7 @@ test('a selected Claude profile receives the source rule and its Codex guidance'
     assert.ok(readFileSync(join(profileDirectory, '.codex', 'AGENTS.md'), 'utf8').includes(readFileSync(policyPath, 'utf8')));
 });
 
-test('a successful pstack install retains its skill block and gains the question block', (context) => {
+test('a successful pstack install omits the retired skill block and gains the question block', (context) => {
     const homeDirectory = makeScratchHome(context);
     const commandPath = join(homeDirectory, process.platform === 'win32' ? 'codex.cmd' : 'codex');
     writeFileSync(
@@ -191,7 +191,7 @@ test('a successful pstack install retains its skill block and gains the question
 
     assert.equal(installation.status, 0, installation.stdout + installation.stderr);
     const guidanceText = readFileSync(join(homeDirectory, '.codex', 'AGENTS.md'), 'utf8');
-    assert.match(guidanceText, /<!-- claude-dev-env skill load: start -->/);
+    assert.doesNotMatch(guidanceText, /<!-- claude-dev-env skill load: start -->/);
     assert.match(guidanceText, /<!-- claude-dev-env question presentation: start -->/);
     assert.ok(guidanceText.includes(readFileSync(policyPath, 'utf8')));
 });
@@ -221,7 +221,7 @@ test('enabling pstack after a pstack-off install preserves question guidance', (
     assert.equal(secondInstallation.status, 0, secondInstallation.stdout + secondInstallation.stderr);
     const updatedGuidance = readFileSync(codexGuidancePath, 'utf8');
     assert.ok(updatedGuidance.includes(firstGuidance));
-    assert.match(updatedGuidance, /<!-- claude-dev-env skill load: start -->/);
+    assert.doesNotMatch(updatedGuidance, /<!-- claude-dev-env skill load: start -->/);
     assert.match(updatedGuidance, /^feature, refactoring: gpt-6-sol$/m);
     assert.match(readFileSync(join(homeDirectory, '.codex', 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
 });
