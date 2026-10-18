@@ -126,6 +126,34 @@ test('a failing command reports that host and still installs the next one', () =
         ['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY]);
 });
 
+test('should report every line of a multi-line marketplace add error', () => {
+    const cloneFailure = [
+        'Failed to add marketplace: Fetching the marketplace from GitHub failed on both attempts.'
+            + ' HTTPS (https://github.com/jl-cmd/pstack-claude.git): HTTPS clone timed out',
+        '',
+        'SSH (git@github.com:jl-cmd/pstack-claude.git): git@github.com: Permission denied (publickey).',
+        'fatal: Could not read from remote repository.',
+        '',
+        'Please make sure you have the correct access rights',
+        'and the repository exists.',
+    ].join('\r\n');
+    const runner = recordingRunner((executable, commandArguments) => (
+        executable === 'claude' && commandArguments[2] === 'add'
+            ? { status: 1, stderr: cloneFailure }
+            : { status: 0, stderr: '' }));
+    const claude = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner)
+        .hosts.find(host => host.host === 'claude');
+    assert.equal(
+        claude.warning,
+        `claude plugin marketplace add ${PSTACK_MARKETPLACE_REPOSITORY} failed: `
+        + 'Failed to add marketplace: Fetching the marketplace from GitHub failed on both attempts.'
+        + ' HTTPS (https://github.com/jl-cmd/pstack-claude.git): HTTPS clone timed out'
+        + ' SSH (git@github.com:jl-cmd/pstack-claude.git): git@github.com: Permission denied (publickey).'
+        + ' fatal: Could not read from remote repository.'
+        + ' Please make sure you have the correct access rights and the repository exists.',
+    );
+});
+
 test('an executable override replaces the host command for that host only', () => {
     const runner = recordingRunner();
     installMarketplacePlugins(
