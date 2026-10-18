@@ -18,7 +18,9 @@ is in place by the time any test module runs its top-level imports.
 from __future__ import annotations
 
 import importlib
+import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -52,3 +54,26 @@ def isolated_broker_state_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         if getattr(each_module, "broker_state_path", None) is _live_broker_state_resolver:
             monkeypatch.setattr(each_module, "broker_state_path", lambda: isolated_path)
     return isolated_path
+
+
+def _link_directory(*, from_link: Path, to_target: Path) -> None:
+    try:
+        importlib.import_module("claude_account_profile")._link_directory(to_target, from_link)
+    except subprocess.CalledProcessError as error:
+        link_output = (error.stderr or error.stdout or b"").decode(errors="replace").strip()
+        pytest.fail(f"directory link {from_link} -> {to_target} failed: {link_output}")
+    except OSError as error:
+        pytest.fail(f"directory link {from_link} -> {to_target} failed: {error}")
+
+
+@pytest.fixture
+def create_directory_link() -> Callable[..., None]:
+    """Return a helper that points a new directory link at a target folder.
+
+    Windows gets a junction, which needs no extra rights. Other systems get a
+    symlink. A link that cannot be made fails the test on either system.
+
+    Returns:
+        The helper, called as ``create_directory_link(from_link=..., to_target=...)``.
+    """
+    return _link_directory

@@ -32,7 +32,6 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     DENY_REASON,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
     GH_API_COMMAND,
-    GH_OPTIONS_WITH_VALUE,
     GH_PULL_REQUEST_COMMAND,
     GIT_ACTIONS,
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
@@ -49,6 +48,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
     SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
 )
+from hooks_constants.gh_command_words import gh_command_words
 from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
@@ -113,13 +113,12 @@ def _is_git_action(all_words: list[str]) -> bool:
 
 
 def _is_gh_action(all_words: list[str]) -> bool:
-    action, next_index = _next_command_word(all_words, 1, GH_OPTIONS_WITH_VALUE)
-    if action == GH_PULL_REQUEST_COMMAND:
-        subcommand, _ = _next_command_word(all_words, next_index, GH_OPTIONS_WITH_VALUE)
-        return subcommand is not None
-    if action != GH_API_COMMAND:
+    all_gh_words = gh_command_words(all_words[1:])
+    if all_gh_words[:1] == [GH_PULL_REQUEST_COMMAND]:
+        return len(all_gh_words) > 1
+    if all_gh_words[:1] != [GH_API_COMMAND]:
         return False
-    all_api_arguments = all_words[next_index:]
+    all_api_arguments = all_words[all_words.index(GH_API_COMMAND, 1) + 1 :]
     if any(each_name in each_word for each_word in all_api_arguments for each_name in ALL_API_ACTION_NAMES):
         return True
     return any(
@@ -262,14 +261,24 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     return None if duplicate_reason is None else deny_decision(duplicate_reason)
 
 
-def _transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
+    """Return each transcript path a hook payload names, with the subagent transcript last.
+
+    ::
+
+        transcript_path only                     -> [transcript_path]
+        transcript_path and a known agent_id     -> [transcript_path, <session>/subagents/agent-<id>.jsonl]
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
     paths = [all_payload_fields.get(field) for field in ALL_TRANSCRIPT_PATH_FIELDS]
     paths.append(_subagent_transcript_path(all_payload_fields))
     return list(dict.fromkeys(path for path in paths if isinstance(path, str) and path))
 
 
 def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
-    readable_paths = _transcript_paths(all_payload_fields)
+    readable_paths = transcript_paths(all_payload_fields)
     if not readable_paths:
         return False
     statuses = [_scanned_transcript(path, _shows_skill_load) for path in readable_paths]
@@ -289,7 +298,7 @@ def eval_skill_call_status(all_payload_fields: dict[str, object]) -> bool | None
         all_payload_fields: The parsed PreToolUse input.
     """
     has_read_transcript = False
-    for each_path in _transcript_paths(all_payload_fields):
+    for each_path in transcript_paths(all_payload_fields):
         status = _scanned_transcript(each_path, _shows_build_eval)
         if status:
             return True

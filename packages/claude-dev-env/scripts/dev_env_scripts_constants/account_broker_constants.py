@@ -56,6 +56,7 @@ WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
 REPORT_INDENT_SPACES = 2
+PLACEHOLDER_NAME_SLOT = "{name}"
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
 BROKER_STATE_FILE_NAME = "state.json"
 BROKER_STATE_TEMP_SUFFIX = ".json"
@@ -67,7 +68,33 @@ ALL_CLAUDE_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
     (".local", "bin", "claude.exe"),
     (".local", "bin", "claude"),
 )
-ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = ("-p", "ok", "--model", "haiku")
+ALL_LOGIN_REFRESH_ARGUMENTS: tuple[str, ...] = (
+    "-p",
+    "ok",
+    "--model",
+    "haiku",
+    "--setting-sources",
+    "local",
+    "--settings",
+    '{"enabledPlugins": {}, "autoMemoryEnabled": false}',
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers": {}}',
+    "--no-session-persistence",
+    "--disable-slash-commands",
+    "--tools",
+    "",
+    "--max-turns",
+    "1",
+)
+ALL_LOGIN_REFRESH_ENVIRONMENT: dict[str, str] = {
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_AUTOUPDATER": "1",
+}
 LOGIN_REFRESH_TIMEOUT_SECONDS = 120.0
 ALL_PARENT_CLAUDE_SESSION_VARIABLES: frozenset[str] = frozenset({
     "CLAUDE_CODE_SESSION_ID",
@@ -111,6 +138,11 @@ def codex_usage_limit_signatures() -> tuple[str, ...]:
     return module.ALL_USAGE_LIMIT_MARKERS
 
 
+def meter_read_delay_seconds(attempt_index: int) -> float:
+    """Seconds to wait before a meter read retry, where the first retry has index 1."""
+    return min(METER_READ_FIRST_DELAY_SECONDS * METER_READ_DELAY_FACTOR ** (attempt_index - 1), METER_READ_MAX_DELAY_SECONDS)
+
+
 def utc_time_text(moment: datetime | None) -> str | None:
     return moment.astimezone(timezone.utc).isoformat() if moment is not None else None
 
@@ -150,6 +182,7 @@ class Account:
     is_main: bool = False
     command: str | None = None
     priority: int | None = None
+    profile: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -215,16 +248,26 @@ class ProductAdapter:
     usage_limit_signatures: tuple[str, ...]
 
 
+def _is_at_or_under(room: float | None, floor: float) -> bool:
+    return room is not None and room <= floor
+
+
+def _claude_blocking_flags(meters: Meters, is_main: bool) -> tuple[bool, bool]:
+    session_key, weekly_key = (
+        ("main_session_used_ceiling", "main_weekly_used_ceiling")
+        if is_main
+        else ("extra_session_used_ceiling", "extra_weekly_used_ceiling")
+    )
+    return (
+        _is_at_or_under(meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[session_key]),
+        _is_at_or_under(meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS[weekly_key]),
+    )
+
+
 def _claude_extra_tier(meters: Meters | None) -> str | None:
     if meters is None or meters.tightest_percent_left is None:
         return None
-    if (
-        meters.weekly_percent_left is not None
-        and meters.weekly_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"]
-    ) or (
-        meters.session_percent_left is not None
-        and meters.session_percent_left <= FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"]
-    ):
+    if any(_claude_blocking_flags(meters, is_main=False)):
         return None
     return "normal"
 
@@ -251,24 +294,19 @@ def _account_reset(reading: Reading, is_spent: bool = False) -> datetime | None:
         return None
     if is_spent:
         return min((reset for reset in (meters.session_resets_at, meters.weekly_resets_at) if reset is not None), default=None)
-    is_claude_main = reading.account.product is Product.CLAUDE and reading.account.is_main
-    if is_claude_main:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"], meters.weekly_resets_at),
-        )
-    elif reading.account.product is Product.CLAUDE:
-        blocking = (
-            (meters.session_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_session_used_ceiling"], meters.session_resets_at),
-            (meters.weekly_percent_left, FULL_PERCENT - ALL_CLAUDE_FLOORS["extra_weekly_used_ceiling"], meters.weekly_resets_at),
-        )
+    if reading.account.product is Product.CLAUDE:
+        all_blocking_flags = _claude_blocking_flags(meters, reading.account.is_main)
     else:
-        blocking = (
-            (meters.session_percent_left, ALL_CODEX_FLOORS["luna_short_minimum_left"], meters.session_resets_at),
-            (meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"], meters.weekly_resets_at),
+        all_blocking_flags = (
+            meters.session_percent_left is not None and meters.session_percent_left < ALL_CODEX_FLOORS["luna_short_minimum_left"],
+            _is_at_or_under(meters.weekly_percent_left, ALL_CODEX_FLOORS["luna_stop_left"]),
         )
-    all_blocking_resets = [reset for room, floor, reset in blocking if room is not None and room <= floor and reset is not None]
-    return max(all_blocking_resets, default=None)
+    all_resets = (meters.session_resets_at, meters.weekly_resets_at)
+    all_blocking_resets = [reset for is_blocking, reset in zip(all_blocking_flags, all_resets) if is_blocking]
+    all_known_resets = [reset for reset in all_blocking_resets if reset is not None]
+    if len(all_known_resets) < len(all_blocking_resets):
+        return None
+    return max(all_known_resets, default=None)
 
 
 def _rank_key(reading: Reading) -> tuple[bool, int, float]:
@@ -282,8 +320,7 @@ def _main_has_room(meters: Meters | None) -> bool:
         meters is not None
         and meters.session_percent_left is not None
         and meters.weekly_percent_left is not None
-        and meters.session_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_session_used_ceiling"]
-        and meters.weekly_percent_left > FULL_PERCENT - ALL_CLAUDE_FLOORS["main_weekly_used_ceiling"]
+        and not any(_claude_blocking_flags(meters, is_main=True))
     )
 
 

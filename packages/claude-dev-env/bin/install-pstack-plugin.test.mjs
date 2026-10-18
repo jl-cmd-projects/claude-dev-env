@@ -7,6 +7,7 @@ import {
     PSTACK_MARKETPLACE_REPOSITORY,
     PSTACK_PLUGIN_HOSTS,
     PSTACK_PLUGIN_IDENTIFIER,
+    DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
     PSTACK_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
@@ -272,6 +273,7 @@ test('the usage-wrapup opt-out flag and variable turn off only usage-wrapup', ()
 for (const [spec, packageFolder] of [
     [USAGE_WRAPUP_PLUGIN_SPEC, './packages/usage-wrapup'],
     [SUBAGENT_MODELS_PLUGIN_SPEC, './packages/subagent-models'],
+    [DEEPEN_FIRST_PROMPT_PLUGIN_SPEC, './packages/deepen-first-prompt'],
 ]) {
     test(`the repository marketplace lists ${spec.name} from its package folder in this repository`, () => {
         const marketplace = JSON.parse(readFileSync(
@@ -303,6 +305,27 @@ test('should remove and add the shared marketplace once when installing usage-wr
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
         ['claude', 'plugin', 'install', 'subagent-models@claude-dev-env'],
     ]);
+});
+
+test('should include deepen-first-prompt in one marketplace add with the other repository plugins', () => {
+    const plan = marketplacePluginsPlan(
+        [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC, DEEPEN_FIRST_PROMPT_PLUGIN_SPEC],
+        'claude',
+    );
+    assert.deepEqual(plan.commands[0], [
+        'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env',
+        '--sparse', '.claude-plugin', 'packages/usage-wrapup', 'packages/subagent-models',
+        'packages/deepen-first-prompt',
+    ]);
+    assert.equal(shouldInstallMarketplacePlugin(DEEPEN_FIRST_PROMPT_PLUGIN_SPEC, ['--no-deepen-first-prompt'], {}), false);
+    assert.equal(
+        shouldInstallMarketplacePlugin(
+            DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
+            [],
+            { CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0' },
+        ),
+        false,
+    );
 });
 
 test('should refuse one plan for plugins from two marketplaces', () => {

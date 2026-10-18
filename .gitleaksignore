@@ -1,1 +1,4 @@
 3e82661823a5e78784562306ab39287f9edd93b0:packages/claude-dev-env/.agents/skills/context-audit/scripts/test_context_sources.py:personal-email-address:78
+98698d908e3dc6f57f9e66d217f79b8c2f64549a:packages/claude-dev-env/hooks/hooks_constants/test_hook_block_logger.py:curl-auth-header:46
+98698d908e3dc6f57f9e66d217f79b8c2f64549a:packages/claude-dev-env/hooks/hooks_constants/test_hook_block_logger.py:generic-api-key:47
+98698d908e3dc6f57f9e66d217f79b8c2f64549a:packages/claude-dev-env/hooks/hooks_constants/test_hook_block_logger.py:personal-email-address:48

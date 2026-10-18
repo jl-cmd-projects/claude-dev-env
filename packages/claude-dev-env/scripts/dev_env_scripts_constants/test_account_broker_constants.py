@@ -5,11 +5,11 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import importlib.util
-import os
 import shutil
 import sys
 import types
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -21,7 +21,9 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_CODEX_FLOORS,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     CMD_SHELL_METACHARACTERS,
+    Account,
     JobOutcome,
+    Product,
 )
 from dev_env_scripts_constants.claude_account_constants import (
     MAIN_SESSION_USED_CEILING_PERCENT,
@@ -113,16 +115,9 @@ def test_parse_utc_time_converts_an_offset_timestamp() -> None:
     assert parsed.isoformat() == "2026-10-03T11:30:00+00:00"
 
 
-def _create_directory_link(*, from_link: Path, to_target: Path) -> None:
-    if sys.platform.startswith("win32"):
-        importlib.import_module("_winapi").CreateJunction(
-            str(to_target), str(from_link)
-        )
-        return
-    os.symlink(to_target, from_link, target_is_directory=True)
-
-
-def _build_install_layout(home: Path) -> tuple[Path, Path]:
+def _build_install_layout(
+    home: Path, create_directory_link: Callable[..., None]
+) -> tuple[Path, Path]:
     agents_constants_directory = (
         home / ".agents" / "scripts" / "dev_env_scripts_constants"
     )
@@ -143,7 +138,7 @@ def _build_install_layout(home: Path) -> tuple[Path, Path]:
     (classifier_directory / "classifier_constants.py").write_text(
         f"ALL_USAGE_LIMIT_MARKERS = ({TEMP_TREE_MARKER!r},)\n", encoding="utf-8"
     )
-    _create_directory_link(
+    create_directory_link(
         from_link=home / ".claude" / "scripts", to_target=home / ".agents" / "scripts"
     )
     linked_module = (
@@ -170,10 +165,10 @@ def _load_module_from(
 
 @pytest.mark.parametrize("entry_point", ("through_scripts_link", "through_agents_path"))
 def test_codex_usage_limit_signatures_finds_shared_tree_beside_the_scripts_link(
-    entry_point: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    entry_point: str, tmp_path: Path, create_directory_link: Callable[..., None], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
-    linked_module, agents_module = _build_install_layout(tmp_path / "home")
+    linked_module, agents_module = _build_install_layout(tmp_path / "home", create_directory_link)
     module_file = (
         linked_module if entry_point == "through_scripts_link" else agents_module
     )
@@ -188,3 +183,51 @@ def test_parent_session_variables_name_the_session_link_and_leave_the_account_ho
     assert "CLAUDE_CODE_SESSION_ID" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
     assert "CLAUDECODE" in ALL_PARENT_CLAUDE_SESSION_VARIABLES
     assert "CLAUDE_CONFIG_DIR" not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
+
+
+def test_should_treat_accounts_that_differ_only_in_profile_as_one_account() -> None:
+    home = Path("/profiles/first")
+
+    assert Account(Product.CLAUDE, "first", home, profile="first") == Account(Product.CLAUDE, "first", home)
+
+
+def _codex_reading(meters: broker_constants.Meters) -> broker_constants.Reading:
+    return broker_constants.Reading(Account(Product.CODEX, "codex-1", Path("/profiles/codex-1")), meters)
+
+
+def test_should_let_a_codex_account_at_the_short_window_floor_take_luna() -> None:
+    weekly_reset = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    session_reset = weekly_reset + timedelta(hours=4)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, weekly_reset
+    )
+
+    assert broker_constants._codex_tier(
+        dataclasses.replace(meters, weekly_percent_left=NORMAL_TIER_MINIMUM_PERCENT_LEFT)
+    ) == "luna"
+    assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
+
+
+def test_should_name_no_codex_reset_when_a_blocking_window_has_none() -> None:
+    session_reset = datetime(2026, 10, 3, 2, tzinfo=timezone.utc)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, None
+    )
+
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_name_the_latest_codex_reset_when_every_blocking_window_has_one() -> None:
+    session_reset = datetime(2026, 10, 3, 2, tzinfo=timezone.utc)
+    weekly_reset = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    meters = broker_constants.Meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, weekly_reset
+    )
+
+    assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
+
+
+def test_should_double_the_meter_read_delay_up_to_its_cap() -> None:
+    all_delays = [broker_constants.meter_read_delay_seconds(each_attempt) for each_attempt in range(1, 6)]
+
+    assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]

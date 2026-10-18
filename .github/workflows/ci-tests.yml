@@ -40,6 +40,7 @@ jobs:
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
       subagent_models: ${{ steps.filter.outputs.subagent_models }}
+      deepen_first_prompt: ${{ steps.filter.outputs.deepen_first_prompt }}
       visual_plan: ${{ steps.filter.outputs.visual_plan }}
     steps:
       - uses: actions/checkout@v5
@@ -76,6 +77,9 @@ jobs:
               - '.github/workflows/ci-tests.yml'
             subagent_models:
               - 'packages/subagent-models/**'
+              - '.github/workflows/ci-tests.yml'
+            deepen_first_prompt:
+              - 'packages/deepen-first-prompt/**'
               - '.github/workflows/ci-tests.yml'
             visual_plan:
               - 'packages/visual-plan/**'
@@ -175,19 +179,13 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pytest-basetemp-root"
 
-      # Collect-count floor (mirrors the collect-count pattern a consuming
-      # repository uses in its own standalone package workflow):
-      # renaming or moving a root-suite test file outside python_files =
-      # test_*.py collects zero from that path while the rest of tests/ still
-      # passes, so the step would otherwise exit 0 looking identical to
-      # success. Raise ROOT_SUITE_COLLECT_FLOOR whenever new tests land.
       - name: Enforce the root suite collect-count floor
         env:
-          ROOT_SUITE_COLLECT_FLOOR: "158"
+          ROOT_SUITE_COLLECT_FLOOR: "201"
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest tests/ .github/ci --collect-only -q "${deselect_args[@]}" | tee collect-only.txt
+          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval --collect-only -q "${deselect_args[@]}" | tee collect-only.txt
           COLLECT_LINE=$(grep -E '[0-9]+ tests? collected' collect-only.txt | tail -1 || true)
           COLLECTED_COUNT=$(echo "${COLLECT_LINE}" | grep -oE '^[0-9]+' || true)
           case "${ROOT_SUITE_COLLECT_FLOOR}" in
@@ -214,7 +212,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest tests/ .github/ci \
+          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval \
             --basetemp="$RUNNER_TEMP/pytest-basetemp-root" \
             -q \
             -n auto \
@@ -255,6 +253,28 @@ jobs:
 
       - name: Validate and test the mod
         working-directory: packages/subagent-models
+        run: |
+          npm install --global @anthropic-ai/claude-code@2.1.288
+          claude plugin validate .
+          claude plugin test .
+
+  deepen-first-prompt:
+    name: deepen-first-prompt mod (ubuntu)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.deepen_first_prompt == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate and test the mod
+        working-directory: packages/deepen-first-prompt
+        env:
+          CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1"
         run: |
           npm install --global @anthropic-ai/claude-code@2.1.288
           claude plugin validate .

@@ -13,10 +13,9 @@ import json
 import os
 from pathlib import Path
 
+from hooks_constants.cloud_session import is_cloud_session
 from hooks_constants.mod_handoff_constants import (
     ALL_SETTINGS_FILE_NAMES_IN_PRECEDENCE_ORDER,
-    CLOUD_SESSION_ENV_TRUE_VALUE,
-    CLOUD_SESSION_ENV_VAR,
     CLAUDE_CONFIG_DIR_ENV_VAR,
     CLAUDE_PROJECT_DIR_ENV_VAR,
     DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME,
@@ -81,7 +80,7 @@ def is_mod_plugin_enabled(plugin_name: str) -> bool:
     Args:
         plugin_name: The plugin that holds the mod replacing the calling hook.
     """
-    if os.environ.get(CLOUD_SESSION_ENV_VAR, "").strip().lower() == CLOUD_SESSION_ENV_TRUE_VALUE:
+    if is_cloud_session():
         return False
     is_enabled = False
     for each_path in all_settings_paths_in_precedence_order():
