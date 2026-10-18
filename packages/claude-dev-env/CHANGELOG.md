@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.84.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.2...claude-dev-env-v8.84.0) (2026-10-18)
+
+
+### Features
+
+* **account-broker:** choose a Codex Pro plan account first ([#2020](https://github.com/jl-cmd-projects/claude-dev-env/issues/2020)) ([4896a91](https://github.com/jl-cmd-projects/claude-dev-env/commit/4896a91e3b4c3b3b43f2ae78d638cc9c15f124d2))
+
 ## [8.83.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.83.1...claude-dev-env-v8.83.2) (2026-10-18)
 
 
