@@ -24,6 +24,7 @@ That's it. The installer will:
 4. Merge hook groups into `~/.claude/settings.json` (preserves your existing hooks)
 5. Write a manifest to `~/.claude/.claude-dev-env-manifest.json` for clean uninstall
 6. Copy Codex exec-policy files into `~/.codex/rules` (`CODEX_HOME/rules` when that variable is set)
+7. Install the DeepStack plugin from `jl-cmd-projects/DeepStack` for Claude Code (`claude plugin install deepstack@DeepStack`) and Codex (`codex plugin add deepstack@DeepStack`), and copy that plugin into `~/.cursor/plugins/deepstack` with its SessionStart hook and the first-task command registered in `~/.cursor/hooks.json`
 
 ### Selective Install
 

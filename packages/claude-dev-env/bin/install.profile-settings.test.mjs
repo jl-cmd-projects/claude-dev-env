@@ -31,6 +31,7 @@ function installEnvironment(homeDirectory) {
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
         CODEX_HOME: join(homeDirectory, '.codex'),
         CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_DEEPSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
     };
 }

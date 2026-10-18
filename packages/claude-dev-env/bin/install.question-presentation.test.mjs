@@ -25,6 +25,7 @@ function installInScratchHome(homeDirectory, argumentsList = [], extraEnvironmen
             CLAUDE_CONFIG_DIR: undefined,
             LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
@@ -182,6 +183,7 @@ test('a successful pstack install omits the retired skill block and gains the qu
 
     const installation = installInScratchHome(homeDirectory, [], {
         CDE_INSTALL_PSTACK: '1',
+        CDE_INSTALL_DEEPSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
         CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
@@ -211,6 +213,7 @@ test('enabling pstack after a pstack-off install preserves question guidance', (
 
     const secondInstallation = installInScratchHome(homeDirectory, [], {
         CDE_INSTALL_PSTACK: '1',
+        CDE_INSTALL_DEEPSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
         CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
@@ -241,6 +244,7 @@ test('a failed pstack transition restores question-only guidance and removes its
 
     const failedInstallation = installInScratchHome(homeDirectory, [], {
         CDE_INSTALL_PSTACK: '1',
+        CDE_INSTALL_DEEPSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
         CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',

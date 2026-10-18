@@ -60,6 +60,10 @@ import {
     installMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
+import {
+    DEEPSTACK_PLUGIN_SPEC,
+    installDeepStackForHosts,
+} from './install-deepstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
     codexSolSettingSnapshotPaths,
@@ -2939,6 +2943,24 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         }
         printPluginHostOutcomes([PSTACK_PLUGIN_SPEC], pstackPlugin);
     }
+    if (!selectedGroups && shouldInstallMarketplacePlugin(DEEPSTACK_PLUGIN_SPEC)) {
+        const deepStackPlugin = installDeepStackForHosts({
+            claudeRoot: CLAUDE_HOME,
+            codexHome: INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            cursorDirectory: INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
+            firstTaskHookPath: join(
+                INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
+                'session',
+                'deepen_first_prompt.py',
+            ),
+        });
+        summary.deepStackPlugin = deepStackPlugin;
+        printPluginHostOutcomes([DEEPSTACK_PLUGIN_SPEC], deepStackPlugin);
+        const cursorOutcome = deepStackPlugin.cursor;
+        console.log(cursorOutcome.warning
+            ? `  DeepStack (cursor): ${cursorOutcome.status} — ${cursorOutcome.warning}`
+            : `  DeepStack (cursor): ${cursorOutcome.status}`);
+    }
     const allRepositoryPluginSpecs = [
         USAGE_WRAPUP_PLUGIN_SPEC,
         SUBAGENT_MODELS_PLUGIN_SPEC,
@@ -3485,6 +3507,7 @@ Usage:
   npx ${PACKAGE_NAME} --profile ID Install into one named profile root (under the profiles root)
   npx ${PACKAGE_NAME} --profiles A,B  Install into each selected profile (one ownership manifest per target)
   npx ${PACKAGE_NAME} --no-pstack  Full install without the pstack plugin (also CDE_INSTALL_PSTACK=0)
+  npx ${PACKAGE_NAME} --no-deepstack  Full install without the DeepStack plugin (also CDE_INSTALL_DEEPSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
   npx ${PACKAGE_NAME} --no-deepen-first-prompt  Full install without the deepen-first-prompt plugin (also CDE_INSTALL_DEEPEN_FIRST_PROMPT=0)
