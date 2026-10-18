@@ -4,7 +4,7 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
-Your first action is the Skill tool with skill `claude-api` and args `build-eval`. Build the feature against that eval. When the work touches an existing feature with no eval, start a separate session to build that eval in parallel. An Agent-tool subagent does not count. You own its result.
+The DeepStack reproducible-check leaf calls this guide when the work is a new feature or a change in behavior. Only the forced position as the very first action is retired. A reproducible, re-runnable check is still required before any done claim. Red before the fix, the wrong twin fails, and undo fails again. Build the feature against that eval. When the work touches an existing feature with no eval, start a separate session to build that eval in parallel. An Agent-tool subagent does not count. You own its result.
 
 **Enforcement:** `hooks/blocking/build_eval_before_eval_write_gate.py` denies a write to an eval file before the build-eval call. `hooks/blocking/pr_lifecycle_skill_gate.py` denies a `feat` pull request with no "Eval" section or no build-eval call.
 
@@ -18,7 +18,7 @@ An eval is three things for one feature: a set of input cases with their expecte
 
 ## Rule
 
-1. Make the Skill tool call with skill `claude-api` and args `build-eval` your first action on the ask. A user who types `/claude-api build-eval` has made the same call.
+1. Call the Skill tool with skill `claude-api` and args `build-eval` before the change. A user who types `/claude-api build-eval` has made the same call. A reproducible, re-runnable check is still required before any done claim. Red before the fix, the wrong twin fails, and undo fails again. Only the forced position as the very first action is retired.
 2. Run the existing-work search from [`explore-thoroughly.md`](explore-thoroughly.md) next. The guide's own first step also looks for cases, graders, and runners that exist.
 3. Follow the guide the skill loads. It asks the user to approve the inputs and the grading method, and to approve the cost before the first paid run. Ask through the session's question tool. Where the host says to keep working while a question waits, continue on the option you recommended and change course if the answer differs.
 4. Run the eval before the change to get a baseline, build the feature, and run it again.

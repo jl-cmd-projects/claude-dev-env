@@ -11,8 +11,8 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 - **Verify runtime state** ([guide](../docs/rule-guides/verify-runtime-state.md)). Before you say a component works, is healthy, or is not the cause. Get a live signal this session.
 
 **Before building**
-- **Explore thoroughly** ([guide](../docs/rule-guides/explore-thoroughly.md)). Before you log, plan, delegate, or build an ask. Search for existing work; when something exists, stop and report it in four points with the `search-before-acting` skill.
-- **Features start with an eval** ([guide](../docs/rule-guides/features-start-with-an-eval.md)). A new feature or a change in behavior. Your first action is the Skill tool with skill `claude-api` and args `build-eval`.
+- **Explore thoroughly** ([guide](../docs/rule-guides/explore-thoroughly.md)). Before you log, plan, delegate, or build an ask. Search for existing work and report it in four points with the `search-before-acting` skill. When the role-level job is already authorized, continue that job.
+- **Features start with an eval** ([guide](../docs/rule-guides/features-start-with-an-eval.md)). A new feature or a change in behavior. The DeepStack reproducible-check leaf calls this guide. A reproducible, re-runnable check is still required before any done claim. Red before the fix, the wrong twin fails, and undo fails again. Only the forced position as the very first action is retired.
 - **Request scope** ([guide](../docs/rule-guides/request-scope.md)). Asked whether part of a block is still needed, or asked to change one. Propose removing every line a shipped gate already enforces.
 
 **Shell and files**
