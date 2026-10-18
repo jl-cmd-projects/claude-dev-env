@@ -27,6 +27,7 @@ function installInScratchHome(homeDirectory, argumentsList = [], extraEnvironmen
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -183,6 +184,7 @@ test('a successful pstack install retains its skill block and gains the question
         CDE_INSTALL_PSTACK: '1',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
+        CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
         CDE_CODEX_EXECUTABLE: commandPath,
         CDE_CLAUDE_EXECUTABLE: commandPath,
     });
@@ -211,6 +213,7 @@ test('enabling pstack after a pstack-off install preserves question guidance', (
         CDE_INSTALL_PSTACK: '1',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
+        CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
         CDE_CODEX_EXECUTABLE: commandPath,
         CDE_CLAUDE_EXECUTABLE: commandPath,
     });
@@ -240,6 +243,7 @@ test('a failed pstack transition restores question-only guidance and removes its
         CDE_INSTALL_PSTACK: '1',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
+        CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
         CDE_CODEX_EXECUTABLE: commandPath,
         CDE_CLAUDE_EXECUTABLE: commandPath,
         CLAUDE_DEV_ENV_INSTALL_FAULT: 'after_file_staging',

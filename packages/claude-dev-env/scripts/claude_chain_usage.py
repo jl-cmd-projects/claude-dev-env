@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import importlib.util
+import json
 import sys
 import urllib.error
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from types import ModuleType
 from typing import Callable
 
 from dev_env_scripts_constants.claude_chain_usage_constants import (
+    CREDENTIALS_OAUTH_SECTION_KEY,
+    CREDENTIALS_REFRESH_TOKEN_KEY,
     NO_ACCESS_TOKEN_ERROR_TEMPLATE,
     RESOLVE_USAGE_WINDOW_FILENAME,
     RESOLVE_USAGE_WINDOW_MISSING_ERROR_TEMPLATE,
@@ -27,6 +30,10 @@ from dev_env_scripts_constants.claude_chain_usage_constants import (
 
 class WeeklyUtilizationProbeError(Exception):
     """Raised when an account's usage meters cannot be measured."""
+
+
+class ClaudeSignedOutError(WeeklyUtilizationProbeError):
+    """Raised when an account has no usable token and no way to get one, so a retry cannot help."""
 
 
 def _usage_pause_scripts_directory(module_file: Path) -> Path:
@@ -111,6 +118,24 @@ class AccountUsageMeters:
     weekly_resets_at: datetime | None
 
 
+def _holds_refresh_token(credentials_path: Path) -> bool:
+    """Report whether a credential file holds a refresh token the CLI can renew a login from.
+
+    Args:
+        credentials_path: The account's CLI credential file.
+
+    Returns:
+        True when the file's OAuth section carries a non-empty refresh token.
+    """
+    try:
+        credentials_payload = json.loads(credentials_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    oauth_section = credentials_payload.get(CREDENTIALS_OAUTH_SECTION_KEY) if isinstance(credentials_payload, dict) else None
+    refresh_token = oauth_section.get(CREDENTIALS_REFRESH_TOKEN_KEY) if isinstance(oauth_section, dict) else None
+    return isinstance(refresh_token, str) and bool(refresh_token)
+
+
 def _read_access_token(
     usage_window_resolver: ModuleType,
     credentials_path: Path,
@@ -123,6 +148,7 @@ def _read_access_token(
 
         credential file holds a token                ->  that token
         token expired, refresh_login saves a new one ->  the new token
+        no token and no refresh token (signed out)   ->  no refresh_login call
         no token, the session's own credential path  ->  the session ingress token
         no token, another account's credential path  ->  None
 
@@ -142,7 +168,7 @@ def _read_access_token(
     file_token = usage_window_resolver.read_oauth_access_token(credentials_path, now)
     if file_token is not None:
         return file_token
-    if refresh_login is not None and credentials_path.is_file():
+    if refresh_login is not None and _holds_refresh_token(credentials_path):
         refresh_login(credentials_path.parent)
         refreshed_token = usage_window_resolver.read_oauth_access_token(credentials_path, datetime.now().astimezone())
         if refreshed_token is not None:
@@ -162,7 +188,7 @@ def _fetch_account_usage_payload(
     try:
         access_token = _read_access_token(usage_window_resolver, credentials_path, now, refresh_login)
         if access_token is None:
-            raise WeeklyUtilizationProbeError(
+            raise ClaudeSignedOutError(
                 NO_ACCESS_TOKEN_ERROR_TEMPLATE.format(credentials_path=credentials_path)
             )
         return usage_window_resolver._fetch_usage_payload(access_token)

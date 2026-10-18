@@ -393,3 +393,10 @@ def test_dispatch_that_names_no_head_or_runs_no_workflow_should_not_count_as_a_c
     for each_payload in all_payloads:
         assert gate.missing_proof_reason(each_payload) is None
         assert not gate.is_feature_pull_request(each_payload)
+
+
+def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
+    assert gate.is_create_call(_shell("gh pr create --title t --body b"))
+    assert gate.is_create_call(_mcp_create("b"))
+    assert not gate.is_create_call(_shell("gh pr edit 7 --body b"))
+    assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})

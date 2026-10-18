@@ -30,6 +30,12 @@ test('the driver reads an envelope from every stage of a fresh install, and repo
         assert.match(greenRun.stdout, /\[PASS\] playtest install .* sha256=[0-9a-f]{64}/);
         assert.match(greenRun.stdout, /\[PASS\] playtest session_start_hook .* sha256=[0-9a-f]{64}/);
         assert.match(greenRun.stdout, /\[PASS\] playtest blocking_hook .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_install_surfaces .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_first_prompt .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_mod_text .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_skips .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_nested_home .* sha256=[0-9a-f]{64}/);
+        assert.match(greenRun.stdout, /\[PASS\] playtest deepen_cloud_gaps .* sha256=[0-9a-f]{64}/);
         const blockingEnvelope = JSON.parse(readFileSync(join(evidenceDirectory, 'blocking_hook.json'), 'utf8'));
         assert.equal(Object.hasOwn(blockingEnvelope, 'permissionDecision'), false);
         assert.ok(

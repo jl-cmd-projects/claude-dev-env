@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import NamedTuple
 from pathlib import Path
 
@@ -143,15 +143,30 @@ def _create_arguments(all_segment_tokens: list[str]) -> list[str] | None:
     return _script_create_arguments(program, all_arguments)
 
 
+def _shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    return command
+
+
+def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
+    return (
+        all_create_arguments
+        for each_text in all_wrapped_command_texts(command)
+        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+        if (all_create_arguments := _create_arguments(each_segment)) is not None
+    )
+
+
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
     return [
         CreateCall(
             title_from_arguments(all_create_arguments),
             body_from_arguments(all_create_arguments, working_directory),
         )
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_create_arguments := _create_arguments(each_segment)) is not None
+        for all_create_arguments in _all_create_argument_lists(command)
     ]
 
 
@@ -169,15 +184,12 @@ def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
     head_branch = None if create_fields is None else create_fields.get("head")
     if isinstance(head_branch, str):
         return head_branch
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = _shell_command(all_payload_fields)
+    if command is None:
         return None
     all_head_flag_values = [
         _head_flag_value(all_create_arguments)
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_create_arguments := _create_arguments(each_segment)) is not None
+        for all_create_arguments in _all_create_argument_lists(command)
     ]
     return next((each_value for each_value in all_head_flag_values if each_value), None)
 
@@ -193,13 +205,30 @@ def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
                 body if isinstance(body, str) else "",
             )
         ]
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = _shell_command(all_payload_fields)
+    if command is None:
         return []
     working_directory = all_payload_fields.get("cwd")
     return _shell_create_calls(
         command, working_directory if isinstance(working_directory, str) else ""
+    )
+
+
+def is_create_call(all_payload_fields: Mapping[str, object]) -> bool:
+    """Return whether a tool call opens a pull request.
+
+    ::
+
+        gh pr create --title t --body-file b.md         -> True
+        mcp__github__create_pull_request                -> True
+        gh pr edit 7, git push, Read                    -> False
+
+    Args:
+        all_payload_fields: A tool name and input, shaped like a PreToolUse payload.
+    """
+    command = _shell_command(all_payload_fields)
+    return create_tool_fields(all_payload_fields) is not None or (
+        command is not None and next(_all_create_argument_lists(command), None) is not None
     )
 
 

@@ -33,6 +33,7 @@ function installEnvironment(homeDirectory) {
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
+        CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
     };
 }
 

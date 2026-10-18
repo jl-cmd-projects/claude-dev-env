@@ -96,9 +96,10 @@ MISSING_LOOK_REASON = (
 CHANGED_FILES_SEPARATOR = ", "
 UNREADABLE_CHANGES_REASON = (
     "Git in this directory cannot list the files this pull request changes, so the"
-    " picture check cannot tell whether people see the change. Run the create call"
-    " from a checkout of the head branch with origin fetched, or put a screenshot"
-    " link in the 'Proof in practice' section. Read " + PROOF_GUIDE_PATH + " for the full rule."
+    " picture check cannot tell whether people see the change. Put a screenshot or"
+    " Artifact link in the 'Proof in practice' section and run the create call again,"
+    " or run it from a checkout of the head branch with origin fetched. Take one of"
+    " these routes now, before any change to this gate. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
 EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
@@ -120,3 +121,21 @@ MISSING_BUILD_EVAL_REASON = (
     + EVAL_GUIDE_PATH
     + " for the full rule."
 )
+ALL_PROOF_GATE_DENY_MARKERS = (PROOF_GUIDE_PATH, EXISTING_WORK_GUIDE_PATH, EVAL_GUIDE_PATH)
+ALL_PROOF_GATE_FILE_NAMES = frozenset(
+    {
+        "pull_request_proof.py",
+        "pull_request_proof_constants.py",
+        "pull_request_proof_edit_gate.py",
+        "pre_tool_use_dispatcher_constants.py",
+    }
+)
+GATE_EDIT_BEFORE_ROUTE_REASON = (
+    "The pull request proof gate denied a create call in this session, and its deny"
+    " named the way through. Take that route now. Add what the deny asked for, such as"
+    " a screenshot or Artifact link in the 'Proof in practice' section, then run the"
+    " create call again. The deny text is the instruction. Edit this gate only"
+    " after a create call passes it. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+WINDOWS_PATH_SEPARATOR = "\\"
+POSIX_PATH_SEPARATOR = "/"
