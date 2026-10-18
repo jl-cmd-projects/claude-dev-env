@@ -209,6 +209,7 @@ that carry them.
 | `deepen` | Deepen a first user task so the worker does the omitted expert job |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
+| `efficient-review` | Headless haiku review of a branch, dispatched from a cloud session to the agent-pc runner |
 | `eli5` | Beginner-friendly presentation with large visuals and minimal text |
 | `everything-search` | Fast Windows file search through the Everything es.exe tool |
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |
