@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 UTF8_ENCODING: str = "utf-8"
+SHORTEST_BACKTICKED_CELL: int = 2
+TABLE_COLUMN_COUNT: int = 4
 MANIFEST_RELATIVE_PATH: str = "rules-archived/ARCHIVE-MANIFEST.md"
 DEEPSTACK_SECTION_HEADING: str = "## DeepStack replacements"
 DEEPSTACK_SKILL_RELATIVE_PATH: str = "docs/decisions/deepstack-install.md"

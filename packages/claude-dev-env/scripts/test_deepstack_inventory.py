@@ -11,7 +11,7 @@ from deepstack_inventory import (
     findings_for_rows,
     inventory_findings,
     replacement_rows,
-    reproducible_check_findings,
+    eval_retirement_findings,
 )
 from dev_env_scripts_constants.deepstack_inventory_constants import (
     FINDING_BEHAVIOR_STILL_ACTIVE,
@@ -48,7 +48,7 @@ def _row_block(requirement: str, instruction_phrase: str) -> str:
 
 
 def test_should_reject_an_instruction_that_marks_evals_optional() -> None:
-    findings = reproducible_check_findings(
+    findings = eval_retirement_findings(
         "Evals are optional before a done claim.",
         "Evals are optional. The reproducible check is removed.",
         "docs/rule-guides/features-start-with-an-eval.md",
@@ -58,7 +58,7 @@ def test_should_reject_an_instruction_that_marks_evals_optional() -> None:
 
 
 def test_should_reject_a_manifest_that_removes_the_reproducible_check() -> None:
-    findings = reproducible_check_findings(
+    findings = eval_retirement_findings(
         _KEPT_INSTRUCTION,
         "Only the forced position as the very first action is retired.",
         "docs/rule-guides/features-start-with-an-eval.md",
@@ -72,7 +72,7 @@ def test_should_reject_a_manifest_that_removes_the_reproducible_check() -> None:
 
 
 def test_should_accept_a_retirement_that_keeps_the_reproducible_check() -> None:
-    assert reproducible_check_findings(
+    assert eval_retirement_findings(
         _KEPT_INSTRUCTION,
         _KEPT_REQUIREMENT,
         "docs/rule-guides/features-start-with-an-eval.md",

@@ -418,6 +418,9 @@ jobs:
       - name: Check repository policy
         run: python packages/claude-dev-env/scripts/repository_policy.py
 
+      - name: Check the DeepStack retirement inventory
+        run: python packages/claude-dev-env/scripts/deepstack_inventory.py
+
   windows-semantics:
     name: Windows-semantics micro-suite
     needs: changes

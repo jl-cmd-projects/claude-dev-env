@@ -2,7 +2,7 @@
 """Diff the DeepStack retirement manifest against the active tree.
 
 Each row names a retired path, the behavior it required, the trigger that
-replaces it, and the requirement that stays. The eval row keeps a
+covers it, and the requirement that stays. The eval row keeps a
 reproducible check. An instruction or a manifest cell that marks evals
 optional, or that drops that check, is a finding.
 
@@ -35,13 +35,15 @@ from dev_env_scripts_constants.deepstack_inventory_constants import (
     PATH_NONE,
     REPRODUCIBLE_CHECK_SENTENCE,
     RETIRED_PATH_HEADER,
+    SHORTEST_BACKTICKED_CELL,
+    TABLE_COLUMN_COUNT,
     UTF8_ENCODING,
 )
 
 
 @dataclass(frozen=True)
 class ReplacementRow:
-    """One retired behavior and the trigger that replaces it."""
+    """One retired behavior and the trigger that covers it."""
 
     retired_path: str
     behavior: str
@@ -60,7 +62,7 @@ class InventoryFinding:
 
 def _unquote(cell: str) -> str:
     text = cell.strip()
-    if len(text) >= 2 and text.startswith("`") and text.endswith("`"):
+    if len(text) >= SHORTEST_BACKTICKED_CELL and text.startswith("`") and text.endswith("`"):
         return text[1:-1]
     return text
 
@@ -70,37 +72,49 @@ def _table_cells(line: str) -> tuple[str, ...] | None:
     if not stripped.startswith("|"):
         return None
     cells = [_unquote(each_cell) for each_cell in stripped.strip("|").split("|")]
-    if len(cells) != 4:
+    if len(cells) != TABLE_COLUMN_COUNT:
         return None
     if cells[0].startswith("-") or cells[0].lower() == RETIRED_PATH_HEADER:
         return None
     return tuple(cells)
 
 
+def _row_from_line(each_line: str) -> ReplacementRow | None:
+    cells = _table_cells(each_line)
+    if cells is None:
+        return None
+    return ReplacementRow(
+        retired_path=cells[0],
+        behavior=cells[1],
+        trigger=cells[2],
+        requirement_that_stays=cells[3],
+    )
+
+
 def replacement_rows(manifest_text: str) -> tuple[ReplacementRow, ...]:
-    """Return the rows under the DeepStack heading, or none when it is absent."""
+    """Return the rows under the DeepStack heading, or none when it is absent.
+
+    Args:
+        manifest_text: The archive manifest text.
+
+    Returns:
+        One row per table line under the heading.
+    """
     all_lines = manifest_text.splitlines()
-    in_section = False
+    is_in_section = False
     all_rows: list[ReplacementRow] = []
     for each_line in all_lines:
         if each_line.startswith(DEEPSTACK_SECTION_HEADING):
-            in_section = True
+            is_in_section = True
             continue
-        if in_section and each_line.startswith("## "):
+        if is_in_section and each_line.startswith("## "):
             break
-        if not in_section:
+        if not is_in_section:
             continue
-        cells = _table_cells(each_line)
-        if cells is None:
+        each_row = _row_from_line(each_line)
+        if each_row is None:
             continue
-        all_rows.append(
-            ReplacementRow(
-                retired_path=cells[0],
-                behavior=cells[1],
-                trigger=cells[2],
-                requirement_that_stays=cells[3],
-            )
-        )
+        all_rows.append(each_row)
     return tuple(all_rows)
 
 
@@ -110,7 +124,66 @@ def _is_eval_retirement(row: ReplacementRow) -> bool:
     )
 
 
-def reproducible_check_findings(
+def _optional_eval_finding(
+    each_text: str, each_surface: str, retired_path: str
+) -> InventoryFinding | None:
+    """Return a finding when the text marks evals optional."""
+    lowered = each_text.lower()
+    if any(each_marker in lowered for each_marker in ALL_EVAL_OPTIONAL_MARKERS):
+        return InventoryFinding(
+            retired_path=retired_path,
+            code=FINDING_MARKS_EVALS_OPTIONAL,
+            detail=each_surface,
+        )
+    return None
+
+
+def _dropped_check_finding(
+    each_text: str, each_surface: str, retired_path: str
+) -> InventoryFinding | None:
+    """Return a finding when the reproducible-check sentence is absent."""
+    if REPRODUCIBLE_CHECK_SENTENCE in each_text:
+        return None
+    return InventoryFinding(
+        retired_path=retired_path,
+        code=FINDING_DROPS_REPRODUCIBLE_CHECK,
+        detail=each_surface,
+    )
+
+
+def _trust_line_findings(
+    each_text: str, each_surface: str, retired_path: str
+) -> tuple[InventoryFinding, ...]:
+    """Return one finding per trust-card line the text omits."""
+    all_findings: list[InventoryFinding] = []
+    for each_trust_line in ALL_TRUST_CARD_LINES:
+        if each_trust_line not in each_text:
+            all_findings.append(
+                InventoryFinding(
+                    retired_path=retired_path,
+                    code=FINDING_DROPS_TRUST_LINE,
+                    detail=f"{each_surface}:{each_trust_line}",
+                )
+            )
+    return tuple(all_findings)
+
+
+def _surface_findings(
+    each_text: str, each_surface: str, retired_path: str
+) -> tuple[InventoryFinding, ...]:
+    """Return the optional-eval, dropped-check, and trust-line findings for one surface."""
+    all_findings: list[InventoryFinding] = []
+    optional_eval = _optional_eval_finding(each_text, each_surface, retired_path)
+    if optional_eval is not None:
+        all_findings.append(optional_eval)
+    dropped_check = _dropped_check_finding(each_text, each_surface, retired_path)
+    if dropped_check is not None:
+        all_findings.append(dropped_check)
+    all_findings.extend(_trust_line_findings(each_text, each_surface, retired_path))
+    return tuple(all_findings)
+
+
+def eval_retirement_findings(
     instruction_text: str, requirement_text: str, retired_path: str
 ) -> tuple[InventoryFinding, ...]:
     """Reject an eval retirement that makes the reproducible check optional.
@@ -128,32 +201,7 @@ def reproducible_check_findings(
         (instruction_text, "instruction"),
         (requirement_text, "manifest"),
     ):
-        lowered = each_text.lower()
-        if any(each_marker in lowered for each_marker in ALL_EVAL_OPTIONAL_MARKERS):
-            all_findings.append(
-                InventoryFinding(
-                    retired_path=retired_path,
-                    code=FINDING_MARKS_EVALS_OPTIONAL,
-                    detail=each_surface,
-                )
-            )
-        if REPRODUCIBLE_CHECK_SENTENCE not in each_text:
-            all_findings.append(
-                InventoryFinding(
-                    retired_path=retired_path,
-                    code=FINDING_DROPS_REPRODUCIBLE_CHECK,
-                    detail=each_surface,
-                )
-            )
-        for each_trust_line in ALL_TRUST_CARD_LINES:
-            if each_trust_line not in each_text:
-                all_findings.append(
-                    InventoryFinding(
-                        retired_path=retired_path,
-                        code=FINDING_DROPS_TRUST_LINE,
-                        detail=f"{each_surface}:{each_trust_line}",
-                    )
-                )
+        all_findings.extend(_surface_findings(each_text, each_surface, retired_path))
     if FIRST_ACTION_RETIRED_SENTENCE not in requirement_text:
         all_findings.append(
             InventoryFinding(
@@ -171,47 +219,90 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding=UTF8_ENCODING)
 
 
+def _instruction_text(package_root: Path, retired_path: str) -> str:
+    """Return the active file for a retired path, or empty text for the none row."""
+    if retired_path == PATH_NONE:
+        return ""
+    return _read_text(package_root / retired_path)
+
+
+def _missing_trigger_finding(
+    each_row: ReplacementRow, skill_text: str
+) -> InventoryFinding | None:
+    if each_row.trigger in skill_text:
+        return None
+    return InventoryFinding(
+        retired_path=each_row.retired_path,
+        code=FINDING_TRIGGER_MISSING,
+        detail=each_row.trigger,
+    )
+
+
+def _live_behavior_finding(
+    each_row: ReplacementRow, instruction_text: str
+) -> InventoryFinding | None:
+    if not each_row.behavior or each_row.behavior not in instruction_text:
+        return None
+    return InventoryFinding(
+        retired_path=each_row.retired_path,
+        code=FINDING_BEHAVIOR_STILL_ACTIVE,
+        detail=each_row.behavior,
+    )
+
+
+def _row_findings(
+    package_root: Path, each_row: ReplacementRow, skill_text: str
+) -> tuple[InventoryFinding, ...]:
+    """Return the trigger, behavior, and eval findings for one manifest row."""
+    instruction_text = _instruction_text(package_root, each_row.retired_path)
+    all_findings: list[InventoryFinding] = []
+    missing_trigger = _missing_trigger_finding(each_row, skill_text)
+    if missing_trigger is not None:
+        all_findings.append(missing_trigger)
+    live_behavior = _live_behavior_finding(each_row, instruction_text)
+    if live_behavior is not None:
+        all_findings.append(live_behavior)
+    if _is_eval_retirement(each_row):
+        all_findings.extend(
+            eval_retirement_findings(
+                instruction_text,
+                each_row.requirement_that_stays,
+                each_row.retired_path,
+            )
+        )
+    return tuple(all_findings)
+
+
 def findings_for_rows(
     package_root: Path,
     all_rows: tuple[ReplacementRow, ...],
     skill_text: str,
 ) -> tuple[InventoryFinding, ...]:
-    """Return findings for retired behaviors that the active tree still requires."""
+    """Return findings for retired behaviors that the active tree still requires.
+
+    Args:
+        package_root: Package directory that holds the active files.
+        all_rows: Manifest rows under the DeepStack heading.
+        skill_text: Install note that must name each trigger.
+
+    Returns:
+        Findings for missing triggers, live behaviors, and eval rows.
+    """
     all_findings: list[InventoryFinding] = []
     for each_row in all_rows:
-        if each_row.trigger not in skill_text:
-            all_findings.append(
-                InventoryFinding(
-                    retired_path=each_row.retired_path,
-                    code=FINDING_TRIGGER_MISSING,
-                    detail=each_row.trigger,
-                )
-            )
-        if each_row.retired_path != PATH_NONE:
-            instruction_text = _read_text(package_root / each_row.retired_path)
-            if each_row.behavior and each_row.behavior in instruction_text:
-                all_findings.append(
-                    InventoryFinding(
-                        retired_path=each_row.retired_path,
-                        code=FINDING_BEHAVIOR_STILL_ACTIVE,
-                        detail=each_row.behavior,
-                    )
-                )
-        else:
-            instruction_text = ""
-        if _is_eval_retirement(each_row):
-            all_findings.extend(
-                reproducible_check_findings(
-                    instruction_text,
-                    each_row.requirement_that_stays,
-                    each_row.retired_path,
-                )
-            )
+        all_findings.extend(_row_findings(package_root, each_row, skill_text))
     return tuple(all_findings)
 
 
 def inventory_findings(package_root: Path) -> tuple[InventoryFinding, ...]:
-    """Return DeepStack findings plus leftover retired capability names."""
+    """Return DeepStack findings plus leftover retired capability names.
+
+    Args:
+        package_root: Package directory that holds the manifest and the active files.
+
+    Returns:
+        Findings from the manifest rows and from leftover retired capability names.
+    """
     manifest_text = _read_text(package_root / MANIFEST_RELATIVE_PATH)
     all_rows = replacement_rows(manifest_text)
     skill_text = _read_text(package_root / DEEPSTACK_SKILL_RELATIVE_PATH)
@@ -232,7 +323,14 @@ def _format_finding(finding: InventoryFinding) -> str:
 
 
 def main(all_arguments: list[str]) -> int:
-    """Print each finding and return 1 when the active tree fails the manifest."""
+    """Print each finding and return 1 when the active tree fails the manifest.
+
+    Args:
+        all_arguments: Command-line arguments, without the program name.
+
+    Returns:
+        0 when the tree has no findings, and 1 when it has any.
+    """
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument(
         "--package-root",
