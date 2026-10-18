@@ -1,1 +1,1 @@
-"""Runner for the efficient-review skill."""
+"""Plan one efficient-review run from the installed skill."""

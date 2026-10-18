@@ -16,7 +16,7 @@ A job asks the broker which account to use.
 
 ## Names and order
 
-The account roster names the accounts and their order. It comes from the
+The account list names the accounts and their order. It comes from the
 `CODEX_ACCOUNT_PROFILES` environment variable, a comma-separated list such as
 `alpha,beta`. When that variable is unset or empty, the roster is the saved list
 in `account-launchers.json` under the profiles root. When neither exists, the

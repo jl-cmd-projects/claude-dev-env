@@ -210,7 +210,7 @@ that carry them.
 | `deepen` | Deepen a first user task so the worker does the omitted expert job |
 | `e-code-review` | Code review at five levels matching the built-in `/code-review` recipes |
 | `e-simplify` | Cleanup pass on the current diff for reuse, simplification, and efficiency |
-| `efficient-review` | Headless haiku review of a branch. A cloud session dispatches the workflow named in the skill settings |
+| `efficient-review` | Review a branch from the installed skill. On Claude the plan selects haiku and the slim profile |
 | `eli5` | Beginner-friendly presentation with large visuals and minimal text |
 | `everything-search` | Fast Windows file search through the Everything es.exe tool |
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |

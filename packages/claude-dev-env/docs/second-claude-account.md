@@ -9,7 +9,7 @@ keeps its own sign-in and history.
 | File | What it does |
 |---|---|
 | `scripts/claude_account_profile.py` | Links each shared entry of `~/.claude` into the profile `~/.claude-profiles/ev`, moves stale copies into `.replaced/<time>/`, and writes the `claude-ev.cmd` launcher into `~/.local/bin` |
-| `scripts/account_broker.py` | Reads the account roster and usage meters, chooses an account, and runs Claude with that account's home |
+| `scripts/account_broker.py` | Reads the account list and usage meters, chooses an account, and runs Claude with that account's home |
 | `scripts/claude_account_worker.py` | Runs one headless Claude worker through the broker |
 | `scripts/claude_account_worker_process.py` | Sends the brief to the broker and measures the run |
 | `scripts/claude_account_worker_report.py` | Builds and writes the JSON report a worker leaves behind |

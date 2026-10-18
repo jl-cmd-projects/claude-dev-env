@@ -1,4 +1,4 @@
-"""Tests for Codex account rosters, homes, and launchers."""
+"""Tests for Codex account lists, homes, and launchers."""
 
 from __future__ import annotations
 

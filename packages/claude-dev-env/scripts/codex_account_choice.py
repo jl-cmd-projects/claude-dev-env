@@ -2,7 +2,7 @@
 """Keep each Codex account's home and launcher ready.
 
 Each Codex account signs in under its own Codex home in
-``~/.codex-profiles/<name>``. The account roster names them in try order: the
+``~/.codex-profiles/<name>``. The account list names them in try order: the
 ``CODEX_ACCOUNT_PROFILES`` environment variable, comma-separated, else the saved
 ``account-launchers.json`` list under the profiles root. With neither,
 ``codex-1`` through ``codex-4`` are the roster.
@@ -157,7 +157,7 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
 
 
 def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
-    """Name the account roster, in try order, without duplicates.
+    """Name the account list, in try order, without duplicates.
 
     ::
 
@@ -184,13 +184,13 @@ def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
         profiles_root: The directory that holds every account's Codex home.
 
     Returns:
-        The account roster, else ``codex-1`` through ``codex-4``.
+        The account list, else ``codex-1`` through ``codex-4``.
     """
     return saved_codex_account_names(profiles_root) or ALL_CODEX_ACCOUNT_NAMES
 
 
 def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> None:
-    """Write the account roster as a JSON list under the profiles root.
+    """Write the account list as a JSON list under the profiles root.
 
     Args:
         profiles_root: The directory that holds every account's Codex home.
@@ -340,7 +340,7 @@ def update_codex_account_roster(
     read_line: LineReader = input,
     write_line: LineWriter = print,
 ) -> tuple[tuple[str, ...], dict[str, str]]:
-    """Ask for the account roster, save it, and move dropped launchers aside.
+    """Ask for the account list, save it, and move dropped launchers aside.
 
     Args:
         profiles_root: The directory that holds every account's Codex home.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Choose and run Claude or Codex jobs through one account roster."""
+"""Choose and run Claude or Codex jobs through one account list."""
 
 from __future__ import annotations
 

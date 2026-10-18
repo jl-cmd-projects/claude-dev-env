@@ -40,7 +40,7 @@ The tests assert the chosen account, the main account guard, usage-limit fall-th
 
 ## Live meters
 
-To inspect a configured account roster, run `python packages/claude-dev-env/scripts/account_broker.py choose --product claude`. Its JSON output carries `decision`, `accounts`, and `state_path`. A wait decision includes `resets_at` and exits with code 3. Keep the output out of this repository because it names local paths.
+To inspect a configured account list, run `python packages/claude-dev-env/scripts/account_broker.py choose --product claude`. Its JSON output carries `decision`, `accounts`, and `state_path`. A wait decision includes `resets_at` and exits with code 3. Keep the output out of this repository because it names local paths.
 
 ## Gotchas
 

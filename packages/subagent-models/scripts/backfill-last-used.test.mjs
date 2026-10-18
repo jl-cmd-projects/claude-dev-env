@@ -55,12 +55,12 @@ test('the newest run across roots and files wins, and each root reports its own 
 test('default roots take every dot-claude directory and profile that holds transcripts', () => {
   const home = join(workDirectory, 'home')
   mkdirSync(join(home, '.claude', 'projects'), { recursive: true })
-  mkdirSync(join(home, '.claude-raw', 'projects'), { recursive: true })
+  mkdirSync(join(home, '.claude-extra', 'projects'), { recursive: true })
   mkdirSync(join(home, '.claude-empty'), { recursive: true })
   mkdirSync(join(home, '.claude-profiles', 'org', 'projects'), { recursive: true })
   mkdirSync(join(home, '.claude-profiles', 'bare'), { recursive: true })
   const roots = defaultRoots(home).map(root => root.slice(home.length + 1).replaceAll('\\', '/')).sort()
-  assert.deepEqual(roots, ['.claude', '.claude-profiles/org', '.claude-raw'])
+  assert.deepEqual(roots, ['.claude', '.claude-extra', '.claude-profiles/org'])
 })
 
 test('a root whose transcripts folder is a link to another root is scanned once', async () => {

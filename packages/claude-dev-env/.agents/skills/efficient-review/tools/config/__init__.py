@@ -1,1 +1,1 @@
-"""Settings and constants for the efficient-review runner."""
+"""Constants for the efficient-review plan."""
