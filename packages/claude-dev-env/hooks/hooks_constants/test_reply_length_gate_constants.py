@@ -51,3 +51,11 @@ def test_colon_pattern_matches_a_colon_with_prose_after_it_on_the_line() -> None
     assert constants.MID_SENTENCE_COLON_PATTERN.search("matters: one message")
     assert constants.MID_SENTENCE_COLON_PATTERN.search("at 9:47") is None
     assert constants.MID_SENTENCE_COLON_PATTERN.search("items:\n- one") is None
+
+
+def test_gate_caps_card_context_at_two_sentences_and_checks_card_length_fields() -> None:
+    assert (
+        constants.MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+        constants.ALL_DECISION_CARD_LENGTH_KEYS,
+        constants.ALL_DECISION_OPTION_LENGTH_KEYS,
+    ) == (2, ("question", "context", "reason"), ("consequence",))
