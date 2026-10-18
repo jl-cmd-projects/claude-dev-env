@@ -3040,6 +3040,7 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             CLAUDE_CONFIG_DIR: '',
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
@@ -3094,6 +3095,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             CLAUDE_CONFIG_DIR: join(homeDirectory, '.claude'),
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '1',
+            CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
@@ -3165,6 +3167,49 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     assert.equal(manifest.files.includes(join(codexHome, 'pstack-models.md')), false);
     assert.equal(manifest.files.includes(join(codexHome, 'AGENTS.md')), false);
+});
+
+test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const sourceDirectory = join(sandbox.homeDirectory, 'deepstack-source');
+    mkdirSync(join(sourceDirectory, 'skills', 'deepstack-mode'), { recursive: true });
+    mkdirSync(join(sourceDirectory, 'hooks'), { recursive: true });
+    writeFileSync(join(sourceDirectory, 'skills', 'deepstack-mode', 'SKILL.md'), 'DeepStack intake\n');
+    writeFileSync(join(sourceDirectory, 'hooks', 'session-start.sh'), '#!/bin/sh\n', { mode: 0o755 });
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], {
+        ...sandbox.environment,
+        CDE_INSTALL_PSTACK: '0',
+        CDE_INSTALL_DEEPSTACK: '1',
+        CDE_DEEPSTACK_SOURCE: sourceDirectory,
+    });
+
+    assert.deepEqual(sandbox.recordedCommands(), [
+        'claude plugin uninstall deepstack@DeepStack',
+        'claude plugin marketplace remove DeepStack',
+        'claude plugin marketplace add jl-cmd-projects/DeepStack',
+        'claude plugin install deepstack@DeepStack',
+        'codex plugin remove deepstack@DeepStack',
+        'codex plugin marketplace remove DeepStack',
+        'codex plugin marketplace add jl-cmd-projects/DeepStack',
+        'codex plugin add deepstack@DeepStack',
+    ]);
+    assert.match(installerOutput, /DeepStack \(claude\): installed/);
+    assert.match(installerOutput, /DeepStack \(codex\): installed/);
+    assert.match(installerOutput, /DeepStack \(cursor\): installed/);
+    const cursorPlugin = join(sandbox.homeDirectory, '.cursor', 'plugins', 'deepstack');
+    assert.equal(
+        readFileSync(join(cursorPlugin, 'skills', 'deepstack-mode', 'SKILL.md'), 'utf8'),
+        'DeepStack intake\n',
+    );
+    const hooks = JSON.parse(readFileSync(join(sandbox.homeDirectory, '.cursor', 'hooks.json'), 'utf8'));
+    const hookText = JSON.stringify(hooks);
+    assert.match(hookText, /session-start\.sh/);
+    assert.match(hookText, /SessionStart/);
+    assert.match(hookText, /deepen_first_prompt\.py/);
+    assert.match(hookText, /UserPromptSubmit/);
+    const sheet = readFileSync(join(sandbox.homeDirectory, '.codex', 'deepstack-models.md'), 'utf8');
+    assert.match(sheet, /^session hook: on$/m);
 });
 
 test('a repeat install preserves Codex pstack configuration', t => {
@@ -3427,7 +3472,7 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
     });
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
-    assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
+    assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-deepstack .*CDE_INSTALL_DEEPSTACK=0.*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
     assert.match(helpRun.stdout, /--no-deepen-first-prompt .*CDE_INSTALL_DEEPEN_FIRST_PROMPT=0/);
 });
 
