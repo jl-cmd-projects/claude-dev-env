@@ -813,10 +813,23 @@ test('a fresh scoped core install includes efficient-review', () => {
         assert.match(skillText, /^name: efficient-review$/m);
         assert.match(skillText, /\/efficient-review/);
         assert.equal(readManifest(sandbox.manifestPath).skills.includes('efficient-review'), true);
+        const skillDirectory = join(sandbox.skillsDirectory, 'efficient-review');
+        assert.equal(existsSync(join(skillDirectory, 'defaults.json')), true);
+        assert.equal(existsSync(join(skillDirectory, 'settings.json')), true);
+        assert.equal(existsSync(join(skillDirectory, 'reference', 'cloud-session.md')), true);
+        assert.equal(existsSync(join(skillDirectory, 'tools', 'efficient_review.py')), true);
         assert.equal(
-            existsSync(join(sandbox.skillsDirectory, 'efficient-review', 'defaults.json')),
+            existsSync(join(skillDirectory, 'hooks', 'efficient_review_model_gate.py')),
             true,
         );
+        const settings = JSON.parse(readFileSync(join(skillDirectory, 'settings.json'), 'utf8'));
+        assert.equal(settings.owner_display_name, 'the owner');
+        assert.deepEqual(settings.known_accounts, []);
+        assert.deepEqual(settings.excluded_accounts, []);
+        assert.equal(settings.dispatch_repository, '');
+        assert.equal(settings.read_token_environment, '');
+        assert.equal(settings.hook_owner, '');
+        assert.equal(settings.hook_repository, '');
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
     }
