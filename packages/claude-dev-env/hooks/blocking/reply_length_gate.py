@@ -371,7 +371,7 @@ def card_shape_violation(all_card_input: dict[str, object]) -> str | None:
     """Return the deny reason for a listed or over-long card context or card sentence, or None."""
     context_text = all_card_input.get(DECISION_CARD_CONTEXT_KEY)
     if isinstance(context_text, str):
-        if CARD_LIST_ITEM_PATTERN.search(countable_text(context_text)) is not None:
+        if CARD_LIST_ITEM_PATTERN.search(FENCED_BLOCK_PATTERN.sub(" ", context_text)) is not None:
             return CARD_CONTEXT_LIST_MESSAGE
         context_sentence_count = len(sentence_word_lists(context_text))
         if context_sentence_count > MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT:

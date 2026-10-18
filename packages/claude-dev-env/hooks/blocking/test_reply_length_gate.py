@@ -395,6 +395,26 @@ def test_should_deny_a_card_context_of_four_sentences(
     assert "publish an Artifact page with a tap button per item and a Send button" in stderr_text
 
 
+@pytest.mark.parametrize(
+    "context_text",
+    [
+        "Three themes fail.\n- `Cedar`\n- `Birch`",
+        "Open one.\n- https://github.com/owner/repo/pull/12\n- https://github.com/owner/repo/pull/13",
+    ],
+)
+def test_should_deny_a_card_context_list_whose_items_are_code_or_urls(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], context_text: str
+) -> None:
+    exit_code, stderr_text = run_gate(
+        monkeypatch,
+        capsys,
+        DECISION_TOOL_NAME,
+        short_card(context=context_text),
+    )
+    assert exit_code == 2
+    assert "Card context holds a list of items" in stderr_text
+
+
 def test_should_deny_a_card_context_that_lists_several_items_and_name_the_page_flow(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
