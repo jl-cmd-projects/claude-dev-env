@@ -11,7 +11,26 @@ sys.path[:0] = [
 import pytest
 
 import run
-from run import _summary
+from run import RunPlan, _run_pending, _summary
+from session_eval_support.session import SessionSettings
+
+
+def test_run_pending_cancels_queued_runs_after_one_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_started: list[str] = []
+
+    def fail_first(case_by_field: dict[str, str], _rep: int, _plan: RunPlan) -> None:
+        all_started.append(case_by_field["id"])
+        if case_by_field["id"] == "case-a":
+            raise OSError("disk full")
+
+    monkeypatch.setattr(run, "_run_one", fail_first)
+    all_pending = [({"id": each_id}, 0) for each_id in ("case-a", "case-b", "case-c")]
+    plan = RunPlan(Path("."), {}, "aaa", SessionSettings("model", "low", 1, 1), False)
+
+    with pytest.raises(OSError, match="disk full"):
+        _run_pending(all_pending, plan, 1)
+
+    assert all_started == ["case-a"]
 
 
 def test_summary_counts_passes_and_errors() -> None:

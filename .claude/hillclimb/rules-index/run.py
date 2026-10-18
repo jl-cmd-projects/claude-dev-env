@@ -194,6 +194,17 @@ def _summary(all_rows: list[dict[str, object]], error_count: int) -> str:
     return f"followed {total_passes}/{len(all_rows)} (95% CI {low:.2f}-{high:.2f}) | {group_text} | opened a guide {guide_opens}/{len(all_rows)} | errors {error_count}"
 
 
+def _run_pending(all_pending: list[tuple[dict[str, str], int]], plan: RunPlan, parallel: int) -> None:
+    with ThreadPoolExecutor(max_workers=parallel) as executor:
+        all_futures = [executor.submit(_run_one, each_case, each_rep, plan) for each_case, each_rep in all_pending]
+        try:
+            for each_future in all_futures:
+                each_future.result()
+        finally:
+            for each_future in all_futures:
+                each_future.cancel()
+
+
 def main() -> int:
     """Run every pending (case, rep) for one variant and print the headline.
 
@@ -215,9 +226,7 @@ def main() -> int:
     (plan.variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     all_done = {(each_row["prompt_id"], each_row["rep"]) for each_row in rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)}
     all_pending = [(each_case, each_rep) for each_case in all_cases for each_rep in range(arguments.reps) if (each_case["id"], each_rep) not in all_done]
-    with ThreadPoolExecutor(max_workers=arguments.parallel) as executor:
-        for each_future in [executor.submit(_run_one, each_case, each_rep, plan) for each_case, each_rep in all_pending]:
-            each_future.result()
+    _run_pending(all_pending, plan, arguments.parallel)
     all_rows = rows_for_install(plan.variant_directory / RESULTS_FILE_NAME, plan.digest, all_case_ids)
     all_errors = rows_for_install(plan.variant_directory / ERRORS_FILE_NAME, plan.digest, all_case_ids)
     logger.info("%s: %s", arguments.variant, _summary(all_rows, len(open_errors(all_errors, all_rows))))
