@@ -14,10 +14,11 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 from deepen_role_gate import refusal_reason
-
-SCORE_ACCEPT: str = "accept"
-SCORE_REFUSE: str = "refuse"
-UTF8_ENCODING: str = "utf-8"
+from hooks_constants.deepen_first_prompt_constants import (
+    SCORE_ACCEPT,
+    SCORE_REFUSE,
+    UTF8_ENCODING,
+)
 
 
 def score_replay(task_text: str, rewritten_prompt: str) -> dict[str, str]:
@@ -28,12 +29,12 @@ def score_replay(task_text: str, rewritten_prompt: str) -> dict[str, str]:
     return {"score": SCORE_REFUSE, "reason": reason}
 
 
-def score_fixture(fixture: dict[str, object]) -> list[dict[str, str]]:
+def score_fixture(all_replay_fields: dict[str, object]) -> list[dict[str, str]]:
     """Score each case in a replay fixture against the task it names."""
-    task_text = fixture["task"]
+    task_text = all_replay_fields["task"]
     if not isinstance(task_text, str):
         raise TypeError("fixture task must be a string")
-    cases = fixture["cases"]
+    cases = all_replay_fields["cases"]
     if not isinstance(cases, list):
         raise TypeError("fixture cases must be a list")
     all_scores: list[dict[str, str]] = []

@@ -12,6 +12,7 @@ from hooks_constants.deepen_first_prompt_constants import (
     ALL_EXAMPLE_NOUN_STOPWORDS,
     ALL_FOUR_QUESTION_STEMS,
     EXAMPLE_NOUN_PATTERN,
+    BULLET_PREFIX,
     HARD_CONSTRAINTS_LABEL,
     REFUSAL_DROPPED_HARD_CONSTRAINT,
     REFUSAL_EXAMPLE_NOUN_IN_SCOPE,
@@ -73,34 +74,68 @@ def _scope_names_example_noun(scope_text: str, examples_text: str, blocker_text:
     return False
 
 
+def _is_constraints_heading(stripped_line: str) -> bool:
+    """Return whether the line opens the hard-constraints block."""
+    return stripped_line.upper().startswith(HARD_CONSTRAINTS_LABEL)
+
+
+def _bullet_body(stripped_line: str) -> str | None:
+    """Return the text after a bullet marker, or None when the line is not a bullet."""
+    if not stripped_line.startswith(BULLET_PREFIX):
+        return None
+    return stripped_line[len(BULLET_PREFIX) :].strip()
+
+
+def _constraint_step(
+    stripped_line: str,
+    collecting: bool,
+    has_sentences: bool,
+) -> tuple[str | None, bool, bool]:
+    """Return the sentence to keep, whether collection stays on, and whether to stop."""
+    if not collecting:
+        return None, _is_constraints_heading(stripped_line), False
+    bullet_body = _bullet_body(stripped_line)
+    if bullet_body is not None:
+        return bullet_body, True, False
+    if stripped_line == "" and not has_sentences:
+        return None, True, False
+    return None, collecting, True
+
+
 def _constraint_sentences(original_task: str) -> tuple[str, ...]:
     """Return bullet sentences under the hard-constraints heading."""
     collecting = False
     all_sentences: list[str] = []
     for each_line in original_task.splitlines():
-        stripped_line = each_line.strip()
-        if not collecting:
-            if stripped_line.upper().startswith(HARD_CONSTRAINTS_LABEL):
-                collecting = True
-            continue
-        if stripped_line.startswith("- "):
-            all_sentences.append(stripped_line[2:].strip())
-            continue
-        if stripped_line == "" and not all_sentences:
-            continue
-        break
+        sentence, collecting, finished = _constraint_step(
+            each_line.strip(),
+            collecting,
+            bool(all_sentences),
+        )
+        if finished:
+            break
+        if sentence is not None:
+            all_sentences.append(sentence)
     return tuple(all_sentences)
+
+
+def _line_body(stripped_line: str) -> str | None:
+    """Return one rewrite line with a leading bullet marker removed."""
+    if not stripped_line:
+        return None
+    bullet_body = _bullet_body(stripped_line)
+    if bullet_body is not None:
+        return bullet_body
+    return stripped_line
 
 
 def _rewrite_line_bodies(rewritten_prompt: str) -> frozenset[str]:
     """Return each rewrite line with a leading bullet marker removed."""
     all_bodies: set[str] = set()
     for each_line in rewritten_prompt.splitlines():
-        stripped_line = each_line.strip()
-        if stripped_line.startswith("- "):
-            all_bodies.add(stripped_line[2:].strip())
-        elif stripped_line:
-            all_bodies.add(stripped_line)
+        body = _line_body(each_line.strip())
+        if body is not None:
+            all_bodies.add(body)
     return frozenset(all_bodies)
 
 

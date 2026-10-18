@@ -37,6 +37,10 @@ __all__ = [
     "ROLE_BLOCKER_LABEL",
     "ROLE_BLOCKER_NONE",
     "ROLE_EXAMPLES_LABEL",
+    "BULLET_PREFIX",
+    "QUESTION_LINE_SEPARATOR",
+    "SCORE_ACCEPT",
+    "SCORE_REFUSE",
     "ROLE_SCOPE_LABEL",
     "DEEPEN_SLASH_COMMAND",
     "DEEPEN_TIMEOUT_SECONDS",
@@ -139,6 +143,10 @@ REFUSAL_RESTATES_FOUR_QUESTIONS: str = "restates-four-questions"
 REFUSAL_MISSING_ROLE_LINES: str = "missing-role-lines"
 REFUSAL_EXAMPLE_NOUN_IN_SCOPE: str = "example-noun-in-scope"
 REFUSAL_DROPPED_HARD_CONSTRAINT: str = "dropped-hard-constraint"
+BULLET_PREFIX: str = "- "
+QUESTION_LINE_SEPARATOR: str = "\n"
+SCORE_ACCEPT: str = "accept"
+SCORE_REFUSE: str = "refuse"
 EXAMPLE_NOUN_PATTERN: str = r"[A-Za-z][A-Za-z0-9_+-]{3,}"
 ALL_FOUR_QUESTION_STEMS: tuple[str, ...] = (
     "What a top person in that field would do that this prompt omitted.",

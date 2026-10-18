@@ -27,6 +27,7 @@ from hooks_constants.cloud_session import is_cloud_session
 from hooks_constants.deepen_first_prompt_constants import (
     ADDITIONAL_CONTEXT_KEY,
     ALL_FOUR_QUESTION_STEMS,
+    QUESTION_LINE_SEPARATOR,
     ALL_HELPER_REPORT_MARKERS,
     ALL_LOOP_PROMPT_PREFIXES,
     ALL_NONINTERACTIVE_ENV_TRUE_VALUES,
@@ -276,7 +277,7 @@ def _command_rewrite(task_text: str) -> str | None:
 
 def _default_rewrite(task_text: str) -> str:
     """Return the paste path: the four question stems and an order to do the job."""
-    numbered_stems = "\n".join(
+    numbered_stems = QUESTION_LINE_SEPARATOR.join(
         f"{each_index}. {each_stem}"
         for each_index, each_stem in enumerate(ALL_FOUR_QUESTION_STEMS, start=1)
     )
