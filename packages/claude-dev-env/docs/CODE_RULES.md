@@ -129,3 +129,8 @@ Open [details](code-rules/enforcement-surfaces.md) when routing a check.
 Scope assigns the lane. A check that reads a file other than the target runs on the full gate. Every other check runs on both lanes.
 
 Open [details](code-rules/enforcement-surfaces.md) when adding a check.
+
+## 11.7 A NEW INSTRUCTION NAMES THE TRIGGER IT REPLACES
+
+A new rule, hook, or skill names the trigger it replaces and records that trigger in `rules-archived/ARCHIVE-MANIFEST.md`. The first-task gate is `hooks/session/deepen_first_prompt.py`. DeepStack cites that gate. This criterion cites the gate. It does not restate the gate.
+
