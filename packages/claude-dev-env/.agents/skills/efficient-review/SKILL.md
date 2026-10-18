@@ -92,6 +92,7 @@ The cloud container has no other Claude accounts, so the review runs on the host
 
 | File | What it does |
 |---|---|
+| [`README.md`](README.md) | How a host loads this shared copy, where it keeps its settings file, and which vendored files it deletes. |
 | [`reference/cloud-session.md`](reference/cloud-session.md) | Dispatching the review from a cloud session and reading its results branch. |
 | [`defaults.json`](defaults.json) | The default model family, effort, level, prompt, base, profile, advisor, validator, mode and timeout. |
 | [`settings.json`](settings.json) | Host roster, rules root, dispatch target, and model-gate command scope. |

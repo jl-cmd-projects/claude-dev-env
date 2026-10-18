@@ -815,7 +815,12 @@ test('a fresh scoped core install includes efficient-review', () => {
         assert.equal(readManifest(sandbox.manifestPath).skills.includes('efficient-review'), true);
         const skillDirectory = join(sandbox.skillsDirectory, 'efficient-review');
         assert.equal(existsSync(join(skillDirectory, 'defaults.json')), true);
+        assert.equal(existsSync(join(skillDirectory, 'README.md')), true);
         assert.equal(existsSync(join(skillDirectory, 'settings.json')), true);
+        assert.match(
+            readFileSync(join(skillDirectory, 'README.md'), 'utf8'),
+            /EFFICIENT_REVIEW_SETTINGS/,
+        );
         assert.equal(existsSync(join(skillDirectory, 'reference', 'cloud-session.md')), true);
         assert.equal(existsSync(join(skillDirectory, 'tools', 'efficient_review.py')), true);
         assert.equal(
