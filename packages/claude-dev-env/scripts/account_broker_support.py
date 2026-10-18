@@ -318,6 +318,27 @@ def read_codex_account_meters(account: Account) -> Meters:
     )
 
 
+def _read_meter_attempt(
+    read_meters: Callable[[Account], Meters | None], account: Account
+) -> tuple[bool, Meters | None, str | None, bool]:
+    try:
+        return True, read_meters(account), None, False
+    except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
+        return True, None, str(error), False
+    except (
+        codex_account_meters.CodexMeterUnreadError,
+        WeeklyUtilizationProbeError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ) as error:
+        unread_reason = str(error) or type(error).__name__
+        if "HTTP Error 429" in unread_reason:
+            return True, None, unread_reason, True
+        return False, None, unread_reason, False
+
+
 def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None, bool]:
     """Read one account's meters, retrying a failed read with exponential backoff.
 
@@ -336,21 +357,9 @@ def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], ac
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
             time.sleep(meter_read_delay_seconds(each_attempt))
-        try:
-            return read_meters(account), None, False
-        except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
-            return None, str(error), False
-        except (
-            codex_account_meters.CodexMeterUnreadError,
-            WeeklyUtilizationProbeError,
-            OSError,
-            ValueError,
-            RuntimeError,
-            subprocess.SubprocessError,
-        ) as error:
-            unread_reason = str(error) or type(error).__name__
-            if "HTTP Error 429" in unread_reason:
-                return None, unread_reason, True
+        is_final, meters, unread_reason, is_rate_limited = _read_meter_attempt(read_meters, account)
+        if is_final:
+            return meters, unread_reason, is_rate_limited
     return None, unread_reason, False
 
 
