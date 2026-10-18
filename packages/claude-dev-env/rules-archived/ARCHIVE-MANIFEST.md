@@ -79,9 +79,9 @@ service.
 
 ## DeepStack replacements
 
-Each row names a retired path, the behavior it required, the trigger that replaces it, and the requirement that stays. The eval rows keep a reproducible, re-runnable check. Only the forced position as the very first action is retired.
+Each row names a retired path, the behavior it required, the trigger that covers it, and the requirement that stays. The eval rows keep a reproducible, re-runnable check. Only the forced position as the very first action is retired.
 
-| Retired path | Behavior it required | Trigger that replaces it | Requirement that stays |
+| Retired path | Behavior it required | Trigger that covers it | Requirement that stays |
 |---|---|---|---|
 | `.agents/skills/deepen/SKILL.md` | Then rewrite the user prompt to ask for exactly that job | DeepStack intake | none |
 | `commands/deepen.md` | Then do only that job | DeepStack intake | none |
