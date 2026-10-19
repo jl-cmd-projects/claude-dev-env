@@ -22,7 +22,8 @@ turns the reason into a continuation prompt. A Cursor payload (it carries
 Cursor submits as the next user message; Cursor sends no closing reply, so
 the gate reads the last assistant text from the transcript. A Cursor payload
 whose ``status`` is ``aborted`` or ``error`` is allowed, because Cursor would
-submit the follow-up after the user stopped the run. A TodoWrite call with
+submit the follow-up after the user stopped the run, and so is one whose
+``loop_count`` shows five follow-ups already sent. A TodoWrite call with
 ``merge`` set updates the earlier items by id, and a Cursor ``CallDynamicTool``
 call that wraps TodoWrite counts as that TodoWrite call.
 """
@@ -54,7 +55,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CLAUDE_HOME_DIRECTORY_NAME,
     CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
+    CURSOR_FOLLOWUP_LIMIT,
     CURSOR_FOLLOWUP_MESSAGE_KEY,
+    CURSOR_LOOP_COUNT_KEY,
     CURSOR_STATUS_KEY,
     DECISION_KEY,
     HOOK_EVENT_NAME,
@@ -172,9 +175,21 @@ def is_unfinished_cursor_stop(all_hook_input_fields: dict[str, object]) -> bool:
     return stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS
 
 
+def has_spent_cursor_followups(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True for a Cursor stop that already sent the follow-up limit.
+
+    Cursor caps native stop follow-ups at five per script, but a copy it imports
+    from ``~/.claude/settings.json`` has no cap, so the gate stops at five itself.
+    """
+    if not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
+        return False
+    loop_count = all_hook_input_fields.get(CURSOR_LOOP_COUNT_KEY)
+    return isinstance(loop_count, int) and loop_count >= CURSOR_FOLLOWUP_LIMIT
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None or is_unfinished_cursor_stop(hook_input):
+    if hook_input is None or is_unfinished_cursor_stop(hook_input) or has_spent_cursor_followups(hook_input):
         return ALLOW_EXIT_CODE
     all_open_items = unreported_open_items(hook_input)
     if not all_open_items:
