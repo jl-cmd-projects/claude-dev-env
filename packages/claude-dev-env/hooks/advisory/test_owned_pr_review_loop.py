@@ -80,6 +80,10 @@ def _context_of(stdout: str) -> str:
         "gh api repos/acme/widgets/pulls --input pr.json",
         "gh api /repos/acme/widgets/pulls -f title=t -f head=x -f base=main",
         "gh api -X POST repos/acme/widgets/pulls",
+        "gh api repos/acme/widgets/pulls --input=pr.json",
+        "gh api repos/acme/widgets/pulls --raw-field=title=t",
+        "gh api --method=POST repos/acme/widgets/pulls",
+        "gh api -XPOST repos/acme/widgets/pulls",
     ],
 )
 def test_should_detect_gh_pr_create(command: str) -> None:
@@ -96,6 +100,8 @@ def test_should_detect_gh_pr_create(command: str) -> None:
         "gh api repos/acme/widgets/pulls",
         "gh api repos/acme/widgets/pulls/42 -X PATCH -f state=closed",
         "gh api repos/acme/widgets/issues --input issue.json",
+        "gh api --method GET repos/acme/widgets/pulls -f state=open",
+        "gh api -X GET repos/acme/widgets/pulls -f state=open",
     ],
 )
 def test_should_not_detect_other_commands(command: str) -> None:

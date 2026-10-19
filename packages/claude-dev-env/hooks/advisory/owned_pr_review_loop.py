@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -51,6 +52,8 @@ try:
         GH_API_POST_METHOD,
         GH_API_PULLS_ENDPOINT_PATTERN,
         GH_API_SUBCOMMAND,
+        GH_LONG_OPTION_PREFIX,
+        GH_OPTION_VALUE_SEPARATOR,
         GH_PR_SUBCOMMAND,
         GH_PROGRAM_NAME,
         MCP_OWNER_INPUT_KEY,
@@ -59,6 +62,7 @@ try:
         NAME_DIGEST_TEXT_ENCODING,
         PULL_REQUEST_URL_PATTERN,
         REVIEW_LOOP_CONTEXT_TEMPLATE,
+        SHELL_ARGUMENT_SEPARATOR,
     )
     from hooks_constants.post_tool_use_context import (
         write_post_tool_use_context_to_stdout,
@@ -84,6 +88,16 @@ def _is_gh_pr_create(all_arguments: list[str]) -> bool:
     )
 
 
+def _option_name_and_inline_value(argument: str) -> tuple[str, str | None]:
+    if argument.startswith(GH_LONG_OPTION_PREFIX):
+        option_name, separator, inline_value = argument.partition(GH_OPTION_VALUE_SEPARATOR)
+        return option_name, inline_value if separator else None
+    for each_method_option in ALL_GH_API_METHOD_OPTIONS:
+        if argument.startswith(each_method_option) and len(argument) > len(each_method_option):
+            return each_method_option, argument[len(each_method_option) :]
+    return argument, None
+
+
 def _is_gh_api_pulls_post(all_arguments: list[str]) -> bool:
     if all_arguments[:1] != [GH_API_SUBCOMMAND]:
         return False
@@ -91,15 +105,25 @@ def _is_gh_api_pulls_post(all_arguments: list[str]) -> bool:
         GH_API_PULLS_ENDPOINT_PATTERN.fullmatch(each_argument) for each_argument in all_arguments
     ):
         return False
-    for each_index, each_argument in enumerate(all_arguments):
-        if each_argument in ALL_GH_API_BODY_OPTIONS:
-            return True
-        if (
-            each_argument in ALL_GH_API_METHOD_OPTIONS
-            and all_arguments[each_index + 1 : each_index + 2] == [GH_API_POST_METHOD]
-        ):
-            return True
-    return False
+    explicit_method: str | None = None
+    sends_body = False
+    all_following_arguments = [*all_arguments[1:], ""]
+    for each_argument, each_following_argument in zip(all_arguments, all_following_arguments):
+        option_name, inline_value = _option_name_and_inline_value(each_argument)
+        if option_name in ALL_GH_API_BODY_OPTIONS:
+            sends_body = True
+        if option_name in ALL_GH_API_METHOD_OPTIONS:
+            explicit_method = inline_value or each_following_argument
+    if explicit_method:
+        return explicit_method.upper() == GH_API_POST_METHOD
+    return sends_body
+
+
+def _segment_opens_pull_request(all_segment_tokens: list[str]) -> bool:
+    program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    return program_name == GH_PROGRAM_NAME and (
+        _is_gh_pr_create(all_arguments) or _is_gh_api_pulls_post(all_arguments)
+    )
 
 
 def command_creates_pull_request(command: str) -> bool:
@@ -111,22 +135,21 @@ def command_creates_pull_request(command: str) -> bool:
         gh pr new --fill
         gh api repos/acme/widgets/pulls --input pr.json
 
-    A ``gh api`` call counts only when it targets the pulls collection and
-    sends a body (``-f``, ``-F``, ``--field``, ``--raw-field``, ``--input``)
-    or names ``POST`` with ``-X`` or ``--method``. A ``pwsh -Command "..."``
+    A ``gh api`` call counts only when it targets the pulls collection. An
+    explicit method (``-X POST``, ``-XPOST``, ``--method=POST``) decides
+    alone. With no method, a body (``-f``, ``-F``, ``--field``,
+    ``--raw-field``, ``--input``, or their ``--name=value`` forms) means
+    POST, as it does for ``gh``. A ``pwsh -Command "..."``
     wrapper is unwrapped and its inner text scanned the same way.
 
     Args:
         command: The shell command text the agent ran.
     """
-    for each_command_text in all_wrapped_command_texts(command):
-        for each_segment in split_into_segments(command_tokens(each_command_text)):
-            program_name, all_arguments = segment_program_and_arguments(each_segment)
-            if program_name == GH_PROGRAM_NAME and (
-                _is_gh_pr_create(all_arguments) or _is_gh_api_pulls_post(all_arguments)
-            ):
-                return True
-    return False
+    return any(
+        _segment_opens_pull_request(each_segment)
+        for each_command_text in all_wrapped_command_texts(command)
+        for each_segment in split_into_segments(command_tokens(each_command_text))
+    )
 
 
 def _is_mcp_create_pull_request(tool_name: str) -> bool:
@@ -135,13 +158,13 @@ def _is_mcp_create_pull_request(tool_name: str) -> bool:
     )
 
 
-def _shell_command(tool_input: dict[str, object]) -> str:
+def _shell_command(all_tool_input: dict[str, object]) -> str:
     for each_key in ALL_SHELL_COMMAND_INPUT_KEYS:
-        command = tool_input.get(each_key)
+        command = all_tool_input.get(each_key)
         if isinstance(command, str):
             return command
         if isinstance(command, list) and all(isinstance(each, str) for each in command):
-            return " ".join(command)
+            return SHELL_ARGUMENT_SEPARATOR.join(command)
     return ""
 
 
@@ -151,23 +174,38 @@ def _response_text(tool_response: object) -> str:
     return json.dumps(tool_response)
 
 
-def tool_call_opens_pull_request(tool_name: str, tool_input: dict[str, object]) -> bool:
+def tool_call_opens_pull_request(tool_name: str, all_tool_input: dict[str, object]) -> bool:
     """Return True when the tool call is a pull request creation.
 
     Args:
         tool_name: The tool name from the hook payload, such as ``Bash``,
             ``exec_command``, or ``mcp__github__create_pull_request``.
-        tool_input: The tool input from the hook payload.
+        all_tool_input: The tool input from the hook payload.
     """
     if _is_mcp_create_pull_request(tool_name):
         return True
     if tool_name in ALL_SHELL_TOOL_NAMES:
-        return command_creates_pull_request(_shell_command(tool_input))
+        return command_creates_pull_request(_shell_command(all_tool_input))
     return False
 
 
+def _matches_for_input_repository(
+    all_url_matches: list[re.Match[str]], all_tool_input: dict[str, object]
+) -> list[re.Match[str]]:
+    input_owner = str(all_tool_input.get(MCP_OWNER_INPUT_KEY) or "").lower()
+    input_repository = str(all_tool_input.get(MCP_REPOSITORY_INPUT_KEY) or "").lower()
+    if not (input_owner and input_repository):
+        return all_url_matches
+    return [
+        each_match
+        for each_match in all_url_matches
+        if each_match["owner"].lower() == input_owner
+        and each_match["repository"].lower() == input_repository
+    ]
+
+
 def opened_pull_request(
-    tool_input: dict[str, object], tool_response: object
+    all_tool_input: dict[str, object], tool_response: object
 ) -> dict[str, str] | None:
     """Return the owner, repository, number, and url of the opened pull request.
 
@@ -177,7 +215,7 @@ def opened_pull_request(
     ``gh pr create`` prints the new pull request's URL last.
 
     Args:
-        tool_input: The tool input from the hook payload.
+        all_tool_input: The tool input from the hook payload.
         tool_response: The tool response from the hook payload.
 
     Returns:
@@ -189,25 +227,13 @@ def opened_pull_request(
         return None
     if ALREADY_EXISTS_MARKER in response_text.lower():
         return None
-    all_url_matches = list(PULL_REQUEST_URL_PATTERN.finditer(response_text))
-    input_owner = str(tool_input.get(MCP_OWNER_INPUT_KEY) or "").lower()
-    input_repository = str(tool_input.get(MCP_REPOSITORY_INPUT_KEY) or "").lower()
-    if input_owner and input_repository:
-        all_url_matches = [
-            each_match
-            for each_match in all_url_matches
-            if each_match["owner"].lower() == input_owner
-            and each_match["repository"].lower() == input_repository
-        ]
+    all_url_matches = _matches_for_input_repository(
+        list(PULL_REQUEST_URL_PATTERN.finditer(response_text)), all_tool_input
+    )
     if not all_url_matches:
         return None
     url_match = all_url_matches[-1]
-    return {
-        "owner": url_match["owner"],
-        "repository": url_match["repository"],
-        "number": url_match["number"],
-        "url": url_match.group(0),
-    }
+    return {**url_match.groupdict(), "url": url_match.group(0)}
 
 
 def name_digest(name: str) -> str:
@@ -248,13 +274,13 @@ def needs_review_loop(
     )
 
 
-def build_review_loop_context(pull_request: dict[str, str]) -> str:
+def build_review_loop_context(all_pull_request_fields: dict[str, str]) -> str:
     """Build the review-loop instruction block for one opened pull request.
 
     Args:
-        pull_request: The owner, repository, number, and url fields.
+        all_pull_request_fields: The owner, repository, number, and url fields.
     """
-    return REVIEW_LOOP_CONTEXT_TEMPLATE.format(**pull_request)
+    return REVIEW_LOOP_CONTEXT_TEMPLATE.format(**all_pull_request_fields)
 
 
 def main() -> None:

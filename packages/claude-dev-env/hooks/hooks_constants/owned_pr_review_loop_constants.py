@@ -26,6 +26,7 @@ __all__ = [
     "ALL_PRESET_REPOSITORY_DIGESTS",
     "ALL_SHELL_TOOL_NAMES",
     "ALL_SHELL_COMMAND_INPUT_KEYS",
+    "SHELL_ARGUMENT_SEPARATOR",
     "ALL_GH_PR_CREATE_ACTIONS",
     "GH_PROGRAM_NAME",
     "GH_PR_SUBCOMMAND",
@@ -34,6 +35,8 @@ __all__ = [
     "ALL_GH_API_BODY_OPTIONS",
     "ALL_GH_API_METHOD_OPTIONS",
     "GH_API_POST_METHOD",
+    "GH_LONG_OPTION_PREFIX",
+    "GH_OPTION_VALUE_SEPARATOR",
     "MCP_TOOL_NAME_PREFIX",
     "ALL_MCP_CREATE_PULL_REQUEST_TOOL_SUFFIXES",
     "MCP_OWNER_INPUT_KEY",
@@ -60,6 +63,7 @@ ALL_SHELL_TOOL_NAMES: frozenset[str] = frozenset(
     {"Bash", "PowerShell", "exec_command", "shell_command"}
 )
 ALL_SHELL_COMMAND_INPUT_KEYS: tuple[str, ...] = ("command", "cmd")
+SHELL_ARGUMENT_SEPARATOR: str = " "
 GH_PROGRAM_NAME: str = "gh"
 GH_PR_SUBCOMMAND: str = "pr"
 ALL_GH_PR_CREATE_ACTIONS: frozenset[str] = frozenset({"create", "new"})
@@ -70,6 +74,8 @@ ALL_GH_API_BODY_OPTIONS: frozenset[str] = frozenset(
 )
 ALL_GH_API_METHOD_OPTIONS: frozenset[str] = frozenset({"-X", "--method"})
 GH_API_POST_METHOD: str = "POST"
+GH_LONG_OPTION_PREFIX: str = "--"
+GH_OPTION_VALUE_SEPARATOR: str = "="
 
 MCP_TOOL_NAME_PREFIX: str = "mcp__"
 ALL_MCP_CREATE_PULL_REQUEST_TOOL_SUFFIXES: tuple[str, ...] = (
