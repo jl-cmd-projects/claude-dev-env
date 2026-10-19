@@ -135,7 +135,12 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         );
         assert.equal(firstSpawnPromptGroups.length, 1);
         assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'Stop']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop']);
+        const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
+            group => group.hooks.map(hook => hook.command),
+        );
+        assert.equal(allCodexPostToolUseCommands.length, 1, 'Codex gets the owned PR review loop and no other PostToolUse hook');
+        assert.match(allCodexPostToolUseCommands[0], /advisory\/owned_pr_review_loop\.py/);
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
@@ -310,6 +315,12 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
         assert.equal(allPackageStopGroups.length, 1);
         migratedHooks.hooks.Stop = migratedHooks.hooks.Stop.filter(eachGroup => !allPackageStopGroups.includes(eachGroup));
+        const allPackagePostToolUseCommands = migratedHooks.hooks.PostToolUse
+            .flatMap(eachGroup => eachGroup.hooks)
+            .map(eachHook => eachHook.command);
+        assert.equal(allPackagePostToolUseCommands.length, 1);
+        assert.match(allPackagePostToolUseCommands[0], /owned_pr_review_loop\.py/);
+        delete migratedHooks.hooks.PostToolUse;
         assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
         assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
         const firstInstall = readFileSync(codexHooksPath, 'utf8');
