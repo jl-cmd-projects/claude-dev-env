@@ -5,7 +5,7 @@ pull request on a repository we own, outside the preset list of repositories
 that run their own automated review, it tells the agent to own an efficient
 review loop and drive the pull request through to merge.
 
-Owner and repository names stay out of this public tree. Each set holds the
+Private owner and repository names stay out of this public tree. Each set holds the
 SHA-256 digest of a name normalized to lower-case ASCII letters and digits,
 the same form ``scripts/private_terms.py`` uses::
 
@@ -36,6 +36,8 @@ __all__ = [
     "ALL_GH_API_METHOD_OPTIONS",
     "GH_API_POST_METHOD",
     "GH_LONG_OPTION_PREFIX",
+    "GH_SHORT_OPTION_LENGTH",
+    "ALL_GH_API_SHORT_OPTIONS",
     "GH_OPTION_VALUE_SEPARATOR",
     "MCP_TOOL_NAME_PREFIX",
     "ALL_MCP_CREATE_PULL_REQUEST_TOOL_SUFFIXES",
@@ -75,6 +77,8 @@ ALL_GH_API_BODY_OPTIONS: frozenset[str] = frozenset(
 ALL_GH_API_METHOD_OPTIONS: frozenset[str] = frozenset({"-X", "--method"})
 GH_API_POST_METHOD: str = "POST"
 GH_LONG_OPTION_PREFIX: str = "--"
+GH_SHORT_OPTION_LENGTH: int = 2
+ALL_GH_API_SHORT_OPTIONS: frozenset[str] = frozenset({"-f", "-F", "-X"})
 GH_OPTION_VALUE_SEPARATOR: str = "="
 
 MCP_TOOL_NAME_PREFIX: str = "mcp__"

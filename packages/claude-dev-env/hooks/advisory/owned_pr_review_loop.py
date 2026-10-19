@@ -42,6 +42,7 @@ try:
     from hooks_constants.owned_pr_review_loop_constants import (
         ALL_GH_API_BODY_OPTIONS,
         ALL_GH_API_METHOD_OPTIONS,
+        ALL_GH_API_SHORT_OPTIONS,
         ALL_GH_PR_CREATE_ACTIONS,
         ALL_MCP_CREATE_PULL_REQUEST_TOOL_SUFFIXES,
         ALL_OWNED_OWNER_DIGESTS,
@@ -56,6 +57,7 @@ try:
         GH_OPTION_VALUE_SEPARATOR,
         GH_PR_SUBCOMMAND,
         GH_PROGRAM_NAME,
+        GH_SHORT_OPTION_LENGTH,
         MCP_OWNER_INPUT_KEY,
         MCP_REPOSITORY_INPUT_KEY,
         MCP_TOOL_NAME_PREFIX,
@@ -92,9 +94,9 @@ def _option_name_and_inline_value(argument: str) -> tuple[str, str | None]:
     if argument.startswith(GH_LONG_OPTION_PREFIX):
         option_name, separator, inline_value = argument.partition(GH_OPTION_VALUE_SEPARATOR)
         return option_name, inline_value if separator else None
-    for each_method_option in ALL_GH_API_METHOD_OPTIONS:
-        if argument.startswith(each_method_option) and len(argument) > len(each_method_option):
-            return each_method_option, argument[len(each_method_option) :]
+    short_option_name = argument[:GH_SHORT_OPTION_LENGTH]
+    if short_option_name in ALL_GH_API_SHORT_OPTIONS and len(argument) > GH_SHORT_OPTION_LENGTH:
+        return short_option_name, argument[GH_SHORT_OPTION_LENGTH:]
     return argument, None
 
 
@@ -138,7 +140,8 @@ def command_creates_pull_request(command: str) -> bool:
     A ``gh api`` call counts only when it targets the pulls collection. An
     explicit method (``-X POST``, ``-XPOST``, ``--method=POST``) decides
     alone. With no method, a body (``-f``, ``-F``, ``--field``,
-    ``--raw-field``, ``--input``, or their ``--name=value`` forms) means
+    ``--raw-field``, ``--input``, or the ``--name=value`` and ``-ftitle=t``
+    forms) means
     POST, as it does for ``gh``. A ``pwsh -Command "..."``
     wrapper is unwrapped and its inner text scanned the same way.
 

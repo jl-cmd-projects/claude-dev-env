@@ -84,6 +84,7 @@ def _context_of(stdout: str) -> str:
         "gh api repos/acme/widgets/pulls --raw-field=title=t",
         "gh api --method=POST repos/acme/widgets/pulls",
         "gh api -XPOST repos/acme/widgets/pulls",
+        "gh api repos/acme/widgets/pulls -Ftitle=t -fhead=x",
     ],
 )
 def test_should_detect_gh_pr_create(command: str) -> None:
