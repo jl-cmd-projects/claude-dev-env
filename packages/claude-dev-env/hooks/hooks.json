@@ -457,6 +457,16 @@
         ]
       },
       {
+        "matcher": "Bash|PowerShell|exec_command|shell_command|mcp__.*__(create_pull_request|github_create_pull_request)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/advisory/owned_pr_review_loop.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
