@@ -395,11 +395,15 @@ test('a full install over an old deepen install removes every deepen piece, and 
         const manifestPath = join(claudeDirectory, '.claude-dev-env-manifest.json');
         const settingsPath = join(claudeDirectory, 'settings.json');
         const retiredPluginVersion = join(claudeDirectory, 'plugins', 'cache', 'claude-dev-env', 'deepen-first-prompt', '0.1.0');
-        const fakeClaudePath = join(homeDirectory, 'fake-claude.sh');
         const fakeClaudeLogPath = join(homeDirectory, 'fake-claude.log');
+        const orphanedMarkerPath = join(retiredPluginVersion, '.orphaned_at');
+        const isWindows = process.platform === 'win32';
+        const fakeClaudePath = join(homeDirectory, isWindows ? 'fake-claude.cmd' : 'fake-claude.sh');
         writeFileSync(
             fakeClaudePath,
-            `#!/bin/sh\necho "$@" >> '${fakeClaudeLogPath}'\ntouch '${join(retiredPluginVersion, '.orphaned_at')}'\n`,
+            isWindows
+                ? `@echo off\r\n>>"${fakeClaudeLogPath}" echo %*\r\ntype nul > "${orphanedMarkerPath}"\r\n`
+                : `#!/bin/sh\necho "$@" >> '${fakeClaudeLogPath}'\ntouch '${orphanedMarkerPath}'\n`,
             { mode: 0o755 },
         );
         const environment = { CDE_CLAUDE_EXECUTABLE: fakeClaudePath };
@@ -431,7 +435,7 @@ test('a full install over an old deepen install removes every deepen piece, and 
         runInstaller(homeDirectory, [], environment);
 
         assertNoDeepenPieceInstalled(homeDirectory, cursorSkillPath, codexGuidancePath, settingsPath);
-        assert.match(readFileSync(fakeClaudeLogPath, 'utf8'), /^plugin uninstall deepen-first-prompt@claude-dev-env$/m);
+        assert.match(readFileSync(fakeClaudeLogPath, 'utf8'), /^plugin uninstall deepen-first-prompt@claude-dev-env\r?$/m);
         assert.equal(existsSync(retiredPluginVersion), false, 'the retired plugin cache is gone');
 
         runInstaller(homeDirectory, [], environment);
