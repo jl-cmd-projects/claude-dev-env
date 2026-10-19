@@ -57,11 +57,13 @@ test('write registers both hooks with the installed paths and remove takes out e
         };
         assert.equal(writeCursorAgentsGuidanceHooks(installOptions), hooksPath);
         const written = JSON.parse(readFileSync(hooksPath, 'utf8'));
+        const guidanceScript = join(installOptions.hooksDirectory, 'session', 'cursor_agents_guidance.py');
+        const openTasksScript = join(installOptions.hooksDirectory, 'blocking', 'open_tasks_stop_gate.py');
         assert.equal(
             written.hooks.sessionStart[1].command,
-            "python3 '/home/dev/.agents/hooks/session/cursor_agents_guidance.py' '/home/dev/.agents/AGENTS.md'",
+            `python3 '${guidanceScript}' '/home/dev/.agents/AGENTS.md'`,
         );
-        assert.equal(written.hooks.stop[0].command, "python3 '/home/dev/.agents/hooks/blocking/open_tasks_stop_gate.py'");
+        assert.equal(written.hooks.stop[0].command, `python3 '${openTasksScript}'`);
         assert.equal(writeCursorAgentsGuidanceHooks(installOptions), null);
         removeCursorAgentsGuidanceHooks(cursorDirectory);
         assert.deepEqual(JSON.parse(readFileSync(hooksPath, 'utf8')), { version: 1, hooks: { sessionStart: [USER_SESSION_ENTRY] } });
@@ -73,16 +75,18 @@ test('write registers both hooks with the installed paths and remove takes out e
 test('write uses the detected interpreter and platform path quoting and sets the schema version', () => {
     const cursorDirectory = mkdtempSync(join(tmpdir(), 'cdev-cursor-guidance-'));
     try {
+        const hooksDirectory = 'C:/Users/dev/.agents/hooks';
         writeCursorAgentsGuidanceHooks({
             cursorDirectory,
-            hooksDirectory: 'C:/Users/dev/.agents/hooks',
+            hooksDirectory,
             guidancePath: 'C:/Users/dev/.agents/AGENTS.md',
             pythonCommand: 'C:/Python312/python.exe',
             formatPathArgument: pathValue => `"${pathValue}"`,
         });
         const written = JSON.parse(readFileSync(join(cursorDirectory, 'hooks.json'), 'utf8'));
         assert.equal(written.version, 1);
-        assert.equal(written.hooks.stop[0].command, 'C:/Python312/python.exe "C:/Users/dev/.agents/hooks/blocking/open_tasks_stop_gate.py"');
+        const openTasksScript = join(hooksDirectory, 'blocking', 'open_tasks_stop_gate.py');
+        assert.equal(written.hooks.stop[0].command, `C:/Python312/python.exe "${openTasksScript}"`);
         assert.match(written.hooks.sessionStart[0].command, /^C:\/Python312\/python\.exe "/);
     } finally {
         rmSync(cursorDirectory, { recursive: true, force: true });
