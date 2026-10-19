@@ -57,43 +57,41 @@ function readCodexConfig(configPath) {
 }
 
 /**
- * Return the folder that holds the config.toml a Codex home reads.
+ * Return the Codex home whose folder holds the prompt the config.toml setting names.
  *
- * Account homes often link config.toml to one shared file in another home.
- * The real file's folder is the one every linked home shares, so the prompt
- * the shared setting names belongs there. A symbolic link names that folder.
- * A hard link, which account sync makes when the account cannot create
- * symbolic links, names no folder, so a config.toml that is the same file as
- * the main Codex home's config.toml belongs to the main home. A home whose
- * config.toml is missing or unreadable as a link uses its own folder.
+ * Account sync links each account home's config.toml to the main Codex
+ * home's file: a symbolic link, or a hard link when the account cannot
+ * create one. Every home that shares that file shares one setting, so the
+ * prompt it names belongs in the main home. Any other home uses its own
+ * folder, including a home whose config.toml links into a dotfiles folder.
  *
  * @param {string} codexHome
  * @returns {string}
  */
 export function codexConfigDirectory(codexHome) {
-    let resolvedConfigPath;
-    try {
-        resolvedConfigPath = realpathSync(join(codexHome, CODEX_CONFIG_FILE_NAME));
-    } catch {
-        return codexHome;
-    }
-    return hardLinkedMainCodexHome(resolvedConfigPath) ?? dirname(resolvedConfigPath);
+    const mainCodexHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
+    const sharesMainConfig = isSameFile(
+        join(codexHome, CODEX_CONFIG_FILE_NAME),
+        join(mainCodexHome, CODEX_CONFIG_FILE_NAME),
+    );
+    return sharesMainConfig ? mainCodexHome : codexHome;
 }
 
-function hardLinkedMainCodexHome(resolvedConfigPath) {
-    const configEntry = statSync(resolvedConfigPath, { bigint: true, throwIfNoEntry: false });
-    if (!configEntry || configEntry.nlink < 2n) return null;
-    const mainCodexHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
-    const mainConfigEntry = statSync(join(mainCodexHome, CODEX_CONFIG_FILE_NAME), { bigint: true, throwIfNoEntry: false });
-    if (!mainConfigEntry || mainConfigEntry.dev !== configEntry.dev || mainConfigEntry.ino !== configEntry.ino) return null;
-    return mainCodexHome;
+function isSameFile(firstPath, secondPath) {
+    try {
+        const firstEntry = statSync(firstPath, { bigint: true, throwIfNoEntry: false });
+        const secondEntry = statSync(secondPath, { bigint: true, throwIfNoEntry: false });
+        return Boolean(firstEntry && secondEntry && firstEntry.dev === secondEntry.dev && firstEntry.ino === secondEntry.ino);
+    } catch {
+        return false;
+    }
 }
 
 /**
- * True when CODEX_HOME/config.toml is a link to a file another home owns.
+ * True when CODEX_HOME is an account home whose config.toml is the main Codex home's file.
  *
- * Such a home borrows the setting and the prompt from the home that owns the
- * real file, so uninstalling from it leaves both alone.
+ * Such a home borrows the setting and the prompt from the main home, so
+ * uninstalling from it leaves both alone.
  *
  * @param {string} codexHome
  * @returns {boolean}
@@ -114,9 +112,10 @@ function realpathOrSelf(path) {
 /**
  * Return where the installer keeps the Codex copy of the trimmed Sol prompt.
  *
- * The copy sits beside the real config.toml, so the file the setting names
+ * The copy sits in CODEX_HOME, or in the main Codex home when CODEX_HOME is
+ * an account home that shares its config.toml, so the file the setting names
  * stays put when any claude-dev-env version, older ones included, prunes or
- * rewrites the managed files under ~/.claude, and every home that links that
+ * rewrites the managed files under ~/.claude, and every home that shares that
  * config.toml names the same copy. A missing file makes every Codex command
  * fail before it starts.
  *
@@ -128,9 +127,9 @@ export function codexSolPromptPath(codexHome) {
 }
 
 /**
- * Copy the trimmed Sol prompt beside the real config.toml.
+ * Copy the trimmed Sol prompt to the folder `codexSolPromptPath` names.
  *
- * A home whose config.toml links elsewhere also loses the copy an earlier
+ * An account home that shares the main config.toml also loses the copy an earlier
  * install left in its own folder, since no setting names that copy any more.
  *
  * @param {string} codexHome
@@ -185,9 +184,9 @@ export function writeCodexSolSetting(codexHome, instructionsPath) {
  * The rest of the file stays as the user wrote it. A file that held only the
  * package line is removed. The prompt copy is removed in every case, because
  * install writes it even when the user's own setting kept the package line
- * out. A home whose config.toml links to another home's file only drops its
- * own leftover copy: the shared setting and prompt belong to the home that
- * owns the file, and other homes still read them.
+ * out. An account home that shares the main config.toml only drops its own
+ * leftover copy: the shared setting and prompt belong to the main home, and
+ * other homes still read them.
  *
  * @param {string} codexHome
  * @returns {string|null} The config path when it changed, or null when nothing was removed.

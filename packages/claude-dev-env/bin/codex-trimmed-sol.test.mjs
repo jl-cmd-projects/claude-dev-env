@@ -334,3 +334,27 @@ test('a home whose config.toml is a hard link to the main home\'s file names the
     assert.ok(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8').includes(sharedLine));
     assert.equal(existsSync(join(mainHome, 'codex-sol.md')), true);
 });
+
+test('a main home whose config.toml links into a dotfiles folder keeps the prompt in CODEX_HOME, and uninstall removes the line', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const dotfilesDirectory = join(homeDirectory, 'dotfiles', 'codex');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(dotfilesDirectory, { recursive: true });
+    writeFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), join(mainHome, CODEX_CONFIG_FILE_NAME), 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create symlinks');
+        throw error;
+    }
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: mainHome }).status, 0);
+    assert.ok(readFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'utf8')
+        .includes(`model_instructions_file = ${JSON.stringify(join(mainHome, 'codex-sol.md'))}`));
+    assert.equal(existsSync(join(dotfilesDirectory, 'codex-sol.md')), false);
+
+    assert.equal(installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: mainHome }).status, 0);
+    assert.equal(readFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
+});
