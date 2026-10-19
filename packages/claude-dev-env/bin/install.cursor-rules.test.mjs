@@ -135,10 +135,15 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         );
         assert.equal(firstSpawnPromptGroups.length, 1);
         assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'Stop']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'Stop', 'SessionStart']);
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
+        const allCodexSessionStartGroups = firstCodexHooks.hooks.SessionStart;
+        assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
+        const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
+        assert.equal(allCodexSessionStartCommands.length, 1, 'Codex gets the compaction recall and no other SessionStart hook');
+        assert.match(allCodexSessionStartCommands[0], /compaction_recall_prompt\.py/);
         assert.ok(
             firstCodexHooks.hooks.UserPromptSubmit.some(group =>
                 group.hooks.some(hook => String(hook.command).includes('deepen_first_prompt.py')),
@@ -310,6 +315,11 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
         assert.equal(allPackageStopGroups.length, 1);
         migratedHooks.hooks.Stop = migratedHooks.hooks.Stop.filter(eachGroup => !allPackageStopGroups.includes(eachGroup));
+        const allPackageSessionStartGroups = migratedHooks.hooks.SessionStart.filter(eachGroup =>
+            eachGroup.hooks.some(eachHook => eachHook.command.includes('compaction_recall_prompt.py')));
+        assert.equal(allPackageSessionStartGroups.length, 1);
+        migratedHooks.hooks.SessionStart = migratedHooks.hooks.SessionStart.filter(
+            eachGroup => !allPackageSessionStartGroups.includes(eachGroup));
         assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
         assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
         const firstInstall = readFileSync(codexHooksPath, 'utf8');

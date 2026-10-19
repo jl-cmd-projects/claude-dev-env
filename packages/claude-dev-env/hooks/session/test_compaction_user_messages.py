@@ -1,12 +1,8 @@
-"""Tests for compaction_user_messages: which transcript entries count as typed, and the file it writes."""
+"""Tests for compaction_user_messages: which Claude Code and Codex transcript entries count as typed."""
 
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
@@ -15,13 +11,7 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import compaction_user_messages as extractor
-from hooks_constants.compaction_user_messages_constants import (
-    MAXIMUM_EXTRACT_CHARACTERS,
-    MAXIMUM_MESSAGE_CHARACTERS,
-    MESSAGES_HEADING,
-)
 
-EXTRACTOR_PATH = _SESSION_DIR / "compaction_user_messages.py"
 FIXTURE_DIRECTORY = _SESSION_DIR / "fixtures" / "compaction_user_messages"
 
 
@@ -137,92 +127,44 @@ def test_should_converge_when_a_second_compaction_appends_to_the_transcript() ->
     ]
 
 
-def message(position: int, text: str) -> extractor.TypedMessage:
-    return extractor.TypedMessage(position=position, timestamp="t", text=text)
-
-
-def test_bounded_messages_should_keep_everything_that_fits() -> None:
-    all_messages = [message(1, "a"), message(2, "b"), message(3, "c")]
-    assert extractor.bounded_messages(all_messages) == all_messages
-
-
-def test_bounded_messages_should_keep_the_first_and_the_newest_when_over_budget() -> None:
-    long_text = "x" * (MAXIMUM_MESSAGE_CHARACTERS - 100)
-    message_count = 2 * MAXIMUM_EXTRACT_CHARACTERS // MAXIMUM_MESSAGE_CHARACTERS
-    all_messages = [message(each, long_text) for each in range(1, message_count + 1)]
-    all_kept = extractor.bounded_messages(all_messages)
-    kept_positions = [each.position for each in all_kept]
-    assert kept_positions[0] == 1
-    assert kept_positions[-1] == message_count
-    assert kept_positions[1:] == list(range(kept_positions[1], message_count + 1))
-    assert len(extractor.rendered_extract(all_messages)) <= MAXIMUM_EXTRACT_CHARACTERS + 200
-
-
-def test_bounded_messages_should_return_nothing_for_no_messages() -> None:
-    assert extractor.bounded_messages([]) == []
-
-
-def test_rendered_extract_should_hold_only_the_numbered_messages() -> None:
-    rendered = extractor.rendered_extract([message(1, "fix login"), message(2, "use /srv")])
-    assert rendered.startswith(MESSAGES_HEADING)
-    assert "caveman" not in rendered
-    assert "## 1 | t\nfix login\n" in rendered
-    assert "## 2 | t\nuse /srv\n" in rendered
-
-
-def test_rendered_extract_should_cut_a_long_message_and_say_how_much() -> None:
-    rendered = extractor.rendered_extract([message(1, "y" * (MAXIMUM_MESSAGE_CHARACTERS + 25))])
-    assert "[25 more characters left out]" in rendered
-
-
-def test_rendered_extract_should_name_how_many_messages_were_left_out() -> None:
-    long_text = "x" * (MAXIMUM_MESSAGE_CHARACTERS - 100)
-    message_count = 2 * MAXIMUM_EXTRACT_CHARACTERS // MAXIMUM_MESSAGE_CHARACTERS
-    all_messages = [message(each, long_text) for each in range(1, message_count + 1)]
-    left_out_count = message_count - len(extractor.bounded_messages(all_messages))
-    assert left_out_count > 0
-    assert f"[{left_out_count} earlier messages left out" in extractor.rendered_extract(
-        all_messages
+def codex_line(payload: dict[str, object]) -> str:
+    return json.dumps(
+        {"timestamp": "2026-10-19T11:00:00Z", "type": "event_msg", "payload": payload}
     )
 
 
-def test_rendered_extract_should_say_when_there_are_no_messages() -> None:
-    assert "No typed user messages" in extractor.rendered_extract([])
+def test_should_keep_codex_user_messages_and_leave_out_injected_items() -> None:
+    all_lines = [
+        json.dumps({"type": "session_meta", "payload": {"cwd": "/w"}}),
+        json.dumps(
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "<environment_context>"}],
+                },
+            }
+        ),
+        codex_line({"type": "user_message", "message": "port the hook to codex", "kind": "plain"}),
+        codex_line({"type": "agent_message", "message": "on it"}),
+        codex_line({"type": "user_message", "message": "see this", "images": ["data:image/png"]}),
+        codex_line({"type": "user_message", "message": "", "images": ["data:image/png"]}),
+    ]
+    all_messages = extractor.typed_user_messages(all_lines)
+    assert [each_message.text for each_message in all_messages] == [
+        "port the hook to codex",
+        "see this [image]",
+        "[image]",
+    ]
+    assert all_messages[0].timestamp == "2026-10-19T11:00:00Z"
 
 
-def test_output_path_for_should_name_the_file_after_the_session_under_the_claude_home(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    output_path = extractor.output_path_for(Path("/p/abc-123.jsonl"))
-    assert output_path == tmp_path / ".claude" / "compaction-recall" / "abc-123.md"
-
-
-def test_main_should_print_only_the_path_of_the_file_it_writes(tmp_path: Path) -> None:
-    transcript_path = tmp_path / "session-xyz.jsonl"
-    transcript_path.write_text(user_line("ship the deploy fix") + "\n", encoding="utf-8")
-    home_directory = tmp_path / "home"
-    completed = subprocess.run(
-        [sys.executable, str(EXTRACTOR_PATH), str(transcript_path)],
-        capture_output=True,
-        text=True,
-        check=True,
-        env={**os.environ, "HOME": str(home_directory), "USERPROFILE": str(home_directory)},
-    )
-    printed_path = Path(completed.stdout.strip())
-    assert printed_path == home_directory / ".claude" / "compaction-recall" / "session-xyz.md"
-    assert "ship the deploy fix" not in completed.stdout
-    assert "## 1 | 2026-10-19T10:00:00Z\nship the deploy fix" in printed_path.read_text()
-
-
-def test_main_should_exit_with_usage_when_the_transcript_is_missing(tmp_path: Path) -> None:
-    for all_arguments in ([], [str(tmp_path / "absent.jsonl")]):
-        completed = subprocess.run(
-            [sys.executable, str(EXTRACTOR_PATH), *all_arguments],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert completed.returncode == 2
-        assert completed.stdout == ""
+def test_should_keep_a_codex_message_typed_again_after_the_agent_replied() -> None:
+    all_lines = [
+        codex_line({"type": "user_message", "message": "go"}),
+        codex_line({"type": "user_message", "message": "go"}),
+        codex_line({"type": "agent_message", "message": "done"}),
+        codex_line({"type": "user_message", "message": "go"}),
+    ]
+    assert texts_of(all_lines) == ["go", "go"]

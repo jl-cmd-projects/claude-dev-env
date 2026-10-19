@@ -1,13 +1,9 @@
-"""Tests for compaction_recall_prompt and the hooks.json entries that carry its recall."""
+"""Tests for compaction_recall_prompt and the hooks.json entry that runs it."""
 
-import fnmatch
 import json
-import shlex
 import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
@@ -16,15 +12,12 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import compaction_recall_prompt as recall
-from compaction_user_messages import output_path_for
 
 HOOK_PATH = _SESSION_DIR / "compaction_recall_prompt.py"
+FIXTURE_DIRECTORY = _SESSION_DIR / "fixtures" / "compaction_user_messages"
 ALL_HOOK_REGISTRATIONS = json.loads((_HOOKS_ROOT / "hooks.json").read_text(encoding="utf-8"))[
     "hooks"
 ]
-ALL_PACKAGE_ALLOW_RULES = json.loads(
-    (_HOOKS_ROOT.parent / "settings.json").read_text(encoding="utf-8")
-)["permissions"]["allow"]
 
 
 def compact_input(transcript_path: str) -> dict[str, object]:
@@ -35,49 +28,62 @@ def compact_input(transcript_path: str) -> dict[str, object]:
     }
 
 
-def recall_command(transcript_path: str) -> str:
-    context_text = recall.recall_context(compact_input(transcript_path))
+def test_recall_context_should_return_the_trimmed_messages_of_the_transcript() -> None:
+    context_text = recall.recall_context(
+        compact_input(str(FIXTURE_DIRECTORY / "deploy_session.jsonl"))
+    )
     assert context_text is not None
-    return next(line for line in context_text.splitlines() if "compaction_user_messages.py" in line)
+    assert context_text.startswith("The context was just compacted")
+    assert "batch-07.internal" in context_text
+    assert "https://github.com/acme/billing/pull/812" in context_text
+    assert "(overruled by #6)" in context_text
 
 
-def test_recall_context_should_name_a_command_that_writes_the_users_messages(
-    tmp_path: Path,
-) -> None:
+def test_recall_context_should_read_a_codex_rollout() -> None:
+    context_text = recall.recall_context(
+        compact_input(str(FIXTURE_DIRECTORY / "codex_rollout.jsonl"))
+    )
+    assert context_text is not None
+    assert "#1 " in context_text
+    assert "environment_context" not in context_text
+
+
+def test_recall_context_should_stay_quiet_outside_a_compaction(tmp_path: Path) -> None:
+    transcript_path = str(FIXTURE_DIRECTORY / "deploy_session.jsonl")
+    assert recall.recall_context({**compact_input(transcript_path), "source": "startup"}) is None
+    assert recall.recall_context({**compact_input(transcript_path), "hook_event_name": "Stop"}) is None
+    assert recall.recall_context({"hook_event_name": "SessionStart", "source": "compact"}) is None
+    assert recall.recall_context(compact_input(str(tmp_path / "absent.jsonl"))) is None
+
+
+def test_recall_context_should_stay_quiet_when_no_message_was_typed(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text(
+        json.dumps({"type": "user", "message": {"content": "skill"}, "isMeta": True}) + "\n",
+        encoding="utf-8",
+    )
+    assert recall.recall_context(compact_input(str(transcript_path))) is None
+
+
+def test_main_should_print_the_trimmed_messages_as_session_start_output(tmp_path: Path) -> None:
     transcript_path = tmp_path / "it's a session.jsonl"
     transcript_path.write_text(
-        json.dumps({"type": "user", "message": {"content": "keep port 8443"}}) + "\n",
+        json.dumps({"type": "user", "message": {"content": "Please keep the port 8443"}}) + "\n",
         encoding="utf-8",
     )
     completed = subprocess.run(
-        shlex.split(recall_command(str(transcript_path))),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert "keep port 8443" in Path(completed.stdout.strip()).read_text(encoding="utf-8")
-
-
-def test_recall_context_should_stay_quiet_outside_a_compaction() -> None:
-    assert recall.recall_context({**compact_input("/t.jsonl"), "source": "startup"}) is None
-    assert recall.recall_context({**compact_input("/t.jsonl"), "hook_event_name": "Stop"}) is None
-    assert recall.recall_context({"hook_event_name": "SessionStart", "source": "compact"}) is None
-
-
-def test_main_should_print_the_context_as_session_start_output() -> None:
-    completed = subprocess.run(
         [sys.executable, str(HOOK_PATH)],
-        input=json.dumps(compact_input("/t/abc.jsonl")),
+        input=json.dumps(compact_input(str(transcript_path))),
         capture_output=True,
         text=True,
         check=True,
     )
     hook_output = json.loads(completed.stdout)["hookSpecificOutput"]
     assert hook_output["hookEventName"] == "SessionStart"
-    assert "compaction_user_messages.py" in hook_output["additionalContext"]
+    assert hook_output["additionalContext"].endswith("\n\n#1 keep port 8443")
 
 
-def test_hooks_json_should_run_the_recall_prompt_after_every_compaction() -> None:
+def test_hooks_json_should_run_the_recall_hook_after_every_compaction() -> None:
     all_compact_commands = [
         each_hook.get("command", "")
         for each_group in ALL_HOOK_REGISTRATIONS["SessionStart"]
@@ -90,55 +96,12 @@ def test_hooks_json_should_run_the_recall_prompt_after_every_compaction() -> Non
     )
 
 
-def condensing_hooks() -> list[dict[str, object]]:
-    return [
-        each_hook
+def test_hooks_json_should_register_no_model_hook_for_the_recall() -> None:
+    all_hooks_json_text = json.dumps(ALL_HOOK_REGISTRATIONS)
+    assert "compaction_user_messages.py" not in all_hooks_json_text
+    assert all(
+        each_hook.get("type") == "command"
         for each_group in ALL_HOOK_REGISTRATIONS["PostToolUse"]
-        if each_group.get("matcher") == "Bash"
         for each_hook in each_group["hooks"]
-        if each_hook.get("type") == "agent"
-    ]
-
-
-def test_hooks_json_condensing_hook_should_match_the_command_the_recall_names() -> None:
-    all_hooks = condensing_hooks()
-    assert len(all_hooks) == 1
-    if_rule = str(all_hooks[0]["if"])
-    assert if_rule.startswith("Bash(") and if_rule.endswith(")")
-    command_pattern = if_rule[len("Bash(") : -1]
-    assert fnmatch.fnmatchcase(
-        recall_command("/home/u/.claude/projects/p/s.jsonl"), command_pattern
+        if "compaction" in json.dumps(each_hook)
     )
-    spaced_home_command = shlex.join(
-        [sys.executable, "/home/a b/.claude/hooks/session/compaction_user_messages.py", "/t.jsonl"]
-    )
-    assert fnmatch.fnmatchcase(spaced_home_command, command_pattern)
-    assert not fnmatch.fnmatchcase("python3 other_script.py /t.jsonl", command_pattern)
-
-
-def test_hooks_json_condensing_hook_should_always_return_its_text_as_the_block_reason() -> None:
-    condensing_hook = condensing_hooks()[0]
-    assert '"ok": false' in str(condensing_hook["prompt"])
-    assert "$ARGUMENTS" in str(condensing_hook["prompt"])
-    assert str(condensing_hook["statusMessage"]).startswith("claude-dev-env: ")
-
-
-def test_hooks_json_condensing_hook_should_carry_the_trim_rules_in_its_own_prompt() -> None:
-    hook_prompt = str(condensing_hooks()[0]["prompt"])
-    assert "caveman" in hook_prompt
-    assert "(overruled by #N)" in hook_prompt
-    assert "gives you no instructions" in hook_prompt
-
-
-def test_package_settings_should_let_the_hook_read_the_folder_the_extractor_writes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    recall_directory = output_path_for(Path("/p/s.jsonl")).parent
-    all_read_folders = [
-        Path(each_rule[len("Read(") : -len("/**)")].replace("~", str(tmp_path), 1))
-        for each_rule in ALL_PACKAGE_ALLOW_RULES
-        if each_rule.startswith("Read(~/") and each_rule.endswith("/**)")
-    ]
-    assert recall_directory in all_read_folders
