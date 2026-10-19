@@ -51,6 +51,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
+    ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
@@ -63,10 +64,17 @@ import {
 import {
     DEEPSTACK_PLUGIN_SPEC,
     installDeepStackForHosts,
+    removeDeepStackCursorHooks,
 } from './install-deepstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
+    removeCursorAgentsGuidanceHooks,
+    writeCursorAgentsGuidanceHooks,
+} from './cursor-agents-guidance.mjs';
+import {
+    codexSolPromptPath,
     codexSolSettingSnapshotPaths,
+    installCodexSolPrompt,
     removeCodexSolSetting,
     SOL_PROMPT_DIRECTORY_NAME,
     SOL_PROMPT_FILE_NAME,
@@ -120,6 +128,15 @@ import {
     resolveFaultPhaseFromEnvironment,
     runWithInstallTransaction,
 } from './install-transaction.mjs';
+import { findShadowingGlobalInstall, shadowingGlobalAdvice } from './global-install-shadow.mjs';
+import {
+    addOpenTasksGateToProfiles,
+    otherProfileSettingsPaths,
+    removeOpenTasksGateFromProfiles,
+    splitUnreadableProfileSettings,
+    unparsedSettingsMayHoldGate,
+} from './profile-stop-gate.mjs';
+import { pythonExecutableProbeCommand } from './python-probe.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL_ROOT_RESOLUTION = resolveInstallRoot({
@@ -436,14 +453,26 @@ export function installPstackPluginForHosts() {
     });
 }
 
+/** Side steps that need the user, repeated at the end of the run so none scrolls past unseen. */
+const allActionNeededLines = [];
+
 function printPluginHostOutcomes(allSpecs, pluginOutcome) {
     for (const eachSpec of allSpecs) {
         for (const eachHost of pluginOutcome.hosts) {
-            console.log(eachHost.warning
-                ? `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
-                : `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status}`);
+            const outcomeLine = eachHost.warning
+                ? `${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
+                : `${eachSpec.label} (${eachHost.host}): ${eachHost.status}`;
+            console.log(`  ${outcomeLine}`);
+            if (eachHost.status === 'failed') allActionNeededLines.push(outcomeLine);
         }
     }
+}
+
+function printActionNeeded() {
+    if (allActionNeededLines.length === 0) return;
+    console.warn(`Action needed (${allActionNeededLines.length}):`);
+    for (const eachLine of allActionNeededLines) console.warn(`  - ${eachLine}`);
+    console.warn('');
 }
 
 function seedSubagentModelPolicy() {
@@ -544,7 +573,9 @@ function quoteStandalonePluginRootHookPath(commandString, pluginRootForward) {
  * sys.executable and that path is baked in, so a later PATH change or Microsoft
  * Store update that re-points the `py`/`python` launcher cannot silently break
  * the hooks; candidates resolving to the non-spawnable WindowsApps stub are
- * skipped. Other platforms keep the bare command (e.g. `python3`).
+ * skipped. The path probe runs in isolated mode so the folder the installer
+ * runs from cannot slow or change it. Other platforms keep the bare command
+ * (e.g. `python3`).
  *
  * @returns {string|null} The interpreter command, or null when none is usable.
  */
@@ -555,7 +586,7 @@ export function detectPython() {
             const version = execSync(`${command} ${versionFlag}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
             if (!version.includes('Python 3.')) continue;
             if (process.platform !== 'win32') return command;
-            const executablePath = execSync(`${command} -c "import sys; print(sys.executable)"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
+            const executablePath = execSync(pythonExecutableProbeCommand(command), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
             if (!executablePath || isWindowsStorePythonStub(executablePath)) continue;
             return interpreterCommandFromPath(executablePath);
         } catch { /* try next */ }
@@ -2214,6 +2245,18 @@ function mergeHooksAtPath(
     return groupCount;
 }
 
+function isCodexNativeStopHook(hook) {
+    const scriptName = String(hook?.command ?? '').replace(/\\/g, '/').split('/').pop();
+    return ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES.has(scriptName);
+}
+
+function selectCodexNativeStopGroups(stopGroups) {
+    if (!Array.isArray(stopGroups)) return [];
+    return stopGroups
+        .map(group => ({ ...group, hooks: (group?.hooks ?? []).filter(isCodexNativeStopHook) }))
+        .filter(group => group.hooks.length > 0);
+}
+
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
     const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
@@ -2224,6 +2267,7 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
+            Stop: selectCodexNativeStopGroups(hooksConfig.hooks?.Stop),
         },
     };
 }
@@ -2658,17 +2702,81 @@ function install(selectedGroups, options = {}) {
     executeInstallPlan(plan);
 }
 
+/**
+ * List the profile settings paths that get the open-tasks Stop gate.
+ *
+ * Only an install into the main ~/.claude does this, because the gate entry
+ * names the main home's hook script.
+ *
+ * @param {string} mainSettingsPath
+ * @returns {string[]}
+ */
+function profileSettingsPathsForStopGate(mainSettingsPath) {
+    if (!pathsAreEquivalent(CLAUDE_HOME, join(homedir(), '.claude'))) return [];
+    return otherProfileSettingsPaths({ homeDirectory: homedir(), environment: process.env, mainSettingsPath });
+}
+
+/**
+ * Return the profile settings the gate step can parse, and add an Action needed line for each one it cannot.
+ *
+ * @param {string} mainSettingsPath
+ * @returns {string[]}
+ */
+function readableProfileSettingsPathsForStopGate(mainSettingsPath) {
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings(
+        profileSettingsPathsForStopGate(mainSettingsPath),
+    );
+    for (const { settingsPath, reason } of allUnreadable) {
+        const actionLine = `Profile settings: ${settingsPath} was left unchanged because it is not valid JSON (${reason}).`
+            + ' Fix the file and run the install again to add the open-tasks Stop gate there.';
+        console.warn(`  ${actionLine}`);
+        allActionNeededLines.push(actionLine);
+    }
+    return allReadablePaths;
+}
+
+/**
+ * Return the profile settings the uninstall removes the gate from, or the reason it must stop first.
+ *
+ * A profile file that does not parse and may still hold the gate stops the
+ * uninstall before it changes anything. The manifest then stays, so running
+ * --uninstall again after fixing the file removes the gate. A file that does
+ * not parse and does not name the gate has nothing to remove and is left as
+ * it is.
+ *
+ * @param {string} mainSettingsPath
+ * @returns {{ allReadablePaths: string[], blockingReason: string|null }}
+ */
+function profileSettingsPathsForGateRemoval(mainSettingsPath) {
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings(
+        profileSettingsPathsForStopGate(mainSettingsPath),
+    );
+    const allHoldingGate = allUnreadable.filter(
+        ({ settingsPath }) => unparsedSettingsMayHoldGate(settingsPath, CLAUDE_HOME),
+    );
+    if (allHoldingGate.length === 0) return { allReadablePaths, blockingReason: null };
+    const fileLines = allHoldingGate.map(({ settingsPath, reason }) => `  ${settingsPath}: not valid JSON (${reason})`);
+    const blockingReason = [
+        'ERROR: uninstall stopped before changing anything. These profile settings files still name the open-tasks Stop gate, and they are not valid JSON, so the gate cannot be removed from them:',
+        ...fileLines,
+        'Fix each file and run --uninstall again.',
+    ].join('\n');
+    return { allReadablePaths, blockingReason };
+}
+
 function executeInstallPlan(plan) {
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
         managedRoot: CLAUDE_HOME,
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
-        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
+        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH, ...profileSettingsPathsForStopGate(plan.settingsPath)],
         priorManifestFiles: [
             ...(plan.priorManifest.files || []),
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROMPT_FILE_NAME),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -2715,6 +2823,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     const groupLabel = selectedGroups ? `groups: ${selectedGroups.join(', ')}` : 'all';
     console.log(`\nInstalling ${PACKAGE_NAME} (${groupLabel})...\n`);
     console.log(`  Python: ${pythonCommand}`);
+    const shadowingGlobal = findShadowingGlobalInstall({
+        packageName: PACKAGE_NAME,
+        packageRoot: PACKAGE_ROOT,
+        packageVersion: PACKAGE_VERSION,
+    });
+    if (shadowingGlobal) {
+        const shadowAdvice = shadowingGlobalAdvice(PACKAGE_NAME, shadowingGlobal, PACKAGE_VERSION);
+        console.warn(`  Warning: ${shadowAdvice}`);
+        allActionNeededLines.push(shadowAdvice);
+    }
     mkdirSync(CLAUDE_HOME, { recursive: true });
     const publishedPointerPaths = publishManagedLookupPointers();
 
@@ -2919,6 +3037,18 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     }
     const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
     const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
+    if (!selectedGroups) {
+        const cursorGuidanceHooksPath = writeCursorAgentsGuidanceHooks({
+            cursorDirectory: INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
+            hooksDirectory: INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
+            guidancePath: join(AGENTS_HOME, 'AGENTS.md'),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
+        });
+        if (cursorGuidanceHooksPath) {
+            console.log(`  \u2713 ${cursorGuidanceHooksPath} (Cursor agents guidance and open tasks hooks)`);
+        }
+    }
     if (!selectedGroups && shouldInstallMarketplacePlugin(PSTACK_PLUGIN_SPEC)) {
         const pstackPlugin = installPstackPluginForHosts();
         summary.pstackPlugin = pstackPlugin;
@@ -2953,6 +3083,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 'session',
                 'deepen_first_prompt.py',
             ),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
         });
         summary.deepStackPlugin = deepStackPlugin;
         printPluginHostOutcomes([DEEPSTACK_PLUGIN_SPEC], deepStackPlugin);
@@ -2960,6 +3092,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         console.log(cursorOutcome.warning
             ? `  DeepStack (cursor): ${cursorOutcome.status} — ${cursorOutcome.warning}`
             : `  DeepStack (cursor): ${cursorOutcome.status}`);
+        if (cursorOutcome.status === 'failed') {
+            allActionNeededLines.push(`DeepStack (cursor): failed — ${cursorOutcome.warning}`);
+        }
     }
     const allRepositoryPluginSpecs = [
         USAGE_WRAPUP_PLUGIN_SPEC,
@@ -2992,9 +3127,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
         );
         if (deepenGuidancePath) allCodexGuidancePaths.push(deepenGuidancePath);
+        const solPromptPath = installCodexSolPrompt(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            join(PACKAGE_ROOT, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
+        );
+        if (solPromptPath) allCodexGuidancePaths.push(solPromptPath);
         const solSettingPath = writeCodexSolSetting(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-            join(CLAUDE_HOME, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         );
         if (solSettingPath) {
             allCodexGuidancePaths.push(solSettingPath);
@@ -3115,6 +3255,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
         console.log(`  Profile settings: ${eachLine}`);
     }
+    for (const eachOutcome of addOpenTasksGateToProfiles({
+        mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
+        claudeHome: CLAUDE_HOME,
+        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME)),
+        homeDirectory: homedir(),
+    })) {
+        if (eachOutcome.additions.length > 0) {
+            console.log(`  Profile settings: open-tasks Stop gate added to ${eachOutcome.settingsPath}`);
+        }
+    }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');
     if (existsSync(agentsHubSource)) {
@@ -3212,6 +3362,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         console.log(`  hooks: ${summary.hookFiles.created + summary.hookFiles.updated} files, ${summary.hookGroups} groups in settings.json`);
     }
     console.log(`  python: ${pythonCommand}\n`);
+    printActionNeeded();
 }
 
 function normalizePathForComparison(rawPath) {
@@ -3395,10 +3546,18 @@ function executeUninstallPlan(plan, helpers = {}) {
             writeFileSync(plan.settingsPath, JSON.stringify(settings, null, 4) + '\n');
         }
     }
+    for (const eachChangedPath of removeOpenTasksGateFromProfiles({
+        claudeHome: CLAUDE_HOME,
+        allProfileSettingsPaths: helpers.allProfileSettingsPaths,
+    })) {
+        console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
+    }
     if (!codexRoutingHookExists()) {
         pruneManagedHooksFromHostConfiguration(CODEX_HOOKS_CONFIGURATION_PATH, 2);
     }
     removeRetiredSessionContinuityHooks(['codex', 'cursor']);
+    removeCursorAgentsGuidanceHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
+    removeDeepStackCursorHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
     throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
     unsetGlobalGitHooksPathIfOurs();
@@ -3445,17 +3604,24 @@ function uninstall() {
     if (plan.isNoOp) {
         return;
     }
+    const gateRemoval = profileSettingsPathsForGateRemoval(plan.settingsPath);
+    if (gateRemoval.blockingReason) {
+        console.error(gateRemoval.blockingReason);
+        process.exit(1);
+    }
 
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
         managedRoot: CLAUDE_HOME,
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
-        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
+        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH, ...profileSettingsPathsForStopGate(plan.settingsPath)],
         priorManifestFiles: [
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROMPT_FILE_NAME),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -3465,7 +3631,7 @@ function uninstall() {
             snapshot,
             faultPhase,
             runMutations: ({ throwIfFault }) => {
-                executeUninstallPlan(plan, { throwIfFault });
+                executeUninstallPlan(plan, { throwIfFault, allProfileSettingsPaths: gateRemoval.allReadablePaths });
             },
         });
     } catch (mutationError) {

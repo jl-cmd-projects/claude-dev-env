@@ -3208,11 +3208,16 @@ test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
         'DeepStack intake\n',
     );
     const hooks = JSON.parse(readFileSync(join(sandbox.homeDirectory, '.cursor', 'hooks.json'), 'utf8'));
-    const hookText = JSON.stringify(hooks);
-    assert.match(hookText, /session-start\.sh/);
-    assert.match(hookText, /SessionStart/);
-    assert.match(hookText, /deepen_first_prompt\.py/);
-    assert.match(hookText, /UserPromptSubmit/);
+    assert.equal(hooks.version, 1);
+    assert.deepEqual(
+        hooks.hooks.sessionStart.filter(entry => entry.command.includes('session-start.sh')).length,
+        1,
+    );
+    assert.equal(
+        hooks.hooks.beforeSubmitPrompt.filter(entry => entry.command.includes('deepen_first_prompt.py')).length,
+        1,
+    );
+    assert.equal(JSON.stringify(hooks).includes('"hooks":[{'), false, 'no Claude-style group entries');
     const sheet = readFileSync(join(sandbox.homeDirectory, '.codex', 'deepstack-models.md'), 'utf8');
     assert.match(sheet, /^session hook: on$/m);
 });
@@ -3627,4 +3632,198 @@ test('a full install clears a retired session-continuity registration from every
             `the install leaves no registration in ${configurationPath} pointing at a removed script`,
         );
     }
+});
+
+function installWithGlobalPrefix(context, globalPrefix) {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-action-needed-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    return spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs')], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            APPDATA: join(homeDirectory, 'AppData', 'Roaming'),
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+            npm_config_prefix: undefined,
+            npm_config_global_prefix: globalPrefix ?? join(homeDirectory, 'no-global-prefix'),
+        },
+    });
+}
+
+test('install ends with an Action needed block naming an older global copy that shadows npx', (context) => {
+    const globalPrefix = mkdtempSync(join(tmpdir(), 'cde-global-prefix-'));
+    context.after(() => rmSync(globalPrefix, { recursive: true, force: true }));
+    const globalPackage = process.platform === 'win32'
+        ? join(globalPrefix, 'node_modules', 'claude-dev-env')
+        : join(globalPrefix, 'lib', 'node_modules', 'claude-dev-env');
+    mkdirSync(globalPackage, { recursive: true });
+    writeFileSync(join(globalPackage, 'package.json'), JSON.stringify({ name: 'claude-dev-env', version: '0.0.1' }));
+
+    const result = installWithGlobalPrefix(context, globalPrefix);
+
+    assert.equal(result.status, 0, result.stderr);
+    const actionIndex = result.stderr.lastIndexOf('Action needed (1):');
+    assert.ok(actionIndex >= 0, result.stderr);
+    assert.match(result.stderr.slice(actionIndex), /claude-dev-env 0\.0\.1/);
+    assert.match(result.stderr.slice(actionIndex), /npm uninstall -g claude-dev-env/);
+});
+
+test('install prints no Action needed block when every side step finished', (context) => {
+    const result = installWithGlobalPrefix(context, null);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr.includes('Action needed'), false, result.stderr);
+});
+
+test('install adds the open-tasks Stop gate to every profile with its own settings.json, and uninstall removes it', (context) => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-install-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    const profileSettingsPath = join(homeDirectory, '.claude-profiles', 'prefs-only', 'settings.json');
+    mkdirSync(dirname(profileSettingsPath), { recursive: true });
+    writeFileSync(profileSettingsPath, JSON.stringify({ outputStyle: 'plain' }, null, 4));
+    const runInstaller = (argumentsList) => spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs'), ...argumentsList], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+        },
+    });
+    const profileStopCommands = () => (JSON.parse(readFileSync(profileSettingsPath, 'utf8')).hooks?.Stop ?? [])
+        .flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
+
+    const installation = runInstaller([]);
+    assert.equal(installation.status, 0, installation.stderr);
+    assert.equal(profileStopCommands().filter((eachCommand) => eachCommand.includes('open_tasks_stop_gate.py')).length, 1);
+
+    const uninstallation = runInstaller(['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(profileSettingsPath, 'utf8')), { outputStyle: 'plain' });
+});
+
+test('a profile settings.json that is not valid JSON is left alone and named under Action needed, and the rest of the install and uninstall go through', (context) => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-malformed-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    const brokenSettingsPath = join(homeDirectory, '.claude-profiles', 'broken', 'settings.json');
+    const goodSettingsPath = join(homeDirectory, '.claude-profiles', 'good', 'settings.json');
+    const brokenSettingsText = '{"hooks":{},}\n';
+    mkdirSync(dirname(brokenSettingsPath), { recursive: true });
+    mkdirSync(dirname(goodSettingsPath), { recursive: true });
+    writeFileSync(brokenSettingsPath, brokenSettingsText);
+    writeFileSync(goodSettingsPath, JSON.stringify({ outputStyle: 'plain' }, null, 4));
+    const runInstaller = (argumentsList) => spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs'), ...argumentsList], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+        },
+    });
+    const goodGateCount = () => (JSON.parse(readFileSync(goodSettingsPath, 'utf8')).hooks?.Stop ?? [])
+        .flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command))
+        .filter((eachCommand) => eachCommand.includes('open_tasks_stop_gate.py')).length;
+    const actionNeededSection = (stderrText) => stderrText.slice(stderrText.indexOf('Action needed'));
+
+    const installation = runInstaller([]);
+    assert.equal(installation.status, 0, installation.stderr);
+    assert.equal(readFileSync(brokenSettingsPath, 'utf8'), brokenSettingsText);
+    assert.equal(goodGateCount(), 1);
+    assert.match(actionNeededSection(installation.stderr), /Action needed \(1\):/);
+    assert.ok(actionNeededSection(installation.stderr).includes(brokenSettingsPath));
+    assert.match(actionNeededSection(installation.stderr), /not valid JSON \(.+\)/);
+
+    const uninstallation = runInstaller(['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    assert.equal(readFileSync(brokenSettingsPath, 'utf8'), brokenSettingsText);
+    assert.equal(goodGateCount(), 0);
+});
+
+test('uninstall stops before changing anything while a profile settings.json that is not valid JSON still names the gate, and a rerun after the fix removes it', (context) => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-uninstall-malformed-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    const profileSettingsPath = join(homeDirectory, '.claude-profiles', 'prefs-only', 'settings.json');
+    mkdirSync(dirname(profileSettingsPath), { recursive: true });
+    writeFileSync(profileSettingsPath, JSON.stringify({ outputStyle: 'plain' }, null, 4));
+    const runInstaller = (argumentsList) => spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs'), ...argumentsList], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+        },
+    });
+    const manifestPath = join(homeDirectory, '.claude', '.claude-dev-env-manifest.json');
+
+    const installation = runInstaller([]);
+    assert.equal(installation.status, 0, installation.stderr);
+    const validText = readFileSync(profileSettingsPath, 'utf8');
+    assert.ok(validText.includes('open_tasks_stop_gate.py'));
+    const brokenText = validText.trimEnd().replace(/\}$/, ',}') + '\n';
+    writeFileSync(profileSettingsPath, brokenText);
+
+    const stoppedUninstall = runInstaller(['--uninstall']);
+    assert.equal(stoppedUninstall.status, 1, stoppedUninstall.stdout);
+    assert.ok(stoppedUninstall.stderr.includes(profileSettingsPath), stoppedUninstall.stderr);
+    assert.match(stoppedUninstall.stderr, /not valid JSON \(.+\)/);
+    assert.match(stoppedUninstall.stderr, /run --uninstall again/);
+    assert.equal(readFileSync(profileSettingsPath, 'utf8'), brokenText);
+    assert.ok(existsSync(manifestPath));
+
+    writeFileSync(profileSettingsPath, validText);
+    const rerunUninstall = runInstaller(['--uninstall']);
+    assert.equal(rerunUninstall.status, 0, rerunUninstall.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(profileSettingsPath, 'utf8')), { outputStyle: 'plain' });
+    assert.equal(existsSync(manifestPath), false);
 });

@@ -4,8 +4,8 @@ Use this map for "which prompt is Codex using?" and "use the trimmed Sol prompt"
 
 ## Sub-features
 
-- Prompt file. `packages/claude-dev-env/system-prompts/codex-sol.md` installs to `~/.claude/system-prompts/codex-sol.md`.
-- Setting. `bin/codex-trimmed-sol.mjs` writes a marked top-level `model_instructions_file` line at the top of `CODEX_HOME/config.toml`. It names no model. A top-level `model_instructions_file` the user wrote keeps the file as it is. Uninstall removes only the package line.
+- Prompt file. `packages/claude-dev-env/system-prompts/codex-sol.md` installs to `~/.claude/system-prompts/codex-sol.md`, and a copy goes to `CODEX_HOME/codex-sol.md`, or to `~/.codex/codex-sol.md` when `CODEX_HOME/config.toml` is the same file as `~/.codex/config.toml` (a symbolic or hard link that `sync` made).
+- Setting. `bin/codex-trimmed-sol.mjs` writes a marked top-level `model_instructions_file` line at the top of `CODEX_HOME/config.toml`. It names that copy, so a prune of the managed files under `~/.claude` (by this or an older package version) cannot leave Codex pointing at a missing file. It names no model. A top-level `model_instructions_file` the user wrote keeps the file as it is. Uninstall removes only the package line and the copy; from an account home that shares `~/.codex/config.toml` it leaves both for `~/.codex`.
 - Account homes. `config.toml` is in `ALL_SHARED_CODEX_HOME_NAMES`, so `sync` links it into each account home.
 
 ## How to get to it (user POV)

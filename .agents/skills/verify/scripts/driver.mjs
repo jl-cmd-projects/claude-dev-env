@@ -61,6 +61,35 @@ export function resolveDriverPaths(driverDirectory) {
 const DRIVER_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const { packageRoot: PACKAGE_ROOT, installEntry: INSTALL_ENTRY } = resolveDriverPaths(DRIVER_DIRECTORY);
 
+const NO_PR_UNTIL_PROVEN_HEADING = 'No PR until proven';
+const CLAUDE_HOME_POINTER_PATTERN = /`~\/\.claude\/([^`]+\.md)`/g;
+
+/**
+ * Read the installed shared guidance and resolve every file it points to.
+ *
+ * The guidance names each pointer as a backticked `~/.claude/...` path, so a
+ * fresh install passes when the guidance carries the No PR until proven rule
+ * and every pointed-to file exists under the installed Claude home.
+ *
+ * @param {string} guidancePath Installed `~/.agents/AGENTS.md` path.
+ * @param {string} claudeHome Installed `~/.claude` directory.
+ * @returns {{hasNoPrRule: boolean, allPointerPaths: string[], allMissingPaths: string[]}} The rule presence and the pointer resolution.
+ */
+export function inspectInstalledGuidance(guidancePath, claudeHome) {
+    if (!existsSync(guidancePath)) {
+        return { hasNoPrRule: false, allPointerPaths: [], allMissingPaths: [guidancePath] };
+    }
+    const guidanceText = readFileSync(guidancePath, 'utf8');
+    const allPointerPaths = [...new Set(
+        [...guidanceText.matchAll(CLAUDE_HOME_POINTER_PATTERN)].map((match) => join(claudeHome, ...match[1].split('/'))),
+    )];
+    return {
+        hasNoPrRule: guidanceText.includes(NO_PR_UNTIL_PROVEN_HEADING),
+        allPointerPaths,
+        allMissingPaths: allPointerPaths.filter((eachPath) => !existsSync(eachPath)),
+    };
+}
+
 const checks = [];
 
 function record(label, passed, detail) {
@@ -194,6 +223,20 @@ function main() {
         record('rules installed', ruleFiles.length > 0, `${ruleFiles.length} .md files`);
 
         record('CLAUDE.md hub installed', existsSync(join(claudeHome, 'CLAUDE.md')), '');
+
+        const installedGuidance = inspectInstalledGuidance(join(sandboxHome, '.agents', 'AGENTS.md'), claudeHome);
+        record(
+            'installed AGENTS.md carries the No PR until proven rule',
+            installedGuidance.hasNoPrRule,
+            join(sandboxHome, '.agents', 'AGENTS.md'),
+        );
+        record(
+            'every file installed AGENTS.md points to is installed',
+            installedGuidance.allPointerPaths.length > 0 && installedGuidance.allMissingPaths.length === 0,
+            installedGuidance.allMissingPaths.length > 0
+                ? `missing: ${installedGuidance.allMissingPaths.join(', ')}`
+                : `${installedGuidance.allPointerPaths.length} pointed-to files`,
+        );
 
         const settingsPath = join(claudeHome, 'settings.json');
         let managedHookCount = 0;
