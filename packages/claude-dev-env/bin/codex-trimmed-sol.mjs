@@ -1,6 +1,6 @@
-import { lstatSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
 
 import { DEFAULT_CODEX_DIRECTORY_NAME } from './install-constants.mjs';
 
@@ -41,14 +41,6 @@ function withoutPackageSetting(allLines) {
     return allKeptLines;
 }
 
-function hasUserInstructionsSetting(allLines) {
-    for (const eachLine of allLines) {
-        if (TABLE_HEADER_PATTERN.test(eachLine)) return false;
-        if (INSTRUCTIONS_KEY_PATTERN.test(eachLine)) return true;
-    }
-    return false;
-}
-
 function readCodexConfig(configPath) {
     const configEntry = lstatSync(configPath, { throwIfNoEntry: false });
     if (!configEntry) return { isReadable: true, currentText: null };
@@ -73,7 +65,7 @@ export function codexConfigDirectory(codexHome) {
     return sharesMainConfig(codexHome, mainCodexHome) ? mainCodexHome : codexHome;
 }
 
-function sharesMainConfig(codexHome, mainCodexHome) {
+export function sharesMainConfig(codexHome, mainCodexHome) {
     return isSameFile(join(codexHome, CODEX_CONFIG_FILE_NAME), join(mainCodexHome, CODEX_CONFIG_FILE_NAME));
 }
 
@@ -141,35 +133,272 @@ export function installCodexSolPrompt(codexHome, sourcePromptPath) {
     return promptPath;
 }
 
+function isInstallRoot(codexHome) {
+    const mainHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
+    if (sameDirectory(codexHome, mainHome)) return true;
+    const named = process.env.CODEX_HOME;
+    return typeof named === 'string' && named.trim() !== '' && sameDirectory(codexHome, named.trim());
+}
+
 export function codexSolSettingSnapshotPaths(codexHome) {
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
-    return isReadable && currentText !== null ? [configPath] : [];
+    const paths = isReadable && currentText !== null ? [configPath] : [];
+    if (!isInstallRoot(codexHome)) return paths;
+    for (const eachHome of codexSolHomes(codexHome)) {
+        if (sameDirectory(eachHome, codexHome)) continue;
+        const eachConfigPath = join(eachHome, CODEX_CONFIG_FILE_NAME);
+        const eachConfig = readCodexConfig(eachConfigPath);
+        if (eachConfig.isReadable && eachConfig.currentText !== null) paths.push(eachConfigPath);
+        paths.push(join(eachHome, SOL_PROMPT_FILE_NAME));
+    }
+    return [...new Set(paths)];
+}
+
+const CODEX_PROFILES_DIRECTORY_NAME = '.codex-profiles';
+const CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE = 'CODEX_PROFILES_ROOT';
+const CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE = 'CODEX_ACCOUNT_PROFILES';
+const CODEX_ACCOUNT_LAUNCHERS_FILE_NAME = 'account-launchers.json';
+const DEFAULT_CODEX_ACCOUNT_NAMES = ['codex-1', 'codex-2', 'codex-3', 'codex-4'];
+
+function foldPath(filePath) {
+    const resolved = resolve(filePath);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function sameDirectory(firstPath, secondPath) {
+    return foldPath(firstPath) === foldPath(secondPath);
+}
+
+function isExistingFile(filePath) {
+    try {
+        return statSync(filePath, { throwIfNoEntry: false })?.isFile() === true;
+    } catch {
+        return false;
+    }
+}
+
+function isUnderTempDirectory(filePath) {
+    const rootKey = foldPath(tmpdir());
+    const pathKey = foldPath(filePath);
+    const prefix = rootKey.endsWith(sep) ? rootKey : `${rootKey}${sep}`;
+    return pathKey === rootKey || pathKey.startsWith(prefix);
+}
+function parseInstructionsTarget(line) {
+    const match = line.replace(/\r$/, '').match(/^\s*model_instructions_file\s*=\s*(.*)$/);
+    if (!match) return null;
+    const raw = match[1].trim();
+    if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+        try {
+            const parsed = JSON.parse(raw);
+            return typeof parsed === 'string' ? parsed : null;
+        } catch {
+            return null;
+        }
+    }
+    if (raw.length >= 2 && raw.startsWith("'") && raw.endsWith("'")) {
+        return raw.slice(1, -1);
+    }
+    return null;
+}
+
+function instructionsNeedReplacement(line) {
+    const targetPath = parseInstructionsTarget(line);
+    if (targetPath === null) return false;
+    if (targetPath === '') return true;
+    if (isUnderTempDirectory(targetPath)) return true;
+    return !isExistingFile(targetPath);
+}
+
+function instructionLineIndexes(allLines) {
+    for (let index = 0; index < allLines.length; index += 1) {
+        const stripped = allLines[index].replace(/\r$/, '');
+        if (TABLE_HEADER_PATTERN.test(stripped)) return null;
+        if (isPackageMarkerLine(allLines[index])) {
+            const nextIndex = index + 1;
+            if (nextIndex < allLines.length && INSTRUCTIONS_KEY_PATTERN.test(allLines[nextIndex])) {
+                return { markerIndex: index, lineIndex: nextIndex };
+            }
+            continue;
+        }
+        if (INSTRUCTIONS_KEY_PATTERN.test(stripped)) {
+            return { markerIndex: null, lineIndex: index };
+        }
+    }
+    return null;
+}
+
+function homeDirectoryFrom(environment) {
+    const named = environment.HOME || environment.USERPROFILE;
+    if (typeof named === 'string' && named.trim()) return resolve(named.trim());
+    return homedir();
+}
+
+function profilesRootFrom(environment, homeDirectory) {
+    const named = environment[CODEX_PROFILES_ROOT_ENVIRONMENT_VARIABLE];
+    if (typeof named === 'string' && named.trim()) return resolve(named.trim());
+    return join(homeDirectory, CODEX_PROFILES_DIRECTORY_NAME);
+}
+
+function accountNamesFrom(profilesRoot, environment) {
+    const named = environment[CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE];
+    if (typeof named === 'string' && named.trim()) {
+        return named.split(',').map((eachName) => eachName.trim()).filter(Boolean);
+    }
+    const rosterPath = join(profilesRoot, CODEX_ACCOUNT_LAUNCHERS_FILE_NAME);
+    if (!lstatSync(rosterPath, { throwIfNoEntry: false })?.isFile()) return DEFAULT_CODEX_ACCOUNT_NAMES;
+    try {
+        const parsed = JSON.parse(readFileSync(rosterPath, 'utf8'));
+        if (Array.isArray(parsed) && parsed.every((eachName) => typeof eachName === 'string')) {
+            return parsed.map((eachName) => eachName.trim()).filter(Boolean);
+        }
+    } catch {
+        return [];
+    }
+    return [];
+}
+
+/**
+ * Homes whose `config.toml` can hold its own Sol prompt line.
+ *
+ * The main Codex home is always included. `CODEX_HOME` is included when its
+ * `config.toml` is not the main file. Each account home under the profiles
+ * root is included when that home already has a `config.toml` and
+ * `sharesMainConfig` says it is not the main file. Account sync in
+ * `scripts/codex_account_choice.py` is what links the shared ones.
+ *
+ * @param {string} codexHome
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string[]}
+ */
+export function codexSolHomes(codexHome, environment = process.env) {
+    const homeDirectory = homeDirectoryFrom(environment);
+    const mainHome = join(homeDirectory, DEFAULT_CODEX_DIRECTORY_NAME);
+    const homes = [mainHome];
+    if (!sameDirectory(codexHome, mainHome) && !sharesMainConfig(codexHome, mainHome)) {
+        homes.push(codexHome);
+    }
+    const profilesRoot = profilesRootFrom(environment, homeDirectory);
+    for (const eachName of accountNamesFrom(profilesRoot, environment)) {
+        const accountHome = join(profilesRoot, eachName);
+        if (homes.some((eachHome) => sameDirectory(eachHome, accountHome))) continue;
+        if (!existsSync(join(accountHome, CODEX_CONFIG_FILE_NAME))) continue;
+        if (sharesMainConfig(accountHome, mainHome)) continue;
+        homes.push(accountHome);
+    }
+    return homes;
 }
 
 /**
  * Point CODEX_HOME/config.toml's `model_instructions_file` at the installed Sol prompt.
  *
  * The package line sits at the top of the file, before any table, so it is a
- * top-level key. A top-level `model_instructions_file` the user wrote keeps
- * the file as it is, and so does a directory at the config path.
+ * top-level key. A top-level line whose target exists and sits outside the
+ * temp directory stays, with or without the package marker. A top-level line
+ * whose target is missing or under the temp directory is replaced with
+ * `instructionsPath`. A directory at the config path stays as it is.
+ * Called with the durable prompt path on the install root, this also writes
+ * that prompt and setting for each other home `codexSolHomes` names. The
+ * installer calls it that way, so account homes are covered without a second
+ * installer entry.
  *
  * @param {string} codexHome
  * @param {string} instructionsPath Absolute path of the installed prompt file.
- * @returns {string|null} The config path when the file changed, and null otherwise.
+ * @returns {string|null} The config path when this home's file changed, and null otherwise.
  */
-export function writeCodexSolSetting(codexHome, instructionsPath) {
+function writeOneCodexSolSetting(codexHome, instructionsPath) {
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
     if (!isReadable) return null;
-    const allUserLines = withoutPackageSetting((currentText ?? '').split('\n'));
-    if (hasUserInstructionsSetting(allUserLines)) return null;
-    const userText = allUserLines.join('\n');
+    const allLines = (currentText ?? '').split('\n');
+    const found = instructionLineIndexes(allLines);
+    let userLines = allLines;
+    if (found) {
+        if (!instructionsNeedReplacement(allLines[found.lineIndex])) return null;
+        userLines = allLines.filter((unusedLine, index) => index !== found.lineIndex && index !== found.markerIndex);
+    }
+    const userText = userLines.join('\n');
     const configText = [...solSettingLines(instructionsPath), userText === '' ? '' : userText].join('\n');
     if (currentText === configText) return null;
     mkdirSync(codexHome, { recursive: true });
     writeFileSync(configPath, configText, 'utf8');
     return configPath;
+}
+
+export function writeCodexSolSetting(codexHome, instructionsPath) {
+    const changed = writeOneCodexSolSetting(codexHome, instructionsPath);
+    if (instructionsPath !== codexSolPromptPath(codexHome) || !isInstallRoot(codexHome)) return changed;
+    if (!isExistingFile(instructionsPath)) return changed;
+    for (const eachHome of codexSolHomes(codexHome)) {
+        if (sameDirectory(eachHome, codexHome)) continue;
+        installCodexSolPrompt(eachHome, instructionsPath);
+        writeOneCodexSolSetting(eachHome, codexSolPromptPath(eachHome));
+    }
+    return changed;
+}
+
+/**
+ * Install the Sol prompt and write its setting for every home `codexSolHomes` names.
+ *
+ * A borrowed account home still drops a leftover prompt copy in its own folder.
+ * Running this twice leaves the files as the first run wrote them.
+ *
+ * @param {string} codexHome
+ * @param {string} sourcePromptPath The prompt file the package ships.
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string[]} Paths this call wrote.
+ */
+export function applyCodexSolSettings(codexHome, sourcePromptPath, environment = process.env) {
+    const changed = [];
+    for (const eachHome of codexSolHomes(codexHome, environment)) {
+        const promptPath = installCodexSolPrompt(eachHome, sourcePromptPath);
+        const settingPath = writeCodexSolSetting(eachHome, codexSolPromptPath(eachHome));
+        if (promptPath) changed.push(promptPath);
+        if (settingPath) changed.push(settingPath);
+    }
+    if (codexConfigIsBorrowed(codexHome)) installCodexSolPrompt(codexHome, sourcePromptPath);
+    return changed;
+}
+
+/**
+ * Paths the install transaction must remember before the Sol prompt write.
+ *
+ * @param {string} codexHome
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string[]}
+ */
+export function codexSolSnapshotPaths(codexHome, environment = process.env) {
+    const paths = [];
+    for (const eachHome of codexSolHomes(codexHome, environment)) {
+        paths.push(...codexSolSettingSnapshotPaths(eachHome));
+        paths.push(codexSolPromptPath(eachHome));
+        paths.push(join(eachHome, SOL_PROMPT_FILE_NAME));
+    }
+    if (codexConfigIsBorrowed(codexHome)) {
+        paths.push(...codexSolSettingSnapshotPaths(codexHome));
+        paths.push(join(codexHome, SOL_PROMPT_FILE_NAME));
+    }
+    return [...new Set(paths)];
+}
+
+/**
+ * Remove the package Sol line from every home an install would have written.
+ *
+ * Uninstall from an account home that shares the main `config.toml` leaves
+ * that shared file alone and only drops the account folder's leftover copy.
+ *
+ * @param {string} codexHome
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string[]} Config paths this call changed.
+ */
+export function removeCodexSolSettings(codexHome, environment = process.env) {
+    const homes = codexConfigIsBorrowed(codexHome) ? [codexHome] : codexSolHomes(codexHome, environment);
+    const changed = [];
+    for (const eachHome of homes) {
+        const configPath = removeCodexSolSetting(eachHome);
+        if (configPath) changed.push(configPath);
+    }
+    return changed;
 }
 
 /**
@@ -185,11 +414,7 @@ export function writeCodexSolSetting(codexHome, instructionsPath) {
  * @param {string} codexHome
  * @returns {string|null} The config path when it changed, or null when nothing was removed.
  */
-export function removeCodexSolSetting(codexHome) {
-    if (codexConfigIsBorrowed(codexHome)) {
-        rmSync(join(codexHome, SOL_PROMPT_FILE_NAME), { force: true });
-        return null;
-    }
+function removeOneCodexSolSetting(codexHome) {
     rmSync(codexSolPromptPath(codexHome), { force: true });
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
@@ -203,4 +428,18 @@ export function removeCodexSolSetting(codexHome) {
         writeFileSync(configPath, userText, 'utf8');
     }
     return configPath;
+}
+
+export function removeCodexSolSetting(codexHome) {
+    if (codexConfigIsBorrowed(codexHome)) {
+        rmSync(join(codexHome, SOL_PROMPT_FILE_NAME), { force: true });
+        return null;
+    }
+    const changed = removeOneCodexSolSetting(codexHome);
+    if (!isInstallRoot(codexHome)) return changed;
+    for (const eachHome of codexSolHomes(codexHome)) {
+        if (sameDirectory(eachHome, codexHome) || codexConfigIsBorrowed(eachHome)) continue;
+        removeOneCodexSolSetting(eachHome);
+    }
+    return changed;
 }
