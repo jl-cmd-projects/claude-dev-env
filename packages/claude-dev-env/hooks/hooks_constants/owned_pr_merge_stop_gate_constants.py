@@ -15,10 +15,10 @@ GH_JQ_OPTION = "--jq"
 PULL_REQUEST_ENDPOINT_TEMPLATE = "repos/{owner}/{repository}/pulls/{number}"
 PULL_REQUEST_STATE_QUERY = ".state"
 OPEN_PULL_REQUEST_STATE = "open"
-STATE_QUERY_TIMEOUT_SECONDS = 20
+STATE_QUERY_TIMEOUT_SECONDS = 10
 LOOKUP_FAILURE_TEMPLATE = "owned_pr_merge_stop_gate: could not read {endpoint}: {detail}\n"
 BLOCKED_LINE_PATTERN: re.Pattern[str] = re.compile(
-    r"^\s*(?:[-*]\s*)?blocked\b\s*[:\-]?(.*)$", re.IGNORECASE
+    r"^\s*(?:[-*]\s*)?blocked\s*:(.*)$", re.IGNORECASE
 )
 BLOCKED_TEXT_GROUP_INDEX = 1
 BOLD_MARKER = "**"

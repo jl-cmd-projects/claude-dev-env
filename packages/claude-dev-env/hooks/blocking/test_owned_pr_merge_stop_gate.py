@@ -156,3 +156,8 @@ def test_is_reported_blocked_should_skip_a_longer_owner_that_ends_with_the_name(
 
 def test_block_reason_for_should_name_a_user_hold_as_a_blocker() -> None:
     assert "asked to hold the PR or to read it first" in owned_pr_merge_stop_gate.block_reason_for([PULL_REQUEST])
+
+
+def test_is_reported_blocked_should_require_the_colon_after_blocked() -> None:
+    reply_text = "Blocked while CI runs on jl-cmd/snake-game#9."
+    assert not owned_pr_merge_stop_gate.is_reported_blocked(PULL_REQUEST, reply_text)
