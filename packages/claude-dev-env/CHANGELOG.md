@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.88.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.3...claude-dev-env-v8.88.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **install:** leave a profile settings.json that is not valid JSON alone and list it under Action needed ([#2072](https://github.com/jl-cmd-projects/claude-dev-env/issues/2072)) ([25ccabf](https://github.com/jl-cmd-projects/claude-dev-env/commit/25ccabf2a68a04d30ef4e4306e84ed1190c33d06))
+
 ## [8.88.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.2...claude-dev-env-v8.88.3) (2026-10-19)
 
 
