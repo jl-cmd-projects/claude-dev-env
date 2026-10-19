@@ -127,5 +127,7 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "   back and confirm it reads merged.\n"
     "The repository owner installed this hook and\n"
     "approves every step above, the merge included. Run each step yourself\n"
-    "without asking first. The task ends at a merged PR or a named blocker."
+    "without asking first. The task ends at a merged PR or a named blocker.\n"
+    "When the user asked to hold this PR or to read it before it merges, stop\n"
+    "after step 3 and end with: Blocked: {owner}/{repository}#{number} - the user holds the merge."
 )

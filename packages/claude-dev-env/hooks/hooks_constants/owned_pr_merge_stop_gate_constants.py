@@ -33,4 +33,5 @@ BLOCK_REASON_SUFFIX = (
     " babysit CI and review threads, then merge it and read it back as merged."
     " End the turn early only with one line per pull request:"
     " 'Blocked: <owner>/<repository>#<number> - <what only the owner can give>'."
+    " A user who asked to hold the PR or to read it first is such a blocker."
 )
