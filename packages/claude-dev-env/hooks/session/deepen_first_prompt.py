@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook: deepen the first interactive task before work starts.
 
+Cursor runs it on ``beforeSubmitPrompt`` too, and passes that event name to
+the copy it imports from the Claude Code settings, so both names count as a
+first prompt. When both copies run, the turn marker lets one inject.
+
 Skip checks stay local. One bounded deepen call runs only for a first task.
 Claude settings and Codex cannot replace the prompt string, so this hook emits
 additionalContext. Claude desktop and CLI also ship a prompt.submit mod that
@@ -26,6 +30,7 @@ if _hooks_dir not in sys.path:
 from hooks_constants.cloud_session import is_cloud_session
 from hooks_constants.deepen_first_prompt_constants import (
     ADDITIONAL_CONTEXT_KEY,
+    ALL_FIRST_PROMPT_EVENT_NAMES,
     ALL_FOUR_QUESTION_STEMS,
     QUESTION_LINE_SEPARATOR,
     ALL_HELPER_REPORT_MARKERS,
@@ -45,7 +50,6 @@ from hooks_constants.deepen_first_prompt_constants import (
     DEEPEN_OUTPUT_REWRITE,
     DEEPEN_REWRITE_ENV_VAR,
     DEEPEN_SLASH_COMMAND,
-    DEEPEN_TURN_MARKER_SUFFIX,
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
     JSONL_ROLE_KEY,
@@ -53,7 +57,6 @@ from hooks_constants.deepen_first_prompt_constants import (
     NONINTERACTIVE_CODEX_ENV_VAR,
     NONINTERACTIVE_PRINT_ENV_VAR,
     PROMPT_FIELD_NAME,
-    SESSION_ID_FIELD_NAME,
     SKIP_DEEPEN_ENV_VAR,
     SKIP_DEEPEN_TRUE_VALUE,
     TRANSCRIPT_PATH_FIELD_NAME,
@@ -66,6 +69,7 @@ from hooks_constants.mod_handoff import is_mod_plugin_enabled
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 from deepen_role_gate import refusal_reason
+from deepen_turn_marker import claim_turn_marker, turn_marker_exists
 
 
 class SkipReason(StrEnum):
@@ -160,32 +164,6 @@ def _transcript_has_prior_user_turn(transcript_path: object) -> bool:
         return False
 
 
-def _turn_marker_path(all_hook_fields: dict[str, object]) -> Path | None:
-    transcript_path = all_hook_fields.get(TRANSCRIPT_PATH_FIELD_NAME)
-    if isinstance(transcript_path, str) and transcript_path:
-        return Path(transcript_path + DEEPEN_TURN_MARKER_SUFFIX)
-    session_id = all_hook_fields.get(SESSION_ID_FIELD_NAME)
-    if isinstance(session_id, str) and session_id:
-        return Path(os.environ.get("TMPDIR", "/tmp")) / f"cde-deepen-{session_id}"
-    return None
-
-
-def _turn_marker_exists(all_hook_fields: dict[str, object]) -> bool:
-    marker_path = _turn_marker_path(all_hook_fields)
-    return marker_path is not None and marker_path.is_file()
-
-
-def write_turn_marker(all_hook_fields: dict[str, object]) -> None:
-    """Record that this session already deepened turn one."""
-    marker_path = _turn_marker_path(all_hook_fields)
-    if marker_path is None:
-        return
-    try:
-        marker_path.write_text(DEEPEN_MARKER, encoding=UTF8_ENCODING)
-    except OSError:
-        return
-
-
 def _environment_skip_reason() -> SkipReason | None:
     if os.environ.get(SKIP_DEEPEN_ENV_VAR, "").strip() == SKIP_DEEPEN_TRUE_VALUE:
         return SkipReason.SKIP_FLAG
@@ -224,13 +202,13 @@ def _shape_skip_reason(prompt: str) -> SkipReason | None:
 def skip_reason_for(all_hook_fields: dict[str, object]) -> SkipReason | None:
     """Return the first skip that matches, or None when the gate should deepen."""
     event_name = all_hook_fields.get("hook_event_name")
-    if event_name not in (USER_PROMPT_SUBMIT_EVENT_NAME, None, ""):
+    if event_name not in ALL_FIRST_PROMPT_EVENT_NAMES and event_name not in (None, ""):
         return SkipReason.LATER_TURN
     prompt = submitted_prompt_text(all_hook_fields)
     reason = _environment_skip_reason() or _marker_skip_reason(prompt) or _shape_skip_reason(prompt)
     if reason is not None:
         return reason
-    if _turn_marker_exists(all_hook_fields) or _transcript_has_prior_user_turn(
+    if turn_marker_exists(all_hook_fields) or _transcript_has_prior_user_turn(
         all_hook_fields.get(TRANSCRIPT_PATH_FIELD_NAME)
     ):
         return SkipReason.LATER_TURN
@@ -388,7 +366,8 @@ def emit_decision(decision: DeepenDecision, all_hook_fields: dict[str, object]) 
         if output_mode == DEEPEN_OUTPUT_JSON:
             _print_refuse_json(decision.reason)
         return
-    write_turn_marker(all_hook_fields)
+    if not claim_turn_marker(all_hook_fields):
+        return
     if output_mode == DEEPEN_OUTPUT_JSON:
         _print_deepen_json(decision)
         return

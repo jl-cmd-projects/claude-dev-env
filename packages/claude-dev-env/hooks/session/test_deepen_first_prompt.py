@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -32,6 +33,7 @@ from hooks_constants.deepen_first_prompt_constants import (
     REFUSAL_RESTATES_FOUR_QUESTIONS,
     SKIP_DEEPEN_ENV_VAR,
     USER_PROMPT_SUBMIT_EVENT_NAME,
+    CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME,
 )
 from hooks_constants.skill_loaded_reminder_constants import CLAUDE_SUBAGENT_PROMPT_PREFIX
 
@@ -157,6 +159,16 @@ class TestSkipReasonFor:
     def test_should_deepen_a_first_task(self) -> None:
         assert deepen.skip_reason_for(_payload("Add dark mode to the settings page")) is None
 
+    def test_should_deepen_a_first_task_from_the_cursor_prompt_event(self) -> None:
+        fields = _payload("Add dark mode to the settings page")
+        fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        assert deepen.skip_reason_for(fields) is None
+
+    def test_should_skip_any_other_event(self) -> None:
+        fields = _payload("Add dark mode to the settings page")
+        fields["hook_event_name"] = "stop"
+        assert deepen.skip_reason_for(fields) is deepen.SkipReason.LATER_TURN
+
 
 class TestDecideFirstPrompt:
     def test_should_emit_additional_context_with_the_four_answers_for_a_first_task(
@@ -192,6 +204,19 @@ class TestDecideFirstPrompt:
         assert marker_path.is_file()
         second_stdout = _run_main(_payload("and also the billing page", str(transcript_path)))
         assert second_stdout == ""
+
+    def test_should_inject_once_when_two_copies_see_the_same_cursor_prompt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
+        monkeypatch.delenv("CDE_DEEPEN_OUTPUT", raising=False)
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        cursor_fields = _payload("Add dark mode to the settings page")
+        cursor_fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        cursor_fields["transcript_path"] = None
+        cursor_fields["session_id"] = "cursor-conversation"
+        all_outputs = [_run_main(cursor_fields), _run_main(cursor_fields)]
+        assert sum(DEEPEN_MARKER in each_output for each_output in all_outputs) == 1
 
     def test_should_print_rewrite_text_for_the_claude_mod(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
