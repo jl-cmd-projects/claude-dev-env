@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.88.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.2...claude-dev-env-v8.88.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **install:** keep the Codex Sol prompt beside a linked config.toml, and gate every Claude profile ([#2070](https://github.com/jl-cmd-projects/claude-dev-env/issues/2070)) ([2df0462](https://github.com/jl-cmd-projects/claude-dev-env/commit/2df0462c234f39b53a50b2c68910fcadf3b7416a))
+
 ## [8.88.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.1...claude-dev-env-v8.88.2) (2026-10-19)
 
 
