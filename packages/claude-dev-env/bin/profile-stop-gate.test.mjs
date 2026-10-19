@@ -8,6 +8,8 @@ import {
     addOpenTasksGateToProfiles,
     otherProfileSettingsPaths,
     removeOpenTasksGateFromProfiles,
+    splitUnreadableProfileSettings,
+    unparsedSettingsMayHoldGate,
 } from './profile-stop-gate.mjs';
 
 function makeHome(context) {
@@ -121,4 +123,38 @@ test('a profile that already runs its own copy of the gate script gets no second
 
     assert.deepEqual(allOutcomes, []);
     assert.deepEqual(stopCommands(profilePath), [ownGateCommand]);
+});
+
+test('a settings.json that is not valid JSON is reported with its parse error, and an empty one counts as readable', (context) => {
+    const { homeDirectory } = makeHome(context);
+    const goodPath = writeProfile(homeDirectory, 'good', { outputStyle: 'plain' });
+    const emptyPath = writeProfile(homeDirectory, 'empty');
+    writeFileSync(emptyPath, '');
+    const brokenPath = writeProfile(homeDirectory, 'broken');
+    writeFileSync(brokenPath, '{"hooks":{},}');
+
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings([goodPath, emptyPath, brokenPath]);
+
+    assert.deepEqual(allReadablePaths, [goodPath, emptyPath]);
+    assert.equal(allUnreadable.length, 1);
+    assert.equal(allUnreadable[0].settingsPath, brokenPath);
+    assert.match(allUnreadable[0].reason, /JSON/);
+});
+
+test('a settings.json that does not parse may hold the gate when its text names this home\'s gate script, in either slash spelling', (context) => {
+    const { homeDirectory, claudeHome, gateCommand } = makeHome(context);
+    const forwardPath = writeProfile(homeDirectory, 'forward');
+    writeFileSync(forwardPath, `{"hooks":{"Stop":[{"hooks":[{"command":"${gateCommand}"}]}]},}`);
+    const escapedPath = writeProfile(homeDirectory, 'escaped');
+    writeFileSync(escapedPath, `{"hooks":{"Stop":[{"hooks":[{"command":"${gateCommand.replace(/\//g, '\\\\')}"}]}]},}`);
+    const otherHomePath = writeProfile(homeDirectory, 'other-home');
+    writeFileSync(otherHomePath, '{"hooks":{"Stop":[{"hooks":[{"command":"python3 /opt/other/.claude/hooks/blocking/open_tasks_stop_gate.py"}]}]},}');
+    const noGatePath = writeProfile(homeDirectory, 'no-gate');
+    writeFileSync(noGatePath, '{"hooks":{},}');
+
+    assert.equal(unparsedSettingsMayHoldGate(forwardPath, claudeHome), true);
+    assert.equal(unparsedSettingsMayHoldGate(escapedPath, claudeHome), true);
+    assert.equal(unparsedSettingsMayHoldGate(otherHomePath, claudeHome), false);
+    assert.equal(unparsedSettingsMayHoldGate(noGatePath, claudeHome), false);
+    assert.equal(unparsedSettingsMayHoldGate(join(homeDirectory, 'missing', 'settings.json'), claudeHome), true);
 });
