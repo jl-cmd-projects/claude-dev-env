@@ -130,3 +130,14 @@ def test_block_reason_for_should_name_each_pull_request_and_the_blocked_form() -
     reason = owned_pr_merge_stop_gate.block_reason_for([PULL_REQUEST])
     assert PULL_REQUEST["url"] in reason
     assert "Blocked: <owner>/<repository>#<number>" in reason
+
+
+def test_main_should_report_a_failed_lookup_on_stderr(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    _gh_reports(monkeypatch, "", exit_code=1)
+    hook_input = {"hook_event_name": "Stop", "session_id": SESSION_ID, "last_assistant_message": "Open."}
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
+    owned_pr_merge_stop_gate.main()
+    assert "could not read repos/jl-cmd/snake-game/pulls/9" in capsys.readouterr().err

@@ -13,7 +13,8 @@ A block sends the open pull requests back as the reason, so the model keeps
 working the loop. Claude Code ends the turn after eight blocks in a row, and
 Codex turns the reason into a continuation prompt. A state lookup that fails,
 such as a missing ``gh`` or no network, counts as closed, so the gate never
-holds a turn on a fact it could not read.
+holds a turn on a fact it could not read. The failure goes to stderr, where
+the host shows it in the hook log.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     GH_PROGRAM_NAME,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
+    LOOKUP_FAILURE_TEMPLATE,
     NAME_END_PATTERN,
     OPEN_PULL_REQUEST_STATE,
     PULL_REQUEST_ENDPOINT_TEMPLATE,
@@ -71,8 +73,11 @@ def is_pull_request_open(all_pull_request_fields: dict[str, str]) -> bool:
             timeout=STATE_QUERY_TIMEOUT_SECONDS,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired) as lookup_error:
+        sys.stderr.write(LOOKUP_FAILURE_TEMPLATE.format(endpoint=endpoint, detail=lookup_error))
         return False
+    if completed.returncode != 0:
+        sys.stderr.write(LOOKUP_FAILURE_TEMPLATE.format(endpoint=endpoint, detail=completed.stderr.strip()))
     return completed.returncode == 0 and completed.stdout.strip() == OPEN_PULL_REQUEST_STATE
 
 
