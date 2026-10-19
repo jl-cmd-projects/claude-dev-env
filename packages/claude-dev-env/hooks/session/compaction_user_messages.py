@@ -30,6 +30,7 @@ if _hooks_directory not in sys.path:
 
 from hooks_constants.compaction_user_messages_constants import (
     ALL_SKIPPED_ENTRY_FLAGS,
+    ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_ENTRY_TYPE,
     ATTACHMENT_KEY,
     BLOCK_SEPARATOR,
@@ -151,6 +152,9 @@ def _typed_texts(all_transcript_lines: Iterable[str]) -> Iterator[tuple[str, str
     previous_text = None
     for each_line in all_transcript_lines:
         all_entry_fields = _parsed_entry(each_line)
+        if all_entry_fields.get(ENTRY_TYPE_KEY) == ASSISTANT_ENTRY_TYPE:
+            previous_text = None
+            continue
         entry_text = _entry_text(all_entry_fields)
         if entry_text is None or entry_text == previous_text:
             continue

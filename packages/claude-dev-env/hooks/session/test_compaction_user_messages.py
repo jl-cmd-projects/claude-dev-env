@@ -95,6 +95,11 @@ def test_should_count_a_queued_prompt_once_when_it_also_lands_as_a_user_entry() 
     assert texts_of([queued_line, user_line("check logs"), relay_line]) == ["check logs"]
 
 
+def test_should_keep_a_message_typed_again_after_the_assistant_replied() -> None:
+    assistant_line = json.dumps({"type": "assistant", "message": {"content": "done"}})
+    assert texts_of([user_line("yes"), assistant_line, user_line("yes")]) == ["yes", "yes"]
+
+
 def test_should_read_a_claude_code_transcript_across_a_compaction() -> None:
     fixture_lines = (FIXTURE_DIRECTORY / "one_compaction.jsonl").read_text().splitlines()
     assert texts_of(fixture_lines) == [

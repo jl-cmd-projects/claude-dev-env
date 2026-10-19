@@ -13,6 +13,7 @@ from pathlib import Path
 ENTRY_TYPE_KEY = "type"
 USER_ENTRY_TYPE = "user"
 ATTACHMENT_ENTRY_TYPE = "attachment"
+ASSISTANT_ENTRY_TYPE = "assistant"
 ATTACHMENT_KEY = "attachment"
 QUEUED_COMMAND_ATTACHMENT_TYPE = "queued_command"
 QUEUED_PROMPT_KEY = "prompt"
