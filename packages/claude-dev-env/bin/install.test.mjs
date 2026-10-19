@@ -3208,11 +3208,16 @@ test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
         'DeepStack intake\n',
     );
     const hooks = JSON.parse(readFileSync(join(sandbox.homeDirectory, '.cursor', 'hooks.json'), 'utf8'));
-    const hookText = JSON.stringify(hooks);
-    assert.match(hookText, /session-start\.sh/);
-    assert.match(hookText, /SessionStart/);
-    assert.match(hookText, /deepen_first_prompt\.py/);
-    assert.match(hookText, /UserPromptSubmit/);
+    assert.equal(hooks.version, 1);
+    assert.deepEqual(
+        hooks.hooks.sessionStart.filter(entry => entry.command.includes('session-start.sh')).length,
+        1,
+    );
+    assert.equal(
+        hooks.hooks.beforeSubmitPrompt.filter(entry => entry.command.includes('deepen_first_prompt.py')).length,
+        1,
+    );
+    assert.equal(JSON.stringify(hooks).includes('"hooks":[{'), false, 'no Claude-style group entries');
     const sheet = readFileSync(join(sandbox.homeDirectory, '.codex', 'deepstack-models.md'), 'utf8');
     assert.match(sheet, /^session hook: on$/m);
 });

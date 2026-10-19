@@ -9,9 +9,11 @@ import {
     DEEPSTACK_PLUGIN_SPEC,
     deepStackCloneUrl,
     deepStackInstallPlan,
+    deepStackCursorSessionCommand,
     installDeepStackCursor,
     installDeepStackForHosts,
     mergeDeepStackCursorHooks,
+    removeDeepStackCursorHooks,
 } from './install-deepstack-plugin.mjs';
 import { marketplacePluginsPlan, shouldInstallMarketplacePlugin } from './install-pstack-plugin.mjs';
 
@@ -32,18 +34,47 @@ test('Claude and Codex plans name jl-cmd-projects/DeepStack', () => {
     assert.throws(() => marketplacePluginsPlan([DEEPSTACK_PLUGIN_SPEC], 'cursor'), /cursor/);
 });
 
-test('cursor hooks keep the session hook and the first-task gate', () => {
-    const merged = mergeDeepStackCursorHooks({ hooks: { PreToolUse: [] } }, {
+test('cursor hooks are one native sessionStart entry and one native beforeSubmitPrompt entry', () => {
+    const legacySessionGroup = {
+        matcher: 'startup|resume|clear|compact',
+        hooks: [{ type: 'command', command: "'C:\\Users\\dev\\.cursor\\plugins\\deepstack\\hooks\\session-start.sh' cursor" }],
+    };
+    const commands = {
         sessionCommand: "'/cursor/plugins/deepstack/hooks/session-start.sh' cursor",
         firstTaskCommand: "python3 '/claude/hooks/session/deepen_first_prompt.py'",
+    };
+    const merged = mergeDeepStackCursorHooks({
+        hooks: {
+            SessionStart: [legacySessionGroup, legacySessionGroup, legacySessionGroup],
+            UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'python3 /old/deepen_first_prompt.py', timeout: 10 }] }],
+            preToolUse: [],
+        },
+    }, commands);
+    assert.deepEqual(merged, {
+        version: 1,
+        hooks: {
+            sessionStart: [{ command: commands.sessionCommand, timeout: 10 }],
+            beforeSubmitPrompt: [{ command: commands.firstTaskCommand, timeout: 10 }],
+            preToolUse: [],
+        },
     });
-    assert.deepEqual(Object.keys(merged.hooks).sort(), ['PreToolUse', 'SessionStart', 'UserPromptSubmit']);
-    const text = JSON.stringify(merged);
-    assert.match(text, /session-start\.sh/);
-    assert.match(text, /deepen_first_prompt\.py/);
+    assert.deepEqual(mergeDeepStackCursorHooks(merged, commands), merged);
 });
 
-test('the cursor copy writes the skill and both hook commands', () => {
+test('the Windows session command runs the PowerShell script, other platforms the shell script', () => {
+    const root = mkdtempSync(join(tmpdir(), 'deepstack-cursor-'));
+    try {
+        mkdirSync(join(root, 'hooks'), { recursive: true });
+        writeFileSync(join(root, 'hooks', 'session-start.ps1'), 'param()\n');
+        const forwardSlashed = pathValue => `"${pathValue.replace(/\\/g, '/')}"`;
+        assert.match(deepStackCursorSessionCommand(root, forwardSlashed, 'win32'), /^powershell -NoProfile -ExecutionPolicy Bypass -File ".*hooks\/session-start\.ps1" cursor$/);
+        assert.match(deepStackCursorSessionCommand(root, forwardSlashed, 'linux'), /hooks\/session-start\.sh" cursor$/);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('the cursor copy writes the skill and both native hook commands, and removal takes out only those', () => {
     const root = mkdtempSync(join(tmpdir(), 'deepstack-cursor-'));
     try {
         const source = join(root, 'source');
@@ -52,10 +83,14 @@ test('the cursor copy writes the skill and both hook commands', () => {
         writeFileSync(join(source, 'skills', 'deepstack-mode', 'SKILL.md'), 'DeepStack intake\n');
         writeFileSync(join(source, 'hooks', 'session-start.sh'), '#!/bin/sh\n');
         const cursorDirectory = join(root, '.cursor');
+        mkdirSync(cursorDirectory, { recursive: true });
+        writeFileSync(join(cursorDirectory, 'hooks.json'), JSON.stringify({ version: 1, hooks: { stop: [{ command: './user-stop.sh' }] } }));
         const outcome = installDeepStackCursor({
             cursorDirectory,
             pluginSourceDirectory: source,
             firstTaskHookPath: join(root, '.agents', 'hooks', 'session', 'deepen_first_prompt.py'),
+            pythonCommand: '/usr/bin/python3.12',
+            platform: 'linux',
         });
         assert.equal(outcome.status, 'installed');
         assert.equal(
@@ -63,10 +98,15 @@ test('the cursor copy writes the skill and both hook commands', () => {
             'DeepStack intake\n',
         );
         const hooks = JSON.parse(readFileSync(join(cursorDirectory, 'hooks.json'), 'utf8'));
-        const text = JSON.stringify(hooks);
-        assert.match(text, /session-start\.sh/);
-        assert.match(text, /deepen_first_prompt\.py/);
-        assert.equal(hooks.hooks.SessionStart[0].hooks[0].command.endsWith(' cursor'), true);
+        assert.equal(hooks.version, 1);
+        assert.equal(hooks.hooks.sessionStart.length, 1);
+        assert.match(hooks.hooks.sessionStart[0].command, /session-start\.sh' cursor$/);
+        assert.match(hooks.hooks.beforeSubmitPrompt[0].command, /^\/usr\/bin\/python3\.12 '.*deepen_first_prompt\.py'$/);
+        removeDeepStackCursorHooks(cursorDirectory);
+        assert.deepEqual(
+            JSON.parse(readFileSync(join(cursorDirectory, 'hooks.json'), 'utf8')),
+            { version: 1, hooks: { stop: [{ command: './user-stop.sh' }] } },
+        );
     } finally {
         rmSync(root, { recursive: true, force: true });
     }

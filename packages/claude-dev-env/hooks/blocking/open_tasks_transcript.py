@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Rebuild a session task list and its last assistant text from a transcript.
+
+The open tasks Stop gate reads three transcript shapes, replayed in order::
+
+    TaskCreate / TaskUpdate calls        (Claude Code)
+    TodoWrite input.todos                (Claude Code and Cursor; ``merge`` updates by id)
+    update_plan function_call arguments  (Codex rollout)
+
+The Cursor CLI can also reach TodoWrite through ``CallDynamicTool``, with the
+TodoWrite input under ``arguments``; that call counts as the TodoWrite call.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+from typing import NamedTuple
+
+hooks_root_directory = str(Path(__file__).resolve().parent.parent)
+if hooks_root_directory not in sys.path:
+    sys.path.insert(0, hooks_root_directory)
+
+from hooks_constants.open_tasks_stop_gate_constants import (
+    ASSISTANT_ROLE,
+    CODEX_ARGUMENTS_KEY,
+    CODEX_FUNCTION_CALL_TYPE,
+    CODEX_PAYLOAD_KEY,
+    CODEX_PLAN_KEY,
+    CODEX_PLAN_TOOL_NAME,
+    CODEX_RESPONSE_ITEM_TYPE,
+    CODEX_STEP_KEY,
+    CONTENT_KEY,
+    CREATED_TASK_ID_GROUP_INDEX,
+    DYNAMIC_TOOL_ARGUMENTS_KEY,
+    DYNAMIC_TOOL_CALL_NAME,
+    DYNAMIC_TOOL_NAME_KEY,
+    FIRST_ITEM_NUMBER,
+    MESSAGE_KEY,
+    PENDING_STATUS,
+    RECORD_TYPE_KEY,
+    REPLY_TEXT_SEPARATOR,
+    ROLE_KEY,
+    TASK_CREATED_PATTERN,
+    TASK_CREATE_TOOL_NAME,
+    TASK_ID_KEY,
+    TASK_STATUS_KEY,
+    TASK_SUBJECT_KEY,
+    TASK_UPDATE_ID_KEY,
+    TASK_UPDATE_TOOL_NAME,
+    TEXT_KEY,
+    TODOS_KEY,
+    TODO_CONTENT_KEY,
+    TODO_ID_KEY,
+    TODO_MERGE_KEY,
+    TODO_WRITE_TOOL_NAME,
+    TOOL_INPUT_KEY,
+    TOOL_NAME_KEY,
+    TOOL_RESULT_BLOCK_TYPE,
+    TOOL_USE_BLOCK_TYPE,
+    TOOL_USE_ID_KEY,
+    UTF8_ENCODING,
+    WORD_SEPARATOR,
+)
+
+
+class TaskItem(NamedTuple):
+    """One task list item.
+
+    Attributes:
+        item_id: The task number or position, as text.
+        subject: The item's wording.
+        status: The item's status, such as ``pending`` or ``completed``.
+    """
+
+    item_id: str
+    subject: str
+    status: str
+
+
+def parsed_object(json_text: str) -> dict[str, object] | None:
+    """Return the JSON object in the text, or None for anything else."""
+    try:
+        parsed_value = json.loads(json_text)
+    except ValueError:
+        return None
+    return parsed_value if isinstance(parsed_value, dict) else None
+
+
+def _transcript_records(transcript_path: object) -> list[dict[str, object]]:
+    if not isinstance(transcript_path, str):
+        return []
+    try:
+        all_lines = Path(transcript_path).read_text(encoding=UTF8_ENCODING).splitlines()
+    except OSError:
+        return []
+    all_records = (parsed_object(each_line) for each_line in all_lines)
+    return [each_record for each_record in all_records if each_record is not None]
+
+
+def _content_blocks(all_record_fields: dict[str, object]) -> list[dict[str, object]]:
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    content_value = message_body.get(CONTENT_KEY) if isinstance(message_body, dict) else None
+    if not isinstance(content_value, list):
+        return []
+    return [each_block for each_block in content_value if isinstance(each_block, dict)]
+
+
+def _result_text(all_block_fields: dict[str, object]) -> str:
+    result_content = all_block_fields.get(CONTENT_KEY)
+    if isinstance(result_content, str):
+        return result_content
+    if not isinstance(result_content, list):
+        return ""
+    return WORD_SEPARATOR.join(
+        str(each_part.get(TEXT_KEY, "")) for each_part in result_content if isinstance(each_part, dict)
+    )
+
+
+def _numbered_items(all_entries: object, subject_key: str) -> list[TaskItem]:
+    if not isinstance(all_entries, list):
+        return []
+    all_dictionaries = [each_entry for each_entry in all_entries if isinstance(each_entry, dict)]
+    return [
+        TaskItem(str(each_number), str(each_entry.get(subject_key, "")), str(each_entry.get(TASK_STATUS_KEY, "")))
+        for each_number, each_entry in enumerate(all_dictionaries, start=FIRST_ITEM_NUMBER)
+    ]
+
+
+def _todo_items(all_todo_entries: object) -> list[TaskItem]:
+    if not isinstance(all_todo_entries, list):
+        return []
+    all_dictionaries = [each_entry for each_entry in all_todo_entries if isinstance(each_entry, dict)]
+    return [
+        TaskItem(
+            str(each_entry.get(TODO_ID_KEY, each_number)),
+            str(each_entry.get(TODO_CONTENT_KEY, "")),
+            str(each_entry.get(TASK_STATUS_KEY, "")),
+        )
+        for each_number, each_entry in enumerate(all_dictionaries, start=FIRST_ITEM_NUMBER)
+    ]
+
+
+def merged_todo_items(all_earlier_items: list[TaskItem], all_update_entries: object) -> list[TaskItem]:
+    """Apply a ``merge`` TodoWrite call: update earlier items by id and append new ones."""
+    item_by_id = {each_item.item_id: each_item for each_item in all_earlier_items}
+    for each_update in _todo_items(all_update_entries):
+        earlier_item = item_by_id.get(each_update.item_id)
+        if earlier_item is None:
+            item_by_id[each_update.item_id] = each_update
+            continue
+        item_by_id[each_update.item_id] = earlier_item._replace(
+            subject=each_update.subject or earlier_item.subject,
+            status=each_update.status or earlier_item.status,
+        )
+    return list(item_by_id.values())
+
+
+def codex_plan_items(all_record_fields: dict[str, object]) -> list[TaskItem] | None:
+    """Return the plan from a Codex rollout ``update_plan`` call record, or None for any other record."""
+    payload_body = all_record_fields.get(CODEX_PAYLOAD_KEY)
+    if all_record_fields.get(RECORD_TYPE_KEY) != CODEX_RESPONSE_ITEM_TYPE or not isinstance(payload_body, dict):
+        return None
+    if payload_body.get(RECORD_TYPE_KEY) != CODEX_FUNCTION_CALL_TYPE or payload_body.get(TOOL_NAME_KEY) != CODEX_PLAN_TOOL_NAME:
+        return None
+    all_plan_arguments = parsed_object(str(payload_body.get(CODEX_ARGUMENTS_KEY, "")))
+    if all_plan_arguments is None:
+        return None
+    return _numbered_items(all_plan_arguments.get(CODEX_PLAN_KEY), CODEX_STEP_KEY)
+
+
+def unwrapped_tool_call(tool_name: str, all_input_fields: dict[str, object]) -> tuple[str, dict[str, object]]:
+    """Return the inner tool name and arguments of a Cursor ``CallDynamicTool`` call, or the call itself.
+
+    The Cursor CLI can reach TodoWrite through ``CallDynamicTool`` with
+    ``{"toolName": "TodoWrite", "arguments": {"todos": [...], "merge": true}}``.
+    """
+    inner_name = all_input_fields.get(DYNAMIC_TOOL_NAME_KEY)
+    all_inner_arguments = all_input_fields.get(DYNAMIC_TOOL_ARGUMENTS_KEY)
+    if tool_name != DYNAMIC_TOOL_CALL_NAME or not isinstance(inner_name, str) or not isinstance(all_inner_arguments, dict):
+        return tool_name, all_input_fields
+    return inner_name, all_inner_arguments
+
+
+class _TranscriptReplay:
+    """Fold transcript records into the newest task list they describe."""
+
+    def __init__(self) -> None:
+        self.latest_items: list[TaskItem] | None = None
+        self.created_by_id: dict[str, TaskItem] = {}
+        self.subject_by_tool_use_id: dict[str, str] = {}
+        self.last_assistant_text = ""
+
+    def apply_record(self, all_record_fields: dict[str, object]) -> None:
+        plan_items = codex_plan_items(all_record_fields)
+        if plan_items is not None:
+            self.latest_items = plan_items
+            return
+        all_blocks = _content_blocks(all_record_fields)
+        for each_block in all_blocks:
+            self.apply_block(each_block)
+        self.note_assistant_text(all_record_fields, all_blocks)
+
+    def note_assistant_text(self, all_record_fields: dict[str, object], all_blocks: list[dict[str, object]]) -> None:
+        message_body = all_record_fields.get(MESSAGE_KEY)
+        message_role = message_body.get(ROLE_KEY) if isinstance(message_body, dict) else None
+        if ASSISTANT_ROLE not in (all_record_fields.get(ROLE_KEY), all_record_fields.get(RECORD_TYPE_KEY), message_role):
+            return
+        record_text = REPLY_TEXT_SEPARATOR.join(
+            str(each_block.get(TEXT_KEY, "")) for each_block in all_blocks if each_block.get(RECORD_TYPE_KEY) == TEXT_KEY
+        ).strip()
+        if record_text:
+            self.last_assistant_text = record_text
+
+    def apply_block(self, all_block_fields: dict[str, object]) -> None:
+        block_type = all_block_fields.get(RECORD_TYPE_KEY)
+        tool_input = all_block_fields.get(TOOL_INPUT_KEY)
+        if block_type == TOOL_USE_BLOCK_TYPE and isinstance(tool_input, dict):
+            tool_name, all_tool_arguments = unwrapped_tool_call(str(all_block_fields.get(TOOL_NAME_KEY)), tool_input)
+            self.apply_tool_use(tool_name, str(all_block_fields.get(TASK_ID_KEY)), all_tool_arguments)
+        elif block_type == TOOL_RESULT_BLOCK_TYPE:
+            self.apply_tool_result(all_block_fields)
+
+    def apply_tool_use(self, tool_name: str, tool_use_id: str, all_input_fields: dict[str, object]) -> None:
+        if tool_name == TODO_WRITE_TOOL_NAME:
+            all_todo_entries = all_input_fields.get(TODOS_KEY)
+            is_merge = all_input_fields.get(TODO_MERGE_KEY) is True and self.latest_items is not None
+            self.latest_items = (
+                merged_todo_items(self.latest_items or [], all_todo_entries) if is_merge else _todo_items(all_todo_entries)
+            )
+            return
+        if tool_name == TASK_CREATE_TOOL_NAME:
+            self.subject_by_tool_use_id[tool_use_id] = str(all_input_fields.get(TASK_SUBJECT_KEY, ""))
+            return
+        if tool_name == TASK_UPDATE_TOOL_NAME:
+            self.apply_task_update(all_input_fields)
+
+    def apply_task_update(self, all_input_fields: dict[str, object]) -> None:
+        task_id = str(all_input_fields.get(TASK_UPDATE_ID_KEY, ""))
+        new_status = all_input_fields.get(TASK_STATUS_KEY)
+        if task_id in self.created_by_id and new_status:
+            self.created_by_id[task_id] = self.created_by_id[task_id]._replace(status=str(new_status))
+
+    def apply_tool_result(self, all_block_fields: dict[str, object]) -> None:
+        created_subject = self.subject_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), None)
+        created_match = re.search(TASK_CREATED_PATTERN, _result_text(all_block_fields))
+        if created_subject is None or created_match is None:
+            return
+        created_id = created_match.group(CREATED_TASK_ID_GROUP_INDEX)
+        self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS)
+
+    def items(self) -> list[TaskItem] | None:
+        if self.created_by_id:
+            return list(self.created_by_id.values())
+        return self.latest_items
+
+
+def replayed_transcript(transcript_path: object) -> _TranscriptReplay:
+    """Fold every transcript record into one replay of the task list and the last assistant text."""
+    replay = _TranscriptReplay()
+    for each_record in _transcript_records(transcript_path):
+        replay.apply_record(each_record)
+    return replay
+
+
+def transcript_items(transcript_path: object) -> list[TaskItem] | None:
+    """Rebuild the task list from TaskCreate/TaskUpdate, TodoWrite, and Codex update_plan calls."""
+    return replayed_transcript(transcript_path).items()

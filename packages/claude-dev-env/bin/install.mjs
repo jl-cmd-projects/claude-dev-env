@@ -51,6 +51,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
+    ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
@@ -63,8 +64,13 @@ import {
 import {
     DEEPSTACK_PLUGIN_SPEC,
     installDeepStackForHosts,
+    removeDeepStackCursorHooks,
 } from './install-deepstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
+import {
+    removeCursorAgentsGuidanceHooks,
+    writeCursorAgentsGuidanceHooks,
+} from './cursor-agents-guidance.mjs';
 import {
     codexSolSettingSnapshotPaths,
     removeCodexSolSetting,
@@ -2214,6 +2220,18 @@ function mergeHooksAtPath(
     return groupCount;
 }
 
+function isCodexNativeStopHook(hook) {
+    const scriptName = String(hook?.command ?? '').replace(/\\/g, '/').split('/').pop();
+    return ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES.has(scriptName);
+}
+
+function selectCodexNativeStopGroups(stopGroups) {
+    if (!Array.isArray(stopGroups)) return [];
+    return stopGroups
+        .map(group => ({ ...group, hooks: (group?.hooks ?? []).filter(isCodexNativeStopHook) }))
+        .filter(group => group.hooks.length > 0);
+}
+
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
     const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
@@ -2224,6 +2242,7 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
+            Stop: selectCodexNativeStopGroups(hooksConfig.hooks?.Stop),
         },
     };
 }
@@ -2919,6 +2938,18 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     }
     const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
     const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
+    if (!selectedGroups) {
+        const cursorGuidanceHooksPath = writeCursorAgentsGuidanceHooks({
+            cursorDirectory: INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
+            hooksDirectory: INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
+            guidancePath: join(AGENTS_HOME, 'AGENTS.md'),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
+        });
+        if (cursorGuidanceHooksPath) {
+            console.log(`  \u2713 ${cursorGuidanceHooksPath} (Cursor agents guidance and open tasks hooks)`);
+        }
+    }
     if (!selectedGroups && shouldInstallMarketplacePlugin(PSTACK_PLUGIN_SPEC)) {
         const pstackPlugin = installPstackPluginForHosts();
         summary.pstackPlugin = pstackPlugin;
@@ -2953,6 +2984,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 'session',
                 'deepen_first_prompt.py',
             ),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
         });
         summary.deepStackPlugin = deepStackPlugin;
         printPluginHostOutcomes([DEEPSTACK_PLUGIN_SPEC], deepStackPlugin);
@@ -3399,6 +3432,8 @@ function executeUninstallPlan(plan, helpers = {}) {
         pruneManagedHooksFromHostConfiguration(CODEX_HOOKS_CONFIGURATION_PATH, 2);
     }
     removeRetiredSessionContinuityHooks(['codex', 'cursor']);
+    removeCursorAgentsGuidanceHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
+    removeDeepStackCursorHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
     throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
     unsetGlobalGitHooksPathIfOurs();
