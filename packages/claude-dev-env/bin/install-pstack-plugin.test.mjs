@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
     PSTACK_MARKETPLACE_REPOSITORY,
     PSTACK_PLUGIN_HOSTS,
     PSTACK_PLUGIN_IDENTIFIER,
-    DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
+    ALL_RETIRED_PLUGIN_SPECS,
     PSTACK_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
@@ -15,6 +15,7 @@ import {
     installMarketplacePlugins,
     marketplacePluginsPlan,
     removeOrphanedPluginVersions,
+    removeRetiredMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 
@@ -301,7 +302,6 @@ test('the usage-wrapup opt-out flag and variable turn off only usage-wrapup', ()
 for (const [spec, packageFolder] of [
     [USAGE_WRAPUP_PLUGIN_SPEC, './packages/usage-wrapup'],
     [SUBAGENT_MODELS_PLUGIN_SPEC, './packages/subagent-models'],
-    [DEEPEN_FIRST_PROMPT_PLUGIN_SPEC, './packages/deepen-first-prompt'],
 ]) {
     test(`the repository marketplace lists ${spec.name} from its package folder in this repository`, () => {
         const marketplace = JSON.parse(readFileSync(
@@ -335,25 +335,58 @@ test('should remove and add the shared marketplace once when installing usage-wr
     ]);
 });
 
-test('should include deepen-first-prompt in one marketplace add with the other repository plugins', () => {
-    const plan = marketplacePluginsPlan(
-        [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC, DEEPEN_FIRST_PROMPT_PLUGIN_SPEC],
-        'claude',
-    );
-    assert.deepEqual(plan.commands[0], [
-        'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env',
-        '--sparse', '.claude-plugin', 'packages/usage-wrapup', 'packages/subagent-models',
-        'packages/deepen-first-prompt',
+test('the repository marketplace no longer lists a retired plugin', () => {
+    const marketplace = JSON.parse(readFileSync(
+        new URL('../../../.claude-plugin/marketplace.json', import.meta.url),
+        'utf8',
+    ));
+    const allListedNames = marketplace.plugins.map(plugin => plugin.name);
+    for (const eachRetiredSpec of ALL_RETIRED_PLUGIN_SPECS) {
+        assert.equal(allListedNames.includes(eachRetiredSpec.name), false, `${eachRetiredSpec.name} is retired`);
+    }
+    assert.deepEqual(ALL_RETIRED_PLUGIN_SPECS.map(spec => spec.pluginIdentifier), ['deepen-first-prompt@claude-dev-env']);
+});
+
+test('a Claude home that holds a retired plugin gets it uninstalled and its orphaned versions deleted', (context) => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'retired-plugin-'));
+    context.after(() => rmSync(claudeRoot, { recursive: true, force: true }));
+    const versionsDirectory = join(claudeRoot, 'plugins', 'cache', 'claude-dev-env', 'deepen-first-prompt');
+    const orphanedVersion = join(versionsDirectory, '0.1.0');
+    mkdirSync(orphanedVersion, { recursive: true });
+    const runner = recordingRunner(() => {
+        writeFileSync(join(orphanedVersion, '.orphaned_at'), '1');
+        return { status: 0, stderr: '' };
+    });
+    const outcome = removeRetiredMarketplacePlugins(ALL_RETIRED_PLUGIN_SPECS, { claudeRoot, environment: {} }, runner);
+    assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
+        ['claude', 'plugin', 'uninstall', 'deepen-first-prompt@claude-dev-env'],
     ]);
-    assert.equal(shouldInstallMarketplacePlugin(DEEPEN_FIRST_PROMPT_PLUGIN_SPEC, ['--no-deepen-first-prompt'], {}), false);
-    assert.equal(
-        shouldInstallMarketplacePlugin(
-            DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
-            [],
-            { CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0' },
-        ),
-        false,
-    );
+    assert.deepEqual(runner.calls[0].environment, { CLAUDE_CONFIG_DIR: claudeRoot });
+    assert.deepEqual(outcome.removedIdentifiers, ['deepen-first-prompt@claude-dev-env']);
+    assert.equal(existsSync(orphanedVersion), false);
+});
+
+test('a Claude home with no retired plugin runs no command', (context) => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'retired-plugin-'));
+    context.after(() => rmSync(claudeRoot, { recursive: true, force: true }));
+    const runner = recordingRunner();
+    const outcome = removeRetiredMarketplacePlugins(ALL_RETIRED_PLUGIN_SPECS, { claudeRoot, environment: {} }, runner);
+    assert.deepEqual(runner.calls, []);
+    assert.deepEqual(outcome, { removedIdentifiers: [], removedVersionPaths: [], failedRemovals: [] });
+});
+
+test('a failed retired plugin uninstall is reported as failed and keeps its cached versions', (context) => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'retired-plugin-'));
+    context.after(() => rmSync(claudeRoot, { recursive: true, force: true }));
+    const cachedVersion = join(claudeRoot, 'plugins', 'cache', 'claude-dev-env', 'deepen-first-prompt', '0.1.0');
+    mkdirSync(cachedVersion, { recursive: true });
+    const runner = recordingRunner(() => ({ status: 1, stderr: 'Plugin not found\n' }));
+    const outcome = removeRetiredMarketplacePlugins(ALL_RETIRED_PLUGIN_SPECS, { claudeRoot, environment: {} }, runner);
+    assert.deepEqual(outcome.removedIdentifiers, []);
+    assert.deepEqual(outcome.failedRemovals, [
+        { pluginIdentifier: 'deepen-first-prompt@claude-dev-env', detail: 'Plugin not found' },
+    ]);
+    assert.equal(existsSync(cachedVersion), true);
 });
 
 test('should refuse one plan for plugins from two marketplaces', () => {

@@ -4,8 +4,8 @@
 Claude Code reads project hooks from ``<project>/.claude/settings.json`` of the
 directory a session starts in. A cloud session that holds several repository
 checkouts starts in their parent directory, which has no settings of its own,
-and ``--add-dir`` loads no hooks from the checkouts. Their start hooks, first
-prompt deepeners, and tool guards then never run. This hook runs them::
+and ``--add-dir`` loads no hooks from the checkouts. Their start hooks, prompt
+hooks, and tool guards then never run. This hook runs them::
 
     session directory (no .git, no .claude/settings.json)
     |-- checkout-a/.claude/settings.json   hooks run with CLAUDE_PROJECT_DIR=checkout-a

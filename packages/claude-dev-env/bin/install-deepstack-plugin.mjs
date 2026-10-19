@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -8,8 +8,8 @@ import {
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import {
-    CURSOR_BEFORE_SUBMIT_PROMPT_EVENT,
     CURSOR_HOOK_TIMEOUT_SECONDS,
+    CURSOR_HOOKS_FILE_NAME,
     CURSOR_SESSION_START_EVENT,
 } from './install-constants.mjs';
 import { updateCursorHooksFile, withOwnedCursorHooks, withoutOwnedCursorHooks } from './cursor-native-hooks.mjs';
@@ -32,8 +32,8 @@ export const DEEPSTACK_SESSION_POWERSHELL_RELATIVE_PATH = 'hooks/session-start.p
 export const DEEPSTACK_CURSOR_SESSION_COMMAND_MARKER = 'plugins/deepstack/hooks/session-start.';
 export const DEEPSTACK_SESSION_RUNTIME = 'cursor';
 const WINDOWS_POWERSHELL_FILE_PREFIX = 'powershell -NoProfile -ExecutionPolicy Bypass -File';
-const DEFAULT_PYTHON_COMMAND = 'python3';
-export const DEEPSTACK_FIRST_TASK_HOOK_NAME = 'deepen_first_prompt.py';
+/** Script name of the retired first-task hook that earlier installs registered in Cursor. */
+export const RETIRED_CURSOR_FIRST_TASK_HOOK_NAME = 'deepen_first_prompt.py';
 export const DEEPSTACK_CODEX_MODEL_SHEET_NAME = 'deepstack-models.md';
 
 export const DEEPSTACK_PLUGIN_SPEC = Object.freeze({
@@ -62,14 +62,13 @@ function quoteCommandPath(pathValue) {
  * Read the Claude, Codex, and Cursor actions one DeepStack install performs.
  *
  * Claude and Codex use the marketplace verbs. Cursor has no plugin command, so
- * its action is a copy into the Cursor home plus two native hook registrations.
+ * its action is a copy into the Cursor home plus one native session hook.
  *
  * @returns {{claude: object, codex: object, cursor: {
  *   pluginDirectoryName: string,
  *   skillRelativePath: string,
  *   sessionScriptRelativePath: string,
  *   sessionRuntimeArgument: string,
- *   firstTaskHookName: string,
  * }}} The three host actions.
  */
 export function deepStackInstallPlan() {
@@ -81,7 +80,6 @@ export function deepStackInstallPlan() {
             skillRelativePath: DEEPSTACK_SKILL_RELATIVE_PATH,
             sessionScriptRelativePath: DEEPSTACK_SESSION_SCRIPT_RELATIVE_PATH,
             sessionRuntimeArgument: DEEPSTACK_SESSION_RUNTIME,
-            firstTaskHookName: DEEPSTACK_FIRST_TASK_HOOK_NAME,
         },
     };
 }
@@ -142,33 +140,36 @@ export function resolveDeepStackPluginSource(options = {}) {
 /**
  * True for a Cursor hook command the DeepStack install owns.
  *
+ * The retired first-task hook counts as owned, so the merge and the removal
+ * both strip the entry an earlier install registered.
+ *
  * @param {string} forwardSlashedCommand A hook command with forward slashes.
- * @returns {boolean} True for the DeepStack session hook or the first-task hook.
+ * @returns {boolean} True for the DeepStack session hook or the retired first-task hook.
  */
 export function isDeepStackCursorCommand(forwardSlashedCommand) {
     return forwardSlashedCommand.includes(DEEPSTACK_CURSOR_SESSION_COMMAND_MARKER)
-        || forwardSlashedCommand.includes(DEEPSTACK_FIRST_TASK_HOOK_NAME);
+        || forwardSlashedCommand.includes(RETIRED_CURSOR_FIRST_TASK_HOOK_NAME);
 }
 
 /**
- * Return the native Cursor configuration with one DeepStack session entry and one first-task entry.
+ * Return the native Cursor configuration with one DeepStack session entry.
  *
- * Earlier installs wrote these as Claude-style groups, which Cursor never ran;
- * every owned copy, old or new, is replaced by one native entry each.
+ * Earlier installs wrote the session entry as a Claude-style group, which
+ * Cursor never ran, and also registered the retired first-task hook. Every
+ * owned entry, old or new, is replaced by one native session entry.
  *
  * @param {object} configuration The parsed Cursor hooks file.
- * @param {{sessionCommand: string, firstTaskCommand: string}} commands The two commands.
- * @returns {object} The configuration with both native entries present once.
+ * @param {{sessionCommand: string}} commands The session command.
+ * @returns {object} The configuration with the session entry present once.
  */
 export function mergeDeepStackCursorHooks(configuration, commands) {
     return withOwnedCursorHooks(configuration, isDeepStackCursorCommand, {
         [CURSOR_SESSION_START_EVENT]: [{ command: commands.sessionCommand, timeout: CURSOR_HOOK_TIMEOUT_SECONDS }],
-        [CURSOR_BEFORE_SUBMIT_PROMPT_EVENT]: [{ command: commands.firstTaskCommand, timeout: CURSOR_HOOK_TIMEOUT_SECONDS }],
     });
 }
 
 /**
- * Remove the DeepStack session and first-task entries from the Cursor hooks file.
+ * Remove the DeepStack session entry and the retired first-task entry from the Cursor hooks file.
  *
  * @param {string} cursorDirectory The Cursor home.
  * @returns {string|null} The hooks.json path when this call changed it.
@@ -177,6 +178,30 @@ export function removeDeepStackCursorHooks(cursorDirectory) {
     return updateCursorHooksFile(
         cursorDirectory,
         configuration => withoutOwnedCursorHooks(configuration, isDeepStackCursorCommand),
+    );
+}
+
+/**
+ * Remove the retired first-task entry from the Cursor hooks file.
+ *
+ * A full install runs this whether or not it installs DeepStack, so an install
+ * that opts out of DeepStack still drops the entry an earlier install wrote.
+ * A hooks file that never names the retired script is left byte for byte.
+ *
+ * @param {string} cursorDirectory The Cursor home.
+ * @returns {string|null} The hooks.json path when this call changed it.
+ */
+export function removeRetiredCursorFirstTaskHook(cursorDirectory) {
+    if (!cursorDirectory) return null;
+    const hooksPath = join(cursorDirectory, CURSOR_HOOKS_FILE_NAME);
+    if (!existsSync(hooksPath)) return null;
+    if (!readFileSync(hooksPath, 'utf8').includes(RETIRED_CURSOR_FIRST_TASK_HOOK_NAME)) return null;
+    return updateCursorHooksFile(
+        cursorDirectory,
+        configuration => withoutOwnedCursorHooks(
+            configuration,
+            forwardSlashedCommand => forwardSlashedCommand.includes(RETIRED_CURSOR_FIRST_TASK_HOOK_NAME),
+        ),
     );
 }
 
@@ -201,13 +226,11 @@ export function deepStackCursorSessionCommand(pluginDirectory, formatPathArgumen
 }
 
 /**
- * Copy the plugin into the Cursor home and register both hooks in Cursor's native format.
+ * Copy the plugin into the Cursor home and register its session hook in Cursor's native format.
  *
  * @param {object} options Copy inputs.
  * @param {string} options.cursorDirectory The Cursor home, usually ~/.cursor.
  * @param {string|null} options.pluginSourceDirectory The plugin tree to copy.
- * @param {string} options.firstTaskHookPath Absolute path of deepen_first_prompt.py.
- * @param {string} [options.pythonCommand] The interpreter the installer detected.
  * @param {(pathValue: string) => string} [options.formatPathArgument] The platform path quoting.
  * @param {string} [options.platform] The Node platform name.
  * @returns {{status: string, pluginDirectory: string|null, hooksPath: string|null, warning: string|null}} The outcome.
@@ -229,10 +252,8 @@ export function installDeepStackCursor(options) {
     mkdirSync(options.cursorDirectory, { recursive: true });
     cpSync(options.pluginSourceDirectory, pluginDirectory, { recursive: true, force: true });
     const formatPathArgument = options.formatPathArgument ?? quoteCommandPath;
-    const pythonCommand = options.pythonCommand ?? DEFAULT_PYTHON_COMMAND;
     const commands = {
         sessionCommand: deepStackCursorSessionCommand(pluginDirectory, formatPathArgument, options.platform ?? process.platform),
-        firstTaskCommand: `${pythonCommand} ${formatPathArgument(options.firstTaskHookPath)}`,
     };
     updateCursorHooksFile(
         options.cursorDirectory,
@@ -263,8 +284,6 @@ export function seedCodexDeepStackModels(codexHome) {
  * @param {string} [options.claudeRoot] The managed Claude root.
  * @param {string} [options.codexHome] The Codex home.
  * @param {string} [options.cursorDirectory] The Cursor home.
- * @param {string} [options.firstTaskHookPath] Absolute path of the hook the first-task command runs.
- * @param {string} [options.pythonCommand] The interpreter the installer detected.
  * @param {(pathValue: string) => string} [options.formatPathArgument] The platform path quoting.
  * @param {string} [options.sourceDirectory] A local plugin tree for the Cursor copy.
  * @param {string[]} [options.argumentList] Command-line arguments, for the opt-out flag.
@@ -307,8 +326,6 @@ export function installDeepStackForHosts(options = {}, dependencies = {}) {
         cursor = installDeepStackCursor({
             cursorDirectory: options.cursorDirectory,
             pluginSourceDirectory: sourceDirectory,
-            firstTaskHookPath: options.firstTaskHookPath,
-            pythonCommand: options.pythonCommand,
             formatPathArgument: options.formatPathArgument,
         });
     } finally {

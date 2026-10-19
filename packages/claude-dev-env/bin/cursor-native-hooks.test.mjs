@@ -17,10 +17,10 @@ const LEGACY_SESSION_GROUP = {
 };
 const LEGACY_PROMPT_GROUP = {
     matcher: '',
-    hooks: [{ type: 'command', command: 'python3 /home/dev/.agents/hooks/session/deepen_first_prompt.py', timeout: 10 }],
+    hooks: [{ type: 'command', command: 'python3 /home/dev/.agents/hooks/session/first_prompt_gate.py', timeout: 10 }],
 };
 const USER_TOOL_GROUP = { matcher: 'Shell', hooks: [{ type: 'command', command: './audit.sh' }] };
-const isOwned = command => command.includes('plugins/deepstack/hooks/session-start.') || command.includes('deepen_first_prompt.py');
+const isOwned = command => command.includes('plugins/deepstack/hooks/session-start.') || command.includes('first_prompt_gate.py');
 
 test('Claude-style groups become flat native entries under the Cursor event names', () => {
     const native = nativeCursorHooksConfiguration({
@@ -54,7 +54,7 @@ test('owned entries collapse to one copy and removal drops only owned entries', 
     };
     const ownedEntries = {
         sessionStart: [{ command: "'/home/dev/.cursor/plugins/deepstack/hooks/session-start.sh' cursor", timeout: 10 }],
-        beforeSubmitPrompt: [{ command: 'python3 /home/dev/.agents/hooks/session/deepen_first_prompt.py', timeout: 10 }],
+        beforeSubmitPrompt: [{ command: 'python3 /home/dev/.agents/hooks/session/first_prompt_gate.py', timeout: 10 }],
     };
     const merged = withOwnedCursorHooks(legacyFile, isOwned, ownedEntries);
     assert.deepEqual(merged.hooks, { ...ownedEntries, stop: [{ command: './user-stop.sh' }] });

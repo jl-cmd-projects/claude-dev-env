@@ -80,6 +80,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/final_reply_gate.py",
     "blocking/open_tasks_stop_gate.py",
     "blocking/owned_pr_merge_stop_gate.py",
+    "blocking/session_title_turn_gate.py",
 )
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests"})
 ALL_TEST_FILE_PREFIXES = ("test_",)

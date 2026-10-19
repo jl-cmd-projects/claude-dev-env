@@ -40,7 +40,7 @@ Then I should be presented with the following hotels:
 
 ## Meaningful Actors
 
-Personas ground scenarios in realistic goals and context. Use light soap-opera personas when you need depth before full UX research: introduce names and roles as needed and deepen them across scenarios.
+Personas ground scenarios in realistic goals and context. Use light soap-opera personas when you need depth before full UX research: introduce names and roles as needed and develop them across scenarios.
 
 > Smart & Molak §7.6.5 describe personas as rich, realistic descriptions: each persona captures goals, abilities, and background information that ground the test scenario in a user context.
 

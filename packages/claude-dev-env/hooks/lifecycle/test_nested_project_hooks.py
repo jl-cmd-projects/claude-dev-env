@@ -362,7 +362,7 @@ def test_should_carry_child_user_prompt_submit_output_as_additional_context(
     context_output = {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": "CDE_DEEPEN:v1\nTreat the submitted prompt as this rewritten task.",
+            "additionalContext": "CHILD_CONTEXT:v1\nTreat the submitted prompt as this rewritten task.",
         }
     }
     _make_checkout(
@@ -382,7 +382,7 @@ def test_should_carry_child_user_prompt_submit_output_as_additional_context(
     assert completed_process.returncode == 0
     hook_output = json.loads(completed_process.stdout)
     assert hook_output["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
-    assert "CDE_DEEPEN:v1" in hook_output["hookSpecificOutput"]["additionalContext"]
+    assert "CHILD_CONTEXT:v1" in hook_output["hookSpecificOutput"]["additionalContext"]
 
 
 def test_should_stay_quiet_on_an_event_it_does_not_forward(

@@ -40,7 +40,6 @@ jobs:
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
       subagent_models: ${{ steps.filter.outputs.subagent_models }}
-      deepen_first_prompt: ${{ steps.filter.outputs.deepen_first_prompt }}
       visual_plan: ${{ steps.filter.outputs.visual_plan }}
     steps:
       - uses: actions/checkout@v5
@@ -77,9 +76,6 @@ jobs:
               - '.github/workflows/ci-tests.yml'
             subagent_models:
               - 'packages/subagent-models/**'
-              - '.github/workflows/ci-tests.yml'
-            deepen_first_prompt:
-              - 'packages/deepen-first-prompt/**'
               - '.github/workflows/ci-tests.yml'
             visual_plan:
               - 'packages/visual-plan/**'
@@ -253,28 +249,6 @@ jobs:
 
       - name: Validate and test the mod
         working-directory: packages/subagent-models
-        run: |
-          npm install --global @anthropic-ai/claude-code@2.1.288
-          claude plugin validate .
-          claude plugin test .
-
-  deepen-first-prompt:
-    name: deepen-first-prompt mod (ubuntu)
-    needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.deepen_first_prompt == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Validate and test the mod
-        working-directory: packages/deepen-first-prompt
-        env:
-          CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1"
         run: |
           npm install --global @anthropic-ai/claude-code@2.1.288
           claude plugin validate .
