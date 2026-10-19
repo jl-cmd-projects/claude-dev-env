@@ -1,0 +1,21 @@
+{
+  "number": 1,
+  "url": "https://github.com/example/project/pull/1",
+  "repo": "example/project",
+  "state": "open",
+  "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "diff_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "observed_at": "2026-10-19T12:00:00Z",
+  "files": [
+    {
+      "filename": "metrics.json"
+    }
+  ],
+  "metadata": {
+    "title": "Synthetic visualization fixture",
+    "body": "Synthetic measurements for rendering verification only.",
+    "draft": false,
+    "merged": false
+  }
+}

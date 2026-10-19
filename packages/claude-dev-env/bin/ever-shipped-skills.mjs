@@ -79,6 +79,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'pull-request',
     'pre-compact',
     'privacy-hygiene',
+    'pr-visual',
     'prototype',
     'prompt-generator',
     'qbug',
