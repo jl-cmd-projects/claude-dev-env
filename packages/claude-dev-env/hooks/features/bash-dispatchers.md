@@ -24,7 +24,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/bash_post_call_dispatcher.py` runs on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds in `hooks.json`.
 - `advisory/pr_done_reminder.py` runs inside that dispatcher on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds. `ALL_BASH_POST_TOOL_USE_HOSTED_HOOK_ENTRIES` selects `Bash` and `PowerShell`.
 - `advisory/owned_pr_review_loop.py` runs on `PostToolUse`, matcher `Bash|PowerShell|exec_command|shell_command|mcp__.*__(create_pull_request|github_create_pull_request)`, timeout `10` seconds in `hooks.json`. It wakes on `gh pr create`, `gh pr new`, a POST to `gh api repos/<owner>/<repo>/pulls`, and an MCP pull request creation. The installer also registers it on Codex `PostToolUse` through `ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES`.
-- `blocking/owned_pr_merge_stop_gate.py` runs on `Stop`, timeout `30` seconds in `hooks.json`. The installer also registers it on Codex `Stop` through `ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES`.
+- `blocking/owned_pr_merge_stop_gate.py` runs on `Stop`, timeout `60` seconds in `hooks.json`. The installer also registers it on Codex `Stop` through `ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES`.
 
 ## Proving it
 
