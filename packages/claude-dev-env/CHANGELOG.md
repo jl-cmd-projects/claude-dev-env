@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.88.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.87.1...claude-dev-env-v8.88.0) (2026-10-19)
+
+
+### Features
+
+* **hooks:** every ask is seen through, with an open tasks Stop gate for Claude, Codex, and Cursor ([#2063](https://github.com/jl-cmd-projects/claude-dev-env/issues/2063)) ([50df75f](https://github.com/jl-cmd-projects/claude-dev-env/commit/50df75fba520aa95ce168439a91ec47aad43ecda))
+
 ## [8.87.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.87.0...claude-dev-env-v8.87.1) (2026-10-19)
 
 
