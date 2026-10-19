@@ -142,8 +142,17 @@ package rules rewritten. The line names no model, so every Codex run uses the
 file, whichever model it selects. `sync` links `config.toml` into every account
 home, so every account gets the line.
 
+When `CODEX_HOME/config.toml` is the same file as `~/.codex/config.toml`, the
+copy goes in `~/.codex`. `sync` makes that file a symbolic link, or a hard link
+when the account cannot create symbolic links. Installing from an account home
+then names the shared copy in `~/.codex`, and deleting or uninstalling that
+account home leaves the other homes working. A `config.toml` that links
+anywhere else, such as a dotfiles folder, keeps the copy in `CODEX_HOME`.
+
 A `model_instructions_file` the user wrote at the top level keeps the config as
-it is. Uninstall removes only the package line.
+it is. Uninstall removes only the package line and the copy. Uninstalling from
+an account home that shares `~/.codex/config.toml` leaves both alone, because
+`~/.codex` still uses them.
 
 To see which prompt Codex uses, read the setting:
 

@@ -3687,3 +3687,42 @@ test('install prints no Action needed block when every side step finished', (con
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr.includes('Action needed'), false, result.stderr);
 });
+
+test('install adds the open-tasks Stop gate to every profile with its own settings.json, and uninstall removes it', (context) => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-install-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    const profileSettingsPath = join(homeDirectory, '.claude-profiles', 'prefs-only', 'settings.json');
+    mkdirSync(dirname(profileSettingsPath), { recursive: true });
+    writeFileSync(profileSettingsPath, JSON.stringify({ outputStyle: 'plain' }, null, 4));
+    const runInstaller = (argumentsList) => spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs'), ...argumentsList], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+        },
+    });
+    const profileStopCommands = () => (JSON.parse(readFileSync(profileSettingsPath, 'utf8')).hooks?.Stop ?? [])
+        .flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
+
+    const installation = runInstaller([]);
+    assert.equal(installation.status, 0, installation.stderr);
+    assert.equal(profileStopCommands().filter((eachCommand) => eachCommand.includes('open_tasks_stop_gate.py')).length, 1);
+
+    const uninstallation = runInstaller(['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(profileSettingsPath, 'utf8')), { outputStyle: 'plain' });
+});
