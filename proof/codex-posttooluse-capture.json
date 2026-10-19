@@ -1,0 +1,51 @@
+[
+  {
+    "stdin": {
+      "session_id": "01a15587-c4ef-7a72-b3d0-020cf9aa1985",
+      "turn_id": "01a15587-cba3-7c90-bc63-75000de5c11a",
+      "transcript_path": null,
+      "cwd": "<scratch>\\project",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "gh api repos/jl-cmd-projects/claude-dev-env/pulls -f title=probe -f head=probe -f base=main"
+      },
+      "tool_response": "https://github.com/jl-cmd-projects/claude-dev-env/pull/9\r\n",
+      "tool_use_id": "exec-4fa55b0c-b284-46f0-b883-eac266decd68"
+    },
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"=== OWNED PR REVIEW LOOP (context reminder, never a block) ===\\nYou opened jl-cmd-projects/claude-dev-env#9  https://github.com/jl-cmd-projects/claude-dev-env/pull/9\\nThis repository has no automated review, so you own the review and the merge.\\n1. Review loop. Load the efficient-review skill (/efficient-review). Review the\\n   branch, check each finding against the code, fix every one that holds, push,\\n   and review again. Repeat until a pass reports no findings.\\n2. Mark ready. Once the loop is clean, CI is green, and no review thread is open,\\n   mark the PR ready for review (gh pr ready 9 --repo jl-cmd-projects/claude-dev-env,\\n   or update_pull_request with draft false).\\n3. Babysit. Follow the pstack babysit playbook (poteto-mode/playbooks/babysit.md,\\n   or the standalone babysit skill outside poteto-mode). Fix failing CI, resolve\\n   merge conflicts, and answer review threads until the PR is green and mergeable.\\n   Any new code goes back through step 1 before the next push.\\n4. Ship. Follow the pstack shipping playbook (poteto-mode/playbooks/shipping.md)\\n   to land the PR, or the pr-lifecycle skill outside poteto-mode. Read the PR\\n   back and confirm it reads merged.\\nRun each step yourself. The task ends at a merged PR or a named blocker.\"}}",
+    "exit_code": 0
+  },
+  {
+    "stdin": {
+      "session_id": "01a15587-c4ef-7a72-b3d0-020cf9aa1985",
+      "turn_id": "01a15587-cba3-7c90-bc63-75000de5c11a",
+      "transcript_path": null,
+      "cwd": "<scratch>\\project",
+      "hook_event_name": "PostToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "mcp__github__create_pull_request",
+      "tool_input": {
+        "owner": "jl-cmd-projects",
+        "repo": "claude-dev-env",
+        "title": "probe",
+        "head": "probe",
+        "base": "main"
+      },
+      "tool_response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"id\": \"1\", \"url\": \"https://github.com/jl-cmd-projects/claude-dev-env/pull/9\"}"
+          }
+        ]
+      },
+      "tool_use_id": "exec-67de40ef-7dec-4d79-a407-c57b4ea94544"
+    },
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"=== OWNED PR REVIEW LOOP (context reminder, never a block) ===\\nYou opened jl-cmd-projects/claude-dev-env#9  https://github.com/jl-cmd-projects/claude-dev-env/pull/9\\nThis repository has no automated review, so you own the review and the merge.\\n1. Review loop. Load the efficient-review skill (/efficient-review). Review the\\n   branch, check each finding against the code, fix every one that holds, push,\\n   and review again. Repeat until a pass reports no findings.\\n2. Mark ready. Once the loop is clean, CI is green, and no review thread is open,\\n   mark the PR ready for review (gh pr ready 9 --repo jl-cmd-projects/claude-dev-env,\\n   or update_pull_request with draft false).\\n3. Babysit. Follow the pstack babysit playbook (poteto-mode/playbooks/babysit.md,\\n   or the standalone babysit skill outside poteto-mode). Fix failing CI, resolve\\n   merge conflicts, and answer review threads until the PR is green and mergeable.\\n   Any new code goes back through step 1 before the next push.\\n4. Ship. Follow the pstack shipping playbook (poteto-mode/playbooks/shipping.md)\\n   to land the PR, or the pr-lifecycle skill outside poteto-mode. Read the PR\\n   back and confirm it reads merged.\\nRun each step yourself. The task ends at a merged PR or a named blocker.\"}}",
+    "exit_code": 0
+  }
+]
