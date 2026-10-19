@@ -358,3 +358,24 @@ test('a main home whose config.toml links into a dotfiles folder keeps the promp
     assert.equal(readFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
     assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
 });
+
+test('CODEX_HOME that reaches the main home through a folder link still uninstalls the line', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const folderLink = join(homeDirectory, 'codex-home-link');
+    mkdirSync(mainHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(mainHome, folderLink, 'junction');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create links');
+        throw error;
+    }
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: folderLink }).status, 0);
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), true);
+
+    assert.equal(installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: folderLink }).status, 0);
+    assert.equal(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
+});

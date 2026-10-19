@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -70,11 +70,11 @@ function readCodexConfig(configPath) {
  */
 export function codexConfigDirectory(codexHome) {
     const mainCodexHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
-    const sharesMainConfig = isSameFile(
-        join(codexHome, CODEX_CONFIG_FILE_NAME),
-        join(mainCodexHome, CODEX_CONFIG_FILE_NAME),
-    );
-    return sharesMainConfig ? mainCodexHome : codexHome;
+    return sharesMainConfig(codexHome, mainCodexHome) ? mainCodexHome : codexHome;
+}
+
+function sharesMainConfig(codexHome, mainCodexHome) {
+    return isSameFile(join(codexHome, CODEX_CONFIG_FILE_NAME), join(mainCodexHome, CODEX_CONFIG_FILE_NAME));
 }
 
 function isSameFile(firstPath, secondPath) {
@@ -91,22 +91,16 @@ function isSameFile(firstPath, secondPath) {
  * True when CODEX_HOME is an account home whose config.toml is the main Codex home's file.
  *
  * Such a home borrows the setting and the prompt from the main home, so
- * uninstalling from it leaves both alone.
+ * uninstalling from it leaves both alone. The homes are compared as folders
+ * on disk, so a CODEX_HOME spelled with other letter case or through a link
+ * still counts as the main home.
  *
  * @param {string} codexHome
  * @returns {boolean}
  */
 export function codexConfigIsBorrowed(codexHome) {
-    if (!lstatSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { throwIfNoEntry: false })) return false;
-    return realpathOrSelf(codexConfigDirectory(codexHome)) !== realpathOrSelf(codexHome);
-}
-
-function realpathOrSelf(path) {
-    try {
-        return realpathSync(path);
-    } catch {
-        return path;
-    }
+    const mainCodexHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
+    return sharesMainConfig(codexHome, mainCodexHome) && !isSameFile(codexHome, mainCodexHome);
 }
 
 /**
