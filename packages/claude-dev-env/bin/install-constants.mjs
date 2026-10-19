@@ -183,6 +183,7 @@ export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
     'open_tasks_stop_gate.py',
 ]);
 export const CURSOR_HOOKS_FILE_NAME = 'hooks.json';
+export const CURSOR_HOOKS_SCHEMA_VERSION = 1;
 export const CURSOR_HOOK_TIMEOUT_SECONDS = 10;
 export const CURSOR_GUIDANCE_SESSION_MATCHER = 'startup|resume|clear|compact';
 export const CURSOR_GUIDANCE_HOOK_RELATIVE_PATH = Object.freeze(['session', 'cursor_agents_guidance.py']);

@@ -6,9 +6,11 @@ import {
     CURSOR_GUIDANCE_SESSION_MATCHER,
     CURSOR_HOOK_TIMEOUT_SECONDS,
     CURSOR_HOOKS_FILE_NAME,
+    CURSOR_HOOKS_SCHEMA_VERSION,
     CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH,
 } from './install-constants.mjs';
 
+const DEFAULT_PYTHON_COMMAND = 'python3';
 const MANAGED_SCRIPT_NAMES = [
     CURSOR_GUIDANCE_HOOK_RELATIVE_PATH.at(-1),
     CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH.at(-1),
@@ -58,6 +60,7 @@ export function withoutCursorAgentsGuidanceHooks(configuration) {
 export function mergeCursorAgentsGuidanceHooks(configuration, commands) {
     const cleaned = withoutCursorAgentsGuidanceHooks(configuration);
     return {
+        version: CURSOR_HOOKS_SCHEMA_VERSION,
         ...cleaned,
         hooks: {
             ...cleaned.hooks,
@@ -81,17 +84,23 @@ function writeWhenChanged(hooksPath, updatedConfiguration) {
 /**
  * Register the agents guidance and open tasks hooks in the Cursor home.
  *
- * @param {{cursorDirectory: string, hooksDirectory: string, guidancePath: string}} options Install paths.
+ * The commands use the interpreter the installer detected, the same one the
+ * Claude and Codex hooks use, so a Windows install runs the resolved
+ * `python.exe` path and not the Microsoft Store `python3` stub.
+ *
+ * @param {{cursorDirectory: string, hooksDirectory: string, guidancePath: string, pythonCommand?: string, formatPathArgument?: (pathValue: string) => string}} options Install paths, the detected interpreter, and the platform path quoting.
  * @returns {string|null} The hooks.json path when this run changed it.
  */
 export function writeCursorAgentsGuidanceHooks(options) {
     const hooksPath = join(options.cursorDirectory, CURSOR_HOOKS_FILE_NAME);
     const current = readHooksConfiguration(hooksPath);
+    const pythonCommand = options.pythonCommand ?? DEFAULT_PYTHON_COMMAND;
+    const formatPathArgument = options.formatPathArgument ?? quotedPath;
     const guidanceScript = join(options.hooksDirectory, ...CURSOR_GUIDANCE_HOOK_RELATIVE_PATH);
     const openTasksScript = join(options.hooksDirectory, ...CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH);
     const merged = mergeCursorAgentsGuidanceHooks(current, {
-        guidanceCommand: `python3 ${quotedPath(guidanceScript)} ${quotedPath(options.guidancePath)}`,
-        openTasksCommand: `python3 ${quotedPath(openTasksScript)}`,
+        guidanceCommand: `${pythonCommand} ${formatPathArgument(guidanceScript)} ${formatPathArgument(options.guidancePath)}`,
+        openTasksCommand: `${pythonCommand} ${formatPathArgument(openTasksScript)}`,
     });
     mkdirSync(options.cursorDirectory, { recursive: true });
     return writeWhenChanged(hooksPath, merged);

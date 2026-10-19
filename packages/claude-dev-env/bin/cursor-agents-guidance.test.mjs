@@ -53,3 +53,25 @@ test('write registers both hooks with the installed paths and remove takes them 
         rmSync(cursorDirectory, { recursive: true, force: true });
     }
 });
+
+test('write uses the detected interpreter and platform path quoting and sets the schema version', () => {
+    const cursorDirectory = mkdtempSync(join(tmpdir(), 'cdev-cursor-guidance-'));
+    try {
+        writeCursorAgentsGuidanceHooks({
+            cursorDirectory,
+            hooksDirectory: 'C:/Users/dev/.agents/hooks',
+            guidancePath: 'C:/Users/dev/.agents/AGENTS.md',
+            pythonCommand: 'C:/Python312/python.exe',
+            formatPathArgument: pathValue => `"${pathValue}"`,
+        });
+        const written = JSON.parse(readFileSync(join(cursorDirectory, 'hooks.json'), 'utf8'));
+        assert.equal(written.version, 1);
+        assert.equal(
+            written.hooks.Stop[0].hooks[0].command,
+            'C:/Python312/python.exe "C:/Users/dev/.agents/hooks/blocking/open_tasks_stop_gate.py"',
+        );
+        assert.match(written.hooks.SessionStart[0].hooks[0].command, /^C:\/Python312\/python\.exe "/);
+    } finally {
+        rmSync(cursorDirectory, { recursive: true, force: true });
+    }
+});

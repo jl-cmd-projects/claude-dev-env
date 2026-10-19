@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import {
     resolveInstallRoot,
 } from './resolve-install-root.mjs';
@@ -539,13 +539,13 @@ test('a full install feeds AGENTS.md to Cursor sessions and registers the open t
         const guidancePath = join(homeDirectory, '.agents', 'AGENTS.md');
         assert.ok(guidanceCommand.includes(guidancePath));
         assert.match(readFileSync(guidancePath, 'utf8'), /\*\*Asks\*\*/);
-        const scriptPath = guidanceCommand.split("'")[1];
-        assert.equal(existsSync(scriptPath), true);
-        const sessionOutput = execFileSync('python3', [scriptPath, guidancePath], { input: '{}', encoding: 'utf8' });
+        assert.equal(cursorHooks.version, 1);
+        const sessionOutput = execSync(guidanceCommand, { input: '{}', encoding: 'utf8' });
         assert.equal(JSON.parse(sessionOutput).additional_context, readFileSync(guidancePath, 'utf8'));
         const stopCommands = cursorHooks.hooks.Stop.flatMap(group => group.hooks).map(hook => hook.command);
         assert.equal(stopCommands.length, 1);
-        assert.equal(existsSync(stopCommands[0].split("'")[1]), true);
+        assert.match(stopCommands[0], /open_tasks_stop_gate\.py/);
+        assert.equal(execSync(stopCommands[0], { input: '{"conversation_id": "c-1", "status": "completed"}', encoding: 'utf8' }), '');
 
         runInstaller(homeDirectory, ['--uninstall']);
         const remainingHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));

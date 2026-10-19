@@ -178,12 +178,15 @@ def cursor_todo_record(all_todos: list[dict[str, str]], is_merge: bool, reply_te
 
 
 def run_cursor_gate(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], transcript_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    transcript_path: Path,
+    stop_status: str = "completed",
 ) -> dict[str, str]:
     hook_input = {
         "hook_event_name": "stop",
         "conversation_id": "c-1",
-        "status": "completed",
+        "status": stop_status,
         "loop_count": 0,
         "transcript_path": str(transcript_path),
     }
@@ -211,6 +214,17 @@ def test_should_send_a_cursor_followup_when_a_merged_todo_stays_pending(
     assert "rotate the deploy key" in block_output["followup_message"]
     assert "write hello.txt" not in block_output["followup_message"]
     assert block_output["decision"] == "block"
+
+
+@pytest.mark.parametrize("stop_status", ["aborted", "error"])
+def test_should_allow_a_cursor_stop_the_user_aborted_or_that_errored(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, stop_status: str
+) -> None:
+    all_todos = [{"id": "2", "content": "rotate the deploy key", "status": "pending"}]
+    transcript_path = write_cursor_transcript(
+        tmp_path / "cursor.jsonl", [cursor_todo_record(all_todos, False, "Stopping.")]
+    )
+    assert run_cursor_gate(monkeypatch, capsys, transcript_path, stop_status) == {}
 
 
 def test_should_allow_cursor_when_the_last_assistant_text_reports_the_item(

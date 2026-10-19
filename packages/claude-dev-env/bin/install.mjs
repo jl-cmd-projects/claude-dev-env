@@ -2942,6 +2942,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             cursorDirectory: INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
             hooksDirectory: INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
             guidancePath: join(AGENTS_HOME, 'AGENTS.md'),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
         });
         if (cursorGuidanceHooksPath) {
             console.log(`  \u2713 ${cursorGuidanceHooksPath} (Cursor agents guidance and open tasks hooks)`);

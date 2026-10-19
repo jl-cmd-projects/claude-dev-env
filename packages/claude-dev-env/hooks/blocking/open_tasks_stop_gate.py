@@ -20,8 +20,10 @@ reports them. Claude Code ends the turn after eight blocks in a row. Codex
 turns the reason into a continuation prompt. A Cursor payload (it carries
 ``conversation_id``) also gets the reason as ``followup_message``, which
 Cursor submits as the next user message; Cursor sends no closing reply, so
-the gate reads the last assistant text from the transcript. A TodoWrite call
-with ``merge`` set updates the earlier items by id.
+the gate reads the last assistant text from the transcript. A Cursor payload
+whose ``status`` is ``aborted`` or ``error`` is allowed, because Cursor would
+submit the follow-up after the user stopped the run. A TodoWrite call with
+``merge`` set updates the earlier items by id.
 """
 
 from __future__ import annotations
@@ -56,8 +58,10 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CODEX_STEP_KEY,
     CONTENT_KEY,
     CREATED_TASK_ID_GROUP_INDEX,
+    CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
     CURSOR_FOLLOWUP_MESSAGE_KEY,
+    CURSOR_STATUS_KEY,
     DECISION_KEY,
     FIRST_ITEM_NUMBER,
     HOOK_EVENT_NAME,
@@ -376,9 +380,17 @@ def block_output_for(all_hook_input_fields: dict[str, object], block_reason: str
     return block_output
 
 
+def is_unfinished_cursor_stop(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True for a Cursor stop whose run was aborted or ended in an error."""
+    if not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
+        return False
+    stop_status = all_hook_input_fields.get(CURSOR_STATUS_KEY)
+    return stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None:
+    if hook_input is None or is_unfinished_cursor_stop(hook_input):
         return ALLOW_EXIT_CODE
     all_open_items = unreported_open_items(hook_input)
     if not all_open_items:
