@@ -54,6 +54,17 @@ def test_trimmed_lines_should_not_mark_a_line_a_reminder_repeats() -> None:
     ]
 
 
+def test_trimmed_lines_should_not_read_a_cue_inside_a_longer_word() -> None:
+    all_messages = [
+        message(1, "Add docs for the API"),
+        message(2, "Document the undocumented parts of the API"),
+    ]
+    assert trim.trimmed_lines(all_messages) == [
+        "#1 Add docs for API",
+        "#2 Document undocumented parts of API",
+    ]
+
+
 def test_trimmed_lines_should_drop_acknowledgments_and_interrupts() -> None:
     all_messages = [
         message(1, "ship it to staging"),

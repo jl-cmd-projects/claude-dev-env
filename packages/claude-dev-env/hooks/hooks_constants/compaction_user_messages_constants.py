@@ -128,7 +128,7 @@ TRIMMED_EDGE_CHARACTERS = " ,"
 REVERSAL_PATTERN = re.compile(
     r"change of plan|change that|on second thought|scratch (?:that|the)|"
     r"(?<!n't )(?<!nt )forget\b|after all|"
-    r"instead|\bswitch(?:ed)? to\b|vetoed|no longer|not anymore|override|revert|undo|"
+    r"instead|\bswitch(?:ed)? to\b|vetoed|no longer|not anymore|\boverride\b|\brevert\b|\bundo\b|"
     r"don'?t (?:use|do)|stop using",
     re.IGNORECASE,
 )
