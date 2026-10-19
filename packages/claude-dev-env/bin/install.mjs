@@ -251,6 +251,7 @@ export const CORE_SKILLS = [
     'eli5',
     'deepen',
     'efficient-review',
+    'pr-visual',
 ];
 
 export function collectPackageSourceConflicts(packageDirectory) {

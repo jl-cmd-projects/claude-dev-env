@@ -220,6 +220,7 @@ that carry them.
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |
 | `orchestrator-refresh` | Re-assert orchestrator discipline on a delayed wake |
 | `pr-lifecycle` | Rules for commits, pushes, pull requests, review threads, and merges |
+| `pr-visual` | Review a PR's summary and code, then display an interactive diagram or data chart with visual drilldowns. Ships with full and core installs |
 | `privacy-hygiene` | Full-repo sweep for personal data and secrets before a commit or post |
 | `pull-request` | Validate and publish GitHub pull request actions |
 | `recovering-codex-startup` | Diagnose Windows Codex startup with fresh read-only process evidence |

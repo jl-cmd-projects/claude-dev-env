@@ -1,0 +1,16 @@
+{
+  "samples": [
+    {
+      "size": 1,
+      "duration_ms": 12
+    },
+    {
+      "size": 2,
+      "duration_ms": 20
+    },
+    {
+      "size": 3,
+      "duration_ms": 17
+    }
+  ]
+}
