@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.88.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.5...claude-dev-env-v8.88.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* **ci:** point the scratch-home install at a scratch Codex home ([#2075](https://github.com/jl-cmd-projects/claude-dev-env/issues/2075)) ([4c38a45](https://github.com/jl-cmd-projects/claude-dev-env/commit/4c38a457b3282fe84b2658fe03999ca1c02a8a1b))
+
+
+### Maintenance
+
+* fix advisory findings from merged pull requests [#2053](https://github.com/jl-cmd-projects/claude-dev-env/issues/2053), [#2056](https://github.com/jl-cmd-projects/claude-dev-env/issues/2056) ([#2059](https://github.com/jl-cmd-projects/claude-dev-env/issues/2059)) ([45653bb](https://github.com/jl-cmd-projects/claude-dev-env/commit/45653bbdbb1925049414b615d9a16d7ca58c4782))
+
 ## [8.88.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.4...claude-dev-env-v8.88.5) (2026-10-19)
 
 
