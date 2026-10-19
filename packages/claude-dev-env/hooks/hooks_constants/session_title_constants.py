@@ -64,6 +64,7 @@ TURN_BLOCK_REASON = (
     "This turn set no session title. Call {tool_name} now with '<emoji> <name>':"
     " \U0001f6a9 the user must act, \U0001f6a7 an outside dependency blocks the work,"
     " \u2705 the work is done, \u23f3 work runs and nothing waits on the user."
+    " When the tool is deferred, load its schema with ToolSearch first."
     " When it asks for a session id, get it from get_session with no session_id."
     " After the call, end the turn with one short closing sentence."
     " Leave the earlier reply as it stands and do not repeat it."
