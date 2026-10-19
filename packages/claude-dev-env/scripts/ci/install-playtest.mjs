@@ -5,7 +5,8 @@
  * The driver installs this package into a scratch home, reads the hook roster
  * the install wrote into `settings.json`, starts one SessionStart hook and one
  * PreToolUse hook from that installed tree against fixture payloads, and reads
- * the output envelope each one returns.
+ * the output envelope each one returns. A last stage checks that the install
+ * left no piece of the retired deepen surface.
  *
  * Every stage writes the envelope it read to the evidence directory and prints
  * one line carrying the stage name, the artifact path and the artifact's
@@ -54,59 +55,16 @@ export const PRE_TOOL_USE_EVENT_NAME = 'PreToolUse';
 export const SESSION_START_HOOK_SCRIPT_NAME = 'working_style_prompt.py';
 export const BASH_HOOK_SCRIPT_NAME = 'bash_pre_tool_use_dispatcher.py';
 export const BASH_MATCHER = 'Bash';
-export const USER_PROMPT_SUBMIT_EVENT_NAME = 'UserPromptSubmit';
-export const DEEPEN_HOOK_SCRIPT_NAME = 'deepen_first_prompt.py';
-export const NESTED_HOOK_SCRIPT_NAME = 'nested_project_hooks.py';
-export const DEEPEN_MARKER = 'CDE_DEEPEN:v1';
-export const DEEPEN_AGENT_MARKER = 'CDE_DEEPEN_AGENT';
-export const DEEPEN_STAGE_NAME = 'deepen_first_prompt';
-export const DEEPEN_SKIP_STAGE_NAME = 'deepen_skips';
-export const DEEPEN_REWRITE_STAGE_NAME = 'deepen_mod_text';
-export const DEEPEN_NESTED_STAGE_NAME = 'deepen_nested_home';
-export const DEEPEN_CLOUD_GAP_STAGE_NAME = 'deepen_cloud_gaps';
-export const DEEPEN_STUB_REWRITE = [
-    'SCOPE (role): Ship a contrast change the screen can show',
-    'EXAMPLES (illustration only): none',
-    'ZOOM-IN BLOCKER: none',
-    'Omitted: ship contrast tokens with the theme.',
-    'Source: src/settings/theme.ts',
-    'Methods: existing token file and a visual check.',
-    'Proof: screenshot of the settings page in dark mode.',
-].join('\n');
-export const CLAUDE_SUBAGENT_PROMPT_PREFIX = (
-    'Before any other work, invoke the poteto-mode skill with the Skill tool. '
-    + 'Every prompt you write for a subagent opens with the same instruction.'
-);
-export const CLOUD_GAP_EVIDENCE = {
-    cursorCloud: {
-        doc: 'https://cursor.com/docs/hooks',
-        quotes: [
-            'User-level hooks (`~/.cursor/hooks.json`) are not available in cloud agents. Cloud agent VMs don\'t have access to your local home directory configuration.',
-            'sessionStart: Deferred while cloud agents can still start in a read-only environment. Hooks don\'t load there, so a cloud sessionStart would fire too late (after the first write) rather than at true session start.',
-            'beforeSubmitPrompt output is continue and user_message only.',
-        ],
-        path: 'the deepen skill under ~/.cursor/skills',
-    },
-    codexCloud: {
-        doc: 'https://learn.chatgpt.com/docs/hooks',
-        quotes: [
-            'Command/shell, prompt, and agent handlers; hooks from local configuration, plugins, or local directories; environment-scoped hooks; and SessionEnd MCP hooks are not supported with cloud orchestration, even when tools execute locally.',
-        ],
-    },
-    claudeUserPromptSubmit: {
-        doc: 'https://code.claude.com/docs/en/hooks',
-        quotes: [
-            'UserPromptSubmit: can\'t replace the prompt; it only injects additionalContext alongside it',
-        ],
-    },
-    claudePromptSubmitMod: {
-        doc: 'https://code.claude.com/docs/en/plugins/mods/events',
-        quotes: [
-            'Rewrite the prompt. The transcript and your prompt history show the new text. next({ ...e, text: newText })',
-            'A cloud session: Yes, for a plugin that reaches the cloud session. This package still keeps the Python hook as the cloud fallback because mods that replace settings hooks stay off when CLAUDE_CODE_REMOTE is true.',
-        ],
-    },
-};
+export const RETIRED_DEEPEN_STAGE_NAME = 'retired_deepen_absent';
+export const RETIRED_DEEPEN_HOOK_SCRIPT_NAME = 'deepen_first_prompt.py';
+export const RETIRED_DEEPEN_CODEX_BLOCK_START = '<!-- claude-dev-env deepen: start -->';
+export const ALL_RETIRED_DEEPEN_RELATIVE_PATHS = Object.freeze([
+    join('.claude', 'skills', 'deepen'),
+    join('.agents', 'skills', 'deepen'),
+    join('.claude', 'commands', 'deepen.md'),
+    join('.claude', 'hooks', 'session', RETIRED_DEEPEN_HOOK_SCRIPT_NAME),
+    join('.cursor', 'skills', 'deepen'),
+]);
 
 export const SESSION_START_PAYLOAD = {
     hook_event_name: SESSION_START_EVENT_NAME,
@@ -280,273 +238,57 @@ function runSessionStartStage(settingsPath, scratchHome, evidenceDirectory) {
     if (typeof envelope.additionalContext !== 'string' || envelope.additionalContext.length === 0) {
         throw new Error('The SessionStart envelope carries no additionalContext');
     }
-    if (envelope.additionalContext.includes(DEEPEN_MARKER)) {
-        throw new Error('The SessionStart envelope repeated first-task deepen text');
-    }
     const evidencePath = writeEvidence(evidenceDirectory, SESSION_START_STAGE_NAME, JSON.stringify(envelope));
     reportStage(SESSION_START_STAGE_NAME, evidencePath);
 }
 
-function userPromptPayload(prompt, transcriptPath) {
-    const payload = {
-        hook_event_name: USER_PROMPT_SUBMIT_EVENT_NAME,
-        prompt,
-        session_id: 'playtest-session',
-    };
-    if (transcriptPath) payload.transcript_path = transcriptPath;
-    return payload;
+function readTextWhenPresent(filePath) {
+    return existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
 }
 
-function deepenHookEnvironment(extraEnvironment = {}) {
-    return {
-        CDE_DEEPEN_REWRITE: DEEPEN_STUB_REWRITE,
-        ...extraEnvironment,
-    };
-}
-
-function parseJsonDecision(stdout) {
-    const trimmed = stdout.trim();
-    if (!trimmed) return { decision: 'silent' };
-    return JSON.parse(trimmed);
-}
-
-function runDeepenFirstTaskStage(settingsPath, scratchHome, evidenceDirectory) {
-    const command = selectHookCommand(
-        hookCommandsForEvent(settingsPath, USER_PROMPT_SUBMIT_EVENT_NAME),
-        DEEPEN_HOOK_SCRIPT_NAME,
-    );
-    const transcriptPath = join(evidenceDirectory, 'first-task.jsonl');
-    const extraEnvironment = deepenHookEnvironment();
-    const envelopeResult = runInstalledHook(
-        command,
-        scratchHome,
-        userPromptPayload('Add dark mode to the settings page', transcriptPath),
-        extraEnvironment,
-    );
-    const envelope = readEnvelope(envelopeResult.stdout, USER_PROMPT_SUBMIT_EVENT_NAME);
-    if (!String(envelope.additionalContext || '').includes(DEEPEN_MARKER)) {
-        throw new Error('The UserPromptSubmit envelope carries no deepen marker');
+/**
+ * Check that the install left no piece of the retired deepen surface.
+ *
+ * The deepen skill, the /deepen command, the first-task hook and its
+ * registrations in Claude, Codex and Cursor, and the Codex AGENTS.md block
+ * were all retired. Any one of them in the scratch home fails the stage.
+ *
+ * @param {string} scratchHome Scratch home the install wrote into.
+ * @param {string} evidenceDirectory Directory the stage writes its evidence to.
+ * @returns {void}
+ * @throws {Error} The install left a retired deepen piece.
+ */
+function runRetiredDeepenStage(scratchHome, evidenceDirectory) {
+    const allLeftoverPaths = ALL_RETIRED_DEEPEN_RELATIVE_PATHS
+        .map((relativePath) => join(scratchHome, relativePath))
+        .filter((absolutePath) => existsSync(absolutePath));
+    if (allLeftoverPaths.length > 0) {
+        throw new Error(`The install left retired deepen paths: ${allLeftoverPaths.join(', ')}`);
     }
-    if (!String(envelope.additionalContext).includes('src/settings/theme.ts')) {
-        throw new Error('The UserPromptSubmit envelope omitted the stub source');
-    }
-    const evidencePath = writeEvidence(
-        evidenceDirectory,
-        DEEPEN_STAGE_NAME,
-        JSON.stringify(envelope),
-    );
-    reportStage(DEEPEN_STAGE_NAME, evidencePath);
-    return { command, transcriptPath };
-}
-
-function runDeepenRewriteStage(command, scratchHome, evidenceDirectory) {
-    const transcriptPath = join(evidenceDirectory, 'mod-text.jsonl');
-    const hookResult = runInstalledHook(
-        command,
-        scratchHome,
-        userPromptPayload('Add dark mode to the settings page', transcriptPath),
-        deepenHookEnvironment({ CDE_DEEPEN_OUTPUT: 'rewrite' }),
-    );
-    const printed = hookResult.stdout;
-    if (!printed.startsWith(DEEPEN_MARKER)) {
-        throw new Error(`The rewrite output did not start with ${DEEPEN_MARKER}`);
-    }
-    if (printed.includes('hookSpecificOutput')) {
-        throw new Error('The Claude mod rewrite printed a command-hook envelope');
-    }
-    const evidencePath = writeEvidence(
-        evidenceDirectory,
-        DEEPEN_REWRITE_STAGE_NAME,
-        JSON.stringify({ stdout: printed }),
-    );
-    reportStage(DEEPEN_REWRITE_STAGE_NAME, evidencePath);
-}
-
-function runDeepenSkipStage(command, scratchHome, evidenceDirectory, firstTranscriptPath) {
-    const jsonEnvironment = deepenHookEnvironment({ CDE_DEEPEN_OUTPUT: 'json' });
-    const cases = [
-        {
-            name: 'thanks',
-            payload: userPromptPayload('thanks', join(evidenceDirectory, 'thanks.jsonl')),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'trivial' },
-        },
-        {
-            name: 'slash',
-            payload: userPromptPayload('/sr-loop', join(evidenceDirectory, 'slash.jsonl')),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'slash-command' },
-        },
-        {
-            name: 'spawn',
-            payload: userPromptPayload(
-                `${CLAUDE_SUBAGENT_PROMPT_PREFIX}\n\nReply leaf.`,
-                join(evidenceDirectory, 'spawn.jsonl'),
-            ),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'spawn-rewrite' },
-        },
-        {
-            name: 'skip-flag',
-            payload: userPromptPayload('Add dark mode to the settings page', join(evidenceDirectory, 'skip-flag.jsonl')),
-            extraEnvironment: deepenHookEnvironment({ CDE_DEEPEN_OUTPUT: 'json', CDE_SKIP_DEEPEN: '1' }),
-            expected: { decision: 'skip', reason: 'skip-flag' },
-        },
-        {
-            name: 'later-turn',
-            payload: userPromptPayload('and also the billing page', firstTranscriptPath),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'later-turn' },
-        },
-        {
-            name: 'marker',
-            payload: userPromptPayload(`${DEEPEN_MARKER}\n\nDo the job.`, join(evidenceDirectory, 'marker.jsonl')),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'marker-present' },
-        },
-        {
-            name: 'loop',
-            payload: userPromptPayload('/loop until tests pass', join(evidenceDirectory, 'loop.jsonl')),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'loop-or-helper' },
-        },
-        {
-            name: 'deepen-agent',
-            payload: userPromptPayload(
-                `${DEEPEN_AGENT_MARKER}\nAnswer the four deepening questions.`,
-                join(evidenceDirectory, 'agent.jsonl'),
-            ),
-            extraEnvironment: jsonEnvironment,
-            expected: { decision: 'skip', reason: 'deepen-agent' },
-        },
+    const allHookConfigurationPaths = [
+        join(scratchHome, SETTINGS_RELATIVE_PATH),
+        join(scratchHome, '.codex', 'hooks.json'),
+        join(scratchHome, '.cursor', 'hooks.json'),
     ];
-    const results = [];
-    for (const eachCase of cases) {
-        const hookResult = runInstalledHook(
-            command,
-            scratchHome,
-            eachCase.payload,
-            eachCase.extraEnvironment,
-        );
-        const decision = parseJsonDecision(hookResult.stdout);
-        if (decision.decision !== eachCase.expected.decision || decision.reason !== eachCase.expected.reason) {
-            throw new Error(
-                `Skip ${eachCase.name} returned ${JSON.stringify(decision)} expected ${JSON.stringify(eachCase.expected)}`,
-            );
-        }
-        results.push({ name: eachCase.name, decision });
-    }
-    const silentThanks = runInstalledHook(
-        command,
-        scratchHome,
-        userPromptPayload('thanks', join(evidenceDirectory, 'thanks-silent.jsonl')),
-        deepenHookEnvironment(),
-    );
-    if (silentThanks.stdout.trim() !== '') {
-        throw new Error('A skipped prompt printed command-hook output');
-    }
-    const evidencePath = writeEvidence(
-        evidenceDirectory,
-        DEEPEN_SKIP_STAGE_NAME,
-        JSON.stringify({ results, silentThanks: silentThanks.stdout }),
-    );
-    reportStage(DEEPEN_SKIP_STAGE_NAME, evidencePath);
-}
-
-function runDeepenNestedStage(settingsPath, scratchHome, evidenceDirectory) {
-    const nestedCommand = selectHookCommand(
-        hookCommandsForEvent(settingsPath, USER_PROMPT_SUBMIT_EVENT_NAME),
-        NESTED_HOOK_SCRIPT_NAME,
-    );
-    const deepenCommand = selectHookCommand(
-        hookCommandsForEvent(settingsPath, USER_PROMPT_SUBMIT_EVENT_NAME),
-        DEEPEN_HOOK_SCRIPT_NAME,
-    );
-    const sessionDirectory = join(evidenceDirectory, 'nested-session');
-    const checkoutDirectory = join(sessionDirectory, 'alpha');
-    mkdirSync(join(checkoutDirectory, '.git'), { recursive: true });
-    mkdirSync(join(checkoutDirectory, '.claude'), { recursive: true });
-    writeFileSync(
-        join(checkoutDirectory, '.claude', 'settings.json'),
-        `${JSON.stringify({
-            hooks: {
-                UserPromptSubmit: [
-                    {
-                        matcher: '',
-                        hooks: [{ type: 'command', command: deepenCommand, timeout: 10 }],
-                    },
-                ],
-            },
-        }, null, 2)}\n`,
-    );
-    const hookResult = spawnSync(nestedCommand, {
-        shell: true,
-        input: JSON.stringify(userPromptPayload(
-            'Add dark mode to the settings page',
-            join(evidenceDirectory, 'nested.jsonl'),
-        )),
-        encoding: 'utf8',
-        cwd: sessionDirectory,
-        timeout: HOOK_TIMEOUT_MILLISECONDS,
-        env: {
-            ...scratchHomeEnvironment(scratchHome),
-            ...deepenHookEnvironment(),
-            CLAUDE_PROJECT_DIR: sessionDirectory,
-        },
-    });
-    const envelope = readEnvelope(hookResult.stdout, USER_PROMPT_SUBMIT_EVENT_NAME);
-    if (!String(envelope.additionalContext || '').includes(DEEPEN_MARKER)) {
-        throw new Error('The nested home-folder session carried no deepen marker');
-    }
-    const evidencePath = writeEvidence(
-        evidenceDirectory,
-        DEEPEN_NESTED_STAGE_NAME,
-        JSON.stringify(envelope),
-    );
-    reportStage(DEEPEN_NESTED_STAGE_NAME, evidencePath);
-}
-
-function runDeepenInstallSurfaceStage(scratchHome, evidenceDirectory) {
-    const settingsPath = join(scratchHome, SETTINGS_RELATIVE_PATH);
-    const userPromptCommands = hookCommandsForEvent(settingsPath, USER_PROMPT_SUBMIT_EVENT_NAME);
-    if (!userPromptCommands.some((each) => each.command.includes(DEEPEN_HOOK_SCRIPT_NAME))) {
-        throw new Error('The installed Claude settings declare no deepen_first_prompt.py');
-    }
-    const codexHooksPath = join(scratchHome, '.codex', 'hooks.json');
-    const codexHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
-    const codexUserPrompt = JSON.stringify(codexHooks.hooks?.UserPromptSubmit ?? []);
-    if (!codexUserPrompt.includes(DEEPEN_HOOK_SCRIPT_NAME)) {
-        throw new Error('The installed Codex hooks declare no UserPromptSubmit deepen_first_prompt.py');
-    }
-    const cursorSkillPath = join(scratchHome, '.cursor', 'skills', 'deepen', 'SKILL.md');
-    if (!existsSync(cursorSkillPath)) {
-        throw new Error(`The install wrote no ${cursorSkillPath}`);
+    const allRegisteringPaths = allHookConfigurationPaths
+        .filter((configurationPath) => readTextWhenPresent(configurationPath).includes(RETIRED_DEEPEN_HOOK_SCRIPT_NAME));
+    if (allRegisteringPaths.length > 0) {
+        throw new Error(`The install registered ${RETIRED_DEEPEN_HOOK_SCRIPT_NAME} in ${allRegisteringPaths.join(', ')}`);
     }
     const codexAgentsPath = join(scratchHome, '.codex', 'AGENTS.md');
-    const codexAgentsText = existsSync(codexAgentsPath) ? readFileSync(codexAgentsPath, 'utf8') : '';
-    if (!codexAgentsText.includes('<!-- claude-dev-env deepen: start -->')) {
-        throw new Error(`The install wrote no deepen block into ${codexAgentsPath}`);
+    if (readTextWhenPresent(codexAgentsPath).includes(RETIRED_DEEPEN_CODEX_BLOCK_START)) {
+        throw new Error(`The install wrote the retired deepen block into ${codexAgentsPath}`);
     }
     const evidencePath = writeEvidence(
         evidenceDirectory,
-        'deepen_install_surfaces',
+        RETIRED_DEEPEN_STAGE_NAME,
         JSON.stringify({
-            claudeUserPromptSubmit: userPromptCommands.map((each) => each.command),
-            codexUserPromptSubmit: codexHooks.hooks.UserPromptSubmit,
-            cursorSkillPath,
+            checkedPaths: ALL_RETIRED_DEEPEN_RELATIVE_PATHS,
+            checkedHookConfigurations: allHookConfigurationPaths,
             codexAgentsPath,
         }),
     );
-    reportStage('deepen_install_surfaces', evidencePath);
-}
-
-function runDeepenCloudGapStage(evidenceDirectory) {
-    const evidencePath = writeEvidence(
-        evidenceDirectory,
-        DEEPEN_CLOUD_GAP_STAGE_NAME,
-        JSON.stringify(CLOUD_GAP_EVIDENCE),
-    );
-    reportStage(DEEPEN_CLOUD_GAP_STAGE_NAME, evidencePath);
+    reportStage(RETIRED_DEEPEN_STAGE_NAME, evidencePath);
 }
 
 function runBlockingStage(settingsPath, scratchHome, evidenceDirectory) {
@@ -592,18 +334,8 @@ export function runPlaytest(argv) {
         runSessionStartStage(settingsPath, scratchHome, evidenceDirectory);
         stageName = BLOCKING_STAGE_NAME;
         runBlockingStage(settingsPath, scratchHome, evidenceDirectory);
-        stageName = 'deepen_install_surfaces';
-        runDeepenInstallSurfaceStage(scratchHome, evidenceDirectory);
-        stageName = DEEPEN_STAGE_NAME;
-        const deepen = runDeepenFirstTaskStage(settingsPath, scratchHome, evidenceDirectory);
-        stageName = DEEPEN_REWRITE_STAGE_NAME;
-        runDeepenRewriteStage(deepen.command, scratchHome, evidenceDirectory);
-        stageName = DEEPEN_SKIP_STAGE_NAME;
-        runDeepenSkipStage(deepen.command, scratchHome, evidenceDirectory, deepen.transcriptPath);
-        stageName = DEEPEN_NESTED_STAGE_NAME;
-        runDeepenNestedStage(settingsPath, scratchHome, evidenceDirectory);
-        stageName = DEEPEN_CLOUD_GAP_STAGE_NAME;
-        runDeepenCloudGapStage(evidenceDirectory);
+        stageName = RETIRED_DEEPEN_STAGE_NAME;
+        runRetiredDeepenStage(scratchHome, evidenceDirectory);
     } catch (error) {
         reportFailure(stageName, error instanceof Error ? error.message : String(error));
         return 1;

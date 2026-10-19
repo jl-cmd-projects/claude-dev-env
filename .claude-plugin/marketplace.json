@@ -38,14 +38,6 @@
       "version": "0.1.0",
       "license": "MIT",
       "category": "productivity"
-    },
-    {
-      "name": "deepen-first-prompt",
-      "source": "./packages/deepen-first-prompt",
-      "description": "Rewrites the first interactive user task on prompt.submit so the worker does the omitted expert job",
-      "version": "0.1.0",
-      "license": "MIT",
-      "category": "development"
     }
   ]
 }

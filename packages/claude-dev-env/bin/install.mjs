@@ -54,17 +54,19 @@ import {
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
+    ALL_RETIRED_PLUGIN_SPECS,
     PSTACK_PLUGIN_SPEC,
-    DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
     installMarketplacePlugins,
+    removeRetiredMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import {
     DEEPSTACK_PLUGIN_SPEC,
     installDeepStackForHosts,
     removeDeepStackCursorHooks,
+    removeRetiredCursorFirstTaskHook,
 } from './install-deepstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
@@ -85,7 +87,6 @@ import {
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
     writeCodexAgentsGuidance,
-    writeCodexDeepenGuidance,
     writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
@@ -247,7 +248,6 @@ export const CORE_SKILLS = [
     'issue-tracker',
     'task-build',
     'eli5',
-    'deepen',
     'efficient-review',
 ];
 
@@ -1298,6 +1298,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/artifact_look_gate.py',
     'blocking/session_title_stop_gate.py',
     'session/issue_tracker_session_starter.py',
+    'session/deepen_first_prompt.py',
 ]);
 
 export const MOVED_HOOK_RELATIVE_PATHS = new Set([
@@ -2561,10 +2562,12 @@ function pruneStaleFilesAcrossManagedRoots(priorInstalledFiles, currentInstalled
     }
     const cursorInstallDirectory = INSTALL_ROOT_RESOLUTION.cursorInstallDirectory;
     const retiredCursorSyncManifestPath = join(cursorInstallDirectory, '.sync-manifest.json');
-    const isRetiredCursorRuleFile = priorFile => resolve(priorFile) === retiredCursorSyncManifestPath
-        || isInsideDirectory(resolve(priorFile), INSTALL_ROOT_RESOLUTION.cursorRulesInstallDirectory);
+    const retiredCursorSkillsDirectory = join(cursorInstallDirectory, MANAGED_SKILLS_DIRECTORY_NAME);
+    const isRetiredCursorFile = priorFile => resolve(priorFile) === retiredCursorSyncManifestPath
+        || isInsideDirectory(resolve(priorFile), INSTALL_ROOT_RESOLUTION.cursorRulesInstallDirectory)
+        || isInsideDirectory(resolve(priorFile), retiredCursorSkillsDirectory);
     const retiredCursorRulesOutcome = pruneStaleInstalledFiles(
-        priorInstalledFiles?.filter(isRetiredCursorRuleFile) ?? null,
+        priorInstalledFiles?.filter(isRetiredCursorFile) ?? null,
         currentInstalledFiles,
         cursorInstallDirectory,
         join(backupRoot, 'cursor'),
@@ -3005,23 +3008,6 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     }
     summary.skills = { created: skillsCreated, updated: skillsUpdated, pruned: 0, paths: skillPaths };
     allInstalledFiles.push(...skillPaths);
-    if (copiedSkillNames.has('deepen')) {
-        for (const sourceRoot of allSourceRoots) {
-            const deepenSourceDirectory = join(
-                resolvePackageManagedDirectory(sourceRoot, MANAGED_SKILLS_DIRECTORY_NAME),
-                'deepen',
-            );
-            if (!existsSync(deepenSourceDirectory)) continue;
-            const cursorDeepenDirectory = join(
-                INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
-                'skills',
-                'deepen',
-            );
-            const cursorSkillStats = copyTree(deepenSourceDirectory, cursorDeepenDirectory);
-            allInstalledFiles.push(...cursorSkillStats.paths);
-            break;
-        }
-    }
     if (!selectedGroups) {
         summary.retiredSessionContinuity = {
             changedPaths: removeRetiredSessionContinuityHooks(),
@@ -3078,12 +3064,6 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             claudeRoot: CLAUDE_HOME,
             codexHome: INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             cursorDirectory: INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
-            firstTaskHookPath: join(
-                INSTALL_ROOT_RESOLUTION.hooksInstallDirectory,
-                'session',
-                'deepen_first_prompt.py',
-            ),
-            pythonCommand,
             formatPathArgument: commandArgumentFromPath,
         });
         summary.deepStackPlugin = deepStackPlugin;
@@ -3096,10 +3076,27 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             allActionNeededLines.push(`DeepStack (cursor): failed — ${cursorOutcome.warning}`);
         }
     }
+    if (!selectedGroups) {
+        const retiredCursorHooksPath = removeRetiredCursorFirstTaskHook(
+            INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
+        );
+        if (retiredCursorHooksPath) {
+            console.log(`  Retired first-task hook removed from ${retiredCursorHooksPath}`);
+        }
+        const retiredPlugins = removeRetiredMarketplacePlugins(ALL_RETIRED_PLUGIN_SPECS, {
+            claudeRoot: CLAUDE_HOME,
+        });
+        summary.retiredPlugins = retiredPlugins;
+        for (const eachIdentifier of retiredPlugins.removedIdentifiers) {
+            console.log(`  Retired plugin uninstalled: ${eachIdentifier}`);
+        }
+        for (const eachFailure of retiredPlugins.failedRemovals) {
+            console.warn(`  Warning: retired plugin ${eachFailure.pluginIdentifier} was not uninstalled: ${eachFailure.detail}`);
+        }
+    }
     const allRepositoryPluginSpecs = [
         USAGE_WRAPUP_PLUGIN_SPEC,
         SUBAGENT_MODELS_PLUGIN_SPEC,
-        DEEPEN_FIRST_PROMPT_PLUGIN_SPEC,
     ].filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
     if (!selectedGroups && allRepositoryPluginSpecs.length > 0) {
         const repositoryPlugins = installMarketplacePlugins(allRepositoryPluginSpecs, {
@@ -3123,10 +3120,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
         );
         if (questionGuidancePath) allCodexGuidancePaths.push(questionGuidancePath);
-        const deepenGuidancePath = writeCodexDeepenGuidance(
-            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-        );
-        if (deepenGuidancePath) allCodexGuidancePaths.push(deepenGuidancePath);
+        removeCodexDeepenGuidance(INSTALL_ROOT_RESOLUTION.codexHomeDirectory);
         const solPromptPath = installCodexSolPrompt(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             join(PACKAGE_ROOT, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
@@ -3676,7 +3670,6 @@ Usage:
   npx ${PACKAGE_NAME} --no-deepstack  Full install without the DeepStack plugin (also CDE_INSTALL_DEEPSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
-  npx ${PACKAGE_NAME} --no-deepen-first-prompt  Full install without the deepen-first-prompt plugin (also CDE_INSTALL_DEEPEN_FIRST_PROMPT=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

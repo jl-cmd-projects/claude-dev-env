@@ -16,9 +16,7 @@ import {
     withoutSkillLoadBlock,
     DEEPEN_GUIDANCE_BLOCK_END,
     DEEPEN_GUIDANCE_BLOCK_START,
-    DEEPEN_GUIDANCE_TEXT,
     writeCodexAgentsGuidance,
-    writeCodexDeepenGuidance,
     writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
 } from './codex-skill-load-block.mjs';
@@ -28,6 +26,7 @@ const STALE_SKILL_LOAD_SENTENCE = 'Load the pstack:poteto-mode skill before your
     + 'including a helper started with spawn_agent, whatever its task message says.';
 const STALE_SKILL_LOAD_BLOCK = `${SKILL_LOAD_BLOCK_START}\n${STALE_SKILL_LOAD_SENTENCE}\n${SKILL_LOAD_BLOCK_END}\n`;
 const PACKAGE_GUIDANCE = 'Status\n\nChanged / proof / blocked.\n';
+const RETIRED_DEEPEN_BLOCK = `${DEEPEN_GUIDANCE_BLOCK_START}\nDeepen the first interactive user task.\n${DEEPEN_GUIDANCE_BLOCK_END}\n`;
 const QUESTION_POLICY = '# Present questions clearly\n\nAsk one question.\n';
 
 function guidanceBlock(guidanceText) {
@@ -109,7 +108,7 @@ test('a stale skill-load sentence is removed and question and deepen blocks stay
     const homes = makeHomes(context);
     mkdirSync(homes.codexHome);
     const questionBlock = `${QUESTION_PRESENTATION_BLOCK_START}\n${QUESTION_POLICY}${QUESTION_PRESENTATION_BLOCK_END}\n`;
-    const deepenBlock = `${DEEPEN_GUIDANCE_BLOCK_START}\n${DEEPEN_GUIDANCE_TEXT}\n${DEEPEN_GUIDANCE_BLOCK_END}\n`;
+    const deepenBlock = RETIRED_DEEPEN_BLOCK;
     writeFileSync(
         homes.agentsPath,
         `${STALE_SKILL_LOAD_BLOCK}\n${guidanceBlock('Old guidance\n')}${questionBlock}${deepenBlock}`,
@@ -397,24 +396,13 @@ test('question removal leaves a missing guidance file absent', (context) => {
     assert.equal(lstatSync(homes.agentsPath, { throwIfNoEntry: false }), undefined);
 });
 
-test('should write the deepen block into Codex AGENTS.md', (context) => {
-    const homes = makeHomes(context);
-
-    assert.equal(writeCodexDeepenGuidance(homes.codexHome), homes.agentsPath);
-    const guidanceText = readFileSync(homes.agentsPath, 'utf8');
-    assert.ok(guidanceText.includes(DEEPEN_GUIDANCE_BLOCK_START));
-    assert.ok(guidanceText.includes(DEEPEN_GUIDANCE_BLOCK_END));
-    assert.ok(guidanceText.includes(DEEPEN_GUIDANCE_TEXT.split('\n')[0]));
-    assert.equal(writeCodexDeepenGuidance(homes.codexHome), null);
-});
-
-test('should restore the custom guidance bytes when the deepen block is removed', (context) => {
+test('should restore the custom guidance bytes when a retired deepen block is removed', (context) => {
     const homes = makeHomes(context);
     mkdirSync(homes.codexHome);
     const customGuidance = '# My notes\n\nKeep this line.\n';
-    writeFileSync(homes.agentsPath, customGuidance);
+    writeFileSync(homes.agentsPath, `${customGuidance}${RETIRED_DEEPEN_BLOCK}`);
 
-    assert.equal(writeCodexDeepenGuidance(homes.codexHome), homes.agentsPath);
     assert.equal(removeCodexDeepenGuidance(homes.codexHome), homes.agentsPath);
     assert.equal(readFileSync(homes.agentsPath, 'utf8'), customGuidance);
+    assert.equal(removeCodexDeepenGuidance(homes.codexHome), null);
 });

@@ -66,7 +66,6 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
-            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             HOME: sandboxHome,
             USERPROFILE: sandboxHome,
             GIT_CONFIG_GLOBAL: gitConfigGlobal,
