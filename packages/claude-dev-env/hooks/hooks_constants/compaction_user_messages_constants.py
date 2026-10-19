@@ -1,8 +1,8 @@
 """Names, limits, and texts for the compaction user-message recall hooks.
 
-Groups: the transcript entry shapes the extractor reads, the bounds on the
-file it writes, the trim rules at the top of that file, and the SessionStart
-context that tells the agent to run the extractor.
+Groups: the transcript entry shapes the extractor reads, the bounds and
+location of the file it writes, the SessionStart context that tells the agent
+to run the extractor, and the eval that runs the condensing hook live.
 """
 
 from __future__ import annotations
@@ -42,29 +42,12 @@ NO_MESSAGES_TEXT = "No typed user messages were found in this transcript.\n"
 MESSAGE_HEADING_TEMPLATE = "## {position} | {timestamp}\n{text}\n\n"
 MESSAGES_HEADING = "# User messages, oldest first\n\n"
 
-OUTPUT_FILE_PREFIX = "compaction-user-messages-"
+ALL_RECALL_DIRECTORY_PARTS = (".claude", "compaction-recall")
 OUTPUT_FILE_SUFFIX = ".md"
 OUTPUT_ENCODING = "utf-8"
 TRANSCRIPT_ARGUMENT_COUNT = 2
 USAGE_TEXT = "usage: compaction_user_messages.py <transcript.jsonl>\n"
 USAGE_EXIT_CODE = 2
-
-TRIM_WORD_LIMIT = 1500
-TRIM_INSTRUCTIONS = (
-    "# How to condense this file\n\n"
-    "These are the messages the user typed in one Claude Code session, oldest first. "
-    "The session's context was just compacted, and the agent reads your condensed copy "
-    "in place of the user's lost words.\n\n"
-    "Rewrite them in caveman style: drop articles, filler, greetings, and politeness, "
-    "and keep the substance. Write one line per message, in order, starting with its "
-    "number, such as `#3`. Copy every request, constraint, correction, decision, "
-    "preference, question, name, file path, command, number, date, and link exactly as "
-    "the user wrote it. When a later message corrects or reverses an earlier one, keep "
-    "both and end the earlier line with `(overruled by #N)`. Drop a message only when it "
-    "carries nothing, such as `ok` or `thanks`. Keep the user's own words for anything "
-    "you are unsure how to shorten. "
-    f"Stay under {TRIM_WORD_LIMIT} words.\n\n"
-)
 
 SESSION_START_EVENT_NAME = "SessionStart"
 COMPACTION_SOURCE = "compact"
@@ -92,10 +75,19 @@ EVAL_RESULTS_JSON_INDENT = 2
 EVAL_SERVED_MODEL_SEPARATOR = ","
 EVAL_MESSAGE_LINE_PATTERN_TEMPLATE = r"^\W*#?{position}\b.*$"
 EVAL_OVERRULED_MARKER = "overruled"
-EVAL_ARGUMENTS_PLACEHOLDER = "$ARGUMENTS"
 EVAL_CASES_FILE_NAME = "trim_cases.json"
 EVAL_CLAUDE_EXECUTABLE = "claude"
 EVAL_DEFAULT_MODEL = "haiku"
 EVAL_HOOK_TYPE = "agent"
 EVAL_TIMEOUT_SECONDS = 240
 EVAL_JSON_OBJECT_START = "{"
+EVAL_PACKAGE_SETTINGS_PATH = EVAL_SESSION_DIRECTORY.parent.parent / "settings.json"
+EVAL_RUN_SETTINGS_FILE_NAME = "hook-settings.json"
+EVAL_DEBUG_FILE_NAME = "debug.log"
+EVAL_STRUCTURED_OUTPUT_MARKER = "Hooks: Got structured output: "
+EVAL_DECISION_SEPARATOR = "\n"
+EVAL_ALLOWED_TOOLS = "Bash(python3:*)"
+EVAL_EMPTY_MCP_CONFIG = '{"mcpServers": {}}'
+EVAL_RUN_PROMPT_TEMPLATE = (
+    "Run this exact Bash command once, then reply with one word, done:\n\n{command}"
+)

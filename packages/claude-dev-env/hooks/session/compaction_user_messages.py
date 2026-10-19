@@ -4,14 +4,15 @@
 ::
 
     python3 compaction_user_messages.py ~/.claude/projects/p/abc.jsonl
-    -> /tmp/compaction-user-messages-abc.md
+    -> ~/.claude/compaction-recall/abc.md
 
 The agent runs this after a compaction. Only the path reaches its context.
 A PostToolUse agent hook reads the file, condenses it, and returns the
 condensed messages to the agent.
 
-The file holds the trim rules, then each typed message with its number and
-timestamp, oldest first. The whole transcript is read each time, so a second
+The file holds each typed message with its number and timestamp, oldest
+first. The trim rules live in the hook prompt. The file sits under
+``~/.claude`` so the hook's Read permission rule can name its folder. The whole transcript is read each time, so a second
 compaction yields the same messages plus the newer ones.
 """
 
@@ -19,7 +20,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +29,7 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from hooks_constants.compaction_user_messages_constants import (
+    ALL_RECALL_DIRECTORY_PARTS,
     ALL_SKIPPED_ENTRY_FLAGS,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_ENTRY_TYPE,
@@ -52,7 +53,6 @@ from hooks_constants.compaction_user_messages_constants import (
     ORIGIN_KEY,
     ORIGIN_KIND_KEY,
     OUTPUT_ENCODING,
-    OUTPUT_FILE_PREFIX,
     OUTPUT_FILE_SUFFIX,
     QUEUED_COMMAND_ATTACHMENT_TYPE,
     QUEUED_PROMPT_KEY,
@@ -62,7 +62,6 @@ from hooks_constants.compaction_user_messages_constants import (
     TEXT_KEY,
     TIMESTAMP_KEY,
     TRANSCRIPT_ARGUMENT_COUNT,
-    TRIM_INSTRUCTIONS,
     USAGE_EXIT_CODE,
     USAGE_TEXT,
     USER_ENTRY_TYPE,
@@ -241,11 +240,11 @@ def bounded_messages(all_messages: list[TypedMessage]) -> list[TypedMessage]:
 
 
 def rendered_extract(all_messages: list[TypedMessage]) -> str:
-    """Return the file text: the trim rules, then the kept messages.
+    """Return the file text: a heading, then the kept messages.
 
     ::
 
-        [#1 "fix login"]  -> TRIM_INSTRUCTIONS + "# User messages..." + "## 1 | <ts>\\nfix login"
+        [#1 "fix login"]  -> "# User messages, oldest first" + "## 1 | <ts>\\nfix login"
 
     Args:
         all_messages: Every typed message, oldest first.
@@ -254,10 +253,10 @@ def rendered_extract(all_messages: list[TypedMessage]) -> str:
         The text the extractor writes to its output file.
     """
     if not all_messages:
-        return TRIM_INSTRUCTIONS + MESSAGES_HEADING + NO_MESSAGES_TEXT
+        return MESSAGES_HEADING + NO_MESSAGES_TEXT
     all_kept_messages = bounded_messages(all_messages)
     left_out_count = len(all_messages) - len(all_kept_messages)
-    rendered_parts = [TRIM_INSTRUCTIONS, MESSAGES_HEADING]
+    rendered_parts = [MESSAGES_HEADING]
     for each_index, each_message in enumerate(all_kept_messages):
         if each_index == 1 and left_out_count:
             rendered_parts.append(LEFT_OUT_MESSAGES_TEMPLATE.format(left_out_count=left_out_count))
@@ -266,11 +265,11 @@ def rendered_extract(all_messages: list[TypedMessage]) -> str:
 
 
 def output_path_for(transcript_path: Path) -> Path:
-    """Return the temp file for one transcript, named after its session id.
+    """Return the recall file for one transcript, named after its session id.
 
     ::
 
-        ~/.claude/projects/p/abc-123.jsonl -> /tmp/compaction-user-messages-abc-123.md
+        ~/.claude/projects/p/abc-123.jsonl -> ~/.claude/compaction-recall/abc-123.md
 
     Args:
         transcript_path: The session transcript.
@@ -278,8 +277,8 @@ def output_path_for(transcript_path: Path) -> Path:
     Returns:
         The path the extractor writes; a rerun overwrites it.
     """
-    file_name = f"{OUTPUT_FILE_PREFIX}{session_file_id(transcript_path.stem)}{OUTPUT_FILE_SUFFIX}"
-    return Path(tempfile.gettempdir()) / file_name
+    file_name = f"{session_file_id(transcript_path.stem)}{OUTPUT_FILE_SUFFIX}"
+    return Path.home().joinpath(*ALL_RECALL_DIRECTORY_PARTS, file_name)
 
 
 def main() -> int:
@@ -297,6 +296,7 @@ def main() -> int:
         sys.stderr.write(f"cannot read {transcript_path}: {read_error}\n")
         return USAGE_EXIT_CODE
     output_path = output_path_for(transcript_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(rendered_extract(all_messages), encoding=OUTPUT_ENCODING)
     sys.stdout.write(f"{output_path}\n")
     return 0
