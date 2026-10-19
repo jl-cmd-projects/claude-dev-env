@@ -1,9 +1,12 @@
 """Tests for compaction_user_messages: which transcript entries count as typed, and the file it writes."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
@@ -15,7 +18,7 @@ import compaction_user_messages as extractor
 from hooks_constants.compaction_user_messages_constants import (
     MAXIMUM_EXTRACT_CHARACTERS,
     MAXIMUM_MESSAGE_CHARACTERS,
-    TRIM_INSTRUCTIONS,
+    MESSAGES_HEADING,
 )
 
 EXTRACTOR_PATH = _SESSION_DIR / "compaction_user_messages.py"
@@ -152,18 +155,17 @@ def test_bounded_messages_should_keep_the_first_and_the_newest_when_over_budget(
     assert kept_positions[0] == 1
     assert kept_positions[-1] == message_count
     assert kept_positions[1:] == list(range(kept_positions[1], message_count + 1))
-    assert len(extractor.rendered_extract(all_messages)) <= (
-        MAXIMUM_EXTRACT_CHARACTERS + len(TRIM_INSTRUCTIONS) + 200
-    )
+    assert len(extractor.rendered_extract(all_messages)) <= MAXIMUM_EXTRACT_CHARACTERS + 200
 
 
 def test_bounded_messages_should_return_nothing_for_no_messages() -> None:
     assert extractor.bounded_messages([]) == []
 
 
-def test_rendered_extract_should_put_the_trim_rules_first_and_number_each_message() -> None:
+def test_rendered_extract_should_hold_only_the_numbered_messages() -> None:
     rendered = extractor.rendered_extract([message(1, "fix login"), message(2, "use /srv")])
-    assert rendered.startswith(TRIM_INSTRUCTIONS)
+    assert rendered.startswith(MESSAGES_HEADING)
+    assert "caveman" not in rendered
     assert "## 1 | t\nfix login\n" in rendered
     assert "## 2 | t\nuse /srv\n" in rendered
 
@@ -188,22 +190,28 @@ def test_rendered_extract_should_say_when_there_are_no_messages() -> None:
     assert "No typed user messages" in extractor.rendered_extract([])
 
 
-def test_output_path_for_should_name_the_file_after_the_session() -> None:
+def test_output_path_for_should_name_the_file_after_the_session_under_the_claude_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     output_path = extractor.output_path_for(Path("/p/abc-123.jsonl"))
-    assert output_path.name == "compaction-user-messages-abc-123.md"
+    assert output_path == tmp_path / ".claude" / "compaction-recall" / "abc-123.md"
 
 
 def test_main_should_print_only_the_path_of_the_file_it_writes(tmp_path: Path) -> None:
     transcript_path = tmp_path / "session-xyz.jsonl"
     transcript_path.write_text(user_line("ship the deploy fix") + "\n", encoding="utf-8")
+    home_directory = tmp_path / "home"
     completed = subprocess.run(
         [sys.executable, str(EXTRACTOR_PATH), str(transcript_path)],
         capture_output=True,
         text=True,
         check=True,
+        env={**os.environ, "HOME": str(home_directory), "USERPROFILE": str(home_directory)},
     )
     printed_path = Path(completed.stdout.strip())
-    assert printed_path == extractor.output_path_for(transcript_path)
+    assert printed_path == home_directory / ".claude" / "compaction-recall" / "session-xyz.md"
     assert "ship the deploy fix" not in completed.stdout
     assert "## 1 | 2026-10-19T10:00:00Z\nship the deploy fix" in printed_path.read_text()
 

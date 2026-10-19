@@ -10,11 +10,14 @@
     oracle (raw extract): facts 1.00 ...   null (empty reply): facts 0.00 ...
 
 Each case is a fixture transcript with planted facts: paths, numbers, a
-link, and a decision the user later reversed. The runner writes the
-extract with ``compaction_user_messages.py``, then sends the agent hook's
-own prompt from ``hooks.json`` to ``claude -p`` with the Read tool, the way
-Claude Code runs the hook. The grader checks that each fact survives and
-that the reversed line says ``overruled``.
+link, and a decision the user later reversed.
+
+Each run starts a headless ``claude -p`` session whose settings hold the
+condensing hook from ``hooks.json`` and the Read allow rules from the
+package ``settings.json``. The session runs the extractor on the fixture, so
+Claude Code fires the hook as it would after a compaction. The runner reads
+the hook's returned reason from the session's debug log. The grader checks
+that each fact survives and that the reversed line says ``overruled``.
 
 The oracle grades the raw extract and the null grades an empty reply, so a
 broken grader shows before any model score is trusted. A failed call goes
@@ -26,11 +29,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,22 +44,29 @@ _session_directory = str(Path(__file__).resolve().parent)
 if _session_directory not in sys.path:
     sys.path.insert(0, _session_directory)
 
-from compaction_user_messages import output_path_for, rendered_extract, typed_user_messages
+from compaction_user_messages import rendered_extract, typed_user_messages
 from hooks_constants.compaction_user_messages_constants import (
-    EVAL_ARGUMENTS_PLACEHOLDER,
+    EVAL_ALLOWED_TOOLS,
     EVAL_CASES_FILE_NAME,
     EVAL_CLAUDE_EXECUTABLE,
+    EVAL_DEBUG_FILE_NAME,
+    EVAL_DECISION_SEPARATOR,
     EVAL_DEFAULT_MODEL,
+    EVAL_EMPTY_MCP_CONFIG,
     EVAL_FIXTURE_DIRECTORY,
     EVAL_HOOK_TYPE,
     EVAL_HOOKS_JSON_PATH,
     EVAL_JSON_OBJECT_START,
     EVAL_MESSAGE_LINE_PATTERN_TEMPLATE,
     EVAL_OVERRULED_MARKER,
+    EVAL_PACKAGE_SETTINGS_PATH,
     EVAL_RESULTS_FILE_NAME,
     EVAL_RESULTS_JSON_INDENT,
+    EVAL_RUN_PROMPT_TEMPLATE,
+    EVAL_RUN_SETTINGS_FILE_NAME,
     EVAL_SERVED_MODEL_SEPARATOR,
     EVAL_SESSION_DIRECTORY,
+    EVAL_STRUCTURED_OUTPUT_MARKER,
     EVAL_TIMEOUT_SECONDS,
     EXTRACTOR_SCRIPT_NAME,
     MESSAGES_HEADING,
@@ -145,16 +155,27 @@ def score_condensed(
     )
 
 
-def condensing_hook_prompt(hooks_json_text: str) -> str:
-    """Return the prompt of the PostToolUse agent hook that condenses the messages."""
+def condensing_hook_group(hooks_json_text: str) -> dict[str, object]:
+    """Return the PostToolUse group of ``hooks.json`` cut down to the condensing agent hook."""
     all_registrations = json.loads(hooks_json_text)["hooks"]["PostToolUse"]
     return next(
-        str(each_hook["prompt"])
+        {"matcher": each_group["matcher"], "hooks": [each_hook]}
         for each_group in all_registrations
         for each_hook in each_group["hooks"]
         if each_hook.get("type") == EVAL_HOOK_TYPE
         and EXTRACTOR_SCRIPT_NAME in str(each_hook.get("if", ""))
     )
+
+
+def run_settings(
+    all_group_fields: dict[str, object], all_allow_rules: list[str], model_name: str
+) -> dict[str, object]:
+    """Return headless session settings that register the hook on the given model."""
+    all_hooks = [{**each_hook, "model": model_name} for each_hook in all_group_fields["hooks"]]
+    return {
+        "permissions": {"allow": all_allow_rules},
+        "hooks": {"PostToolUse": [{**all_group_fields, "hooks": all_hooks}]},
+    }
 
 
 def hook_reason(model_reply: str) -> str | None:
@@ -173,53 +194,74 @@ def hook_reason(model_reply: str) -> str | None:
     return found_reason
 
 
-def _write_extract(transcript_path: Path) -> tuple[Path, str]:
-    all_lines = transcript_path.read_text(encoding=OUTPUT_ENCODING).splitlines()
-    extract_text = rendered_extract(typed_user_messages(all_lines))
-    extract_path = output_path_for(transcript_path)
-    extract_path.write_text(extract_text, encoding=OUTPUT_ENCODING)
-    return extract_path, extract_text
+def debug_log_reason(debug_text: str) -> str | None:
+    """Return the reason of the last hook decision a debug log records, or None.
+
+    ::
+
+        "... Hooks: Got structured output: {\"ok\":false,\"reason\":\"#1 deploy\"}"
+        -> "#1 deploy"
+
+    Args:
+        debug_text: The ``--debug-file`` log of one headless session.
+
+    Returns:
+        The text Claude Code handed the main agent, or None when no hook answered.
+    """
+    all_decisions = [
+        each_line.split(EVAL_STRUCTURED_OUTPUT_MARKER, 1)[1]
+        for each_line in debug_text.splitlines()
+        if EVAL_STRUCTURED_OUTPUT_MARKER in each_line
+    ]
+    return hook_reason(EVAL_DECISION_SEPARATOR.join(all_decisions))
 
 
-def _hook_input(transcript_path: Path, extract_path: Path) -> str:
-    command = f"python3 {EVAL_SESSION_DIRECTORY / EXTRACTOR_SCRIPT_NAME} {transcript_path}"
-    return json.dumps(
-        {
-            "hook_event_name": "PostToolUse",
-            "tool_name": "Bash",
-            "tool_input": {"command": command},
-            "tool_response": {"stdout": f"{extract_path}\n", "stderr": "", "interrupted": False},
-        }
+def _session_command(
+    transcript_path: Path, settings_path: Path, model_name: str, debug_path: Path
+) -> list[str]:
+    extractor_command = shlex.join(
+        ["python3", str(EVAL_SESSION_DIRECTORY / EXTRACTOR_SCRIPT_NAME), str(transcript_path)]
     )
-
-
-def _ask_model(prompt_text: str, model_name: str) -> dict[str, object]:
-    command = [
+    return [
         shutil.which(EVAL_CLAUDE_EXECUTABLE) or EVAL_CLAUDE_EXECUTABLE,
         "-p",
         "--model",
         model_name,
         "--setting-sources",
         "",
-        "--tools",
-        "Read",
-        "--allowedTools=Read",
+        "--settings",
+        str(settings_path),
+        "--strict-mcp-config",
+        "--mcp-config",
+        EVAL_EMPTY_MCP_CONFIG,
+        "--allowedTools",
+        EVAL_ALLOWED_TOOLS,
         "--no-session-persistence",
-        "--session-id",
-        str(uuid.uuid4()),
+        "--debug-file",
+        str(debug_path),
         "--output-format",
         "json",
+        EVAL_RUN_PROMPT_TEMPLATE.format(command=extractor_command),
     ]
+
+
+def _run_hook_live(
+    transcript_path: Path, settings_path: Path, model_name: str
+) -> tuple[str | None, dict[str, object]]:
+    run_directory = Path(tempfile.mkdtemp(dir=settings_path.parent))
+    debug_path = run_directory / EVAL_DEBUG_FILE_NAME
     completed = subprocess.run(
-        command,
-        input=prompt_text,
+        _session_command(transcript_path, settings_path, model_name, debug_path),
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=EVAL_TIMEOUT_SECONDS,
-        cwd=tempfile.gettempdir(),
+        cwd=run_directory,
         check=False,
     )
-    return json.loads(completed.stdout)
+    session_output = json.loads(completed.stdout)
+    debug_text = debug_path.read_text(encoding=OUTPUT_ENCODING, errors="replace")
+    return debug_log_reason(debug_text), session_output
 
 
 def _run_line(run_label: str, case_score: CaseScore, all_served_models: list[str]) -> str:
@@ -233,20 +275,20 @@ def _run_line(run_label: str, case_score: CaseScore, all_served_models: list[str
 
 def _run_once(
     run_label: str,
-    prompt_text: str,
+    transcript_path: Path,
+    settings_path: Path,
     model_name: str,
     all_case_fields: dict[str, object],
     extract_text: str,
     tally: EvalTally,
 ) -> None:
     try:
-        model_output = _ask_model(prompt_text, model_name)
+        condensed_text, model_output = _run_hook_live(transcript_path, settings_path, model_name)
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as call_error:
         tally.all_errors.append(f"{run_label}: {type(call_error).__name__}")
         return
-    condensed_text = hook_reason(str(model_output.get("result", "")))
-    if model_output.get("is_error") or condensed_text is None:
-        tally.all_errors.append(f"{run_label}: no reason in reply")
+    if condensed_text is None:
+        tally.all_errors.append(f"{run_label}: no hook reason in the debug log")
         return
     case_score = score_condensed(condensed_text, all_case_fields, extract_text)
     all_served_models = sorted(dict(model_output.get("modelUsage") or {}))
@@ -264,21 +306,20 @@ def _run_once(
 
 def _run_case(
     all_case_fields: dict[str, object],
-    hook_prompt: str,
+    settings_path: Path,
     parsed_arguments: argparse.Namespace,
     tally: EvalTally,
 ) -> None:
     transcript_path = EVAL_FIXTURE_DIRECTORY / str(all_case_fields["transcript"])
-    extract_path, extract_text = _write_extract(transcript_path)
+    all_lines = transcript_path.read_text(encoding=OUTPUT_ENCODING).splitlines()
+    extract_text = rendered_extract(typed_user_messages(all_lines))
     tally.all_oracle_scores.append(score_condensed(extract_text, all_case_fields, extract_text))
     tally.all_null_scores.append(score_condensed("", all_case_fields, extract_text))
-    prompt_text = hook_prompt.replace(
-        EVAL_ARGUMENTS_PLACEHOLDER, _hook_input(transcript_path, extract_path)
-    )
     for each_rep in range(1, parsed_arguments.reps + 1):
         _run_once(
             f"{transcript_path.name} rep {each_rep}",
-            prompt_text,
+            transcript_path,
+            settings_path,
             parsed_arguments.model,
             all_case_fields,
             extract_text,
@@ -322,7 +363,7 @@ def _write_report(tally: EvalTally, output_directory: Path | None) -> None:
 
 
 def main() -> int:
-    """Run every case through the hook prompt, grade it, and print the scores."""
+    """Run every case through the live hook, grade it, and print the scores."""
     argument_parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     argument_parser.add_argument("--reps", type=int, default=1)
     argument_parser.add_argument("--model", default=EVAL_DEFAULT_MODEL)
@@ -331,10 +372,18 @@ def main() -> int:
     all_cases = json.loads(
         (EVAL_FIXTURE_DIRECTORY / EVAL_CASES_FILE_NAME).read_text(encoding=OUTPUT_ENCODING)
     )
-    hook_prompt = condensing_hook_prompt(EVAL_HOOKS_JSON_PATH.read_text(encoding=OUTPUT_ENCODING))
+    hook_group = condensing_hook_group(EVAL_HOOKS_JSON_PATH.read_text(encoding=OUTPUT_ENCODING))
+    all_allow_rules = json.loads(EVAL_PACKAGE_SETTINGS_PATH.read_text(encoding=OUTPUT_ENCODING))[
+        "permissions"
+    ]["allow"]
+    settings_path = Path(tempfile.mkdtemp()) / EVAL_RUN_SETTINGS_FILE_NAME
+    settings_path.write_text(
+        json.dumps(run_settings(hook_group, all_allow_rules, parsed_arguments.model)),
+        encoding=OUTPUT_ENCODING,
+    )
     tally = EvalTally()
     for each_case in all_cases:
-        _run_case(each_case, hook_prompt, parsed_arguments, tally)
+        _run_case(each_case, settings_path, parsed_arguments, tally)
     _write_report(tally, parsed_arguments.output_dir)
     return 0 if tally.all_model_scores and not tally.all_errors else 1
 

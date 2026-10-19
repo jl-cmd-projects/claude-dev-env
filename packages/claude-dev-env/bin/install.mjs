@@ -52,6 +52,7 @@ import {
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+    ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
     ALL_RETIRED_PLUGIN_SPECS,
@@ -2246,15 +2247,17 @@ function mergeHooksAtPath(
     return groupCount;
 }
 
-function isCodexNativeStopHook(hook) {
-    const scriptName = String(hook?.command ?? '').replace(/\\/g, '/').split('/').pop();
-    return ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES.has(scriptName);
+function hookScriptName(hook) {
+    return String(hook?.command ?? '').replace(/\\/g, '/').split('/').pop();
 }
 
-function selectCodexNativeStopGroups(stopGroups) {
-    if (!Array.isArray(stopGroups)) return [];
-    return stopGroups
-        .map(group => ({ ...group, hooks: (group?.hooks ?? []).filter(isCodexNativeStopHook) }))
+function selectCodexNativeGroupsByScriptName(groups, allScriptNames) {
+    if (!Array.isArray(groups)) return [];
+    return groups
+        .map(group => ({
+            ...group,
+            hooks: (group?.hooks ?? []).filter(hook => allScriptNames.has(hookScriptName(hook))),
+        }))
         .filter(group => group.hooks.length > 0);
 }
 
@@ -2268,7 +2271,14 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
-            Stop: selectCodexNativeStopGroups(hooksConfig.hooks?.Stop),
+            PostToolUse: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.PostToolUse,
+                ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
+            ),
+            Stop: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.Stop,
+                ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+            ),
         },
     };
 }

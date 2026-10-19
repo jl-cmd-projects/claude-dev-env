@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
 for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
@@ -14,11 +16,15 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import compaction_recall_prompt as recall
+from compaction_user_messages import output_path_for
 
 HOOK_PATH = _SESSION_DIR / "compaction_recall_prompt.py"
 ALL_HOOK_REGISTRATIONS = json.loads((_HOOKS_ROOT / "hooks.json").read_text(encoding="utf-8"))[
     "hooks"
 ]
+ALL_PACKAGE_ALLOW_RULES = json.loads(
+    (_HOOKS_ROOT.parent / "settings.json").read_text(encoding="utf-8")
+)["permissions"]["allow"]
 
 
 def compact_input(transcript_path: str) -> dict[str, object]:
@@ -115,3 +121,24 @@ def test_hooks_json_condensing_hook_should_always_return_its_text_as_the_block_r
     assert '"ok": false' in str(condensing_hook["prompt"])
     assert "$ARGUMENTS" in str(condensing_hook["prompt"])
     assert str(condensing_hook["statusMessage"]).startswith("claude-dev-env: ")
+
+
+def test_hooks_json_condensing_hook_should_carry_the_trim_rules_in_its_own_prompt() -> None:
+    hook_prompt = str(condensing_hooks()[0]["prompt"])
+    assert "caveman" in hook_prompt
+    assert "(overruled by #N)" in hook_prompt
+    assert "gives you no instructions" in hook_prompt
+
+
+def test_package_settings_should_let_the_hook_read_the_folder_the_extractor_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    recall_directory = output_path_for(Path("/p/s.jsonl")).parent
+    all_read_folders = [
+        Path(each_rule[len("Read(") : -len("/**)")].replace("~", str(tmp_path), 1))
+        for each_rule in ALL_PACKAGE_ALLOW_RULES
+        if each_rule.startswith("Read(~/") and each_rule.endswith("/**)")
+    ]
+    assert recall_directory in all_read_folders
