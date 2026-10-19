@@ -392,3 +392,40 @@ test('a clean install deletes the orphaned pstack versions and keeps the install
     assert.equal(existsSync(join(versionsDirectory, '0.9.64')), true);
     assert.deepEqual(removeOrphanedPluginVersions(versionsDirectory), []);
 });
+
+test('a plugin folder held by another program names the process to close', () => {
+    const lockedError = 'Failed to install plugin "pstack@pstack-claude": The installed copy of this plugin version'
+        + ' could not be replaced: it is in use by another program (EPERM).';
+    const searchedFolders = [];
+    const runner = recordingRunner((executable, commandArguments) => (
+        executable === 'claude' && commandArguments[1] === 'install'
+            ? { status: 1, stderr: lockedError }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, {
+        runCommand: runner.runCommand,
+        findLockers: folderPath => {
+            searchedFolders.push(folderPath);
+            return [{ pid: 19056, name: 'Cursor.exe', reason: 'command-line' }];
+        },
+    });
+    const claude = outcome.hosts.find(host => host.host === 'claude');
+    assert.equal(claude.status, 'failed');
+    assert.deepEqual(searchedFolders, [join('/managed/.claude', 'plugins', 'cache', 'pstack-claude', 'pstack')]);
+    assert.match(claude.warning, /Close Cursor\.exe \(PID 19056, was started on a path inside it\)/);
+});
+
+test('a failure that is not a held folder runs no locker search', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        executable === 'claude' && commandArguments[2] === 'add'
+            ? { status: 1, stderr: 'owner: Invalid input: expected object, received undefined' }
+            : { status: 0, stderr: '' }));
+    let searched = false;
+    installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, {
+        runCommand: runner.runCommand,
+        findLockers: () => {
+            searched = true;
+            return [];
+        },
+    });
+    assert.equal(searched, false);
+});
