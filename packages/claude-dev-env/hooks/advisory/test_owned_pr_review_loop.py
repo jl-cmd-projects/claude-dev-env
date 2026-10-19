@@ -214,7 +214,15 @@ def test_should_require_an_owned_repository_outside_the_preset_list(
     ],
 )
 def test_should_apply_the_shipped_owner_list(owner: str, repository: str, expected: bool) -> None:
-    assert owned_pr_review_loop.needs_review_loop(owner, repository) is expected
+    assert (
+        owned_pr_review_loop.needs_review_loop(
+            owner,
+            repository,
+            owned_pr_review_loop.ALL_OWNED_OWNER_DIGESTS,
+            owned_pr_review_loop.ALL_PRESET_REPOSITORY_DIGESTS,
+        )
+        is expected
+    )
 
 
 def test_should_name_every_step_and_skill_in_the_context() -> None:

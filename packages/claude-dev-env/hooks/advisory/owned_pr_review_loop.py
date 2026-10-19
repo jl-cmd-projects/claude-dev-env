@@ -108,7 +108,7 @@ def _is_gh_api_pulls_post(all_arguments: list[str]) -> bool:
     explicit_method: str | None = None
     sends_body = False
     all_following_arguments = [*all_arguments[1:], ""]
-    for each_argument, each_following_argument in zip(all_arguments, all_following_arguments):
+    for each_argument, each_following_argument in zip(all_arguments, all_following_arguments, strict=True):
         option_name, inline_value = _option_name_and_inline_value(each_argument)
         if option_name in ALL_GH_API_BODY_OPTIONS:
             sends_body = True
@@ -256,8 +256,8 @@ def name_digest(name: str) -> str:
 def needs_review_loop(
     owner: str,
     repository: str,
-    all_owned_owner_digests: frozenset[str] = ALL_OWNED_OWNER_DIGESTS,
-    all_preset_repository_digests: frozenset[str] = ALL_PRESET_REPOSITORY_DIGESTS,
+    all_owned_owner_digests: frozenset[str],
+    all_preset_repository_digests: frozenset[str],
 ) -> bool:
     """Return True for an owned repository outside the preset review list.
 
@@ -301,7 +301,12 @@ def main() -> None:
     pull_request = opened_pull_request(tool_input, hook_payload.get("tool_response"))
     if pull_request is None:
         return
-    if not needs_review_loop(pull_request["owner"], pull_request["repository"]):
+    if not needs_review_loop(
+        pull_request["owner"],
+        pull_request["repository"],
+        ALL_OWNED_OWNER_DIGESTS,
+        ALL_PRESET_REPOSITORY_DIGESTS,
+    ):
         return
     write_post_tool_use_context_to_stdout(build_review_loop_context(pull_request))
 
