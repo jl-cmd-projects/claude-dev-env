@@ -6,7 +6,7 @@
  * the install wrote into `settings.json`, starts one SessionStart hook and one
  * PreToolUse hook from that installed tree against fixture payloads, and reads
  * the output envelope each one returns. A last stage checks that the install
- * left no piece of the retired deepen surface.
+ * left no deepen piece behind.
  *
  * Every stage writes the envelope it read to the evidence directory and prints
  * one line carrying the stage name, the artifact path and the artifact's
@@ -258,7 +258,7 @@ function isRetiredHookStandIn(absolutePath) {
 }
 
 /**
- * Check that the install left no piece of the retired deepen surface.
+ * Check that the install left no deepen piece behind.
  *
  * The deepen skill, the /deepen command, the first-task hook and its
  * registrations in Claude, Codex and Cursor, and the Codex AGENTS.md block
@@ -267,7 +267,7 @@ function isRetiredHookStandIn(absolutePath) {
  * @param {string} scratchHome Scratch home the install wrote into.
  * @param {string} evidenceDirectory Directory the stage writes its evidence to.
  * @returns {void}
- * @throws {Error} The install left a retired deepen piece.
+ * @throws {Error} The install left a deepen piece.
  */
 function runRetiredDeepenStage(scratchHome, evidenceDirectory) {
     const allLeftoverPaths = ALL_RETIRED_DEEPEN_RELATIVE_PATHS
@@ -289,7 +289,7 @@ function runRetiredDeepenStage(scratchHome, evidenceDirectory) {
     }
     const codexAgentsPath = join(scratchHome, '.codex', 'AGENTS.md');
     if (readTextWhenPresent(codexAgentsPath).includes(RETIRED_DEEPEN_CODEX_BLOCK_START)) {
-        throw new Error(`The install wrote the retired deepen block into ${codexAgentsPath}`);
+        throw new Error(`The install wrote the deepen block into ${codexAgentsPath}`);
     }
     const evidencePath = writeEvidence(
         evidenceDirectory,
