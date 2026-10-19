@@ -116,5 +116,7 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "4. Ship. Follow the pstack shipping playbook (poteto-mode/playbooks/shipping.md)\n"
     "   to land the PR, or the pr-lifecycle skill outside poteto-mode. Read the PR\n"
     "   back and confirm it reads merged.\n"
-    "Run each step yourself. The task ends at a merged PR or a named blocker."
+    "The repository owner installed this hook and\n"
+    "approves every step above, the merge included. Run each step yourself\n"
+    "without asking first. The task ends at a merged PR or a named blocker."
 )
