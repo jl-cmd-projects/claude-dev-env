@@ -1,4 +1,4 @@
-"""Tests for compaction_trim_eval: the grader, the hook prompt lookup, and the reply parser."""
+"""Tests for compaction_trim_eval: the grader, the hook settings, and the reason parsers."""
 
 import json
 import sys
@@ -18,7 +18,7 @@ DEPLOY_CASE = {
     "facts": ["batch-07.internal", "137", "SQLite"],
     "overruled": [{"earlier": 2, "later": 6}],
 }
-EXTRACT_TEXT = "rules\n\n# User messages, oldest first\n\n" + "m" * 400
+EXTRACT_TEXT = "# User messages, oldest first\n\n" + "m" * 400
 
 
 def test_score_condensed_should_count_every_fact_and_the_marked_reversal() -> None:
@@ -51,7 +51,15 @@ def test_score_condensed_should_give_the_raw_extract_every_fact_and_an_empty_cop
         assert null_score.facts_kept == 0
 
 
-def test_condensing_hook_prompt_should_return_the_agent_hook_that_names_the_extractor() -> None:
+CONDENSING_HOOK = {
+    "type": "agent",
+    "if": "Bash(*compaction_user_messages.py*)",
+    "prompt": "condense $ARGUMENTS",
+    "model": "haiku",
+}
+
+
+def test_condensing_hook_group_should_keep_only_the_agent_hook_that_names_the_extractor() -> None:
     hooks_json_text = json.dumps(
         {
             "hooks": {
@@ -59,19 +67,40 @@ def test_condensing_hook_prompt_should_return_the_agent_hook_that_names_the_extr
                     {"matcher": "Bash", "hooks": [{"type": "command", "command": "x"}]},
                     {
                         "matcher": "Bash",
-                        "hooks": [
-                            {
-                                "type": "agent",
-                                "if": "Bash(*compaction_user_messages.py *)",
-                                "prompt": "condense $ARGUMENTS",
-                            }
-                        ],
+                        "hooks": [{"type": "command", "command": "y"}, CONDENSING_HOOK],
                     },
                 ]
             }
         }
     )
-    assert trim_eval.condensing_hook_prompt(hooks_json_text) == "condense $ARGUMENTS"
+    assert trim_eval.condensing_hook_group(hooks_json_text) == {
+        "matcher": "Bash",
+        "hooks": [CONDENSING_HOOK],
+    }
+
+
+def test_run_settings_should_register_the_hook_on_the_chosen_model_with_the_allow_rules() -> None:
+    hook_group = {"matcher": "Bash", "hooks": [CONDENSING_HOOK]}
+    all_allow_rules = ["Read(~/.claude/compaction-recall/**)"]
+    assert trim_eval.run_settings(hook_group, all_allow_rules, "sonnet") == {
+        "permissions": {"allow": all_allow_rules},
+        "hooks": {
+            "PostToolUse": [{"matcher": "Bash", "hooks": [{**CONDENSING_HOOK, "model": "sonnet"}]}]
+        },
+    }
+
+
+def test_debug_log_reason_should_return_the_last_structured_output_reason() -> None:
+    debug_text = (
+        "2026 [DEBUG] Hooks: Processing agent hook with prompt: condense\n"
+        '2026 [DEBUG] Hooks: Got structured output: {"ok":false,"reason":"draft"}\n'
+        '2026 [DEBUG] Hooks: Got structured output: {"ok":false,"reason":"#1 deploy\\n#2 keep"}\n'
+    )
+    assert trim_eval.debug_log_reason(debug_text) == "#1 deploy\n#2 keep"
+
+
+def test_debug_log_reason_should_return_none_when_no_hook_answered() -> None:
+    assert trim_eval.debug_log_reason("2026 [DEBUG] Read tool permission denied\n") is None
 
 
 def test_hook_reason_should_return_the_last_decision_with_a_reason() -> None:
