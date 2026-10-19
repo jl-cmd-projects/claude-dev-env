@@ -290,6 +290,7 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         const suffixCommand = `python "${join(codexHome, 'hooks', 'blocking', 'pre_tool_use_dispatcher.py.backup')}"`;
         hooksByEvent.PreToolUse.push({ matcher: 'suffix', hooks: [{ type: 'command', command: suffixCommand }] });
         hooksByEvent.CustomEvent = { metadata: 'keep-event' };
+        hooksByEvent.PostToolUse = [{ matcher: 'Write', hooks: [{ type: 'command', command: 'python user-post-tool-use.py' }] }];
         const expectedUserHooks = JSON.parse(JSON.stringify(hooksByEvent));
         for (const eachGroup of Object.values(expectedUserHooks).flat()) {
             if (eachGroup.hooks && eachGroup.metadata) eachGroup.hooks.shift();
@@ -315,12 +316,11 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
         assert.equal(allPackageStopGroups.length, 1);
         migratedHooks.hooks.Stop = migratedHooks.hooks.Stop.filter(eachGroup => !allPackageStopGroups.includes(eachGroup));
-        const allPackagePostToolUseCommands = migratedHooks.hooks.PostToolUse
-            .flatMap(eachGroup => eachGroup.hooks)
-            .map(eachHook => eachHook.command);
-        assert.equal(allPackagePostToolUseCommands.length, 1);
-        assert.match(allPackagePostToolUseCommands[0], /owned_pr_review_loop\.py/);
-        delete migratedHooks.hooks.PostToolUse;
+        const allPackagePostToolUseGroups = migratedHooks.hooks.PostToolUse.filter(eachGroup =>
+            eachGroup.hooks.some(eachHook => eachHook.command.includes('owned_pr_review_loop.py')));
+        assert.equal(allPackagePostToolUseGroups.length, 1);
+        assert.equal(allPackagePostToolUseGroups[0].hooks.length, 1);
+        migratedHooks.hooks.PostToolUse = migratedHooks.hooks.PostToolUse.filter(eachGroup => !allPackagePostToolUseGroups.includes(eachGroup));
         assert.deepEqual(migratedHooks, { enabled: false, metadata: 'keep-file', hooks: expectedUserHooks });
         assert.equal(readFileSync(configPath, 'utf8'), disabledConfig);
         const firstInstall = readFileSync(codexHooksPath, 'utf8');
