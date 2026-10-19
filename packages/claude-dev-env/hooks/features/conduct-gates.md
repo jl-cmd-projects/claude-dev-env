@@ -24,7 +24,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 
 - `blocking/reply_length_gate.py` runs on `PreToolUse`, matcher `mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision|AskUserQuestion|mcp__hearthbot__post_widget`, timeout `10` seconds in `hooks.json`.
 - `blocking/final_reply_gate.py` runs on `Stop`, timeout `10` seconds in `hooks.json`.
-- `blocking/open_tasks_stop_gate.py` runs on `Stop`, timeout `10` seconds in `hooks.json`. The installer also registers it on Codex `Stop` and as a native Cursor `stop` entry in `~/.cursor/hooks.json`, where a block also returns `followup_message`. A Cursor stop with status `aborted` or `error` passes.
+- `blocking/open_tasks_stop_gate.py` runs on `Stop`, timeout `10` seconds in `hooks.json`. The installer also registers it on Codex `Stop` and as a native Cursor `stop` entry in `~/.cursor/hooks.json`, where a block also returns `followup_message`. A Cursor stop with status `aborted` or `error` passes. A Cursor stop whose `loop_count` is 5 or more passes, because a copy Cursor imports from `~/.claude/settings.json` has no follow-up limit.
 - The claim judge runs on `PreToolUse`, matcher `mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision`, timeout `30` seconds in `hooks.json`.
 - `blocking/chat_reply_gate.py` runs on `UserPromptSubmit`, matcher empty, timeout `10` seconds, on `MessageDisplay`, timeout `100` seconds, and on `SessionEnd`, timeout `3` seconds, in `hooks.json`.
 - `blocking/edit_marker_gate.py` runs on `PreToolUse`, matcher `mcp__.*__update_message`, timeout `10` seconds in `hooks.json`.
