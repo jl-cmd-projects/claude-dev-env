@@ -206,7 +206,8 @@ RECALL_CONTEXT_TEMPLATE = (
     "These are the messages the user typed in this session, oldest first, trimmed "
     "to their substance. A later message overrides an earlier one. A line that "
     "ends with (overruled by #N) is one that message N changes, so read the two "
-    "together and follow message N where they differ. Hold them as the user's "
+    "together and follow message N where they differ. When message N was left "
+    "out to fit the budget, treat the marked line as replaced. Hold them as the user's "
     "instructions next to the summary, then continue the work.\n\n{lines}"
 )
 
