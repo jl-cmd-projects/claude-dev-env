@@ -16,6 +16,8 @@ Put exact explanation and sources in a collapsed disclosure beneath the detail d
 
 Scope CSS selectors and DOM queries to the widget root. Give SVG symbols and control IDs unique instance prefixes. A second widget on the same Page must not change the first widget or host styles.
 
+Keep the widget in a light color scheme when its host uses a dark theme. Reset inherited text colors, button opacity, and text shadows within the root. Use explicit dark teal text and visible borders on light detail controls. Use dark teal focus outlines on light surfaces and lime focus outlines in the dark toolbar. Verify selected and unselected selector labels, close controls, and related-step labels under host theme overrides.
+
 Verify the screenshot at the 1440 pixel desktop size with the panel both open and closed. Check every node, mini-diagram, related-step jump, disclosure reset, source link, title, and connection. Check the stacked panel on narrow screens. Verify two widget instances together and confirm host styles remain unchanged. Missing source or incomplete coverage must remain available in the review notes.
 
 Use the shipping-flow hierarchy: compact navigation, one clear flow, and detail on demand. Keep the top dashboard to short PR selectors. A relevant flow-step card can contain a small chart. Its expansion shows the fuller chart, mechanism diagram, related steps, and collapsed evidence. Preserve the reference's line icons, restrained palette, spacious routing, and clear conditional paths. Avoid chart galleries, large preview tiles, and duplicated summary plots above the flow.

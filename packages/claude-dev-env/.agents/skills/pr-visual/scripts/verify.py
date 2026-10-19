@@ -144,6 +144,38 @@ def _verify_isolation(page: Page, source: str) -> None:
     assert page.locator(c.HOST_FIXTURE_SELECTOR).evaluate(c.BACKGROUND_EXPRESSION) == background
     all_ids = page.locator("[id]").evaluate_all(c.READ_IDS_EXPRESSION)
     assert len(all_ids) == len(set(all_ids)), "Widget instances share SVG or control IDs"
+    _verify_host_contrast(page, all_roots.nth(0))
+
+
+def _luminance(color: str) -> float:
+    channels = [int(each_component) / c.RGB_CHANNEL_MAXIMUM for each_component in re.findall(c.RGB_COMPONENT_PATTERN, color)]
+    linear = [each_channel / c.SRGB_LINEAR_DIVISOR if each_channel <= c.SRGB_LINEAR_THRESHOLD else ((each_channel + c.SRGB_OFFSET) / c.SRGB_SCALE) ** c.SRGB_EXPONENT for each_channel in channels]
+    return sum(each_channel * each_weight for each_channel, each_weight in zip(linear, c.ALL_LUMINANCE_WEIGHTS, strict=True))
+
+
+def _verify_host_contrast(page: Page, root: Locator) -> None:
+    page.add_style_tag(content=c.HOST_THEME_STYLES)
+    assert page.locator("body").evaluate(c.CONTROL_STYLES_EXPRESSION)["scheme"] == "dark"
+    assert page.locator(c.HOST_FIXTURE_SELECTOR).evaluate(c.CONTROL_STYLES_EXPRESSION)["color"] == c.WHITE_COLOR
+    assert root.evaluate(c.CONTROL_STYLES_EXPRESSION)["scheme"] == "light"
+    all_controls = root.locator("button")
+    for each_index in range(all_controls.count()):
+        control = all_controls.nth(each_index)
+        styles = control.evaluate(c.CONTROL_STYLES_EXPRESSION)
+        assert styles["opacity"] == "1" and styles["shadow"] == "none"
+        foreground, background = sorted((_luminance(styles["color"]), _luminance(styles["background"])))
+        assert (background + c.CONTRAST_OFFSET) / (foreground + c.CONTRAST_OFFSET) >= c.MINIMUM_TEXT_CONTRAST
+        children = control.locator("span")
+        for each_child in range(children.count()):
+            assert children.nth(each_child).evaluate(c.CONTROL_STYLES_EXPRESSION)["color"] == styles["color"]
+    close = root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL)
+    assert close.evaluate(c.CONTROL_STYLES_EXPRESSION)["color"] == c.TEAL_COLOR
+    assert close.evaluate(c.CONTROL_STYLES_EXPRESSION)["border"] == c.CONTROL_BORDER_COLOR
+    page.keyboard.press("Tab")
+    close.focus()
+    assert close.evaluate(c.CONTROL_STYLES_EXPRESSION)["outline"] == c.TEAL_COLOR
+    root.get_by_role("button", name="Fit", exact=True).focus()
+    assert root.get_by_role("button", name="Fit", exact=True).evaluate(c.CONTROL_STYLES_EXPRESSION)["outline"] == c.LIME_COLOR
 
 
 def verify(path: Path, proof_directory: Path, browser_path: str | None = None, should_disable_sandbox: bool = False) -> None:
@@ -171,7 +203,7 @@ def verify(path: Path, proof_directory: Path, browser_path: str | None = None, s
         _verify_isolation(page, path.read_text(encoding="utf-8"))
         assert not all_errors, all_errors
         browser.close()
-    report = {"input": str(path), "diagrams": all_verdicts, "browser_errors": all_errors, "mobile_stacked_panel": "pass", "multiple_widget_isolation": "pass"}
+    report = {"input": str(path), "diagrams": all_verdicts, "browser_errors": all_errors, "mobile_stacked_panel": "pass", "multiple_widget_isolation": "pass", "dark_host_contrast": "pass"}
     (proof_directory / c.REPORT_NAME).write_text(json.dumps(report, indent=c.JSON_INDENT), encoding="utf-8")
     print(json.dumps(report, indent=c.JSON_INDENT))
 

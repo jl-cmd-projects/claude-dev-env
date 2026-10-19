@@ -68,6 +68,22 @@ MAIN_FRAGMENT_PATTERN = r"<main data-pr-visual>.*?</main>"
 STYLE_FRAGMENT_PATTERN = r"<style>.*?</style>"
 HOST_FIXTURE_HTML = '<div class="toolbar" id="host-toolbar">Host toolbar</div>'
 HOST_FIXTURE_SELECTOR = "#host-toolbar"
+HOST_THEME_STYLES = 'body{color-scheme:dark;color:white;background:#121212}button{color:white;opacity:.45;text-shadow:0 0 2px white}span{color:#cccccc}'
+CONTROL_STYLES_EXPRESSION = '(n)=>{const s=getComputedStyle(n);return {color:s.color,background:s.backgroundColor,opacity:s.opacity,shadow:s.textShadow,scheme:s.colorScheme,border:s.borderTopColor,outline:s.outlineColor}}'
+TEAL_COLOR = "rgb(23, 53, 63)"
+WHITE_COLOR = "rgb(255, 255, 255)"
+LIME_COLOR = "rgb(216, 246, 135)"
+CONTROL_BORDER_COLOR = "rgb(135, 155, 142)"
+MINIMUM_TEXT_CONTRAST = 4.5
+RGB_COMPONENT_PATTERN = r"\d+"
+RGB_CHANNEL_MAXIMUM = 255
+SRGB_LINEAR_THRESHOLD = 0.04045
+SRGB_LINEAR_DIVISOR = 12.92
+SRGB_OFFSET = 0.055
+SRGB_SCALE = 1.055
+SRGB_EXPONENT = 2.4
+ALL_LUMINANCE_WEIGHTS = (0.2126, 0.7152, 0.0722)
+CONTRAST_OFFSET = 0.05
 MOUNT_WIDGET_EXPRESSION = 'html=>{const t=document.createElement("template");t.innerHTML=html;const scripts=[...t.content.querySelectorAll("script:not([type])")];scripts.forEach(n=>n.remove());document.body.append(t.content);scripts.forEach(old=>{const script=document.createElement("script");script.textContent=old.textContent;document.querySelectorAll("[data-pr-visual]").item(document.querySelectorAll("[data-pr-visual]").length-1).append(script)})}'
 
 ALL_CHART_KINDS = ("bar", "line", "scatter")
