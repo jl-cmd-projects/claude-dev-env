@@ -21,6 +21,7 @@ BLOCKED_LINE_PATTERN: re.Pattern[str] = re.compile(
     r"^\s*(?:[-*]\s*)?blocked\b\s*[:\-]?(.*)$", re.IGNORECASE
 )
 BLOCKED_TEXT_GROUP_INDEX = 1
+BOLD_MARKER = "**"
 NAME_END_PATTERN = r"(?![0-9A-Za-z/])"
 PULL_REQUEST_REFERENCE_TEMPLATE = "{owner}/{repository}#{number}"
 PULL_REQUEST_LINE_TEMPLATE = "\n- {url}"

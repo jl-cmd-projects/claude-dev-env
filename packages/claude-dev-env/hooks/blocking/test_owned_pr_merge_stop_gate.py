@@ -141,3 +141,8 @@ def test_main_should_report_a_failed_lookup_on_stderr(
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
     owned_pr_merge_stop_gate.main()
     assert "could not read repos/jl-cmd/snake-game/pulls/9" in capsys.readouterr().err
+
+
+def test_is_reported_blocked_should_accept_a_bold_blocked_label() -> None:
+    reply_text = "**Blocked:** jl-cmd/snake-game#9 - the owner must approve the merge"
+    assert owned_pr_merge_stop_gate.is_reported_blocked(PULL_REQUEST, reply_text)

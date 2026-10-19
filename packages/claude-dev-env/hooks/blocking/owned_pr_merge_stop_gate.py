@@ -37,6 +37,7 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     BLOCK_REASON_SUFFIX,
     BLOCKED_LINE_PATTERN,
     BLOCKED_TEXT_GROUP_INDEX,
+    BOLD_MARKER,
     DECISION_KEY,
     GH_API_SUBCOMMAND,
     GH_JQ_OPTION,
@@ -84,7 +85,8 @@ def is_pull_request_open(all_pull_request_fields: dict[str, str]) -> bool:
 def is_reported_blocked(all_pull_request_fields: dict[str, str], reply_text: str) -> bool:
     """Return True when a Blocked: line of the reply names the pull request.
 
-    The line names it by ``owner/repository#number`` or by its url.
+    The line names it by ``owner/repository#number`` or by its url. Bold
+    markers such as ``**Blocked:**`` are ignored.
 
     Args:
         all_pull_request_fields: The owner, repository, number, and url fields.
@@ -96,7 +98,7 @@ def is_reported_blocked(all_pull_request_fields: dict[str, str], reply_text: str
     )
     all_blocked_texts = (
         each_match.group(BLOCKED_TEXT_GROUP_INDEX).lower()
-        for each_match in map(BLOCKED_LINE_PATTERN.match, reply_text.splitlines())
+        for each_match in map(BLOCKED_LINE_PATTERN.match, reply_text.replace(BOLD_MARKER, "").splitlines())
         if each_match
     )
     all_name_patterns = [re.escape(each_name) + NAME_END_PATTERN for each_name in all_names]
