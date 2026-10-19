@@ -40,43 +40,7 @@ CODEX_USER_MESSAGE_TYPE = "user_message"
 CODEX_AGENT_MESSAGE_TYPE = "agent_message"
 CODEX_IMAGES_KEY = "images"
 
-ALL_ACKNOWLEDGMENT_WORDS = frozenset(
-    {
-        "ok",
-        "okay",
-        "k",
-        "yes",
-        "yep",
-        "yeah",
-        "sure",
-        "go",
-        "ahead",
-        "keep",
-        "going",
-        "continue",
-        "great",
-        "cool",
-        "nice",
-        "perfect",
-        "thanks",
-        "thank",
-        "you",
-        "thx",
-        "ty",
-        "makes",
-        "sense",
-        "sounds",
-        "good",
-        "lgtm",
-        "got",
-        "it",
-        "done",
-        "proceed",
-        "on",
-    }
-)
-MAXIMUM_ACKNOWLEDGMENT_WORDS = 4
-ACKNOWLEDGMENT_WORD_PATTERN = re.compile(r"[a-z']+")
+GRATITUDE_PATTERN = re.compile(r"(?:thanks|thank\s+you|thx|ty)[.!]*", re.IGNORECASE)
 INTERRUPT_PATTERN = re.compile(r"^\[request interrupted by user[^\]]*\]$", re.IGNORECASE)
 PATH_CHARACTERS = r"\w/.:`-"
 PATH_FOLLOWING_CHARACTERS = r"\w/:`-"

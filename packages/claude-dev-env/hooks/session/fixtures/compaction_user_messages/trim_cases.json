@@ -22,6 +22,8 @@
     "transcript": "long_session.jsonl",
     "facts": [
       "tools/photo_import/",
+      "yes go ahead",
+      "keep going",
       "90 seconds",
       "2,000",
       "exif_reader.py",

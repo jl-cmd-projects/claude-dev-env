@@ -69,16 +69,17 @@ def test_trimmed_lines_should_not_read_a_cue_inside_a_longer_word() -> None:
     ]
 
 
-def test_trimmed_lines_should_drop_acknowledgments_and_interrupts() -> None:
+def test_trimmed_lines_should_drop_gratitude_and_interrupts_and_keep_approvals() -> None:
     all_messages = [
         message(1, "ship it to staging"),
-        message(2, "ok thanks"),
+        message(2, "thanks"),
         message(3, "[Request interrupted by user]"),
         message(4, "yes, go ahead"),
         message(5, "ok but use port 8443"),
     ]
     assert trim.trimmed_lines(all_messages) == [
         "#1 ship it to staging",
+        "#4 yes, go ahead",
         "#5 ok but use port 8443",
     ]
 
@@ -150,4 +151,19 @@ def test_recall_text_should_keep_the_first_and_the_newest_lines_within_budget() 
 
 def test_recall_text_should_return_none_when_nothing_carries_content() -> None:
     assert trim.recall_text([]) is None
-    assert trim.recall_text([message(1, "ok"), message(2, "thanks")]) is None
+    assert trim.recall_text([message(1, "thank you"), message(2, "thanks")]) is None
+
+
+def test_recall_text_should_keep_approval_and_continuation_messages() -> None:
+    for approval in (
+        "yes, go ahead",
+        "yes",
+        "ok",
+        "sure",
+        "sounds good",
+        "continue",
+        "proceed",
+        "you",
+        "thanks 8443",
+    ):
+        assert trim.recall_text([message(1, approval)]) == f"#1 {approval}"

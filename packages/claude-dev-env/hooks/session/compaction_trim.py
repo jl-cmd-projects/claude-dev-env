@@ -3,13 +3,14 @@
 ::
 
     #1 "Could you please add the retry to the deploy script"
-    #2 "ok"
+    #2 "thanks"
     #3 "Change of plan, drop the retry from the deploy script"
     -> #1 add retry to deploy script (overruled by #3)
        #3 Change of plan, drop retry from deploy script
 
 The trim drops filler phrases, articles, and HTML comments, and drops a
-message that only acknowledges, such as ``ok`` or ``thanks``. An artifact
+message that only expresses gratitude, such as ``thanks``. Approvals and
+continuation requests stay in the recall. An artifact
 comment keeps its link, its anchor, and the quoted comment, and loses the
 relay text around them. Text inside backticks and tokens
 that hold a path, a link, or a version stay as typed. A message that reverses
@@ -31,8 +32,6 @@ if _session_directory not in sys.path:
 
 from compaction_user_messages import TypedMessage
 from hooks_constants.compaction_user_messages_constants import (
-    ACKNOWLEDGMENT_WORD_PATTERN,
-    ALL_ACKNOWLEDGMENT_WORDS,
     ALL_STOP_WORDS,
     ARTICLE_PATTERN,
     ARTIFACT_COMMENT_MARKER,
@@ -48,11 +47,11 @@ from hooks_constants.compaction_user_messages_constants import (
     CUT_MESSAGE_SUFFIX_TEMPLATE,
     DANGLING_COMMA_PATTERN,
     FILLER_PATTERN,
+    GRATITUDE_PATTERN,
     HTML_COMMENT_PATTERN,
     INTERRUPT_PATTERN,
     LEFT_OUT_LINES_TEMPLATE,
     LINE_SEPARATOR,
-    MAXIMUM_ACKNOWLEDGMENT_WORDS,
     MAXIMUM_MESSAGE_CHARACTERS,
     MAXIMUM_RECALL_CHARACTERS,
     OVERRULED_SUFFIX_TEMPLATE,
@@ -66,11 +65,8 @@ from hooks_constants.compaction_user_messages_constants import (
 
 
 def _is_acknowledgment(text: str) -> bool:
-    if INTERRUPT_PATTERN.match(text.strip()):
-        return True
-    all_words = ACKNOWLEDGMENT_WORD_PATTERN.findall(text.casefold())
-    return 0 < len(all_words) <= MAXIMUM_ACKNOWLEDGMENT_WORDS and set(all_words) <= (
-        ALL_ACKNOWLEDGMENT_WORDS
+    return bool(
+        INTERRUPT_PATTERN.fullmatch(text.strip()) or GRATITUDE_PATTERN.fullmatch(text.strip())
     )
 
 

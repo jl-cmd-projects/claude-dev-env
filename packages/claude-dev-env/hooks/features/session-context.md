@@ -5,7 +5,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 ## Checks
 
 - `session/skill_loaded_reminder.py` injects a poteto-mode reminder when the skill needs loading or reloading.
-- `session/compaction_recall_prompt.py` returns every message the user typed after a compaction. `session/compaction_user_messages.py` reads them from a Claude Code transcript or a Codex rollout. `session/compaction_trim.py` trims each one in Python: it drops filler, articles, and acknowledgments, keeps backtick spans and paths as typed, and marks a reversed message `(overruled by #N)`. No model runs, so the hook works on Claude Code and Codex with no account.
+- `session/compaction_recall_prompt.py` returns every message the user typed after a compaction. `session/compaction_user_messages.py` reads them from a Claude Code transcript or a Codex rollout. `session/compaction_trim.py` trims each one in Python: it drops filler, articles, and gratitude, keeps approvals, continuation requests, backtick spans, and paths as typed, and marks a reversed message `(overruled by #N)`. No model runs, so the hook works on Claude Code and Codex with no account.
 - `session/task_tool_prompt.py` injects a task tracking directive at session start.
 - `session/working_style_prompt.py` injects the session's working style at session start.
 - `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled.

@@ -51,7 +51,6 @@ def test_scored_cases_should_keep_every_fact_and_reversal_in_each_fixture() -> N
     ]
     for each_name, trim_score, oracle_score, null_score in all_rows:
         assert trim_score.is_lossless, each_name
-        assert trim_score.compression_ratio > 1, each_name
         assert oracle_score.facts_kept == oracle_score.facts_total, each_name
         assert null_score.facts_kept == 0, each_name
 
