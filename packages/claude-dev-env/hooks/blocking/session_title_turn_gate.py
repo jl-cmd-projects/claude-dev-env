@@ -218,7 +218,7 @@ def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
 
 
 def turn_block_reason(
-    all_entries: list[dict[str, object]], is_stop_hook_active: bool = False
+    all_entries: list[dict[str, object]], is_stop_hook_active: bool
 ) -> str | None:
     """Return the reason to hold the turn, or None when the turn may end.
 
