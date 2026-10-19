@@ -18,7 +18,7 @@ Dan North (2006): naming tests as sentences keeps focus on the **next behaviour*
 
 ## Soap-opera personas
 
-When you lack full personas, introduce **short-lived characters** with a name and role and deepen them as scenarios grow—like a serial drama adding cast over episodes (Smart & Molak §7.6.5). Embed **\[Name], the \[role]** in scenario titles or setup where the actor changes behavior.
+When you lack full personas, introduce **short-lived characters** with a name and role and develop them as scenarios grow—like a serial drama adding cast over episodes (Smart & Molak §7.6.5). Embed **\[Name], the \[role]** in scenario titles or setup where the actor changes behavior.
 
 ## Example (JavaScript-style)
 

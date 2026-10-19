@@ -36,7 +36,6 @@ function runInstaller(homeDirectory, extraArguments, environmentOverrides = {}) 
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
-            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -149,10 +148,11 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexSessionStartCommands.length, 1, 'Codex gets the compaction recall and no other SessionStart hook');
         assert.match(allCodexSessionStartCommands[0], /compaction_recall_prompt\.py/);
-        assert.ok(
-            firstCodexHooks.hooks.UserPromptSubmit.some(group =>
+        assert.equal(
+            (firstCodexHooks.hooks.UserPromptSubmit ?? []).some(group =>
                 group.hooks.some(hook => String(hook.command).includes('deepen_first_prompt.py')),
             ),
+            false,
         );
         assert.equal(
             firstCodexHooks.hooks.PreToolUse.some(group => group.matcher === 'Write|Edit|MultiEdit|apply_patch'),
@@ -312,10 +312,10 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
         assert.equal(allSpawnGroups.length, 2);
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
-        const allPackagePromptCommands = migratedHooks.hooks.UserPromptSubmit
+        const allPackagePromptCommands = (migratedHooks.hooks.UserPromptSubmit ?? [])
             .flatMap(eachGroup => eachGroup.hooks)
             .map(eachHook => eachHook.command);
-        assert.ok(allPackagePromptCommands.some(eachCommand => eachCommand.includes('deepen_first_prompt.py')));
+        assert.equal(allPackagePromptCommands.some(eachCommand => eachCommand.includes('deepen_first_prompt.py')), false);
         delete migratedHooks.hooks.UserPromptSubmit;
         const allPackageStopGroups = migratedHooks.hooks.Stop.filter(eachGroup =>
             eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
@@ -377,27 +377,91 @@ test('uninstall removes the routing hook and keeps a Codex user hook', () => {
     }
 });
 
-test('should ship the deepen skill to Cursor and the deepen block to Codex, and remove both on uninstall', () => {
-    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-deepen-surfaces-'));
+const RETIRED_DEEPEN_CODEX_BLOCK = '<!-- claude-dev-env deepen: start -->\nDeepen the first interactive user task.\n<!-- claude-dev-env deepen: end -->\n';
+
+function allSettingsHookCommands(settingsPath) {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    return Object.values(settings.hooks ?? {})
+        .flatMap(allGroups => allGroups)
+        .flatMap(group => group.hooks ?? [])
+        .map(hook => String(hook.command));
+}
+
+function assertNoDeepenPieceInstalled(homeDirectory, cursorSkillPath, codexGuidancePath, settingsPath) {
+    assert.equal(existsSync(cursorSkillPath), false, 'the Cursor deepen skill is gone');
+    assert.equal(existsSync(join(homeDirectory, '.claude', 'skills', 'deepen')), false, 'the Claude deepen skill is gone');
+    assert.equal(existsSync(join(homeDirectory, '.claude', 'commands', 'deepen.md')), false, 'the /deepen command is gone');
+    const codexGuidance = existsSync(codexGuidancePath) ? readFileSync(codexGuidancePath, 'utf8') : '';
+    assert.doesNotMatch(codexGuidance, /claude-dev-env deepen/);
+    assert.equal(
+        allSettingsHookCommands(settingsPath).some(command => command.includes('deepen_first_prompt.py')),
+        false,
+        'settings.json runs no deepen hook',
+    );
+    const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+    const cursorHooksText = existsSync(cursorHooksPath) ? readFileSync(cursorHooksPath, 'utf8') : '';
+    assert.equal(cursorHooksText.includes('deepen_first_prompt.py'), false, 'Cursor runs no deepen hook');
+    const installedHookPath = join(homeDirectory, '.claude', 'hooks', 'session', 'deepen_first_prompt.py');
+    if (existsSync(installedHookPath)) {
+        assert.match(readFileSync(installedHookPath, 'utf8'), /claude-dev-env retired hook stand-in/);
+    }
+}
+
+test('a full install over an old deepen install removes every deepen piece, and a repeat install keeps them out', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-deepen-retired-'));
     try {
-        const sourceSkillPath = join(PACKAGE_DIRECTORY, '.agents', 'skills', 'deepen', 'SKILL.md');
+        const claudeDirectory = join(homeDirectory, '.claude');
         const cursorSkillPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'skills', 'deepen', 'SKILL.md');
         const codexGuidancePath = join(homeDirectory, '.codex', 'AGENTS.md');
-        const manifestPath = join(homeDirectory, '.claude', '.claude-dev-env-manifest.json');
+        const manifestPath = join(claudeDirectory, '.claude-dev-env-manifest.json');
+        const settingsPath = join(claudeDirectory, 'settings.json');
+        const retiredPluginVersion = join(claudeDirectory, 'plugins', 'cache', 'claude-dev-env', 'deepen-first-prompt', '0.1.0');
+        const fakeClaudeLogPath = join(homeDirectory, 'fake-claude.log');
+        const orphanedMarkerPath = join(retiredPluginVersion, '.orphaned_at');
+        const isWindows = process.platform === 'win32';
+        const fakeClaudePath = join(homeDirectory, isWindows ? 'fake-claude.cmd' : 'fake-claude.sh');
+        writeFileSync(
+            fakeClaudePath,
+            isWindows
+                ? `@echo off\r\n>>"${fakeClaudeLogPath}" echo %*\r\ntype nul > "${orphanedMarkerPath}"\r\n`
+                : `#!/bin/sh\necho "$@" >> '${fakeClaudeLogPath}'\ntouch '${orphanedMarkerPath}'\n`,
+            { mode: 0o755 },
+        );
+        const environment = { CDE_CLAUDE_EXECUTABLE: fakeClaudePath };
 
-        runInstaller(homeDirectory, []);
+        runInstaller(homeDirectory, [], environment);
 
-        assert.equal(readFileSync(cursorSkillPath, 'utf8'), readFileSync(sourceSkillPath, 'utf8'));
-        assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).files.includes(cursorSkillPath), true);
-        const codexGuidance = readFileSync(codexGuidancePath, 'utf8');
-        assert.match(codexGuidance, /<!-- claude-dev-env deepen: start -->/);
-        assert.match(codexGuidance, /CDE_DEEPEN:v1/);
+        mkdirSync(dirname(cursorSkillPath), { recursive: true });
+        writeFileSync(cursorSkillPath, '# deepen\n');
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        manifest.files.push(cursorSkillPath);
+        writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+        writeFileSync(codexGuidancePath, `${readFileSync(codexGuidancePath, 'utf8')}${RETIRED_DEEPEN_CODEX_BLOCK}`);
+        const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+        const reminderCommand = settings.hooks.UserPromptSubmit
+            .flatMap(group => group.hooks)
+            .map(hook => hook.command)
+            .find(command => command.includes('skill_loaded_reminder.py'));
+        settings.hooks.UserPromptSubmit.push({
+            matcher: '',
+            hooks: [{ type: 'command', command: reminderCommand.replace('skill_loaded_reminder.py', 'deepen_first_prompt.py'), timeout: 10 }],
+        });
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+        const cursorHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));
+        cursorHooks.hooks.beforeSubmitPrompt = [{ command: "python3 '/old/hooks/session/deepen_first_prompt.py'", timeout: 10 }];
+        writeFileSync(cursorHooksPath, JSON.stringify(cursorHooks, null, 2));
+        mkdirSync(retiredPluginVersion, { recursive: true });
 
-        runInstaller(homeDirectory, ['--uninstall']);
+        runInstaller(homeDirectory, [], environment);
 
-        assert.equal(existsSync(cursorSkillPath), false);
-        const remainingGuidance = existsSync(codexGuidancePath) ? readFileSync(codexGuidancePath, 'utf8') : '';
-        assert.doesNotMatch(remainingGuidance, /claude-dev-env deepen/);
+        assertNoDeepenPieceInstalled(homeDirectory, cursorSkillPath, codexGuidancePath, settingsPath);
+        assert.match(readFileSync(fakeClaudeLogPath, 'utf8'), /^plugin uninstall deepen-first-prompt@claude-dev-env\r?$/m);
+        assert.equal(existsSync(retiredPluginVersion), false, 'the retired plugin cache is gone');
+
+        runInstaller(homeDirectory, [], environment);
+
+        assertNoDeepenPieceInstalled(homeDirectory, cursorSkillPath, codexGuidancePath, settingsPath);
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }
@@ -589,7 +653,7 @@ test('a full install writes only native Cursor hooks: AGENTS.md on sessionStart 
         assert.equal(gateCommands.length, 1);
         assert.deepEqual(cursorHooks.hooks.stop.filter(entry => entry.command === userStopEntry.command), [userStopEntry]);
         assert.equal(execSync(gateCommands[0], { input: '{"conversation_id": "c-1", "status": "completed"}', encoding: 'utf8' }), '');
-        assert.deepEqual(cursorHooks.hooks.beforeSubmitPrompt, [{ command: "python3 '/old/hooks/session/deepen_first_prompt.py'", timeout: 10 }]);
+        assert.equal(cursorHooks.hooks.beforeSubmitPrompt, undefined);
 
         runInstaller(homeDirectory, ['--uninstall']);
         const remainingHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));

@@ -4,8 +4,7 @@
 The gate reads the title a tool whose name ends in __set_session_title is about
 to set. It denies the call when the title breaks one of these rules:
 
-- It starts with one status emoji (red flag, no entry, check mark or
-  hourglass) and a space.
+- It starts with one status emoji (red flag, check mark or hourglass) and a space.
 - It is one line.
 - The name after the emoji has 1 to 25 characters.
 - It ends without punctuation.

@@ -35,17 +35,17 @@ export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     optOutVariable: 'CDE_INSTALL_USAGE_WRAPUP',
 });
 
-export const DEEPEN_FIRST_PROMPT_PLUGIN_SPEC = Object.freeze({
-    name: 'deepen-first-prompt',
-    label: 'Deepen-first-prompt',
-    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
-    marketplaceName: 'claude-dev-env',
-    sparsePaths: Object.freeze(['.claude-plugin', 'packages/deepen-first-prompt']),
-    pluginIdentifier: 'deepen-first-prompt@claude-dev-env',
-    hosts: Object.freeze(['claude']),
-    optOutFlag: '--no-deepen-first-prompt',
-    optOutVariable: 'CDE_INSTALL_DEEPEN_FIRST_PROMPT',
-});
+/**
+ * Plugins this installer used to install and now removes from each Claude home
+ * that still holds them, so an update leaves none behind.
+ */
+export const ALL_RETIRED_PLUGIN_SPECS = Object.freeze([
+    Object.freeze({
+        name: 'deepen-first-prompt',
+        marketplaceName: 'claude-dev-env',
+        pluginIdentifier: 'deepen-first-prompt@claude-dev-env',
+    }),
+]);
 
 export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
     name: 'subagent-models',
@@ -340,4 +340,51 @@ export function installMarketplacePlugins(allSpecs, options = {}, dependencies =
     const status = failedCount > 0 ? 'failed' : (installedCount > 0 ? 'installed' : 'skipped');
     const warnings = hostOutcomes.map(outcome => outcome.warning).filter(Boolean);
     return { status, hosts: hostOutcomes, warning: warnings.join(' ') || null };
+}
+
+/**
+ * Uninstall each retired plugin a Claude home still holds.
+ *
+ * A home holds a retired plugin when its plugin cache has a folder for it. For
+ * each such plugin the step runs `claude plugin uninstall` and then deletes
+ * the cached versions Claude Code marked as orphaned. A home with no cached
+ * folder runs no command, so a fresh install and a second update both leave
+ * the home as it stands. A missing `claude` command skips the step. A failed
+ * uninstall is recorded in `failedRemovals` with its detail, and its cached
+ * versions stay on disk.
+ *
+ * @param {ReadonlyArray<{name: string, marketplaceName: string, pluginIdentifier: string}>} allRetiredSpecs The retired plugins.
+ * @param {object} options Removal targets.
+ * @param {string|undefined} options.claudeRoot The managed Claude root.
+ * @param {Record<string, string|undefined>} [options.environment] The process environment.
+ * @param {object} [dependencies] Seams for the command runner.
+ * @returns {{removedIdentifiers: string[], removedVersionPaths: string[], failedRemovals: Array<{pluginIdentifier: string, detail: string}>}} What the step removed and what it could not.
+ */
+export function removeRetiredMarketplacePlugins(allRetiredSpecs, options, dependencies = {}) {
+    const environment = options.environment ?? process.env;
+    const runCommand = dependencies.runCommand ?? runHostCommand;
+    const hostDefinition = HOST_DEFINITIONS.claude;
+    const executable = environment[hostDefinition.executableVariable] || hostDefinition.executable;
+    const removedIdentifiers = [];
+    const removedVersionPaths = [];
+    const failedRemovals = [];
+    if (!options.claudeRoot) return { removedIdentifiers, removedVersionPaths, failedRemovals };
+    for (const eachSpec of allRetiredSpecs) {
+        const versionsDirectory = hostDefinition.orphanedVersionsDirectory(options.claudeRoot, eachSpec);
+        if (!existsSync(versionsDirectory)) continue;
+        const outcome = runCommand(
+            executable,
+            ['plugin', hostDefinition.uninstallVerb, eachSpec.pluginIdentifier],
+            { environment: { [hostDefinition.homeVariable]: options.claudeRoot } },
+        );
+        if (namesAnAbsentCommand(outcome)) break;
+        if (outcome.status !== 0 || outcome.error) {
+            const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+            failedRemovals.push({ pluginIdentifier: eachSpec.pluginIdentifier, detail });
+            continue;
+        }
+        removedIdentifiers.push(eachSpec.pluginIdentifier);
+        removedVersionPaths.push(...removeOrphanedPluginVersions(versionsDirectory));
+    }
+    return { removedIdentifiers, removedVersionPaths, failedRemovals };
 }

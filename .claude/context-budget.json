@@ -128,20 +128,6 @@
       "char_limit": 1500
     },
     {
-      "name": "deepen first prompt",
-      "command": [
-        "env",
-        "CDE_DEEPEN_REWRITE=CDE_DEEPEN:v1\nSCOPE (role): Keep every build green across the repository\nEXAMPLES (illustration only): login failure\nZOOM-IN BLOCKER: none\nRead the workflow log and repair the shared gate.\n",
-        "python3",
-        "packages/claude-dev-env/hooks/session/deepen_first_prompt.py"
-      ],
-      "stdin": {
-        "hook_event_name": "UserPromptSubmit",
-        "prompt": "Keep the build green. For example, the login failure."
-      },
-      "char_limit": 4000
-    },
-    {
       "name": "spawn readiness reminder",
       "command": [
         "python3",

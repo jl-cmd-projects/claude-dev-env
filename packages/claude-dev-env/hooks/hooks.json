@@ -286,11 +286,6 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/deepen_first_prompt.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
             "timeout": 120
           },
@@ -388,6 +383,11 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/open_tasks_stop_gate.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/session_title_turn_gate.py",
             "timeout": 10
           }
         ]

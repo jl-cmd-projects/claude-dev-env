@@ -9,14 +9,6 @@ export const QUESTION_PRESENTATION_BLOCK_START = '<!-- claude-dev-env question p
 export const QUESTION_PRESENTATION_BLOCK_END = '<!-- claude-dev-env question presentation: end -->';
 export const DEEPEN_GUIDANCE_BLOCK_START = '<!-- claude-dev-env deepen: start -->';
 export const DEEPEN_GUIDANCE_BLOCK_END = '<!-- claude-dev-env deepen: end -->';
-export const DEEPEN_GUIDANCE_TEXT = [
-    'Deepen the first interactive user task before any work starts.',
-    'Follow DeepStack intake. Write SCOPE (role), EXAMPLES (illustration only), and ZOOM-IN BLOCKER before any plan.',
-    'The worker prompt carries the marker CDE_DEEPEN:v1 on line 1 and the SCOPE (role) line.',
-    'On demand, follow the DeepStack skill or /deepen with a task.',
-    'Cursor Cloud registers the DeepStack SessionStart hook and the first-task gate. Use DeepStack intake on the launch prompt.',
-    'Codex cloud orchestration skips command hooks. This block is the local Codex instruction.',
-].join('\n');
 
 const WINDOWS_LONG_PATH_PREFIX = '\\\\?\\';
 
@@ -122,23 +114,6 @@ export function writeCodexPackageGuidance(codexHome, packageGuidanceText, allPac
         allPackageGuidancePaths,
         currentText => withPackageGuidanceBlock(currentText, packageGuidanceText),
     );
-}
-
-export function writeCodexDeepenGuidance(codexHome, deepenText = DEEPEN_GUIDANCE_TEXT) {
-    const agentsPath = join(codexHome, 'AGENTS.md');
-    const agentsEntry = lstatSync(agentsPath, { throwIfNoEntry: false });
-    if (agentsEntry && !agentsEntry.isFile()) return null;
-    const currentText = agentsEntry ? readFileSync(agentsPath, 'utf8') : '';
-    const block = managedBlock(DEEPEN_GUIDANCE_BLOCK_START, deepenText, DEEPEN_GUIDANCE_BLOCK_END);
-    const replacedText = withBlockReplaced(
-        currentText, DEEPEN_GUIDANCE_BLOCK_START, DEEPEN_GUIDANCE_BLOCK_END, block,
-    );
-    const separator = currentText && !currentText.endsWith('\n') ? '\n' : '';
-    const updatedText = replacedText ?? `${currentText}${separator}${block}`;
-    if (updatedText === currentText) return null;
-    mkdirSync(codexHome, { recursive: true });
-    writeFileSync(agentsPath, updatedText, 'utf8');
-    return agentsPath;
 }
 
 export function writeCodexQuestionGuidance(codexHome, policyText) {

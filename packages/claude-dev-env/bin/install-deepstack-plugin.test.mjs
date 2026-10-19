@@ -15,6 +15,7 @@ import {
     installDeepStackForHosts,
     mergeDeepStackCursorHooks,
     removeDeepStackCursorHooks,
+    removeRetiredCursorFirstTaskHook,
 } from './install-deepstack-plugin.mjs';
 import { marketplacePluginsPlan, shouldInstallMarketplacePlugin } from './install-pstack-plugin.mjs';
 
@@ -31,23 +32,23 @@ test('Claude and Codex plans name jl-cmd-projects/DeepStack', () => {
     assert.equal(DEEPSTACK_MARKETPLACE_REPOSITORY, 'jl-cmd-projects/DeepStack');
     assert.equal(deepStackCloneUrl(), 'https://github.com/jl-cmd-projects/DeepStack.git');
     assert.equal(plan.cursor.skillRelativePath, 'skills/deepstack-mode/SKILL.md');
-    assert.equal(plan.cursor.firstTaskHookName, 'deepen_first_prompt.py');
+    assert.equal('firstTaskHookName' in plan.cursor, false);
     assert.throws(() => marketplacePluginsPlan([DEEPSTACK_PLUGIN_SPEC], 'cursor'), /cursor/);
 });
 
-test('cursor hooks are one native sessionStart entry and one native beforeSubmitPrompt entry', () => {
+test('cursor hooks are one native sessionStart entry and the retired first-task entry is dropped', () => {
     const legacySessionGroup = {
         matcher: 'startup|resume|clear|compact',
         hooks: [{ type: 'command', command: "'C:\\Users\\dev\\.cursor\\plugins\\deepstack\\hooks\\session-start.sh' cursor" }],
     };
     const commands = {
         sessionCommand: "'/cursor/plugins/deepstack/hooks/session-start.sh' cursor",
-        firstTaskCommand: "python3 '/claude/hooks/session/deepen_first_prompt.py'",
     };
     const merged = mergeDeepStackCursorHooks({
         hooks: {
             SessionStart: [legacySessionGroup, legacySessionGroup, legacySessionGroup],
             UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'python3 /old/deepen_first_prompt.py', timeout: 10 }] }],
+            beforeSubmitPrompt: [{ command: "python3 '/claude/hooks/session/deepen_first_prompt.py'", timeout: 10 }],
             preToolUse: [],
         },
     }, commands);
@@ -55,7 +56,6 @@ test('cursor hooks are one native sessionStart entry and one native beforeSubmit
         version: 1,
         hooks: {
             sessionStart: [{ command: commands.sessionCommand, timeout: 10 }],
-            beforeSubmitPrompt: [{ command: commands.firstTaskCommand, timeout: 10 }],
             preToolUse: [],
         },
     });
@@ -75,7 +75,7 @@ test('the Windows session command runs the PowerShell script, other platforms th
     }
 });
 
-test('the cursor copy writes the skill and both native hook commands, and removal takes out only those', () => {
+test('the cursor copy writes the skill and the native session hook, and removal takes out only that', () => {
     const root = mkdtempSync(join(tmpdir(), 'deepstack-cursor-'));
     try {
         const source = join(root, 'source');
@@ -89,8 +89,6 @@ test('the cursor copy writes the skill and both native hook commands, and remova
         const outcome = installDeepStackCursor({
             cursorDirectory,
             pluginSourceDirectory: source,
-            firstTaskHookPath: join(root, '.agents', 'hooks', 'session', 'deepen_first_prompt.py'),
-            pythonCommand: '/usr/bin/python3.12',
             platform: 'linux',
         });
         assert.equal(outcome.status, 'installed');
@@ -102,7 +100,7 @@ test('the cursor copy writes the skill and both native hook commands, and remova
         assert.equal(hooks.version, 1);
         assert.equal(hooks.hooks.sessionStart.length, 1);
         assert.match(hooks.hooks.sessionStart[0].command, /session-start\.sh' cursor$/);
-        assert.match(hooks.hooks.beforeSubmitPrompt[0].command, /^\/usr\/bin\/python3\.12 '.*deepen_first_prompt\.py'$/);
+        assert.equal(hooks.hooks.beforeSubmitPrompt, undefined);
         removeDeepStackCursorHooks(cursorDirectory);
         assert.deepEqual(
             JSON.parse(readFileSync(join(cursorDirectory, 'hooks.json'), 'utf8')),
@@ -113,11 +111,41 @@ test('the cursor copy writes the skill and both native hook commands, and remova
     }
 });
 
+test('the retired first-task entry leaves the Cursor hooks file and every other entry stays', () => {
+    const root = mkdtempSync(join(tmpdir(), 'deepstack-cursor-'));
+    try {
+        const hooksPath = join(root, 'hooks.json');
+        writeFileSync(hooksPath, JSON.stringify({
+            version: 1,
+            hooks: {
+                beforeSubmitPrompt: [
+                    { command: "python3 '/home/dev/.claude/hooks/session/deepen_first_prompt.py'", timeout: 10 },
+                    { command: './user-prompt.sh' },
+                ],
+                stop: [{ command: './user-stop.sh' }],
+            },
+        }));
+        assert.equal(removeRetiredCursorFirstTaskHook(root), hooksPath);
+        assert.deepEqual(JSON.parse(readFileSync(hooksPath, 'utf8')), {
+            version: 1,
+            hooks: {
+                beforeSubmitPrompt: [{ command: './user-prompt.sh' }],
+                stop: [{ command: './user-stop.sh' }],
+            },
+        });
+        const cleanText = readFileSync(hooksPath, 'utf8');
+        assert.equal(removeRetiredCursorFirstTaskHook(root), null);
+        assert.equal(readFileSync(hooksPath, 'utf8'), cleanText);
+        assert.equal(removeRetiredCursorFirstTaskHook(join(root, 'absent')), null);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test('a missing plugin tree fails the cursor copy', () => {
     const outcome = installDeepStackCursor({
         cursorDirectory: '/tmp/unused-cursor',
         pluginSourceDirectory: null,
-        firstTaskHookPath: '/tmp/deepen_first_prompt.py',
     });
     assert.equal(outcome.status, 'failed');
     assert.match(outcome.warning, /jl-cmd-projects\/DeepStack/);
@@ -162,7 +190,6 @@ test('the temporary clone is removed once the Cursor copy is written', () => {
             claudeRoot: join(root, 'claude'),
             codexHome: join(root, 'codex'),
             cursorDirectory,
-            firstTaskHookPath: join(root, 'hooks', 'deepen_first_prompt.py'),
             environment: {},
             cloneParentDirectory,
         }, {
@@ -190,7 +217,6 @@ test('a failed clone leaves no temporary folder behind', () => {
             claudeRoot: join(root, 'claude'),
             codexHome: join(root, 'codex'),
             cursorDirectory: join(root, 'cursor'),
-            firstTaskHookPath: join(root, 'hooks', 'deepen_first_prompt.py'),
             environment: {},
             cloneParentDirectory,
         }, { runCommand: absentHostRunner, cloneRepository: () => null });
