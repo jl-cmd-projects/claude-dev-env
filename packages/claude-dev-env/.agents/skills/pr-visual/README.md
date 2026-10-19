@@ -26,4 +26,4 @@ The npm installer ships this skill through `.agents/skills` in full and core ins
 
 When Data is available, the skill can use its chart-selection and quantitative-review workflow and plan integrated visuals for distributions, heatmaps, composition, and uncertainty. These additional families require that workflow's supported renderer.
 
-Integrated reviews start with PR sample cards. Charts appear inside those cards, above the active flow when useful, and inside the matching node details. Render `fixtures/integrated.scene.json` to exercise that layout. Source examples can read numeric Python literals without executing the PR.
+Reviews start with compact PR selectors. Charts live inside relevant flow-step cards and their expansions. Render `fixtures/integrated.scene.json` to exercise that layout. Source examples can read numeric Python literals without executing the PR.

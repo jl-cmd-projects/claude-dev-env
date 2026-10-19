@@ -82,4 +82,7 @@ CHART_X_AXIS = "x"
 ALL_CHART_BASES = ("captured", "source-example")
 ALL_EMBEDDED_CHART_FIELDS = ("title", "caption", "x_label", "y_label", "points")
 
-OVERVIEW_SCREENSHOT_NAME = "overview-cards.png"
+DASHBOARD_SCREENSHOT_NAME = "dashboard.png"
+MAXIMUM_DASHBOARD_HEIGHT = 120
+
+DASHBOARD_SELECTOR = ".tabs"

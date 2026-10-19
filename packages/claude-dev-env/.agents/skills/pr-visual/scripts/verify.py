@@ -91,20 +91,18 @@ def _verify_scene(page: Page, root: Locator, scene: dict, scene_index: int, proo
     return {"pr": scene["pr"]["number"], "nodes_checked": all_nodes.count(), "docked_panel": "pass", "mini_diagrams": "pass", "related_navigation": "pass", "collapsed_sources": "pass", "keyboard_and_zoom": "pass"}
 
 
-def _overview_cards(page: Page, root: Locator, all_scenes: list[dict], proof_directory: Path) -> None:
-    cards = root.locator("[data-review-card]")
-    assert cards.count() == len(all_scenes)
-    assert root.locator(".sample-card [data-embedded-chart]").count() == sum(bool(each_scene.get("summary_chart")) for each_scene in all_scenes)
-    root.locator(".review-overview").screenshot(path=str(proof_directory / c.OVERVIEW_SCREENSHOT_NAME))
+def _dashboard(page: Page, root: Locator, all_scenes: list[dict], proof_directory: Path) -> None:
+    tabs = root.get_by_role("tab")
+    assert tabs.count() == len(all_scenes)
+    assert root.locator(".tabs svg").count() == 0
+    assert root.locator(c.DASHBOARD_SELECTOR).bounding_box()["height"] <= c.MAXIMUM_DASHBOARD_HEIGHT
     for each_index, each_scene in enumerate(all_scenes):
-        cards.nth(each_index).click()
-        assert root.get_by_role("tab").nth(each_index).get_attribute("aria-selected") == "true"
-        assert root.locator(".context-chart").is_visible() == bool(each_scene.get("summary_chart"))
-        if each_scene.get("summary_chart"):
-            owner = next(each_node for each_node in each_scene["nodes"] if each_node["id"] == each_scene["summary_chart"]["node"])
-            assert root.locator(c.DETAIL_TITLE_SELECTOR).inner_text() == c.SPACE_SEPARATOR.join(owner["label"])
-            assert root.locator(".drawer [data-embedded-chart]").count() == int(bool(owner.get("chart")))
-        page.keyboard.press("Escape")
+        tabs.nth(each_index).click()
+        assert tabs.nth(each_index).get_attribute("aria-selected") == "true"
+        assert root.locator(c.DRAWER_SELECTOR).is_hidden()
+        assert root.locator("[data-step-chart]").count() == (0 if each_scene.get("chart") else sum(bool(each_node.get("chart")) for each_node in each_scene["nodes"]))
+    tabs.first.click()
+    root.screenshot(path=str(proof_directory / c.DASHBOARD_SCREENSHOT_NAME))
 
 
 def _verify_mobile(page: Page, root: Locator, proof_directory: Path) -> None:
@@ -167,7 +165,7 @@ def verify(path: Path, proof_directory: Path, browser_path: str | None = None, s
         page.set_content(path.read_text(encoding="utf-8"))
         root = page.locator(c.ROOT_SELECTOR)
         all_scenes = root.locator(c.DATA_SCENES_SELECTOR).evaluate(c.READ_SCENES_EXPRESSION)
-        _overview_cards(page, root, all_scenes, proof_directory)
+        _dashboard(page, root, all_scenes, proof_directory)
         all_verdicts = [_verify_scene(page, root, each_scene, each_index, proof_directory) for each_index, each_scene in enumerate(all_scenes)]
         _verify_mobile(page, root, proof_directory)
         _verify_isolation(page, path.read_text(encoding="utf-8"))

@@ -90,7 +90,8 @@
               }
             }
           }
-        ]
+        ],
+        "unit": "ms"
       }
     },
     {
@@ -234,43 +235,5 @@
   ],
   "review": [
     "This fixture checks the renderer, not a PR correctness verdict."
-  ],
-  "summary_chart": {
-    "node": "sample-0",
-    "kind": "bar",
-    "title": "Captured fixture durations",
-    "basis": "source-example",
-    "caption": "Synthetic fixture values for renderer verification.",
-    "x_label": "Sample",
-    "y_label": "Duration (ms)",
-    "points": [
-      {
-        "label": "Sample 1",
-        "metrics": {
-          "y": {
-            "source": 0,
-            "pointer": "/samples/0/duration_ms"
-          }
-        }
-      },
-      {
-        "label": "Sample 2",
-        "metrics": {
-          "y": {
-            "source": 0,
-            "pointer": "/samples/1/duration_ms"
-          }
-        }
-      },
-      {
-        "label": "Sample 3",
-        "metrics": {
-          "y": {
-            "source": 0,
-            "pointer": "/samples/2/duration_ms"
-          }
-        }
-      }
-    ]
-  }
+  ]
 }

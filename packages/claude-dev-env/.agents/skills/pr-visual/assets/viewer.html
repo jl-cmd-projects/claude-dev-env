@@ -1,65 +1,49 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PR visual review</title><style>
-[data-pr-visual]{color:#17353f;background:#e6e9e0;font-family:Arial,Helvetica,sans-serif;width:100%;max-width:1600px;margin:0 auto;isolation:isolate}
+[data-pr-visual]{font-family:Arial,Helvetica,sans-serif;color:#17353f;background:#f6f5ef;width:100%;max-width:1600px;margin:0 auto;isolation:isolate}
 [data-pr-visual] *{box-sizing:border-box}[data-pr-visual] [hidden]{display:none!important}
 [data-pr-visual] button,[data-pr-visual] a{font:inherit}[data-pr-visual] button{cursor:pointer}
-[data-pr-visual] .toolbar{background:#17353f;color:white;display:flex;gap:8px;align-items:center;padding:14px 24px;flex-wrap:wrap}
-[data-pr-visual] .brand{font-weight:800;font-size:17px;margin-right:auto}
-[data-pr-visual] .toolbar button{background:#2b4a54;border:1px solid #6f8488;color:white;border-radius:6px;padding:8px 12px}
-[data-pr-visual] .tabs{display:flex;gap:8px;padding:14px 24px;background:#eef0e7;overflow:auto}
-[data-pr-visual] .tabs button{white-space:nowrap;background:transparent;border:1px solid #b8c6bd;color:#17353f;border-radius:7px;padding:10px 15px;font-size:14px}
-[data-pr-visual] .tabs button[aria-selected=true]{background:#17353f;border-color:#17353f;color:white}
-[data-pr-visual] .workspace{display:grid;grid-template-columns:minmax(0,1fr);height:clamp(640px,85vw,1100px);overflow:hidden}
-[data-pr-visual] .workspace.open{grid-template-columns:minmax(0,1fr) min(440px,49%)}
+[data-pr-visual] .toolbar{display:flex;align-items:center;gap:8px;padding:13px 22px;background:#17353f;color:#fff}
+[data-pr-visual] .brand{font-size:17px;font-weight:800;margin-right:auto}
+[data-pr-visual] .toolbar button{border:1px solid #6f8488;border-radius:6px;background:#2b4a54;color:#fff;padding:7px 11px;font-size:13px}
+[data-pr-visual] .tabs{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;padding:16px 22px;background:#edf0e6;overflow:auto;border-bottom:1px solid #d5dcd2}
+[data-pr-visual] .tabs button{text-align:left;white-space:nowrap;border:1px solid #c5d1c1;border-radius:8px;background:#f9faf3;color:#17353f;padding:12px 14px;min-width:0}
+[data-pr-visual] .tabs button[aria-selected=true]{background:#17353f;border-color:#17353f;color:#fff}
+[data-pr-visual] .tab-number{font-size:11px;letter-spacing:.8px;opacity:.7;display:block;margin-bottom:5px}
+[data-pr-visual] .tab-name{font-size:15px;font-weight:700;display:block}
+[data-pr-visual] .workspace{display:grid;grid-template-columns:minmax(0,1fr);height:clamp(640px,78vw,1040px);overflow:hidden}
+[data-pr-visual] .workspace.open{grid-template-columns:minmax(0,1fr) min(440px,43%)}
 [data-pr-visual] .stage{overflow:auto;min-width:0;min-height:0;overscroll-behavior:contain;background:#f6f5ef}
-[data-pr-visual] .canvas{min-width:1060px;max-width:1540px;margin:auto}
-[data-pr-visual] svg{width:100%;display:block}[data-pr-visual] svg text{fill:#17353f;font-family:Arial,Helvetica,sans-serif}
-[data-pr-visual] .wire{fill:none;stroke:#294954;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
-[data-pr-visual] .wire.green{stroke:#217757;stroke-width:3.5}[data-pr-visual] .wire.orange{stroke:#b76531}[data-pr-visual] .wire.dotted{stroke:#82958b;stroke-dasharray:5 8;stroke-width:2}
+[data-pr-visual] .canvas{min-width:1040px;max-width:1540px;margin:auto}
+[data-pr-visual] svg{width:100%;display:block}[data-pr-visual] svg text{font-family:Arial,Helvetica,sans-serif;fill:#17353f}
+[data-pr-visual] .title{font-size:36px;font-weight:900;letter-spacing:-1px}[data-pr-visual] .subtitle{font-size:17px;fill:#5e7171}
+[data-pr-visual] .kicker{font-size:12px;font-weight:800;letter-spacing:1.5px}[data-pr-visual] .micro{font-size:13px;fill:#64746e}
+[data-pr-visual] .wire{fill:none;stroke:#294954;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}[data-pr-visual] .wire.green{stroke:#217757;stroke-width:3.5}[data-pr-visual] .wire.orange{stroke:#b76531}[data-pr-visual] .wire.dotted{stroke:#94a298;stroke-dasharray:5 8;stroke-width:2}
 [data-pr-visual] .disc{fill:#fffef8;stroke:#b9c8bd;stroke-width:2}[data-pr-visual] .disc.blue{fill:#d9e9ee;stroke:#8faeb9}[data-pr-visual] .disc.green{fill:#e4f0df;stroke:#9db996}[data-pr-visual] .disc.lime{fill:#d8f687;stroke:#a4c357}[data-pr-visual] .disc.orange,[data-pr-visual] .diamond{fill:#fae5cf;stroke:#ca955e;stroke-width:2}
 [data-pr-visual] .icon{fill:none;stroke:#17353f;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
-[data-pr-visual] .title{font-size:36px;font-weight:900;letter-spacing:-1px}[data-pr-visual] .subtitle{font-size:17px;fill:#5e7171}[data-pr-visual] .kicker{font-size:12px;font-weight:800;letter-spacing:1.6px}[data-pr-visual] .node-label{font-size:18px;font-weight:750}[data-pr-visual] .micro{font-size:13px;fill:#64746e}
-[data-pr-visual] .edge-label{font-size:12px;letter-spacing:1px;font-weight:800;fill:#217757}[data-pr-visual] .edge-label.orange{fill:#a45d2c}
-[data-pr-visual] .node{cursor:pointer;outline:none;pointer-events:bounding-box}[data-pr-visual] .node:hover .disc,[data-pr-visual] .node:focus .disc,[data-pr-visual] .node[aria-expanded=true] .disc,[data-pr-visual] .node:hover .diamond,[data-pr-visual] .node:focus .diamond{stroke:#17353f;stroke-width:4}
-[data-pr-visual] .group{fill:#edf0e5;stroke:#b7c7b2;stroke-width:1.5}[data-pr-visual] .panel-label{font-size:12px;font-weight:800;letter-spacing:1.4px;fill:#64746e}[data-pr-visual] .foot-label{font-size:12px;font-weight:800;letter-spacing:1.5px}[data-pr-visual] .foot-text{font-size:16px}
+[data-pr-visual] .node{cursor:pointer;outline:none;pointer-events:bounding-box}[data-pr-visual] .node:hover .disc,[data-pr-visual] .node:focus .disc,[data-pr-visual] .node[aria-expanded=true] .disc,[data-pr-visual] .node:hover .diamond{stroke:#17353f;stroke-width:3}
+[data-pr-visual] .node-label{font-size:18px;font-weight:750}[data-pr-visual] .edge-label{font-size:12px;letter-spacing:1px;font-weight:800;fill:#217757}[data-pr-visual] .edge-label.orange{fill:#a45d2c}
+[data-pr-visual] .group{fill:#edf0e5;stroke:#b7c7b2;stroke-width:1.5}[data-pr-visual] .panel-label{font-size:12px;font-weight:800;letter-spacing:1.4px;fill:#64746e}
+[data-pr-visual] .step-card{fill:#fffef8;stroke:#aabdac;stroke-width:1.8}[data-pr-visual] .node:hover .step-card,[data-pr-visual] .node:focus .step-card,[data-pr-visual] .node[aria-expanded=true] .step-card{stroke:#217757;stroke-width:3}
+[data-pr-visual] .step-title{font-size:16px;font-weight:750}[data-pr-visual] .step-value{font-size:14px;font-weight:700}[data-pr-visual] .step-caption{font-size:11px;fill:#64746e}[data-pr-visual] .step-category{font-size:12px;fill:#52695f}
+[data-pr-visual] .foot-label{font-size:12px;font-weight:800;letter-spacing:1.4px}[data-pr-visual] .foot-text{font-size:16px}[data-pr-visual] .stamp{font-size:12px}
 [data-pr-visual] .drawer{padding:22px;background:#fffef7;border-left:1px solid #c8d1c4;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
-[data-pr-visual] .drawer header{display:flex;align-items:flex-start;gap:10px;flex:none}[data-pr-visual] .drawer h2{font-size:23px;line-height:1.25;margin:10px 0;overflow-wrap:anywhere}
-[data-pr-visual] .drawer .close{margin-left:auto;flex:none;padding:8px 12px;background:white;border:1px solid #bdc6bb;border-radius:6px}
-[data-pr-visual] .content{overflow:auto;min-height:0;overscroll-behavior:contain;padding-right:8px}
-[data-pr-visual] .drawer h3{font-size:14px;line-height:1.4;margin:18px 0 10px;color:#496357}
-[data-pr-visual] .drawer p{font-size:15px;line-height:1.6;overflow-wrap:anywhere}
-[data-pr-visual] .drawer pre{font:12px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#edf0e5;padding:12px;border-radius:6px}
-[data-pr-visual] .drawer a{display:block;color:#167550;overflow-wrap:anywhere;font-size:13px;margin:10px 0}
-[data-pr-visual] .exact-source{border-top:1px solid #d5dcd2;padding-top:14px;margin:20px 0}
-[data-pr-visual] .exact-source summary{cursor:pointer;font-size:13px;font-weight:700;color:#52695f}
+[data-pr-visual] .drawer header{display:flex;align-items:flex-start;gap:10px;flex:none}[data-pr-visual] .drawer h2{font-size:24px;line-height:1.25;margin:8px 0 18px;overflow-wrap:anywhere}
+[data-pr-visual] .drawer .close{margin-left:auto;flex:none;border:1px solid #bdc6bb;border-radius:6px;background:#fff;padding:7px 10px;font-size:13px}
+[data-pr-visual] .content{overflow:auto;min-height:0;overscroll-behavior:contain;padding-right:6px}[data-pr-visual] .drawer h3{font-size:14px;line-height:1.4;color:#496357;margin:16px 0 10px}[data-pr-visual] .drawer p{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+[data-pr-visual] .drawer pre{font:12px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#edf0e5;padding:12px;border-radius:6px}[data-pr-visual] .drawer a{display:block;color:#167550;overflow-wrap:anywhere;font-size:13px;margin:10px 0}
+[data-pr-visual] .embedded-chart{margin:0 0 22px;padding:0 0 18px;border-bottom:1px solid #d5dcd2}[data-pr-visual] .embedded-chart h3{font-size:17px;margin:0 0 10px;color:#17353f}[data-pr-visual] .embedded-chart svg text{font-size:14px}[data-pr-visual] .chart-basis{display:block;font-size:10px;letter-spacing:1px;font-weight:800;color:#7c5b32;margin-top:8px}[data-pr-visual] .embedded-chart figcaption{font-size:12px;line-height:1.6;color:#64746e;margin-top:6px}
 [data-pr-visual] .detail-map .mini-label{font-size:12px;font-weight:700}[data-pr-visual] .detail-map .mini-edge{font-size:10px;fill:#64746e}
-[data-pr-visual] .detail-jumps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-[data-pr-visual] .detail-jumps button{display:flex;flex-direction:column;align-items:center;gap:8px;background:#f2f5ea;border:1px solid #cbd6c4;border-radius:6px;color:#17353f;padding:10px 6px;font-size:12px;line-height:1.3}
-[data-pr-visual] .detail-jumps svg{width:28px;height:28px}
-[data-pr-visual] .stamp{font-size:12px;letter-spacing:.2px}[data-pr-visual] .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-[data-pr-visual] button:focus-visible,[data-pr-visual] a:focus-visible,[data-pr-visual] summary:focus-visible{outline:3px solid #70a186;outline-offset:3px}
-@media(max-width:700px){[data-pr-visual] .toolbar,[data-pr-visual] .tabs{padding:12px}[data-pr-visual] .brand{width:100%;margin-bottom:5px}[data-pr-visual] .workspace.open{grid-template-columns:minmax(0,1fr);grid-template-rows:420px minmax(0,1fr)}[data-pr-visual] .drawer{grid-row:1;border-left:0;border-bottom:1px solid #c8d1c4;padding:15px}[data-pr-visual] .stage{grid-row:2}[data-pr-visual] .workspace:not(.open) .stage{grid-row:1}}
+[data-pr-visual] .detail-jumps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:18px}[data-pr-visual] .detail-jumps button{display:flex;flex-direction:column;align-items:center;gap:7px;background:#f2f5ea;border:1px solid #cbd6c4;border-radius:6px;padding:9px 4px;color:#17353f;font-size:11px;line-height:1.3}[data-pr-visual] .detail-jumps svg{width:24px;height:24px}
+[data-pr-visual] .exact-source{border-top:1px solid #d5dcd2;padding-top:14px;margin:18px 0}[data-pr-visual] .exact-source summary{font-size:13px;font-weight:700;color:#52695f;cursor:pointer}
+[data-pr-visual] .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+[data-pr-visual] button:focus-visible,[data-pr-visual] summary:focus-visible,[data-pr-visual] a:focus-visible{outline:3px solid #70a186;outline-offset:3px}
+@media(min-width:1100px){[data-pr-visual] .workspace.open .canvas{min-width:0}}
+@media(max-width:700px){[data-pr-visual] .toolbar{padding:12px;flex-wrap:wrap}[data-pr-visual] .brand{flex-basis:100%;margin-bottom:4px}[data-pr-visual] .tabs{padding:12px;grid-template-columns:repeat(5,155px);gap:8px}[data-pr-visual] .tabs button{padding:10px 12px}[data-pr-visual] .workspace.open{grid-template-columns:minmax(0,1fr);grid-template-rows:430px minmax(0,1fr)}[data-pr-visual] .drawer{grid-row:1;border-left:0;border-bottom:1px solid #c8d1c4;padding:16px}[data-pr-visual] .stage{grid-row:2}[data-pr-visual] .workspace:not(.open) .stage{grid-row:1}}
 @media print{[data-pr-visual] .toolbar,[data-pr-visual] .tabs,[data-pr-visual] .drawer{display:none!important}[data-pr-visual] .workspace{display:block;height:auto;overflow:visible}[data-pr-visual] .stage{overflow:visible}[data-pr-visual] .canvas{min-width:0;max-width:none}}
-
-[data-pr-visual] .review-overview{padding:26px 28px 30px;background:#f6f5ef;border-bottom:1px solid #cbd6c4}
-[data-pr-visual] .review-overview h2{font-size:25px;margin:0 0 8px}[data-pr-visual] .overview-intro{font-size:14px;color:#60716c;margin:0 0 22px}
-[data-pr-visual] .sample-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px}
-[data-pr-visual] .sample-card{grid-column:span 2;min-width:0;text-align:left;background:#fffef8;border:1px solid #c2cec1;border-radius:14px;padding:20px;color:#17353f;overflow:hidden;display:flex;flex-direction:column}
-[data-pr-visual] .sample-card.has-chart{grid-column:span 3;order:-1}[data-pr-visual] .sample-card:hover,[data-pr-visual] .sample-card[aria-current=true]{border-color:#217757;box-shadow:0 0 0 2px #21775730}
-[data-pr-visual] .sample-card h3{font-size:21px;margin:8px 0 2px}[data-pr-visual] .card-kicker{font-size:11px;letter-spacing:1.2px;font-weight:800;color:#60716c}
-[data-pr-visual] .sample-card .card-description{font-size:13px;line-height:1.5;color:#60716c;margin:7px 0 0}[data-pr-visual] .card-action{font-size:13px;font-weight:700;color:#217757;margin-top:auto;padding-top:15px}
-[data-pr-visual] .embedded-chart{margin:10px 0 0;min-width:0}[data-pr-visual] .embedded-chart svg text{font-size:13px}[data-pr-visual] .embedded-chart figcaption{font-size:12px;line-height:1.5;color:#60716c;margin-top:8px}
-[data-pr-visual] .chart-basis{font-size:10px;letter-spacing:1px;font-weight:800;color:#7c5b32;display:block;margin-top:8px}
-[data-pr-visual] .context-chart{padding:22px 28px 18px;max-width:1060px;margin:0 auto;border-bottom:1px solid #d5dcd2;background:#f6f5ef}
-[data-pr-visual] .context-chart h3{font-size:18px;margin:0}[data-pr-visual] .context-chart .embedded-chart{max-width:740px;margin:8px auto 0}
-[data-pr-visual] .card-graph{margin-top:16px}[data-pr-visual] .card-graph .detail-map{max-height:160px}
-[data-pr-visual] .drawer .embedded-chart svg text{font-size:20px}
-[data-pr-visual] .drawer .embedded-chart{border:1px solid #d5dcd2;border-radius:10px;padding:12px;margin:18px 0}
-@media(max-width:700px){[data-pr-visual] .review-overview{padding:20px 14px}[data-pr-visual] .sample-card,[data-pr-visual] .sample-card.has-chart{grid-column:span 6}[data-pr-visual] .context-chart{padding:18px 14px}}
 </style></head><body><main data-pr-visual>
 <div class="toolbar"><span class="brand">PR visual review</span><button data-minus aria-label="Zoom out">&#8722;</button><button data-plus aria-label="Zoom in">+</button><button data-fit>Fit</button><button data-compare>Summary vs code</button><button data-review>Review notes</button></div>
-<section class="review-overview" aria-label="PR sample cards"><h2>Explore the reviews</h2><p class="overview-intro">Charts and code graphs explain each change. Open a card to follow its flow and inspect the evidence.</p><div class="sample-cards"></div></section>
 <nav class="tabs" role="tablist" aria-label="Pull request diagrams"></nav>
-<div class="workspace"><div class="stage"><section class="context-chart" hidden></section><div class="canvas" role="tabpanel"></div></div><aside class="drawer" aria-label="Diagram details" hidden><header><h2 data-detail-title></h2><button class="close" aria-label="Close details">Close</button></header><div class="content"></div></aside></div>
+<div class="workspace"><div class="stage"><div class="canvas" role="tabpanel"></div></div><aside class="drawer" aria-label="Diagram details" hidden><header><h2 data-detail-title></h2><button class="close" aria-label="Close details">Close</button></header><div class="content"></div></aside></div>
 <script type="application/json" data-scenes>__SCENES__</script><script>
 (()=>{
 const root=document.currentScript.closest('[data-pr-visual]'),$=s=>root.querySelector(s),all=s=>[...root.querySelectorAll(s)],ns='http://www.w3.org/2000/svg';
@@ -77,7 +61,7 @@ function mini(flow){const rows=Math.ceil(flow.steps.length/3),height=rows*125,sv
  flow.steps.forEach((step,i)=>{const {x,y}=positions[i];svg.append(el('circle',{cx:x,cy:y,r:24,class:`disc ${step.kind||'green'}`}));svg.append(el('use',{href:'#'+step.icon,x:x-15,y:y-15,width:30,height:30,class:'icon'}));lines(svg,x,y+43,step.label,'mini-label','middle',15)});return svg}
 function embeddedChart(chart){
  const figure=dom('figure',undefined,'embedded-chart');figure.dataset.embeddedChart=chart.kind;
- const svg=el('svg',{viewBox:'0 0 560 245',role:'img','aria-label':`${chart.title}. ${chart.caption}`}),left=52,right=530,top=36,bottom=181;
+ const svg=el('svg',{viewBox:'0 0 420 245',role:'img','aria-label':`${chart.title}. ${chart.caption}`}),left=42,right=398,top=36,bottom=181;
  const points=chart.points,ys=points.map(p=>p.values.y),low=Math.min(0,...ys),high=Math.max(0,...ys),span=high-low||1,y=v=>bottom-(v-low)/span*(bottom-top);
  const xs=points.map(p=>p.values.x),xmin=Math.min(...xs),xspan=Math.max(...xs)-xmin||1,isBar=chart.kind==='bar';
  const x=(v,i)=>isBar?left+(i+.5)*(right-left)/points.length:left+(v-xmin)/xspan*(right-left);
@@ -89,19 +73,35 @@ function embeddedChart(chart){
  text(svg,4,18,chart.y_label,'micro');text(svg,(left+right)/2,237,chart.x_label,'micro','middle');figure.append(svg);
  figure.append(dom('span',chart.basis==='source-example'?'SOURCE EXAMPLE':'CAPTURED DATA','chart-basis'),dom('figcaption',chart.caption));return figure
 }
-function renderOverview(){const cards=$('.sample-cards');scenes.forEach((s,i)=>{const card=dom('button',undefined,'sample-card'+(s.summary_chart?' has-chart':''));card.dataset.reviewCard=String(i);card.setAttribute('aria-label',`Open PR ${s.pr.number}: ${s.tab}`);card.append(dom('span',`PR #${s.pr.number}`,'card-kicker'),dom('h3',s.tab));
- if(s.summary_chart){card.append(dom('p',s.summary_chart.title,'card-description'),embeddedChart(s.summary_chart))}else{const graph=dom('div',undefined,'card-graph');const n=s.nodes.find(n=>n.kind==='decision')||s.nodes[Math.min(2,s.nodes.length-1)];graph.append(mini(n.drilldown));card.append(graph,dom('p',s.subtitle,'card-description'))}
- card.append(dom('span','Open review and evidence \u2192','card-action'));card.onclick=()=>{draw(i);if(s.summary_chart)showNode(s.summary_chart.node);workspace.scrollIntoView({behavior:'smooth',block:'start'})};cards.append(card)})}
-function renderContext(s){const context=$('.context-chart');context.replaceChildren();context.hidden=!s.summary_chart;if(s.summary_chart){context.append(dom('h3',s.summary_chart.title),embeddedChart(s.summary_chart))}all('[data-review-card]').forEach((card,i)=>card.setAttribute('aria-current',i===active?'true':'false'))}
+function stepCard(group,node){
+ const {x,y}=node,chart=node.chart,left=x-78,right=x+78,top=y-8,bottom=y+69,points=chart.points;
+ group.append(el('rect',{x:x-106,y:y-80,width:212,height:201,rx:16,class:'step-card'}));
+ group.append(el('use',{href:'#'+node.icon,x:x-87,y:y-63,width:27,height:27,class:'icon'}));
+ text(group,x-47,y-43,node.label.join(' '),'step-title');
+ const ys=points.map(p=>p.values.y),low=Math.min(0,...ys),span=Math.max(0,...ys)-low||1,yy=v=>bottom-(v-low)/span*(bottom-top);
+ const xs=points.map(p=>p.values.x),xmin=Math.min(...xs),xspan=Math.max(...xs)-xmin||1;
+ const xx=(v,i)=>chart.kind==='bar'?left+(i+.5)*(right-left)/points.length:left+(v-xmin)/xspan*(right-left);
+ group.append(el('line',{x1:left,y1:yy(0),x2:right,y2:yy(0),stroke:'#ccd5c7'}));
+ const marks=el('g',{'data-step-chart':chart.kind});
+ if(chart.kind==='line'){marks.append(el('path',{d:[...points].sort((a,b)=>a.values.x-b.values.x).map((p,i)=>`${i?'L':'M'}${xx(p.values.x,i)} ${yy(p.values.y)}`).join(' '),class:'wire green'}))}
+ points.forEach((p,i)=>{const px=xx(p.values.x,i),py=yy(p.values.y),width=Math.min(30,(right-left)/points.length*.55);marks.append(chart.kind==='bar'?el('rect',{x:px-width/2,y:Math.min(py,yy(0)),width,height:Math.max(2,Math.abs(yy(0)-py)),rx:3,fill:'#91b78e'}):el('circle',{cx:px,cy:py,r:4,fill:'#217757'}));if(chart.kind==='bar'){text(marks,px,py-7,String(p.values.y),'step-value','middle');text(marks,px,bottom+18,p.label,'step-category','middle')}});
+ group.append(marks);text(group,x,y+108,(chart.unit||'Chart')+' \u00b7 '+(chart.basis==='source-example'?'source example':'captured data'),'step-caption','middle')
+}
+function cardArrow(svg,path,node,kind){
+ const length=path.getTotalLength();let position=length,point=path.getPointAtLength(position);
+ while(position>0&&point.x>=node.x-109&&point.x<=node.x+109&&point.y>=node.y-83&&point.y<=node.y+124){position-=2;point=path.getPointAtLength(Math.max(0,position))}
+ const before=path.getPointAtLength(Math.max(0,position-12));svg.append(el('path',{d:`M${before.x} ${before.y}L${point.x} ${point.y}`,class:`wire ${kind}`,'marker-end':`url(#${kind==='green'?'arrowGreen':kind==='orange'?'arrowOrange':'arrow'})`}))
+}
 function resetSelection(){all('[data-node]').forEach(n=>{n.setAttribute('aria-expanded','false');n.setAttribute('aria-controls',drawer.id)})}
 function close(restore=true){drawer.hidden=true;workspace.classList.remove('open');resetSelection();if(restore&&lastFocus?.isConnected)lastFocus.focus({preventScroll:true})}
-function showPanel(title,flow,paragraphs,sources=[],raw,related=[],trigger){lastFocus=trigger||root.ownerDocument.activeElement;content.replaceChildren();$('[data-detail-title]').textContent=title;
+function showPanel(title,flow,paragraphs,sources=[],raw,related=[],trigger,chart){lastFocus=trigger||root.ownerDocument.activeElement;content.replaceChildren();$('[data-detail-title]').textContent=title;
+ if(chart){const figure=embeddedChart(chart);figure.prepend(dom('h3',chart.title));content.append(figure)}
  content.append(dom('h3',flow.title),mini(flow));
  if(related.length){content.append(dom('h3','Related steps'));const jumps=dom('div',undefined,'detail-jumps');related.forEach(n=>{const b=dom('button');b.dataset.detailTarget=n.id;const icon=el('svg',{viewBox:'0 0 48 48','aria-hidden':true});icon.append(el('use',{href:'#'+n.icon,width:48,height:48,class:'icon'}));b.append(icon,dom('span',n.label.join(' ')));b.onclick=()=>showNode(n.id);jumps.append(b)});content.append(jumps)}
  const exact=dom('details',undefined,'exact-source');exact.append(dom('summary','Explanation and sources'));paragraphs.forEach(v=>exact.append(dom('p',v)));
  sources.forEach(s=>{const a=dom('a',`${s.path} \u00b7 lines ${s.line}\u2013${s.end||s.line}`);a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';exact.append(a);if(s.excerpt)exact.append(dom('pre',s.excerpt))});
  if(raw)exact.append(dom('h3','PR description at capture'),dom('pre',raw));content.append(exact);content.scrollTop=0;drawer.hidden=false;workspace.classList.add('open');$('.close').focus({preventScroll:true})}
-function showNode(id){const s=scenes[active],n=s.nodes.find(n=>n.id===id);resetSelection();const trigger=all('[data-node]').find(g=>g.dataset.node===id);trigger.setAttribute('aria-expanded','true');const neighbors=new Set(s.edges.filter(e=>e.from===id||e.to===id).flatMap(e=>[e.from,e.to]));neighbors.delete(id);showPanel(n.label.join(' '),n.drilldown,n.detail,n.sources,undefined,s.nodes.filter(n=>neighbors.has(n.id)),trigger);if(n.chart){const figure=embeddedChart(n.chart);figure.prepend(dom('h3',n.chart.title));content.insertBefore(figure,content.querySelector('.exact-source'))}}
+function showNode(id){const s=scenes[active],n=s.nodes.find(n=>n.id===id);resetSelection();const trigger=all('[data-node]').find(g=>g.dataset.node===id);trigger.setAttribute('aria-expanded','true');const neighbors=new Set(s.edges.filter(e=>e.from===id||e.to===id).flatMap(e=>[e.from,e.to]));neighbors.delete(id);showPanel(n.label.join(' '),n.drilldown,n.detail,n.sources,undefined,s.nodes.filter(n=>neighbors.has(n.id)),trigger,n.chart)}
 $('.close').onclick=()=>close();root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!drawer.hidden){e.preventDefault();close()}});
 function chartNode(svg,n,x,y,bar){
  const g=el('g',{class:'node','data-node':n.id,tabindex:0,role:'button','aria-expanded':'false','aria-controls':drawer.id,'aria-label':`${n.label.join(' ')}: ${n.values.y}`});
@@ -124,21 +124,22 @@ function drawChart(svg,s){
  if(chart.kind==='line'){const sorted=[...points].sort((a,b)=>a.n.values.x-b.n.values.x);svg.append(el('path',{d:sorted.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' '),class:'wire green'}))}
  points.forEach(p=>{const width=Math.min(150,(right-left)/points.length*.6),bar=isBar?el('rect',{x:p.x-width/2,y:Math.min(p.y,y(0)),width,height:Math.max(2,Math.abs(y(0)-p.y)),rx:5,class:'disc green'}):undefined;chartNode(svg,p.n,p.x,p.y,bar)})
 }
-function draw(index){close(false);active=index;const s=scenes[index];renderContext(s);[...tabs.children].forEach((b,i)=>{b.setAttribute('aria-selected',i===index);b.tabIndex=i===index?0:-1});canvas.replaceChildren();const svg=el('svg',{viewBox:'0 0 1440 1020',role:'img','aria-label':`${s.title}. ${s.subtitle}`});const desc=el('desc',{},s.alt);svg.append(desc);const defs=el('defs');defs.innerHTML=icons.replace(/id="([^"]+)"/g,(_,id)=>`id="${prefix}${id}"`);svg.append(defs,el('rect',{width:1440,height:1020,fill:'#f6f5ef'}));text(svg,40,54,s.title,'title');text(svg,42,86,s.subtitle,'subtitle');text(svg,1398,49,`PR #${s.pr.number} \u00b7 ${s.pr.merged?'MERGED':s.pr.state==='closed'?'CLOSED':s.pr.draft?'DRAFT':'OPEN'}`,'kicker','end');
+function draw(index){close(false);active=index;const s=scenes[index];[...tabs.children].forEach((b,i)=>{b.setAttribute('aria-selected',i===index);b.tabIndex=i===index?0:-1});canvas.replaceChildren();const svg=el('svg',{viewBox:'0 0 1440 1020',role:'img','aria-label':`${s.title}. ${s.subtitle}`});const desc=el('desc',{},s.alt);svg.append(desc);const defs=el('defs');defs.innerHTML=icons.replace(/id="([^"]+)"/g,(_,id)=>`id="${prefix}${id}"`);svg.append(defs,el('rect',{width:1440,height:1020,fill:'#f6f5ef'}));text(svg,40,54,s.title,'title');text(svg,42,86,s.subtitle,'subtitle');text(svg,1398,49,`PR #${s.pr.number} \u00b7 ${s.pr.merged?'MERGED':s.pr.state==='closed'?'CLOSED':s.pr.draft?'DRAFT':'OPEN'}`,'kicker','end');
 text(svg,42,128,s.before,'micro');text(svg,42,155,s.after,'micro');text(svg,1398,128,`${s.pr.changed_files} CHANGED FILES`,'kicker','end');
 if(s.chart){drawChart(svg,s)}else{
 (s.groups||[]).forEach(g=>{svg.append(el('rect',{x:g.x,y:g.y,width:g.w,height:g.h,rx:20,class:'group'}));text(svg,g.x+g.w/2,g.y+27,g.label,'panel-label','middle')});
-s.edges.forEach(e=>{const cls=e.kind||'';svg.append(el('path',{d:e.path,class:`wire ${cls}`,'marker-end':`url(#${cls==='green'?'arrowGreen':cls==='orange'?'arrowOrange':'arrow'})`}));if(e.label)text(svg,e.x,e.y,e.label,`edge-label ${cls}`,'middle')});
-s.nodes.forEach(n=>{const g=el('g',{class:'node','data-node':n.id,tabindex:0,role:'button','aria-expanded':'false','aria-controls':drawer.id,'aria-label':n.label.join(' ')});g.append(el('title',{},'Open code evidence'));if(n.kind==='decision'){g.append(el('path',{d:`M${n.x} ${n.y-54} L${n.x+62} ${n.y} L${n.x} ${n.y+54} L${n.x-62} ${n.y} Z`,class:'diamond'}));lines(g,n.x,n.y-3,n.label,'node-label','middle',21)}else{g.append(el('circle',{cx:n.x,cy:n.y,r:n.r||43,class:`disc ${n.kind||''}`}));g.append(el('use',{href:`#${n.icon}`,x:n.x-22,y:n.y-22,width:44,height:44,class:'icon'}));lines(g,n.x,n.y+70,n.label,'node-label','middle')}if(n.sub)lines(g,n.x,n.y+(n.label.length>1?121:99),n.sub,'micro','middle',19);const show=()=>showNode(n.id);g.onclick=show;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show()}};svg.append(g)});
+const chartArrows=[];s.edges.forEach(e=>{const cls=e.kind||'',target=s.nodes.find(n=>n.id===e.to),path=el('path',{d:e.path,class:`wire ${cls}`});if(target.chart)chartArrows.push({path,target,cls});else path.setAttribute('marker-end',`url(#${prefix}${cls==='green'?'arrowGreen':cls==='orange'?'arrowOrange':'arrow'})`);svg.append(path);if(e.label)text(svg,e.x,e.y,e.label,`edge-label ${cls}`,'middle')});
+s.nodes.forEach(n=>{const g=el('g',{class:'node','data-node':n.id,tabindex:0,role:'button','aria-expanded':'false','aria-controls':drawer.id,'aria-label':n.label.join(' ')});g.append(el('title',{},'Open code evidence'));if(n.chart){stepCard(g,n)}else if(n.kind==='decision'){g.append(el('path',{d:`M${n.x} ${n.y-54} L${n.x+62} ${n.y} L${n.x} ${n.y+54} L${n.x-62} ${n.y} Z`,class:'diamond'}));lines(g,n.x,n.y-3,n.label,'node-label','middle',21)}else{g.append(el('circle',{cx:n.x,cy:n.y,r:n.r||43,class:`disc ${n.kind||''}`}));g.append(el('use',{href:`#${n.icon}`,x:n.x-22,y:n.y-22,width:44,height:44,class:'icon'}));lines(g,n.x,n.y+70,n.label,'node-label','middle')}if(n.sub&&!n.chart)lines(g,n.x,n.y+(n.label.length>1?121:99),n.sub,'micro','middle',19);const show=()=>showNode(n.id);g.onclick=show;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show()}};svg.append(g)});
+chartArrows.forEach(({path,target,cls})=>cardArrow(svg,path,target,cls));
 }
 svg.append(el('line',{x1:40,y1:835,x2:1400,y2:835,stroke:'#d5dcd2','stroke-width':2}));s.notes.forEach((n,i)=>{const x=42+i*455;text(svg,x,876,n.label,'foot-label');lines(svg,x,907,n.text,'foot-text','start',23)});
 const when=new Date(s.pr.observed_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});text(svg,42,991,`Code reviewed \u00b7 ${when} ET \u00b7 ${s.pr.head.slice(0,10)}`,'stamp');text(svg,1398,991,'Click any symbol for code and source links.','micro','end');canvas.append(svg);const a=document.createElement('a');a.className='sr-only';a.href=s.pr.url;a.textContent=`Open PR ${s.pr.number}`;canvas.append(a);setZoom(1,true)}
 
-scenes.forEach((s,i)=>{const b=dom('button',`#${s.pr.number}  ${s.tab}`);b.id=prefix+`tab-${i}`;b.role='tab';b.setAttribute('aria-controls',canvas.id);b.onclick=()=>draw(i);b.onkeydown=e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const next=(i+(e.key==='ArrowRight'?1:scenes.length-1))%scenes.length;draw(next);tabs.children[next].focus()}};tabs.append(b)});
+scenes.forEach((s,i)=>{const b=dom('button');b.dataset.reviewCard=String(i);b.append(dom('span',`PR #${s.pr.number}`,'tab-number'),dom('span',s.tab,'tab-name'));b.id=prefix+`tab-${i}`;b.role='tab';b.setAttribute('aria-controls',canvas.id);b.onclick=()=>draw(i);b.onkeydown=e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const next=(i+(e.key==='ArrowRight'?1:scenes.length-1))%scenes.length;draw(next);tabs.children[next].focus()}};tabs.append(b)});
 function setZoom(value,fit=false){zoom=Math.max(.7,Math.min(2,value));canvas.style.width=fit?'':`${1440*zoom}px`;canvas.style.maxWidth=fit?'1540px':'none'}
 $('[data-plus]').onclick=()=>setZoom(zoom+.2);$('[data-minus]').onclick=()=>setZoom(zoom-.2);$('[data-fit]').onclick=()=>setZoom(1,true);
 $('[data-compare]').onclick=e=>showPanel('Summary vs code',{title:'Compare the claim with the implementation',steps:[{label:['PR','description'],icon:'list'},{label:['Trace the','code'],icon:'code'},{label:['Compare','behavior'],icon:'eye'}]},scenes[active].comparison,[],scenes[active].summary,scenes[active].nodes,e.currentTarget);
 $('[data-review]').onclick=e=>showPanel('Review notes',{title:'Scope and evidence',steps:[{label:['Captured','source'],icon:'ledger'},{label:['Reviewed','path'],icon:'branches'},{label:['Scope and','limitations'],icon:'shield'}]},scenes[active].review,[],undefined,scenes[active].nodes,e.currentTarget);
-renderOverview();draw(0);
+draw(0);
 })();
 </script></main></body></html>

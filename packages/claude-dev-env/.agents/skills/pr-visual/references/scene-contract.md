@@ -37,14 +37,12 @@ Add `chart: {"kind": "bar", "x_label": "Sample", "y_label": "Duration (ms)"}`. S
 
 Each chart node has `metrics.y: {"source": 0, "pointer": "/samples/0/duration_ms"}`. The source index refers to that node's `sources` array. The pointer resolves a number from the captured JSON file. Line and scatter nodes also require `metrics.x`. Author-entered coordinates, booleans, missing values, NaN, and infinity are rejected. Missing values must be disclosed and omitted, never filled with zero. Bar charts include zero; line points sort by numeric x. Do not connect across a known missing interval: use scatter or separate scenes. Units belong in axis labels. Keep a chart to a readable number of points; use separate scenes for different series.
 
-## Integrated review cards
+## Charts inside step cards
 
-Every scene appears as a sample card above the review tabs. A scene with `summary_chart` shows a chart in that card and above its active flow diagram. Other cards show a code graph. Opening a chart card selects its PR and opens the chart's owning node.
+The top dashboard contains compact PR selectors. Flow nodes with `chart` render a small chart inside their step card. Opening the step shows a fuller chart in its expansion, followed by the mechanism diagram and evidence. Other nodes keep the visual contract's circles and decisions.
 
-Add `chart` to a node to embed a chart inside its detail panel, alongside its mechanism diagram and source disclosure. Keep the chart attached to the behavior it explains.
-
-Embedded charts contain `kind`, `title`, `basis`, `caption`, `x_label`, `y_label`, and nonempty `points`. Each point has `label` and `metrics.y`; numeric x is optional and defaults to the one-based point order. Use explicit numeric x references for scatter. A scene's `summary_chart` also requires `node`, the ID whose sources back its measurements. Each point's metric source index refers to that owning node's sources.
+Embedded charts contain `kind`, `title`, `basis`, `caption`, `x_label`, `y_label`, and nonempty `points`. Optional `unit` supplies the short unit label on the flow card. Each point has `label` and `metrics.y`; numeric x is optional and defaults to the one-based point order. Use explicit numeric x references for scatter. Metric source indices refer to the owning node's sources.
 
 Set `basis` to `captured` for observed data or `source-example` for configured values and test fixtures. Keep that distinction in the caption. Numbers can use JSON pointers or passive Python literal references: `{"source": 1, "python_line": 75}` reads an assertion's literal expected number; `argument` selects a call's literal argument; `element` selects a tuple's literal element. The Python line must fall inside its cited source range. The extractor parses syntax without running PR code.
 
-See `fixtures/integrated.scene.json` for a flow with an overview chart and an embedded node chart. Keep graphs, chart-bearing cards, and review details in the same artifact and Page.
+See `fixtures/integrated.scene.json` for a flow with a chart-bearing step and its expansion. Keep the dashboard, flow, charts, and review details in the same artifact and Page.

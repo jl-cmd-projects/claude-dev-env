@@ -25,17 +25,16 @@ def test_numeric_literals_are_read_without_executing_source(source_text: str, se
     assert _coordinate({"source": 0, "python_line": 2, **selector}, node, tmp_path / "snapshot.json") == expected
 
 
-def test_embedded_summary_and_node_chart_share_reviewed_values() -> None:
-    """The overview card and detail card use the same captured fixture data."""
+def test_step_chart_uses_reviewed_values() -> None:
+    """Step cards and expansions use captured fixture measurements."""
     scene = prepare(FIXTURES / "integrated.scene.json")
-    assert scene["summary_chart"]["points"] == scene["nodes"][0]["chart"]["points"]
-    assert [each_point["values"]["y"] for each_point in scene["summary_chart"]["points"]] == [12, 20, 17]
+    assert [each_point["values"]["y"] for each_point in scene["nodes"][0]["chart"]["points"]] == [12, 20, 17]
 
 
 def test_ungrounded_embedded_numbers_are_rejected() -> None:
     """Author-entered chart coordinates cannot replace source references."""
     scene = copy.deepcopy(prepare(FIXTURES / "integrated.scene.json"))
-    scene["summary_chart"]["points"][0].pop("metrics")
+    scene["nodes"][0]["chart"]["points"][0].pop("metrics")
     with pytest.raises(MetricRunFatal):
         prepare_embedded_charts(scene, FIXTURES / "snapshot.json")
 

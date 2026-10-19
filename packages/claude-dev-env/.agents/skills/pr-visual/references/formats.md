@@ -11,7 +11,7 @@
 
 Charts and graphs answer different questions. Use the code graph for behavior; use a data chart for measured quantities. A PR's claim that it is faster does not supply benchmark data. If captured measurements are absent, explain the behavior change and state the measurement gap.
 
-Full-scene chart marks remain selectable. Contextual charts belong inside PR overview cards and the detail panels of the nodes they explain. Use the active review's summary chart when a larger view helps. Chart cards open their owning source node. Keep synthetic examples labeled as synthetic. Never infer runtime, quality, or business improvements from changed line counts.
+Full-scene chart marks remain selectable. Contextual charts belong inside the flow-step cards and expansions they explain. Keep the top dashboard free of plots. Show compact chart glances within the flow and fuller charts in the selected step expansion. Keep synthetic examples labeled as synthetic. Never infer runtime, quality, or business improvements from changed line counts.
 
 ## Data integration
 

@@ -85,7 +85,7 @@ def _embedded_chart(chart: dict, node: dict, snapshot_path: Path) -> None:
 
 
 def prepare_embedded_charts(scene: dict, snapshot_path: Path) -> None:
-    """Bind overview and node-card charts to their owning node's source.
+    """Bind step-card charts to their owning node's source.
 
     Args:
         scene: Source-validated scene.
@@ -97,8 +97,3 @@ def prepare_embedded_charts(scene: dict, snapshot_path: Path) -> None:
     for each_node in scene["nodes"]:
         if each_node.get("chart"):
             _embedded_chart(each_node["chart"], each_node, snapshot_path)
-    if scene.get("summary_chart"):
-        owner = next((each_node for each_node in scene["nodes"] if each_node["id"] == scene["summary_chart"]["node"]), None)
-        if owner is None:
-            raise MetricRunFatal("Summary chart refers to a missing source node.")
-        _embedded_chart(scene["summary_chart"], owner, snapshot_path)
