@@ -8,7 +8,7 @@ The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
 does not count. A held turn (``stop_hook_active`` true) whose title call
 failed may end, so a title tool that keeps failing cannot hold it forever. A
-hold from another Stop gate leaves a turn with no title call held.
+held turn with no title call stays held, whichever Stop gate held it.
 
 The session has the title tool when a transcript record names it::
 
@@ -56,7 +56,6 @@ from hooks_constants.session_title_constants import (
     REASON_KEY,
     REMOVED_NAMES_KEY,
     STOP_HOOK_ACTIVE_KEY,
-    TEXT_BLOCK_TYPE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
     TITLE_TOOL_NAME_PATTERN,
     TOOL_RESULT_BLOCK_TYPE,
@@ -88,7 +87,7 @@ def _is_user_prompt(all_entry_fields: dict[str, object]) -> bool:
     if isinstance(content, str):
         return bool(content.strip())
     return any(
-        each_block.get(ENTRY_TYPE_KEY) == TEXT_BLOCK_TYPE
+        each_block.get(ENTRY_TYPE_KEY) != TOOL_RESULT_BLOCK_TYPE
         for each_block in _content_blocks(all_entry_fields)
     )
 

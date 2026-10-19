@@ -167,6 +167,17 @@ def test_should_hold_when_the_title_was_set_only_in_an_earlier_turn(
     assert block_output["decision"] == "block"
 
 
+def test_should_start_a_turn_at_an_image_only_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    image_prompt = {
+        "type": "user",
+        "message": {"content": [{"type": "image", "source": {"type": "base64", "data": ""}}]},
+    }
+    all_entries = [TOOL_LISTING, PROMPT, title_call("t1"), title_result("t1"), REPLY, image_prompt, REPLY]
+    assert json.loads(run_gate(monkeypatch, capsys, tmp_path, all_entries)[1])["decision"] == "block"
+
+
 def test_should_keep_the_turn_across_a_stop_block_and_a_meta_entry(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
