@@ -12,8 +12,9 @@ condensed messages to the agent.
 
 The file holds each typed message with its number and timestamp, oldest
 first. The trim rules live in the hook prompt. The file sits under
-``~/.claude`` so the hook's Read permission rule can name its folder. The whole transcript is read each time, so a second
-compaction yields the same messages plus the newer ones.
+``~/.claude`` so the hook's Read permission rule can name its folder.
+The whole transcript is read each time, so a second compaction yields
+the same messages plus the newer ones.
 """
 
 from __future__ import annotations

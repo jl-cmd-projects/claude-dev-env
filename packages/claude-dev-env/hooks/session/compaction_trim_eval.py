@@ -10,7 +10,8 @@
     oracle (raw extract): facts 1.00 ...   null (empty reply): facts 0.00 ...
 
 Each case is a fixture transcript with planted facts: paths, numbers, a
-link, and a decision the user later reversed. The runner writes the
+link, and a decision the user later reversed.
+
 Each run starts a headless ``claude -p`` session whose settings hold the
 condensing hook from ``hooks.json`` and the Read allow rules from the
 package ``settings.json``. The session runs the extractor on the fixture, so
