@@ -110,6 +110,27 @@ export function splitUnreadableProfileSettings(allProfileSettingsPaths) {
     return { allReadablePaths, allUnreadable };
 }
 
+/**
+ * True when a settings.json that does not parse may still hold this Claude home's open-tasks gate.
+ *
+ * The raw text is searched for the gate script path, with JSON-escaped
+ * backslashes read as path separators. A file that cannot be read counts as
+ * one that may hold the gate.
+ *
+ * @param {string} settingsPath
+ * @param {string} claudeHome
+ * @returns {boolean}
+ */
+export function unparsedSettingsMayHoldGate(settingsPath, claudeHome) {
+    let settingsText;
+    try {
+        settingsText = readFileSync(settingsPath, 'utf8');
+    } catch {
+        return true;
+    }
+    return comparableCommand(settingsText.replace(/\\\\/g, '/')).includes(gateScriptCommandFragment(claudeHome));
+}
+
 function stopHooks(settingsPath) {
     const settingsText = readFileSync(settingsPath, 'utf8');
     if (!settingsText.trim()) return [];

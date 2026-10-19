@@ -134,6 +134,7 @@ import {
     otherProfileSettingsPaths,
     removeOpenTasksGateFromProfiles,
     splitUnreadableProfileSettings,
+    unparsedSettingsMayHoldGate,
 } from './profile-stop-gate.mjs';
 import { pythonExecutableProbeCommand } from './python-probe.mjs';
 
@@ -2719,20 +2720,48 @@ function profileSettingsPathsForStopGate(mainSettingsPath) {
  * Return the profile settings the gate step can parse, and add an Action needed line for each one it cannot.
  *
  * @param {string} mainSettingsPath
- * @param {string} rerunAdvice What to run after fixing the file, such as `run the install again to add`.
  * @returns {string[]}
  */
-function readableProfileSettingsPathsForStopGate(mainSettingsPath, rerunAdvice) {
+function readableProfileSettingsPathsForStopGate(mainSettingsPath) {
     const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings(
         profileSettingsPathsForStopGate(mainSettingsPath),
     );
     for (const { settingsPath, reason } of allUnreadable) {
         const actionLine = `Profile settings: ${settingsPath} was left unchanged because it is not valid JSON (${reason}).`
-            + ` Fix the file and ${rerunAdvice} the open-tasks Stop gate there.`;
+            + ' Fix the file and run the install again to add the open-tasks Stop gate there.';
         console.warn(`  ${actionLine}`);
         allActionNeededLines.push(actionLine);
     }
     return allReadablePaths;
+}
+
+/**
+ * Return the profile settings the uninstall removes the gate from, or the reason it must stop first.
+ *
+ * A profile file that does not parse and may still hold the gate stops the
+ * uninstall before it changes anything. The manifest then stays, so running
+ * --uninstall again after fixing the file removes the gate. A file that does
+ * not parse and does not name the gate has nothing to remove and is left as
+ * it is.
+ *
+ * @param {string} mainSettingsPath
+ * @returns {{ allReadablePaths: string[], blockingReason: string|null }}
+ */
+function profileSettingsPathsForGateRemoval(mainSettingsPath) {
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings(
+        profileSettingsPathsForStopGate(mainSettingsPath),
+    );
+    const allHoldingGate = allUnreadable.filter(
+        ({ settingsPath }) => unparsedSettingsMayHoldGate(settingsPath, CLAUDE_HOME),
+    );
+    if (allHoldingGate.length === 0) return { allReadablePaths, blockingReason: null };
+    const fileLines = allHoldingGate.map(({ settingsPath, reason }) => `  ${settingsPath}: not valid JSON (${reason})`);
+    const blockingReason = [
+        'ERROR: uninstall stopped before changing anything. These profile settings files still name the open-tasks Stop gate, and they are not valid JSON, so the gate cannot be removed from them:',
+        ...fileLines,
+        'Fix each file and run --uninstall again.',
+    ].join('\n');
+    return { allReadablePaths, blockingReason };
 }
 
 function executeInstallPlan(plan) {
@@ -3229,7 +3258,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachOutcome of addOpenTasksGateToProfiles({
         mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
         claudeHome: CLAUDE_HOME,
-        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME), 'run the install again to add'),
+        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME)),
         homeDirectory: homedir(),
     })) {
         if (eachOutcome.additions.length > 0) {
@@ -3519,7 +3548,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     for (const eachChangedPath of removeOpenTasksGateFromProfiles({
         claudeHome: CLAUDE_HOME,
-        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(plan.settingsPath, 'run --uninstall again to remove'),
+        allProfileSettingsPaths: helpers.allProfileSettingsPaths ?? [],
     })) {
         console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
     }
@@ -3575,6 +3604,11 @@ function uninstall() {
     if (plan.isNoOp) {
         return;
     }
+    const gateRemoval = profileSettingsPathsForGateRemoval(plan.settingsPath);
+    if (gateRemoval.blockingReason) {
+        console.error(gateRemoval.blockingReason);
+        process.exit(1);
+    }
 
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
@@ -3597,7 +3631,7 @@ function uninstall() {
             snapshot,
             faultPhase,
             runMutations: ({ throwIfFault }) => {
-                executeUninstallPlan(plan, { throwIfFault });
+                executeUninstallPlan(plan, { throwIfFault, allProfileSettingsPaths: gateRemoval.allReadablePaths });
             },
         });
     } catch (mutationError) {
