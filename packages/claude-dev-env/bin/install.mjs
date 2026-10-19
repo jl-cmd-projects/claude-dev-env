@@ -3548,7 +3548,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     for (const eachChangedPath of removeOpenTasksGateFromProfiles({
         claudeHome: CLAUDE_HOME,
-        allProfileSettingsPaths: helpers.allProfileSettingsPaths ?? [],
+        allProfileSettingsPaths: helpers.allProfileSettingsPaths,
     })) {
         console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
     }
@@ -3647,7 +3647,6 @@ function uninstall() {
         console.error(`ERROR: uninstall failed (${message}); prior installation restored.`);
         process.exit(1);
     }
-    printActionNeeded();
 }
 
 /**
