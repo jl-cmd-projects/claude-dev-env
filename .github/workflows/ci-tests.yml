@@ -470,6 +470,9 @@ jobs:
 
       - name: Run package npm test on Windows
         working-directory: packages/claude-dev-env
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
         run: npm test
 
       - name: Upload Windows lifecycle failure evidence
