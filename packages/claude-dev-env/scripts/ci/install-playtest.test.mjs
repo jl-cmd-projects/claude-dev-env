@@ -14,10 +14,11 @@ const DRIVER_PATH = join(CI_DIRECTORY, 'install-playtest.mjs');
 const DRIVER_TIMEOUT_MILLISECONDS = 300_000;
 const SILENT_HOOK_SOURCE = '#!/usr/bin/env python3\nprint("")\n';
 
-function runDriver(driverArguments) {
+function runDriver(driverArguments, environment = {}) {
     return spawnSync(process.execPath, [DRIVER_PATH, ...driverArguments], {
         encoding: 'utf8',
         timeout: DRIVER_TIMEOUT_MILLISECONDS,
+        env: { ...process.env, ...environment },
     });
 }
 
@@ -53,6 +54,27 @@ test('the driver reads an envelope from every stage of a fresh install, and repo
     } finally {
         rmSync(scratchHome, { recursive: true, force: true });
         rmSync(evidenceDirectory, { recursive: true, force: true });
+    }
+});
+
+test('an outside CODEX_HOME sentinel stays unchanged when the driver installs', () => {
+    const scratchHome = mkdtempSync(join(tmpdir(), 'cde-playtest-home-'));
+    const evidenceDirectory = mkdtempSync(join(tmpdir(), 'cde-playtest-evidence-'));
+    const outsideHome = mkdtempSync(join(tmpdir(), 'cde-outside-codex-'));
+    const sentinelPath = join(outsideHome, 'config.toml');
+    const sentinelText = 'model = "sentinel-outside"\n';
+    writeFileSync(sentinelPath, sentinelText);
+    try {
+        const run = runDriver(
+            ['--home', scratchHome, '--evidence', evidenceDirectory],
+            { CODEX_HOME: outsideHome },
+        );
+        assert.equal(readFileSync(sentinelPath, 'utf8'), sentinelText);
+        assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
+    } finally {
+        rmSync(scratchHome, { recursive: true, force: true });
+        rmSync(evidenceDirectory, { recursive: true, force: true });
+        rmSync(outsideHome, { recursive: true, force: true });
     }
 });
 
