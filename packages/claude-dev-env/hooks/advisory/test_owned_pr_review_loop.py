@@ -287,6 +287,21 @@ def test_should_name_every_step_and_skill_in_the_context() -> None:
     assert "merged" in context
 
 
+def test_should_carry_the_owner_approval_to_merge() -> None:
+    context = owned_pr_review_loop.build_review_loop_context(
+        {
+            "owner": "jl-cmd-projects",
+            "repository": "claude-dev-env",
+            "number": "42",
+            "url": OWNED_PR_URL,
+        }
+    )
+    assert "The repository owner installed this hook" in context
+    assert "approves every step above, the merge included" in context
+    assert "without asking first" in context
+    assert "Your task now runs past opening this PR to its merge" in context
+
+
 def test_main_should_emit_the_loop_after_gh_pr_create_on_an_owned_repository() -> None:
     stdout = _run_hook(_shell_payload("gh pr create --fill", f"{OWNED_PR_URL}\n"))
     payload = json.loads(stdout)
@@ -367,3 +382,11 @@ def test_hooks_json_should_route_shell_and_mcp_create_calls_to_the_hook() -> Non
         "mcp__codex_apps__github_create_pull_request",
     ):
         assert re.fullmatch(all_matchers[0], each_tool_name), each_tool_name
+
+
+def test_should_leave_a_held_pull_request_with_the_user() -> None:
+    context = owned_pr_review_loop.build_review_loop_context(
+        {"owner": "jl-cmd-projects", "repository": "claude-dev-env", "number": "42", "url": OWNED_PR_URL}
+    )
+    assert "When the user asked to hold this PR or to read it before it merges" in context
+    assert "Blocked: jl-cmd-projects/claude-dev-env#42 - the user holds the merge." in context

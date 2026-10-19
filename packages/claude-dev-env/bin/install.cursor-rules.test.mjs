@@ -141,8 +141,9 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         assert.equal(allCodexPostToolUseCommands.length, 1, 'Codex gets the owned PR review loop and no other PostToolUse hook');
         assert.match(allCodexPostToolUseCommands[0], /advisory\/owned_pr_review_loop\.py/);
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
-        assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
+        assert.equal(allCodexStopCommands.length, 2, 'Codex gets the open tasks and owned PR merge Stop gates and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
+        assert.match(allCodexStopCommands[1], /owned_pr_merge_stop_gate\.py/);
         const allCodexSessionStartGroups = firstCodexHooks.hooks.SessionStart;
         assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));

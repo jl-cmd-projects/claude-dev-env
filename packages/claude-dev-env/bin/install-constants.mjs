@@ -181,6 +181,7 @@ export const ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS = new Set([
 ]);
 export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
     'open_tasks_stop_gate.py',
+    'owned_pr_merge_stop_gate.py',
 ]);
 export const ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES = new Set([
     'compaction_recall_prompt.py',
