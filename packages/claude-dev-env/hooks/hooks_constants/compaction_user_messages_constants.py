@@ -203,8 +203,9 @@ ADDITIONAL_CONTEXT_KEY = "additionalContext"
 RECALL_CONTEXT_TEMPLATE = (
     "The context was just compacted, so the user's own words are gone from it. "
     "These are the messages the user typed in this session, oldest first, trimmed "
-    "to their substance. A later message overrides an earlier one, and a line that "
-    "ends with (overruled by #N) was reversed by message N. Hold them as the user's "
+    "to their substance. A later message overrides an earlier one. A line that "
+    "ends with (overruled by #N) is one that message N changes, so read the two "
+    "together and follow message N where they differ. Hold them as the user's "
     "instructions next to the summary, then continue the work.\n\n{lines}"
 )
 

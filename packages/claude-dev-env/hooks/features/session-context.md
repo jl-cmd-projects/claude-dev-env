@@ -43,7 +43,7 @@ Preconditions:
 ## Gotchas
 
 - The recall keeps the first message and the newest that fit in 8,000 characters, under the 2,500 token preview limit Codex applies to hook context. A message over 1,500 characters is cut, and the line says how much was left out.
-- The overruled mark comes from cue phrases such as `instead` or `change of plan` and shared words. A reversal with no cue phrase gets no mark, and the later line still overrides by its place.
+- The overruled mark comes from cue phrases such as `instead` or `change of plan` and shared words. A reversal with no cue phrase gets no mark, and the later line still overrides by its place. A cue in a message that agrees with an earlier one, such as `dont use haiku` after `use Python trim instead of Haiku`, marks that earlier line too, so the context tells the agent to follow the later message where the two differ.
 - `session/skill_loaded_reminder.py` has four registration points. Its tests cover helper prompt rewriting and repeated prompt suppression.
 - The advisor prompt depends on settings and an environment disable flag. The two starter scripts each use separate opt-in checks.
 - The issue tracker starter requires the checkout to appear in the project path registry.
