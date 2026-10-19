@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.87.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.87.0...claude-dev-env-v8.87.1) (2026-10-19)
+
+
+### Documentation
+
+* **agents:** thin the shipped AGENTS.md trunk and add No PR until proven ([#2061](https://github.com/jl-cmd-projects/claude-dev-env/issues/2061)) ([395da34](https://github.com/jl-cmd-projects/claude-dev-env/commit/395da3413bf22a900ee29bda26b7ec68895fdde4))
+
 ## [8.87.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.86.0...claude-dev-env-v8.87.0) (2026-10-18)
 
 
