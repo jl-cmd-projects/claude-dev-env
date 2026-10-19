@@ -82,14 +82,37 @@ export function otherProfileSettingsPaths(options) {
     return allOtherPaths;
 }
 
-function profileGateCommands(settingsPath, claudeHome) {
+function stopHooks(settingsPath) {
     const settingsText = readFileSync(settingsPath, 'utf8');
     if (!settingsText.trim()) return [];
     const settings = JSON.parse(settingsText);
-    return (settings?.hooks?.[STOP_EVENT_NAME] ?? [])
-        .flatMap((eachGroup) => (Array.isArray(eachGroup?.hooks) ? eachGroup.hooks : []))
+    const stopGroups = settings?.hooks?.[STOP_EVENT_NAME];
+    if (!Array.isArray(stopGroups)) return [];
+    return stopGroups.flatMap((eachGroup) => (Array.isArray(eachGroup?.hooks) ? eachGroup.hooks : []));
+}
+
+function profileGateCommands(settingsPath, claudeHome) {
+    return stopHooks(settingsPath)
         .filter((eachHook) => isGateHook(eachHook, claudeHome))
         .map((eachHook) => eachHook.command);
+}
+
+/**
+ * True when a profile's settings.json already runs a gate script from another Claude home.
+ *
+ * An install with CLAUDE_CONFIG_DIR set to the profile writes a gate entry
+ * for the profile's own copy of the script, and a second entry for the main
+ * home's copy would run the gate twice on every stop.
+ *
+ * @param {string} settingsPath
+ * @param {string} claudeHome
+ * @returns {boolean}
+ */
+export function profileRunsItsOwnGate(settingsPath, claudeHome) {
+    const scriptPathSuffix = `/${comparableCommand(join(MANAGED_HOOKS_DIRECTORY_NAME, ...CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH))}`;
+    return stopHooks(settingsPath).some((eachHook) => typeof eachHook?.command === 'string'
+        && comparableCommand(eachHook.command).includes(scriptPathSuffix)
+        && !isGateHook(eachHook, claudeHome));
 }
 
 /**
@@ -98,7 +121,8 @@ function profileGateCommands(settingsPath, claudeHome) {
  * A profile keeps its own settings and hooks. The merge adds the one gate
  * entry, in the spelling the main settings use, only where it is missing;
  * an entry left with an older interpreter spelling is replaced. The file as
- * it was before either change is copied to a timestamped `.bak`.
+ * it was before either change is copied to a timestamped `.bak`. A profile
+ * that already runs its own copy of the gate script is left as it is.
  *
  * @param {{ mainSettingsPath: string, claudeHome: string, allProfileSettingsPaths: string[],
  *   homeDirectory: string, now?: Date }} options
@@ -109,13 +133,16 @@ export function addOpenTasksGateToProfiles(options) {
     if (!gateHook) return [];
     const timestamp = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
     const declaredSettings = [{ keyPath: ['hooks', STOP_EVENT_NAME], items: [{ hooks: [gateHook] }] }];
-    const allStalePaths = options.allProfileSettingsPaths.filter(
+    const allTargetPaths = options.allProfileSettingsPaths.filter(
+        (eachPath) => !profileRunsItsOwnGate(eachPath, options.claudeHome),
+    );
+    const allStalePaths = allTargetPaths.filter(
         (eachPath) => profileGateCommands(eachPath, options.claudeHome)
             .some((eachCommand) => eachCommand !== gateHook.command),
     );
     const originalTextByStalePath = new Map(allStalePaths.map((eachPath) => [eachPath, readFileSync(eachPath, 'utf8')]));
     removeOpenTasksGateFromProfiles({ claudeHome: options.claudeHome, allProfileSettingsPaths: allStalePaths });
-    return options.allProfileSettingsPaths.map((eachPath) => {
+    return allTargetPaths.map((eachPath) => {
         const outcome = mergeProfileSettingsFile(eachPath, {
             dryRun: false,
             homeDirectory: options.homeDirectory,

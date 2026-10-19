@@ -109,3 +109,16 @@ test('removal takes out only the main gate entry and leaves the profile as it wa
     assert.deepEqual(stopCommands(ownHooksPath), ['python3 /opt/own/stop.py']);
     assert.deepEqual(JSON.parse(readFileSync(prefsOnlyPath, 'utf8')), { outputStyle: 'plain' });
 });
+
+test('a profile that already runs its own copy of the gate script gets no second entry', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath } = makeHome(context);
+    const ownGateCommand = `python3 ${join(homeDirectory, '.claude-profiles', 'isolated', 'hooks', 'blocking', 'open_tasks_stop_gate.py').replace(/\\/g, '/')}`;
+    const profilePath = writeProfile(homeDirectory, 'isolated', {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: ownGateCommand }] }] },
+    });
+
+    const allOutcomes = addOpenTasksGateToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.deepEqual(allOutcomes, []);
+    assert.deepEqual(stopCommands(profilePath), [ownGateCommand]);
+});
