@@ -2,13 +2,15 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     CODEX_CONFIG_FILE_NAME,
+    codexSolHomes,
     codexSolSettingSnapshotPaths,
     removeCodexSolSetting,
+    sharesMainConfig,
     solSettingLines,
     writeCodexSolSetting,
 } from './codex-trimmed-sol.mjs';
@@ -52,6 +54,14 @@ function settingText(instructionsPath, userText = '') {
     return [...solSettingLines(instructionsPath), userText].join('\n');
 }
 
+function keepInstructionsPath(context) {
+    const keepDirectory = mkdtempSync(join(homedir(), 'cde-sol-keep-'));
+    context.after(() => rmSync(keepDirectory, { recursive: true, force: true }));
+    const keepPath = join(keepDirectory, 'mine.md');
+    writeFileSync(keepPath, 'keep\n');
+    return keepPath;
+}
+
 test('setting lines point model_instructions_file at the prompt and name no model', () => {
     const allLines = solSettingLines('/home/user/.claude/system-prompts/codex-sol.md');
     assert.ok(allLines.includes('model_instructions_file = "/home/user/.claude/system-prompts/codex-sol.md"'));
@@ -93,10 +103,11 @@ test('a config saved with CRLF line endings still has its package line rewritten
     assert.equal(readFileSync(configPath, 'utf8'), userText);
 });
 
-test('a user-written top-level model_instructions_file is neither rewritten nor removed', (context) => {
+test('a top-level model_instructions_file whose target exists outside the temp directory stays', (context) => {
     const codexHome = join(makeScratchHome(context), '.codex');
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
-    const userText = 'model_instructions_file = "/mine.md"\n';
+    const keepPath = keepInstructionsPath(context);
+    const userText = `model_instructions_file = ${JSON.stringify(keepPath)}\n`;
     mkdirSync(codexHome, { recursive: true });
     writeFileSync(configPath, userText);
     assert.equal(writeCodexSolSetting(codexHome, '/prompt.md'), null);
@@ -253,7 +264,8 @@ test('uninstall removes the Codex copy of the prompt when the user wrote their o
     const codexHome = join(homeDirectory, '.codex');
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const promptPath = join(codexHome, 'codex-sol.md');
-    const userText = 'model_instructions_file = "/mine.md"\n';
+    const keepPath = keepInstructionsPath(context);
+    const userText = `model_instructions_file = ${JSON.stringify(keepPath)}\n`;
     mkdirSync(codexHome, { recursive: true });
     writeFileSync(configPath, userText);
     const installation = installInScratchHome(homeDirectory);
@@ -413,4 +425,50 @@ test('CODEX_HOME that reaches the main home through a folder link still uninstal
     assert.equal(installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: folderLink }).status, 0);
     assert.equal(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
     assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
+});
+
+test('codexSolHomes skips an account whose config.toml is the main file', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const accountHome = join(homeDirectory, '.codex-profiles', 'codex-2');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(accountHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    linkSync(join(mainHome, CODEX_CONFIG_FILE_NAME), join(accountHome, CODEX_CONFIG_FILE_NAME));
+    const environment = { HOME: homeDirectory, USERPROFILE: homeDirectory };
+    assert.equal(sharesMainConfig(accountHome, mainHome), true);
+    assert.deepEqual(codexSolHomes(mainHome, environment), [mainHome]);
+});
+
+test('the repair script replaces a missing instructions file in the main home and an account home', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const accountHome = join(homeDirectory, '.codex-profiles', 'codex-2');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(accountHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'model_instructions_file = "/missing-main.md"\n');
+    writeFileSync(join(accountHome, CODEX_CONFIG_FILE_NAME), 'model_instructions_file = "/missing-account.md"\n');
+    const repairPath = join(packageDirectory, 'bin', 'repair-codex-sol-settings.mjs');
+    const environment = {
+        ...process.env,
+        HOME: homeDirectory,
+        USERPROFILE: homeDirectory,
+        CODEX_HOME: mainHome,
+        CLAUDE_CONFIG_DIR: join(homeDirectory, '.claude'),
+    };
+    delete environment.CODEX_ACCOUNT_PROFILES;
+    delete environment.CODEX_PROFILES_ROOT;
+    const firstRun = spawnSync(process.execPath, [repairPath], { encoding: 'utf8', env: environment });
+    assert.equal(firstRun.status, 0, firstRun.stdout + firstRun.stderr);
+    const mainPrompt = join(mainHome, 'codex-sol.md');
+    const accountPrompt = join(accountHome, 'codex-sol.md');
+    assert.equal(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8'), settingText(mainPrompt));
+    assert.equal(readFileSync(join(accountHome, CODEX_CONFIG_FILE_NAME), 'utf8'), settingText(accountPrompt));
+    assert.equal(readFileSync(mainPrompt, 'utf8'), readFileSync(shippedPromptPath, 'utf8'));
+    assert.equal(readFileSync(accountPrompt, 'utf8'), readFileSync(shippedPromptPath, 'utf8'));
+    const secondRun = spawnSync(process.execPath, [repairPath], { encoding: 'utf8', env: environment });
+    assert.equal(secondRun.status, 0, secondRun.stdout + secondRun.stderr);
+    assert.equal(secondRun.stdout, '');
+    assert.equal(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8'), settingText(mainPrompt));
+    assert.equal(readFileSync(join(accountHome, CODEX_CONFIG_FILE_NAME), 'utf8'), settingText(accountPrompt));
 });
