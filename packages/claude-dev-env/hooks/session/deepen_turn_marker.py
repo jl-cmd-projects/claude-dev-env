@@ -24,6 +24,17 @@ from hooks_constants.deepen_first_prompt_constants import (
 )
 
 
+def _all_turn_marker_paths(all_hook_fields: dict[str, object]) -> list[Path]:
+    all_marker_paths: list[Path] = []
+    transcript_path = all_hook_fields.get(TRANSCRIPT_PATH_FIELD_NAME)
+    if isinstance(transcript_path, str) and transcript_path:
+        all_marker_paths.append(Path(transcript_path + DEEPEN_TURN_MARKER_SUFFIX))
+    session_id = all_hook_fields.get(SESSION_ID_FIELD_NAME)
+    if isinstance(session_id, str) and session_id:
+        all_marker_paths.append(Path(tempfile.gettempdir()) / f"{DEEPEN_SESSION_MARKER_PREFIX}{session_id}")
+    return all_marker_paths
+
+
 def turn_marker_path(all_hook_fields: dict[str, object]) -> Path | None:
     """Return the marker path for this session, or None when the payload names none.
 
@@ -31,19 +42,17 @@ def turn_marker_path(all_hook_fields: dict[str, object]) -> Path | None:
     path before the first reply, so the session id names a file in the system
     temp folder instead.
     """
-    transcript_path = all_hook_fields.get(TRANSCRIPT_PATH_FIELD_NAME)
-    if isinstance(transcript_path, str) and transcript_path:
-        return Path(transcript_path + DEEPEN_TURN_MARKER_SUFFIX)
-    session_id = all_hook_fields.get(SESSION_ID_FIELD_NAME)
-    if isinstance(session_id, str) and session_id:
-        return Path(tempfile.gettempdir()) / f"{DEEPEN_SESSION_MARKER_PREFIX}{session_id}"
-    return None
+    all_marker_paths = _all_turn_marker_paths(all_hook_fields)
+    return all_marker_paths[0] if all_marker_paths else None
 
 
 def turn_marker_exists(all_hook_fields: dict[str, object]) -> bool:
-    """Return True when this session already deepened a task."""
-    marker_path = turn_marker_path(all_hook_fields)
-    return marker_path is not None and marker_path.is_file()
+    """Return True when this session already deepened a task.
+
+    Both marker locations count. Cursor's first prompt claims the session marker
+    because it has no transcript path yet, and a later prompt carries one.
+    """
+    return any(each_marker_path.is_file() for each_marker_path in _all_turn_marker_paths(all_hook_fields))
 
 
 def claim_turn_marker(all_hook_fields: dict[str, object]) -> bool:

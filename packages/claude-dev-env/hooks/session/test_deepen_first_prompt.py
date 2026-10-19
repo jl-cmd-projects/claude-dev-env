@@ -60,6 +60,10 @@ def _user_transcript_line() -> str:
     return json.dumps({"type": "user", "message": {"role": "user", "content": "earlier task"}})
 
 
+def _cursor_transcript_line(role: str, text: str) -> str:
+    return json.dumps({"role": role, "message": {"content": [{"type": "text", "text": text}]}})
+
+
 def _role_rewrite(body: str) -> str:
     return (
         f"{DEEPEN_MARKER}\n"
@@ -164,6 +168,14 @@ class TestSkipReasonFor:
         fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
         assert deepen.skip_reason_for(fields) is None
 
+    def test_should_skip_when_a_cursor_transcript_already_has_a_user_turn(self, tmp_path: Path) -> None:
+        cursor_transcript_path = tmp_path / "cursor.jsonl"
+        cursor_transcript_path.write_text(_cursor_transcript_line("user", "earlier task"), encoding="utf-8")
+        fields = _payload("Add dark mode to the settings page", str(cursor_transcript_path))
+        fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        fields.pop("session_id")
+        assert deepen.skip_reason_for(fields) is deepen.SkipReason.LATER_TURN
+
     def test_should_skip_any_other_event(self) -> None:
         fields = _payload("Add dark mode to the settings page")
         fields["hook_event_name"] = "stop"
@@ -217,6 +229,32 @@ class TestDecideFirstPrompt:
         cursor_fields["session_id"] = "cursor-conversation"
         all_outputs = [_run_main(cursor_fields), _run_main(cursor_fields)]
         assert sum(DEEPEN_MARKER in each_output for each_output in all_outputs) == 1
+
+    def test_should_keep_cursor_turn_two_silent_once_the_transcript_appears(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
+        monkeypatch.delenv("CDE_DEEPEN_OUTPUT", raising=False)
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        first_fields = _payload("Add dark mode to the settings page")
+        first_fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        first_fields["transcript_path"] = None
+        first_fields["session_id"] = "cursor-conversation"
+        assert DEEPEN_MARKER in _run_main(first_fields)
+        cursor_transcript_path = tmp_path / "cursor-conversation.jsonl"
+        cursor_transcript_path.write_text(
+            "\n".join(
+                [
+                    _cursor_transcript_line("user", "Add dark mode to the settings page"),
+                    _cursor_transcript_line("assistant", "Done."),
+                ]
+            ),
+            encoding="utf-8",
+        )
+        second_fields = dict(first_fields)
+        second_fields["prompt"] = "and also the billing page"
+        second_fields["transcript_path"] = str(cursor_transcript_path)
+        assert _run_main(second_fields) == ""
 
     def test_should_print_rewrite_text_for_the_claude_mod(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

@@ -150,6 +150,8 @@ def _is_user_entry(all_entry_fields: dict[str, object] | None) -> bool:
         return False
     if all_entry_fields.get(JSONL_TYPE_KEY) == USER_TYPE_NAME:
         return True
+    if all_entry_fields.get(JSONL_ROLE_KEY) == USER_ROLE_NAME:
+        return True
     message = all_entry_fields.get("message")
     return isinstance(message, dict) and message.get(JSONL_ROLE_KEY) == USER_ROLE_NAME
 

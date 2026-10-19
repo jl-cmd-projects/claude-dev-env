@@ -48,3 +48,12 @@ def test_should_allow_a_claim_when_the_payload_names_no_session() -> None:
 def test_should_allow_a_claim_when_the_marker_cannot_be_written(tmp_path: Path) -> None:
     fields = {"transcript_path": str(tmp_path / "missing-folder" / "session.jsonl")}
     assert marker.claim_turn_marker(fields) is True
+
+
+def test_should_see_the_session_marker_once_a_transcript_path_appears(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    assert marker.claim_turn_marker({"transcript_path": None, "session_id": "abc"}) is True
+    later_fields = {"transcript_path": str(tmp_path / "cursor.jsonl"), "session_id": "abc"}
+    assert marker.turn_marker_exists(later_fields)
