@@ -2,8 +2,8 @@
 /**
  * Install this package into a scratch home directory.
  *
- * The installer writes into `$HOME/.claude` and rewrites the global git
- * configuration. Both are redirected here so a run leaves the caller's own home
+ * The installer writes into `$HOME/.claude`, rewrites the global git
+ * configuration, and edits `$CODEX_HOME/config.toml`. All three are redirected here so a run leaves the caller's own home
  * untouched.
  */
 
@@ -44,6 +44,7 @@ export function scratchHomeEnvironment(scratchHome) {
         HOME: scratchHome,
         USERPROFILE: scratchHome,
         GIT_CONFIG_GLOBAL: join(scratchHome, SANDBOX_GIT_CONFIG_NAME),
+        CODEX_HOME: join(scratchHome, '.codex'),
     };
 }
 
