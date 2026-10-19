@@ -17,7 +17,7 @@ Run this command from the repository root:
 node .agents/skills/verify/scripts/verify-installer.mjs run
 ```
 
-The command succeeds when the transcript reports `21/21 checks passed` and `ALL CHECKS PASSED`. The driver removes its sandbox before the helper exits.
+The command succeeds when the transcript reports `23/23 checks passed` and `ALL CHECKS PASSED`. The driver removes its sandbox before the helper exits.
 
 ## Doctor
 
