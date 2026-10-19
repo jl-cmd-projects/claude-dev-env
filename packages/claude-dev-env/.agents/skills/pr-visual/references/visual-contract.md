@@ -17,3 +17,5 @@ Put exact explanation and sources in a collapsed disclosure beneath the detail d
 Scope CSS selectors and DOM queries to the widget root. Give SVG symbols and control IDs unique instance prefixes. A second widget on the same Page must not change the first widget or host styles.
 
 Verify the screenshot at the 1440 pixel desktop size with the panel both open and closed. Check every node, mini-diagram, related-step jump, disclosure reset, source link, title, and connection. Check the stacked panel on narrow screens. Verify two widget instances together and confirm host styles remain unchanged. Missing source or incomplete coverage must remain available in the review notes.
+
+Lead a multi-PR review with sample cards. Embed useful quantitative charts directly in those cards and the relevant node details. Use a larger summary chart within the active review when the comparison needs room. Keep the flow and its evidence nearby. Label source examples and test-fixture values on the chart itself. Graph-only cards remain appropriate for changes without quantitative evidence.

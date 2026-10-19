@@ -1,0 +1,276 @@
+{
+  "snapshot": "snapshot.json",
+  "tab": "Flow",
+  "title": "Follow the captured measurements",
+  "subtitle": "Synthetic fixture: source-backed views of the same data.",
+  "before": "BEFORE: Measurements stored as JSON.",
+  "after": "AFTER: Inspect each sample and its source.",
+  "alt": "Three synthetic samples; click a sample to inspect its captured JSON.",
+  "nodes": [
+    {
+      "id": "sample-0",
+      "x": 300,
+      "y": 430,
+      "label": [
+        "Sample 1"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 1,
+          "end": 16
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/0/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/0/duration_ms"
+        }
+      },
+      "chart": {
+        "kind": "bar",
+        "title": "Captured fixture durations",
+        "basis": "source-example",
+        "caption": "Synthetic fixture values for renderer verification.",
+        "x_label": "Sample",
+        "y_label": "Duration (ms)",
+        "points": [
+          {
+            "label": "Sample 1",
+            "metrics": {
+              "y": {
+                "source": 0,
+                "pointer": "/samples/0/duration_ms"
+              }
+            }
+          },
+          {
+            "label": "Sample 2",
+            "metrics": {
+              "y": {
+                "source": 0,
+                "pointer": "/samples/1/duration_ms"
+              }
+            }
+          },
+          {
+            "label": "Sample 3",
+            "metrics": {
+              "y": {
+                "source": 0,
+                "pointer": "/samples/2/duration_ms"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-1",
+      "x": 700,
+      "y": 430,
+      "label": [
+        "Sample 2"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 8,
+          "end": 9
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/1/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/1/duration_ms"
+        }
+      }
+    },
+    {
+      "id": "sample-2",
+      "x": 1100,
+      "y": 430,
+      "label": [
+        "Sample 3"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 12,
+          "end": 13
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/2/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/2/duration_ms"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "sample-0",
+      "to": "sample-1",
+      "path": "M343 430 L657 430",
+      "kind": "green"
+    },
+    {
+      "from": "sample-1",
+      "to": "sample-2",
+      "path": "M743 430 L1057 430",
+      "kind": "green"
+    }
+  ],
+  "notes": [
+    {
+      "label": "SOURCE",
+      "text": [
+        "Captured JSON",
+        "Immutable source links"
+      ]
+    },
+    {
+      "label": "INTERACTION",
+      "text": [
+        "Select a sample",
+        "Inspect its source"
+      ]
+    },
+    {
+      "label": "SCOPE",
+      "text": [
+        "Synthetic data only",
+        "No benchmark claim"
+      ]
+    }
+  ],
+  "comparison": [
+    "The fixture description and rendered samples use the same captured JSON."
+  ],
+  "review": [
+    "This fixture checks the renderer, not a PR correctness verdict."
+  ],
+  "summary_chart": {
+    "node": "sample-0",
+    "kind": "bar",
+    "title": "Captured fixture durations",
+    "basis": "source-example",
+    "caption": "Synthetic fixture values for renderer verification.",
+    "x_label": "Sample",
+    "y_label": "Duration (ms)",
+    "points": [
+      {
+        "label": "Sample 1",
+        "metrics": {
+          "y": {
+            "source": 0,
+            "pointer": "/samples/0/duration_ms"
+          }
+        }
+      },
+      {
+        "label": "Sample 2",
+        "metrics": {
+          "y": {
+            "source": 0,
+            "pointer": "/samples/1/duration_ms"
+          }
+        }
+      },
+      {
+        "label": "Sample 3",
+        "metrics": {
+          "y": {
+            "source": 0,
+            "pointer": "/samples/2/duration_ms"
+          }
+        }
+      }
+    ]
+  }
+}

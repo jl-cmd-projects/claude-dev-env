@@ -39,10 +39,27 @@
 [data-pr-visual] button:focus-visible,[data-pr-visual] a:focus-visible,[data-pr-visual] summary:focus-visible{outline:3px solid #70a186;outline-offset:3px}
 @media(max-width:700px){[data-pr-visual] .toolbar,[data-pr-visual] .tabs{padding:12px}[data-pr-visual] .brand{width:100%;margin-bottom:5px}[data-pr-visual] .workspace.open{grid-template-columns:minmax(0,1fr);grid-template-rows:420px minmax(0,1fr)}[data-pr-visual] .drawer{grid-row:1;border-left:0;border-bottom:1px solid #c8d1c4;padding:15px}[data-pr-visual] .stage{grid-row:2}[data-pr-visual] .workspace:not(.open) .stage{grid-row:1}}
 @media print{[data-pr-visual] .toolbar,[data-pr-visual] .tabs,[data-pr-visual] .drawer{display:none!important}[data-pr-visual] .workspace{display:block;height:auto;overflow:visible}[data-pr-visual] .stage{overflow:visible}[data-pr-visual] .canvas{min-width:0;max-width:none}}
+
+[data-pr-visual] .review-overview{padding:26px 28px 30px;background:#f6f5ef;border-bottom:1px solid #cbd6c4}
+[data-pr-visual] .review-overview h2{font-size:25px;margin:0 0 8px}[data-pr-visual] .overview-intro{font-size:14px;color:#60716c;margin:0 0 22px}
+[data-pr-visual] .sample-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px}
+[data-pr-visual] .sample-card{grid-column:span 2;min-width:0;text-align:left;background:#fffef8;border:1px solid #c2cec1;border-radius:14px;padding:20px;color:#17353f;overflow:hidden;display:flex;flex-direction:column}
+[data-pr-visual] .sample-card.has-chart{grid-column:span 3;order:-1}[data-pr-visual] .sample-card:hover,[data-pr-visual] .sample-card[aria-current=true]{border-color:#217757;box-shadow:0 0 0 2px #21775730}
+[data-pr-visual] .sample-card h3{font-size:21px;margin:8px 0 2px}[data-pr-visual] .card-kicker{font-size:11px;letter-spacing:1.2px;font-weight:800;color:#60716c}
+[data-pr-visual] .sample-card .card-description{font-size:13px;line-height:1.5;color:#60716c;margin:7px 0 0}[data-pr-visual] .card-action{font-size:13px;font-weight:700;color:#217757;margin-top:auto;padding-top:15px}
+[data-pr-visual] .embedded-chart{margin:10px 0 0;min-width:0}[data-pr-visual] .embedded-chart svg text{font-size:13px}[data-pr-visual] .embedded-chart figcaption{font-size:12px;line-height:1.5;color:#60716c;margin-top:8px}
+[data-pr-visual] .chart-basis{font-size:10px;letter-spacing:1px;font-weight:800;color:#7c5b32;display:block;margin-top:8px}
+[data-pr-visual] .context-chart{padding:22px 28px 18px;max-width:1060px;margin:0 auto;border-bottom:1px solid #d5dcd2;background:#f6f5ef}
+[data-pr-visual] .context-chart h3{font-size:18px;margin:0}[data-pr-visual] .context-chart .embedded-chart{max-width:740px;margin:8px auto 0}
+[data-pr-visual] .card-graph{margin-top:16px}[data-pr-visual] .card-graph .detail-map{max-height:160px}
+[data-pr-visual] .drawer .embedded-chart svg text{font-size:20px}
+[data-pr-visual] .drawer .embedded-chart{border:1px solid #d5dcd2;border-radius:10px;padding:12px;margin:18px 0}
+@media(max-width:700px){[data-pr-visual] .review-overview{padding:20px 14px}[data-pr-visual] .sample-card,[data-pr-visual] .sample-card.has-chart{grid-column:span 6}[data-pr-visual] .context-chart{padding:18px 14px}}
 </style></head><body><main data-pr-visual>
 <div class="toolbar"><span class="brand">PR visual review</span><button data-minus aria-label="Zoom out">&#8722;</button><button data-plus aria-label="Zoom in">+</button><button data-fit>Fit</button><button data-compare>Summary vs code</button><button data-review>Review notes</button></div>
+<section class="review-overview" aria-label="PR sample cards"><h2>Explore the reviews</h2><p class="overview-intro">Charts and code graphs explain each change. Open a card to follow its flow and inspect the evidence.</p><div class="sample-cards"></div></section>
 <nav class="tabs" role="tablist" aria-label="Pull request diagrams"></nav>
-<div class="workspace"><div class="stage"><div class="canvas" role="tabpanel"></div></div><aside class="drawer" aria-label="Diagram details" hidden><header><h2 data-detail-title></h2><button class="close" aria-label="Close details">Close</button></header><div class="content"></div></aside></div>
+<div class="workspace"><div class="stage"><section class="context-chart" hidden></section><div class="canvas" role="tabpanel"></div></div><aside class="drawer" aria-label="Diagram details" hidden><header><h2 data-detail-title></h2><button class="close" aria-label="Close details">Close</button></header><div class="content"></div></aside></div>
 <script type="application/json" data-scenes>__SCENES__</script><script>
 (()=>{
 const root=document.currentScript.closest('[data-pr-visual]'),$=s=>root.querySelector(s),all=s=>[...root.querySelectorAll(s)],ns='http://www.w3.org/2000/svg';
@@ -58,6 +75,24 @@ function mini(flow){const rows=Math.ceil(flow.steps.length/3),height=rows*125,sv
  const edges=flow.edges||flow.steps.slice(1).map((_,i)=>({from:i,to:i+1}));
  edges.forEach(e=>{const a=positions[e.from],b=positions[e.to],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),ux=dx/length,uy=dy/length,kind=e.kind||'green';svg.append(el('path',{d:`M${a.x+ux*25} ${a.y+uy*25}L${b.x-ux*28} ${b.y-uy*28}`,class:`wire ${kind}`,'stroke-width':2,'marker-end':`url(#${kind==='orange'?'arrowOrange':'arrowGreen'})`}));if(e.label)text(svg,(a.x+b.x)/2+(!dx?32:0),(a.y+b.y)/2-8,e.label,'mini-edge','middle')});
  flow.steps.forEach((step,i)=>{const {x,y}=positions[i];svg.append(el('circle',{cx:x,cy:y,r:24,class:`disc ${step.kind||'green'}`}));svg.append(el('use',{href:'#'+step.icon,x:x-15,y:y-15,width:30,height:30,class:'icon'}));lines(svg,x,y+43,step.label,'mini-label','middle',15)});return svg}
+function embeddedChart(chart){
+ const figure=dom('figure',undefined,'embedded-chart');figure.dataset.embeddedChart=chart.kind;
+ const svg=el('svg',{viewBox:'0 0 560 245',role:'img','aria-label':`${chart.title}. ${chart.caption}`}),left=52,right=530,top=36,bottom=181;
+ const points=chart.points,ys=points.map(p=>p.values.y),low=Math.min(0,...ys),high=Math.max(0,...ys),span=high-low||1,y=v=>bottom-(v-low)/span*(bottom-top);
+ const xs=points.map(p=>p.values.x),xmin=Math.min(...xs),xspan=Math.max(...xs)-xmin||1,isBar=chart.kind==='bar';
+ const x=(v,i)=>isBar?left+(i+.5)*(right-left)/points.length:left+(v-xmin)/xspan*(right-left);
+ for(let i=0;i<=4;i++){const v=low+span*i/4,yy=y(v);svg.append(el('line',{x1:left,y1:yy,x2:right,y2:yy,stroke:'#d9dfd2'}));text(svg,left-10,yy+4,Number(v.toPrecision(3)).toString(),'micro','end')}
+ svg.append(el('line',{x1:left,y1:y(0),x2:right,y2:y(0),stroke:'#64746e'}));
+ if(chart.kind==='line'){const sorted=points.map((p,i)=>({x:x(p.values.x,i),y:y(p.values.y)})).sort((a,b)=>a.x-b.x);svg.append(el('path',{d:sorted.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' '),class:'wire green'}))}
+ points.forEach((p,i)=>{const xx=x(p.values.x,i),yy=y(p.values.y),width=Math.min(74,(right-left)/points.length*.55);svg.append(isBar?el('rect',{x:xx-width/2,y:Math.min(yy,y(0)),width,height:Math.max(2,Math.abs(yy-y(0))),rx:4,fill:'#9abd9b'}):el('circle',{cx:xx,cy:yy,r:5,fill:'#217757'}));
+ text(svg,xx,yy-9,String(p.values.y),'micro','middle');text(svg,xx,205,isBar?p.label:String(p.values.x),'micro','middle')});
+ text(svg,4,18,chart.y_label,'micro');text(svg,(left+right)/2,237,chart.x_label,'micro','middle');figure.append(svg);
+ figure.append(dom('span',chart.basis==='source-example'?'SOURCE EXAMPLE':'CAPTURED DATA','chart-basis'),dom('figcaption',chart.caption));return figure
+}
+function renderOverview(){const cards=$('.sample-cards');scenes.forEach((s,i)=>{const card=dom('button',undefined,'sample-card'+(s.summary_chart?' has-chart':''));card.dataset.reviewCard=String(i);card.setAttribute('aria-label',`Open PR ${s.pr.number}: ${s.tab}`);card.append(dom('span',`PR #${s.pr.number}`,'card-kicker'),dom('h3',s.tab));
+ if(s.summary_chart){card.append(dom('p',s.summary_chart.title,'card-description'),embeddedChart(s.summary_chart))}else{const graph=dom('div',undefined,'card-graph');const n=s.nodes.find(n=>n.kind==='decision')||s.nodes[Math.min(2,s.nodes.length-1)];graph.append(mini(n.drilldown));card.append(graph,dom('p',s.subtitle,'card-description'))}
+ card.append(dom('span','Open review and evidence \u2192','card-action'));card.onclick=()=>{draw(i);if(s.summary_chart)showNode(s.summary_chart.node);workspace.scrollIntoView({behavior:'smooth',block:'start'})};cards.append(card)})}
+function renderContext(s){const context=$('.context-chart');context.replaceChildren();context.hidden=!s.summary_chart;if(s.summary_chart){context.append(dom('h3',s.summary_chart.title),embeddedChart(s.summary_chart))}all('[data-review-card]').forEach((card,i)=>card.setAttribute('aria-current',i===active?'true':'false'))}
 function resetSelection(){all('[data-node]').forEach(n=>{n.setAttribute('aria-expanded','false');n.setAttribute('aria-controls',drawer.id)})}
 function close(restore=true){drawer.hidden=true;workspace.classList.remove('open');resetSelection();if(restore&&lastFocus?.isConnected)lastFocus.focus({preventScroll:true})}
 function showPanel(title,flow,paragraphs,sources=[],raw,related=[],trigger){lastFocus=trigger||root.ownerDocument.activeElement;content.replaceChildren();$('[data-detail-title]').textContent=title;
@@ -66,7 +101,7 @@ function showPanel(title,flow,paragraphs,sources=[],raw,related=[],trigger){last
  const exact=dom('details',undefined,'exact-source');exact.append(dom('summary','Explanation and sources'));paragraphs.forEach(v=>exact.append(dom('p',v)));
  sources.forEach(s=>{const a=dom('a',`${s.path} \u00b7 lines ${s.line}\u2013${s.end||s.line}`);a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';exact.append(a);if(s.excerpt)exact.append(dom('pre',s.excerpt))});
  if(raw)exact.append(dom('h3','PR description at capture'),dom('pre',raw));content.append(exact);content.scrollTop=0;drawer.hidden=false;workspace.classList.add('open');$('.close').focus({preventScroll:true})}
-function showNode(id){const s=scenes[active],n=s.nodes.find(n=>n.id===id);resetSelection();const trigger=all('[data-node]').find(g=>g.dataset.node===id);trigger.setAttribute('aria-expanded','true');const neighbors=new Set(s.edges.filter(e=>e.from===id||e.to===id).flatMap(e=>[e.from,e.to]));neighbors.delete(id);showPanel(n.label.join(' '),n.drilldown,n.detail,n.sources,undefined,s.nodes.filter(n=>neighbors.has(n.id)),trigger)}
+function showNode(id){const s=scenes[active],n=s.nodes.find(n=>n.id===id);resetSelection();const trigger=all('[data-node]').find(g=>g.dataset.node===id);trigger.setAttribute('aria-expanded','true');const neighbors=new Set(s.edges.filter(e=>e.from===id||e.to===id).flatMap(e=>[e.from,e.to]));neighbors.delete(id);showPanel(n.label.join(' '),n.drilldown,n.detail,n.sources,undefined,s.nodes.filter(n=>neighbors.has(n.id)),trigger);if(n.chart){const figure=embeddedChart(n.chart);figure.prepend(dom('h3',n.chart.title));content.insertBefore(figure,content.querySelector('.exact-source'))}}
 $('.close').onclick=()=>close();root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!drawer.hidden){e.preventDefault();close()}});
 function chartNode(svg,n,x,y,bar){
  const g=el('g',{class:'node','data-node':n.id,tabindex:0,role:'button','aria-expanded':'false','aria-controls':drawer.id,'aria-label':`${n.label.join(' ')}: ${n.values.y}`});
@@ -89,7 +124,7 @@ function drawChart(svg,s){
  if(chart.kind==='line'){const sorted=[...points].sort((a,b)=>a.n.values.x-b.n.values.x);svg.append(el('path',{d:sorted.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' '),class:'wire green'}))}
  points.forEach(p=>{const width=Math.min(150,(right-left)/points.length*.6),bar=isBar?el('rect',{x:p.x-width/2,y:Math.min(p.y,y(0)),width,height:Math.max(2,Math.abs(y(0)-p.y)),rx:5,class:'disc green'}):undefined;chartNode(svg,p.n,p.x,p.y,bar)})
 }
-function draw(index){close(false);active=index;const s=scenes[index];[...tabs.children].forEach((b,i)=>{b.setAttribute('aria-selected',i===index);b.tabIndex=i===index?0:-1});canvas.replaceChildren();const svg=el('svg',{viewBox:'0 0 1440 1020',role:'img','aria-label':`${s.title}. ${s.subtitle}`});const desc=el('desc',{},s.alt);svg.append(desc);const defs=el('defs');defs.innerHTML=icons.replace(/id="([^"]+)"/g,(_,id)=>`id="${prefix}${id}"`);svg.append(defs,el('rect',{width:1440,height:1020,fill:'#f6f5ef'}));text(svg,40,54,s.title,'title');text(svg,42,86,s.subtitle,'subtitle');text(svg,1398,49,`PR #${s.pr.number} \u00b7 ${s.pr.merged?'MERGED':s.pr.state==='closed'?'CLOSED':s.pr.draft?'DRAFT':'OPEN'}`,'kicker','end');
+function draw(index){close(false);active=index;const s=scenes[index];renderContext(s);[...tabs.children].forEach((b,i)=>{b.setAttribute('aria-selected',i===index);b.tabIndex=i===index?0:-1});canvas.replaceChildren();const svg=el('svg',{viewBox:'0 0 1440 1020',role:'img','aria-label':`${s.title}. ${s.subtitle}`});const desc=el('desc',{},s.alt);svg.append(desc);const defs=el('defs');defs.innerHTML=icons.replace(/id="([^"]+)"/g,(_,id)=>`id="${prefix}${id}"`);svg.append(defs,el('rect',{width:1440,height:1020,fill:'#f6f5ef'}));text(svg,40,54,s.title,'title');text(svg,42,86,s.subtitle,'subtitle');text(svg,1398,49,`PR #${s.pr.number} \u00b7 ${s.pr.merged?'MERGED':s.pr.state==='closed'?'CLOSED':s.pr.draft?'DRAFT':'OPEN'}`,'kicker','end');
 text(svg,42,128,s.before,'micro');text(svg,42,155,s.after,'micro');text(svg,1398,128,`${s.pr.changed_files} CHANGED FILES`,'kicker','end');
 if(s.chart){drawChart(svg,s)}else{
 (s.groups||[]).forEach(g=>{svg.append(el('rect',{x:g.x,y:g.y,width:g.w,height:g.h,rx:20,class:'group'}));text(svg,g.x+g.w/2,g.y+27,g.label,'panel-label','middle')});
@@ -104,6 +139,6 @@ function setZoom(value,fit=false){zoom=Math.max(.7,Math.min(2,value));canvas.sty
 $('[data-plus]').onclick=()=>setZoom(zoom+.2);$('[data-minus]').onclick=()=>setZoom(zoom-.2);$('[data-fit]').onclick=()=>setZoom(1,true);
 $('[data-compare]').onclick=e=>showPanel('Summary vs code',{title:'Compare the claim with the implementation',steps:[{label:['PR','description'],icon:'list'},{label:['Trace the','code'],icon:'code'},{label:['Compare','behavior'],icon:'eye'}]},scenes[active].comparison,[],scenes[active].summary,scenes[active].nodes,e.currentTarget);
 $('[data-review]').onclick=e=>showPanel('Review notes',{title:'Scope and evidence',steps:[{label:['Captured','source'],icon:'ledger'},{label:['Reviewed','path'],icon:'branches'},{label:['Scope and','limitations'],icon:'shield'}]},scenes[active].review,[],undefined,scenes[active].nodes,e.currentTarget);
-draw(0);
+renderOverview();draw(0);
 })();
 </script></main></body></html>

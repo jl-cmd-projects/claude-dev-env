@@ -24,4 +24,6 @@ Add `--browser-path PATH` when Chromium is outside the usual locations. `--no-sa
 
 The npm installer ships this skill through `.agents/skills` in full and core installs. Claude's skills directory points to the same installed agent skill tree. Release automation publishes the npm package after merge.
 
-When Data is available, the skill can use its chart-selection and quantitative-review workflow and return companion visuals for distributions, heatmaps, composition, and uncertainty. These additional families require that workflow's supported renderer.
+When Data is available, the skill can use its chart-selection and quantitative-review workflow and plan integrated visuals for distributions, heatmaps, composition, and uncertainty. These additional families require that workflow's supported renderer.
+
+Integrated reviews start with PR sample cards. Charts appear inside those cards, above the active flow when useful, and inside the matching node details. Render `fixtures/integrated.scene.json` to exercise that layout. Source examples can read numeric Python literals without executing the PR.

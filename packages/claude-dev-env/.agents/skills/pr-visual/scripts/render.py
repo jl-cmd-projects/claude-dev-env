@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-from metrics import prepare_chart
+from metrics import prepare_chart, prepare_embedded_charts
 from visual_config.config import constants as c
 
 
@@ -87,6 +87,7 @@ def prepare(path: Path) -> dict:
     _validate_graph(scene)
     _prepare_sources(scene, snapshot, snapshot_path)
     prepare_chart(scene, snapshot_path)
+    prepare_embedded_charts(scene, snapshot_path)
     return scene
 
 

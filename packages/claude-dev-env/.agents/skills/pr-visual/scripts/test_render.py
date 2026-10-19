@@ -56,7 +56,7 @@ def test_source_boundary_rejects_invalid_references(source: dict) -> None:
 
 
 def test_links_only_is_private_and_does_not_mutate_scene(tmp_path: Path) -> None:
-    """Hosted artifact_path drops payload excerpts without modifying the prepared scene."""
+    """Hosted output drops payload excerpts without modifying the prepared scene."""
     scene = prepare(FIXTURES / "flow.scene.json")
     original = copy.deepcopy(scene)
     artifact_path = tmp_path / "visual.html"

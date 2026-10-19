@@ -8,7 +8,7 @@ import { test } from 'node:test';
 
 const PACKAGE_DIRECTORY = dirname(dirname(fileURLToPath(import.meta.url)));
 const SKILL_PATH_SEGMENTS = ['.agents', 'skills', 'pr-visual'];
-const REQUIRED_FILES = ['SKILL.md', 'scripts/collect.py', 'scripts/render.py', 'scripts/metrics.py', 'scripts/verify.py', 'scripts/visual_config/config/constants.py', 'assets/viewer.html', 'assets/icons.symbols', 'fixtures/bar.scene.json', 'references/formats.md'];
+const REQUIRED_FILES = ['SKILL.md', 'scripts/collect.py', 'scripts/render.py', 'scripts/metrics.py', 'scripts/verify.py', 'scripts/visual_config/config/constants.py', 'assets/viewer.html', 'assets/icons.symbols', 'fixtures/bar.scene.json', 'fixtures/integrated.scene.json', 'references/formats.md'];
 const INSTALL_MODES = [[], ['--only', 'core']];
 const NPM_EXECUTABLE = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
@@ -30,7 +30,7 @@ test('packed full and core installs ship the runnable PR visual skill to the sha
             const manifest = JSON.parse(readFileSync(join(homeDirectory, '.claude/.claude-dev-env-manifest.json'), 'utf8'));
             assert.ok(manifest.skills.includes('pr-visual'));
             const visual = join(sandbox, `visual-${eachIndex}.html`);
-            execFileSync(process.platform === 'win32' ? 'python' : 'python3', [join(installed, 'scripts/render.py'), join(installed, 'fixtures/bar.scene.json'), '--out', visual]);
+            execFileSync(process.platform === 'win32' ? 'python' : 'python3', [join(installed, 'scripts/render.py'), join(installed, 'fixtures/integrated.scene.json'), '--out', visual]);
             assert.ok(existsSync(visual));
             assert.match(readFileSync(visual, 'utf8'), /Duration \(ms\)/);
         }

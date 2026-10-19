@@ -74,3 +74,12 @@ ALL_CHART_KINDS = ("bar", "line", "scatter")
 ALL_CHART_AXES = ("x", "y")
 CHART_Y_AXIS = "y"
 METRIC_SOURCE_INDEX = "source"
+
+PYTHON_LINE_FIELD = "python_line"
+PYTHON_ARGUMENT_FIELD = "argument"
+PYTHON_ELEMENT_FIELD = "element"
+CHART_X_AXIS = "x"
+ALL_CHART_BASES = ("captured", "source-example")
+ALL_EMBEDDED_CHART_FIELDS = ("title", "caption", "x_label", "y_label", "points")
+
+OVERVIEW_SCREENSHOT_NAME = "overview-cards.png"
