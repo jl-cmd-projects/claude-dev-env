@@ -24,8 +24,12 @@ def message(position: int, text: str) -> TypedMessage:
 def test_caveman_text_should_drop_filler_and_articles() -> None:
     assert (
         trim.caveman_text("Could you please just add the retry to a deploy script , basically.")
-        == "add retry to deploy script."
+        == "just add retry to deploy script."
     )
+
+
+def test_caveman_text_should_keep_a_restrictive_just() -> None:
+    assert trim.caveman_text("use just the staging db") == "use just staging db"
 
 
 def test_caveman_text_should_keep_backtick_spans_and_path_tokens_as_typed() -> None:

@@ -134,24 +134,27 @@ def _content_words(text: str) -> set[str]:
 
 
 def _closest_earlier_position(
-    later_message: TypedMessage, all_earlier_messages: list[TypedMessage]
+    all_later_words: set[str], all_earlier_words_by_position: list[tuple[int, set[str]]]
 ) -> int | None:
-    later_words = _content_words(later_message.text)
     best_position, best_overlap = None, 0
-    for each_earlier in all_earlier_messages:
-        overlap = len(later_words & _content_words(each_earlier.text))
+    for each_position, each_earlier_words in all_earlier_words_by_position:
+        overlap = len(all_later_words & each_earlier_words)
         if overlap > best_overlap:
-            best_position, best_overlap = each_earlier.position, overlap
+            best_position, best_overlap = each_position, overlap
     return best_position
 
 
 def _overruled_by(all_kept_messages: list[TypedMessage]) -> dict[int, int]:
     later_position_by_earlier: dict[int, int] = {}
+    all_words_by_position = [
+        (each_message.position, _content_words(each_message.text))
+        for each_message in all_kept_messages
+    ]
     for each_index, each_message in enumerate(all_kept_messages):
         if not REVERSAL_PATTERN.search(each_message.text):
             continue
         earlier_position = _closest_earlier_position(
-            each_message, all_kept_messages[:each_index]
+            all_words_by_position[each_index][1], all_words_by_position[:each_index]
         )
         if earlier_position is not None:
             later_position_by_earlier[earlier_position] = each_message.position

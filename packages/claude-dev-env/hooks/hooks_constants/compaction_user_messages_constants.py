@@ -96,7 +96,6 @@ ALL_FILLER_PHRASES = (
     "kind of",
     "sort of",
     "I mean",
-    "just",
 )
 FILLER_PATTERN = re.compile(
     rf"(?<![{PATH_CHARACTERS}])(?:"
@@ -190,7 +189,7 @@ TRIMMED_LINE_TEMPLATE = "#{position} {text}"
 OVERRULED_SUFFIX_TEMPLATE = " (overruled by #{later_position})"
 
 MAXIMUM_MESSAGE_CHARACTERS = 1500
-MAXIMUM_RECALL_CHARACTERS = 8000
+MAXIMUM_RECALL_CHARACTERS = 6000
 CUT_MESSAGE_SUFFIX_TEMPLATE = " [{cut_count} more characters left out]"
 LEFT_OUT_LINES_TEMPLATE = "[{left_out_count} earlier messages left out to fit the budget]"
 LINE_SEPARATOR = "\n"
