@@ -251,3 +251,37 @@ def test_should_leave_claude_block_output_without_a_followup_message(
     )
     _, printed_output = run_gate(monkeypatch, capsys, "Done.", transcript_path)
     assert set(json.loads(printed_output)) == {"decision", "reason"}
+
+
+def cursor_dynamic_todo_record(all_todos: list[dict[str, str]], is_merge: bool) -> dict[str, object]:
+    tool_use = {
+        "type": "tool_use",
+        "name": "CallDynamicTool",
+        "input": {"namespace": "cursor", "toolName": "TodoWrite", "arguments": {"merge": is_merge, "todos": all_todos}},
+    }
+    return {"role": "assistant", "message": {"content": [tool_use]}}
+
+
+def test_should_read_todos_the_cursor_cli_writes_through_call_dynamic_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_first_todos = [
+        {"id": "1", "content": "write hello.txt", "status": "in_progress"},
+        {"id": "2", "content": "rotate the deploy key", "status": "pending"},
+    ]
+    all_merged_todos = [
+        {"id": "1", "content": "write hello.txt", "status": "completed"},
+        {"id": "2", "content": "rotate the deploy key", "status": "pending"},
+    ]
+    transcript_path = write_cursor_transcript(
+        tmp_path / "cursor.jsonl",
+        [
+            cursor_dynamic_todo_record(all_first_todos, False),
+            cursor_dynamic_todo_record(all_merged_todos, True),
+            {"role": "assistant", "message": {"content": [{"type": "text", "text": "Done."}]}},
+            {"type": "turn_ended", "status": "success"},
+        ],
+    )
+    block_output = run_cursor_gate(monkeypatch, capsys, transcript_path)
+    assert "rotate the deploy key" in block_output["followup_message"]
+    assert "write hello.txt" not in block_output["followup_message"]
