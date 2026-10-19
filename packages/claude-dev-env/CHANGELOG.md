@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.88.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.6...claude-dev-env-v8.88.7) (2026-10-19)
+
+
+### Bug Fixes
+
+* **hooks:** make the compaction condensing hook work inside Claude Code ([#2078](https://github.com/jl-cmd-projects/claude-dev-env/issues/2078)) ([5fd8f42](https://github.com/jl-cmd-projects/claude-dev-env/commit/5fd8f42edead1c74fbfa35837650e0537e90008e))
+
 ## [8.88.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.5...claude-dev-env-v8.88.6) (2026-10-19)
 
 
