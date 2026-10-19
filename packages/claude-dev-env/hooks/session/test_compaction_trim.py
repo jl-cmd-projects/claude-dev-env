@@ -39,6 +39,21 @@ def test_caveman_text_should_keep_a_hedge() -> None:
     assert trim.caveman_text("I think the cache is stale") == "I think cache is stale"
 
 
+def test_caveman_text_should_keep_a_capital_letter_label() -> None:
+    assert trim.caveman_text("The plan A is good, an Option A or B") == "plan A is good, Option A or B"
+
+
+def test_trimmed_lines_should_not_mark_a_line_a_reminder_repeats() -> None:
+    all_messages = [
+        message(1, "Set up the linter in CI"),
+        message(2, "Don't forget the linter config too"),
+    ]
+    assert trim.trimmed_lines(all_messages) == [
+        "#1 Set up linter in CI",
+        "#2 Don't forget linter config too",
+    ]
+
+
 def test_trimmed_lines_should_drop_acknowledgments_and_interrupts() -> None:
     all_messages = [
         message(1, "ship it to staging"),

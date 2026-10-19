@@ -105,7 +105,7 @@ FILLER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 ARTICLE_PATTERN = re.compile(
-    rf"(?<![{PATH_CHARACTERS}])(?:the|a|an)\s+(?=\w)", re.IGNORECASE
+    rf"(?<![{PATH_CHARACTERS}])(?:[Tt]he|THE|a|[Aa]n|AN)\s+(?=\w)"
 )
 ARTIFACT_COMMENT_MARKER = "[Artifact comment sent to Claude]"
 ARTIFACT_URL_PATTERN = re.compile(r"^Artifact: (\S+)", re.MULTILINE)
@@ -126,7 +126,8 @@ SPACE_BEFORE_PUNCTUATION_PATTERN = re.compile(r"\s+([,.;:])(?=\s|$)")
 DANGLING_COMMA_PATTERN = re.compile(r",\s*(?=[,.;:](?:\s|$))")
 TRIMMED_EDGE_CHARACTERS = " ,"
 REVERSAL_PATTERN = re.compile(
-    r"change of plan|change that|on second thought|scratch (?:that|the)|forget\b|after all|"
+    r"change of plan|change that|on second thought|scratch (?:that|the)|"
+    r"(?<!n't )(?<!nt )forget\b|after all|"
     r"instead|\bswitch(?:ed)? to\b|vetoed|no longer|not anymore|override|revert|undo|"
     r"don'?t (?:use|do)|stop using",
     re.IGNORECASE,
