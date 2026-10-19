@@ -14,3 +14,4 @@ Use the feature file that matches the changed user path:
 - [Trimmed Sol prompt](codex-sol-prompt.md)
 - [Follow-up ledger](follow-up-ledger.md)
 - [Release and publish](release-publish.md)
+- [PR visual](pr-visual.md)

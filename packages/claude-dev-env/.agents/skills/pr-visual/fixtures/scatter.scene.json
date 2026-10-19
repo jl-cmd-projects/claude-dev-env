@@ -1,0 +1,193 @@
+{
+  "snapshot": "snapshot.json",
+  "tab": "Scatter",
+  "title": "Scatter chart with source evidence",
+  "subtitle": "Synthetic fixture: source-backed views of the same data.",
+  "before": "BEFORE: Measurements stored as JSON.",
+  "after": "AFTER: Inspect each sample and its source.",
+  "alt": "Three synthetic samples; click a sample to inspect its captured JSON.",
+  "nodes": [
+    {
+      "id": "sample-0",
+      "x": 300,
+      "y": 430,
+      "label": [
+        "Sample 1"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 4,
+          "end": 5
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/0/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/0/duration_ms"
+        }
+      }
+    },
+    {
+      "id": "sample-1",
+      "x": 700,
+      "y": 430,
+      "label": [
+        "Sample 2"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 8,
+          "end": 9
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/1/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/1/duration_ms"
+        }
+      }
+    },
+    {
+      "id": "sample-2",
+      "x": 1100,
+      "y": 430,
+      "label": [
+        "Sample 3"
+      ],
+      "icon": "ledger",
+      "kind": "green",
+      "detail": [
+        "Synthetic fixture data, not a performance claim."
+      ],
+      "sources": [
+        {
+          "path": "metrics.json",
+          "line": 12,
+          "end": 13
+        }
+      ],
+      "drilldown": {
+        "title": "Inspect the recorded measurement",
+        "steps": [
+          {
+            "label": [
+              "Captured",
+              "JSON"
+            ],
+            "icon": "code"
+          },
+          {
+            "label": [
+              "Measured",
+              "duration"
+            ],
+            "icon": "ledger"
+          }
+        ]
+      },
+      "metrics": {
+        "x": {
+          "source": 0,
+          "pointer": "/samples/2/size"
+        },
+        "y": {
+          "source": 0,
+          "pointer": "/samples/2/duration_ms"
+        }
+      }
+    }
+  ],
+  "edges": [],
+  "notes": [
+    {
+      "label": "SOURCE",
+      "text": [
+        "Captured JSON",
+        "Immutable source links"
+      ]
+    },
+    {
+      "label": "INTERACTION",
+      "text": [
+        "Select a sample",
+        "Inspect its source"
+      ]
+    },
+    {
+      "label": "SCOPE",
+      "text": [
+        "Synthetic data only",
+        "No benchmark claim"
+      ]
+    }
+  ],
+  "comparison": [
+    "The fixture description and rendered samples use the same captured JSON."
+  ],
+  "review": [
+    "This fixture checks the renderer, not a PR correctness verdict."
+  ],
+  "chart": {
+    "kind": "scatter",
+    "x_label": "Sample size (items)",
+    "y_label": "Duration (ms)"
+  }
+}
