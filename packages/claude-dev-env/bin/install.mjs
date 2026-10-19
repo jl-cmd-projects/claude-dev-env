@@ -51,6 +51,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
+    ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
@@ -2279,6 +2280,10 @@ function selectCodexNativeHooksConfig(hooksConfig) {
             Stop: selectCodexNativeGroupsByScriptName(
                 hooksConfig.hooks?.Stop,
                 ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+            ),
+            SessionStart: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.SessionStart,
+                ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
             ),
         },
     };

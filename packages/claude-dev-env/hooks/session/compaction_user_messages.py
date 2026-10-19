@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-"""Write every message the user typed in a session to a file, and print its path.
+"""Read every message the user typed from a Claude Code or Codex transcript.
 
 ::
 
-    python3 compaction_user_messages.py ~/.claude/projects/p/abc.jsonl
-    -> ~/.claude/compaction-recall/abc.md
+    Claude Code entry {"type": "user", "message": {"content": "fix login"}}
+    Codex entry {"type": "event_msg",
+                 "payload": {"type": "user_message", "message": "fix login"}}
+    -> TypedMessage(position=1, timestamp=..., text="fix login")
 
-The agent runs this after a compaction. Only the path reaches its context.
-A PostToolUse agent hook reads the file, condenses it, and returns the
-condensed messages to the agent.
-
-The file holds each typed message with its number and timestamp, oldest
-first. The trim rules live in the hook prompt. The file sits under
-``~/.claude`` so the hook's Read permission rule can name its folder.
-The whole transcript is read each time, so a second compaction yields
-the same messages plus the newer ones.
+The compaction recall hook trims these messages and returns them to the
+agent after a compaction. The whole transcript is read each time, so a second
+compaction yields the same messages plus the newer ones.
 """
 
 from __future__ import annotations
@@ -30,31 +26,26 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from hooks_constants.compaction_user_messages_constants import (
-    ALL_RECALL_DIRECTORY_PARTS,
     ALL_SKIPPED_ENTRY_FLAGS,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_ENTRY_TYPE,
     ATTACHMENT_KEY,
     BLOCK_SEPARATOR,
     BLOCK_TYPE_KEY,
+    CODEX_AGENT_MESSAGE_TYPE,
+    CODEX_EVENT_ENTRY_TYPE,
+    CODEX_IMAGES_KEY,
+    CODEX_PAYLOAD_KEY,
+    CODEX_USER_MESSAGE_TYPE,
     CONTENT_KEY,
-    CUT_MESSAGE_SUFFIX_TEMPLATE,
     ENTRY_TYPE_KEY,
     HARNESS_TAG_OPENING_PATTERN,
     HUMAN_ORIGIN_KIND,
     IMAGE_BLOCK_TYPE,
     IMAGE_PLACEHOLDER,
-    LEFT_OUT_MESSAGES_TEMPLATE,
-    MAXIMUM_EXTRACT_CHARACTERS,
-    MAXIMUM_MESSAGE_CHARACTERS,
-    MESSAGE_HEADING_TEMPLATE,
     MESSAGE_KEY,
-    MESSAGES_HEADING,
-    NO_MESSAGES_TEXT,
     ORIGIN_KEY,
     ORIGIN_KIND_KEY,
-    OUTPUT_ENCODING,
-    OUTPUT_FILE_SUFFIX,
     QUEUED_COMMAND_ATTACHMENT_TYPE,
     QUEUED_PROMPT_KEY,
     SLASH_COMMAND_ARGS_PATTERN,
@@ -62,13 +53,8 @@ from hooks_constants.compaction_user_messages_constants import (
     TEXT_BLOCK_TYPE,
     TEXT_KEY,
     TIMESTAMP_KEY,
-    TRANSCRIPT_ARGUMENT_COUNT,
-    USAGE_EXIT_CODE,
-    USAGE_TEXT,
     USER_ENTRY_TYPE,
 )
-from hooks_constants.session_file_id import session_file_id
-from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 
 
 @dataclass(frozen=True)
@@ -131,8 +117,34 @@ def _is_typed_by_a_person(all_entry_fields: dict[str, object]) -> bool:
     return not isinstance(origin, dict) or origin.get(ORIGIN_KIND_KEY) == HUMAN_ORIGIN_KIND
 
 
+def _codex_payload(all_entry_fields: dict[str, object]) -> dict[str, object]:
+    if all_entry_fields.get(ENTRY_TYPE_KEY) != CODEX_EVENT_ENTRY_TYPE:
+        return {}
+    payload = all_entry_fields.get(CODEX_PAYLOAD_KEY)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _codex_user_text(all_payload_fields: dict[str, object]) -> str | None:
+    message = all_payload_fields.get(MESSAGE_KEY)
+    typed_text = _typed_text(message) if isinstance(message, str) else None
+    if not all_payload_fields.get(CODEX_IMAGES_KEY):
+        return typed_text
+    return BLOCK_SEPARATOR.join(
+        each_part for each_part in (typed_text, IMAGE_PLACEHOLDER) if each_part
+    )
+
+
+def _is_assistant_turn(all_entry_fields: dict[str, object]) -> bool:
+    if all_entry_fields.get(ENTRY_TYPE_KEY) == ASSISTANT_ENTRY_TYPE:
+        return True
+    return _codex_payload(all_entry_fields).get(ENTRY_TYPE_KEY) == CODEX_AGENT_MESSAGE_TYPE
+
+
 def _entry_text(all_entry_fields: dict[str, object]) -> str | None:
     entry_type = all_entry_fields.get(ENTRY_TYPE_KEY)
+    codex_payload = _codex_payload(all_entry_fields)
+    if codex_payload.get(ENTRY_TYPE_KEY) == CODEX_USER_MESSAGE_TYPE:
+        return _codex_user_text(codex_payload)
     if entry_type == USER_ENTRY_TYPE and _is_typed_by_a_person(all_entry_fields):
         message = all_entry_fields.get(MESSAGE_KEY)
         content = message.get(CONTENT_KEY) if isinstance(message, dict) else None
@@ -152,7 +164,7 @@ def _typed_texts(all_transcript_lines: Iterable[str]) -> Iterator[tuple[str, str
     previous_text = None
     for each_line in all_transcript_lines:
         all_entry_fields = _parsed_entry(each_line)
-        if all_entry_fields.get(ENTRY_TYPE_KEY) == ASSISTANT_ENTRY_TYPE:
+        if _is_assistant_turn(all_entry_fields):
             previous_text = None
             continue
         entry_text = _entry_text(all_entry_fields)
@@ -174,6 +186,8 @@ def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessag
         isCompactSummary, isSidechain, origin peer     -> left out
         user "<system-reminder>...", "<local-command-stdout>" -> left out
         attachment queued_command "also check logs"    -> kept
+        Codex event_msg user_message "fix it"          -> kept
+        Codex event_msg user_message with images       -> text plus "[image]"
 
     A message repeated right after itself, such as a queued prompt that later
     lands as a user entry, counts once.
@@ -190,118 +204,3 @@ def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessag
             _typed_texts(all_transcript_lines), start=1
         )
     ]
-
-
-def _capped_text(text: str) -> str:
-    if len(text) <= MAXIMUM_MESSAGE_CHARACTERS:
-        return text
-    cut_count = len(text) - MAXIMUM_MESSAGE_CHARACTERS
-    return text[:MAXIMUM_MESSAGE_CHARACTERS] + CUT_MESSAGE_SUFFIX_TEMPLATE.format(
-        cut_count=cut_count
-    )
-
-
-def _rendered_message(message: TypedMessage) -> str:
-    return MESSAGE_HEADING_TEMPLATE.format(
-        position=message.position,
-        timestamp=message.timestamp,
-        text=_capped_text(message.text),
-    )
-
-
-def bounded_messages(all_messages: list[TypedMessage]) -> list[TypedMessage]:
-    """Return the messages that fit the extract budget: the first, then the newest.
-
-    ::
-
-        5 short messages             -> all 5
-        #1 plus 400 long messages    -> #1, then the newest that fit
-
-    The first message keeps the session's original ask. The newest carry the
-    latest corrections, which override older asks.
-
-    Args:
-        all_messages: Every typed message, oldest first.
-
-    Returns:
-        The kept messages, oldest first.
-    """
-    if not all_messages:
-        return []
-    first_message, *all_later_messages = all_messages
-    remaining_characters = MAXIMUM_EXTRACT_CHARACTERS - len(_rendered_message(first_message))
-    all_kept_later_messages: list[TypedMessage] = []
-    for each_message in reversed(all_later_messages):
-        message_size = len(_rendered_message(each_message))
-        if message_size > remaining_characters:
-            break
-        remaining_characters -= message_size
-        all_kept_later_messages.append(each_message)
-    return [first_message, *reversed(all_kept_later_messages)]
-
-
-def rendered_extract(all_messages: list[TypedMessage]) -> str:
-    """Return the file text: a heading, then the kept messages.
-
-    ::
-
-        [#1 "fix login"]  -> "# User messages, oldest first" + "## 1 | <ts>\\nfix login"
-
-    Args:
-        all_messages: Every typed message, oldest first.
-
-    Returns:
-        The text the extractor writes to its output file.
-    """
-    if not all_messages:
-        return MESSAGES_HEADING + NO_MESSAGES_TEXT
-    all_kept_messages = bounded_messages(all_messages)
-    left_out_count = len(all_messages) - len(all_kept_messages)
-    rendered_parts = [MESSAGES_HEADING]
-    for each_index, each_message in enumerate(all_kept_messages):
-        if each_index == 1 and left_out_count:
-            rendered_parts.append(LEFT_OUT_MESSAGES_TEMPLATE.format(left_out_count=left_out_count))
-        rendered_parts.append(_rendered_message(each_message))
-    return "".join(rendered_parts)
-
-
-def output_path_for(transcript_path: Path) -> Path:
-    """Return the recall file for one transcript, named after its session id.
-
-    ::
-
-        ~/.claude/projects/p/abc-123.jsonl -> ~/.claude/compaction-recall/abc-123.md
-
-    Args:
-        transcript_path: The session transcript.
-
-    Returns:
-        The path the extractor writes; a rerun overwrites it.
-    """
-    file_name = f"{session_file_id(transcript_path.stem)}{OUTPUT_FILE_SUFFIX}"
-    return Path.home().joinpath(*ALL_RECALL_DIRECTORY_PARTS, file_name)
-
-
-def main() -> int:
-    """Write the extract for the transcript named on the command line and print its path."""
-    if len(sys.argv) != TRANSCRIPT_ARGUMENT_COUNT:
-        sys.stderr.write(USAGE_TEXT)
-        return USAGE_EXIT_CODE
-    transcript_path = Path(sys.argv[1])
-    try:
-        with transcript_path.open(
-            encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY
-        ) as transcript:
-            all_messages = typed_user_messages(transcript)
-    except OSError as read_error:
-        sys.stderr.write(f"cannot read {transcript_path}: {read_error}\n")
-        return USAGE_EXIT_CODE
-    output_path = output_path_for(transcript_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(rendered_extract(all_messages), encoding=OUTPUT_ENCODING)
-    sys.stdout.write(f"{output_path}\n")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

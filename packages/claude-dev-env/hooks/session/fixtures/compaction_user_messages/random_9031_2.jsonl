@@ -1,0 +1,42 @@
+{"type": "user", "timestamp": "2026-10-19T10:00:07Z", "message": {"role": "user", "content": "could you please make sure that we need to migrate the summit service to the new cluster this week"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:08Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:08Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_8", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:14Z", "message": {"role": "user", "content": "ok"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:15Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:15Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_15", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:21Z", "message": {"role": "user", "content": "I think pin the client library to 4.7.9, newer builds break the parser"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:22Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:22Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_22", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:28Z", "message": {"role": "user", "content": "could you please make sure that use DynamoDB as the cache for the summit service"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:29Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:29Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_29", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:35Z", "message": {"role": "user", "content": "just to be clear, open the PR against https://github.com/willow-co/orbit/pull/207 and ask Lena to review it"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:36Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:36Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_36", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:42Z", "message": {"role": "user", "content": "yep"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:43Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:43Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_43", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:49Z", "message": {"role": "user", "content": "just to be clear, the job lives on vector-71.internal and fires at 13:15 UTC, so do not move it"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:50Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:50Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_50", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:56Z", "message": {"role": "user", "content": "go ahead"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:00:57Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:00:57Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_57", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:03Z", "message": {"role": "user", "content": "just to be clear, leave src/willow/orbit_quartz.py alone, the finance team still imports it"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:04Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:04Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_64", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:10Z", "message": {"role": "user", "content": "yep"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:11Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:11Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_71", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:17Z", "message": {"role": "user", "content": "just to be clear, cap each batch at 40,000 rows so memory stays flat"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:18Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:18Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_78", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:24Z", "message": {"role": "user", "content": "[Request interrupted by user]"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:25Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:25Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_85", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:31Z", "message": {"role": "user", "content": "update: ops vetoed DynamoDB, so S3 it is."}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:32Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:32Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_92", "content": "exit 0"}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:38Z", "message": {"role": "user", "content": "go ahead"}, "origin": {"kind": "human"}}
+{"type": "assistant", "timestamp": "2026-10-19T10:01:39Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}}
+{"type": "user", "timestamp": "2026-10-19T10:01:39Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_99", "content": "exit 0"}]}}
