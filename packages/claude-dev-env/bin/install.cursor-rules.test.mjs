@@ -526,31 +526,57 @@ test('a blocked shared rule destination fails the install and keeps the existing
 });
 
 
-test('a full install feeds AGENTS.md to Cursor sessions and registers the open tasks Stop gate; uninstall removes both', () => {
+test('a full install writes only native Cursor hooks: AGENTS.md on sessionStart and the open tasks gate on stop; uninstall removes exactly those', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-cursor-guidance-'));
     try {
-        runInstaller(homeDirectory, []);
         const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+        mkdirSync(dirname(cursorHooksPath), { recursive: true });
+        const userStopEntry = { command: './user-stop.sh' };
+        writeFileSync(cursorHooksPath, JSON.stringify({
+            hooks: {
+                SessionStart: [{
+                    matcher: 'startup|resume|clear|compact',
+                    hooks: [{ type: 'command', command: "python3 '/old/hooks/session/cursor_agents_guidance.py' AGENTS.md" }],
+                }, {
+                    matcher: 'startup|resume|clear|compact',
+                    hooks: [{ type: 'command', command: "'/old/.cursor/plugins/deepstack/hooks/session-start.sh' cursor" }],
+                }],
+                UserPromptSubmit: [{
+                    matcher: '',
+                    hooks: [{ type: 'command', command: "python3 '/old/hooks/session/deepen_first_prompt.py'", timeout: 10 }],
+                }],
+                stop: [userStopEntry],
+            },
+        }));
+        runInstaller(homeDirectory, []);
         const cursorHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));
-        const guidanceCommand = cursorHooks.hooks.SessionStart
-            .flatMap(group => group.hooks)
-            .map(hook => hook.command)
-            .find(command => command.includes('cursor_agents_guidance.py'));
-        const guidancePath = join(homeDirectory, '.agents', 'AGENTS.md');
-        assert.ok(guidanceCommand.includes(guidancePath));
-        assert.match(readFileSync(guidancePath, 'utf8'), /\*\*Asks\*\*/);
         assert.equal(cursorHooks.version, 1);
-        const sessionOutput = execSync(guidanceCommand, { input: '{}', encoding: 'utf8' });
+        for (const [eventName, allEntries] of Object.entries(cursorHooks.hooks)) {
+            assert.match(eventName, /^[a-z]/, `${eventName} is a Cursor event name`);
+            for (const eachEntry of allEntries) assert.equal(typeof eachEntry.command, 'string', 'every entry is a flat native entry');
+        }
+        const guidanceCommands = cursorHooks.hooks.sessionStart
+            .map(entry => entry.command)
+            .filter(command => command.includes('cursor_agents_guidance.py'));
+        assert.equal(guidanceCommands.length, 1);
+        const guidancePath = join(homeDirectory, '.agents', 'AGENTS.md');
+        assert.ok(guidanceCommands[0].replace(/\\/g, '/').includes(guidancePath.replace(/\\/g, '/')));
+        assert.match(readFileSync(guidancePath, 'utf8'), /\*\*Asks\*\*/);
+        const sessionOutput = execSync(guidanceCommands[0], { input: '{}', encoding: 'utf8' });
         assert.equal(JSON.parse(sessionOutput).additional_context, readFileSync(guidancePath, 'utf8'));
-        const stopCommands = cursorHooks.hooks.Stop.flatMap(group => group.hooks).map(hook => hook.command);
-        assert.equal(stopCommands.length, 1);
-        assert.match(stopCommands[0], /open_tasks_stop_gate\.py/);
-        assert.equal(execSync(stopCommands[0], { input: '{"conversation_id": "c-1", "status": "completed"}', encoding: 'utf8' }), '');
+        const gateCommands = cursorHooks.hooks.stop.map(entry => entry.command).filter(command => command.includes('open_tasks_stop_gate.py'));
+        assert.equal(gateCommands.length, 1);
+        assert.deepEqual(cursorHooks.hooks.stop.filter(entry => entry.command === userStopEntry.command), [userStopEntry]);
+        assert.equal(execSync(gateCommands[0], { input: '{"conversation_id": "c-1", "status": "completed"}', encoding: 'utf8' }), '');
+        assert.deepEqual(cursorHooks.hooks.beforeSubmitPrompt, [{ command: "python3 '/old/hooks/session/deepen_first_prompt.py'", timeout: 10 }]);
 
         runInstaller(homeDirectory, ['--uninstall']);
         const remainingHooks = JSON.parse(readFileSync(cursorHooksPath, 'utf8'));
         assert.equal(JSON.stringify(remainingHooks).includes('cursor_agents_guidance.py'), false);
         assert.equal(JSON.stringify(remainingHooks).includes('open_tasks_stop_gate.py'), false);
+        assert.equal(JSON.stringify(remainingHooks).includes('deepen_first_prompt.py'), false);
+        assert.equal(JSON.stringify(remainingHooks).includes('plugins/deepstack/hooks/session-start'), false);
+        assert.deepEqual(remainingHooks.hooks.stop, [userStopEntry]);
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }

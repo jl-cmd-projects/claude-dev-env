@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Cursor SessionStart hook that puts the installed agent guidance into every session.
+"""Cursor sessionStart hook that puts the installed agent guidance into every session.
 
-Cursor keeps user rules in its app settings, so no file under ``~/.cursor``
-carries global guidance. The installer registers this hook in
-``~/.cursor/hooks.json`` with the installed ``AGENTS.md`` path as its one
-argument. The hook prints that file as Cursor's ``additional_context``::
+Cursor keeps user rules in its app settings, and it reads ``~/.cursor/rules``
+only for a workspace inside the home directory, so no file under ``~/.cursor``
+carries global guidance. The installer registers this hook as a native
+``sessionStart`` entry in ``~/.cursor/hooks.json`` with the installed
+``AGENTS.md`` path as its one argument. The hook prints that file as Cursor's
+``additional_context``, which Cursor adds to the session's context::
 
     python3 cursor_agents_guidance.py ~/.agents/AGENTS.md
     -> {"additional_context": "# Agent guidance ..."}

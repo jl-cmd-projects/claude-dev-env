@@ -64,6 +64,7 @@ import {
 import {
     DEEPSTACK_PLUGIN_SPEC,
     installDeepStackForHosts,
+    removeDeepStackCursorHooks,
 } from './install-deepstack-plugin.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
@@ -2983,6 +2984,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
                 'session',
                 'deepen_first_prompt.py',
             ),
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
         });
         summary.deepStackPlugin = deepStackPlugin;
         printPluginHostOutcomes([DEEPSTACK_PLUGIN_SPEC], deepStackPlugin);
@@ -3430,6 +3433,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     removeRetiredSessionContinuityHooks(['codex', 'cursor']);
     removeCursorAgentsGuidanceHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
+    removeDeepStackCursorHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
     throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
     unsetGlobalGitHooksPathIfOurs();

@@ -185,6 +185,26 @@ export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
 export const CURSOR_HOOKS_FILE_NAME = 'hooks.json';
 export const CURSOR_HOOKS_SCHEMA_VERSION = 1;
 export const CURSOR_HOOK_TIMEOUT_SECONDS = 10;
-export const CURSOR_GUIDANCE_SESSION_MATCHER = 'startup|resume|clear|compact';
 export const CURSOR_GUIDANCE_HOOK_RELATIVE_PATH = Object.freeze(['session', 'cursor_agents_guidance.py']);
 export const CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH = Object.freeze(['blocking', 'open_tasks_stop_gate.py']);
+export const CURSOR_SESSION_START_EVENT = 'sessionStart';
+export const CURSOR_BEFORE_SUBMIT_PROMPT_EVENT = 'beforeSubmitPrompt';
+export const CURSOR_STOP_EVENT = 'stop';
+export const CURSOR_NATIVE_EVENT_NAME_BY_LEGACY_NAME = Object.freeze({
+    SessionStart: CURSOR_SESSION_START_EVENT,
+    SessionEnd: 'sessionEnd',
+    UserPromptSubmit: CURSOR_BEFORE_SUBMIT_PROMPT_EVENT,
+    Stop: CURSOR_STOP_EVENT,
+    SubagentStop: 'subagentStop',
+    PreToolUse: 'preToolUse',
+    PostToolUse: 'postToolUse',
+    PreCompact: 'preCompact',
+});
+export const ALL_CURSOR_LIFECYCLE_EVENT_NAMES = new Set([
+    CURSOR_SESSION_START_EVENT,
+    'sessionEnd',
+    CURSOR_BEFORE_SUBMIT_PROMPT_EVENT,
+    CURSOR_STOP_EVENT,
+    'subagentStop',
+    'preCompact',
+]);
