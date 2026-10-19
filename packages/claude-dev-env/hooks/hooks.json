@@ -356,6 +356,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/skill_loaded_reminder.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/compaction_recall_prompt.py",
+            "timeout": 10
           }
         ]
       }
@@ -448,6 +453,19 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/bash_post_call_dispatcher.py",
             "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(*compaction_user_messages.py *)",
+            "prompt": "The Bash command in this PostToolUse input printed one file path in tool_response.stdout. Read that file with the Read tool and follow the rules at its top. Return {\"ok\": false, \"reason\": \"<the condensed lines>\"}. Always return ok false, because the reason is how the condensed messages reach the agent. When the file cannot be read, return {\"ok\": false, \"reason\": \"Read the printed file yourself; the condensing hook could not.\"}\n\n$ARGUMENTS",
+            "model": "haiku",
+            "timeout": 180,
+            "statusMessage": "claude-dev-env: condensing the user's messages after compaction"
           }
         ]
       },

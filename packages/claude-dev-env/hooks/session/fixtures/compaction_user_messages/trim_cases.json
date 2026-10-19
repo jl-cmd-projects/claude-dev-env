@@ -1,0 +1,47 @@
+[
+  {
+    "transcript": "deploy_session.jsonl",
+    "facts": [
+      "/deepen",
+      "batch-07.internal",
+      "02:15 UTC",
+      "billing.invoices_v3",
+      "packages/billing/legacy_export.py",
+      "Monday",
+      "SQLite",
+      "Q3",
+      "137",
+      "4 attempts",
+      "30s",
+      "https://github.com/acme/billing/pull/812",
+      "Dana"
+    ],
+    "overruled": [{"earlier": 2, "later": 6}]
+  },
+  {
+    "transcript": "long_session.jsonl",
+    "facts": [
+      "tools/photo_import/",
+      "90 seconds",
+      "2,000",
+      "exif_reader.py",
+      "10.4.0",
+      ".cr3",
+      "/mnt/cards/sample_2000",
+      "logs/import_timing.csv",
+      "4 worker threads",
+      "photo-import-speed"
+    ],
+    "overruled": [{"earlier": 11, "later": 15}]
+  },
+  {
+    "transcript": "recall_request_session.jsonl",
+    "facts": [
+      "/deepen",
+      "transcript",
+      "caveman",
+      "prompt hook"
+    ],
+    "overruled": []
+  }
+]
