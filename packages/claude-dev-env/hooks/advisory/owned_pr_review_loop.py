@@ -14,6 +14,9 @@ block to the agent's context::
     3. Babysit. Follow the pstack babysit playbook ...
     4. Ship. Follow the pstack shipping playbook ...
 
+Each reported pull request also goes into the session record, so the owned
+pull request Stop gate holds the turn until it merges.
+
 The pull request URL in the tool response is the proof that a pull request
 opened, so the hook needs no network call and reads the same on Claude Code
 and Codex.
@@ -77,6 +80,7 @@ try:
         all_wrapped_command_texts,
         segment_program_and_arguments,
     )
+    from owned_pr_session_record import record_pull_request
 except ImportError as import_error:
     raise ImportError(
         "owned_pr_review_loop: cannot import its dependencies; "
@@ -336,7 +340,8 @@ def build_review_loop_context(all_pull_request_fields: dict[str, str]) -> str:
 def main() -> None:
     """Add the review-loop instructions after a pull request opens on an owned repository.
 
-    Reads the PostToolUse payload from stdin. Every quiet branch returns with
+    Reads the PostToolUse payload from stdin. The pull request also goes into
+    the session record that the owned pull request Stop gate reads. Every quiet branch returns with
     no output, so this hook can never alter or block a tool call.
     """
     hook_payload = read_hook_input_dictionary_from_stdin()
@@ -358,6 +363,7 @@ def main() -> None:
         ALL_PRESET_REPOSITORY_DIGESTS,
     ):
         return
+    record_pull_request(hook_payload.get("session_id"), pull_request)
     write_post_tool_use_context_to_stdout(build_review_loop_context(pull_request))
 
 

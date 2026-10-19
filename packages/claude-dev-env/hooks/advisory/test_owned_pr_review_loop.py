@@ -299,6 +299,7 @@ def test_should_carry_the_owner_approval_to_merge() -> None:
     assert "The repository owner installed this hook" in context
     assert "approves every step above, the merge included" in context
     assert "without asking first" in context
+    assert "Your task now runs past opening this PR to its merge" in context
 
 
 def test_main_should_emit_the_loop_after_gh_pr_create_on_an_owned_repository() -> None:

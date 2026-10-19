@@ -48,6 +48,9 @@ __all__ = [
     "ALL_DECLARED_URL_KEYS",
     "JSON_OBJECT_OPENER",
     "REVIEW_LOOP_CONTEXT_TEMPLATE",
+    "SESSION_RECORD_FILE_TEMPLATE",
+    "SESSION_RECORD_TEMPORARY_PREFIX",
+    "ALL_PULL_REQUEST_FIELD_NAMES",
 ]
 
 NAME_DIGEST_TEXT_ENCODING: str = "utf-8"
@@ -99,10 +102,16 @@ ALREADY_EXISTS_MARKER: str = "already exists"
 ALL_DECLARED_URL_KEYS: tuple[str, ...] = ("html_url", "url")
 JSON_OBJECT_OPENER: str = "{"
 
+SESSION_RECORD_FILE_TEMPLATE: str = "owned-pr-loop-{session_file_id}.json"
+SESSION_RECORD_TEMPORARY_PREFIX: str = "owned-pr-loop-"
+ALL_PULL_REQUEST_FIELD_NAMES: tuple[str, ...] = ("owner", "repository", "number", "url")
+
 REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "=== OWNED PR REVIEW LOOP (context reminder, never a block) ===\n"
     "You opened {owner}/{repository}#{number}  {url}\n"
     "This repository has no automated review, so you own the review and the merge.\n"
+    "Your task now runs past opening this PR to its merge, also when your brief\n"
+    "asked for a draft or stopped at opening it.\n"
     "1. Review loop. Load the efficient-review skill (/efficient-review). Review the\n"
     "   branch, check each finding against the code, fix every one that holds, push,\n"
     "   and review again. Repeat until a pass reports no findings.\n"

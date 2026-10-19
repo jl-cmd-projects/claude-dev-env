@@ -11,7 +11,8 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/cloud_graphql_gate.py` denies the `gh` commands that call GraphQL (`gh api graphql` with any flags before the endpoint, `gh pr`, `gh issue`, `gh project` and `gh discussion` except `gh pr diff` and `gh pr list --web`, `gh status`, `gh org list`, `gh release list`, `gh release view` with a tag, `gh workflow run` without `--ref`, and a few `repo`, `label`, `search`, `ruleset` and `gist` commands, read past `if`, `!` and command substitutions) and an HTTP client or `python -c` style call to `api.github.com/graphql`, with or without a port, inside a cloud session, where the proxy answers GraphQL with HTTP 403, and names the REST routes to run instead.
 - `blocking/bash_post_call_dispatcher.py` runs hosted observers and joins their context output without blocking the call.
 - `advisory/pr_done_reminder.py` adds a pull request checklist after a successful push or pull request creation.
-- `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run efficient-review until clean, mark the pull request ready, babysit it, and ship it to merge.
+- `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run efficient-review until clean, mark the pull request ready, babysit it, and ship it to merge. It also records the pull request for the session in `owned_pr_session_record.py`.
+- `blocking/owned_pr_merge_stop_gate.py` holds the end of a turn while a recorded pull request reads open on GitHub and the closing reply has no `Blocked:` line that names it. A failed state lookup passes.
 
 ## When it fires
 
@@ -23,6 +24,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/bash_post_call_dispatcher.py` runs on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds in `hooks.json`.
 - `advisory/pr_done_reminder.py` runs inside that dispatcher on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds. `ALL_BASH_POST_TOOL_USE_HOSTED_HOOK_ENTRIES` selects `Bash` and `PowerShell`.
 - `advisory/owned_pr_review_loop.py` runs on `PostToolUse`, matcher `Bash|PowerShell|exec_command|shell_command|mcp__.*__(create_pull_request|github_create_pull_request)`, timeout `10` seconds in `hooks.json`. It wakes on `gh pr create`, `gh pr new`, a POST to `gh api repos/<owner>/<repo>/pulls`, and an MCP pull request creation. The installer also registers it on Codex `PostToolUse` through `ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES`.
+- `blocking/owned_pr_merge_stop_gate.py` runs on `Stop`, timeout `30` seconds in `hooks.json`. The installer also registers it on Codex `Stop` through `ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES`.
 
 ## Proving it
 
@@ -37,6 +39,7 @@ Preconditions:
 - **Post-call dispatch.** Input is a Bash call that yields hosted context. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_bash_post_call_dispatcher.py -q`. The adjacent test observes a joined context payload and exit code zero.
 - **Pull request reminder.** Input is a completed push or pull request creation. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_pr_done_reminder.py -q`. The adjacent test checks the reminder trigger and checklist verdict.
 - **Owned pull request review loop.** Input is a pull request creation result on an owned repository. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_owned_pr_review_loop.py -q`. The adjacent test observes the review-loop block for owned repositories and silence for the preset and foreign repositories.
+- **Owned pull request merge gate.** Input is a `session_record_path` file that lists `jl-cmd/snake-game#9` and a `gh` stub that reports `open`. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_owned_pr_merge_stop_gate.py packages/claude-dev-env/hooks/test_owned_pr_session_record.py -q`. The adjacent test observes a `block` decision that names the pull request; `closed` and a `Blocked: jl-cmd/snake-game#9 - ...` line pass.
 
 ## Gotchas
 
