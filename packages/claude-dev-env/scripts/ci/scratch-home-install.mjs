@@ -3,8 +3,9 @@
  * Install this package into a scratch home directory.
  *
  * The installer writes into `$HOME/.claude` and rewrites the global git
- * configuration. Both are redirected here so a run leaves the caller's own home
- * untouched.
+ * configuration. `HOME`, `USERPROFILE`, `GIT_CONFIG_GLOBAL`, `CODEX_HOME`, and
+ * `CLAUDE_CONFIG_DIR` are redirected here so a run leaves the caller's own
+ * home and tool homes untouched.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -20,6 +21,8 @@ export const INSTALL_ENTRY = join(PACKAGE_ROOT, 'bin', 'install.mjs');
 export const SCRATCH_HOME_PREFIX = 'cde-driver-';
 export const SANDBOX_GIT_CONFIG_NAME = '.gitconfig-sandbox';
 export const SANDBOX_GIT_CONFIG_BODY = '[safe]\n\tdirectory = *\n';
+const SCRATCH_CLAUDE_DIRECTORY_NAME = '.claude';
+const SCRATCH_CODEX_DIRECTORY_NAME = '.codex';
 
 /**
  * Create a scratch home with an isolated global git configuration.
@@ -44,6 +47,8 @@ export function scratchHomeEnvironment(scratchHome) {
         HOME: scratchHome,
         USERPROFILE: scratchHome,
         GIT_CONFIG_GLOBAL: join(scratchHome, SANDBOX_GIT_CONFIG_NAME),
+        CODEX_HOME: join(scratchHome, SCRATCH_CODEX_DIRECTORY_NAME),
+        CLAUDE_CONFIG_DIR: join(scratchHome, SCRATCH_CLAUDE_DIRECTORY_NAME),
     };
 }
 

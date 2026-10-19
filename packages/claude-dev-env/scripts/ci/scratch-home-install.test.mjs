@@ -30,6 +30,8 @@ test('a scratch home starts with an isolated global git configuration and is rem
         assert.equal(environment.HOME, scratchHome);
         assert.equal(environment.USERPROFILE, scratchHome);
         assert.equal(environment.GIT_CONFIG_GLOBAL, gitConfigPath);
+        assert.equal(environment.CODEX_HOME, join(scratchHome, '.codex'));
+        assert.equal(environment.CLAUDE_CONFIG_DIR, join(scratchHome, '.claude'));
     } finally {
         removeScratchHome(scratchHome);
     }
