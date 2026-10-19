@@ -185,6 +185,9 @@ export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
 export const ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES = new Set([
     'compaction_recall_prompt.py',
 ]);
+export const ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES = new Set([
+    'owned_pr_review_loop.py',
+]);
 export const CURSOR_HOOKS_FILE_NAME = 'hooks.json';
 export const CURSOR_HOOKS_SCHEMA_VERSION = 1;
 export const CURSOR_HOOK_TIMEOUT_SECONDS = 10;

@@ -53,6 +53,7 @@ import {
     ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+    ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
     PSTACK_PLUGIN_SPEC,
@@ -2250,12 +2251,12 @@ function hookScriptName(hook) {
     return String(hook?.command ?? '').replace(/\\/g, '/').split('/').pop();
 }
 
-function selectGroupsByHookScriptName(hookGroups, scriptNames) {
-    if (!Array.isArray(hookGroups)) return [];
-    return hookGroups
+function selectCodexNativeGroupsByScriptName(groups, allScriptNames) {
+    if (!Array.isArray(groups)) return [];
+    return groups
         .map(group => ({
             ...group,
-            hooks: (group?.hooks ?? []).filter(hook => scriptNames.has(hookScriptName(hook))),
+            hooks: (group?.hooks ?? []).filter(hook => allScriptNames.has(hookScriptName(hook))),
         }))
         .filter(group => group.hooks.length > 0);
 }
@@ -2270,9 +2271,17 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
-            Stop: selectGroupsByHookScriptName(hooksConfig.hooks?.Stop, ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES),
-            SessionStart: selectGroupsByHookScriptName(
-                hooksConfig.hooks?.SessionStart, ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
+            PostToolUse: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.PostToolUse,
+                ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
+            ),
+            Stop: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.Stop,
+                ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+            ),
+            SessionStart: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.SessionStart,
+                ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
             ),
         },
     };
