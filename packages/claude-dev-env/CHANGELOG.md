@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.91.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.1...claude-dev-env-v8.91.0) (2026-10-19)
+
+
+### Features
+
+* **hooks:** trim compaction recall in Python for Claude Code and Codex ([#2082](https://github.com/jl-cmd-projects/claude-dev-env/issues/2082)) ([cd69772](https://github.com/jl-cmd-projects/claude-dev-env/commit/cd69772ee0250679a4432da153129a92cb416d63))
+
 ## [8.90.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.0...claude-dev-env-v8.90.1) (2026-10-19)
 
 
