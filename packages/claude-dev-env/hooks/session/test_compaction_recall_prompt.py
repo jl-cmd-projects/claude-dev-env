@@ -103,6 +103,10 @@ def test_hooks_json_condensing_hook_should_match_the_command_the_recall_names() 
     assert fnmatch.fnmatchcase(
         recall_command("/home/u/.claude/projects/p/s.jsonl"), command_pattern
     )
+    spaced_home_command = shlex.join(
+        [sys.executable, "/home/a b/.claude/hooks/session/compaction_user_messages.py", "/t.jsonl"]
+    )
+    assert fnmatch.fnmatchcase(spaced_home_command, command_pattern)
     assert not fnmatch.fnmatchcase("python3 other_script.py /t.jsonl", command_pattern)
 
 
