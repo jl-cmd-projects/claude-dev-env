@@ -25,7 +25,7 @@ When the host keeps an asks ledger with `ledger.py` and `asks_check.py`, record 
 
 The installer registers `open_tasks_stop_gate.py` as a Stop hook for each host:
 
-- Claude Code: `hooks.json`. A block returns the open items as the reason, and the session keeps working. An install into `~/.claude` also adds the same Stop entry to every profile under `~/.claude-profiles` that has its own `settings.json` and does not already run its own copy of the gate. A profile whose `settings.json` links to `~/.claude/settings.json` already has it. Uninstall removes only that entry.
+- Claude Code: `hooks.json`. A block returns the open items as the reason, and the session keeps working. An install into `~/.claude` also adds the same Stop entry to every profile under `~/.claude-profiles` that has its own `settings.json` and does not already run its own copy of the gate. A profile whose `settings.json` links to `~/.claude/settings.json` already has it. Uninstall removes only that entry. A profile `settings.json` that is not valid JSON is left unchanged and listed under Action needed with its path and parse error, and the rest of the install or uninstall goes on.
 - Codex: `$CODEX_HOME/hooks.json`. Codex turns the reason into a continuation prompt.
 - Cursor: a native `stop` entry in `~/.cursor/hooks.json`. The reason comes back as `followup_message`, the next user message. A stop with status `aborted` or `error` passes, so a turn the user cancels stays silent.
 

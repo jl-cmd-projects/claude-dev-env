@@ -8,6 +8,7 @@ import {
     addOpenTasksGateToProfiles,
     otherProfileSettingsPaths,
     removeOpenTasksGateFromProfiles,
+    splitUnreadableProfileSettings,
 } from './profile-stop-gate.mjs';
 
 function makeHome(context) {
@@ -121,4 +122,20 @@ test('a profile that already runs its own copy of the gate script gets no second
 
     assert.deepEqual(allOutcomes, []);
     assert.deepEqual(stopCommands(profilePath), [ownGateCommand]);
+});
+
+test('a settings.json that is not valid JSON is reported with its parse error, and an empty one counts as readable', (context) => {
+    const { homeDirectory } = makeHome(context);
+    const goodPath = writeProfile(homeDirectory, 'good', { outputStyle: 'plain' });
+    const emptyPath = writeProfile(homeDirectory, 'empty');
+    writeFileSync(emptyPath, '');
+    const brokenPath = writeProfile(homeDirectory, 'broken');
+    writeFileSync(brokenPath, '{"hooks":{},}');
+
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings([goodPath, emptyPath, brokenPath]);
+
+    assert.deepEqual(allReadablePaths, [goodPath, emptyPath]);
+    assert.equal(allUnreadable.length, 1);
+    assert.equal(allUnreadable[0].settingsPath, brokenPath);
+    assert.match(allUnreadable[0].reason, /JSON/);
 });

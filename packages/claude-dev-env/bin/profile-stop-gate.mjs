@@ -82,6 +82,34 @@ export function otherProfileSettingsPaths(options) {
     return allOtherPaths;
 }
 
+/**
+ * Split profile settings paths into the ones whose settings.json parses and the ones that do not.
+ *
+ * A profile file that is not valid JSON is left as it is. The caller names
+ * each one, with its parse error, so the user can fix it and run the install
+ * again. An empty file counts as readable.
+ *
+ * @param {string[]} allProfileSettingsPaths
+ * @returns {{ allReadablePaths: string[], allUnreadable: { settingsPath: string, reason: string }[] }}
+ */
+export function splitUnreadableProfileSettings(allProfileSettingsPaths) {
+    const allReadablePaths = [];
+    const allUnreadable = [];
+    for (const eachPath of allProfileSettingsPaths) {
+        try {
+            const settingsText = readFileSync(eachPath, 'utf8');
+            if (settingsText.trim()) JSON.parse(settingsText);
+            allReadablePaths.push(eachPath);
+        } catch (readError) {
+            allUnreadable.push({
+                settingsPath: eachPath,
+                reason: readError instanceof Error ? readError.message : String(readError),
+            });
+        }
+    }
+    return { allReadablePaths, allUnreadable };
+}
+
 function stopHooks(settingsPath) {
     const settingsText = readFileSync(settingsPath, 'utf8');
     if (!settingsText.trim()) return [];

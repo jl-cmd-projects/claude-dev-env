@@ -133,6 +133,7 @@ import {
     addOpenTasksGateToProfiles,
     otherProfileSettingsPaths,
     removeOpenTasksGateFromProfiles,
+    splitUnreadableProfileSettings,
 } from './profile-stop-gate.mjs';
 import { pythonExecutableProbeCommand } from './python-probe.mjs';
 
@@ -2714,6 +2715,26 @@ function profileSettingsPathsForStopGate(mainSettingsPath) {
     return otherProfileSettingsPaths({ homeDirectory: homedir(), environment: process.env, mainSettingsPath });
 }
 
+/**
+ * Return the profile settings the gate step can parse, and add an Action needed line for each one it cannot.
+ *
+ * @param {string} mainSettingsPath
+ * @param {string} rerunAdvice What to run after fixing the file, such as `run the install again to add`.
+ * @returns {string[]}
+ */
+function readableProfileSettingsPathsForStopGate(mainSettingsPath, rerunAdvice) {
+    const { allReadablePaths, allUnreadable } = splitUnreadableProfileSettings(
+        profileSettingsPathsForStopGate(mainSettingsPath),
+    );
+    for (const { settingsPath, reason } of allUnreadable) {
+        const actionLine = `Profile settings: ${settingsPath} was left unchanged because it is not valid JSON (${reason}).`
+            + ` Fix the file and ${rerunAdvice} the open-tasks Stop gate there.`;
+        console.warn(`  ${actionLine}`);
+        allActionNeededLines.push(actionLine);
+    }
+    return allReadablePaths;
+}
+
 function executeInstallPlan(plan) {
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
@@ -3208,7 +3229,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachOutcome of addOpenTasksGateToProfiles({
         mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
         claudeHome: CLAUDE_HOME,
-        allProfileSettingsPaths: profileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME)),
+        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME), 'run the install again to add'),
         homeDirectory: homedir(),
     })) {
         if (eachOutcome.additions.length > 0) {
@@ -3498,7 +3519,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     }
     for (const eachChangedPath of removeOpenTasksGateFromProfiles({
         claudeHome: CLAUDE_HOME,
-        allProfileSettingsPaths: profileSettingsPathsForStopGate(plan.settingsPath),
+        allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(plan.settingsPath, 'run --uninstall again to remove'),
     })) {
         console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
     }
@@ -3592,6 +3613,7 @@ function uninstall() {
         console.error(`ERROR: uninstall failed (${message}); prior installation restored.`);
         process.exit(1);
     }
+    printActionNeeded();
 }
 
 /**
