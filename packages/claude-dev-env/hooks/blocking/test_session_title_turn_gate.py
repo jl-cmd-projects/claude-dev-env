@@ -174,8 +174,27 @@ def test_should_start_a_turn_at_an_image_only_prompt(
         "type": "user",
         "message": {"content": [{"type": "image", "source": {"type": "base64", "data": ""}}]},
     }
-    all_entries = [TOOL_LISTING, PROMPT, title_call("t1"), title_result("t1"), REPLY, image_prompt, REPLY]
-    assert json.loads(run_gate(monkeypatch, capsys, tmp_path, all_entries)[1])["decision"] == "block"
+    all_entries = [
+        TOOL_LISTING,
+        PROMPT,
+        title_call("t1"),
+        title_result("t1"),
+        REPLY,
+        image_prompt,
+        REPLY,
+    ]
+    stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)[1]
+    assert json.loads(stdout_text)["decision"] == "block"
+
+
+def test_should_hold_a_turn_whose_only_title_call_ran_on_a_sidechain(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    sidechain_call = {**title_call("s1"), "isSidechain": True}
+    sidechain_result = {**title_result("s1"), "isSidechain": True}
+    all_entries = [TOOL_LISTING, PROMPT, sidechain_call, sidechain_result, REPLY]
+    stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)[1]
+    assert json.loads(stdout_text)["decision"] == "block"
 
 
 def test_should_keep_the_turn_across_a_stop_block_and_a_meta_entry(

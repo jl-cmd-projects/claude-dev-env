@@ -4,6 +4,7 @@
 A turn starts after the latest user prompt in the transcript. Tool results,
 meta entries, sidechain entries and compaction summaries are not prompts, and
 a Stop hook block lands as an attachment, so a held turn stays the same turn.
+A title call on a sidechain entry belongs to a subagent and does not count.
 The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
 does not count. A held turn (``stop_hook_active`` true) whose title call
@@ -55,6 +56,7 @@ from hooks_constants.session_title_constants import (
     MESSAGE_KEY,
     REASON_KEY,
     REMOVED_NAMES_KEY,
+    SIDECHAIN_FLAG_KEY,
     STOP_HOOK_ACTIVE_KEY,
     TITLE_TOOL_DISPLAY_SEPARATOR,
     TITLE_TOOL_NAME_PATTERN,
@@ -160,7 +162,11 @@ def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object
         ),
         default=-1,
     )
-    return all_entries[last_prompt_index + 1 :]
+    return [
+        each_entry
+        for each_entry in all_entries[last_prompt_index + 1 :]
+        if not each_entry.get(SIDECHAIN_FLAG_KEY)
+    ]
 
 
 def _title_call_ids(all_turn_entries: list[dict[str, object]]) -> set[object]:
