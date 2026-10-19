@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.90.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.0...claude-dev-env-v8.90.1) (2026-10-19)
+
+
+### Performance
+
+* **ci:** speed up Ubuntu and Windows JS checks ([#2087](https://github.com/jl-cmd-projects/claude-dev-env/issues/2087)) ([fde7848](https://github.com/jl-cmd-projects/claude-dev-env/commit/fde7848b90d501307610852180be0e19066ab46d))
+
 ## [8.90.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.89.0...claude-dev-env-v8.90.0) (2026-10-19)
 
 
