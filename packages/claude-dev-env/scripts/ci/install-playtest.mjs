@@ -32,6 +32,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { RETIRED_HOOK_STAND_IN_MARKER } from '../../bin/install.mjs';
 import {
     createScratchHome,
     removeScratchHome,
@@ -247,6 +248,16 @@ function readTextWhenPresent(filePath) {
 }
 
 /**
+ * Whether a path holds the inert stand-in the installer leaves for a stale registration.
+ *
+ * @param {string} absolutePath Path to read.
+ * @returns {boolean} True when the file carries the stand-in marker.
+ */
+function isRetiredHookStandIn(absolutePath) {
+    return absolutePath.endsWith('.py') && readTextWhenPresent(absolutePath).includes(RETIRED_HOOK_STAND_IN_MARKER);
+}
+
+/**
  * Check that the install left no piece of the retired deepen surface.
  *
  * The deepen skill, the /deepen command, the first-task hook and its
@@ -261,7 +272,8 @@ function readTextWhenPresent(filePath) {
 function runRetiredDeepenStage(scratchHome, evidenceDirectory) {
     const allLeftoverPaths = ALL_RETIRED_DEEPEN_RELATIVE_PATHS
         .map((relativePath) => join(scratchHome, relativePath))
-        .filter((absolutePath) => existsSync(absolutePath));
+        .filter((absolutePath) => existsSync(absolutePath))
+        .filter((absolutePath) => !isRetiredHookStandIn(absolutePath));
     if (allLeftoverPaths.length > 0) {
         throw new Error(`The install left retired deepen paths: ${allLeftoverPaths.join(', ')}`);
     }

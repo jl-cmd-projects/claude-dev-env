@@ -1998,7 +1998,7 @@ export function pruneRetiredHookEntriesFromSettings(
     return removedCount;
 }
 
-const RETIRED_HOOK_STAND_IN_MARKER = 'claude-dev-env retired hook stand-in';
+export const RETIRED_HOOK_STAND_IN_MARKER = 'claude-dev-env retired hook stand-in';
 
 const RETIRED_HOOK_STAND_IN_SOURCE = `"""${RETIRED_HOOK_STAND_IN_MARKER}.
 

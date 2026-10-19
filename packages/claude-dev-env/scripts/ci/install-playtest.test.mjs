@@ -7,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseArguments, readEnvelope, selectHookCommand } from './install-playtest.mjs';
+import { RETIRED_HOOK_STAND_IN_MARKER } from '../../bin/install.mjs';
 import { SANDBOX_GIT_CONFIG_BODY, SANDBOX_GIT_CONFIG_NAME } from './scratch-home-install.mjs';
 
 const CI_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -84,4 +85,26 @@ test('readEnvelope refuses output that names another event or no envelope at all
         () => readEnvelope(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse' } }), 'SessionStart'),
         /names PreToolUse rather than SessionStart/,
     );
+});
+
+test('the retired deepen stage accepts the installer stand-in and fails on a restored deepen hook', () => {
+    const scratchHome = mkdtempSync(join(tmpdir(), 'cde-playtest-home-'));
+    const evidenceDirectory = mkdtempSync(join(tmpdir(), 'cde-playtest-evidence-'));
+    const retiredHookPath = join(scratchHome, '.claude', 'hooks', 'session', 'deepen_first_prompt.py');
+    try {
+        const installRun = runDriver(['--home', scratchHome, '--evidence', evidenceDirectory]);
+        assert.equal(installRun.status, 0, `${installRun.stdout}\n${installRun.stderr}`);
+
+        writeFileSync(retiredHookPath, `"""${RETIRED_HOOK_STAND_IN_MARKER}."""\n`);
+        const standInRun = runDriver(['--home', scratchHome, '--evidence', evidenceDirectory, '--skip-install']);
+        assert.match(standInRun.stdout, /\[PASS\] playtest retired_deepen_absent/);
+
+        writeFileSync(retiredHookPath, SILENT_HOOK_SOURCE);
+        const restoredRun = runDriver(['--home', scratchHome, '--evidence', evidenceDirectory, '--skip-install']);
+        assert.equal(restoredRun.status, 1, `${restoredRun.stdout}\n${restoredRun.stderr}`);
+        assert.match(restoredRun.stdout, /\[FAIL\] playtest retired_deepen_absent The install left retired deepen paths/);
+    } finally {
+        rmSync(scratchHome, { recursive: true, force: true });
+        rmSync(evidenceDirectory, { recursive: true, force: true });
+    }
 });
