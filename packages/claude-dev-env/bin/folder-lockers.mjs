@@ -95,14 +95,15 @@ export function parseLockerLines(probeOutput, ownProcessId = process.pid) {
  * @param {string} folderPath The folder a host could not replace.
  * @param {object} [dependencies] Seams for tests.
  * @param {string} [dependencies.platform] The Node platform name.
- * @param {(folderPath: string) => string} [dependencies.runProbe] Returns the probe's standard output.
- * @returns {{pid: number, name: string, reason: string}[]} An empty list on other platforms or when the probe finds nothing.
+ * @param {(folderPath: string) => string|null} [dependencies.runProbe] Returns the probe's standard output, or null when the probe could not start or timed out.
+ * @returns {{pid: number, name: string, reason: string}[]|null} The holders, an empty list when the probe ran and found none, and null when nothing was searched: another platform, or a probe that could not start or timed out.
  */
 export function findFolderLockers(folderPath, dependencies = {}) {
     const platform = dependencies.platform ?? process.platform;
-    if (platform !== 'win32' || !folderPath) return [];
+    if (platform !== 'win32' || !folderPath) return null;
     const runProbe = dependencies.runProbe ?? runLockerProbe;
-    return parseLockerLines(runProbe(folderPath));
+    const probeOutput = runProbe(folderPath);
+    return probeOutput === null ? null : parseLockerLines(probeOutput);
 }
 
 function runLockerProbe(folderPath) {
@@ -113,6 +114,7 @@ function runLockerProbe(folderPath) {
         timeout: LOCKER_PROBE_TIMEOUT_MILLISECONDS,
         windowsHide: true,
     });
+    if (probe.error) return null;
     return probe.stdout ?? '';
 }
 

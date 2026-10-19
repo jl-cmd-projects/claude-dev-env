@@ -429,3 +429,19 @@ test('a failure that is not a held folder runs no locker search', () => {
     });
     assert.equal(searched, false);
 });
+
+test('a held folder that was not searched adds no claim about what holds it', () => {
+    const lockedError = 'Failed to install plugin "pstack@pstack-claude": EPERM: operation not permitted';
+    const runner = recordingRunner((executable, commandArguments) => (
+        executable === 'claude' && commandArguments[1] === 'install'
+            ? { status: 1, stderr: lockedError }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, {
+        runCommand: runner.runCommand,
+        findLockers: () => null,
+    });
+    const claude = outcome.hosts.find(host => host.host === 'claude');
+    assert.equal(claude.status, 'failed');
+    assert.match(claude.warning, /EPERM: operation not permitted$/);
+    assert.doesNotMatch(claude.warning, /likely holder|Close /);
+});

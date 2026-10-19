@@ -35,7 +35,7 @@ test('only Windows runs the probe', () => {
         probedFolder = folderPath;
         return '{"pid":5,"name":"Cursor.exe","reason":"command-line"}';
     };
-    assert.deepEqual(findFolderLockers('/cache/pstack', { platform: 'linux', runProbe }), []);
+    assert.equal(findFolderLockers('/cache/pstack', { platform: 'linux', runProbe }), null);
     assert.equal(probedFolder, null);
     assert.equal(findFolderLockers('C:/cache/pstack', { platform: 'win32', runProbe }).length, 1);
     assert.equal(probedFolder, 'C:/cache/pstack');
@@ -47,4 +47,9 @@ test('the advice names each process to close, or says what else holds a folder',
         'Close Cursor.exe (PID 19056, was started on a path inside it), which holds C:/cache/pstack, and run the install again.',
     );
     assert.match(lockedFolderAdvice('C:/cache/pstack', []), /working folder is inside it/);
+});
+
+test('a probe that did not finish searched nothing, and a probe that found no holder is an empty list', () => {
+    assert.equal(findFolderLockers('C:/cache/pstack', { platform: 'win32', runProbe: () => null }), null);
+    assert.deepEqual(findFolderLockers('C:/cache/pstack', { platform: 'win32', runProbe: () => '' }), []);
 });

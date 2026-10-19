@@ -254,7 +254,8 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
     if (!namesALockedFolder(errorText) || !hostDefinition.orphanedVersionsDirectory || !homeDirectory) return '';
     return allSpecs.map(eachSpec => {
         const pluginCacheDirectory = hostDefinition.orphanedVersionsDirectory(homeDirectory, eachSpec);
-        return ` ${lockedFolderAdvice(pluginCacheDirectory, findLockers(pluginCacheDirectory))}`;
+        const allLockers = findLockers(pluginCacheDirectory);
+        return allLockers === null ? '' : ` ${lockedFolderAdvice(pluginCacheDirectory, allLockers)}`;
     }).join('');
 }
 
