@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.88.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.1...claude-dev-env-v8.88.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* deepen default passes its gate, Codex Sol prompt survives a prune, locked plugin folders name their holder, DeepStack clone is removed ([#2068](https://github.com/jl-cmd-projects/claude-dev-env/issues/2068)) ([f4ac7fa](https://github.com/jl-cmd-projects/claude-dev-env/commit/f4ac7fa734a8206800d74a41a6e1ca237599b192))
+
 ## [8.88.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.0...claude-dev-env-v8.88.1) (2026-10-19)
 
 
