@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
     DEEPSTACK_MARKETPLACE_REPOSITORY,
+    DEEPSTACK_SKILL_RELATIVE_PATH,
     DEEPSTACK_PLUGIN_IDENTIFIER,
     DEEPSTACK_PLUGIN_SPEC,
     deepStackCloneUrl,
@@ -135,4 +136,67 @@ test('--no-deepstack and CDE_INSTALL_DEEPSTACK=0 skip the install', () => {
     });
     assert.equal(skipped.status, 'skipped');
     assert.equal(skipped.cursor.status, 'skipped');
+});
+
+const absentHostRunner = () => ({ status: null, stderr: '', error: { code: 'ENOENT' } });
+
+function writeClonedPlugin(cloneDirectory) {
+    const pluginDirectory = join(cloneDirectory, 'plugins', 'deepstack');
+    mkdirSync(join(pluginDirectory, 'skills', 'deepstack-mode'), { recursive: true });
+    writeFileSync(join(pluginDirectory, DEEPSTACK_SKILL_RELATIVE_PATH), '# DeepStack\n');
+    mkdirSync(join(cloneDirectory, '.git', 'objects', 'pack'), { recursive: true });
+    const packPath = join(cloneDirectory, '.git', 'objects', 'pack', 'pack-1.pack');
+    writeFileSync(packPath, 'pack');
+    chmodSync(packPath, 0o444);
+    return pluginDirectory;
+}
+
+test('the temporary clone is removed once the Cursor copy is written', () => {
+    const root = mkdtempSync(join(tmpdir(), 'deepstack-clone-'));
+    try {
+        const cloneParentDirectory = join(root, 'temp');
+        mkdirSync(cloneParentDirectory);
+        const cursorDirectory = join(root, 'cursor');
+        let clonedInto = null;
+        const outcome = installDeepStackForHosts({
+            claudeRoot: join(root, 'claude'),
+            codexHome: join(root, 'codex'),
+            cursorDirectory,
+            firstTaskHookPath: join(root, 'hooks', 'deepen_first_prompt.py'),
+            environment: {},
+            cloneParentDirectory,
+        }, {
+            runCommand: absentHostRunner,
+            cloneRepository: cloneDirectory => {
+                clonedInto = cloneDirectory;
+                return writeClonedPlugin(cloneDirectory);
+            },
+        });
+        assert.equal(outcome.cursor.status, 'installed');
+        assert.ok(clonedInto.startsWith(cloneParentDirectory));
+        assert.ok(existsSync(join(cursorDirectory, 'plugins', 'deepstack', DEEPSTACK_SKILL_RELATIVE_PATH)));
+        assert.deepEqual(readdirSync(cloneParentDirectory), []);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('a failed clone leaves no temporary folder behind', () => {
+    const root = mkdtempSync(join(tmpdir(), 'deepstack-clone-'));
+    try {
+        const cloneParentDirectory = join(root, 'temp');
+        mkdirSync(cloneParentDirectory);
+        const outcome = installDeepStackForHosts({
+            claudeRoot: join(root, 'claude'),
+            codexHome: join(root, 'codex'),
+            cursorDirectory: join(root, 'cursor'),
+            firstTaskHookPath: join(root, 'hooks', 'deepen_first_prompt.py'),
+            environment: {},
+            cloneParentDirectory,
+        }, { runCommand: absentHostRunner, cloneRepository: () => null });
+        assert.equal(outcome.cursor.status, 'failed');
+        assert.deepEqual(readdirSync(cloneParentDirectory), []);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
 });

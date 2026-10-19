@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -23,6 +23,9 @@ export const DEEPSTACK_PLUGIN_OPT_OUT_FLAG = '--no-deepstack';
 export const DEEPSTACK_PLUGIN_OPT_OUT_VARIABLE = 'CDE_INSTALL_DEEPSTACK';
 export const DEEPSTACK_SOURCE_VARIABLE = 'CDE_DEEPSTACK_SOURCE';
 export const DEEPSTACK_CURSOR_DIRECTORY_NAME = 'plugins/deepstack';
+/** Name prefix of the temporary DeepStack clone a full install makes when no local tree exists. */
+export const DEEPSTACK_CLONE_PREFIX = 'deepstack-';
+const CLONE_REMOVAL_RETRIES = 3;
 export const DEEPSTACK_SKILL_RELATIVE_PATH = 'skills/deepstack-mode/SKILL.md';
 export const DEEPSTACK_SESSION_SCRIPT_RELATIVE_PATH = 'hooks/session-start.sh';
 export const DEEPSTACK_SESSION_POWERSHELL_RELATIVE_PATH = 'hooks/session-start.ps1';
@@ -266,7 +269,9 @@ export function seedCodexDeepStackModels(codexHome) {
  * @param {string} [options.sourceDirectory] A local plugin tree for the Cursor copy.
  * @param {string[]} [options.argumentList] Command-line arguments, for the opt-out flag.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
- * @param {object} [dependencies] Seams for the marketplace command runner.
+ * @param {boolean} [options.allowClone] False stops the clone fallback.
+ * @param {string} [options.cloneParentDirectory] Where the temporary clone goes. Defaults to the system temp folder.
+ * @param {object} [dependencies] Seams for the marketplace command runner and the clone.
  * @returns {{status: string, hosts: object[], cursor: object, warning: string|null}} The outcome.
  */
 export function installDeepStackForHosts(options = {}, dependencies = {}) {
@@ -290,16 +295,25 @@ export function installDeepStackForHosts(options = {}, dependencies = {}) {
         environment,
         sourceDirectory: options.sourceDirectory,
     });
-    if (!sourceDirectory && options.allowClone !== false) {
-        sourceDirectory = cloneDeepStackRepository(mkdtempSync(join(tmpdir(), 'deepstack-')));
+    const cloneDirectory = !sourceDirectory && options.allowClone !== false
+        ? mkdtempSync(join(options.cloneParentDirectory ?? tmpdir(), DEEPSTACK_CLONE_PREFIX))
+        : null;
+    let cursor;
+    try {
+        if (cloneDirectory) {
+            const cloneRepository = dependencies.cloneRepository ?? cloneDeepStackRepository;
+            sourceDirectory = cloneRepository(cloneDirectory);
+        }
+        cursor = installDeepStackCursor({
+            cursorDirectory: options.cursorDirectory,
+            pluginSourceDirectory: sourceDirectory,
+            firstTaskHookPath: options.firstTaskHookPath,
+            pythonCommand: options.pythonCommand,
+            formatPathArgument: options.formatPathArgument,
+        });
+    } finally {
+        if (cloneDirectory) removeDeepStackClone(cloneDirectory);
     }
-    const cursor = installDeepStackCursor({
-        cursorDirectory: options.cursorDirectory,
-        pluginSourceDirectory: sourceDirectory,
-        firstTaskHookPath: options.firstTaskHookPath,
-        pythonCommand: options.pythonCommand,
-        formatPathArgument: options.formatPathArgument,
-    });
     if (marketplace.hosts.some(host => host.host === 'codex' && host.status === 'installed') && options.codexHome) {
         seedCodexDeepStackModels(options.codexHome);
     }
@@ -314,14 +328,20 @@ export function installDeepStackForHosts(options = {}, dependencies = {}) {
 }
 
 /**
- * Clone jl-cmd-projects/DeepStack when no local tree is available.
+ * Remove the temporary DeepStack clone once the Cursor copy is written.
  *
- * The installer calls this only from a full install that has no source
- * directory and no marketplace cache. Tests pass a source directory instead.
+ * Nothing reads the clone after the install: the Cursor hooks point at the
+ * copy under the Cursor home, and Claude and Codex read their own marketplace
+ * caches. Git writes its pack files read-only, which the forced removal
+ * handles on Windows too.
  *
- * @param {string} destination An empty directory for the clone.
- * @returns {string|null} The plugin directory inside the clone.
+ * @param {string} cloneDirectory The directory the clone was made in.
+ * @returns {void}
  */
+export function removeDeepStackClone(cloneDirectory) {
+    rmSync(cloneDirectory, { recursive: true, force: true, maxRetries: CLONE_REMOVAL_RETRIES });
+}
+
 /**
  * Return the git clone URL for the DeepStack marketplace repository.
  *
@@ -331,6 +351,15 @@ export function deepStackCloneUrl() {
     return ['https:', '', 'github.com', `${DEEPSTACK_MARKETPLACE_REPOSITORY}.git`].join('/');
 }
 
+/**
+ * Clone jl-cmd-projects/DeepStack when no local tree is available.
+ *
+ * The installer calls this only from a full install that has no source
+ * directory and no marketplace cache. Tests pass a source directory instead.
+ *
+ * @param {string} destination An empty directory for the clone.
+ * @returns {string|null} The plugin directory inside the clone.
+ */
 export function cloneDeepStackRepository(destination) {
     const outcome = spawnSync('git', [
         'clone',

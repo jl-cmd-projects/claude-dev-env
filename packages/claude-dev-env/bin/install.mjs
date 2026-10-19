@@ -72,7 +72,9 @@ import {
     writeCursorAgentsGuidanceHooks,
 } from './cursor-agents-guidance.mjs';
 import {
+    codexSolPromptPath,
     codexSolSettingSnapshotPaths,
+    installCodexSolPrompt,
     removeCodexSolSetting,
     SOL_PROMPT_DIRECTORY_NAME,
     SOL_PROMPT_FILE_NAME,
@@ -126,6 +128,7 @@ import {
     resolveFaultPhaseFromEnvironment,
     runWithInstallTransaction,
 } from './install-transaction.mjs';
+import { findShadowingGlobalInstall, shadowingGlobalAdvice } from './global-install-shadow.mjs';
 import { pythonExecutableProbeCommand } from './python-probe.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -443,14 +446,26 @@ export function installPstackPluginForHosts() {
     });
 }
 
+/** Side steps that need the user, repeated at the end of the run so none scrolls past unseen. */
+const allActionNeededLines = [];
+
 function printPluginHostOutcomes(allSpecs, pluginOutcome) {
     for (const eachSpec of allSpecs) {
         for (const eachHost of pluginOutcome.hosts) {
-            console.log(eachHost.warning
-                ? `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
-                : `  ${eachSpec.label} (${eachHost.host}): ${eachHost.status}`);
+            const outcomeLine = eachHost.warning
+                ? `${eachSpec.label} (${eachHost.host}): ${eachHost.status} — ${eachHost.warning}`
+                : `${eachSpec.label} (${eachHost.host}): ${eachHost.status}`;
+            console.log(`  ${outcomeLine}`);
+            if (eachHost.status === 'failed') allActionNeededLines.push(outcomeLine);
         }
     }
+}
+
+function printActionNeeded() {
+    if (allActionNeededLines.length === 0) return;
+    console.warn(`Action needed (${allActionNeededLines.length}):`);
+    for (const eachLine of allActionNeededLines) console.warn(`  - ${eachLine}`);
+    console.warn('');
 }
 
 function seedSubagentModelPolicy() {
@@ -2691,6 +2706,7 @@ function executeInstallPlan(plan) {
             ...(plan.priorManifest.files || []),
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -2737,6 +2753,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     const groupLabel = selectedGroups ? `groups: ${selectedGroups.join(', ')}` : 'all';
     console.log(`\nInstalling ${PACKAGE_NAME} (${groupLabel})...\n`);
     console.log(`  Python: ${pythonCommand}`);
+    const shadowingGlobal = findShadowingGlobalInstall({
+        packageName: PACKAGE_NAME,
+        packageRoot: PACKAGE_ROOT,
+        packageVersion: PACKAGE_VERSION,
+    });
+    if (shadowingGlobal) {
+        const shadowAdvice = shadowingGlobalAdvice(PACKAGE_NAME, shadowingGlobal, PACKAGE_VERSION);
+        console.warn(`  Warning: ${shadowAdvice}`);
+        allActionNeededLines.push(shadowAdvice);
+    }
     mkdirSync(CLAUDE_HOME, { recursive: true });
     const publishedPointerPaths = publishManagedLookupPointers();
 
@@ -2996,6 +3022,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         console.log(cursorOutcome.warning
             ? `  DeepStack (cursor): ${cursorOutcome.status} — ${cursorOutcome.warning}`
             : `  DeepStack (cursor): ${cursorOutcome.status}`);
+        if (cursorOutcome.status === 'failed') {
+            allActionNeededLines.push(`DeepStack (cursor): failed — ${cursorOutcome.warning}`);
+        }
     }
     const allRepositoryPluginSpecs = [
         USAGE_WRAPUP_PLUGIN_SPEC,
@@ -3028,9 +3057,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
         );
         if (deepenGuidancePath) allCodexGuidancePaths.push(deepenGuidancePath);
+        const solPromptPath = installCodexSolPrompt(
+            INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
+            join(PACKAGE_ROOT, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
+        );
+        if (solPromptPath) allCodexGuidancePaths.push(solPromptPath);
         const solSettingPath = writeCodexSolSetting(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-            join(CLAUDE_HOME, SOL_PROMPT_DIRECTORY_NAME, SOL_PROMPT_FILE_NAME),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         );
         if (solSettingPath) {
             allCodexGuidancePaths.push(solSettingPath);
@@ -3248,6 +3282,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         console.log(`  hooks: ${summary.hookFiles.created + summary.hookFiles.updated} files, ${summary.hookGroups} groups in settings.json`);
     }
     console.log(`  python: ${pythonCommand}\n`);
+    printActionNeeded();
 }
 
 function normalizePathForComparison(rawPath) {
@@ -3494,6 +3529,7 @@ function uninstall() {
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });

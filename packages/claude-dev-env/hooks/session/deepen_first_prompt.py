@@ -31,8 +31,6 @@ from hooks_constants.cloud_session import is_cloud_session
 from hooks_constants.deepen_first_prompt_constants import (
     ADDITIONAL_CONTEXT_KEY,
     ALL_FIRST_PROMPT_EVENT_NAMES,
-    ALL_FOUR_QUESTION_STEMS,
-    QUESTION_LINE_SEPARATOR,
     ALL_HELPER_REPORT_MARKERS,
     ALL_LOOP_PROMPT_PREFIXES,
     ALL_NONINTERACTIVE_ENV_TRUE_VALUES,
@@ -68,6 +66,7 @@ from hooks_constants.deepen_first_prompt_constants import (
 from hooks_constants.mod_handoff import is_mod_plugin_enabled
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.subprocess_window import hidden_window_creation_flags
+from deepen_default_rewrite import role_default_rewrite
 from deepen_role_gate import refusal_reason
 from deepen_turn_marker import claim_turn_marker, turn_marker_exists
 
@@ -256,19 +255,8 @@ def _command_rewrite(task_text: str) -> str | None:
 
 
 def _default_rewrite(task_text: str) -> str:
-    """Return the paste path: the four question stems and an order to do the job."""
-    numbered_stems = QUESTION_LINE_SEPARATOR.join(
-        f"{each_index}. {each_stem}"
-        for each_index, each_stem in enumerate(ALL_FOUR_QUESTION_STEMS, start=1)
-    )
-    return (
-        f"{DEEPEN_MARKER}\n\n"
-        "Do this task as a leading practitioner in its field would.\n\n"
-        f"{task_text}\n\n"
-        "Cover four things the original prompt left out:\n"
-        f"{numbered_stems}\n"
-        "Then do exactly that job."
-    )
+    """Return the role-shaped default rewrite the gate accepts."""
+    return role_default_rewrite(task_text)
 
 
 def expand_first_task(prompt: str) -> str:

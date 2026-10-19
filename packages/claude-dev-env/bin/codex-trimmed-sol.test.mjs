@@ -129,7 +129,7 @@ test('a missing config needs no prior snapshot', (context) => {
 test('full install points config.toml model_instructions_file at the installed trimmed prompt', (context) => {
     const homeDirectory = makeScratchHome(context);
     const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
-    const installedPromptPath = join(homeDirectory, '.claude', 'system-prompts', 'codex-sol.md');
+    const installedPromptPath = join(homeDirectory, '.codex', 'codex-sol.md');
 
     const firstInstallation = installInScratchHome(homeDirectory);
     assert.equal(firstInstallation.status, 0, firstInstallation.stdout + firstInstallation.stderr);
@@ -225,4 +225,42 @@ test('failed install leaves a directory at the config path unchanged', (context)
     assert.notEqual(installation.status, 0);
     assert.match(installation.stderr, /prior installation restored/);
     assert.equal(readFileSync(sentinelPath, 'utf8'), 'keep\n');
+});
+
+test('the prompt the setting names survives a prune of the managed Claude files', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    rmSync(join(homeDirectory, '.claude', 'system-prompts'), { recursive: true, force: true });
+    const namedPath = JSON.parse(readFileSync(configPath, 'utf8').split('\n')[1].split(' = ')[1]);
+    assert.equal(existsSync(namedPath), true);
+});
+
+test('uninstall removes the Codex copy of the prompt', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const promptPath = join(homeDirectory, '.codex', 'codex-sol.md');
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    assert.equal(existsSync(promptPath), true);
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(promptPath), false);
+});
+
+test('uninstall removes the Codex copy of the prompt when the user wrote their own setting', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const codexHome = join(homeDirectory, '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const promptPath = join(codexHome, 'codex-sol.md');
+    const userText = 'model_instructions_file = "/mine.md"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    assert.equal(existsSync(promptPath), true);
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(promptPath), false);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
 });

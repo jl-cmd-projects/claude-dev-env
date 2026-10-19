@@ -31,6 +31,7 @@ from hooks_constants.deepen_first_prompt_constants import (
     REFUSAL_EXAMPLE_NOUN_IN_SCOPE,
     REFUSAL_MISSING_ROLE_LINES,
     REFUSAL_RESTATES_FOUR_QUESTIONS,
+    ALL_FOUR_QUESTION_STEMS,
     SKIP_DEEPEN_ENV_VAR,
     USER_PROMPT_SUBMIT_EVENT_NAME,
     CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME,
@@ -341,10 +342,18 @@ def test_should_strip_the_deepen_slash_before_rewriting() -> None:
     assert deepen.task_text_for_deepen("/deepen fix the login page") == "fix the login page"
 
 
-def test_should_refuse_the_paste_path_as_the_known_bad() -> None:
+def test_should_refuse_the_paste_path_as_the_known_bad(monkeypatch: pytest.MonkeyPatch) -> None:
+    pasted_questions = "\n".join(ALL_FOUR_QUESTION_STEMS)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite(pasted_questions))
     decision = deepen.decide_first_prompt(_payload("Add dark mode to the settings page"))
     assert isinstance(decision, deepen.Refuse)
     assert decision.reason == REFUSAL_RESTATES_FOUR_QUESTIONS
+
+
+def test_should_deepen_with_the_default_rewrite_when_nothing_is_configured() -> None:
+    decision = deepen.decide_first_prompt(_payload("Add dark mode to the settings page"))
+    assert isinstance(decision, deepen.Deepen)
+    assert "SCOPE (role): Add dark mode to the settings page" in decision.rewritten_prompt
 
 
 def test_should_refuse_the_filled_four_answer_stub_without_role_lines(
@@ -427,6 +436,7 @@ def test_should_print_a_json_refusal_for_the_paste_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_JSON)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("\n".join(ALL_FOUR_QUESTION_STEMS)))
     printed = _run_main(_payload("Add dark mode to the settings page"))
     assert json.loads(printed) == {
         "decision": "refuse",
@@ -438,4 +448,5 @@ def test_should_stay_silent_in_rewrite_mode_when_the_gate_refuses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_REWRITE)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _FILLED_FOUR_ANSWERS)
     assert _run_main(_payload("Add dark mode to the settings page")) == ""

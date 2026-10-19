@@ -3633,3 +3633,57 @@ test('a full install clears a retired session-continuity registration from every
         );
     }
 });
+
+function installWithGlobalPrefix(context, globalPrefix) {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-action-needed-'));
+    context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
+    return spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs')], {
+        cwd: dirname(dirname(fileURLToPath(import.meta.url))),
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            CLAUDE_CONFIG_DIR: undefined,
+            LLM_SETTINGS_PROFILES_ROOT: undefined,
+            CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
+            CDE_INSTALL_PSTACK: '0',
+            CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_USAGE_WRAPUP: '0',
+            CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0',
+            HOME: homeDirectory,
+            USERPROFILE: homeDirectory,
+            APPDATA: join(homeDirectory, 'AppData', 'Roaming'),
+            CODEX_HOME: join(homeDirectory, '.codex'),
+            GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
+            TEMP: homeDirectory,
+            TMP: homeDirectory,
+            npm_config_prefix: undefined,
+            npm_config_global_prefix: globalPrefix ?? join(homeDirectory, 'no-global-prefix'),
+        },
+    });
+}
+
+test('install ends with an Action needed block naming an older global copy that shadows npx', (context) => {
+    const globalPrefix = mkdtempSync(join(tmpdir(), 'cde-global-prefix-'));
+    context.after(() => rmSync(globalPrefix, { recursive: true, force: true }));
+    const globalPackage = process.platform === 'win32'
+        ? join(globalPrefix, 'node_modules', 'claude-dev-env')
+        : join(globalPrefix, 'lib', 'node_modules', 'claude-dev-env');
+    mkdirSync(globalPackage, { recursive: true });
+    writeFileSync(join(globalPackage, 'package.json'), JSON.stringify({ name: 'claude-dev-env', version: '0.0.1' }));
+
+    const result = installWithGlobalPrefix(context, globalPrefix);
+
+    assert.equal(result.status, 0, result.stderr);
+    const actionIndex = result.stderr.lastIndexOf('Action needed (1):');
+    assert.ok(actionIndex >= 0, result.stderr);
+    assert.match(result.stderr.slice(actionIndex), /claude-dev-env 0\.0\.1/);
+    assert.match(result.stderr.slice(actionIndex), /npm uninstall -g claude-dev-env/);
+});
+
+test('install prints no Action needed block when every side step finished', (context) => {
+    const result = installWithGlobalPrefix(context, null);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr.includes('Action needed'), false, result.stderr);
+});

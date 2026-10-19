@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { findFolderLockers, lockedFolderAdvice, namesALockedFolder } from './folder-lockers.mjs';
 
 export const PSTACK_MARKETPLACE_REPOSITORY = 'jl-cmd/pstack-claude';
 export const PSTACK_MARKETPLACE_NAME = 'pstack-claude';
@@ -248,7 +249,17 @@ function absentHostOutcome(allSpecs, host, executable) {
     };
 }
 
-function installForHost(allSpecs, host, homeDirectory, environment, runCommand) {
+function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLockers) {
+    const hostDefinition = HOST_DEFINITIONS[host];
+    if (!namesALockedFolder(errorText) || !hostDefinition.orphanedVersionsDirectory || !homeDirectory) return '';
+    return allSpecs.map(eachSpec => {
+        const pluginCacheDirectory = hostDefinition.orphanedVersionsDirectory(homeDirectory, eachSpec);
+        const allLockers = findLockers(pluginCacheDirectory);
+        return allLockers === null ? '' : ` ${lockedFolderAdvice(pluginCacheDirectory, allLockers)}`;
+    }).join('');
+}
+
+function installForHost(allSpecs, host, homeDirectory, environment, runCommand, findLockers) {
     const plan = marketplacePluginsPlan(allSpecs, host);
     const executable = environment[plan.executableVariable] || plan.executable;
     const commandEnvironment = { [plan.homeVariable]: homeDirectory };
@@ -265,11 +276,12 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand) 
         if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
         if (outcome.status !== 0 || outcome.error) {
             const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+            const lockAdvice = lockedFolderDetail(allSpecs, host, homeDirectory, detail, findLockers);
             return {
                 host,
                 executable,
                 status: 'failed',
-                warning: `${executable} ${commandArguments.join(' ')} failed: ${detail}`,
+                warning: `${executable} ${commandArguments.join(' ')} failed: ${detail}${lockAdvice}`,
             };
         }
     }
@@ -294,7 +306,9 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand) 
  * and skills this run already wrote still reach their durable places. An
  * absent tool arrives as a spawn `ENOENT` on other platforms and as
  * `cmd.exe`'s command-not-found exit code on Windows, and both read as
- * skipped.
+ * skipped. When a host cannot replace a plugin folder because something holds
+ * it, the warning names each process that holds it, so the user knows what to
+ * close before running the install again.
  *
  * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins to install, from one marketplace.
  * @param {object} [options] Install targets.
@@ -302,12 +316,13 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand) 
  * @param {string} [options.codexHome] The Codex home to install into.
  * @param {string[]} [options.hosts] The hosts to install. Defaults to the hosts every spec names.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
- * @param {object} [dependencies] Seams for the command runner.
+ * @param {object} [dependencies] Seams for the command runner and the folder locker search.
  * @returns {{status: string, hosts: object[], warning: string|null}} The outcome per host.
  */
 export function installMarketplacePlugins(allSpecs, options = {}, dependencies = {}) {
     const environment = options.environment ?? process.env;
     const runCommand = dependencies.runCommand ?? runHostCommand;
+    const findLockers = dependencies.findLockers ?? findFolderLockers;
     const homeDirectories = { claude: options.claudeRoot, codex: options.codexHome };
     const hosts = options.hosts ?? allSpecs[0].hosts.filter(
         eachHost => allSpecs.every(eachSpec => eachSpec.hosts.includes(eachHost)),
@@ -318,6 +333,7 @@ export function installMarketplacePlugins(allSpecs, options = {}, dependencies =
         homeDirectories[host],
         environment,
         runCommand,
+        findLockers,
     ));
     const failedCount = hostOutcomes.filter(outcome => outcome.status === 'failed').length;
     const installedCount = hostOutcomes.filter(outcome => outcome.status === 'installed').length;

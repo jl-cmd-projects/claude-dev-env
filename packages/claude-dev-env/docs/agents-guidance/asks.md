@@ -40,6 +40,7 @@ What has been seen to work, in an interactive `cursor-agent` session (version 20
 - The `sessionStart` entry runs, and the session can quote the Asks line. Without it, the session cannot.
 - The `stop` entry runs at the end of each turn. With an open todo left, the gate sent one follow-up, and the agent closed the turn with a `Blocked:` line. Without the gate, the turn ended at "Done." with the todo still open.
 - A turn cancelled with Esc sends `stop` with status `aborted`, then `error`. The gate stays silent for both.
+- On Windows, each hook command runs in PowerShell: Cursor writes it into a temporary `.ps1` script and starts `pwsh -NonInteractive -File` on it. A command that starts with a quote gets the `&` call operator first, so a quoted Python path with a space runs. A probe from `C:/.../py space/venv/Scripts/python.exe` ran with both a bare and a quoted script path. The Cursor editor (3.24.12) has the same `&` rule in its hook runner.
 
 Limits:
 
