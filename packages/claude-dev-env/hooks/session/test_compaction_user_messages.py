@@ -74,6 +74,14 @@ def test_should_leave_out_harness_and_agent_entries() -> None:
     assert texts_of(all_lines) == ["typed"]
 
 
+def test_should_keep_typed_text_that_opens_with_markup() -> None:
+    all_lines = [
+        user_line("<Button> does not render"),
+        user_line("<task-notification>done</task-notification>"),
+    ]
+    assert texts_of(all_lines) == ["<Button> does not render"]
+
+
 def test_should_keep_an_interrupt_and_mark_an_image() -> None:
     all_lines = [
         user_line([{"type": "text", "text": "[Request interrupted by user]"}]),

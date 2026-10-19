@@ -30,7 +30,7 @@ TEXT_KEY = "text"
 IMAGE_BLOCK_TYPE = "image"
 IMAGE_PLACEHOLDER = "[image]"
 BLOCK_SEPARATOR = " "
-HARNESS_TEXT_PREFIX = "<"
+HARNESS_TAG_OPENING_PATTERN = re.compile(r"<[a-z]+(?:-[a-z]+)+[\s>]")
 SLASH_COMMAND_NAME_PATTERN = re.compile(r"<command-name>\s*(.*?)\s*</command-name>", re.DOTALL)
 SLASH_COMMAND_ARGS_PATTERN = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
 

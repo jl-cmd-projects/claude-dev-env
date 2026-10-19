@@ -38,7 +38,7 @@ from hooks_constants.compaction_user_messages_constants import (
     CONTENT_KEY,
     CUT_MESSAGE_SUFFIX_TEMPLATE,
     ENTRY_TYPE_KEY,
-    HARNESS_TEXT_PREFIX,
+    HARNESS_TAG_OPENING_PATTERN,
     HUMAN_ORIGIN_KIND,
     IMAGE_BLOCK_TYPE,
     IMAGE_PLACEHOLDER,
@@ -119,7 +119,7 @@ def _typed_text(raw_text: str) -> str | None:
         command_args = SLASH_COMMAND_ARGS_PATTERN.search(stripped_text)
         typed_args = command_args.group(1).strip() if command_args else ""
         return f"{command_name.group(1)} {typed_args}".strip()
-    if not stripped_text or stripped_text.startswith(HARNESS_TEXT_PREFIX):
+    if not stripped_text or HARNESS_TAG_OPENING_PATTERN.match(stripped_text):
         return None
     return stripped_text
 
