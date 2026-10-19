@@ -22,6 +22,8 @@ from hooks_constants.deepen_default_rewrite_constants import (
     DEFAULT_TASK_HEADING,
     EXAMPLE_LEAD_PUNCTUATION,
     EXAMPLE_LIST_SEPARATOR,
+    EXAMPLE_MARKER_ALTERNATION_SEPARATOR,
+    EXAMPLE_MARKER_PATTERN_TEMPLATE,
     SCOPE_CLIPPED_SUFFIX,
     SENTENCE_BREAK_PATTERN,
     WORD_SEPARATOR,
@@ -51,24 +53,34 @@ def _sentences(body_text: str) -> list[str]:
     return [each.strip() for each in re.split(SENTENCE_BREAK_PATTERN, body_text) if each.strip()]
 
 
-def _split_example(sentence: str) -> tuple[str, str | None]:
-    """Return the sentence without its marked example, and the example text."""
-    lowered = sentence.lower()
-    for each_marker in ALL_EXAMPLE_SENTENCE_MARKERS:
-        marker_index = lowered.find(each_marker)
-        if marker_index < 0:
-            continue
-        head = sentence[:marker_index].rstrip(EXAMPLE_LEAD_PUNCTUATION + "(")
-        tail = sentence[marker_index + len(each_marker) :].lstrip(EXAMPLE_LEAD_PUNCTUATION)
-        end_index = min(
-            (tail.find(each_end) for each_end in ALL_EXAMPLE_END_MARKERS if tail.find(each_end) >= 0),
-            default=len(tail),
-        )
-        example = tail[:end_index].rstrip(".!? ")
-        remainder = tail[end_index:].lstrip(EXAMPLE_LEAD_PUNCTUATION + ")")
-        scope_part = f"{head} {remainder}".strip() if head else ""
-        return scope_part, example or None
-    return sentence, None
+def _example_marker_pattern() -> re.Pattern[str]:
+    alternatives = EXAMPLE_MARKER_ALTERNATION_SEPARATOR.join(re.escape(each_marker) for each_marker in ALL_EXAMPLE_SENTENCE_MARKERS)
+    return re.compile(EXAMPLE_MARKER_PATTERN_TEMPLATE.format(alternatives=alternatives), re.IGNORECASE)
+
+
+def _split_example(sentence: str) -> tuple[str, list[str]]:
+    """Return the sentence without its marked examples, and the example texts.
+
+    A marker counts only as a whole phrase, so "for examples of" and "such
+    assumptions" stay in the scope. The earliest marker splits first, and the
+    text after the example is split again for later markers.
+    """
+    marker_match = _example_marker_pattern().search(sentence)
+    if marker_match is None:
+        return sentence, []
+    head = sentence[: marker_match.start()].rstrip(EXAMPLE_LEAD_PUNCTUATION + "(")
+    tail = sentence[marker_match.end() :].lstrip(EXAMPLE_LEAD_PUNCTUATION)
+    end_index = min(
+        (tail.find(each_end) for each_end in ALL_EXAMPLE_END_MARKERS if tail.find(each_end) >= 0),
+        default=len(tail),
+    )
+    example = tail[:end_index].rstrip(".!? ")
+    remainder_scope, all_remainder_examples = _split_example(
+        tail[end_index:].lstrip(EXAMPLE_LEAD_PUNCTUATION + ")")
+    )
+    all_examples = ([example] if example else []) + all_remainder_examples
+    scope_part = f"{head} {remainder_scope}".strip() if head else ""
+    return scope_part, all_examples
 
 
 def _clipped(text: str) -> str:
@@ -81,7 +93,7 @@ def _clipped(text: str) -> str:
 
 def _scope_and_examples(task_text: str) -> tuple[str, str]:
     all_splits = [_split_example(each) for each in _sentences(_body_before_constraints(task_text))]
-    all_examples = [each_example for _, each_example in all_splits if each_example]
+    all_examples = [each_example for _, all_sentence_examples in all_splits for each_example in all_sentence_examples]
     all_scope_parts = [each_part for each_part, _ in all_splits if each_part]
     scope_text = WORD_SEPARATOR.join(all_scope_parts) or task_text.strip()
     examples_text = EXAMPLE_LIST_SEPARATOR.join(all_examples) if all_examples else ROLE_BLOCKER_NONE

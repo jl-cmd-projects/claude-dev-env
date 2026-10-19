@@ -328,15 +328,6 @@ export function installDeepStackForHosts(options = {}, dependencies = {}) {
 }
 
 /**
- * Clone jl-cmd-projects/DeepStack when no local tree is available.
- *
- * The installer calls this only from a full install that has no source
- * directory and no marketplace cache. Tests pass a source directory instead.
- *
- * @param {string} destination An empty directory for the clone.
- * @returns {string|null} The plugin directory inside the clone.
- */
-/**
  * Remove the temporary DeepStack clone once the Cursor copy is written.
  *
  * Nothing reads the clone after the install: the Cursor hooks point at the
@@ -360,6 +351,15 @@ export function deepStackCloneUrl() {
     return ['https:', '', 'github.com', `${DEEPSTACK_MARKETPLACE_REPOSITORY}.git`].join('/');
 }
 
+/**
+ * Clone jl-cmd-projects/DeepStack when no local tree is available.
+ *
+ * The installer calls this only from a full install that has no source
+ * directory and no marketplace cache. Tests pass a source directory instead.
+ *
+ * @param {string} destination An empty directory for the clone.
+ * @returns {string|null} The plugin directory inside the clone.
+ */
 export function cloneDeepStackRepository(destination) {
     const outcome = spawnSync('git', [
         'clone',

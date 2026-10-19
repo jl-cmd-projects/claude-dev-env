@@ -11,6 +11,8 @@ __all__ = [
     "ALL_EXAMPLE_END_MARKERS",
     "EXAMPLE_LEAD_PUNCTUATION",
     "EXAMPLE_LIST_SEPARATOR",
+    "EXAMPLE_MARKER_ALTERNATION_SEPARATOR",
+    "EXAMPLE_MARKER_PATTERN_TEMPLATE",
     "SCOPE_CLIPPED_SUFFIX",
     "SENTENCE_BREAK_PATTERN",
     "WORD_SEPARATOR",
@@ -18,6 +20,8 @@ __all__ = [
 
 ALL_EXAMPLE_SENTENCE_MARKERS: tuple[str, ...] = ("for example", "for instance", "e.g.", "such as")
 EXAMPLE_LEAD_PUNCTUATION: str = " ,:;-"
+EXAMPLE_MARKER_ALTERNATION_SEPARATOR: str = "|"
+EXAMPLE_MARKER_PATTERN_TEMPLATE: str = r"(?<!\w)(?:{alternatives})(?!\w)"
 EXAMPLE_LIST_SEPARATOR: str = "; "
 WORD_SEPARATOR: str = " "
 ALL_EXAMPLE_END_MARKERS: tuple[str, ...] = (", and ", ", but ", ", then ", ", so ", ";", ")")

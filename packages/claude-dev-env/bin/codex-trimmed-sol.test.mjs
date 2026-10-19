@@ -247,3 +247,20 @@ test('uninstall removes the Codex copy of the prompt', (context) => {
     assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
     assert.equal(existsSync(promptPath), false);
 });
+
+test('uninstall removes the Codex copy of the prompt when the user wrote their own setting', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const codexHome = join(homeDirectory, '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const promptPath = join(codexHome, 'codex-sol.md');
+    const userText = 'model_instructions_file = "/mine.md"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    assert.equal(existsSync(promptPath), true);
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(promptPath), false);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
+});

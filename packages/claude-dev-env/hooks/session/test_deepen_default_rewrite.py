@@ -70,3 +70,21 @@ def test_should_clip_a_long_scope_and_point_at_the_full_task() -> None:
     assert scope.endswith("(the rest is in the task below)")
     assert len(scope) < len(task)
     assert refusal_reason(task.strip(), rewrite) is None
+
+
+def test_should_keep_a_marker_word_inside_a_longer_word_in_the_scope() -> None:
+    task = "Search the codebase for examples of deprecated API calls and replace each one with the new client."
+    rewrite = role_default_rewrite(task)
+    assert refusal_reason(task, rewrite) is None
+    assert _role_line(rewrite, "SCOPE (role):") == task
+    assert _role_line(rewrite, "EXAMPLES (illustration only):") == "none"
+    assumption_task = "Avoid such assumptions in the parser and add input validation."
+    assert _role_line(role_default_rewrite(assumption_task), "SCOPE (role):") == assumption_task
+
+
+def test_should_move_every_marked_example_in_a_sentence_out_of_the_scope() -> None:
+    task = "Speed up the slow pages such as the dashboard, and cache reads, e.g. the user lookup, and keep the API stable."
+    rewrite = role_default_rewrite(task)
+    assert refusal_reason(task, rewrite) is None
+    assert _role_line(rewrite, "SCOPE (role):") == "Speed up the slow pages and cache reads and keep the API stable."
+    assert _role_line(rewrite, "EXAMPLES (illustration only):") == "the dashboard; the user lookup"

@@ -120,12 +120,15 @@ export function writeCodexSolSetting(codexHome, instructionsPath) {
  * Remove the package's `model_instructions_file` line from CODEX_HOME/config.toml.
  *
  * The rest of the file stays as the user wrote it. A file that held only the
- * package line is removed, and so is the Codex copy of the prompt.
+ * package line is removed. The Codex copy of the prompt is removed in every
+ * case, because install writes it even when the user's own setting kept the
+ * package line out.
  *
  * @param {string} codexHome
  * @returns {string|null} The config path when it changed, or null when nothing was removed.
  */
 export function removeCodexSolSetting(codexHome) {
+    rmSync(codexSolPromptPath(codexHome), { force: true });
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
     if (!isReadable || currentText === null) return null;
@@ -137,6 +140,5 @@ export function removeCodexSolSetting(codexHome) {
     } else {
         writeFileSync(configPath, userText, 'utf8');
     }
-    rmSync(codexSolPromptPath(codexHome), { force: true });
     return configPath;
 }
