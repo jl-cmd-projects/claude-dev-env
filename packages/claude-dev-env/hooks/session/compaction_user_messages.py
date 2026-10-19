@@ -168,8 +168,8 @@ def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessag
     ::
 
         user "fix the login bug"                       -> kept
-        user "<command-name>/deepen</command-name>
-              <command-args>speed it up</command-args>" -> "/deepen speed it up"
+        user "<command-name>/deepstack-mode</command-name>
+              <command-args>speed it up</command-args>" -> "/deepstack-mode speed it up"
         user tool_result, isMeta skill body,
         isCompactSummary, isSidechain, origin peer     -> left out
         user "<system-reminder>...", "<local-command-stdout>" -> left out
