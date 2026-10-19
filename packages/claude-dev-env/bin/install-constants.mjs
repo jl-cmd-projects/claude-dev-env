@@ -183,6 +183,9 @@ export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
     'open_tasks_stop_gate.py',
     'owned_pr_merge_stop_gate.py',
 ]);
+export const ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES = new Set([
+    'compaction_recall_prompt.py',
+]);
 export const ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES = new Set([
     'owned_pr_review_loop.py',
 ]);

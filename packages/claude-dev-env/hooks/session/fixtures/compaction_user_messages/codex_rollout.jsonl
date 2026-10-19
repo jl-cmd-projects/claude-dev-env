@@ -1,0 +1,22 @@
+{"timestamp": "2026-10-19T09:00:00.000Z", "type": "session_meta", "payload": {"id": "0199f0aa-1111-7000-8000-000000000001", "cwd": "/workspace/app", "originator": "codex_cli_rs", "cli_version": "0.47.0"}}
+{"timestamp": "2026-10-19T09:00:00.100Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<environment_context>\n  <cwd>/workspace/app</cwd>\n</environment_context>"}]}}
+{"timestamp": "2026-10-19T09:02:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Could you please move the nightly export to cron at 03:30 UTC on host atlas-12.internal?"}]}}
+{"timestamp": "2026-10-19T09:02:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Could you please move the nightly export to cron at 03:30 UTC on host atlas-12.internal?", "kind": "plain"}}
+{"timestamp": "2026-10-19T09:03:00.000Z", "type": "event_msg", "payload": {"type": "agent_message", "message": "Moving the export."}}
+{"timestamp": "2026-10-19T09:03:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Moving the export."}]}}
+{"timestamp": "2026-10-19T09:04:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Keep the export output in Redis for now."}]}}
+{"timestamp": "2026-10-19T09:04:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Keep the export output in Redis for now.", "kind": "plain"}}
+{"timestamp": "2026-10-19T09:05:00.000Z", "type": "event_msg", "payload": {"type": "agent_message", "message": "Done."}}
+{"timestamp": "2026-10-19T09:05:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Done."}]}}
+{"timestamp": "2026-10-19T09:06:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "ok thanks"}]}}
+{"timestamp": "2026-10-19T09:06:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "ok thanks", "kind": "plain"}}
+{"timestamp": "2026-10-19T09:07:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Also cap the batch at 25,000 rows and log to logs/export_timing.csv"}]}}
+{"timestamp": "2026-10-19T09:07:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Also cap the batch at 25,000 rows and log to logs/export_timing.csv", "kind": "plain"}}
+{"timestamp": "2026-10-19T09:08:00.000Z", "type": "event_msg", "payload": {"type": "agent_message", "message": "Capped."}}
+{"timestamp": "2026-10-19T09:08:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Capped."}]}}
+{"timestamp": "2026-10-19T09:09:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Change of plan, put the export output in Postgres instead of Redis."}]}}
+{"timestamp": "2026-10-19T09:09:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Change of plan, put the export output in Postgres instead of Redis.", "kind": "plain"}}
+{"timestamp": "2026-10-19T09:10:00.000Z", "type": "event_msg", "payload": {"type": "agent_message", "message": "Switched."}}
+{"timestamp": "2026-10-19T09:10:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Switched."}]}}
+{"timestamp": "2026-10-19T09:11:00.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Ping Marisol when PR https://github.com/acme/export/pull/431 is green."}]}}
+{"timestamp": "2026-10-19T09:11:00.000Z", "type": "event_msg", "payload": {"type": "user_message", "message": "Ping Marisol when PR https://github.com/acme/export/pull/431 is green.", "kind": "plain"}}

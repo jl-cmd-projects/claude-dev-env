@@ -1,8 +1,10 @@
-"""Tests for compaction_trim_eval: the grader, the hook settings, and the reason parsers."""
+"""Tests for compaction_trim_eval: the grader and the fixture cases it scores."""
 
 import json
 import sys
 from pathlib import Path
+
+import pytest
 
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
@@ -11,105 +13,50 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import compaction_trim_eval as trim_eval
-from compaction_user_messages import rendered_extract, typed_user_messages
 
+FIXTURE_DIRECTORY = _SESSION_DIR / "fixtures" / "compaction_user_messages"
 DEPLOY_CASE = {
     "transcript": "deploy_session.jsonl",
     "facts": ["batch-07.internal", "137", "SQLite"],
     "overruled": [{"earlier": 2, "later": 6}],
 }
-EXTRACT_TEXT = "# User messages, oldest first\n\n" + "m" * 400
+RAW_MESSAGES = "m" * 400
 
 
 def test_score_condensed_should_count_every_fact_and_the_marked_reversal() -> None:
-    condensed_text = (
+    recall = (
         "#1 deploy to BATCH-07.internal\n#2 keep Postgres (overruled by #6)\n"
         "#5 exit code 137\n#6 switch to SQLite\n"
     )
-    case_score = trim_eval.score_condensed(condensed_text, DEPLOY_CASE, EXTRACT_TEXT)
+    case_score = trim_eval.score_condensed(recall, DEPLOY_CASE, RAW_MESSAGES)
     assert (case_score.facts_kept, case_score.facts_total) == (3, 3)
     assert (case_score.overruled_marked, case_score.overruled_total) == (1, 1)
-    assert case_score.compression_ratio == len("m" * 400) / len(condensed_text)
+    assert case_score.compression_ratio == len(RAW_MESSAGES) / len(recall)
+    assert case_score.is_lossless
 
 
-def test_score_condensed_should_score_a_copy_that_drops_facts_lower() -> None:
-    lossy_text = "#1 deploy\n#2 keep Postgres\n#6 switch db\n"
-    case_score = trim_eval.score_condensed(lossy_text, DEPLOY_CASE, EXTRACT_TEXT)
+def test_score_condensed_should_score_a_recall_that_drops_facts_lower() -> None:
+    lossy_recall = "#1 deploy\n#2 keep Postgres\n#6 switch db\n"
+    case_score = trim_eval.score_condensed(lossy_recall, DEPLOY_CASE, RAW_MESSAGES)
     assert case_score.facts_kept == 0
     assert case_score.overruled_marked == 0
+    assert not case_score.is_lossless
 
 
-def test_score_condensed_should_give_the_raw_extract_every_fact_and_an_empty_copy_none() -> None:
-    fixture_directory = _SESSION_DIR / "fixtures" / "compaction_user_messages"
-    all_cases = json.loads((fixture_directory / "trim_cases.json").read_text(encoding="utf-8"))
-    for each_case in all_cases:
-        transcript_lines = (fixture_directory / each_case["transcript"]).read_text().splitlines()
-        extract_text = rendered_extract(typed_user_messages(transcript_lines))
-        oracle_score = trim_eval.score_condensed(extract_text, each_case, extract_text)
-        null_score = trim_eval.score_condensed("", each_case, extract_text)
-        assert oracle_score.facts_kept == oracle_score.facts_total
-        assert null_score.facts_kept == 0
+def test_scored_cases_should_keep_every_fact_and_reversal_in_each_fixture() -> None:
+    all_cases = json.loads((FIXTURE_DIRECTORY / "trim_cases.json").read_text(encoding="utf-8"))
+    all_rows = trim_eval.scored_cases(FIXTURE_DIRECTORY)
+    assert [each_row[0] for each_row in all_rows] == [
+        each_case["transcript"] for each_case in all_cases
+    ]
+    for each_name, trim_score, oracle_score, null_score in all_rows:
+        assert trim_score.is_lossless, each_name
+        assert oracle_score.facts_kept == oracle_score.facts_total, each_name
+        assert null_score.facts_kept == 0, each_name
 
 
-CONDENSING_HOOK = {
-    "type": "agent",
-    "if": "Bash(*compaction_user_messages.py*)",
-    "prompt": "condense $ARGUMENTS",
-    "model": "haiku",
-}
-
-
-def test_condensing_hook_group_should_keep_only_the_agent_hook_that_names_the_extractor() -> None:
-    hooks_json_text = json.dumps(
-        {
-            "hooks": {
-                "PostToolUse": [
-                    {"matcher": "Bash", "hooks": [{"type": "command", "command": "x"}]},
-                    {
-                        "matcher": "Bash",
-                        "hooks": [{"type": "command", "command": "y"}, CONDENSING_HOOK],
-                    },
-                ]
-            }
-        }
-    )
-    assert trim_eval.condensing_hook_group(hooks_json_text) == {
-        "matcher": "Bash",
-        "hooks": [CONDENSING_HOOK],
-    }
-
-
-def test_run_settings_should_register_the_hook_on_the_chosen_model_with_the_allow_rules() -> None:
-    hook_group = {"matcher": "Bash", "hooks": [CONDENSING_HOOK]}
-    all_allow_rules = ["Read(~/.claude/compaction-recall/**)"]
-    assert trim_eval.run_settings(hook_group, all_allow_rules, "sonnet") == {
-        "permissions": {"allow": all_allow_rules},
-        "hooks": {
-            "PostToolUse": [{"matcher": "Bash", "hooks": [{**CONDENSING_HOOK, "model": "sonnet"}]}]
-        },
-    }
-
-
-def test_debug_log_reason_should_return_the_last_structured_output_reason() -> None:
-    debug_text = (
-        "2026 [DEBUG] Hooks: Processing agent hook with prompt: condense\n"
-        '2026 [DEBUG] Hooks: Got structured output: {"ok":false,"reason":"draft"}\n'
-        '2026 [DEBUG] Hooks: Got structured output: {"ok":false,"reason":"#1 deploy\\n#2 keep"}\n'
-    )
-    assert trim_eval.debug_log_reason(debug_text) == "#1 deploy\n#2 keep"
-
-
-def test_debug_log_reason_should_return_none_when_no_hook_answered() -> None:
-    assert trim_eval.debug_log_reason("2026 [DEBUG] Read tool permission denied\n") is None
-
-
-def test_hook_reason_should_return_the_last_decision_with_a_reason() -> None:
-    model_reply = (
-        'Draft {"ok": false, "reason": "first"} then {"note": 1} and '
-        '{"ok": false, "reason": "#1 use {braces} here"}'
-    )
-    assert trim_eval.hook_reason(model_reply) == "#1 use {braces} here"
-
-
-def test_hook_reason_should_return_none_when_the_reply_has_no_decision() -> None:
-    assert trim_eval.hook_reason("I could not read the file {broken") is None
+def test_main_should_exit_zero_when_the_trim_keeps_every_fact(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert trim_eval.main() == 0
+    assert "trim: facts 1.00  overruled 1.00" in capsys.readouterr().out

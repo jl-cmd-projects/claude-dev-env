@@ -1,6 +1,6 @@
 {
     "name": "claude-dev-env",
-    "version": "8.89.0",
+    "version": "8.91.0",
     "description": "Claude Code development standards — rules, hooks, agents, commands, and skills",
     "type": "module",
     "bin": {
@@ -9,7 +9,7 @@
         "cde": "bin/cde.mjs"
     },
     "scripts": {
-        "test": "node --test --test-concurrency=1 \"bin/*.test.mjs\" \".agents/skills/**/*.test.mjs\" \"tests/fresh-session/**/*.test.mjs\" \"scripts/ci/*.test.mjs\""
+        "test": "node --test --test-concurrency=4 \"bin/*.test.mjs\" \".agents/skills/**/*.test.mjs\" \"tests/fresh-session/**/*.test.mjs\" \"scripts/ci/*.test.mjs\""
     },
     "files": [
         "bin/",

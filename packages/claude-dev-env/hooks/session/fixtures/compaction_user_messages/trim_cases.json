@@ -22,6 +22,8 @@
     "transcript": "long_session.jsonl",
     "facts": [
       "tools/photo_import/",
+      "yes go ahead",
+      "keep going",
       "90 seconds",
       "2,000",
       "exif_reader.py",
@@ -43,5 +45,49 @@
       "prompt hook"
     ],
     "overruled": []
+  },
+  {
+    "transcript": "codex_rollout.jsonl",
+    "facts": [
+      "03:30 UTC",
+      "atlas-12.internal",
+      "Redis",
+      "Postgres",
+      "25,000 rows",
+      "logs/export_timing.csv",
+      "Marisol",
+      "https://github.com/acme/export/pull/431"
+    ],
+    "overruled": [{"earlier": 2, "later": 5}]
+  },
+  {
+    "transcript": "random_9031_1.jsonl",
+    "facts": [
+      "tundra",
+      "https://github.com/pixel-co/ember/pull/195",
+      "Priya",
+      "feat/pixel-ember",
+      "47,000 rows",
+      "willow-16.internal",
+      "12:15 UTC",
+      "src/pixel/ember_nimbus.py",
+      "Postgres"
+    ],
+    "overruled": [{"earlier": 6, "later": 13}]
+  },
+  {
+    "transcript": "random_9031_2.jsonl",
+    "facts": [
+      "summit",
+      "4.7.9",
+      "https://github.com/willow-co/orbit/pull/207",
+      "Lena",
+      "vector-71.internal",
+      "13:15 UTC",
+      "src/willow/orbit_quartz.py",
+      "40,000 rows",
+      "S3"
+    ],
+    "overruled": [{"earlier": 4, "later": 13}]
   }
 ]

@@ -1,5 +1,31 @@
 # Changelog
 
+## [8.91.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.1...claude-dev-env-v8.91.0) (2026-10-19)
+
+
+### Features
+
+* **hooks:** trim compaction recall in Python for Claude Code and Codex ([#2082](https://github.com/jl-cmd-projects/claude-dev-env/issues/2082)) ([cd69772](https://github.com/jl-cmd-projects/claude-dev-env/commit/cd69772ee0250679a4432da153129a92cb416d63))
+
+## [8.90.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.0...claude-dev-env-v8.90.1) (2026-10-19)
+
+
+### Performance
+
+* **ci:** speed up Ubuntu and Windows JS checks ([#2087](https://github.com/jl-cmd-projects/claude-dev-env/issues/2087)) ([fde7848](https://github.com/jl-cmd-projects/claude-dev-env/commit/fde7848b90d501307610852180be0e19066ab46d))
+
+## [8.90.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.89.0...claude-dev-env-v8.90.0) (2026-10-19)
+
+
+### Features
+
+* **skills:** add source-backed PR visuals and data charts ([#2079](https://github.com/jl-cmd-projects/claude-dev-env/issues/2079)) ([c449af2](https://github.com/jl-cmd-projects/claude-dev-env/commit/c449af24949773cc0f333d7e1efac8eb9327299d))
+
+
+### Tests
+
+* keep a user PostToolUse group across Codex reinstall ([#2084](https://github.com/jl-cmd-projects/claude-dev-env/issues/2084)) ([0414c6a](https://github.com/jl-cmd-projects/claude-dev-env/commit/0414c6a1588c327dc4687911ec2ac79697e989eb))
+
 ## [8.89.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.7...claude-dev-env-v8.89.0) (2026-10-19)
 
 
