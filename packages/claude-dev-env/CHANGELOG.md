@@ -1,5 +1,21 @@
 # Changelog
 
+## [8.89.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.7...claude-dev-env-v8.89.0) (2026-10-19)
+
+
+### Features
+
+* **hooks:** add the owned PR review-loop context hook for Claude Code and Codex ([6873f0b](https://github.com/jl-cmd-projects/claude-dev-env/commit/6873f0b22a766a259c04bc2f604fb22f93fbfd11))
+* **hooks:** add the owned PR review-loop context hook for Claude Code and Codex ([0ef854d](https://github.com/jl-cmd-projects/claude-dev-env/commit/0ef854d11526cee3e9afc5da0d47543e4964009b))
+
+
+### Bug Fixes
+
+* **hooks:** pass the digest sets to needs_review_loop explicitly ([7e891b3](https://github.com/jl-cmd-projects/claude-dev-env/commit/7e891b3fb3a8f9d21fbaec9eafa6635755f68ac6))
+* **hooks:** read attached short gh api flags such as -ftitle=t ([44b6d95](https://github.com/jl-cmd-projects/claude-dev-env/commit/44b6d951f979f44359a98701666e88115e6c215a))
+* **hooks:** read gh api option=value forms and honor an explicit method ([4e8ab4a](https://github.com/jl-cmd-projects/claude-dev-env/commit/4e8ab4a9701c83a57df14f824a43a6fd9b1c8839))
+* **hooks:** take the declared pull request URL from a JSON response ([acd12e5](https://github.com/jl-cmd-projects/claude-dev-env/commit/acd12e5f4f2ae8e7ea01a061cc8c58c309ba0254))
+
 ## [8.88.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.6...claude-dev-env-v8.88.7) (2026-10-19)
 
 
