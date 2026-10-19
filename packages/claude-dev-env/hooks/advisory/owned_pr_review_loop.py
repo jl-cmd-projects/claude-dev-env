@@ -40,6 +40,7 @@ try:
         EXIT_CODE_ERROR_PREFIX,
     )
     from hooks_constants.owned_pr_review_loop_constants import (
+        ALL_DECLARED_URL_KEYS,
         ALL_GH_API_BODY_OPTIONS,
         ALL_GH_API_METHOD_OPTIONS,
         ALL_GH_API_SHORT_OPTIONS,
@@ -58,6 +59,7 @@ try:
         GH_PR_SUBCOMMAND,
         GH_PROGRAM_NAME,
         GH_SHORT_OPTION_LENGTH,
+        JSON_OBJECT_OPENER,
         MCP_OWNER_INPUT_KEY,
         MCP_REPOSITORY_INPUT_KEY,
         MCP_TOOL_NAME_PREFIX,
@@ -207,15 +209,64 @@ def _matches_for_input_repository(
     ]
 
 
+def _parsed_json_object_text(text: str) -> object:
+    stripped_text = text.strip()
+    if not stripped_text.startswith(JSON_OBJECT_OPENER):
+        return None
+    try:
+        return json.loads(stripped_text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _all_declared_url_matches(response_value: object) -> list[re.Match[str]]:
+    if isinstance(response_value, str):
+        return _all_declared_url_matches(_parsed_json_object_text(response_value))
+    if isinstance(response_value, list):
+        return [
+            each_match
+            for each_item in response_value
+            for each_match in _all_declared_url_matches(each_item)
+        ]
+    if not isinstance(response_value, dict):
+        return []
+    all_own_matches = [
+        PULL_REQUEST_URL_PATTERN.fullmatch(str(response_value.get(each_key) or ""))
+        for each_key in ALL_DECLARED_URL_KEYS
+    ]
+    return [each_match for each_match in all_own_matches if each_match] + [
+        each_match
+        for each_child in response_value.values()
+        for each_match in _all_declared_url_matches(each_child)
+    ]
+
+
+def _scanned_url_match(
+    all_tool_input: dict[str, object], tool_response: object
+) -> re.Match[str] | None:
+    response_text = _response_text(tool_response)
+    if response_text.startswith(EXIT_CODE_ERROR_PREFIX):
+        return None
+    if ALREADY_EXISTS_MARKER in response_text.lower():
+        return None
+    all_url_matches = _matches_for_input_repository(
+        list(PULL_REQUEST_URL_PATTERN.finditer(response_text)), all_tool_input
+    )
+    return all_url_matches[-1] if all_url_matches else None
+
+
 def opened_pull_request(
     all_tool_input: dict[str, object], tool_response: object
 ) -> dict[str, str] | None:
     """Return the owner, repository, number, and url of the opened pull request.
 
-    The URL comes from the tool response. When the tool input names an owner
-    and a repository, as the MCP tools do, only a URL for that repository
-    counts. Otherwise the last URL in the response counts, since
-    ``gh pr create`` prints the new pull request's URL last.
+    A JSON response declares the new pull request in an ``html_url`` or
+    ``url`` field, as the REST API and the MCP tools do. That field wins over
+    any URL the body cites. With no declared field, the hook scans the text
+    and takes the last URL, since ``gh pr create`` prints it last; a non-zero
+    exit or an "already exists" notice then means no new pull request. When
+    the tool input names an owner and a repository, only a URL for that
+    repository counts.
 
     Args:
         all_tool_input: The tool input from the hook payload.
@@ -225,17 +276,13 @@ def opened_pull_request(
         The pull request fields, or None when the response shows no new pull
         request.
     """
-    response_text = _response_text(tool_response)
-    if response_text.startswith(EXIT_CODE_ERROR_PREFIX):
-        return None
-    if ALREADY_EXISTS_MARKER in response_text.lower():
-        return None
-    all_url_matches = _matches_for_input_repository(
-        list(PULL_REQUEST_URL_PATTERN.finditer(response_text)), all_tool_input
+    all_declared_matches = _matches_for_input_repository(
+        _all_declared_url_matches(tool_response), all_tool_input
     )
-    if not all_url_matches:
+    url_match = next(iter(all_declared_matches), None)
+    url_match = url_match or _scanned_url_match(all_tool_input, tool_response)
+    if url_match is None:
         return None
-    url_match = all_url_matches[-1]
     return {**url_match.groupdict(), "url": url_match.group(0)}
 
 

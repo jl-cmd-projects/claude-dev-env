@@ -45,6 +45,8 @@ __all__ = [
     "MCP_REPOSITORY_INPUT_KEY",
     "PULL_REQUEST_URL_PATTERN",
     "ALREADY_EXISTS_MARKER",
+    "ALL_DECLARED_URL_KEYS",
+    "JSON_OBJECT_OPENER",
     "REVIEW_LOOP_CONTEXT_TEMPLATE",
 ]
 
@@ -94,6 +96,8 @@ PULL_REQUEST_URL_PATTERN: re.Pattern[str] = re.compile(
     r"(?P<repository>[A-Za-z0-9._-]+)/pull/(?P<number>\d+)"
 )
 ALREADY_EXISTS_MARKER: str = "already exists"
+ALL_DECLARED_URL_KEYS: tuple[str, ...] = ("html_url", "url")
+JSON_OBJECT_OPENER: str = "{"
 
 REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "=== OWNED PR REVIEW LOOP (context reminder, never a block) ===\n"
@@ -110,6 +114,7 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "   merge conflicts, and answer review threads until the PR is green and mergeable.\n"
     "   Any new code goes back through step 1 before the next push.\n"
     "4. Ship. Follow the pstack shipping playbook (poteto-mode/playbooks/shipping.md)\n"
-    "   to land the PR. Read the PR back and confirm it reads merged.\n"
+    "   to land the PR, or the pr-lifecycle skill outside poteto-mode. Read the PR\n"
+    "   back and confirm it reads merged.\n"
     "Run each step yourself. The task ends at a merged PR or a named blocker."
 )

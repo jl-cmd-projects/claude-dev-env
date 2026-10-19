@@ -154,6 +154,50 @@ def test_should_take_the_url_for_the_mcp_input_repository() -> None:
     assert pull_request["number"] == "42"
 
 
+def test_should_take_the_declared_url_over_urls_cited_in_the_body() -> None:
+    rest_response = json.dumps(
+        {
+            "html_url": OWNED_PR_URL,
+            "body": "Follows https://github.com/jl-cmd-projects/claude-dev-env/pull/7",
+        }
+    )
+    pull_request = owned_pr_review_loop.opened_pull_request(
+        {"command": "gh api repos/jl-cmd-projects/claude-dev-env/pulls --input pr.json"},
+        {"stdout": rest_response},
+    )
+    assert pull_request is not None
+    assert pull_request["number"] == "42"
+
+
+def test_should_take_the_declared_url_from_an_mcp_text_item() -> None:
+    mcp_response = [
+        {
+            "type": "text",
+            "text": json.dumps(
+                {
+                    "url": OWNED_PR_URL,
+                    "body": "Replaces https://github.com/jl-cmd-projects/claude-dev-env/pull/7",
+                }
+            ),
+        }
+    ]
+    pull_request = owned_pr_review_loop.opened_pull_request(
+        {"owner": "jl-cmd-projects", "repo": "claude-dev-env"}, mcp_response
+    )
+    assert pull_request is not None
+    assert pull_request["number"] == "42"
+
+
+def test_should_keep_a_declared_pull_request_whose_body_says_already_exists() -> None:
+    rest_response = json.dumps({"html_url": OWNED_PR_URL, "body": "The helper already exists."})
+    pull_request = owned_pr_review_loop.opened_pull_request(
+        {"command": "gh api repos/jl-cmd-projects/claude-dev-env/pulls --input pr.json"},
+        {"stdout": rest_response},
+    )
+    assert pull_request is not None
+    assert pull_request["url"] == OWNED_PR_URL
+
+
 def test_should_find_no_pull_request_after_a_failed_command() -> None:
     assert (
         owned_pr_review_loop.opened_pull_request(
