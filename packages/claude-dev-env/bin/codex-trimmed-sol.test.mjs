@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -311,4 +311,26 @@ test('uninstall from a home whose config.toml is linked keeps the shared setting
     const configText = readFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'utf8');
     assert.ok(configText.includes(`model_instructions_file = ${JSON.stringify(join(ownerHome, 'codex-sol.md'))}`), configText);
     assert.equal(existsSync(join(ownerHome, 'codex-sol.md')), true);
+});
+
+test('a home whose config.toml is a hard link to the main home\'s file names the prompt in the main home', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const linkedHome = join(homeDirectory, '.codex-editor');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(linkedHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    linkSync(join(mainHome, CODEX_CONFIG_FILE_NAME), join(linkedHome, CODEX_CONFIG_FILE_NAME));
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: mainHome }).status, 0);
+
+    const linkedInstallation = installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome });
+    assert.equal(linkedInstallation.status, 0, linkedInstallation.stderr);
+    const sharedLine = `model_instructions_file = ${JSON.stringify(join(mainHome, 'codex-sol.md'))}`;
+    assert.ok(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8').includes(sharedLine));
+    assert.equal(existsSync(join(linkedHome, 'codex-sol.md')), false);
+
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: linkedHome });
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    assert.ok(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8').includes(sharedLine));
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), true);
 });

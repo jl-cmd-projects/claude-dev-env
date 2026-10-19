@@ -97,7 +97,8 @@ function profileGateCommands(settingsPath, claudeHome) {
  *
  * A profile keeps its own settings and hooks. The merge adds the one gate
  * entry, in the spelling the main settings use, only where it is missing;
- * an entry left with an older interpreter spelling is replaced. The merge copies the file to a timestamped `.bak` before the first change.
+ * an entry left with an older interpreter spelling is replaced. The file as
+ * it was before either change is copied to a timestamped `.bak`.
  *
  * @param {{ mainSettingsPath: string, claudeHome: string, allProfileSettingsPaths: string[],
  *   homeDirectory: string, now?: Date }} options
@@ -112,13 +113,20 @@ export function addOpenTasksGateToProfiles(options) {
         (eachPath) => profileGateCommands(eachPath, options.claudeHome)
             .some((eachCommand) => eachCommand !== gateHook.command),
     );
+    const originalTextByStalePath = new Map(allStalePaths.map((eachPath) => [eachPath, readFileSync(eachPath, 'utf8')]));
     removeOpenTasksGateFromProfiles({ claudeHome: options.claudeHome, allProfileSettingsPaths: allStalePaths });
-    return options.allProfileSettingsPaths.map((eachPath) => mergeProfileSettingsFile(eachPath, {
-        dryRun: false,
-        homeDirectory: options.homeDirectory,
-        timestamp,
-        declaredSettings,
-    }));
+    return options.allProfileSettingsPaths.map((eachPath) => {
+        const outcome = mergeProfileSettingsFile(eachPath, {
+            dryRun: false,
+            homeDirectory: options.homeDirectory,
+            timestamp,
+            declaredSettings,
+        });
+        if (outcome.backupPath && originalTextByStalePath.has(eachPath)) {
+            writeFileSync(outcome.backupPath, originalTextByStalePath.get(eachPath));
+        }
+        return outcome;
+    });
 }
 
 /**

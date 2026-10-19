@@ -81,6 +81,19 @@ test('a second run adds nothing, and an older interpreter spelling is replaced',
     assert.deepEqual(secondOutcome[0].additions, []);
 });
 
+test('replacing an older spelling backs up the file as it was before the replacement', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath, gateCommand } = makeHome(context);
+    const staleCommand = gateCommand.replace(/^python3/, '/usr/bin/python3.9');
+    const profilePath = writeProfile(homeDirectory, 'stale', {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: staleCommand }] }] },
+    });
+    const originalText = readFileSync(profilePath, 'utf8');
+
+    const [outcome] = addOpenTasksGateToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.equal(readFileSync(outcome.backupPath, 'utf8'), originalText);
+});
+
 test('removal takes out only the main gate entry and leaves the profile as it was', (context) => {
     const { homeDirectory, claudeHome, mainSettingsPath } = makeHome(context);
     const ownHooksPath = writeProfile(homeDirectory, 'own-hooks', {

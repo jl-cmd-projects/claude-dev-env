@@ -143,7 +143,9 @@ file, whichever model it selects. `sync` links `config.toml` into every account
 home, so every account gets the line.
 
 When `CODEX_HOME/config.toml` is a link, the copy goes beside the file the link
-points to. Installing from an account home then names
+points to. A hard link to `~/.codex/config.toml`, which `sync` makes when the
+account cannot create symbolic links, counts as a link to that file. Installing
+from an account home then names
 the shared copy in `~/.codex`, and deleting or uninstalling that account home
 leaves the other homes working.
 

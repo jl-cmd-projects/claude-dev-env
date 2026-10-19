@@ -1,5 +1,8 @@
-import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+import { DEFAULT_CODEX_DIRECTORY_NAME } from './install-constants.mjs';
 
 export const SOL_PROMPT_DIRECTORY_NAME = 'system-prompts';
 export const SOL_PROMPT_FILE_NAME = 'codex-sol.md';
@@ -58,22 +61,36 @@ function readCodexConfig(configPath) {
  *
  * Account homes often link config.toml to one shared file in another home.
  * The real file's folder is the one every linked home shares, so the prompt
- * the shared setting names belongs there. A home whose config.toml is missing
- * or unreadable as a link uses its own folder.
+ * the shared setting names belongs there. A symbolic link names that folder.
+ * A hard link, which account sync makes when the account cannot create
+ * symbolic links, names no folder, so a config.toml that is the same file as
+ * the main Codex home's config.toml belongs to the main home. A home whose
+ * config.toml is missing or unreadable as a link uses its own folder.
  *
  * @param {string} codexHome
  * @returns {string}
  */
 export function codexConfigDirectory(codexHome) {
+    let resolvedConfigPath;
     try {
-        return dirname(realpathSync(join(codexHome, CODEX_CONFIG_FILE_NAME)));
+        resolvedConfigPath = realpathSync(join(codexHome, CODEX_CONFIG_FILE_NAME));
     } catch {
         return codexHome;
     }
+    return hardLinkedMainCodexHome(resolvedConfigPath) ?? dirname(resolvedConfigPath);
+}
+
+function hardLinkedMainCodexHome(resolvedConfigPath) {
+    const configEntry = statSync(resolvedConfigPath, { bigint: true, throwIfNoEntry: false });
+    if (!configEntry || configEntry.nlink < 2n) return null;
+    const mainCodexHome = join(homedir(), DEFAULT_CODEX_DIRECTORY_NAME);
+    const mainConfigEntry = statSync(join(mainCodexHome, CODEX_CONFIG_FILE_NAME), { bigint: true, throwIfNoEntry: false });
+    if (!mainConfigEntry || mainConfigEntry.dev !== configEntry.dev || mainConfigEntry.ino !== configEntry.ino) return null;
+    return mainCodexHome;
 }
 
 /**
- * True when CODEX_HOME/config.toml is a link to a file in another folder.
+ * True when CODEX_HOME/config.toml is a link to a file another home owns.
  *
  * Such a home borrows the setting and the prompt from the home that owns the
  * real file, so uninstalling from it leaves both alone.
@@ -82,9 +99,8 @@ export function codexConfigDirectory(codexHome) {
  * @returns {boolean}
  */
 export function codexConfigIsBorrowed(codexHome) {
-    const configEntry = lstatSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { throwIfNoEntry: false });
-    if (!configEntry?.isSymbolicLink()) return false;
-    return resolve(codexConfigDirectory(codexHome)) !== resolve(realpathOrSelf(codexHome));
+    if (!lstatSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { throwIfNoEntry: false })) return false;
+    return realpathOrSelf(codexConfigDirectory(codexHome)) !== realpathOrSelf(codexHome);
 }
 
 function realpathOrSelf(path) {
