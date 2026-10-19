@@ -129,6 +129,11 @@ import {
     runWithInstallTransaction,
 } from './install-transaction.mjs';
 import { findShadowingGlobalInstall, shadowingGlobalAdvice } from './global-install-shadow.mjs';
+import {
+    addOpenTasksGateToProfiles,
+    otherProfileSettingsPaths,
+    removeOpenTasksGateFromProfiles,
+} from './profile-stop-gate.mjs';
 import { pythonExecutableProbeCommand } from './python-probe.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -2695,13 +2700,27 @@ function install(selectedGroups, options = {}) {
     executeInstallPlan(plan);
 }
 
+/**
+ * List the profile settings paths that get the open-tasks Stop gate.
+ *
+ * Only an install into the main ~/.claude does this, because the gate entry
+ * names the main home's hook script.
+ *
+ * @param {string} mainSettingsPath
+ * @returns {string[]}
+ */
+function profileSettingsPathsForStopGate(mainSettingsPath) {
+    if (!pathsAreEquivalent(CLAUDE_HOME, join(homedir(), '.claude'))) return [];
+    return otherProfileSettingsPaths({ homeDirectory: homedir(), environment: process.env, mainSettingsPath });
+}
+
 function executeInstallPlan(plan) {
     const faultPhase = resolveFaultPhaseFromEnvironment(process.env);
     const snapshot = capturePriorInstallSnapshot({
         managedRoot: CLAUDE_HOME,
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
-        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
+        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH, ...profileSettingsPathsForStopGate(plan.settingsPath)],
         priorManifestFiles: [
             ...(plan.priorManifest.files || []),
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
@@ -3186,6 +3205,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
         console.log(`  Profile settings: ${eachLine}`);
     }
+    for (const eachOutcome of addOpenTasksGateToProfiles({
+        mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
+        claudeHome: CLAUDE_HOME,
+        allProfileSettingsPaths: profileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME)),
+        homeDirectory: homedir(),
+    })) {
+        if (eachOutcome.additions.length > 0) {
+            console.log(`  Profile settings: open-tasks Stop gate added to ${eachOutcome.settingsPath}`);
+        }
+    }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');
     if (existsSync(agentsHubSource)) {
@@ -3467,6 +3496,12 @@ function executeUninstallPlan(plan, helpers = {}) {
             writeFileSync(plan.settingsPath, JSON.stringify(settings, null, 4) + '\n');
         }
     }
+    for (const eachChangedPath of removeOpenTasksGateFromProfiles({
+        claudeHome: CLAUDE_HOME,
+        allProfileSettingsPaths: profileSettingsPathsForStopGate(plan.settingsPath),
+    })) {
+        console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
+    }
     if (!codexRoutingHookExists()) {
         pruneManagedHooksFromHostConfiguration(CODEX_HOOKS_CONFIGURATION_PATH, 2);
     }
@@ -3525,7 +3560,7 @@ function uninstall() {
         managedRoot: CLAUDE_HOME,
         manifestFilePath: MANIFEST_FILE,
         settingsPath: plan.settingsPath,
-        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH],
+        additionalSettingsPaths: [CODEX_HOOKS_CONFIGURATION_PATH, ...profileSettingsPathsForStopGate(plan.settingsPath)],
         priorManifestFiles: [
             ...plan.removableFiles,
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
