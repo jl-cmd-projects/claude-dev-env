@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.92.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.91.0...claude-dev-env-v8.92.0) (2026-10-19)
+
+
+### Features
+
+* hold the turn until an owned pull request merges ([#2089](https://github.com/jl-cmd-projects/claude-dev-env/issues/2089)) ([ebac363](https://github.com/jl-cmd-projects/claude-dev-env/commit/ebac363e8d271d307a24c259183b49908e7d9b03))
+
 ## [8.91.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.90.1...claude-dev-env-v8.91.0) (2026-10-19)
 
 
