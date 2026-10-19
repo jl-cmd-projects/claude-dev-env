@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -263,4 +263,52 @@ test('uninstall removes the Codex copy of the prompt when the user wrote their o
     assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
     assert.equal(existsSync(promptPath), false);
     assert.equal(readFileSync(configPath, 'utf8'), userText);
+});
+
+
+function makeLinkedCodexHomes(context) {
+    const homeDirectory = makeScratchHome(context);
+    const ownerHome = join(homeDirectory, '.codex');
+    const linkedHome = join(homeDirectory, '.codex-editor');
+    mkdirSync(ownerHome, { recursive: true });
+    mkdirSync(linkedHome, { recursive: true });
+    writeFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), join(linkedHome, CODEX_CONFIG_FILE_NAME), 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return null;
+        throw error;
+    }
+    return { homeDirectory, ownerHome, linkedHome };
+}
+
+test('a home whose config.toml links to another home names the prompt beside the real file', (context) => {
+    const homes = makeLinkedCodexHomes(context);
+    if (!homes) return context.skip('this account cannot create symlinks');
+    const { homeDirectory, ownerHome, linkedHome } = homes;
+    writeFileSync(join(linkedHome, 'codex-sol.md'), 'left by an earlier install\n');
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: ownerHome }).status, 0);
+    const linkedInstallation = installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome });
+
+    assert.equal(linkedInstallation.status, 0, linkedInstallation.stderr);
+    const configText = readFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'utf8');
+    assert.ok(configText.includes(`model_instructions_file = ${JSON.stringify(join(ownerHome, 'codex-sol.md'))}`), configText);
+    assert.equal(readFileSync(join(ownerHome, 'codex-sol.md'), 'utf8'), readFileSync(shippedPromptPath, 'utf8'));
+    assert.equal(existsSync(join(linkedHome, 'codex-sol.md')), false);
+});
+
+test('uninstall from a home whose config.toml is linked keeps the shared setting and prompt', (context) => {
+    const homes = makeLinkedCodexHomes(context);
+    if (!homes) return context.skip('this account cannot create symlinks');
+    const { homeDirectory, ownerHome, linkedHome } = homes;
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: ownerHome }).status, 0);
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome }).status, 0);
+
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: linkedHome });
+
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    const configText = readFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'utf8');
+    assert.ok(configText.includes(`model_instructions_file = ${JSON.stringify(join(ownerHome, 'codex-sol.md'))}`), configText);
+    assert.equal(existsSync(join(ownerHome, 'codex-sol.md')), true);
 });

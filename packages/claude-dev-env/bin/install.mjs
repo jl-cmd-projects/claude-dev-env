@@ -2707,6 +2707,7 @@ function executeInstallPlan(plan) {
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
             codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROMPT_FILE_NAME),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });
@@ -3530,6 +3531,7 @@ function uninstall() {
             join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, 'AGENTS.md'),
             ...codexSolSettingSnapshotPaths(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
             codexSolPromptPath(INSTALL_ROOT_RESOLUTION.codexHomeDirectory),
+            join(INSTALL_ROOT_RESOLUTION.codexHomeDirectory, SOL_PROMPT_FILE_NAME),
         ],
         journalParentDirectory: join(CLAUDE_HOME, TRANSACTION_JOURNAL_DIRECTORY_NAME),
     });

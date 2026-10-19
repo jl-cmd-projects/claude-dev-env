@@ -1,5 +1,5 @@
-import { lstatSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export const SOL_PROMPT_DIRECTORY_NAME = 'system-prompts';
 export const SOL_PROMPT_FILE_NAME = 'codex-sol.md';
@@ -54,33 +54,80 @@ function readCodexConfig(configPath) {
 }
 
 /**
+ * Return the folder that holds the config.toml a Codex home reads.
+ *
+ * Account homes often link config.toml to one shared file in another home.
+ * The real file's folder is the one every linked home shares, so the prompt
+ * the shared setting names belongs there. A home whose config.toml is missing
+ * or unreadable as a link uses its own folder.
+ *
+ * @param {string} codexHome
+ * @returns {string}
+ */
+export function codexConfigDirectory(codexHome) {
+    try {
+        return dirname(realpathSync(join(codexHome, CODEX_CONFIG_FILE_NAME)));
+    } catch {
+        return codexHome;
+    }
+}
+
+/**
+ * True when CODEX_HOME/config.toml is a link to a file in another folder.
+ *
+ * Such a home borrows the setting and the prompt from the home that owns the
+ * real file, so uninstalling from it leaves both alone.
+ *
+ * @param {string} codexHome
+ * @returns {boolean}
+ */
+export function codexConfigIsBorrowed(codexHome) {
+    const configEntry = lstatSync(join(codexHome, CODEX_CONFIG_FILE_NAME), { throwIfNoEntry: false });
+    if (!configEntry?.isSymbolicLink()) return false;
+    return resolve(codexConfigDirectory(codexHome)) !== resolve(realpathOrSelf(codexHome));
+}
+
+function realpathOrSelf(path) {
+    try {
+        return realpathSync(path);
+    } catch {
+        return path;
+    }
+}
+
+/**
  * Return where the installer keeps the Codex copy of the trimmed Sol prompt.
  *
- * The copy lives in CODEX_HOME beside config.toml, so the file the setting
- * names stays put when any claude-dev-env version, older ones included,
- * prunes or rewrites the managed files under ~/.claude. A missing file makes
- * every Codex command fail before it starts.
+ * The copy sits beside the real config.toml, so the file the setting names
+ * stays put when any claude-dev-env version, older ones included, prunes or
+ * rewrites the managed files under ~/.claude, and every home that links that
+ * config.toml names the same copy. A missing file makes every Codex command
+ * fail before it starts.
  *
  * @param {string} codexHome
  * @returns {string}
  */
 export function codexSolPromptPath(codexHome) {
-    return join(codexHome, SOL_PROMPT_FILE_NAME);
+    return join(codexConfigDirectory(codexHome), SOL_PROMPT_FILE_NAME);
 }
 
 /**
- * Copy the trimmed Sol prompt into CODEX_HOME.
+ * Copy the trimmed Sol prompt beside the real config.toml.
+ *
+ * A home whose config.toml links elsewhere also loses the copy an earlier
+ * install left in its own folder, since no setting names that copy any more.
  *
  * @param {string} codexHome
  * @param {string} sourcePromptPath The prompt file the package ships.
- * @returns {string|null} The Codex copy's path when this call wrote it, and null when it was already current.
+ * @returns {string|null} The prompt copy's path when this call wrote it, and null when it was already current.
  */
 export function installCodexSolPrompt(codexHome, sourcePromptPath) {
+    if (codexConfigIsBorrowed(codexHome)) rmSync(join(codexHome, SOL_PROMPT_FILE_NAME), { force: true });
     const promptPath = codexSolPromptPath(codexHome);
     const promptText = readFileSync(sourcePromptPath, 'utf8');
     const promptEntry = lstatSync(promptPath, { throwIfNoEntry: false });
     if (promptEntry?.isFile() && readFileSync(promptPath, 'utf8') === promptText) return null;
-    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(dirname(promptPath), { recursive: true });
     writeFileSync(promptPath, promptText, 'utf8');
     return promptPath;
 }
@@ -120,14 +167,20 @@ export function writeCodexSolSetting(codexHome, instructionsPath) {
  * Remove the package's `model_instructions_file` line from CODEX_HOME/config.toml.
  *
  * The rest of the file stays as the user wrote it. A file that held only the
- * package line is removed. The Codex copy of the prompt is removed in every
- * case, because install writes it even when the user's own setting kept the
- * package line out.
+ * package line is removed. The prompt copy is removed in every case, because
+ * install writes it even when the user's own setting kept the package line
+ * out. A home whose config.toml links to another home's file only drops its
+ * own leftover copy: the shared setting and prompt belong to the home that
+ * owns the file, and other homes still read them.
  *
  * @param {string} codexHome
  * @returns {string|null} The config path when it changed, or null when nothing was removed.
  */
 export function removeCodexSolSetting(codexHome) {
+    if (codexConfigIsBorrowed(codexHome)) {
+        rmSync(join(codexHome, SOL_PROMPT_FILE_NAME), { force: true });
+        return null;
+    }
     rmSync(codexSolPromptPath(codexHome), { force: true });
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
