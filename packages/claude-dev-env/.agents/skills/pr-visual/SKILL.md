@@ -27,6 +27,10 @@ Use the current agent for interpretation. The collector and renderer run locally
 
 Follow [the evidence rules](references/evidence.md) for source review, CI claims, privacy, and coverage limits.
 
+## Optional Data workflow
+
+When the host provides Data, use its `visualize-data` skill for chart selection and quantitative review. Follow [format selection and Data integration](references/formats.md). The bundled renderer runs independently.
+
 ## Tool behavior
 
 Use one read-only snapshot per captured head. Read GitHub and write local artifacts. Do not run PR code, post comments, publish reviews, change labels, dispatch workflows, enqueue, or merge as part of this skill.

@@ -23,3 +23,5 @@ python -m pytest scripts/test_render.py
 Add `--browser-path PATH` when Chromium is outside the usual locations. `--no-sandbox` is available for isolated containers that cannot run Chromium's sandbox. Private evidence and generated HTML belong outside the skill package.
 
 The npm installer ships this skill through `.agents/skills` in full and core installs. Claude's skills directory points to the same installed agent skill tree. Release automation publishes the npm package after merge.
+
+When Data is available, the skill can use its chart-selection and quantitative-review workflow and return companion visuals for distributions, heatmaps, composition, and uncertainty. These additional families require that workflow's supported renderer.
