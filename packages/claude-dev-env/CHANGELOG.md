@@ -1,5 +1,66 @@
 # Changelog
 
+## [8.88.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.3...claude-dev-env-v8.88.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **install:** leave a profile settings.json that is not valid JSON alone and list it under Action needed ([#2072](https://github.com/jl-cmd-projects/claude-dev-env/issues/2072)) ([25ccabf](https://github.com/jl-cmd-projects/claude-dev-env/commit/25ccabf2a68a04d30ef4e4306e84ed1190c33d06))
+
+## [8.88.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.2...claude-dev-env-v8.88.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **install:** keep the Codex Sol prompt beside a linked config.toml, and gate every Claude profile ([#2070](https://github.com/jl-cmd-projects/claude-dev-env/issues/2070)) ([2df0462](https://github.com/jl-cmd-projects/claude-dev-env/commit/2df0462c234f39b53a50b2c68910fcadf3b7416a))
+
+## [8.88.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.1...claude-dev-env-v8.88.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* deepen default passes its gate, Codex Sol prompt survives a prune, locked plugin folders name their holder, DeepStack clone is removed ([#2068](https://github.com/jl-cmd-projects/claude-dev-env/issues/2068)) ([f4ac7fa](https://github.com/jl-cmd-projects/claude-dev-env/commit/f4ac7fa734a8206800d74a41a6e1ca237599b192))
+
+## [8.88.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.88.0...claude-dev-env-v8.88.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* find Python from a big temp folder, and deepen the first Cursor prompt once ([#2066](https://github.com/jl-cmd-projects/claude-dev-env/issues/2066)) ([15fbafe](https://github.com/jl-cmd-projects/claude-dev-env/commit/15fbafeade17788ce3b6b7d2d3cfd26dfbc4b903))
+
+## [8.88.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.87.1...claude-dev-env-v8.88.0) (2026-10-19)
+
+
+### Features
+
+* **hooks:** every ask is seen through, with an open tasks Stop gate for Claude, Codex, and Cursor ([#2063](https://github.com/jl-cmd-projects/claude-dev-env/issues/2063)) ([50df75f](https://github.com/jl-cmd-projects/claude-dev-env/commit/50df75fba520aa95ce168439a91ec47aad43ecda))
+
+## [8.87.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.87.0...claude-dev-env-v8.87.1) (2026-10-19)
+
+
+### Documentation
+
+* **agents:** thin the shipped AGENTS.md trunk and add No PR until proven ([#2061](https://github.com/jl-cmd-projects/claude-dev-env/issues/2061)) ([395da34](https://github.com/jl-cmd-projects/claude-dev-env/commit/395da3413bf22a900ee29bda26b7ec68895fdde4))
+
+## [8.87.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.86.0...claude-dev-env-v8.87.0) (2026-10-18)
+
+
+### Features
+
+* **hooks:** refuse a first-task rewrite that restates the questions ([#2050](https://github.com/jl-cmd-projects/claude-dev-env/issues/2050)) ([721d44b](https://github.com/jl-cmd-projects/claude-dev-env/commit/721d44b72d986eb1622ed09314594ffe39fb7dc9))
+
+
+### Documentation
+
+* **skills:** retire instructions DeepStack intake replaces ([#2052](https://github.com/jl-cmd-projects/claude-dev-env/issues/2052)) ([f9a6756](https://github.com/jl-cmd-projects/claude-dev-env/commit/f9a675671f6ef400644c40fa9701cf7fb617a102))
+
+## [8.86.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.3...claude-dev-env-v8.86.0) (2026-10-18)
+
+
+### Features
+
+* **skills:** review from the installed skill alone ([#2056](https://github.com/jl-cmd-projects/claude-dev-env/issues/2056)) ([ac9afe0](https://github.com/jl-cmd-projects/claude-dev-env/commit/ac9afe0bae7b587c0c4d3b0eb45522c905b7b7d3))
+
 ## [8.85.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.85.2...claude-dev-env-v8.85.3) (2026-10-18)
 
 

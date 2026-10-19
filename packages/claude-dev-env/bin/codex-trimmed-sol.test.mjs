@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,7 +129,7 @@ test('a missing config needs no prior snapshot', (context) => {
 test('full install points config.toml model_instructions_file at the installed trimmed prompt', (context) => {
     const homeDirectory = makeScratchHome(context);
     const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
-    const installedPromptPath = join(homeDirectory, '.claude', 'system-prompts', 'codex-sol.md');
+    const installedPromptPath = join(homeDirectory, '.codex', 'codex-sol.md');
 
     const firstInstallation = installInScratchHome(homeDirectory);
     assert.equal(firstInstallation.status, 0, firstInstallation.stdout + firstInstallation.stderr);
@@ -225,4 +225,157 @@ test('failed install leaves a directory at the config path unchanged', (context)
     assert.notEqual(installation.status, 0);
     assert.match(installation.stderr, /prior installation restored/);
     assert.equal(readFileSync(sentinelPath, 'utf8'), 'keep\n');
+});
+
+test('the prompt the setting names survives a prune of the managed Claude files', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const configPath = join(homeDirectory, '.codex', CODEX_CONFIG_FILE_NAME);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    rmSync(join(homeDirectory, '.claude', 'system-prompts'), { recursive: true, force: true });
+    const namedPath = JSON.parse(readFileSync(configPath, 'utf8').split('\n')[1].split(' = ')[1]);
+    assert.equal(existsSync(namedPath), true);
+});
+
+test('uninstall removes the Codex copy of the prompt', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const promptPath = join(homeDirectory, '.codex', 'codex-sol.md');
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    assert.equal(existsSync(promptPath), true);
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(promptPath), false);
+});
+
+test('uninstall removes the Codex copy of the prompt when the user wrote their own setting', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const codexHome = join(homeDirectory, '.codex');
+    const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
+    const promptPath = join(codexHome, 'codex-sol.md');
+    const userText = 'model_instructions_file = "/mine.md"\n';
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(configPath, userText);
+    const installation = installInScratchHome(homeDirectory);
+    assert.equal(installation.status, 0, installation.stdout + installation.stderr);
+    assert.equal(existsSync(promptPath), true);
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall']);
+    assert.equal(uninstallation.status, 0, uninstallation.stdout + uninstallation.stderr);
+    assert.equal(existsSync(promptPath), false);
+    assert.equal(readFileSync(configPath, 'utf8'), userText);
+});
+
+
+function makeLinkedCodexHomes(context) {
+    const homeDirectory = makeScratchHome(context);
+    const ownerHome = join(homeDirectory, '.codex');
+    const linkedHome = join(homeDirectory, '.codex-editor');
+    mkdirSync(ownerHome, { recursive: true });
+    mkdirSync(linkedHome, { recursive: true });
+    writeFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), join(linkedHome, CODEX_CONFIG_FILE_NAME), 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return null;
+        throw error;
+    }
+    return { homeDirectory, ownerHome, linkedHome };
+}
+
+test('a home whose config.toml links to another home names the prompt beside the real file', (context) => {
+    const homes = makeLinkedCodexHomes(context);
+    if (!homes) return context.skip('this account cannot create symlinks');
+    const { homeDirectory, ownerHome, linkedHome } = homes;
+    writeFileSync(join(linkedHome, 'codex-sol.md'), 'left by an earlier install\n');
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: ownerHome }).status, 0);
+    const linkedInstallation = installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome });
+
+    assert.equal(linkedInstallation.status, 0, linkedInstallation.stderr);
+    const configText = readFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'utf8');
+    assert.ok(configText.includes(`model_instructions_file = ${JSON.stringify(join(ownerHome, 'codex-sol.md'))}`), configText);
+    assert.equal(readFileSync(join(ownerHome, 'codex-sol.md'), 'utf8'), readFileSync(shippedPromptPath, 'utf8'));
+    assert.equal(existsSync(join(linkedHome, 'codex-sol.md')), false);
+});
+
+test('uninstall from a home whose config.toml is linked keeps the shared setting and prompt', (context) => {
+    const homes = makeLinkedCodexHomes(context);
+    if (!homes) return context.skip('this account cannot create symlinks');
+    const { homeDirectory, ownerHome, linkedHome } = homes;
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: ownerHome }).status, 0);
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome }).status, 0);
+
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: linkedHome });
+
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    const configText = readFileSync(join(ownerHome, CODEX_CONFIG_FILE_NAME), 'utf8');
+    assert.ok(configText.includes(`model_instructions_file = ${JSON.stringify(join(ownerHome, 'codex-sol.md'))}`), configText);
+    assert.equal(existsSync(join(ownerHome, 'codex-sol.md')), true);
+});
+
+test('a home whose config.toml is a hard link to the main home\'s file names the prompt in the main home', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const linkedHome = join(homeDirectory, '.codex-editor');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(linkedHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    linkSync(join(mainHome, CODEX_CONFIG_FILE_NAME), join(linkedHome, CODEX_CONFIG_FILE_NAME));
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: mainHome }).status, 0);
+
+    const linkedInstallation = installInScratchHome(homeDirectory, [], { CODEX_HOME: linkedHome });
+    assert.equal(linkedInstallation.status, 0, linkedInstallation.stderr);
+    const sharedLine = `model_instructions_file = ${JSON.stringify(join(mainHome, 'codex-sol.md'))}`;
+    assert.ok(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8').includes(sharedLine));
+    assert.equal(existsSync(join(linkedHome, 'codex-sol.md')), false);
+
+    const uninstallation = installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: linkedHome });
+    assert.equal(uninstallation.status, 0, uninstallation.stderr);
+    assert.ok(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8').includes(sharedLine));
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), true);
+});
+
+test('a main home whose config.toml links into a dotfiles folder keeps the prompt in CODEX_HOME, and uninstall removes the line', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const dotfilesDirectory = join(homeDirectory, 'dotfiles', 'codex');
+    mkdirSync(mainHome, { recursive: true });
+    mkdirSync(dotfilesDirectory, { recursive: true });
+    writeFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), join(mainHome, CODEX_CONFIG_FILE_NAME), 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create symlinks');
+        throw error;
+    }
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: mainHome }).status, 0);
+    assert.ok(readFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'utf8')
+        .includes(`model_instructions_file = ${JSON.stringify(join(mainHome, 'codex-sol.md'))}`));
+    assert.equal(existsSync(join(dotfilesDirectory, 'codex-sol.md')), false);
+
+    assert.equal(installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: mainHome }).status, 0);
+    assert.equal(readFileSync(join(dotfilesDirectory, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
+});
+
+test('CODEX_HOME that reaches the main home through a folder link still uninstalls the line', (context) => {
+    const homeDirectory = makeScratchHome(context);
+    const mainHome = join(homeDirectory, '.codex');
+    const folderLink = join(homeDirectory, 'codex-home-link');
+    mkdirSync(mainHome, { recursive: true });
+    writeFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'approval_policy = "never"\n');
+    try {
+        symlinkSync(mainHome, folderLink, 'junction');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create links');
+        throw error;
+    }
+
+    assert.equal(installInScratchHome(homeDirectory, [], { CODEX_HOME: folderLink }).status, 0);
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), true);
+
+    assert.equal(installInScratchHome(homeDirectory, ['--uninstall'], { CODEX_HOME: folderLink }).status, 0);
+    assert.equal(readFileSync(join(mainHome, CODEX_CONFIG_FILE_NAME), 'utf8'), 'approval_policy = "never"\n');
+    assert.equal(existsSync(join(mainHome, 'codex-sol.md')), false);
 });

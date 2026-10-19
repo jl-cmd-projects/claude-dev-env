@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -26,8 +27,14 @@ from hooks_constants.deepen_first_prompt_constants import (
     DEEPEN_OUTPUT_REWRITE,
     DEEPEN_REWRITE_ENV_VAR,
     DEEPEN_TURN_MARKER_SUFFIX,
+    REFUSAL_DROPPED_HARD_CONSTRAINT,
+    REFUSAL_EXAMPLE_NOUN_IN_SCOPE,
+    REFUSAL_MISSING_ROLE_LINES,
+    REFUSAL_RESTATES_FOUR_QUESTIONS,
+    ALL_FOUR_QUESTION_STEMS,
     SKIP_DEEPEN_ENV_VAR,
     USER_PROMPT_SUBMIT_EVENT_NAME,
+    CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME,
 )
 from hooks_constants.skill_loaded_reminder_constants import CLAUDE_SUBAGENT_PROMPT_PREFIX
 
@@ -52,6 +59,28 @@ def _run_main(payload: dict[str, object]) -> str:
 
 def _user_transcript_line() -> str:
     return json.dumps({"type": "user", "message": {"role": "user", "content": "earlier task"}})
+
+
+def _cursor_transcript_line(role: str, text: str) -> str:
+    return json.dumps({"role": role, "message": {"content": [{"type": "text", "text": text}]}})
+
+
+def _role_rewrite(body: str) -> str:
+    return (
+        f"{DEEPEN_MARKER}\n"
+        "SCOPE (role): Ship a contrast change the screen can show\n"
+        "EXAMPLES (illustration only): none\n"
+        "ZOOM-IN BLOCKER: none\n"
+        f"{body}\n"
+    )
+
+
+_FILLED_FOUR_ANSWERS = (
+    "Omitted: ship contrast tokens with the theme.\n"
+    "Source: src/settings/theme.ts\n"
+    "Methods: existing token file and a visual check.\n"
+    "Proof: screenshot of the settings page in dark mode."
+)
 
 
 class TestSkipReasonFor:
@@ -135,20 +164,30 @@ class TestSkipReasonFor:
     def test_should_deepen_a_first_task(self) -> None:
         assert deepen.skip_reason_for(_payload("Add dark mode to the settings page")) is None
 
+    def test_should_deepen_a_first_task_from_the_cursor_prompt_event(self) -> None:
+        fields = _payload("Add dark mode to the settings page")
+        fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        assert deepen.skip_reason_for(fields) is None
+
+    def test_should_skip_when_a_cursor_transcript_already_has_a_user_turn(self, tmp_path: Path) -> None:
+        cursor_transcript_path = tmp_path / "cursor.jsonl"
+        cursor_transcript_path.write_text(_cursor_transcript_line("user", "earlier task"), encoding="utf-8")
+        fields = _payload("Add dark mode to the settings page", str(cursor_transcript_path))
+        fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        fields.pop("session_id")
+        assert deepen.skip_reason_for(fields) is deepen.SkipReason.LATER_TURN
+
+    def test_should_skip_any_other_event(self) -> None:
+        fields = _payload("Add dark mode to the settings page")
+        fields["hook_event_name"] = "stop"
+        assert deepen.skip_reason_for(fields) is deepen.SkipReason.LATER_TURN
+
 
 class TestDecideFirstPrompt:
     def test_should_emit_additional_context_with_the_four_answers_for_a_first_task(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv(
-            DEEPEN_REWRITE_ENV_VAR,
-            (
-                "Omitted: ship contrast tokens with the theme.\n"
-                "Source: src/settings/theme.ts\n"
-                "Methods: existing token file and a visual check.\n"
-                "Proof: screenshot of the settings page in dark mode."
-            ),
-        )
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite(_FILLED_FOUR_ANSWERS))
         transcript_path = tmp_path / "fresh.jsonl"
         decision = deepen.decide_first_prompt(
             _payload("Add dark mode to the settings page", str(transcript_path))
@@ -170,7 +209,7 @@ class TestDecideFirstPrompt:
     def test_should_write_a_turn_marker_so_turn_two_stays_silent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         transcript_path = tmp_path / "fresh.jsonl"
         first_stdout = _run_main(_payload("Add dark mode to the settings page", str(transcript_path)))
         assert DEEPEN_MARKER in first_stdout
@@ -179,10 +218,49 @@ class TestDecideFirstPrompt:
         second_stdout = _run_main(_payload("and also the billing page", str(transcript_path)))
         assert second_stdout == ""
 
+    def test_should_inject_once_when_two_copies_see_the_same_cursor_prompt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
+        monkeypatch.delenv("CDE_DEEPEN_OUTPUT", raising=False)
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        cursor_fields = _payload("Add dark mode to the settings page")
+        cursor_fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        cursor_fields["transcript_path"] = None
+        cursor_fields["session_id"] = "cursor-conversation"
+        all_outputs = [_run_main(cursor_fields), _run_main(cursor_fields)]
+        assert sum(DEEPEN_MARKER in each_output for each_output in all_outputs) == 1
+
+    def test_should_keep_cursor_turn_two_silent_once_the_transcript_appears(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
+        monkeypatch.delenv("CDE_DEEPEN_OUTPUT", raising=False)
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        first_fields = _payload("Add dark mode to the settings page")
+        first_fields["hook_event_name"] = CURSOR_BEFORE_SUBMIT_PROMPT_EVENT_NAME
+        first_fields["transcript_path"] = None
+        first_fields["session_id"] = "cursor-conversation"
+        assert DEEPEN_MARKER in _run_main(first_fields)
+        cursor_transcript_path = tmp_path / "cursor-conversation.jsonl"
+        cursor_transcript_path.write_text(
+            "\n".join(
+                [
+                    _cursor_transcript_line("user", "Add dark mode to the settings page"),
+                    _cursor_transcript_line("assistant", "Done."),
+                ]
+            ),
+            encoding="utf-8",
+        )
+        second_fields = dict(first_fields)
+        second_fields["prompt"] = "and also the billing page"
+        second_fields["transcript_path"] = str(cursor_transcript_path)
+        assert _run_main(second_fields) == ""
+
     def test_should_print_rewrite_text_for_the_claude_mod(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_REWRITE)
         transcript_path = tmp_path / "fresh.jsonl"
         printed = _run_main(_payload("Add dark mode to the settings page", str(transcript_path)))
@@ -193,7 +271,7 @@ class TestDecideFirstPrompt:
     def test_should_print_json_decisions_for_the_playtest(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_JSON)
         transcript_path = tmp_path / "fresh.jsonl"
         deepen_payload = json.loads(
@@ -216,7 +294,7 @@ class TestDecideFirstPrompt:
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
         monkeypatch.setenv("CLAUDECODE", "1")
         monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         transcript_path = tmp_path / "fresh.jsonl"
         assert _run_main(_payload("Add dark mode to the settings page", str(transcript_path))) == ""
 
@@ -233,7 +311,7 @@ class TestDecideFirstPrompt:
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
         monkeypatch.delenv("CLAUDECODE", raising=False)
         monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         transcript_path = tmp_path / "codex-fresh.jsonl"
         printed = _run_main(_payload("Add dark mode to the settings page", str(transcript_path)))
         envelope = json.loads(printed)
@@ -252,7 +330,7 @@ class TestDecideFirstPrompt:
         monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_directory))
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
         monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
-        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, "Deeper task body")
+        monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("Deeper task body"))
         transcript_path = tmp_path / "fresh.jsonl"
         printed = _run_main(_payload("Add dark mode to the settings page", str(transcript_path)))
         envelope = json.loads(printed)
@@ -264,11 +342,111 @@ def test_should_strip_the_deepen_slash_before_rewriting() -> None:
     assert deepen.task_text_for_deepen("/deepen fix the login page") == "fix the login page"
 
 
-def test_should_name_the_four_omitted_answers_in_the_default_rewrite() -> None:
-    rewritten = deepen.expand_first_task("Add dark mode to the settings page")
-    assert rewritten.startswith(DEEPEN_MARKER)
-    assert "Add dark mode to the settings page" in rewritten
-    assert "What a top person in that field would do that this prompt omitted." in rewritten
-    assert "The raw source to start from." in rewritten
-    assert "The methods and tools they would use." in rewritten
-    assert "What besides the agent or Jon would show the result is right." in rewritten
+def test_should_refuse_the_paste_path_as_the_known_bad(monkeypatch: pytest.MonkeyPatch) -> None:
+    pasted_questions = "\n".join(ALL_FOUR_QUESTION_STEMS)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite(pasted_questions))
+    decision = deepen.decide_first_prompt(_payload("Add dark mode to the settings page"))
+    assert isinstance(decision, deepen.Refuse)
+    assert decision.reason == REFUSAL_RESTATES_FOUR_QUESTIONS
+
+
+def test_should_deepen_with_the_default_rewrite_when_nothing_is_configured() -> None:
+    decision = deepen.decide_first_prompt(_payload("Add dark mode to the settings page"))
+    assert isinstance(decision, deepen.Deepen)
+    assert "SCOPE (role): Add dark mode to the settings page" in decision.rewritten_prompt
+
+
+def test_should_refuse_the_filled_four_answer_stub_without_role_lines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _FILLED_FOUR_ANSWERS)
+    decision = deepen.decide_first_prompt(_payload("Add dark mode to the settings page"))
+    assert isinstance(decision, deepen.Refuse)
+    assert decision.reason == REFUSAL_MISSING_ROLE_LINES
+
+
+def test_should_reject_the_wrong_twin_that_names_the_example_in_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = "Keep the build green. For example, the login failure."
+    wrong_twin = (
+        f"{DEEPEN_MARKER}\n"
+        "SCOPE (role): Fix the login failure\n"
+        "EXAMPLES (illustration only): login failure\n"
+        "ZOOM-IN BLOCKER: none\n"
+        "Read the workflow log and repair the shared gate.\n"
+    )
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, wrong_twin)
+    decision = deepen.decide_first_prompt(_payload(task))
+    assert isinstance(decision, deepen.Refuse)
+    assert decision.reason == REFUSAL_EXAMPLE_NOUN_IN_SCOPE
+
+
+def test_should_accept_a_role_scope_that_leaves_the_example_noun_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = "Keep the build green. For example, the login failure."
+    role_rewrite = (
+        f"{DEEPEN_MARKER}\n"
+        "SCOPE (role): Keep every build green across the repository\n"
+        "EXAMPLES (illustration only): login failure\n"
+        "ZOOM-IN BLOCKER: none\n"
+        "Read the workflow log and repair the shared gate.\n"
+    )
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, role_rewrite)
+    decision = deepen.decide_first_prompt(_payload(task))
+    assert isinstance(decision, deepen.Deepen)
+    assert "SCOPE (role): Keep every build green across the repository" in decision.rewritten_prompt
+
+
+def test_should_reject_a_rewrite_that_drops_a_hard_constraint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = "Ship the page.\n\nHARD CONSTRAINTS\n- Never open a pull request.\n"
+    loosened = (
+        f"{DEEPEN_MARKER}\n"
+        "SCOPE (role): Ship the page the caller asked for\n"
+        "EXAMPLES (illustration only): none\n"
+        "ZOOM-IN BLOCKER: none\n"
+        "Open a pull request when the branch is pushed.\n"
+    )
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, loosened)
+    decision = deepen.decide_first_prompt(_payload(task))
+    assert isinstance(decision, deepen.Refuse)
+    assert decision.reason == REFUSAL_DROPPED_HARD_CONSTRAINT
+
+
+def test_should_keep_a_hard_constraint_line_in_an_accepted_rewrite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = "Ship the page.\n\nHARD CONSTRAINTS\n- Never open a pull request.\n"
+    kept = (
+        f"{DEEPEN_MARKER}\n"
+        "SCOPE (role): Ship the page the caller asked for\n"
+        "EXAMPLES (illustration only): none\n"
+        "ZOOM-IN BLOCKER: none\n"
+        "- Never open a pull request.\n"
+    )
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, kept)
+    decision = deepen.decide_first_prompt(_payload(task))
+    assert isinstance(decision, deepen.Deepen)
+
+
+def test_should_print_a_json_refusal_for_the_paste_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_JSON)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _role_rewrite("\n".join(ALL_FOUR_QUESTION_STEMS)))
+    printed = _run_main(_payload("Add dark mode to the settings page"))
+    assert json.loads(printed) == {
+        "decision": "refuse",
+        "reason": REFUSAL_RESTATES_FOUR_QUESTIONS,
+    }
+
+
+def test_should_stay_silent_in_rewrite_mode_when_the_gate_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CDE_DEEPEN_OUTPUT", DEEPEN_OUTPUT_REWRITE)
+    monkeypatch.setenv(DEEPEN_REWRITE_ENV_VAR, _FILLED_FOUR_ANSWERS)
+    assert _run_main(_payload("Add dark mode to the settings page")) == ""

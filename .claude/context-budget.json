@@ -118,13 +118,13 @@
       "name": "deepen first prompt",
       "command": [
         "env",
-        "CDE_DEEPEN_REWRITE=Omitted: ship contrast tokens with the theme.\nSource: src/settings/theme.ts\nMethods: existing token file and a visual check.\nProof: screenshot of the settings page in dark mode.",
+        "CDE_DEEPEN_REWRITE=CDE_DEEPEN:v1\nSCOPE (role): Keep every build green across the repository\nEXAMPLES (illustration only): login failure\nZOOM-IN BLOCKER: none\nRead the workflow log and repair the shared gate.\n",
         "python3",
         "packages/claude-dev-env/hooks/session/deepen_first_prompt.py"
       ],
       "stdin": {
         "hook_event_name": "UserPromptSubmit",
-        "prompt": "Add dark mode to the settings page"
+        "prompt": "Keep the build green. For example, the login failure."
       },
       "char_limit": 4000
     },
@@ -355,12 +355,6 @@
           "Absolute paths in the action",
           "Handing the elevated step to the operator",
           "Files"
-        ]
-      },
-      "packages/claude-dev-env/AGENTS.md": {
-        "lines": 81,
-        "sections": [
-          "(top)"
         ]
       },
       "packages/visual-plan/skills/visual-plan/SKILL.md": {

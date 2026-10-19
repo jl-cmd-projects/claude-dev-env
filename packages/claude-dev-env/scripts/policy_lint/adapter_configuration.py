@@ -139,6 +139,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
+        hooks/blocking/open_tasks_stop_gate.py           -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -178,6 +179,11 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The merge offer gate denies a decision card whose text offers a merge and
     names open review findings. It reads only the wording of a chat card and
     decides no code or safety policy; the merge review gate holds the merge.
+
+    The open tasks Stop gate holds the end of a turn while the session's task
+    list has items the closing reply neither completes nor reports as
+    ``Blocked:`` or ``Open:``. It decides when a turn may end and no code or
+    safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

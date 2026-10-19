@@ -11,10 +11,10 @@ export const DEEPEN_GUIDANCE_BLOCK_START = '<!-- claude-dev-env deepen: start --
 export const DEEPEN_GUIDANCE_BLOCK_END = '<!-- claude-dev-env deepen: end -->';
 export const DEEPEN_GUIDANCE_TEXT = [
     'Deepen the first interactive user task before any work starts.',
-    'Answer four things the prompt left out: what a top person in that field would do, the raw source to start from, the methods and tools they would use, and what besides the agent or Jon would show the result is right.',
-    'Then rewrite the task to ask for exactly that job. The rewrite carries the marker CDE_DEEPEN:v1.',
-    'On demand, follow the deepen skill or /deepen with a task.',
-    'Cursor Cloud has no user hooks.json and defers sessionStart, so the launch prompt is already sent. Use the deepen skill under ~/.cursor/skills there.',
+    'Follow DeepStack intake. Write SCOPE (role), EXAMPLES (illustration only), and ZOOM-IN BLOCKER before any plan.',
+    'The worker prompt carries the marker CDE_DEEPEN:v1 on line 1 and the SCOPE (role) line.',
+    'On demand, follow the DeepStack skill or /deepen with a task.',
+    'Cursor Cloud registers the DeepStack SessionStart hook and the first-task gate. Use DeepStack intake on the launch prompt.',
     'Codex cloud orchestration skips command hooks. This block is the local Codex instruction.',
 ].join('\n');
 
