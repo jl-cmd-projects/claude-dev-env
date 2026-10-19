@@ -146,3 +146,9 @@ def test_main_should_report_a_failed_lookup_on_stderr(
 def test_is_reported_blocked_should_accept_a_bold_blocked_label() -> None:
     reply_text = "**Blocked:** jl-cmd/snake-game#9 - the owner must approve the merge"
     assert owned_pr_merge_stop_gate.is_reported_blocked(PULL_REQUEST, reply_text)
+
+
+def test_is_reported_blocked_should_skip_a_longer_owner_that_ends_with_the_name() -> None:
+    suffix_pull_request = {**PULL_REQUEST, "owner": "cmd", "url": "https://github.com/cmd/snake-game/pull/9"}
+    reply_text = "Blocked: jl-cmd/snake-game#9 - the owner must approve the merge"
+    assert not owned_pr_merge_stop_gate.is_reported_blocked(suffix_pull_request, reply_text)

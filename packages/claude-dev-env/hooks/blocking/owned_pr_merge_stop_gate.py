@@ -46,6 +46,7 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     LAST_ASSISTANT_MESSAGE_KEY,
     LOOKUP_FAILURE_TEMPLATE,
     NAME_END_PATTERN,
+    NAME_START_PATTERN,
     OPEN_PULL_REQUEST_STATE,
     PULL_REQUEST_ENDPOINT_TEMPLATE,
     PULL_REQUEST_LINE_TEMPLATE,
@@ -101,7 +102,7 @@ def is_reported_blocked(all_pull_request_fields: dict[str, str], reply_text: str
         for each_match in map(BLOCKED_LINE_PATTERN.match, reply_text.replace(BOLD_MARKER, "").splitlines())
         if each_match
     )
-    all_name_patterns = [re.escape(each_name) + NAME_END_PATTERN for each_name in all_names]
+    all_name_patterns = [NAME_START_PATTERN + re.escape(each_name) + NAME_END_PATTERN for each_name in all_names]
     return any(
         re.search(each_pattern, each_text)
         for each_text in all_blocked_texts
