@@ -184,6 +184,7 @@ function isUnderTempDirectory(filePath) {
     const prefix = rootKey.endsWith(sep) ? rootKey : `${rootKey}${sep}`;
     return pathKey === rootKey || pathKey.startsWith(prefix);
 }
+
 function parseInstructionsTarget(line) {
     const match = line.replace(/\r$/, '').match(/^\s*model_instructions_file\s*=\s*(.*)$/);
     if (!match) return null;
