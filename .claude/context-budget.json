@@ -90,6 +90,19 @@
       "char_limit": 1500
     },
     {
+      "name": "compaction recall prompt",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/compaction_recall_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "compact",
+        "transcript_path": "/tmp/session.jsonl"
+      },
+      "char_limit": 1500
+    },
+    {
       "name": "skill loaded reminder",
       "command": [
         "python3",
