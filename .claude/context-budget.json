@@ -100,7 +100,7 @@
         "source": "compact",
         "transcript_path": "packages/claude-dev-env/hooks/session/fixtures/compaction_user_messages/long_session.jsonl"
       },
-      "char_limit": 7000
+      "char_limit": 1500
     },
     {
       "name": "skill loaded reminder",
