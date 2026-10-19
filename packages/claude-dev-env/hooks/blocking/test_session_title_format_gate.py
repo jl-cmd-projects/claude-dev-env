@@ -19,6 +19,7 @@ DESKTOP_TITLE_TOOL = "mcp__ccd_session_mgmt__set_session_title"
 RED_FLAG = "\U0001f6a9"
 CHECK_MARK = "✅"
 HOURGLASS = "⏳"
+NO_ENTRY = "\u26d4"
 
 
 def run_gate(
@@ -49,6 +50,7 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         f"{CHECK_MARK} Session title gate",
         f"{RED_FLAG}️ Runner sign-in",
         f"{RED_FLAG} CI gate + docs",
+        f"{NO_ENTRY} Runner offline",
     ],
 )
 def test_should_allow_a_well_formed_title_on_each_title_tool(

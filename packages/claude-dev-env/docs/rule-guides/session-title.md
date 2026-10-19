@@ -4,7 +4,7 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
-Before each turn ends, set the title to `<emoji> <name>`. Use the red flag when the user must act, the check mark when the work is done, and the hourglass while work, CI, or a merge queue runs. The name has 25 characters or fewer, in sentence case, with concrete nouns and no IDs, dates, or branch names.
+Before each turn ends, set the title to `<emoji> <name>`. Use the red flag when the user must act, the no entry sign when the work is blocked, the check mark when the work is done, and the hourglass while work, CI, or a merge queue runs. The name has 25 characters or fewer, in sentence case, with concrete nouns and no IDs, dates, or branch names.
 
 **Enforcement:** `hooks/blocking/session_title_format_gate.py` denies a malformed title.
 
@@ -21,6 +21,7 @@ Set the title before the final reply, and set it in silence. The reply to the us
 | Emoji | Use it when |
 |---|---|
 | Red flag | The user must act: a question, an approval, or a step only the user can do. |
+| No entry | The work is blocked: a failure or a missing grant stops it, and the reply names the blocker. |
 | Check mark | The work is done: merged, or nothing left. |
 | Hourglass | Work, CI, or a merge queue still runs and nothing waits on the user. |
 

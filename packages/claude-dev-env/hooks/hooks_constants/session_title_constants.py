@@ -10,14 +10,15 @@ FORMAT_GATE_EVENT_NAME = "PreToolUse"
 ALLOW_EXIT_CODE = 0
 BLOCK_EXIT_CODE = 2
 
-STATUS_PREFIX_PATTERN = re.compile("^(\U0001f6a9|\u2705|\u23f3)\ufe0f? (?=\\S)")
+STATUS_PREFIX_PATTERN = re.compile("^(\U0001f6a9|\u26d4|\u2705|\u23f3)\ufe0f? (?=\\S)")
 MAXIMUM_NAME_LENGTH = 25
 TRAILING_PUNCTUATION = ".!?,;:"
 IDENTIFIER_DIGITS_PATTERN = re.compile(r"\d{3,}")
 
 STATUS_PREFIX_MESSAGE = (
     "The title must start with one status emoji and one space:"
-    " \U0001f6a9 when the user must act, \u2705 when the work is done,"
+    " \U0001f6a9 when the user must act, \u26d4 when the work is blocked,"
+    " \u2705 when the work is done,"
     " \u23f3 while work runs and nothing waits on the user."
 )
 SINGLE_LINE_MESSAGE = "The title must be one line."
