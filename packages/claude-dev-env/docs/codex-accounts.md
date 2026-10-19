@@ -133,7 +133,10 @@ Once installed, that is `~/.claude/scripts/account_broker.py`.
 
 The installer writes one top-level line into `~/.codex/config.toml`, under a
 `# claude-dev-env trimmed Sol prompt` marker. The line points
-`model_instructions_file` at `~/.claude/system-prompts/codex-sol.md`. The file
+`model_instructions_file` at `~/.codex/codex-sol.md`, a copy of the package's
+`system-prompts/codex-sol.md`. The copy sits beside `config.toml`, so pruning
+the managed files under `~/.claude`, which an older package version does on
+`--update`, cannot leave Codex pointing at a missing file. The file
 is Codex's default `gpt-6.1-sol` prompt with the lines that conflict with the
 package rules rewritten. The line names no model, so every Codex run uses the
 file, whichever model it selects. `sync` links `config.toml` into every account

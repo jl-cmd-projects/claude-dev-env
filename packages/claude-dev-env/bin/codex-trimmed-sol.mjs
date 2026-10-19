@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const SOL_PROMPT_DIRECTORY_NAME = 'system-prompts';
@@ -53,6 +53,38 @@ function readCodexConfig(configPath) {
     return { isReadable: true, currentText: readFileSync(configPath, 'utf8') };
 }
 
+/**
+ * Return where the installer keeps the Codex copy of the trimmed Sol prompt.
+ *
+ * The copy lives in CODEX_HOME beside config.toml, so the file the setting
+ * names stays put when any claude-dev-env version, older ones included,
+ * prunes or rewrites the managed files under ~/.claude. A missing file makes
+ * every Codex command fail before it starts.
+ *
+ * @param {string} codexHome
+ * @returns {string}
+ */
+export function codexSolPromptPath(codexHome) {
+    return join(codexHome, SOL_PROMPT_FILE_NAME);
+}
+
+/**
+ * Copy the trimmed Sol prompt into CODEX_HOME.
+ *
+ * @param {string} codexHome
+ * @param {string} sourcePromptPath The prompt file the package ships.
+ * @returns {string|null} The Codex copy's path when this call wrote it, and null when it was already current.
+ */
+export function installCodexSolPrompt(codexHome, sourcePromptPath) {
+    const promptPath = codexSolPromptPath(codexHome);
+    const promptText = readFileSync(sourcePromptPath, 'utf8');
+    const promptEntry = lstatSync(promptPath, { throwIfNoEntry: false });
+    if (promptEntry?.isFile() && readFileSync(promptPath, 'utf8') === promptText) return null;
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(promptPath, promptText, 'utf8');
+    return promptPath;
+}
+
 export function codexSolSettingSnapshotPaths(codexHome) {
     const configPath = join(codexHome, CODEX_CONFIG_FILE_NAME);
     const { isReadable, currentText } = readCodexConfig(configPath);
@@ -88,7 +120,7 @@ export function writeCodexSolSetting(codexHome, instructionsPath) {
  * Remove the package's `model_instructions_file` line from CODEX_HOME/config.toml.
  *
  * The rest of the file stays as the user wrote it. A file that held only the
- * package line is removed.
+ * package line is removed, and so is the Codex copy of the prompt.
  *
  * @param {string} codexHome
  * @returns {string|null} The config path when it changed, or null when nothing was removed.
@@ -105,5 +137,6 @@ export function removeCodexSolSetting(codexHome) {
     } else {
         writeFileSync(configPath, userText, 'utf8');
     }
+    rmSync(codexSolPromptPath(codexHome), { force: true });
     return configPath;
 }
