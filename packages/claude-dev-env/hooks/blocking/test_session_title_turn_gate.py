@@ -68,6 +68,7 @@ def run_gate(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
     all_entries: list[dict[str, object]],
+    is_stop_hook_active: bool = False,
 ) -> tuple[int, str]:
     transcript_path = tmp_path / "transcript.jsonl"
     transcript_path.write_text(
@@ -75,7 +76,7 @@ def run_gate(
     )
     hook_input = {
         "hook_event_name": "Stop",
-        "stop_hook_active": False,
+        "stop_hook_active": is_stop_hook_active,
         "transcript_path": str(transcript_path),
     }
     monkeypatch.setattr(
@@ -129,6 +130,24 @@ def test_should_hold_a_turn_whose_title_call_was_denied(
     assert (
         json.loads(run_gate(monkeypatch, capsys, tmp_path, all_entries)[1])["decision"] == "block"
     )
+
+
+def test_should_pass_a_held_turn_whose_title_call_failed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_entries = [TOOL_LISTING, PROMPT, title_call("t1"), title_result("t1", is_error=True), REPLY]
+    assert run_gate(monkeypatch, capsys, tmp_path, all_entries, is_stop_hook_active=True) == (
+        0,
+        "",
+    )
+
+
+def test_should_hold_a_held_turn_with_no_title_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_entries = [TOOL_LISTING, PROMPT, WORK_CALL, WORK_RESULT, REPLY]
+    stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries, is_stop_hook_active=True)[1]
+    assert json.loads(stdout_text)["decision"] == "block"
 
 
 def test_should_hold_when_the_title_was_set_only_in_an_earlier_turn(

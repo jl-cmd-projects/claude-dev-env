@@ -35,6 +35,7 @@ FORMAT_RETRY_INSTRUCTION = (
 
 TURN_GATE_EVENT_NAME = "Stop"
 TRANSCRIPT_PATH_KEY = "transcript_path"
+STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
 DECISION_KEY = "decision"
 REASON_KEY = "reason"
 BLOCK_DECISION = "block"

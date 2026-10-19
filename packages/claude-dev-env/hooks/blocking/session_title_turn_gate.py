@@ -6,7 +6,9 @@ meta entries, sidechain entries and compaction summaries are not prompts, and
 a Stop hook block lands as an attachment, so a held turn stays the same turn.
 The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
-does not count.
+does not count. A held turn (``stop_hook_active`` true) whose title call
+failed may end, so a title tool that keeps failing cannot hold it forever. A
+hold from another Stop gate leaves a turn with no title call held.
 
 The session has the title tool when a transcript record names it::
 
@@ -53,6 +55,7 @@ from hooks_constants.session_title_constants import (
     MESSAGE_KEY,
     REASON_KEY,
     REMOVED_NAMES_KEY,
+    STOP_HOOK_ACTIVE_KEY,
     TEXT_BLOCK_TYPE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
     TITLE_TOOL_NAME_PATTERN,
@@ -133,12 +136,20 @@ def available_title_tools(all_entries: list[dict[str, object]]) -> list[str]:
     for each_entry in all_entries:
         attachment = each_entry.get(ATTACHMENT_KEY)
         if isinstance(attachment, dict):
-            for each_key in (*ALL_TOOL_LISTING_NAME_KEYS, *ALL_TOOL_LISTING_RECORD_KEYS):
-                available_names.update(dict.fromkeys(_title_names(attachment.get(each_key))))
-            for each_removed_name in _title_names(attachment.get(REMOVED_NAMES_KEY)):
-                available_names.pop(each_removed_name, None)
+            _apply_tool_listing(available_names, attachment)
         available_names.update(dict.fromkeys(_title_names(_tool_use_blocks(each_entry))))
     return list(available_names)
+
+
+def _apply_tool_listing(
+    all_available_names: dict[str, None], all_attachment_fields: dict[str, object]
+) -> None:
+    for each_key in (*ALL_TOOL_LISTING_NAME_KEYS, *ALL_TOOL_LISTING_RECORD_KEYS):
+        all_available_names.update(
+            dict.fromkeys(_title_names(all_attachment_fields.get(each_key)))
+        )
+    for each_removed_name in _title_names(all_attachment_fields.get(REMOVED_NAMES_KEY)):
+        all_available_names.pop(each_removed_name, None)
 
 
 def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -151,6 +162,27 @@ def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object
         default=-1,
     )
     return all_entries[last_prompt_index + 1 :]
+
+
+def _title_call_ids(all_turn_entries: list[dict[str, object]]) -> set[object]:
+    return {
+        each_block.get(BLOCK_ID_KEY)
+        for each_entry in all_turn_entries
+        for each_block in _tool_use_blocks(each_entry)
+        if TITLE_TOOL_NAME_PATTERN.match(str(each_block.get(BLOCK_NAME_KEY)))
+    }
+
+
+def title_attempted_this_turn(all_entries: list[dict[str, object]]) -> bool:
+    """Return True when a title call ran after the latest prompt, whatever its result.
+
+    Args:
+        all_entries: The transcript entries, oldest first.
+
+    Returns:
+        True when this turn called the title tool.
+    """
+    return bool(_title_call_ids(_turn_entries(all_entries)))
 
 
 def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
@@ -169,12 +201,7 @@ def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
         True when this turn set the title.
     """
     all_turn_entries = _turn_entries(all_entries)
-    all_title_call_ids = {
-        each_block.get(BLOCK_ID_KEY)
-        for each_entry in all_turn_entries
-        for each_block in _tool_use_blocks(each_entry)
-        if TITLE_TOOL_NAME_PATTERN.match(str(each_block.get(BLOCK_NAME_KEY)))
-    }
+    all_title_call_ids = _title_call_ids(all_turn_entries)
     return any(
         each_block.get(ENTRY_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
         and each_block.get(TOOL_USE_ID_KEY) in all_title_call_ids
@@ -185,17 +212,29 @@ def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
     )
 
 
-def turn_block_reason(all_entries: list[dict[str, object]]) -> str | None:
+def turn_block_reason(
+    all_entries: list[dict[str, object]], is_stop_hook_active: bool = False
+) -> str | None:
     """Return the reason to hold the turn, or None when the turn may end.
+
+    ::
+
+        no title tool in the transcript                         -> None
+        title set this turn                                     -> None
+        held turn whose title call failed (stop_hook_active)    -> None
+        no title call this turn                                 -> reason
 
     Args:
         all_entries: The transcript entries, oldest first.
+        is_stop_hook_active: True when a Stop hook already held this turn.
 
     Returns:
         The block reason that names the title tool, or None.
     """
     all_title_tools = available_title_tools(all_entries)
     if not all_title_tools or title_set_this_turn(all_entries):
+        return None
+    if is_stop_hook_active and title_attempted_this_turn(all_entries):
         return None
     return TURN_BLOCK_REASON.format(tool_name=TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools))
 
@@ -228,7 +267,10 @@ def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
         return ALLOW_EXIT_CODE
-    block_reason = turn_block_reason(read_transcript_entries(hook_input.get(TRANSCRIPT_PATH_KEY)))
+    block_reason = turn_block_reason(
+        read_transcript_entries(hook_input.get(TRANSCRIPT_PATH_KEY)),
+        hook_input.get(STOP_HOOK_ACTIVE_KEY) is True,
+    )
     if block_reason is None:
         return ALLOW_EXIT_CODE
     log_hook_block(Path(__file__).name, TURN_GATE_EVENT_NAME, block_reason)
