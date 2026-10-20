@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.93.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.3...claude-dev-env-v8.93.0) (2026-10-20)
+
+
+### Features
+
+* cap the prose of GitHub comments with the reply length gate ([#2099](https://github.com/jl-cmd-projects/claude-dev-env/issues/2099)) ([f0fb7f8](https://github.com/jl-cmd-projects/claude-dev-env/commit/f0fb7f88572a61ee514712e143d862614dee4da3))
+
 ## [8.92.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.2...claude-dev-env-v8.92.3) (2026-10-20)
 
 
