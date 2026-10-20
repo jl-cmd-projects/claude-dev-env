@@ -17,12 +17,13 @@ CARRIAGE_RETURN_LINE_BREAK = "\r\n"
 LINE_BREAK = "\n"
 BACKTICK_RUN_PATTERN = re.compile(r"`+")
 ALL_HTML_BLOCK_TAG_NAMES = (
-    "address article aside base basefont blockquote body caption center col colgroup"
-    " dd details dialog dir div dl dt fieldset figcaption figure footer form frame"
-    " frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu"
-    " menuitem nav noframes ol optgroup option p param search section summary table"
-    " tbody td tfoot th thead title tr track ul"
-).split()
+    "address", "article", "aside", "base", "basefont", "blockquote", "body", "caption", "center",
+    "col", "colgroup", "dd", "details", "dialog", "dir", "div", "dl", "dt", "fieldset",
+    "figcaption", "figure", "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5",
+    "h6", "head", "header", "hr", "html", "iframe", "legend", "li", "link", "main", "menu",
+    "menuitem", "nav", "noframes", "ol", "optgroup", "option", "p", "param", "search", "section",
+    "summary", "table", "tbody", "td", "tfoot", "th", "thead", "title", "tr", "track", "ul",
+)
 HTML_BLOCK_OPENER_PATTERN = re.compile(
     r"^ {0,3}(?:"
     r"(?P<raw><(?:pre|script|style|textarea)(?:[\s>]|$))"

@@ -113,7 +113,7 @@ def code_spans_masked(paragraph_text: str) -> str:
     return "".join(all_masked_pieces)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _fence_closer_pattern(fence_text: str) -> re.Pattern[str]:
     return re.compile(
         FENCE_CLOSER_PREFIX + re.escape(fence_text) + re.escape(fence_text[0]) + FENCE_CLOSER_SUFFIX,
@@ -174,7 +174,8 @@ def quotes_unwrapped(text: str) -> str:
     all_lines: list[str] = []
     previous_depth = 0
     for each_line in text.split(LINE_BREAK):
-        marker_text = QUOTE_MARKER_PATTERN.match(each_line).group()
+        marker = QUOTE_MARKER_PATTERN.match(each_line)
+        marker_text = marker.group() if marker else ""
         depth = marker_text.count(QUOTE_MARKER)
         if depth > previous_depth:
             all_lines.append("")
