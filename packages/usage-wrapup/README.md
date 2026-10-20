@@ -30,7 +30,7 @@ claude --plugin-dir ~/claude-mods/usage-wrapup
 
 `/config` has three options:
 
-- **Wrap-up threshold (% left)**. Default `1`.
+- **Low-usage threshold (% left)**. Default `1`.
 - **Compact at 5-hour usage (% used)**. Default `97`.
 - **Compact at weekly usage (% used)**. Default `99`.
 
