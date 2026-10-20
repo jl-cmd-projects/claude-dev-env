@@ -227,3 +227,8 @@ def test_brief_gaps_should_name_each_missing_clause() -> None:
         MISSING_OUTCOME_REASON,
         MISSING_BLOCKER_CLAUSE_REASON,
     ]
+
+
+def test_script_prints_nothing_when_the_workflow_script_path_cannot_be_opened() -> None:
+    payload = {"tool_name": "Workflow", "tool_input": {"scriptPath": "bad\u0000path.js"}}
+    assert _run_script(json.dumps(payload)) == ""

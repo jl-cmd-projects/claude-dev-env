@@ -159,11 +159,17 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
 
 
 def main() -> int:
-    """Run the hook on the stdin payload and print its output; always 0."""
+    """Run the hook on the stdin payload and print its output; always 0.
+
+    A decide step that raises leaves the call with no output.
+    """
     hook_payload = read_hook_input_dictionary_from_stdin()
     if hook_payload is None:
         return 0
-    hook_output = decide_hook_output(hook_payload)
+    try:
+        hook_output = decide_hook_output(hook_payload)
+    except Exception:
+        return 0
     if hook_output is not None:
         sys.stdout.write(json.dumps(hook_output))
         sys.stdout.flush()
