@@ -23,17 +23,25 @@ ALL_HTML_BLOCK_TAG_NAMES = (
     " menuitem nav noframes ol optgroup option p param search section summary table"
     " tbody td tfoot th thead title tr track ul"
 ).split()
-HTML_BLOCK_PATTERN = re.compile(
+HTML_BLOCK_OPENER_PATTERN = re.compile(
     r"^ {0,3}(?:"
-    r"<(?:pre|script|style|textarea)(?:[\s>]|$).*?(?:</(?:pre|script|style|textarea)>[^\n]*|\Z)"
-    r"|<!--.*?(?:-->[^\n]*|\Z)"
-    r"|<\?.*?(?:\?>[^\n]*|\Z)"
-    r"|<!\[CDATA\[.*?(?:\]\]>[^\n]*|\Z)"
-    r"|<![A-Za-z].*?(?:>[^\n]*|\Z)"
-    r"|</?(?:" + "|".join(ALL_HTML_BLOCK_TAG_NAMES) + r")(?:[\s>]|/>|$).*?(?=\n[ \t]*\n|\Z)"
+    r"(?P<raw><(?:pre|script|style|textarea)(?:[\s>]|$))"
+    r"|(?P<comment><!--)"
+    r"|(?P<instruction><\?)"
+    r"|(?P<cdata><!\[CDATA\[)"
+    r"|(?P<declaration><![A-Za-z])"
+    r"|(?P<block></?(?:" + "|".join(ALL_HTML_BLOCK_TAG_NAMES) + r")(?:[\s>]|/>|$))"
     r")",
-    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    re.IGNORECASE | re.MULTILINE,
 )
+ALL_HTML_BLOCK_CLOSER_PATTERNS = {
+    "raw": re.compile(r"</(?:pre|script|style|textarea)>[^\n]*", re.IGNORECASE),
+    "comment": re.compile(r"-->[^\n]*"),
+    "instruction": re.compile(r"\?>[^\n]*"),
+    "cdata": re.compile(r"\]\]>[^\n]*"),
+    "declaration": re.compile(r">[^\n]*"),
+    "block": re.compile(r"(?=\n[ \t]*\n)|\Z"),
+}
 BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>))")
 MASKED_BLOCK_TEXT = "\n\n"
 HEADING_LINE_PATTERN = re.compile(
@@ -45,10 +53,9 @@ PARAGRAPH_SEPARATOR = "\n\n"
 BACKSLASH = "\\"
 BACKSLASHES_PER_LITERAL = 2
 MASKED_CODE_TEXT = " "
-FENCED_CODE_PATTERN = re.compile(
-    r"^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)\n.*?(?:^ {0,3}(?:\1`*|\2~*)[ \t]*$|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
+FENCE_OPENER_PATTERN = re.compile(r"^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)\n", re.MULTILINE)
+FENCE_CLOSER_PREFIX = r"^ {0,3}"
+FENCE_CLOSER_SUFFIX = r"*[ \t]*$"
 WINDOWS_PATH_MESSAGE = (
     'Path "{path}" sits outside a code span. The terminal renders'
     " markdown and drops a backslash before punctuation, so a copied path"

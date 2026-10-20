@@ -133,6 +133,8 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Check `this\n<span>a` and C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("<!-- ` -->\nSaved to C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("Check `this\n```\ncode\n```\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("- ```bash\n  echo hi\n  ```\nSaved to D:\\Reports\\.claude\\r.html now.", 'Path "D:\\Reports'),
+        ("```\nC:\\Reports\\.claude\\open.html", 'Path "C:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
@@ -166,6 +168,26 @@ def test_should_allow_a_windows_path_inside_code(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
 ) -> None:
     assert run_gate(monkeypatch, capsys, reply_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    ("text", "masked_text"),
+    [
+        ("a\n<!--\nb\n-->\nc", "a\n\n\n\nc"),
+        ("a\n<!--\nb\nc", "a\n<!--\nb\nc"),
+        ("<!--\n<!--\nb -->\nc", "\n\n\nc"),
+        ("<details>\nb\n\nc", "\n\n\n\nc"),
+    ],
+)
+def test_should_mask_html_blocks_only_where_they_close(text: str, masked_text: str) -> None:
+    assert (
+        final_reply_gate.blocks_masked(
+            text,
+            final_reply_gate.HTML_BLOCK_OPENER_PATTERN,
+            final_reply_gate._html_block_closer_for,
+        )
+        == masked_text
+    )
 
 
 @pytest.mark.parametrize(

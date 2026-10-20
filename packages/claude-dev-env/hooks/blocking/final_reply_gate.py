@@ -21,8 +21,11 @@ after eight blocks in a row.
 from __future__ import annotations
 
 import bisect
+import functools
 import json
+import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -47,12 +50,15 @@ from hooks_constants.final_reply_gate_constants import (
     CARRIAGE_RETURN_LINE_BREAK,
     DECISION_KEY,
     ESCAPED_PUNCTUATION_PATTERN,
-    FENCED_CODE_PATTERN,
+    FENCE_CLOSER_PREFIX,
+    FENCE_CLOSER_SUFFIX,
+    FENCE_OPENER_PATTERN,
     HARD_BREAK_PATTERN,
     HEADING_AS_OWN_BLOCK,
     HEADING_LINE_PATTERN,
     HOOK_EVENT_NAME,
-    HTML_BLOCK_PATTERN,
+    ALL_HTML_BLOCK_CLOSER_PATTERNS,
+    HTML_BLOCK_OPENER_PATTERN,
     LAST_ASSISTANT_MESSAGE_KEY,
     LINE_BREAK,
     MASKED_BLOCK_TEXT,
@@ -105,6 +111,54 @@ def code_spans_masked(paragraph_text: str) -> str:
     return "".join(all_masked_pieces)
 
 
+@functools.lru_cache(maxsize=None)
+def _fence_closer_pattern(fence_text: str) -> re.Pattern[str]:
+    return re.compile(
+        FENCE_CLOSER_PREFIX + re.escape(fence_text) + re.escape(fence_text[0]) + FENCE_CLOSER_SUFFIX,
+        re.MULTILINE,
+    )
+
+
+def _fence_closer_for(opener: re.Match[str]) -> re.Pattern[str]:
+    return _fence_closer_pattern(opener.group(1) or opener.group(2))
+
+
+def _html_block_closer_for(opener: re.Match[str]) -> re.Pattern[str]:
+    return ALL_HTML_BLOCK_CLOSER_PATTERNS[opener.lastgroup or ""]
+
+
+def blocks_masked(
+    text: str,
+    opener_pattern: re.Pattern[str],
+    closer_for: Callable[[re.Match[str]], re.Pattern[str]],
+) -> str:
+    """Return the text with a blank line where each closed block sat.
+
+    A block runs from an opener to the first closer after it. An opener with
+    no closer stays in the text, and a closer search that found nothing is
+    not run again, so the scan stays linear::
+
+        >>> blocks_masked("a\\n<!--\\nb\\n-->\\nc", HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
+        'a\\n\\n\\n\\nc'
+    """
+    all_masked_pieces: list[str] = []
+    all_closer_misses: dict[re.Pattern[str], int] = {}
+    copied_up_to = 0
+    search_from = 0
+    while (opener := opener_pattern.search(text, search_from)) is not None:
+        closer_pattern = closer_for(opener)
+        is_closer_possible = opener.end() < all_closer_misses.get(closer_pattern, len(text) + 1)
+        closer = closer_pattern.search(text, opener.end()) if is_closer_possible else None
+        if closer is None:
+            all_closer_misses.setdefault(closer_pattern, opener.end())
+            search_from = max(opener.end(), opener.start() + 1)
+            continue
+        all_masked_pieces.extend((text[copied_up_to : opener.start()], MASKED_BLOCK_TEXT))
+        copied_up_to = search_from = closer.end()
+    all_masked_pieces.append(text[copied_up_to:])
+    return "".join(all_masked_pieces)
+
+
 def windows_path_violation(reply_text: str) -> str | None:
     """Return the block reason for a path the terminal renders wrong, or None.
 
@@ -118,8 +172,8 @@ def windows_path_violation(reply_text: str) -> str | None:
         ok:   The report is at D:\\Reports\\report.html now.
     """
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
-    unfenced_text = FENCED_CODE_PATTERN.sub(MASKED_BLOCK_TEXT, line_feed_text)
-    unfenced_text = HTML_BLOCK_PATTERN.sub(MASKED_BLOCK_TEXT, unfenced_text)
+    unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
+    unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
     unfenced_text = HEADING_LINE_PATTERN.sub(HEADING_AS_OWN_BLOCK, unfenced_text)
     prose_text = PARAGRAPH_SEPARATOR.join(
         code_spans_masked(each_paragraph)
