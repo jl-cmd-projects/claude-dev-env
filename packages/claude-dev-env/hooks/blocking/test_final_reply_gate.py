@@ -101,12 +101,14 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
 @pytest.mark.parametrize(
     ("reply_text", "quoted_text"),
     [
-        (INSIGHTS_REPLY, 'Windows path "C:\\Reports\\.claude-profiles'),
-        ("The report is at C:\\Reports\\.claude\\report.html now.", 'Windows path "C:\\Reports'),
-        ("Run C:\\Tools\\-v\\x.exe once.", 'Windows path "C:\\Tools\\-v'),
-        ("Wait ~~~ then open C:\\Reports\\.claude\\r.html now.", 'Windows path "C:\\Reports'),
-        ("Wait ``` then open C:\\Reports\\.claude\\r.html now.", 'Windows path "C:\\Reports'),
-        ("Escaped \\` then C:\\Reports\\.claude\\r.html then `x`.", 'Windows path "C:\\Reports'),
+        (INSIGHTS_REPLY, 'Path "file://C:\\Reports\\.claude-profiles'),
+        ("The report is at C:\\Reports\\.claude\\report.html now.", 'Path "C:\\Reports'),
+        ("Run C:\\Tools\\-v\\x.exe once.", 'Path "C:\\Tools\\-v'),
+        ("Wait ~~~ then open C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+        ("Wait ``` then open C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+        ("Escaped \\` then C:\\Reports\\.claude\\r.html then `x`.", 'Path "C:\\Reports'),
+        ("Open C:\\Shared Files\\.claude\\x.html now.", 'Path "Files\\.claude'),
+        ("Open `C:\\Reports`\\.claude\\x.html now.", 'Path "\\.claude'),
     ],
 )
 def test_should_block_a_windows_path_markdown_mangles(

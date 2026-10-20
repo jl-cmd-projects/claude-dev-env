@@ -39,7 +39,7 @@ from hooks_constants.final_reply_gate_constants import (
     BLOCK_DECISION,
     CODE_SPAN_PATTERN,
     DECISION_KEY,
-    ESCAPED_PUNCTUATION_PATTERN,
+    ESCAPED_PATH_TOKEN_PATTERN,
     FENCED_CODE_PATTERN,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
@@ -47,26 +47,26 @@ from hooks_constants.final_reply_gate_constants import (
     REWRITE_INSTRUCTION,
     TRANSCRIPT_PATH_KEY,
     WINDOWS_PATH_MESSAGE,
-    WINDOWS_PATH_PATTERN,
 )
 
 
 def windows_path_violation(reply_text: str) -> str | None:
-    """Return the block reason for a Windows path the terminal renders wrong, or None.
+    """Return the block reason for a path the terminal renders wrong, or None.
 
     The terminal reads a backslash before punctuation as a markdown escape
     and drops it. A path outside a code span loses that backslash::
 
         flag: The report is at D:\\Reports\\.claude\\report.html now.
               (the terminal shows D:\\Reports.claude\\report.html)
+        flag: Open D:\\Shared Files\\.claude\\x.html now.
         ok:   The report is at `D:\\Reports\\.claude\\report.html` now.
         ok:   The report is at D:\\Reports\\report.html now.
     """
     prose_text = CODE_SPAN_PATTERN.sub(" ", FENCED_CODE_PATTERN.sub(" ", reply_text))
-    for each_path_match in WINDOWS_PATH_PATTERN.finditer(prose_text):
-        if ESCAPED_PUNCTUATION_PATTERN.search(each_path_match.group()) is not None:
-            return WINDOWS_PATH_MESSAGE.format(path=each_path_match.group())
-    return None
+    escaped_token_match = ESCAPED_PATH_TOKEN_PATTERN.search(prose_text)
+    if escaped_token_match is None:
+        return None
+    return WINDOWS_PATH_MESSAGE.format(path=escaped_token_match.group())
 
 
 def final_reply_violation(reply_text: str, transcript_path: object) -> str | None:
