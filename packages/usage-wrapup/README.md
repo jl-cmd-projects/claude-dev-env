@@ -9,7 +9,7 @@ A Claude Code mod. When your plan usage gets low, it tells every running agent t
   1. keep working on the task, with no stop and no wait for the reset,
   2. leave files in a working state after each step, and save finished work the way its task already allows,
   3. keep a short handoff current (done / left / next step),
-  4. arm one wake for just after the reset time, such as `send_later` to its own session or a `create_trigger` routine, so a session the limit cuts off resumes without a person.
+  4. arm one wake for just after the reset time, such as `send_later` to its own session or a `create_trigger` routine, so a session the limit cuts off resumes without a person (once per reset).
 - Shows `⚠ N% left — checkpointing` in the status line and a one-time toast.
 - Compacts the conversation when usage is nearly gone. This happens when the 5-hour window is 97% used or more, or the weekly window is 99% used or more.
   - It compacts when a turn ends, so the next turn starts with a smaller context.

@@ -35,7 +35,7 @@ export function wrapUpNote(low: Low): string {
     'The limit may cut the session off, so make each step safe to lose:',
     '1. Leave files in a working state after each step, and save finished work the way your task already allows.',
     '2. Keep a short handoff current: what is done, what is left, the exact next step.',
-    `3. Arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so a session the limit cuts off resumes without a person.`,
+    `3. Arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so a session the limit cuts off resumes without a person. Skip this step when you already armed that wake.`,
   ].join('\n')
 }
 
