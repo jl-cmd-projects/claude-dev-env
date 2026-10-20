@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.92.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.1...claude-dev-env-v8.92.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **hooks:** flag drive paths whose backslash the terminal drops ([#2093](https://github.com/jl-cmd-projects/claude-dev-env/issues/2093)) ([770433c](https://github.com/jl-cmd-projects/claude-dev-env/commit/770433c4dd8f8e9c519c3e87c832e4084dc28b16))
+
 ## [8.92.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.0...claude-dev-env-v8.92.1) (2026-10-20)
 
 
