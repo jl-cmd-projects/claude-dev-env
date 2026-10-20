@@ -129,8 +129,10 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Check `this\n* * *\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("Check `this\n___\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("Check `this\n<!-- note -->\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
-        ("Check `this\n<details>\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n<details>\n\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("Check `this\n<span>a` and C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("<!-- ` -->\nSaved to C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n```\ncode\n```\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
@@ -157,6 +159,7 @@ def test_should_block_a_windows_path_markdown_mangles(
         "The report is at ``C:\\Reports\\.claude\\report.html`` now.",
         "Paths:\n~~~\nC:\\Reports\\.claude\\report.html\n~~~",
         "Paths `C:\\Reports\\.claude\nreport.html` here.",
+        "<pre>\nC:\\Reports\\.claude\\report.html\n</pre>",
     ],
 )
 def test_should_allow_a_windows_path_inside_code(

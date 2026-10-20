@@ -52,8 +52,10 @@ from hooks_constants.final_reply_gate_constants import (
     HEADING_AS_OWN_BLOCK,
     HEADING_LINE_PATTERN,
     HOOK_EVENT_NAME,
+    HTML_BLOCK_PATTERN,
     LAST_ASSISTANT_MESSAGE_KEY,
     LINE_BREAK,
+    MASKED_BLOCK_TEXT,
     MASKED_CODE_TEXT,
     NON_SPACE_TOKEN_PATTERN,
     PARAGRAPH_SEPARATOR,
@@ -116,9 +118,9 @@ def windows_path_violation(reply_text: str) -> str | None:
         ok:   The report is at D:\\Reports\\report.html now.
     """
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
-    unfenced_text = HEADING_LINE_PATTERN.sub(
-        HEADING_AS_OWN_BLOCK, FENCED_CODE_PATTERN.sub(MASKED_CODE_TEXT, line_feed_text)
-    )
+    unfenced_text = FENCED_CODE_PATTERN.sub(MASKED_BLOCK_TEXT, line_feed_text)
+    unfenced_text = HTML_BLOCK_PATTERN.sub(MASKED_BLOCK_TEXT, unfenced_text)
+    unfenced_text = HEADING_LINE_PATTERN.sub(HEADING_AS_OWN_BLOCK, unfenced_text)
     prose_text = PARAGRAPH_SEPARATOR.join(
         code_spans_masked(each_paragraph)
         for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unfenced_text)

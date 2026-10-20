@@ -23,14 +23,19 @@ ALL_HTML_BLOCK_TAG_NAMES = (
     " menuitem nav noframes ol optgroup option p param search section summary table"
     " tbody td tfoot th thead title tr track ul"
 ).split()
-HTML_BLOCK_START = (
-    r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:pre|script|style|textarea)(?:[\s>]|$)"
-    r"|/?(?:" + "|".join(ALL_HTML_BLOCK_TAG_NAMES) + r")(?:[\s>]|/>|$))"
+HTML_BLOCK_PATTERN = re.compile(
+    r"^ {0,3}(?:"
+    r"<(?:pre|script|style|textarea)(?:[\s>]|$).*?(?:</(?:pre|script|style|textarea)>[^\n]*|\Z)"
+    r"|<!--.*?(?:-->[^\n]*|\Z)"
+    r"|<\?.*?(?:\?>[^\n]*|\Z)"
+    r"|<!\[CDATA\[.*?(?:\]\]>[^\n]*|\Z)"
+    r"|<![A-Za-z].*?(?:>[^\n]*|\Z)"
+    r"|</?(?:" + "|".join(ALL_HTML_BLOCK_TAG_NAMES) + r")(?:[\s>]|/>|$).*?(?=\n[ \t]*\n|\Z)"
+    r")",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
 )
-BLOCK_BOUNDARY_PATTERN = re.compile(
-    r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>|" + HTML_BLOCK_START + "))",
-    re.IGNORECASE,
-)
+BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>))")
+MASKED_BLOCK_TEXT = "\n\n"
 HEADING_LINE_PATTERN = re.compile(
     r"^( {0,3}(?:#{1,6}(?:[ \t][^\n]*)?|=+[ \t]*|(?:-[ \t]*)+|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}))$",
     re.MULTILINE,
