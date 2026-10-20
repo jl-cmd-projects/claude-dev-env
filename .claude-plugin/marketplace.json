@@ -18,8 +18,8 @@
     {
       "name": "usage-wrapup",
       "source": "./packages/usage-wrapup",
-      "description": "Tells every running agent to keep working and checkpoint when plan usage gets low, and compacts the conversation when usage is nearly gone",
-      "version": "0.3.0",
+      "description": "Tells every running agent to wrap up when plan usage gets low, and compacts the conversation when usage is nearly gone",
+      "version": "0.2.0",
       "license": "MIT",
       "category": "productivity"
     },

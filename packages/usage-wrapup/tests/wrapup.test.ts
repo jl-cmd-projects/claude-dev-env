@@ -7,8 +7,8 @@ function engine(on: On, usedPercent?: number) {
   const rateLimits = usedPercent === undefined ? [] : [{ kind: 'five_hour', percentUsed: usedPercent }]
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits } }) as never)
-  on('ui.toast', (_$, e) => (toasts.push(String((e as { text?: unknown }).text ?? e)), { value: undefined }) as never)
-  on('ui.status', () => ({ value: undefined }) as never)
+  on('ui.toast', (_$, e) => (toasts.push(String((e as { text?: unknown }).text ?? e)), {}) as never)
+  on('ui.status', () => ({}) as never)
   on('tool.call', () => ({ result: 'ok', text: 'ok' }) as never)
 }
 
@@ -41,15 +41,6 @@ test('tool results carry the wrap-up note at 1% left or less', async ($, on) => 
   expect(ctx.join('\n')).toMatch(/handoff/)
 })
 
-test('the note tells the agent to keep working and never to stop or pause', async ($, on) => {
-  engine(on)
-  await $.session.measure(measure(99))
-  const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
-  const note = ((r as { context?: string[] }).context ?? []).join('\n')
-  expect(note).toMatch(/Keep working on the task/)
-  expect(note).not.toMatch(/\bstop\b|\bpause\b|Do not start new work|Wrap up now/i)
-})
-
 test('reads usage itself when no measurement came yet', async ($, on) => {
   engine(on, 99)
   const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
@@ -63,10 +54,11 @@ test('threshold is configurable', { options: { threshold: 20 } }, async ($, on) 
   expect(((r as { context?: string[] }).context ?? []).join('\n')).toMatch(/15% left/)
 })
 
-test('the note arms a wake for just after the reset in case the limit cuts the session off', async ($, on) => {
+test('the note arms a wake for just after the reset before it stops', async ($, on) => {
   engine(on)
   await $.session.measure({ ...measure(99), rateLimits: [{ kind: 'five_hour', percentUsed: 99, resetsAt: '2026-10-05T03:10:00Z' }] })
   const r = await $.tool.call({ tool: 'Bash', command: 'ls' } as never)
   const note = ((r as { context?: string[] }).context ?? []).join('\n')
-  expect(note).toMatch(/Arm one wake for just after 2026-10-05T03:10:00Z/)
+  expect(note).toMatch(/4\. Before you stop, arm one wake for just after 2026-10-05T03:10:00Z/)
+  expect(note).toMatch(/5\. Then stop/)
 })
