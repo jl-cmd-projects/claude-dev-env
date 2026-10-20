@@ -65,6 +65,8 @@ from hooks_constants.final_reply_gate_constants import (
     MASKED_CODE_TEXT,
     NON_SPACE_TOKEN_PATTERN,
     PARAGRAPH_SEPARATOR,
+    QUOTE_MARKER,
+    QUOTE_MARKER_PATTERN,
     REASON_KEY,
     REWRITE_INSTRUCTION,
     TRANSCRIPT_PATH_KEY,
@@ -159,6 +161,30 @@ def blocks_masked(
     return "".join(all_masked_pieces)
 
 
+def quotes_unwrapped(text: str) -> str:
+    """Return the text with each quote marker removed.
+
+    Lines of one quote form one paragraph, so their markers go. A line that
+    goes deeper into a quote starts a new paragraph, and an unmarked line
+    continues the quote above it::
+
+        >>> quotes_unwrapped("> a\\n>> b\\nc")
+        '\\na\\n\\nb\\nc'
+    """
+    all_lines: list[str] = []
+    previous_depth = 0
+    for each_line in text.split(LINE_BREAK):
+        marker_text = QUOTE_MARKER_PATTERN.match(each_line).group()
+        depth = marker_text.count(QUOTE_MARKER)
+        if depth > previous_depth:
+            all_lines.append("")
+        content_text = each_line[len(marker_text) :]
+        if depth or not content_text.strip():
+            previous_depth = depth
+        all_lines.append(content_text)
+    return LINE_BREAK.join(all_lines)
+
+
 def windows_path_violation(reply_text: str) -> str | None:
     """Return the block reason for a path the terminal renders wrong, or None.
 
@@ -174,6 +200,7 @@ def windows_path_violation(reply_text: str) -> str | None:
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
     unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
     unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
+    unfenced_text = quotes_unwrapped(unfenced_text)
     unfenced_text = HEADING_LINE_PATTERN.sub(HEADING_AS_OWN_BLOCK, unfenced_text)
     prose_text = PARAGRAPH_SEPARATOR.join(
         code_spans_masked(each_paragraph)

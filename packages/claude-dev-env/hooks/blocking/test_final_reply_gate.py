@@ -135,6 +135,9 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Check `this\n```\ncode\n```\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("- ```bash\n  echo hi\n  ```\nSaved to D:\\Reports\\.claude\\r.html now.", 'Path "D:\\Reports'),
         ("```\nC:\\Reports\\.claude\\open.html", 'Path "C:\\Reports'),
+        ("> stray ` here\n> and `C:\\Reports\\.claude\\r.html` now", 'Path "C:\\Reports'),
+        ("> stray `\n>> and C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("> stray `\nlazy\n> and `C:\\Reports\\.claude\\r.html` now", 'Path "C:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
@@ -162,6 +165,7 @@ def test_should_block_a_windows_path_markdown_mangles(
         "Paths:\n~~~\nC:\\Reports\\.claude\\report.html\n~~~",
         "Paths `C:\\Reports\\.claude\nreport.html` here.",
         "<pre>\nC:\\Reports\\.claude\\report.html\n</pre>",
+        "> Saved to `C:\\Reports\\.claude\\report.html`\n> now.",
     ],
 )
 def test_should_allow_a_windows_path_inside_code(
@@ -188,6 +192,20 @@ def test_should_mask_html_blocks_only_where_they_close(text: str, masked_text: s
         )
         == masked_text
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "unwrapped_text"),
+    [
+        ("> a\n> b", "\na\nb"),
+        ("> a\n>> b", "\na\n\nb"),
+        ("> a\nb\n> c", "\na\nb\nc"),
+        ("> a\n\n> b", "\na\n\n\nb"),
+        ("plain", "plain"),
+    ],
+)
+def test_should_unwrap_quotes_into_their_paragraphs(text: str, unwrapped_text: str) -> None:
+    assert final_reply_gate.quotes_unwrapped(text) == unwrapped_text
 
 
 @pytest.mark.parametrize(

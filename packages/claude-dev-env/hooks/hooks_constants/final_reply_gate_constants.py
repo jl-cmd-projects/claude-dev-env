@@ -42,7 +42,9 @@ ALL_HTML_BLOCK_CLOSER_PATTERNS = {
     "declaration": re.compile(r">[^\n]*"),
     "block": re.compile(r"(?=\n[ \t]*\n)|\Z"),
 }
-BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>))")
+BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?= {0,3}(?:[-*+]|1[.)])[ \t]+\S)")
+QUOTE_MARKER_PATTERN = re.compile(r"(?: {0,3}>[ \t]?)*")
+QUOTE_MARKER = ">"
 MASKED_BLOCK_TEXT = "\n\n"
 HEADING_LINE_PATTERN = re.compile(
     r"^( {0,3}(?:#{1,6}(?:[ \t][^\n]*)?|=+[ \t]*|(?:-[ \t]*)+|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}))$",
