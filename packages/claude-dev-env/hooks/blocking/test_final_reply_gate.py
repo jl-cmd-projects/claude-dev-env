@@ -106,6 +106,7 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Run C:\\Tools\\-v\\x.exe once.", 'Windows path "C:\\Tools\\-v'),
         ("Wait ~~~ then open C:\\Reports\\.claude\\r.html now.", 'Windows path "C:\\Reports'),
         ("Wait ``` then open C:\\Reports\\.claude\\r.html now.", 'Windows path "C:\\Reports'),
+        ("Escaped \\` then C:\\Reports\\.claude\\r.html then `x`.", 'Windows path "C:\\Reports'),
     ],
 )
 def test_should_block_a_windows_path_markdown_mangles(

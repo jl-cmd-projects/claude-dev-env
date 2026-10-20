@@ -12,7 +12,7 @@ ALLOW_EXIT_CODE = 0
 REWRITE_INSTRUCTION = " Rewrite the reply without it."
 WINDOWS_PATH_PATTERN = re.compile(r"(?<!\w)[A-Za-z]:\\\S*")
 ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)\\(?:[!-/:-@\[\]^_`{-~])")
-CODE_SPAN_PATTERN = re.compile(r"(`+)[^\n]*?\1")
+CODE_SPAN_PATTERN = re.compile(r"(?<![\\`])(`+)(?!`)[^\n]*?(?<!`)\1(?!`)")
 FENCED_CODE_PATTERN = re.compile(
     r"^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}\1[^\n]*$|\Z)", re.MULTILINE | re.DOTALL
 )
