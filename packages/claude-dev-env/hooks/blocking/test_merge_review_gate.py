@@ -178,7 +178,7 @@ def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPat
     assert "`/team-review`" in _reason(_merge_tool(CLEAN_HEAD))
 
 
-def test_should_switch_to_a_low_fix_pass_after_three_full_reviews() -> None:
+def test_should_name_the_low_fix_pass_after_three_full_reviews_in_the_deny_reason() -> None:
     reason = _reason(_merge_tool(CLEAN_HEAD))
     assert "three full passes" in reason
     assert "`/code-review low --fix`" in reason
