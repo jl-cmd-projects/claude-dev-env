@@ -127,6 +127,8 @@ def test_should_block_a_windows_path_markdown_mangles(
         "The report is at C:\\Reports\\report.html now.",
         "The report is at C:\\\\Reports\\\\.claude\\\\report.html now.",
         "The report is at ``C:\\Reports\\.claude\\report.html`` now.",
+        "Paths:\n~~~\nC:\\Reports\\.claude\\report.html\n~~~",
+        "Paths:\n\n    C:\\Reports\\.claude\\report.html\n",
     ],
 )
 def test_should_allow_a_windows_path_inside_code(
