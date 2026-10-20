@@ -9,6 +9,10 @@ import final_reply_gate
 GUESSED_REPLY = "My guess is one to two hours if those builds pass first time."
 UNCONFIRMED_REPLY = "Merge queue: I didn\u2019t confirm this one."
 MEASURED_REPLY = "The last queue build took 39 minutes, run 18239174012."
+INSIGHTS_REPLY = (
+    "Your shareable insights report is ready:\n"
+    "file://C:\\Reports\\.claude-profiles\\org\\usage-data\\report-2026-10-20-094705.html"
+)
 
 
 def run_gate(
@@ -92,3 +96,129 @@ def test_should_allow_a_closing_reply_with_no_message(
 
 def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
     assert final_reply_gate.final_reply_violation(MEASURED_REPLY, None) is None
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "quoted_text"),
+    [
+        (INSIGHTS_REPLY, 'Path "file://C:\\Reports\\.claude-profiles'),
+        ("The report is at C:\\Reports\\.claude\\report.html now.", 'Path "C:\\Reports'),
+        ("Run C:\\Tools\\-v\\x.exe once.", 'Path "C:\\Tools\\-v'),
+        ("Wait ~~~ then open C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+        ("Wait ``` then open C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+        ("Escaped \\` then C:\\Reports\\.claude\\r.html then `x`.", 'Path "\\`"'),
+        ("Open C:\\Shared Files\\.claude\\x.html now.", 'Path "Files\\.claude'),
+        ("Open `C:\\Reports`\\.claude\\x.html now.", 'Path "\\.claude'),
+        ("Saved to C:\\Reports\\..\\out\\x.html now.", 'Path "C:\\Reports'),
+        ("Saved to D:\\Reports\\. now", 'Path "D:\\Reports\\."'),
+        ("Saved to D:\\Reports\\\\\\.claude now", 'Path "D:\\Reports'),
+        ("```\n```python\n```\nOpen C:\\Reports\\.claude\\x.html now.\n```", 'Path "C:\\Reports'),
+        ("Check `this\nand `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("```foo` bar\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+        ("Saved to D:\\Reports\\\n.claude\\x.html now.", 'Path "D:\\Reports\\"'),
+        ("\\\\`x` now C:\\Reports\\.claude\\r.html and `y`", 'Path "C:\\Reports'),
+        ("Check `this\n\nand C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("- Stray ` here\n- Saved to D:\\Reports\\.claude\\r.html\n- Run `x`", 'Path "D:\\Reports'),
+        ("# Stray ` here\nSaved to D:\\Reports\\.claude\\r.html `x`", 'Path "D:\\Reports'),
+        ("Check `this\n2. and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("Check `this\n    - and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("Check `this\n    # and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("Check `this\n\t# and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("Check `this\n---\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n===\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n* * *\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n___\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n<!-- note -->\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n<details>\n\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n<span>a` and C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("<!-- ` -->\nSaved to C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n```\ncode\n```\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("- ```bash\n  echo hi\n  ```\nSaved to D:\\Reports\\.claude\\r.html now.", 'Path "D:\\Reports'),
+        ("```\nC:\\Reports\\.claude\\open.html", 'Path "C:\\Reports'),
+        ("> stray ` here\n> and `C:\\Reports\\.claude\\r.html` now", 'Path "C:\\Reports'),
+        ("> stray `\n>> and C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("> stray `\nlazy\n> and `C:\\Reports\\.claude\\r.html` now", 'Path "C:\\Reports'),
+        ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
+    ],
+)
+def test_should_block_a_windows_path_markdown_mangles(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    reply_text: str,
+    quoted_text: str,
+) -> None:
+    _, stdout_text = run_gate(monkeypatch, capsys, reply_text)
+    decision = json.loads(stdout_text)
+    assert decision["decision"] == "block"
+    assert quoted_text in decision["reason"]
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "Open `file:///C:/Reports/.claude/report.html` now.",
+        "The report is at `C:\\Reports\\.claude\\report.html` now.",
+        "Paths:\n```text\nC:\\Reports\\.claude\\report.html\n```",
+        "The report is at C:\\Reports\\report.html now.",
+        "The report is at C:\\\\Reports\\\\.claude\\\\report.html now.",
+        "The report is at ``C:\\Reports\\.claude\\report.html`` now.",
+        "Paths:\n~~~\nC:\\Reports\\.claude\\report.html\n~~~",
+        "Paths `C:\\Reports\\.claude\nreport.html` here.",
+        "<pre>\nC:\\Reports\\.claude\\report.html\n</pre>",
+        "> Saved to `C:\\Reports\\.claude\\report.html`\n> now.",
+    ],
+)
+def test_should_allow_a_windows_path_inside_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    assert run_gate(monkeypatch, capsys, reply_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    ("text", "masked_text"),
+    [
+        ("a\n<!--\nb\n-->\nc", "a\n\n\n\nc"),
+        ("a\n<!--\nb\nc", "a\n<!--\nb\nc"),
+        ("<!--\n<!--\nb -->\nc", "\n\n\nc"),
+        ("<details>\nb\n\nc", "\n\n\n\nc"),
+    ],
+)
+def test_should_mask_html_blocks_only_where_they_close(text: str, masked_text: str) -> None:
+    assert (
+        final_reply_gate.blocks_masked(
+            text,
+            final_reply_gate.HTML_BLOCK_OPENER_PATTERN,
+            final_reply_gate._html_block_closer_for,
+        )
+        == masked_text
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "unwrapped_text"),
+    [
+        ("> a\n> b", "\na\nb"),
+        ("> a\n>> b", "\na\n\nb"),
+        ("> a\nb\n> c", "\na\nb\nc"),
+        ("> a\n\n> b", "\na\n\n\nb"),
+        ("plain", "plain"),
+    ],
+)
+def test_should_unwrap_quotes_into_their_paragraphs(text: str, unwrapped_text: str) -> None:
+    assert final_reply_gate.quotes_unwrapped(text) == unwrapped_text
+
+
+@pytest.mark.parametrize(
+    ("paragraph_text", "masked_text"),
+    [
+        ("see `a\\.b` and more", "see   and more"),
+        ("\\`x` stays", "\\`x` stays"),
+        ("\\\\`x` gone", "\\\\  gone"),
+        ("``a`b`` end", "  end"),
+        ("`open only", "`open only"),
+    ],
+)
+def test_should_mask_code_spans_the_way_commonmark_pairs_them(
+    paragraph_text: str, masked_text: str
+) -> None:
+    assert final_reply_gate.code_spans_masked(paragraph_text) == masked_text
