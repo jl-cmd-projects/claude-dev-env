@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.92.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.0...claude-dev-env-v8.92.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **review-loop:** switch to /code-review low --fix after three full passes ([#2094](https://github.com/jl-cmd-projects/claude-dev-env/issues/2094)) ([6448775](https://github.com/jl-cmd-projects/claude-dev-env/commit/6448775c9d0a51c5e3b44fc8e55f32bf8e0bf6f7))
+
 ## [8.92.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.91.0...claude-dev-env-v8.92.0) (2026-10-19)
 
 
