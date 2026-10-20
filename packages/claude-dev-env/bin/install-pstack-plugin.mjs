@@ -67,6 +67,9 @@ const HOST_DEFINITIONS = Object.freeze({
         orphanedVersionsDirectory: (homeDirectory, spec) => join(
             homeDirectory, 'plugins', 'cache', spec.marketplaceName, spec.name,
         ),
+        staleCloneDirectory: (homeDirectory, spec) => join(
+            homeDirectory, 'plugins', 'marketplaces', `${spec.marketplaceRepository.replaceAll('/', '-')}..clone`,
+        ),
         installVerb: 'install',
         uninstallVerb: 'uninstall',
     }),
@@ -215,6 +218,24 @@ function singleLineDetail(text) {
     return (text ?? '').split(/\r?\n/).map(eachLine => eachLine.trim()).filter(Boolean).join(' ');
 }
 
+/**
+ * Delete the clone folder an interrupted marketplace add left behind.
+ *
+ * Claude Code clones a marketplace into `<owner>-<repository>..clone` and
+ * renames it when the clone finishes. A clone that stops partway leaves that
+ * folder with its `.git/shallow.lock`, and `marketplace remove` does not
+ * delete it, so every later add fails on the lock. Removing the folder
+ * before the add lets the add start from an empty slot.
+ *
+ * @param {string|undefined} cloneDirectory The leftover clone folder.
+ * @returns {boolean} True when a folder was removed.
+ */
+export function removeStaleMarketplaceClone(cloneDirectory) {
+    if (!cloneDirectory || !existsSync(cloneDirectory)) return false;
+    rmSync(cloneDirectory, { recursive: true, force: true, maxRetries: 3 });
+    return true;
+}
+
 const ORPHANED_VERSION_MARKER = '.orphaned_at';
 
 /**
@@ -268,6 +289,9 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
             environment: commandEnvironment,
         });
         if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
+    }
+    if (HOST_DEFINITIONS[host].staleCloneDirectory && homeDirectory) {
+        removeStaleMarketplaceClone(HOST_DEFINITIONS[host].staleCloneDirectory(homeDirectory, allSpecs[0]));
     }
     for (const commandArguments of plan.commands) {
         const outcome = runCommand(executable, [...commandArguments], {
