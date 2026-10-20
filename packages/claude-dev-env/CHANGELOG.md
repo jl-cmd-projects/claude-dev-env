@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.95.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.94.0...claude-dev-env-v8.95.0) (2026-10-20)
+
+
+### Features
+
+* **agents:** add lean-worker as the default file and shell worker ([#2107](https://github.com/jl-cmd-projects/claude-dev-env/issues/2107)) ([be4b2b7](https://github.com/jl-cmd-projects/claude-dev-env/commit/be4b2b77d30526af60004a55b3607fe2c049df3d))
+
 ## [8.94.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.93.2...claude-dev-env-v8.94.0) (2026-10-20)
 
 
