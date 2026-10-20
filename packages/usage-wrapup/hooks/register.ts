@@ -31,11 +31,12 @@ function describe(low: Low): string {
 export function wrapUpNote(low: Low): string {
   return [
     `USAGE LOW — ${describe(low)}`,
-    'Keep working on the task. Low usage is no reason to end the turn or wait for the reset, unless the user asked you to wait for it.',
-    'The limit may cut the session off, so make each step safe to lose:',
-    '1. Leave files in a working state after each step, and save finished work the way your task already allows.',
-    '2. Keep a short handoff current: what is done, what is left, the exact next step.',
-    `3. Arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so a session the limit cuts off resumes without a person. Skip this step when you already armed that wake.`,
+    'You may be cut off soon. Wrap up now:',
+    '1. Do not start new work, new subagents or big searches.',
+    '2. Finish or safely pause the current step. Leave files in a working state.',
+    '3. Write a short handoff: what is done, what is left, the exact next step.',
+    `4. Before you stop, arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so the paused work resumes without a person.`,
+    '5. Then stop and give the user your final answer.',
   ].join('\n')
 }
 
@@ -47,8 +48,8 @@ export const register: Register = (on, options) => {
   on('session.measure', ($, e, next) => {
     limits = e.rateLimits
     const low = lowest(limits, threshold)
-    $.ui.status(low ? `⚠ ${low.left}% left — checkpointing` : undefined)
-    if (low && !wasWarned) $.ui.toast(`usage-wrapup: ${describe(low)} Agents told to keep working and checkpoint.`)
+    $.ui.status(low ? `⚠ ${low.left}% left — wrapping up` : undefined)
+    if (low && !wasWarned) $.ui.toast(`usage-wrapup: ${describe(low)} Agents told to wrap up.`)
     wasWarned = !!low
     return next(e)
   })

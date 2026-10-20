@@ -1,16 +1,17 @@
 # usage-wrapup
 
-A Claude Code mod. When your plan usage gets low, it tells every running agent to keep working and checkpoint as it goes, so a cutoff at the limit loses as little work as possible and the session resumes on its own after the reset.
+A Claude Code mod. When your plan usage gets low, it tells every running agent to wrap up — so you don't get cut off mid-task with half-edited files and no handoff.
 
 ## What it does
 
 - Watches your rate-limit windows (5-hour, weekly, spend limit).
-- When any window has **1% or less left** (configurable), every tool result, in the main agent **and** in subagents, carries a note telling the model to:
-  1. keep working on the task, with no stop and no wait for the reset,
-  2. leave files in a working state after each step, and save finished work the way its task already allows,
-  3. keep a short handoff current (done / left / next step),
-  4. arm one wake for just after the reset time, such as `send_later` to its own session or a `create_trigger` routine, so a session the limit cuts off resumes without a person (once per reset).
-- Shows `⚠ N% left — checkpointing` in the status line and a one-time toast.
+- When any window has **1% or less left** (configurable), every tool result — in the main agent **and** in subagents — carries a note telling the model to:
+  1. start no new work,
+  2. finish or safely pause the current step,
+  3. write a short handoff (done / left / next step),
+  4. arm one wake for just after the reset time, such as `send_later` to its own session or a `create_trigger` routine, so the paused work resumes without a person,
+  5. stop and answer.
+- Shows `⚠ N% left — wrapping up` in the status line and a one-time toast.
 - Compacts the conversation when usage is nearly gone. This happens when the 5-hour window is 97% used or more, or the weekly window is 99% used or more.
   - It compacts when a turn ends, so the next turn starts with a smaller context.
   - It compacts once per window. When the window resets, it can compact again.
@@ -30,7 +31,7 @@ claude --plugin-dir ~/claude-mods/usage-wrapup
 
 `/config` has three options:
 
-- **Low-usage threshold (% left)**. Default `1`.
+- **Wrap-up threshold (% left)**. Default `1`.
 - **Compact at 5-hour usage (% used)**. Default `97`.
 - **Compact at weekly usage (% used)**. Default `99`.
 
