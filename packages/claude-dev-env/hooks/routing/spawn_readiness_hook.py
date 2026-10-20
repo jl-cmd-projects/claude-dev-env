@@ -39,15 +39,10 @@ from hooks_constants.pre_tool_use_context_runner import run_context_hook
 from hooks_constants.spawn_readiness_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     AGENT_ID_KEY,
-    ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME,
     ALL_READ_ONLY_SUBAGENT_TYPES,
     CODEX_TRANSCRIPT_REMINDER,
     CODEX_TURN_ID_KEY,
     DECISION_LOG_RELATIVE_PATH,
-    DISPATCH_INPUTS_KEY,
-    DISPATCH_METHOD_INPUT_KEY,
-    DISPATCH_PROMPT_INPUT_KEY,
-    DISPATCH_RUN_WORKFLOW_METHOD,
     LOG_APPEND_MODE,
     LOG_LINE_END,
     LOG_OUTCOME_KEY,
@@ -70,50 +65,22 @@ from hooks_constants.spawn_readiness_hook_constants import (
     TRANSCRIPT_ENCODING,
     TRANSCRIPT_PATH_KEY,
     WORKFLOW_DISPATCH_TOOL_NAME,
-    WORKFLOW_SCRIPT_PATH_INPUT_KEY,
-    WORKFLOW_TOOL_NAME,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
+from spawn_brief_text import spawn_brief_text
 from spawn_readiness_steps import readiness_gaps, session_steps
 
 
-def _workflow_script(all_tool_input_fields: dict[str, object]) -> str:
-    script = all_tool_input_fields.get(ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME[WORKFLOW_TOOL_NAME])
-    if isinstance(script, str):
-        return script
-    script_path = all_tool_input_fields.get(WORKFLOW_SCRIPT_PATH_INPUT_KEY)
-    if not isinstance(script_path, str) or not script_path:
-        return ""
-    try:
-        return Path(script_path).read_text(
-            encoding=TRANSCRIPT_ENCODING, errors=TRANSCRIPT_DECODE_ERRORS
-        )
-    except OSError:
-        return ""
-
-
-def _dispatch_prompt(all_tool_input_fields: dict[str, object]) -> str | None:
-    if all_tool_input_fields.get(DISPATCH_METHOD_INPUT_KEY) != DISPATCH_RUN_WORKFLOW_METHOD:
-        return None
-    workflow_inputs = all_tool_input_fields.get(DISPATCH_INPUTS_KEY)
-    if not isinstance(workflow_inputs, dict):
-        return None
-    prompt = workflow_inputs.get(DISPATCH_PROMPT_INPUT_KEY)
-    return prompt if isinstance(prompt, str) else None
-
-
 def spawn_brief(tool_name: str, all_tool_input_fields: dict[str, object]) -> str | None:
-    """Return the brief a spawn call hands its agents, or None when the call spawns none.
+    """Return the brief a spawn call hands its agents, or None when the hook skips it.
 
     ::
 
         Agent             {"prompt": "Do X."}                         -> "Do X."
         Workflow          {"scriptPath": "w.js"}                      -> the text of w.js
-        actions trigger   {"method": "run_workflow",
-                           "inputs": {"prompt": "Do X."}}             -> "Do X."
         actions trigger   {"method": "cancel_workflow_run"}           -> None
         Agent             {"subagent_type": "Explore", "prompt": ...} -> None
 
@@ -121,16 +88,12 @@ def spawn_brief(tool_name: str, all_tool_input_fields: dict[str, object]) -> str
         tool_name: The tool the session called.
         all_tool_input_fields: The tool input.
     """
-    if tool_name == WORKFLOW_DISPATCH_TOOL_NAME:
-        return _dispatch_prompt(all_tool_input_fields)
-    if tool_name not in ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME:
+    if (
+        tool_name != WORKFLOW_DISPATCH_TOOL_NAME
+        and all_tool_input_fields.get(SUBAGENT_TYPE_INPUT_KEY) in ALL_READ_ONLY_SUBAGENT_TYPES
+    ):
         return None
-    if all_tool_input_fields.get(SUBAGENT_TYPE_INPUT_KEY) in ALL_READ_ONLY_SUBAGENT_TYPES:
-        return None
-    if tool_name == WORKFLOW_TOOL_NAME:
-        return _workflow_script(all_tool_input_fields)
-    brief = all_tool_input_fields.get(ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME[tool_name])
-    return brief if isinstance(brief, str) else ""
+    return spawn_brief_text(tool_name, all_tool_input_fields)
 
 
 def scope_settled_line(brief: str) -> str | None:

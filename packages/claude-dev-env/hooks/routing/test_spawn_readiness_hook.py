@@ -394,3 +394,16 @@ def test_should_print_nothing_for_empty_stdin(tmp_path: Path) -> None:
         check=True,
     )
     assert completed.stdout == ""
+
+
+def test_should_skip_a_read_only_helper_brief_and_read_a_remote_control_brief() -> None:
+    assert (
+        spawn_readiness_hook.spawn_brief("Agent", {"subagent_type": "Explore", "prompt": "Find X."})
+        is None
+    )
+    assert (
+        spawn_readiness_hook.spawn_brief(
+            "mcp__hearthbot__start_remote_control", {"instructions": "Do X."}
+        )
+        == "Do X."
+    )

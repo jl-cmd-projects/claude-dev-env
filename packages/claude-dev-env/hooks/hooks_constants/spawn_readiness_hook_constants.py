@@ -24,6 +24,8 @@ ALL_BRIEF_FIELDS_BY_SPAWN_TOOL_NAME = {
     THREAD_SPAWN_TOOL_NAME: "instructions",
     CODEX_SPAWN_TOOL_NAME: "message",
     WORKFLOW_TOOL_NAME: "script",
+    "mcp__hearthbot__start_rc_session": "instructions",
+    "mcp__hearthbot__start_remote_control": "instructions",
 }
 WORKFLOW_DISPATCH_TOOL_NAME = "mcp__github__actions_run_trigger"
 DISPATCH_METHOD_INPUT_KEY = "method"

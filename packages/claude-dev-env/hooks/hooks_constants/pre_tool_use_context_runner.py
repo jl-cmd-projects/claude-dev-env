@@ -1,8 +1,9 @@
-"""Shared main loop for PreToolUse hooks that only add context.
+"""Shared main loop for PreToolUse hooks that print a decided JSON output.
 
 Reads the payload from stdin, asks the hook's decide function for an output,
-and writes it as JSON. Exit status is always 0, so the tool call runs; a
-decide function that raises leaves the call with no output.
+and writes it as JSON. The output may add context or deny the call. Exit
+status is always 0; a decide function that raises leaves the call with no
+output.
 """
 
 from __future__ import annotations
