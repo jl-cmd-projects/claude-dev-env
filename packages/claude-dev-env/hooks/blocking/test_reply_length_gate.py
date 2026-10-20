@@ -1056,6 +1056,6 @@ def test_should_allow_short_github_comment_with_code_and_details(
 
 def test_should_read_gh_comment_body_and_skip_pr_create() -> None:
     comment_command = f'gh pr comment 12 --body "{LONG_GITHUB_COMMENT}"'
-    create_command = f'gh pr create --body "{LONG_GITHUB_COMMENT}"'
+    create_command = f'gh pr create --body "Run gh pr comment 12 to reply. {LONG_GITHUB_COMMENT}"'
     assert reply_length_gate.github_comment_texts("Bash", {"command": comment_command}) == [LONG_GITHUB_COMMENT]
     assert reply_length_gate.github_comment_texts("Bash", {"command": create_command}) == []

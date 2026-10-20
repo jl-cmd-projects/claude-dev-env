@@ -170,7 +170,7 @@ ALL_CHECKED_MCP_TOOL_NAMES = frozenset(
 )
 BASH_TOOL_NAME = "Bash"
 COMMAND_KEY = "command"
-GH_COMMENT_COMMAND_PATTERN = re.compile(r"\bgh\s+(?:pr|issue)\s+(?:comment|review)\b")
+GH_COMMENT_COMMAND_PATTERN = re.compile(r"\A\s*(?:\w+=\S+\s+)*gh\s+(?:pr|issue)\s+(?:comment|review)\b")
 DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
 COMMENT_RETRY_INSTRUCTION = (
     " A comment on GitHub holds at most three short sentences."
