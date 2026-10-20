@@ -53,7 +53,10 @@ try:
         ALL_PRESET_REPOSITORY_DIGESTS,
         ALL_SHELL_COMMAND_INPUT_KEYS,
         ALL_SHELL_TOOL_NAMES,
+        ALL_PYTHON_SCRIPTLESS_OPTIONS,
         ALREADY_EXISTS_MARKER,
+        BACKSLASH,
+        DOUBLED_BACKSLASH,
         GH_API_POST_METHOD,
         GH_API_PULLS_ENDPOINT_PATTERN,
         GH_API_SUBCOMMAND,
@@ -68,14 +71,28 @@ try:
         MCP_TOOL_NAME_PREFIX,
         NAME_DIGEST_TEXT_ENCODING,
         PULL_REQUEST_URL_PATTERN,
+        PYTHON_OPTION_AND_VALUE_WORD_COUNT,
+        PYTHON_OPTION_PREFIX,
+        PYTHON_SHORT_OPTION_LENGTH,
         REVIEW_LOOP_CONTEXT_TEMPLATE,
         SHELL_ARGUMENT_SEPARATOR,
     )
     from hooks_constants.post_tool_use_context import (
         write_post_tool_use_context_to_stdout,
     )
+    from hooks_constants.pr_lifecycle_skill_gate_constants import PYTHON_OPTIONS_WITH_VALUE
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-    from hooks_constants.shell_command_segments import command_tokens, split_into_segments
+    from hooks_constants.pull_request_proof_constants import (
+        ALL_PYTHON_PROGRAM_NAMES,
+        PULL_REQUEST_SCRIPT_CREATE_WORD,
+        PULL_REQUEST_SCRIPT_NAME,
+    )
+    from hooks_constants.pytest_invocation import unquoted_token
+    from hooks_constants.shell_command_segments import (
+        command_tokens,
+        split_into_segments,
+        token_basename,
+    )
     from hooks_constants.shell_command_wrappers import (
         all_wrapped_command_texts,
         segment_program_and_arguments,
@@ -127,8 +144,34 @@ def _is_gh_api_pulls_post(all_arguments: list[str]) -> bool:
     return sends_body
 
 
+def _python_script_index(all_arguments: list[str]) -> int | None:
+    index = 0
+    while index < len(all_arguments) and all_arguments[index].startswith(PYTHON_OPTION_PREFIX):
+        if all_arguments[index][:PYTHON_SHORT_OPTION_LENGTH] in ALL_PYTHON_SCRIPTLESS_OPTIONS:
+            return None
+        is_option_with_value = all_arguments[index] in PYTHON_OPTIONS_WITH_VALUE
+        index += PYTHON_OPTION_AND_VALUE_WORD_COUNT if is_option_with_value else 1
+    return index if index < len(all_arguments) else None
+
+
+def _is_pull_request_script_create(program_name: str, all_arguments: list[str]) -> bool:
+    all_script_arguments = all_arguments
+    if program_name != PULL_REQUEST_SCRIPT_NAME:
+        script_index = (
+            _python_script_index(all_arguments) if program_name in ALL_PYTHON_PROGRAM_NAMES else None
+        )
+        if script_index is None:
+            return False
+        if token_basename(unquoted_token(all_arguments[script_index])) != PULL_REQUEST_SCRIPT_NAME:
+            return False
+        all_script_arguments = all_arguments[script_index + 1 :]
+    return all_script_arguments[:1] == [PULL_REQUEST_SCRIPT_CREATE_WORD]
+
+
 def _segment_opens_pull_request(all_segment_tokens: list[str]) -> bool:
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if _is_pull_request_script_create(program_name, all_arguments):
+        return True
     return program_name == GH_PROGRAM_NAME and (
         _is_gh_pr_create(all_arguments) or _is_gh_api_pulls_post(all_arguments)
     )
@@ -137,11 +180,18 @@ def _segment_opens_pull_request(all_segment_tokens: list[str]) -> bool:
 def command_creates_pull_request(command: str) -> bool:
     """Return True when any segment of the shell command opens a pull request.
 
-    Three shapes count::
+    Four shapes count::
 
         gh pr create --fill
         gh pr new --fill
         gh api repos/acme/widgets/pulls --input pr.json
+        python ~/.agents/skills/pull-request/scripts/pull_request.py create --repo acme/widgets
+
+    The publisher counts when ``python``, ``python3``, or ``py`` runs a
+    script named ``pull_request.py`` with ``create``, or the script runs
+    alone. Interpreter options such as ``-X utf8`` before the script are
+    skipped, and an unquoted Windows path such as
+    ``C:\\tools\\pull_request.py`` keeps its separators.
 
     A ``gh api`` call counts only when it targets the pulls collection. An
     explicit method (``-X POST``, ``-XPOST``, ``--method=POST``) decides
@@ -157,7 +207,11 @@ def command_creates_pull_request(command: str) -> bool:
     return any(
         _segment_opens_pull_request(each_segment)
         for each_command_text in all_wrapped_command_texts(command)
-        for each_segment in split_into_segments(command_tokens(each_command_text))
+        for each_command_tokens in (
+            command_tokens(each_command_text),
+            command_tokens(each_command_text.replace(BACKSLASH, DOUBLED_BACKSLASH)),
+        )
+        for each_segment in split_into_segments(each_command_tokens)
     )
 
 

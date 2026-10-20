@@ -85,6 +85,13 @@ def _context_of(stdout: str) -> str:
         "gh api --method=POST repos/acme/widgets/pulls",
         "gh api -XPOST repos/acme/widgets/pulls",
         "gh api repos/acme/widgets/pulls -Ftitle=t -fhead=x",
+        'python "C:/Users/me/.agents/skills/pull-request/scripts/pull_request.py" create --repo acme/widgets',
+        "python3 ~/.agents/skills/pull-request/scripts/pull_request.py create --title t",
+        "py pull_request.py create --fill",
+        "git push && python pull_request.py create --repo acme/widgets 2>&1 | tail -5",
+        "python -X utf8 ~/.agents/skills/pull-request/scripts/pull_request.py create --fill",
+        "python -I -W ignore pull_request.py create",
+        "python C:\\Users\\me\\.agents\\skills\\pull-request\\scripts\\pull_request.py create",
     ],
 )
 def test_should_detect_gh_pr_create(command: str) -> None:
@@ -103,6 +110,12 @@ def test_should_detect_gh_pr_create(command: str) -> None:
         "gh api repos/acme/widgets/issues --input issue.json",
         "gh api --method GET repos/acme/widgets/pulls -f state=open",
         "gh api -X GET repos/acme/widgets/pulls -f state=open",
+        "python pull_request.py edit --repo acme/widgets --number 42",
+        "python other_script.py create",
+        "python pull_request.py",
+        "python -m pull_request.py create",
+        "python -c pull_request.py create",
+        "python C:\\Users\\me\\scripts\\my_pull_request.py create",
     ],
 )
 def test_should_not_detect_other_commands(command: str) -> None:
@@ -322,6 +335,16 @@ def test_main_should_emit_the_loop_after_a_gh_api_pulls_post() -> None:
     stdout = _run_hook(
         _shell_payload("gh api repos/jl-cmd-projects/claude-dev-env/pulls --input pr.json", rest_response)
     )
+    assert "jl-cmd-projects/claude-dev-env#42" in _context_of(stdout)
+
+
+def test_main_should_emit_the_loop_after_the_pull_request_publisher_creates() -> None:
+    publisher_command = (
+        'python "C:/Users/me/.agents/skills/pull-request/scripts/pull_request.py" create'
+        " --repo jl-cmd-projects/claude-dev-env --base main --head fix/x --title t"
+        " --body-file body.md 2>&1 | tail -5"
+    )
+    stdout = _run_hook(_shell_payload(publisher_command, f"{OWNED_PR_URL}\n"))
     assert "jl-cmd-projects/claude-dev-env#42" in _context_of(stdout)
 
 
