@@ -89,6 +89,9 @@ def _context_of(stdout: str) -> str:
         "python3 ~/.agents/skills/pull-request/scripts/pull_request.py create --title t",
         "py pull_request.py create --fill",
         "git push && python pull_request.py create --repo acme/widgets 2>&1 | tail -5",
+        "python -X utf8 ~/.agents/skills/pull-request/scripts/pull_request.py create --fill",
+        "python -I -W ignore pull_request.py create",
+        "python C:\\Users\\me\\.agents\\skills\\pull-request\\scripts\\pull_request.py create",
     ],
 )
 def test_should_detect_gh_pr_create(command: str) -> None:
@@ -110,6 +113,9 @@ def test_should_detect_gh_pr_create(command: str) -> None:
         "python pull_request.py edit --repo acme/widgets --number 42",
         "python other_script.py create",
         "python pull_request.py",
+        "python -m pull_request.py create",
+        "python -c pull_request.py create",
+        "python C:\\Users\\me\\scripts\\my_pull_request.py create",
     ],
 )
 def test_should_not_detect_other_commands(command: str) -> None:
