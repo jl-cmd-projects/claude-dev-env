@@ -181,7 +181,7 @@ def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPat
 def test_should_name_the_low_fix_pass_after_three_full_reviews_in_the_deny_reason() -> None:
     reason = _reason(_merge_tool(CLEAN_HEAD))
     assert "three full passes" in reason
-    assert "`/code-review low --fix`" in reason
+    assert "`/code-review low --fix 12`" in reason
 
 
 def test_should_allow_auto_merge_pinned_to_the_clean_head() -> None:

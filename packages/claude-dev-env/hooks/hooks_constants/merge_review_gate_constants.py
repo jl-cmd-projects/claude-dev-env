@@ -55,7 +55,8 @@ NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} has no clean review on the head you are merging. Run the review "
     "loop: review the pull request head with `{review_command}`, fix and push every "
     "finding, and review again. After three full passes, each later pass is "
-    "`/code-review low --fix`: commit and push its fixes, then review the new head. "
+    "`/code-review low --fix {number}`, which names the pull request so the diff "
+    "covers its base: commit and push its fixes, then review the new head. "
     "Repeat until a pass reports zero findings or every finding is ruled out with file:line "
     "evidence. Record that pass with `"
     + RECORD_COMMAND

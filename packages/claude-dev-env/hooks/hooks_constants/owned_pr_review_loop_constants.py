@@ -115,7 +115,7 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "1. Review loop. Load the efficient-review skill (/efficient-review). Review the\n"
     "   branch, check each finding against the code, fix every one that holds, push,\n"
     "   and review again. After three full passes, each later pass is\n"
-    "   /code-review low --fix; commit and push its fixes, then review the new head.\n"
+    "   /code-review low --fix {number}; commit and push its fixes, then review the new head.\n"
     "   Repeat until a pass reports no findings.\n"
     "2. Mark ready. Once the loop is clean, CI is green, and no review thread is open,\n"
     "   mark the PR ready for review (gh pr ready {number} --repo {owner}/{repository},\n"
