@@ -37,6 +37,7 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.final_reply_gate_constants import (
     ALLOW_EXIT_CODE,
     BLOCK_DECISION,
+    CODE_SPAN_PATTERN,
     DECISION_KEY,
     ESCAPED_PUNCTUATION_PATTERN,
     HOOK_EVENT_NAME,
@@ -47,10 +48,7 @@ from hooks_constants.final_reply_gate_constants import (
     WINDOWS_PATH_MESSAGE,
     WINDOWS_PATH_PATTERN,
 )
-from hooks_constants.reply_length_gate_constants import (
-    FENCED_BLOCK_PATTERN,
-    INLINE_CODE_PATTERN,
-)
+from hooks_constants.reply_length_gate_constants import FENCED_BLOCK_PATTERN
 
 
 def windows_path_violation(reply_text: str) -> str | None:
@@ -64,7 +62,7 @@ def windows_path_violation(reply_text: str) -> str | None:
         ok:   The report is at `D:\\Reports\\.claude\\report.html` now.
         ok:   The report is at D:\\Reports\\report.html now.
     """
-    prose_text = INLINE_CODE_PATTERN.sub(" ", FENCED_BLOCK_PATTERN.sub(" ", reply_text))
+    prose_text = CODE_SPAN_PATTERN.sub(" ", FENCED_BLOCK_PATTERN.sub(" ", reply_text))
     for each_path_match in WINDOWS_PATH_PATTERN.finditer(prose_text):
         if ESCAPED_PUNCTUATION_PATTERN.search(each_path_match.group()) is not None:
             return WINDOWS_PATH_MESSAGE.format(path=each_path_match.group())

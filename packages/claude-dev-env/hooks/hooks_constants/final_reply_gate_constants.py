@@ -11,7 +11,8 @@ REASON_KEY = "reason"
 ALLOW_EXIT_CODE = 0
 REWRITE_INSTRUCTION = " Rewrite the reply without it."
 WINDOWS_PATH_PATTERN = re.compile(r"(?<!\w)[A-Za-z]:\\\S*")
-ESCAPED_PUNCTUATION_PATTERN = re.compile(r"\\[!-/:-@\[-`{-~]")
+ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)\\(?:[!-/:-@\[\]^_`{-~])")
+CODE_SPAN_PATTERN = re.compile(r"(`+)[^\n]*?\1")
 WINDOWS_PATH_MESSAGE = (
     'Windows path "{path}" sits outside a code span. The terminal renders'
     " markdown and drops a backslash before punctuation, so a copied path"
