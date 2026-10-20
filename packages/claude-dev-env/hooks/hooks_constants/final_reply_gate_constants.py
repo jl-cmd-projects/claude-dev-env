@@ -11,10 +11,10 @@ REASON_KEY = "reason"
 ALLOW_EXIT_CODE = 0
 REWRITE_INSTRUCTION = " Rewrite the reply without it."
 NON_SPACE_TOKEN_PATTERN = re.compile(r"\S+")
-ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)\\[!-/:-@\[\]^_`{-~]")
+ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\[!-/:-@\[\]^_`{-~]")
 CODE_SPAN_PATTERN = re.compile(r"(?<![\\`])(`+)(?!`)[^\n]*?(?<!`)\1(?!`)")
 FENCED_CODE_PATTERN = re.compile(
-    r"^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}\1[^\n]*$|\Z)", re.MULTILINE | re.DOTALL
+    r"^ {0,3}((`|~)\2{2,})[^\n]*\n.*?(?:^ {0,3}\1\2*[ \t]*$|\Z)", re.MULTILINE | re.DOTALL
 )
 WINDOWS_PATH_MESSAGE = (
     'Path "{path}" sits outside a code span. The terminal renders'
