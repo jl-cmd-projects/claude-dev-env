@@ -97,6 +97,7 @@ Reuse a reachable worker whose context fits. Give a fresh worker the saved assig
 Register each delegated task before spawn and set one owner before the worker writes.
 Keep one writer per shared file. Isolate concurrent writers in separate worktrees or output directories.
 Pass the user's relevant words, goal ID, assignment locator, owned files, constraints, and acceptance check.
+State the user's outcome on an `Outcome:` line. Any route you name is a suggested default. Add an `On a blocker:` line: the worker tries other routes that reach the outcome and hands the user a step only when it needs their hands.
 Pass the active standing-instruction loading requirements to every descendant.
 Use [executor consult blocks](reference/executor-consult-block.md) and the [consult contract](reference/consult-the-orchestrator.md).
 Send follow-ups only through a transport authorized by the current runtime and user.

@@ -250,7 +250,7 @@
         ]
       },
       {
-        "matcher": "mcp__hearthbot__start_rc_session",
+        "matcher": "mcp__hearthbot__start_rc_session|mcp__hearthbot__start_remote_control",
         "hooks": [
           {
             "type": "command",

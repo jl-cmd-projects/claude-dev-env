@@ -158,7 +158,7 @@
         "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/empty_transcript.jsonl",
         "tool_input": {
           "description": "Budget sample",
-          "prompt": "Summarize the repository layout."
+          "prompt": "Outcome: the user has a summary of the repository layout. On a blocker: try another route; hand the user a step only when it needs their hands."
         }
       },
       "char_limit": 1500
