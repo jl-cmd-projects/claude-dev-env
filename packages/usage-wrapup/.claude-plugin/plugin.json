@@ -1,12 +1,12 @@
 {
   "name": "usage-wrapup",
-  "version": "0.2.0",
-  "description": "When your plan usage gets low, tells every running agent to wrap up before the limit cuts it off, and compacts the conversation when usage is nearly gone.",
+  "version": "0.3.0",
+  "description": "When your plan usage gets low, tells every running agent to keep working and checkpoint so a cutoff at the limit loses as little work as possible, and compacts the conversation when usage is nearly gone.",
   "userConfig": {
     "threshold": {
       "type": "number",
-      "title": "Wrap-up threshold (% left)",
-      "description": "Tell agents to finish when this much of a usage window is left.",
+      "title": "Low-usage threshold (% left)",
+      "description": "Tell agents to checkpoint as they work when this much of a usage window is left.",
       "default": 1
     },
     "compactFiveHour": {
