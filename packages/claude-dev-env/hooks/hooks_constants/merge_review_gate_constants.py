@@ -54,8 +54,9 @@ RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} has no clean review on the head you are merging. Run the review "
     "loop: review the pull request head with `{review_command}`, fix and push every "
-    "finding, and review again "
-    "until a pass reports zero findings or every finding is ruled out with file:line "
+    "finding, and review again. After three full passes, each later pass is "
+    "`/code-review low --fix`: commit and push its fixes, then review the new head. "
+    "Repeat until a pass reports zero findings or every finding is ruled out with file:line "
     "evidence. Record that pass with `"
     + RECORD_COMMAND
     + " {slug} {number} <head sha> <finding count>`, adding `--ruled-out <finding count> "

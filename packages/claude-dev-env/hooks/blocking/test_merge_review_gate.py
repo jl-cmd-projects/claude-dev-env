@@ -178,6 +178,12 @@ def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPat
     assert "`/team-review`" in _reason(_merge_tool(CLEAN_HEAD))
 
 
+def test_should_switch_to_a_low_fix_pass_after_three_full_reviews() -> None:
+    reason = _reason(_merge_tool(CLEAN_HEAD))
+    assert "three full passes" in reason
+    assert "`/code-review low --fix`" in reason
+
+
 def test_should_allow_auto_merge_pinned_to_the_clean_head() -> None:
     merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
     command = f"gh pr merge 12 --repo acme/tools --auto --match-head-commit {CLEAN_HEAD}"

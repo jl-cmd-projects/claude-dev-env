@@ -281,6 +281,8 @@ def test_should_name_every_step_and_skill_in_the_context() -> None:
     )
     assert "jl-cmd-projects/claude-dev-env#42" in context
     assert "efficient-review" in context
+    assert "three full passes" in context
+    assert "/code-review low --fix" in context
     assert "gh pr ready 42 --repo jl-cmd-projects/claude-dev-env" in context
     assert "poteto-mode/playbooks/babysit.md" in context
     assert "poteto-mode/playbooks/shipping.md" in context
