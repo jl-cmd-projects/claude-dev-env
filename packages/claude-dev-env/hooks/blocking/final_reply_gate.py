@@ -39,10 +39,11 @@ from hooks_constants.final_reply_gate_constants import (
     BLOCK_DECISION,
     CODE_SPAN_PATTERN,
     DECISION_KEY,
-    ESCAPED_PATH_TOKEN_PATTERN,
+    ESCAPED_PUNCTUATION_PATTERN,
     FENCED_CODE_PATTERN,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
+    NON_SPACE_TOKEN_PATTERN,
     REASON_KEY,
     REWRITE_INSTRUCTION,
     TRANSCRIPT_PATH_KEY,
@@ -63,10 +64,10 @@ def windows_path_violation(reply_text: str) -> str | None:
         ok:   The report is at D:\\Reports\\report.html now.
     """
     prose_text = CODE_SPAN_PATTERN.sub(" ", FENCED_CODE_PATTERN.sub(" ", reply_text))
-    escaped_token_match = ESCAPED_PATH_TOKEN_PATTERN.search(prose_text)
-    if escaped_token_match is None:
-        return None
-    return WINDOWS_PATH_MESSAGE.format(path=escaped_token_match.group())
+    for each_token_match in NON_SPACE_TOKEN_PATTERN.finditer(prose_text):
+        if ESCAPED_PUNCTUATION_PATTERN.search(each_token_match.group()) is not None:
+            return WINDOWS_PATH_MESSAGE.format(path=each_token_match.group())
+    return None
 
 
 def final_reply_violation(reply_text: str, transcript_path: object) -> str | None:
