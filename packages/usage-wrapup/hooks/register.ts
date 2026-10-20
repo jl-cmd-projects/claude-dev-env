@@ -31,7 +31,7 @@ function describe(low: Low): string {
 export function wrapUpNote(low: Low): string {
   return [
     `USAGE LOW — ${describe(low)}`,
-    'Keep working on the task. Low usage is no reason to end the turn or wait for the reset.',
+    'Keep working on the task. Low usage is no reason to end the turn or wait for the reset, unless the user asked you to wait for it.',
     'The limit may cut the session off, so make each step safe to lose:',
     '1. Leave files in a working state after each step, and save finished work the way your task already allows.',
     '2. Keep a short handoff current: what is done, what is left, the exact next step.',
