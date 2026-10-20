@@ -116,6 +116,8 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Check `this\nand `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
         ("```foo` bar\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
         ("Saved to D:\\Reports\\\n.claude\\x.html now.", 'Path "D:\\Reports\\"'),
+        ("\\\\`x` now C:\\Reports\\.claude\\r.html and `y`", 'Path "C:\\Reports'),
+        ("Check `this\n\nand C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
@@ -148,3 +150,19 @@ def test_should_allow_a_windows_path_inside_code(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
 ) -> None:
     assert run_gate(monkeypatch, capsys, reply_text) == (0, "")
+
+
+@pytest.mark.parametrize(
+    ("paragraph_text", "masked_text"),
+    [
+        ("see `a\\.b` and more", "see   and more"),
+        ("\\`x` stays", "\\`x` stays"),
+        ("\\\\`x` gone", "\\\\  gone"),
+        ("``a`b`` end", "  end"),
+        ("`open only", "`open only"),
+    ],
+)
+def test_should_mask_code_spans_the_way_commonmark_pairs_them(
+    paragraph_text: str, masked_text: str
+) -> None:
+    assert final_reply_gate.code_spans_masked(paragraph_text) == masked_text

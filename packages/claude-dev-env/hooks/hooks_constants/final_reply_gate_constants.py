@@ -15,7 +15,12 @@ ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\[!-/:-@\[\]^_`{-~]"
 HARD_BREAK_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\\Z")
 CARRIAGE_RETURN_LINE_BREAK = "\r\n"
 LINE_BREAK = "\n"
-CODE_SPAN_PATTERN = re.compile(r"(?<![\\`])(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)")
+BACKTICK_RUN_PATTERN = re.compile(r"`+")
+BLANK_LINE_PATTERN = re.compile(r"\n[ \t]*\n")
+PARAGRAPH_SEPARATOR = "\n\n"
+BACKSLASH = "\\"
+BACKSLASHES_PER_LITERAL = 2
+MASKED_CODE_TEXT = " "
 FENCED_CODE_PATTERN = re.compile(
     r"^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)\n.*?(?:^ {0,3}(?:\1`*|\2~*)[ \t]*$|\Z)",
     re.MULTILINE | re.DOTALL,
