@@ -1,6 +1,6 @@
 {
   "name": "usage-wrapup",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "When your plan usage gets low, tells every running agent to wrap up before the limit cuts it off, and compacts the conversation when usage is nearly gone.",
   "userConfig": {
     "threshold": {
