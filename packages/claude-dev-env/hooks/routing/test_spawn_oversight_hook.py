@@ -229,6 +229,6 @@ def test_brief_gaps_should_name_each_missing_clause() -> None:
     ]
 
 
-def test_script_prints_nothing_when_the_workflow_script_path_cannot_be_opened() -> None:
+def test_a_workflow_script_path_that_cannot_be_opened_gets_the_directive() -> None:
     payload = {"tool_name": "Workflow", "tool_input": {"scriptPath": "bad\u0000path.js"}}
-    assert _run_script(json.dumps(payload)) == ""
+    assert json.loads(_run_script(json.dumps(payload))) == _directive_output()

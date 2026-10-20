@@ -28,7 +28,6 @@ with the directive.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -44,7 +43,7 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
 )
-from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.pre_tool_use_context_runner import run_context_hook
 from hooks_constants.spawn_oversight_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     ALL_BLOCKER_CLAUSE_MARKERS,
@@ -159,21 +158,8 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
 
 
 def main() -> int:
-    """Run the hook on the stdin payload and print its output; always 0.
-
-    A decide step that raises leaves the call with no output.
-    """
-    hook_payload = read_hook_input_dictionary_from_stdin()
-    if hook_payload is None:
-        return 0
-    try:
-        hook_output = decide_hook_output(hook_payload)
-    except Exception:
-        return 0
-    if hook_output is not None:
-        sys.stdout.write(json.dumps(hook_output))
-        sys.stdout.flush()
-    return 0
+    """Run the hook on the stdin payload; always 0."""
+    return run_context_hook(decide_hook_output)
 
 
 if __name__ == "__main__":

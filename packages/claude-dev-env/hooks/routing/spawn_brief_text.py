@@ -48,7 +48,7 @@ def _workflow_script(all_tool_input_fields: dict[str, object]) -> str:
         return Path(script_path).read_text(
             encoding=TRANSCRIPT_ENCODING, errors=TRANSCRIPT_DECODE_ERRORS
         )
-    except OSError:
+    except (OSError, ValueError):
         return ""
 
 
