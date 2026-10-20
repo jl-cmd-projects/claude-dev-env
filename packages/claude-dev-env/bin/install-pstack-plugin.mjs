@@ -324,6 +324,8 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
  * Each host first removes every plugin in the set and then the marketplace,
  * so an older version never survives beside the new one. A removal that finds
  * nothing to remove exits non-zero on a fresh home, and the install goes on.
+ * Before the Claude marketplace add, the install deletes the half-made clone
+ * folder an interrupted earlier add left, so the add starts in an empty slot.
  *
  * Each host is one member of the batch. A host without its command-line tool
  * is skipped and a host whose command fails is reported, so the rules, hooks,
