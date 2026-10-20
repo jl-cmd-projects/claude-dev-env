@@ -124,6 +124,10 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Check `this\n    - and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
         ("Check `this\n    # and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
         ("Check `this\n\t# and `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("Check `this\n---\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n===\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n* * *\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
+        ("Check `this\n___\nand C:\\Reports\\.claude\\r.html `x`", 'Path "C:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
