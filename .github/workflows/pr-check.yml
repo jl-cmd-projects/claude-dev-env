@@ -77,6 +77,9 @@ jobs:
       - name: Install the Claude Code CLI for plugin tests
         run: npm install --global @anthropic-ai/claude-code@2.1.288
 
+      - name: Set up Bun for usage-wrapup tests
+        uses: oven-sh/setup-bun@v2
+
       - name: Configure git identity for test repos
         run: |
           git config --global user.email "ci@example.com"
