@@ -77,9 +77,11 @@ later pass, so this gate denies it and the model resends a shorter one.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -87,6 +89,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from gh_post_body_texts import extract_mcp_body_texts
 from json_file_reader import read_json_object
 from visual_reply_rules import (
     VisualReplyRules,
@@ -106,6 +109,17 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from hooks_constants.reply_length_gate_constants import (
+    ALL_CHECKED_MCP_TOOL_NAMES,
+    BASH_TOOL_NAME,
+    COMMAND_KEY,
+    COMMENT_RETRY_INSTRUCTION,
+    DETAILS_BLOCK_PATTERN,
+    ALL_GH_BODY_FLAGS,
+    ALL_GH_COMMENT_ACTIONS,
+    ALL_GH_COMMENT_GROUPS,
+    GH_BODY_FLAG_PREFIX,
+    GH_PROGRAM_NAME,
+    SHELL_OPERATOR_CHARACTERS,
     ALL_CHECKED_TOOL_NAMES,
     ALL_DECISION_CARD_LENGTH_KEYS,
     ALL_DECISION_CARD_PROSE_KEYS,
@@ -482,6 +496,81 @@ def tool_violation(
     return None if violation is None else (violation, reply_text)
 
 
+def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -> list[str]:
+    """Return the GitHub comment texts one call would post, or an empty list.
+
+    ::
+
+        mcp__github__add_issue_comment {"body": "Done."}  -> ["Done."]
+        Bash 'gh pr comment 12 --body "Done."'            -> ["Done."]
+        Bash 'git push && gh pr comment 12 --body "Done."' -> ["Done."]
+        Bash 'gh pr create --body "Long body"'            -> []
+    """
+    if tool_name in ALL_CHECKED_MCP_TOOL_NAMES:
+        return extract_mcp_body_texts(all_tool_input)
+    command = all_tool_input.get(COMMAND_KEY)
+    if tool_name != BASH_TOOL_NAME or not isinstance(command, str):
+        return []
+    try:
+        command_lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        command_lexer.whitespace_split = True
+        all_command_tokens = list(command_lexer)
+    except ValueError:
+        return []
+    return gh_comment_bodies(all_command_tokens)
+
+
+def gh_comment_bodies(all_command_tokens: list[str]) -> list[str]:
+    """Return the ``--body`` values of each ``gh pr|issue comment|review`` call in the tokens.
+
+    ::
+
+        git push && gh -R o/r pr comment 12 --body "Done."  -> ["Done."]
+        gh pr create --body "Long body"                     -> []
+    """
+    all_bodies: list[str] = []
+    for each_command_tokens in gh_command_token_runs(all_command_tokens):
+        all_pairs = list(itertools.pairwise(each_command_tokens))
+        if not any(
+            each_group in ALL_GH_COMMENT_GROUPS and each_action in ALL_GH_COMMENT_ACTIONS
+            for each_group, each_action in all_pairs
+        ):
+            continue
+        all_bodies.extend(
+            each_token[len(GH_BODY_FLAG_PREFIX):]
+            for each_token in each_command_tokens
+            if each_token.startswith(GH_BODY_FLAG_PREFIX)
+        )
+        all_bodies.extend(each_value for each_flag, each_value in all_pairs if each_flag in ALL_GH_BODY_FLAGS)
+    return all_bodies
+
+
+def is_command_token(token: str) -> bool:
+    """Return True when the token is part of a command, False for ``&&``, ``||``, ``;`` or ``|``."""
+    return not set(token) <= SHELL_OPERATOR_CHARACTERS
+
+
+def gh_command_token_runs(all_command_tokens: list[str]) -> list[list[str]]:
+    """Return the tokens after each ``gh`` token, up to the next shell operator."""
+    all_runs: list[list[str]] = []
+    for each_index, each_token in enumerate(all_command_tokens):
+        if each_token == GH_PROGRAM_NAME:
+            all_runs.append(list(itertools.takewhile(is_command_token, all_command_tokens[each_index + 1:])))
+    return all_runs
+
+
+def github_comment_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
+    """Return the deny reason and text for an over-long GitHub comment, or None.
+
+    Fenced code blocks and collapsed ``<details>`` blocks carry no words.
+    """
+    for each_comment_text in github_comment_texts(tool_name, all_tool_input):
+        violation = length_violation(DETAILS_BLOCK_PATTERN.sub(" ", each_comment_text))
+        if violation is not None:
+            return violation + COMMENT_RETRY_INSTRUCTION, each_comment_text
+    return None
+
+
 def write_flowchart_advice(tool_name: object, all_tool_input: dict[str, object]) -> None:
     """Print the flowchart advice for an allowed widget call that is not a flowchart."""
     mode_rules = active_mode_rules()
@@ -502,7 +591,9 @@ def main() -> int:
     tool_input = hook_input.get(TOOL_INPUT_KEY)
     if not isinstance(tool_input, dict):
         return ALLOW_EXIT_CODE
-    checked = tool_violation(tool_name, tool_input, hook_input.get(TRANSCRIPT_PATH_KEY))
+    checked = github_comment_violation(tool_name, tool_input) or tool_violation(
+        tool_name, tool_input, hook_input.get(TRANSCRIPT_PATH_KEY)
+    )
     if checked is None:
         write_flowchart_advice(tool_name, tool_input)
         return ALLOW_EXIT_CODE

@@ -159,3 +159,25 @@ UNSEEN_CITATION_MESSAGE = (
 )
 
 ADDITIONAL_CONTEXT_KEY = "additionalContext"
+ALL_CHECKED_MCP_TOOL_NAMES = frozenset(
+    {
+        "mcp__github__add_issue_comment",
+        "mcp__github__update_issue_comment",
+        "mcp__github__add_reply_to_pull_request_comment",
+        "mcp__github__add_comment_to_pending_review",
+        "mcp__github__pull_request_review_write",
+    }
+)
+BASH_TOOL_NAME = "Bash"
+COMMAND_KEY = "command"
+SHELL_OPERATOR_CHARACTERS = frozenset("&|;")
+GH_PROGRAM_NAME = "gh"
+ALL_GH_COMMENT_GROUPS = frozenset({"pr", "issue"})
+ALL_GH_COMMENT_ACTIONS = frozenset({"comment", "review"})
+ALL_GH_BODY_FLAGS = frozenset({"--body", "-b"})
+GH_BODY_FLAG_PREFIX = "--body="
+DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
+COMMENT_RETRY_INSTRUCTION = (
+    " A comment on GitHub holds at most three short sentences."
+    " Put detail in the pull request body, a code block, or a collapsed <details> block, then post again."
+)
