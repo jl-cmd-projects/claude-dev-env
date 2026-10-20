@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from collections.abc import Callable
 
@@ -34,6 +35,12 @@ def test_lowest_returns_the_lowest_window_at_or_below_the_threshold(
         "left": 1,
     }
     assert "weekly usage limit: only 1% left." in selection_report["note"]
+    assert "Keep working on the task" in selection_report["note"]
+    assert re.search(
+        r"\bstop\b|\bpause\b|Do not start new work|Wrap up now",
+        selection_report["note"],
+        re.IGNORECASE,
+    ) is None
     assert selection_report["atThreshold"] == {"kind": "five_hour", "left": 5}
     assert selection_report["aboveThreshold"] == "undefined"
     assert selection_report["justAboveThreshold"] == "undefined"
