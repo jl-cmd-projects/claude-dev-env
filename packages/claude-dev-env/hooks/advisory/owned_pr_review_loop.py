@@ -75,7 +75,17 @@ try:
         write_post_tool_use_context_to_stdout,
     )
     from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-    from hooks_constants.shell_command_segments import command_tokens, split_into_segments
+    from hooks_constants.pull_request_proof_constants import (
+        ALL_PYTHON_PROGRAM_NAMES,
+        PULL_REQUEST_SCRIPT_CREATE_WORD,
+        PULL_REQUEST_SCRIPT_NAME,
+    )
+    from hooks_constants.pytest_invocation import unquoted_token
+    from hooks_constants.shell_command_segments import (
+        command_tokens,
+        split_into_segments,
+        token_basename,
+    )
     from hooks_constants.shell_command_wrappers import (
         all_wrapped_command_texts,
         segment_program_and_arguments,
@@ -127,8 +137,21 @@ def _is_gh_api_pulls_post(all_arguments: list[str]) -> bool:
     return sends_body
 
 
+def _is_pull_request_script_create(program_name: str, all_arguments: list[str]) -> bool:
+    all_script_arguments = all_arguments
+    if program_name != PULL_REQUEST_SCRIPT_NAME:
+        if program_name not in ALL_PYTHON_PROGRAM_NAMES or not all_arguments:
+            return False
+        if token_basename(unquoted_token(all_arguments[0])) != PULL_REQUEST_SCRIPT_NAME:
+            return False
+        all_script_arguments = all_arguments[1:]
+    return all_script_arguments[:1] == [PULL_REQUEST_SCRIPT_CREATE_WORD]
+
+
 def _segment_opens_pull_request(all_segment_tokens: list[str]) -> bool:
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if _is_pull_request_script_create(program_name, all_arguments):
+        return True
     return program_name == GH_PROGRAM_NAME and (
         _is_gh_pr_create(all_arguments) or _is_gh_api_pulls_post(all_arguments)
     )
@@ -137,11 +160,16 @@ def _segment_opens_pull_request(all_segment_tokens: list[str]) -> bool:
 def command_creates_pull_request(command: str) -> bool:
     """Return True when any segment of the shell command opens a pull request.
 
-    Three shapes count::
+    Four shapes count::
 
         gh pr create --fill
         gh pr new --fill
         gh api repos/acme/widgets/pulls --input pr.json
+        python ~/.agents/skills/pull-request/scripts/pull_request.py create --repo acme/widgets
+
+    The publisher counts when ``python``, ``python3``, or ``py`` runs a
+    script named ``pull_request.py`` with ``create``, or the script runs
+    alone.
 
     A ``gh api`` call counts only when it targets the pulls collection. An
     explicit method (``-X POST``, ``-XPOST``, ``--method=POST``) decides
