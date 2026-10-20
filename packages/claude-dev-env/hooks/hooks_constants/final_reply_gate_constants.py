@@ -16,7 +16,21 @@ HARD_BREAK_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\\Z")
 CARRIAGE_RETURN_LINE_BREAK = "\r\n"
 LINE_BREAK = "\n"
 BACKTICK_RUN_PATTERN = re.compile(r"`+")
-BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>))")
+ALL_HTML_BLOCK_TAG_NAMES = (
+    "address article aside base basefont blockquote body caption center col colgroup"
+    " dd details dialog dir div dl dt fieldset figcaption figure footer form frame"
+    " frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu"
+    " menuitem nav noframes ol optgroup option p param search section summary table"
+    " tbody td tfoot th thead title tr track ul"
+).split()
+HTML_BLOCK_START = (
+    r"<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:pre|script|style|textarea)(?:[\s>]|$)"
+    r"|/?(?:" + "|".join(ALL_HTML_BLOCK_TAG_NAMES) + r")(?:[\s>]|/>|$))"
+)
+BLOCK_BOUNDARY_PATTERN = re.compile(
+    r"\n[ \t]*\n|\n(?= {0,3}(?:(?:[-*+]|1[.)])[ \t]+\S|>|" + HTML_BLOCK_START + "))",
+    re.IGNORECASE,
+)
 HEADING_LINE_PATTERN = re.compile(
     r"^( {0,3}(?:#{1,6}(?:[ \t][^\n]*)?|=+[ \t]*|(?:-[ \t]*)+|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}))$",
     re.MULTILINE,
