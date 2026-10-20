@@ -530,7 +530,7 @@ def gh_comment_bodies(all_command_tokens: list[str]) -> list[str]:
     """
     all_bodies: list[str] = []
     for each_command_tokens in gh_command_token_runs(all_command_tokens):
-        all_pairs = list(zip(each_command_tokens, each_command_tokens[1:]))
+        all_pairs = list(itertools.pairwise(each_command_tokens))
         if not any(
             each_group in ALL_GH_COMMENT_GROUPS and each_action in ALL_GH_COMMENT_ACTIONS
             for each_group, each_action in all_pairs
