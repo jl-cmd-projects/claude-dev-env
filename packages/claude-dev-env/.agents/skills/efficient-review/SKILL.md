@@ -21,7 +21,7 @@ When the plan runtime is `other`, the model is deferred. The running agent appli
 
 ## Loop
 
-Check each finding against the code. Fix every one that holds. Run the review again until a pass reports none. The steps are in [reference/criteria.md](reference/criteria.md).
+Check each finding against the code. Fix every one that holds. Run the review again until a pass reports none. Before a merge, [the pr-lifecycle review loop](../pr-lifecycle/reference/review-loop-before-merge.md) sets how many full passes run. The steps are in [reference/criteria.md](reference/criteria.md).
 
 ## Reading guide
 

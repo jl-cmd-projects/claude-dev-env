@@ -8,7 +8,7 @@ description: >-
 
 # e-code-review
 
-**Pick a level, load its file, run it.** Each file has the same steps, angles, caps, and fields as the built-in `/code-review` recipe for that level. Only the wording differs, where this repo's prose rules require it.
+**Pick a level, load its file, run it.** Each file has the same steps, angles, caps, and fields as the built-in `/code-review` recipe for that level. Only the wording differs, where this repo's prose rules require it. A question about `/code-review` asks about the built-in recipe, so answer it from the built-in text and use these files only for `/e-code-review`.
 
 | Level | File | Shape |
 |---|---|---|

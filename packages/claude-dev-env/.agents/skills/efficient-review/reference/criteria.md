@@ -18,4 +18,4 @@ An empty list is a valid review. End with a json block. Each finding has `file`,
 
 ## Loop
 
-Fix every finding that holds, including a file the diff did not touch. Then run the review again. Stop when a pass reports no finding that holds.
+Fix every finding that holds, including a file the diff did not touch. Then run the review again. Stop when a pass reports no finding that holds. Before a merge, [the pr-lifecycle review loop](../../pr-lifecycle/reference/review-loop-before-merge.md) sets how many full passes run.
