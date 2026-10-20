@@ -1059,3 +1059,5 @@ def test_should_read_gh_comment_body_and_skip_pr_create() -> None:
     create_command = f'gh pr create --body "Run gh pr comment 12 to reply. {LONG_GITHUB_COMMENT}"'
     assert reply_length_gate.github_comment_texts("Bash", {"command": comment_command}) == [LONG_GITHUB_COMMENT]
     assert reply_length_gate.github_comment_texts("Bash", {"command": create_command}) == []
+    chained_command = f"git push && {comment_command}"
+    assert reply_length_gate.github_comment_texts("Bash", {"command": chained_command}) == [LONG_GITHUB_COMMENT]

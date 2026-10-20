@@ -110,6 +110,7 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_MCP_TOOL_NAMES,
     BASH_TOOL_NAME,
     COMMAND_KEY,
+    COMMAND_SEGMENT_SEPARATOR_PATTERN,
     COMMENT_RETRY_INSTRUCTION,
     DETAILS_BLOCK_PATTERN,
     GH_COMMENT_COMMAND_PATTERN,
@@ -496,6 +497,7 @@ def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -
 
         mcp__github__add_issue_comment {"body": "Done."}  -> ["Done."]
         Bash 'gh pr comment 12 --body "Done."'            -> ["Done."]
+        Bash 'git push && gh pr comment 12 --body "Done."' -> ["Done."]
         Bash 'gh pr create --body "Long body"'            -> []
     """
     if tool_name in ALL_CHECKED_MCP_TOOL_NAMES:
@@ -503,9 +505,10 @@ def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -
     command = all_tool_input.get(COMMAND_KEY)
     if tool_name != BASH_TOOL_NAME or not isinstance(command, str):
         return []
-    if GH_COMMENT_COMMAND_PATTERN.search(command) is None:
-        return []
-    all_comment_texts, _ = extract_gh_post_body_texts_for_privacy_gate(command)
+    all_comment_texts: list[str] = []
+    for each_segment in COMMAND_SEGMENT_SEPARATOR_PATTERN.split(command):
+        if GH_COMMENT_COMMAND_PATTERN.search(each_segment) is not None:
+            all_comment_texts.extend(extract_gh_post_body_texts_for_privacy_gate(each_segment)[0])
     return all_comment_texts
 
 
