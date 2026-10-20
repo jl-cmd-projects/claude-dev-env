@@ -9,6 +9,10 @@ import final_reply_gate
 GUESSED_REPLY = "My guess is one to two hours if those builds pass first time."
 UNCONFIRMED_REPLY = "Merge queue: I didn\u2019t confirm this one."
 MEASURED_REPLY = "The last queue build took 39 minutes, run 18239174012."
+INSIGHTS_REPLY = (
+    "Your shareable insights report is ready:\n"
+    "file://C:\\Reports\\.claude-profiles\\org\\usage-data\\report-2026-10-20-094705.html"
+)
 
 
 def run_gate(
@@ -92,3 +96,37 @@ def test_should_allow_a_closing_reply_with_no_message(
 
 def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
     assert final_reply_gate.final_reply_violation(MEASURED_REPLY, None) is None
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "quoted_text"),
+    [
+        (INSIGHTS_REPLY, 'Broken file URL "file://C:'),
+        ("Open `file://C:/Reports/report.html` now.", 'Broken file URL "file://C:'),
+        ("The report is at C:\\Reports\\.claude\\report.html now.", 'Windows path "C:\\Reports'),
+    ],
+)
+def test_should_block_a_windows_path_markdown_mangles(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    reply_text: str,
+    quoted_text: str,
+) -> None:
+    _, stdout_text = run_gate(monkeypatch, capsys, reply_text)
+    decision = json.loads(stdout_text)
+    assert decision["decision"] == "block"
+    assert quoted_text in decision["reason"]
+
+
+@pytest.mark.parametrize(
+    "reply_text",
+    [
+        "Open `file:///C:/Reports/.claude/report.html` now.",
+        "The report is at `C:\\Reports\\.claude\\report.html` now.",
+        "Paths:\n```text\nC:\\Reports\\.claude\\report.html\n```",
+    ],
+)
+def test_should_allow_a_windows_path_inside_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], reply_text: str
+) -> None:
+    assert run_gate(monkeypatch, capsys, reply_text) == (0, "")
