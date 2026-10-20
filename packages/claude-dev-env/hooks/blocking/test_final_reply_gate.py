@@ -113,6 +113,8 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Saved to D:\\Reports\\. now", 'Path "D:\\Reports\\."'),
         ("Saved to D:\\Reports\\\\\\.claude now", 'Path "D:\\Reports'),
         ("```\n```python\n```\nOpen C:\\Reports\\.claude\\x.html now.\n```", 'Path "C:\\Reports'),
+        ("Check `this\nand `C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("```foo` bar\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
 def test_should_block_a_windows_path_markdown_mangles(
@@ -137,6 +139,7 @@ def test_should_block_a_windows_path_markdown_mangles(
         "The report is at C:\\\\Reports\\\\.claude\\\\report.html now.",
         "The report is at ``C:\\Reports\\.claude\\report.html`` now.",
         "Paths:\n~~~\nC:\\Reports\\.claude\\report.html\n~~~",
+        "Paths `C:\\Reports\\.claude\nreport.html` here.",
     ],
 )
 def test_should_allow_a_windows_path_inside_code(
