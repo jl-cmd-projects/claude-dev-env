@@ -77,6 +77,7 @@ later pass, so this gate denies it and the model resends a shorter one.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import re
@@ -116,9 +117,7 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_GH_BODY_FLAGS,
     ALL_GH_COMMENT_ACTIONS,
     ALL_GH_COMMENT_GROUPS,
-    ENVIRONMENT_ASSIGNMENT_PATTERN,
     GH_BODY_FLAG_PREFIX,
-    GH_COMMENT_COMMAND_TOKEN_COUNT,
     GH_PROGRAM_NAME,
     SHELL_OPERATOR_CHARACTERS,
     ALL_CHECKED_TOOL_NAMES,
@@ -518,48 +517,46 @@ def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -
         all_command_tokens = list(command_lexer)
     except ValueError:
         return []
-    all_comment_texts: list[str] = []
-    for each_segment in command_segments(all_command_tokens):
-        all_comment_texts.extend(gh_comment_bodies(each_segment))
-    return all_comment_texts
+    return gh_comment_bodies(all_command_tokens)
 
 
-def command_segments(all_command_tokens: list[str]) -> list[list[str]]:
-    """Split shell tokens into commands at each ``&&``, ``||``, ``;`` or ``|``."""
-    all_segments: list[list[str]] = [[]]
-    for each_token in all_command_tokens:
-        if each_token and set(each_token) <= SHELL_OPERATOR_CHARACTERS:
-            all_segments.append([])
-        else:
-            all_segments[-1].append(each_token)
-    return all_segments
+def gh_comment_bodies(all_command_tokens: list[str]) -> list[str]:
+    """Return the ``--body`` values of each ``gh pr|issue comment|review`` call in the tokens.
+
+    ::
+
+        git push && gh -R o/r pr comment 12 --body "Done."  -> ["Done."]
+        gh pr create --body "Long body"                     -> []
+    """
+    all_bodies: list[str] = []
+    for each_command_tokens in gh_command_token_runs(all_command_tokens):
+        all_pairs = list(zip(each_command_tokens, each_command_tokens[1:]))
+        if not any(
+            each_group in ALL_GH_COMMENT_GROUPS and each_action in ALL_GH_COMMENT_ACTIONS
+            for each_group, each_action in all_pairs
+        ):
+            continue
+        all_bodies.extend(
+            each_token[len(GH_BODY_FLAG_PREFIX):]
+            for each_token in each_command_tokens
+            if each_token.startswith(GH_BODY_FLAG_PREFIX)
+        )
+        all_bodies.extend(each_value for each_flag, each_value in all_pairs if each_flag in ALL_GH_BODY_FLAGS)
+    return all_bodies
 
 
-def gh_comment_bodies(all_segment_tokens: list[str]) -> list[str]:
-    """Return the ``--body`` values of one ``gh pr|issue comment|review`` command."""
-    all_program_tokens = [
-        each_token
-        for each_token in all_segment_tokens
-        if ENVIRONMENT_ASSIGNMENT_PATTERN.match(each_token) is None
-    ]
-    if (
-        all_program_tokens[:1] != [GH_PROGRAM_NAME]
-        or len(all_program_tokens) < GH_COMMENT_COMMAND_TOKEN_COUNT
-        or all_program_tokens[1] not in ALL_GH_COMMENT_GROUPS
-        or all_program_tokens[2] not in ALL_GH_COMMENT_ACTIONS
-    ):
-        return []
-    all_inline_bodies = [
-        each_token[len(GH_BODY_FLAG_PREFIX):]
-        for each_token in all_program_tokens
-        if each_token.startswith(GH_BODY_FLAG_PREFIX)
-    ]
-    all_flagged_bodies = [
-        each_value
-        for each_flag, each_value in zip(all_program_tokens, all_program_tokens[1:])
-        if each_flag in ALL_GH_BODY_FLAGS
-    ]
-    return all_inline_bodies + all_flagged_bodies
+def is_command_token(token: str) -> bool:
+    """Return True when the token is part of a command, False for ``&&``, ``||``, ``;`` or ``|``."""
+    return not set(token) <= SHELL_OPERATOR_CHARACTERS
+
+
+def gh_command_token_runs(all_command_tokens: list[str]) -> list[list[str]]:
+    """Return the tokens after each ``gh`` token, up to the next shell operator."""
+    all_runs: list[list[str]] = []
+    for each_index, each_token in enumerate(all_command_tokens):
+        if each_token == GH_PROGRAM_NAME:
+            all_runs.append(list(itertools.takewhile(is_command_token, all_command_tokens[each_index + 1:])))
+    return all_runs
 
 
 def github_comment_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:

@@ -1061,5 +1061,7 @@ def test_should_read_gh_comment_body_and_skip_pr_create() -> None:
     assert reply_length_gate.github_comment_texts("Bash", {"command": create_command}) == []
     multiline_command = 'gh pr comment 12 --body "' + LONG_GITHUB_COMMENT.replace(". ", ".\n") + '"'
     assert len(reply_length_gate.github_comment_texts("Bash", {"command": multiline_command})) == 1
+    flagged_command = f'git push\ngh -R o/r pr comment 12 --body "note=x. {LONG_GITHUB_COMMENT}"'
+    assert reply_length_gate.github_comment_texts("Bash", {"command": flagged_command}) == [f"note=x. {LONG_GITHUB_COMMENT}"]
     chained_command = f"git push && {comment_command}"
     assert reply_length_gate.github_comment_texts("Bash", {"command": chained_command}) == [LONG_GITHUB_COMMENT]
