@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.94.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.93.2...claude-dev-env-v8.94.0) (2026-10-20)
+
+
+### Features
+
+* **hooks:** refuse a spawn brief without the outcome and a blocker clause ([#2105](https://github.com/jl-cmd-projects/claude-dev-env/issues/2105)) ([7fc09f8](https://github.com/jl-cmd-projects/claude-dev-env/commit/7fc09f8f19c0a3aa28896da006bb170da8f92bfb))
+
 ## [8.93.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.93.1...claude-dev-env-v8.93.2) (2026-10-20)
 
 
