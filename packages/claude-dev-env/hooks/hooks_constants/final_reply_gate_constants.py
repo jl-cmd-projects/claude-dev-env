@@ -16,7 +16,9 @@ HARD_BREAK_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\\Z")
 CARRIAGE_RETURN_LINE_BREAK = "\r\n"
 LINE_BREAK = "\n"
 BACKTICK_RUN_PATTERN = re.compile(r"`+")
-BLANK_LINE_PATTERN = re.compile(r"\n[ \t]*\n")
+BLOCK_BOUNDARY_PATTERN = re.compile(r"\n[ \t]*\n|\n(?=[ \t]*(?:(?:[-*+]|\d+[.)])[ \t]|>))")
+HEADING_LINE_PATTERN = re.compile(r"^([ \t]*#{1,6}(?:[ \t][^\n]*)?)$", re.MULTILINE)
+HEADING_AS_OWN_BLOCK = "\n\n\\1\n\n"
 PARAGRAPH_SEPARATOR = "\n\n"
 BACKSLASH = "\\"
 BACKSLASHES_PER_LITERAL = 2

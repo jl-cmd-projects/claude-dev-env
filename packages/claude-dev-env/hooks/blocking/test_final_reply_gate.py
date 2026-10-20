@@ -118,6 +118,8 @@ def test_should_return_none_for_a_measured_reply_without_a_transcript() -> None:
         ("Saved to D:\\Reports\\\n.claude\\x.html now.", 'Path "D:\\Reports\\"'),
         ("\\\\`x` now C:\\Reports\\.claude\\r.html and `y`", 'Path "C:\\Reports'),
         ("Check `this\n\nand C:\\Reports\\.claude\\r.html` now.", 'Path "C:\\Reports'),
+        ("- Stray ` here\n- Saved to D:\\Reports\\.claude\\r.html\n- Run `x`", 'Path "D:\\Reports'),
+        ("# Stray ` here\nSaved to D:\\Reports\\.claude\\r.html `x`", 'Path "D:\\Reports'),
         ("```\r\ncode\r\n```\r\nOpen C:\\Reports\\.claude\\r.html now.", 'Path "C:\\Reports'),
     ],
 )
