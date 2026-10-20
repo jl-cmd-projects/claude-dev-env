@@ -37,12 +37,15 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.final_reply_gate_constants import (
     ALLOW_EXIT_CODE,
     BLOCK_DECISION,
+    CARRIAGE_RETURN_LINE_BREAK,
     CODE_SPAN_PATTERN,
     DECISION_KEY,
     ESCAPED_PUNCTUATION_PATTERN,
     FENCED_CODE_PATTERN,
+    HARD_BREAK_PATTERN,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
+    LINE_BREAK,
     NON_SPACE_TOKEN_PATTERN,
     REASON_KEY,
     REWRITE_INSTRUCTION,
@@ -63,10 +66,14 @@ def windows_path_violation(reply_text: str) -> str | None:
         ok:   The report is at `D:\\Reports\\.claude\\report.html` now.
         ok:   The report is at D:\\Reports\\report.html now.
     """
-    prose_text = CODE_SPAN_PATTERN.sub(" ", FENCED_CODE_PATTERN.sub(" ", reply_text))
+    line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
+    prose_text = CODE_SPAN_PATTERN.sub(" ", FENCED_CODE_PATTERN.sub(" ", line_feed_text))
     for each_token_match in NON_SPACE_TOKEN_PATTERN.finditer(prose_text):
-        if ESCAPED_PUNCTUATION_PATTERN.search(each_token_match.group()) is not None:
-            return WINDOWS_PATH_MESSAGE.format(path=each_token_match.group())
+        token_text = each_token_match.group()
+        is_line_end = prose_text.startswith(LINE_BREAK, each_token_match.end())
+        is_hard_break = is_line_end and HARD_BREAK_PATTERN.search(token_text) is not None
+        if is_hard_break or ESCAPED_PUNCTUATION_PATTERN.search(token_text) is not None:
+            return WINDOWS_PATH_MESSAGE.format(path=token_text)
     return None
 
 

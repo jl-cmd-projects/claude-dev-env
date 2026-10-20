@@ -12,6 +12,9 @@ ALLOW_EXIT_CODE = 0
 REWRITE_INSTRUCTION = " Rewrite the reply without it."
 NON_SPACE_TOKEN_PATTERN = re.compile(r"\S+")
 ESCAPED_PUNCTUATION_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\[!-/:-@\[\]^_`{-~]")
+HARD_BREAK_PATTERN = re.compile(r"(?<!\\)(?:\\\\)*\\\Z")
+CARRIAGE_RETURN_LINE_BREAK = "\r\n"
+LINE_BREAK = "\n"
 CODE_SPAN_PATTERN = re.compile(r"(?<![\\`])(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)")
 FENCED_CODE_PATTERN = re.compile(
     r"^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)\n.*?(?:^ {0,3}(?:\1`*|\2~*)[ \t]*$|\Z)",
