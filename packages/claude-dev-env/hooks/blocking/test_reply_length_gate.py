@@ -1022,3 +1022,40 @@ def test_should_leave_the_transcript_unread_when_the_text_cites_nothing(
 def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
     reply_text = "First one. Second one?\n```\nskipped. code\n```\nThird"
     assert reply_length_gate.prose_sentences(reply_text) == ["First one.", "Second one?", "", "Third"]
+
+
+LONG_GITHUB_COMMENT = " ".join(
+    "Sentence number one of a long comment that keeps going." for _ in range(50)
+)
+SHORT_GITHUB_COMMENT = "Fixed the cap check. The test now covers it. Checks pass."
+
+
+def test_should_deny_long_github_comment(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, "mcp__github__add_issue_comment", {"body": LONG_GITHUB_COMMENT}
+    )
+    assert exit_code == 2
+    assert "50 sentences, limit 3" in error_text
+
+
+def test_should_allow_short_github_comment_with_code_and_details(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    comment_text = (
+        SHORT_GITHUB_COMMENT
+        + "\n```\n" + LONG_GITHUB_COMMENT + "\n```\n"
+        + "<details><summary>Log</summary>\n" + LONG_GITHUB_COMMENT + "\n</details>"
+    )
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, "mcp__github__add_issue_comment", {"body": comment_text}
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_read_gh_comment_body_and_skip_pr_create() -> None:
+    comment_command = f'gh pr comment 12 --body "{LONG_GITHUB_COMMENT}"'
+    create_command = f'gh pr create --body "{LONG_GITHUB_COMMENT}"'
+    assert reply_length_gate.github_comment_texts("Bash", {"command": comment_command}) == [LONG_GITHUB_COMMENT]
+    assert reply_length_gate.github_comment_texts("Bash", {"command": create_command}) == []
