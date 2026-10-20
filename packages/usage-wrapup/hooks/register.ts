@@ -33,7 +33,7 @@ export function wrapUpNote(low: Low): string {
     `USAGE LOW — ${describe(low)}`,
     'Keep working on the task. Low usage is no reason to end the turn or wait for the reset.',
     'The limit may cut the session off, so make each step safe to lose:',
-    '1. Leave files in a working state after each step, and commit or push finished work.',
+    '1. Leave files in a working state after each step, and save finished work the way your task already allows.',
     '2. Keep a short handoff current: what is done, what is left, the exact next step.',
     `3. Arm one wake for just after ${low.resetsAt ?? 'the reset time'}, such as send_later to your own session or a create_trigger routine, so a session the limit cuts off resumes without a person.`,
   ].join('\n')

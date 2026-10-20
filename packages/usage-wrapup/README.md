@@ -1,13 +1,13 @@
 # usage-wrapup
 
-A Claude Code mod. When your plan usage gets low, it tells every running agent to keep working and checkpoint as it goes, so a cutoff at the limit loses no work and the session resumes on its own after the reset.
+A Claude Code mod. When your plan usage gets low, it tells every running agent to keep working and checkpoint as it goes, so a cutoff at the limit loses as little work as possible and the session resumes on its own after the reset.
 
 ## What it does
 
 - Watches your rate-limit windows (5-hour, weekly, spend limit).
 - When any window has **1% or less left** (configurable), every tool result, in the main agent **and** in subagents, carries a note telling the model to:
   1. keep working on the task, with no stop and no wait for the reset,
-  2. leave files in a working state after each step, and commit or push finished work,
+  2. leave files in a working state after each step, and save finished work the way its task already allows,
   3. keep a short handoff current (done / left / next step),
   4. arm one wake for just after the reset time, such as `send_later` to its own session or a `create_trigger` routine, so a session the limit cuts off resumes without a person.
 - Shows `⚠ N% left — checkpointing` in the status line and a one-time toast.

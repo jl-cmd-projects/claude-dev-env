@@ -1,7 +1,7 @@
 {
   "name": "usage-wrapup",
   "version": "0.3.0",
-  "description": "When your plan usage gets low, tells every running agent to keep working and checkpoint so the limit cuts off no unsaved work, and compacts the conversation when usage is nearly gone.",
+  "description": "When your plan usage gets low, tells every running agent to keep working and checkpoint so a cutoff at the limit loses as little work as possible, and compacts the conversation when usage is nearly gone.",
   "userConfig": {
     "threshold": {
       "type": "number",
