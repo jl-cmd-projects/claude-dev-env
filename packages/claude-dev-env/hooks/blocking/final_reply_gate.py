@@ -37,9 +37,8 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.final_reply_gate_constants import (
     ALLOW_EXIT_CODE,
     BLOCK_DECISION,
-    BROKEN_FILE_URL_MESSAGE,
-    BROKEN_FILE_URL_PATTERN,
     DECISION_KEY,
+    ESCAPED_PUNCTUATION_PATTERN,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
     REASON_KEY,
@@ -55,22 +54,20 @@ from hooks_constants.reply_length_gate_constants import (
 
 
 def windows_path_violation(reply_text: str) -> str | None:
-    """Return the block reason for a Windows path the rendered reply breaks, or None.
+    """Return the block reason for a Windows path the terminal renders wrong, or None.
 
-    A file URL needs three slashes. A bare path loses each backslash that
-    markdown reads as an escape, so it belongs in a code span::
+    The terminal reads a backslash before punctuation as a markdown escape
+    and drops it. A path outside a code span loses that backslash::
 
-        flag: file://D:\\Reports\\report.html
         flag: The report is at D:\\Reports\\.claude\\report.html now.
+              (the terminal shows D:\\Reports.claude\\report.html)
         ok:   The report is at `D:\\Reports\\.claude\\report.html` now.
+        ok:   The report is at D:\\Reports\\report.html now.
     """
-    broken_url_match = BROKEN_FILE_URL_PATTERN.search(reply_text)
-    if broken_url_match is not None:
-        return BROKEN_FILE_URL_MESSAGE.format(url=broken_url_match.group())
     prose_text = INLINE_CODE_PATTERN.sub(" ", FENCED_BLOCK_PATTERN.sub(" ", reply_text))
-    bare_path_match = WINDOWS_PATH_PATTERN.search(prose_text)
-    if bare_path_match is not None:
-        return WINDOWS_PATH_MESSAGE.format(path=bare_path_match.group())
+    for each_path_match in WINDOWS_PATH_PATTERN.finditer(prose_text):
+        if ESCAPED_PUNCTUATION_PATTERN.search(each_path_match.group()) is not None:
+            return WINDOWS_PATH_MESSAGE.format(path=each_path_match.group())
     return None
 
 
