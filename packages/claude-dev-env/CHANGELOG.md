@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.92.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.2...claude-dev-env-v8.92.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* **hooks:** wake the owned PR review loop on the publisher create ([#2097](https://github.com/jl-cmd-projects/claude-dev-env/issues/2097)) ([07978ef](https://github.com/jl-cmd-projects/claude-dev-env/commit/07978ef5dcb829ddaf1d301da2e677bbc589a415))
+
 ## [8.92.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.92.1...claude-dev-env-v8.92.2) (2026-10-20)
 
 
