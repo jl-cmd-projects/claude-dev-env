@@ -80,6 +80,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -87,7 +88,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from gh_post_body_texts import extract_gh_post_body_texts_for_privacy_gate, extract_mcp_body_texts
+from gh_post_body_texts import extract_mcp_body_texts
 from json_file_reader import read_json_object
 from visual_reply_rules import (
     VisualReplyRules,
@@ -110,10 +111,16 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_CHECKED_MCP_TOOL_NAMES,
     BASH_TOOL_NAME,
     COMMAND_KEY,
-    COMMAND_SEGMENT_SEPARATOR_PATTERN,
     COMMENT_RETRY_INSTRUCTION,
     DETAILS_BLOCK_PATTERN,
-    GH_COMMENT_COMMAND_PATTERN,
+    ALL_GH_BODY_FLAGS,
+    ALL_GH_COMMENT_ACTIONS,
+    ALL_GH_COMMENT_GROUPS,
+    ENVIRONMENT_ASSIGNMENT_PATTERN,
+    GH_BODY_FLAG_PREFIX,
+    GH_COMMENT_COMMAND_TOKEN_COUNT,
+    GH_PROGRAM_NAME,
+    SHELL_OPERATOR_CHARACTERS,
     ALL_CHECKED_TOOL_NAMES,
     ALL_DECISION_CARD_LENGTH_KEYS,
     ALL_DECISION_CARD_PROSE_KEYS,
@@ -505,11 +512,54 @@ def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -
     command = all_tool_input.get(COMMAND_KEY)
     if tool_name != BASH_TOOL_NAME or not isinstance(command, str):
         return []
+    try:
+        command_lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        command_lexer.whitespace_split = True
+        all_command_tokens = list(command_lexer)
+    except ValueError:
+        return []
     all_comment_texts: list[str] = []
-    for each_segment in COMMAND_SEGMENT_SEPARATOR_PATTERN.split(command):
-        if GH_COMMENT_COMMAND_PATTERN.search(each_segment) is not None:
-            all_comment_texts.extend(extract_gh_post_body_texts_for_privacy_gate(each_segment)[0])
+    for each_segment in command_segments(all_command_tokens):
+        all_comment_texts.extend(gh_comment_bodies(each_segment))
     return all_comment_texts
+
+
+def command_segments(all_command_tokens: list[str]) -> list[list[str]]:
+    """Split shell tokens into commands at each ``&&``, ``||``, ``;`` or ``|``."""
+    all_segments: list[list[str]] = [[]]
+    for each_token in all_command_tokens:
+        if each_token and set(each_token) <= SHELL_OPERATOR_CHARACTERS:
+            all_segments.append([])
+        else:
+            all_segments[-1].append(each_token)
+    return all_segments
+
+
+def gh_comment_bodies(all_segment_tokens: list[str]) -> list[str]:
+    """Return the ``--body`` values of one ``gh pr|issue comment|review`` command."""
+    all_program_tokens = [
+        each_token
+        for each_token in all_segment_tokens
+        if ENVIRONMENT_ASSIGNMENT_PATTERN.match(each_token) is None
+    ]
+    if (
+        all_program_tokens[:1] != [GH_PROGRAM_NAME]
+        or len(all_program_tokens) < GH_COMMENT_COMMAND_TOKEN_COUNT
+        or all_program_tokens[1] not in ALL_GH_COMMENT_GROUPS
+        or all_program_tokens[2] not in ALL_GH_COMMENT_ACTIONS
+    ):
+        return []
+    all_inline_bodies = [
+        each_token[len(GH_BODY_FLAG_PREFIX):]
+        for each_token in all_program_tokens
+        if each_token.startswith(GH_BODY_FLAG_PREFIX)
+    ]
+    all_flagged_bodies = [
+        each_value
+        for each_flag, each_value in zip(all_program_tokens, all_program_tokens[1:])
+        if each_flag in ALL_GH_BODY_FLAGS
+    ]
+    return all_inline_bodies + all_flagged_bodies
 
 
 def github_comment_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:

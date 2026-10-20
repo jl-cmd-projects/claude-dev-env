@@ -170,8 +170,14 @@ ALL_CHECKED_MCP_TOOL_NAMES = frozenset(
 )
 BASH_TOOL_NAME = "Bash"
 COMMAND_KEY = "command"
-COMMAND_SEGMENT_SEPARATOR_PATTERN = re.compile(r"&&|\|\||;|\n")
-GH_COMMENT_COMMAND_PATTERN = re.compile(r"\A\s*(?:\w+=\S+\s+)*gh\s+(?:pr|issue)\s+(?:comment|review)\b")
+SHELL_OPERATOR_CHARACTERS = frozenset("&|;")
+ENVIRONMENT_ASSIGNMENT_PATTERN = re.compile(r"\A\w+=")
+GH_PROGRAM_NAME = "gh"
+GH_COMMENT_COMMAND_TOKEN_COUNT = 3
+ALL_GH_COMMENT_GROUPS = frozenset({"pr", "issue"})
+ALL_GH_COMMENT_ACTIONS = frozenset({"comment", "review"})
+ALL_GH_BODY_FLAGS = frozenset({"--body", "-b"})
+GH_BODY_FLAG_PREFIX = "--body="
 DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
 COMMENT_RETRY_INSTRUCTION = (
     " A comment on GitHub holds at most three short sentences."
