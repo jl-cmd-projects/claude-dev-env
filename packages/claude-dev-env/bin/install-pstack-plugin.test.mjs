@@ -15,6 +15,7 @@ import {
     installMarketplacePlugins,
     marketplacePluginsPlan,
     removeOrphanedPluginVersions,
+    removeStaleMarketplaceClone,
     removeRetiredMarketplacePlugins,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
@@ -477,4 +478,25 @@ test('a held folder that was not searched adds no claim about what holds it', ()
     assert.equal(claude.status, 'failed');
     assert.match(claude.warning, /EPERM: operation not permitted$/);
     assert.doesNotMatch(claude.warning, /likely holder|Close /);
+});
+
+test('should delete a half-made marketplace clone before the shared marketplace add', () => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'cde-stale-clone-'));
+    const cloneDirectory = join(claudeRoot, 'plugins', 'marketplaces', 'jl-cmd-projects-claude-dev-env..clone');
+    mkdirSync(join(cloneDirectory, '.git'), { recursive: true });
+    writeFileSync(join(cloneDirectory, '.git', 'shallow.lock'), '');
+    const allCloneStatesAtAdd = [];
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], { claudeRoot, hosts: ['claude'] }, {
+        runCommand: (executable, commandArguments) => {
+            if (commandArguments[2] === 'add') allCloneStatesAtAdd.push(existsSync(cloneDirectory));
+            return { status: 0, stderr: '' };
+        },
+    });
+    assert.equal(outcome.status, 'installed');
+    assert.deepEqual(allCloneStatesAtAdd, [false]);
+    rmSync(claudeRoot, { recursive: true, force: true });
+});
+
+test('should report no removal when no stale marketplace clone exists', () => {
+    assert.equal(removeStaleMarketplaceClone(join(tmpdir(), 'cde-no-such-clone')), false);
 });
