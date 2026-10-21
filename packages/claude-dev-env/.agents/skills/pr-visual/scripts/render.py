@@ -73,8 +73,9 @@ def _captured_record_link(relative_path: str, snapshot: dict) -> str:
     raise RenderRunFatal("Tracker evidence must cite a captured issue, pull request, or tracker file.")
 
 
-def _plain_title(title: str, all_prefix_patterns: list[str]) -> str:
-    for each_pattern in all_prefix_patterns:
+def _plain_title(record: dict, settings: dict) -> str:
+    title = settings.get("titles", {}).get(str(record["number"]), record["title"])
+    for each_pattern in settings.get("strip", []):
         title = re.sub(each_pattern, "", title, count=1)
     return title
 
@@ -85,7 +86,7 @@ def _open_task_entry(issue: dict, repo: str, settings: dict) -> dict:
     pulls = c.PULL_REFERENCE_SEPARATOR.join(c.PULL_REFERENCE.format(number=each_pull["number"]) for each_pull in all_pulls)
     return {
         "number": issue["number"],
-        "title": _plain_title(issue["title"], settings.get("strip", [])),
+        "title": _plain_title(issue, settings),
         "url": c.ISSUE_LINK.format(repo=repo, number=issue["number"]),
         "progress": progress,
         "status": c.ALL_REMAINING_STATUS[progress].format(pulls=pulls),
@@ -97,7 +98,7 @@ def _open_task_entry(issue: dict, repo: str, settings: dict) -> dict:
 def _remaining_groups(record: dict, repo: str, settings: dict) -> list[dict]:
     all_open_tasks = [each_child for each_child in record["children"] if not each_child["children"] and each_child["state"] == "open" and each_child["number"] not in settings.get("exclude", [])]
     all_open_tasks.sort(key=lambda each_task: c.ALL_PULL_PROGRESS[::-1].index(each_task["progress"]))
-    all_groups = [{"number": record["number"], "title": _plain_title(record["title"], settings.get("strip", [])), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "items": [_open_task_entry(each_task, repo, settings) for each_task in all_open_tasks]}] if all_open_tasks else []
+    all_groups = [{"number": record["number"], "title": _plain_title(record, settings), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "items": [_open_task_entry(each_task, repo, settings) for each_task in all_open_tasks]}] if all_open_tasks else []
     for each_child in record["children"]:
         all_groups.extend(_remaining_groups(each_child, repo, settings))
     return all_groups
@@ -117,13 +118,14 @@ def _prepare_remaining(scene: dict, snapshot: dict, snapshot_path: Path) -> None
 
     A tracker scene gains a ``remaining`` list the viewer opens from its toolbar::
 
-        Cert fixes          #12  Not started                           Theme team
-                            #13  Fixed in #20; the issue is still open  No owner named
+        Cert fixes          #12  Not started                            Theme team
+                            #13  Fixed in pull request 20; still open    No owner named
         Follow-up branches  Image call counts  Waits to open           Theme team
 
     Args:
         scene: Scene with optional ``remaining`` settings: ``strip`` title
-            prefix patterns, ``owners`` keyed by pull progress, ``exclude``
+            prefix patterns, ``titles`` keyed by issue number for plain
+            wording, ``owners`` keyed by pull progress, ``exclude``
             issue numbers that are not work items, and ``extra`` groups whose
             items cite a captured record.
         snapshot: Captured tracker snapshot.

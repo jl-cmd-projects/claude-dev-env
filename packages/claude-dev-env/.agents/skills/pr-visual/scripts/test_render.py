@@ -105,7 +105,7 @@ def test_tracker_scene_lists_every_open_task_under_its_epic(tmp_path: Path) -> N
     epic, follow_ups = scene["remaining"]["groups"]
     assert [(each_item["number"], each_item["title"], each_item["status"], each_item["owner"]) for each_item in epic["items"]] == [
         (4, "task without a fix", "Not started", "Build team"),
-        (2, "task with a fix", "Fixed in #3; the issue is still open", "Tracker cleanup"),
+        (2, "task with a fix", "Fixed in pull request 3; the issue is still open", "Tracker cleanup"),
     ]
     assert epic["items"][1]["url"] == "https://github.com/example/project/issues/2"
     assert follow_ups["items"][0]["url"] == "https://github.com/example/project/issues/1"
@@ -132,3 +132,13 @@ def test_tracker_scene_leaves_out_excluded_issues(tmp_path: Path) -> None:
     (tmp_path / "tracker.scene.json").write_text(json.dumps(scene))
     epic = prepare(tmp_path / "tracker.scene.json")["remaining"]["groups"][0]
     assert [each_item["number"] for each_item in epic["items"]] == [2]
+
+
+def test_tracker_scene_uses_the_plain_title_a_scene_gives(tmp_path: Path) -> None:
+    """The list shows the plain title a scene gives for an issue number."""
+    shutil.copytree(FIXTURES / "tracker", tmp_path / "tracker")
+    scene = json.loads((FIXTURES / "tracker.scene.json").read_text())
+    scene["remaining"]["titles"] = {"4": "Build the missing fix"}
+    (tmp_path / "tracker.scene.json").write_text(json.dumps(scene))
+    epic = prepare(tmp_path / "tracker.scene.json")["remaining"]["groups"][0]
+    assert [each_entry["title"] for each_entry in epic["items"]] == ["Build the missing fix", "task with a fix"]
