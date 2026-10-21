@@ -196,7 +196,8 @@ def _step_texts(card: dict) -> set[str]:
 
 def _has_own_step(card: dict, text_counts: Counter) -> bool:
     all_borrowed_text = {card["title"].strip(), card.get("note", "").strip(), ""}
-    return any(text_counts[each_text] == 1 and each_text not in all_borrowed_text for each_text in _step_texts(card))
+    is_every_step_written = all(each_step.get("text") for each_step in card.get("steps", []))
+    return is_every_step_written and any(text_counts[each_text] == 1 and each_text not in all_borrowed_text for each_text in _step_texts(card))
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
