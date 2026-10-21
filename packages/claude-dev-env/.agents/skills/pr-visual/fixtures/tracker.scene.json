@@ -80,7 +80,7 @@
       {"heading": "Proof", "label": "Proof", "kind": "green"}
     ],
     "lanes": [
-      {"node": "epic", "groups": [{"title": "Follow-up branches", "cards": [{"title": "Task one follow-up", "source": {"path": "issues/1.md", "line": 5}}]}]},
+      {"node": "epic", "groups": [{"title": "Follow-up branches", "cards": [{"title": "Task one follow-up", "source": {"path": "issues/1.md", "line": 5}, "steps": [{"label": "Today", "kind": "orange", "text": "Task one waits for a follow-up branch."}]}]}]},
       {"node": "left", "progress": "no_pull"},
       {"node": "fixed", "progress": "merged_pull"}
     ]

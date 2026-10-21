@@ -35,6 +35,8 @@ ALL_PULL_PROGRESS = ("merged_pull", "open_pull", "no_pull")
 ALL_CARD_NOTES = {"no_pull": "", "open_pull": "Open in pull request {pulls}", "merged_pull": "Merged in pull request {pulls}"}
 PULL_REFERENCE = "{number}"
 PULL_REFERENCE_SEPARATOR = ", "
+EMPTY_CARD_MESSAGE = "{count} of {total} board cards carry no content of their own. Give each card a step whose text is not its title or note and no other card repeats: {titles}"
+EMPTY_CARD_TITLE_LIMIT = 5
 ALL_PULL_FIELDS =("number", "title", "state", "draft", "merged_at", "closed_at", "updated_at", "html_url")
 COMPARE_ENDPOINT = "repos/{repo}/compare/{base}...{head}"
 FILES_ENDPOINT = "repos/{repo}/pulls/{number}/files?per_page={size}&page={page}"

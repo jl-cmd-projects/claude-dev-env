@@ -4,6 +4,7 @@ import copy
 import itertools
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 
@@ -166,6 +167,32 @@ def _prepare_board(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
         raise RenderRunFatal("Every board node needs exactly one lane.")
     all_lanes = [_board_lane(each_lane, tracker, settings, snapshot, snapshot_path) for each_lane in settings["lanes"]]
     scene["board"] = {"lanes": all_lanes, "count": sum(each_lane["count"] for each_lane in all_lanes)}
+    require_own_card_content(scene["board"])
+
+
+def require_own_card_content(board: dict) -> None:
+    """Refuse a board whose cards say nothing of their own.
+
+    A card passes when one of its steps carries text that is not its title
+    or note and that no other card on the board repeats. A card holding only
+    a title, a link, or text shared by every card in its lane fails.
+
+    Args:
+        board: Prepared board with ``lanes`` of ``groups`` of ``cards``.
+
+    Raises:
+        RenderRunFatal: Names each card with no content of its own.
+    """
+    all_cards = [each_card for each_lane in board["lanes"] for each_group in each_lane["groups"] for each_card in each_group["cards"]]
+    text_counts = Counter(each_step["text"].strip() for each_card in all_cards for each_step in each_card.get("steps", []))
+    all_empty_titles = [each_card["title"] for each_card in all_cards if not _has_own_step(each_card, text_counts)]
+    if all_empty_titles:
+        raise RenderRunFatal(c.EMPTY_CARD_MESSAGE.format(count=len(all_empty_titles), total=len(all_cards), titles=c.PULL_REFERENCE_SEPARATOR.join(all_empty_titles[:c.EMPTY_CARD_TITLE_LIMIT])))
+
+
+def _has_own_step(card: dict, text_counts: Counter) -> bool:
+    all_borrowed_text = {card["title"].strip(), card.get("note", "").strip(), ""}
+    return any(text_counts[each_step["text"].strip()] == 1 and each_step["text"].strip() not in all_borrowed_text for each_step in card.get("steps", []))
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
