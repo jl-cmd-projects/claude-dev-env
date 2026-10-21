@@ -184,15 +184,19 @@ def require_own_card_content(board: dict) -> None:
         RenderRunFatal: Names each card with no content of its own.
     """
     all_cards = [each_card for each_lane in board["lanes"] for each_group in each_lane["groups"] for each_card in each_group["cards"]]
-    text_counts = Counter(each_step["text"].strip() for each_card in all_cards for each_step in each_card.get("steps", []))
+    text_counts = Counter(each_text for each_card in all_cards for each_text in _step_texts(each_card))
     all_empty_titles = [each_card["title"] for each_card in all_cards if not _has_own_step(each_card, text_counts)]
     if all_empty_titles:
         raise RenderRunFatal(c.EMPTY_CARD_MESSAGE.format(count=len(all_empty_titles), total=len(all_cards), titles=c.PULL_REFERENCE_SEPARATOR.join(all_empty_titles[:c.EMPTY_CARD_TITLE_LIMIT])))
 
 
+def _step_texts(card: dict) -> set[str]:
+    return {each_step.get("text", "").strip() for each_step in card.get("steps", [])}
+
+
 def _has_own_step(card: dict, text_counts: Counter) -> bool:
     all_borrowed_text = {card["title"].strip(), card.get("note", "").strip(), ""}
-    return any(text_counts[each_step["text"].strip()] == 1 and each_step["text"].strip() not in all_borrowed_text for each_step in card.get("steps", []))
+    return any(text_counts[each_text] == 1 and each_text not in all_borrowed_text for each_text in _step_texts(card))
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:

@@ -177,6 +177,19 @@ def test_own_card_content_names_the_card_with_only_shared_steps() -> None:
         require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
 
 
+def test_own_card_content_accepts_text_a_card_repeats_only_within_itself() -> None:
+    """Two steps of one card that share text still count as that card's own."""
+    all_cards = [{"title": "Repeating card", "steps": [{"label": "Today", "text": "See the gap."}, {"label": "Fix", "text": "See the gap."}]}]
+    assert require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]}) is None
+
+
+def test_own_card_content_refuses_steps_without_text() -> None:
+    """A step holding only a label is no content."""
+    all_cards = [{"title": "Label card", "steps": [{"label": "Today"}]}]
+    with pytest.raises(RenderRunFatal, match="Label card"):
+        require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
+
+
 def test_tracker_board_rejects_a_node_with_no_lane(tmp_path: Path) -> None:
     """Every state node on a board sits in exactly one lane."""
     scene = _board_scene(tmp_path)
