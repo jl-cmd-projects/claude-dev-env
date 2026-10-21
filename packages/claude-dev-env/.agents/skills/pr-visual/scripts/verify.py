@@ -51,6 +51,35 @@ def _toolbar_details(root: Locator, node_count: int) -> None:
         root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
 
 
+def _check_board(root: Locator, scene: dict) -> None:
+    all_cards = root.locator(c.BOARD_CARD_SELECTOR)
+    if not scene.get("board"):
+        assert all_cards.count() == 0
+        return
+    assert all_cards.count() == scene["board"]["count"]
+    assert not all_cards.evaluate_all(c.CARD_FIT_EXPRESSION)
+    _check_board_text(root, c.CANVAS_TEXT_SELECTOR)
+    first_card = 0
+    for each_lane in scene["board"]["lanes"]:
+        if not each_lane["count"]:
+            continue
+        card = each_lane["groups"][0]["cards"][0]
+        all_cards.nth(first_card).click()
+        assert root.locator(c.DETAIL_TITLE_SELECTOR).inner_text() == card["title"]
+        assert root.locator(c.CARD_STEP_SELECTOR).count() == max(1, len(card.get("steps", [])))
+        _check_board_text(root, c.CARD_FLOW_TEXT_SELECTOR)
+        root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
+        assert root.locator(c.DRAWER_SELECTOR).is_hidden()
+        first_card += each_lane["count"]
+
+
+def _check_board_text(root: Locator, selector: str) -> None:
+    background = _luminance(c.PAGE_BACKGROUND_COLOR)
+    for each_text in root.locator(selector).evaluate_all(c.BOARD_TEXT_EXPRESSION):
+        assert each_text["size"] >= c.MINIMUM_BOARD_FONT_SIZE, each_text
+        assert (background + c.CONTRAST_OFFSET) / (_luminance(each_text["color"]) + c.CONTRAST_OFFSET) >= c.MINIMUM_BOARD_CONTRAST, each_text
+
+
 def _keyboard_and_zoom(page: Page, root: Locator) -> None:
     first_node = root.locator(c.NODE_SELECTOR).first
     first_node.focus()
@@ -66,11 +95,15 @@ def _keyboard_and_zoom(page: Page, root: Locator) -> None:
 
 def _scene_screenshots(page: Page, root: Locator, scene: dict, proof_directory: Path, scene_index: int) -> None:
     page.screenshot(path=str(proof_directory / c.PR_SCREENSHOT_NAME.format(number=scene["pr"]["number"], index=scene_index)), full_page=True)
+    if scene.get("board"):
+        root.locator(c.WORKSPACE_SELECTOR).evaluate(c.UNCLIP_WORKSPACE_EXPRESSION)
+        root.locator(c.CANVAS_SELECTOR).screenshot(path=str(proof_directory / c.BOARD_SCREENSHOT_NAME.format(number=scene["pr"]["number"], index=scene_index)))
+        root.locator(c.WORKSPACE_SELECTOR).evaluate(c.RECLIP_WORKSPACE_EXPRESSION)
     all_nodes = root.locator(c.NODE_SELECTOR)
     all_nodes.first.click()
     page.screenshot(path=str(proof_directory / c.DETAIL_SCREENSHOT_NAME.format(number=scene["pr"]["number"], index=scene_index)), full_page=True)
     if all_nodes.count() > 1:
-        all_nodes.nth(1).click()
+        root.locator(c.NODE_TARGET_SELECTOR.format(target=scene["nodes"][1]["id"])).click()
         assert root.locator(c.DETAIL_TITLE_SELECTOR).inner_text() == c.SPACE_SEPARATOR.join(scene["nodes"][1]["label"])
     page.keyboard.press("Escape")
 
@@ -78,17 +111,18 @@ def _scene_screenshots(page: Page, root: Locator, scene: dict, proof_directory: 
 def _verify_scene(page: Page, root: Locator, scene: dict, scene_index: int, proof_directory: Path) -> dict:
     root.get_by_role("tab").nth(scene_index).click()
     all_nodes = root.locator(c.NODE_SELECTOR)
-    for each_index, each_node in enumerate(scene["nodes"]):
-        all_nodes.nth(each_index).click()
+    for each_node in scene["nodes"]:
+        root.locator(c.NODE_TARGET_SELECTOR.format(target=each_node["id"])).click()
         _check_node(root, each_node)
         _navigate_related(root)
         page.keyboard.press("Escape")
         assert root.locator(c.DRAWER_SELECTOR).is_hidden()
         assert root.locator(c.SELECTED_NODE_SELECTOR).count() == 0
     _toolbar_details(root, len(scene["nodes"]))
+    _check_board(root, scene)
     _keyboard_and_zoom(page, root)
     _scene_screenshots(page, root, scene, proof_directory, scene_index)
-    return {"pr": scene["pr"]["number"], "nodes_checked": all_nodes.count(), "docked_panel": "pass", "mini_diagrams": "pass", "related_navigation": "pass", "collapsed_sources": "pass", "keyboard_and_zoom": "pass"}
+    return {"pr": scene["pr"]["number"], "nodes_checked": all_nodes.count(), "docked_panel": "pass", "mini_diagrams": "pass", "related_navigation": "pass", "collapsed_sources": "pass", "keyboard_and_zoom": "pass", "board_cards": scene["board"]["count"] if scene.get("board") else "none"}
 
 
 def _dashboard(page: Page, root: Locator, all_scenes: list[dict], proof_directory: Path) -> None:
