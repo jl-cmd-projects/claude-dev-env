@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.95.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.95.0...claude-dev-env-v8.95.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **installer:** clear a half-made marketplace clone before the add ([#2110](https://github.com/jl-cmd-projects/claude-dev-env/issues/2110)) ([67f8886](https://github.com/jl-cmd-projects/claude-dev-env/commit/67f88866e19bba00fe1e47c555af2a47175f5de2))
+
 ## [8.95.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.94.0...claude-dev-env-v8.95.0) (2026-10-20)
 
 
