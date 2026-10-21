@@ -151,9 +151,9 @@ def _prepare_board(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
             naming a scene ``node`` and either a tracker ``progress``
             (``no_pull``, ``open_pull``, ``merged_pull``) or cited ``groups``
             of cards; ``strip`` title prefix patterns, ``titles`` keyed by
-            issue number for plain wording, ``exclude`` issue numbers that
-            are not work items, ``steps`` naming the issue body sections a
-            card's own diagram shows, and ``wording`` swaps for their text.
+            issue number, ``exclude`` issue numbers that are not work,
+            ``steps`` naming the body sections each card diagram shows,
+            and ``wording`` swaps for that text.
         snapshot: Captured tracker snapshot.
         snapshot_path: Snapshot file the tracker tree sits beside.
 
@@ -162,8 +162,7 @@ def _prepare_board(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
     """
     settings = scene["board"]
     tracker = json.loads((snapshot_path.parent / c.HEAD_SIDE / c.TRACKER_PATH).read_text(encoding="utf-8"))
-    all_lane_nodes = [each_lane["node"] for each_lane in settings["lanes"]]
-    if sorted(all_lane_nodes) != sorted(each_node["id"] for each_node in scene["nodes"]):
+    if sorted(each_lane["node"] for each_lane in settings["lanes"]) != sorted(each_node["id"] for each_node in scene["nodes"]):
         raise RenderRunFatal("Every board node needs exactly one lane.")
     all_lanes = [_board_lane(each_lane, tracker, settings, snapshot, snapshot_path) for each_lane in settings["lanes"]]
     scene["board"] = {"lanes": all_lanes, "count": sum(each_lane["count"] for each_lane in all_lanes)}
