@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.1...claude-dev-env-v8.96.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **pr-visual:** refuse a board card step that carries no text ([#2116](https://github.com/jl-cmd-projects/claude-dev-env/issues/2116)) ([b450df8](https://github.com/jl-cmd-projects/claude-dev-env/commit/b450df8b1cca29389fcf1b4ce310f7aedad429a5))
+
 ## [8.96.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.0...claude-dev-env-v8.96.1) (2026-10-21)
 
 
