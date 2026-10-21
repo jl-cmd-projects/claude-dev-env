@@ -140,3 +140,10 @@ def test_should_return_the_playbook_from_step_two() -> None:
     handed_off_steps = correction_task_card.handed_off_playbook_steps(FIX_PLAYBOOK_TEXT)
     assert handed_off_steps.startswith("2. ")
     assert "pull request link" in handed_off_steps
+
+
+def test_should_hand_off_the_incident_case_step_with_the_proof() -> None:
+    handed_off_steps = correction_task_card.handed_off_playbook_steps(FIX_PLAYBOOK_TEXT)
+    proof_step = handed_off_steps.split("\n7. ", 1)[1].split("\n8. ", 1)[0]
+    assert "incident eval" in proof_step
+    assert "same pull request" in proof_step
