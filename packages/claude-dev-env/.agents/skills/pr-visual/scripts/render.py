@@ -1,6 +1,7 @@
 """Validate evidence-backed diagram scenes and render a portable HTML visual."""
 import argparse
 import copy
+import itertools
 import json
 import re
 from pathlib import Path
@@ -80,7 +81,22 @@ def _plain_title(record: dict, settings: dict) -> str:
     return title
 
 
-def _tracker_card(issue: dict, repo: str, settings: dict) -> dict:
+def _issue_steps(number: int, snapshot_path: Path, settings: dict) -> list[dict]:
+    all_lines = (snapshot_path.parent / c.HEAD_SIDE / c.ISSUE_BODY_PATH.format(number=number)).read_text(encoding="utf-8").splitlines()
+    all_steps = []
+    for each_step in settings.get("steps", []):
+        heading = c.SECTION_HEADING.format(heading=each_step["heading"])
+        if heading not in all_lines:
+            continue
+        all_paragraph_lines = list(itertools.takewhile(str.strip, all_lines[all_lines.index(heading) + 1:]))
+        text = c.SPACE_SEPARATOR.join(all_paragraph_lines)
+        for each_word, each_plain_word in settings.get("wording", {}).items():
+            text = re.sub(c.WHOLE_PHRASE_PATTERN.format(phrase=re.escape(each_word)), each_plain_word, text)
+        all_steps.append({**{each_field: each_setting for each_field, each_setting in each_step.items() if each_field != "heading"}, "text": text})
+    return all_steps
+
+
+def _tracker_card(issue: dict, repo: str, settings: dict, snapshot_path: Path) -> dict:
     progress = issue["progress"]
     all_pulls = [each_pull for each_pull in issue["linked_pulls"] if (each_pull["merged_at"] if progress == "merged_pull" else each_pull["state"] == "open")]
     pulls = c.PULL_REFERENCE_SEPARATOR.join(c.PULL_REFERENCE.format(number=each_pull["number"]) for each_pull in all_pulls)
@@ -89,14 +105,15 @@ def _tracker_card(issue: dict, repo: str, settings: dict) -> dict:
         "title": _plain_title(issue, settings),
         "url": c.ISSUE_LINK.format(repo=repo, number=issue["number"]),
         "note": c.ALL_CARD_NOTES[progress].format(pulls=pulls),
+        "steps": _issue_steps(issue["number"], snapshot_path, settings),
     }
 
 
-def _tracker_groups(record: dict, progress: str, repo: str, settings: dict) -> list[dict]:
+def _tracker_groups(record: dict, progress: str, repo: str, settings: dict, snapshot_path: Path) -> list[dict]:
     all_tasks = [each_child for each_child in record["children"] if not each_child["children"] and each_child["state"] == "open" and each_child["progress"] == progress and each_child["number"] not in settings.get("exclude", [])]
-    all_groups = [{"title": _plain_title(record, settings), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "cards": [_tracker_card(each_task, repo, settings) for each_task in all_tasks]}] if all_tasks else []
+    all_groups = [{"title": _plain_title(record, settings), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "cards": [_tracker_card(each_task, repo, settings, snapshot_path) for each_task in all_tasks]}] if all_tasks else []
     for each_child in record["children"]:
-        all_groups.extend(_tracker_groups(each_child, progress, repo, settings))
+        all_groups.extend(_tracker_groups(each_child, progress, repo, settings, snapshot_path))
     return all_groups
 
 
@@ -113,7 +130,7 @@ def _cited_group(group: dict, snapshot: dict, snapshot_path: Path) -> dict:
 
 def _board_lane(lane: dict, tracker: dict, settings: dict, snapshot: dict, snapshot_path: Path) -> dict:
     if "progress" in lane:
-        all_groups = _tracker_groups(tracker, lane["progress"], snapshot["repo"], settings)
+        all_groups = _tracker_groups(tracker, lane["progress"], snapshot["repo"], settings, snapshot_path)
     else:
         all_groups = [_cited_group(each_group, snapshot, snapshot_path) for each_group in lane.get("groups", [])]
     return {"node": lane["node"], "groups": all_groups, "count": sum(len(each_group["cards"]) for each_group in all_groups)}
@@ -134,8 +151,9 @@ def _prepare_board(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
             naming a scene ``node`` and either a tracker ``progress``
             (``no_pull``, ``open_pull``, ``merged_pull``) or cited ``groups``
             of cards; ``strip`` title prefix patterns, ``titles`` keyed by
-            issue number for plain wording, and ``exclude`` issue numbers
-            that are not work items.
+            issue number for plain wording, ``exclude`` issue numbers that
+            are not work items, ``steps`` naming the issue body sections a
+            card's own diagram shows, and ``wording`` swaps for their text.
         snapshot: Captured tracker snapshot.
         snapshot_path: Snapshot file the tracker tree sits beside.
 

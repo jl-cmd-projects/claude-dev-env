@@ -73,6 +73,12 @@
   ],
   "board": {
     "strip": ["^Synthetic "],
+    "wording": {"synthetic": "sample"},
+    "steps": [
+      {"heading": "Today", "label": "Today", "kind": "orange"},
+      {"heading": "Fix", "label": "Build", "kind": "lime", "inline": true},
+      {"heading": "Proof", "label": "Proof", "kind": "green"}
+    ],
     "lanes": [
       {"node": "epic", "groups": [{"title": "Follow-up branches", "cards": [{"title": "Task one follow-up", "source": {"path": "issues/1.md", "line": 5}}]}]},
       {"node": "left", "progress": "no_pull"},

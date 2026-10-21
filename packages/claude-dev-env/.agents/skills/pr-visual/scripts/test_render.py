@@ -110,6 +110,12 @@ def test_tracker_scene_places_every_card_in_its_state_lane(tmp_path: Path) -> No
     assert fixed["groups"][0]["cards"][0]["url"] == "https://github.com/example/project/issues/2"
     assert branches["groups"][0]["cards"][0]["url"] == "https://github.com/example/project/issues/1"
     assert scene["board"]["count"] == 3
+    assert left["groups"][0]["cards"][0]["steps"] == [
+        {"label": "Today", "kind": "orange", "text": "The sample task has no fix yet."},
+        {"label": "Build", "kind": "lime", "inline": True, "text": "Build the sample fix and link it."},
+        {"label": "Proof", "kind": "green", "text": "A sample test shows the fix."},
+    ]
+    assert fixed["groups"][0]["cards"][0]["steps"] == []
     assert "Task one ships" not in (tmp_path / "visual.html").read_text()
 
 

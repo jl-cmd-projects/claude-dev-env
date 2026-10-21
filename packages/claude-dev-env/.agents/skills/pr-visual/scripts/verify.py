@@ -58,8 +58,24 @@ def _check_board(root: Locator, scene: dict) -> None:
         return
     assert all_cards.count() == scene["board"]["count"]
     assert not all_cards.evaluate_all(c.CARD_FIT_EXPRESSION)
+    _check_board_text(root, c.CANVAS_TEXT_SELECTOR)
+    first_card = 0
+    for each_lane in scene["board"]["lanes"]:
+        if not each_lane["count"]:
+            continue
+        card = each_lane["groups"][0]["cards"][0]
+        all_cards.nth(first_card).click()
+        assert root.locator(c.DETAIL_TITLE_SELECTOR).inner_text() == card["title"]
+        assert root.locator(c.CARD_STEP_SELECTOR).count() == max(1, len(card.get("steps", [])))
+        _check_board_text(root, c.CARD_FLOW_TEXT_SELECTOR)
+        root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
+        assert root.locator(c.DRAWER_SELECTOR).is_hidden()
+        first_card += each_lane["count"]
+
+
+def _check_board_text(root: Locator, selector: str) -> None:
     background = _luminance(c.PAGE_BACKGROUND_COLOR)
-    for each_text in root.locator(".canvas svg text").evaluate_all(c.BOARD_TEXT_EXPRESSION):
+    for each_text in root.locator(selector).evaluate_all(c.BOARD_TEXT_EXPRESSION):
         assert each_text["size"] >= c.MINIMUM_BOARD_FONT_SIZE, each_text
         assert (background + c.CONTRAST_OFFSET) / (_luminance(each_text["color"]) + c.CONTRAST_OFFSET) >= c.MINIMUM_BOARD_CONTRAST, each_text
 
