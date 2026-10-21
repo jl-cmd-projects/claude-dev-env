@@ -1,0 +1,73 @@
+{
+  "snapshot": "tracker/snapshot.json",
+  "tab": "Tracker",
+  "title": "Follow a synthetic tracker epic",
+  "subtitle": "Synthetic fixture: an epic, two tasks, and one linked fix.",
+  "before": "BEFORE: Task progress lives in issue bodies.",
+  "after": "AFTER: Each task links to its captured issue and fix.",
+  "alt": "A synthetic epic has two tasks. One task links a merged fix; the other has none yet.",
+  "nodes": [
+    {
+      "id": "epic",
+      "x": 300,
+      "y": 430,
+      "label": ["Synthetic", "epic"],
+      "icon": "list",
+      "kind": "blue",
+      "detail": ["Synthetic tracker data, not a project status."],
+      "sources": [{"path": "issues/1.md", "line": 3}],
+      "drilldown": {
+        "title": "Read the epic",
+        "steps": [
+          {"label": ["Epic", "body"], "icon": "ledger"},
+          {"label": ["Two", "tasks"], "icon": "list"}
+        ]
+      }
+    },
+    {
+      "id": "fixed",
+      "x": 700,
+      "y": 330,
+      "label": ["Task with", "a fix"],
+      "icon": "merge",
+      "kind": "green",
+      "detail": ["The task body links a pull request that merged."],
+      "sources": [{"path": "issues/2.json", "line": 1, "end": 4}, {"path": "pulls/3.json", "line": 1, "end": 6}],
+      "drilldown": {
+        "title": "Follow the linked fix",
+        "steps": [
+          {"label": ["Task links", "a fix"], "icon": "github"},
+          {"label": ["Fix", "merged"], "icon": "merge", "kind": "green"}
+        ]
+      }
+    },
+    {
+      "id": "left",
+      "x": 700,
+      "y": 560,
+      "label": ["Task left", "to build"],
+      "icon": "flag",
+      "kind": "lime",
+      "detail": ["The task body links no pull request yet."],
+      "sources": [{"path": "tracker.json", "line": 76, "end": 82}],
+      "drilldown": {
+        "title": "Count what is left",
+        "steps": [
+          {"label": ["No linked", "fix"], "icon": "pause"},
+          {"label": ["Counted as", "left"], "icon": "flag"}
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {"from": "epic", "to": "fixed", "path": "M340 412 L660 345", "kind": "green"},
+    {"from": "epic", "to": "left", "path": "M340 448 L660 545", "kind": "orange"}
+  ],
+  "notes": [
+    {"label": "SOURCE", "text": ["Captured issues", "Links to each record"]},
+    {"label": "INTERACTION", "text": ["Select a task", "Open its issue"]},
+    {"label": "SCOPE", "text": ["Synthetic data only", "No project claim"]}
+  ],
+  "comparison": ["The fixture epic body and its captured tasks agree on one fix and one open task."],
+  "review": ["This fixture checks tracker rendering, not a project status."]
+}

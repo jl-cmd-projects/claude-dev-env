@@ -56,8 +56,21 @@ def _source_evidence(source: dict, snapshot: dict, snapshot_path: Path) -> None:
     if not 1 <= first <= last <= len(all_lines):
         raise RenderRunFatal("Invalid source line range.")
     source["excerpt"] = c.NEWLINE.join(c.SOURCE_LINE.format(number=each_index + first, line=each_line) for each_index, each_line in enumerate(all_lines[first - 1:last]))
+    if snapshot.get("kind") == c.ISSUE_KIND:
+        source["url"] = _captured_record_link(source["path"], snapshot)
+        return
     revision = snapshot.get("diff_base", snapshot[c.BASE_SIDE]) if side == c.BASE_SIDE else snapshot[c.HEAD_SIDE]
     source["url"] = c.SOURCE_LINK.format(repo=snapshot["repo"], revision=revision, path=quote(source["path"], safe="/"), first=first, last=last)
+
+
+def _captured_record_link(relative_path: str, snapshot: dict) -> str:
+    if matched_issue := re.fullmatch(c.CAPTURED_ISSUE_PATTERN, relative_path):
+        return c.ISSUE_LINK.format(repo=snapshot["repo"], number=matched_issue.group(1))
+    if matched_pull := re.fullmatch(c.CAPTURED_PULL_PATTERN, relative_path):
+        return c.PULL_LINK.format(repo=snapshot["repo"], number=matched_pull.group(1))
+    if relative_path == c.TRACKER_PATH:
+        return snapshot["url"]
+    raise RenderRunFatal("Tracker evidence must cite a captured issue, pull request, or tracker file.")
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
@@ -82,7 +95,8 @@ def prepare(path: Path) -> dict:
     snapshot_path = (path.parent / scene["snapshot"]).resolve()
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     scene["pr"] = {each_key: snapshot[each_key] for each_key in ("number", "url", "repo", "state", "head", "base", "observed_at")}
-    scene["pr"].update(draft=snapshot["metadata"]["draft"], merged=snapshot["metadata"].get("merged", False), changed_files=len(snapshot["files"]), title=snapshot["metadata"]["title"])
+    is_issue = snapshot.get("kind") == c.ISSUE_KIND
+    scene["pr"].update(kind=snapshot.get("kind", "pull"), draft=snapshot["metadata"]["draft"], merged=snapshot["metadata"].get("merged", False), changed_files=snapshot["metadata"]["tracked_issues"] if is_issue else len(snapshot["files"]), title=snapshot["metadata"]["title"])
     scene["summary"] = snapshot["metadata"]["body"] or "No PR description."
     _validate_graph(scene)
     _prepare_sources(scene, snapshot, snapshot_path)

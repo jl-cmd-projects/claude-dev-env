@@ -1,6 +1,7 @@
 """Exercise numerical provenance, evidence boundaries, and portable rendering."""
 import copy
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -75,3 +76,23 @@ def test_embedded_text_cannot_close_script(tmp_path: Path) -> None:
     artifact_path = tmp_path / "visual.html"
     render([scene], artifact_path)
     assert scene["summary"] not in artifact_path.read_text()
+
+
+def test_tracker_scene_links_each_record_to_its_issue_or_pull_request(tmp_path: Path) -> None:
+    """Tracker evidence opens the issue or pull request a captured record came from."""
+    scene = prepare(FIXTURES / "tracker.scene.json")
+    render([scene], tmp_path / "visual.html")
+    all_links = [each_source["url"] for each_node in scene["nodes"] for each_source in each_node["sources"]]
+    assert all_links == ["https://github.com/example/project/issues/1", "https://github.com/example/project/issues/2", "https://github.com/example/project/pull/3", "https://github.com/example/project/issues/1"]
+    assert scene["pr"]["kind"] == "issue"
+    assert scene["pr"]["changed_files"] == 3
+
+
+def test_tracker_scene_rejects_evidence_outside_captured_records(tmp_path: Path) -> None:
+    """A tracker source must name a captured issue, pull request, or the tracker tree."""
+    tracker_copy = tmp_path / "tracker"
+    shutil.copytree(FIXTURES / "tracker", tracker_copy)
+    (tracker_copy / "head/notes.txt").write_text("synthetic\n")
+    snapshot = json.loads((tracker_copy / "snapshot.json").read_text())
+    with pytest.raises(RenderRunFatal, match="Tracker evidence"):
+        _source_evidence({"path": "notes.txt", "line": 1}, snapshot, tracker_copy / "snapshot.json")
