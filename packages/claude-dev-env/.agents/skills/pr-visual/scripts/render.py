@@ -187,7 +187,7 @@ def require_own_card_content(board: dict) -> None:
     text_counts = Counter(each_text for each_card in all_cards for each_text in _step_texts(each_card))
     all_empty_titles = [each_card["title"] for each_card in all_cards if not _has_own_step(each_card, text_counts)]
     if all_empty_titles:
-        raise RenderRunFatal(c.EMPTY_CARD_MESSAGE.format(count=len(all_empty_titles), total=len(all_cards), titles=c.PULL_REFERENCE_SEPARATOR.join(all_empty_titles[:c.EMPTY_CARD_TITLE_LIMIT])))
+        raise RenderRunFatal(c.EMPTY_CARD_MESSAGE.format(count=len(all_empty_titles), total=len(all_cards), titles=c.CARD_TITLE_SEPARATOR.join(all_empty_titles[:c.EMPTY_CARD_TITLE_LIMIT])))
 
 
 def _step_texts(card: dict) -> set[str]:

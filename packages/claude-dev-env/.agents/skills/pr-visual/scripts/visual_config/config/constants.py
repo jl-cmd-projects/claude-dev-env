@@ -37,6 +37,7 @@ PULL_REFERENCE = "{number}"
 PULL_REFERENCE_SEPARATOR = ", "
 EMPTY_CARD_MESSAGE = "{count} of {total} board cards carry no content of their own. Give each card a step whose text is not its title or note and no other card repeats: {titles}"
 EMPTY_CARD_TITLE_LIMIT = 5
+CARD_TITLE_SEPARATOR = ", "
 ALL_PULL_FIELDS =("number", "title", "state", "draft", "merged_at", "closed_at", "updated_at", "html_url")
 COMPARE_ENDPOINT = "repos/{repo}/compare/{base}...{head}"
 FILES_ENDPOINT = "repos/{repo}/pulls/{number}/files?per_page={size}&page={page}"
