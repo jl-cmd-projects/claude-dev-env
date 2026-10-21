@@ -98,47 +98,58 @@ def test_tracker_scene_rejects_evidence_outside_captured_records(tmp_path: Path)
         _source_evidence({"path": "notes.txt", "line": 1}, snapshot, tracker_copy / "snapshot.json")
 
 
-def test_tracker_scene_lists_every_open_task_under_its_epic(tmp_path: Path) -> None:
-    """Each open task appears once under its epic with its status, owner, and issue link."""
+def test_tracker_scene_places_every_card_in_its_state_lane(tmp_path: Path) -> None:
+    """Each card lands once in the lane for its state, under its epic, with its issue link."""
     scene = prepare(FIXTURES / "tracker.scene.json")
     render([scene], tmp_path / "visual.html", is_links_only=True)
-    epic, follow_ups = scene["remaining"]["groups"]
-    assert [(each_item["number"], each_item["title"], each_item["status"], each_item["owner"]) for each_item in epic["items"]] == [
-        (4, "task without a fix", "Not started", "Build team"),
-        (2, "task with a fix", "Fixed in pull request 3; the issue is still open", "Tracker cleanup"),
-    ]
-    assert epic["items"][1]["url"] == "https://github.com/example/project/issues/2"
-    assert follow_ups["items"][0]["url"] == "https://github.com/example/project/issues/1"
-    assert scene["remaining"]["count"] == 3
+    branches, left, fixed = scene["board"]["lanes"]
+    assert [each_lane["node"] for each_lane in scene["board"]["lanes"]] == ["epic", "left", "fixed"]
+    assert [(each_card["title"], each_card["note"]) for each_card in left["groups"][0]["cards"]] == [("task without a fix", "")]
+    assert [(each_card["title"], each_card["note"]) for each_card in fixed["groups"][0]["cards"]] == [("task with a fix", "Merged in pull request 3")]
+    assert fixed["groups"][0]["title"] == "tracker epic"
+    assert fixed["groups"][0]["cards"][0]["url"] == "https://github.com/example/project/issues/2"
+    assert branches["groups"][0]["cards"][0]["url"] == "https://github.com/example/project/issues/1"
+    assert scene["board"]["count"] == 3
     assert "Task one ships" not in (tmp_path / "visual.html").read_text()
 
 
-def test_tracker_extra_item_rejects_a_link_outside_the_repository(tmp_path: Path) -> None:
-    """An extra remaining item cannot point away from the tracked repository."""
-    scene_copy = tmp_path / "tracker.scene.json"
+def _board_scene(tmp_path: Path) -> dict:
     shutil.copytree(FIXTURES / "tracker", tmp_path / "tracker")
-    scene = json.loads((FIXTURES / "tracker.scene.json").read_text())
-    scene["remaining"]["extra"][0]["items"][0]["url"] = "https://example.com/elsewhere"
-    scene_copy.write_text(json.dumps(scene))
+    return json.loads((FIXTURES / "tracker.scene.json").read_text())
+
+
+def _prepare_copy(tmp_path: Path, scene: dict) -> dict:
+    (tmp_path / "tracker.scene.json").write_text(json.dumps(scene))
+    return prepare(tmp_path / "tracker.scene.json")
+
+
+def test_tracker_cited_card_rejects_a_link_outside_the_repository(tmp_path: Path) -> None:
+    """A cited board card cannot point away from the tracked repository."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["lanes"][0]["groups"][0]["cards"][0]["url"] = "https://example.com/elsewhere"
     with pytest.raises(RenderRunFatal, match="tracked repository"):
-        prepare(scene_copy)
+        _prepare_copy(tmp_path, scene)
+
+
+def test_tracker_board_rejects_a_node_with_no_lane(tmp_path: Path) -> None:
+    """Every state node on a board sits in exactly one lane."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["lanes"].pop()
+    with pytest.raises(RenderRunFatal, match="exactly one lane"):
+        _prepare_copy(tmp_path, scene)
 
 
 def test_tracker_scene_leaves_out_excluded_issues(tmp_path: Path) -> None:
-    """An issue the scene names as not a work item stays off the remaining list."""
-    shutil.copytree(FIXTURES / "tracker", tmp_path / "tracker")
-    scene = json.loads((FIXTURES / "tracker.scene.json").read_text())
-    scene["remaining"]["exclude"] = [4]
-    (tmp_path / "tracker.scene.json").write_text(json.dumps(scene))
-    epic = prepare(tmp_path / "tracker.scene.json")["remaining"]["groups"][0]
-    assert [each_item["number"] for each_item in epic["items"]] == [2]
+    """An issue the scene names as not a work item stays off the board."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["exclude"] = [4]
+    left_lane = _prepare_copy(tmp_path, scene)["board"]["lanes"][1]
+    assert left_lane["groups"] == [] and left_lane["count"] == 0
 
 
 def test_tracker_scene_uses_the_plain_title_a_scene_gives(tmp_path: Path) -> None:
-    """The list shows the plain title a scene gives for an issue number."""
-    shutil.copytree(FIXTURES / "tracker", tmp_path / "tracker")
-    scene = json.loads((FIXTURES / "tracker.scene.json").read_text())
-    scene["remaining"]["titles"] = {"4": "Build the missing fix"}
-    (tmp_path / "tracker.scene.json").write_text(json.dumps(scene))
-    epic = prepare(tmp_path / "tracker.scene.json")["remaining"]["groups"][0]
-    assert [each_entry["title"] for each_entry in epic["items"]] == ["Build the missing fix", "task with a fix"]
+    """A card shows the plain title a scene gives for an issue number."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["titles"] = {"4": "Build the missing fix"}
+    left_lane = _prepare_copy(tmp_path, scene)["board"]["lanes"][1]
+    assert [each_card["title"] for each_card in left_lane["groups"][0]["cards"]] == ["Build the missing fix"]

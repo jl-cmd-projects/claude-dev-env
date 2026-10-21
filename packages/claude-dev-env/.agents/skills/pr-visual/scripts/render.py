@@ -36,7 +36,7 @@ def _validate_graph(scene: dict) -> None:
         if not re.fullmatch(c.SVG_PATH_PATTERN, each_edge["path"]):
             raise RenderRunFatal("Invalid SVG path.")
     for each_node in scene["nodes"]:
-        if not scene.get("chart") and (not c.MINIMUM_NODE_X <= each_node["x"] <= c.MAXIMUM_NODE_X or not c.MINIMUM_NODE_Y <= each_node["y"] <= c.MAXIMUM_NODE_Y):
+        if not scene.get("chart") and not scene.get("board") and (not c.MINIMUM_NODE_X <= each_node["x"] <= c.MAXIMUM_NODE_X or not c.MINIMUM_NODE_Y <= each_node["y"] <= c.MAXIMUM_NODE_Y):
             raise RenderRunFatal("Node lies outside diagram bounds.")
         if not each_node.get("sources"):
             raise RenderRunFatal("Every node needs source evidence.")
@@ -80,7 +80,7 @@ def _plain_title(record: dict, settings: dict) -> str:
     return title
 
 
-def _open_task_entry(issue: dict, repo: str, settings: dict) -> dict:
+def _tracker_card(issue: dict, repo: str, settings: dict) -> dict:
     progress = issue["progress"]
     all_pulls = [each_pull for each_pull in issue["linked_pulls"] if (each_pull["merged_at"] if progress == "merged_pull" else each_pull["state"] == "open")]
     pulls = c.PULL_REFERENCE_SEPARATOR.join(c.PULL_REFERENCE.format(number=each_pull["number"]) for each_pull in all_pulls)
@@ -88,54 +88,67 @@ def _open_task_entry(issue: dict, repo: str, settings: dict) -> dict:
         "number": issue["number"],
         "title": _plain_title(issue, settings),
         "url": c.ISSUE_LINK.format(repo=repo, number=issue["number"]),
-        "progress": progress,
-        "status": c.ALL_REMAINING_STATUS[progress].format(pulls=pulls),
-        "owner": settings.get("owners", {}).get(progress, c.DEFAULT_OWNER),
-        "pulls": [{"number": each_pull["number"], "url": c.PULL_LINK.format(repo=repo, number=each_pull["number"])} for each_pull in all_pulls],
+        "note": c.ALL_CARD_NOTES[progress].format(pulls=pulls),
     }
 
 
-def _remaining_groups(record: dict, repo: str, settings: dict) -> list[dict]:
-    all_open_tasks = [each_child for each_child in record["children"] if not each_child["children"] and each_child["state"] == "open" and each_child["number"] not in settings.get("exclude", [])]
-    all_open_tasks.sort(key=lambda each_task: c.ALL_PULL_PROGRESS[::-1].index(each_task["progress"]))
-    all_groups = [{"number": record["number"], "title": _plain_title(record, settings), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "items": [_open_task_entry(each_task, repo, settings) for each_task in all_open_tasks]}] if all_open_tasks else []
+def _tracker_groups(record: dict, progress: str, repo: str, settings: dict) -> list[dict]:
+    all_tasks = [each_child for each_child in record["children"] if not each_child["children"] and each_child["state"] == "open" and each_child["progress"] == progress and each_child["number"] not in settings.get("exclude", [])]
+    all_groups = [{"title": _plain_title(record, settings), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "cards": [_tracker_card(each_task, repo, settings) for each_task in all_tasks]}] if all_tasks else []
     for each_child in record["children"]:
-        all_groups.extend(_remaining_groups(each_child, repo, settings))
+        all_groups.extend(_tracker_groups(each_child, progress, repo, settings))
     return all_groups
 
 
-def _extra_group(group: dict, snapshot: dict, snapshot_path: Path) -> dict:
-    for each_listed_task in group["items"]:
-        _source_evidence(each_listed_task["source"], snapshot, snapshot_path)
-        each_listed_task.setdefault("url", each_listed_task["source"]["url"])
-        if not each_listed_task["url"].startswith(c.REPOSITORY_LINK.format(repo=snapshot["repo"])):
-            raise RenderRunFatal("A remaining item must link inside the tracked repository.")
+def _cited_group(group: dict, snapshot: dict, snapshot_path: Path) -> dict:
+    for each_card in group["cards"]:
+        _source_evidence(each_card["source"], snapshot, snapshot_path)
+        each_card.setdefault("url", each_card["source"]["url"])
+        each_card.setdefault("note", "")
+        if not each_card["url"].startswith(c.REPOSITORY_LINK.format(repo=snapshot["repo"])):
+            raise RenderRunFatal("A board card must link inside the tracked repository.")
+    group.setdefault("url", snapshot["url"])
     return group
 
 
-def _prepare_remaining(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
-    """List every open task under its parent epic, then the scene's extra groups.
+def _board_lane(lane: dict, tracker: dict, settings: dict, snapshot: dict, snapshot_path: Path) -> dict:
+    if "progress" in lane:
+        all_groups = _tracker_groups(tracker, lane["progress"], snapshot["repo"], settings)
+    else:
+        all_groups = [_cited_group(each_group, snapshot, snapshot_path) for each_group in lane.get("groups", [])]
+    return {"node": lane["node"], "groups": all_groups, "count": sum(len(each_group["cards"]) for each_group in all_groups)}
 
-    A tracker scene gains a ``remaining`` list the viewer opens from its toolbar::
 
-        Cert fixes          #12  Not started                            Theme team
-                            #13  Fixed in pull request 20; still open    No owner named
-        Follow-up branches  Image call counts  Waits to open           Theme team
+def _prepare_board(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
+    """Place every tracker card in the state lane its scene names.
+
+    The flow runs top to bottom. Each lane is one state node with its cards
+    beside it, grouped under their parent epic::
+
+        (Not started)   Convert . 2     [task 12]  [task 13]
+              |
+        (Fixed)         Icons . 1       [task 14  Merged in pull request 20]
 
     Args:
-        scene: Scene with optional ``remaining`` settings: ``strip`` title
-            prefix patterns, ``titles`` keyed by issue number for plain
-            wording, ``owners`` keyed by pull progress, ``exclude``
-            issue numbers that are not work items, and ``extra`` groups whose
-            items cite a captured record.
+        scene: Scene with ``board`` settings: ``lanes`` in flow order, each
+            naming a scene ``node`` and either a tracker ``progress``
+            (``no_pull``, ``open_pull``, ``merged_pull``) or cited ``groups``
+            of cards; ``strip`` title prefix patterns, ``titles`` keyed by
+            issue number for plain wording, and ``exclude`` issue numbers
+            that are not work items.
         snapshot: Captured tracker snapshot.
         snapshot_path: Snapshot file the tracker tree sits beside.
+
+    Raises:
+        RenderRunFatal: A node lacks exactly one lane, or a card leaves the repository.
     """
-    settings = scene.get("remaining", {})
+    settings = scene["board"]
     tracker = json.loads((snapshot_path.parent / c.HEAD_SIDE / c.TRACKER_PATH).read_text(encoding="utf-8"))
-    all_groups = _remaining_groups(tracker, snapshot["repo"], settings)
-    all_groups.extend(_extra_group(each_group, snapshot, snapshot_path) for each_group in settings.get("extra", []))
-    scene["remaining"] = {"groups": all_groups, "count": sum(len(each_group["items"]) for each_group in all_groups)}
+    all_lane_nodes = [each_lane["node"] for each_lane in settings["lanes"]]
+    if sorted(all_lane_nodes) != sorted(each_node["id"] for each_node in scene["nodes"]):
+        raise RenderRunFatal("Every board node needs exactly one lane.")
+    all_lanes = [_board_lane(each_lane, tracker, settings, snapshot, snapshot_path) for each_lane in settings["lanes"]]
+    scene["board"] = {"lanes": all_lanes, "count": sum(each_lane["count"] for each_lane in all_lanes)}
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
@@ -165,8 +178,8 @@ def prepare(path: Path) -> dict:
     scene["summary"] = snapshot["metadata"]["body"] or "No PR description."
     _validate_graph(scene)
     _prepare_sources(scene, snapshot, snapshot_path)
-    if is_issue:
-        _prepare_remaining(scene, snapshot, snapshot_path)
+    if is_issue and scene.get("board"):
+        _prepare_board(scene, snapshot, snapshot_path)
     prepare_chart(scene, snapshot_path)
     prepare_embedded_charts(scene, snapshot_path)
     return scene
@@ -177,9 +190,10 @@ def _omit_private_payload(scene: dict) -> None:
     for each_node in scene["nodes"]:
         for each_source in each_node["sources"]:
             each_source.pop("excerpt", None)
-    for each_group in scene.get("remaining", {}).get("groups", []):
-        for each_listed_task in each_group["items"]:
-            each_listed_task.get("source", {}).pop("excerpt", None)
+    for each_lane in scene.get("board", {}).get("lanes", []):
+        for each_group in each_lane["groups"]:
+            for each_card in each_group["cards"]:
+                each_card.get("source", {}).pop("excerpt", None)
 
 
 def render(all_scenes: list[dict], artifact_path: Path, is_links_only: bool = False) -> None:

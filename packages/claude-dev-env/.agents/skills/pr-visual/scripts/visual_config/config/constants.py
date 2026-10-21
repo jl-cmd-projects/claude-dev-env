@@ -30,8 +30,7 @@ CAPTURED_ISSUE_RECORD_PATTERN = r"issues/([1-9]\d*)\.json"
 CAPTURED_PULL_PATTERN = r"pulls/([1-9]\d*)\.json"
 ALL_ISSUE_FIELDS = ("number", "title", "state", "state_reason", "html_url", "created_at", "updated_at", "closed_at")
 ALL_PULL_PROGRESS = ("merged_pull", "open_pull", "no_pull")
-ALL_REMAINING_STATUS = {"no_pull": "Not started", "open_pull": "Open in pull request {pulls}", "merged_pull": "Fixed in pull request {pulls}; the issue is still open"}
-DEFAULT_OWNER = "No owner named"
+ALL_CARD_NOTES = {"no_pull": "", "open_pull": "Open in pull request {pulls}", "merged_pull": "Merged in pull request {pulls}"}
 PULL_REFERENCE = "{number}"
 PULL_REFERENCE_SEPARATOR = ", "
 ALL_PULL_FIELDS =("number", "title", "state", "draft", "merged_at", "closed_at", "updated_at", "html_url")
@@ -60,13 +59,20 @@ ROOT_SELECTOR = "[data-pr-visual]"
 DRAWER_SELECTOR = ".drawer"
 STAGE_SELECTOR = ".stage"
 CANVAS_SELECTOR = ".canvas"
+WORKSPACE_SELECTOR = ".workspace"
+UNCLIP_WORKSPACE_EXPRESSION = "(n)=>{n.style.height='auto';n.firstElementChild.style.overflow='visible'}"
+RECLIP_WORKSPACE_EXPRESSION = "(n)=>{n.style.height='';n.firstElementChild.style.overflow=''}"
 EXACT_SELECTOR = ".exact-source"
 DISCLOSURE_SELECTOR = ".exact-source summary"
 DETAIL_TITLE_SELECTOR = "[data-detail-title]"
 NODE_SELECTOR = "[data-node]"
 JUMP_SELECTOR = "[data-detail-target]"
-REMAINING_BUTTON_SELECTOR = "[data-remaining]"
-REMAINING_ITEM_SELECTOR = "[data-remaining-item]"
+BOARD_CARD_SELECTOR = "[data-card]"
+MINIMUM_BOARD_FONT_SIZE = 16
+MINIMUM_BOARD_CONTRAST = 7
+PAGE_BACKGROUND_COLOR = "rgb(246, 245, 239)"
+BOARD_TEXT_EXPRESSION = "(nodes)=>nodes.map(n=>({size:parseFloat(getComputedStyle(n).fontSize),color:getComputedStyle(n).fill}))"
+CARD_FIT_EXPRESSION = "(cards)=>cards.filter(a=>{const r=a.querySelector('rect').getBBox();return [...a.querySelectorAll('text')].some(t=>{const b=t.getBBox();return b.x<r.x||b.x+b.width>r.x+r.width||b.y<r.y||b.y+b.height>r.y+r.height})}).map(a=>a.textContent)"
 DATA_SCENES_SELECTOR = "[data-scenes]"
 CANVAS_WIDTH_EXPRESSION = "(n)=>n.style.width"
 DISCLOSURE_OPEN_EXPRESSION = "(n)=>n.open"
@@ -81,6 +87,7 @@ NODE_TARGET_SELECTOR = '[data-node="{target}"]'
 SELECTED_NODE_SELECTOR = '[data-node][aria-expanded=true]'
 PR_SCREENSHOT_NAME = "scene-{index}-pr-{number}.png"
 DETAIL_SCREENSHOT_NAME = "scene-{index}-pr-{number}-detail.png"
+BOARD_SCREENSHOT_NAME = "scene-{index}-pr-{number}-board.png"
 MOBILE_SCREENSHOT_NAME = "mobile-detail.png"
 REPORT_NAME = "verification.json"
 DEFAULT_PROOF_DIRECTORY = "proof"
@@ -88,7 +95,7 @@ SPACE_SEPARATOR = " "
 ZOOM_BUTTON_LABEL = "Zoom in"
 CLOSE_BUTTON_LABEL = "Close details"
 ALL_TOOLBAR_DETAIL_LABELS = ("Summary vs code", "Review notes")
-OVERFLOW_EXPRESSION = "(nodes)=>nodes.filter(n=>{const b=n.getBBox(); return b.x<0||b.x+b.width>1440||b.y<0||b.y+b.height>1020}).map(n=>n.textContent)"
+OVERFLOW_EXPRESSION = "(nodes)=>nodes.filter(n=>{const b=n.getBBox(),v=n.ownerSVGElement.viewBox.baseVal; return b.x<0||b.x+b.width>v.width||b.y<0||b.y+b.height>v.height}).map(n=>n.textContent)"
 MAIN_FRAGMENT_PATTERN = r"<main data-pr-visual>.*?</main>"
 STYLE_FRAGMENT_PATTERN = r"<style>.*?</style>"
 HOST_FIXTURE_HTML = '<div class="toolbar" id="host-toolbar">Host toolbar</div>'

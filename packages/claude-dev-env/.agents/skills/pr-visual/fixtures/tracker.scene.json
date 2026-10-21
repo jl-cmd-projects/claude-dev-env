@@ -12,6 +12,7 @@
       "x": 300,
       "y": 430,
       "label": ["Synthetic", "epic"],
+      "sub": ["Synthetic", "branches"],
       "icon": "list",
       "kind": "blue",
       "detail": ["Synthetic tracker data, not a project status."],
@@ -29,6 +30,7 @@
       "x": 700,
       "y": 330,
       "label": ["Task with", "a fix"],
+      "sub": ["Merged fix,", "task open"],
       "icon": "merge",
       "kind": "green",
       "detail": ["The task body links a pull request that merged."],
@@ -46,6 +48,7 @@
       "x": 700,
       "y": 560,
       "label": ["Task left", "to build"],
+      "sub": ["No fix", "yet"],
       "icon": "flag",
       "kind": "lime",
       "detail": ["The task body links no pull request yet."],
@@ -68,11 +71,12 @@
     {"label": "INTERACTION", "text": ["Select a task", "Open its issue"]},
     {"label": "SCOPE", "text": ["Synthetic data only", "No project claim"]}
   ],
-  "remaining": {
+  "board": {
     "strip": ["^Synthetic "],
-    "owners": {"no_pull": "Build team", "merged_pull": "Tracker cleanup"},
-    "extra": [
-      {"title": "Follow-up branches", "items": [{"title": "Task one follow-up", "status": "Opens after its parent merges", "owner": "Build team", "source": {"path": "issues/1.md", "line": 5}}]}
+    "lanes": [
+      {"node": "epic", "groups": [{"title": "Follow-up branches", "cards": [{"title": "Task one follow-up", "source": {"path": "issues/1.md", "line": 5}}]}]},
+      {"node": "left", "progress": "no_pull"},
+      {"node": "fixed", "progress": "merged_pull"}
     ]
   },
   "comparison": ["The fixture epic body and its captured tasks agree on one fix and one open task."],
