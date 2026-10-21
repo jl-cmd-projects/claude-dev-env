@@ -49,7 +49,7 @@
       "icon": "flag",
       "kind": "lime",
       "detail": ["The task body links no pull request yet."],
-      "sources": [{"path": "tracker.json", "line": 76, "end": 82}],
+      "sources": [{"path": "tracker.json", "line": 79, "end": 85}],
       "drilldown": {
         "title": "Count what is left",
         "steps": [
@@ -68,6 +68,13 @@
     {"label": "INTERACTION", "text": ["Select a task", "Open its issue"]},
     {"label": "SCOPE", "text": ["Synthetic data only", "No project claim"]}
   ],
+  "remaining": {
+    "strip": ["^Synthetic "],
+    "owners": {"no_pull": "Build team", "merged_pull": "Tracker cleanup"},
+    "extra": [
+      {"title": "Follow-up branches", "items": [{"title": "Task one follow-up", "status": "Opens after its parent merges", "owner": "Build team", "source": {"path": "issues/1.md", "line": 5}}]}
+    ]
+  },
   "comparison": ["The fixture epic body and its captured tasks agree on one fix and one open task."],
   "review": ["This fixture checks tracker rendering, not a project status."]
 }

@@ -10,7 +10,7 @@ python scripts/render.py SCENE.json --out RUN/visual.html --links-only
 python scripts/verify.py RUN/visual.html --out RUN/proof
 ```
 
-An issue URL captures a tracker epic, its sub-issues, and the pull requests their bodies link. Its scene renders in the same viewer, and each source opens the captured issue or pull request. `fixtures/tracker.scene.json` shows the shape.
+An issue URL captures a tracker epic, its sub-issues, and the pull requests their bodies link. Its scene renders in the same viewer, and each source opens the captured issue or pull request. The rendered scene lists every open task under its epic in a Remaining items panel. `fixtures/tracker.scene.json` shows the shape.
 
 Flow diagrams, decision trees, dependency graphs, comparisons, bar charts, line charts, and scatter plots share the same source details. Numerical chart coordinates resolve JSON pointers against captured source files. The renderer does not supply an independent semantic code review.
 

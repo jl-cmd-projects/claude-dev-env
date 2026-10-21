@@ -51,6 +51,17 @@ def _toolbar_details(root: Locator, node_count: int) -> None:
         root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
 
 
+def _check_remaining_list(root: Locator, scene: dict) -> None:
+    remaining_button = root.locator(c.REMAINING_BUTTON_SELECTOR)
+    if not scene.get("remaining"):
+        assert remaining_button.is_hidden()
+        return
+    remaining_button.click()
+    assert root.locator(c.REMAINING_ITEM_SELECTOR).count() == scene["remaining"]["count"]
+    root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
+    assert root.locator(c.DRAWER_SELECTOR).is_hidden()
+
+
 def _keyboard_and_zoom(page: Page, root: Locator) -> None:
     first_node = root.locator(c.NODE_SELECTOR).first
     first_node.focus()
@@ -86,9 +97,10 @@ def _verify_scene(page: Page, root: Locator, scene: dict, scene_index: int, proo
         assert root.locator(c.DRAWER_SELECTOR).is_hidden()
         assert root.locator(c.SELECTED_NODE_SELECTOR).count() == 0
     _toolbar_details(root, len(scene["nodes"]))
+    _check_remaining_list(root, scene)
     _keyboard_and_zoom(page, root)
     _scene_screenshots(page, root, scene, proof_directory, scene_index)
-    return {"pr": scene["pr"]["number"], "nodes_checked": all_nodes.count(), "docked_panel": "pass", "mini_diagrams": "pass", "related_navigation": "pass", "collapsed_sources": "pass", "keyboard_and_zoom": "pass"}
+    return {"pr": scene["pr"]["number"], "nodes_checked": all_nodes.count(), "docked_panel": "pass", "mini_diagrams": "pass", "related_navigation": "pass", "collapsed_sources": "pass", "keyboard_and_zoom": "pass", "remaining_items": "pass" if scene.get("remaining") else "none"}
 
 
 def _dashboard(page: Page, root: Locator, all_scenes: list[dict], proof_directory: Path) -> None:

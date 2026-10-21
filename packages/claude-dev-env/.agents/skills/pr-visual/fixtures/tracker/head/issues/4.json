@@ -9,6 +9,7 @@
   "closed_at": null,
   "labels": [],
   "linked_pulls": [],
+  "progress": "no_pull",
   "counts": {
     "open": 0,
     "closed": 0,

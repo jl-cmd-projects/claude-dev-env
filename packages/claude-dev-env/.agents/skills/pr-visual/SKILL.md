@@ -11,7 +11,7 @@ Turn a PR into a visual explanation of what its code changes. Return the display
 
 Accept a PR URL. Resolve a bare PR number only when the repository is known.
 
-Accept an issue URL for a status catch-up on an epic or tracker. The collector captures the issue, its sub-issues two levels deep, and the pull requests their bodies link. Draw that scene in this same viewer, batched with the scenes of the pull requests it names. Every pr-visual request renders through `assets/viewer.html`; a status report never moves to another page template.
+Accept an issue URL for a status catch-up on an epic or tracker. The collector captures the issue, its sub-issues two levels deep, and the pull requests their bodies link. Draw that scene in this same viewer, batched with the scenes of the pull requests it names. Every pr-visual request renders through `assets/viewer.html`; a status report never moves to another page template. A tracker scene always carries a **Remaining items** list: the renderer lists every open task under its parent epic with its issue link, status, and owner, and the toolbar button opens it. Set `remaining` in the scene to strip title prefixes (`strip`), name owners by pull progress (`owners` keyed `no_pull`, `open_pull`, `merged_pull`), leave out issues that are not work (`exclude`), and add groups such as follow-up branches (`extra`, each item citing a captured record and linking inside the repository).
 
 Read the description, changed code, relevant callers, and tests. Build an interactive diagram with short labels, visual drilldowns, source details, and a summary-to-code comparison.
 

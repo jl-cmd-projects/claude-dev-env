@@ -88,6 +88,7 @@ def test_issue_capture_counts_each_task_by_its_linked_pull_request(tmp_path: Pat
     snapshot = json.loads((destination / "snapshot.json").read_text())
     tracker = json.loads((destination / "head/tracker.json").read_text())
     assert tracker["counts"] == {"open": 2, "closed": 1, "merged_pull": 1, "open_pull": 1, "no_pull": 1}
+    assert [each_child["progress"] for each_child in tracker["children"]] == ["merged_pull", "open_pull", "no_pull"]
     assert snapshot["kind"] == "issue"
     assert snapshot["metadata"]["tracked_issues"] == 4
     assert (destination / "head/issues/11.md").read_text() == TASK_WITH_FIX["body"] + "\n"

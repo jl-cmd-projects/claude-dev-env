@@ -138,7 +138,7 @@ def _pull_progress(record: dict) -> str:
 
 
 def _child_counts(all_children: list[dict]) -> dict[str, int]:
-    all_progress = [_pull_progress(each_child) for each_child in all_children]
+    all_progress = [each_child["progress"] for each_child in all_children]
     return {
         "open": sum(each_child["state"] == "open" for each_child in all_children),
         "closed": sum(each_child["state"] == "closed" for each_child in all_children),
@@ -156,6 +156,7 @@ def _capture_issue_tree(repo: str, issue: dict, depth: int, all_pulls_by_number:
             pull = _api(c.PR_ENDPOINT.format(repo=repo, number=each_number))
             all_pulls_by_number[each_number] = {each_field: pull.get(each_field) for each_field in c.ALL_PULL_FIELDS}
     record["linked_pulls"] = [all_pulls_by_number[each_number] for each_number in linked_numbers]
+    record["progress"] = _pull_progress(record)
     children = _sub_issues(repo, issue["number"]) if depth < c.SUB_ISSUE_DEPTH else []
     record["children"] = [_capture_issue_tree(repo, each_child, depth + 1, all_pulls_by_number, destination, all_files) for each_child in children]
     record["counts"] = _child_counts(record["children"])

@@ -20,6 +20,7 @@
       "html_url": "https://github.com/example/project/pull/3"
     }
   ],
+  "progress": "merged_pull",
   "children": [
     {
       "number": 2,
@@ -43,6 +44,7 @@
           "html_url": "https://github.com/example/project/pull/3"
         }
       ],
+      "progress": "merged_pull",
       "children": [],
       "counts": {
         "open": 0,
@@ -63,6 +65,7 @@
       "closed_at": null,
       "labels": [],
       "linked_pulls": [],
+      "progress": "no_pull",
       "children": [],
       "counts": {
         "open": 0,

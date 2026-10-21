@@ -24,12 +24,17 @@ PULL_RECORD_PATH = "pulls/{number}.json"
 TRACKER_PATH = "tracker.json"
 ISSUE_LINK = "https://github.com/{repo}/issues/{number}"
 PULL_LINK = "https://github.com/{repo}/pull/{number}"
+REPOSITORY_LINK = "https://github.com/{repo}/"
 CAPTURED_ISSUE_PATTERN = r"issues/([1-9]\d*)\.(?:json|md)"
 CAPTURED_ISSUE_RECORD_PATTERN = r"issues/([1-9]\d*)\.json"
 CAPTURED_PULL_PATTERN = r"pulls/([1-9]\d*)\.json"
 ALL_ISSUE_FIELDS = ("number", "title", "state", "state_reason", "html_url", "created_at", "updated_at", "closed_at")
 ALL_PULL_PROGRESS = ("merged_pull", "open_pull", "no_pull")
-ALL_PULL_FIELDS = ("number", "title", "state", "draft", "merged_at", "closed_at", "updated_at", "html_url")
+ALL_REMAINING_STATUS = {"no_pull": "Not started", "open_pull": "Pull request {pulls} open", "merged_pull": "Fixed in {pulls}; the issue is still open"}
+DEFAULT_OWNER = "No owner named"
+PULL_REFERENCE = "#{number}"
+PULL_REFERENCE_SEPARATOR = ", "
+ALL_PULL_FIELDS =("number", "title", "state", "draft", "merged_at", "closed_at", "updated_at", "html_url")
 COMPARE_ENDPOINT = "repos/{repo}/compare/{base}...{head}"
 FILES_ENDPOINT = "repos/{repo}/pulls/{number}/files?per_page={size}&page={page}"
 CONTENTS_ENDPOINT = "repos/{repo}/contents/{path}?ref={revision}"
@@ -60,6 +65,8 @@ DISCLOSURE_SELECTOR = ".exact-source summary"
 DETAIL_TITLE_SELECTOR = "[data-detail-title]"
 NODE_SELECTOR = "[data-node]"
 JUMP_SELECTOR = "[data-detail-target]"
+REMAINING_BUTTON_SELECTOR = "[data-remaining]"
+REMAINING_ITEM_SELECTOR = "[data-remaining-item]"
 DATA_SCENES_SELECTOR = "[data-scenes]"
 CANVAS_WIDTH_EXPRESSION = "(n)=>n.style.width"
 DISCLOSURE_OPEN_EXPRESSION = "(n)=>n.open"

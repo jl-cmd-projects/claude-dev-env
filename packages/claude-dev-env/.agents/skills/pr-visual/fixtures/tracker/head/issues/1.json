@@ -20,6 +20,7 @@
       "html_url": "https://github.com/example/project/pull/3"
     }
   ],
+  "progress": "merged_pull",
   "counts": {
     "open": 2,
     "closed": 0,

@@ -73,6 +73,69 @@ def _captured_record_link(relative_path: str, snapshot: dict) -> str:
     raise RenderRunFatal("Tracker evidence must cite a captured issue, pull request, or tracker file.")
 
 
+def _plain_title(title: str, all_prefix_patterns: list[str]) -> str:
+    for each_pattern in all_prefix_patterns:
+        title = re.sub(each_pattern, "", title, count=1)
+    return title
+
+
+def _open_task_entry(issue: dict, repo: str, settings: dict) -> dict:
+    progress = issue["progress"]
+    all_pulls = [each_pull for each_pull in issue["linked_pulls"] if (each_pull["merged_at"] if progress == "merged_pull" else each_pull["state"] == "open")]
+    pulls = c.PULL_REFERENCE_SEPARATOR.join(c.PULL_REFERENCE.format(number=each_pull["number"]) for each_pull in all_pulls)
+    return {
+        "number": issue["number"],
+        "title": _plain_title(issue["title"], settings.get("strip", [])),
+        "url": c.ISSUE_LINK.format(repo=repo, number=issue["number"]),
+        "progress": progress,
+        "status": c.ALL_REMAINING_STATUS[progress].format(pulls=pulls),
+        "owner": settings.get("owners", {}).get(progress, c.DEFAULT_OWNER),
+        "pulls": [{"number": each_pull["number"], "url": c.PULL_LINK.format(repo=repo, number=each_pull["number"])} for each_pull in all_pulls],
+    }
+
+
+def _remaining_groups(record: dict, repo: str, settings: dict) -> list[dict]:
+    all_open_tasks = [each_child for each_child in record["children"] if not each_child["children"] and each_child["state"] == "open" and each_child["number"] not in settings.get("exclude", [])]
+    all_open_tasks.sort(key=lambda each_task: c.ALL_PULL_PROGRESS[::-1].index(each_task["progress"]))
+    all_groups = [{"number": record["number"], "title": _plain_title(record["title"], settings.get("strip", [])), "url": c.ISSUE_LINK.format(repo=repo, number=record["number"]), "items": [_open_task_entry(each_task, repo, settings) for each_task in all_open_tasks]}] if all_open_tasks else []
+    for each_child in record["children"]:
+        all_groups.extend(_remaining_groups(each_child, repo, settings))
+    return all_groups
+
+
+def _extra_group(group: dict, snapshot: dict, snapshot_path: Path) -> dict:
+    for each_listed_task in group["items"]:
+        _source_evidence(each_listed_task["source"], snapshot, snapshot_path)
+        each_listed_task.setdefault("url", each_listed_task["source"]["url"])
+        if not each_listed_task["url"].startswith(c.REPOSITORY_LINK.format(repo=snapshot["repo"])):
+            raise RenderRunFatal("A remaining item must link inside the tracked repository.")
+    return group
+
+
+def _prepare_remaining(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
+    """List every open task under its parent epic, then the scene's extra groups.
+
+    A tracker scene gains a ``remaining`` list the viewer opens from its toolbar::
+
+        Cert fixes          #12  Not started                           Theme team
+                            #13  Fixed in #20; the issue is still open  No owner named
+        Follow-up branches  Image call counts  Waits to open           Theme team
+
+    Args:
+        scene: Scene with optional ``remaining`` settings: ``strip`` title
+            prefix patterns, ``owners`` keyed by pull progress, ``exclude``
+            issue numbers that are not work items, and ``extra`` groups whose
+            items cite a captured record.
+        snapshot: Captured tracker snapshot.
+        snapshot_path: Snapshot file the tracker tree sits beside.
+    """
+    settings = scene.get("remaining", {})
+    tracker = json.loads((snapshot_path.parent / c.HEAD_SIDE / c.TRACKER_PATH).read_text(encoding="utf-8"))
+    all_groups = _remaining_groups(tracker, snapshot["repo"], settings)
+    all_groups.extend(_extra_group(each_group, snapshot, snapshot_path) for each_group in settings.get("extra", []))
+    scene["remaining"] = {"groups": all_groups, "count": sum(len(each_group["items"]) for each_group in all_groups)}
+
+
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:
     for each_node in scene["nodes"]:
         for each_source in each_node["sources"]:
@@ -100,6 +163,8 @@ def prepare(path: Path) -> dict:
     scene["summary"] = snapshot["metadata"]["body"] or "No PR description."
     _validate_graph(scene)
     _prepare_sources(scene, snapshot, snapshot_path)
+    if is_issue:
+        _prepare_remaining(scene, snapshot, snapshot_path)
     prepare_chart(scene, snapshot_path)
     prepare_embedded_charts(scene, snapshot_path)
     return scene
@@ -110,6 +175,9 @@ def _omit_private_payload(scene: dict) -> None:
     for each_node in scene["nodes"]:
         for each_source in each_node["sources"]:
             each_source.pop("excerpt", None)
+    for each_group in scene.get("remaining", {}).get("groups", []):
+        for each_listed_task in each_group["items"]:
+            each_listed_task.get("source", {}).pop("excerpt", None)
 
 
 def render(all_scenes: list[dict], artifact_path: Path, is_links_only: bool = False) -> None:
