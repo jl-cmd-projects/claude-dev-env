@@ -132,7 +132,7 @@ function cardFlow(steps){const width=396,pad=14,step=22,flow=el('svg',{class:'ca
   flow.append(el('rect',{x:2,y,width:width-4,height,rx:12,class:`card-step ${v.kind||''}`}));text(flow,pad+2,y+pad+15,v.label,'card-step-label');lines(flow,pad+2,y+pad+15+step,body,'card-step-text','start',step);y+=height+34});
  flow.setAttribute('viewBox',`0 0 ${width} ${y-30}`);return flow}
 function showCard(card,lane,trigger){const s=scenes[active],state=s.nodes.find(n=>n.id===lane.node);lastFocus=trigger;resetSelection();content.replaceChildren();$('[data-detail-title]').textContent=card.title;
- content.append(dom('p',[state.label.join(' '),card.note].filter(Boolean).join(' \u00b7 '),'card-state'),cardFlow(card.steps?.length?card.steps:[{label:'Card',text:card.title}]));
+ content.append(dom('p',[state.label.join(' '),card.note].filter(Boolean).join(' \u00b7 '),'card-state'),cardFlow(card.steps));
  const a=dom('a',card.number?`Open issue ${card.number} on GitHub`:'Open it on GitHub','card-link');a.href=card.url;a.target='_blank';a.rel='noopener noreferrer';content.append(a);
  content.scrollTop=0;drawer.hidden=false;workspace.classList.add('open');$('.close').focus({preventScroll:true})}
 function chartNode(svg,n,x,y,bar){

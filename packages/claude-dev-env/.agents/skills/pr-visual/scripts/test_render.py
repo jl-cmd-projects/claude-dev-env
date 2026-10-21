@@ -10,7 +10,7 @@ import pytest
 SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIRECTORY))
 from metrics import MetricRunFatal, prepare_chart
-from render import RenderRunFatal, _source_evidence, prepare, render
+from render import RenderRunFatal, _source_evidence, prepare, render, require_own_card_content
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FORMATS = ("flow", "bar", "line", "scatter")
@@ -115,7 +115,7 @@ def test_tracker_scene_places_every_card_in_its_state_lane(tmp_path: Path) -> No
         {"label": "Build", "kind": "lime", "inline": True, "text": "Build the sample fix and link it."},
         {"label": "Proof", "kind": "green", "text": "A sample test shows the fix."},
     ]
-    assert fixed["groups"][0]["cards"][0]["steps"] == []
+    assert fixed["groups"][0]["cards"][0]["steps"][0] == {"label": "Today", "kind": "orange", "text": "The sample fix merged, and its task stays open."}
     assert "Task one ships" not in (tmp_path / "visual.html").read_text()
 
 
@@ -135,6 +135,59 @@ def test_tracker_cited_card_rejects_a_link_outside_the_repository(tmp_path: Path
     scene["board"]["lanes"][0]["groups"][0]["cards"][0]["url"] = "https://example.com/elsewhere"
     with pytest.raises(RenderRunFatal, match="tracked repository"):
         _prepare_copy(tmp_path, scene)
+
+
+def test_tracker_board_rejects_cards_holding_only_a_title_and_link(tmp_path: Path) -> None:
+    """A board of title and link chips stops the render."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["steps"] = []
+    scene["board"]["lanes"][0]["groups"][0]["cards"][0].pop("steps")
+    with pytest.raises(RenderRunFatal, match="3 of 3 board cards carry no content of their own"):
+        _prepare_copy(tmp_path, scene)
+
+
+def test_tracker_board_rejects_a_card_whose_text_another_card_repeats(tmp_path: Path) -> None:
+    """Text another card repeats is not a card's own content."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["lanes"][0]["groups"][0]["cards"][0]["steps"] = [{"label": "Today", "text": "The sample task has no fix yet."}]
+    with pytest.raises(RenderRunFatal, match="1 of 3 board cards .*Task one follow-up"):
+        _prepare_copy(tmp_path, scene)
+
+
+def test_tracker_board_rejects_a_step_that_repeats_the_title(tmp_path: Path) -> None:
+    """A step that only restates the card title is not content."""
+    scene = _board_scene(tmp_path)
+    scene["board"]["lanes"][0]["groups"][0]["cards"][0]["steps"] = [{"label": "Card", "text": "Task one follow-up"}]
+    with pytest.raises(RenderRunFatal, match="Task one follow-up"):
+        _prepare_copy(tmp_path, scene)
+
+
+def test_own_card_content_accepts_cards_that_share_only_a_templated_step() -> None:
+    """A shared step is allowed when each card also carries a step of its own."""
+    shared_step = {"label": "Your pick", "text": "Skip. Nothing gets built."}
+    all_cards = [{"title": f"Card {each_index}", "note": "", "steps": [{"label": "Today", "text": f"Card {each_index} has its own gap."}, shared_step]} for each_index in range(2)]
+    assert require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]}) is None
+
+
+def test_own_card_content_names_the_card_with_only_shared_steps() -> None:
+    """The refusal names the card whose every step another card repeats."""
+    shared_step = {"label": "Your pick", "text": "Skip. Nothing gets built."}
+    all_cards = [{"title": "Own card", "steps": [{"label": "Today", "text": "Own gap."}, shared_step]}, {"title": "Templated card", "steps": [shared_step]}]
+    with pytest.raises(RenderRunFatal, match="1 of 2 board cards .*: Templated card$"):
+        require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
+
+
+def test_own_card_content_accepts_text_a_card_repeats_only_within_itself() -> None:
+    """Two steps of one card that share text still count as that card's own."""
+    all_cards = [{"title": "Repeating card", "steps": [{"label": "Today", "text": "See the gap."}, {"label": "Fix", "text": "See the gap."}]}]
+    assert require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]}) is None
+
+
+def test_own_card_content_refuses_steps_without_text() -> None:
+    """A step holding only a label is no content."""
+    all_cards = [{"title": "Label card", "steps": [{"label": "Today"}]}]
+    with pytest.raises(RenderRunFatal, match="Label card"):
+        require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
 
 
 def test_tracker_board_rejects_a_node_with_no_lane(tmp_path: Path) -> None:

@@ -66,7 +66,8 @@ def _check_board(root: Locator, scene: dict) -> None:
         card = each_lane["groups"][0]["cards"][0]
         all_cards.nth(first_card).click()
         assert root.locator(c.DETAIL_TITLE_SELECTOR).inner_text() == card["title"]
-        assert root.locator(c.CARD_STEP_SELECTOR).count() == max(1, len(card.get("steps", [])))
+        assert root.locator(c.CARD_STEP_SELECTOR).count() == len(card["steps"])
+        assert all(each_step["text"] in c.SPACE_SEPARATOR.join(root.locator(c.CARD_FLOW_TEXT_SELECTOR).all_text_contents()) for each_step in card["steps"])
         _check_board_text(root, c.CARD_FLOW_TEXT_SELECTOR)
         root.get_by_role("button", name=c.CLOSE_BUTTON_LABEL).click()
         assert root.locator(c.DRAWER_SELECTOR).is_hidden()
