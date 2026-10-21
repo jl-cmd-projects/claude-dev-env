@@ -174,8 +174,9 @@ def require_own_card_content(board: dict) -> None:
     """Refuse a board whose cards say nothing of their own.
 
     A card passes when one of its steps carries text that is not its title
-    or note and that no other card on the board repeats. A card holding only
-    a title, a link, or text shared by every card in its lane fails.
+    or note and that no other card on the board repeats, and every step
+    carries text. A card holding only a title, a link, text another card
+    repeats, or a step with no text fails.
 
     Args:
         board: Prepared board with ``lanes`` of ``groups`` of ``cards``.
