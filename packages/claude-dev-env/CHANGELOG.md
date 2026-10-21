@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.95.1...claude-dev-env-v8.96.0) (2026-10-21)
+
+
+### Features
+
+* **pr-visual:** draw a tracker epic in the PR visual viewer ([#2109](https://github.com/jl-cmd-projects/claude-dev-env/issues/2109)) ([272a20c](https://github.com/jl-cmd-projects/claude-dev-env/commit/272a20c6ee2a85d636ca83108f3bfd6323dbc46c))
+
 ## [8.95.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.95.0...claude-dev-env-v8.95.1) (2026-10-21)
 
 
