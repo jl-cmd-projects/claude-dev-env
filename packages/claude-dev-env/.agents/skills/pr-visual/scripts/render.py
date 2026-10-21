@@ -174,8 +174,9 @@ def require_own_card_content(board: dict) -> None:
     """Refuse a board whose cards say nothing of their own.
 
     A card passes when one of its steps carries text that is not its title
-    or note and that no other card on the board repeats. A card holding only
-    a title, a link, or text shared by every card in its lane fails.
+    or note and that no other card on the board repeats, and every step
+    carries text. A card holding only a title, a link, text another card
+    repeats, or a step with no text fails.
 
     Args:
         board: Prepared board with ``lanes`` of ``groups`` of ``cards``.
@@ -196,7 +197,8 @@ def _step_texts(card: dict) -> set[str]:
 
 def _has_own_step(card: dict, text_counts: Counter) -> bool:
     all_borrowed_text = {card["title"].strip(), card.get("note", "").strip(), ""}
-    return any(text_counts[each_text] == 1 and each_text not in all_borrowed_text for each_text in _step_texts(card))
+    is_every_step_written = all(each_step.get("text") for each_step in card.get("steps", []))
+    return is_every_step_written and any(text_counts[each_text] == 1 and each_text not in all_borrowed_text for each_text in _step_texts(card))
 
 
 def _prepare_sources(scene: dict, snapshot: dict, snapshot_path: Path) -> None:

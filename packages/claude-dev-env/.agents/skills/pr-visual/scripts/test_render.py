@@ -190,6 +190,13 @@ def test_own_card_content_refuses_steps_without_text() -> None:
         require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
 
 
+def test_own_card_content_refuses_a_card_with_one_textless_step() -> None:
+    """A step the viewer would draw with no text stops the render, even beside an own step."""
+    all_cards = [{"title": "Half card", "steps": [{"label": "Today", "text": "Own gap."}, {"label": "Fix"}]}]
+    with pytest.raises(RenderRunFatal, match="Half card"):
+        require_own_card_content({"lanes": [{"groups": [{"cards": all_cards}]}]})
+
+
 def test_tracker_board_rejects_a_node_with_no_lane(tmp_path: Path) -> None:
     """Every state node on a board sits in exactly one lane."""
     scene = _board_scene(tmp_path)
