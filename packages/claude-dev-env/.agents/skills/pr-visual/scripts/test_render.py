@@ -146,8 +146,8 @@ def test_tracker_board_rejects_cards_holding_only_a_title_and_link(tmp_path: Pat
         _prepare_copy(tmp_path, scene)
 
 
-def test_tracker_board_rejects_a_card_whose_text_every_card_repeats(tmp_path: Path) -> None:
-    """Templated text shared across cards is not a card's own content."""
+def test_tracker_board_rejects_a_card_whose_text_another_card_repeats(tmp_path: Path) -> None:
+    """Text another card repeats is not a card's own content."""
     scene = _board_scene(tmp_path)
     scene["board"]["lanes"][0]["groups"][0]["cards"][0]["steps"] = [{"label": "Today", "text": "The sample task has no fix yet."}]
     with pytest.raises(RenderRunFatal, match="1 of 3 board cards .*Task one follow-up"):
