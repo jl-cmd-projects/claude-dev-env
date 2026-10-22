@@ -75,13 +75,18 @@ def has_posted_reply_since_last_resolve(all_transcript_lines: Iterable[str]) -> 
     """
     unspent_reply_count = 0
     for each_call in tool_calls_since_last_prompt(all_transcript_lines):
-        if not each_call.succeeded:
-            continue
-        if is_resolve_call(each_call.name):
-            unspent_reply_count = max(0, unspent_reply_count - 1)
-        elif is_reply_call(each_call):
-            unspent_reply_count += 1
+        unspent_reply_count = _unspent_reply_count_after(unspent_reply_count, each_call)
     return unspent_reply_count > 0
+
+
+def _unspent_reply_count_after(unspent_reply_count: int, tool_call: TranscriptToolCall) -> int:
+    if not tool_call.succeeded:
+        return unspent_reply_count
+    if is_resolve_call(tool_call.name):
+        return max(0, unspent_reply_count - 1)
+    if is_reply_call(tool_call):
+        return unspent_reply_count + 1
+    return unspent_reply_count
 
 
 def _transcript_shows_reply(transcript_path: str) -> bool | None:

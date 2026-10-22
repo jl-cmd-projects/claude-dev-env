@@ -250,11 +250,13 @@ def _content_blocks(all_entry_fields: dict[str, object], entry_type: str) -> lis
 
 
 def _tool_use_calls(all_entry_fields: dict[str, object]) -> list[tuple[object, str, dict[str, object]]]:
-    return [
-        (each_block.get("id"), each_block["name"], each_block.get("input") if isinstance(each_block.get("input"), dict) else {})
-        for each_block in _content_blocks(all_entry_fields, ASSISTANT_ENTRY_TYPE)
-        if each_block.get("type") == TOOL_USE_BLOCK_TYPE and isinstance(each_block.get("name"), str)
-    ]
+    all_tool_use_calls: list[tuple[object, str, dict[str, object]]] = []
+    for each_block in _content_blocks(all_entry_fields, ASSISTANT_ENTRY_TYPE):
+        tool_name = each_block.get("name")
+        tool_input = each_block.get("input")
+        if each_block.get("type") == TOOL_USE_BLOCK_TYPE and isinstance(tool_name, str):
+            all_tool_use_calls.append((each_block.get("id"), tool_name, tool_input if isinstance(tool_input, dict) else {}))
+    return all_tool_use_calls
 
 
 def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
