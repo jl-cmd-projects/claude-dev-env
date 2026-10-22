@@ -57,26 +57,31 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
 
 
 def has_posted_reply_since_last_resolve(all_transcript_lines: Iterable[str]) -> bool:
-    """Return whether a reply call succeeded after the last user prompt and the last successful resolve.
+    """Return whether a reply that succeeded since the last user prompt is not yet spent on a successful resolve.
 
     ::
 
-        prompt, reply ok, resolve pending              -> True
-        prompt, reply refused by a hook, resolve       -> False
-        prompt, resolve                                -> False
-        prompt, reply ok, resolve ok, resolve pending  -> False
+        prompt, reply ok, resolve pending                                 -> True
+        prompt, reply refused by a hook, resolve                          -> False
+        prompt, resolve                                                   -> False
+        prompt, reply ok, resolve ok, resolve pending                     -> False
+        prompt, reply ok, reply ok, resolve ok, resolve pending           -> True
 
-    A failed or denied resolve leaves an earlier reply counted, so a retry
-    after a resolve error needs no second reply.
+    Each successful resolve spends one successful reply. A failed or denied
+    resolve spends none, so a retry after a resolve error needs no second reply.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
     """
-    has_reply = False
+    unspent_reply_count = 0
     for each_call in tool_calls_since_last_prompt(all_transcript_lines):
-        if each_call.succeeded:
-            has_reply = not is_resolve_call(each_call.name) and (has_reply or is_reply_call(each_call))
-    return has_reply
+        if not each_call.succeeded:
+            continue
+        if is_resolve_call(each_call.name):
+            unspent_reply_count = max(0, unspent_reply_count - 1)
+        elif is_reply_call(each_call):
+            unspent_reply_count += 1
+    return unspent_reply_count > 0
 
 
 def _transcript_shows_reply(transcript_path: str) -> bool | None:

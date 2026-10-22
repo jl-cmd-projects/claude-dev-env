@@ -106,6 +106,23 @@ def should_deny_a_second_resolve_after_one_reply(tmp_path: Path) -> None:
     assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
 
 
+def should_allow_a_second_resolve_after_two_replies(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _call("reply-1", REPLY_TOOL_NAME, {"body": "Fixed in `abc1234`."}),
+            _result("reply-1"),
+            _call("reply-2", REPLY_TOOL_NAME, {"body": "Fixed in `def5678`."}),
+            _result("reply-2"),
+            _call("resolve-1", RESOLVE_TOOL_NAME),
+            _result("resolve-1"),
+            _call("resolve-2", RESOLVE_TOOL_NAME),
+        ],
+    )
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+
+
 def should_deny_a_resolve_whose_reply_came_before_the_last_prompt(tmp_path: Path) -> None:
     transcript_path = _write_transcript(
         tmp_path,
