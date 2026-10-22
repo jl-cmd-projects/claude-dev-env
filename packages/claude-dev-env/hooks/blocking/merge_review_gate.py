@@ -70,6 +70,7 @@ from hooks_constants.merge_review_gate_constants import (
     OPEN_RECEIPT_FILE_NAME_TEMPLATE,
     OPEN_HEAD_PATTERN,
     OPEN_RECEIPT_GLOB_TEMPLATE,
+    OPEN_RECEIPT_HEAD_PATTERN,
     OPTION_WITH_VALUE_PATTERN,
     ORIGIN_URL_PATTERN,
     OWNER_FIELD,
@@ -198,7 +199,7 @@ def has_clean_open_review(repo: str, head: str) -> bool:
         recorded_head = receipt.get(RECEIPT_HEAD_KEY)
         if (
             isinstance(recorded_head, str)
-            and OPEN_HEAD_PATTERN.fullmatch(recorded_head)
+            and OPEN_RECEIPT_HEAD_PATTERN.fullmatch(recorded_head)
             and _same_commit(recorded_head, head)
             and receipt.get(RECEIPT_FINDINGS_KEY) == 0
             and _is_count(receipt.get(RECEIPT_FINDINGS_KEY))

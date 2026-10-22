@@ -154,7 +154,7 @@ def test_should_refuse_an_open_pass_it_cannot_record(
     assert list(receipt_folder.iterdir()) == []
 
 
-@pytest.mark.parametrize("head", ["abc", "../../escape", "zzzzzzz"])
+@pytest.mark.parametrize("head", ["abc", "abc1234", "../../escape", "zzzzzzz"])
 def test_should_refuse_an_open_pass_whose_head_is_not_a_commit(head: str, receipt_folder: Path) -> None:
     with pytest.raises(SystemExit):
         merge_review_receipt.main(["acme/tools", "open", head, "0"], StringIO())

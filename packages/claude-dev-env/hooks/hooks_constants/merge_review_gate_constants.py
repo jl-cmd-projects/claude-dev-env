@@ -30,6 +30,7 @@ ORIGIN_URL_PATTERN = re.compile(
 )
 GIT_TIMEOUT_SECONDS = 3
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
+OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
 REMOTE_BRANCH_PREFIX = "origin/"
 CURRENT_HEAD_REFERENCE = "HEAD"
