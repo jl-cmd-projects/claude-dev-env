@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.1...claude-dev-env-v8.98.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** keep an empty quoted argument in the shell command parser ([#2141](https://github.com/jl-cmd-projects/claude-dev-env/issues/2141)) ([b6ab997](https://github.com/jl-cmd-projects/claude-dev-env/commit/b6ab997d7445436dd47f54b3c4201cfe456f75a3))
+
 ## [8.98.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.0...claude-dev-env-v8.98.1) (2026-10-22)
 
 
