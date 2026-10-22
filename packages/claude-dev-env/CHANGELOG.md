@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.97.0...claude-dev-env-v8.98.0) (2026-10-22)
+
+
+### Features
+
+* **hooks:** deny a code commit until the verify skill loads this turn ([#2138](https://github.com/jl-cmd-projects/claude-dev-env/issues/2138)) ([527868b](https://github.com/jl-cmd-projects/claude-dev-env/commit/527868b6ff58635ca89cad2cbcd33b06321ffd53))
+
 ## [8.97.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.8...claude-dev-env-v8.97.0) (2026-10-22)
 
 
