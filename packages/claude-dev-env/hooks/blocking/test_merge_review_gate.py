@@ -1,5 +1,6 @@
 """Behavior tests for the clean-review merge gate."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -199,3 +200,220 @@ def test_should_deny_auto_merge_pinned_to_a_newer_head() -> None:
     merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 0)
     command = f"gh pr merge 12 --repo acme/tools --auto --match-head-commit {NEW_HEAD}"
     assert "Review the new head" in _reason(_bash(command))
+
+
+def _git(folder: Path, *all_arguments: str) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(folder), *all_arguments], capture_output=True, text=True, check=True
+    )
+    return completed.stdout.strip()
+
+
+@pytest.fixture
+def branch_checkout(tmp_path: Path) -> tuple[Path, str]:
+    folder = tmp_path / "checkout"
+    folder.mkdir()
+    _git(folder, "init", "--quiet", "--initial-branch", "main")
+    _git(folder, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    _git(folder, "checkout", "--quiet", "-b", "feature")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "first",
+    )
+    return folder, _git(folder, "rev-parse", "HEAD")
+
+
+def _create_tool(folder: Path, head: str = "feature") -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "head": head, "base": "main"},
+        "cwd": str(folder),
+    }
+
+
+def _bash_in(folder: Path, command: str) -> dict[str, object]:
+    return {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(folder)}
+
+
+def test_should_deny_a_pull_request_open_with_no_review(branch_checkout: tuple[Path, str]) -> None:
+    folder, head = branch_checkout
+    reason = _reason(_create_tool(folder))
+    assert f"no clean review for head {head}" in reason
+    assert f"acme/tools open {head} 0" in reason
+
+
+def test_should_allow_a_pull_request_open_reviewed_clean_at_its_head(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_deny_a_pull_request_open_whose_pass_found_findings(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert "no clean review" in _reason(_create_tool(folder))
+
+
+def test_should_deny_a_pull_request_open_after_a_push_past_the_review(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, _head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", NEW_HEAD, 0)
+    assert "no clean review" in _reason(_create_tool(folder))
+
+
+def test_should_read_gh_pr_create_with_repo_and_head(branch_checkout: tuple[Path, str]) -> None:
+    folder, head = branch_checkout
+    command = "gh pr create --repo acme/tools --head feature --title t --body b"
+    assert "no clean review" in _reason(_bash_in(folder, command))
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_read_gh_pr_create_repository_from_origin(branch_checkout: tuple[Path, str]) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def test_should_read_the_pull_request_script_create(branch_checkout: tuple[Path, str]) -> None:
+    folder, head = branch_checkout
+    command = "python scripts/pull_request.py create --repo acme/tools --head feature"
+    assert f"head {head}" in _reason(_bash_in(folder, command))
+
+
+def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(tmp_path: Path) -> None:
+    reason = _reason(_create_tool(tmp_path, head="missing-branch"))
+    assert "names no repository or head commit" in reason
+
+
+def test_should_allow_a_pull_request_open_in_an_exempt_repository(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, _head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_allow_a_merge_pinned_to_the_head_reviewed_clean_before_open() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    assert _reason(_merge_tool(CLEAN_HEAD)) is None
+    command = f"gh pr merge 12 --repo acme/tools --match-head-commit {CLEAN_HEAD[:7]}"
+    assert _reason(_bash(command)) is None
+
+
+def test_should_deny_a_merge_pinned_past_the_head_reviewed_before_open() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    assert "no clean review" in _reason(_merge_tool(NEW_HEAD))
+
+
+def test_should_deny_an_unpinned_merge_with_only_an_open_review() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    assert "no clean review" in _reason(_merge_tool())
+
+
+def test_should_not_accept_an_open_review_from_another_repository() -> None:
+    merge_review_receipt.record_open_review("acme/other", CLEAN_HEAD, 0)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_accept_an_open_review_recorded_under_the_old_owner() -> None:
+    merge_review_receipt.record_open_review("oldowner/tools", CLEAN_HEAD, 0)
+    assert _reason(_merge_tool(CLEAN_HEAD)) is None
+
+
+def test_should_deny_a_merge_whose_numbered_pass_found_findings_at_the_open_reviewed_head() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_ignore_an_open_receipt_whose_head_is_not_a_commit(receipt_folder: Path) -> None:
+    heads_folder = receipt_folder / "heads"
+    heads_folder.mkdir()
+    (heads_folder / "acme__tools__a.json").write_text('{"head": "a", "findings": 0}', encoding="utf-8")
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_check_a_merge_chained_after_a_reviewed_open(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = (
+        "gh pr create --repo acme/tools --head feature --fill && "
+        f"gh pr merge 12 --repo acme/tools --match-head-commit {NEW_HEAD}"
+    )
+    assert "no clean review" in _reason(_bash_in(folder, command))
+
+
+def test_should_read_the_pushed_branch_before_the_local_one(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, local_head = branch_checkout
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "pushed",
+    )
+    pushed_head = _git(folder, "rev-parse", "HEAD")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", pushed_head)
+    _git(folder, "reset", "--quiet", "--hard", local_head)
+    merge_review_receipt.record_open_review("acme/tools", local_head, 0)
+    assert f"head {pushed_head}" in _reason(_create_tool(folder))
+
+
+def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD[:3]))
+
+
+def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
+    assert _reason(_create_tool(tmp_path, head="missing-branch")) is None
+
+
+def test_should_skip_options_quoted_inside_the_title_or_body(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = (
+        "gh pr create --repo acme/tools --title 'use -R other/x' "
+        f"--body \"curl -H 'Accept: x'; -H {NEW_HEAD}\" --head feature"
+    )
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_read_the_head_in_the_folder_a_cd_moves_to(
+    branch_checkout: tuple[Path, str], tmp_path: Path
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert _reason(_bash_in(elsewhere, f'cd "{folder}" && gh pr create --fill')) is None
+    assert "names no repository or head commit" in _reason(
+        _bash_in(folder, f'cd "{elsewhere}" && gh pr create --repo acme/tools --fill')
+    )
