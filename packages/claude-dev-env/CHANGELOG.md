@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.9](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.8...claude-dev-env-v8.98.9) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** tie each thread resolve to a reply on it ([#2162](https://github.com/jl-cmd-projects/claude-dev-env/issues/2162)) ([8e169ed](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e169ed48a048ace0baaebd583a9fc0b44cc505c))
+
 ## [8.98.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.7...claude-dev-env-v8.98.8) (2026-10-22)
 
 
