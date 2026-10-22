@@ -132,6 +132,12 @@ def test_should_record_a_clean_open_pass_under_heads(receipt_folder: Path) -> No
     assert receipt == {"head": HEAD, "findings": 0}
 
 
+def test_record_open_review_writes_the_head_receipt_in_lowercase(receipt_folder: Path) -> None:
+    path = merge_review_receipt.record_open_review("Acme/Tools", HEAD.upper(), 2)
+    assert path == receipt_folder / "heads" / f"acme__tools__{HEAD}.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD.upper(), "findings": 2}
+
+
 def test_should_exit_one_for_an_open_pass_with_findings() -> None:
     verdict_stream = StringIO()
     assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1

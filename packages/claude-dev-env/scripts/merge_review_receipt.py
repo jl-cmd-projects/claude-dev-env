@@ -36,7 +36,11 @@ hooks_directory = str(Path(__file__).resolve().parent.parent / "hooks")
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.merge_review_gate import is_clean_receipt, open_receipt_path, receipt_path
+from blocking.merge_review_gate_parts.receipts import (
+    is_clean_receipt,
+    open_receipt_path,
+    receipt_path,
+)
 from hooks_constants.merge_review_gate_constants import (
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,

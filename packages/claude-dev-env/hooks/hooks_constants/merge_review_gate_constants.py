@@ -37,6 +37,7 @@ ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
 GIT_TIMEOUT_SECONDS = 3
+ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
