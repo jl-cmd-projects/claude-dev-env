@@ -1000,8 +1000,8 @@ def test_should_collect_each_question_card_prose_field() -> None:
 def test_should_quote_the_hedged_sentence() -> None:
     assert reply_length_gate.unvalidated_claim_violation("Done. It should take a few minutes.") == (
         'No tool validated this: "It should take a few minutes.". Run the check yourself or through'
-        " a subagent, then state what the run, log line, output, or file and line shows, or leave"
-        " the claim out."
+        " a subagent, then state what the run, log line, output, or file and line shows. When you"
+        " cannot run it this turn, report it as `Open: <check> - <next step>`."
     )
 
 

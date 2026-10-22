@@ -147,7 +147,8 @@ DURATION_CLAIM_PATTERN = re.compile(
 )
 UNVALIDATED_CLAIM_MESSAGE = (
     'No tool validated this: "{claim}". Run the check yourself or through a subagent,'
-    " then state what the run, log line, output, or file and line shows, or leave the claim out."
+    " then state what the run, log line, output, or file and line shows. When you cannot run it"
+    " this turn, report it as `Open: <check> - <next step>`."
 )
 CITED_NUMBER_PATTERN = re.compile(
     r"/actions/runs/(\d+)|/pull/(\d+)|\b(?:run|job|check)\s+#?(\d{5,})\b", re.IGNORECASE
