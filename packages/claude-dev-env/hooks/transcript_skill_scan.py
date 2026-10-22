@@ -10,7 +10,9 @@ from hooks_constants.transcript_skill_scan_constants import (
     ASSISTANT_ENTRY_TYPE,
     COMMAND_ARGUMENTS_PATTERN,
     COMPACT_BOUNDARY_SUBTYPE,
+    META_ENTRY_FIELD,
     SKILL_TOOL_NAME,
+    TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     USER_ENTRY_TYPE,
 )
@@ -87,14 +89,18 @@ def _invokes_skill_with_argument(
     )
 
 
-def _relevant_entry(each_line: str, skill_names: Collection[str]) -> dict[str, object] | None:
-    if not any(name in each_line for name in skill_names) and COMPACT_BOUNDARY_SUBTYPE not in each_line:
-        return None
+def _parsed_entry(each_line: str) -> dict[str, object] | None:
     try:
         all_entry_fields = json.loads(each_line)
     except json.JSONDecodeError:
         return None
     return all_entry_fields if isinstance(all_entry_fields, dict) else None
+
+
+def _relevant_entry(each_line: str, skill_names: Collection[str]) -> dict[str, object] | None:
+    if not any(name in each_line for name in skill_names) and COMPACT_BOUNDARY_SUBTYPE not in each_line:
+        return None
+    return _parsed_entry(each_line)
 
 
 def skill_invocation_status(
@@ -138,6 +144,51 @@ def is_skill_loaded_after_last_compaction(
         slash_command_markers: Accepted user command tags.
     """
     return skill_invocation_status(all_transcript_lines, skill_names, slash_command_markers)[1]
+
+
+def _is_user_prompt(all_entry_fields: dict[str, object]) -> bool:
+    message = all_entry_fields.get("message")
+    if all_entry_fields.get("type") != USER_ENTRY_TYPE or all_entry_fields.get(META_ENTRY_FIELD):
+        return False
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, str):
+        return True
+    return isinstance(content, list) and not any(
+        isinstance(each_block, dict) and each_block.get("type") == TOOL_RESULT_BLOCK_TYPE
+        for each_block in content
+    )
+
+
+def is_skill_loaded_since_last_prompt(
+    all_transcript_lines: Iterable[str],
+    skill_names: Collection[str],
+    slash_command_markers: Collection[str],
+) -> bool:
+    """Return whether a matching invocation follows the last user prompt and compact boundary.
+
+    ::
+
+        prompt, Skill verify, tool result, skill body   -> True
+        prompt, Skill verify, prompt                    -> False
+        prompt carrying the /verify command marker      -> True
+        prompt with the marker, compact boundary        -> False
+
+    A tool result and a meta entry, such as the skill body, leave the turn open.
+
+    Args:
+        all_transcript_lines: JSON transcript entries, one per line.
+        skill_names: Accepted skill names, with plugin prefixes accepted.
+        slash_command_markers: Accepted user command tags.
+    """
+    loaded = False
+    for each_line in all_transcript_lines:
+        all_entry_fields = _parsed_entry(each_line)
+        if all_entry_fields is None:
+            continue
+        if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE or _is_user_prompt(all_entry_fields):
+            loaded = False
+        loaded = loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
+    return loaded
 
 
 def invokes_skill_with_argument(

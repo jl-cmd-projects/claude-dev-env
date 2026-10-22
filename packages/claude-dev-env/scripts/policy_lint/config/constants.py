@@ -64,6 +64,7 @@ ALL_ACTION_BOUNDARY_PREFIXES = ("deny_", "block_", "ask_")
 ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/bash_pre_tool_use_dispatcher.py",
     "blocking/pr_lifecycle_skill_gate.py",
+    "blocking/verify_before_commit_gate.py",
     "blocking/merge_review_gate.py",
     "blocking/step_note_gate.py",
     "blocking/reply_length_gate.py",
