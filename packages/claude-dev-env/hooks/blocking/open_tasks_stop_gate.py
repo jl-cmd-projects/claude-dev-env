@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Stop hook that keeps a session working while its task list has unreported open items.
 
-The session's open items merge these sources, one item per subject::
+The session's open items merge these sources. A source drops an item whose subject
+an earlier source holds, so the task store wins over the transcript::
 
     ~/.claude/tasks/<task list id>/*.json        (TaskCreate / TaskUpdate store)
     transcript TaskCreate / TaskUpdate calls      (replayed in order)
