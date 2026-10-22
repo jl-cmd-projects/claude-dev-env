@@ -3,6 +3,10 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:*.claude.com)",
+      "WebFetch(domain:claude.dev)",
+      "WebFetch(domain:*.claude.dev)",
       "Read(~/.claude/docs/**)"
     ]
   },
