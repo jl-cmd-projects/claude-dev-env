@@ -82,6 +82,33 @@ def test_executable_word_lists_keeps_a_quoted_argument_that_starts_with_a_separa
     assert gate.executable_word_lists('git -C "(dir)" commit -m x') == [["git", "-C", "(dir)", "commit", "-m", "x"]]
 
 
+def test_executable_word_lists_keeps_a_quoted_separator_argument_in_its_command() -> None:
+    assert gate.executable_word_lists('git commit -m "&" -a') == [["git", "commit", "-m", "&", "-a"]]
+    assert gate.executable_word_lists("git commit -m ';' -a && git push") == [
+        ["git", "commit", "-m", ";", "-a"],
+        ["git", "push"],
+    ]
+    assert gate.executable_word_lists("git commit -m x\\; -a") == [["git", "commit", "-m", "x;", "-a"]]
+
+
+def test_executable_word_lists_skips_a_comment_and_resumes_on_the_next_line() -> None:
+    assert gate.executable_word_lists("git status #note; more\ngit push") == [
+        ["git", "status"],
+        ["git", "push"],
+    ]
+    assert gate.executable_word_lists("echo 'a#b' c#d") == [["echo", "a#b", "c#d"]]
+    assert gate.executable_word_lists("git status x\\ #y; git push") == [["git", "status", "x #y"], ["git", "push"]]
+
+
+def test_executable_word_lists_joins_a_line_continuation() -> None:
+    assert gate.executable_word_lists("git \\\npush origin") == [["git", "push", "origin"]]
+    assert gate.executable_word_lists("git\\\n#note; git push") == [["git#note"], ["git", "push"]]
+
+
+def test_executable_word_lists_keeps_the_other_segments_beside_a_trailing_backslash() -> None:
+    assert gate.executable_word_lists("git push; echo a\\") == [["git", "push"], ["echo", "a\\"]]
+
+
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
     path = _transcript(tmp_path, "plugin:pr-lifecycle")
     assert _run_main(_payload("gh pr view", path)) == (0, "")
