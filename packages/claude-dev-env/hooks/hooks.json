@@ -336,7 +336,7 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/open_task_ask_recorder.py",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/tracking_nudge.py",
             "timeout": 10
           },
           {

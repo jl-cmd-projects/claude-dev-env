@@ -1,7 +1,19 @@
 import json
 from pathlib import Path
 
-from open_tasks_transcript import TaskItem, parsed_object, replayed_transcript, unwrapped_tool_call
+import pytest
+
+from open_tasks_transcript import (
+    TaskItem,
+    claude_prompt_text,
+    codex_prompt_text,
+    is_assistant_record,
+    is_codex_work_call,
+    is_user_prompt_record,
+    parsed_object,
+    replayed_transcript,
+    unwrapped_tool_call,
+)
 
 
 def write_transcript(transcript_path: Path, all_records: list[dict[str, object]]) -> Path:
@@ -26,7 +38,7 @@ def test_should_unwrap_a_call_dynamic_tool_todo_write_call() -> None:
     assert unwrapped_tool_call("CallDynamicTool", {"toolName": "TodoWrite"}) == ("CallDynamicTool", {"toolName": "TodoWrite"})
 
 
-def test_should_replay_cursor_dynamic_todo_writes_and_the_last_reply(tmp_path: Path) -> None:
+def test_should_replay_cursor_dynamic_todo_writes_as_tracker_calls(tmp_path: Path) -> None:
     all_first_todos = [
         {"id": "1", "content": "write hello.txt", "status": "in_progress"},
         {"id": "2", "content": "rotate the deploy key", "status": "pending"},
@@ -45,7 +57,70 @@ def test_should_replay_cursor_dynamic_todo_writes_and_the_last_reply(tmp_path: P
         TaskItem("1", "write hello.txt", "completed"),
         TaskItem("2", "rotate the deploy key", "pending"),
     ]
-    assert replay.last_assistant_text == "Done."
+    assert replay.has_turn_tracker_write is True
+    assert replay.has_turn_work_tool is False
+
+
+def test_should_start_a_new_turn_at_each_prompt_and_reset_its_flags(tmp_path: Path) -> None:
+    bash_call = {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "ls"}}
+    transcript_path = write_transcript(
+        tmp_path / "claude.jsonl",
+        [
+            {"type": "user", "message": {"role": "user", "content": "Write the gate"}},
+            dynamic_todo_record([{"id": "1", "content": "Write the gate", "status": "in_progress"}], False),
+            {"type": "user", "message": {"role": "user", "content": "Export the APKs"}},
+            {"type": "assistant", "message": {"content": [bash_call]}},
+        ],
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Export the APKs"
+    assert replay.has_turn_work_tool is True
+    assert replay.has_turn_tracker_write is False
+
+
+@pytest.mark.parametrize(
+    ("record", "expected_text"),
+    [
+        ({"type": "user", "message": {"role": "user", "content": "Export the APKs"}}, "Export the APKs"),
+        ({"type": "user", "message": {"content": [{"type": "text", "text": "Fix it"}]}}, "Fix it"),
+        ({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "b1"}]}}, None),
+        ({"type": "user", "isMeta": True, "message": {"content": "Stop hook feedback: hold"}}, None),
+        ({"type": "user", "message": {"content": "Stop hook feedback:\nhold"}}, None),
+        ({"type": "assistant", "message": {"content": "Done."}}, None),
+    ],
+)
+def test_should_read_prompt_text_only_from_a_record_that_starts_a_turn(
+    record: dict[str, object], expected_text: str | None
+) -> None:
+    assert claude_prompt_text(record) == expected_text
+    assert is_user_prompt_record(record) is (expected_text is not None)
+
+
+def test_should_read_codex_user_message_text() -> None:
+    user_message = {
+        "type": "response_item",
+        "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Ship it"}]},
+    }
+    assistant_message = {"type": "response_item", "payload": {"type": "message", "role": "assistant", "content": "ok"}}
+    assert codex_prompt_text(user_message) == "Ship it"
+    assert codex_prompt_text(assistant_message) is None
+
+
+def test_should_count_codex_tool_calls_other_than_the_plan_as_work() -> None:
+    def codex_call(call_type: str, tool_name: str) -> dict[str, object]:
+        return {"type": "response_item", "payload": {"type": call_type, "name": tool_name}}
+
+    assert is_codex_work_call(codex_call("function_call", "shell")) is True
+    assert is_codex_work_call(codex_call("local_shell_call", "")) is True
+    assert is_codex_work_call(codex_call("function_call", "update_plan")) is False
+    assert is_codex_work_call({"type": "user", "payload": {"type": "function_call"}}) is False
+
+
+def test_should_recognize_an_assistant_record_by_type_role_or_message_role() -> None:
+    assert is_assistant_record({"type": "assistant"}) is True
+    assert is_assistant_record({"role": "assistant"}) is True
+    assert is_assistant_record({"message": {"role": "assistant"}}) is True
+    assert is_assistant_record({"type": "user", "message": {"role": "user"}}) is False
 
 
 def test_should_parse_only_json_objects() -> None:
