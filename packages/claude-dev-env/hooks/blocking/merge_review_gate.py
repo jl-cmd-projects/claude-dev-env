@@ -1,11 +1,14 @@
-"""Deny an agent's merge until a review of the merged head came back clean.
+"""Deny an agent's pull request open or merge until a review of that head came back clean.
 
-The agent that drives a pull request loops a code review on it, fixing and
-pushing each finding, until one pass reports zero findings or every finding
-it reports is ruled out with a link to the posted rulings. The merge then
-names that exact head::
+The agent reviews its branch before it opens the pull request, and loops a
+code review on the pull request, fixing and pushing each finding, until one
+pass reports zero findings or every finding it reports is ruled out with a
+link to the posted rulings. The open and the merge then name that exact head::
 
+    open, open receipt says 0 findings at abc123, branch head abc123 -> allow
+    open, no open receipt for the branch head                        -> deny, review first
     merge, receipt says 0 findings at abc123, merge pinned to abc123 -> allow
+    merge, open receipt clean at abc123, merge pinned to abc123      -> allow
     merge, receipt rules out all 3 findings with a link, pinned       -> allow
     merge, receipt at abc123, merge pinned to def456                 -> deny, review again
     merge, receipt at abc123, merge names no head                    -> deny, pin it
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,22 +47,35 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    CREATE_TOOL_SUFFIX,
+    CURRENT_HEAD_REFERENCE,
+    CWD_FIELD,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
+    GH_PR_CREATE_PATTERN,
     GH_PR_MERGE_PATTERN,
+    GIT_TIMEOUT_SECONDS,
+    HEAD_BRANCH_FIELD,
+    HEAD_OPTION_PATTERN,
     HOOK_EVENT_NAME,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
+    NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
     NO_CLEAN_REVIEW_REASON_TEMPLATE,
     NUMBER_FIELD,
+    OPEN_RECEIPT_DIRECTORY_NAME,
+    OPEN_RECEIPT_FILE_NAME_TEMPLATE,
+    OPEN_RECEIPT_GLOB_TEMPLATE,
     OPTION_WITH_VALUE_PATTERN,
+    ORIGIN_URL_PATTERN,
     OWNER_FIELD,
     PERMISSION_DECISION_REASON_KEY,
     PR_NUMBER_PATTERN,
     PR_URL_PATTERN,
+    PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE,
     RECEIPT_FILE_NAME_TEMPLATE,
     RECEIPT_FINDINGS_KEY,
@@ -70,7 +87,9 @@ from hooks_constants.merge_review_gate_constants import (
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
     RULINGS_LINK_PATTERN,
+    REMOTE_BRANCH_PREFIX,
     STALE_REVIEW_REASON_TEMPLATE,
+    UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
 )
@@ -126,6 +145,187 @@ def receipt_path(owner: str, repo: str, number: int) -> Path:
     """
     return receipt_directory() / RECEIPT_FILE_NAME_TEMPLATE.format(
         owner=owner.casefold(), repo=repo.casefold(), number=number
+    )
+
+
+def open_receipt_path(owner: str, repo: str, head: str) -> Path:
+    """Return where the review receipt for a head reviewed before its pull request opened lives.
+
+    Args:
+        owner: Repository owner.
+        repo: Repository name.
+        head: The commit the pass reviewed.
+
+    Returns:
+        The receipt file path.
+    """
+    return receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME / OPEN_RECEIPT_FILE_NAME_TEMPLATE.format(
+        owner=owner.casefold(), repo=repo.casefold(), head=head.casefold()
+    )
+
+
+def has_clean_open_review(repo: str, head: str) -> bool:
+    """Return whether a pass recorded before the pull request opened found zero findings at a head.
+
+    The head may be a full or an abbreviated commit, matched against each
+    recorded head by prefix. The owner is left out of the match, since a
+    checkout whose origin still names a transferred repository's old owner
+    opens against the new one::
+
+        open receipt {head: abc1234..., findings: 0}, head abc1234 -> True
+        open receipt {head: abc1234..., findings: 2}, head abc1234 -> False
+        no open receipt for the repository                          -> False
+
+    Args:
+        repo: Repository name.
+        head: The commit the open or merge names.
+
+    Returns:
+        True when a clean open receipt covers that head.
+    """
+    folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
+    pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
+    for each_path in folder.glob(pattern):
+        try:
+            receipt = json.loads(each_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(receipt, dict):
+            continue
+        recorded_head = receipt.get(RECEIPT_HEAD_KEY)
+        if (
+            isinstance(recorded_head, str)
+            and recorded_head
+            and _same_commit(recorded_head, head)
+            and receipt.get(RECEIPT_FINDINGS_KEY) == 0
+            and _is_count(receipt.get(RECEIPT_FINDINGS_KEY))
+        ):
+            return True
+    return False
+
+
+@dataclass(frozen=True)
+class OpenRequest:
+    """One pull request a tool call asks to open.
+
+    Attributes:
+        owner: Repository owner, or empty when it could not be read.
+        repo: Repository name, or empty when it could not be read.
+        head: The commit the pull request would open with, or None.
+    """
+
+    owner: str
+    repo: str
+    head: str | None
+
+    @property
+    def slug(self) -> str:
+        """Return ``owner/repo``."""
+        return f"{self.owner}/{self.repo}"
+
+
+def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | None:
+    """Read the pull request open a PreToolUse payload asks for.
+
+    ::
+
+        mcp__github__create_pull_request {owner, repo, head}
+        gh pr create --repo o/r --head branch
+        python pull_request.py create --repo o/r --head branch
+
+    A branch name resolves to its commit in the payload's working folder,
+    first as a local branch and then as ``origin/<branch>``. A call with no
+    head opens the checked-out commit, and a call with no repository opens
+    against the ``origin`` remote.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+
+    Returns:
+        The open request, or None when the call opens no pull request.
+    """
+    tool_name = all_payload_fields.get("tool_name")
+    tool_input = all_payload_fields.get("tool_input")
+    if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
+        return None
+    working_folder = all_payload_fields.get(CWD_FIELD)
+    folder = working_folder if isinstance(working_folder, str) and working_folder else None
+    if tool_name.endswith(CREATE_TOOL_SUFFIX):
+        branch = tool_input.get(HEAD_BRANCH_FIELD)
+        return OpenRequest(
+            owner=str(tool_input.get(OWNER_FIELD, "")),
+            repo=str(tool_input.get(REPO_FIELD, "")),
+            head=_branch_commit(branch, folder) if isinstance(branch, str) and branch else None,
+        )
+    command = tool_input.get("command")
+    if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    create_match = GH_PR_CREATE_PATTERN.search(command) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(
+        command
+    )
+    if not create_match:
+        return None
+    rest = create_match["rest"]
+    repo_match = REPO_OPTION_PATTERN.search(rest)
+    owner, repo = (
+        (repo_match["owner"], repo_match["repo"]) if repo_match else _origin_repository(folder)
+    )
+    head_match = HEAD_OPTION_PATTERN.search(rest)
+    branch = head_match["head"] if head_match else CURRENT_HEAD_REFERENCE
+    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder))
+
+
+def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", *all_arguments],
+            cwd=folder,
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip() or None
+
+
+def _branch_commit(branch: str, folder: str | None) -> str | None:
+    branch_name = branch.split(":", 1)[-1]
+    for each_reference in (branch_name, REMOTE_BRANCH_PREFIX + branch_name):
+        commit = _run_git(["rev-parse", "--verify", "--quiet", f"{each_reference}^{{commit}}"], folder)
+        if commit:
+            return commit
+    return None
+
+
+def _origin_repository(folder: str | None) -> tuple[str, str]:
+    origin_url = _run_git(["remote", "get-url", "origin"], folder)
+    origin_match = ORIGIN_URL_PATTERN.search(origin_url) if origin_url else None
+    if not origin_match:
+        return "", ""
+    return origin_match["owner"], origin_match["repo"]
+
+
+def open_deny_reason(request: OpenRequest) -> str | None:
+    """Return why a pull request open must wait for a clean review, or None to allow it.
+
+    Args:
+        request: The open the tool call asks for.
+
+    Returns:
+        The deny reason, or None when the open may run.
+    """
+    if not request.owner or not request.repo or not request.head:
+        return UNKNOWN_OPEN_TARGET_REASON
+    if _is_exempt(request.slug):
+        return None
+    if has_clean_open_review(request.repo, request.head):
+        return None
+    return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
+        slug=request.slug, head=request.head, review_command=_review_command()
     )
 
 
@@ -216,12 +416,12 @@ def _without_option_values(arguments: str) -> str:
     return OPTION_WITH_VALUE_PATTERN.sub(" ", arguments)
 
 
-def _is_exempt(request: MergeRequest) -> bool:
+def _is_exempt(slug: str) -> bool:
     listed = os.environ.get(EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE, "")
     all_exempt = {
         each.strip().casefold() for each in listed.split(REPOSITORY_SEPARATOR) if each.strip()
     }
-    return request.slug.casefold() in all_exempt
+    return slug.casefold() in all_exempt
 
 
 def _clean_head(request: MergeRequest) -> str | None:
@@ -316,7 +516,9 @@ def deny_reason(request: MergeRequest) -> str | None:
     """
     if not request.owner or not request.repo or request.number is None:
         return UNKNOWN_TARGET_REASON
-    if _is_exempt(request):
+    if _is_exempt(request.slug):
+        return None
+    if request.pinned_head and has_clean_open_review(request.repo, request.pinned_head):
         return None
     fields = {"slug": request.slug, "number": request.number}
     clean_head = _clean_head(request)
@@ -334,7 +536,7 @@ def deny_reason(request: MergeRequest) -> str | None:
 
 
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
-    """Return a deny decision for a merge with no clean review, else None.
+    """Return a deny decision for an open or merge with no clean review, else None.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -342,10 +544,14 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     Returns:
         The hook output that denies the call, or None to allow it.
     """
-    request = merge_request_from(all_payload_fields)
-    if request is None:
-        return None
-    reason = deny_reason(request)
+    open_request = open_request_from(all_payload_fields)
+    if open_request is not None:
+        reason = open_deny_reason(open_request)
+    else:
+        request = merge_request_from(all_payload_fields)
+        if request is None:
+            return None
+        reason = deny_reason(request)
     if reason is None:
         return None
     return {

@@ -133,7 +133,7 @@
         ]
       },
       {
-        "matcher": "Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)",
+        "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge)",
         "hooks": [
           {
             "type": "command",

@@ -122,3 +122,33 @@ def test_should_report_reviewed_when_the_rulings_link_points_at_another_pull_req
     )
     assert exit_code == 1
     assert verdict_stream.getvalue() == f"REVIEWED acme/tools#12 {HEAD} 2 findings\n"
+
+
+def test_should_record_a_clean_open_pass_under_heads(receipt_folder: Path) -> None:
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "0"], verdict_stream) == 0
+    assert verdict_stream.getvalue() == f"CLEAN acme/tools open {HEAD}\n"
+    receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{HEAD}.json").read_text())
+    assert receipt == {"head": HEAD, "findings": 0}
+
+
+def test_should_exit_one_for_an_open_pass_with_findings() -> None:
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
+    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {HEAD} 2 findings\n"
+
+
+@pytest.mark.parametrize(
+    "all_arguments",
+    [
+        ["acme/tools", "open", HEAD, "-1"],
+        ["acme/tools", "open", HEAD, "2", "--ruled-out", "2", "--rulings", RULINGS_LINK],
+        ["acme/tools", "twelve", HEAD, "0"],
+    ],
+)
+def test_should_refuse_an_open_pass_it_cannot_record(
+    all_arguments: list[str], receipt_folder: Path
+) -> None:
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(all_arguments, StringIO())
+    assert list(receipt_folder.iterdir()) == []
