@@ -9,11 +9,14 @@ ACTION_REVIEW = "review"
 ACTION_TEMPLATE = "template"
 
 ALL_BODY_TEMPLATE_HEADINGS: tuple[str, ...] = (
-    "Why",
+    "What this does",
+    "What changed",
     "Existing work",
     "Proof in practice",
-    "Verification",
+    "Risk",
+    "How to revert",
 )
+FEATURE_BODY_TEMPLATE_HEADING_FOLLOWS = "Proof in practice"
 FEATURE_BODY_TEMPLATE_HEADING = "Eval"
 FEATURE_TITLE_PATTERN: re.Pattern[str] = re.compile(r"^\s*feat(\([^)]*\))?!?:")
 BODY_TEMPLATE_HEADING_FORMAT = "## {heading}"

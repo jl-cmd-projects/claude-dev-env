@@ -25,7 +25,6 @@ from durable_post_lint_config.config.constants import (
     ALL_BODY_REQUIRED_ACTIONS,
     ALL_PATH_ANCHORED_VOLATILE_PATH_MARKERS,
     ALL_POST_ACTIONS,
-    ALL_PR_DESCRIPTION_ACTIONS,
     ALL_RELEASE_BODY_MARKERS,
     ALL_REQUIRED_PR_DESCRIPTION_HEADINGS,
     ALL_TITLE_ACTIONS,
@@ -266,9 +265,8 @@ def _body_findings(
     if _is_release_automation_branch(head_branch):
         all_findings.extend(_release_body_findings(body_text))
     else:
-        if action in ALL_PR_DESCRIPTION_ACTIONS:
-            all_findings.extend(_description_heading_findings(body_text))
         if action == ACTION_PR_CREATE:
+            all_findings.extend(_description_heading_findings(body_text))
             all_findings.extend(_pull_request_proof_findings(title, body_text))
         if action == ACTION_GITHUB_MCP_COMMENT:
             all_findings.extend(_comment_length_findings(body_text))

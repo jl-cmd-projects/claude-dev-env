@@ -18,9 +18,9 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
-VALID_PR_BODY = """## Why
+VALID_PR_BODY = """## What this does
 
-Why text.
+What this does text.
 
 ## Scope
 
@@ -34,9 +34,13 @@ Tradeoffs text.
 
 Blast radius text.
 
-## Verification
+## Risk
 
-Verification text.
+Risk text.
+
+## How to revert
+
+Revert text.
 
 ## Existing work
 
@@ -201,7 +205,7 @@ def test_pr_body_reports_each_missing_heading(missing_heading: str) -> None:
     ]
 
 
-def should_accept_an_edit_body_carrying_only_the_two_required_headings() -> None:
+def should_accept_an_edit_body_without_the_reader_headings() -> None:
     all_findings = durable_post_lint.lint_durable_post(
         action="pr-edit",
         title="fix(cli): tighten input handling",

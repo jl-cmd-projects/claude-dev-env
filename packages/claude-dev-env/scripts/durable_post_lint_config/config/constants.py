@@ -37,9 +37,6 @@ ALL_BODY_REQUIRED_ACTIONS: frozenset[str] = frozenset(
         ACTION_PR_REVIEW,
     }
 )
-ALL_PR_DESCRIPTION_ACTIONS: frozenset[str] = frozenset(
-    {ACTION_PR_CREATE, ACTION_PR_EDIT}
-)
 ALL_TITLE_ACTIONS: frozenset[str] = frozenset({ACTION_PR_CREATE, ACTION_PR_EDIT})
 ALL_CONVENTIONAL_TITLE_TYPES: tuple[str, ...] = (
     "build",
@@ -58,8 +55,9 @@ CONVENTIONAL_TITLE_PATTERN: re.Pattern[str] = re.compile(
     rf"^(?:{'|'.join(ALL_CONVENTIONAL_TITLE_TYPES)})(?:\([^)\r\n]+\))?!?: [^\s].*$"
 )
 ALL_REQUIRED_PR_DESCRIPTION_HEADINGS: tuple[str, ...] = (
-    "Why",
-    "Verification",
+    "What this does",
+    "Risk",
+    "How to revert",
 )
 ALL_PATH_ANCHORED_VOLATILE_PATH_MARKERS: tuple[str, ...] = (
     ".claude-profile-a/jobs/",
