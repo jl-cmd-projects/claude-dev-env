@@ -1065,3 +1065,14 @@ def test_should_read_gh_comment_body_and_skip_pr_create() -> None:
     assert reply_length_gate.github_comment_texts("Bash", {"command": flagged_command}) == [f"note=x. {LONG_GITHUB_COMMENT}"]
     chained_command = f"git push && {comment_command}"
     assert reply_length_gate.github_comment_texts("Bash", {"command": chained_command}) == [LONG_GITHUB_COMMENT]
+
+
+def test_should_report_an_over_long_comment_text_with_the_comment_instruction() -> None:
+    violation = reply_length_gate.comment_length_violation(LONG_GITHUB_COMMENT)
+    assert violation is not None
+    assert violation.endswith(reply_length_gate.COMMENT_RETRY_INSTRUCTION)
+
+
+def test_should_pass_a_comment_text_whose_long_part_sits_in_a_details_block() -> None:
+    comment_text = "Fixed.\n<details><summary>Log</summary>\n" + LONG_GITHUB_COMMENT + "\n</details>"
+    assert reply_length_gate.comment_length_violation(comment_text) is None

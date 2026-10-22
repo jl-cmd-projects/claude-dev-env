@@ -1,21 +1,35 @@
-"""Find a skill invocation after the last transcript compaction, or one with a given first argument anywhere."""
+"""Find a skill invocation after the last transcript compaction, or one with a given first argument anywhere.
+
+It also lists the tool calls made since the last user prompt, each with whether its result came back without an error.
+"""
 
 from __future__ import annotations
 
 import json
 import re
 from collections.abc import Collection, Iterable, Iterator
+from typing import NamedTuple
 
 from hooks_constants.transcript_skill_scan_constants import (
     ASSISTANT_ENTRY_TYPE,
     COMMAND_ARGUMENTS_PATTERN,
     COMPACT_BOUNDARY_SUBTYPE,
+    IS_ERROR_FIELD,
     META_ENTRY_FIELD,
     SKILL_TOOL_NAME,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
+    TOOL_USE_ID_FIELD,
     USER_ENTRY_TYPE,
 )
+
+
+class TranscriptToolCall(NamedTuple):
+    """One tool call in a transcript: its name, its input, and whether its result came back without an error."""
+
+    name: str
+    tool_input: dict[str, object]
+    succeeded: bool
 
 
 def _user_command_text(all_entry_fields: dict[str, object]) -> str | None:
@@ -225,3 +239,58 @@ def invokes_skill_with_argument(
         if all_entry_fields and _invokes_skill_with_argument(all_entry_fields, skill_names, argument_word, command_marker):
             return True
     return False
+
+
+def _content_blocks(all_entry_fields: dict[str, object], entry_type: str) -> list[dict[str, object]]:
+    message = all_entry_fields.get("message")
+    if all_entry_fields.get("type") != entry_type or not isinstance(message, dict):
+        return []
+    content = message.get("content")
+    return [each_block for each_block in (content if isinstance(content, list) else []) if isinstance(each_block, dict)]
+
+
+def _tool_use_calls(all_entry_fields: dict[str, object]) -> list[tuple[object, str, dict[str, object]]]:
+    return [
+        (each_block.get("id"), each_block["name"], each_block.get("input") if isinstance(each_block.get("input"), dict) else {})
+        for each_block in _content_blocks(all_entry_fields, ASSISTANT_ENTRY_TYPE)
+        if each_block.get("type") == TOOL_USE_BLOCK_TYPE and isinstance(each_block.get("name"), str)
+    ]
+
+
+def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
+    return {
+        each_block.get(TOOL_USE_ID_FIELD)
+        for each_block in _content_blocks(all_entry_fields, USER_ENTRY_TYPE)
+        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and each_block.get(IS_ERROR_FIELD) is not True
+    }
+
+
+def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[TranscriptToolCall]:
+    """Return the tool calls after the last user prompt, in order, each marked by whether it succeeded.
+
+    ::
+
+        prompt, reply call, its result without an error  -> [reply succeeded]
+        prompt, reply call, its result with is_error     -> [reply failed]
+        prompt, resolve call with no result yet          -> [resolve failed]
+        reply call and result, then a new prompt         -> []
+
+    A hook that denies a call leaves an errored result, so a denied call does
+    not count as a success. A tool result leaves the turn open.
+
+    Args:
+        all_transcript_lines: JSON transcript entries, one per line.
+    """
+    all_calls: list[tuple[object, str, dict[str, object]]] = []
+    all_succeeded_ids: set[object] = set()
+    all_entries = (each_entry for each_entry in map(_parsed_entry, all_transcript_lines) if each_entry is not None)
+    for each_entry_fields in all_entries:
+        if _is_user_prompt(each_entry_fields):
+            all_calls, all_succeeded_ids = [], set()
+            continue
+        all_calls.extend(_tool_use_calls(each_entry_fields))
+        all_succeeded_ids.update(_succeeded_result_ids(each_entry_fields))
+    return [
+        TranscriptToolCall(each_name, each_input, each_id is not None and each_id in all_succeeded_ids)
+        for each_id, each_name, each_input in all_calls
+    ]

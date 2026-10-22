@@ -256,6 +256,7 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Bash | `block-main-commit` | Blocks direct commits to main/master branch |
 | Bash | `test-preflight-check` | Validates server health and database before test runs |
 | Bash\|PowerShell\|GitHub PR tools | `pr_lifecycle_skill_gate` | Requires the pull request lifecycle skill before governed actions, and denies a second open `Follow-up to #N` pull request for one parent |
+| mcp__\*__resolve_review_thread | `resolve_thread_reply_gate` | Denies a review thread resolve until a reply on the thread posted after the last user prompt and the last resolve |
 | Task\|Agent | `parallel-task-blocker` | Limits concurrent Task/Agent delegations |
 | AskUserQuestion | `attention-needed-notify` | Desktop notification when Claude needs your input |
 | mcp__hearthbot__start_thread_session | `thread_spawn_pace_hook` | When the five-hour or seven-day usage window runs ahead of its clock after its first 10%, or usage cannot be read, moves the thread to Opus 5.5 at low effort |
