@@ -236,8 +236,8 @@ def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> None:
     """Write the account list as a JSON list under the profiles root.
 
-    The list goes to a staged file first and then replaces the saved file in
-    one step, so a concurrent reader sees the old list or the new one.
+    The list goes to a staged file first, and ``os.replace`` moves it over the
+    saved file in one step, so a concurrent reader sees the old list or the new one.
 
     Args:
         profiles_root: The directory that holds every account's Codex home.
