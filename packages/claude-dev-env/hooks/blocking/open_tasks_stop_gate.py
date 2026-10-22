@@ -207,13 +207,21 @@ def is_dropped_carried_item(task_item: TaskItem, all_prompts: list[RecordedPromp
     )
 
 
-def deduplicated_by_subject(all_items: list[TaskItem]) -> list[TaskItem]:
-    """Keep the first item for each subject, so the task store wins over the transcript."""
-    item_by_key: dict[str, TaskItem] = {}
-    for each_item in all_items:
-        item_key = normalized_text(each_item.subject) or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=each_item.item_id)
-        item_by_key.setdefault(item_key, each_item)
-    return list(item_by_key.values())
+def _subject_key(task_item: TaskItem) -> str:
+    return normalized_text(task_item.subject) or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=task_item.item_id)
+
+
+def deduplicated_by_subject(all_sources: list[list[TaskItem]]) -> list[TaskItem]:
+    """Drop an item whose subject an earlier source holds, so the task store wins over the transcript.
+
+    Items inside one source all stay, so a pending task keeps its place beside a completed task of the same subject.
+    """
+    all_kept_items: list[TaskItem] = []
+    all_earlier_keys: set[str] = set()
+    for each_source in all_sources:
+        all_kept_items.extend(each_item for each_item in each_source if _subject_key(each_item) not in all_earlier_keys)
+        all_earlier_keys.update(_subject_key(each_item) for each_item in each_source)
+    return all_kept_items
 
 
 def unreported_open_items(all_hook_input_fields: dict[str, object]) -> list[TaskItem]:
@@ -230,7 +238,7 @@ def unreported_open_items(all_hook_input_fields: dict[str, object]) -> list[Task
         if not is_dropped_carried_item(each_item, all_prompts, all_closing_texts)
     ]
     all_items = [
-        *deduplicated_by_subject([*(task_store_items(session_id) or []), *all_replayed_items]),
+        *deduplicated_by_subject([task_store_items(session_id) or [], all_replayed_items]),
         *open_ask_items(all_prompts, all_closing_texts),
     ]
     return [

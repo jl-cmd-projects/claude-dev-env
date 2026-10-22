@@ -402,6 +402,19 @@ def test_should_hold_an_ask_whose_subject_matches_a_completed_task(
     assert "#ask-1: Fix login" in reason_text
 
 
+def test_should_hold_a_pending_task_that_shares_a_subject_with_a_completed_task(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(
+        tmp_path,
+        [
+            {"id": "1", "subject": "Run tests", "status": "completed"},
+            {"id": "2", "subject": "Run tests", "status": "pending"},
+        ],
+    )
+    assert "Run tests" in block_reason(monkeypatch, capsys, "Done.")
+
+
 def test_should_record_nothing_for_a_question_only_prompt(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
