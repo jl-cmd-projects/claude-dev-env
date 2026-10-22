@@ -29,6 +29,8 @@ UNMEASURED_REASON_BY_SCRIPT = {
     "routing/thread_spawn_pace_hook.py": "quotes a usage reading capped by its own constant",
     "session/issue_tracker_session_starter.py": "emits only for a repository the user's "
     "project registry names by absolute path",
+    "session/plugin_change_warning.py": "emits only after a plugin changes on disk mid-session, "
+    "once per plugin, naming plugin ids",
 }
 
 

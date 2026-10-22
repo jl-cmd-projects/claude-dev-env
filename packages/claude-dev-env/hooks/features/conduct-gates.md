@@ -21,6 +21,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/merge_review_gate.py` denies an agent's merge until a review pass on the merged head reported zero findings, or ruled out every finding and linked the posted rulings. It reads the receipt `scripts/merge_review_receipt.py` writes, requires the merge, auto-merge or merge-queue entry to be pinned to that head, and skips repositories listed in `CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES`. Its deny reason names the review command `CLAUDE_MERGE_REVIEW_COMMAND` sets. The reason tells the agent to run that command for the first three passes and `/code-review low --fix <number>` for each later pass; the gate itself counts no passes.
 - `blocking/merge_over_review_offer_gate.py` denies a decision card or question that offers a merge while it names open review findings, a red check, unaddressed review comments, or an override. It reads the whole card as one text: every question, header, context, reason, and option, whether the option is a string or a label with a consequence or description.
 - `blocking/artifact_dark_mode_gate.py` denies an Artifact page publish when the page, inside the publish wrapper, keeps a light body or shows text under 4.5:1 contrast in dark mode. `blocking/artifact_dark_mode_render.cjs` renders the page in headless Chromium for it.
+- `blocking/send_user_file_worktree_root_gate.py` denies a `SendUserFile` call that names a file outside the session's working directory, the `cwd` in the hook payload. The desktop file pane opens a sent file only under that folder and shows "Couldn't find this file" for any other path. The reason lists each outside file and names `<cwd>\.scratch\` as the folder to copy it into.
 
 ## When it fires
 
@@ -41,6 +42,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/merge_review_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)`, timeout `10` seconds in `hooks.json`.
 - `blocking/merge_over_review_offer_gate.py` runs on `PreToolUse`, matcher `AskUserQuestion|mcp__.*__ask_decision`, timeout `10` seconds in `hooks.json`.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
+- `blocking/send_user_file_worktree_root_gate.py` runs on `PreToolUse`, matcher `SendUserFile`, timeout `10` seconds in `hooks.json`.
 
 ## Proving it
 
@@ -65,6 +67,7 @@ Preconditions:
 - **Clean review.** Input is a merge with no receipt, a receipt with findings, a merge pinned to a newer head, an unpinned merge, or auto-merge with no head. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_review_gate.py -q`. The adjacent test observes a denial for each; a merge or auto-merge pinned to the clean head and a merge in an exempt repository pass.
 - **Merge offer.** Input is a decision card or AskUserQuestion that offers "Merge now", the merge queue, or a yes to "Merge it now?" while any part of the card names open findings or unaddressed review comments. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_merge_over_review_offer_gate.py -q`. The adjacent test observes a denial for each, including an offer and findings in separate questions; a card with no merge offer, a card about the merge review check itself, a card about shipping a docs change, and a merge offer after a clean review pass.
 - **Dark mode page.** Input is an Artifact publish of a page that themes `html` but leaves `body` to the publish wrapper. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_artifact_dark_mode_gate.py -q`. The adjacent test observes a denial that names the text and its contrast; a page that themes `body` passes. The render tests skip on a host with no Node Playwright and Chromium.
+- **Sent file root.** Input is a `SendUserFile` call for a file on `Y:\` or in the session scratchpad, with `cwd` set to a worktree. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_send_user_file_worktree_root_gate.py -q`. The adjacent test observes a denial that names the file and `<cwd>\.scratch\`; a file under `<cwd>\.scratch\` passes.
 
 ## Gotchas
 

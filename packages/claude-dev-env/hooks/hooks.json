@@ -215,6 +215,16 @@
         ]
       },
       {
+        "matcher": "SendUserFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/send_user_file_worktree_root_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Artifact|Skill",
         "hooks": [
           {
@@ -308,6 +318,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/open_task_ask_recorder.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/plugin_change_warning.py",
+            "timeout": 10
           }
         ]
       }
@@ -349,6 +364,11 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/orchestrator_auto_starter.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/plugin_session_baseline_writer.py",
             "timeout": 10
           },
           {
