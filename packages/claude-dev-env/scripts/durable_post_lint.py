@@ -18,6 +18,7 @@ from dev_env_scripts_constants.private_term_constants import (
     PRIVATE_TERM_MESSAGE_TEMPLATE,
 )
 from durable_post_lint_config.config.constants import (
+    ACTION_GITHUB_MCP_COMMENT,
     ACTION_PR_CREATE,
     ACTION_PR_EDIT,
     ALL_BARE_VOLATILE_PATH_MARKERS,
@@ -33,6 +34,7 @@ from durable_post_lint_config.config.constants import (
     BODY_MUST_NOT_BE_EMPTY_MESSAGE,
     BODY_REQUIRED_MESSAGE,
     CLEAN_EXIT_CODE,
+    COMMENT_LENGTH_FINDING_CODE,
     CONTENT_FINDING_EXIT_CODE,
     CONVENTIONAL_TITLE_PATTERN,
     EDIT_INPUT_REQUIRED_MESSAGE,
@@ -45,6 +47,8 @@ from durable_post_lint_config.config.constants import (
     MISSING_HEADING_MESSAGE_TEMPLATE,
     PATH_ANCHOR_CHARACTER,
     PATH_SEGMENT_START_CHARACTERS,
+    PROOF_GATE_CREATE_TOOL_NAME,
+    PULL_REQUEST_PROOF_FINDING_CODE,
     RELEASE_BRANCH_PREFIX,
     REPOSITORY_OWNER_SEPARATOR,
     REWRITTEN_RELEASE_BODY_CODE,
@@ -55,6 +59,17 @@ from durable_post_lint_config.config.constants import (
     VOLATILE_PATH_MESSAGE,
 )
 from private_terms import private_term_line_numbers
+
+_hooks_directory = str(Path(__file__).resolve().parents[1] / "hooks")
+if _hooks_directory not in sys.path:
+    sys.path.insert(0, _hooks_directory)
+
+from blocking.pull_request_proof import (
+    missing_eval_section_reason,
+    missing_existing_work_reason,
+    missing_proof_reason,
+)
+from blocking.reply_length_gate import comment_length_violation
 
 
 class DurablePostUsageError(ValueError):
@@ -145,6 +160,32 @@ def _description_heading_findings(body_text: str) -> list[DurablePostFinding]:
     ]
 
 
+def _pull_request_proof_findings(
+    title: str | None, body_text: str
+) -> list[DurablePostFinding]:
+    create_payload = {
+        "tool_name": PROOF_GATE_CREATE_TOOL_NAME,
+        "tool_input": {"title": title, "body": body_text},
+    }
+    all_reasons = (
+        missing_proof_reason(create_payload),
+        missing_existing_work_reason(create_payload),
+        missing_eval_section_reason(create_payload),
+    )
+    return [
+        DurablePostFinding(code=PULL_REQUEST_PROOF_FINDING_CODE, message=each_reason)
+        for each_reason in all_reasons
+        if each_reason is not None
+    ]
+
+
+def _comment_length_findings(body_text: str) -> list[DurablePostFinding]:
+    violation = comment_length_violation(body_text)
+    if violation is None:
+        return []
+    return [DurablePostFinding(code=COMMENT_LENGTH_FINDING_CODE, message=violation)]
+
+
 def _contrast_framing_findings(text: str) -> list[DurablePostFinding]:
     all_lines = text.splitlines()
     return [
@@ -210,6 +251,7 @@ def _body_findings(
     action: str,
     body_text: str | None,
     head_branch: str | None = None,
+    title: str | None = None,
 ) -> list[DurablePostFinding]:
     if body_text is None:
         return []
@@ -226,6 +268,10 @@ def _body_findings(
     else:
         if action in ALL_PR_DESCRIPTION_ACTIONS:
             all_findings.extend(_description_heading_findings(body_text))
+        if action == ACTION_PR_CREATE:
+            all_findings.extend(_pull_request_proof_findings(title, body_text))
+        if action == ACTION_GITHUB_MCP_COMMENT:
+            all_findings.extend(_comment_length_findings(body_text))
         all_findings.extend(_contrast_framing_findings(body_text))
     if find_volatile_path_marker(body_text) is not None:
         all_findings.append(
@@ -263,7 +309,7 @@ def lint_durable_post(
     return (
         *_title_findings(title),
         *_private_term_findings(title, repository),
-        *_body_findings(action, body_text, head_branch),
+        *_body_findings(action, body_text, head_branch, title),
         *_private_term_findings(body_text, repository),
     )
 

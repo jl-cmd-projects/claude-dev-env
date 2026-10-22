@@ -12,6 +12,7 @@ from durable_post_lint_config.config.constants import (
 
 def test_action_inventory_covers_pull_request_issue_and_tool_posts() -> None:
     assert ALL_POST_ACTIONS == {
+        "github-mcp-comment",
         "github-mcp-post",
         "issue-comment",
         "issue-create",

@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
 for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
@@ -99,3 +101,17 @@ def test_empty_stdin_stays_quiet() -> None:
         [sys.executable, str(HOOK_SCRIPT)], input="", capture_output=True, text=True, check=True
     )
     assert completed.stdout == ""
+
+
+def test_installed_template_path_should_keep_a_package_path_that_exists() -> None:
+    assert artifact_template_pointer.installed_template_path(ARTIFACT_TEMPLATE_PATH) == ARTIFACT_TEMPLATE_PATH
+
+
+def test_installed_template_path_should_read_the_claude_home_when_the_package_path_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    missing_package_path = artifact_template_pointer.PACKAGE_ROOT_DIRECTORY / "docs" / "templates" / "absent" / "README.md"
+    assert artifact_template_pointer.installed_template_path(missing_package_path) == (
+        tmp_path / "docs" / "templates" / "absent" / "README.md"
+    )
