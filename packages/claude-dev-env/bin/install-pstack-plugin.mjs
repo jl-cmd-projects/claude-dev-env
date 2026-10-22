@@ -305,8 +305,13 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
 
 const REBUILD_REQUIRED_PATTERN = /doesn't match its extraKnownMarketplaces entry|Source path does not exist/;
 
+function commandFailureDetail(outcome) {
+    return singleLineDetail(outcome.stderr) || singleLineDetail(outcome.stdout)
+        || outcome.error?.message || `exit ${outcome.status}`;
+}
+
 function failedCommandOutcome(allSpecs, host, homeDirectory, executable, commandArguments, outcome, findLockers) {
-    const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+    const detail = commandFailureDetail(outcome);
     const lockAdvice = lockedFolderDetail(allSpecs, host, homeDirectory, detail, findLockers);
     return {
         host,
@@ -409,11 +414,11 @@ export function restartNotice(allSpecs, allInstalledHosts) {
  * failed refresh command reports the host failed and leaves the prior version
  * in place. Two refresh errors need a rebuild: a source that no longer
  * matches the settings entry, and a source path the sparse clone lacks. The
- * host reads either from any refresh command's output, then falls back to the
- * clean install Codex always runs: it removes every plugin in the set and
- * then the marketplace, so an older version never survives beside the new
- * one, and adds them again. A removal that finds
- * nothing to remove exits non-zero on a fresh home, and the install goes on.
+ * host reads either from the failing refresh command's output, then falls
+ * back to the clean install Codex always runs: it removes every plugin in the
+ * set and then the marketplace, so an older version never survives beside the
+ * new one, and adds them again. A removal that finds nothing to remove exits
+ * non-zero on a fresh home, and the install goes on.
  * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
  *
@@ -505,7 +510,7 @@ export function removeRetiredMarketplacePlugins(allRetiredSpecs, options, depend
         );
         if (namesAnAbsentCommand(outcome)) break;
         if (outcome.status !== 0 || outcome.error) {
-            const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+            const detail = commandFailureDetail(outcome);
             failedRemovals.push({ pluginIdentifier: eachSpec.pluginIdentifier, detail });
             continue;
         }
