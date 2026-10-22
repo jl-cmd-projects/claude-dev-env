@@ -109,6 +109,8 @@ INTERROGATIVE_START_PATTERN = (
     r"^\s*(?:\w+,\s*)?(?:are|is|am|was|were|do|does|did|have|has|had|can|could|will|would"
     r"|should|shall|may|what|why|how|when|where|which|who|whose)\b"
 )
+ALL_ASK_ONLY_ENVELOPE_MARKERS = ("<agent-message",)
+SYSTEM_REMINDER_BLOCK_PATTERN = r"<system-reminder>.*?</system-reminder>"
 ACKNOWLEDGEMENT_PATTERN = (
     r"^\s*(?:ok(?:ay)?|k|thanks?|thank\s+you|thx|ty|cool|great|nice|perfect|awesome|got\s+it"
     r"|sounds\s+good|looks\s+good|lgtm)(?:[\s,]+(?:thanks?|thank\s+you))?\W*$"

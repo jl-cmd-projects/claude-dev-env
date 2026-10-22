@@ -30,6 +30,11 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         ("Looks good", False),
         ("ok, ship it", True),
         ("yes", True),
+        ('<agent-message from="afbaf992127c7512f">\nReport delivered.\n</agent-message>', False),
+        ('<cross-session-message from="s-2">\nBuild the PR\n</cross-session-message>', False),
+        ("<system-reminder>\nTool loaded.\n</system-reminder>", False),
+        ("<system-reminder>\nTool loaded.\n</system-reminder>\n<system-reminder>\nMore.\n</system-reminder>", False),
+        ("<system-reminder>\nTool loaded.\n</system-reminder>\nExport the APKs", True),
     ],
 )
 def test_should_classify_work_prompts_as_asks(prompt_text: str, is_expected_ask: bool) -> None:

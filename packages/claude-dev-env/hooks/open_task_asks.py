@@ -6,7 +6,8 @@ Every prompt lands in one file outside the task store::
     {"prompts": [{"text": "...", "recorded_at": 1761076800.0, "ask_id": "ask-1"}, ...]}
 
 A prompt that asks for work gets the next ``ask-N`` id. A question-only
-prompt, an acknowledgement such as ``thanks!``, an empty prompt, and a harness envelope such as
+prompt, an acknowledgement such as ``thanks!``, an empty prompt, a prompt of only
+``<system-reminder>`` blocks, and an envelope such as ``<agent-message>`` or such as
 ``<task-notification>`` get ``ask_id`` null, and the gate still reads their
 text when it checks the quote on a ``Dropped:`` line.
 """
@@ -23,6 +24,7 @@ from typing import NamedTuple
 from atomic_file_writer import write_text_atomically
 from hooks_constants.open_tasks_stop_gate_constants import (
     ACKNOWLEDGEMENT_PATTERN,
+    ALL_ASK_ONLY_ENVELOPE_MARKERS,
     ASK_ID_TEMPLATE,
     ASK_PROMPT_ID_KEY,
     ASK_PROMPT_RECORDED_AT_KEY,
@@ -39,6 +41,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     QUESTION_END_PATTERN,
     SAFE_SESSION_ID_PATTERN,
     SENTENCE_SPLIT_PATTERN,
+    SYSTEM_REMINDER_BLOCK_PATTERN,
     UTF8_ENCODING,
     YES_OR_NO_END_PATTERN,
 )
@@ -98,10 +101,22 @@ def is_question_only(prompt_text: str) -> bool:
     )
 
 
+def prompt_without_reminders(prompt_text: str) -> str:
+    """Return the prompt with every ``<system-reminder>`` block removed, stripped."""
+    return re.sub(SYSTEM_REMINDER_BLOCK_PATTERN, "", prompt_text, flags=re.DOTALL).strip()
+
+
 def is_ask(prompt_text: str) -> bool:
-    """Return True when the prompt asks for work the gate should hold the turn for."""
-    stripped_text = prompt_text.strip()
-    if not stripped_text or stripped_text.startswith(ALL_HARNESS_ENVELOPE_MARKERS):
+    """Return True when the prompt asks for work the gate should hold the turn for.
+
+    ::
+
+        '<agent-message from="a1">Report</agent-message>'    -> False
+        "<system-reminder>Tool loaded.</system-reminder>"     -> False
+        "<system-reminder>...</system-reminder> Export it"    -> True
+    """
+    stripped_text = prompt_without_reminders(prompt_text)
+    if not stripped_text or stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
         return False
     if re.fullmatch(ACKNOWLEDGEMENT_PATTERN, stripped_text, re.IGNORECASE):
         return False
@@ -145,7 +160,7 @@ def record_prompt(session_id: object, prompt_text: str) -> str | None:
     all_prompts = recorded_prompts(session_id)
     ask_count = sum(1 for each_prompt in all_prompts if each_prompt.ask_id)
     ask_id = ASK_ID_TEMPLATE.format(ask_number=ask_count + 1) if is_ask(prompt_text) else None
-    all_prompts.append(RecordedPrompt(prompt_text, time.time(), ask_id))
+    all_prompts.append(RecordedPrompt(prompt_without_reminders(prompt_text), time.time(), ask_id))
     serialized_text = json.dumps(
         {ASKS_PROMPTS_KEY: [each_prompt._asdict() for each_prompt in all_prompts]}
     )
