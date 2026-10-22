@@ -78,7 +78,7 @@ errors, so it neither clears nor convicts a change.
 
 A checks listing that reports nothing on the branch is a finding.
 Find out whether the workflow's event filters exclude the branch, or whether
-the check simply never ran, before you treat that branch as clean.
+the check simply never ran, before you treat that branch as clean. `gh pr checks` exits 8 while a check is still pending. Exit 8 reports a pending state, so wait and read the checks again after they report.
 
 ### Each stack level stands on its own
 
