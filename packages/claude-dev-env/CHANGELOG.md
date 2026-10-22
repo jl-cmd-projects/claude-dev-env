@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.11](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.10...claude-dev-env-v8.98.11) (2026-10-22)
+
+
+### Bug Fixes
+
+* **codex-accounts:** save the environment roster to account-launchers.json ([#2165](https://github.com/jl-cmd-projects/claude-dev-env/issues/2165)) ([96ec6a2](https://github.com/jl-cmd-projects/claude-dev-env/commit/96ec6a2f4f66616f6bc6d07b1ba203f6583f03d1))
+
 ## [8.98.10](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.9...claude-dev-env-v8.98.10) (2026-10-22)
 
 
