@@ -252,7 +252,8 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit, code staged, no verify since the last prompt      -> DENY_REASON
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit, only docs or test files                           -> None
-        git commit, only .json or .yaml files under a docs folder     -> None
+        git commit, only data files (.json, .jsonl, .yaml, .yml,
+            .csv) under a docs folder                                 -> None
         git commit, a .py file under a docs folder                    -> DENY_REASON
         git commit after a verify Skill call or a /verify prompt      -> None
         git commit in a repository with no verify skill directory     -> None
