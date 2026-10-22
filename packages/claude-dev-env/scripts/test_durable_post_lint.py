@@ -11,6 +11,11 @@ import pytest
 
 import durable_post_lint
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
+from hooks_constants.pull_request_proof_constants import (
+    MISSING_EVAL_SECTION_REASON,
+    MISSING_EXISTING_WORK_REASON,
+    TEST_ONLY_PROOF_REASON,
+)
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
 VALID_PR_BODY = """## Why
@@ -32,7 +37,25 @@ Blast radius text.
 ## Verification
 
 Verification text.
+
+## Existing work
+
+`scripts/durable_post_lint.py:1` holds the post checks.
+
+## Proof in practice
+
+Ran `python scripts/durable_post_lint.py --action pr-create --body-file body.md` on the new body.
+
+## Eval
+
+`python scripts/durable_post_lint.py --action pr-create --body-file eval_body.md`
 """
+OVER_LONG_REPLY_BODY = (
+    "Fixed in `abc1234`.\n\n"
+    "The parser now rejects an empty header.\n\n"
+    "The test covers both cases.\n\n"
+    "---\nPosted by the review agent."
+)
 MINIMAL_PR_BODY = """## Why
 
 Why text.
@@ -54,6 +77,7 @@ Verification text.
         ("issue-edit", None, "Updated issue body."),
         ("issue-comment", None, "Issue comment."),
         ("github-mcp-post", None, "MCP body."),
+        ("github-mcp-comment", None, "Reply body."),
     ],
 )
 def test_all_actions_accept_valid_inputs(
@@ -112,6 +136,7 @@ def test_pr_edit_requires_one_edit_field() -> None:
         "issue-edit",
         "issue-comment",
         "github-mcp-post",
+        "github-mcp-comment",
     ],
 )
 def test_body_actions_require_body(action: str) -> None:
@@ -176,10 +201,9 @@ def test_pr_body_reports_each_missing_heading(missing_heading: str) -> None:
     ]
 
 
-@pytest.mark.parametrize("action", ["pr-create", "pr-edit"])
-def should_accept_a_body_carrying_only_the_two_required_headings(action: str) -> None:
+def should_accept_an_edit_body_carrying_only_the_two_required_headings() -> None:
     all_findings = durable_post_lint.lint_durable_post(
-        action=action,
+        action="pr-edit",
         title="fix(cli): tighten input handling",
         body_text=MINIMAL_PR_BODY,
     )
@@ -199,6 +223,155 @@ def should_still_accept_a_body_published_under_the_superseded_heading_set() -> N
         ),
     )
     assert all_findings == ()
+
+
+def should_report_a_create_body_with_no_existing_work_section() -> None:
+    body_text = VALID_PR_BODY.replace(
+        "## Existing work\n\n`scripts/durable_post_lint.py:1` holds the post checks.\n\n", ""
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: add durable post linting",
+        body_text=body_text,
+    )
+    assert [each_finding.message for each_finding in all_findings] == [
+        MISSING_EXISTING_WORK_REASON
+    ]
+
+
+def should_report_a_create_body_whose_proof_runs_only_tests() -> None:
+    body_text = VALID_PR_BODY.replace(
+        "Ran `python scripts/durable_post_lint.py --action pr-create --body-file body.md` on the new body.",
+        "Ran `python -m pytest scripts`.",
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="fix: tighten durable post linting",
+        body_text=body_text,
+    )
+    assert [each_finding.message for each_finding in all_findings] == [
+        TEST_ONLY_PROOF_REASON
+    ]
+
+
+def should_report_a_feature_create_body_with_no_eval_section() -> None:
+    body_text = VALID_PR_BODY.split("## Eval")[0]
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: add durable post linting",
+        body_text=body_text,
+    )
+    assert [each_finding.message for each_finding in all_findings] == [
+        MISSING_EVAL_SECTION_REASON
+    ]
+
+
+def should_leave_an_edit_body_with_no_existing_work_section_clean() -> None:
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-edit",
+        title=None,
+        body_text=MINIMAL_PR_BODY,
+    )
+    assert all_findings == ()
+
+
+def should_exit_with_findings_for_a_create_body_with_no_existing_work_section(
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "body.md"
+    body_file.write_text(
+        VALID_PR_BODY.replace("## Existing work", "## Prior art"), encoding="utf-8"
+    )
+    completed_process = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--action",
+            "pr-create",
+            "--title",
+            "feat: add durable post linting",
+            "--body-file",
+            str(body_file),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed_process.returncode == 1
+    assert completed_process.stderr == f"{MISSING_EXISTING_WORK_REASON}\n"
+
+
+def should_report_a_review_reply_over_three_sentences() -> None:
+    all_findings = durable_post_lint.lint_durable_post(
+        action="github-mcp-comment",
+        title=None,
+        body_text=OVER_LONG_REPLY_BODY,
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        "github-comment-length"
+    ]
+
+
+def should_report_a_review_reply_sentence_over_fifteen_words() -> None:
+    all_findings = durable_post_lint.lint_durable_post(
+        action="github-mcp-comment",
+        title=None,
+        body_text=(
+            "This change moves the parser into its own module and keeps every"
+            " caller on the same import path."
+        ),
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        "github-comment-length"
+    ]
+
+
+def should_accept_a_short_review_reply() -> None:
+    all_findings = durable_post_lint.lint_durable_post(
+        action="github-mcp-comment",
+        title=None,
+        body_text="Fixed in `abc1234`.\n\nThe parser now rejects an empty header.",
+    )
+    assert all_findings == ()
+
+
+def should_exit_with_findings_for_an_over_long_review_reply(tmp_path: Path) -> None:
+    body_file = tmp_path / "reply.md"
+    body_file.write_text(OVER_LONG_REPLY_BODY, encoding="utf-8")
+    completed_process = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--action",
+            "github-mcp-comment",
+            "--body-file",
+            str(body_file),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed_process.returncode == 1
+    assert "at most three short sentences" in completed_process.stderr
+
+
+def should_exit_clean_for_a_short_review_reply(tmp_path: Path) -> None:
+    body_file = tmp_path / "reply.md"
+    body_file.write_text("Fixed in `abc1234`.\n", encoding="utf-8")
+    completed_process = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--action",
+            "github-mcp-comment",
+            "--body-file",
+            str(body_file),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed_process.returncode == 0
 
 
 def test_non_pr_body_needs_no_pr_headings() -> None:

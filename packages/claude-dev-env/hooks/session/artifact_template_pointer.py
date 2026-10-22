@@ -37,6 +37,7 @@ from hooks_constants.artifact_template_pointer_constants import (
     ARTIFACT_TEMPLATE_PATH,
     ARTIFACT_TOOL_NAME,
     HTML_PLAN_TEMPLATE_README_PATH,
+    PACKAGE_ROOT_DIRECTORY,
     POINTER_TEXT_TEMPLATE,
     SKILL_NAME_INPUT_KEY,
     SKILL_TOOL_NAME,
@@ -53,6 +54,28 @@ from hooks_constants.spawn_readiness_hook_constants import (
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
 )
+from open_task_asks import claude_home
+
+
+def installed_template_path(package_template_path: Path) -> Path:
+    """Return the template path that exists where this hook runs.
+
+    A source checkout keeps ``docs`` beside ``hooks``. An install puts hooks
+    under the agents home and docs under the Claude home, so the same relative
+    path is read from the Claude home there::
+
+        <checkout>/packages/claude-dev-env/docs/templates/x.md  -> kept
+        ~/.agents/docs/templates/x.md (missing)                 -> ~/.claude/docs/templates/x.md
+
+    Args:
+        package_template_path: A template path under the package root.
+
+    Returns:
+        The package path when it exists, else the same relative path under the Claude home.
+    """
+    if package_template_path.exists():
+        return package_template_path
+    return claude_home() / package_template_path.relative_to(PACKAGE_ROOT_DIRECTORY)
 
 
 def starts_an_artifact_page(tool_name: object, tool_input: object) -> bool:
@@ -85,9 +108,9 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
             ADDITIONAL_CONTEXT_KEY: POINTER_TEXT_TEMPLATE.format(
-                path_of_status_flowchart=STATUS_FLOWCHART_TEMPLATE_PATH,
-                path_of_plan_readme=HTML_PLAN_TEMPLATE_README_PATH,
-                path_of_page_readme=ARTIFACT_TEMPLATE_PATH,
+                path_of_status_flowchart=installed_template_path(STATUS_FLOWCHART_TEMPLATE_PATH),
+                path_of_plan_readme=installed_template_path(HTML_PLAN_TEMPLATE_README_PATH),
+                path_of_page_readme=installed_template_path(ARTIFACT_TEMPLATE_PATH),
             ),
         }
     }

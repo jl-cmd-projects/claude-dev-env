@@ -559,15 +559,24 @@ def gh_command_token_runs(all_command_tokens: list[str]) -> list[list[str]]:
     return all_runs
 
 
+def comment_length_violation(comment_text: str) -> str | None:
+    """Return the deny reason for one over-long GitHub comment text, or None when it fits.
+
+    Fenced code blocks and collapsed ``<details>`` blocks carry no words.
+    """
+    violation = length_violation(DETAILS_BLOCK_PATTERN.sub(" ", comment_text))
+    return None if violation is None else violation + COMMENT_RETRY_INSTRUCTION
+
+
 def github_comment_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
     """Return the deny reason and text for an over-long GitHub comment, or None.
 
     Fenced code blocks and collapsed ``<details>`` blocks carry no words.
     """
     for each_comment_text in github_comment_texts(tool_name, all_tool_input):
-        violation = length_violation(DETAILS_BLOCK_PATTERN.sub(" ", each_comment_text))
+        violation = comment_length_violation(each_comment_text)
         if violation is not None:
-            return violation + COMMENT_RETRY_INSTRUCTION, each_comment_text
+            return violation, each_comment_text
     return None
 
 

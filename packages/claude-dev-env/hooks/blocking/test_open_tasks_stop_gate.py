@@ -79,7 +79,7 @@ def test_should_allow_when_every_open_task_is_reported_as_blocked_or_open(
             {"id": "3", "subject": "Write tests", "status": "completed"},
         ],
     )
-    reply_text = "Tests written.\nBlocked: Rotate the deploy key - the owner approves the secret\n- Open: #2 - checks running"
+    reply_text = "Tests written.\nBlocked: Rotate the deploy key - the owner pastes the secret\n- Open: #2 - checks running"
     assert run_gate(monkeypatch, capsys, reply_text) == (0, "")
 
 
@@ -238,7 +238,7 @@ def test_should_allow_cursor_when_the_last_assistant_text_reports_the_item(
         [
             cursor_todo_record(all_todos, False, "Working."),
             {"role": "assistant", "message": {"content": [
-                {"type": "text", "text": "Blocked: rotate the deploy key - the owner must approve the org secret"}
+                {"type": "text", "text": "Blocked: rotate the deploy key - the owner pastes the org secret"}
             ]}},
         ],
     )
@@ -510,3 +510,136 @@ def test_should_mark_the_right_item_for_a_done_index_after_a_continuation(
     assert "Submit both APKs" in reason_text
     assert "Read the schema" not in reason_text
     assert "Set rows in Neon" not in reason_text
+
+
+DECISION_BLOCKED_REPLY = "Branch pushed.\nBlocked: #ask-1 - your OK to merge the app branch first."
+
+
+def user_prompt_record(prompt_text: str) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": prompt_text}}
+
+
+def tool_call_record(tool_name: str) -> dict[str, object]:
+    tool_use = {"type": "tool_use", "id": "q1", "name": tool_name, "input": {}}
+    return {"type": "assistant", "message": {"role": "assistant", "content": [tool_use]}}
+
+
+def test_should_block_a_decision_blocked_line_with_no_card_this_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch")])
+    reason_text = block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+    assert "AskUserQuestion" in reason_text
+    assert "your OK to merge" in reason_text
+
+
+@pytest.mark.parametrize(
+    "card_tool_name",
+    ["AskUserQuestion", "mcp__hearthbot__ask_decision", "mcp__hearthbot__request_decision"],
+)
+def test_should_allow_a_decision_blocked_line_after_a_card_this_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, card_tool_name: str
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch"), tool_call_record(card_tool_name)]
+    )
+    assert run_gate(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path) == (0, "")
+
+
+def test_should_block_a_decision_blocked_line_when_the_card_came_in_an_earlier_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [
+            tool_call_record("AskUserQuestion"),
+            user_prompt_record("Merge the release branch"),
+        ],
+    )
+    assert "AskUserQuestion" in block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+
+
+def test_should_allow_a_blocked_line_for_an_input_the_user_supplies(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Rotate the deploy key")
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Rotate the deploy key")])
+    reply_text = "Key script ready.\nBlocked: #ask-1 - the new deploy key secret, pasted into the session"
+    assert run_gate(monkeypatch, capsys, reply_text, transcript_path) == (0, "")
+
+
+def test_should_keep_the_card_through_stop_hook_feedback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [
+            user_prompt_record("Merge the release branch"),
+            tool_call_record("AskUserQuestion"),
+            {"type": "user", "isMeta": True, "message": {"content": "Stop hook feedback"}},
+        ],
+    )
+    assert run_gate(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path) == (0, "")
+
+
+def test_should_ignore_a_card_call_copied_into_an_api_request_blob(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    blob_record = {**tool_call_record("AskUserQuestion"), "type": "api-request-blob"}
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch"), blob_record])
+    assert "AskUserQuestion" in block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+
+
+def test_should_allow_an_input_blocked_line_that_says_whether(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch")])
+    input_reply = "Branch pushed.\nBlocked: #ask-1 - paste the log showing whether the migration ran."
+    assert run_gate(monkeypatch, capsys, input_reply, transcript_path) == (0, "")
+
+
+def test_should_start_a_new_turn_at_an_image_only_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    image_prompt = {"type": "user", "message": {"role": "user", "content": [{"type": "image", "source": {}}]}}
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [user_prompt_record("Merge the release branch"), tool_call_record("AskUserQuestion"), image_prompt],
+    )
+    assert "AskUserQuestion" in block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+
+
+def test_should_allow_a_decision_blocked_line_after_a_codex_request_user_input_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    user_message = {"type": "response_item", "payload": {"type": "message", "role": "user", "content": []}}
+    card_call = {"type": "response_item", "payload": {"type": "function_call", "name": "request_user_input", "arguments": "{}"}}
+    transcript_path = write_records(tmp_path / "rollout.jsonl", [user_message, card_call])
+    assert run_gate(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path) == (0, "")
+
+
+def test_should_allow_a_blocked_line_for_a_device_step_the_user_takes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Install the runner")
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Install the runner")])
+    reply_text = "Installer built.\nBlocked: #ask-1 - run the installer on your PC and paste the log"
+    assert run_gate(monkeypatch, capsys, reply_text, transcript_path) == (0, "")
+
+
+def test_should_leave_a_cursor_decision_blocked_line_alone(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_cursor_transcript(
+        tmp_path / "cursor.jsonl",
+        [{"role": "assistant", "message": {"content": [{"type": "text", "text": DECISION_BLOCKED_REPLY}]}}],
+    )
+    assert run_cursor_gate(monkeypatch, capsys, transcript_path) == {}

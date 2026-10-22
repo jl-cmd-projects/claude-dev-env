@@ -22,7 +22,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Pull request submission rules
 
-**Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
+**Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature. A new workflow that runs only on `workflow_dispatch` cannot run until its file is on the default branch: before the PR, run its `run:` steps with a stub `gh` on PATH, name in the body the live run that waits on the merge, and dispatch it right after the merge.
 
 **Open PRs ready for review; use `--draft` when the owner requests it.** Before you commit copied files or open a PR, list the open PRs that change a file whose path starts with yours, then read each hit, with `gh pr list --state open --limit 1000 --json number,files --jq '.[] | select(any(.files[]; .path | startswith("<path>"))) | .number'`, so you do not duplicate a peer's PR. Each pre-existing failure or remaining defect the PR body names links a tracked issue.
 
@@ -121,7 +121,7 @@ An image a PR needs as visual evidence is not an exception to that row. Upload i
 1. Fetch every reviewer comment before making any fix.
 2. Create a checklist in the session's task tool with one item per comment.
 3. Fix systematically, marking each todo complete.
-4. Reply to each comment inline.
+4. Reply to each comment inline, read the reply back from the thread, and resolve the thread only after the reply shows there.
 
 Repair only the reported findings. A finding that comes back on a second head escalates. Fix the source the reviewer reads, or change the gate that files the finding. Post no second reply with the same text, because a repeat finding shows the first reply changed nothing the reviewer sees.
 
@@ -405,7 +405,7 @@ Resolve the active managed root (`CLAUDE_CONFIG_DIR` when set, `~/.claude`
 otherwise), then run `<managed-root>/scripts/durable_post_lint.py` before the
 server write. Pass the matching action and body file. Use `pr-create`,
 `pr-edit`, `pr-comment`, `pr-review`, `issue-create`, `issue-edit`,
-`issue-comment`, or `github-mcp-post`.
+`issue-comment`, `github-mcp-post`, or `github-mcp-comment` for an MCP comment or reply.
 
 Pass `--repository <owner>/<name>` for the repository the post targets. A
 post may name a private organization only inside a repository that
@@ -440,7 +440,7 @@ For pull requests, use
 `.agents/skills/pull-request/scripts/pull_request.py`. It passes
 `--body-file` to `gh` after the action-aware linter succeeds. For issues and
 GitHub MCP posts, run the linter directly with `issue-create`, `issue-edit`,
-`issue-comment`, or `github-mcp-post` as the action.
+`issue-comment`, `github-mcp-post`, or `github-mcp-comment` as the action.
 
 ### Paginated reads slurp before they filter
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.98.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.6...claude-dev-env-v8.98.7) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** hold an unreplied resolve, lint posts with the gate rules, read installed docs ([#2154](https://github.com/jl-cmd-projects/claude-dev-env/issues/2154)) ([2df304f](https://github.com/jl-cmd-projects/claude-dev-env/commit/2df304f23d17ba409060c0a9890e9d1746a6699b))
+
+## [8.98.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.5...claude-dev-env-v8.98.6) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** join a line continuation inside double quotes ([#2153](https://github.com/jl-cmd-projects/claude-dev-env/issues/2153)) ([7d6264c](https://github.com/jl-cmd-projects/claude-dev-env/commit/7d6264c28c9a6974f8bd9cb627478183d73c80fa))
+
 ## [8.98.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.4...claude-dev-env-v8.98.5) (2026-10-22)
 
 
