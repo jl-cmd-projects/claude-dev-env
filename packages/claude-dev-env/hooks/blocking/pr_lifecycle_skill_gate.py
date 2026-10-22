@@ -19,6 +19,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
+    ALL_PIECE_REPLACEMENT_TEXTS,
     ALL_PREFIX_OPTIONS_WITH_VALUE,
     ALL_PYTHON_EXECUTABLES,
     ALL_SHELL_WRAPPER_EXECUTABLES,
@@ -28,7 +29,6 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     BUILD_EVAL_COMMAND_MARKER,
     COMMAND_PIECE_PATTERN,
     COMMAND_WHITESPACE,
-    COMMENT_PIECE,
     DENY_DECISION,
     DENY_REASON,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
@@ -47,7 +47,6 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PYTHON_OPTIONS_WITH_VALUE,
     REMOVED_TEXT,
     SEGMENT_BREAK,
-    SEPARATOR_PIECE,
     SESSION_TRANSCRIPT_PATH_FIELD,
     SHELL_TOOL_NAMES,
     SKILL_NAME,
@@ -91,16 +90,16 @@ def _unquoted_segment_texts(command: str) -> list[str] | None:
     Returns:
         The raw text of each segment in order, or None when a quote never closes.
     """
-    all_pieces = list(COMMAND_PIECE_PATTERN.finditer(command))
-    if any(each_piece.lastgroup == UNCLOSED_QUOTE_PIECE for each_piece in all_pieces):
+    all_raw_pieces = list(COMMAND_PIECE_PATTERN.finditer(command))
+    if any(each_piece.lastgroup == UNCLOSED_QUOTE_PIECE for each_piece in all_raw_pieces):
         return None
-    all_replacement_texts: dict[str | None, str] = {
-        SEPARATOR_PIECE: SEGMENT_BREAK,
-        COMMENT_PIECE: REMOVED_TEXT,
-        LINE_CONTINUATION_PIECE: REMOVED_TEXT,
-    }
+    joined_command = REMOVED_TEXT.join(
+        REMOVED_TEXT if each_piece.lastgroup == LINE_CONTINUATION_PIECE else each_piece.group()
+        for each_piece in all_raw_pieces
+    )
+    all_pieces = list(COMMAND_PIECE_PATTERN.finditer(joined_command))
     marked_command = REMOVED_TEXT.join(
-        all_replacement_texts.get(each_piece.lastgroup, each_piece.group()) for each_piece in all_pieces
+        ALL_PIECE_REPLACEMENT_TEXTS.get(each_piece.lastgroup, each_piece.group()) for each_piece in all_pieces
     )
     return marked_command.split(SEGMENT_BREAK)
 

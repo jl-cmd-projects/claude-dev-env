@@ -103,6 +103,7 @@ def test_executable_word_lists_skips_a_comment_and_resumes_on_the_next_line() ->
 def test_executable_word_lists_joins_a_line_continuation() -> None:
     assert gate.executable_word_lists("git \\\npush origin") == [["git", "push", "origin"]]
     assert gate.executable_word_lists("git\\\n#note; git push") == [["git#note"], ["git", "push"]]
+    assert gate.executable_word_lists("echo a\\\\\n#; git push") == [["echo", "a\\"]]
 
 
 def test_executable_word_lists_keeps_the_other_segments_beside_a_trailing_backslash() -> None:
