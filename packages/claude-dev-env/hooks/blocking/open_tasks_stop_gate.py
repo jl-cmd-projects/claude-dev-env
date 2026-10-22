@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Stop hook that keeps a session working while its task list has unreported open items.
 
-The session's open items merge these sources. A source drops an item whose subject
-an earlier source holds, so the task store wins over the transcript::
+The session's open items merge these sources. A transcript item whose subject
+the task store holds is dropped, so the task store wins; every other item stays::
 
     ~/.claude/tasks/<task list id>/*.json        (TaskCreate / TaskUpdate store)
     transcript TaskCreate / TaskUpdate calls      (replayed in order)
@@ -215,7 +215,8 @@ def _subject_key(task_item: TaskItem) -> str:
 def deduplicated_by_subject(all_sources: list[list[TaskItem]]) -> list[TaskItem]:
     """Drop an item whose subject an earlier source holds, so the task store wins over the transcript.
 
-    Items inside one source all stay, so a pending task keeps its place beside a completed task of the same subject.
+    The caller passes the task store and the whole transcript as two sources. Items inside one source all
+    stay, so a pending task keeps its place beside a completed task of the same subject.
     """
     all_kept_items: list[TaskItem] = []
     all_earlier_keys: set[str] = set()
