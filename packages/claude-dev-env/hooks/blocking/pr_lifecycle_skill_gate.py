@@ -30,14 +30,18 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     COMMAND_PIECE_PATTERN,
     COMMAND_WHITESPACE,
     DENY_DECISION,
+    DOUBLE_QUOTE,
+    DOUBLE_QUOTED_ESCAPE_PATTERN,
     DENY_REASON,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
+    ESCAPED_CHARACTER_GROUP,
     GH_API_COMMAND,
     GH_PULL_REQUEST_COMMAND,
     GIT_ACTIONS,
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
     HOOK_EVENT_NAME,
     LINE_CONTINUATION_PIECE,
+    LINE_END,
     MERGE_PATH_SUFFIX,
     NO_COMMENT_CHARACTERS,
     OPTION_AND_VALUE_WORD_COUNT,
@@ -76,6 +80,32 @@ from transcript_skill_scan import (
 )
 
 
+def _joined_piece_text(piece: re.Match[str]) -> str:
+    """Return one command piece with its backslash-newline line continuations removed.
+
+    ::
+
+        \\<newline>          ->  ""
+        "gi\\<newline>t"     ->  "git"
+        'gi\\<newline>t'     ->  unchanged
+
+    Args:
+        piece: One match of ``COMMAND_PIECE_PATTERN`` on the raw command.
+
+    Returns:
+        The piece text as bash reads it after joining continuations.
+    """
+    if piece.lastgroup == LINE_CONTINUATION_PIECE:
+        return REMOVED_TEXT
+    if piece.group().startswith(DOUBLE_QUOTE):
+        return DOUBLE_QUOTED_ESCAPE_PATTERN.sub(_without_line_continuation, piece.group())
+    return piece.group()
+
+
+def _without_line_continuation(escape: re.Match[str]) -> str:
+    return REMOVED_TEXT if escape.group(ESCAPED_CHARACTER_GROUP) == LINE_END else escape.group()
+
+
 def _unquoted_segment_texts(command: str) -> list[str] | None:
     """Split a command at each separator outside quotes, escapes, and comments.
 
@@ -93,10 +123,7 @@ def _unquoted_segment_texts(command: str) -> list[str] | None:
     all_raw_pieces = list(COMMAND_PIECE_PATTERN.finditer(command))
     if any(each_piece.lastgroup == UNCLOSED_QUOTE_PIECE for each_piece in all_raw_pieces):
         return None
-    joined_command = REMOVED_TEXT.join(
-        REMOVED_TEXT if each_piece.lastgroup == LINE_CONTINUATION_PIECE else each_piece.group()
-        for each_piece in all_raw_pieces
-    )
+    joined_command = REMOVED_TEXT.join(_joined_piece_text(each_piece) for each_piece in all_raw_pieces)
     all_pieces = list(COMMAND_PIECE_PATTERN.finditer(joined_command))
     marked_command = REMOVED_TEXT.join(
         ALL_PIECE_REPLACEMENT_TEXTS.get(each_piece.lastgroup, each_piece.group()) for each_piece in all_pieces
