@@ -68,10 +68,10 @@ test('each host installs into the managed root this run wrote', () => {
     const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
-        ['claude', 'plugin', 'uninstall', PSTACK_PLUGIN_IDENTIFIER],
-        ['claude', 'plugin', 'marketplace', 'remove', 'pstack-claude'],
         ['claude', 'plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
+        ['claude', 'plugin', 'marketplace', 'update', 'pstack-claude'],
         ['claude', 'plugin', 'install', PSTACK_PLUGIN_IDENTIFIER],
+        ['claude', 'plugin', 'update', PSTACK_PLUGIN_IDENTIFIER],
         ['codex', 'plugin', 'remove', PSTACK_PLUGIN_IDENTIFIER],
         ['codex', 'plugin', 'marketplace', 'remove', 'pstack-claude'],
         ['codex', 'plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
@@ -81,7 +81,43 @@ test('each host installs into the managed root this run wrote', () => {
     assert.equal(runner.calls[4].environment.CODEX_HOME, ROOTS.codexHome);
 });
 
-test('each host removes the installed plugin and marketplace before it installs', () => {
+test('the Claude plan refreshes in place and Codex has no refresh commands', () => {
+    assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'claude').refreshCommands, [
+        ['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
+        ['plugin', 'marketplace', 'update', 'pstack-claude'],
+        ['plugin', 'install', PSTACK_PLUGIN_IDENTIFIER],
+        ['plugin', 'update', PSTACK_PLUGIN_IDENTIFIER],
+    ]);
+    assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'codex').refreshCommands, []);
+});
+
+test('a Claude refresh that passes never uninstalls the plugin or removes its marketplace', () => {
+    const runner = recordingRunner();
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
+    assert.equal(outcome.status, 'installed');
+    const allRemovalCalls = runner.calls.filter(call => (
+        call.commandArguments.includes('uninstall') || call.commandArguments.includes('remove')
+    ));
+    assert.deepEqual(allRemovalCalls, []);
+});
+
+test('a failed Claude refresh falls back to removing and adding the marketplace again', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[2] === 'add' && runner.calls.length === 1
+            ? { status: 1, stderr: "its source doesn't match its extraKnownMarketplaces entry" }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
+    assert.equal(outcome.status, 'installed');
+    assert.deepEqual(runner.calls.map(call => call.commandArguments), [
+        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
+        ['plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
+        ['plugin', 'marketplace', 'remove', 'claude-dev-env'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
+        ['plugin', 'install', 'usage-wrapup@claude-dev-env'],
+    ]);
+});
+
+test('each host removes the installed plugin and marketplace before a clean install', () => {
     assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'claude').removalCommands, [
         ['plugin', 'uninstall', PSTACK_PLUGIN_IDENTIFIER],
         ['plugin', 'marketplace', 'remove', 'pstack-claude'],
@@ -95,6 +131,7 @@ test('each host removes the installed plugin and marketplace before it installs'
 test('a removal that finds nothing installed still lets the install run', () => {
     const runner = recordingRunner((executable, commandArguments) => (
         commandArguments.includes('uninstall') || commandArguments.includes('remove')
+            || commandArguments.includes('update')
             ? { status: 1, stderr: 'not installed' }
             : { status: 0, stderr: '' }));
     const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
@@ -267,10 +304,10 @@ test('installing usage-wrapup runs only the Claude commands, inside the managed 
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
-        ['claude', 'plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
-        ['claude', 'plugin', 'marketplace', 'remove', 'claude-dev-env'],
         ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
+        ['claude', 'plugin', 'marketplace', 'update', 'claude-dev-env'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-dev-env'],
     ]);
     for (const call of runner.calls) {
         assert.deepEqual(call.environment, { CLAUDE_CONFIG_DIR: ROOTS.claudeRoot });
@@ -319,21 +356,21 @@ for (const [spec, packageFolder] of [
     });
 }
 
-test('should remove and add the shared marketplace once when installing usage-wrapup and subagent-models together', () => {
+test('should add and update the shared marketplace once when installing usage-wrapup and subagent-models together', () => {
     const runner = recordingRunner();
     const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], ROOTS, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
-        ['claude', 'plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
-        ['claude', 'plugin', 'uninstall', 'subagent-models@claude-dev-env'],
-        ['claude', 'plugin', 'marketplace', 'remove', 'claude-dev-env'],
         [
             'claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env',
             '--sparse', '.claude-plugin', 'packages/usage-wrapup', 'packages/subagent-models',
         ],
+        ['claude', 'plugin', 'marketplace', 'update', 'claude-dev-env'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
         ['claude', 'plugin', 'install', 'subagent-models@claude-dev-env'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-dev-env'],
+        ['claude', 'plugin', 'update', 'subagent-models@claude-dev-env'],
     ]);
 });
 
