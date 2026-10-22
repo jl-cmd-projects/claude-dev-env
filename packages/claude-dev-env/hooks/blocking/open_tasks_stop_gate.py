@@ -33,8 +33,8 @@ after the last plan list that held the item.
 A ``Blocked:`` line that asks the user for a decision needs a question card
 in the same turn. The gate calls a line a decision when it holds a decision
 word: ok, okay, approve, approval, go-ahead, green light, sign-off, decide,
-decision, choose, choice, pick, confirm, permission, consent, say-so, your
-call, whether, or prefer. Any other ``Blocked:`` line names an input the user
+decision, choose, choice, permission, consent, say-so, your call, or prefer.
+Any other ``Blocked:`` line names an input the user
 supplies, such as a secret, a file, or a step on a device, and needs no card::
 
     block: Blocked: #ask-1 - your OK to merge PR #7071 first       (no card this turn)

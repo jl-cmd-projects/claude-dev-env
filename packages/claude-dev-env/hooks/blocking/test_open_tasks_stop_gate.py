@@ -586,6 +586,27 @@ def test_should_keep_the_card_through_stop_hook_feedback(
     assert run_gate(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path) == (0, "")
 
 
+def test_should_allow_an_input_blocked_line_that_says_whether(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch")])
+    input_reply = "Branch pushed.\nBlocked: #ask-1 - paste the log showing whether the migration ran."
+    assert run_gate(monkeypatch, capsys, input_reply, transcript_path) == (0, "")
+
+
+def test_should_start_a_new_turn_at_an_image_only_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    image_prompt = {"type": "user", "message": {"role": "user", "content": [{"type": "image", "source": {}}]}}
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [user_prompt_record("Merge the release branch"), tool_call_record("AskUserQuestion"), image_prompt],
+    )
+    assert "AskUserQuestion" in block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+
+
 def test_should_allow_a_decision_blocked_line_after_a_codex_request_user_input_call(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

@@ -202,6 +202,8 @@ def is_user_prompt_record(all_record_fields: dict[str, object]) -> bool:
         all_blocks = _content_blocks(all_record_fields)
         if any(each_block.get(RECORD_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE for each_block in all_blocks):
             return False
+        if any(each_block.get(RECORD_TYPE_KEY) != TEXT_KEY for each_block in all_blocks):
+            return True
         prompt_text = WORD_SEPARATOR.join(
             str(each_block.get(TEXT_KEY, "")) for each_block in all_blocks if each_block.get(RECORD_TYPE_KEY) == TEXT_KEY
         )

@@ -76,7 +76,7 @@ BLOCKED_REPORT_KIND = "blocked"
 REPORT_KIND_GROUP_INDEX = 1
 DECISION_WORD_PATTERN = (
     r"\b(?:ok|okay|approve[sd]?|approval|go-?ahead|green\s+light|sign-?off|decide[sd]?|decision"
-    r"|choose|choice|pick|confirm(?:s|ed|ation)?|permission|consent|say-?so|your\s+call|whether|prefer(?:s|ence)?)\b"
+    r"|choose|choice|permission|consent|say-?so|your\s+call|prefer(?:s|ence)?)\b"
 )
 DECISION_CARD_TOOL_PATTERN = (
     r"(?:^|__)AskUserQuestion$|hearthbot__(?:ask|request)_decision$|^request_user_input(?:_async)?$"
