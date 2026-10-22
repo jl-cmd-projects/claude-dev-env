@@ -512,7 +512,7 @@ def test_should_mark_the_right_item_for_a_done_index_after_a_continuation(
     assert "Set rows in Neon" not in reason_text
 
 
-DECISION_BLOCKED_REPLY = "Branch pushed.\nBlocked: #ask-1 - your OK to merge the app PR #7071 first."
+DECISION_BLOCKED_REPLY = "Branch pushed.\nBlocked: #ask-1 - your OK to merge the app branch first."
 
 
 def user_prompt_record(prompt_text: str) -> dict[str, object]:

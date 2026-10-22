@@ -37,7 +37,7 @@ decision, choose, choice, permission, consent, say-so, your call, or prefer.
 Any other ``Blocked:`` line names an input the user
 supplies, such as a secret, a file, or a step on a device, and needs no card::
 
-    block: Blocked: #ask-1 - your OK to merge PR #7071 first       (no card this turn)
+    block: Blocked: #ask-1 - your OK to merge the app branch first  (no card this turn)
     allow: the same line after an AskUserQuestion call this turn
     allow: Blocked: #ask-1 - the new deploy key secret, pasted into the session
 
