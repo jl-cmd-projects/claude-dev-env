@@ -64,7 +64,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     DECISION_KEY,
     HOOK_EVENT_NAME,
     REASON_KEY,
-    SESSION_ID_KEY,
     STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
