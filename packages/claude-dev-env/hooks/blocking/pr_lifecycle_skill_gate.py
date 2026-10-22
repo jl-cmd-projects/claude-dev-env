@@ -91,9 +91,21 @@ def _command_segments(command: str) -> list[list[str]]:
     return [each_group for each_group in all_segments if each_group]
 
 
-def _next_command_word(
+def next_command_word(
     all_words: list[str], start: int, all_options_with_value: frozenset[str]
 ) -> tuple[str | None, int]:
+    """Return the first word from ``start`` that is no option, and the index after it.
+
+    ::
+
+        ["git", "-C", "repo", "commit"], 1, {"-C"}  -> ("commit", 4)
+        ["git", "--no-pager"], 1, {"-C"}            -> (None, 2)
+
+    Args:
+        all_words: One command's words, executable first.
+        start: The index to start reading at.
+        all_options_with_value: Options whose next word is their value.
+    """
     index = start
     while index < len(all_words):
         each_word = all_words[index]
@@ -108,7 +120,7 @@ def _next_command_word(
 
 
 def _is_git_action(all_words: list[str]) -> bool:
-    action, _ = _next_command_word(all_words, 1, GIT_GLOBAL_OPTIONS_WITH_VALUE)
+    action, _ = next_command_word(all_words, 1, GIT_GLOBAL_OPTIONS_WITH_VALUE)
     return action in GIT_ACTIONS
 
 
@@ -143,32 +155,62 @@ def _words_from_executable(all_words: list[str]) -> list[str]:
     return []
 
 
-def _file_name(path_word: str) -> str:
+def file_name(path_word: str) -> str:
+    """Return the lowercased last path part of a word, such as ``git.exe`` for ``C:\\Git\\git.exe``.
+
+    Args:
+        path_word: A command word that may carry a path.
+    """
     return re.split(PATH_SEPARATOR_PATTERN, path_word)[-1].lower()
 
 
 def _runs_pull_request_script(all_words: list[str]) -> bool:
-    script, _ = _next_command_word(all_words, 1, PYTHON_OPTIONS_WITH_VALUE)
-    return script is not None and _file_name(script) == PULL_REQUEST_SCRIPT_NAME
+    script, _ = next_command_word(all_words, 1, PYTHON_OPTIONS_WITH_VALUE)
+    return script is not None and file_name(script) == PULL_REQUEST_SCRIPT_NAME
 
 
-def _matches_shell_command(command: str) -> bool:
+def executable_word_lists(command: str) -> list[list[str]]:
+    """Return each command's words from its executable on, with shell wrapper arguments read as commands.
+
+    ::
+
+        "cd repo && git commit -m x"        -> [["cd", "repo"], ["git", "commit", "-m", "x"]]
+        "env A=1 git push"                  -> [["git", "push"]]
+        "bash -c 'git add x; git commit'"   -> ends with [["git", "add", "x"], ["git", "commit"]]
+
+    Args:
+        command: The shell command text.
+    """
+    all_word_lists: list[list[str]] = []
     for each_segment in _command_segments(command):
         all_command_words = _words_from_executable(each_segment)
         if not all_command_words:
             continue
-        executable = _file_name(all_command_words[0])
+        all_word_lists.append(all_command_words)
+        all_word_lists.extend(_wrapped_word_lists(all_command_words))
+    return all_word_lists
+
+
+def _wrapped_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    if file_name(all_command_words[0]) not in ALL_SHELL_WRAPPER_EXECUTABLES:
+        return []
+    return [
+        each_word_list
+        for each_argument in all_command_words[1:]
+        for each_word_list in executable_word_lists(each_argument)
+    ]
+
+
+def _matches_shell_command(command: str) -> bool:
+    for each_command_words in executable_word_lists(command):
+        executable = file_name(each_command_words[0])
         if executable == PULL_REQUEST_SCRIPT_NAME:
             return True
-        if executable in ALL_PYTHON_EXECUTABLES and _runs_pull_request_script(all_command_words):
+        if executable in ALL_PYTHON_EXECUTABLES and _runs_pull_request_script(each_command_words):
             return True
-        if executable in ALL_SHELL_WRAPPER_EXECUTABLES and any(
-            _matches_shell_command(each_argument) for each_argument in all_command_words[1:]
-        ):
+        if executable in {"git", "git.exe"} and _is_git_action(each_command_words):
             return True
-        if executable in {"git", "git.exe"} and _is_git_action(all_command_words):
-            return True
-        if executable in {"gh", "gh.exe"} and _is_gh_action(all_command_words):
+        if executable in {"gh", "gh.exe"} and _is_gh_action(each_command_words):
             return True
     return False
 

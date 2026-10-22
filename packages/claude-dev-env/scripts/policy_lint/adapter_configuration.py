@@ -128,6 +128,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
         hooks/blocking/bash_pre_tool_use_dispatcher.py   -> exempt
         hooks/blocking/pr_lifecycle_skill_gate.py        -> exempt
+        hooks/blocking/verify_before_commit_gate.py      -> exempt
         hooks/blocking/step_note_gate.py                 -> exempt
         hooks/blocking/reply_length_gate.py              -> exempt
         hooks/blocking/chat_reply_gate.py                -> exempt
@@ -154,6 +155,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     decides when a rule set loads and no code or safety policy. It also denies
     a second open ``Follow-up to #N`` pull request for one parent, a delivery
     rule that names the open follow-up to extend.
+
+    The verify-before-commit gate denies a code commit in a repository with a
+    verify skill until the session loads that skill in the current turn. It
+    decides when a skill loads and no code or safety policy.
 
     The step-note gate allows every call until the user runs ``/step-notes on``.
     It asks for a readable status line and decides no code or safety policy.

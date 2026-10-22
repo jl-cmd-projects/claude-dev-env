@@ -11,6 +11,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from transcript_skill_scan import (
     invokes_skill_with_argument,
     is_skill_loaded_after_last_compaction,
+    is_skill_loaded_since_last_prompt,
     skill_invocation_status,
 )
 
@@ -134,3 +135,26 @@ def test_build_eval_invocation_before_a_compact_boundary_should_still_count() ->
         _skill_entry("other"),
     ]
     assert _invokes_build_eval(lines)
+
+
+def _prompt_entry(content: object) -> str:
+    return json.dumps({"type": "user", "message": {"content": content}})
+
+
+def test_skill_since_last_prompt_survives_tool_results_and_skill_bodies() -> None:
+    tool_result = _prompt_entry([{"type": "tool_result", "content": "Launching skill: verify"}])
+    skill_body = json.dumps({"type": "user", "isMeta": True, "message": {"content": "Base directory for this skill"}})
+    lines = [_prompt_entry("Commit it."), _skill_entry("verify"), tool_result, skill_body]
+    assert is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_next_prompt_drops_a_skill_loaded_in_the_last_turn() -> None:
+    lines = [_prompt_entry("First."), _skill_entry("verify"), _prompt_entry([{"type": "text", "text": "Second."}])]
+    assert not is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_slash_command_prompt_loads_the_skill_for_its_own_turn() -> None:
+    marker = "<command-name>/verify</command-name>"
+    assert is_skill_loaded_since_last_prompt([_prompt_entry("First."), _prompt_entry(marker)], ("verify",), (marker,))
+    compaction = json.dumps({"subtype": "compact_boundary"})
+    assert not is_skill_loaded_since_last_prompt([_prompt_entry(marker), compaction], ("verify",), (marker,))
