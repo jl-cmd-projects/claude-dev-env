@@ -1,12 +1,16 @@
 ---
 name: sync-dev-env
-description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
+description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, when a /skill fails to resolve, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
 argument-hint: "[HH:MM] [IANA time zone]"
 ---
 
 # /sync-dev-env
 
 An always-on session starts once, so a SessionStart hook runs once and never again. Claude Code reads plugins only at session start, and a running session has no plugin reload. The skills directory is read live, so one symlink per skill makes each skill of a plugin load at once.
+
+## A /skill fails to resolve
+
+Run `/reload-skills` first. It reloads the skills directory in the running session, so the session keeps its context. When the skill still fails to resolve, run the linker in step 2.
 
 ## 1. Install or update the package
 

@@ -123,7 +123,7 @@ An image a PR needs as visual evidence is not an exception to that row. Upload i
 3. Fix systematically, marking each todo complete.
 4. Reply to each comment inline.
 
-Repair only the reported findings.
+Repair only the reported findings. A finding that comes back on a second head escalates. Fix the source the reviewer reads, or change the gate that files the finding. Post no second reply with the same text, because a repeat finding shows the first reply changed nothing the reviewer sees.
 
 Every `gh` post in this workflow uses `--body-file` per [gh-cli-conventions.md](#gh-cli-conventions) and keeps volatile scratch paths out per [durable-post-artifacts.md](#github-post-input-rules). Stage session edits per [re-stage-before-commit.md](#re-stage-session-edits-before-commit) before each commit.
 
@@ -458,7 +458,7 @@ slurped array and take the last element. For one page, cap the request with a
 
 Stage the files you edited this session right before you commit them. A plain `git commit` records only the staged snapshot; a tracked file this session changed but left unstaged stays behind in the working tree.
 
-No hook denies a commit that would drop tracked session edits. Run `git status` before you commit, then stage what you changed with `git add <paths>` or commit with `git commit -a`.
+No hook denies a commit that would drop tracked session edits. Run `git status` before you commit, then stage what you changed with `git add <paths>` or commit with `git commit -a`. On PowerShell, write the commit message to a scratch file and run `git commit -F <file>`. A here-string piped into `git commit -F -` makes git read the message lines as pathspecs, and the commit fails.
 
 Staging covers tracked files you edited. Do not commit untracked files unless the user explicitly instructs it. An untracked file in the working tree is outside the change until they say otherwise.
 
