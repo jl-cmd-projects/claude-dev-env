@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.7...claude-dev-env-v8.96.8) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** deny SendUserFile paths outside the session working directory ([#2132](https://github.com/jl-cmd-projects/claude-dev-env/issues/2132)) ([4f80814](https://github.com/jl-cmd-projects/claude-dev-env/commit/4f8081496abac2961958938954f71fc44e7ccd37))
+
 ## [8.96.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.6...claude-dev-env-v8.96.7) (2026-10-22)
 
 
