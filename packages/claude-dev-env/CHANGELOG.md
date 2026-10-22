@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.10](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.9...claude-dev-env-v8.98.10) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** hold a turn only when the task list or title is stale ([#2161](https://github.com/jl-cmd-projects/claude-dev-env/issues/2161)) ([d2bdb7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/d2bdb7b8b337443adf7bdccfe7b023c4b295e8f5))
+
 ## [8.98.9](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.8...claude-dev-env-v8.98.9) (2026-10-22)
 
 

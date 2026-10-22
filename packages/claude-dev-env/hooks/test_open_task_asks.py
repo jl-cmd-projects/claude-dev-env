@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from open_task_asks import is_ask, record_prompt, recorded_prompts
+from open_task_asks import claude_home, is_ask
 
 
 @pytest.fixture(autouse=True)
@@ -41,17 +41,10 @@ def test_should_classify_work_prompts_as_asks(prompt_text: str, is_expected_ask:
     assert is_ask(prompt_text) is is_expected_ask
 
 
-def test_should_number_asks_and_keep_every_prompt_in_order() -> None:
-    assert record_prompt("s-1", "Export the APKs") == "ask-1"
-    assert record_prompt("s-1", "did it fail?") is None
-    assert record_prompt("s-1", "Submit them") == "ask-2"
-    assert [each_prompt.ask_id for each_prompt in recorded_prompts("s-1")] == [
-        "ask-1",
-        None,
-        "ask-2",
-    ]
+def test_should_read_the_claude_home_from_claude_config_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "profile"))
+    assert claude_home() == tmp_path / "profile"
 
 
-def test_should_skip_a_session_id_that_is_not_a_plain_name() -> None:
-    assert record_prompt("../escape", "Export the APKs") is None
-    assert recorded_prompts("../escape") == []
+def test_should_default_the_claude_home_to_the_user_home(tmp_path: Path) -> None:
+    assert claude_home() == tmp_path / ".claude"

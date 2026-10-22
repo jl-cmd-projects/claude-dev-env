@@ -1,13 +1,12 @@
 """Constants for the open tasks Stop gate."""
 
 HOOK_EVENT_NAME = "Stop"
-SESSION_ID_KEY = "session_id"
 TRANSCRIPT_PATH_KEY = "transcript_path"
-LAST_ASSISTANT_MESSAGE_KEY = "last_assistant_message"
 DECISION_KEY = "decision"
 BLOCK_DECISION = "block"
 REASON_KEY = "reason"
 ALLOW_EXIT_CODE = 0
+STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
 UTF8_ENCODING = "utf-8"
 WORD_SEPARATOR = " "
 TASK_LIST_ID_ENVIRONMENT_VARIABLE = "CLAUDE_CODE_TASK_LIST_ID"
@@ -38,8 +37,6 @@ CURSOR_FOLLOWUP_MESSAGE_KEY = "followup_message"
 CURSOR_STATUS_KEY = "status"
 CURSOR_COMPLETED_STATUS = "completed"
 CURSOR_LOOP_COUNT_KEY = "loop_count"
-CURSOR_FOLLOWUP_LIMIT = 5
-REPLY_TEXT_SEPARATOR = "\n"
 TASK_UPDATE_ID_KEY = "taskId"
 TODO_WRITE_TOOL_NAME = "TodoWrite"
 DYNAMIC_TOOL_CALL_NAME = "CallDynamicTool"
@@ -59,51 +56,15 @@ CODEX_STEP_KEY = "step"
 FIRST_ITEM_NUMBER = 1
 TASK_CREATED_PATTERN = r"Task #(\d+) created"
 CREATED_TASK_ID_GROUP_INDEX = 1
-REPORT_LINE_PATTERN = r"^\s*(?:[-*]\s*)?(open|blocked)\b\s*[:\-]?\s*(.*)$"
-REPORTED_TEXT_GROUP_INDEX = 2
-WORD_BOUNDARY_PATTERN = r"\b"
 TASK_NUMBER_REFERENCE_TEMPLATE = "#{task_id}"
-ITEM_LINE_TEMPLATE = "\n- {subject}"
-BLOCK_REASON_PREFIX = "The task list still has incomplete items that this reply does not report:"
-BLOCK_REASON_SUFFIX = (
-    "\nKeep working each one now. End the reply with one line per item you cannot finish this turn:"
-    " 'Blocked: <item> - <what the user must give>' when only the user can unblock it, or"
-    " 'Open: <item> - <the step you take next>' when you are still working it."
-    " When the user must decide, choose, or approve, ask on a question card (AskUserQuestion,"
-    " or mcp__hearthbot__ask_decision / request_decision) this turn, then add the Blocked line."
-)
-BLOCKED_REPORT_KIND = "blocked"
-REPORT_KIND_GROUP_INDEX = 1
-DECISION_WORD_PATTERN = (
-    r"\b(?:ok|okay|approve[sd]?|approval|go-?ahead|green\s+light|sign-?off|decide[sd]?|decision"
-    r"|choose|choice|permission|consent|say-?so|your\s+call|prefer(?:s|ence)?)\b"
-)
-DECISION_CARD_TOOL_PATTERN = (
-    r"(?:^|__)AskUserQuestion$|hearthbot__(?:ask|request)_decision$|^request_user_input(?:_async)?$"
-)
 ALL_SKIPPED_PROMPT_FLAGS = ("isMeta", "isSidechain", "isCompactSummary")
 USER_ROLE = "user"
 USER_RECORD_TYPE = "user"
 CODEX_MESSAGE_TYPE = "message"
-CODEX_CARD_EVENT = "card"
-CODEX_PROMPT_EVENT = "prompt"
 STOP_HOOK_FEEDBACK_PREFIX = "Stop hook feedback"
-DECISION_LINE_TEMPLATE = "\n- {line}"
-DECISION_BLOCK_REASON_PREFIX = "This reply asks the user for a decision in a Blocked line, with no question card this turn:"
-DECISION_BLOCK_REASON_SUFFIX = (
-    "\nPut the decision on a question card now: call AskUserQuestion, or mcp__hearthbot__ask_decision or"
-    " mcp__hearthbot__request_decision, with two or three choices. Then end the reply with the Blocked line."
-)
-ASK_CLOSE_SUFFIX = (
-    "\nClose a finished ask with a 'Done: #ask-N' line. Close an ask or a carried plan item the user"
-    " called off with 'Dropped: <#ask-N or item> - \"<the user's words that called it off>\"'."
-)
 COMPLETED_STATUS = "completed"
 IN_PROGRESS_STATUS = "in_progress"
 ASSISTANT_RECORD_TYPE = "assistant"
-RECORD_TIMESTAMP_KEY = "timestamp"
-UTC_SUFFIX = "Z"
-UTC_OFFSET_TEXT = "+00:00"
 CCD_PLAN_TOOL_NAME = "mcp__ccd_turn__update_plan"
 CCD_PLAN_ITEMS_KEY = "items"
 CCD_PLAN_CONTENT_KEY = "content"
@@ -111,21 +72,7 @@ CCD_PLAN_DONE_KEY = "done"
 CCD_PLAN_START_KEY = "start"
 CCD_PLAN_ADVANCE_KEY = "advance"
 CCD_PLAN_ITEM_ID_TEMPLATE = "plan-{position}"
-ASK_ID_PREFIX = "ask-"
-ASK_ID_TEMPLATE = "ask-{ask_number}"
-ASK_LINE_TEMPLATE = "\n- #{ask_id}: {subject}"
-ASK_SUBJECT_CHARACTER_LIMIT = 120
-ASK_SUBJECT_ELLIPSIS = "..."
-ASKS_DIRECTORY_NAME = "open-task-asks"
-ASKS_FILE_SUFFIX = ".json"
-ASKS_TEMPORARY_PREFIX = ".open-task-asks-"
-ASKS_TEMPORARY_SUFFIX = ".tmp"
-ASKS_PROMPTS_KEY = "prompts"
-ASK_PROMPT_TEXT_KEY = "text"
-ASK_PROMPT_RECORDED_AT_KEY = "recorded_at"
-ASK_PROMPT_ID_KEY = "ask_id"
 PROMPT_KEY = "prompt"
-SAFE_SESSION_ID_PATTERN = r"[\w-]+"
 SENTENCE_SPLIT_PATTERN = r"(?<=[.!?])\s+|\n+"
 QUESTION_END_PATTERN = r"\?\s*$"
 YES_OR_NO_END_PATTERN = r"\byes\s+or\s+no\W*$"
@@ -140,9 +87,29 @@ ACKNOWLEDGEMENT_PATTERN = (
     r"|sounds\s+good|looks\s+good|lgtm)(?:[\s,]+(?:thanks?|thank\s+you))?\W*$"
 )
 POLITE_REQUEST_START_PATTERN = r"^\s*(?:please\b|(?:can|could|would|will)\s+you\b)"
-DONE_LINE_PATTERN = r"^\s*(?:[-*]\s*)?done\b\s*[:\-]?\s*(.*)$"
-DONE_TEXT_GROUP_INDEX = 1
-ASK_REFERENCE_PATTERN = r"#(ask-\d+)\b"
-DROPPED_LINE_PATTERN = r"^\s*(?:[-*]\s*)?dropped\b\s*[:\-]?\s*(.+?)\s+-\s+[\"“](.+?)[\"”]\s*$"
-DROPPED_TARGET_GROUP_INDEX = 1
-DROPPED_QUOTE_GROUP_INDEX = 2
+ALL_TRACKER_TOOL_NAMES = frozenset({TODO_WRITE_TOOL_NAME, TASK_CREATE_TOOL_NAME, TASK_UPDATE_TOOL_NAME})
+ALL_NON_WORK_TOOL_NAMES = frozenset(
+    {
+        "AskUserQuestion",
+        "mcp__hearthbot__ask_decision",
+        "mcp__hearthbot__request_decision",
+        "ToolSearch",
+        "TaskList",
+        "TaskGet",
+        "request_user_input",
+        "request_user_input_async",
+    }
+)
+SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
+ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", "local_shell_call"})
+BLOCK_REASON = (
+    "This turn worked on the user's ask and left the task list unchanged. The user follows your work"
+    " there. Update it now: TaskCreate the ask if it has no item, and TaskUpdate each item to its"
+    " current status (TodoWrite or update_plan where that is the tracker). Then end the turn. Leave"
+    " the reply as it stands."
+)
+PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
+TASK_LIST_NUDGE = (
+    "The user follows your work in the task list. Give this ask a task list item (TaskCreate) and"
+    " keep each item's status current as the work moves."
+)

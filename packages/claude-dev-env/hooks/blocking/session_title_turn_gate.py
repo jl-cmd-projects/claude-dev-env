@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-"""Stop hook that holds a turn until it sets the session title.
+"""Stop hook that holds a turn only when the session title shows a stale status.
+
+The title's emoji tells the user whether a session needs them. The gate leaves
+a title alone while it still fits, and holds the turn once when it does not::
+
+    no title set yet                                   -> hold
+    red flag, and this turn's prompt asks for work     -> hold: the user acted on it
+    check mark, and the task list has open items       -> hold: work is open again
+    hourglass, every item completed or deleted         -> hold: nothing runs
+    anything else                                      -> pass
+
+A turn that set a title passes, because the agent's choice stands. So does a
+turn that called no tool other than the title tool, and a held turn
+(``stop_hook_active``). The gate adds at most one step to a turn.
 
 A turn starts after the latest user prompt in the transcript. Tool results,
 meta entries, sidechain entries and compaction summaries are not prompts, and
 a Stop hook block lands as an attachment, so a held turn stays the same turn.
 A title call on a sidechain entry belongs to a subagent and does not count.
-The turn may end once a tool whose name ends in __set_session_title ran in it
-and its result came back without an error. A title the format gate denied
-does not count. A turn that called no tool other than the title tool may also
-end once an earlier main-chain turn set the title, since that title still
-shows and a text-only turn starts no new task. A held turn
-(``stop_hook_active`` true) whose title call failed may end, so a title tool
-that keeps failing cannot hold it forever. A held turn with no title call
-stays held, whichever Stop gate held it.
+A title the format gate denied does not count either.
+
+The task list comes from ``open_tasks_stop_gate.session_task_items``. Whether
+a prompt asks for work comes from ``open_task_asks.is_ask``.
 
 The session has the title tool when a transcript record names it::
 
@@ -25,8 +34,7 @@ or with an unreadable transcript, the hook lets the turn end, so Codex,
 Cursor and sessions without the tool keep working.
 
 A block writes ``{"decision": "block", "reason": ...}`` to stdout. The reason
-names the four status emoji and tells the model to close with one short
-sentence, so the held turn neither ends empty nor repeats the reply.
+names the shown title, why it does not fit, and the four status emoji.
 """
 
 from __future__ import annotations
@@ -38,10 +46,18 @@ from pathlib import Path
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
+blocking_directory = str(Path(__file__).resolve().parent)
+if blocking_directory not in sys.path:
+    sys.path.insert(0, blocking_directory)
 
 from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.open_tasks_stop_gate_constants import INCOMPLETE_STATUSES
+from open_task_asks import is_ask
+from open_tasks_stop_gate import session_task_items
+from open_tasks_transcript import TaskItem, replayed_transcript
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_title_constants import (
+    ALL_ITEMS_COMPLETED_REASON,
     ALL_SKIPPED_PROMPT_FLAGS,
     ALL_TOOL_LISTING_NAME_KEYS,
     ALL_TOOL_LISTING_RECORD_KEYS,
@@ -50,17 +66,27 @@ from hooks_constants.session_title_constants import (
     ATTACHMENT_KEY,
     BLOCK_DECISION,
     BLOCK_ID_KEY,
+    BLOCK_INPUT_KEY,
     BLOCK_NAME_KEY,
+    CHECK_MARK_STATUS,
     CONTENT_KEY,
     DECISION_KEY,
     DECODE_ERRORS_POLICY,
     ENTRY_TYPE_KEY,
+    HOURGLASS_STATUS,
     IS_ERROR_KEY,
     MESSAGE_KEY,
+    NO_TITLE_REASON,
+    OPEN_ITEMS_REASON,
     REASON_KEY,
+    RED_FLAG_STATUS,
     REMOVED_NAMES_KEY,
+    SESSION_ID_KEY,
     SIDECHAIN_FLAG_KEY,
+    STALE_FLAG_REASON,
+    STATUS_PREFIX_PATTERN,
     STOP_HOOK_ACTIVE_KEY,
+    TITLE_INPUT_KEY,
     TITLE_TOOL_DISPLAY_SEPARATOR,
     TITLE_TOOL_NAME_PATTERN,
     TOOL_RESULT_BLOCK_TYPE,
@@ -175,10 +201,6 @@ def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object
     return _main_chain(all_entries[_last_prompt_index(all_entries) + 1 :])
 
 
-def _earlier_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
-    return _main_chain(all_entries[: max(_last_prompt_index(all_entries), 0)])
-
-
 def _title_call_ids(all_turn_entries: list[dict[str, object]]) -> set[object]:
     return {
         each_block.get(BLOCK_ID_KEY)
@@ -186,18 +208,6 @@ def _title_call_ids(all_turn_entries: list[dict[str, object]]) -> set[object]:
         for each_block in _tool_use_blocks(each_entry)
         if TITLE_TOOL_NAME_PATTERN.match(str(each_block.get(BLOCK_NAME_KEY)))
     }
-
-
-def title_attempted_this_turn(all_entries: list[dict[str, object]]) -> bool:
-    """Return True when a title call ran after the latest prompt, whatever its result.
-
-    Args:
-        all_entries: The transcript entries, oldest first.
-
-    Returns:
-        True when this turn called the title tool.
-    """
-    return bool(_title_call_ids(_turn_entries(all_entries)))
 
 
 def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
@@ -218,18 +228,6 @@ def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
     return _title_succeeded_in(_turn_entries(all_entries))
 
 
-def title_set_before_this_turn(all_entries: list[dict[str, object]]) -> bool:
-    """Return True when a main-chain title call before the latest prompt came back without an error.
-
-    Args:
-        all_entries: The transcript entries, oldest first.
-
-    Returns:
-        True when an earlier turn set the title the session still shows.
-    """
-    return _title_succeeded_in(_earlier_entries(all_entries))
-
-
 def turn_ran_a_tool(all_entries: list[dict[str, object]]) -> bool:
     """Return True when this turn called any tool other than the title tool.
 
@@ -246,46 +244,130 @@ def turn_ran_a_tool(all_entries: list[dict[str, object]]) -> bool:
     )
 
 
-def _title_succeeded_in(all_scoped_entries: list[dict[str, object]]) -> bool:
+def _successful_title_call_ids(all_scoped_entries: list[dict[str, object]]) -> set[object]:
     all_title_call_ids = _title_call_ids(all_scoped_entries)
-    return any(
-        each_block.get(ENTRY_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
-        and each_block.get(TOOL_USE_ID_KEY) in all_title_call_ids
-        and not each_block.get(IS_ERROR_KEY)
+    return {
+        each_block.get(TOOL_USE_ID_KEY)
         for each_entry in all_scoped_entries
         if each_entry.get(ENTRY_TYPE_KEY) == USER_ENTRY_TYPE
         for each_block in _content_blocks(each_entry)
-    )
+        if each_block.get(ENTRY_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
+        and each_block.get(TOOL_USE_ID_KEY) in all_title_call_ids
+        and not each_block.get(IS_ERROR_KEY)
+    }
+
+
+def _title_succeeded_in(all_scoped_entries: list[dict[str, object]]) -> bool:
+    return bool(_successful_title_call_ids(all_scoped_entries))
+
+
+def _title_input(all_block_fields: dict[str, object]) -> str | None:
+    all_input_fields = all_block_fields.get(BLOCK_INPUT_KEY)
+    title = all_input_fields.get(TITLE_INPUT_KEY) if isinstance(all_input_fields, dict) else None
+    return title if isinstance(title, str) else None
+
+
+def shown_title(all_entries: list[dict[str, object]]) -> str | None:
+    """Return the title of the last main-chain title call that came back without an error.
+
+    ::
+
+        "\u23f3 Export" ok, then "\u2705 Export" denied   -> "\u23f3 Export"
+        no title call                                -> None
+
+    Args:
+        all_entries: The transcript entries, oldest first.
+
+    Returns:
+        The title the session shows, or None when no title call succeeded.
+    """
+    all_main_entries = _main_chain(all_entries)
+    all_successful_ids = _successful_title_call_ids(all_main_entries)
+    all_titles = [
+        _title_input(each_block)
+        for each_entry in all_main_entries
+        for each_block in _tool_use_blocks(each_entry)
+        if each_block.get(BLOCK_ID_KEY) in all_successful_ids
+    ]
+    all_text_titles = [each_title for each_title in all_titles if each_title is not None]
+    return all_text_titles[-1] if all_text_titles else None
+
+
+def title_status(title: str) -> str | None:
+    """Return the status emoji the title starts with, without a variation selector, or None."""
+    status_match = STATUS_PREFIX_PATTERN.match(title)
+    return status_match.group(1) if status_match else None
+
+
+def stale_status_reason(title: str, is_ask_turn: bool, all_task_items: list[TaskItem]) -> str | None:
+    """Return why the shown title does not fit the session's state, or None when it fits.
+
+    ::
+
+        red flag, the prompt asks for work          -> reason
+        check mark, an item is pending              -> reason
+        hourglass, every item completed or deleted  -> reason
+        hourglass, an item is in progress           -> None
+
+    Args:
+        title: The title the session shows.
+        is_ask_turn: True when the prompt that started this turn asks for work.
+        all_task_items: The session's task list.
+
+    Returns:
+        The reason the status is stale, with the title filled in, or None.
+    """
+    status = title_status(title)
+    has_open_items = any(each_item.status in INCOMPLETE_STATUSES for each_item in all_task_items)
+    is_all_completed = bool(all_task_items) and not has_open_items
+    if status == RED_FLAG_STATUS and is_ask_turn:
+        return STALE_FLAG_REASON.format(title=title)
+    if status == CHECK_MARK_STATUS and has_open_items:
+        return OPEN_ITEMS_REASON.format(title=title)
+    if status == HOURGLASS_STATUS and is_all_completed:
+        return ALL_ITEMS_COMPLETED_REASON.format(title=title)
+    return None
 
 
 def turn_block_reason(
-    all_entries: list[dict[str, object]], is_stop_hook_active: bool
+    all_entries: list[dict[str, object]],
+    is_stop_hook_active: bool,
+    is_ask_turn: bool,
+    all_task_items: list[TaskItem],
 ) -> str | None:
     """Return the reason to hold the turn, or None when the turn may end.
 
     ::
 
-        no title tool in the transcript                         -> None
-        title set this turn                                     -> None
-        only title calls this turn, earlier turn set the title  -> None
-        held turn whose title call failed (stop_hook_active)    -> None
-        no title call this turn                                 -> reason
+        no title tool in the transcript                  -> None
+        held turn (stop_hook_active)                     -> None
+        title set this turn                              -> None
+        no tool other than the title tool this turn      -> None
+        no title set in the session yet                  -> reason
+        shown title has a stale status                   -> reason
+        shown title still fits                           -> None
 
     Args:
         all_entries: The transcript entries, oldest first.
         is_stop_hook_active: True when a Stop hook already held this turn.
+        is_ask_turn: True when the prompt that started this turn asks for work.
+        all_task_items: The session's task list.
 
     Returns:
         The block reason that names the title tool, or None.
     """
     all_title_tools = available_title_tools(all_entries)
-    if not all_title_tools or title_set_this_turn(all_entries):
+    if not all_title_tools or is_stop_hook_active or title_set_this_turn(all_entries):
         return None
-    if title_set_before_this_turn(all_entries) and not turn_ran_a_tool(all_entries):
+    if not turn_ran_a_tool(all_entries):
         return None
-    if is_stop_hook_active and title_attempted_this_turn(all_entries):
+    title = shown_title(all_entries)
+    stale_reason = NO_TITLE_REASON if title is None else stale_status_reason(title, is_ask_turn, all_task_items)
+    if stale_reason is None:
         return None
-    return TURN_BLOCK_REASON.format(tool_name=TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools))
+    return TURN_BLOCK_REASON.format(
+        why=stale_reason, tool_name=TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools)
+    )
 
 
 def _parsed_entry(line: str) -> dict[str, object] | None:
@@ -316,9 +398,13 @@ def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
         return ALLOW_EXIT_CODE
+    transcript_path = hook_input.get(TRANSCRIPT_PATH_KEY)
+    replay = replayed_transcript(transcript_path)
     block_reason = turn_block_reason(
-        read_transcript_entries(hook_input.get(TRANSCRIPT_PATH_KEY)),
+        read_transcript_entries(transcript_path),
         hook_input.get(STOP_HOOK_ACTIVE_KEY) is True,
+        is_ask(replay.turn_prompt_text),
+        session_task_items(hook_input.get(SESSION_ID_KEY), replay),
     )
     if block_reason is None:
         return ALLOW_EXIT_CODE

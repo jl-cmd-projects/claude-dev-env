@@ -24,7 +24,7 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 **Shipping**
 - **Pull request lifecycle**. Before a commit, push, pull request action, or merge. Invoke the `pr-lifecycle` skill; a hook denies those commands until it loads.
 - **Proof before a pull request** ([guide](../docs/rule-guides/proof-before-pull-request.md)). Before you open a pull request. Run the change with and without it, and quote both under "Proof in practice".
-- **Session title** ([guide](../docs/rule-guides/session-title.md)). The session has a tool whose name ends in `__set_session_title`. Set `<emoji> <name>` before each turn ends.
+- **Session title** ([guide](../docs/rule-guides/session-title.md)). The session has a tool whose name ends in `__set_session_title`. Set `<emoji> <name>` when the status changes.
 
 **Memory**
 - **Durable facts only** ([guide](../docs/rule-guides/memory-stores-durable-facts.md)). Writing auto-memory or a `MEMORY.md` entry. Keep only a fact that helps a fresh session weeks later.
