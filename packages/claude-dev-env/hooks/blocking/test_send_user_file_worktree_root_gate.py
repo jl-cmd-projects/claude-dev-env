@@ -6,15 +6,9 @@ import pytest
 
 import send_user_file_worktree_root_gate
 
-WORKTREE_CWD = (
-    "C:\\dev\\Information Technology\\Scripts\\Automation\\Python"
-    "\\.claude\\worktrees\\team-advisor-fable-1474fe"
-)
-SHARE_PATH = "Y:\\Projects\\temp\\automation-eval\\reflect-2026-10-21-rollout-run.md"
-SCRATCHPAD_PATH = (
-    "C:\\Users\\jon\\AppData\\Local\\Temp\\claude\\C--dev-Information-Technology"
-    "\\1c905809-4b61-4539-9c70-27ff557a9fb1\\scratchpad\\reflect.md"
-)
+WORKTREE_CWD = "C:\\dev\\project\\.claude\\worktrees\\feature-branch"
+SHARE_PATH = "Y:\\shared\\reports\\reflect.md"
+SCRATCHPAD_PATH = "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad\\reflect.md"
 SCRATCH_FOLDER_PATH = WORKTREE_CWD + "\\.scratch\\reflect.md"
 
 
