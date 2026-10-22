@@ -103,7 +103,7 @@
         ]
       },
       {
-        "matcher": "mcp__.*__resolve_review_thread",
+        "matcher": "Bash|PowerShell|mcp__.*__resolve_review_thread",
         "hooks": [
           {
             "type": "command",
