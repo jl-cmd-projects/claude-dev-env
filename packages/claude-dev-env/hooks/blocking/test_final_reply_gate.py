@@ -87,6 +87,23 @@ def test_should_allow_a_run_a_tool_result_shows(
     assert run_gate(monkeypatch, capsys, MEASURED_REPLY, transcript_path) == (0, "")
 
 
+def test_should_steer_a_skipped_check_to_an_open_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    skipped_check_reply = "I have not checked the pivot, reach, or screen 26 captures yet."
+    _, stdout_text = run_gate(monkeypatch, capsys, skipped_check_reply)
+    block_reason = json.loads(stdout_text)["reason"]
+    assert "`Open: <check> - <next step>`" in block_reason
+    assert "leave the claim out" not in block_reason
+
+
+def test_should_allow_an_open_line_for_a_skipped_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    open_line = "Open: pivot, reach, and screen 26 checks - the next check-in measures them."
+    assert run_gate(monkeypatch, capsys, open_line) == (0, "")
+
+
 def test_should_allow_a_closing_reply_with_no_message(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
