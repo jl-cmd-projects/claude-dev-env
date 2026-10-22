@@ -48,6 +48,7 @@ try:
     from hooks_constants.python_windows_invocation_gate_constants import (
         ALL_COMMAND_ENDING_OPTION_LETTERS,
         ALL_UTF8_MODE_OPTION_VALUES,
+        ALL_VALUE_LONG_OPTIONS,
         ALL_VALUE_OPTION_LETTERS,
         END_OF_OPTIONS_MARKER,
         GATE_HOOK_NAME,
@@ -83,6 +84,15 @@ def _is_short_option_cluster(argument: str) -> bool:
     )
 
 
+def _is_long_option(argument: str) -> bool:
+    return argument.startswith(END_OF_OPTIONS_MARKER) and argument != END_OF_OPTIONS_MARKER
+
+
+def _skip_long_option_value(argument: str, remaining_arguments: Iterator[str]) -> None:
+    if argument in ALL_VALUE_LONG_OPTIONS:
+        next(remaining_arguments, "")
+
+
 def _cluster_options(
     cluster_letters: str, remaining_arguments: Iterator[str]
 ) -> list[tuple[str, str]]:
@@ -112,6 +122,9 @@ def _interpreter_options(all_arguments: list[str]) -> list[tuple[str, str]]:
     all_options: list[tuple[str, str]] = []
     remaining_arguments = iter(all_arguments)
     for each_argument in remaining_arguments:
+        if _is_long_option(each_argument):
+            _skip_long_option_value(each_argument, remaining_arguments)
+            continue
         if not _is_short_option_cluster(each_argument):
             break
         all_options.extend(

@@ -49,6 +49,7 @@ def linux_host(monkeypatch: pytest.MonkeyPatch) -> None:
         "cd repo && python -I script.py",
         "git status; python -I script.py | tee out.txt",
         "bash -c 'python -I script.py'",
+        "python --check-hash-based-pycs always -I script.py",
     ],
 )
 def test_should_flag_isolated_python_without_utf8_mode(command: str) -> None:
@@ -64,6 +65,7 @@ def test_should_flag_isolated_python_without_utf8_mode(command: str) -> None:
         "python -X utf8 -I script.py",
         "python -I -X utf8=1 -c pass",
         "py -3 -I -X utf8 script.py",
+        "python -I --check-hash-based-pycs always -X utf8 script.py",
         "python script.py -I",
         "python -c pass -I",
         "python -m pytest -I",

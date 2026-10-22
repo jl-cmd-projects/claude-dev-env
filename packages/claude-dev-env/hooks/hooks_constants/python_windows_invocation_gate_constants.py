@@ -19,6 +19,7 @@ __all__ = [
     "ISOLATED_MODE_OPTION_LETTER",
     "IMPLEMENTATION_OPTION_LETTER",
     "ALL_VALUE_OPTION_LETTERS",
+    "ALL_VALUE_LONG_OPTIONS",
     "ALL_COMMAND_ENDING_OPTION_LETTERS",
     "ALL_UTF8_MODE_OPTION_VALUES",
     "PYTHON_CODE_ARGUMENT_BACKSLASH_QUOTE_PATTERN",
@@ -34,6 +35,7 @@ END_OF_OPTIONS_MARKER = "--"
 ISOLATED_MODE_OPTION_LETTER = "I"
 IMPLEMENTATION_OPTION_LETTER = "X"
 ALL_VALUE_OPTION_LETTERS: frozenset[str] = frozenset({"X", "W", "c", "m"})
+ALL_VALUE_LONG_OPTIONS: frozenset[str] = frozenset({"--check-hash-based-pycs"})
 ALL_COMMAND_ENDING_OPTION_LETTERS: frozenset[str] = frozenset({"c", "m"})
 ALL_UTF8_MODE_OPTION_VALUES: frozenset[str] = frozenset({"utf8", "utf8=1"})
 
