@@ -326,10 +326,12 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     Returns:
         The deny reason, or None when the open may run.
     """
-    if not request.owner or not request.repo or not request.head:
+    if not request.owner or not request.repo:
         return UNKNOWN_OPEN_TARGET_REASON
     if _is_exempt(request.slug):
         return None
+    if not request.head:
+        return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
         return None
     return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(

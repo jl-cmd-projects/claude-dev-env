@@ -385,3 +385,10 @@ def test_should_read_the_pushed_branch_before_the_local_one(
 def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
     merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
     assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD[:3]))
+
+
+def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
+    assert _reason(_create_tool(tmp_path, head="missing-branch")) is None
