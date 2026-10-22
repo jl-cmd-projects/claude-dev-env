@@ -94,10 +94,10 @@ const HOST_DEFINITIONS = Object.freeze({
  * the whole run. When a refresh command fails for a reason only a rebuild
  * fixes, or the host has no update verb, the removal commands run and take
  * out each installed plugin, its cached versions, and the marketplace clone,
- * and the install commands that
- * follow fetch the newest published version into an empty slot. Removing a
- * marketplace uninstalls each plugin it supplied, so the plan removes and adds
- * that marketplace once for the whole set.
+ * and the install commands that follow fetch the newest published version
+ * into an empty slot. Removing a marketplace uninstalls each plugin it
+ * supplied, so the plan removes and adds that marketplace once for the whole
+ * set.
  *
  * Claude Code and Codex publish a marketplace under different plugin verbs, so
  * the install verb belongs to the host and the marketplace and identifier
