@@ -31,4 +31,4 @@ The name has 25 characters or fewer and names the main change or outcome in conc
 
 ## Enforcement
 
-`hooks/blocking/session_title_format_gate.py` denies a malformed title. `hooks/blocking/session_title_turn_gate.py` is a Stop hook. It holds the end of a turn until a title call in that turn comes back without an error. A turn that called no tool may end when an earlier turn already set the title. It applies when the transcript shows the title tool. A held turn whose title call failed may end, so a failing title tool cannot hold it forever.
+`hooks/blocking/session_title_format_gate.py` denies a malformed title. `hooks/blocking/session_title_turn_gate.py` is a Stop hook. It holds the end of a turn until a title call in that turn comes back without an error. A turn that called no tool other than the title tool may end when an earlier turn already set the title. It applies when the transcript shows the title tool. A held turn whose title call failed may end, so a failing title tool cannot hold it forever.
