@@ -12,7 +12,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/edit_marker_gate.py` rejects strikethrough and edit-note markers in replacement chat text or cards.
 - `blocking/issue_close_handoff_gate.py` denies an issue comment or issue write that closes the issue and routes a found defect to another issue or epic.
 - `blocking/session_title_format_gate.py` denies a session title that breaks the `<emoji> <name>` shape or has a name longer than 25 characters.
-- `blocking/session_title_turn_gate.py` holds the end of a turn in a session that has a `__set_session_title` tool until a title call in that turn comes back without an error. A held turn whose title call failed may end.
+- `blocking/session_title_turn_gate.py` holds the end of a turn in a session that has a `__set_session_title` tool until a title call in that turn comes back without an error. A turn that called no tool may end when an earlier turn already set the title. A held turn whose title call failed may end.
 - `blocking/step_note_gate.py` requires a status line before a tool call while its opt-in flag is on.
 - `blocking/verify_before_acting.py` blocks a completed mutating call when the agent's reasoning contains an unchecked claim.
 - `blocking/pr_lifecycle_skill_gate.py` denies a commit, push, pull request action, or merge until the `pr-lifecycle` skill appears in the transcript since the last compaction.
