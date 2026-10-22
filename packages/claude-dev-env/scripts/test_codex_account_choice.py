@@ -230,6 +230,18 @@ class TestAccountRoster:
             b'[\n  "alpha",\n  "beta"\n]\n'
         )
         assert choice.saved_codex_account_names(profiles_root) == ("alpha", "beta")
+        assert [each.name for each in profiles_root.iterdir()] == ["account-launchers.json"]
+
+    def should_remove_the_staged_roster_when_the_replace_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_replace(*_: object) -> None:
+            raise PermissionError("in use")
+
+        monkeypatch.setattr(choice.os, "replace", refuse_replace)
+        with pytest.raises(PermissionError):
+            choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert list(tmp_path.iterdir()) == []
 
     def should_fall_back_to_the_four_fixed_accounts_without_a_roster(
         self, tmp_path: Path

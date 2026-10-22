@@ -232,15 +232,23 @@ def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> None:
     """Write the account list as a JSON list under the profiles root.
 
+    The list goes to a staged file first and then replaces the saved file in
+    one step, so a concurrent reader sees the old list or the new one.
+
     Args:
         profiles_root: The directory that holds every account's Codex home.
         all_names: The account names in try order.
     """
     profiles_root.mkdir(parents=True, exist_ok=True)
     roster_text = json.dumps(list(all_names), indent=ROSTER_JSON_INDENT) + "\n"
-    (profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME).write_bytes(
-        roster_text.encode(TEXT_ENCODING)
-    )
+    roster_path = profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME
+    staged_path = roster_path.with_name(f"{roster_path.name}.{os.getpid()}.tmp")
+    staged_path.write_bytes(roster_text.encode(TEXT_ENCODING))
+    try:
+        os.replace(staged_path, roster_path)
+    except OSError:
+        staged_path.unlink(missing_ok=True)
+        raise
 
 
 def _sync_account(
