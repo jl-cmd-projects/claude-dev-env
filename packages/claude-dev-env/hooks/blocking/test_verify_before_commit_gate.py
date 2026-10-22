@@ -197,6 +197,33 @@ def test_docs_only_commit_passes(repository: Path, tmp_path: Path) -> None:
     )
 
 
+def test_data_files_under_docs_folder_pass(repository: Path, tmp_path: Path) -> None:
+    (repository / "docs" / "records").mkdir(parents=True)
+    (repository / "docs" / "records" / "proof.json").write_text("{}\n", encoding="utf-8")
+    (repository / "docs" / "ruleset.yaml").write_text("rules: []\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    assert not _is_denied(
+        _payload("git commit -m records", repository, _unverified(tmp_path))
+    )
+
+
+def test_code_under_docs_folder_is_denied(repository: Path, tmp_path: Path) -> None:
+    (repository / "docs").mkdir()
+    (repository / "docs" / "conf.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    assert _is_denied(
+        _payload("git commit -m conf", repository, _unverified(tmp_path))
+    )
+
+
+def test_json_outside_docs_folder_is_denied(repository: Path, tmp_path: Path) -> None:
+    (repository / "config.json").write_text("{}\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    assert _is_denied(
+        _payload("git commit -m config", repository, _unverified(tmp_path))
+    )
+
+
 def test_tests_only_commit_passes(repository: Path, tmp_path: Path) -> None:
     (repository / "test_app.py").write_text(
         "def test_value() -> None:\n    pass\n", encoding="utf-8"
