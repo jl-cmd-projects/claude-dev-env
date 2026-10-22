@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.96.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.3...claude-dev-env-v8.96.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** let a tool-free turn keep the earlier session title ([#2120](https://github.com/jl-cmd-projects/claude-dev-env/issues/2120)) ([78edc2d](https://github.com/jl-cmd-projects/claude-dev-env/commit/78edc2d2a0ae63858960ff4605f6bcf85371370e))
+* **skills:** write the required PR body headings before the linter runs ([#2121](https://github.com/jl-cmd-projects/claude-dev-env/issues/2121)) ([fd132a8](https://github.com/jl-cmd-projects/claude-dev-env/commit/fd132a8ebff0ec62e53bdf3b1c21acbacaf4f745))
+
 ## [8.96.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.2...claude-dev-env-v8.96.3) (2026-10-22)
 
 
