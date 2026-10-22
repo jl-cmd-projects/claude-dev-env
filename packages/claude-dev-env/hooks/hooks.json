@@ -215,6 +215,16 @@
         ]
       },
       {
+        "matcher": "SendUserFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/send_user_file_worktree_root_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Artifact|Skill",
         "hooks": [
           {
