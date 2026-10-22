@@ -37,6 +37,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     GIT_ACTIONS,
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
     HOOK_EVENT_NAME,
+    LINE_CONTINUATION_PIECE,
     MERGE_PATH_SUFFIX,
     NO_COMMENT_CHARACTERS,
     OPTION_AND_VALUE_WORD_COUNT,
@@ -93,7 +94,11 @@ def _unquoted_segment_texts(command: str) -> list[str] | None:
     all_pieces = list(COMMAND_PIECE_PATTERN.finditer(command))
     if any(each_piece.lastgroup == UNCLOSED_QUOTE_PIECE for each_piece in all_pieces):
         return None
-    all_replacement_texts: dict[str | None, str] = {SEPARATOR_PIECE: SEGMENT_BREAK, COMMENT_PIECE: REMOVED_TEXT}
+    all_replacement_texts: dict[str | None, str] = {
+        SEPARATOR_PIECE: SEGMENT_BREAK,
+        COMMENT_PIECE: REMOVED_TEXT,
+        LINE_CONTINUATION_PIECE: REMOVED_TEXT,
+    }
     marked_command = REMOVED_TEXT.join(
         all_replacement_texts.get(each_piece.lastgroup, each_piece.group()) for each_piece in all_pieces
     )

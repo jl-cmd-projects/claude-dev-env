@@ -97,6 +97,11 @@ def test_executable_word_lists_skips_a_comment_and_resumes_on_the_next_line() ->
         ["git", "push"],
     ]
     assert gate.executable_word_lists("echo 'a#b' c#d") == [["echo", "a#b", "c#d"]]
+    assert gate.executable_word_lists("git status x\\ #y; git push") == [["git", "status", "x #y"], ["git", "push"]]
+
+
+def test_executable_word_lists_joins_a_line_continuation() -> None:
+    assert gate.executable_word_lists("git \\\npush origin") == [["git", "push", "origin"]]
 
 
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
