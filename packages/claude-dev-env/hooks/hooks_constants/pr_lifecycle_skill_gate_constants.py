@@ -32,12 +32,17 @@ SEPARATOR_PIECE = "separator"
 COMMENT_PIECE = "comment"
 LINE_CONTINUATION_PIECE = "continuation"
 UNCLOSED_QUOTE_PIECE = "unclosed"
+ALL_PIECE_REPLACEMENT_TEXTS: dict[str | None, str] = {
+    SEPARATOR_PIECE: SEGMENT_BREAK,
+    COMMENT_PIECE: REMOVED_TEXT,
+    LINE_CONTINUATION_PIECE: REMOVED_TEXT,
+}
 COMMAND_PIECE_PATTERN = re.compile(
     r"'[^']*'"
     r'|"(?:\\.|[^"\\])*"'
     rf"|(?P<{LINE_CONTINUATION_PIECE}>\\\n)"
     rf"|\\.[^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}'\"\\]*"
-    rf"|(?P<{COMMENT_PIECE}>(?<![^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}])(?<!\\\n)#[^\n]*)"
+    rf"|(?P<{COMMENT_PIECE}>(?<![^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}])#[^\n]*)"
     rf"|(?P<{SEPARATOR_PIECE}>[{re.escape(COMMAND_SEPARATORS)}])"
     rf"|(?P<{UNCLOSED_QUOTE_PIECE}>['\"])"
     r"|.",
