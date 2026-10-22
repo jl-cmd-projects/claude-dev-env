@@ -25,6 +25,11 @@ PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
     r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
 )
 HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
+CHANGE_FOLDER_PATTERN = re.compile(
+    r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"
+    r"(?P<folder>\"[^\"]*\"|'[^']*'|[^\s;&|)]+)",
+    re.IGNORECASE,
+)
 CREATE_TEXT_OPTION_PATTERN = re.compile(
     r"(?<!\S)(?:-t|--title|-b|--body|-F|--body-file)(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
 )

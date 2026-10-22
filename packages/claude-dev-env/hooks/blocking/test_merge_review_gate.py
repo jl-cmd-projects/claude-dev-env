@@ -404,3 +404,16 @@ def test_should_skip_options_quoted_inside_the_title_or_body(
         f"--body \"curl -H 'Accept: x'; -H {NEW_HEAD}\" --head feature"
     )
     assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_read_the_head_in_the_folder_a_cd_moves_to(
+    branch_checkout: tuple[Path, str], tmp_path: Path
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert _reason(_bash_in(elsewhere, f'cd "{folder}" && gh pr create --fill')) is None
+    assert "names no repository or head commit" in _reason(
+        _bash_in(folder, f'cd "{elsewhere}" && gh pr create --repo acme/tools --fill')
+    )

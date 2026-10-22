@@ -47,6 +47,7 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    CHANGE_FOLDER_PATTERN,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
@@ -238,10 +239,11 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         gh pr create --repo o/r --head branch
         python pull_request.py create --repo o/r --head branch
 
-    A branch name resolves to its commit in the payload's working folder,
-    first as a local branch and then as ``origin/<branch>``. A call with no
-    head opens the checked-out commit, and a call with no repository opens
-    against the ``origin`` remote.
+    A branch name resolves to its commit in the payload's working folder, or
+    in the folder a ``cd`` before the create moves to, first as
+    ``origin/<branch>`` and then as a local branch. A call with no head opens
+    the checked-out commit, and a call with no repository opens against the
+    ``origin`` remote.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -271,6 +273,7 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     )
     if not create_match:
         return None
+    folder = _folder_after_changes(options_only[: create_match.start()], folder)
     rest = create_match["rest"]
     repo_match = REPO_OPTION_PATTERN.search(rest)
     owner, repo = (
@@ -279,6 +282,16 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     head_match = HEAD_OPTION_PATTERN.search(rest)
     branch = head_match["head"] if head_match else CURRENT_HEAD_REFERENCE
     return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder))
+
+
+def _folder_after_changes(command_before_create: str, folder: str | None) -> str | None:
+    all_changes = list(CHANGE_FOLDER_PATTERN.finditer(command_before_create))
+    if not all_changes:
+        return folder
+    target = Path(os.path.expanduser(all_changes[-1]["folder"].strip("\"'")))
+    if not target.is_absolute() and folder:
+        target = Path(folder) / target
+    return str(target)
 
 
 def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
