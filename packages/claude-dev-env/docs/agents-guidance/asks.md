@@ -30,7 +30,7 @@ The installer registers `open_tasks_stop_gate.py` as a Stop hook for each host:
 The gate holds a turn once when all three hold:
 
 - The prompt that started the turn asks for work. A question, an acknowledgement such as `thanks!`, and an envelope such as `<task-notification>` do not.
-- The turn ran a work tool: any tool but a tracker call, the session title tool, `AskUserQuestion`, Codex `request_user_input`, `ToolSearch`, `TaskList`, or `TaskGet`. A turn that only asks the user a question passes.
+- The turn ran a work tool: any tool but a tracker call, the session title tool, `AskUserQuestion`, a hearthbot decision card, Codex `request_user_input`, `ToolSearch`, `TaskList`, or `TaskGet`. A turn that only asks the user a question passes.
 - The turn made no tracker call: TaskCreate, TaskUpdate, TodoWrite, the Codex `update_plan`, or the Claude Code desktop `mcp__ccd_turn__update_plan`.
 
 The gate never reads the reply text. A held turn passes, so the gate adds at most one step to a turn.

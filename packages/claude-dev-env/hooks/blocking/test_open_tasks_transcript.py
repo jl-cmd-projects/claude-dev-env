@@ -9,6 +9,7 @@ from open_tasks_transcript import (
     codex_prompt_text,
     is_assistant_record,
     is_codex_work_call,
+    is_work_tool_name,
     parsed_object,
     replayed_transcript,
     unwrapped_tool_call,
@@ -133,6 +134,19 @@ def test_should_count_codex_tool_calls_other_than_the_plan_as_work() -> None:
     assert is_codex_work_call(codex_call("function_call", "request_user_input")) is False
     assert is_codex_work_call(codex_call("function_call", "request_user_input_async")) is False
     assert is_codex_work_call({"type": "user", "payload": {"type": "function_call"}}) is False
+
+
+def test_should_not_count_a_codex_title_call_as_work() -> None:
+    title_call = {"type": "response_item", "payload": {"type": "function_call", "name": "mcp__session__set_session_title"}}
+    assert is_codex_work_call(title_call) is False
+
+
+def test_should_treat_question_cards_and_the_title_tool_as_non_work() -> None:
+    assert is_work_tool_name("Bash") is True
+    assert is_work_tool_name(None) is True
+    assert is_work_tool_name("mcp__hearthbot__ask_decision") is False
+    assert is_work_tool_name("mcp__hearthbot__request_decision") is False
+    assert is_work_tool_name("mcp__ccd_session__set_session_title") is False
 
 
 def test_should_recognize_an_assistant_record_by_type_role_or_message_role() -> None:

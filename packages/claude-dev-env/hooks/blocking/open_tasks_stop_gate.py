@@ -13,7 +13,8 @@ The gate holds the turn once when all three hold::
 
     the prompt that started the turn asks for work   (open_task_asks.is_ask)
     the turn ran a work tool: any tool but a tracker call, the title tool,
-        AskUserQuestion, ToolSearch, TaskList, TaskGet, or Codex request_user_input
+        AskUserQuestion, a hearthbot decision card, ToolSearch, TaskList, TaskGet,
+        or Codex request_user_input
     the turn made no tracker call
 
     block: "Export the APKs" -> Bash, Edit -> stop

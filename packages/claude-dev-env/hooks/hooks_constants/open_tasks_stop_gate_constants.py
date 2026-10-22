@@ -93,7 +93,16 @@ ACKNOWLEDGEMENT_PATTERN = (
 POLITE_REQUEST_START_PATTERN = r"^\s*(?:please\b|(?:can|could|would|will)\s+you\b)"
 ALL_TRACKER_TOOL_NAMES = frozenset({TODO_WRITE_TOOL_NAME, TASK_CREATE_TOOL_NAME, TASK_UPDATE_TOOL_NAME})
 ALL_NON_WORK_TOOL_NAMES = frozenset(
-    {"AskUserQuestion", "ToolSearch", "TaskList", "TaskGet", "request_user_input", "request_user_input_async"}
+    {
+        "AskUserQuestion",
+        "mcp__hearthbot__ask_decision",
+        "mcp__hearthbot__request_decision",
+        "ToolSearch",
+        "TaskList",
+        "TaskGet",
+        "request_user_input",
+        "request_user_input_async",
+    }
 )
 SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
 ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", "local_shell_call"})
