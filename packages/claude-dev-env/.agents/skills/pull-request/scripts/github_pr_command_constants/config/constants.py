@@ -6,6 +6,20 @@ ACTION_COMMENT = "comment"
 ACTION_CREATE = "create"
 ACTION_EDIT = "edit"
 ACTION_REVIEW = "review"
+ACTION_TEMPLATE = "template"
+
+ALL_BODY_TEMPLATE_HEADINGS: tuple[str, ...] = (
+    "Why",
+    "Existing work",
+    "Proof in practice",
+    "Verification",
+)
+FEATURE_BODY_TEMPLATE_HEADING = "Eval"
+FEATURE_TITLE_PATTERN: re.Pattern[str] = re.compile(r"^\s*feat(\([^)]*\))?!?:")
+BODY_TEMPLATE_HEADING_FORMAT = "## {heading}"
+BODY_TEMPLATE_ENCODING = "utf-8"
+BODY_TEMPLATE_LINE_END = "\n"
+BODY_TEMPLATE_BLOCK_SEPARATOR = "\n\n"
 
 LINTER_ACTION_COMMENT = "pr-comment"
 LINTER_ACTION_CREATE = "pr-create"

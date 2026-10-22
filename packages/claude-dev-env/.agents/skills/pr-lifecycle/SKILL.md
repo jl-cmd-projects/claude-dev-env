@@ -24,7 +24,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 **Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
 
-**Open PRs ready for review; use `--draft` when the owner requests it.**
+**Open PRs ready for review; use `--draft` when the owner requests it.** Before you commit copied files or open a PR, search open PRs for the same paths with `gh pr list --search "<path>"`, so you do not duplicate a peer's PR. Each pre-existing failure or remaining defect the PR body names links a tracked issue.
 
 **A release bot's PR body is machine input. Leave it alone.** Release automation reads
 back the body of its own merged pull request to decide it owns that merge. Rewriting the
@@ -78,7 +78,7 @@ errors, so it neither clears nor convicts a change.
 
 A checks listing that reports nothing on the branch is a finding.
 Find out whether the workflow's event filters exclude the branch, or whether
-the check simply never ran, before you treat that branch as clean.
+the check simply never ran, before you treat that branch as clean. `gh pr checks` exits 8 while a check is still pending. Exit 8 reports a pending state, so wait and read the checks again after they report.
 
 ### Each stack level stands on its own
 
@@ -458,7 +458,7 @@ slurped array and take the last element. For one page, cap the request with a
 
 Stage the files you edited this session right before you commit them. A plain `git commit` records only the staged snapshot; a tracked file this session changed but left unstaged stays behind in the working tree.
 
-No hook denies a commit that would drop tracked session edits. Run `git status` before you commit, then stage what you changed with `git add <paths>` or commit with `git commit -a`. On PowerShell, write the commit message to a scratch file and run `git commit -F <file>`. A here-string piped into `git commit -F -` makes git read the message lines as pathspecs, and the commit fails.
+No hook denies a commit that would drop tracked session edits. Run `git status` before you commit, then stage what you changed with `git add <paths>` or commit with `git commit -a`. Before you say nothing is left to commit, run `git status` in every worktree the session wrote to, as `git worktree list` lists them. On PowerShell, write the commit message to a scratch file and run `git commit -F <file>`. A here-string piped into `git commit -F -` makes git read the message lines as pathspecs, and the commit fails.
 
 Staging covers tracked files you edited. Do not commit untracked files unless the user explicitly instructs it. An untracked file in the working tree is outside the change until they say otherwise.
 

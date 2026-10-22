@@ -167,6 +167,53 @@ def test_should_hold_when_the_title_was_set_only_in_an_earlier_turn(
     assert block_output["decision"] == "block"
 
 
+@pytest.mark.parametrize(
+    "all_turn_tail",
+    [
+        [REPLY],
+        [title_call("t2"), title_result("t2", is_error=True), REPLY],
+    ],
+)
+def test_should_pass_a_tool_free_turn_after_an_earlier_title(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_turn_tail: list[dict[str, object]],
+) -> None:
+    all_entries = [
+        TOOL_LISTING,
+        PROMPT,
+        title_call("t1"),
+        title_result("t1"),
+        REPLY,
+        PROMPT,
+        *all_turn_tail,
+    ]
+    assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "all_earlier_title_entries",
+    [
+        [],
+        [title_call("t1"), title_result("t1", is_error=True)],
+        [
+            {**title_call("s1"), "isSidechain": True},
+            {**title_result("s1"), "isSidechain": True},
+        ],
+    ],
+)
+def test_should_hold_a_tool_free_turn_without_an_earlier_title(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_earlier_title_entries: list[dict[str, object]],
+) -> None:
+    all_entries = [TOOL_LISTING, PROMPT, *all_earlier_title_entries, REPLY, PROMPT, REPLY]
+    stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)[1]
+    assert json.loads(stdout_text)["decision"] == "block"
+
+
 def test_should_start_a_turn_at_an_image_only_prompt(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -181,6 +228,8 @@ def test_should_start_a_turn_at_an_image_only_prompt(
         title_result("t1"),
         REPLY,
         image_prompt,
+        WORK_CALL,
+        WORK_RESULT,
         REPLY,
     ]
     stdout_text = run_gate(monkeypatch, capsys, tmp_path, all_entries)[1]
