@@ -117,6 +117,16 @@ test('a failed Claude refresh falls back to removing and adding the marketplace 
     ]);
 });
 
+test('a Claude refresh error printed on standard output still triggers the rebuild', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[2] === 'add' && runner.calls.length === 1
+            ? { status: 1, stdout: "its source doesn't match its extraKnownMarketplaces entry", stderr: '' }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
+    assert.equal(outcome.status, 'installed');
+    assert.ok(runner.calls.some(call => call.commandArguments.includes('uninstall')));
+});
+
 test('a Claude refresh that fails on the network keeps the installed plugin and reports the failure', () => {
     const runner = recordingRunner((executable, commandArguments) => (
         commandArguments[1] === 'update'

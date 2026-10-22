@@ -92,8 +92,9 @@ const HOST_DEFINITIONS = Object.freeze({
  * existing entry in place, and the update commands then pull the newest
  * published version over it, so an installed plugin stays installed through
  * the whole run. When a refresh command fails for a reason only a rebuild
- * fixes, or the host has no update verb, the removal commands run and take out each installed plugin, its
- * cached versions, and the marketplace clone, and the install commands that
+ * fixes, or the host has no update verb, the removal commands run and take
+ * out each installed plugin, its cached versions, and the marketplace clone,
+ * and the install commands that
  * follow fetch the newest published version into an empty slot. Removing a
  * marketplace uninstalls each plugin it supplied, so the plan removes and adds
  * that marketplace once for the whole set.
@@ -219,7 +220,12 @@ function runHostCommand(executable, commandArguments, options) {
         env: { ...process.env, ...options.environment },
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
     });
-    return { status: spawned.status, stderr: spawned.stderr ?? '', error: spawned.error };
+    return {
+        status: spawned.status,
+        stdout: spawned.stdout ?? '',
+        stderr: spawned.stderr ?? '',
+        error: spawned.error,
+    };
 }
 
 const COMMAND_NOT_FOUND_EXIT_CODE = 9009;
@@ -344,7 +350,8 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
             removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
             return { host, executable, status: 'installed', warning: null };
         }
-        if (!REBUILD_REQUIRED_PATTERN.test(refreshOutcome.outcome.stderr ?? '')) {
+        const refreshOutput = `${refreshOutcome.outcome.stderr ?? ''}\n${refreshOutcome.outcome.stdout ?? ''}`;
+        if (!REBUILD_REQUIRED_PATTERN.test(refreshOutput)) {
             return failedCommandOutcome(
                 allSpecs, host, homeDirectory, executable,
                 refreshOutcome.commandArguments, refreshOutcome.outcome, findLockers,
@@ -400,12 +407,12 @@ export function restartNotice(allSpecs, allInstalledHosts) {
  * marketplace and each plugin. An installed plugin stays installed and enabled
  * through the run, so a session that starts mid-run still loads it, and a
  * failed refresh command reports the host failed and leaves the prior version
- * in place. Two refresh failures need a rebuild: a marketplace add whose
- * source no longer matches the settings entry, and a plugin install whose
- * folder the sparse clone lacks. For those the host falls back to the clean
- * install Codex always runs: it removes every
- * plugin in the set and then the marketplace, so an older version never
- * survives beside the new one, and adds them again. A removal that finds
+ * in place. Two refresh errors need a rebuild: a source that no longer
+ * matches the settings entry, and a source path the sparse clone lacks. The
+ * host reads either from any refresh command's output, then falls back to the
+ * clean install Codex always runs: it removes every plugin in the set and
+ * then the marketplace, so an older version never survives beside the new
+ * one, and adds them again. A removal that finds
  * nothing to remove exits non-zero on a fresh home, and the install goes on.
  * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
