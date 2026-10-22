@@ -109,6 +109,10 @@ INTERROGATIVE_START_PATTERN = (
     r"^\s*(?:\w+,\s*)?(?:are|is|am|was|were|do|does|did|have|has|had|can|could|will|would"
     r"|should|shall|may|what|why|how|when|where|which|who|whose)\b"
 )
+ACKNOWLEDGEMENT_PATTERN = (
+    r"^\s*(?:ok(?:ay)?|k|thanks?|thank\s+you|thx|ty|cool|great|nice|perfect|awesome|got\s+it"
+    r"|sounds\s+good|looks\s+good|lgtm)(?:[\s,]+(?:thanks?|thank\s+you))?\W*$"
+)
 POLITE_REQUEST_START_PATTERN = r"^\s*(?:please\b|(?:can|could|would|will)\s+you\b)"
 DONE_LINE_PATTERN = r"^\s*(?:[-*]\s*)?done\b\s*[:\-]?\s*(.*)$"
 DONE_TEXT_GROUP_INDEX = 1

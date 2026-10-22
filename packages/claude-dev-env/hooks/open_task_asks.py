@@ -6,7 +6,7 @@ Every prompt lands in one file outside the task store::
     {"prompts": [{"text": "...", "recorded_at": 1761076800.0, "ask_id": "ask-1"}, ...]}
 
 A prompt that asks for work gets the next ``ask-N`` id. A question-only
-prompt, an empty prompt, and a harness envelope such as
+prompt, an acknowledgement such as ``thanks!``, an empty prompt, and a harness envelope such as
 ``<task-notification>`` get ``ask_id`` null, and the gate still reads their
 text when it checks the quote on a ``Dropped:`` line.
 """
@@ -22,6 +22,7 @@ from typing import NamedTuple
 
 from atomic_file_writer import write_text_atomically
 from hooks_constants.open_tasks_stop_gate_constants import (
+    ACKNOWLEDGEMENT_PATTERN,
     ASK_ID_TEMPLATE,
     ASK_PROMPT_ID_KEY,
     ASK_PROMPT_RECORDED_AT_KEY,
@@ -101,6 +102,8 @@ def is_ask(prompt_text: str) -> bool:
     """Return True when the prompt asks for work the gate should hold the turn for."""
     stripped_text = prompt_text.strip()
     if not stripped_text or stripped_text.startswith(ALL_HARNESS_ENVELOPE_MARKERS):
+        return False
+    if re.fullmatch(ACKNOWLEDGEMENT_PATTERN, stripped_text, re.IGNORECASE):
         return False
     return not is_question_only(stripped_text)
 

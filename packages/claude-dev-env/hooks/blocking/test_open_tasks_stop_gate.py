@@ -393,6 +393,15 @@ def test_should_merge_the_task_store_with_the_ccd_plan(
     assert "Port the hook" in reason_text
 
 
+def test_should_hold_an_ask_whose_subject_matches_a_completed_task(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, [{"id": "1", "subject": "Fix login", "status": "completed"}])
+    assert record_ask("Fix login") == "ask-1"
+    reason_text = block_reason(monkeypatch, capsys, "Done.")
+    assert "#ask-1: Fix login" in reason_text
+
+
 def test_should_record_nothing_for_a_question_only_prompt(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

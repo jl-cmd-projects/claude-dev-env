@@ -208,7 +208,7 @@ def is_dropped_carried_item(task_item: TaskItem, all_prompts: list[RecordedPromp
 
 
 def deduplicated_by_subject(all_items: list[TaskItem]) -> list[TaskItem]:
-    """Keep the first item for each subject, so the task store wins over the transcript and asks."""
+    """Keep the first item for each subject, so the task store wins over the transcript."""
     item_by_key: dict[str, TaskItem] = {}
     for each_item in all_items:
         item_key = normalized_text(each_item.subject) or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=each_item.item_id)
@@ -229,9 +229,10 @@ def unreported_open_items(all_hook_input_fields: dict[str, object]) -> list[Task
         for each_item in replay.items() or []
         if not is_dropped_carried_item(each_item, all_prompts, all_closing_texts)
     ]
-    all_items = deduplicated_by_subject(
-        [*(task_store_items(session_id) or []), *all_replayed_items, *open_ask_items(all_prompts, all_closing_texts)]
-    )
+    all_items = [
+        *deduplicated_by_subject([*(task_store_items(session_id) or []), *all_replayed_items]),
+        *open_ask_items(all_prompts, all_closing_texts),
+    ]
     return [
         each_item
         for each_item in all_items

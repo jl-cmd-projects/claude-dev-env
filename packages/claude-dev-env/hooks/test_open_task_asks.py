@@ -25,6 +25,11 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         ("are you monitoring these? yes or no", False),
         ("<task-notification>\n<task-id>b1</task-id>", False),
         ("   ", False),
+        ("thanks!", False),
+        ("ok, thanks", False),
+        ("Looks good", False),
+        ("ok, ship it", True),
+        ("yes", True),
     ],
 )
 def test_should_classify_work_prompts_as_asks(prompt_text: str, is_expected_ask: bool) -> None:
