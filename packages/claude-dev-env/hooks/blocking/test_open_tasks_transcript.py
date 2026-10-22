@@ -52,3 +52,92 @@ def test_should_parse_only_json_objects() -> None:
     assert parsed_object('{"a": 1}') == {"a": 1}
     assert parsed_object("[1]") is None
     assert parsed_object("not json") is None
+
+
+def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assistant") -> dict[str, object]:
+    tool_use = {"type": "tool_use", "id": "p1", "name": "mcp__ccd_turn__update_plan", "input": all_plan_input}
+    return {"type": record_type, "timestamp": "2026-01-01T00:00:00.000Z", "message": {"content": [tool_use]}}
+
+
+def plan_statuses(transcript_path: Path) -> list[tuple[str, str, bool]]:
+    all_items = replayed_transcript(str(transcript_path)).items() or []
+    return [(each_item.subject, each_item.status, each_item.is_carried) for each_item in all_items]
+
+
+def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_path: Path) -> None:
+    all_items = [
+        {"content": "Read the gate", "status": "in_progress"},
+        {"content": "Write the tests", "status": "pending"},
+        {"content": "Open the PR", "status": "pending"},
+    ]
+    transcript_path = write_transcript(
+        tmp_path / "ccd.jsonl",
+        [
+            ccd_plan_record({"items": all_items, "scope": "first_task"}),
+            ccd_plan_record({"advance": True}),
+            ccd_plan_record({"advance": True}, record_type="api-request-blob"),
+        ],
+    )
+    assert plan_statuses(transcript_path) == [
+        ("Read the gate", "completed", False),
+        ("Write the tests", "in_progress", False),
+        ("Open the PR", "pending", False),
+    ]
+
+
+def test_should_carry_unfinished_items_after_the_replacing_list(tmp_path: Path) -> None:
+    first_items = [
+        {"content": "Export the OneUI8 APK", "status": "in_progress"},
+        {"content": "Submit both APKs", "status": "pending"},
+        {"content": "Find the rows", "status": "completed"},
+    ]
+    transcript_path = write_transcript(
+        tmp_path / "ccd.jsonl",
+        [
+            ccd_plan_record({"items": first_items, "scope": "first_task"}),
+            ccd_plan_record({"scope": "continuation", "items": [{"content": "Set rows in Neon", "status": "in_progress"}]}),
+        ],
+    )
+    assert plan_statuses(transcript_path) == [
+        ("Set rows in Neon", "in_progress", False),
+        ("Export the OneUI8 APK", "in_progress", True),
+        ("Submit both APKs", "pending", True),
+    ]
+
+
+def test_should_point_done_and_start_indices_at_the_tools_own_items(tmp_path: Path) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "ccd.jsonl",
+        [
+            ccd_plan_record({"items": [{"content": "Alpha", "status": "pending"}], "scope": "first_task"}),
+            ccd_plan_record(
+                {
+                    "items": [{"content": "Beta", "status": "in_progress"}, {"content": "Gamma", "status": "pending"}],
+                    "scope": "continuation",
+                }
+            ),
+            ccd_plan_record({"done": [1, 3], "start": 2}),
+        ],
+    )
+    assert plan_statuses(transcript_path) == [
+        ("Beta", "completed", False),
+        ("Gamma", "in_progress", False),
+        ("Alpha", "pending", True),
+    ]
+
+
+def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path) -> None:
+    transcript_path = write_transcript(
+        tmp_path / "ccd.jsonl",
+        [
+            ccd_plan_record({"items": [{"content": "Alpha", "status": "pending"}], "scope": "first_task"}),
+            ccd_plan_record({"items": [{"content": "Beta", "status": "pending"}], "scope": "continuation"}),
+            ccd_plan_record(
+                {
+                    "items": [{"content": "Beta", "status": "completed"}, {"content": "alpha", "status": "completed"}],
+                    "scope": "continuation",
+                }
+            ),
+        ],
+    )
+    assert plan_statuses(transcript_path) == [("Beta", "completed", False), ("alpha", "completed", False)]

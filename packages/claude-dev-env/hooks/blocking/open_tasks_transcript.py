@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 """Rebuild a session task list and its last assistant text from a transcript.
 
-The open tasks Stop gate reads three transcript shapes, replayed in order::
+The open tasks Stop gate reads four transcript shapes, replayed in order::
 
     TaskCreate / TaskUpdate calls        (Claude Code)
     TodoWrite input.todos                (Claude Code and Cursor; ``merge`` updates by id)
     update_plan function_call arguments  (Codex rollout)
+    mcp__ccd_turn__update_plan input     (Claude Code desktop plan)
+
+A desktop plan call either lists items or moves the current list::
+
+    {"items": [...], "scope": "continuation"}   -> new list, unfinished old items carried after it
+    {"done": [2], "start": 3}                    -> 1-based positions in the tool's own items
+    {"advance": true}                            -> complete the in_progress item, start the next pending
+
+Only ``assistant`` records count for a desktop plan call, because Claude Code
+also copies each call into ``api-request-blob`` records.
 
 The Cursor CLI can also reach TodoWrite through ``CallDynamicTool``, with the
 TodoWrite input under ``arguments``; that call counts as the TodoWrite call.
@@ -16,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -24,7 +35,15 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.open_tasks_stop_gate_constants import (
+    ASSISTANT_RECORD_TYPE,
     ASSISTANT_ROLE,
+    CCD_PLAN_ADVANCE_KEY,
+    CCD_PLAN_CONTENT_KEY,
+    CCD_PLAN_DONE_KEY,
+    CCD_PLAN_ITEM_ID_TEMPLATE,
+    CCD_PLAN_ITEMS_KEY,
+    CCD_PLAN_START_KEY,
+    CCD_PLAN_TOOL_NAME,
     CODEX_ARGUMENTS_KEY,
     CODEX_FUNCTION_CALL_TYPE,
     CODEX_PAYLOAD_KEY,
@@ -32,14 +51,18 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CODEX_PLAN_TOOL_NAME,
     CODEX_RESPONSE_ITEM_TYPE,
     CODEX_STEP_KEY,
+    COMPLETED_STATUS,
     CONTENT_KEY,
     CREATED_TASK_ID_GROUP_INDEX,
     DYNAMIC_TOOL_ARGUMENTS_KEY,
     DYNAMIC_TOOL_CALL_NAME,
     DYNAMIC_TOOL_NAME_KEY,
     FIRST_ITEM_NUMBER,
+    INCOMPLETE_STATUSES,
+    IN_PROGRESS_STATUS,
     MESSAGE_KEY,
     PENDING_STATUS,
+    RECORD_TIMESTAMP_KEY,
     RECORD_TYPE_KEY,
     REPLY_TEXT_SEPARATOR,
     ROLE_KEY,
@@ -61,6 +84,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_KEY,
+    UTC_OFFSET_TEXT,
+    UTC_SUFFIX,
     UTF8_ENCODING,
     WORD_SEPARATOR,
 )
@@ -73,11 +98,31 @@ class TaskItem(NamedTuple):
         item_id: The task number or position, as text.
         subject: The item's wording.
         status: The item's status, such as ``pending`` or ``completed``.
+        listed_at: For a desktop plan item, seconds since the epoch of the last list that held it.
+        is_carried: True for a desktop plan item a replacing list left out.
     """
 
     item_id: str
     subject: str
     status: str
+    listed_at: float | None = None
+    is_carried: bool = False
+
+
+def normalized_text(text: str) -> str:
+    """Return the text lowercased with each run of whitespace collapsed to one space."""
+    return WORD_SEPARATOR.join(text.lower().split())
+
+
+def record_epoch(all_record_fields: dict[str, object]) -> float | None:
+    """Return the record's ISO ``timestamp`` as seconds since the epoch, or None."""
+    timestamp_value = all_record_fields.get(RECORD_TIMESTAMP_KEY)
+    if not isinstance(timestamp_value, str):
+        return None
+    try:
+        return datetime.fromisoformat(timestamp_value.replace(UTC_SUFFIX, UTC_OFFSET_TEXT)).timestamp()
+    except ValueError:
+        return None
 
 
 def parsed_object(json_text: str) -> dict[str, object] | None:
@@ -171,6 +216,22 @@ def codex_plan_items(all_record_fields: dict[str, object]) -> list[TaskItem] | N
     return _numbered_items(all_plan_arguments.get(CODEX_PLAN_KEY), CODEX_STEP_KEY)
 
 
+def advanced_items(all_own_items: list[TaskItem]) -> list[TaskItem]:
+    """Complete the in_progress item and start the next pending one after it, as ``advance`` does."""
+    all_advanced_items = list(all_own_items)
+    search_start = 0
+    for each_position, each_item in enumerate(all_advanced_items):
+        if each_item.status == IN_PROGRESS_STATUS:
+            all_advanced_items[each_position] = each_item._replace(status=COMPLETED_STATUS)
+            search_start = each_position + 1
+            break
+    for each_position in range(search_start, len(all_advanced_items)):
+        if all_advanced_items[each_position].status == PENDING_STATUS:
+            all_advanced_items[each_position] = all_advanced_items[each_position]._replace(status=IN_PROGRESS_STATUS)
+            break
+    return all_advanced_items
+
+
 def unwrapped_tool_call(tool_name: str, all_input_fields: dict[str, object]) -> tuple[str, dict[str, object]]:
     """Return the inner tool name and arguments of a Cursor ``CallDynamicTool`` call, or the call itself.
 
@@ -191,7 +252,10 @@ class _TranscriptReplay:
         self.latest_items: list[TaskItem] | None = None
         self.created_by_id: dict[str, TaskItem] = {}
         self.subject_by_tool_use_id: dict[str, str] = {}
+        self.plan_items: list[TaskItem] | None = None
+        self.own_plan_count = 0
         self.last_assistant_text = ""
+        self.all_assistant_texts: list[str] = []
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         plan_items = codex_plan_items(all_record_fields)
@@ -199,9 +263,45 @@ class _TranscriptReplay:
             self.latest_items = plan_items
             return
         all_blocks = _content_blocks(all_record_fields)
+        is_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         for each_block in all_blocks:
-            self.apply_block(each_block)
+            plan_input = each_block.get(TOOL_INPUT_KEY)
+            if is_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
+                self.apply_desktop_plan(plan_input, record_epoch(all_record_fields))
+            else:
+                self.apply_block(each_block)
         self.note_assistant_text(all_record_fields, all_blocks)
+
+    def apply_desktop_plan(self, all_plan_fields: dict[str, object], listed_at: float | None) -> None:
+        all_listed_entries = all_plan_fields.get(CCD_PLAN_ITEMS_KEY)
+        if isinstance(all_listed_entries, list):
+            self.replace_desktop_plan(all_listed_entries, listed_at)
+            return
+        all_own_items = (self.plan_items or [])[: self.own_plan_count]
+        all_done_positions = all_plan_fields.get(CCD_PLAN_DONE_KEY)
+        for each_position in all_done_positions if isinstance(all_done_positions, list) else []:
+            if isinstance(each_position, int) and FIRST_ITEM_NUMBER <= each_position <= len(all_own_items):
+                all_own_items[each_position - FIRST_ITEM_NUMBER] = all_own_items[each_position - FIRST_ITEM_NUMBER]._replace(status=COMPLETED_STATUS)
+        start_position = all_plan_fields.get(CCD_PLAN_START_KEY)
+        if isinstance(start_position, int) and FIRST_ITEM_NUMBER <= start_position <= len(all_own_items):
+            all_own_items[start_position - FIRST_ITEM_NUMBER] = all_own_items[start_position - FIRST_ITEM_NUMBER]._replace(status=IN_PROGRESS_STATUS)
+        if all_plan_fields.get(CCD_PLAN_ADVANCE_KEY) is True:
+            all_own_items = advanced_items(all_own_items)
+        self.plan_items = all_own_items + (self.plan_items or [])[self.own_plan_count :]
+
+    def replace_desktop_plan(self, all_listed_entries: list[object], listed_at: float | None) -> None:
+        all_own_items = [
+            each_item._replace(item_id=CCD_PLAN_ITEM_ID_TEMPLATE.format(position=each_item.item_id), listed_at=listed_at)
+            for each_item in _numbered_items(all_listed_entries, CCD_PLAN_CONTENT_KEY)
+        ]
+        all_listed_subjects = {normalized_text(each_item.subject) for each_item in all_own_items}
+        all_carried_items = [
+            each_item._replace(is_carried=True)
+            for each_item in self.plan_items or []
+            if each_item.status in INCOMPLETE_STATUSES and normalized_text(each_item.subject) not in all_listed_subjects
+        ]
+        self.plan_items = all_own_items + all_carried_items
+        self.own_plan_count = len(all_own_items)
 
     def note_assistant_text(self, all_record_fields: dict[str, object], all_blocks: list[dict[str, object]]) -> None:
         message_body = all_record_fields.get(MESSAGE_KEY)
@@ -213,6 +313,7 @@ class _TranscriptReplay:
         ).strip()
         if record_text:
             self.last_assistant_text = record_text
+            self.all_assistant_texts.append(record_text)
 
     def apply_block(self, all_block_fields: dict[str, object]) -> None:
         block_type = all_block_fields.get(RECORD_TYPE_KEY)
@@ -252,9 +353,15 @@ class _TranscriptReplay:
         self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS)
 
     def items(self) -> list[TaskItem] | None:
-        if self.created_by_id:
-            return list(self.created_by_id.values())
-        return self.latest_items
+        all_sources = [
+            list(self.created_by_id.values()) if self.created_by_id else None,
+            self.latest_items,
+            self.plan_items,
+        ]
+        all_present_sources = [each_source for each_source in all_sources if each_source is not None]
+        if not all_present_sources:
+            return None
+        return [each_item for each_source in all_present_sources for each_item in each_source]
 
 
 def replayed_transcript(transcript_path: object) -> _TranscriptReplay:

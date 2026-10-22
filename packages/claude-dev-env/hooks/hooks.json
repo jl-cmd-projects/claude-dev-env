@@ -303,6 +303,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/chat_reply_gate.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/open_task_ask_recorder.py",
+            "timeout": 10
           }
         ]
       }
