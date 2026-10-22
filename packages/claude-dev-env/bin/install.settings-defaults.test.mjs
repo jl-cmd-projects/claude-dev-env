@@ -35,6 +35,11 @@ const INSTALL_ENTRY = join(PACKAGE_ROOT, 'bin', 'install.mjs');
 const EXPECTED_DENY_ENTRIES = [];
 const EXPECTED_ALLOW_ENTRIES = [
     'WebFetch(domain:docs.github.com)',
+    'WebFetch(domain:claude.com)',
+    'WebFetch(domain:*.claude.com)',
+    'WebFetch(domain:claude.dev)',
+    'WebFetch(domain:*.claude.dev)',
+    'WebFetch(domain:www.anthropic.com)',
     'Read(~/.claude/docs/**)',
 ];
 const PROFILE_ALLOW_ENTRIES = DECLARED_PROFILE_SETTINGS
@@ -76,7 +81,7 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
     });
 }
 
-test('package settings.json publishes the GitHub docs fetch allow and no managed deny entries', () => {
+test('package settings.json publishes the docs fetch allows and no managed deny entries', () => {
     assert.deepEqual(packageManagedPermissions(), {
         allow: EXPECTED_ALLOW_ENTRIES,
         deny: EXPECTED_DENY_ENTRIES,
