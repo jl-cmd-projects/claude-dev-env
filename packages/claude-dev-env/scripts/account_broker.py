@@ -168,6 +168,11 @@ def _mark_spent(all_state: dict[str, object], reading: Reading, now: datetime) -
     return until
 
 
+def _is_no_roster_name_beside_a_roster(product: Product, name: str, all_readings: Sequence[Reading]) -> bool:
+    all_roster_names = {each_reading.account.name for each_reading in all_readings}
+    return product is Product.CODEX and bool(all_roster_names) and name == NO_ROSTER_ACCOUNT_NAME and name not in all_roster_names
+
+
 def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], all_state: Mapping[str, object], now: datetime) -> dict[str, datetime]:
     marks = all_state.get("spent") if isinstance(all_state.get("spent"), dict) else {}
     all_roster_names = {each_reading.account.name for each_reading in all_readings}
@@ -178,7 +183,7 @@ def _outside_roster_resets(product: Product, all_readings: Sequence[Reading], al
             continue
         name = each_key[len(prefix):-len(placeholder_suffix)]
         reset = _stored_reset(each_raw, now)
-        if name not in all_roster_names and reset is not None:
+        if name not in all_roster_names and reset is not None and not _is_no_roster_name_beside_a_roster(product, name, all_readings):
             all_resets_by_name[name] = reset
     return all_resets_by_name
 
@@ -395,13 +400,16 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
     all_accounts_by_profile = {each_reading.account.profile: each_reading for each_reading in all_readings if each_reading.account.profile}
     all_accounts_by_name = all_accounts_by_profile | {each_reading.account.name: each_reading for each_reading in all_readings}
     all_parsed_marks = [_parse_spent_mark(all_accounts_by_name, each_mark, product) for each_mark in all_marks]
-    for each_reading, each_reset in all_parsed_marks:
+    all_saved_marks = [each_mark for each_mark in all_parsed_marks if not _is_no_roster_name_beside_a_roster(product, each_mark[0].account.name, all_readings)]
+    for each_reading, each_reset in all_saved_marks:
         _record_spent(all_state, each_reading, now, each_reset)
-    if all_parsed_marks:
+    if all_saved_marks:
         _save_state(broker_state_path(), all_state)
     for each_reading, _ in all_parsed_marks:
         name = each_reading.account.name
-        if name not in all_accounts_by_name and (all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME):
+        if _is_no_roster_name_beside_a_roster(product, name, all_readings):
+            print(f"warning: spent mark names {name}, the home used only with no roster, so it is outside the roster; choose ignores it", file=sys.stderr)
+        elif name not in all_accounts_by_name and (all_accounts_by_name or name != NO_ROSTER_ACCOUNT_NAME):
             print(f"warning: spent mark names {name}, an account outside the roster; choose waits until its reset", file=sys.stderr)
 
 

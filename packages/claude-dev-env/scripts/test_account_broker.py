@@ -947,6 +947,41 @@ def test_should_wait_for_spent_default_home_until_the_mark_passes(
     assert running_decision["home"] == str(home.resolve())
 
 
+def test_should_run_on_a_roster_account_while_a_no_roster_default_mark_is_live(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("personal")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"personal": _meters(99, 99)}))
+    _freeze_clock(monkeypatch, NOW)
+    no_roster_account = Account(Product.CODEX, "default", Path(), False)
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {"meters": {}, "spent": {account_broker._state_key(no_roster_account): (NOW + timedelta(hours=1)).timestamp()}, "affinity": {}},
+    )
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["account"] == "personal"
+
+
+def test_should_not_save_a_default_spent_mark_while_a_roster_exists(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("personal")
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((account,), {"personal": _meters(99, 99)}))
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex", "--spent", "default"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["account"] == "personal"
+    assert account_broker._load_state(account_broker.broker_state_path())["spent"] == {}
+
+
 def test_should_keep_a_spent_mark_without_a_reset_for_one_hour(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

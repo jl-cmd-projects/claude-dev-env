@@ -3148,10 +3148,10 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
 
     assert.deepEqual(sandbox.recordedCommands(), [
-        'claude plugin uninstall pstack@pstack-claude',
-        'claude plugin marketplace remove pstack-claude',
         'claude plugin marketplace add jl-cmd/pstack-claude',
+        'claude plugin marketplace update pstack-claude',
         'claude plugin install pstack@pstack-claude',
+        'claude plugin update pstack@pstack-claude',
         'codex plugin remove pstack@pstack-claude',
         'codex plugin marketplace remove pstack-claude',
         'codex plugin marketplace add jl-cmd/pstack-claude',
@@ -3190,10 +3190,10 @@ test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
     });
 
     assert.deepEqual(sandbox.recordedCommands(), [
-        'claude plugin uninstall deepstack@DeepStack',
-        'claude plugin marketplace remove DeepStack',
         'claude plugin marketplace add jl-cmd-projects/DeepStack',
+        'claude plugin marketplace update DeepStack',
         'claude plugin install deepstack@DeepStack',
+        'claude plugin update deepstack@DeepStack',
         'codex plugin remove deepstack@DeepStack',
         'codex plugin marketplace remove DeepStack',
         'codex plugin marketplace add jl-cmd-projects/DeepStack',
@@ -3407,10 +3407,10 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 });
 
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
-    'claude plugin uninstall usage-wrapup@claude-dev-env',
-    'claude plugin marketplace remove claude-dev-env',
     'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
+    'claude plugin marketplace update claude-dev-env',
     'claude plugin install usage-wrapup@claude-dev-env',
+    'claude plugin update usage-wrapup@claude-dev-env',
 ]);
 
 function usageWrapupCommands(allRecordedCommands) {
@@ -3485,12 +3485,12 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
 });
 
 const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
-    'claude plugin uninstall usage-wrapup@claude-dev-env',
-    'claude plugin uninstall subagent-models@claude-dev-env',
-    'claude plugin marketplace remove claude-dev-env',
     'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
+    'claude plugin marketplace update claude-dev-env',
     'claude plugin install usage-wrapup@claude-dev-env',
     'claude plugin install subagent-models@claude-dev-env',
+    'claude plugin update usage-wrapup@claude-dev-env',
+    'claude plugin update subagent-models@claude-dev-env',
 ]);
 
 test('should install subagent-models beside usage-wrapup with one marketplace add on a full install', t => {

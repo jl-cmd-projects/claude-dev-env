@@ -8,9 +8,11 @@
   a remote, such as a read-only mirror kept current by a scheduled task.
 
   Safety rules:
-  - Only runs when the checked-out branch is the named branch
+  - Only runs when the checked-out branch is the named branch, unless
+    -Mirror is passed
   - Only runs when there are no tracked changes (untracked files are fine),
-    unless -StashDirty is passed
+    unless -StashDirty is passed. A -Mirror return stashes the tree the old
+    checkout left whatever -StashDirty says
   - Uses merge --ff-only (never force, never hard reset, never clean)
   - When the fast-forward fails because the files were already copied in,
     moves HEAD with a mixed reset, which writes no files. It keeps that move
@@ -42,6 +44,20 @@
   missing; when that pop also fails, the log names the stash entry so the
   operator can recover it by hand.
 
+.PARAMETER Mirror
+  Marks the tree as a mirror that must always sit on the named branch. With
+  the switch, a checkout found on another branch or a detached HEAD is moved
+  back: HEAD points at the local named branch again and a mixed reset moves
+  the index there. Every path that still holds the old checkout's content,
+  including files only the old checkout tracked, is stashed as "mirror
+  return <yyyy-MM-dd>: tree of <checkout> at <tip>", which puts the named
+  branch's files back. This stash runs with or without -StashDirty, because
+  a mirror's tree belongs to the named branch. The log names the checkout
+  and tip it left. A checkout with staged changes is skipped, so no staged
+  content is lost. When a step of the return fails, HEAD and the index go
+  back to the old checkout and the run exits 1. Without the switch, any
+  other checkout is skipped.
+
 .PARAMETER LogPath
   Absolute path to the run log (default: $HOME\.claude\logs\sync-repo-main.log).
 #>
@@ -52,6 +68,7 @@ param(
     [string]$Remote = 'origin',
     [string]$Branch = 'main',
     [switch]$StashDirty,
+    [switch]$Mirror,
     [string]$LogPath = (Join-Path $HOME '.claude\logs\sync-repo-main.log')
 )
 
@@ -129,6 +146,84 @@ function Invoke-GitOrExit {
         exit $FailureExitCode
     }
     return $result.Output
+}
+
+function Invoke-MirrorReturn {
+    <#
+      Moves a mirror found on another branch or a detached HEAD back to the
+      named branch. HEAD and the index move first, then every path where the
+      tree still holds the old checkout's content is stashed, including files
+      only the old checkout tracked. Any failure puts HEAD and the index back
+      on the old checkout, so the next run meets the same state and tries again.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$LeftBranch
+    )
+    $leftCheckoutName = if ($LeftBranch) { "branch '$LeftBranch'" } else { 'detached HEAD' }
+    $stagedResult = Invoke-Git -Arguments @('diff', '--cached', '--quiet')
+    if ($stagedResult.ExitCode -ne 0) {
+        Write-SyncLog -Level 'SKIP' -Message "mirror return refused: $leftCheckoutName has staged changes"
+        exit 3
+    }
+    $leftTip = Invoke-GitOrExit -Arguments @('rev-parse', 'HEAD') `
+        -FailureMessage 'cannot read the tip of the checkout being left' -FailureExitCode 2
+    $null = Invoke-GitOrExit -Arguments @('rev-parse', '--verify', '-q', "refs/heads/$Branch") `
+        -FailureMessage "mirror has no local $Branch branch to return to" -FailureExitCode 2
+    $leftOnlyResult = Invoke-Git -Arguments @('diff', '--name-only', '--no-renames', '-z', '--diff-filter=A', "refs/heads/$Branch", $leftTip)
+    if ($leftOnlyResult.ExitCode -ne 0) {
+        Write-SyncLog -Level 'ERROR' -Message "mirror return skipped: cannot list files only $leftCheckoutName tracks: $($leftOnlyResult.Output)"
+        exit 1
+    }
+    $null = Invoke-GitOrExit -Arguments @('symbolic-ref', 'HEAD', "refs/heads/$Branch") `
+        -FailureMessage "cannot point HEAD at $Branch" -FailureExitCode 1
+
+    $resetResult = Invoke-Git -Arguments @('reset', '-q')
+    $changedResult = if ($resetResult.ExitCode -eq 0) { Invoke-Git -Arguments @('diff', '--name-only', '--no-renames', '-z') } else { $resetResult }
+    $failure = if ($resetResult.ExitCode -ne 0) { "mixed reset onto $Branch failed: $($resetResult.Output)" }
+               elseif ($changedResult.ExitCode -ne 0) { "cannot list the tree left by $leftCheckoutName`: $($changedResult.Output)" }
+    $leftTreeNote = 'the tree already matched'
+    if (-not $failure) {
+        $allLeftPaths = [System.Collections.Generic.List[string]]::new()
+        foreach ($changedPath in Get-NulSeparatedPaths -Output $changedResult.Output) { $allLeftPaths.Add($changedPath) }
+        foreach ($leftOnlyPath in Get-NulSeparatedPaths -Output $leftOnlyResult.Output) {
+            if (Test-Path -LiteralPath (Join-Path $RepoPath $leftOnlyPath)) { $allLeftPaths.Add($leftOnlyPath) }
+        }
+        if ($allLeftPaths.Count -gt 0) {
+            $leftTreeStashMessage = 'mirror return {0}: tree of {1} at {2}' -f (Get-Date -Format 'yyyy-MM-dd'), $leftCheckoutName, $leftTip
+            $pathspecFile = $null
+            try {
+                $pathspecFile = New-TemporaryFile
+                $pathspecText = (($allLeftPaths | Select-Object -Unique | ForEach-Object { ":(literal)$_" }) -join "`0") + "`0"
+                [System.IO.File]::WriteAllText($pathspecFile.FullName, $pathspecText, [System.Text.UTF8Encoding]::new($false))
+                $stashResult = Invoke-Git -Arguments @('stash', 'push', '--all', '-m', $leftTreeStashMessage, "--pathspec-from-file=$($pathspecFile.FullName)", '--pathspec-file-nul')
+            }
+            catch {
+                $stashResult = [pscustomobject]@{ ExitCode = 1; Output = $_.Exception.Message }
+            }
+            finally {
+                if ($pathspecFile) {
+                    Remove-Item -LiteralPath $pathspecFile.FullName -Force -ErrorAction SilentlyContinue
+                }
+            }
+            if ($stashResult.ExitCode -ne 0) {
+                $failure = "stashing the tree of $leftCheckoutName failed: $($stashResult.Output)"
+            }
+            else {
+                $leftTreeNote = "its tree is stashed as '$leftTreeStashMessage'"
+            }
+        }
+    }
+    if ($failure) {
+        $restoreArguments = if ($LeftBranch) { @('symbolic-ref', 'HEAD', "refs/heads/$LeftBranch") } else { @('update-ref', '--no-deref', 'HEAD', $leftTip) }
+        $restoreResult = Invoke-Git -Arguments $restoreArguments
+        $indexResult = if ($resetResult.ExitCode -eq 0) { Invoke-Git -Arguments @('reset', '-q') } else { $restoreResult }
+        $restoreNote = if ($restoreResult.ExitCode -eq 0 -and $indexResult.ExitCode -eq 0) { "HEAD and index are back on $leftCheckoutName at $leftTip" } else { "putting HEAD back on $leftCheckoutName at $leftTip also failed: $($restoreResult.Output) $($indexResult.Output)" }
+        Write-SyncLog -Level 'ERROR' -Message "mirror return failed, $failure; $restoreNote"
+        exit 1
+    }
+    Write-SyncLog -Level 'MIRROR' -Message "left $leftCheckoutName at $leftTip; HEAD is on $Branch and $leftTreeNote"
 }
 
 function Get-NulSeparatedPaths {
@@ -229,8 +324,11 @@ try {
     $currentBranch = Invoke-GitOrExit -Arguments @('branch', '--show-current') `
         -FailureMessage 'cannot read current branch' -FailureExitCode 2
     if ($currentBranch -ne $Branch) {
-        Write-SyncLog -Level 'SKIP' -Message "checkout is '$currentBranch', not '$Branch' (remote=$Remote)"
-        exit 3
+        if (-not $Mirror) {
+            Write-SyncLog -Level 'SKIP' -Message "checkout is '$currentBranch', not '$Branch' (remote=$Remote)"
+            exit 3
+        }
+        Invoke-MirrorReturn -LeftBranch $currentBranch
     }
 
     $statusOutput = Invoke-GitOrExit -Arguments @('status', '--porcelain') `

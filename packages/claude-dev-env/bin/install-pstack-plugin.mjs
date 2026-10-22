@@ -72,6 +72,7 @@ const HOST_DEFINITIONS = Object.freeze({
         ),
         installVerb: 'install',
         uninstallVerb: 'uninstall',
+        updateVerb: 'update',
     }),
     codex: Object.freeze({
         executable: 'codex',
@@ -79,18 +80,23 @@ const HOST_DEFINITIONS = Object.freeze({
         homeVariable: 'CODEX_HOME',
         installVerb: 'add',
         uninstallVerb: 'remove',
+        updateVerb: null,
     }),
 });
 
 /**
  * Read the marketplace and plugin commands one host installs a set of plugins with.
  *
- * Every plugin in the set comes from one marketplace. Removing a marketplace
- * uninstalls each plugin it supplied, so the plan removes and adds that
- * marketplace once for the whole set. The removal commands run first and take
- * out each installed plugin, its cached versions, and the marketplace clone,
- * so the install commands that follow fetch the newest published version into
- * an empty slot.
+ * Every plugin in the set comes from one marketplace. A host with an update
+ * verb gets refresh commands: the marketplace add and plugin install leave an
+ * existing entry in place, and the update commands then pull the newest
+ * published version over it, so an installed plugin stays installed through
+ * the whole run. When any refresh command fails, or the host has no update
+ * verb, the removal commands run and take out each installed plugin, its
+ * cached versions, and the marketplace clone, and the install commands that
+ * follow fetch the newest published version into an empty slot. Removing a
+ * marketplace uninstalls each plugin it supplied, so the plan removes and adds
+ * that marketplace once for the whole set.
  *
  * Claude Code and Codex publish a marketplace under different plugin verbs, so
  * the install verb belongs to the host and the marketplace and identifier
@@ -102,6 +108,7 @@ const HOST_DEFINITIONS = Object.freeze({
  * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins to install, from one marketplace.
  * @param {string} host A host every spec names, `claude` or `codex`.
  * @returns {{executable: string, executableVariable: string, homeVariable: string,
+ *   refreshCommands: ReadonlyArray<ReadonlyArray<string>>,
  *   removalCommands: ReadonlyArray<ReadonlyArray<string>>,
  *   commands: ReadonlyArray<ReadonlyArray<string>>}} The host's install plan.
  */
@@ -126,18 +133,28 @@ export function marketplacePluginsPlan(allSpecs, host) {
     }
     const allSparsePaths = [...new Set(allSpecs.flatMap(eachSpec => eachSpec.sparsePaths))];
     const sparseArguments = allSparsePaths.length > 0 ? ['--sparse', ...allSparsePaths] : [];
+    const marketplaceAddCommand = ['plugin', 'marketplace', 'add', firstSpec.marketplaceRepository, ...sparseArguments];
+    const allPluginInstallCommands = allSpecs.map(
+        eachSpec => ['plugin', hostDefinition.installVerb, eachSpec.pluginIdentifier],
+    );
+    const refreshCommands = hostDefinition.updateVerb
+        ? [
+            marketplaceAddCommand,
+            ['plugin', 'marketplace', hostDefinition.updateVerb, firstSpec.marketplaceName],
+            ...allPluginInstallCommands,
+            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.updateVerb, eachSpec.pluginIdentifier]),
+        ]
+        : [];
     return {
         executable: hostDefinition.executable,
         executableVariable: hostDefinition.executableVariable,
         homeVariable: hostDefinition.homeVariable,
+        refreshCommands,
         removalCommands: [
             ...allSpecs.map(eachSpec => ['plugin', hostDefinition.uninstallVerb, eachSpec.pluginIdentifier]),
             ['plugin', 'marketplace', 'remove', firstSpec.marketplaceName],
         ],
-        commands: [
-            ['plugin', 'marketplace', 'add', firstSpec.marketplaceRepository, ...sparseArguments],
-            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.installVerb, eachSpec.pluginIdentifier]),
-        ],
+        commands: [marketplaceAddCommand, ...allPluginInstallCommands],
     };
 }
 
@@ -280,18 +297,49 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
     }).join('');
 }
 
+function refreshInPlace(plan, executable, commandEnvironment, runCommand) {
+    for (const commandArguments of plan.refreshCommands) {
+        const outcome = runCommand(executable, [...commandArguments], {
+            environment: commandEnvironment,
+        });
+        if (namesAnAbsentCommand(outcome)) return 'absent';
+        if (outcome.status !== 0 || outcome.error) return 'failed';
+    }
+    return 'refreshed';
+}
+
+function removeOrphanedVersionsForHost(allSpecs, host, homeDirectory) {
+    const hostDefinition = HOST_DEFINITIONS[host];
+    if (!hostDefinition.orphanedVersionsDirectory || !homeDirectory) return;
+    for (const eachSpec of allSpecs) {
+        removeOrphanedPluginVersions(hostDefinition.orphanedVersionsDirectory(homeDirectory, eachSpec));
+    }
+}
+
 function installForHost(allSpecs, host, homeDirectory, environment, runCommand, findLockers) {
     const plan = marketplacePluginsPlan(allSpecs, host);
     const executable = environment[plan.executableVariable] || plan.executable;
     const commandEnvironment = { [plan.homeVariable]: homeDirectory };
+    const staleCloneDirectory = HOST_DEFINITIONS[host].staleCloneDirectory;
+    if (staleCloneDirectory && homeDirectory) {
+        removeStaleMarketplaceClone(staleCloneDirectory(homeDirectory, allSpecs[0]));
+    }
+    if (plan.refreshCommands.length > 0) {
+        const refreshOutcome = refreshInPlace(plan, executable, commandEnvironment, runCommand);
+        if (refreshOutcome === 'absent') return absentHostOutcome(allSpecs, host, executable);
+        if (refreshOutcome === 'refreshed') {
+            removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
+            return { host, executable, status: 'installed', warning: null };
+        }
+    }
     for (const commandArguments of plan.removalCommands) {
         const outcome = runCommand(executable, [...commandArguments], {
             environment: commandEnvironment,
         });
         if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
     }
-    if (HOST_DEFINITIONS[host].staleCloneDirectory && homeDirectory) {
-        removeStaleMarketplaceClone(HOST_DEFINITIONS[host].staleCloneDirectory(homeDirectory, allSpecs[0]));
+    if (staleCloneDirectory && homeDirectory) {
+        removeStaleMarketplaceClone(staleCloneDirectory(homeDirectory, allSpecs[0]));
     }
     for (const commandArguments of plan.commands) {
         const outcome = runCommand(executable, [...commandArguments], {
@@ -309,12 +357,7 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
             };
         }
     }
-    const hostDefinition = HOST_DEFINITIONS[host];
-    if (hostDefinition.orphanedVersionsDirectory && homeDirectory) {
-        for (const eachSpec of allSpecs) {
-            removeOrphanedPluginVersions(hostDefinition.orphanedVersionsDirectory(homeDirectory, eachSpec));
-        }
-    }
+    removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
     return { host, executable, status: 'installed', warning: null };
 }
 
@@ -338,10 +381,17 @@ export function restartNotice(allSpecs, allInstalledHosts) {
 /**
  * Install a set of plugins from one marketplace into each host's own home.
  *
- * Each host first removes every plugin in the set and then the marketplace,
- * so an older version never survives beside the new one. A removal that finds
+ * Claude Code refreshes in place: it adds the marketplace and installs each
+ * plugin, both of which leave an existing entry alone, then updates the
+ * marketplace and each plugin. An installed plugin stays installed and enabled
+ * through the run, so a session that starts mid-run still loads it, and a
+ * failed network step leaves the prior version in place. When a refresh
+ * command fails, such as a marketplace add whose sparse paths changed, the
+ * host falls back to the clean install Codex always runs: it removes every
+ * plugin in the set and then the marketplace, so an older version never
+ * survives beside the new one, and adds them again. A removal that finds
  * nothing to remove exits non-zero on a fresh home, and the install goes on.
- * Before the Claude marketplace add, the install deletes the half-made clone
+ * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
  *
  * Each host is one member of the batch. A host without its command-line tool
