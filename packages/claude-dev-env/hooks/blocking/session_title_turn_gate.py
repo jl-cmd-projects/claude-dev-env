@@ -7,9 +7,12 @@ a Stop hook block lands as an attachment, so a held turn stays the same turn.
 A title call on a sidechain entry belongs to a subagent and does not count.
 The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
-does not count. A held turn (``stop_hook_active`` true) whose title call
-failed may end, so a title tool that keeps failing cannot hold it forever. A
-held turn with no title call stays held, whichever Stop gate held it.
+does not count. A turn that called no tool other than the title tool may also
+end once an earlier main-chain turn set the title, since that title still
+shows and a text-only turn starts no new task. A held turn
+(``stop_hook_active`` true) whose title call failed may end, so a title tool
+that keeps failing cannot hold it forever. A held turn with no title call
+stays held, whichever Stop gate held it.
 
 The session has the title tool when a transcript record names it::
 
@@ -153,8 +156,8 @@ def _apply_tool_listing(
         all_available_names.pop(each_removed_name, None)
 
 
-def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
-    last_prompt_index = max(
+def _last_prompt_index(all_entries: list[dict[str, object]]) -> int:
+    return max(
         (
             each_index
             for each_index, each_entry in enumerate(all_entries)
@@ -162,11 +165,18 @@ def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object
         ),
         default=-1,
     )
-    return [
-        each_entry
-        for each_entry in all_entries[last_prompt_index + 1 :]
-        if not each_entry.get(SIDECHAIN_FLAG_KEY)
-    ]
+
+
+def _main_chain(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [each_entry for each_entry in all_entries if not each_entry.get(SIDECHAIN_FLAG_KEY)]
+
+
+def _turn_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
+    return _main_chain(all_entries[_last_prompt_index(all_entries) + 1 :])
+
+
+def _earlier_entries(all_entries: list[dict[str, object]]) -> list[dict[str, object]]:
+    return _main_chain(all_entries[: max(_last_prompt_index(all_entries), 0)])
 
 
 def _title_call_ids(all_turn_entries: list[dict[str, object]]) -> set[object]:
@@ -205,13 +215,44 @@ def title_set_this_turn(all_entries: list[dict[str, object]]) -> bool:
     Returns:
         True when this turn set the title.
     """
-    all_turn_entries = _turn_entries(all_entries)
-    all_title_call_ids = _title_call_ids(all_turn_entries)
+    return _title_succeeded_in(_turn_entries(all_entries))
+
+
+def title_set_before_this_turn(all_entries: list[dict[str, object]]) -> bool:
+    """Return True when a main-chain title call before the latest prompt came back without an error.
+
+    Args:
+        all_entries: The transcript entries, oldest first.
+
+    Returns:
+        True when an earlier turn set the title the session still shows.
+    """
+    return _title_succeeded_in(_earlier_entries(all_entries))
+
+
+def turn_ran_a_tool(all_entries: list[dict[str, object]]) -> bool:
+    """Return True when this turn called any tool other than the title tool.
+
+    Args:
+        all_entries: The transcript entries, oldest first.
+
+    Returns:
+        True when the turn did work beyond answering in text.
+    """
+    return any(
+        not TITLE_TOOL_NAME_PATTERN.match(str(each_block.get(BLOCK_NAME_KEY)))
+        for each_entry in _turn_entries(all_entries)
+        for each_block in _tool_use_blocks(each_entry)
+    )
+
+
+def _title_succeeded_in(all_scoped_entries: list[dict[str, object]]) -> bool:
+    all_title_call_ids = _title_call_ids(all_scoped_entries)
     return any(
         each_block.get(ENTRY_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE
         and each_block.get(TOOL_USE_ID_KEY) in all_title_call_ids
         and not each_block.get(IS_ERROR_KEY)
-        for each_entry in all_turn_entries
+        for each_entry in all_scoped_entries
         if each_entry.get(ENTRY_TYPE_KEY) == USER_ENTRY_TYPE
         for each_block in _content_blocks(each_entry)
     )
@@ -226,6 +267,7 @@ def turn_block_reason(
 
         no title tool in the transcript                         -> None
         title set this turn                                     -> None
+        only title calls this turn, earlier turn set the title  -> None
         held turn whose title call failed (stop_hook_active)    -> None
         no title call this turn                                 -> reason
 
@@ -238,6 +280,8 @@ def turn_block_reason(
     """
     all_title_tools = available_title_tools(all_entries)
     if not all_title_tools or title_set_this_turn(all_entries):
+        return None
+    if title_set_before_this_turn(all_entries) and not turn_ran_a_tool(all_entries):
         return None
     if is_stop_hook_active and title_attempted_this_turn(all_entries):
         return None

@@ -18,7 +18,15 @@ from github_pr_command_constants.config.constants import (
     ACTION_EDIT,
     ACTION_FAILED_MESSAGE,
     ACTION_REVIEW,
+    ACTION_TEMPLATE,
+    ALL_BODY_TEMPLATE_HEADINGS,
     ALL_DURABLE_POST_LINTER_RELATIVE_PATH_PARTS,
+    BODY_TEMPLATE_BLOCK_SEPARATOR,
+    BODY_TEMPLATE_ENCODING,
+    BODY_TEMPLATE_HEADING_FORMAT,
+    BODY_TEMPLATE_LINE_END,
+    FEATURE_BODY_TEMPLATE_HEADING,
+    FEATURE_TITLE_PATTERN,
     ALL_GITHUB_AUTHORIZATION_ENVIRONMENT_KEYS,
     ALL_LINTER_ACTIONS_BY_COMMAND,
     ALL_REVIEW_FLAGS_BY_EVENT,
@@ -62,7 +70,51 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=tuple(ALL_REVIEW_FLAGS_BY_EVENT),
         default=REVIEW_EVENT_COMMENT,
     )
+    template = all_actions.add_parser(ACTION_TEMPLATE, allow_abbrev=False)
+    template.add_argument("--body-file", required=True, type=Path)
+    template.add_argument("--title", default="")
     return parser
+
+
+def _template_headings(title: str) -> list[str]:
+    all_headings = [
+        BODY_TEMPLATE_HEADING_FORMAT.format(heading=each_heading)
+        for each_heading in ALL_BODY_TEMPLATE_HEADINGS
+    ]
+    if FEATURE_TITLE_PATTERN.match(title):
+        all_headings.append(BODY_TEMPLATE_HEADING_FORMAT.format(heading=FEATURE_BODY_TEMPLATE_HEADING))
+    return all_headings
+
+
+def write_body_template(body_file: Path, title: str) -> list[str]:
+    """Append each required heading the body file lacks and return the added headings.
+
+    ::
+
+        new file, title "fix: x"   -> ["## Why", "## Existing work", "## Proof in practice", "## Verification"]
+        new file, title "feat: x"  -> the same plus "## Eval"
+        file already has them all  -> [] and the file is unchanged
+
+    Args:
+        body_file: The pull request body file, created when absent.
+        title: The pull request title, which decides whether the Eval heading is required.
+
+    Returns:
+        The heading lines appended to the file.
+    """
+    body_text = body_file.read_text(encoding=BODY_TEMPLATE_ENCODING) if body_file.is_file() else ""
+    all_present_lines = {each_line.strip() for each_line in body_text.splitlines()}
+    all_missing_headings = [
+        each_heading for each_heading in _template_headings(title) if each_heading not in all_present_lines
+    ]
+    if not all_missing_headings:
+        return []
+    all_body_blocks = [body_text.rstrip(), *all_missing_headings] if body_text.strip() else all_missing_headings
+    body_file.write_text(
+        BODY_TEMPLATE_BLOCK_SEPARATOR.join(all_body_blocks) + BODY_TEMPLATE_LINE_END,
+        encoding=BODY_TEMPLATE_ENCODING,
+    )
+    return all_missing_headings
 
 
 def _configured_managed_root(all_environment: Mapping[str, str]) -> Path:
@@ -253,6 +305,10 @@ def main(
 ) -> int:
     """Run one validated pull request action."""
     arguments = _build_parser().parse_args(list(all_arguments))
+    if arguments.action == ACTION_TEMPLATE:
+        for each_heading in write_body_template(arguments.body_file, arguments.title):
+            sys.stdout.write(each_heading + "\n")
+        return 0
     completed_lint = command_runner(
         _linter_arguments(arguments, all_environment), check=False, shell=False
     )
