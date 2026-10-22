@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.98.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.7...claude-dev-env-v8.98.8) (2026-10-22)
+
+
+### Bug Fixes
+
+* **account-broker:** ignore a Codex default spent mark while a roster exists ([#2159](https://github.com/jl-cmd-projects/claude-dev-env/issues/2159)) ([bcc3cf7](https://github.com/jl-cmd-projects/claude-dev-env/commit/bcc3cf7eba8a876045718830ca6050f5ccce205b))
+* **install:** refresh Claude plugins in place instead of reinstalling ([#2160](https://github.com/jl-cmd-projects/claude-dev-env/issues/2160)) ([4939ff2](https://github.com/jl-cmd-projects/claude-dev-env/commit/4939ff2eff4969dea6197efea21697e86703d005))
+
 ## [8.98.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.6...claude-dev-env-v8.98.7) (2026-10-22)
 
 
