@@ -2,6 +2,7 @@
 
 import re
 
+ACTION_GITHUB_MCP_COMMENT = "github-mcp-comment"
 ACTION_GITHUB_MCP_POST = "github-mcp-post"
 ACTION_ISSUE_COMMENT = "issue-comment"
 ACTION_ISSUE_CREATE = "issue-create"
@@ -13,6 +14,7 @@ ACTION_PR_REVIEW = "pr-review"
 
 ALL_POST_ACTIONS: frozenset[str] = frozenset(
     {
+        ACTION_GITHUB_MCP_COMMENT,
         ACTION_GITHUB_MCP_POST,
         ACTION_ISSUE_COMMENT,
         ACTION_ISSUE_CREATE,
@@ -25,6 +27,7 @@ ALL_POST_ACTIONS: frozenset[str] = frozenset(
 )
 ALL_BODY_REQUIRED_ACTIONS: frozenset[str] = frozenset(
     {
+        ACTION_GITHUB_MCP_COMMENT,
         ACTION_GITHUB_MCP_POST,
         ACTION_ISSUE_COMMENT,
         ACTION_ISSUE_CREATE,
@@ -102,3 +105,6 @@ REWRITTEN_RELEASE_BODY_MESSAGE = (
     "keep the generated text whole"
 )
 REPOSITORY_OWNER_SEPARATOR = "/"
+PROOF_GATE_CREATE_TOOL_NAME = "mcp__github__create_pull_request"
+PULL_REQUEST_PROOF_FINDING_CODE = "pull-request-proof-section"
+COMMENT_LENGTH_FINDING_CODE = "github-comment-length"

@@ -405,7 +405,7 @@ Resolve the active managed root (`CLAUDE_CONFIG_DIR` when set, `~/.claude`
 otherwise), then run `<managed-root>/scripts/durable_post_lint.py` before the
 server write. Pass the matching action and body file. Use `pr-create`,
 `pr-edit`, `pr-comment`, `pr-review`, `issue-create`, `issue-edit`,
-`issue-comment`, or `github-mcp-post`.
+`issue-comment`, `github-mcp-post`, or `github-mcp-comment` for an MCP comment or reply.
 
 Pass `--repository <owner>/<name>` for the repository the post targets. A
 post may name a private organization only inside a repository that
@@ -440,7 +440,7 @@ For pull requests, use
 `.agents/skills/pull-request/scripts/pull_request.py`. It passes
 `--body-file` to `gh` after the action-aware linter succeeds. For issues and
 GitHub MCP posts, run the linter directly with `issue-create`, `issue-edit`,
-`issue-comment`, or `github-mcp-post` as the action.
+`issue-comment`, `github-mcp-post`, or `github-mcp-comment` as the action.
 
 ### Paginated reads slurp before they filter
 

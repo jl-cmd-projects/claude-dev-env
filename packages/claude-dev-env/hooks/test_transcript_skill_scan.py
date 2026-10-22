@@ -9,10 +9,12 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from transcript_skill_scan import (
+    TranscriptToolCall,
     invokes_skill_with_argument,
     is_skill_loaded_after_last_compaction,
     is_skill_loaded_since_last_prompt,
     skill_invocation_status,
+    tool_calls_since_last_prompt,
 )
 
 
@@ -158,3 +160,31 @@ def test_slash_command_prompt_loads_the_skill_for_its_own_turn() -> None:
     assert is_skill_loaded_since_last_prompt([_prompt_entry("First."), _prompt_entry(marker)], ("verify",), (marker,))
     compaction = json.dumps({"subtype": "compact_boundary"})
     assert not is_skill_loaded_since_last_prompt([_prompt_entry(marker), compaction], ("verify",), (marker,))
+
+
+def should_list_each_tool_call_since_the_last_prompt_with_its_outcome() -> None:
+    def _call(tool_use_id: str, name: str) -> str:
+        return json.dumps(
+            {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": tool_use_id, "name": name, "input": {}}]}}
+        )
+
+    def _result(tool_use_id: str, is_error: bool) -> str:
+        tool_result = {"type": "tool_result", "tool_use_id": tool_use_id, "is_error": is_error, "content": "x"}
+        return json.dumps({"type": "user", "message": {"content": [tool_result]}})
+
+    lines = [
+        json.dumps({"type": "user", "message": {"content": "First."}}),
+        _call("old", "Read"),
+        _result("old", False),
+        json.dumps({"type": "user", "message": {"content": "Second."}}),
+        _call("ok", "Bash"),
+        _result("ok", False),
+        _call("denied", "Edit"),
+        _result("denied", True),
+        _call("pending", "Write"),
+    ]
+    assert tool_calls_since_last_prompt(lines) == [
+        TranscriptToolCall("Bash", {}, True),
+        TranscriptToolCall("Edit", {}, False),
+        TranscriptToolCall("Write", {}, False),
+    ]
