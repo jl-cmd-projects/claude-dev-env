@@ -81,9 +81,10 @@ draft. Record the target before any write.
 
 ### 2. Author the title and body
 
-For create and full body rewrite, write the title and a body file, or invoke
-`pstack:poteto-agent` with the diff-specific writing instructions to draft
-them. A comment or
+For create, run `pull_request.py template --body-file <path> --title <title>`
+first. It appends each heading the linter and proof gate require that the file
+lacks. Then fill the body, or invoke `pstack:poteto-agent` with the
+diff-specific writing instructions to draft it. A comment or
 review may use a supplied body file when it does not rewrite the pull request
 description.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -462,3 +463,84 @@ def should_hand_the_head_branch_to_the_linter_on_create(body_file: Path) -> None
         linter_command[linter_command.index("--head-branch") + 1]
         == "release-please--branches--main--components--package"
     )
+
+
+PROOF_CONSTANTS_PATH = (
+    _SCRIPTS_DIRECTORY.parents[3] / "hooks/hooks_constants/pull_request_proof_constants.py"
+)
+
+
+def _proof_heading_patterns() -> dict[str, str]:
+    constants_text = PROOF_CONSTANTS_PATH.read_text(encoding="utf-8")
+    all_names = ("PROOF_HEADING_PATTERN", "EXISTING_WORK_HEADING_PATTERN", "EVAL_HEADING_PATTERN")
+    all_patterns: dict[str, str] = {}
+    for each_line in constants_text.splitlines():
+        each_name, _, each_value = each_line.partition(" = ")
+        if each_name in all_names:
+            all_patterns[each_name] = each_value.strip()[2:-1]
+    return all_patterns
+
+
+def _run_template(body_path: Path, title: str) -> tuple[int, Mock]:
+    command_runner = Mock()
+    exit_code = pull_request.main(
+        ["template", "--body-file", str(body_path), "--title", title],
+        all_environment={},
+        command_runner=command_runner,
+    )
+    return exit_code, command_runner
+
+
+def _body_has_heading(body_text: str, heading_pattern: str) -> bool:
+    return any(
+        re.match(heading_pattern, each_line.strip(), re.IGNORECASE)
+        for each_line in body_text.splitlines()
+    )
+
+
+def should_write_a_template_that_clears_the_linter_and_proof_headings(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    exit_code, command_runner = _run_template(body_path, PR_TITLE)
+    body_text = body_path.read_text(encoding="utf-8")
+    lint = subprocess.run(
+        [
+            sys.executable,
+            str(LINTER_PATH),
+            "--action",
+            "pr-create",
+            "--title",
+            PR_TITLE,
+            "--body-file",
+            str(body_path),
+            "--repository",
+            REPOSITORY,
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert exit_code == 0
+    assert command_runner.call_count == 0
+    assert "missing-pr-description-heading" not in lint.stdout + lint.stderr
+    assert all(
+        _body_has_heading(body_text, each_pattern)
+        for each_pattern in _proof_heading_patterns().values()
+    )
+
+
+def should_add_the_eval_heading_only_for_a_feature_title(tmp_path: Path) -> None:
+    fix_body_path = tmp_path / "fix.md"
+    _run_template(fix_body_path, "fix(hooks): narrow the gate")
+    eval_pattern = _proof_heading_patterns()["EVAL_HEADING_PATTERN"]
+    assert not _body_has_heading(fix_body_path.read_text(encoding="utf-8"), eval_pattern)
+
+
+def should_keep_written_text_and_add_only_missing_headings(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    body_path.write_text("## Why\nThe gate bounced twice.\n", encoding="utf-8")
+    _run_template(body_path, PR_TITLE)
+    first_text = body_path.read_text(encoding="utf-8")
+    _run_template(body_path, PR_TITLE)
+    assert first_text.startswith("## Why\nThe gate bounced twice.\n")
+    assert first_text.count("## Why") == 1
+    assert body_path.read_text(encoding="utf-8") == first_text
