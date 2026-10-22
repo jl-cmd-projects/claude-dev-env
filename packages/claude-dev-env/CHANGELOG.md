@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.2...claude-dev-env-v8.96.3) (2026-10-22)
+
+
+### Documentation
+
+* **skills:** add grader and PR hygiene rules to build-eval and pr-lifecycle ([#2118](https://github.com/jl-cmd-projects/claude-dev-env/issues/2118)) ([1c36cdc](https://github.com/jl-cmd-projects/claude-dev-env/commit/1c36cdc970834338d0e5f72aa8a7c322294e0f8c))
+
 ## [8.96.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.1...claude-dev-env-v8.96.2) (2026-10-21)
 
 
