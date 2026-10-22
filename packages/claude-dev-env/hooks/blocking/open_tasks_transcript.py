@@ -22,7 +22,8 @@ The replay also notes what the current turn did::
     turn_prompt_text         the text of the prompt that started the turn
     has_turn_tracker_write   a TaskCreate, TaskUpdate, TodoWrite, update_plan, or desktop plan call ran
     has_turn_work_tool       any other assistant tool call ran, except the title tool,
-                             AskUserQuestion, ToolSearch, TaskList, and TaskGet
+                             AskUserQuestion, ToolSearch, TaskList, TaskGet, and the
+                             Codex request_user_input card
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -239,12 +240,13 @@ def codex_prompt_text(all_record_fields: dict[str, object]) -> str | None:
 
 
 def is_codex_work_call(all_record_fields: dict[str, object]) -> bool:
-    """Return True for a Codex tool call record other than ``update_plan``."""
+    """Return True for a Codex tool call record other than ``update_plan`` or a question card call."""
     payload_body = _codex_payload(all_record_fields)
     return (
         payload_body is not None
         and payload_body.get(RECORD_TYPE_KEY) in ALL_CODEX_TOOL_CALL_TYPES
         and payload_body.get(TOOL_NAME_KEY) != CODEX_PLAN_TOOL_NAME
+        and payload_body.get(TOOL_NAME_KEY) not in ALL_NON_WORK_TOOL_NAMES
     )
 
 

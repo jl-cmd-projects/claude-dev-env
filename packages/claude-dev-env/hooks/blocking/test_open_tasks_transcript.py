@@ -132,6 +132,8 @@ def test_should_count_codex_tool_calls_other_than_the_plan_as_work() -> None:
     assert is_codex_work_call(codex_call("function_call", "shell")) is True
     assert is_codex_work_call(codex_call("local_shell_call", "")) is True
     assert is_codex_work_call(codex_call("function_call", "update_plan")) is False
+    assert is_codex_work_call(codex_call("function_call", "request_user_input")) is False
+    assert is_codex_work_call(codex_call("function_call", "request_user_input_async")) is False
     assert is_codex_work_call({"type": "user", "payload": {"type": "function_call"}}) is False
 
 
