@@ -47,3 +47,15 @@ def test_every_exported_name_resolves_to_a_module_attribute() -> None:
     ]
 
     assert all_missing_names == []
+
+
+def test_every_template_path_sits_under_the_package_root() -> None:
+    package_root = artifact_template_pointer_constants.PACKAGE_ROOT_DIRECTORY
+
+    assert (package_root / "hooks" / "hooks_constants").is_dir()
+    for each_path in (
+        artifact_template_pointer_constants.ARTIFACT_TEMPLATE_PATH,
+        artifact_template_pointer_constants.HTML_PLAN_TEMPLATE_README_PATH,
+        artifact_template_pointer_constants.STATUS_FLOWCHART_TEMPLATE_PATH,
+    ):
+        assert each_path.relative_to(package_root).parts[:2] == ("docs", "templates")

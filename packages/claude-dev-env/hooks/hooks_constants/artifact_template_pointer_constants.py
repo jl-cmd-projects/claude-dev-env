@@ -9,6 +9,7 @@ __all__ = [
     "ARTIFACT_QUICKSTART_ACTION",
     "ARTIFACT_TEMPLATE_PATH",
     "ARTIFACT_TOOL_NAME",
+    "PACKAGE_ROOT_DIRECTORY",
     "HTML_PLAN_TEMPLATE_README_PATH",
     "POINTER_TEXT_TEMPLATE",
     "SKILL_NAME_INPUT_KEY",
@@ -23,7 +24,8 @@ ARTIFACT_QUICKSTART_ACTION = "quickstart"
 SKILL_TOOL_NAME = "Skill"
 SKILL_NAME_INPUT_KEY = "skill"
 ALL_ARTIFACT_DESIGN_SKILL_NAMES = frozenset({"artifact-design"})
-TEMPLATES_DIRECTORY = Path(__file__).resolve().parents[2] / "docs" / "templates"
+PACKAGE_ROOT_DIRECTORY = Path(__file__).resolve().parents[2]
+TEMPLATES_DIRECTORY = PACKAGE_ROOT_DIRECTORY / "docs" / "templates"
 ARTIFACT_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "README.md"
 HTML_PLAN_TEMPLATE_README_PATH = TEMPLATES_DIRECTORY / "html-plan" / "README.md"
 STATUS_FLOWCHART_TEMPLATE_PATH = TEMPLATES_DIRECTORY / "artifact-page" / "status-flowchart.html"
