@@ -78,6 +78,10 @@ def test_executable_word_lists_keeps_an_empty_quoted_argument() -> None:
     assert gate.executable_word_lists('git commit -m ""') == [["git", "commit", "-m", ""]]
 
 
+def test_executable_word_lists_keeps_a_quoted_argument_that_starts_with_a_separator() -> None:
+    assert gate.executable_word_lists('git -C "(dir)" commit -m x') == [["git", "-C", "(dir)", "commit", "-m", "x"]]
+
+
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
     path = _transcript(tmp_path, "plugin:pr-lifecycle")
     assert _run_main(_payload("gh pr view", path)) == (0, "")
