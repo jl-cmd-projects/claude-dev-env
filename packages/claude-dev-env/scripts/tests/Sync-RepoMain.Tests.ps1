@@ -68,9 +68,52 @@ BeforeAll {
         & pwsh -NoProfile -File $scriptUnderTest -RepoPath $Fixture.MirrorPath -StashDirty -LogPath $Fixture.LogPath | Out-Null
         return $LASTEXITCODE
     }
+
+    function Invoke-MirrorSyncScript {
+        param([pscustomobject]$Fixture)
+        & pwsh -NoProfile -File $scriptUnderTest -RepoPath $Fixture.MirrorPath -StashDirty -Mirror -LogPath $Fixture.LogPath | Out-Null
+        return $LASTEXITCODE
+    }
+
+    function Switch-MirrorToFeatureBranch {
+        <#
+          Leaves the mirror on a feature branch whose commit edits tracked.txt,
+          the way a session that checked out a pull request in the mirror does.
+        #>
+        param([pscustomobject]$Fixture)
+        Invoke-TestGit -RepoPath $Fixture.MirrorPath -Arguments @('switch', '-q', '-c', 'feature') | Out-Null
+        Write-TestFile -RepoPath $Fixture.MirrorPath -RelativePath 'tracked.txt' -Content "feature`n"
+        Invoke-TestGit -RepoPath $Fixture.MirrorPath -Arguments @('commit', '-q', '-am', 'feature edit') | Out-Null
+        return Invoke-TestGit -RepoPath $Fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')
+    }
 }
 
 Describe 'Sync-RepoMain' {
+    It 'skips a mirror left on another branch when -Mirror is absent' {
+        $fixture = New-MirrorBehindRemote -Name 'feature-no-mirror'
+        $featureTip = Switch-MirrorToFeatureBranch -Fixture $fixture
+
+        $exitCode = Invoke-SyncScript -Fixture $fixture
+
+        $exitCode | Should -Be 3
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $featureTip
+    }
+
+    It 'returns a mirror left on another branch to main and fast-forwards it with -Mirror' {
+        $fixture = New-MirrorBehindRemote -Name 'feature-mirror'
+        $featureTip = Switch-MirrorToFeatureBranch -Fixture $fixture
+
+        $exitCode = Invoke-MirrorSyncScript -Fixture $fixture
+
+        $exitCode | Should -Be 0
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('branch', '--show-current')) | Should -Be 'main'
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.RemoteTip
+        [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'tracked.txt')) | Should -Be "new`n"
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('status', '--porcelain')) | Should -BeNullOrEmpty
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'feature')) | Should -Be $featureTip
+        (Get-Content -LiteralPath $fixture.LogPath -Raw) | Should -Match "left checkout 'feature' at $featureTip"
+    }
+
     It 'fast-forwards a clean mirror that is behind the remote' {
         $fixture = New-MirrorBehindRemote -Name 'clean-behind'
 

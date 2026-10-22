@@ -8,7 +8,8 @@
   a remote, such as a read-only mirror kept current by a scheduled task.
 
   Safety rules:
-  - Only runs when the checked-out branch is the named branch
+  - Only runs when the checked-out branch is the named branch, unless
+    -Mirror is passed
   - Only runs when there are no tracked changes (untracked files are fine),
     unless -StashDirty is passed
   - Uses merge --ff-only (never force, never hard reset, never clean)
@@ -42,6 +43,14 @@
   missing; when that pop also fails, the log names the stash entry so the
   operator can recover it by hand.
 
+.PARAMETER Mirror
+  Marks the tree as a mirror that must always sit on the named branch. With
+  the switch, a checkout found on another branch or a detached HEAD is moved
+  back: HEAD points at the local named branch again and a mixed reset moves
+  the index there, writing no file. The log names the branch and tip it left.
+  The run then continues as usual, so -StashDirty stashes whatever the old
+  checkout left in the tree. Without the switch, such a checkout is skipped.
+
 .PARAMETER LogPath
   Absolute path to the run log (default: $HOME\.claude\logs\sync-repo-main.log).
 #>
@@ -52,6 +61,7 @@ param(
     [string]$Remote = 'origin',
     [string]$Branch = 'main',
     [switch]$StashDirty,
+    [switch]$Mirror,
     [string]$LogPath = (Join-Path $HOME '.claude\logs\sync-repo-main.log')
 )
 
@@ -229,8 +239,19 @@ try {
     $currentBranch = Invoke-GitOrExit -Arguments @('branch', '--show-current') `
         -FailureMessage 'cannot read current branch' -FailureExitCode 2
     if ($currentBranch -ne $Branch) {
-        Write-SyncLog -Level 'SKIP' -Message "checkout is '$currentBranch', not '$Branch' (remote=$Remote)"
-        exit 3
+        if (-not $Mirror) {
+            Write-SyncLog -Level 'SKIP' -Message "checkout is '$currentBranch', not '$Branch' (remote=$Remote)"
+            exit 3
+        }
+        $leftTip = Invoke-GitOrExit -Arguments @('rev-parse', 'HEAD') `
+            -FailureMessage 'cannot read the tip of the checkout being left' -FailureExitCode 2
+        $null = Invoke-GitOrExit -Arguments @('rev-parse', '--verify', '-q', "refs/heads/$Branch") `
+            -FailureMessage "mirror has no local $Branch branch to return to" -FailureExitCode 2
+        $null = Invoke-GitOrExit -Arguments @('symbolic-ref', 'HEAD', "refs/heads/$Branch") `
+            -FailureMessage "cannot point HEAD at $Branch" -FailureExitCode 1
+        $null = Invoke-GitOrExit -Arguments @('reset', '-q') `
+            -FailureMessage "mixed reset onto $Branch failed" -FailureExitCode 1
+        Write-SyncLog -Level 'MIRROR' -Message "left checkout '$currentBranch' at $leftTip; HEAD and index now on $Branch, no file written"
     }
 
     $statusOutput = Invoke-GitOrExit -Arguments @('status', '--porcelain') `
