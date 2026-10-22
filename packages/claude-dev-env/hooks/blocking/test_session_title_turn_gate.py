@@ -368,6 +368,8 @@ def test_should_read_the_status_emoji_without_its_variation_selector(
         (RED_FLAG_TITLE, False, [], False),
         ("✅ Gate", False, ["pending"], True),
         ("✅ Gate", True, ["completed"], False),
+        ("✅ Gate", True, ["completed", "deleted"], False),
+        (HOURGLASS_TITLE, True, ["completed", "deleted"], True),
         (HOURGLASS_TITLE, True, ["completed"], True),
         (HOURGLASS_TITLE, True, ["in_progress"], False),
         (HOURGLASS_TITLE, True, [], False),

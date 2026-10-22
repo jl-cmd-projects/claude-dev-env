@@ -62,7 +62,7 @@ TITLE_TOOL_DISPLAY_SEPARATOR = " or "
 
 SESSION_ID_KEY = "session_id"
 BLOCK_INPUT_KEY = "input"
-COMPLETED_TASK_STATUS = "completed"
+ALL_OPEN_TASK_STATUSES = frozenset({"pending", "in_progress"})
 RED_FLAG_STATUS = "\U0001f6a9"
 CHECK_MARK_STATUS = "\u2705"
 HOURGLASS_STATUS = "\u23f3"
@@ -72,7 +72,7 @@ STALE_FLAG_REASON = (
     " and that message gave you work."
 )
 OPEN_ITEMS_REASON = "The title '{title}' shows the work as done, and the task list has open items."
-ALL_ITEMS_COMPLETED_REASON = "The title '{title}' shows work running, and every task list item is completed."
+ALL_ITEMS_COMPLETED_REASON = "The title '{title}' shows work running, and every task list item is completed or deleted."
 
 TURN_BLOCK_REASON = (
     "{why} Call {tool_name} now with '<emoji> <name>' for the current status:"

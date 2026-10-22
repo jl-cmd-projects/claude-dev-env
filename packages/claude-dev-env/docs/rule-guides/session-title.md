@@ -38,7 +38,7 @@ The name has 25 characters or fewer and names the main change or outcome in conc
 - No title is set yet.
 - The red flag shows, and the prompt that started the turn asks for work.
 - The check mark shows, and the task list has open items.
-- The hourglass shows, and every task list item is completed.
+- The hourglass shows, and every task list item is completed or deleted.
 
 A turn that set a title passes, because the agent's choice stands. A turn that called no tool other than the title tool passes, and so does a held turn. It applies when the transcript shows the title tool.
 

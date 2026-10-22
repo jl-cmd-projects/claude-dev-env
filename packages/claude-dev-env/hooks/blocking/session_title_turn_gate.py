@@ -7,7 +7,7 @@ a title alone while it still fits, and holds the turn once when it does not::
     no title set yet                                   -> hold
     red flag, and this turn's prompt asks for work     -> hold: the user acted on it
     check mark, and the task list has open items       -> hold: work is open again
-    hourglass, and every task list item is completed   -> hold: nothing runs
+    hourglass, every item completed or deleted         -> hold: nothing runs
     anything else                                      -> pass
 
 A turn that set a title passes, because the agent's choice stands. So does a
@@ -68,7 +68,7 @@ from hooks_constants.session_title_constants import (
     BLOCK_INPUT_KEY,
     BLOCK_NAME_KEY,
     CHECK_MARK_STATUS,
-    COMPLETED_TASK_STATUS,
+    ALL_OPEN_TASK_STATUSES,
     CONTENT_KEY,
     DECISION_KEY,
     DECODE_ERRORS_POLICY,
@@ -306,7 +306,7 @@ def stale_status_reason(title: str, is_ask_turn: bool, all_task_items: list[Task
 
         red flag, the prompt asks for work          -> reason
         check mark, an item is pending              -> reason
-        hourglass, every item completed             -> reason
+        hourglass, every item completed or deleted  -> reason
         hourglass, an item is in progress           -> None
 
     Args:
@@ -318,13 +318,11 @@ def stale_status_reason(title: str, is_ask_turn: bool, all_task_items: list[Task
         The reason the status is stale, with the title filled in, or None.
     """
     status = title_status(title)
-    has_items = bool(all_task_items)
-    is_all_completed = has_items and all(
-        each_item.status == COMPLETED_TASK_STATUS for each_item in all_task_items
-    )
+    has_open_items = any(each_item.status in ALL_OPEN_TASK_STATUSES for each_item in all_task_items)
+    is_all_completed = bool(all_task_items) and not has_open_items
     if status == RED_FLAG_STATUS and is_ask_turn:
         return STALE_FLAG_REASON.format(title=title)
-    if status == CHECK_MARK_STATUS and has_items and not is_all_completed:
+    if status == CHECK_MARK_STATUS and has_open_items:
         return OPEN_ITEMS_REASON.format(title=title)
     if status == HOURGLASS_STATUS and is_all_completed:
         return ALL_ITEMS_COMPLETED_REASON.format(title=title)
