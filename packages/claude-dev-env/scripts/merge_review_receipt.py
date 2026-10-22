@@ -44,6 +44,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_HEAD_KEY,
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULINGS_KEY,
+    REPOSITORY_SLUG_PATTERN,
 )
 
 
@@ -133,6 +134,8 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
     parser.add_argument("--rulings", default="", help="Link to the posted rulings.")
     parsed = parser.parse_args(all_arguments)
     rulings = parsed.rulings.strip()
+    if not REPOSITORY_SLUG_PATTERN.fullmatch(parsed.slug) or ".." in parsed.slug:
+        parser.error("slug must be owner/name")
     if parsed.number == OPEN_TARGET_WORD:
         if parsed.ruled_out or rulings:
             parser.error(f"an {OPEN_TARGET_WORD} pass is clean only at zero findings")
