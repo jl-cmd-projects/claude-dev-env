@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.5...claude-dev-env-v8.96.6) (2026-10-22)
+
+
+### Documentation
+
+* **skills:** escalate repeat review findings, PowerShell commit files, /reload-skills ([#2125](https://github.com/jl-cmd-projects/claude-dev-env/issues/2125)) ([946345b](https://github.com/jl-cmd-projects/claude-dev-env/commit/946345b292638f494e7d177883432367604e1f90))
+
 ## [8.96.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.4...claude-dev-env-v8.96.5) (2026-10-22)
 
 
