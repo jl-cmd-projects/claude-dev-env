@@ -47,6 +47,7 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
@@ -264,8 +265,9 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     command = tool_input.get("command")
     if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
-    create_match = GH_PR_CREATE_PATTERN.search(command) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(
-        command
+    options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
+    create_match = GH_PR_CREATE_PATTERN.search(options_only) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(
+        options_only
     )
     if not create_match:
         return None

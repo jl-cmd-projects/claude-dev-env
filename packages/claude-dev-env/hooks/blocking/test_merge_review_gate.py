@@ -392,3 +392,15 @@ def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
 ) -> None:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
     assert _reason(_create_tool(tmp_path, head="missing-branch")) is None
+
+
+def test_should_skip_options_quoted_inside_the_title_or_body(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = (
+        "gh pr create --repo acme/tools --title 'use -R other/x' "
+        f"--body \"curl -H 'Accept: x'; -H {NEW_HEAD}\" --head feature"
+    )
+    assert _reason(_bash_in(folder, command)) is None

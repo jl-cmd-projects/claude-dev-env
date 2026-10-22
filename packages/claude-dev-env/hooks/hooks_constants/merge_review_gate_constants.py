@@ -24,7 +24,10 @@ GH_PR_CREATE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+create\b(?
 PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
     r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
 )
-HEAD_OPTION_PATTERN = re.compile(r"(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
+HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
+CREATE_TEXT_OPTION_PATTERN = re.compile(
+    r"(?<!\S)(?:-t|--title|-b|--body|-F|--body-file)(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
+)
 ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
