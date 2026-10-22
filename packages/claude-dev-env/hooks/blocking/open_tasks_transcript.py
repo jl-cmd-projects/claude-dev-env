@@ -21,7 +21,8 @@ The replay also notes what the current turn did::
 
     turn_prompt_text         the text of the prompt that started the turn
     has_turn_tracker_write   a TaskCreate, TaskUpdate, TodoWrite, update_plan, or desktop plan call ran
-    has_turn_work_tool       any other assistant tool call ran
+    has_turn_work_tool       any other assistant tool call ran, except the title tool,
+                             AskUserQuestion, ToolSearch, TaskList, and TaskGet
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -50,6 +51,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_SKIPPED_PROMPT_FLAGS,
     ASSISTANT_RECORD_TYPE,
     ALL_CODEX_TOOL_CALL_TYPES,
+    ALL_NON_WORK_TOOL_NAMES,
     ALL_TRACKER_TOOL_NAMES,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
@@ -88,6 +90,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASK_STATUS_KEY,
     TASK_SUBJECT_KEY,
     TASK_UPDATE_ID_KEY,
+    SESSION_TITLE_TOOL_SUFFIX,
     TASK_UPDATE_TOOL_NAME,
     TEXT_KEY,
     TODOS_KEY,
@@ -421,7 +424,7 @@ class TranscriptReplay:
     def note_turn_tool(self, tool_name: str) -> None:
         if tool_name in ALL_TRACKER_TOOL_NAMES:
             self.has_turn_tracker_write = True
-        else:
+        elif tool_name not in ALL_NON_WORK_TOOL_NAMES and not tool_name.endswith(SESSION_TITLE_TOOL_SUFFIX):
             self.has_turn_work_tool = True
 
     def apply_tool_use(self, tool_name: str, tool_use_id: str, all_input_fields: dict[str, object]) -> None:

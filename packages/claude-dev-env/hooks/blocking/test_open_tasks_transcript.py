@@ -78,6 +78,25 @@ def test_should_start_a_new_turn_at_each_prompt_and_reset_its_flags(tmp_path: Pa
     assert replay.has_turn_tracker_write is False
 
 
+def test_should_not_count_a_question_card_lookup_or_title_call_as_work(tmp_path: Path) -> None:
+    all_non_work_calls = [
+        {"type": "tool_use", "id": f"n{each_index}", "name": each_name, "input": {}}
+        for each_index, each_name in enumerate(
+            ["AskUserQuestion", "ToolSearch", "TaskList", "TaskGet", "mcp__claude-code-remote__set_session_title"]
+        )
+    ]
+    transcript_path = write_transcript(
+        tmp_path / "claude.jsonl",
+        [
+            {"type": "user", "message": {"role": "user", "content": "Export the APKs"}},
+            {"type": "assistant", "message": {"content": all_non_work_calls}},
+        ],
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.has_turn_work_tool is False
+    assert replay.has_turn_tracker_write is False
+
+
 @pytest.mark.parametrize(
     ("record", "expected_text"),
     [

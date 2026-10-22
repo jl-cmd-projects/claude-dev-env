@@ -12,13 +12,15 @@ leaves a trace there: at least one tracker call after the prompt::
 The gate holds the turn once when all three hold::
 
     the prompt that started the turn asks for work   (open_task_asks.is_ask)
-    the turn ran a tool other than a tracker call
+    the turn ran a work tool: any tool but a tracker call, the title tool,
+        AskUserQuestion, ToolSearch, TaskList, or TaskGet
     the turn made no tracker call
 
     block: "Export the APKs" -> Bash, Edit -> stop
     allow: "Export the APKs" -> TaskCreate, Bash, Edit -> stop
     allow: "did the export fail?" -> Bash -> stop
     allow: "Export the APKs" -> reply only -> stop
+    allow: "Export the APKs" -> AskUserQuestion -> stop
 
 The reply text is never checked. One tracker call releases the turn, and a
 turn the gate already held ends on the next stop, so the gate costs at most one

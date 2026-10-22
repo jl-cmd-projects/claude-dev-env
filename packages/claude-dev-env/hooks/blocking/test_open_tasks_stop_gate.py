@@ -98,6 +98,22 @@ def test_should_allow_a_work_turn_that_made_a_tracker_call(
     assert run_gate(monkeypatch, capsys, transcript_path) == {}
 
 
+@pytest.mark.parametrize(
+    "non_work_tool_name",
+    ["AskUserQuestion", "ToolSearch", "TaskList", "TaskGet", "mcp__claude-code-remote__set_session_title"],
+)
+def test_should_allow_a_work_prompt_turn_that_only_asked_looked_up_or_set_the_title(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    non_work_tool_name: str,
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [user_prompt_record(WORK_PROMPT), tool_call_record(non_work_tool_name)]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
 def test_should_block_when_the_only_tracker_call_came_in_an_earlier_turn(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
