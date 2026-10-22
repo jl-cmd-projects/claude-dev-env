@@ -163,7 +163,7 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
 def _saved_roster_or_nothing(profiles_root: Path) -> tuple[str, ...]:
     try:
         return _saved_roster_file_names(profiles_root)
-    except CodexAccountNameError:
+    except (CodexAccountNameError, OSError, UnicodeError):
         return ()
 
 
@@ -244,8 +244,8 @@ def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> N
     roster_text = json.dumps(list(all_names), indent=ROSTER_JSON_INDENT) + "\n"
     roster_path = profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME
     staged_path = roster_path.with_name(f"{roster_path.name}.{os.getpid()}.tmp")
-    staged_path.write_bytes(roster_text.encode(TEXT_ENCODING))
     try:
+        staged_path.write_bytes(roster_text.encode(TEXT_ENCODING))
         os.replace(staged_path, roster_path)
     except OSError:
         staged_path.unlink(missing_ok=True)

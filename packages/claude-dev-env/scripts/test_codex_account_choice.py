@@ -152,6 +152,39 @@ class TestAccountRoster:
         monkeypatch.delenv("CODEX_ACCOUNT_PROFILES")
         assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
 
+    @pytest.mark.parametrize("saved_bytes", [b'["alpha",', b"\xff\xfe\x00"])
+    def should_replace_an_unreadable_saved_file_with_the_environment_roster(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, saved_bytes: bytes
+    ) -> None:
+        (tmp_path / "account-launchers.json").write_bytes(saved_bytes)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
+    def should_keep_the_environment_roster_when_the_saved_file_cannot_be_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_read(_: Path) -> tuple[str, ...]:
+            raise PermissionError("locked")
+
+        monkeypatch.setattr(choice, "_saved_roster_file_names", refuse_read)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+
+    def should_remove_the_staged_roster_when_the_write_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original_write_bytes = Path.write_bytes
+
+        def fail_after_partial_write(path: Path, data: bytes) -> int:
+            original_write_bytes(path, data[:3])
+            raise OSError("disk full")
+
+        monkeypatch.setattr(Path, "write_bytes", fail_after_partial_write)
+        with pytest.raises(OSError, match="disk full"):
+            choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert list(tmp_path.iterdir()) == []
+
     @pytest.mark.parametrize("document", [["gamma"], ["alpha", "bad name"], {"alpha": 1}])
     def should_replace_a_saved_file_that_differs_from_the_environment(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, document: object
