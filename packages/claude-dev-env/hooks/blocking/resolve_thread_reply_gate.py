@@ -152,6 +152,8 @@ def _successful_result_texts(all_entry_fields: dict[str, object]) -> Iterator[st
 
 def _thread_ids_by_comment_id_in_text(text: str) -> dict[str, str]:
     all_thread_matches = list(THREAD_ID_PATTERN.finditer(text))
+    if not all_thread_matches:
+        return {}
     all_span_ends = [each_match.start() for each_match in all_thread_matches[1:]] + [len(text)]
     return {
         each_anchor.group(1): each_thread_match.group()
