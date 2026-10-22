@@ -21,6 +21,9 @@ from hooks_constants.resolve_thread_reply_gate_constants import (
     COMMENT_ID_INPUT_KEY,
     MISSING_REPLY_REASON,
     RESOLVE_TOOL_NAME_PATTERN,
+    RESOLVE_THREAD_METHOD,
+    REVIEW_WRITE_METHOD_KEY,
+    REVIEW_WRITE_TOOL_NAME_PATTERN,
     SHELL_COMMAND_KEY,
     SHELL_REPLY_COMMAND_PATTERN,
     SHELL_REPLY_COMMENT_ID_PATTERN,
@@ -44,6 +47,14 @@ def is_resolve_call(tool_name: object) -> bool:
     return isinstance(tool_name, str) and RESOLVE_TOOL_NAME_PATTERN.match(tool_name) is not None
 
 
+def _is_review_write_resolve(tool_name: object, all_tool_input_fields: dict[str, object]) -> bool:
+    return (
+        isinstance(tool_name, str)
+        and REVIEW_WRITE_TOOL_NAME_PATTERN.match(tool_name) is not None
+        and all_tool_input_fields.get(REVIEW_WRITE_METHOD_KEY) == RESOLVE_THREAD_METHOD
+    )
+
+
 def _shell_command(tool_name: object, all_tool_input_fields: dict[str, object]) -> str | None:
     command = all_tool_input_fields.get(SHELL_COMMAND_KEY)
     return command if tool_name in SHELL_TOOL_NAMES and isinstance(command, str) else None
@@ -55,6 +66,8 @@ def resolved_thread_ids(tool_name: object, all_tool_input_fields: dict[str, obje
     ::
 
         mcp__github__resolve_review_thread {"threadID": "PRRT_a"}  -> {"PRRT_a"}
+        mcp__github__pull_request_review_write
+            {"method": "resolve_thread", "threadId": "PRRT_a"}     -> {"PRRT_a"}
         Bash "gh api graphql ... resolveReviewThread ... PRRT_a"   -> {"PRRT_a"}
         Bash "gh api graphql ... resolveReviewThread ... $thread"  -> {}
         Bash "gh api -X POST .../pulls/7/ccr/comments/9/resolve"   -> {"9"}
@@ -64,7 +77,7 @@ def resolved_thread_ids(tool_name: object, all_tool_input_fields: dict[str, obje
         tool_name: The tool name from a hook payload or transcript.
         all_tool_input_fields: The tool input from a hook payload or transcript.
     """
-    if is_resolve_call(tool_name):
+    if is_resolve_call(tool_name) or _is_review_write_resolve(tool_name, all_tool_input_fields):
         return frozenset(
             each_value
             for each_value in (all_tool_input_fields.get(each_key) for each_key in ALL_THREAD_ID_INPUT_KEYS)
@@ -142,7 +155,7 @@ def _thread_ids_by_comment_id_in_text(text: str) -> dict[str, str]:
     all_span_ends = [each_match.start() for each_match in all_thread_matches[1:]] + [len(text)]
     return {
         each_anchor.group(1): each_thread_match.group()
-        for each_thread_match, each_span_end in zip(all_thread_matches, all_span_ends)
+        for each_thread_match, each_span_end in zip(all_thread_matches, all_span_ends, strict=True)
         for each_anchor in COMMENT_ANCHOR_PATTERN.finditer(text, each_thread_match.end(), each_span_end)
     }
 
@@ -248,6 +261,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         second resolve after one reply                   -> MISSING_REPLY_REASON
         gh api graphql resolveReviewThread, no reply     -> MISSING_REPLY_REASON
         gh api .../ccr/comments/9/resolve, no reply      -> MISSING_REPLY_REASON
+        pull_request_review_write resolve_thread, no reply -> MISSING_REPLY_REASON
         resolve with an unreadable transcript            -> None
         any other tool or shell command                  -> None
 

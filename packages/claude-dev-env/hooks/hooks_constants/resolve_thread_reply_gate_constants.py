@@ -8,6 +8,9 @@ from hooks_constants.reply_length_gate_constants import (
 )
 
 RESOLVE_TOOL_NAME_PATTERN = re.compile(r"^mcp__.+__resolve_review_thread$")
+REVIEW_WRITE_TOOL_NAME_PATTERN = re.compile(r"^mcp__.+__pull_request_review_write$")
+REVIEW_WRITE_METHOD_KEY = "method"
+RESOLVE_THREAD_METHOD = "resolve_thread"
 ALL_REPLY_TOOL_NAME_SUFFIXES = ("__add_reply_to_pull_request_comment",)
 SHELL_COMMAND_KEY = "command"
 SHELL_REPLY_COMMAND_PATTERN = re.compile(

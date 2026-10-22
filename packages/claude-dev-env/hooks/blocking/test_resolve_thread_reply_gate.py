@@ -485,3 +485,31 @@ def should_print_the_deny_when_run_as_a_hook(tmp_path: Path) -> None:
     )
     assert completed_process.returncode == 0
     assert _deny_reason(json.loads(completed_process.stdout)) == MISSING_REPLY_REASON
+
+
+def _review_write_payload(transcript_path: Path, method: str, thread_id: str = FIRST_THREAD_ID) -> dict[str, object]:
+    return {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__github__pull_request_review_write",
+        "tool_input": {"method": method, "threadId": thread_id, "owner": "o", "repo": "r", "pullNumber": 7},
+        "transcript_path": str(transcript_path),
+    }
+
+
+def should_deny_a_review_write_resolve_with_no_reply(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(tmp_path, [_prompt("Address the review threads.")])
+    decision = gate.decision_for(_review_write_payload(transcript_path, "resolve_thread"))
+    assert _deny_reason(decision) == MISSING_REPLY_REASON
+
+
+def should_allow_a_review_write_resolve_after_a_reply_on_that_thread(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [_prompt("Address the review threads."), *_threads_read(), _reply("reply-1"), _result("reply-1")],
+    )
+    assert gate.decision_for(_review_write_payload(transcript_path, "resolve_thread")) is None
+
+
+def should_leave_a_review_write_that_submits_a_review_alone(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(tmp_path, [_prompt("Review the pull request.")])
+    assert gate.decision_for(_review_write_payload(transcript_path, "create")) is None
