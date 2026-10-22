@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.0...claude-dev-env-v8.98.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** dedup open items only across sources ([#2140](https://github.com/jl-cmd-projects/claude-dev-env/issues/2140)) ([38ff14b](https://github.com/jl-cmd-projects/claude-dev-env/commit/38ff14b956dce9e7c8006ad98b8022fad9e4db43))
+
 ## [8.98.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.97.0...claude-dev-env-v8.98.0) (2026-10-22)
 
 
