@@ -43,7 +43,8 @@ supplies, such as a secret, a file, or a step on a device, and needs no card::
 
 The cards are ``AskUserQuestion``, ``mcp__hearthbot__ask_decision``,
 ``mcp__hearthbot__request_decision``, and Codex ``request_user_input``. The
-check runs whether or not any item is open.
+check runs whether or not any item is open. A Cursor payload skips it, because
+the gate reads no card call from a Cursor transcript.
 
 A block sends the open items back as the reason, so the model keeps working or
 reports them. Claude Code ends the turn after eight blocks in a row. Codex
@@ -341,7 +342,9 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     replay = replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY))
     all_open_items = unreported_open_items(hook_input, replay)
-    all_decision_lines = uncarded_decision_lines(closing_reply_text(hook_input, replay), replay)
+    all_decision_lines = (
+        [] if hook_input.get(CURSOR_CONVERSATION_ID_KEY) else uncarded_decision_lines(closing_reply_text(hook_input, replay), replay)
+    )
     if not all_open_items and not all_decision_lines:
         return ALLOW_EXIT_CODE
     all_reason_parts = [

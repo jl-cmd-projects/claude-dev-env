@@ -603,3 +603,13 @@ def test_should_allow_a_blocked_line_for_a_device_step_the_user_takes(
     transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Install the runner")])
     reply_text = "Installer built.\nBlocked: #ask-1 - run the installer on your PC and paste the log"
     assert run_gate(monkeypatch, capsys, reply_text, transcript_path) == (0, "")
+
+
+def test_should_leave_a_cursor_decision_blocked_line_alone(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_cursor_transcript(
+        tmp_path / "cursor.jsonl",
+        [{"role": "assistant", "message": {"content": [{"type": "text", "text": DECISION_BLOCKED_REPLY}]}}],
+    )
+    assert run_cursor_gate(monkeypatch, capsys, transcript_path) == {}
