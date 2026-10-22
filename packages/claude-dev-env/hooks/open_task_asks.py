@@ -52,7 +52,7 @@ class RecordedPrompt(NamedTuple):
     """One prompt the user sent.
 
     Attributes:
-        text: The prompt as the user sent it.
+        text: The prompt as the user sent it, with ``<system-reminder>`` blocks removed.
         recorded_at: Seconds since the epoch when the recorder saw it.
         ask_id: ``ask-N`` for a prompt that asks for work, or None.
     """
@@ -116,7 +116,8 @@ def is_ask(prompt_text: str) -> bool:
         "<system-reminder>...</system-reminder> Export it"    -> True
     """
     stripped_text = prompt_without_reminders(prompt_text)
-    if not stripped_text or stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
+    all_envelope_markers = (*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)
+    if not stripped_text or stripped_text.startswith(all_envelope_markers):
         return False
     if re.fullmatch(ACKNOWLEDGEMENT_PATTERN, stripped_text, re.IGNORECASE):
         return False
