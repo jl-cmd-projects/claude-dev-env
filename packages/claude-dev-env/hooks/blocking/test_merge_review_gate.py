@@ -345,3 +345,43 @@ def test_should_ignore_an_open_receipt_whose_head_is_not_a_commit(receipt_folder
     heads_folder.mkdir()
     (heads_folder / "acme__tools__a.json").write_text('{"head": "a", "findings": 0}', encoding="utf-8")
     assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_check_a_merge_chained_after_a_reviewed_open(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = (
+        "gh pr create --repo acme/tools --head feature --fill && "
+        f"gh pr merge 12 --repo acme/tools --match-head-commit {NEW_HEAD}"
+    )
+    assert "no clean review" in _reason(_bash_in(folder, command))
+
+
+def test_should_read_the_pushed_branch_before_the_local_one(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, local_head = branch_checkout
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "pushed",
+    )
+    pushed_head = _git(folder, "rev-parse", "HEAD")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", pushed_head)
+    _git(folder, "reset", "--quiet", "--hard", local_head)
+    merge_review_receipt.record_open_review("acme/tools", local_head, 0)
+    assert f"head {pushed_head}" in _reason(_create_tool(folder))
+
+
+def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD[:3]))

@@ -184,6 +184,8 @@ def has_clean_open_review(repo: str, head: str) -> bool:
     Returns:
         True when a clean open receipt covers that head.
     """
+    if not OPEN_HEAD_PATTERN.fullmatch(head):
+        return False
     folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
     pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
     for each_path in folder.glob(pattern):
@@ -295,7 +297,12 @@ def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
 
 def _branch_commit(branch: str, folder: str | None) -> str | None:
     branch_name = branch.split(":", 1)[-1]
-    for each_reference in (branch_name, REMOTE_BRANCH_PREFIX + branch_name):
+    all_references = (
+        (branch_name,)
+        if branch_name == CURRENT_HEAD_REFERENCE
+        else (REMOTE_BRANCH_PREFIX + branch_name, branch_name)
+    )
+    for each_reference in all_references:
         commit = _run_git(["rev-parse", "--verify", "--quiet", f"{each_reference}^{{commit}}"], folder)
         if commit:
             return commit
@@ -565,13 +572,10 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         The hook output that denies the call, or None to allow it.
     """
     open_request = open_request_from(all_payload_fields)
-    if open_request is not None:
-        reason = open_deny_reason(open_request)
-    else:
-        request = merge_request_from(all_payload_fields)
-        if request is None:
-            return None
-        reason = deny_reason(request)
+    merge_request = merge_request_from(all_payload_fields)
+    reason = (open_deny_reason(open_request) if open_request is not None else None) or (
+        deny_reason(merge_request) if merge_request is not None else None
+    )
     if reason is None:
         return None
     return {
