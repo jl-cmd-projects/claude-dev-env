@@ -22,6 +22,11 @@ The account list names the accounts and their order. It comes from the
 in `account-launchers.json` under the profiles root. When neither exists, the
 accounts are `codex-1`, `codex-2`, `codex-3` and `codex-4`.
 
+Each read of the variable's list saves it to `account-launchers.json` when the
+file holds a different list. A service, runner, or other process started
+without the variable then reads the same roster from the file. When the file
+cannot be written, the read prints a warning and uses the variable's list.
+
 The broker's `choose` and `check` commands and the setup commands use that list.
 Each account's home is `~/.codex-profiles/<name>`, or
 `<name>` under `CODEX_PROFILES_ROOT` when set. `~/.codex` holds the shared setup
@@ -83,6 +88,12 @@ left out has its launcher renamed to `codex-<name>.cmd.replaced-<time>`. Its
 folder under the profiles root stays, with its `auth.json`, so typing the name
 again restores it. A blank first line empties the roster and moves every launcher
 aside.
+
+While `CODEX_ACCOUNT_PROFILES` is set, the variable's list stays the roster. The
+next broker, sync, or install run saves it over the setup list, and setup prints
+a warning when the two differ. Change or clear the variable to change the
+roster. Two processes with different values of the variable each save their own
+list, so a process without the variable reads whichever list was saved last.
 
 ## Which account a job uses
 
