@@ -81,7 +81,7 @@ def _command_segments(command: str) -> list[list[str]]:
     except ValueError:
         return []
     for each_word in all_words:
-        if each_word and each_word[0] in COMMAND_SEPARATORS:
+        if each_word and set(each_word) <= set(COMMAND_SEPARATORS):
             all_segments.append(each_segment)
             each_segment = []
             continue
