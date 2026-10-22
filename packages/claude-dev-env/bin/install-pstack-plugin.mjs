@@ -319,6 +319,23 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
 }
 
 /**
+ * Build the notice that tells the user to restart each session the install reached.
+ *
+ * A running Claude Code or Codex session keeps the plugin files it loaded at
+ * start, so a plugin installed or updated under it stays unavailable there
+ * until the session restarts.
+ *
+ * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins the install wrote.
+ * @param {ReadonlyArray<string>} allInstalledHosts The hosts the install reached.
+ * @returns {string} The restart notice.
+ */
+export function restartNotice(allSpecs, allInstalledHosts) {
+    const pluginLabels = allSpecs.map(eachSpec => eachSpec.label).join(', ');
+    return `Restart each open ${allInstalledHosts.join(' and ')} session to load ${pluginLabels}. `
+        + 'A running session keeps the plugin version it loaded at start.';
+}
+
+/**
  * Install a set of plugins from one marketplace into each host's own home.
  *
  * Each host first removes every plugin in the set and then the marketplace,
@@ -334,7 +351,9 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
  * `cmd.exe`'s command-not-found exit code on Windows, and both read as
  * skipped. When a host cannot replace a plugin folder because something holds
  * it, the warning names each process that holds it, so the user knows what to
- * close before running the install again.
+ * close before running the install again. When any host installs, the step
+ * prints one restart notice, because an open session keeps the plugin
+ * version it loaded at start.
  *
  * @param {ReadonlyArray<typeof PSTACK_PLUGIN_SPEC>} allSpecs The plugins to install, from one marketplace.
  * @param {object} [options] Install targets.
@@ -342,8 +361,8 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
  * @param {string} [options.codexHome] The Codex home to install into.
  * @param {string[]} [options.hosts] The hosts to install. Defaults to the hosts every spec names.
  * @param {Record<string, string|undefined>} [options.environment] The process environment.
- * @param {object} [dependencies] Seams for the command runner and the folder locker search.
- * @returns {{status: string, hosts: object[], warning: string|null}} The outcome per host.
+ * @param {object} [dependencies] Seams for the command runner, the folder locker search, and the line writer.
+ * @returns {{status: string, hosts: object[], warning: string|null, restartNotice: string|null}} The outcome per host.
  */
 export function installMarketplacePlugins(allSpecs, options = {}, dependencies = {}) {
     const environment = options.environment ?? process.env;
@@ -365,7 +384,15 @@ export function installMarketplacePlugins(allSpecs, options = {}, dependencies =
     const installedCount = hostOutcomes.filter(outcome => outcome.status === 'installed').length;
     const status = failedCount > 0 ? 'failed' : (installedCount > 0 ? 'installed' : 'skipped');
     const warnings = hostOutcomes.map(outcome => outcome.warning).filter(Boolean);
-    return { status, hosts: hostOutcomes, warning: warnings.join(' ') || null };
+    const allInstalledHosts = hostOutcomes
+        .filter(outcome => outcome.status === 'installed')
+        .map(outcome => outcome.host);
+    const notice = allInstalledHosts.length > 0 ? restartNotice(allSpecs, allInstalledHosts) : null;
+    if (notice) {
+        const writeLine = dependencies.writeLine ?? (line => console.log(line));
+        writeLine(notice);
+    }
+    return { status, hosts: hostOutcomes, warning: warnings.join(' ') || null, restartNotice: notice };
 }
 
 /**
