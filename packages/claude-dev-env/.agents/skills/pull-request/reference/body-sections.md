@@ -1,6 +1,6 @@
 # Pull request body sections
 
-A reviewer reads the body in place of the code. The body says what the change does, how it was tested, what could break, and how to undo it. The order follows the Claude Code team's [code review article](https://claude.dev/blog/solving-code-review-at-anthropic/), whose template "asks how the change was tested and how to undo it", and their public pull requests, which open with What this does and What changed.
+A reviewer reads the body in place of the code. The body says what the change does, how it was tested, what could break, and how to undo it. The order follows the Claude Code team's [code review article](https://claude.dev/blog/solving-code-review-at-anthropic/), whose template "asks how the change was tested and how to undo it". The opening sections follow the team's public pull requests, such as [claude-code #69470](https://github.com/anthropics/claude-code/pull/69470), which opens with What this does, Why now and What changed.
 
 | Section | Holds |
 |---|---|
