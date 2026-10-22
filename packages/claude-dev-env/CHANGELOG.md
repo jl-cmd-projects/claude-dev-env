@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.98.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.3...claude-dev-env-v8.98.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** split shell commands only at unquoted separators ([#2148](https://github.com/jl-cmd-projects/claude-dev-env/issues/2148)) ([50ba699](https://github.com/jl-cmd-projects/claude-dev-env/commit/50ba699272a1719680e15db705f34b7337c736f6))
+
 ## [8.98.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.2...claude-dev-env-v8.98.3) (2026-10-22)
 
 
