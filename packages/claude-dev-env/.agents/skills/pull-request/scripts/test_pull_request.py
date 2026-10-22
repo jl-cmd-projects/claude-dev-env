@@ -544,3 +544,20 @@ def should_keep_written_text_and_add_only_missing_headings(tmp_path: Path) -> No
     assert first_text.startswith("## Why\nThe gate bounced twice.\n")
     assert first_text.count("## Why") == 1
     assert body_path.read_text(encoding="utf-8") == first_text
+
+
+def should_write_the_reader_headings_in_order_with_eval_after_the_proof(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    _run_template(body_path, "feat(hooks): add the gate")
+    all_heading_lines = [
+        each_line for each_line in body_path.read_text(encoding="utf-8").splitlines() if each_line.startswith("## ")
+    ]
+    assert all_heading_lines == [
+        "## What this does",
+        "## What changed",
+        "## Existing work",
+        "## Proof in practice",
+        "## Eval",
+        "## Risk",
+        "## How to revert",
+    ]

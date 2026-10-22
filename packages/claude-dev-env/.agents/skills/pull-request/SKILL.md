@@ -92,10 +92,9 @@ Check each behavior claim against the final diff and verification evidence.
 Preserve whether a rule is added, removed, or narrowed, and distinguish tests
 added from tests run. Refresh these claims after a rebase or correction.
 
-Open with the concrete problem and resulting behavior in one or two short
-paragraphs of plain prose. Write for a reviewer who has not read the worker's
-conversation. Include only claims supported by the final diff. State commands,
-results, and material limits under `## Verification`.
+Write the body in the section order `reference/body-sections.md` gives: What
+this does, What changed, Existing work, Proof in practice, Eval for a `feat`
+title, Risk, How to revert. Include only claims supported by the final diff.
 
 Keep substantive review and test evidence. Put extensive logs, raw diffs, token
 counts, and agent transcripts in an existing linked artifact or a closed
@@ -189,6 +188,7 @@ Read `reference/examples.md` for a create, a rejected comment, and a recovery.
 | `reference/publication-tasks.md` | Ordered tasks for every publication gate |
 | `reference/legacy-author-recovery.md` | Recovery of one selected legacy author record |
 | `reference/examples.md` | Worked create, rejected comment, and recovery examples |
+| `reference/body-sections.md` | Pull request body sections, their order, and what each holds |
 | `scripts/pull_request.py` | Command for author selection and create, edit, comment, and review actions |
 | `scripts/github_pr_command_constants/` | Constants for pull request actions, recovery, exit codes, and generic messages |
 | `scripts/test_pull_request.py` | Tests for `pull_request.py` |

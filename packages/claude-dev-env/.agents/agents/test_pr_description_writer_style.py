@@ -30,8 +30,8 @@ def test_voice_reference_keeps_the_plain_illustrative_shape() -> None:
         "found it",
         "missing",
         "duplicated",
-        "Why",
-        "Verification",
+        "What this does",
+        "Proof in practice",
     ):
         assert required_text in reference_text
 
