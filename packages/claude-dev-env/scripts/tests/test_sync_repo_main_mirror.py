@@ -183,6 +183,21 @@ def test_should_stash_a_file_only_the_left_checkout_tracks(tmp_path: Path) -> No
     assert _git(mirror_path, "status", "--porcelain") == "?? local-note.txt"
 
 
+def test_should_stash_a_left_file_that_main_ignores(tmp_path: Path) -> None:
+    mirror_path, _, _ = _mirror_on_feature_branch_behind_remote(tmp_path)
+    (mirror_path / "build.out").write_text("feature build\n", encoding="utf-8")
+    _git(mirror_path, "add", "build.out")
+    _git(mirror_path, "commit", "-q", "-m", "feature build output")
+    (mirror_path / ".git" / "info" / "exclude").write_text(
+        "build.out\n", encoding="utf-8"
+    )
+    log_path = tmp_path / "sync.log"
+
+    assert _run_sync(mirror_path, log_path, "-Mirror") == _SUCCESS_EXIT_CODE
+    assert not (mirror_path / "build.out").exists()
+    assert "tree of branch 'feature'" in _git(mirror_path, "stash", "list")
+
+
 def test_should_put_head_back_when_the_return_cannot_reset(tmp_path: Path) -> None:
     mirror_path, feature_tip, _ = _mirror_on_feature_branch_behind_remote(tmp_path)
     lock_path = mirror_path / ".git" / "index.lock"

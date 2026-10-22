@@ -192,14 +192,20 @@ function Invoke-MirrorReturn {
         }
         if ($allLeftPaths.Count -gt 0) {
             $leftTreeStashMessage = 'mirror return {0}: tree of {1} at {2}' -f (Get-Date -Format 'yyyy-MM-dd'), $leftCheckoutName, $leftTip
-            $pathspecFile = New-TemporaryFile
+            $pathspecFile = $null
             try {
+                $pathspecFile = New-TemporaryFile
                 $pathspecText = (($allLeftPaths | Select-Object -Unique | ForEach-Object { ":(literal)$_" }) -join "`0") + "`0"
                 [System.IO.File]::WriteAllText($pathspecFile.FullName, $pathspecText, [System.Text.UTF8Encoding]::new($false))
-                $stashResult = Invoke-Git -Arguments @('stash', 'push', '--include-untracked', '-m', $leftTreeStashMessage, "--pathspec-from-file=$($pathspecFile.FullName)", '--pathspec-file-nul')
+                $stashResult = Invoke-Git -Arguments @('stash', 'push', '--all', '-m', $leftTreeStashMessage, "--pathspec-from-file=$($pathspecFile.FullName)", '--pathspec-file-nul')
+            }
+            catch {
+                $stashResult = [pscustomobject]@{ ExitCode = 1; Output = $_.Exception.Message }
             }
             finally {
-                Remove-Item -LiteralPath $pathspecFile.FullName -Force -ErrorAction SilentlyContinue
+                if ($pathspecFile) {
+                    Remove-Item -LiteralPath $pathspecFile.FullName -Force -ErrorAction SilentlyContinue
+                }
             }
             if ($stashResult.ExitCode -ne 0) {
                 $failure = "stashing the tree of $leftCheckoutName failed: $($stashResult.Output)"
