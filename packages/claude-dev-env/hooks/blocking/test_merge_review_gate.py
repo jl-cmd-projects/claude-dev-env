@@ -332,3 +332,16 @@ def test_should_not_accept_an_open_review_from_another_repository() -> None:
 def test_should_accept_an_open_review_recorded_under_the_old_owner() -> None:
     merge_review_receipt.record_open_review("oldowner/tools", CLEAN_HEAD, 0)
     assert _reason(_merge_tool(CLEAN_HEAD)) is None
+
+
+def test_should_deny_a_merge_whose_numbered_pass_found_findings_at_the_open_reviewed_head() -> None:
+    merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2)
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_ignore_an_open_receipt_whose_head_is_not_a_commit(receipt_folder: Path) -> None:
+    heads_folder = receipt_folder / "heads"
+    heads_folder.mkdir()
+    (heads_folder / "acme__tools__a.json").write_text('{"head": "a", "findings": 0}', encoding="utf-8")
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))

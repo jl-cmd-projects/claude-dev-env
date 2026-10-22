@@ -68,6 +68,7 @@ from hooks_constants.merge_review_gate_constants import (
     NUMBER_FIELD,
     OPEN_RECEIPT_DIRECTORY_NAME,
     OPEN_RECEIPT_FILE_NAME_TEMPLATE,
+    OPEN_HEAD_PATTERN,
     OPEN_RECEIPT_GLOB_TEMPLATE,
     OPTION_WITH_VALUE_PATTERN,
     ORIGIN_URL_PATTERN,
@@ -195,7 +196,7 @@ def has_clean_open_review(repo: str, head: str) -> bool:
         recorded_head = receipt.get(RECEIPT_HEAD_KEY)
         if (
             isinstance(recorded_head, str)
-            and recorded_head
+            and OPEN_HEAD_PATTERN.fullmatch(recorded_head)
             and _same_commit(recorded_head, head)
             and receipt.get(RECEIPT_FINDINGS_KEY) == 0
             and _is_count(receipt.get(RECEIPT_FINDINGS_KEY))
@@ -424,7 +425,7 @@ def _is_exempt(slug: str) -> bool:
     return slug.casefold() in all_exempt
 
 
-def _clean_head(request: MergeRequest) -> str | None:
+def _numbered_receipt(request: MergeRequest) -> dict[str, object] | None:
     if request.number is None:
         return None
     try:
@@ -433,12 +434,20 @@ def _clean_head(request: MergeRequest) -> str | None:
         )
     except (OSError, ValueError):
         return None
-    if not isinstance(receipt, dict) or not is_clean_receipt(
-        receipt, request.owner, request.repo, request.number
-    ):
-        return None
-    head = receipt.get(RECEIPT_HEAD_KEY)
+    return receipt if isinstance(receipt, dict) else None
+
+
+def _receipt_head(receipt: dict[str, object] | None) -> str | None:
+    head = receipt.get(RECEIPT_HEAD_KEY) if receipt else None
     return head if isinstance(head, str) and head else None
+
+
+def _clean_head(request: MergeRequest, receipt: dict[str, object] | None) -> str | None:
+    if receipt is None or request.number is None:
+        return None
+    if not is_clean_receipt(receipt, request.owner, request.repo, request.number):
+        return None
+    return _receipt_head(receipt)
 
 
 def is_clean_receipt(
@@ -518,10 +527,21 @@ def deny_reason(request: MergeRequest) -> str | None:
         return UNKNOWN_TARGET_REASON
     if _is_exempt(request.slug):
         return None
-    if request.pinned_head and has_clean_open_review(request.repo, request.pinned_head):
+    numbered_receipt = _numbered_receipt(request)
+    numbered_head = _receipt_head(numbered_receipt)
+    pass_on_pinned_head = (
+        numbered_head is not None
+        and request.pinned_head is not None
+        and _same_commit(numbered_head, request.pinned_head)
+    )
+    if (
+        request.pinned_head
+        and not pass_on_pinned_head
+        and has_clean_open_review(request.repo, request.pinned_head)
+    ):
         return None
     fields = {"slug": request.slug, "number": request.number}
-    clean_head = _clean_head(request)
+    clean_head = _clean_head(request, numbered_receipt)
     if clean_head is None:
         return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(review_command=_review_command(), **fields)
     if request.pinned_head is None and request.is_auto_merge:

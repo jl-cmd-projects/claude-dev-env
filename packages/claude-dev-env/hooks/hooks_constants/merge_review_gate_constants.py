@@ -28,7 +28,8 @@ HEAD_OPTION_PATTERN = re.compile(r"(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']
 ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
-GIT_TIMEOUT_SECONDS = 5
+GIT_TIMEOUT_SECONDS = 3
+OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 REMOTE_BRANCH_PREFIX = "origin/"
 CURRENT_HEAD_REFERENCE = "HEAD"
 

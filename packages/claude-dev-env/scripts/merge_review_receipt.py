@@ -38,6 +38,7 @@ if hooks_directory not in sys.path:
 
 from blocking.merge_review_gate import is_clean_receipt, open_receipt_path, receipt_path
 from hooks_constants.merge_review_gate_constants import (
+    OPEN_HEAD_PATTERN,
     OPEN_TARGET_WORD,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -137,6 +138,8 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
             parser.error(f"an {OPEN_TARGET_WORD} pass is clean only at zero findings")
         if parsed.findings < 0:
             parser.error("findings must be zero or more")
+        if not OPEN_HEAD_PATTERN.fullmatch(parsed.head):
+            parser.error(f"an {OPEN_TARGET_WORD} pass needs a 7 to 40 character hex commit")
         record_open_review(parsed.slug, parsed.head, parsed.findings)
         verdict = "CLEAN" if parsed.findings == 0 else "REVIEWED"
         count_note = "" if parsed.findings == 0 else f" {parsed.findings} findings"
