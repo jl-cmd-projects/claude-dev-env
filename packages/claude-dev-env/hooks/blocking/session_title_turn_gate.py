@@ -9,9 +9,10 @@ The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
 does not count. A turn that called no tool other than the title tool may also
 end once an earlier main-chain turn set the title, since that title still
-shows and a text-only turn starts no new task. A held turn (``stop_hook_active`` true) whose title call
-failed may end, so a title tool that keeps failing cannot hold it forever. A
-held turn with no title call stays held, whichever Stop gate held it.
+shows and a text-only turn starts no new task. A held turn
+(``stop_hook_active`` true) whose title call failed may end, so a title tool
+that keeps failing cannot hold it forever. A held turn with no title call
+stays held, whichever Stop gate held it.
 
 The session has the title tool when a transcript record names it::
 
