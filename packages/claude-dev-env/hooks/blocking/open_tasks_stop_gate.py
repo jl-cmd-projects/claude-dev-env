@@ -1,69 +1,44 @@
 #!/usr/bin/env python3
-"""Stop hook that keeps a session working while its task list has unreported open items.
+"""Stop hook that keeps the task list in step with the work an ask started.
 
-The session's open items merge these sources. A transcript item whose subject
-the task store holds is dropped, so the task store wins; every other item stays::
+The user follows a session's work in its task list. A turn that works on an ask
+leaves a trace there: at least one tracker call after the prompt::
 
-    ~/.claude/tasks/<task list id>/*.json        (TaskCreate / TaskUpdate store)
-    transcript TaskCreate / TaskUpdate calls      (replayed in order)
-    transcript TodoWrite input.todos              (last call wins)
-    transcript Codex update_plan arguments        (last call wins)
-    transcript mcp__ccd_turn__update_plan calls   (unfinished items carry into a replacing list)
-    ~/.claude/open-task-asks/<session id>.json    (each prompt that asks for work, as #ask-N)
+    TaskCreate / TaskUpdate        (Claude Code)
+    TodoWrite                      (Claude Code and Cursor)
+    update_plan                    (Codex)
+    mcp__ccd_turn__update_plan     (Claude Code desktop plan)
 
-An item with status ``pending`` or ``in_progress`` is open, and so is an ask
-until a reply closes it. The turn may end only when the closing reply names
-every open item on a report line::
+The gate holds the turn once when all three hold::
 
-    allow: Blocked: Rotate the deploy key - the owner pastes the org secret
-    allow: - Open: #3 - waits on the release checks
-    allow: Open: #ask-2 - the export job runs next
-    block: (reply never mentions "Rotate the deploy key")
+    the prompt that started the turn asks for work   (open_task_asks.is_ask)
+    the turn ran a work tool: any tool but a tracker call, the title tool,
+        AskUserQuestion, a hearthbot decision card, ToolSearch, TaskList, TaskGet,
+        or Codex request_user_input
+    the turn made no tracker call
 
-A report line releases only the current stop. Two lines in any assistant text
-of the session close an item for good::
+    block: "Export the APKs" -> Bash, Edit -> stop
+    allow: "Export the APKs" -> TaskCreate, Bash, Edit -> stop
+    allow: "did the export fail?" -> Bash -> stop
+    allow: "Export the APKs" -> reply only -> stop
+    allow: "Export the APKs" -> AskUserQuestion -> stop
 
-    Done: #ask-2                                    closes an ask; never a plan item
-    Dropped: #ask-1 - "skip the APK export"         closes an ask
-    Dropped: Submit both APKs - "skip the APK export"   closes a carried plan item
+The reply text is never checked. One tracker call releases the turn, and a
+turn the gate already held ends on the next stop, so the gate costs at most one
+extra step per turn.
 
-A ``Dropped:`` quote must appear in a prompt the user sent after that ask, or
-after the last plan list that held the item.
-
-A ``Blocked:`` line that asks the user for a decision needs a question card
-in the same turn. The gate calls a line a decision when it holds a decision
-word: ok, okay, approve, approval, go-ahead, green light, sign-off, decide,
-decision, choose, choice, permission, consent, say-so, your call, or prefer.
-Any other ``Blocked:`` line names an input the user
-supplies, such as a secret, a file, or a step on a device, and needs no card::
-
-    block: Blocked: #ask-1 - your OK to merge the app branch first  (no card this turn)
-    allow: the same line after an AskUserQuestion call this turn
-    allow: Blocked: #ask-1 - the new deploy key secret, pasted into the session
-
-The cards are ``AskUserQuestion``, ``mcp__hearthbot__ask_decision``,
-``mcp__hearthbot__request_decision``, and Codex ``request_user_input``. The
-check runs whether or not any item is open. A Cursor payload skips it, because
-the gate reads no card call from a Cursor transcript.
-
-A block sends the open items back as the reason, so the model keeps working or
-reports them. Claude Code ends the turn after eight blocks in a row. Codex
-turns the reason into a continuation prompt. A Cursor payload (it carries
-``conversation_id``) also gets the reason as ``followup_message``, which
-Cursor submits as the next user message; Cursor sends no closing reply, so
-the gate reads the last assistant text from the transcript. A Cursor payload
-whose ``status`` is ``aborted`` or ``error`` is allowed, because Cursor would
-submit the follow-up after the user stopped the run, and so is one whose
-``loop_count`` shows five follow-ups already sent. A TodoWrite call with
-``merge`` set updates the earlier items by id, and a Cursor ``CallDynamicTool``
-call that wraps TodoWrite counts as that TodoWrite call.
+Claude Code marks a held stop with ``stop_hook_active``. Codex turns the reason
+into a continuation prompt. A Cursor payload (it carries ``conversation_id``)
+gets the reason as ``followup_message``, which Cursor submits as the next user
+message; a Cursor stop whose ``loop_count`` shows a follow-up already sent
+passes, and so does one whose ``status`` is ``aborted`` or ``error``. A TodoWrite
+call that a Cursor ``CallDynamicTool`` call wraps counts as a TodoWrite call.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -76,47 +51,21 @@ if blocking_directory not in sys.path:
 
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from open_task_asks import RecordedPrompt, claude_home, recorded_prompts
+from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
-    ASK_CLOSE_SUFFIX,
-    ASK_ID_PREFIX,
-    ASK_LINE_TEMPLATE,
-    ASK_REFERENCE_PATTERN,
-    ASK_SUBJECT_CHARACTER_LIMIT,
-    ASK_SUBJECT_ELLIPSIS,
     BLOCK_DECISION,
-    BLOCK_REASON_PREFIX,
-    BLOCK_REASON_SUFFIX,
-    BLOCKED_REPORT_KIND,
+    BLOCK_REASON,
     CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
-    CURSOR_FOLLOWUP_LIMIT,
     CURSOR_FOLLOWUP_MESSAGE_KEY,
     CURSOR_LOOP_COUNT_KEY,
     CURSOR_STATUS_KEY,
-    DECISION_BLOCK_REASON_PREFIX,
-    DECISION_BLOCK_REASON_SUFFIX,
     DECISION_KEY,
-    DECISION_LINE_TEMPLATE,
-    DECISION_WORD_PATTERN,
-    DONE_LINE_PATTERN,
-    DONE_TEXT_GROUP_INDEX,
-    DROPPED_LINE_PATTERN,
-    DROPPED_QUOTE_GROUP_INDEX,
-    DROPPED_TARGET_GROUP_INDEX,
     HOOK_EVENT_NAME,
-    INCOMPLETE_STATUSES,
-    ITEM_LINE_TEMPLATE,
-    LAST_ASSISTANT_MESSAGE_KEY,
-    PENDING_STATUS,
     REASON_KEY,
-    REPORT_KIND_GROUP_INDEX,
-    REPORT_LINE_PATTERN,
-    REPLY_TEXT_SEPARATOR,
-    REPORTED_TEXT_GROUP_INDEX,
-    SESSION_ID_KEY,
+    STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
     TASK_LIST_ID_ENVIRONMENT_VARIABLE,
@@ -126,7 +75,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASKS_DIRECTORY_NAME,
     TRANSCRIPT_PATH_KEY,
     UTF8_ENCODING,
-    WORD_BOUNDARY_PATTERN,
 )
 
 
@@ -157,80 +105,6 @@ def task_store_items(session_id: object) -> list[TaskItem] | None:
     return [each_item for each_item in all_items if each_item is not None]
 
 
-def _line_matches(line_pattern: str, all_texts: list[str]) -> list[re.Match[str]]:
-    all_matches = (
-        re.match(line_pattern, each_line, re.IGNORECASE) for each_text in all_texts for each_line in each_text.splitlines()
-    )
-    return [each_match for each_match in all_matches if each_match]
-
-
-def _reported_texts(reply_text: str) -> list[str]:
-    return [
-        normalized_text(each_match.group(REPORTED_TEXT_GROUP_INDEX))
-        for each_match in _line_matches(REPORT_LINE_PATTERN, [reply_text])
-    ]
-
-
-def is_reported(task_item: TaskItem, reply_text: str) -> bool:
-    """Return True when a Blocked: or Open: line of the reply names the item."""
-    subject_text = normalized_text(task_item.subject)
-    number_pattern = re.escape(TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=task_item.item_id)) + WORD_BOUNDARY_PATTERN
-    return any(
-        (subject_text and subject_text in each_text) or re.search(number_pattern, each_text)
-        for each_text in _reported_texts(reply_text)
-    )
-
-
-def _is_quoted_after(quote_text: str, all_later_prompts: list[RecordedPrompt]) -> bool:
-    normalized_quote = normalized_text(quote_text)
-    return bool(normalized_quote) and any(
-        normalized_quote in normalized_text(each_prompt.text) for each_prompt in all_later_prompts
-    )
-
-
-def _ask_subject(prompt_text: str) -> str:
-    first_line = prompt_text.strip().splitlines()[0]
-    if len(first_line) <= ASK_SUBJECT_CHARACTER_LIMIT:
-        return first_line
-    return first_line[:ASK_SUBJECT_CHARACTER_LIMIT] + ASK_SUBJECT_ELLIPSIS
-
-
-def open_ask_items(all_prompts: list[RecordedPrompt], all_closing_texts: list[str]) -> list[TaskItem]:
-    """Return each recorded ask that no ``Done:`` line and no quoted ``Dropped:`` line closes."""
-    all_done_ids = {
-        each_reference
-        for each_match in _line_matches(DONE_LINE_PATTERN, all_closing_texts)
-        for each_reference in re.findall(ASK_REFERENCE_PATTERN, each_match.group(DONE_TEXT_GROUP_INDEX))
-    }
-    all_drop_matches = _line_matches(DROPPED_LINE_PATTERN, all_closing_texts)
-    all_open_asks = []
-    for each_position, each_prompt in enumerate(all_prompts):
-        if not each_prompt.ask_id or each_prompt.ask_id in all_done_ids:
-            continue
-        is_dropped = any(
-            each_prompt.ask_id in re.findall(ASK_REFERENCE_PATTERN, each_match.group(DROPPED_TARGET_GROUP_INDEX))
-            and _is_quoted_after(each_match.group(DROPPED_QUOTE_GROUP_INDEX), all_prompts[each_position + 1 :])
-            for each_match in all_drop_matches
-        )
-        if not is_dropped:
-            all_open_asks.append(TaskItem(each_prompt.ask_id, _ask_subject(each_prompt.text), PENDING_STATUS))
-    return all_open_asks
-
-
-def is_dropped_carried_item(task_item: TaskItem, all_prompts: list[RecordedPrompt], all_closing_texts: list[str]) -> bool:
-    """Return True when a ``Dropped:`` line names the carried item and quotes a prompt sent after its list."""
-    listed_at = task_item.listed_at
-    subject_text = normalized_text(task_item.subject)
-    if not task_item.is_carried or listed_at is None or not subject_text:
-        return False
-    all_later_prompts = [each_prompt for each_prompt in all_prompts if each_prompt.recorded_at > listed_at]
-    return any(
-        subject_text in normalized_text(each_match.group(DROPPED_TARGET_GROUP_INDEX))
-        and _is_quoted_after(each_match.group(DROPPED_QUOTE_GROUP_INDEX), all_later_prompts)
-        for each_match in _line_matches(DROPPED_LINE_PATTERN, all_closing_texts)
-    )
-
-
 def _subject_key(task_item: TaskItem) -> str:
     return normalized_text(task_item.subject) or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=task_item.item_id)
 
@@ -249,63 +123,26 @@ def deduplicated_by_subject(all_sources: list[list[TaskItem]]) -> list[TaskItem]
     return all_kept_items
 
 
-def closing_reply_text(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str:
-    """Return the closing reply from the hook input, or the last assistant text of the transcript."""
-    reply_value = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
-    return reply_value if isinstance(reply_value, str) else replay.last_assistant_text
+def session_task_items(session_id: object, replay: TranscriptReplay) -> list[TaskItem]:
+    """Return the session's task list: the task store first, then transcript items it does not hold."""
+    return deduplicated_by_subject([task_store_items(session_id) or [], replay.items() or []])
 
 
-def uncarded_decision_lines(reply_text: str, replay: TranscriptReplay) -> list[str]:
-    """Return each ``Blocked:`` line that asks for a decision when no question card ran this turn."""
-    if replay.has_turn_decision_card:
-        return []
-    return [
-        each_match.group(0).strip()
-        for each_match in _line_matches(REPORT_LINE_PATTERN, [reply_text])
-        if each_match.group(REPORT_KIND_GROUP_INDEX).lower() == BLOCKED_REPORT_KIND
-        and re.search(DECISION_WORD_PATTERN, each_match.group(REPORTED_TEXT_GROUP_INDEX), re.IGNORECASE)
-    ]
+def is_untracked_work_turn(replay: TranscriptReplay) -> bool:
+    """Return True when the turn worked on an ask and made no tracker call."""
+    return replay.has_turn_work_tool and not replay.has_turn_tracker_write and is_ask(replay.turn_prompt_text)
 
 
-def unreported_open_items(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[TaskItem]:
-    """Return the open task items and asks the closing reply does not report."""
-    session_id = all_hook_input_fields.get(SESSION_ID_KEY)
-    reply_text = closing_reply_text(all_hook_input_fields, replay)
-    all_closing_texts = [*replay.all_assistant_texts, reply_text]
-    all_prompts = recorded_prompts(session_id)
-    all_replayed_items = [
-        each_item
-        for each_item in replay.items() or []
-        if not is_dropped_carried_item(each_item, all_prompts, all_closing_texts)
-    ]
-    all_items = [
-        *deduplicated_by_subject([task_store_items(session_id) or [], all_replayed_items]),
-        *open_ask_items(all_prompts, all_closing_texts),
-    ]
-    return [
-        each_item
-        for each_item in all_items
-        if each_item.status in INCOMPLETE_STATUSES and not is_reported(each_item, reply_text)
-    ]
-
-
-def _item_line(task_item: TaskItem) -> str:
-    if task_item.item_id.startswith(ASK_ID_PREFIX):
-        return ASK_LINE_TEMPLATE.format(ask_id=task_item.item_id, subject=task_item.subject)
-    return ITEM_LINE_TEMPLATE.format(subject=task_item.subject or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=task_item.item_id))
-
-
-def decision_block_reason_for(all_decision_lines: list[str]) -> str:
-    """Return the block reason that quotes each decision line and names the question card."""
-    all_quoted_lines = "".join(DECISION_LINE_TEMPLATE.format(line=each_line) for each_line in all_decision_lines)
-    return DECISION_BLOCK_REASON_PREFIX + all_quoted_lines + DECISION_BLOCK_REASON_SUFFIX
-
-
-def block_reason_for(all_open_items: list[TaskItem]) -> str:
-    """Return the block reason that lists each open item, and how to close an ask when one is open."""
-    has_open_ask = any(each_item.item_id.startswith(ASK_ID_PREFIX) for each_item in all_open_items)
-    all_item_lines = "".join(_item_line(each_item) for each_item in all_open_items)
-    return BLOCK_REASON_PREFIX + all_item_lines + BLOCK_REASON_SUFFIX + (ASK_CLOSE_SUFFIX if has_open_ask else "")
+def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True when a stop hook already held this turn once, or the Cursor run did not complete."""
+    if all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True:
+        return True
+    if not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
+        return False
+    stop_status = all_hook_input_fields.get(CURSOR_STATUS_KEY)
+    loop_count = all_hook_input_fields.get(CURSOR_LOOP_COUNT_KEY)
+    has_sent_followup = isinstance(loop_count, int) and loop_count > 0
+    return has_sent_followup or (stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS)
 
 
 def block_output_for(all_hook_input_fields: dict[str, object], block_reason: str) -> dict[str, str]:
@@ -316,50 +153,14 @@ def block_output_for(all_hook_input_fields: dict[str, object], block_reason: str
     return block_output
 
 
-def is_unfinished_cursor_stop(all_hook_input_fields: dict[str, object]) -> bool:
-    """Return True for a Cursor stop whose run was aborted or ended in an error."""
-    if not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
-        return False
-    stop_status = all_hook_input_fields.get(CURSOR_STATUS_KEY)
-    return stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS
-
-
-def has_spent_cursor_followups(all_hook_input_fields: dict[str, object]) -> bool:
-    """Return True for a Cursor stop that already sent the follow-up limit.
-
-    Cursor caps native stop follow-ups at five per script, but a copy it imports
-    from ``~/.claude/settings.json`` has no cap, so the gate stops at five itself.
-    """
-    if not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
-        return False
-    loop_count = all_hook_input_fields.get(CURSOR_LOOP_COUNT_KEY)
-    return isinstance(loop_count, int) and loop_count >= CURSOR_FOLLOWUP_LIMIT
-
-
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None or is_unfinished_cursor_stop(hook_input) or has_spent_cursor_followups(hook_input):
+    if hook_input is None or is_held_stop(hook_input):
         return ALLOW_EXIT_CODE
-    replay = replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY))
-    all_open_items = unreported_open_items(hook_input, replay)
-    all_decision_lines = (
-        [] if hook_input.get(CURSOR_CONVERSATION_ID_KEY) else uncarded_decision_lines(closing_reply_text(hook_input, replay), replay)
-    )
-    if not all_open_items and not all_decision_lines:
+    if not is_untracked_work_turn(replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY))):
         return ALLOW_EXIT_CODE
-    all_reason_parts = [
-        *([block_reason_for(all_open_items)] if all_open_items else []),
-        *([decision_block_reason_for(all_decision_lines)] if all_decision_lines else []),
-    ]
-    block_reason = REPLY_TEXT_SEPARATOR.join(all_reason_parts)
-    reply_value = hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)
-    log_hook_block(
-        Path(__file__).name,
-        HOOK_EVENT_NAME,
-        block_reason,
-        offending_input_preview=reply_value if isinstance(reply_value, str) else None,
-    )
-    sys.stdout.write(json.dumps(block_output_for(hook_input, block_reason)))
+    log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, BLOCK_REASON)
+    sys.stdout.write(json.dumps(block_output_for(hook_input, BLOCK_REASON)))
     return ALLOW_EXIT_CODE
 
 

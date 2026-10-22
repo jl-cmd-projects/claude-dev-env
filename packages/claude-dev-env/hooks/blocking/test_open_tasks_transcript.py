@@ -1,7 +1,19 @@
 import json
 from pathlib import Path
 
-from open_tasks_transcript import TaskItem, parsed_object, replayed_transcript, unwrapped_tool_call
+import pytest
+
+from open_tasks_transcript import (
+    TaskItem,
+    claude_prompt_text,
+    codex_prompt_text,
+    is_assistant_record,
+    is_codex_work_call,
+    is_work_tool_name,
+    parsed_object,
+    replayed_transcript,
+    unwrapped_tool_call,
+)
 
 
 def write_transcript(transcript_path: Path, all_records: list[dict[str, object]]) -> Path:
@@ -26,7 +38,7 @@ def test_should_unwrap_a_call_dynamic_tool_todo_write_call() -> None:
     assert unwrapped_tool_call("CallDynamicTool", {"toolName": "TodoWrite"}) == ("CallDynamicTool", {"toolName": "TodoWrite"})
 
 
-def test_should_replay_cursor_dynamic_todo_writes_and_the_last_reply(tmp_path: Path) -> None:
+def test_should_replay_cursor_dynamic_todo_writes_as_tracker_calls(tmp_path: Path) -> None:
     all_first_todos = [
         {"id": "1", "content": "write hello.txt", "status": "in_progress"},
         {"id": "2", "content": "rotate the deploy key", "status": "pending"},
@@ -45,7 +57,103 @@ def test_should_replay_cursor_dynamic_todo_writes_and_the_last_reply(tmp_path: P
         TaskItem("1", "write hello.txt", "completed"),
         TaskItem("2", "rotate the deploy key", "pending"),
     ]
-    assert replay.last_assistant_text == "Done."
+    assert replay.has_turn_tracker_write is True
+    assert replay.has_turn_work_tool is False
+
+
+def test_should_start_a_new_turn_at_each_prompt_and_reset_its_flags(tmp_path: Path) -> None:
+    bash_call = {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "ls"}}
+    transcript_path = write_transcript(
+        tmp_path / "claude.jsonl",
+        [
+            {"type": "user", "message": {"role": "user", "content": "Write the gate"}},
+            dynamic_todo_record([{"id": "1", "content": "Write the gate", "status": "in_progress"}], False),
+            {"type": "user", "message": {"role": "user", "content": "Export the APKs"}},
+            {"type": "assistant", "message": {"content": [bash_call]}},
+        ],
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Export the APKs"
+    assert replay.has_turn_work_tool is True
+    assert replay.has_turn_tracker_write is False
+
+
+def test_should_not_count_a_question_card_lookup_or_title_call_as_work(tmp_path: Path) -> None:
+    all_non_work_calls = [
+        {"type": "tool_use", "id": f"n{each_index}", "name": each_name, "input": {}}
+        for each_index, each_name in enumerate(
+            ["AskUserQuestion", "ToolSearch", "TaskList", "TaskGet", "mcp__claude-code-remote__set_session_title"]
+        )
+    ]
+    transcript_path = write_transcript(
+        tmp_path / "claude.jsonl",
+        [
+            {"type": "user", "message": {"role": "user", "content": "Export the APKs"}},
+            {"type": "assistant", "message": {"content": all_non_work_calls}},
+        ],
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.has_turn_work_tool is False
+    assert replay.has_turn_tracker_write is False
+
+
+@pytest.mark.parametrize(
+    ("record", "expected_text"),
+    [
+        ({"type": "user", "message": {"role": "user", "content": "Export the APKs"}}, "Export the APKs"),
+        ({"type": "user", "message": {"content": [{"type": "text", "text": "Fix it"}]}}, "Fix it"),
+        ({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "b1"}]}}, None),
+        ({"type": "user", "isMeta": True, "message": {"content": "Stop hook feedback: hold"}}, None),
+        ({"type": "user", "message": {"content": "Stop hook feedback:\nhold"}}, None),
+        ({"type": "assistant", "message": {"content": "Done."}}, None),
+    ],
+)
+def test_should_read_prompt_text_only_from_a_record_that_starts_a_turn(
+    record: dict[str, object], expected_text: str | None
+) -> None:
+    assert claude_prompt_text(record) == expected_text
+
+
+def test_should_read_codex_user_message_text() -> None:
+    user_message = {
+        "type": "response_item",
+        "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Ship it"}]},
+    }
+    assistant_message = {"type": "response_item", "payload": {"type": "message", "role": "assistant", "content": "ok"}}
+    assert codex_prompt_text(user_message) == "Ship it"
+    assert codex_prompt_text(assistant_message) is None
+
+
+def test_should_count_codex_tool_calls_other_than_the_plan_as_work() -> None:
+    def codex_call(call_type: str, tool_name: str) -> dict[str, object]:
+        return {"type": "response_item", "payload": {"type": call_type, "name": tool_name}}
+
+    assert is_codex_work_call(codex_call("function_call", "shell")) is True
+    assert is_codex_work_call(codex_call("local_shell_call", "")) is True
+    assert is_codex_work_call(codex_call("function_call", "update_plan")) is False
+    assert is_codex_work_call(codex_call("function_call", "request_user_input")) is False
+    assert is_codex_work_call(codex_call("function_call", "request_user_input_async")) is False
+    assert is_codex_work_call({"type": "user", "payload": {"type": "function_call"}}) is False
+
+
+def test_should_not_count_a_codex_title_call_as_work() -> None:
+    title_call = {"type": "response_item", "payload": {"type": "function_call", "name": "mcp__session__set_session_title"}}
+    assert is_codex_work_call(title_call) is False
+
+
+def test_should_treat_question_cards_and_the_title_tool_as_non_work() -> None:
+    assert is_work_tool_name("Bash") is True
+    assert is_work_tool_name(None) is True
+    assert is_work_tool_name("mcp__hearthbot__ask_decision") is False
+    assert is_work_tool_name("mcp__hearthbot__request_decision") is False
+    assert is_work_tool_name("mcp__ccd_session__set_session_title") is False
+
+
+def test_should_recognize_an_assistant_record_by_type_role_or_message_role() -> None:
+    assert is_assistant_record({"type": "assistant"}) is True
+    assert is_assistant_record({"role": "assistant"}) is True
+    assert is_assistant_record({"message": {"role": "assistant"}}) is True
+    assert is_assistant_record({"type": "user", "message": {"role": "user"}}) is False
 
 
 def test_should_parse_only_json_objects() -> None:
@@ -59,9 +167,9 @@ def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assis
     return {"type": record_type, "timestamp": "2026-01-01T00:00:00.000Z", "message": {"content": [tool_use]}}
 
 
-def plan_statuses(transcript_path: Path) -> list[tuple[str, str, bool]]:
+def plan_statuses(transcript_path: Path) -> list[tuple[str, str]]:
     all_items = replayed_transcript(str(transcript_path)).items() or []
-    return [(each_item.subject, each_item.status, each_item.is_carried) for each_item in all_items]
+    return [(each_item.subject, each_item.status) for each_item in all_items]
 
 
 def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_path: Path) -> None:
@@ -79,9 +187,9 @@ def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_pa
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Read the gate", "completed", False),
-        ("Write the tests", "in_progress", False),
-        ("Open the PR", "pending", False),
+        ("Read the gate", "completed"),
+        ("Write the tests", "in_progress"),
+        ("Open the PR", "pending"),
     ]
 
 
@@ -99,9 +207,9 @@ def test_should_carry_unfinished_items_after_the_replacing_list(tmp_path: Path) 
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Set rows in Neon", "in_progress", False),
-        ("Export the OneUI8 APK", "in_progress", True),
-        ("Submit both APKs", "pending", True),
+        ("Set rows in Neon", "in_progress"),
+        ("Export the OneUI8 APK", "in_progress"),
+        ("Submit both APKs", "pending"),
     ]
 
 
@@ -120,9 +228,9 @@ def test_should_point_done_and_start_indices_at_the_tools_own_items(tmp_path: Pa
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Beta", "completed", False),
-        ("Gamma", "in_progress", False),
-        ("Alpha", "pending", True),
+        ("Beta", "completed"),
+        ("Gamma", "in_progress"),
+        ("Alpha", "pending"),
     ]
 
 
@@ -140,4 +248,4 @@ def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path)
             ),
         ],
     )
-    assert plan_statuses(transcript_path) == [("Beta", "completed", False), ("alpha", "completed", False)]
+    assert plan_statuses(transcript_path) == [("Beta", "completed"), ("alpha", "completed")]
