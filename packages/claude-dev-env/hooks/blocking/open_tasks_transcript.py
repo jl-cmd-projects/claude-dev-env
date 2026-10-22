@@ -17,6 +17,16 @@ A desktop plan call either lists items or moves the current list::
 Only ``assistant`` records count for a desktop plan call, because Claude Code
 also copies each call into ``api-request-blob`` records.
 
+The replay also notes whether the current turn called a question card::
+
+    AskUserQuestion, mcp__hearthbot__ask_decision, mcp__hearthbot__request_decision   (Claude Code)
+    request_user_input, request_user_input_async                                       (Codex)
+
+A turn starts at the last user prompt record. A tool result, a record flagged
+``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
+message do not start a turn; these are the flags session_title_turn_gate.py
+skips, and its tests model Stop hook feedback as an ``isMeta`` user record.
+
 The Cursor CLI can also reach TodoWrite through ``CallDynamicTool``, with the
 TodoWrite input under ``arguments``; that call counts as the TodoWrite call.
 """
@@ -35,6 +45,7 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.open_tasks_stop_gate_constants import (
+    ALL_SKIPPED_PROMPT_FLAGS,
     ASSISTANT_RECORD_TYPE,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
@@ -45,15 +56,19 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CCD_PLAN_START_KEY,
     CCD_PLAN_TOOL_NAME,
     CODEX_ARGUMENTS_KEY,
+    CODEX_CARD_EVENT,
     CODEX_FUNCTION_CALL_TYPE,
+    CODEX_MESSAGE_TYPE,
     CODEX_PAYLOAD_KEY,
     CODEX_PLAN_KEY,
     CODEX_PLAN_TOOL_NAME,
+    CODEX_PROMPT_EVENT,
     CODEX_RESPONSE_ITEM_TYPE,
     CODEX_STEP_KEY,
     COMPLETED_STATUS,
     CONTENT_KEY,
     CREATED_TASK_ID_GROUP_INDEX,
+    DECISION_CARD_TOOL_PATTERN,
     DYNAMIC_TOOL_ARGUMENTS_KEY,
     DYNAMIC_TOOL_CALL_NAME,
     DYNAMIC_TOOL_NAME_KEY,
@@ -66,6 +81,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     RECORD_TYPE_KEY,
     REPLY_TEXT_SEPARATOR,
     ROLE_KEY,
+    STOP_HOOK_FEEDBACK_PREFIX,
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
     TASK_ID_KEY,
@@ -86,6 +102,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_USE_ID_KEY,
     UTC_OFFSET_TEXT,
     UTC_SUFFIX,
+    USER_RECORD_TYPE,
+    USER_ROLE,
     UTF8_ENCODING,
     WORD_SEPARATOR,
 )
@@ -162,6 +180,47 @@ def _result_text(all_block_fields: dict[str, object]) -> str:
     return WORD_SEPARATOR.join(
         str(each_part.get(TEXT_KEY, "")) for each_part in result_content if isinstance(each_part, dict)
     )
+
+
+def is_decision_card_tool(tool_name: object) -> bool:
+    """Return True for a tool that puts a question card in front of the user."""
+    return isinstance(tool_name, str) and re.search(DECISION_CARD_TOOL_PATTERN, tool_name) is not None
+
+
+def is_user_prompt_record(all_record_fields: dict[str, object]) -> bool:
+    """Return True for a record that holds a prompt the user sent, which starts a new turn."""
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    message_role = message_body.get(ROLE_KEY) if isinstance(message_body, dict) else None
+    if USER_RECORD_TYPE != all_record_fields.get(RECORD_TYPE_KEY) and USER_ROLE not in (all_record_fields.get(ROLE_KEY), message_role):
+        return False
+    if any(all_record_fields.get(each_flag) for each_flag in ALL_SKIPPED_PROMPT_FLAGS):
+        return False
+    content_value = message_body.get(CONTENT_KEY) if isinstance(message_body, dict) else None
+    if isinstance(content_value, str):
+        prompt_text = content_value
+    else:
+        all_blocks = _content_blocks(all_record_fields)
+        if any(each_block.get(RECORD_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE for each_block in all_blocks):
+            return False
+        if any(each_block.get(RECORD_TYPE_KEY) != TEXT_KEY for each_block in all_blocks):
+            return True
+        prompt_text = WORD_SEPARATOR.join(
+            str(each_block.get(TEXT_KEY, "")) for each_block in all_blocks if each_block.get(RECORD_TYPE_KEY) == TEXT_KEY
+        )
+    return bool(prompt_text.strip()) and not prompt_text.lstrip().startswith(STOP_HOOK_FEEDBACK_PREFIX)
+
+
+def codex_turn_event(all_record_fields: dict[str, object]) -> str | None:
+    """Return ``card`` for a Codex question card call, ``prompt`` for a Codex user message, else None."""
+    payload_body = all_record_fields.get(CODEX_PAYLOAD_KEY)
+    if all_record_fields.get(RECORD_TYPE_KEY) != CODEX_RESPONSE_ITEM_TYPE or not isinstance(payload_body, dict):
+        return None
+    payload_type = payload_body.get(RECORD_TYPE_KEY)
+    if payload_type == CODEX_FUNCTION_CALL_TYPE and is_decision_card_tool(payload_body.get(TOOL_NAME_KEY)):
+        return CODEX_CARD_EVENT
+    if payload_type == CODEX_MESSAGE_TYPE and payload_body.get(ROLE_KEY) == USER_ROLE:
+        return CODEX_PROMPT_EVENT
+    return None
 
 
 def _numbered_items(all_entries: object, subject_key: str) -> list[TaskItem]:
@@ -245,7 +304,7 @@ def unwrapped_tool_call(tool_name: str, all_input_fields: dict[str, object]) -> 
     return inner_name, all_inner_arguments
 
 
-class _TranscriptReplay:
+class TranscriptReplay:
     """Fold transcript records into the newest task list they describe."""
 
     def __init__(self) -> None:
@@ -256,8 +315,15 @@ class _TranscriptReplay:
         self.own_plan_count = 0
         self.last_assistant_text = ""
         self.all_assistant_texts: list[str] = []
+        self.has_turn_decision_card = False
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
+        codex_event = codex_turn_event(all_record_fields)
+        if codex_event is not None:
+            self.has_turn_decision_card = codex_event == CODEX_CARD_EVENT
+            return
+        if is_user_prompt_record(all_record_fields):
+            self.has_turn_decision_card = False
         plan_items = codex_plan_items(all_record_fields)
         if plan_items is not None:
             self.latest_items = plan_items
@@ -266,6 +332,8 @@ class _TranscriptReplay:
         is_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         for each_block in all_blocks:
             plan_input = each_block.get(TOOL_INPUT_KEY)
+            if is_assistant_record and each_block.get(RECORD_TYPE_KEY) == TOOL_USE_BLOCK_TYPE and is_decision_card_tool(each_block.get(TOOL_NAME_KEY)):
+                self.has_turn_decision_card = True
             if is_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
                 self.apply_desktop_plan(plan_input, record_epoch(all_record_fields))
             else:
@@ -364,9 +432,9 @@ class _TranscriptReplay:
         return [each_item for each_source in all_present_sources for each_item in each_source]
 
 
-def replayed_transcript(transcript_path: object) -> _TranscriptReplay:
+def replayed_transcript(transcript_path: object) -> TranscriptReplay:
     """Fold every transcript record into one replay of the task list and the last assistant text."""
-    replay = _TranscriptReplay()
+    replay = TranscriptReplay()
     for each_record in _transcript_records(transcript_path):
         replay.apply_record(each_record)
     return replay
