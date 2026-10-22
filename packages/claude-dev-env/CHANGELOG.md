@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.99.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.11...claude-dev-env-v8.99.0) (2026-10-22)
+
+
+### Features
+
+* **pull-request:** reader sections in the pull request body ([#2168](https://github.com/jl-cmd-projects/claude-dev-env/issues/2168)) ([3904b6c](https://github.com/jl-cmd-projects/claude-dev-env/commit/3904b6c037925d6170ace26590f76948799b6e81))
+
 ## [8.98.11](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.10...claude-dev-env-v8.98.11) (2026-10-22)
 
 
