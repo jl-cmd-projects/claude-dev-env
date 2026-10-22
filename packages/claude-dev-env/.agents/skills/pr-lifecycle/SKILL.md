@@ -24,7 +24,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 **Prove the change where it runs before opening a PR.** Read `~/.claude/docs/rule-guides/proof-before-pull-request.md` for the body and hook requirements. A `feat` PR also needs an "Eval" section and a session that invoked `/claude-api build-eval`; read `~/.claude/docs/rule-guides/features-start-with-an-eval.md` before you build the feature.
 
-**Open PRs ready for review; use `--draft` when the owner requests it.** Before you commit copied files or open a PR, search open PRs for the same paths with `gh pr list --search "<path>"`, so you do not duplicate a peer's PR. Each pre-existing failure or remaining defect the PR body names links a tracked issue.
+**Open PRs ready for review; use `--draft` when the owner requests it.** Before you commit copied files or open a PR, list the changed files of open PRs with `gh pr list --json number,files` and compare them with your paths, so you do not duplicate a peer's PR. Each pre-existing failure or remaining defect the PR body names links a tracked issue.
 
 **A release bot's PR body is machine input. Leave it alone.** Release automation reads
 back the body of its own merged pull request to decide it owns that merge. Rewriting the
