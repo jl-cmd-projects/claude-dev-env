@@ -74,6 +74,10 @@ def test_executable_word_lists_reads_chains_prefixes_and_shell_wrappers() -> Non
     assert gate.executable_word_lists("bash -c 'git add x; git commit'")[-2:] == [["git", "add", "x"], ["git", "commit"]]
 
 
+def test_executable_word_lists_keeps_an_empty_quoted_argument() -> None:
+    assert gate.executable_word_lists('git commit -m ""') == [["git", "commit", "-m", ""]]
+
+
 def test_loaded_skill_allows_action_silently(tmp_path: Path) -> None:
     path = _transcript(tmp_path, "plugin:pr-lifecycle")
     assert _run_main(_payload("gh pr view", path)) == (0, "")
