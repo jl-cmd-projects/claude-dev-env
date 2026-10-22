@@ -167,9 +167,9 @@ def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assis
     return {"type": record_type, "timestamp": "2026-01-01T00:00:00.000Z", "message": {"content": [tool_use]}}
 
 
-def plan_statuses(transcript_path: Path) -> list[tuple[str, str, bool]]:
+def plan_statuses(transcript_path: Path) -> list[tuple[str, str]]:
     all_items = replayed_transcript(str(transcript_path)).items() or []
-    return [(each_item.subject, each_item.status, each_item.is_carried) for each_item in all_items]
+    return [(each_item.subject, each_item.status) for each_item in all_items]
 
 
 def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_path: Path) -> None:
@@ -187,9 +187,9 @@ def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_pa
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Read the gate", "completed", False),
-        ("Write the tests", "in_progress", False),
-        ("Open the PR", "pending", False),
+        ("Read the gate", "completed"),
+        ("Write the tests", "in_progress"),
+        ("Open the PR", "pending"),
     ]
 
 
@@ -207,9 +207,9 @@ def test_should_carry_unfinished_items_after_the_replacing_list(tmp_path: Path) 
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Set rows in Neon", "in_progress", False),
-        ("Export the OneUI8 APK", "in_progress", True),
-        ("Submit both APKs", "pending", True),
+        ("Set rows in Neon", "in_progress"),
+        ("Export the OneUI8 APK", "in_progress"),
+        ("Submit both APKs", "pending"),
     ]
 
 
@@ -228,9 +228,9 @@ def test_should_point_done_and_start_indices_at_the_tools_own_items(tmp_path: Pa
         ],
     )
     assert plan_statuses(transcript_path) == [
-        ("Beta", "completed", False),
-        ("Gamma", "in_progress", False),
-        ("Alpha", "pending", True),
+        ("Beta", "completed"),
+        ("Gamma", "in_progress"),
+        ("Alpha", "pending"),
     ]
 
 
@@ -248,4 +248,4 @@ def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path)
             ),
         ],
     )
-    assert plan_statuses(transcript_path) == [("Beta", "completed", False), ("alpha", "completed", False)]
+    assert plan_statuses(transcript_path) == [("Beta", "completed"), ("alpha", "completed")]

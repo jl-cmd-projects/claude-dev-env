@@ -40,7 +40,6 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -81,7 +80,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     IN_PROGRESS_STATUS,
     MESSAGE_KEY,
     PENDING_STATUS,
-    RECORD_TIMESTAMP_KEY,
     RECORD_TYPE_KEY,
     ROLE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
@@ -104,8 +102,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_KEY,
-    UTC_OFFSET_TEXT,
-    UTC_SUFFIX,
     USER_RECORD_TYPE,
     USER_ROLE,
     UTF8_ENCODING,
@@ -120,31 +116,16 @@ class TaskItem(NamedTuple):
         item_id: The task number or position, as text.
         subject: The item's wording.
         status: The item's status, such as ``pending`` or ``completed``.
-        listed_at: For a desktop plan item, seconds since the epoch of the last list that held it.
-        is_carried: True for a desktop plan item a replacing list left out.
     """
 
     item_id: str
     subject: str
     status: str
-    listed_at: float | None = None
-    is_carried: bool = False
 
 
 def normalized_text(text: str) -> str:
     """Return the text lowercased with each run of whitespace collapsed to one space."""
     return WORD_SEPARATOR.join(text.lower().split())
-
-
-def record_epoch(all_record_fields: dict[str, object]) -> float | None:
-    """Return the record's ISO ``timestamp`` as seconds since the epoch, or None."""
-    timestamp_value = all_record_fields.get(RECORD_TIMESTAMP_KEY)
-    if not isinstance(timestamp_value, str):
-        return None
-    try:
-        return datetime.fromisoformat(timestamp_value.replace(UTC_SUFFIX, UTC_OFFSET_TEXT)).timestamp()
-    except ValueError:
-        return None
 
 
 def parsed_object(json_text: str) -> dict[str, object] | None:
@@ -377,15 +358,15 @@ class TranscriptReplay:
         for each_block in _content_blocks(all_record_fields):
             plan_input = each_block.get(TOOL_INPUT_KEY)
             if is_typed_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
-                self.apply_desktop_plan(plan_input, record_epoch(all_record_fields))
+                self.apply_desktop_plan(plan_input)
                 self.has_turn_tracker_write = True
             else:
                 self.apply_block(each_block, is_from_assistant)
 
-    def apply_desktop_plan(self, all_plan_fields: dict[str, object], listed_at: float | None) -> None:
+    def apply_desktop_plan(self, all_plan_fields: dict[str, object]) -> None:
         all_listed_entries = all_plan_fields.get(CCD_PLAN_ITEMS_KEY)
         if isinstance(all_listed_entries, list):
-            self.replace_desktop_plan(all_listed_entries, listed_at)
+            self.replace_desktop_plan(all_listed_entries)
             return
         all_own_items = (self.plan_items or [])[: self.own_plan_count]
         all_done_positions = all_plan_fields.get(CCD_PLAN_DONE_KEY)
@@ -399,14 +380,14 @@ class TranscriptReplay:
             all_own_items = advanced_items(all_own_items)
         self.plan_items = all_own_items + (self.plan_items or [])[self.own_plan_count :]
 
-    def replace_desktop_plan(self, all_listed_entries: list[object], listed_at: float | None) -> None:
+    def replace_desktop_plan(self, all_listed_entries: list[object]) -> None:
         all_own_items = [
-            each_item._replace(item_id=CCD_PLAN_ITEM_ID_TEMPLATE.format(position=each_item.item_id), listed_at=listed_at)
+            each_item._replace(item_id=CCD_PLAN_ITEM_ID_TEMPLATE.format(position=each_item.item_id))
             for each_item in _numbered_items(all_listed_entries, CCD_PLAN_CONTENT_KEY)
         ]
         all_listed_subjects = {normalized_text(each_item.subject) for each_item in all_own_items}
         all_carried_items = [
-            each_item._replace(is_carried=True)
+            each_item
             for each_item in self.plan_items or []
             if each_item.status in INCOMPLETE_STATUSES and normalized_text(each_item.subject) not in all_listed_subjects
         ]
