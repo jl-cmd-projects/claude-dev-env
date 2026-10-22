@@ -51,6 +51,7 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.open_tasks_stop_gate_constants import INCOMPLETE_STATUSES
 from open_task_asks import is_ask
 from open_tasks_stop_gate import session_task_items
 from open_tasks_transcript import TaskItem, replayed_transcript
@@ -68,7 +69,6 @@ from hooks_constants.session_title_constants import (
     BLOCK_INPUT_KEY,
     BLOCK_NAME_KEY,
     CHECK_MARK_STATUS,
-    ALL_OPEN_TASK_STATUSES,
     CONTENT_KEY,
     DECISION_KEY,
     DECODE_ERRORS_POLICY,
@@ -318,7 +318,7 @@ def stale_status_reason(title: str, is_ask_turn: bool, all_task_items: list[Task
         The reason the status is stale, with the title filled in, or None.
     """
     status = title_status(title)
-    has_open_items = any(each_item.status in ALL_OPEN_TASK_STATUSES for each_item in all_task_items)
+    has_open_items = any(each_item.status in INCOMPLETE_STATUSES for each_item in all_task_items)
     is_all_completed = bool(all_task_items) and not has_open_items
     if status == RED_FLAG_STATUS and is_ask_turn:
         return STALE_FLAG_REASON.format(title=title)

@@ -1,7 +1,6 @@
 """Constants for the open tasks Stop gate."""
 
 HOOK_EVENT_NAME = "Stop"
-SESSION_ID_KEY = "session_id"
 TRANSCRIPT_PATH_KEY = "transcript_path"
 DECISION_KEY = "decision"
 BLOCK_DECISION = "block"

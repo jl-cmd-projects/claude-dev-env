@@ -62,7 +62,6 @@ TITLE_TOOL_DISPLAY_SEPARATOR = " or "
 
 SESSION_ID_KEY = "session_id"
 BLOCK_INPUT_KEY = "input"
-ALL_OPEN_TASK_STATUSES = frozenset({"pending", "in_progress"})
 RED_FLAG_STATUS = "\U0001f6a9"
 CHECK_MARK_STATUS = "\u2705"
 HOURGLASS_STATUS = "\u23f3"
