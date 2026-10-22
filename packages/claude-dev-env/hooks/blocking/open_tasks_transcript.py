@@ -192,11 +192,6 @@ def _text_of_blocks(all_blocks: list[dict[str, object]]) -> str:
     )
 
 
-def is_user_prompt_record(all_record_fields: dict[str, object]) -> bool:
-    """Return True for a record that holds a prompt the user sent, which starts a new turn."""
-    return claude_prompt_text(all_record_fields) is not None
-
-
 def claude_prompt_text(all_record_fields: dict[str, object]) -> str | None:
     """Return the prompt text of a record that starts a turn, or None for any other record."""
     message_body = all_record_fields.get(MESSAGE_KEY)

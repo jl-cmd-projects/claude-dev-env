@@ -9,7 +9,6 @@ from open_tasks_transcript import (
     codex_prompt_text,
     is_assistant_record,
     is_codex_work_call,
-    is_user_prompt_record,
     parsed_object,
     replayed_transcript,
     unwrapped_tool_call,
@@ -112,7 +111,6 @@ def test_should_read_prompt_text_only_from_a_record_that_starts_a_turn(
     record: dict[str, object], expected_text: str | None
 ) -> None:
     assert claude_prompt_text(record) == expected_text
-    assert is_user_prompt_record(record) is (expected_text is not None)
 
 
 def test_should_read_codex_user_message_text() -> None:
