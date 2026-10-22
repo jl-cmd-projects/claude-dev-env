@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.98.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.2...claude-dev-env-v8.98.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** read only an all-punctuation word as a command separator ([#2145](https://github.com/jl-cmd-projects/claude-dev-env/issues/2145)) ([64bf962](https://github.com/jl-cmd-projects/claude-dev-env/commit/64bf96256fc10d1ed3a02c92fb473171ed71040a))
+* **hooks:** record no ask for agent messages and system reminders ([#2143](https://github.com/jl-cmd-projects/claude-dev-env/issues/2143)) ([3712453](https://github.com/jl-cmd-projects/claude-dev-env/commit/371245316c7068e0b3426cf1f8f23a11116b8729))
+
 ## [8.98.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.1...claude-dev-env-v8.98.2) (2026-10-22)
 
 
