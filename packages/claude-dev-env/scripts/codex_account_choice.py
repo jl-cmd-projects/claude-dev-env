@@ -65,6 +65,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE,
     SETUP_NAMES_SEPARATOR,
     SETUP_NO_SAVED_NAMES_TEXT,
+    SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE,
     SETUP_PROMPT_TEXT,
     SETUP_SAVED_NAMES_TEMPLATE,
     TEXT_ENCODING,
@@ -443,6 +444,14 @@ def _run_setup(arguments: argparse.Namespace) -> int:
         launcher_directory=arguments.launcher_directory,
         now=now,
     )
+    all_environment_names = _environment_roster()
+    if all_environment_names and all_environment_names != all_names:
+        print(
+            SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE.format(
+                names=SETUP_NAMES_SEPARATOR.join(all_environment_names)
+            ),
+            file=sys.stderr,
+        )
     all_installed = install_codex_account_launchers(
         main_home=arguments.main_home,
         profiles_root=arguments.profiles_root,

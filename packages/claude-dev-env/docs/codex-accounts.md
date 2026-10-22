@@ -89,6 +89,12 @@ folder under the profiles root stays, with its `auth.json`, so typing the name
 again restores it. A blank first line empties the roster and moves every launcher
 aside.
 
+While `CODEX_ACCOUNT_PROFILES` is set, the variable's list stays the roster. The
+next broker, sync, or install run saves it over the setup list, and setup prints
+a warning when the two differ. Change or clear the variable to change the
+roster. Two processes with different values of the variable each save their own
+list, so a process without the variable reads whichever list was saved last.
+
 ## Which account a job uses
 
 Room is the least percent left across an account's windows, such as the 5-hour window and the week.

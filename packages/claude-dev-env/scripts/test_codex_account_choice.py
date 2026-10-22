@@ -360,6 +360,22 @@ class TestSetupRoster:
             "profile name must use letters, digits, hyphens, or underscores",
         ]
 
+    @pytest.mark.parametrize(("environment_roster", "is_warned"), [("alpha,beta", True), ("alpha", False), ("", False)])
+    def should_warn_when_the_environment_roster_will_replace_the_setup_list(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        environment_roster: str,
+        is_warned: bool,
+    ) -> None:
+        monkeypatch.setattr(choice, "update_codex_account_roster", lambda **_: (("alpha",), {}))
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", environment_roster)
+        all_arguments = ["--profiles-root", str(tmp_path / "profiles"), "setup"]
+        main_home = build_codex_main_home(tmp_path)
+        assert choice.main([*all_arguments, "--main-home", str(main_home), "--launcher-directory", str(tmp_path / "bin")]) == 0
+        assert ("CODEX_ACCOUNT_PROFILES names alpha" in capsys.readouterr().err) is is_warned
+
     def should_finish_at_the_end_of_input(self, tmp_path: Path) -> None:
         all_names, _ = choice.update_codex_account_roster(
             profiles_root=tmp_path,

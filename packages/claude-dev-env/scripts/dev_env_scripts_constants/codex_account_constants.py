@@ -44,6 +44,12 @@ SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE: str = (
 )
 """Warning when the environment roster cannot be copied into the saved file."""
 
+SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE: str = (
+    "warning: CODEX_ACCOUNT_PROFILES names {names}; the next broker, sync or install run"
+    " saves that list over this setup list"
+)
+"""Warning when setup saves a list that the environment roster will replace."""
+
 ROSTER_JSON_INDENT: int = 2
 """Indent of the saved roster JSON, one name per line."""
 
