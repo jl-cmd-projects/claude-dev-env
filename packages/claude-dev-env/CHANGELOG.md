@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.4...claude-dev-env-v8.96.5) (2026-10-22)
+
+
+### Documentation
+
+* **hooks:** say the quiet-turn pass allows title-only calls ([#2124](https://github.com/jl-cmd-projects/claude-dev-env/issues/2124)) ([ff03a6a](https://github.com/jl-cmd-projects/claude-dev-env/commit/ff03a6ab4da59494fdf7918516bcd3cc266301cd))
+
 ## [8.96.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.3...claude-dev-env-v8.96.4) (2026-10-22)
 
 
