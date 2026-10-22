@@ -118,7 +118,7 @@ def _command_segments(command: str) -> list[list[str]]:
         try:
             all_words = list(lexer)
         except ValueError:
-            return []
+            all_words = each_text.split()
         if all_words:
             all_segments.append(all_words)
     return all_segments

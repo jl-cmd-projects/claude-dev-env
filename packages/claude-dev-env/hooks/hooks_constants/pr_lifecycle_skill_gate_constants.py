@@ -37,7 +37,7 @@ COMMAND_PIECE_PATTERN = re.compile(
     r'|"(?:\\.|[^"\\])*"'
     rf"|(?P<{LINE_CONTINUATION_PIECE}>\\\n)"
     rf"|\\.[^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}'\"\\]*"
-    rf"|(?P<{COMMENT_PIECE}>(?<![^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}])#[^\n]*)"
+    rf"|(?P<{COMMENT_PIECE}>(?<![^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}])(?<!\\\n)#[^\n]*)"
     rf"|(?P<{SEPARATOR_PIECE}>[{re.escape(COMMAND_SEPARATORS)}])"
     rf"|(?P<{UNCLOSED_QUOTE_PIECE}>['\"])"
     r"|.",
