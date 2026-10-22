@@ -29,6 +29,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,6 +63,8 @@ from dev_env_scripts_constants.codex_account_constants import (
     MAIN_CODEX_HOME_DIRECTORY_NAME,
     ROSTER_JSON_INDENT,
     ROSTER_NOT_A_LIST_TEMPLATE,
+    ROSTER_REPLACE_ATTEMPTS,
+    ROSTER_REPLACE_RETRY_SECONDS,
     SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE,
     SETUP_NAMES_SEPARATOR,
     SETUP_NO_SAVED_NAMES_TEXT,
@@ -246,10 +249,35 @@ def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> N
     staged_path = roster_path.with_name(f"{roster_path.name}.{os.getpid()}.tmp")
     try:
         staged_path.write_bytes(roster_text.encode(TEXT_ENCODING))
-        os.replace(staged_path, roster_path)
+        _replace_with_retries(staged_path, roster_path)
     except OSError:
         staged_path.unlink(missing_ok=True)
         raise
+
+
+def _replace_with_retries(staged_path: Path, roster_path: Path) -> None:
+    """Replace the saved roster, retrying while a Windows reader holds it open.
+
+    Args:
+        staged_path: The fully written new roster file.
+        roster_path: The saved roster file to replace.
+
+    Raises:
+        PermissionError: When the saved file stays locked through every attempt.
+    """
+    for _ in range(ROSTER_REPLACE_ATTEMPTS - 1):
+        if _replaced(staged_path, roster_path):
+            return
+        time.sleep(ROSTER_REPLACE_RETRY_SECONDS)
+    os.replace(staged_path, roster_path)
+
+
+def _replaced(staged_path: Path, roster_path: Path) -> bool:
+    try:
+        os.replace(staged_path, roster_path)
+    except PermissionError:
+        return False
+    return True
 
 
 def _sync_account(

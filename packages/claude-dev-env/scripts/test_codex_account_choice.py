@@ -265,6 +265,24 @@ class TestAccountRoster:
         assert choice.saved_codex_account_names(profiles_root) == ("alpha", "beta")
         assert [each.name for each in profiles_root.iterdir()] == ["account-launchers.json"]
 
+    def should_retry_a_replace_while_a_reader_holds_the_roster(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original_replace = os.replace
+        all_attempts: list[object] = []
+
+        def refuse_first_replace(source: Path, target: Path) -> None:
+            all_attempts.append(source)
+            if len(all_attempts) == 1:
+                raise PermissionError("in use")
+            original_replace(source, target)
+
+        monkeypatch.setattr(choice.os, "replace", refuse_first_replace)
+        monkeypatch.setattr(choice.time, "sleep", lambda _: None)
+        choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert len(all_attempts) == 2
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
     def should_remove_the_staged_roster_when_the_replace_fails(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -272,6 +290,7 @@ class TestAccountRoster:
             raise PermissionError("in use")
 
         monkeypatch.setattr(choice.os, "replace", refuse_replace)
+        monkeypatch.setattr(choice.time, "sleep", lambda _: None)
         with pytest.raises(PermissionError):
             choice.save_codex_account_names(tmp_path, ("alpha",))
         assert list(tmp_path.iterdir()) == []

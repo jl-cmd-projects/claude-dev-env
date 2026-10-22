@@ -44,6 +44,12 @@ SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE: str = (
 )
 """Warning when the environment roster cannot be copied into the saved file."""
 
+ROSTER_REPLACE_ATTEMPTS: int = 5
+"""Tries at replacing the saved roster while a Windows reader holds it open."""
+
+ROSTER_REPLACE_RETRY_SECONDS: float = 0.05
+"""Pause between tries at replacing the saved roster."""
+
 SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE: str = (
     "warning: CODEX_ACCOUNT_PROFILES names {names}; the next broker, sync or install run"
     " saves that list over this setup list"
