@@ -69,6 +69,30 @@ BLOCK_REASON_SUFFIX = (
     "\nKeep working each one now. End the reply with one line per item you cannot finish this turn:"
     " 'Blocked: <item> - <what the user must give>' when only the user can unblock it, or"
     " 'Open: <item> - <the step you take next>' when you are still working it."
+    " When the user must decide, choose, or approve, ask on a question card (AskUserQuestion,"
+    " or mcp__hearthbot__ask_decision / request_decision) this turn, then add the Blocked line."
+)
+BLOCKED_REPORT_KIND = "blocked"
+REPORT_KIND_GROUP_INDEX = 1
+DECISION_WORD_PATTERN = (
+    r"\b(?:ok|okay|approve[sd]?|approval|go-?ahead|green\s+light|sign-?off|decide[sd]?|decision"
+    r"|choose|choice|pick|confirm(?:s|ed|ation)?|permission|consent|say-?so|your\s+call|whether|prefer(?:s|ence)?)\b"
+)
+DECISION_CARD_TOOL_PATTERN = (
+    r"(?:^|__)AskUserQuestion$|hearthbot__(?:ask|request)_decision$|^request_user_input(?:_async)?$"
+)
+ALL_SKIPPED_PROMPT_FLAGS = ("isMeta", "isSidechain", "isCompactSummary")
+USER_ROLE = "user"
+USER_RECORD_TYPE = "user"
+CODEX_MESSAGE_TYPE = "message"
+CODEX_CARD_EVENT = "card"
+CODEX_PROMPT_EVENT = "prompt"
+STOP_HOOK_FEEDBACK_PREFIX = "Stop hook feedback"
+DECISION_LINE_TEMPLATE = "\n- {line}"
+DECISION_BLOCK_REASON_PREFIX = "This reply asks the user for a decision in a Blocked line, with no question card this turn:"
+DECISION_BLOCK_REASON_SUFFIX = (
+    "\nPut the decision on a question card now: call AskUserQuestion, or mcp__hearthbot__ask_decision or"
+    " mcp__hearthbot__request_decision, with two or three choices. Then end the reply with the Blocked line."
 )
 ASK_CLOSE_SUFFIX = (
     "\nClose a finished ask with a 'Done: #ask-N' line. Close an ask or a carried plan item the user"

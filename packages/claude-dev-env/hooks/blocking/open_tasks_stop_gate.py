@@ -15,7 +15,7 @@ An item with status ``pending`` or ``in_progress`` is open, and so is an ask
 until a reply closes it. The turn may end only when the closing reply names
 every open item on a report line::
 
-    allow: Blocked: Rotate the deploy key - the owner must approve the org secret
+    allow: Blocked: Rotate the deploy key - the owner pastes the org secret
     allow: - Open: #3 - waits on the release checks
     allow: Open: #ask-2 - the export job runs next
     block: (reply never mentions "Rotate the deploy key")
@@ -29,6 +29,21 @@ of the session close an item for good::
 
 A ``Dropped:`` quote must appear in a prompt the user sent after that ask, or
 after the last plan list that held the item.
+
+A ``Blocked:`` line that asks the user for a decision needs a question card
+in the same turn. The gate calls a line a decision when it holds a decision
+word: ok, okay, approve, approval, go-ahead, green light, sign-off, decide,
+decision, choose, choice, pick, confirm, permission, consent, say-so, your
+call, whether, or prefer. Any other ``Blocked:`` line names an input the user
+supplies, such as a secret, a file, or a step on a device, and needs no card::
+
+    block: Blocked: #ask-1 - your OK to merge PR #7071 first       (no card this turn)
+    allow: the same line after an AskUserQuestion call this turn
+    allow: Blocked: #ask-1 - the new deploy key secret, pasted into the session
+
+The cards are ``AskUserQuestion``, ``mcp__hearthbot__ask_decision``,
+``mcp__hearthbot__request_decision``, and Codex ``request_user_input``. The
+check runs whether or not any item is open.
 
 A block sends the open items back as the reason, so the model keeps working or
 reports them. Claude Code ends the turn after eight blocks in a row. Codex
@@ -61,7 +76,7 @@ if blocking_directory not in sys.path:
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from open_task_asks import RecordedPrompt, claude_home, recorded_prompts
-from open_tasks_transcript import TaskItem, normalized_text, parsed_object, replayed_transcript
+from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
     ASK_CLOSE_SUFFIX,
@@ -73,13 +88,18 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     BLOCK_DECISION,
     BLOCK_REASON_PREFIX,
     BLOCK_REASON_SUFFIX,
+    BLOCKED_REPORT_KIND,
     CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
     CURSOR_FOLLOWUP_LIMIT,
     CURSOR_FOLLOWUP_MESSAGE_KEY,
     CURSOR_LOOP_COUNT_KEY,
     CURSOR_STATUS_KEY,
+    DECISION_BLOCK_REASON_PREFIX,
+    DECISION_BLOCK_REASON_SUFFIX,
     DECISION_KEY,
+    DECISION_LINE_TEMPLATE,
+    DECISION_WORD_PATTERN,
     DONE_LINE_PATTERN,
     DONE_TEXT_GROUP_INDEX,
     DROPPED_LINE_PATTERN,
@@ -91,7 +111,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     LAST_ASSISTANT_MESSAGE_KEY,
     PENDING_STATUS,
     REASON_KEY,
+    REPORT_KIND_GROUP_INDEX,
     REPORT_LINE_PATTERN,
+    REPLY_TEXT_SEPARATOR,
     REPORTED_TEXT_GROUP_INDEX,
     SESSION_ID_KEY,
     TASK_FILE_GLOB,
@@ -226,12 +248,28 @@ def deduplicated_by_subject(all_sources: list[list[TaskItem]]) -> list[TaskItem]
     return all_kept_items
 
 
-def unreported_open_items(all_hook_input_fields: dict[str, object]) -> list[TaskItem]:
-    """Return the open task items and asks the closing reply does not report."""
-    replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
-    session_id = all_hook_input_fields.get(SESSION_ID_KEY)
+def closing_reply_text(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str:
+    """Return the closing reply from the hook input, or the last assistant text of the transcript."""
     reply_value = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
-    reply_text = reply_value if isinstance(reply_value, str) else replay.last_assistant_text
+    return reply_value if isinstance(reply_value, str) else replay.last_assistant_text
+
+
+def uncarded_decision_lines(reply_text: str, replay: TranscriptReplay) -> list[str]:
+    """Return each ``Blocked:`` line that asks for a decision when no question card ran this turn."""
+    if replay.has_turn_decision_card:
+        return []
+    return [
+        each_match.group(0).strip()
+        for each_match in _line_matches(REPORT_LINE_PATTERN, [reply_text])
+        if each_match.group(REPORT_KIND_GROUP_INDEX).lower() == BLOCKED_REPORT_KIND
+        and re.search(DECISION_WORD_PATTERN, each_match.group(REPORTED_TEXT_GROUP_INDEX), re.IGNORECASE)
+    ]
+
+
+def unreported_open_items(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[TaskItem]:
+    """Return the open task items and asks the closing reply does not report."""
+    session_id = all_hook_input_fields.get(SESSION_ID_KEY)
+    reply_text = closing_reply_text(all_hook_input_fields, replay)
     all_closing_texts = [*replay.all_assistant_texts, reply_text]
     all_prompts = recorded_prompts(session_id)
     all_replayed_items = [
@@ -254,6 +292,12 @@ def _item_line(task_item: TaskItem) -> str:
     if task_item.item_id.startswith(ASK_ID_PREFIX):
         return ASK_LINE_TEMPLATE.format(ask_id=task_item.item_id, subject=task_item.subject)
     return ITEM_LINE_TEMPLATE.format(subject=task_item.subject or TASK_NUMBER_REFERENCE_TEMPLATE.format(task_id=task_item.item_id))
+
+
+def decision_block_reason_for(all_decision_lines: list[str]) -> str:
+    """Return the block reason that quotes each decision line and names the question card."""
+    all_quoted_lines = "".join(DECISION_LINE_TEMPLATE.format(line=each_line) for each_line in all_decision_lines)
+    return DECISION_BLOCK_REASON_PREFIX + all_quoted_lines + DECISION_BLOCK_REASON_SUFFIX
 
 
 def block_reason_for(all_open_items: list[TaskItem]) -> str:
@@ -295,10 +339,16 @@ def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None or is_unfinished_cursor_stop(hook_input) or has_spent_cursor_followups(hook_input):
         return ALLOW_EXIT_CODE
-    all_open_items = unreported_open_items(hook_input)
-    if not all_open_items:
+    replay = replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY))
+    all_open_items = unreported_open_items(hook_input, replay)
+    all_decision_lines = uncarded_decision_lines(closing_reply_text(hook_input, replay), replay)
+    if not all_open_items and not all_decision_lines:
         return ALLOW_EXIT_CODE
-    block_reason = block_reason_for(all_open_items)
+    all_reason_parts = [
+        *([block_reason_for(all_open_items)] if all_open_items else []),
+        *([decision_block_reason_for(all_decision_lines)] if all_decision_lines else []),
+    ]
+    block_reason = REPLY_TEXT_SEPARATOR.join(all_reason_parts)
     reply_value = hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)
     log_hook_block(
         Path(__file__).name,
