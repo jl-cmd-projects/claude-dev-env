@@ -91,12 +91,13 @@ const HOST_DEFINITIONS = Object.freeze({
  * verb gets refresh commands: the marketplace add and plugin install leave an
  * existing entry in place, and the update commands then pull the newest
  * published version over it, so an installed plugin stays installed through
- * the whole run. When any refresh command fails, or the host has no update
- * verb, the removal commands run and take out each installed plugin, its
- * cached versions, and the marketplace clone, and the install commands that
- * follow fetch the newest published version into an empty slot. Removing a
- * marketplace uninstalls each plugin it supplied, so the plan removes and adds
- * that marketplace once for the whole set.
+ * the whole run. When a refresh command fails for a reason only a rebuild
+ * fixes, or the host has no update verb, the removal commands run and take
+ * out each installed plugin, its cached versions, and the marketplace clone,
+ * and the install commands that follow fetch the newest published version
+ * into an empty slot. Removing a marketplace uninstalls each plugin it
+ * supplied, so the plan removes and adds that marketplace once for the whole
+ * set.
  *
  * Claude Code and Codex publish a marketplace under different plugin verbs, so
  * the install verb belongs to the host and the marketplace and identifier
@@ -219,7 +220,12 @@ function runHostCommand(executable, commandArguments, options) {
         env: { ...process.env, ...options.environment },
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
     });
-    return { status: spawned.status, stderr: spawned.stderr ?? '', error: spawned.error };
+    return {
+        status: spawned.status,
+        stdout: spawned.stdout ?? '',
+        stderr: spawned.stderr ?? '',
+        error: spawned.error,
+    };
 }
 
 const COMMAND_NOT_FOUND_EXIT_CODE = 9009;
@@ -297,15 +303,33 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
     }).join('');
 }
 
+const REBUILD_REQUIRED_PATTERN = /doesn't match its extraKnownMarketplaces entry|Source path does not exist/;
+
+function commandFailureDetail(outcome) {
+    return singleLineDetail(outcome.stderr) || singleLineDetail(outcome.stdout)
+        || outcome.error?.message || `exit ${outcome.status}`;
+}
+
+function failedCommandOutcome(allSpecs, host, homeDirectory, executable, commandArguments, outcome, findLockers) {
+    const detail = commandFailureDetail(outcome);
+    const lockAdvice = lockedFolderDetail(allSpecs, host, homeDirectory, detail, findLockers);
+    return {
+        host,
+        executable,
+        status: 'failed',
+        warning: `${executable} ${commandArguments.join(' ')} failed: ${detail}${lockAdvice}`,
+    };
+}
+
 function refreshInPlace(plan, executable, commandEnvironment, runCommand) {
     for (const commandArguments of plan.refreshCommands) {
         const outcome = runCommand(executable, [...commandArguments], {
             environment: commandEnvironment,
         });
-        if (namesAnAbsentCommand(outcome)) return 'absent';
-        if (outcome.status !== 0 || outcome.error) return 'failed';
+        if (namesAnAbsentCommand(outcome)) return { state: 'absent' };
+        if (outcome.status !== 0 || outcome.error) return { state: 'failed', commandArguments, outcome };
     }
-    return 'refreshed';
+    return { state: 'refreshed' };
 }
 
 function removeOrphanedVersionsForHost(allSpecs, host, homeDirectory) {
@@ -326,10 +350,17 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
     }
     if (plan.refreshCommands.length > 0) {
         const refreshOutcome = refreshInPlace(plan, executable, commandEnvironment, runCommand);
-        if (refreshOutcome === 'absent') return absentHostOutcome(allSpecs, host, executable);
-        if (refreshOutcome === 'refreshed') {
+        if (refreshOutcome.state === 'absent') return absentHostOutcome(allSpecs, host, executable);
+        if (refreshOutcome.state === 'refreshed') {
             removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
             return { host, executable, status: 'installed', warning: null };
+        }
+        const refreshOutput = `${refreshOutcome.outcome.stderr ?? ''}\n${refreshOutcome.outcome.stdout ?? ''}`;
+        if (!REBUILD_REQUIRED_PATTERN.test(refreshOutput)) {
+            return failedCommandOutcome(
+                allSpecs, host, homeDirectory, executable,
+                refreshOutcome.commandArguments, refreshOutcome.outcome, findLockers,
+            );
         }
     }
     for (const commandArguments of plan.removalCommands) {
@@ -347,14 +378,9 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
         });
         if (namesAnAbsentCommand(outcome)) return absentHostOutcome(allSpecs, host, executable);
         if (outcome.status !== 0 || outcome.error) {
-            const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
-            const lockAdvice = lockedFolderDetail(allSpecs, host, homeDirectory, detail, findLockers);
-            return {
-                host,
-                executable,
-                status: 'failed',
-                warning: `${executable} ${commandArguments.join(' ')} failed: ${detail}${lockAdvice}`,
-            };
+            return failedCommandOutcome(
+                allSpecs, host, homeDirectory, executable, commandArguments, outcome, findLockers,
+            );
         }
     }
     removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
@@ -385,12 +411,14 @@ export function restartNotice(allSpecs, allInstalledHosts) {
  * plugin, both of which leave an existing entry alone, then updates the
  * marketplace and each plugin. An installed plugin stays installed and enabled
  * through the run, so a session that starts mid-run still loads it, and a
- * failed network step leaves the prior version in place. When a refresh
- * command fails, such as a marketplace add whose sparse paths changed, the
- * host falls back to the clean install Codex always runs: it removes every
- * plugin in the set and then the marketplace, so an older version never
- * survives beside the new one, and adds them again. A removal that finds
- * nothing to remove exits non-zero on a fresh home, and the install goes on.
+ * failed refresh command reports the host failed and leaves the prior version
+ * in place. Two refresh errors need a rebuild: a source that no longer
+ * matches the settings entry, and a source path the sparse clone lacks. The
+ * host reads either from the failing refresh command's output, then falls
+ * back to the clean install Codex always runs: it removes every plugin in the
+ * set and then the marketplace, so an older version never survives beside the
+ * new one, and adds them again. A removal that finds nothing to remove exits
+ * non-zero on a fresh home, and the install goes on.
  * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
  *
@@ -482,7 +510,7 @@ export function removeRetiredMarketplacePlugins(allRetiredSpecs, options, depend
         );
         if (namesAnAbsentCommand(outcome)) break;
         if (outcome.status !== 0 || outcome.error) {
-            const detail = singleLineDetail(outcome.stderr) || outcome.error?.message || `exit ${outcome.status}`;
+            const detail = commandFailureDetail(outcome);
             failedRemovals.push({ pluginIdentifier: eachSpec.pluginIdentifier, detail });
             continue;
         }

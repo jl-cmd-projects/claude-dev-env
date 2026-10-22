@@ -117,6 +117,30 @@ test('a failed Claude refresh falls back to removing and adding the marketplace 
     ]);
 });
 
+test('a Claude refresh error printed on standard output still triggers the rebuild', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[2] === 'add' && runner.calls.length === 1
+            ? { status: 1, stdout: "its source doesn't match its extraKnownMarketplaces entry", stderr: '' }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
+    assert.equal(outcome.status, 'installed');
+    assert.ok(runner.calls.some(call => call.commandArguments.includes('uninstall')));
+});
+
+test('a Claude refresh that fails on the network keeps the installed plugin and reports the failure', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[1] === 'update'
+            ? { status: 1, stderr: 'Failed to update plugin: getaddrinfo ENOTFOUND github.com' }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
+    assert.equal(outcome.status, 'failed');
+    assert.match(outcome.hosts[0].warning, /claude plugin update pstack@pstack-claude failed: .*ENOTFOUND/);
+    const allRemovalCalls = runner.calls.filter(call => (
+        call.commandArguments.includes('uninstall') || call.commandArguments.includes('remove')
+    ));
+    assert.deepEqual(allRemovalCalls, []);
+});
+
 test('each host removes the installed plugin and marketplace before a clean install', () => {
     assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'claude').removalCommands, [
         ['plugin', 'uninstall', PSTACK_PLUGIN_IDENTIFIER],
@@ -131,9 +155,10 @@ test('each host removes the installed plugin and marketplace before a clean inst
 test('a removal that finds nothing installed still lets the install run', () => {
     const runner = recordingRunner((executable, commandArguments) => (
         commandArguments.includes('uninstall') || commandArguments.includes('remove')
-            || commandArguments.includes('update')
             ? { status: 1, stderr: 'not installed' }
-            : { status: 0, stderr: '' }));
+            : commandArguments.includes('update')
+                ? { status: 1, stderr: 'Source path does not exist: plugins/pstack' }
+                : { status: 0, stderr: '' }));
     const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.at(-1).commandArguments, ['plugin', 'install', PSTACK_PLUGIN_IDENTIFIER]);
