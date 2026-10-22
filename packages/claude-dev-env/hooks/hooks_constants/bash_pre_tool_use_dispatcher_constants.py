@@ -79,4 +79,8 @@ ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
         script_relative_path="blocking/cloud_graphql_gate.py",
         applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
     ),
+    BashHostedHookEntry(
+        script_relative_path="blocking/python_windows_invocation_gate.py",
+        applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+    ),
 )

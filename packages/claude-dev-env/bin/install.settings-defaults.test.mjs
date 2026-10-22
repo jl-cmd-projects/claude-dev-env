@@ -268,7 +268,7 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the session agent, advisor model, auto-compact, auto mode and idle compaction defaults', () => {
+test('package settings.json publishes the session agent, advisor model, auto-compact, auto mode, idle compaction and Python UTF-8 defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
     assert.deepEqual(
@@ -276,7 +276,7 @@ test('package settings.json publishes the session agent, advisor model, auto-com
         ['advisorModel', 'agent', 'autoCompactWindow', 'autoMode', 'env', 'modelSettings'],
     );
     assert.equal(settingsDefaults.autoCompactWindow, 350000);
-    assert.deepEqual(settingsDefaults.env, { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000' });
+    assert.deepEqual(settingsDefaults.env, { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000', PYTHONUTF8: '1' });
     assert.deepEqual(settingsDefaults.modelSettings, {
         'claude-haiku-5-5': { autoCompactWindow: 100000 },
         'claude-haiku-4-5': { autoCompactWindow: 100000 },
@@ -307,7 +307,7 @@ test('a missing default is added and a user-set value is kept', () => {
     assert.equal(userSettings.advisorModel, 'sonnet');
 });
 
-test('install adds the idle compaction variable to an env block and keeps a user value on rerun', () => {
+test('install adds the idle compaction and Python UTF-8 variables to an env block and keeps a user value on rerun', () => {
     const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
     try {
         const settingsPath = join(sandboxHome, '.claude', 'settings.json');
@@ -318,6 +318,7 @@ test('install adds the idle compaction variable to an env block and keeps a user
         assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')).env, {
             EDITOR: 'vim',
             CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000',
+            PYTHONUTF8: '1',
         });
         const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
         userChoice.env.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS = '300000';

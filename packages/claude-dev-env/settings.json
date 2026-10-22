@@ -24,6 +24,7 @@
     ]
   },
   "env": {
-    "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "100000"
+    "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "100000",
+    "PYTHONUTF8": "1"
   }
 }

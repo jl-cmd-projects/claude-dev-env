@@ -273,6 +273,7 @@ def test_should_drop_the_gates_the_shell_guards_mod_holds_while_it_is_on(
     assert all_script_paths == [
         "blocking/msys_rev_path_rewriter.py",
         "blocking/cloud_graphql_gate.py",
+        "blocking/python_windows_invocation_gate.py",
     ]
 
 
