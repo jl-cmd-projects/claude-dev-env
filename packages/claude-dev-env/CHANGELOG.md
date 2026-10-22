@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.96.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.6...claude-dev-env-v8.96.7) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** steer an unchecked item to an Open line ([#2129](https://github.com/jl-cmd-projects/claude-dev-env/issues/2129)) ([6dede98](https://github.com/jl-cmd-projects/claude-dev-env/commit/6dede9839644d750bebf1f54f0a1b1e290417a71))
+
 ## [8.96.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.96.5...claude-dev-env-v8.96.6) (2026-10-22)
 
 
