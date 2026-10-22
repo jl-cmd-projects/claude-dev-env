@@ -34,9 +34,9 @@ Expected results:
 
 | Input | Output | Exit |
 |---|---|---|
-| Conventional title, body with `## Why` and `## Verification` | nothing | 0 |
+| Conventional title, body with `## What this does`, `## Risk` and `## How to revert` | nothing | 0 |
 | Title `Add a map` | `pull request title does not use the repository Conventional Commit form` | 1 |
-| `pr-create` body with neither heading | `body is missing required heading: Why`, then `Verification` | 1 |
+| `pr-create` body with none of those headings | `body is missing required heading: What this does`, then `Risk`, then `How to revert` | 1 |
 | Body naming `/tmp/run/log.txt` | `body contains a volatile local artifact path` | 1 |
 | Body line `We park it rather than fix it.` | `Contrast framing (substitution-rather-than): ...` | 1 |
 | `--head-branch release-please--branches--main` with a rewritten body | `release automation reads this body back ...` | 1 |

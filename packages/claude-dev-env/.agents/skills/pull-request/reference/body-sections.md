@@ -14,4 +14,4 @@ A reviewer reads the body in place of the code. The body says what the change do
 
 A repository's own sections, such as a request record or a session link, follow these. Optional `## Why now` and `## After merge` sections go after What this does and after How to revert.
 
-`pull_request.py template` writes the headings in this order. `durable_post_lint.py` reports a create body missing What this does, Risk, or How to revert, and the proof gate holds one missing Existing work, Proof in practice, or Eval for a `feat` title.
+`pull_request.py template` writes the headings in this order into a new body, and appends each missing heading to the end of a body that already has some. `durable_post_lint.py` reports a create body missing What this does, Risk, or How to revert, and the proof gate holds one missing Existing work, Proof in practice, or Eval for a `feat` title.
