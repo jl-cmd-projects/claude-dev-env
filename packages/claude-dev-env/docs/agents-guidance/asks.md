@@ -29,7 +29,12 @@ The installer registers `open_tasks_stop_gate.py` as a Stop hook for each host:
 - Codex: `$CODEX_HOME/hooks.json`. Codex turns the reason into a continuation prompt.
 - Cursor: a native `stop` entry in `~/.cursor/hooks.json`. The reason comes back as `followup_message`, the next user message. A stop with status `aborted` or `error` passes, so a turn the user cancels stays silent.
 
-The gate reads the task list from the task store, the transcript TaskCreate, TaskUpdate, and TodoWrite calls, or the Codex `update_plan` calls. It ends the hold when each open item is named on a `Blocked:` or `Open:` line of the closing reply.
+The gate merges the task store, the transcript TaskCreate, TaskUpdate, and TodoWrite calls, the Codex `update_plan` calls, and the Claude Code desktop `mcp__ccd_turn__update_plan` calls. Each new desktop plan list keeps the unfinished items of the list before it. In Claude Code, `open_task_ask_recorder.py` also records each prompt that asks for work as `#ask-N`. The gate ends the hold when each open item is named on a `Blocked:` or `Open:` line of the closing reply, and that line releases only the current stop.
+
+Close an item for good with one of these lines:
+
+- `Done: #ask-N` for a finished ask. A plan item closes only when the plan marks it completed.
+- `Dropped: <#ask-N or carried item> - "<the user's words>"` for an ask or carried plan item the user called off. The quote must come from a prompt the user sent after that ask or after the plan list that held the item.
 
 ## Cursor
 

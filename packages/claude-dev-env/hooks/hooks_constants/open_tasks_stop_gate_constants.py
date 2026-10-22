@@ -70,3 +70,53 @@ BLOCK_REASON_SUFFIX = (
     " 'Blocked: <item> - <what the user must give>' when only the user can unblock it, or"
     " 'Open: <item> - <the step you take next>' when you are still working it."
 )
+ASK_CLOSE_SUFFIX = (
+    "\nClose a finished ask with a 'Done: #ask-N' line. Close an ask or a carried plan item the user"
+    " called off with 'Dropped: <#ask-N or item> - \"<the user's words that called it off>\"'."
+)
+COMPLETED_STATUS = "completed"
+IN_PROGRESS_STATUS = "in_progress"
+ASSISTANT_RECORD_TYPE = "assistant"
+RECORD_TIMESTAMP_KEY = "timestamp"
+UTC_SUFFIX = "Z"
+UTC_OFFSET_TEXT = "+00:00"
+CCD_PLAN_TOOL_NAME = "mcp__ccd_turn__update_plan"
+CCD_PLAN_ITEMS_KEY = "items"
+CCD_PLAN_CONTENT_KEY = "content"
+CCD_PLAN_DONE_KEY = "done"
+CCD_PLAN_START_KEY = "start"
+CCD_PLAN_ADVANCE_KEY = "advance"
+CCD_PLAN_ITEM_ID_TEMPLATE = "plan-{position}"
+ASK_ID_PREFIX = "ask-"
+ASK_ID_TEMPLATE = "ask-{ask_number}"
+ASK_LINE_TEMPLATE = "\n- #{ask_id}: {subject}"
+ASK_SUBJECT_CHARACTER_LIMIT = 120
+ASK_SUBJECT_ELLIPSIS = "..."
+ASKS_DIRECTORY_NAME = "open-task-asks"
+ASKS_FILE_SUFFIX = ".json"
+ASKS_TEMPORARY_PREFIX = ".open-task-asks-"
+ASKS_TEMPORARY_SUFFIX = ".tmp"
+ASKS_PROMPTS_KEY = "prompts"
+ASK_PROMPT_TEXT_KEY = "text"
+ASK_PROMPT_RECORDED_AT_KEY = "recorded_at"
+ASK_PROMPT_ID_KEY = "ask_id"
+PROMPT_KEY = "prompt"
+SAFE_SESSION_ID_PATTERN = r"[\w-]+"
+SENTENCE_SPLIT_PATTERN = r"(?<=[.!?])\s+|\n+"
+QUESTION_END_PATTERN = r"\?\s*$"
+YES_OR_NO_END_PATTERN = r"\byes\s+or\s+no\W*$"
+INTERROGATIVE_START_PATTERN = (
+    r"^\s*(?:\w+,\s*)?(?:are|is|am|was|were|do|does|did|have|has|had|can|could|will|would"
+    r"|should|shall|may|what|why|how|when|where|which|who|whose)\b"
+)
+ACKNOWLEDGEMENT_PATTERN = (
+    r"^\s*(?:ok(?:ay)?|k|thanks?|thank\s+you|thx|ty|cool|great|nice|perfect|awesome|got\s+it"
+    r"|sounds\s+good|looks\s+good|lgtm)(?:[\s,]+(?:thanks?|thank\s+you))?\W*$"
+)
+POLITE_REQUEST_START_PATTERN = r"^\s*(?:please\b|(?:can|could|would|will)\s+you\b)"
+DONE_LINE_PATTERN = r"^\s*(?:[-*]\s*)?done\b\s*[:\-]?\s*(.*)$"
+DONE_TEXT_GROUP_INDEX = 1
+ASK_REFERENCE_PATTERN = r"#(ask-\d+)\b"
+DROPPED_LINE_PATTERN = r"^\s*(?:[-*]\s*)?dropped\b\s*[:\-]?\s*(.+?)\s+-\s+[\"“](.+?)[\"”]\s*$"
+DROPPED_TARGET_GROUP_INDEX = 1
+DROPPED_QUOTE_GROUP_INDEX = 2
