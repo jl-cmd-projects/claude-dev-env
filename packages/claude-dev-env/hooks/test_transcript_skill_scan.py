@@ -18,9 +18,14 @@ from transcript_skill_scan import (
 )
 
 
-def _skill_entry(name: str) -> str:
+def _skill_entry(name: str, tool_use_id: str = "toolu_skill") -> str:
     return json.dumps(
-        {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": name}}]}}
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "id": tool_use_id, "name": "Skill", "input": {"skill": name}}]
+            },
+        }
     )
 
 
@@ -144,10 +149,38 @@ def _prompt_entry(content: object) -> str:
 
 
 def test_skill_since_last_prompt_survives_tool_results_and_skill_bodies() -> None:
-    tool_result = _prompt_entry([{"type": "tool_result", "content": "Launching skill: verify"}])
+    tool_result = _prompt_entry(
+        [{"type": "tool_result", "tool_use_id": "toolu_skill", "content": "Launching skill: verify"}]
+    )
     skill_body = json.dumps({"type": "user", "isMeta": True, "message": {"content": "Base directory for this skill"}})
     lines = [_prompt_entry("Commit it."), _skill_entry("verify"), tool_result, skill_body]
     assert is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_refused_skill_load_leaves_the_skill_unloaded() -> None:
+    refused_result = _prompt_entry(
+        [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_skill",
+                "content": "<tool_use_error>Skill verify cannot be used with Skill tool</tool_use_error>",
+                "is_error": True,
+            }
+        ]
+    )
+    lines = [_prompt_entry("Commit it."), _skill_entry("verify"), refused_result]
+    assert not is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_skill_call_with_no_result_yet_leaves_the_skill_unloaded() -> None:
+    lines = [_prompt_entry("Commit it."), _skill_entry("verify")]
+    assert not is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_result_for_another_call_leaves_the_skill_unloaded() -> None:
+    other_result = _prompt_entry([{"type": "tool_result", "tool_use_id": "toolu_other", "content": "done"}])
+    lines = [_prompt_entry("Commit it."), _skill_entry("verify"), other_result]
+    assert not is_skill_loaded_since_last_prompt(lines, ("verify",), ())
 
 
 def test_next_prompt_drops_a_skill_loaded_in_the_last_turn() -> None:

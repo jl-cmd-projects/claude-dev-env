@@ -43,13 +43,32 @@ TOOL_RESULT_ENTRY = {
     },
 }
 
+REFUSED_TOOL_RESULT_ENTRY = {
+    "type": "user",
+    "message": {
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_1",
+                "content": "<tool_use_error>Skill verify cannot be used with Skill tool</tool_use_error>",
+                "is_error": True,
+            }
+        ]
+    },
+}
+
 
 def _skill_entry(skill_name: str) -> dict[str, object]:
     return {
         "type": "assistant",
         "message": {
             "content": [
-                {"type": "tool_use", "name": "Skill", "input": {"skill": skill_name}}
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "Skill",
+                    "input": {"skill": skill_name},
+                }
             ]
         },
     }
@@ -244,6 +263,15 @@ def test_docs_plus_code_commit_is_denied(repository: Path, tmp_path: Path) -> No
     assert _is_denied(
         _payload("git commit -m mixed", repository, _unverified(tmp_path))
     )
+
+
+def test_refused_verify_skill_call_is_denied(repository: Path, tmp_path: Path) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repository, "add", "app.py")
+    transcript_path = _transcript(
+        tmp_path, PROMPT_ENTRY, _skill_entry("verify"), REFUSED_TOOL_RESULT_ENTRY
+    )
+    assert _is_denied(_payload("git commit -m change", repository, transcript_path))
 
 
 def test_verify_skill_call_after_the_last_prompt_passes(

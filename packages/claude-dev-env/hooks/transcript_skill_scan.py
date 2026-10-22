@@ -45,6 +45,15 @@ def _named_skill_inputs(
     skill_names: Collection[str],
     accepts_plugin_prefix: bool = True,
 ) -> Iterator[dict[str, object]]:
+    for each_block in _named_skill_blocks(all_entry_fields, skill_names, accepts_plugin_prefix):
+        yield each_block["input"]
+
+
+def _named_skill_blocks(
+    all_entry_fields: dict[str, object],
+    skill_names: Collection[str],
+    accepts_plugin_prefix: bool = True,
+) -> Iterator[dict[str, object]]:
     message = all_entry_fields.get("message")
     if all_entry_fields.get("type") != ASSISTANT_ENTRY_TYPE or not isinstance(message, dict):
         return
@@ -61,7 +70,7 @@ def _named_skill_inputs(
             invoked_name == name or (accepts_plugin_prefix and invoked_name.endswith(":" + name))
             for name in skill_names
         ):
-            yield each_block["input"]
+            yield each_block
 
 
 def _invokes_skill(
@@ -183,11 +192,15 @@ def is_skill_loaded_since_last_prompt(
     ::
 
         prompt, Skill verify, tool result, skill body   -> True
+        prompt, Skill verify, tool result with is_error -> False
+        prompt, Skill verify, no tool result yet        -> False
         prompt, Skill verify, prompt                    -> False
         prompt carrying the /verify command marker      -> True
         prompt with the marker, compact boundary        -> False
 
-    A tool result and a meta entry, such as the skill body, leave the turn open.
+    A Skill call counts once its tool result comes back without an error, so a
+    refused load leaves the skill unloaded. A tool result and a meta entry, such
+    as the skill body, leave the turn open.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
@@ -195,13 +208,23 @@ def is_skill_loaded_since_last_prompt(
         slash_command_markers: Accepted user command tags.
     """
     loaded = False
+    all_pending_ids: set[object] = set()
     for each_line in all_transcript_lines:
         all_entry_fields = _parsed_entry(each_line)
         if all_entry_fields is None:
             continue
         if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE or _is_user_prompt(all_entry_fields):
             loaded = False
-        loaded = loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
+            all_pending_ids = set()
+        command_text = _user_command_text(all_entry_fields)
+        if command_text is not None:
+            loaded = loaded or any(marker in command_text for marker in slash_command_markers)
+        all_pending_ids.update(
+            each_block["id"]
+            for each_block in _named_skill_blocks(all_entry_fields, skill_names)
+            if each_block.get("id") is not None
+        )
+        loaded = loaded or bool(all_pending_ids & _succeeded_result_ids(all_entry_fields))
     return loaded
 
 
