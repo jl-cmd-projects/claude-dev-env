@@ -144,6 +144,46 @@ class TestAccountRoster:
         monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", " beta , alpha,, ")
         assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
 
+    def should_save_the_environment_roster_for_a_process_without_it(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "beta,alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
+        monkeypatch.delenv("CODEX_ACCOUNT_PROFILES")
+        assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
+
+    @pytest.mark.parametrize("document", [["gamma"], ["alpha", "bad name"], {"alpha": 1}])
+    def should_replace_a_saved_file_that_differs_from_the_environment(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, document: object
+    ) -> None:
+        save_roster(tmp_path, document)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        choice.saved_codex_account_names(tmp_path)
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
+    def should_leave_a_saved_file_that_matches_the_environment_untouched(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        save_roster(tmp_path, ["beta", "alpha"])
+        saved_bytes = (tmp_path / "account-launchers.json").read_bytes()
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "beta,alpha")
+        choice.saved_codex_account_names(tmp_path)
+        assert (tmp_path / "account-launchers.json").read_bytes() == saved_bytes
+
+    def should_keep_the_environment_roster_when_the_file_cannot_be_written(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def refuse_save(*_: object) -> None:
+            raise PermissionError("read-only")
+
+        monkeypatch.setattr(choice, "save_codex_account_names", refuse_save)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+        assert "cannot save the CODEX_ACCOUNT_PROFILES roster" in capsys.readouterr().err
+
     def should_read_the_saved_file_when_the_environment_is_unset(
         self, tmp_path: Path
     ) -> None:

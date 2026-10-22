@@ -39,6 +39,11 @@ INVALID_ACCOUNT_ROSTER_TEMPLATE: str = "{source} names {name!r}: {reason}"
 ROSTER_NOT_A_LIST_TEMPLATE: str = "{source} must hold a JSON list of account names"
 """Error when the roster JSON is anything other than a list of names."""
 
+SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE: str = (
+    "warning: cannot save the CODEX_ACCOUNT_PROFILES roster to {path}: {error}"
+)
+"""Warning when the environment roster cannot be copied into the saved file."""
+
 ROSTER_JSON_INDENT: int = 2
 """Indent of the saved roster JSON, one name per line."""
 

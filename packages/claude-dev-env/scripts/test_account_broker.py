@@ -850,6 +850,18 @@ def test_should_use_default_codex_home_without_roster(
     assert "no roster" in decision.reason
 
 
+def test_should_keep_the_codex_roster_for_a_process_without_the_roster_variable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(account_broker.support.codex_account_choice, "default_profiles_root", lambda: tmp_path / "profiles")
+    monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "team,personal")
+    assert [each_account.name for each_account in account_broker.load_codex_accounts()] == ["team", "personal"]
+
+    monkeypatch.delenv("CODEX_ACCOUNT_PROFILES")
+
+    assert [each_account.name for each_account in account_broker.load_codex_accounts()] == ["team", "personal"]
+
+
 def test_should_reuse_meter_cache_for_60_seconds() -> None:
     account = _account("cached")
     calls: list[str] = []

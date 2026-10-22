@@ -5,7 +5,9 @@ Each Codex account signs in under its own Codex home in
 ``~/.codex-profiles/<name>``. The account list names them in try order: the
 ``CODEX_ACCOUNT_PROFILES`` environment variable, comma-separated, else the saved
 ``account-launchers.json`` list under the profiles root. With neither,
-``codex-1`` through ``codex-4`` are the roster.
+``codex-1`` through ``codex-4`` are the roster. An environment roster that
+differs from the saved file is saved to it, so a process without the variable
+reads the same roster.
 
 Three commands::
 
@@ -60,6 +62,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     MAIN_CODEX_HOME_DIRECTORY_NAME,
     ROSTER_JSON_INDENT,
     ROSTER_NOT_A_LIST_TEMPLATE,
+    SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE,
     SETUP_NAMES_SEPARATOR,
     SETUP_NO_SAVED_NAMES_TEXT,
     SETUP_PROMPT_TEXT,
@@ -156,12 +159,44 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
     return _roster(document, str(roster_path))
 
 
+def _saved_roster_or_nothing(profiles_root: Path) -> tuple[str, ...]:
+    try:
+        return _saved_roster_file_names(profiles_root)
+    except CodexAccountNameError:
+        return ()
+
+
+def _save_environment_roster(
+    profiles_root: Path, all_environment_names: tuple[str, ...]
+) -> None:
+    """Copy the environment roster into the saved file when the two differ.
+
+    A process started without ``CODEX_ACCOUNT_PROFILES`` then reads the same
+    roster from the file.
+
+    Args:
+        profiles_root: The directory that holds every account's Codex home.
+        all_environment_names: The validated names the environment gives.
+    """
+    if _saved_roster_or_nothing(profiles_root) == all_environment_names:
+        return
+    try:
+        save_codex_account_names(profiles_root, all_environment_names)
+    except OSError as error:
+        print(
+            SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE.format(
+                path=profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME, error=error
+            ),
+            file=sys.stderr,
+        )
+
+
 def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
     """Name the account list, in try order, without duplicates.
 
     ::
 
-        CODEX_ACCOUNT_PROFILES="alpha, beta,alpha" -> ("alpha", "beta")
+        CODEX_ACCOUNT_PROFILES="alpha, beta,alpha" -> ("alpha", "beta"), saved to the file
         unset, account-launchers.json ["gamma"]    -> ("gamma",)
         unset, no file                             -> ()
 
@@ -170,11 +205,16 @@ def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 
     Returns:
         The environment's names when it names any, else the saved file's names.
+        Environment names that differ from the file are saved to it.
 
     Raises:
         CodexAccountNameError: When the environment or the file names an invalid account.
     """
-    return _environment_roster() or _saved_roster_file_names(profiles_root)
+    all_environment_names = _environment_roster()
+    if all_environment_names:
+        _save_environment_roster(profiles_root, all_environment_names)
+        return all_environment_names
+    return _saved_roster_file_names(profiles_root)
 
 
 def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
