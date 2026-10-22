@@ -7,7 +7,7 @@ Every prompt lands in one file outside the task store::
 
 A prompt that asks for work gets the next ``ask-N`` id. A question-only
 prompt, an acknowledgement such as ``thanks!``, an empty prompt, a prompt of only
-``<system-reminder>`` blocks, and an envelope such as ``<agent-message>`` or such as
+``<system-reminder>`` blocks, and an envelope such as ``<agent-message>`` or
 ``<task-notification>`` get ``ask_id`` null, and the gate still reads their
 text when it checks the quote on a ``Dropped:`` line.
 """
