@@ -136,6 +136,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/verify_before_acting.py           -> exempt
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
+        hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
@@ -173,6 +174,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.
+
+    The send user file gate denies a SendUserFile path outside the session's
+    working directory, which the desktop file pane cannot open. It decides
+    where a sent file sits and no code or safety policy.
 
     The eval write gate denies a write to an eval file until the session
     invokes ``/claude-api build-eval``. It holds eval writes until a skill
