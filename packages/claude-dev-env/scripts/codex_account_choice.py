@@ -472,14 +472,6 @@ def _run_setup(arguments: argparse.Namespace) -> int:
         launcher_directory=arguments.launcher_directory,
         now=now,
     )
-    all_environment_names = _environment_roster()
-    if all_environment_names and all_environment_names != all_names:
-        print(
-            SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE.format(
-                names=SETUP_NAMES_SEPARATOR.join(all_environment_names)
-            ),
-            file=sys.stderr,
-        )
     all_installed = install_codex_account_launchers(
         main_home=arguments.main_home,
         profiles_root=arguments.profiles_root,
@@ -488,7 +480,22 @@ def _run_setup(arguments: argparse.Namespace) -> int:
         now=now,
     )
     print(json.dumps({JSON_INSTALLED_KEY: all_installed, JSON_RETIRED_KEY: all_retired}))
+    _warn_when_the_environment_replaces(all_names)
     return 0
+
+
+def _warn_when_the_environment_replaces(all_setup_names: tuple[str, ...]) -> None:
+    try:
+        all_environment_names = _environment_roster()
+    except CodexAccountNameError:
+        return
+    if all_environment_names and all_environment_names != all_setup_names:
+        print(
+            SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE.format(
+                names=SETUP_NAMES_SEPARATOR.join(all_environment_names)
+            ),
+            file=sys.stderr,
+        )
 
 
 def _add_main_home_argument(command_parser: argparse.ArgumentParser) -> None:
