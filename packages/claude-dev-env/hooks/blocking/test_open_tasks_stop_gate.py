@@ -586,6 +586,15 @@ def test_should_keep_the_card_through_stop_hook_feedback(
     assert run_gate(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path) == (0, "")
 
 
+def test_should_ignore_a_card_call_copied_into_an_api_request_blob(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    record_ask("Merge the release branch")
+    blob_record = {**tool_call_record("AskUserQuestion"), "type": "api-request-blob"}
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("Merge the release branch"), blob_record])
+    assert "AskUserQuestion" in block_reason(monkeypatch, capsys, DECISION_BLOCKED_REPLY, transcript_path)
+
+
 def test_should_allow_an_input_blocked_line_that_says_whether(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

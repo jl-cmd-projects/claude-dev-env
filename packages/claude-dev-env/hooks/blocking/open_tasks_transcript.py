@@ -332,6 +332,8 @@ class TranscriptReplay:
         is_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         for each_block in all_blocks:
             plan_input = each_block.get(TOOL_INPUT_KEY)
+            if is_assistant_record and each_block.get(RECORD_TYPE_KEY) == TOOL_USE_BLOCK_TYPE and is_decision_card_tool(each_block.get(TOOL_NAME_KEY)):
+                self.has_turn_decision_card = True
             if is_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
                 self.apply_desktop_plan(plan_input, record_epoch(all_record_fields))
             else:
@@ -384,8 +386,6 @@ class TranscriptReplay:
     def apply_block(self, all_block_fields: dict[str, object]) -> None:
         block_type = all_block_fields.get(RECORD_TYPE_KEY)
         tool_input = all_block_fields.get(TOOL_INPUT_KEY)
-        if block_type == TOOL_USE_BLOCK_TYPE and is_decision_card_tool(all_block_fields.get(TOOL_NAME_KEY)):
-            self.has_turn_decision_card = True
         if block_type == TOOL_USE_BLOCK_TYPE and isinstance(tool_input, dict):
             tool_name, all_tool_arguments = unwrapped_tool_call(str(all_block_fields.get(TOOL_NAME_KEY)), tool_input)
             self.apply_tool_use(tool_name, str(all_block_fields.get(TASK_ID_KEY)), all_tool_arguments)
