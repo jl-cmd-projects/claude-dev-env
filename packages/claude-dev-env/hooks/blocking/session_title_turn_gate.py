@@ -7,11 +7,12 @@ a Stop hook block lands as an attachment, so a held turn stays the same turn.
 A title call on a sidechain entry belongs to a subagent and does not count.
 The turn may end once a tool whose name ends in __set_session_title ran in it
 and its result came back without an error. A title the format gate denied
-does not count. A turn that called no tool may also end once an earlier
-main-chain turn set the title, since that title still shows and a text-only
-turn starts no new task. A held turn (``stop_hook_active`` true) whose title call
-failed may end, so a title tool that keeps failing cannot hold it forever. A
-held turn with no title call stays held, whichever Stop gate held it.
+does not count. A turn that called no tool other than the title tool may also
+end once an earlier main-chain turn set the title, since that title still
+shows and a text-only turn starts no new task. A held turn
+(``stop_hook_active`` true) whose title call failed may end, so a title tool
+that keeps failing cannot hold it forever. A held turn with no title call
+stays held, whichever Stop gate held it.
 
 The session has the title tool when a transcript record names it::
 
@@ -266,7 +267,7 @@ def turn_block_reason(
 
         no title tool in the transcript                         -> None
         title set this turn                                     -> None
-        tool-free turn after an earlier turn set the title      -> None
+        only title calls this turn, earlier turn set the title  -> None
         held turn whose title call failed (stop_hook_active)    -> None
         no title call this turn                                 -> reason
 
