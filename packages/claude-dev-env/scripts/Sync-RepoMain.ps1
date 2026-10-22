@@ -47,9 +47,11 @@
   Marks the tree as a mirror that must always sit on the named branch. With
   the switch, a checkout found on another branch or a detached HEAD is moved
   back: HEAD points at the local named branch again and a mixed reset moves
-  the index there, writing no file. The log names the branch and tip it left.
-  The run then continues as usual, so -StashDirty stashes whatever the old
-  checkout left in the tree. Without the switch, such a checkout is skipped.
+  the index there. Tracked files that still hold the old checkout's content
+  are stashed as "mirror return <yyyy-MM-dd>: tree of <checkout> at <tip>",
+  which puts the named branch's files back. The log names the checkout and
+  tip it left. A checkout with staged changes is skipped, so no staged
+  content is lost. Without the switch, any other checkout is skipped.
 
 .PARAMETER LogPath
   Absolute path to the run log (default: $HOME\.claude\logs\sync-repo-main.log).
@@ -243,6 +245,12 @@ try {
             Write-SyncLog -Level 'SKIP' -Message "checkout is '$currentBranch', not '$Branch' (remote=$Remote)"
             exit 3
         }
+        $leftCheckoutName = if ($currentBranch) { "branch '$currentBranch'" } else { 'detached HEAD' }
+        $stagedResult = Invoke-Git -Arguments @('diff', '--cached', '--quiet')
+        if ($stagedResult.ExitCode -ne 0) {
+            Write-SyncLog -Level 'SKIP' -Message "mirror return refused: $leftCheckoutName has staged changes"
+            exit 3
+        }
         $leftTip = Invoke-GitOrExit -Arguments @('rev-parse', 'HEAD') `
             -FailureMessage 'cannot read the tip of the checkout being left' -FailureExitCode 2
         $null = Invoke-GitOrExit -Arguments @('rev-parse', '--verify', '-q', "refs/heads/$Branch") `
@@ -251,7 +259,16 @@ try {
             -FailureMessage "cannot point HEAD at $Branch" -FailureExitCode 1
         $null = Invoke-GitOrExit -Arguments @('reset', '-q') `
             -FailureMessage "mixed reset onto $Branch failed" -FailureExitCode 1
-        Write-SyncLog -Level 'MIRROR' -Message "left checkout '$currentBranch' at $leftTip; HEAD and index now on $Branch, no file written"
+        $leftTreeStatus = Invoke-GitOrExit -Arguments @('status', '--porcelain', '--untracked-files=no') `
+            -FailureMessage 'status after the mirror return failed' -FailureExitCode 2
+        $leftTreeNote = 'the tree already matched'
+        if ($leftTreeStatus.Trim()) {
+            $leftTreeStashMessage = 'mirror return {0}: tree of {1} at {2}' -f (Get-Date -Format 'yyyy-MM-dd'), $leftCheckoutName, $leftTip
+            $null = Invoke-GitOrExit -Arguments @('stash', 'push', '-m', $leftTreeStashMessage) `
+                -FailureMessage "HEAD is on $Branch but stashing the tree of $leftCheckoutName at $leftTip failed" -FailureExitCode 1
+            $leftTreeNote = "its tree is stashed as '$leftTreeStashMessage'"
+        }
+        Write-SyncLog -Level 'MIRROR' -Message "left $leftCheckoutName at $leftTip; HEAD is on $Branch and $leftTreeNote"
     }
 
     $statusOutput = Invoke-GitOrExit -Arguments @('status', '--porcelain') `

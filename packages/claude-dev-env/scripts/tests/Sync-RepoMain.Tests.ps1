@@ -111,7 +111,7 @@ Describe 'Sync-RepoMain' {
         [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'tracked.txt')) | Should -Be "new`n"
         (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('status', '--porcelain')) | Should -BeNullOrEmpty
         (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'feature')) | Should -Be $featureTip
-        (Get-Content -LiteralPath $fixture.LogPath -Raw) | Should -Match "left checkout 'feature' at $featureTip"
+        (Get-Content -LiteralPath $fixture.LogPath -Raw) | Should -Match "left branch 'feature' at $featureTip"
     }
 
     It 'fast-forwards a clean mirror that is behind the remote' {
