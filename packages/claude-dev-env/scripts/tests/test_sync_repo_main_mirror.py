@@ -10,6 +10,7 @@ _SCRIPT_PATH = Path(__file__).resolve().parents[1] / "Sync-RepoMain.ps1"
 _PWSH = shutil.which("pwsh") or "pwsh"
 _SKIPPED_EXIT_CODE = 3
 _SUCCESS_EXIT_CODE = 0
+_FAILURE_EXIT_CODE = 1
 
 
 def _git(repository_path: Path, *arguments: str) -> str:
@@ -165,6 +166,37 @@ def test_should_name_a_detached_head_it_leaves(tmp_path: Path) -> None:
     assert f"left detached HEAD at {feature_tip}" in log_path.read_text(
         encoding="utf-8"
     )
+
+
+def test_should_stash_a_file_only_the_left_checkout_tracks(tmp_path: Path) -> None:
+    mirror_path, _, remote_tip = _mirror_on_feature_branch_behind_remote(tmp_path)
+    (mirror_path / "feature-only.txt").write_text("feature only\n", encoding="utf-8")
+    _git(mirror_path, "add", "feature-only.txt")
+    _git(mirror_path, "commit", "-q", "-m", "feature-only file")
+    (mirror_path / "local-note.txt").write_text("untracked note\n", encoding="utf-8")
+    log_path = tmp_path / "sync.log"
+
+    assert _run_sync(mirror_path, log_path, "-Mirror") == _SUCCESS_EXIT_CODE
+    assert _git(mirror_path, "rev-parse", "HEAD") == remote_tip
+    assert not (mirror_path / "feature-only.txt").exists()
+    assert (mirror_path / "local-note.txt").exists()
+    assert _git(mirror_path, "status", "--porcelain") == "?? local-note.txt"
+
+
+def test_should_put_head_back_when_the_return_cannot_reset(tmp_path: Path) -> None:
+    mirror_path, feature_tip, _ = _mirror_on_feature_branch_behind_remote(tmp_path)
+    lock_path = mirror_path / ".git" / "index.lock"
+    lock_path.write_text("", encoding="utf-8")
+    log_path = tmp_path / "sync.log"
+
+    assert _run_sync(mirror_path, log_path, "-Mirror") == _FAILURE_EXIT_CODE
+    assert _git(mirror_path, "branch", "--show-current") == "feature"
+    assert _git(mirror_path, "rev-parse", "HEAD") == feature_tip
+    assert "HEAD and index are back on branch 'feature'" in log_path.read_text(
+        encoding="utf-8"
+    )
+    lock_path.unlink()
+    assert _git(mirror_path, "status", "--porcelain") == ""
 
 
 def test_should_skip_a_checkout_with_staged_changes(tmp_path: Path) -> None:
