@@ -1,5 +1,7 @@
 """Constants for the pull request lifecycle skill gate."""
 
+import re
+
 HOOK_EVENT_NAME = "PreToolUse"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 DENY_DECISION = "deny"
@@ -23,6 +25,22 @@ SUBAGENT_TRANSCRIPT_DIRECTORY_NAME = "subagents"
 SUBAGENT_TRANSCRIPT_FILE_TEMPLATE = "agent-{agent_id}.jsonl"
 COMMAND_SEPARATORS = ";|&\n()`"
 COMMAND_WHITESPACE = " \t\r"
+NO_COMMENT_CHARACTERS = ""
+REMOVED_TEXT = ""
+SEGMENT_BREAK = "\0"
+SEPARATOR_PIECE = "separator"
+COMMENT_PIECE = "comment"
+UNCLOSED_QUOTE_PIECE = "unclosed"
+COMMAND_PIECE_PATTERN = re.compile(
+    r"'[^']*'"
+    r'|"(?:\\.|[^"\\])*"'
+    r"|\\."
+    rf"|(?P<{COMMENT_PIECE}>(?<![^{re.escape(COMMAND_WHITESPACE + COMMAND_SEPARATORS)}])#[^\n]*)"
+    rf"|(?P<{SEPARATOR_PIECE}>[{re.escape(COMMAND_SEPARATORS)}])"
+    rf"|(?P<{UNCLOSED_QUOTE_PIECE}>['\"])"
+    r"|.",
+    re.DOTALL,
+)
 OPTION_AND_VALUE_WORD_COUNT = 2
 GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
 GIT_ACTIONS = frozenset({"commit", "push"})

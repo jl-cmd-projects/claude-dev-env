@@ -26,8 +26,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_TRANSCRIPT_PATH_FIELDS,
     BUILD_EVAL_ARGUMENT_WORD,
     BUILD_EVAL_COMMAND_MARKER,
-    COMMAND_SEPARATORS,
+    COMMAND_PIECE_PATTERN,
     COMMAND_WHITESPACE,
+    COMMENT_PIECE,
     DENY_DECISION,
     DENY_REASON,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
@@ -37,16 +38,21 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     GIT_GLOBAL_OPTIONS_WITH_VALUE,
     HOOK_EVENT_NAME,
     MERGE_PATH_SUFFIX,
+    NO_COMMENT_CHARACTERS,
     OPTION_AND_VALUE_WORD_COUNT,
     PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
+    REMOVED_TEXT,
+    SEGMENT_BREAK,
+    SEPARATOR_PIECE,
     SESSION_TRANSCRIPT_PATH_FIELD,
     SHELL_TOOL_NAMES,
     SKILL_NAME,
     SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
     SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
+    UNCLOSED_QUOTE_PIECE,
 )
 from hooks_constants.gh_command_words import gh_command_words
 from hooks_constants.hook_specific_output_keys import (
@@ -70,25 +76,47 @@ from transcript_skill_scan import (
 )
 
 
+def _unquoted_segment_texts(command: str) -> list[str] | None:
+    """Split a command at each separator outside quotes, escapes, and comments.
+
+    ::
+
+        git commit -m "&" -a && git push  ->  ['git commit -m "&" -a ', '', ' git push']
+        git status # a; b                 ->  ['git status ']
+
+    Args:
+        command: One shell command as the tool received it.
+
+    Returns:
+        The raw text of each segment in order, or None when a quote never closes.
+    """
+    all_pieces = list(COMMAND_PIECE_PATTERN.finditer(command))
+    if any(each_piece.lastgroup == UNCLOSED_QUOTE_PIECE for each_piece in all_pieces):
+        return None
+    all_replacement_texts: dict[str | None, str] = {SEPARATOR_PIECE: SEGMENT_BREAK, COMMENT_PIECE: REMOVED_TEXT}
+    marked_command = REMOVED_TEXT.join(
+        all_replacement_texts.get(each_piece.lastgroup, each_piece.group()) for each_piece in all_pieces
+    )
+    return marked_command.split(SEGMENT_BREAK)
+
+
 def _command_segments(command: str) -> list[list[str]]:
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=COMMAND_SEPARATORS)
-    lexer.whitespace = COMMAND_WHITESPACE
-    lexer.whitespace_split = True
-    all_segments: list[list[str]] = []
-    each_segment: list[str] = []
-    try:
-        all_words = list(lexer)
-    except ValueError:
+    all_segment_texts = _unquoted_segment_texts(command)
+    if all_segment_texts is None:
         return []
-    for each_word in all_words:
-        if each_word and set(each_word) <= set(COMMAND_SEPARATORS):
-            all_segments.append(each_segment)
-            each_segment = []
-            continue
-        each_segment.append(each_word)
-    if each_segment:
-        all_segments.append(each_segment)
-    return [each_group for each_group in all_segments if each_group]
+    all_segments: list[list[str]] = []
+    for each_text in all_segment_texts:
+        lexer = shlex.shlex(each_text, posix=True)
+        lexer.whitespace = COMMAND_WHITESPACE
+        lexer.whitespace_split = True
+        lexer.commenters = NO_COMMENT_CHARACTERS
+        try:
+            all_words = list(lexer)
+        except ValueError:
+            return []
+        if all_words:
+            all_segments.append(all_words)
+    return all_segments
 
 
 def next_command_word(
