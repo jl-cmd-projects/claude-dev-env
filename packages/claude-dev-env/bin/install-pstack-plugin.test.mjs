@@ -17,6 +17,7 @@ import {
     removeOrphanedPluginVersions,
     removeStaleMarketplaceClone,
     removeRetiredMarketplacePlugins,
+    restartNotice,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 
@@ -499,4 +500,26 @@ test('should delete a half-made marketplace clone before the shared marketplace 
 
 test('should report no removal when no stale marketplace clone exists', () => {
     assert.equal(removeStaleMarketplaceClone(join(tmpdir(), 'cde-no-such-clone')), false);
+});
+
+test('an install prints one restart notice that names each plugin and host', () => {
+    const allLoggedLines = [];
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, {
+        ...recordingRunner(),
+        writeLine: line => allLoggedLines.push(line),
+    });
+    assert.deepEqual(allLoggedLines, [restartNotice([PSTACK_PLUGIN_SPEC], ['claude', 'codex'])]);
+    assert.equal(outcome.restartNotice, allLoggedLines[0]);
+    assert.match(allLoggedLines[0], /Restart each open claude and codex session to load Pstack\./);
+});
+
+test('a run that installs nothing prints no restart notice', () => {
+    const allLoggedLines = [];
+    const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], ROOTS, {
+        ...recordingRunner(() => ({ status: null, error: Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT' }) })),
+        writeLine: line => allLoggedLines.push(line),
+    });
+    assert.equal(outcome.status, 'skipped');
+    assert.deepEqual(allLoggedLines, []);
+    assert.equal(outcome.restartNotice, null);
 });
