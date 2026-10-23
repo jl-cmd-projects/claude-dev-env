@@ -26,6 +26,9 @@ permissions:
   pull-requests: read
   checks: read
 
+env:
+  REVIEW_RECORD_MARKER: "<!-- codex-pr-review:v1 "
+
 jobs:
   review-closure:
     name: Review closure
@@ -57,7 +60,7 @@ jobs:
             pull_request_number="${queue_branch_name#pr-}"
             pull_request_number="${pull_request_number%%-*}"
           fi
-          python packages/claude-dev-env/scripts/review_closure.py "$REPOSITORY" "$pull_request_number"
+          python packages/claude-dev-env/scripts/review_closure.py "$REPOSITORY" "$pull_request_number" --notice-marker "$REVIEW_RECORD_MARKER"
 
   review-closure-comment:
     name: Review closure on a comment event
@@ -88,7 +91,7 @@ jobs:
         run: |
           set -uo pipefail
           head_sha="$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST_NUMBER" --jq .head.sha)" || exit 2
-          closure_output="$(python packages/claude-dev-env/scripts/review_closure.py "$REPOSITORY" "$PULL_REQUEST_NUMBER" 2>&1)"
+          closure_output="$(python packages/claude-dev-env/scripts/review_closure.py "$REPOSITORY" "$PULL_REQUEST_NUMBER" --notice-marker "$REVIEW_RECORD_MARKER" 2>&1)"
           closure_status=$?
           printf '%s\n' "$closure_output"
           case "$closure_status" in
