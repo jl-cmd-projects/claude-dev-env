@@ -163,6 +163,18 @@ def test_unproven_words_in_a_fence_inside_a_blockquote_should_pass() -> None:
     assert gate.missing_proof_reason(_mcp_create(body)) is None
 
 
+def test_unproven_words_in_a_tilde_fence_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n~~~\nstatus: not proven\n~~~\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_deny_quotes_the_line_as_written() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\nNot proven here: the `convert.py` run on the target.\n"
+    reason = gate.missing_proof_reason(_mcp_create(body))
+    assert reason is not None
+    assert "Not proven here: the `convert.py` run on the target." in reason
+
+
 def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python run.py`.\n> Not proven here: the live dialer run.\n"
     assert gate.missing_proof_reason(_mcp_create(body)) is not None

@@ -56,6 +56,7 @@ from hooks_constants.pull_request_proof_constants import (
     FENCED_COMMAND_PROMPT,
     INLINE_COMMAND_PATTERN,
     TEST_ONLY_PROOF_REASON,
+    ALL_CODE_FENCE_MARKERS,
     BLOCKQUOTE_MARKERS,
     INLINE_CODE_SPAN_PATTERN,
     UNITTEST_MODULE_NAME,
@@ -338,7 +339,10 @@ def _line_commands(line: str, is_inside_fence: bool) -> list[str]:
 
 def _opens_or_closes_fence(line: str) -> bool:
     fence_text = line.strip().lstrip(BLOCKQUOTE_MARKERS).strip()
-    return fence_text.startswith(CODE_FENCE_MARKER) and CODE_FENCE_MARKER not in fence_text[len(CODE_FENCE_MARKER) :]
+    return any(
+        fence_text.startswith(each_marker) and each_marker not in fence_text[len(each_marker) :]
+        for each_marker in ALL_CODE_FENCE_MARKERS
+    )
 
 
 def _proof_commands(section: str) -> list[str]:
@@ -410,14 +414,14 @@ def _proof_runs_only_tests(section: str) -> bool:
     return bool(all_commands) and all(_command_runs_tests(each_command) for each_command in all_commands)
 
 
-def _prose_lines(section: str) -> Iterator[str]:
+def _prose_lines(section: str) -> Iterator[tuple[str, str]]:
     is_inside_fence = False
     for each_line in section.splitlines():
         if _opens_or_closes_fence(each_line):
             is_inside_fence = not is_inside_fence
             continue
         if not is_inside_fence:
-            yield re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
+            yield each_line, re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
 
 
 def unproven_admission(section: str) -> str | None:
@@ -437,8 +441,8 @@ def unproven_admission(section: str) -> str | None:
     unverified, matched without regard to case. Inline code spans and fenced
     blocks are skipped, so output quoted there never counts.
     """
-    for each_line in _prose_lines(section):
-        if re.search(UNPROVEN_ADMISSION_PATTERN, each_line, re.IGNORECASE):
+    for each_line, each_prose in _prose_lines(section):
+        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE):
             return each_line.strip()
     return None
 
