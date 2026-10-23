@@ -407,11 +407,16 @@ def _proof_runs_only_tests(section: str) -> bool:
 def _prose_lines(section: str) -> Iterator[str]:
     is_inside_fence = False
     for each_line in section.splitlines():
-        if each_line.strip().startswith(CODE_FENCE_MARKER):
+        stripped_line = each_line.strip()
+        opens_or_closes_fence = (
+            stripped_line.startswith(CODE_FENCE_MARKER)
+            and CODE_FENCE_MARKER not in stripped_line[len(CODE_FENCE_MARKER) :]
+        )
+        if opens_or_closes_fence:
             is_inside_fence = not is_inside_fence
             continue
         if not is_inside_fence:
-            yield re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line)
+            yield re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
 
 
 def unproven_admission(section: str) -> str | None:
