@@ -153,6 +153,16 @@ def test_unproven_admission_after_a_one_line_triple_backtick_span_should_be_deni
     assert gate.missing_proof_reason(_mcp_create(body)) is not None
 
 
+def test_test_run_after_a_one_line_triple_backtick_span_should_be_denied() -> None:
+    body = "## Proof in practice\n```pytest``` ok\nRan `pytest tests/`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_unproven_words_in_a_fence_inside_a_blockquote_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n> ```\n> status: not proven\n> ```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
 def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python run.py`.\n> Not proven here: the live dialer run.\n"
     assert gate.missing_proof_reason(_mcp_create(body)) is not None

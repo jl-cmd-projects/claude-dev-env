@@ -65,6 +65,7 @@ TEST_ONLY_PROOF_REASON = (
 )
 UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
+BLOCKQUOTE_MARKERS = "> "
 UNPROVEN_PROOF_REASON = (
     "This pull request's 'Proof in practice' section says part of the change is not"
     " proven: \"{admission}\". When that part is what the change exists to do, such as"

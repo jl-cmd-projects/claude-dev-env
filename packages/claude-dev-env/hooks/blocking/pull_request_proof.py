@@ -56,6 +56,7 @@ from hooks_constants.pull_request_proof_constants import (
     FENCED_COMMAND_PROMPT,
     INLINE_COMMAND_PATTERN,
     TEST_ONLY_PROOF_REASON,
+    BLOCKQUOTE_MARKERS,
     INLINE_CODE_SPAN_PATTERN,
     UNITTEST_MODULE_NAME,
     UNPROVEN_ADMISSION_PATTERN,
@@ -335,11 +336,16 @@ def _line_commands(line: str, is_inside_fence: bool) -> list[str]:
     return []
 
 
+def _opens_or_closes_fence(line: str) -> bool:
+    fence_text = line.strip().lstrip(BLOCKQUOTE_MARKERS).strip()
+    return fence_text.startswith(CODE_FENCE_MARKER) and CODE_FENCE_MARKER not in fence_text[len(CODE_FENCE_MARKER) :]
+
+
 def _proof_commands(section: str) -> list[str]:
     all_commands: list[str] = []
     is_inside_fence = False
     for each_line in section.splitlines():
-        if each_line.strip().startswith(CODE_FENCE_MARKER):
+        if _opens_or_closes_fence(each_line):
             is_inside_fence = not is_inside_fence
             continue
         all_commands.extend(_line_commands(each_line, is_inside_fence))
@@ -407,12 +413,7 @@ def _proof_runs_only_tests(section: str) -> bool:
 def _prose_lines(section: str) -> Iterator[str]:
     is_inside_fence = False
     for each_line in section.splitlines():
-        stripped_line = each_line.strip()
-        opens_or_closes_fence = (
-            stripped_line.startswith(CODE_FENCE_MARKER)
-            and CODE_FENCE_MARKER not in stripped_line[len(CODE_FENCE_MARKER) :]
-        )
-        if opens_or_closes_fence:
+        if _opens_or_closes_fence(each_line):
             is_inside_fence = not is_inside_fence
             continue
         if not is_inside_fence:
