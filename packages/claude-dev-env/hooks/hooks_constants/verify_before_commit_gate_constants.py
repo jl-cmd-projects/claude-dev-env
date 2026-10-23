@@ -3,7 +3,7 @@
 DENY_REASON = (
     "This repository has a verify skill, and this commit changes code. Invoke the verify "
     "skill with the Skill tool, run the check it routes you to, then run the same command again. "
-    "A commit that changes only docs or tests passes without it."
+    "A commit that changes only docs, data files under a docs folder, or tests passes without it."
 )
 SKILL_NAME = "verify"
 ALL_SLASH_COMMAND_MARKERS = ("<command-name>/verify</command-name>",)
@@ -47,6 +47,8 @@ ALL_DOCS_EXTENSIONS = frozenset(
         ".ico",
     }
 )
+ALL_DOCS_DIRECTORY_NAMES = frozenset({"docs"})
+ALL_DOCS_DATA_EXTENSIONS = frozenset({".json", ".jsonl", ".yaml", ".yml", ".csv"})
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests", "test", "__tests__"})
 ALL_TEST_FILE_PREFIXES = ("test_",)
 ALL_TEST_FILE_SUFFIXES = ("_test.py",)

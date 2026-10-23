@@ -33,6 +33,8 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_ADD_EVERYTHING_OPTIONS,
     ALL_COMMIT_ALL_OPTIONS,
     ALL_COMMIT_VALUED_SHORT_FLAGS,
+    ALL_DOCS_DATA_EXTENSIONS,
+    ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
     ALL_GIT_EXECUTABLES,
     ALL_SLASH_COMMAND_MARKERS,
@@ -176,7 +178,12 @@ def _is_docs_or_test_path(repository_path: str) -> bool:
     path = PurePosixPath(repository_path)
     if path.suffix.lower() in ALL_DOCS_EXTENSIONS or path.name in ALL_TEST_FILE_NAMES:
         return True
-    if any(each_part in ALL_TEST_DIRECTORY_NAMES for each_part in path.parts[:-1]):
+    all_directory_parts = path.parts[:-1]
+    if path.suffix.lower() in ALL_DOCS_DATA_EXTENSIONS and any(
+        each_part in ALL_DOCS_DIRECTORY_NAMES for each_part in all_directory_parts
+    ):
+        return True
+    if any(each_part in ALL_TEST_DIRECTORY_NAMES for each_part in all_directory_parts):
         return True
     return (
         path.name.startswith(ALL_TEST_FILE_PREFIXES)
@@ -245,6 +252,9 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit, code staged, no verify since the last prompt      -> DENY_REASON
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit, only docs or test files                           -> None
+        git commit, only data files (.json, .jsonl, .yaml, .yml,
+            .csv) under a docs folder                                 -> None
+        git commit, a .py file under a docs folder                    -> DENY_REASON
         git commit after a verify Skill call or a /verify prompt      -> None
         git commit in a repository with no verify skill directory     -> None
         transcript missing or unreadable, or git fails                -> None
