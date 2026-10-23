@@ -56,7 +56,6 @@ from hooks_constants.pull_request_proof_constants import (
     FENCED_COMMAND_PROMPT,
     INLINE_COMMAND_PATTERN,
     TEST_ONLY_PROOF_REASON,
-    BLOCKQUOTE_MARKER,
     INLINE_CODE_SPAN_PATTERN,
     UNITTEST_MODULE_NAME,
     UNPROVEN_ADMISSION_PATTERN,
@@ -411,7 +410,7 @@ def _prose_lines(section: str) -> Iterator[str]:
         if each_line.strip().startswith(CODE_FENCE_MARKER):
             is_inside_fence = not is_inside_fence
             continue
-        if not is_inside_fence and not each_line.lstrip().startswith(BLOCKQUOTE_MARKER):
+        if not is_inside_fence:
             yield re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line)
 
 
@@ -424,13 +423,13 @@ def unproven_admission(section: str) -> str | None:
         "The live run is untested."               -> "The live run is untested."
         "It has not been tested on the target."   -> "It has not been tested on the target."
         "`not proven` printed by the probe"       -> None
-        "> status: unverified"                    -> None
+        "> Not proven here: the live run."        -> "> Not proven here: the live run."
         "Ran `python run.py`, quoted below."      -> None
 
     The markers are not proven, not tested and not verified, each with any
     run of yet, been or fully after the not, plus unproven, untested and
-    unverified, matched without regard to case. Inline code spans, fenced
-    blocks and blockquote lines are skipped, so quoted output never counts.
+    unverified, matched without regard to case. Inline code spans and fenced
+    blocks are skipped, so output quoted there never counts.
     """
     for each_line in _prose_lines(section):
         if re.search(UNPROVEN_ADMISSION_PATTERN, each_line, re.IGNORECASE):

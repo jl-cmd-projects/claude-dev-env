@@ -140,9 +140,14 @@ def test_unproven_line_moved_under_a_not_covered_heading_should_pass() -> None:
 def test_unproven_words_inside_quoted_output_should_pass() -> None:
     body = (
         "## Proof in practice\nRan `python run.py`, which printed `unverified sender denied`.\n"
-        "```\n$ python run.py\nstatus: not proven\n```\n> status: unverified sender denied\n"
+        "```\n$ python run.py\nstatus: not proven\n```\n"
     )
     assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n> Not proven here: the live dialer run.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is not None
 
 
 def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:

@@ -64,7 +64,6 @@ TEST_ONLY_PROOF_REASON = (
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
-BLOCKQUOTE_MARKER = ">"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
 UNPROVEN_PROOF_REASON = (
     "This pull request's 'Proof in practice' section says part of the change is not"
