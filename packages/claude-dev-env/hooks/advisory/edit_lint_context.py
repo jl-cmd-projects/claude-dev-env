@@ -14,7 +14,9 @@ agent, so it fixes them in the same turn::
         "The repository's lint found these problems in tools/report.py ..."
 
 A repository takes part only when its origin ``owner/repo`` slug is in
-``CLAUDE_EDIT_LINT_REPOSITORIES`` and it commits ``.claude/edit-lint.json``.
+``CLAUDE_EDIT_LINT_REPOSITORIES``, it commits ``.claude/edit-lint.json``, and
+its root sits inside the session's project folder, the folder Claude Code's
+workspace trust covers. A checkout elsewhere never runs its declared command.
 The command runs from the repository root, and ``{file}`` in it becomes the
 edited path with every symlink resolved. Its standard output is the findings; empty output adds nothing.
 A command that exits non-zero, times out, or cannot start adds nothing and
@@ -49,6 +51,7 @@ try:
         LINT_COMMAND_TIMEOUT_SECONDS,
         LINT_FAILURE_DIAGNOSTIC_TEMPLATE,
         MAXIMUM_FINDINGS_CHARACTERS,
+        PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
         REPOSITORIES_ENVIRONMENT_VARIABLE,
         REPOSITORY_SEPARATOR,
         TRUNCATION_NOTICE,
@@ -116,6 +119,25 @@ def repository_root_of(file_path: Path) -> Path | None:
     if completed_process.returncode != 0:
         return None
     return Path(completed_process.stdout.strip())
+
+
+def is_inside_project_directory(repository_root: Path) -> bool:
+    """Return whether the repository root sits inside the session's project folder.
+
+    Args:
+        repository_root: The git work tree root.
+
+    Returns:
+        True when ``CLAUDE_PROJECT_DIR`` is set and the resolved root equals it
+        or sits below it. False when the variable is unset or the root lies
+        outside it.
+    """
+    project_directory = os.environ.get(PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE, "")
+    if not project_directory:
+        return False
+    resolved_root = repository_root.resolve()
+    resolved_project = Path(project_directory).resolve()
+    return resolved_root == resolved_project or resolved_project in resolved_root.parents
 
 
 def load_edit_lint_config(repository_root: Path) -> EditLintConfig | None:
@@ -249,7 +271,7 @@ def main() -> None:
     if file_path is None:
         return
     repository_root = repository_root_of(file_path)
-    if repository_root is None:
+    if repository_root is None or not is_inside_project_directory(repository_root):
         return
     if repository_origin_slug(repository_root) not in all_opted_in_slugs:
         return

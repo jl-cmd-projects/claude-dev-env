@@ -80,8 +80,14 @@ def lint_repository(tmp_path: Path) -> Path:
     return repository_root
 
 
-def _run_dispatcher(tool_name: str, file_path: Path, listed_repositories: str | None) -> str:
+def _run_dispatcher(
+    tool_name: str,
+    file_path: Path,
+    listed_repositories: str | None,
+    project_directory: Path | None = None,
+) -> str:
     environment = _git_environment()
+    environment["CLAUDE_PROJECT_DIR"] = str(project_directory or file_path.parents[-2])
     environment.pop("CLAUDE_EDIT_LINT_REPOSITORIES", None)
     if listed_repositories is not None:
         environment["CLAUDE_EDIT_LINT_REPOSITORIES"] = listed_repositories
@@ -144,6 +150,27 @@ def should_add_nothing_when_the_environment_lists_no_repository(lint_repository:
 
     assert _run_dispatcher("Edit", edited_file, None) == ""
     assert _run_dispatcher("Edit", edited_file, "other/repo") == ""
+
+
+def should_add_nothing_for_a_repository_outside_the_project_folder(
+    lint_repository: Path, tmp_path: Path
+) -> None:
+    edited_file = lint_repository / "module.py"
+    edited_file.write_text("RESULT = BAD\n", encoding="utf-8")
+    other_project = tmp_path / "other-project"
+    other_project.mkdir()
+
+    assert _run_dispatcher("Edit", edited_file, ORIGIN_SLUG, other_project) == ""
+
+
+def should_accept_a_root_inside_the_project_folder(
+    lint_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(lint_repository.parent))
+    assert edit_lint_context.is_inside_project_directory(lint_repository)
+
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(lint_repository / "package"))
+    assert not edit_lint_context.is_inside_project_directory(lint_repository)
 
 
 def should_add_nothing_after_a_clean_edit(lint_repository: Path) -> None:
