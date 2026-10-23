@@ -6,8 +6,10 @@ merge_group, and each job that reads pull request fields must skip there or read
 queue branch name.
 """
 
+import importlib
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -88,6 +90,7 @@ def test_review_closure_reads_the_pull_request_number_from_the_queue_branch(
     recording_python.write_text('#!/bin/sh\necho "$2 $3"\n', encoding="utf-8")
     recording_python.chmod(0o755)
     queue_environment = {
+        **load_workflow("review-closure.yml")["env"],
         "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
         "GITHUB_EVENT_NAME": MERGE_GROUP_EVENT,
         "REPOSITORY": "owner/name",
@@ -195,3 +198,61 @@ def test_merge_review_status_carries_the_head_verdict_to_the_queue_commit(
         "context=Merge",
         "review",
     ]
+
+
+REVIEW_RECORD_BODY = (
+    '<!-- codex-pr-review:v1 {"finding_count": 0, "head_sha": "abc123"} -->\n'
+    "Codex review finished on `abc123`: 0 findings."
+)
+
+
+@pytest.mark.parametrize("job_key", ("review-closure", "review-closure-comment"))
+def test_review_closure_counts_a_bot_review_record_as_a_notice(
+    tmp_path: Path, job_key: str
+) -> None:
+    workflow = load_workflow("review-closure.yml")
+    closure_script = workflow["jobs"][job_key]["steps"][-1]["run"]
+    recorded_arguments = tmp_path / "arguments"
+    recording_python = tmp_path / "python"
+    recording_python.write_text(
+        f'#!/bin/sh\nshift\nprintf "%s\\n" "$@" > "{recorded_arguments}"\n',
+        encoding="utf-8",
+    )
+    recording_python.chmod(0o755)
+    stub_gh = tmp_path / "gh"
+    stub_gh.write_text("#!/bin/sh\necho 0123456789abcdef\n", encoding="utf-8")
+    stub_gh.chmod(0o755)
+    step_environment = {
+        **workflow["env"],
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "REPOSITORY": "owner/name",
+        "PULL_REQUEST_NUMBER": "7",
+        "MERGE_GROUP_HEAD_REF": "",
+    }
+    subprocess.run(["bash", "-c", closure_script], env=step_environment, check=True)
+    scripts_directory = (
+        Path(__file__).resolve().parents[2] / "packages/claude-dev-env/scripts"
+    )
+    sys.path.insert(0, str(scripts_directory))
+    try:
+        review_closure = importlib.import_module("review_closure")
+        review_closure_model = importlib.import_module("review_closure_model")
+    finally:
+        sys.path.remove(str(scripts_directory))
+    parsed = review_closure.build_parser().parse_args(
+        recorded_arguments.read_text(encoding="utf-8").splitlines()
+    )
+
+    record = review_closure_model.parse_top_level_comment(
+        {
+            "id": 1,
+            "body": REVIEW_RECORD_BODY,
+            "user": {"login": "review-app[bot]", "type": "Bot"},
+            "created_at": "2026-10-23T00:00:00+00:00",
+            "updated_at": "2026-10-23T00:00:00+00:00",
+        },
+        parsed.notice_marker,
+    )
+
+    assert record.is_notice
