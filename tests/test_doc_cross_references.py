@@ -39,6 +39,7 @@ ALLOWED_MISSING_PATHS: frozenset[str] = frozenset(
         ".claude/hooks/config/efficient_review_model_gate_constants.py",
         ".claude/hooks/efficient_review_model_gate.py",
         ".claude/hooks/efficient_review_model_gate.sh",
+        ".claude/edit-lint.json",
         ".claude/local-gate.json",
         ".claude/plain-language-allow.json",
         ".claude/policy-lint.json",
