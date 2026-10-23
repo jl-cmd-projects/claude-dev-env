@@ -145,6 +145,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/owned_pr_merge_stop_gate.py       -> exempt
         hooks/blocking/session_title_turn_gate.py        -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
+        hooks/blocking/turn_review_gate.py               -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -206,6 +207,11 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The resolve reply gate denies a review thread resolve until a reply on the
     thread has posted. It decides the order of two review calls and no code or
     safety policy.
+
+    The turn review Stop gate holds the end of a turn while a fresh review run
+    reports a problem in the turn's edits. The review run reads the code and
+    the agent fixes or answers each finding; the gate itself only decides when
+    a turn may end.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

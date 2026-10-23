@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.103.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.102.1...claude-dev-env-v8.103.0) (2026-10-23)
+
+
+### Features
+
+* **hooks:** review each turn's edits in a fresh context before the turn ends ([#2185](https://github.com/jl-cmd-projects/claude-dev-env/issues/2185)) ([820f38e](https://github.com/jl-cmd-projects/claude-dev-env/commit/820f38e07c66d50147b93d25aa5e2636fbed2312))
+
+
+### Bug Fixes
+
+* **hooks:** deny a proof section that admits an unproven part ([#2183](https://github.com/jl-cmd-projects/claude-dev-env/issues/2183)) ([fbf49b9](https://github.com/jl-cmd-projects/claude-dev-env/commit/fbf49b920b7cab91eb06fc41a9004c6ed1c4ae80))
+
 ## [8.102.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.102.0...claude-dev-env-v8.102.1) (2026-10-23)
 
 

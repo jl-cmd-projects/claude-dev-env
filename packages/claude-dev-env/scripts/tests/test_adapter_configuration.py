@@ -66,6 +66,14 @@ def test_new_resolve_thread_reply_gate_registration_is_clean(tmp_path: Path) -> 
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_turn_review_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/turn_review_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_merge_offer_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/merge_over_review_offer_gate.py"],

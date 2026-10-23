@@ -1,0 +1,161 @@
+"""Constants for the Stop hook that reviews each turn's changes in a fresh context."""
+
+from __future__ import annotations
+
+__all__ = [
+    "REPOSITORIES_ENVIRONMENT_VARIABLE",
+    "REPOSITORY_SEPARATOR",
+    "PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE",
+    "REVIEW_CHILD_ENVIRONMENT_VARIABLE",
+    "REVIEW_CHILD_MARKER",
+    "ALL_PARENT_SESSION_VARIABLES",
+    "PROMPT_EVENT_NAME",
+    "STOP_EVENT_NAME",
+    "HOOK_EVENT_NAME_KEY",
+    "SESSION_ID_KEY",
+    "DECISION_KEY",
+    "REASON_KEY",
+    "BLOCK_DECISION",
+    "GIT_DIRECTORY_NAME",
+    "GIT_COMMAND_TIMEOUT_SECONDS",
+    "GIT_INDEX_FILE_ENVIRONMENT_VARIABLE",
+    "TEMPORARY_INDEX_FILE_NAME",
+    "ALL_INDEX_PATH_ARGUMENTS",
+    "ALL_CHANGED_PATH_ARGUMENTS",
+    "CHANGED_PATH_SEPARATOR",
+    "GIT_OUTPUT_ENCODING",
+    "GIT_OUTPUT_ERROR_HANDLING",
+    "SNAPSHOT_COMMIT_MESSAGE",
+    "ALL_SNAPSHOT_IDENTITY_VARIABLES",
+    "MAXIMUM_TURN_FILES",
+    "MAXIMUM_BLOCKS_IN_A_ROW",
+    "REVIEW_EFFORT",
+    "REVIEW_MODEL_ALIAS",
+    "REVIEW_TIMEOUT_SECONDS",
+    "MINIMUM_REVIEW_SECONDS",
+    "REVIEW_PROMPT_TEMPLATE",
+    "ALL_REVIEW_ALLOWED_TOOLS",
+    "ALL_REVIEW_DISALLOWED_TOOLS",
+    "REVIEW_EXECUTABLE_NAME",
+    "REVIEW_SETTING_SOURCES_TEXT",
+    "REVIEW_TOOLS_TEXT",
+    "REVIEW_SETTINGS_TEXT",
+    "REVIEW_RESULT_KEY",
+    "FINDING_LINE_PATTERN_TEMPLATE",
+    "JSON_FINDING_FILE_KEY",
+    "JSON_FINDING_LINE_KEY",
+    "JSON_FINDING_SUMMARY_KEY",
+    "JSON_FINDING_LINE_TEMPLATE",
+    "JSON_ARRAY_START",
+    "NO_FINDINGS_MARKER",
+    "STATE_FILE_TEMPLATE",
+    "STATE_BASELINES_KEY",
+    "BASELINE_COMMIT_PATTERN",
+    "STATE_BLOCKS_KEY",
+    "STATE_TEMPORARY_PREFIX",
+    "STATE_TEXT_ENCODING",
+    "REPOSITORY_FINDINGS_TEMPLATE",
+    "FINDING_LINE_SEPARATOR",
+    "REPOSITORY_FINDINGS_SEPARATOR",
+    "BLOCK_REASON_TEMPLATE",
+    "TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE",
+    "REVIEW_FAILURE_DIAGNOSTIC_TEMPLATE",
+]
+
+REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_TURN_REVIEW_REPOSITORIES"
+REPOSITORY_SEPARATOR = ","
+PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE = "CLAUDE_PROJECT_DIR"
+REVIEW_CHILD_ENVIRONMENT_VARIABLE = "CLAUDE_TURN_REVIEW_CHILD"
+REVIEW_CHILD_MARKER = "1"
+ALL_PARENT_SESSION_VARIABLES = frozenset(
+    {
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_REMOTE_SESSION_ID",
+        "CLAUDE_CODE_MESSAGING_SOCKET",
+        "CLAUDE_CODE_MESSAGING_TOKEN",
+        "CLAUDE_SESSION_INGRESS_TOKEN_FILE",
+        "CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2",
+        "CLAUDE_CODE_TEE_SDK_STDOUT",
+    }
+)
+PROMPT_EVENT_NAME = "UserPromptSubmit"
+STOP_EVENT_NAME = "Stop"
+HOOK_EVENT_NAME_KEY = "hook_event_name"
+SESSION_ID_KEY = "session_id"
+DECISION_KEY = "decision"
+REASON_KEY = "reason"
+BLOCK_DECISION = "block"
+GIT_DIRECTORY_NAME = ".git"
+GIT_COMMAND_TIMEOUT_SECONDS = 30
+GIT_INDEX_FILE_ENVIRONMENT_VARIABLE = "GIT_INDEX_FILE"
+TEMPORARY_INDEX_FILE_NAME = "index"
+ALL_INDEX_PATH_ARGUMENTS = ("rev-parse", "--git-path", "index")
+ALL_CHANGED_PATH_ARGUMENTS = ("diff", "--name-only", "-z")
+CHANGED_PATH_SEPARATOR = "\0"
+GIT_OUTPUT_ENCODING = "utf-8"
+GIT_OUTPUT_ERROR_HANDLING = "surrogateescape"
+SNAPSHOT_COMMIT_MESSAGE = "turn review snapshot"
+ALL_SNAPSHOT_IDENTITY_VARIABLES = {
+    "GIT_AUTHOR_NAME": "turn review",
+    "GIT_AUTHOR_EMAIL": "turn-review",
+    "GIT_COMMITTER_NAME": "turn review",
+    "GIT_COMMITTER_EMAIL": "turn-review",
+}
+MAXIMUM_TURN_FILES = 30
+MAXIMUM_BLOCKS_IN_A_ROW = 3
+REVIEW_EFFORT = "low"
+REVIEW_MODEL_ALIAS = "opus"
+REVIEW_TIMEOUT_SECONDS = 240
+MINIMUM_REVIEW_SECONDS = 1
+REVIEW_PROMPT_TEMPLATE = "/code-review {effort} {base_commit}..{turn_commit}"
+ALL_REVIEW_ALLOWED_TOOLS = (
+    "Read",
+    "Grep",
+    "Glob",
+    "Bash(git diff:*)",
+    "Bash(git show:*)",
+    "Bash(git log:*)",
+)
+ALL_REVIEW_DISALLOWED_TOOLS = (
+    "Bash(git * -c *)",
+    "Bash(git *--config-env*)",
+    "Bash(git *--output*)",
+    "Bash(git *--ext-diff*)",
+    "Bash(git *--textconv*)",
+    "Bash(git *--git-dir*)",
+    "Bash(git *--work-tree*)",
+    "Bash(git *--exec-path*)",
+)
+REVIEW_EXECUTABLE_NAME = "claude"
+REVIEW_SETTING_SOURCES_TEXT = ""
+REVIEW_TOOLS_TEXT = "Read,Grep,Glob,Bash"
+REVIEW_SETTINGS_TEXT = '{"disableAllHooks": true}'
+REVIEW_RESULT_KEY = "result"
+FINDING_LINE_PATTERN_TEMPLATE = r"^\s*(?:[-*+]|\d+[.)])?\s*[`*_]*{path}:\d+"
+JSON_FINDING_FILE_KEY = "file"
+JSON_FINDING_LINE_KEY = "line"
+JSON_FINDING_SUMMARY_KEY = "summary"
+JSON_FINDING_LINE_TEMPLATE = "{path}:{line} {summary}"
+JSON_ARRAY_START = "["
+NO_FINDINGS_MARKER = "(none)"
+STATE_FILE_TEMPLATE = "turn-review-{session_id}.json"
+STATE_BASELINES_KEY = "baselines"
+BASELINE_COMMIT_PATTERN = r"[0-9a-f]{40}|[0-9a-f]{64}"
+STATE_BLOCKS_KEY = "blocks_in_a_row"
+STATE_TEMPORARY_PREFIX = ".turn-review-"
+STATE_TEXT_ENCODING = "utf-8"
+REPOSITORY_FINDINGS_TEMPLATE = "{repository}:\n{findings}"
+FINDING_LINE_SEPARATOR = "\n"
+REPOSITORY_FINDINGS_SEPARATOR = "\n\n"
+BLOCK_REASON_TEMPLATE = (
+    "A fresh-context review of this turn's changes found these problems. "
+    "Fix each one, or say in your reply why it is wrong, before you end the turn:\n\n"
+    "{all_findings}"
+)
+TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE = (
+    "[turn_review_gate] {repository}: {count} files changed this turn, over the "
+    "{limit}-file limit, so no review ran\n"
+)
+REVIEW_FAILURE_DIAGNOSTIC_TEMPLATE = (
+    "[turn_review_gate] review of {repository} did not finish: {reason}\n"
+)
