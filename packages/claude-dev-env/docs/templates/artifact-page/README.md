@@ -10,6 +10,8 @@ Three templates live here. Pick the one that fits the ask before you write a lin
 
 `diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
 
+Show a diagram whole when the page opens, scaled to the page width. Never put a diagram in a box with a fixed or maximum height, because the reader then sees only part of it. A wide diagram may add a full-size button that lets the page scroll.
+
 `status-flowchart.html` reads left to right. Done steps are green boxes, each yes-or-no check is a diamond, a stuck step is an amber box under its check with a dashed recheck loop back to it, and the next step is a dashed box. A click on any shape opens its detail from the `detail-data` block below the chart. Replace the `<title>`, the `h1`, the svg `aria-label`, the shapes, the arrows and the `detail-data` entries with the work being reported. Keep each label to three words or fewer, in plain words with no abbreviations or item numbers.
 
 Render the page and look at the screenshot before you publish. Headless Chromium renders at least 500 pixels wide, so take the screenshot at 800 wide.
