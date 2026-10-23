@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.101.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.100.1...claude-dev-env-v8.101.0) (2026-10-23)
+
+
+### Features
+
+* **hooks:** lint each file the agent edits in an opted-in repository ([#2177](https://github.com/jl-cmd-projects/claude-dev-env/issues/2177)) ([30bfed5](https://github.com/jl-cmd-projects/claude-dev-env/commit/30bfed56db3cd951a3a54e2316875e915d782b7c))
+
 ## [8.100.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.100.0...claude-dev-env-v8.100.1) (2026-10-23)
 
 
