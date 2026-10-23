@@ -103,7 +103,7 @@
         ]
       },
       {
-        "matcher": "mcp__.*__resolve_review_thread",
+        "matcher": "Bash|PowerShell|mcp__.*__resolve_review_thread|mcp__.*__pull_request_review_write",
         "hooks": [
           {
             "type": "command",
@@ -133,7 +133,7 @@
         ]
       },
       {
-        "matcher": "Bash|PowerShell|mcp__.*__(merge_pull_request|enable_pr_auto_merge)",
+        "matcher": "Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge)",
         "hooks": [
           {
             "type": "command",
@@ -336,7 +336,7 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/open_task_ask_recorder.py",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/tracking_nudge.py",
             "timeout": 10
           },
           {

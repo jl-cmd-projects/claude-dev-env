@@ -144,6 +144,79 @@ class TestAccountRoster:
         monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", " beta , alpha,, ")
         assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
 
+    def should_save_the_environment_roster_for_a_process_without_it(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "beta,alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
+        monkeypatch.delenv("CODEX_ACCOUNT_PROFILES")
+        assert choice.saved_codex_account_names(tmp_path) == ("beta", "alpha")
+
+    @pytest.mark.parametrize("saved_bytes", [b'["alpha",', b"\xff\xfe\x00"])
+    def should_replace_an_unreadable_saved_file_with_the_environment_roster(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, saved_bytes: bytes
+    ) -> None:
+        (tmp_path / "account-launchers.json").write_bytes(saved_bytes)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
+    def should_keep_the_environment_roster_when_the_saved_file_cannot_be_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_read(_: Path) -> tuple[str, ...]:
+            raise PermissionError("locked")
+
+        monkeypatch.setattr(choice, "_saved_roster_file_names", refuse_read)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+
+    def should_remove_the_staged_roster_when_the_write_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original_write_bytes = Path.write_bytes
+
+        def fail_after_partial_write(path: Path, data: bytes) -> int:
+            original_write_bytes(path, data[:3])
+            raise OSError("disk full")
+
+        monkeypatch.setattr(Path, "write_bytes", fail_after_partial_write)
+        with pytest.raises(OSError, match="disk full"):
+            choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert list(tmp_path.iterdir()) == []
+
+    @pytest.mark.parametrize("document", [["gamma"], ["alpha", "bad name"], {"alpha": 1}])
+    def should_replace_a_saved_file_that_differs_from_the_environment(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, document: object
+    ) -> None:
+        save_roster(tmp_path, document)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        choice.saved_codex_account_names(tmp_path)
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
+    def should_leave_a_saved_file_that_matches_the_environment_untouched(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        save_roster(tmp_path, ["beta", "alpha"])
+        saved_bytes = (tmp_path / "account-launchers.json").read_bytes()
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "beta,alpha")
+        choice.saved_codex_account_names(tmp_path)
+        assert (tmp_path / "account-launchers.json").read_bytes() == saved_bytes
+
+    def should_keep_the_environment_roster_when_the_file_cannot_be_written(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def refuse_save(*_: object) -> None:
+            raise PermissionError("read-only")
+
+        monkeypatch.setattr(choice, "save_codex_account_names", refuse_save)
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", "alpha")
+        assert choice.saved_codex_account_names(tmp_path) == ("alpha",)
+        assert "cannot save the CODEX_ACCOUNT_PROFILES roster" in capsys.readouterr().err
+
     def should_read_the_saved_file_when_the_environment_is_unset(
         self, tmp_path: Path
     ) -> None:
@@ -190,6 +263,37 @@ class TestAccountRoster:
             b'[\n  "alpha",\n  "beta"\n]\n'
         )
         assert choice.saved_codex_account_names(profiles_root) == ("alpha", "beta")
+        assert [each.name for each in profiles_root.iterdir()] == ["account-launchers.json"]
+
+    def should_retry_a_replace_while_a_reader_holds_the_roster(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original_replace = os.replace
+        all_attempts: list[object] = []
+
+        def refuse_first_replace(source: Path, target: Path) -> None:
+            all_attempts.append(source)
+            if len(all_attempts) == 1:
+                raise PermissionError("in use")
+            original_replace(source, target)
+
+        monkeypatch.setattr(choice.os, "replace", refuse_first_replace)
+        monkeypatch.setattr(choice.time, "sleep", lambda _: None)
+        choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert len(all_attempts) == 2
+        assert json.loads((tmp_path / "account-launchers.json").read_text(encoding="utf-8")) == ["alpha"]
+
+    def should_remove_the_staged_roster_when_the_replace_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse_replace(*_: object) -> None:
+            raise PermissionError("in use")
+
+        monkeypatch.setattr(choice.os, "replace", refuse_replace)
+        monkeypatch.setattr(choice.time, "sleep", lambda _: None)
+        with pytest.raises(PermissionError):
+            choice.save_codex_account_names(tmp_path, ("alpha",))
+        assert list(tmp_path.iterdir()) == []
 
     def should_fall_back_to_the_four_fixed_accounts_without_a_roster(
         self, tmp_path: Path
@@ -307,6 +411,23 @@ class TestSetupRoster:
             "Saved Codex account launchers: none",
             "profile name must use letters, digits, hyphens, or underscores",
         ]
+
+    @pytest.mark.parametrize(("environment_roster", "is_warned"), [("alpha,beta", True), ("alpha", False), ("", False), ("bad name", False)])
+    def should_warn_when_the_environment_roster_will_replace_the_setup_list(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        environment_roster: str,
+        is_warned: bool,
+    ) -> None:
+        monkeypatch.setattr(choice, "update_codex_account_roster", lambda **_: (("alpha",), {}))
+        monkeypatch.setenv("CODEX_ACCOUNT_PROFILES", environment_roster)
+        all_arguments = ["--profiles-root", str(tmp_path / "profiles"), "setup"]
+        main_home = build_codex_main_home(tmp_path)
+        assert choice.main([*all_arguments, "--main-home", str(main_home), "--launcher-directory", str(tmp_path / "bin")]) == 0
+        assert ("CODEX_ACCOUNT_PROFILES names alpha" in capsys.readouterr().err) is is_warned
+        assert (tmp_path / "bin" / "codex-alpha.cmd").is_file()
 
     def should_finish_at_the_end_of_input(self, tmp_path: Path) -> None:
         all_names, _ = choice.update_codex_account_roster(

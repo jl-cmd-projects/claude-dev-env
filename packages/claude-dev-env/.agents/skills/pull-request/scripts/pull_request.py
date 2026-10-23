@@ -26,6 +26,7 @@ from github_pr_command_constants.config.constants import (
     BODY_TEMPLATE_HEADING_FORMAT,
     BODY_TEMPLATE_LINE_END,
     FEATURE_BODY_TEMPLATE_HEADING,
+    FEATURE_BODY_TEMPLATE_HEADING_FOLLOWS,
     FEATURE_TITLE_PATTERN,
     ALL_GITHUB_AUTHORIZATION_ENVIRONMENT_KEYS,
     ALL_LINTER_ACTIONS_BY_COMMAND,
@@ -77,13 +78,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _template_headings(title: str) -> list[str]:
-    all_headings = [
-        BODY_TEMPLATE_HEADING_FORMAT.format(heading=each_heading)
-        for each_heading in ALL_BODY_TEMPLATE_HEADINGS
-    ]
+    all_heading_names = list(ALL_BODY_TEMPLATE_HEADINGS)
     if FEATURE_TITLE_PATTERN.match(title):
-        all_headings.append(BODY_TEMPLATE_HEADING_FORMAT.format(heading=FEATURE_BODY_TEMPLATE_HEADING))
-    return all_headings
+        eval_position = all_heading_names.index(FEATURE_BODY_TEMPLATE_HEADING_FOLLOWS) + 1
+        all_heading_names.insert(eval_position, FEATURE_BODY_TEMPLATE_HEADING)
+    return [BODY_TEMPLATE_HEADING_FORMAT.format(heading=each_heading) for each_heading in all_heading_names]
 
 
 def write_body_template(body_file: Path, title: str) -> list[str]:
@@ -91,8 +90,9 @@ def write_body_template(body_file: Path, title: str) -> list[str]:
 
     ::
 
-        new file, title "fix: x"   -> ["## Why", "## Existing work", "## Proof in practice", "## Verification"]
-        new file, title "feat: x"  -> the same plus "## Eval"
+        new file, title "fix: x"   -> ["## What this does", "## What changed", "## Existing work",
+                                       "## Proof in practice", "## Risk", "## How to revert"]
+        new file, title "feat: x"  -> the same with "## Eval" after "## Proof in practice"
         file already has them all  -> [] and the file is unchanged
 
     Args:

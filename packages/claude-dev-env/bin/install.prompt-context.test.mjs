@@ -40,7 +40,7 @@ test('reinstall drops the retired style reminder and keeps one skill reminder ho
     assert.match(userPromptHooks[1].command, /session\/skill_loaded_reminder\.py$/);
     assert.match(userPromptHooks[2].command, /lifecycle\/nested_project_hooks\.py$/);
     assert.match(userPromptHooks[3].command, /blocking\/chat_reply_gate\.py$/);
-    assert.match(userPromptHooks[4].command, /session\/open_task_ask_recorder\.py$/);
+    assert.match(userPromptHooks[4].command, /session\/tracking_nudge\.py$/);
     assert.match(userPromptHooks[5].command, /session\/plugin_change_warning\.py$/);
     assert.ok(userPromptHooks.every(eachHook => !eachHook.command.includes('style_reminder_prompt')));
 

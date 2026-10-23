@@ -175,8 +175,9 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     asks the model to check a hedged claim, and the call it reads stays in place.
 
     The session title gates keep the session title in its status format. One
-    denies a malformed title, and the other asks for a title before a turn
-    ends. They decide the shape of a title and no code or safety policy.
+    denies a malformed title, and the other asks for a new title when the
+    shown status stops fitting. They decide the shape of a title and no code
+    or safety policy.
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.
@@ -193,10 +194,9 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     names open review findings. It reads only the wording of a chat card and
     decides no code or safety policy; the merge review gate holds the merge.
 
-    The open tasks Stop gate holds the end of a turn while the session's task
-    list has items the closing reply neither completes nor reports as
-    ``Blocked:`` or ``Open:``. It decides when a turn may end and no code or
-    safety policy.
+    The open tasks Stop gate holds the end of a turn once when the turn worked
+    on an ask and made no task list call. It decides when a turn may end and
+    no code or safety policy.
 
     The owned pull request Stop gate holds the end of a turn while a pull
     request the session opened on an owned repository is still open and the

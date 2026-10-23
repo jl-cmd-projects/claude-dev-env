@@ -2,7 +2,7 @@
 
 Use this only when the PR writer needs a concrete verification sample.
 
-Verification should lead with something a reviewer can open, see, click, compare, or try.
+Proof in practice should lead with something a reviewer can open, see, click, compare, or try.
 
 Good:
 

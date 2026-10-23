@@ -5,7 +5,9 @@ Each Codex account signs in under its own Codex home in
 ``~/.codex-profiles/<name>``. The account list names them in try order: the
 ``CODEX_ACCOUNT_PROFILES`` environment variable, comma-separated, else the saved
 ``account-launchers.json`` list under the profiles root. With neither,
-``codex-1`` through ``codex-4`` are the roster.
+``codex-1`` through ``codex-4`` are the roster. An environment roster that
+differs from the saved file is saved to it, so a process without the variable
+reads the same roster.
 
 Three commands::
 
@@ -27,6 +29,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,8 +63,12 @@ from dev_env_scripts_constants.codex_account_constants import (
     MAIN_CODEX_HOME_DIRECTORY_NAME,
     ROSTER_JSON_INDENT,
     ROSTER_NOT_A_LIST_TEMPLATE,
+    ROSTER_REPLACE_ATTEMPTS,
+    ROSTER_REPLACE_RETRY_SECONDS,
+    SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE,
     SETUP_NAMES_SEPARATOR,
     SETUP_NO_SAVED_NAMES_TEXT,
+    SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE,
     SETUP_PROMPT_TEXT,
     SETUP_SAVED_NAMES_TEMPLATE,
     TEXT_ENCODING,
@@ -156,12 +163,44 @@ def _saved_roster_file_names(profiles_root: Path) -> tuple[str, ...]:
     return _roster(document, str(roster_path))
 
 
+def _saved_roster_or_nothing(profiles_root: Path) -> tuple[str, ...]:
+    try:
+        return _saved_roster_file_names(profiles_root)
+    except (CodexAccountNameError, OSError, UnicodeError):
+        return ()
+
+
+def _save_environment_roster(
+    profiles_root: Path, all_environment_names: tuple[str, ...]
+) -> None:
+    """Copy the environment roster into the saved file when the two differ.
+
+    A process started without ``CODEX_ACCOUNT_PROFILES`` then reads the same
+    roster from the file.
+
+    Args:
+        profiles_root: The directory that holds every account's Codex home.
+        all_environment_names: The validated names the environment gives.
+    """
+    if _saved_roster_or_nothing(profiles_root) == all_environment_names:
+        return
+    try:
+        save_codex_account_names(profiles_root, all_environment_names)
+    except OSError as error:
+        print(
+            SAVE_ENVIRONMENT_ROSTER_FAILED_TEMPLATE.format(
+                path=profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME, error=error
+            ),
+            file=sys.stderr,
+        )
+
+
 def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
     """Name the account list, in try order, without duplicates.
 
     ::
 
-        CODEX_ACCOUNT_PROFILES="alpha, beta,alpha" -> ("alpha", "beta")
+        CODEX_ACCOUNT_PROFILES="alpha, beta,alpha" -> ("alpha", "beta"), saved to the file
         unset, account-launchers.json ["gamma"]    -> ("gamma",)
         unset, no file                             -> ()
 
@@ -170,11 +209,16 @@ def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 
     Returns:
         The environment's names when it names any, else the saved file's names.
+        Environment names that differ from the file are saved to it.
 
     Raises:
         CodexAccountNameError: When the environment or the file names an invalid account.
     """
-    return _environment_roster() or _saved_roster_file_names(profiles_root)
+    all_environment_names = _environment_roster()
+    if all_environment_names:
+        _save_environment_roster(profiles_root, all_environment_names)
+        return all_environment_names
+    return _saved_roster_file_names(profiles_root)
 
 
 def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
@@ -192,15 +236,48 @@ def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> None:
     """Write the account list as a JSON list under the profiles root.
 
+    The list goes to a staged file first, and ``os.replace`` moves it over the
+    saved file in one step, so a concurrent reader sees the old list or the new one.
+
     Args:
         profiles_root: The directory that holds every account's Codex home.
         all_names: The account names in try order.
     """
     profiles_root.mkdir(parents=True, exist_ok=True)
     roster_text = json.dumps(list(all_names), indent=ROSTER_JSON_INDENT) + "\n"
-    (profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME).write_bytes(
-        roster_text.encode(TEXT_ENCODING)
-    )
+    roster_path = profiles_root / CODEX_ACCOUNT_LAUNCHERS_FILE_NAME
+    staged_path = roster_path.with_name(f"{roster_path.name}.{os.getpid()}.tmp")
+    try:
+        staged_path.write_bytes(roster_text.encode(TEXT_ENCODING))
+        _replace_with_retries(staged_path, roster_path)
+    except OSError:
+        staged_path.unlink(missing_ok=True)
+        raise
+
+
+def _replace_with_retries(staged_path: Path, roster_path: Path) -> None:
+    """Replace the saved roster, retrying while a Windows reader holds it open.
+
+    Args:
+        staged_path: The fully written new roster file.
+        roster_path: The saved roster file to replace.
+
+    Raises:
+        PermissionError: When the saved file stays locked through every attempt.
+    """
+    for _ in range(ROSTER_REPLACE_ATTEMPTS - 1):
+        if _replaced(staged_path, roster_path):
+            return
+        time.sleep(ROSTER_REPLACE_RETRY_SECONDS)
+    os.replace(staged_path, roster_path)
+
+
+def _replaced(staged_path: Path, roster_path: Path) -> bool:
+    try:
+        os.replace(staged_path, roster_path)
+    except PermissionError:
+        return False
+    return True
 
 
 def _sync_account(
@@ -403,7 +480,22 @@ def _run_setup(arguments: argparse.Namespace) -> int:
         now=now,
     )
     print(json.dumps({JSON_INSTALLED_KEY: all_installed, JSON_RETIRED_KEY: all_retired}))
+    _warn_when_the_environment_replaces(all_names)
     return 0
+
+
+def _warn_when_the_environment_replaces(all_setup_names: tuple[str, ...]) -> None:
+    try:
+        all_environment_names = _environment_roster()
+    except CodexAccountNameError:
+        return
+    if all_environment_names and all_environment_names != all_setup_names:
+        print(
+            SETUP_OVERRIDDEN_BY_ENVIRONMENT_TEMPLATE.format(
+                names=SETUP_NAMES_SEPARATOR.join(all_environment_names)
+            ),
+            file=sys.stderr,
+        )
 
 
 def _add_main_home_argument(command_parser: argparse.ArgumentParser) -> None:

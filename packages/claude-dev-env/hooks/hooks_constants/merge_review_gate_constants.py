@@ -1,4 +1,4 @@
-"""Named constants for merge_review_gate, the clean-review merge gate."""
+"""Named constants for merge_review_gate, the clean-review open and merge gate."""
 
 from __future__ import annotations
 
@@ -10,12 +10,39 @@ PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 
 MERGE_TOOL_SUFFIX = "__merge_pull_request"
 AUTO_MERGE_TOOL_SUFFIX = "__enable_pr_auto_merge"
+CREATE_TOOL_SUFFIX = "__create_pull_request"
 ALL_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 
 OWNER_FIELD = "owner"
 REPO_FIELD = "repo"
 NUMBER_FIELD = "pullNumber"
 EXPECTED_HEAD_FIELD = "expectedHeadSha"
+HEAD_BRANCH_FIELD = "head"
+CWD_FIELD = "cwd"
+
+GH_PR_CREATE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+create\b(?P<rest>[^;&|]*)")
+PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
+    r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
+)
+HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
+CHANGE_FOLDER_PATTERN = re.compile(
+    r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"
+    r"(?P<folder>\"[^\"]*\"|'[^']*'|[^\s;&|)]+)",
+    re.IGNORECASE,
+)
+CREATE_TEXT_OPTION_PATTERN = re.compile(
+    r"(?<!\S)(?:-t|--title|-b|--body|-F|--body-file)(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
+)
+ORIGIN_URL_PATTERN = re.compile(
+    r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
+)
+GIT_TIMEOUT_SECONDS = 3
+ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
+OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
+OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
+REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
+REMOTE_BRANCH_PREFIX = "origin/"
+CURRENT_HEAD_REFERENCE = "HEAD"
 
 GH_PR_MERGE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+merge\b(?P<rest>[^;&|]*)")
 GH_API_MERGE_PATTERN = re.compile(
@@ -44,6 +71,10 @@ DEFAULT_REVIEW_COMMAND = "/code-review high --max-findings all"
 RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_RECEIPT_DIR"
 ALL_RECEIPT_DIRECTORY_SEGMENTS = (".claude", "merge-reviews")
 RECEIPT_FILE_NAME_TEMPLATE = "{owner}__{repo}__{number}.json"
+OPEN_RECEIPT_DIRECTORY_NAME = "heads"
+OPEN_RECEIPT_FILE_NAME_TEMPLATE = "{owner}__{repo}__{head}.json"
+OPEN_RECEIPT_GLOB_TEMPLATE = "*__{repo}__*.json"
+OPEN_TARGET_WORD = "open"
 REPOSITORY_SEPARATOR = ","
 RECEIPT_HEAD_KEY = "head"
 RECEIPT_FINDINGS_KEY = "findings"
@@ -83,4 +114,18 @@ AUTO_MERGE_REASON_TEMPLATE = (
 UNKNOWN_TARGET_REASON = (
     "This merge names no repository and pull request number the review gate can read. "
     "Name both, such as `gh pr merge 12 --repo owner/name --match-head-commit <sha>`."
+)
+NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
+    "{slug} has no clean review for head {head}, which this pull request would open with. "
+    "Review the branch diff with `{review_command}`, fix and push every finding, and review "
+    "again until a pass reports zero findings. Record that pass with `"
+    + RECORD_COMMAND
+    + " {slug} "
+    + OPEN_TARGET_WORD
+    + " {head} 0`, then open the pull request. The merge accepts that receipt while the "
+    "head stays {head}."
+)
+UNKNOWN_OPEN_TARGET_REASON = (
+    "This pull request names no repository or head commit the review gate can read. Run it "
+    "from the branch checkout, or pass `--repo owner/name` and `--head <pushed branch>`."
 )

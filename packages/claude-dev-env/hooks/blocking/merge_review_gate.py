@@ -1,11 +1,14 @@
-"""Deny an agent's merge until a review of the merged head came back clean.
+"""Deny an agent's pull request open or merge until a review of that head came back clean.
 
-The agent that drives a pull request loops a code review on it, fixing and
-pushing each finding, until one pass reports zero findings or every finding
-it reports is ruled out with a link to the posted rulings. The merge then
-names that exact head::
+The agent reviews its branch before it opens the pull request, and loops a
+code review on the pull request, fixing and pushing each finding, until one
+pass reports zero findings or every finding it reports is ruled out with a
+link to the posted rulings. The open and the merge then name that exact head::
 
+    open, open receipt says 0 findings at abc123, branch head abc123 -> allow
+    open, no open receipt for the branch head                        -> deny, review first
     merge, receipt says 0 findings at abc123, merge pinned to abc123 -> allow
+    merge, open receipt clean at abc123, merge pinned to abc123      -> allow
     merge, receipt rules out all 3 findings with a link, pinned       -> allow
     merge, receipt at abc123, merge pinned to def456                 -> deny, review again
     merge, receipt at abc123, merge names no head                    -> deny, pin it
@@ -32,12 +35,18 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.merge_review_gate_parts.open_request import OpenRequest, open_request_from
+from blocking.merge_review_gate_parts.receipts import (
+    has_clean_open_review,
+    is_clean_receipt,
+    receipt_path,
+    same_commit,
+)
 from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
 )
 from hooks_constants.merge_review_gate_constants import (
-    ALL_RECEIPT_DIRECTORY_SEGMENTS,
     ALL_SHELL_TOOL_NAMES,
     AUTO_MERGE_REASON_TEMPLATE,
     AUTO_MERGE_TOOL_SUFFIX,
@@ -52,6 +61,7 @@ from hooks_constants.merge_review_gate_constants import (
     HOOK_EVENT_NAME,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
+    NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
     NO_CLEAN_REVIEW_REASON_TEMPLATE,
     NUMBER_FIELD,
     OPTION_WITH_VALUE_PATTERN,
@@ -59,18 +69,13 @@ from hooks_constants.merge_review_gate_constants import (
     PERMISSION_DECISION_REASON_KEY,
     PR_NUMBER_PATTERN,
     PR_URL_PATTERN,
-    RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE,
-    RECEIPT_FILE_NAME_TEMPLATE,
-    RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
-    RECEIPT_RULED_OUT_KEY,
-    RECEIPT_RULINGS_KEY,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
-    RULINGS_LINK_PATTERN,
     STALE_REVIEW_REASON_TEMPLATE,
+    UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
 )
@@ -101,31 +106,25 @@ class MergeRequest:
         return f"{self.owner}/{self.repo}"
 
 
-def receipt_directory() -> Path:
-    """Return the folder that holds one review receipt per pull request.
-
-    Returns:
-        The folder CLAUDE_MERGE_REVIEW_RECEIPT_DIR names, else ``~/.claude/merge-reviews``.
-    """
-    override = os.environ.get(RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE)
-    if override:
-        return Path(override)
-    return Path.home().joinpath(*ALL_RECEIPT_DIRECTORY_SEGMENTS)
-
-
-def receipt_path(owner: str, repo: str, number: int) -> Path:
-    """Return where the review receipt for one pull request lives.
+def open_deny_reason(request: OpenRequest) -> str | None:
+    """Return why a pull request open must wait for a clean review, or None to allow it.
 
     Args:
-        owner: Repository owner.
-        repo: Repository name.
-        number: Pull request number.
+        request: The open the tool call asks for.
 
     Returns:
-        The receipt file path.
+        The deny reason, or None when the open may run.
     """
-    return receipt_directory() / RECEIPT_FILE_NAME_TEMPLATE.format(
-        owner=owner.casefold(), repo=repo.casefold(), number=number
+    if not request.owner or not request.repo:
+        return UNKNOWN_OPEN_TARGET_REASON
+    if _is_exempt(request.slug):
+        return None
+    if not request.head:
+        return UNKNOWN_OPEN_TARGET_REASON
+    if has_clean_open_review(request.repo, request.head):
+        return None
+    return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
+        slug=request.slug, head=request.head, review_command=_review_command()
     )
 
 
@@ -216,15 +215,15 @@ def _without_option_values(arguments: str) -> str:
     return OPTION_WITH_VALUE_PATTERN.sub(" ", arguments)
 
 
-def _is_exempt(request: MergeRequest) -> bool:
+def _is_exempt(slug: str) -> bool:
     listed = os.environ.get(EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE, "")
     all_exempt = {
         each.strip().casefold() for each in listed.split(REPOSITORY_SEPARATOR) if each.strip()
     }
-    return request.slug.casefold() in all_exempt
+    return slug.casefold() in all_exempt
 
 
-def _clean_head(request: MergeRequest) -> str | None:
+def _numbered_receipt(request: MergeRequest) -> dict[str, object] | None:
     if request.number is None:
         return None
     try:
@@ -233,76 +232,24 @@ def _clean_head(request: MergeRequest) -> str | None:
         )
     except (OSError, ValueError):
         return None
-    if not isinstance(receipt, dict) or not is_clean_receipt(
-        receipt, request.owner, request.repo, request.number
-    ):
-        return None
-    head = receipt.get(RECEIPT_HEAD_KEY)
+    return receipt if isinstance(receipt, dict) else None
+
+
+def _receipt_head(all_receipt_fields: dict[str, object] | None) -> str | None:
+    head = all_receipt_fields.get(RECEIPT_HEAD_KEY) if all_receipt_fields else None
     return head if isinstance(head, str) and head else None
 
 
-def is_clean_receipt(
-    all_receipt_fields: dict[str, object], owner: str, repo: str, number: int
-) -> bool:
-    """Return whether a recorded pass lets the merge through.
-
-    A pass is clean when it reported zero findings, or when every finding it
-    reported is ruled out and the receipt links the rulings comment posted on
-    this same pull request::
-
-        findings 0                                                -> clean
-        findings 2, ruled out 2, .../acme/tools/pull/12#issuecomment-9 -> clean
-        findings 2, ruled out 2, .../acme/other/pull/12#issuecomment-9 -> not clean
-
-    Args:
-        all_receipt_fields: The parsed receipt of one review pass.
-        owner: Owner of the pull request the merge targets.
-        repo: Repository of the pull request the merge targets.
-        number: Number of the pull request the merge targets.
-
-    Returns:
-        True when the pass counts as clean.
-    """
-    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
-    if not _is_count(finding_count):
-        return False
-    return finding_count == 0 or _rules_out_every_finding(
-        all_receipt_fields, finding_count, owner, repo, number
-    )
-
-
-def _is_count(candidate: object) -> bool:
-    return isinstance(candidate, int) and not isinstance(candidate, bool) and candidate >= 0
-
-
-def _rules_out_every_finding(
-    all_receipt_fields: dict[str, object], finding_count: object, owner: str, repo: str, number: int
-) -> bool:
-    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
-    return (
-        _is_count(ruled_out_count)
-        and ruled_out_count == finding_count
-        and _links_rulings_on(all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number)
-    )
-
-
-def _links_rulings_on(rulings: object, owner: str, repo: str, number: int) -> bool:
-    rulings_match = RULINGS_LINK_PATTERN.fullmatch(rulings) if isinstance(rulings, str) else None
-    return (
-        rulings_match is not None
-        and rulings_match["owner"].casefold() == owner.casefold()
-        and rulings_match["repo"].casefold() == repo.casefold()
-        and int(rulings_match["number"]) == number
-    )
+def _clean_head(request: MergeRequest, all_receipt_fields: dict[str, object] | None) -> str | None:
+    if all_receipt_fields is None or request.number is None:
+        return None
+    if not is_clean_receipt(all_receipt_fields, request.owner, request.repo, request.number):
+        return None
+    return _receipt_head(all_receipt_fields)
 
 
 def _review_command() -> str:
     return os.environ.get(REVIEW_COMMAND_ENVIRONMENT_VARIABLE) or DEFAULT_REVIEW_COMMAND
-
-
-def _same_commit(first: str, second: str) -> bool:
-    shorter, longer = sorted((first.casefold(), second.casefold()), key=len)
-    return longer.startswith(shorter)
 
 
 def deny_reason(request: MergeRequest) -> str | None:
@@ -316,17 +263,30 @@ def deny_reason(request: MergeRequest) -> str | None:
     """
     if not request.owner or not request.repo or request.number is None:
         return UNKNOWN_TARGET_REASON
-    if _is_exempt(request):
+    if _is_exempt(request.slug):
+        return None
+    numbered_receipt = _numbered_receipt(request)
+    numbered_head = _receipt_head(numbered_receipt)
+    pass_on_pinned_head = (
+        numbered_head is not None
+        and request.pinned_head is not None
+        and same_commit(numbered_head, request.pinned_head)
+    )
+    if (
+        request.pinned_head
+        and not pass_on_pinned_head
+        and has_clean_open_review(request.repo, request.pinned_head)
+    ):
         return None
     fields = {"slug": request.slug, "number": request.number}
-    clean_head = _clean_head(request)
+    clean_head = _clean_head(request, numbered_receipt)
     if clean_head is None:
         return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(review_command=_review_command(), **fields)
     if request.pinned_head is None and request.is_auto_merge:
         return AUTO_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
     if request.pinned_head is None:
         return UNPINNED_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
-    if not _same_commit(clean_head, request.pinned_head):
+    if not same_commit(clean_head, request.pinned_head):
         return STALE_REVIEW_REASON_TEMPLATE.format(
             head=clean_head, pinned=request.pinned_head, **fields
         )
@@ -334,7 +294,7 @@ def deny_reason(request: MergeRequest) -> str | None:
 
 
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
-    """Return a deny decision for a merge with no clean review, else None.
+    """Return a deny decision for an open or merge with no clean review, else None.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -342,10 +302,11 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     Returns:
         The hook output that denies the call, or None to allow it.
     """
-    request = merge_request_from(all_payload_fields)
-    if request is None:
-        return None
-    reason = deny_reason(request)
+    open_request = open_request_from(all_payload_fields)
+    merge_request = merge_request_from(all_payload_fields)
+    reason = (open_deny_reason(open_request) if open_request is not None else None) or (
+        deny_reason(merge_request) if merge_request is not None else None
+    )
     if reason is None:
         return None
     return {

@@ -1,5 +1,55 @@
 # Changelog
 
+## [8.100.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.99.1...claude-dev-env-v8.100.0) (2026-10-23)
+
+
+### Features
+
+* **hooks:** require a clean review before a pull request opens ([#2173](https://github.com/jl-cmd-projects/claude-dev-env/issues/2173)) ([ba8e959](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba8e9595c537acc2c5665017b72d22cdc7aff3d4))
+
+## [8.99.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.99.0...claude-dev-env-v8.99.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **install:** keep the installed plugin when a refresh step fails ([#2171](https://github.com/jl-cmd-projects/claude-dev-env/issues/2171)) ([4b92f38](https://github.com/jl-cmd-projects/claude-dev-env/commit/4b92f380ad2d316f4112d7cb115a7d7f8066c856))
+
+## [8.99.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.11...claude-dev-env-v8.99.0) (2026-10-22)
+
+
+### Features
+
+* **pull-request:** reader sections in the pull request body ([#2168](https://github.com/jl-cmd-projects/claude-dev-env/issues/2168)) ([3904b6c](https://github.com/jl-cmd-projects/claude-dev-env/commit/3904b6c037925d6170ace26590f76948799b6e81))
+
+## [8.98.11](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.10...claude-dev-env-v8.98.11) (2026-10-22)
+
+
+### Bug Fixes
+
+* **codex-accounts:** save the environment roster to account-launchers.json ([#2165](https://github.com/jl-cmd-projects/claude-dev-env/issues/2165)) ([96ec6a2](https://github.com/jl-cmd-projects/claude-dev-env/commit/96ec6a2f4f66616f6bc6d07b1ba203f6583f03d1))
+
+## [8.98.10](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.9...claude-dev-env-v8.98.10) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** hold a turn only when the task list or title is stale ([#2161](https://github.com/jl-cmd-projects/claude-dev-env/issues/2161)) ([d2bdb7b](https://github.com/jl-cmd-projects/claude-dev-env/commit/d2bdb7b8b337443adf7bdccfe7b023c4b295e8f5))
+
+## [8.98.9](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.8...claude-dev-env-v8.98.9) (2026-10-22)
+
+
+### Bug Fixes
+
+* **hooks:** tie each thread resolve to a reply on it ([#2162](https://github.com/jl-cmd-projects/claude-dev-env/issues/2162)) ([8e169ed](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e169ed48a048ace0baaebd583a9fc0b44cc505c))
+
+## [8.98.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.7...claude-dev-env-v8.98.8) (2026-10-22)
+
+
+### Bug Fixes
+
+* **account-broker:** ignore a Codex default spent mark while a roster exists ([#2159](https://github.com/jl-cmd-projects/claude-dev-env/issues/2159)) ([bcc3cf7](https://github.com/jl-cmd-projects/claude-dev-env/commit/bcc3cf7eba8a876045718830ca6050f5ccce205b))
+* **install:** refresh Claude plugins in place instead of reinstalling ([#2160](https://github.com/jl-cmd-projects/claude-dev-env/issues/2160)) ([4939ff2](https://github.com/jl-cmd-projects/claude-dev-env/commit/4939ff2eff4969dea6197efea21697e86703d005))
+
 ## [8.98.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.98.6...claude-dev-env-v8.98.7) (2026-10-22)
 
 

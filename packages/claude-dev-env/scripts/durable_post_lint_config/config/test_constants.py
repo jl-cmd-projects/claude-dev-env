@@ -40,5 +40,5 @@ def should_name_the_branch_prefix_release_automation_pushes() -> None:
     assert RELEASE_BRANCH_PREFIX == "release-please--branches--"
 
 
-def should_require_only_the_headings_both_pull_request_rule_sets_name() -> None:
-    assert ALL_REQUIRED_PR_DESCRIPTION_HEADINGS == ("Why", "Verification")
+def should_require_the_reader_headings_a_reviewer_reads_in_place_of_the_code() -> None:
+    assert ALL_REQUIRED_PR_DESCRIPTION_HEADINGS == ("What this does", "Risk", "How to revert")
