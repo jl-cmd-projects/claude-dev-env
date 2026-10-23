@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.102.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.102.0...claude-dev-env-v8.102.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **reporting:** preserve verified task completion ([#2181](https://github.com/jl-cmd-projects/claude-dev-env/issues/2181)) ([58b1e77](https://github.com/jl-cmd-projects/claude-dev-env/commit/58b1e7794dc174ae24f77f7a074c95640969a7e1))
+
 ## [8.102.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.101.0...claude-dev-env-v8.102.0) (2026-10-23)
 
 
