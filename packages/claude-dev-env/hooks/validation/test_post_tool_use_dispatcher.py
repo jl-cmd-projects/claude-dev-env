@@ -366,4 +366,5 @@ def test_live_roster_contains_only_nonblocking_hooks() -> None:
     assert all(not each_entry.is_blocking for each_entry in ALL_POST_HOSTED_HOOK_ENTRIES)
     assert tuple(each_entry.script_relative_path for each_entry in ALL_POST_HOSTED_HOOK_ENTRIES) == (
         "workflow/auto_formatter.py",
+        "advisory/edit_lint_context.py",
     )
