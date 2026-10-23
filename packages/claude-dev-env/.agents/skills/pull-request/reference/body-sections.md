@@ -7,7 +7,8 @@ A reviewer reads the body in place of the code. The body says what the change do
 | `## What this does` | Two or three plain sentences: the behavior before, the behavior after, and who notices. Written for a reviewer who has not read the worker's conversation. |
 | `## What changed` | One bullet per area of the diff, in plain words. |
 | `## Existing work` | What already did part of the job, with a link or file and line, and what this change adds. Or the places searched. |
-| `## Proof in practice` | Each command in backticks, the output without the change and with it, and anything still unproven. |
+| `## Proof in practice` | Each command in backticks, and the output without the change and with it. The run on the target the change exists to fix is here before the pull request opens. |
+| `## Not covered` | Optional. A condition the change does not target and the runs left out, such as an older data shape. |
 | `## Eval` | Only for a `feat` title. The eval's cases and grader, the command, and its result. |
 | `## Risk` | What could break, for whom, and how anyone would notice. `Low` and one reason for a doc or test change. |
 | `## How to revert` | The exact undo step, and any data or state a plain revert leaves behind. |
