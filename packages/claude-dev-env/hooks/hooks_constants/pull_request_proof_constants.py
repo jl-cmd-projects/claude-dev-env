@@ -20,7 +20,8 @@ MISSING_PROOF_REASON = (
     " the difference. For a hook, skill, rule, setting, prompt or output style, spawn"
     " each test session through the account broker. Then add a 'Proof in practice'"
     " heading to the body that lists each command in backticks, quotes the output, states"
-    " the difference between the runs, and names anything still unproven. When you cannot"
+    " the difference between the runs, and lists any condition the runs left out under a"
+    " 'Not covered' heading. When you cannot"
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
@@ -61,6 +62,16 @@ TEST_ONLY_PROOF_REASON = (
     " the way its user runs it, once without the change and once with it. List each"
     " command in backticks and quote the output lines that show the difference. Keep the"
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:yet )?proven|unproven|not (?:yet )?tested|untested|not (?:yet )?verified|unverified)\b"
+INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
+UNPROVEN_PROOF_REASON = (
+    "This pull request's 'Proof in practice' section says part of the change is not"
+    " proven: \"{admission}\". When that part is what the change exists to do, such as"
+    " the run on the target that failed, leave the pull request unopened. Run it, quote"
+    " its output, then open the pull request. When it is a condition the change does not"
+    " target, move the line under a 'Not covered' heading at the same level as the proof"
+    " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"

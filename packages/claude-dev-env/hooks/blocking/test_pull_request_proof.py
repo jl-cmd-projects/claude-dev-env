@@ -111,6 +111,38 @@ def test_proof_with_a_test_run_and_file_references_should_be_denied() -> None:
     assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
 
 
+def test_proof_that_says_its_target_run_is_not_proven_should_be_denied() -> None:
+    body = (
+        "## Proof in practice\nRan `python verify.py theme`.\n> PASS\n\n"
+        "Not proven here: a fresh Convert run of Bear Penguin that rewrites the record.\n"
+    )
+    reason = gate.missing_proof_reason(_mcp_create(body))
+    assert reason is not None
+    assert "Not proven here: a fresh Convert run of Bear Penguin" in reason
+
+
+@pytest.mark.parametrize("admission", ["unproven", "not yet tested", "Untested", "unverified", "not verified"])
+def test_each_unproven_marker_in_proof_prose_should_be_denied(admission: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\nThe live dialer path is {admission}.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is not None
+
+
+def test_unproven_line_moved_under_a_not_covered_heading_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n> PASS\n\n"
+        "## Not covered\n\nNot proven here: a run on an older session.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_words_inside_quoted_output_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`, which printed `unverified sender denied`.\n"
+        "```\n$ python run.py\nstatus: not proven\n```\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
 def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest x | tee log`.\n"
     assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON

@@ -56,7 +56,10 @@ from hooks_constants.pull_request_proof_constants import (
     FENCED_COMMAND_PROMPT,
     INLINE_COMMAND_PATTERN,
     TEST_ONLY_PROOF_REASON,
+    INLINE_CODE_SPAN_PATTERN,
     UNITTEST_MODULE_NAME,
+    UNPROVEN_ADMISSION_PATTERN,
+    UNPROVEN_PROOF_REASON,
     ALL_PASSTHROUGH_PROGRAM_NAMES,
     PATH_WITH_LINE_PATTERN,
     SINGLE_FILE_NAME_PATTERN,
@@ -401,6 +404,37 @@ def _proof_runs_only_tests(section: str) -> bool:
     return bool(all_commands) and all(_command_runs_tests(each_command) for each_command in all_commands)
 
 
+def _prose_lines(section: str) -> Iterator[str]:
+    is_inside_fence = False
+    for each_line in section.splitlines():
+        if each_line.strip().startswith(CODE_FENCE_MARKER):
+            is_inside_fence = not is_inside_fence
+            continue
+        if not is_inside_fence:
+            yield re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line)
+
+
+def unproven_admission(section: str) -> str | None:
+    """Return the first prose line of a proof section that says something is not proven, or None.
+
+    ::
+
+        "Not proven here: a fresh Convert run."   -> "Not proven here: a fresh Convert run."
+        "The live run is untested."               -> "The live run is untested."
+        "`not proven` printed by the probe"       -> None
+        "Ran `python run.py`, quoted below."      -> None
+
+    The markers are not proven, not yet proven, unproven, not tested, not yet
+    tested, untested, not verified, not yet verified and unverified, matched
+    without regard to case. Inline code spans and fenced blocks are skipped,
+    so quoted command output never counts.
+    """
+    for each_line in _prose_lines(section):
+        if re.search(UNPROVEN_ADMISSION_PATTERN, each_line, re.IGNORECASE):
+            return each_line.strip()
+    return None
+
+
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     """Return a deny reason when a new pull request's body has no proof, else None.
 
@@ -412,6 +446,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         proof whose only command is `py.test`                   -> TEST_ONLY_PROOF_REASON
         proof whose only command is `python -q -m unittest`     -> TEST_ONLY_PROOF_REASON
         proof with `pytest` and `python run.py`                 -> None
+        proof whose prose says "Not proven here: the run"      -> UNPROVEN_PROOF_REASON
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
@@ -425,6 +460,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     the section is denied. Quotes around a runner word still count. Interpreter
     flags before -m unittest still count. coverage run -m unittest counts.
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
+    A section whose prose says part of the change is not proven, untested or
+    unverified is denied, with the line quoted; unproven_admission lists the
+    markers.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -437,6 +475,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
             return MISSING_PROOF_REASON
         if _proof_runs_only_tests(section):
             return TEST_ONLY_PROOF_REASON
+        admission = unproven_admission(section)
+        if admission is not None:
+            return UNPROVEN_PROOF_REASON.format(admission=admission)
     return None
 
 
