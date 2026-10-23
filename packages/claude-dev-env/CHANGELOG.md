@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.100.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.99.1...claude-dev-env-v8.100.0) (2026-10-23)
+
+
+### Features
+
+* **hooks:** require a clean review before a pull request opens ([#2173](https://github.com/jl-cmd-projects/claude-dev-env/issues/2173)) ([ba8e959](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba8e9595c537acc2c5665017b72d22cdc7aff3d4))
+
 ## [8.99.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.99.0...claude-dev-env-v8.99.1) (2026-10-22)
 
 
