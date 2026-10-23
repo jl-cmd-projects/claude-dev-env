@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.102.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.101.0...claude-dev-env-v8.102.0) (2026-10-23)
+
+
+### Features
+
+* **install:** install Anthropic's security-guidance plugin on a full install ([#2179](https://github.com/jl-cmd-projects/claude-dev-env/issues/2179)) ([84c15ed](https://github.com/jl-cmd-projects/claude-dev-env/commit/84c15edad310a21cd31a5da121addac06c86ef20))
+
 ## [8.101.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.100.1...claude-dev-env-v8.101.0) (2026-10-23)
 
 
