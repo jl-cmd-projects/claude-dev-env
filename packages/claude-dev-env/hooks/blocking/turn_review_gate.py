@@ -11,7 +11,8 @@ separate ``claude -p`` run reviews only that turn's edits with
                     ->  block: "src/service.py:208 - The diff removes ..."
     agent fixes it  ->  stop reviews B..C only, finds nothing, the turn ends
 
-``turn_review_snapshot`` builds the snapshots. Edits the user left before the
+``turn_review_snapshot`` builds the snapshots, and ``turn_review_findings``
+reads the findings out of the review text. Edits the user left before the
 prompt sit in snapshot A, so the review sees only the agent's work. Each stop
 moves the baseline to the snapshot it took, so the stop after a block reviews
 only the fix.
@@ -61,18 +62,11 @@ from hooks_constants.turn_review_gate_constants import (
     BLOCK_DECISION,
     BLOCK_REASON_TEMPLATE,
     DECISION_KEY,
-    FINDING_LINE_PATTERN_TEMPLATE,
     FINDING_LINE_SEPARATOR,
     GIT_DIRECTORY_NAME,
     HOOK_EVENT_NAME_KEY,
-    JSON_ARRAY_START,
-    JSON_FINDING_FILE_KEY,
-    JSON_FINDING_LINE_KEY,
-    JSON_FINDING_LINE_TEMPLATE,
-    JSON_FINDING_SUMMARY_KEY,
     MAXIMUM_BLOCKS_IN_A_ROW,
     MAXIMUM_TURN_FILES,
-    NO_FINDINGS_MARKER,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
     PROMPT_EVENT_NAME,
     REASON_KEY,
@@ -103,6 +97,7 @@ from hooks_constants.turn_review_gate_constants import (
     TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE,
 )
 from pii_prevention_blocker_parts.repository_exemption import repository_origin_slug
+from turn_review_findings import finding_lines
 from turn_review_snapshot import turn_changed_paths, working_tree_snapshot
 
 
@@ -173,67 +168,6 @@ def _review_environment() -> dict[str, str]:
     }
     all_child_environment_variables[REVIEW_CHILD_ENVIRONMENT_VARIABLE] = REVIEW_CHILD_MARKER
     return all_child_environment_variables
-
-
-def _json_finding_lines(review_text: str, all_changed_paths: list[str]) -> list[str] | None:
-    all_filled_arrays = _filled_finding_arrays(review_text)
-    if not all_filled_arrays:
-        return None
-    return _entries_on_changed_paths(all_filled_arrays[-1], all_changed_paths)
-
-
-def _filled_finding_arrays(review_text: str) -> list[list[dict[str, object]]]:
-    json_decoder = json.JSONDecoder()
-    all_finding_arrays: list[list[dict[str, object]]] = []
-    array_start = review_text.find(JSON_ARRAY_START)
-    while array_start >= 0:
-        try:
-            decoded_array, next_search_start = json_decoder.raw_decode(review_text, array_start)
-        except ValueError:
-            decoded_array, next_search_start = None, array_start + 1
-        if decoded_array and _is_finding_array(decoded_array):
-            all_finding_arrays.append(decoded_array)
-        array_start = review_text.find(JSON_ARRAY_START, next_search_start)
-    return all_finding_arrays
-
-
-def _is_finding_array(decoded_array: object) -> bool:
-    return isinstance(decoded_array, list) and all(
-        isinstance(each_entry, dict) and JSON_FINDING_FILE_KEY in each_entry
-        for each_entry in decoded_array
-    )
-
-
-def _entries_on_changed_paths(
-    all_entries: list[dict[str, object]], all_changed_paths: list[str]
-) -> list[str]:
-    return [
-        JSON_FINDING_LINE_TEMPLATE.format(
-            path=each_entry[JSON_FINDING_FILE_KEY],
-            line=each_entry[JSON_FINDING_LINE_KEY],
-            summary=each_entry.get(JSON_FINDING_SUMMARY_KEY, ""),
-        ).strip()
-        for each_entry in all_entries
-        if each_entry.get(JSON_FINDING_FILE_KEY) in all_changed_paths
-        and isinstance(each_entry.get(JSON_FINDING_LINE_KEY), int)
-    ]
-
-
-def _finding_lines(review_text: str, all_changed_paths: list[str]) -> list[str]:
-    if review_text.strip().startswith(NO_FINDINGS_MARKER):
-        return []
-    all_json_finding_lines = _json_finding_lines(review_text, all_changed_paths)
-    if all_json_finding_lines is not None:
-        return all_json_finding_lines
-    all_patterns = [
-        re.compile(FINDING_LINE_PATTERN_TEMPLATE.format(path=re.escape(each)))
-        for each in all_changed_paths
-    ]
-    return [
-        each_line.strip()
-        for each_line in review_text.splitlines()
-        if any(each_pattern.search(each_line) for each_pattern in all_patterns)
-    ]
 
 
 def _write_review_failure(repository_root: Path, failure_text: str) -> None:
@@ -358,7 +292,7 @@ def _repository_findings(
     if not all_changed_paths:
         return None
     review_text = _review_text(repository_root, base_commit, turn_commit, review_deadline)
-    all_finding_lines = _finding_lines(review_text or "", all_changed_paths)
+    all_finding_lines = finding_lines(review_text or "", all_changed_paths)
     if not all_finding_lines:
         return None
     return REPOSITORY_FINDINGS_TEMPLATE.format(

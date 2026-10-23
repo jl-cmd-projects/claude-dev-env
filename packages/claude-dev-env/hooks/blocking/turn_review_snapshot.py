@@ -38,7 +38,7 @@ from hooks_constants.turn_review_gate_constants import (
 def _git_output(
     repository_root: Path,
     all_arguments: list[str],
-    all_environment_variables: dict[str, str] | None = None,
+    all_environment_variables: dict[str, str] | None,
 ) -> str | None:
     try:
         completed_process = subprocess.run(
@@ -61,7 +61,7 @@ def _git_output(
 
 
 def _working_tree_object(repository_root: Path) -> str | None:
-    index_path_text = _git_output(repository_root, list(ALL_INDEX_PATH_ARGUMENTS))
+    index_path_text = _git_output(repository_root, list(ALL_INDEX_PATH_ARGUMENTS), None)
     if index_path_text is None:
         return None
     with tempfile.TemporaryDirectory() as index_directory:
@@ -95,7 +95,7 @@ def working_tree_snapshot(repository_root: Path, base_commit: str | None) -> str
         return None
     if (
         base_commit
-        and _git_output(repository_root, ["rev-parse", f"{base_commit}^{{tree}}"]) == tree
+        and _git_output(repository_root, ["rev-parse", f"{base_commit}^{{tree}}"], None) == tree
     ):
         return base_commit
     parent = base_commit or "HEAD"
@@ -111,6 +111,6 @@ def turn_changed_paths(repository_root: Path, base_commit: str, turn_commit: str
     if base_commit == turn_commit:
         return []
     diff_names = _git_output(
-        repository_root, [*ALL_CHANGED_PATH_ARGUMENTS, base_commit, turn_commit]
+        repository_root, [*ALL_CHANGED_PATH_ARGUMENTS, base_commit, turn_commit], None
     )
     return [each for each in (diff_names or "").split(CHANGED_PATH_SEPARATOR) if each]
