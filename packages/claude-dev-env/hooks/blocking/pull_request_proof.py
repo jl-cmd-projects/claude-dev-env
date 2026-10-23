@@ -337,21 +337,30 @@ def _line_commands(line: str, is_inside_fence: bool) -> list[str]:
     return []
 
 
-def _opens_or_closes_fence(line: str) -> bool:
+def _fence_marker(line: str) -> str | None:
     fence_text = line.strip().lstrip(BLOCKQUOTE_MARKERS).strip()
-    return any(
-        fence_text.startswith(each_marker) and each_marker not in fence_text[len(each_marker) :]
-        for each_marker in ALL_CODE_FENCE_MARKERS
-    )
+    for each_marker in ALL_CODE_FENCE_MARKERS:
+        if fence_text.startswith(each_marker) and each_marker not in fence_text[len(each_marker) :]:
+            return each_marker
+    return None
+
+
+def _lines_with_fence_state(section: str) -> Iterator[tuple[str, bool]]:
+    open_marker: str | None = None
+    for each_line in section.splitlines():
+        line_marker = _fence_marker(each_line)
+        if line_marker is not None and open_marker is None:
+            open_marker = line_marker
+            continue
+        if line_marker is not None and line_marker == open_marker:
+            open_marker = None
+            continue
+        yield each_line, open_marker is not None
 
 
 def _proof_commands(section: str) -> list[str]:
     all_commands: list[str] = []
-    is_inside_fence = False
-    for each_line in section.splitlines():
-        if _opens_or_closes_fence(each_line):
-            is_inside_fence = not is_inside_fence
-            continue
+    for each_line, is_inside_fence in _lines_with_fence_state(section):
         all_commands.extend(_line_commands(each_line, is_inside_fence))
     return [each_command for each_command in all_commands if _reads_as_command(each_command)]
 
@@ -415,11 +424,7 @@ def _proof_runs_only_tests(section: str) -> bool:
 
 
 def _prose_lines(section: str) -> Iterator[tuple[str, str]]:
-    is_inside_fence = False
-    for each_line in section.splitlines():
-        if _opens_or_closes_fence(each_line):
-            is_inside_fence = not is_inside_fence
-            continue
+    for each_line, is_inside_fence in _lines_with_fence_state(section):
         if not is_inside_fence:
             yield each_line, re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
 

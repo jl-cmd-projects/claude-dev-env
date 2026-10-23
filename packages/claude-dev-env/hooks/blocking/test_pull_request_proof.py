@@ -172,6 +172,18 @@ def test_unproven_words_in_a_tilde_fence_should_pass() -> None:
     assert gate.missing_proof_reason(_mcp_create(body)) is None
 
 
+def test_tilde_line_inside_a_backtick_fence_keeps_the_fence_open() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n```\n~~~\nstatus: not proven\n```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_admission_after_a_backtick_fence_holding_a_tilde_line_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n```\n~~~\n```\nNot proven here: the live run.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="Not proven here: the live run."
+    )
+
+
 def test_unproven_deny_quotes_the_line_as_written() -> None:
     body = "## Proof in practice\nRan `python run.py`.\nNot proven here: the `convert.py` run on the target.\n"
     assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
