@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.103.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.103.0...claude-dev-env-v8.103.1) (2026-10-23)
+
+
+### Documentation
+
+* **templates:** show a diagram whole on page load ([#2186](https://github.com/jl-cmd-projects/claude-dev-env/issues/2186)) ([f5e94dd](https://github.com/jl-cmd-projects/claude-dev-env/commit/f5e94dd780e04b962838865512c13addb34011a5))
+
 ## [8.103.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.102.1...claude-dev-env-v8.103.0) (2026-10-23)
 
 
