@@ -324,6 +324,7 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
     }).join('');
 }
 
+const MARKETPLACE_SOURCE_MISMATCH_PATTERN = /doesn't match its extraKnownMarketplaces entry/;
 const REBUILD_REQUIRED_PATTERN = /doesn't match its extraKnownMarketplaces entry|Source path does not exist/;
 
 function commandFailureDetail(outcome) {
@@ -378,6 +379,23 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
         }
         const refreshOutput = `${refreshOutcome.outcome.stderr ?? ''}\n${refreshOutcome.outcome.stdout ?? ''}`;
         const marketplaceIsShared = allSpecs.some(eachSpec => eachSpec.sharesMarketplace);
+        const sourceMismatchOnAdd = refreshOutcome.commandArguments === plan.refreshCommands[0]
+            && MARKETPLACE_SOURCE_MISMATCH_PATTERN.test(refreshOutput);
+        if (marketplaceIsShared && sourceMismatchOnAdd) {
+            const knownMarketplacePlan = { ...plan, refreshCommands: plan.refreshCommands.slice(1) };
+            const knownMarketplaceOutcome = refreshInPlace(
+                knownMarketplacePlan, executable, commandEnvironment, runCommand,
+            );
+            if (knownMarketplaceOutcome.state === 'refreshed') {
+                removeOrphanedVersionsForHost(allSpecs, host, homeDirectory);
+                return { host, executable, status: 'installed', warning: null };
+            }
+            if (knownMarketplaceOutcome.state === 'absent') return absentHostOutcome(allSpecs, host, executable);
+            return failedCommandOutcome(
+                allSpecs, host, homeDirectory, executable,
+                knownMarketplaceOutcome.commandArguments, knownMarketplaceOutcome.outcome, findLockers,
+            );
+        }
         if (marketplaceIsShared || !REBUILD_REQUIRED_PATTERN.test(refreshOutput)) {
             return failedCommandOutcome(
                 allSpecs, host, homeDirectory, executable,
@@ -442,7 +460,10 @@ export function restartNotice(allSpecs, allInstalledHosts) {
  * new one, and adds them again. A removal that finds nothing to remove exits
  * non-zero on a fresh home, and the install goes on. A spec that marks its
  * marketplace as shared skips the rebuild, because removing that marketplace
- * would uninstall plugins this run does not own, and the host reports failed.
+ * would uninstall plugins this run does not own. When the shared marketplace
+ * is already known under another source, the add fails on the mismatch and
+ * the host runs the rest of the refresh against the known entry; any other
+ * refresh failure reports the host failed.
  * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
  *

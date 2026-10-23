@@ -600,17 +600,33 @@ test('should install security-guidance from the official marketplace on Claude o
     assert.equal(runner.calls[0].environment.CLAUDE_CONFIG_DIR, ROOTS.claudeRoot);
 });
 
-test('should leave the shared official marketplace in place when its refresh needs a rebuild', () => {
+test('should install against an official marketplace already known under another source', () => {
     const runner = recordingRunner((executable, commandArguments) => (
         commandArguments[2] === 'add'
             ? { status: 1, stderr: "its source doesn't match its extraKnownMarketplaces entry" }
             : { status: 0, stderr: '' }));
     const outcome = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], ROOTS, runner);
-    assert.equal(outcome.status, 'failed');
-    assert.match(outcome.warning, /extraKnownMarketplaces/);
+    assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.map(call => call.commandArguments), [
         ['plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official'],
+        ['plugin', 'marketplace', 'update', 'claude-plugins-official'],
+        ['plugin', 'install', 'security-guidance@claude-plugins-official'],
+        ['plugin', 'update', 'security-guidance@claude-plugins-official'],
     ]);
+});
+
+test('should leave the shared official marketplace in place when its refresh needs a rebuild', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[1] === 'install'
+            ? { status: 1, stderr: 'Source path does not exist: plugins/security-guidance' }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], ROOTS, runner);
+    assert.equal(outcome.status, 'failed');
+    assert.match(outcome.warning, /Source path does not exist/);
+    assert.equal(
+        runner.calls.some(call => call.commandArguments.includes('remove') || call.commandArguments.includes('uninstall')),
+        false,
+    );
 });
 
 test('should turn off only security-guidance with its opt-out flag or variable', () => {
