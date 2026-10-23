@@ -360,8 +360,8 @@ def _lines_with_fence_state(section: str) -> Iterator[tuple[str, bool]]:
 
 def _proof_commands(section: str) -> list[str]:
     all_commands: list[str] = []
-    for each_line, is_inside_fence in _lines_with_fence_state(section):
-        all_commands.extend(_line_commands(each_line, is_inside_fence))
+    for each_line, each_is_inside_fence in _lines_with_fence_state(section):
+        all_commands.extend(_line_commands(each_line, each_is_inside_fence))
     return [each_command for each_command in all_commands if _reads_as_command(each_command)]
 
 
@@ -424,8 +424,8 @@ def _proof_runs_only_tests(section: str) -> bool:
 
 
 def _prose_lines(section: str) -> Iterator[tuple[str, str]]:
-    for each_line, is_inside_fence in _lines_with_fence_state(section):
-        if not is_inside_fence:
+    for each_line, each_is_inside_fence in _lines_with_fence_state(section):
+        if not each_is_inside_fence:
             yield each_line, re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
 
 
