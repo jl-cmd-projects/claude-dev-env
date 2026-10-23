@@ -59,6 +59,27 @@ export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
     optOutVariable: 'CDE_INSTALL_SUBAGENT_MODELS',
 });
 
+/**
+ * Anthropic's security-guidance plugin, which reviews each edit, turn, and
+ * commit an agent makes for security problems.
+ *
+ * Its marketplace holds every official Anthropic plugin and may supply other
+ * plugins the user installed, so the install never removes that marketplace
+ * to rebuild it.
+ */
+export const SECURITY_GUIDANCE_PLUGIN_SPEC = Object.freeze({
+    name: 'security-guidance',
+    label: 'Security-guidance',
+    marketplaceRepository: 'anthropics/claude-plugins-official',
+    marketplaceName: 'claude-plugins-official',
+    sparsePaths: Object.freeze([]),
+    pluginIdentifier: 'security-guidance@claude-plugins-official',
+    hosts: Object.freeze(['claude']),
+    optOutFlag: '--no-security-guidance',
+    optOutVariable: 'CDE_INSTALL_SECURITY_GUIDANCE',
+    sharesMarketplace: true,
+});
+
 const HOST_DEFINITIONS = Object.freeze({
     claude: Object.freeze({
         executable: 'claude',
@@ -356,7 +377,8 @@ function installForHost(allSpecs, host, homeDirectory, environment, runCommand, 
             return { host, executable, status: 'installed', warning: null };
         }
         const refreshOutput = `${refreshOutcome.outcome.stderr ?? ''}\n${refreshOutcome.outcome.stdout ?? ''}`;
-        if (!REBUILD_REQUIRED_PATTERN.test(refreshOutput)) {
+        const marketplaceIsShared = allSpecs.some(eachSpec => eachSpec.sharesMarketplace);
+        if (marketplaceIsShared || !REBUILD_REQUIRED_PATTERN.test(refreshOutput)) {
             return failedCommandOutcome(
                 allSpecs, host, homeDirectory, executable,
                 refreshOutcome.commandArguments, refreshOutcome.outcome, findLockers,
@@ -418,7 +440,9 @@ export function restartNotice(allSpecs, allInstalledHosts) {
  * back to the clean install Codex always runs: it removes every plugin in the
  * set and then the marketplace, so an older version never survives beside the
  * new one, and adds them again. A removal that finds nothing to remove exits
- * non-zero on a fresh home, and the install goes on.
+ * non-zero on a fresh home, and the install goes on. A spec that marks its
+ * marketplace as shared skips the rebuild, because removing that marketplace
+ * would uninstall plugins this run does not own, and the host reports failed.
  * Before each Claude marketplace add, the install deletes the half-made clone
  * folder an interrupted earlier add left, so the add starts in an empty slot.
  *

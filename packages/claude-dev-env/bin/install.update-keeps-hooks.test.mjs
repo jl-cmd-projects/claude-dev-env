@@ -28,6 +28,7 @@ function installerEnvironment(homeDirectory) {
         CDE_INSTALL_DEEPSTACK: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
         CDE_INSTALL_SUBAGENT_MODELS: '0',
+        CDE_INSTALL_SECURITY_GUIDANCE: '0',
         HOME: homeDirectory,
         USERPROFILE: homeDirectory,
         GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),

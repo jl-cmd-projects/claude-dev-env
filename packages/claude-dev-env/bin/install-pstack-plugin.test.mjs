@@ -9,6 +9,7 @@ import {
     PSTACK_PLUGIN_IDENTIFIER,
     ALL_RETIRED_PLUGIN_SPECS,
     PSTACK_PLUGIN_SPEC,
+    SECURITY_GUIDANCE_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
     hostCommandInvocation,
@@ -584,4 +585,43 @@ test('a run that installs nothing prints no restart notice', () => {
     assert.equal(outcome.status, 'skipped');
     assert.deepEqual(allLoggedLines, []);
     assert.equal(outcome.restartNotice, null);
+});
+test('should install security-guidance from the official marketplace on Claude only', () => {
+    const runner = recordingRunner();
+    const outcome = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], ROOTS, runner);
+    assert.equal(outcome.status, 'installed');
+    assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
+    assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
+        ['claude', 'plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official'],
+        ['claude', 'plugin', 'marketplace', 'update', 'claude-plugins-official'],
+        ['claude', 'plugin', 'install', 'security-guidance@claude-plugins-official'],
+        ['claude', 'plugin', 'update', 'security-guidance@claude-plugins-official'],
+    ]);
+    assert.equal(runner.calls[0].environment.CLAUDE_CONFIG_DIR, ROOTS.claudeRoot);
+});
+
+test('should leave the shared official marketplace in place when its refresh needs a rebuild', () => {
+    const runner = recordingRunner((executable, commandArguments) => (
+        commandArguments[2] === 'add'
+            ? { status: 1, stderr: "its source doesn't match its extraKnownMarketplaces entry" }
+            : { status: 0, stderr: '' }));
+    const outcome = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], ROOTS, runner);
+    assert.equal(outcome.status, 'failed');
+    assert.match(outcome.warning, /extraKnownMarketplaces/);
+    assert.deepEqual(runner.calls.map(call => call.commandArguments), [
+        ['plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official'],
+    ]);
+});
+
+test('should turn off only security-guidance with its opt-out flag or variable', () => {
+    assert.equal(shouldInstallMarketplacePlugin(SECURITY_GUIDANCE_PLUGIN_SPEC, [], {}), true);
+    assert.equal(shouldInstallMarketplacePlugin(SECURITY_GUIDANCE_PLUGIN_SPEC, ['--no-security-guidance'], {}), false);
+    assert.equal(
+        shouldInstallMarketplacePlugin(SECURITY_GUIDANCE_PLUGIN_SPEC, [], { CDE_INSTALL_SECURITY_GUIDANCE: '0' }),
+        false,
+    );
+    assert.equal(
+        shouldInstallMarketplacePlugin(PSTACK_PLUGIN_SPEC, ['--no-security-guidance'], { CDE_INSTALL_SECURITY_GUIDANCE: '0' }),
+        true,
+    );
 });

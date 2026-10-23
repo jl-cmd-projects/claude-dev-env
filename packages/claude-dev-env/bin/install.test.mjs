@@ -3050,6 +3050,7 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
         };
         const argumentsForCoreInstall = [PSTACK_TEST_INSTALLER_PATH, '--only', 'core'];
         const firstRun = spawnSync(process.execPath, argumentsForCoreInstall, {
@@ -3104,6 +3105,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             ...environmentOverrides,
         },
     });
@@ -3529,6 +3531,54 @@ for (const [caseName, extraArguments, environmentOverrides] of [
     });
 }
 
+test('should install security-guidance from the official marketplace on a full install', t => {
+    const sandbox = pstackPluginSandbox(t);
+
+    const installerOutput = runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], {
+        ...sandbox.environment,
+        CDE_INSTALL_SECURITY_GUIDANCE: '1',
+    });
+
+    assert.deepEqual(sandbox.recordedCommands(), [
+        'claude plugin marketplace add anthropics/claude-plugins-official',
+        'claude plugin marketplace update claude-plugins-official',
+        'claude plugin install security-guidance@claude-plugins-official',
+        'claude plugin update security-guidance@claude-plugins-official',
+    ]);
+    assert.match(installerOutput, /Security-guidance \(claude\): installed/);
+});
+
+for (const [caseName, extraArguments, environmentOverrides] of [
+    ['--no-security-guidance', ['--no-security-guidance'], { CDE_INSTALL_SECURITY_GUIDANCE: '1' }],
+    ['CDE_INSTALL_SECURITY_GUIDANCE=0', [], { CDE_INSTALL_SECURITY_GUIDANCE: '0' }],
+    ['an --only run', ['--only', 'core'], { CDE_INSTALL_SECURITY_GUIDANCE: '1' }],
+]) {
+    test(`should skip security-guidance on ${caseName}`, t => {
+        const sandbox = pstackPluginSandbox(t);
+
+        const installerOutput = runPstackInstaller(sandbox.homeDirectory, extraArguments, {
+            ...sandbox.environment,
+            ...environmentOverrides,
+        });
+
+        assert.equal(
+            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('security-guidance')),
+            false,
+        );
+        assert.doesNotMatch(installerOutput, /Security-guidance \(/);
+    });
+}
+
+test('should name the security-guidance opt-out in the help output', () => {
+    const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
+        encoding: 'utf8',
+        env: process.env,
+    });
+
+    assert.equal(helpRun.status, 0, helpRun.stderr);
+    assert.match(helpRun.stdout, /--no-security-guidance .*CDE_INSTALL_SECURITY_GUIDANCE=0/);
+});
+
 test('should name the subagent-models opt-out in the help output', () => {
     const helpRun = spawnSync(process.execPath, [PSTACK_TEST_INSTALLER_PATH, '--help'], {
         encoding: 'utf8',
@@ -3623,6 +3673,7 @@ function installWithGlobalPrefix(context, globalPrefix) {
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             APPDATA: join(homeDirectory, 'AppData', 'Roaming'),
@@ -3679,6 +3730,7 @@ test('install adds the open-tasks Stop gate to every profile with its own settin
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -3721,6 +3773,7 @@ test('a profile settings.json that is not valid JSON is left alone and named und
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
@@ -3766,6 +3819,7 @@ test('uninstall stops before changing anything while a profile settings.json tha
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
             CODEX_HOME: join(homeDirectory, '.codex'),
