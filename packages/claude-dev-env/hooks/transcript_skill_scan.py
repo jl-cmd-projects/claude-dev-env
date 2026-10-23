@@ -46,7 +46,9 @@ def _named_skill_inputs(
     accepts_plugin_prefix: bool = True,
 ) -> Iterator[dict[str, object]]:
     for each_block in _named_skill_blocks(all_entry_fields, skill_names, accepts_plugin_prefix):
-        yield each_block["input"]
+        skill_input = each_block["input"]
+        if isinstance(skill_input, dict):
+            yield skill_input
 
 
 def _named_skill_blocks(
