@@ -18,6 +18,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_EXISTING_WORK_REASON,
     MISSING_PROOF_REASON,
     TEST_ONLY_PROOF_REASON,
+    UNPROVEN_PROOF_REASON,
     UNREADABLE_CHANGES_REASON,
 )
 
@@ -109,6 +110,92 @@ def test_proof_with_several_test_runners_should_be_denied() -> None:
 def test_proof_with_a_test_run_and_file_references_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest tests/x.py` against `gate.py:12` and `src/x.py`.\n"
     assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_proof_that_says_its_target_run_is_not_proven_should_be_denied() -> None:
+    body = (
+        "## Proof in practice\nRan `python verify.py theme`.\n> PASS\n\n"
+        "Not proven here: a fresh Convert run of Bear Penguin that rewrites the record.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="Not proven here: a fresh Convert run of Bear Penguin that rewrites the record."
+    )
+
+
+@pytest.mark.parametrize(
+    "admission", ["unproven", "not yet tested", "Untested", "unverified", "not verified", "not been tested", "not fully verified"]
+)
+def test_each_unproven_marker_in_proof_prose_should_be_denied(admission: str) -> None:
+    admission_line = f"The live dialer path is {admission}."
+    body = f"## Proof in practice\nRan `python run.py`.\n{admission_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=admission_line)
+
+
+def test_unproven_line_moved_under_a_not_covered_heading_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n> PASS\n\n"
+        "## Not covered\n\nNot proven here: a run on an older session.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_words_inside_quoted_output_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`, which printed `unverified sender denied`.\n"
+        "```\n$ python run.py\nstatus: not proven\n```\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_admission_after_a_one_line_triple_backtick_span_should_be_denied() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n```python run.py``` -> PASS\n"
+        "Not proven here: the live run on the target.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="Not proven here: the live run on the target."
+    )
+
+
+def test_test_run_after_a_one_line_triple_backtick_span_should_be_denied() -> None:
+    body = "## Proof in practice\n```pytest``` ok\nRan `pytest tests/`.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_unproven_words_in_a_fence_inside_a_blockquote_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n> ```\n> status: not proven\n> ```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_unproven_words_in_a_tilde_fence_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n~~~\nstatus: not proven\n~~~\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_tilde_line_inside_a_backtick_fence_keeps_the_fence_open() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n```\n~~~\nstatus: not proven\n```\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_admission_after_a_backtick_fence_holding_a_tilde_line_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n```\n~~~\n```\nNot proven here: the live run.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="Not proven here: the live run."
+    )
+
+
+def test_unproven_deny_quotes_the_line_as_written() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\nNot proven here: the `convert.py` run on the target.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="Not proven here: the `convert.py` run on the target."
+    )
+
+
+def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n> Not proven here: the live dialer run.\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(
+        admission="> Not proven here: the live dialer run."
+    )
 
 
 def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:
