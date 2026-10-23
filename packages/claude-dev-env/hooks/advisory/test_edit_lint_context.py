@@ -121,6 +121,23 @@ def should_add_findings_after_a_write_and_a_multi_edit(lint_repository: Path) ->
         assert "module.py:1: F821" in note
 
 
+def should_pass_the_lint_command_the_path_with_symlinks_resolved(
+    lint_repository: Path, tmp_path: Path
+) -> None:
+    package_directory = lint_repository / "package"
+    package_directory.mkdir()
+    (package_directory / "module.py").write_text("RESULT = BAD\n", encoding="utf-8")
+    linked_directory = tmp_path / "linked-package"
+    linked_directory.symlink_to(package_directory, target_is_directory=True)
+
+    note = _additional_context(
+        _run_dispatcher("Edit", linked_directory / "module.py", ORIGIN_SLUG)
+    )
+
+    assert f"{(package_directory / 'module.py').resolve()}:1: F821" in note
+    assert "linked-package" not in note
+
+
 def should_add_nothing_when_the_environment_lists_no_repository(lint_repository: Path) -> None:
     edited_file = lint_repository / "module.py"
     edited_file.write_text("RESULT = BAD\n", encoding="utf-8")

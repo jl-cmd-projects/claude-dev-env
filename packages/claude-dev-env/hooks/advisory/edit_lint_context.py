@@ -16,7 +16,7 @@ agent, so it fixes them in the same turn::
 A repository takes part only when its origin ``owner/repo`` slug is in
 ``CLAUDE_EDIT_LINT_REPOSITORIES`` and it commits ``.claude/edit-lint.json``.
 The command runs from the repository root, and ``{file}`` in it becomes the
-edited path. Its standard output is the findings; empty output adds nothing.
+edited path with every symlink resolved. Its standard output is the findings; empty output adds nothing.
 A command that exits non-zero, times out, or cannot start adds nothing and
 writes one diagnostic line to stderr. The hook never blocks and never edits
 the file.
@@ -233,7 +233,9 @@ def _edited_file_path(all_hook_fields: dict[str, object]) -> Path | None:
     if not isinstance(raw_path, str) or not raw_path:
         return None
     file_path = Path(raw_path)
-    return file_path if file_path.is_absolute() and file_path.is_file() else None
+    if not file_path.is_absolute() or not file_path.is_file():
+        return None
+    return file_path.resolve()
 
 
 def main() -> None:
@@ -258,7 +260,7 @@ def main() -> None:
     if not findings_text:
         return
     try:
-        file_label = file_path.resolve().relative_to(repository_root.resolve()).as_posix()
+        file_label = file_path.relative_to(repository_root.resolve()).as_posix()
     except ValueError:
         file_label = str(file_path)
     write_post_tool_use_context_to_stdout(findings_context(file_label, findings_text))
