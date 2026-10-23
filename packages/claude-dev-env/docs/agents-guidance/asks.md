@@ -11,6 +11,12 @@
 - Keep each item's status current as the work moves: in progress when you start it, completed only after you saw the proof. A long turn updates the list at each step, so the list never lags the work.
 - An item blocked on the user stays open, and the reply says what the user must give.
 
+## Completion reports
+
+Judge completion against the user's outcome and acceptance conditions. Report a verified main outcome as complete when only incidental recordkeeping remains, even when that administration was requested. Missing deliverables, required verification, approvals governing the outcome, stated completion prerequisites, and work needed for usability, safety, or completeness keep the affected goal open.
+
+When one task combines a completed outcome and unfinished administration, preserve the goal and evidence, mark the main work complete, and track administration as a separate open follow-up. Do reachable administrative work now. Report the main outcome first and mention administration separately when useful.
+
 ## Asks ledger
 
 When the host keeps an asks ledger with `ledger.py` and `asks_check.py`, record each ask in it too:

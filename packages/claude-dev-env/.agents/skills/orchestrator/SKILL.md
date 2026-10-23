@@ -110,6 +110,7 @@ Checkpoint after decisions and state changes, before waiting, and before a known
 
 ### Complete the requested outcome
 
+Before a completion report or status answer, follow [completion reporting](reference/completion-reporting.md).
 Close a task only after its evidence is checked and integrated into the task authority.
 Close a goal only when its acceptance conditions and authorized delivery are met.
 Keep a named pending user action open when required. Completed work needs no invented final human action.
@@ -137,6 +138,7 @@ Report the result, evidence, and any remaining limit.
 | `AGENTS.md` | Skill subtree instructions. |
 | `.claude/CLAUDE.md` | Claude instruction import. |
 | `reference/run-state.md` | Goal records, task authority, follow list, and active-root registry. |
+| `reference/completion-reporting.md` | Verified goal status and unfinished administrative work. |
 | `reference/recovery.md` | Cold-start and compaction recovery. |
 | `reference/oversee-delegated-work.md` | Spawner review of delegated work before it reaches the user. |
 | `reference/platform-evidence.md` | Official Projects sources and coordinator report boundaries. |
