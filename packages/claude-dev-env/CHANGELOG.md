@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.100.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.100.0...claude-dev-env-v8.100.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **hooks:** pass docs data files and count only a successful skill load in the verify gate ([#2158](https://github.com/jl-cmd-projects/claude-dev-env/issues/2158)) ([06f366f](https://github.com/jl-cmd-projects/claude-dev-env/commit/06f366f1d0a748637bed3c6973fb96bbee0a198c))
+
 ## [8.100.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.99.1...claude-dev-env-v8.100.0) (2026-10-23)
 
 
