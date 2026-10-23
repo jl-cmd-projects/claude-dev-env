@@ -201,7 +201,7 @@ def test_merge_review_status_carries_the_head_verdict_to_the_queue_commit(
 
 
 REVIEW_RECORD_BODY = (
-    '<!-- codex-pr-review:v1 &#123;"finding_count": 0, "head_sha": "abc123"&#125; -->\n'
+    '<!-- codex-pr-review:v1 {"finding_count": 0, "head_sha": "abc123"} -->\n'
     "Codex review finished on `abc123`: 0 findings."
 )
 
