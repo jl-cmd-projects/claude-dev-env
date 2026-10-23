@@ -35,6 +35,7 @@ function installInScratchHome(homeDirectory, argumentsList = [], environment = {
             CDE_INSTALL_DEEPSTACK: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
+            CDE_INSTALL_SECURITY_GUIDANCE: '0',
             CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,

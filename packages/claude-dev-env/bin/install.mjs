@@ -58,6 +58,7 @@ import {
 import {
     ALL_RETIRED_PLUGIN_SPECS,
     PSTACK_PLUGIN_SPEC,
+    SECURITY_GUIDANCE_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
     USAGE_WRAPUP_PLUGIN_SPEC,
     installMarketplacePlugins,
@@ -3121,6 +3122,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         summary.repositoryPlugins = repositoryPlugins;
         printPluginHostOutcomes(allRepositoryPluginSpecs, repositoryPlugins);
     }
+    if (!selectedGroups && shouldInstallMarketplacePlugin(SECURITY_GUIDANCE_PLUGIN_SPEC)) {
+        const securityGuidancePlugin = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], {
+            claudeRoot: CLAUDE_HOME,
+        });
+        summary.securityGuidancePlugin = securityGuidancePlugin;
+        printPluginHostOutcomes([SECURITY_GUIDANCE_PLUGIN_SPEC], securityGuidancePlugin);
+    }
     if (!selectedGroups) {
         const packageGuidancePath = writeCodexPackageGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
@@ -3686,6 +3694,7 @@ Usage:
   npx ${PACKAGE_NAME} --no-deepstack  Full install without the DeepStack plugin (also CDE_INSTALL_DEEPSTACK=0)
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
+  npx ${PACKAGE_NAME} --no-security-guidance  Full install without Anthropic's security-guidance plugin (also CDE_INSTALL_SECURITY_GUIDANCE=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 
