@@ -586,6 +586,7 @@ test('a run that installs nothing prints no restart notice', () => {
     assert.deepEqual(allLoggedLines, []);
     assert.equal(outcome.restartNotice, null);
 });
+
 test('should install security-guidance from the official marketplace on Claude only', () => {
     const runner = recordingRunner();
     const outcome = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], ROOTS, runner);

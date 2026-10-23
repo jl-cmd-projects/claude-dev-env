@@ -325,7 +325,7 @@ function lockedFolderDetail(allSpecs, host, homeDirectory, errorText, findLocker
 }
 
 const MARKETPLACE_SOURCE_MISMATCH_PATTERN = /doesn't match its extraKnownMarketplaces entry/;
-const REBUILD_REQUIRED_PATTERN = /doesn't match its extraKnownMarketplaces entry|Source path does not exist/;
+const REBUILD_REQUIRED_PATTERN = new RegExp(`${MARKETPLACE_SOURCE_MISMATCH_PATTERN.source}|Source path does not exist`);
 
 function commandFailureDetail(outcome) {
     return singleLineDetail(outcome.stderr) || singleLineDetail(outcome.stdout)
