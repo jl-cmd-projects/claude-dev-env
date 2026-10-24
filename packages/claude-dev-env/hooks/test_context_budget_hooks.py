@@ -31,6 +31,7 @@ UNMEASURED_REASON_BY_SCRIPT = {
     "project registry names by absolute path",
     "session/plugin_change_warning.py": "emits only after a plugin changes on disk mid-session, "
     "once per plugin, naming plugin ids",
+    "blocking/wakeup_cap_gate.py": "emits one fixed-template line only when it rewrites a wake delay",
 }
 
 
