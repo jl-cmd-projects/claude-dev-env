@@ -18,14 +18,16 @@ DEFAULT_TIMEOUT_SECONDS = 900
 DEFAULT_REPS = 1
 DEFAULT_PARALLEL = 3
 PERMISSION_MODE = "acceptEdits"
-CONTINUE_FLAG = "--continue"
+RESUME_FLAG = "--resume"
+SESSION_ID_FIELD = "session_id"
 ALLOWED_TOOLS_FLAG = "--allowedTools"
-ALLOWED_SHELL_TOOL = "Bash"
+
 MCP_SERVER_NAME = "thread"
 MCP_SERVER_VERSION = "1.0.0"
 MCP_PROTOCOL_VERSION = "2025-06-18"
 DECISION_TOOL_NAME = "request_decision"
 DECISION_TOOL_FULL_NAME = "mcp__thread__request_decision"
+ALL_ALLOWED_TOOLS = ("Bash", DECISION_TOOL_FULL_NAME)
 DECISION_TOOL_DESCRIPTION = (
     "Put a multiple choice decision in front of the user: one question, two to "
     "four options, and one recommended. The user is away and answers later."

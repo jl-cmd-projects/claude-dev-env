@@ -57,6 +57,7 @@ from scope_eval_support.config.constants import (
     LATENCY_DECIMALS,
     PRIOR_REPLY_FIELD,
     RESULTS_FILE_NAME,
+    SESSION_ID_FIELD,
     STATE_FILE,
     STATUS_OK,
     TRACES_DIRECTORY_NAME,
@@ -166,7 +167,7 @@ def _plan(
 
 
 def _run_session(
-    workspace: Path, prompt: str, plan: RunPlan, is_follow_up: bool = False
+    workspace: Path, prompt: str, plan: RunPlan, resume_session_id: str = ""
 ) -> SessionRun:
     return session.run_session(
         workspace,
@@ -174,7 +175,7 @@ def _run_session(
         plan.settings,
         lambda report_path, all_claude_words: launch_words(
             report_path,
-            scope_words(all_claude_words, plan.mcp_config_path, is_follow_up),
+            scope_words(all_claude_words, plan.mcp_config_path, resume_session_id),
             plan.is_direct,
         ),
     )
@@ -186,7 +187,7 @@ def _run_turns(
     """Run the case's setup turn when it has one, then the graded turn.
 
     A two-turn case first sends ``setup``. The graded turn then continues
-    that conversation in the same workspace, and the setup turn's final
+    that conversation by its session id in the same workspace, and the setup turn's final
     reply goes to the judge as the earlier turn the ask answers.
     """
     setup_prompt = case_by_field.get("setup")
@@ -195,10 +196,15 @@ def _run_turns(
     setup_run = _run_session(workspace, setup_prompt, plan)
     if unscorable(setup_run, plan.settings) is not None:
         return setup_run, ""
-    prior_reply = str((final_event(setup_run.all_events) or {}).get("result", ""))
+    setup_final = final_event(setup_run.all_events) or {}
     return (
-        _run_session(workspace, case_by_field["prompt"], plan, is_follow_up=True),
-        prior_reply,
+        _run_session(
+            workspace,
+            case_by_field["prompt"],
+            plan,
+            resume_session_id=str(setup_final.get(SESSION_ID_FIELD, "")),
+        ),
+        str(setup_final.get("result", "")),
     )
 
 

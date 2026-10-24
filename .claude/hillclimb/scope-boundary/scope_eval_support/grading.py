@@ -137,7 +137,12 @@ def grade_session(
         ``correct`` plus each judge flag and the ask count as integers.
     """
     flag_by_name = _flag_by_name(verdict_by_flag)
-    text_question_count = int(verdict_by_flag.get(TEXT_QUESTION_COUNT_FIELD) or 0)
+    reported_count = verdict_by_flag.get(TEXT_QUESTION_COUNT_FIELD)
+    text_question_count = (
+        reported_count
+        if isinstance(reported_count, int) and not isinstance(reported_count, bool)
+        else int(bool(reported_count))
+    )
     ask_count = len(all_questions) + text_question_count
     return {
         "correct": int(_is_correct(flag_by_name, ask_count)),

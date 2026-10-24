@@ -16,9 +16,8 @@ from session_eval_support.config.constants import ALL_GIT_INIT_COMMANDS
 from session_eval_support.session import remove_workspace
 
 from scope_eval_support.config.constants import (
-    ALLOWED_SHELL_TOOL,
+    ALL_ALLOWED_TOOLS,
     ALLOWED_TOOLS_FLAG,
-    CONTINUE_FLAG,
     DECISION_SERVER_SCRIPT,
     FIXTURE_DIGEST_PREFIX,
     FIXTURE_DIRECTORY,
@@ -26,6 +25,7 @@ from scope_eval_support.config.constants import (
     MCP_CONFIG_FILE_NAME,
     MCP_SERVER_NAME,
     PERMISSION_MODE,
+    RESUME_FLAG,
     WORKSPACE_PREFIX,
 )
 
@@ -79,7 +79,7 @@ def prepare_workspace(bytes_by_target: dict[str, bytes]) -> Path:
 
 
 def scope_words(
-    all_claude_words: list[str], mcp_config_path: Path, is_follow_up: bool
+    all_claude_words: list[str], mcp_config_path: Path, resume_session_id: str
 ) -> list[str]:
     """Return the ``claude`` command words with this eval's session flags added.
 
@@ -90,17 +90,18 @@ def scope_words(
     Args:
         all_claude_words: The base command words.
         mcp_config_path: The MCP config that serves the decision stub.
-        is_follow_up: Whether the session continues the previous conversation.
+        resume_session_id: The setup turn's session id on a follow-up, else empty.
 
     Returns:
-        The words with ``--continue`` on a follow-up, Bash allowed, the
+        The words with ``--resume <id>`` on a follow-up, Bash and the
+        decision tool allowed, the
         permission mode, and the strict MCP config.
     """
     return [
         *all_claude_words,
-        *([CONTINUE_FLAG] if is_follow_up else []),
+        *([RESUME_FLAG, resume_session_id] if resume_session_id else []),
         ALLOWED_TOOLS_FLAG,
-        ALLOWED_SHELL_TOOL,
+        *ALL_ALLOWED_TOOLS,
         "--permission-mode",
         PERMISSION_MODE,
         "--mcp-config",

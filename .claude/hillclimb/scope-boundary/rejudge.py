@@ -5,7 +5,7 @@
     python3 rejudge.py --variant baseline --direct
 
 A judge or label change needs no new sessions. This reads each row in
-``<variant>/results.jsonl``, sends its saved trace and the case's current
+``<variant>/results.jsonl`` from its newest run digest, sends its saved trace and the case's current
 labels to the judge, and writes the regraded rows to
 ``<variant>/rejudged.jsonl``. The sessions themselves stay as they ran.
 """
@@ -40,6 +40,7 @@ from scope_eval_support.config.constants import (
     TRACES_DIRECTORY_NAME,
 )
 from scope_eval_support.grading import grade_session, judge_text
+from session_eval_support.config.constants import RUN_DIGEST_FIELD
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def _regraded_row(
     case_by_field: dict[str, str],
     variant_directory: Path,
     is_direct: bool,
-) -> dict[str, object]:
+) -> dict[str, object] | None:
     trace_name = f"{row_by_field['prompt_id']}_rep{row_by_field['rep']}.json"
     all_turns = json.loads(
         (variant_directory / TRACES_DIRECTORY_NAME / trace_name).read_text(
@@ -63,10 +64,12 @@ def _regraded_row(
     }
     transcript = rules_judge._transcript_within_limit(all_turns)
     verdict, _ = run_judge(judge_text(judged_case, transcript), is_direct)
+    if verdict is None:
+        return None
     meta_by_field["judge_verdict"] = verdict
     return {
         **row_by_field,
-        "grade": grade_session(meta_by_field["questions"], verdict or {}),
+        "grade": grade_session(meta_by_field["questions"], verdict),
         "meta": meta_by_field,
     }
 
@@ -80,12 +83,20 @@ def _parse_arguments() -> argparse.Namespace:
 
 
 def _read_rows(variant_directory: Path) -> list[dict[str, object]]:
-    return [
+    all_rows = [
         json.loads(each_line)
         for each_line in (variant_directory / RESULTS_FILE_NAME)
         .read_text(encoding="utf-8")
         .splitlines()
         if each_line.strip()
+    ]
+    if not all_rows:
+        return []
+    newest_digest = all_rows[-1]["meta"][RUN_DIGEST_FIELD]
+    return [
+        each_row
+        for each_row in all_rows
+        if each_row["meta"][RUN_DIGEST_FIELD] == newest_digest
     ]
 
 
@@ -93,7 +104,7 @@ def _regrade_all(
     all_rows: list[dict[str, object]],
     variant_directory: Path,
     arguments: argparse.Namespace,
-) -> list[dict[str, object]]:
+) -> list[dict[str, object] | None]:
     case_by_id = {
         each_case["id"]: each_case
         for each_case in json.loads(CASES_FILE.read_text(encoding="utf-8"))
@@ -121,16 +132,21 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
     variant_directory = FLOW_ROOT / arguments.variant
-    all_regraded = _regrade_all(
+    all_outcomes = _regrade_all(
         _read_rows(variant_directory), variant_directory, arguments
     )
+    all_regraded = [each_row for each_row in all_outcomes if each_row is not None]
     (variant_directory / REJUDGED_FILE_NAME).write_text(
         "".join(json.dumps(each_row) + "\n" for each_row in all_regraded),
         encoding="utf-8",
     )
     passed = sum(each_row["grade"]["correct"] for each_row in all_regraded)
     logger.info(
-        "%s regraded: %d/%d correct", arguments.variant, passed, len(all_regraded)
+        "%s regraded: %d/%d correct, %d judge failures left out",
+        arguments.variant,
+        passed,
+        len(all_regraded),
+        len(all_outcomes) - len(all_regraded),
     )
     return 0
 
