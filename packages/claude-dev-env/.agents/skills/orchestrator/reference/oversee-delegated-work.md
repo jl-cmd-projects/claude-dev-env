@@ -12,4 +12,4 @@ The `spawn_oversight_hook` adds this duty to every spawn, at every level of the 
 - Send a FAIL back to the worker with the verifier's evidence, and give the next attempt a new verifier.
 - Tag each piece in-scope or new scope. Ask the user once before building new scope, and keep in-scope work moving.
 - Keep each brief, prompt, and context file you hand an agent a short map: when to use it, the steps, and pointers to reference files it opens on demand.
-- Report to the user only what a verifier passed. Name the verdict and its evidence.
+- Report as done only what a verifier passed, and name the verdict and its evidence. Report the rest as waiting on verification.

@@ -45,7 +45,7 @@ SPAWN_OVERSIGHT_DIRECTIVE = (
     "the sources and leave the worker's conclusion out. A verifier's check ends "
     "the chain and gets no verifier of its own. Ask the user once before "
     "you build new scope the user's words do not name, and keep in-scope work "
-    "moving while the question waits. Report to the user only what a verifier "
+    "moving while the question waits. Report as done only what a verifier "
     "passed, with its evidence. While the agent runs, read its progress and wake "
     "it with one next step when it goes quiet. Load the orchestrator skill and "
     "follow its oversee delegated work reference."
