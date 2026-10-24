@@ -6,7 +6,7 @@ Back to the [rules index](../../rules/index.md).
 
 Every piece of work runs in six steps: research, verify the research, plan, verify the plan, implement, verify the fix. A separate `verifier` agent runs each verify step. The fix check reproduces the issue on the old state first, then confirms it is gone on the new state. The user gets only results a verifier passed. New scope goes to the user as one question before it is built.
 
-**When this applies:** Any task that changes code, configuration, rules, or a document, or that reports a finding, a cause, or a fix to the user.
+**When this applies:** Any task: a change to code, configuration, rules, or a document, and any finding, cause, or fix reported to the user.
 
 ## The six steps
 
@@ -48,4 +48,4 @@ Report only what a verifier passed. Name the verifier's verdict and the evidence
 
 ## Enforcement
 
-`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the scope ask, and the reporting rule to every spawn at every level of the agent tree. It adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for.
+`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the scope ask, and the reporting rule to every spawn at every level of the agent tree whose brief has an `Outcome:` line and an `On a blocker:` line; the hook already denies a brief without them, and the verifier brief template carries both. The flow itself adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for.
