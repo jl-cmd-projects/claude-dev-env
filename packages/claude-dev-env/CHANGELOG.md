@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.104.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.103.1...claude-dev-env-v8.104.0) (2026-10-24)
+
+
+### Features
+
+* **hooks:** cap self-wakeups under the 1-hour prompt cache ([#2188](https://github.com/jl-cmd-projects/claude-dev-env/issues/2188)) ([177f0d1](https://github.com/jl-cmd-projects/claude-dev-env/commit/177f0d1f0ea640cab0aa6be8a450afaebc7f837d))
+
 ## [8.103.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.103.0...claude-dev-env-v8.103.1) (2026-10-23)
 
 
