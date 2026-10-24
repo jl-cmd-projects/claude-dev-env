@@ -268,3 +268,7 @@ def test_the_emitted_directive_asks_before_new_scope_and_keeps_in_scope_work_mov
 
 def test_the_emitted_directive_reports_only_verified_results() -> None:
     assert "Report to the user only what a verifier passed, with its evidence" in _emitted_directive()
+
+
+def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
+    assert "A verifier's check ends the chain and gets no verifier of its own" in _emitted_directive()

@@ -22,6 +22,7 @@ Every piece of work runs in six steps: research, verify the research, plan, veri
 - The verifier is never the agent that did the work. The spawner is the owner of the work. A fresh agent at each verify step keeps the check apart from the author.
 - Its brief gives the issue, the sources, the old state and the new state. It leaves out the worker's conclusion, so the verifier tests the claim and does not inherit it.
 - Use the `verifier` agent definition and its brief template. On a host without that agent, give a fresh general-purpose agent the same contract.
+- A verifier's own check ends the chain. It runs no research, plan, or verifier of its own.
 - A FAIL goes back to the worker with the verifier's evidence. After the next attempt, a new verifier checks it.
 
 ## Scope
