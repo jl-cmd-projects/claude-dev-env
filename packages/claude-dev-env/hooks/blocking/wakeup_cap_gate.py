@@ -68,6 +68,7 @@ from hooks_constants.wakeup_cap_constants import (
     GATE_EVENT_NAME,
     MINUTES_PER_HOUR,
     NEW_SESSION_ON_FIRE_KEY,
+    PINNED_FIELD_COUNT,
     RECURRING_KEY,
     REWRITE_CONTEXT_TEMPLATE,
     RFC3339_OUTPUT_FORMAT,
@@ -132,8 +133,8 @@ def _decide_minutes(
     return None
 
 
-def _decide_delay_minutes(tool_input: dict[str, object]) -> Decision:
-    requested = tool_input.get(DELAY_MINUTES_KEY)
+def _decide_delay_minutes(all_tool_input_fields: dict[str, object]) -> Decision:
+    requested = all_tool_input_fields.get(DELAY_MINUTES_KEY)
     requested_minutes = _number_or_none(requested)
     if requested_minutes is None:
         return None
@@ -142,8 +143,10 @@ def _decide_delay_minutes(tool_input: dict[str, object]) -> Decision:
     )
 
 
-def _decide_fire_time(field: str, tool_input: dict[str, object], now: datetime) -> Decision:
-    requested = tool_input.get(field)
+def _decide_fire_time(
+    field: str, all_tool_input_fields: dict[str, object], now: datetime
+) -> Decision:
+    requested = all_tool_input_fields.get(field)
     fire_time = _parse_utc_moment(requested)
     if fire_time is None:
         return None
@@ -155,8 +158,8 @@ def _decide_fire_time(field: str, tool_input: dict[str, object], now: datetime) 
     return _decide_minutes(field, requested, minutes_away, allowed_text)
 
 
-def _decide_delay_seconds(tool_input: dict[str, object]) -> Decision:
-    requested = tool_input.get(DELAY_SECONDS_KEY)
+def _decide_delay_seconds(all_tool_input_fields: dict[str, object]) -> Decision:
+    requested = all_tool_input_fields.get(DELAY_SECONDS_KEY)
     requested_seconds = _number_or_none(requested)
     if requested_seconds is None:
         return None
@@ -169,28 +172,35 @@ def _decide_delay_seconds(tool_input: dict[str, object]) -> Decision:
     return None
 
 
+def _base_bounds(base: str, has_step: bool, lowest: int, highest: int) -> tuple[int, int] | None:
+    if base == "*":
+        return lowest, highest
+    first_text, separator, last_text = base.partition("-")
+    if separator and first_text.isdigit() and last_text.isdigit():
+        return int(first_text), int(last_text)
+    if separator or not base.isdigit():
+        return None
+    return int(base), highest if has_step else int(base)
+
+
+def _part_values(cron_part: str, lowest: int, highest: int) -> range | None:
+    base, _, step_text = cron_part.partition("/")
+    if step_text and not step_text.isdigit():
+        return None
+    step = int(step_text) if step_text else 1
+    bounds = _base_bounds(base, bool(step_text), lowest, highest)
+    if bounds is None or step < 1 or not lowest <= bounds[0] <= bounds[1] <= highest:
+        return None
+    return range(bounds[0], bounds[1] + 1, step)
+
+
 def _field_values(cron_field: str, lowest: int, highest: int) -> set[int] | None:
     all_values: set[int] = set()
     for each_part in cron_field.split(","):
-        base, _, step_text = each_part.partition("/")
-        step = int(step_text) if step_text.isdigit() else 1
-        if step_text and not step_text.isdigit():
+        part_values = _part_values(each_part, lowest, highest)
+        if part_values is None:
             return None
-        if base == "*":
-            first_value, last_value = lowest, highest
-        elif "-" in base:
-            first_text, _, last_text = base.partition("-")
-            if not (first_text.isdigit() and last_text.isdigit()):
-                return None
-            first_value, last_value = int(first_text), int(last_text)
-        elif base.isdigit():
-            first_value = int(base)
-            last_value = highest if step_text else first_value
-        else:
-            return None
-        if step < 1 or not lowest <= first_value <= last_value <= highest:
-            return None
-        all_values.update(range(first_value, last_value + 1, step))
+        all_values.update(part_values)
     return all_values
 
 
@@ -231,15 +241,26 @@ def longest_cron_gap_minutes(cron_expression: str) -> int | None:
     all_minutes = _field_values(all_fields[0], 0, MINUTES_PER_HOUR - 1)
     if not all_minutes:
         return None
-    if not all(
+    if not _fires_every_hour(all_fields[1:]):
+        return CACHE_LIFETIME_MINUTES
+    return _longest_minute_gap(all_minutes)
+
+
+def _fires_every_hour(all_hour_and_day_fields: list[str]) -> bool:
+    return all(
         _covers_every_value(each_field, lowest, highest, wrap)
         for each_field, (lowest, highest, wrap) in zip(
-            all_fields[1:], ALL_CRON_FIELD_RANGES, strict=True
+            all_hour_and_day_fields, ALL_CRON_FIELD_RANGES, strict=True
         )
-    ):
-        return CACHE_LIFETIME_MINUTES
+    )
+
+
+def _longest_minute_gap(all_minutes: set[int]) -> int:
     ordered_minutes = sorted(all_minutes)
-    all_gaps = [later - earlier for earlier, later in zip(ordered_minutes, ordered_minutes[1:], strict=False)]
+    all_gaps = [
+        later - earlier
+        for earlier, later in zip(ordered_minutes, ordered_minutes[1:], strict=False)
+    ]
     all_gaps.append(ordered_minutes[0] + MINUTES_PER_HOUR - ordered_minutes[-1])
     return max(all_gaps)
 
@@ -257,9 +278,12 @@ def _pinned_local_fire_time(cron_expression: str, now: datetime) -> datetime | N
     if CRON_TIMEZONE_PREFIX_PATTERN.match(cron_expression.strip()):
         return None
     all_fields = _cron_fields(cron_expression)
-    if all_fields is None or not all(each_field.isdigit() for each_field in all_fields[:4]):
+    if all_fields is None:
         return None
-    minute, hour, day, month = (int(each_field) for each_field in all_fields[:4])
+    all_pinned_fields = all_fields[:PINNED_FIELD_COUNT]
+    if not all(each_field.isdigit() for each_field in all_pinned_fields):
+        return None
+    minute, hour, day, month = (int(each_field) for each_field in all_pinned_fields)
     local_now = now.astimezone()
     try:
         fire_time = local_now.replace(
@@ -272,60 +296,64 @@ def _pinned_local_fire_time(cron_expression: str, now: datetime) -> datetime | N
     return fire_time
 
 
-def _decide_cron_create(tool_input: dict[str, object], now: datetime) -> Decision:
-    cron_expression = tool_input.get(CRON_KEY)
+def _decide_pinned_one_shot(fire_time: datetime, now: datetime) -> Decision:
+    minutes_away = (fire_time - now).total_seconds() / SECONDS_PER_MINUTE
+    if minutes_away > SEND_LATER_STEP_DOWN_MINUTES:
+        return Denial(DENY_DELAY_DETAIL.format(minutes=math.ceil(minutes_away)))
+    return None
+
+
+def _decide_cron_create(all_tool_input_fields: dict[str, object], now: datetime) -> Decision:
+    cron_expression = all_tool_input_fields.get(CRON_KEY)
     if not isinstance(cron_expression, str):
         return None
-    if tool_input.get(RECURRING_KEY) is False:
-        fire_time = _pinned_local_fire_time(cron_expression, now)
-        if fire_time is not None:
-            minutes_away = (fire_time - now).total_seconds() / SECONDS_PER_MINUTE
-            if minutes_away > SEND_LATER_STEP_DOWN_MINUTES:
-                return Denial(DENY_DELAY_DETAIL.format(minutes=math.ceil(minutes_away)))
-            return None
+    is_one_shot = all_tool_input_fields.get(RECURRING_KEY) is False
+    fire_time = _pinned_local_fire_time(cron_expression, now) if is_one_shot else None
+    if fire_time is not None:
+        return _decide_pinned_one_shot(fire_time, now)
     return _decide_cron_gap(cron_expression)
 
 
-def _decide_create_trigger(tool_input: dict[str, object], now: datetime) -> Decision:
-    if tool_input.get(NEW_SESSION_ON_FIRE_KEY) is True:
+def _decide_create_trigger(all_tool_input_fields: dict[str, object], now: datetime) -> Decision:
+    if all_tool_input_fields.get(NEW_SESSION_ON_FIRE_KEY) is True:
         return None
-    if RUN_ONCE_AT_KEY in tool_input:
-        return _decide_fire_time(RUN_ONCE_AT_KEY, tool_input, now)
-    return _decide_cron_gap(tool_input.get(CRON_EXPRESSION_KEY))
+    if RUN_ONCE_AT_KEY in all_tool_input_fields:
+        return _decide_fire_time(RUN_ONCE_AT_KEY, all_tool_input_fields, now)
+    return _decide_cron_gap(all_tool_input_fields.get(CRON_EXPRESSION_KEY))
 
 
-def decide(tool_name: str, tool_input: dict[str, object], now: datetime) -> Decision:
+def decide(tool_name: str, all_tool_input_fields: dict[str, object], now: datetime) -> Decision:
     """Return how the gate treats one tool call that may schedule a wake.
 
     Args:
         tool_name: The name of the tool being called.
-        tool_input: The tool call's input.
+        all_tool_input_fields: The tool call's input.
         now: The current time, timezone aware.
 
     Returns:
         A Rewrite, a Denial, or None when the call passes untouched.
     """
     if tool_name == SCHEDULE_WAKEUP_TOOL_NAME:
-        return _decide_delay_seconds(tool_input)
+        return _decide_delay_seconds(all_tool_input_fields)
     if tool_name == CRON_CREATE_TOOL_NAME:
-        return _decide_cron_create(tool_input, now)
+        return _decide_cron_create(all_tool_input_fields, now)
     if SEND_LATER_TOOL_PATTERN.match(tool_name):
-        if DELAY_MINUTES_KEY in tool_input:
-            return _decide_delay_minutes(tool_input)
-        return _decide_fire_time(AT_KEY, tool_input, now)
+        if DELAY_MINUTES_KEY in all_tool_input_fields:
+            return _decide_delay_minutes(all_tool_input_fields)
+        return _decide_fire_time(AT_KEY, all_tool_input_fields, now)
     if CREATE_TRIGGER_TOOL_PATTERN.match(tool_name):
-        return _decide_create_trigger(tool_input, now)
+        return _decide_create_trigger(all_tool_input_fields, now)
     if UPDATE_TRIGGER_TOOL_PATTERN.match(tool_name):
-        return _decide_fire_time(RUN_ONCE_AT_KEY, tool_input, now)
+        return _decide_fire_time(RUN_ONCE_AT_KEY, all_tool_input_fields, now)
     return None
 
 
-def _write_rewrite(tool_input: dict[str, object], rewrite: Rewrite) -> None:
+def _write_rewrite(all_tool_input_fields: dict[str, object], rewrite: Rewrite) -> None:
     payload = {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: GATE_EVENT_NAME,
             PERMISSION_DECISION_KEY: ALLOW_DECISION,
-            UPDATED_INPUT_KEY: {**tool_input, rewrite.field: rewrite.allowed},
+            UPDATED_INPUT_KEY: {**all_tool_input_fields, rewrite.field: rewrite.allowed},
             ADDITIONAL_CONTEXT_KEY: REWRITE_CONTEXT_TEMPLATE.format(
                 field=rewrite.field,
                 requested=rewrite.requested,

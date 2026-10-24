@@ -146,6 +146,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_turn_gate.py        -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
         hooks/blocking/turn_review_gate.py               -> exempt
+        hooks/blocking/wakeup_cap_gate.py                -> exempt
         hooks/blocking/some_new_blocker.py               -> flagged
 
     The Bash PreToolUse dispatcher sits under ``blocking/`` for layout reasons
@@ -212,6 +213,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     reports a problem in the turn's edits. The review run reads the code and
     the agent fixes or answers each finding; the gate itself only decides when
     a turn may end.
+
+    The wakeup cap gate shortens or denies a self-wakeup scheduled 60 minutes
+    or more away, so the wake lands inside the prompt cache. It decides when a
+    session wakes and no code or safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.
