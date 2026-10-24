@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.105.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.104.0...claude-dev-env-v8.105.0) (2026-10-24)
+
+
+### Features
+
+* **agents:** run every piece through a verified-work flow ([#2190](https://github.com/jl-cmd-projects/claude-dev-env/issues/2190)) ([61951a9](https://github.com/jl-cmd-projects/claude-dev-env/commit/61951a967f92b957fe085d1edc1a7b5d34ea1b2b))
+
 ## [8.104.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.103.1...claude-dev-env-v8.104.0) (2026-10-24)
 
 
