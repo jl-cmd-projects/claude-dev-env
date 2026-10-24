@@ -115,6 +115,17 @@ def test_should_block_the_stop_with_the_finding_when_the_turn_leaves_a_bug(
     assert "app" in str(stop_output["reason"])
 
 
+def test_should_tell_the_agent_to_fix_a_finding_unless_the_user_asked_for_it(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    block_reason = str(run_hook(gate_environment, "Stop")["reason"])
+    assert "Fix each one before you end the turn." in block_reason
+    assert "is not a request for the problem it causes" in block_reason
+    assert "quote those words in your reply" in block_reason
+
+
 def test_should_review_only_the_edits_made_after_the_prompt(
     project: Path, gate_environment: dict[str, str]
 ) -> None:
