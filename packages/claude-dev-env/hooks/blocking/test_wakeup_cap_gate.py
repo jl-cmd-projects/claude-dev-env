@@ -213,7 +213,10 @@ def test_update_trigger_cron_change_passes(
     assert (exit_code, stdout_text) == (0, "")
 
 
-@pytest.mark.parametrize("cron_expression", ["*/5 * * * *", "*/30 * * * *", "7,37 * * * *"])
+@pytest.mark.parametrize(
+    "cron_expression",
+    ["*/5 * * * *", "*/30 * * * *", "7,37 * * * *", "*/20 0-23 1-31 1-12 0-7", "*/20 * * * 0-6"],
+)
 def test_cron_create_firing_more_often_than_the_step_down_passes(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], cron_expression: str
 ) -> None:
@@ -223,7 +226,10 @@ def test_cron_create_firing_more_often_than_the_step_down_passes(
     assert (exit_code, stdout_text) == (0, "")
 
 
-@pytest.mark.parametrize("cron_expression", ["7 * * * *", "57 8 * * *", "0,58 * * * *"])
+@pytest.mark.parametrize(
+    "cron_expression",
+    ["7 * * * *", "57 8 * * *", "0,58 * * * *", "*/20 9-17 * * *", "*/5 * * * 1-5", "*/5 * * * MON"],
+)
 def test_cron_create_with_an_hour_or_more_between_wakes_is_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], cron_expression: str
 ) -> None:
@@ -245,6 +251,18 @@ def test_cron_create_one_shot_within_the_step_down_passes(
     tool_input = {"cron": pinned_local_cron(30), "prompt": "p", "recurring": False}
     exit_code, stdout_text, _ = run_gate(monkeypatch, capsys, "CronCreate", tool_input)
     assert (exit_code, stdout_text) == (0, "")
+
+
+def test_cron_create_one_shot_with_a_timezone_prefix_is_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    tool_input = {
+        "cron": "CRON_TZ=America/Los_Angeles " + pinned_local_cron(30),
+        "prompt": "p",
+        "recurring": False,
+    }
+    exit_code, _, _ = run_gate(monkeypatch, capsys, "CronCreate", tool_input)
+    assert exit_code == 2
 
 
 def test_cron_create_one_shot_two_hours_out_is_refused(

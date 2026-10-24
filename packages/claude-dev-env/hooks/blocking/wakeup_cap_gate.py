@@ -47,7 +47,7 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.wakeup_cap_constants import (
     ADDITIONAL_CONTEXT_KEY,
-    ALL_EVERY_VALUE_FIELDS,
+    ALL_CRON_FIELD_RANGES,
     ALLOW_DECISION,
     ALLOW_EXIT_CODE,
     AT_KEY,
@@ -169,29 +169,36 @@ def _decide_delay_seconds(tool_input: dict[str, object]) -> Decision:
     return None
 
 
-def _minute_values(minute_field: str) -> set[int] | None:
-    all_minutes: set[int] = set()
-    for each_part in minute_field.split(","):
+def _field_values(cron_field: str, lowest: int, highest: int) -> set[int] | None:
+    all_values: set[int] = set()
+    for each_part in cron_field.split(","):
         base, _, step_text = each_part.partition("/")
         step = int(step_text) if step_text.isdigit() else 1
         if step_text and not step_text.isdigit():
             return None
         if base == "*":
-            first_minute, last_minute = 0, MINUTES_PER_HOUR - 1
+            first_value, last_value = lowest, highest
         elif "-" in base:
             first_text, _, last_text = base.partition("-")
             if not (first_text.isdigit() and last_text.isdigit()):
                 return None
-            first_minute, last_minute = int(first_text), int(last_text)
+            first_value, last_value = int(first_text), int(last_text)
         elif base.isdigit():
-            first_minute = int(base)
-            last_minute = MINUTES_PER_HOUR - 1 if step_text else first_minute
+            first_value = int(base)
+            last_value = highest if step_text else first_value
         else:
             return None
-        if step < 1 or not 0 <= first_minute <= last_minute < MINUTES_PER_HOUR:
+        if step < 1 or not lowest <= first_value <= last_value <= highest:
             return None
-        all_minutes.update(range(first_minute, last_minute + 1, step))
-    return all_minutes
+        all_values.update(range(first_value, last_value + 1, step))
+    return all_values
+
+
+def _covers_every_value(cron_field: str, lowest: int, highest: int, wrap: int) -> bool:
+    all_values = _field_values(cron_field, lowest, highest)
+    if all_values is None:
+        return False
+    return {each_value % wrap for each_value in all_values} == set(range(lowest, wrap))
 
 
 def _cron_fields(cron_expression: str) -> list[str] | None:
@@ -221,10 +228,15 @@ def longest_cron_gap_minutes(cron_expression: str) -> int | None:
     all_fields = _cron_fields(cron_expression)
     if all_fields is None:
         return None
-    all_minutes = _minute_values(all_fields[0])
+    all_minutes = _field_values(all_fields[0], 0, MINUTES_PER_HOUR - 1)
     if not all_minutes:
         return None
-    if any(each_field not in ALL_EVERY_VALUE_FIELDS for each_field in all_fields[1:]):
+    if not all(
+        _covers_every_value(each_field, lowest, highest, wrap)
+        for each_field, (lowest, highest, wrap) in zip(
+            all_fields[1:], ALL_CRON_FIELD_RANGES, strict=True
+        )
+    ):
         return CACHE_LIFETIME_MINUTES
     ordered_minutes = sorted(all_minutes)
     all_gaps = [later - earlier for earlier, later in zip(ordered_minutes, ordered_minutes[1:], strict=False)]
@@ -242,6 +254,8 @@ def _decide_cron_gap(cron_expression: object) -> Decision:
 
 
 def _pinned_local_fire_time(cron_expression: str, now: datetime) -> datetime | None:
+    if CRON_TIMEZONE_PREFIX_PATTERN.match(cron_expression.strip()):
+        return None
     all_fields = _cron_fields(cron_expression)
     if all_fields is None or not all(each_field.isdigit() for each_field in all_fields[:4]):
         return None
