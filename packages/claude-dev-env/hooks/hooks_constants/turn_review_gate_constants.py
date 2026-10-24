@@ -149,7 +149,10 @@ FINDING_LINE_SEPARATOR = "\n"
 REPOSITORY_FINDINGS_SEPARATOR = "\n\n"
 BLOCK_REASON_TEMPLATE = (
     "A fresh-context review of this turn's changes found these problems. "
-    "Fix each one, or say in your reply why it is wrong, before you end the turn:\n\n"
+    "Fix each one before you end the turn. Code the user pasted or described is not a "
+    "request for the problem it causes. Keep a finding's behavior only when the user's own "
+    "words ask for that behavior, and quote those words in your reply. When a finding is "
+    "wrong, say in your reply why:\n\n"
     "{all_findings}"
 )
 TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE = (
