@@ -1,0 +1,50 @@
+Back to the [rules index](../../rules/index.md).
+
+# Verified work
+
+## In brief
+
+Every piece of work runs in six steps: research, verify the research, plan, verify the plan, implement, verify the fix. A separate `verifier` agent runs each verify step. The fix check reproduces the issue on the old state first, then confirms it is gone on the new state. The user gets only results a verifier passed. New scope goes to the user as one question before it is built.
+
+**When this applies:** Any task that changes code, configuration, rules, or a document, or that reports a finding, a cause, or a fix to the user.
+
+## The six steps
+
+1. **Research.** Find the issue and its cause in primary sources: files, logs, runs, command output. Write each finding as a claim with its source.
+2. **Verify the research.** Spawn a fresh `verifier` in research mode. It reports CONFIRMED or REFUTED for each claim, and what the research missed. Fix the research before you plan.
+3. **Plan.** List the pieces of the fix. Tag each piece in-scope or new scope (see [Scope](#scope)).
+4. **Verify the plan.** Spawn a fresh `verifier` in plan mode. It reports SOUND or GAP for each piece: does it close part of the researched issue, and does it break a test, a budget, or a constraint. It checks each scope tag against the user's words. Revise the plan for each GAP.
+5. **Implement.** Build the in-scope pieces.
+6. **Verify the fix.** Spawn a fresh `verifier` in fix mode. It reproduces the issue on the old state, confirms the issue is gone on the new state, and confirms an undo of the fix fails again. A fix whose issue did not reproduce does not pass.
+
+## The verifier
+
+- The verifier is never the agent that did the work. The spawner is the owner of the work. A fresh agent at each verify step keeps the check apart from the author.
+- Its brief gives the issue, the sources, the old state and the new state. It leaves out the worker's conclusion, so the verifier tests the claim and does not inherit it.
+- Use the `verifier` agent definition and its brief template. On a host without that agent, give a fresh general-purpose agent the same contract.
+- A FAIL goes back to the worker with the verifier's evidence. After the next attempt, a new verifier checks it.
+
+## Scope
+
+A piece is in-scope when it traces to the user's own words, or when the named work needs it to be done, such as a test for the fix, a doc row that the change makes stale, or a refactor the fix cannot land without. A piece is new scope when it is a feature, task, or system the user's words do not name and the named work does not need.
+
+- In-scope work runs with no ask.
+- New scope goes to the user as one question before any of it is built: what it is, why the work led to it, and what it costs. Use the session's question tool, per [`question-presentation.md`](question-presentation.md).
+- While the question waits, keep building the in-scope pieces, per [`long-horizon-autonomy.md`](long-horizon-autonomy.md).
+
+Examples, labelled as a format guide:
+
+| Ask | Piece | Tag |
+|-|-|-|
+| Fix the sign-in step that fails in cloud sessions | Repair the token refresh the sign-in calls | in-scope |
+| Fix the sign-in step that fails in cloud sessions | A lock and write-back system for shared credentials | new scope: ask first |
+| Add a flag that skips the cache | Update the README table that lists the flags | in-scope |
+| Add a flag that skips the cache | Rewrite the cache as a separate service | new scope: ask first |
+
+## Reporting
+
+Report only what a verifier passed. Name the verifier's verdict and the evidence it produced. A result that no verifier has passed is still work in progress: say that it waits on verification.
+
+## Enforcement
+
+`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the scope ask, and the reporting rule to every spawn at every level of the agent tree. It adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for. An earlier commit gate that waited on a minted verifier verdict blocked commits when the verdict failed to mint, and was removed.

@@ -36,11 +36,16 @@ REFUSAL_SUFFIX = (
 REASON_SEPARATOR = " "
 
 SPAWN_OVERSIGHT_DIRECTIVE = (
-    "You own the work this spawn starts. Load the orchestrator skill and follow "
-    "its oversee delegated work reference. While the agent runs, read its progress "
-    "and wake it with one next step when it goes quiet. Before its output "
-    "reaches the user, check it against the user's own words and standards, and "
-    "send the agent a correction when it misses. Give each piece of a "
-    "multi-piece task its own reviewer or helper. Tell the user you are "
-    "checking the work."
+    "You own the work this spawn starts. Run each piece through the verified-work "
+    "flow: research, then a separate verifier checks the research; plan, then a "
+    "separate verifier checks that the plan fixes the researched issue; implement, "
+    "then a separate verifier reproduces the issue on the old state before it "
+    "confirms the fix on the new state. Spawn a fresh verifier agent for each "
+    "check, never the agent that did the work, and brief it with the issue and "
+    "the sources and leave the worker's conclusion out. Ask the user once before "
+    "you build new scope the user's words do not name, and keep in-scope work "
+    "moving while the question waits. Report to the user only what a verifier "
+    "passed, with its evidence. While the agent runs, read its progress and wake "
+    "it with one next step when it goes quiet. Load the orchestrator skill and "
+    "follow its oversee delegated work reference."
 )

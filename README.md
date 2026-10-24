@@ -176,13 +176,16 @@ Reference documents that rules and agents point to for detailed standards.
 | `host-pool-health-monitor.md` | Kernel pool counters and handle pressure on a Windows host |
 | `wsl-docker-cowork-starter-matrix.md` | Host memory attribution under WSL2 and Docker Desktop |
 
-### Agents (1)
+### Agents (4)
 
 Specialized agent prompts for common development tasks. Claude Code automatically discovers these and makes them available for delegation.
 
 | Agent | Role |
 |---------|------|
 | `poteto-agent` | Delegates to the installed pstack poteto-mode skill for the task in each call |
+| `lean-worker` | Default worker for a task that only reads, searches, edits files, and runs shell commands |
+| `dev-env-session` | Runs a worker under the claude-dev-env session prompt |
+| `verifier` | Separate checker for the verified-work flow: checks research and plans, and reproduces an issue before it confirms the fix |
 
 The 8 personal agents this package shipped before `poteto-agent` are archived
 under `.agents/agents-archived/`, each with a restore command in
