@@ -1,0 +1,30 @@
+name: rerun-review
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/rereview')
+    runs-on: [self-hosted, desktop]
+    steps:
+      - uses: actions/checkout@v4
+      - id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.REVIEW_APP_ID }}
+          private-key: ${{ secrets.REVIEW_APP_KEY }}
+      - name: Open check run
+        run: scripts/check_run.sh open-for-pr "${{ github.event.issue.number }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Start reviewer
+        run: scripts/start_review.sh "${{ github.event.issue.number }}"
+        env:
+          REVIEW_MODEL: ${{ vars.REVIEW_MODEL }}
+          REVIEW_EFFORT: ${{ vars.REVIEW_EFFORT }}
+      - name: Complete check run
+        if: always()
+        run: scripts/check_run.sh complete-for-pr "${{ github.event.issue.number }}" "${{ job.status }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

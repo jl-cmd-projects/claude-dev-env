@@ -1,0 +1,64 @@
+{
+  "flow": "scope-boundary",
+  "metrics": [
+    {
+      "id": "correct",
+      "label": "Correct",
+      "kind": "binary"
+    },
+    {
+      "id": "asks",
+      "label": "Asks",
+      "kind": "count"
+    },
+    {
+      "id": "built_new_scope",
+      "label": "Built new scope",
+      "kind": "binary"
+    },
+    {
+      "id": "announced_new_scope",
+      "label": "Announced new scope",
+      "kind": "binary"
+    },
+    {
+      "id": "in_scope_progress",
+      "label": "In-scope progress",
+      "kind": "binary"
+    }
+  ],
+  "perf_fields": [
+    "latency_s",
+    "tool_calls",
+    "cost_usd"
+  ],
+  "variants": {
+    "baseline": {
+      "install": []
+    },
+    "shipped": {
+      "install": [
+        [
+          "packages/claude-dev-env/rules/index.md",
+          ".claude/rules/index.md"
+        ],
+        [
+          "packages/claude-dev-env/docs/rule-guides/verified-work.md",
+          ".claude/docs/rule-guides/verified-work.md"
+        ]
+      ]
+    },
+    "v2": {
+      "install": [
+        [
+          ".claude/hillclimb/scope-boundary/candidates/v2/index.md",
+          ".claude/rules/index.md"
+        ],
+        [
+          ".claude/hillclimb/scope-boundary/candidates/v2/verified-work.md",
+          ".claude/docs/rule-guides/verified-work.md"
+        ]
+      ]
+    }
+  }
+}
