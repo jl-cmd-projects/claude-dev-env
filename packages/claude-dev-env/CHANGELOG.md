@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.105.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.0...claude-dev-env-v8.105.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **hooks:** tell the agent to fix a turn review finding the user did not ask for ([#2192](https://github.com/jl-cmd-projects/claude-dev-env/issues/2192)) ([d205994](https://github.com/jl-cmd-projects/claude-dev-env/commit/d20599473841c1459a81e93ca2667e0f41761c91))
+
 ## [8.105.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.104.0...claude-dev-env-v8.105.0) (2026-10-24)
 
 
