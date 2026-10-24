@@ -58,3 +58,30 @@ def test_executor_consult_block_names_orchestrating_session() -> None:
     )
     assert "<orchestrator-name>" in text
     assert "your advisor" in text
+
+
+_OVERSEE_PATH = _SKILL_DIR / "reference" / "oversee-delegated-work.md"
+_COMPLETION_PATH = _SKILL_DIR / "reference" / "completion-reporting.md"
+_VERIFIED_WORK_GUIDE = "~/.claude/docs/rule-guides/verified-work.md"
+
+
+def test_independent_verification_is_no_longer_conditional() -> None:
+    text = (_SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "Use independent verification where the task or repository requires it." not in text
+    assert "Run every piece through the verified-work flow" in text
+    assert _VERIFIED_WORK_GUIDE in text
+
+
+def test_a_separate_verifier_checks_delegated_work() -> None:
+    text = _OVERSEE_PATH.read_text(encoding="utf-8")
+    assert "check it against the user's words and standards yourself" not in text
+    assert "A fresh `verifier` agent, separate from the worker" in text
+    assert "Leave the worker's conclusion out." in text
+    assert "reproduced the issue on the old state and confirmed it gone on the new state" in text
+    assert "Ask the user once before building new scope" in text
+
+
+def test_completion_needs_a_passed_verifier() -> None:
+    text = _COMPLETION_PATH.read_text(encoding="utf-8")
+    assert "Confirm that a fresh `verifier` agent passed the result" in text
+    assert "reported as waiting on verification" in text

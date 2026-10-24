@@ -232,3 +232,43 @@ def test_brief_gaps_should_name_each_missing_clause() -> None:
 def test_a_workflow_script_path_that_cannot_be_opened_gets_the_directive() -> None:
     payload = {"tool_name": "Workflow", "tool_input": {"scriptPath": "bad\u0000path.js"}}
     assert json.loads(_run_script(json.dumps(payload))) == _directive_output()
+
+
+def _emitted_directive() -> str:
+    stdout = _run_script(json.dumps(_spawn_payload("Agent", GOOD_BRIEF)))
+    return json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_the_emitted_directive_runs_research_plan_and_fix_in_order() -> None:
+    directive = _emitted_directive()
+    research_position = directive.index("research, then a separate verifier checks the research")
+    plan_position = directive.index("plan, then a separate verifier checks that the plan fixes the researched issue")
+    fix_position = directive.index("implement, then a separate verifier reproduces the issue")
+    assert research_position < plan_position < fix_position
+
+
+def test_the_emitted_directive_reproduces_the_issue_before_it_confirms_the_fix() -> None:
+    directive = _emitted_directive()
+    assert directive.index("reproduces the issue on the old state") < directive.index(
+        "confirms the fix on the new state"
+    )
+
+
+def test_the_emitted_directive_keeps_the_verifier_apart_from_the_worker() -> None:
+    directive = _emitted_directive()
+    assert "Spawn a fresh verifier agent for each check, never the agent that did the work" in directive
+    assert "leave the worker's conclusion out" in directive
+
+
+def test_the_emitted_directive_asks_before_new_scope_and_keeps_in_scope_work_moving() -> None:
+    directive = _emitted_directive()
+    assert "Ask the user once before you build new scope" in directive
+    assert "keep in-scope work moving while the question waits" in directive
+
+
+def test_the_emitted_directive_reports_only_verified_results() -> None:
+    assert "Report as done only what a verifier passed, with its evidence" in _emitted_directive()
+
+
+def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
+    assert "A verifier's check ends the chain and gets no verifier of its own" in _emitted_directive()

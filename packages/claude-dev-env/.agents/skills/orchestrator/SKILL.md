@@ -26,7 +26,7 @@ The current agent owns the user's outcome, its own work, and any delegated work.
 Keep the goal, decisions, ownership, and next actions in the parent context.
 Put bulk research, logs, and implementation detail in bounded worker contexts and linked artifacts.
 Do short work inline when that keeps the task clear.
-This session is the advisor for its executors and verifies their returned claims.
+This session is the advisor for its executors. A fresh `verifier` agent checks each returned claim, per `~/.claude/docs/rule-guides/verified-work.md`.
 
 ## Gotchas
 
@@ -105,7 +105,7 @@ Send follow-ups only through a transport authorized by the current runtime and u
 Read the evidence needed for your decision. Keep lengthy output in files and return short evidence pointers.
 Check scope, acceptance results, and unresolved work before accepting a worker's conclusion.
 Review every close a worker reports. Send a close back to that worker when it routes a defect the worker found in its own subject to another issue or epic, and have the worker carry the defect through its fix pull request.
-Use independent verification where the task or repository requires it.
+Run every piece through the verified-work flow: a fresh `verifier` agent checks the research, the plan, and the fix, and the fix check reproduces the issue before it confirms the fix.
 Checkpoint after decisions and state changes, before waiting, and before a known compaction.
 
 ### Complete the requested outcome
