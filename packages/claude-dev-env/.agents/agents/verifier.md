@@ -20,9 +20,9 @@ Do not edit, create, or delete any file in the work under review. Put probes and
 
 1. Reproduce. On the old state, run the check that shows the issue. Report REPRODUCED with the output, or NOT REPRODUCED.
 2. Confirm. On the new state, run the same check. Report FIXED with the output, or NOT FIXED.
-3. Undo. Revert the fix in a scratch copy and run the check again. It must fail again.
+3. Undo. Revert the fix in a scratch copy and run the check again. It must fail again. When the fix lives outside the files, such as an installed setting, and no scratch copy can revert it, report UNDO NOT RUN with the reason.
 
-A fix passes only with REPRODUCED, FIXED, and an undo that fails again. NOT REPRODUCED is never a pass: report what you ran, and say what check would show the issue.
+A fix passes only with REPRODUCED, FIXED, and an undo that fails again or UNDO NOT RUN with its reason. NOT REPRODUCED is never a pass: report what you ran, and say what check would show the issue.
 
 ## Report
 
