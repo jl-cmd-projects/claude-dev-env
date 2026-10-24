@@ -15,7 +15,7 @@ Every piece of work runs in six steps: research, verify the research, plan, veri
 3. **Plan.** List the pieces of the fix. Tag each piece in-scope or new scope (see [Scope](#scope)).
 4. **Verify the plan.** Spawn a fresh `verifier` in plan mode. It reports SOUND or GAP for each piece: does it close part of the researched issue, and does it break a test, a budget, or a constraint. It checks each scope tag against the user's words. Revise the plan for each GAP.
 5. **Implement.** Build the in-scope pieces.
-6. **Verify the fix.** Spawn a fresh `verifier` in fix mode. It reproduces the issue on the old state, confirms the issue is gone on the new state, and confirms an undo of the fix fails again. A fix whose issue did not reproduce does not pass.
+6. **Verify the fix.** Spawn a fresh `verifier` in fix mode. It reproduces the issue on the old state, confirms the issue is gone on the new state, and confirms an undo of the fix fails again. When no scratch copy can revert the fix, such as an installed setting, it reports UNDO NOT RUN with the reason, and REPRODUCED plus FIXED still pass. A fix whose issue did not reproduce does not pass.
 
 ## The verifier
 
@@ -48,4 +48,4 @@ Report only what a verifier passed. Name the verifier's verdict and the evidence
 
 ## Enforcement
 
-`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the scope ask, and the reporting rule to every spawn at every level of the agent tree. It adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for. An earlier commit gate that waited on a minted verifier verdict blocked commits when the verdict failed to mint, and was removed.
+`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the scope ask, and the reporting rule to every spawn at every level of the agent tree. It adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for.
