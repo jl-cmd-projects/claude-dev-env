@@ -376,11 +376,21 @@ def test_should_deny_a_pathspec_commit_of_unstaged_code(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
+def test_should_pass_a_docs_pathspec_commit_while_code_stays_staged(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repository, "add", "app.py")
+    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
+    payload = _payload("git commit -m docs README.md", repository, _unverified(tmp_path))
+    assert gate.decision_for(payload) is None
+
+
 @pytest.mark.parametrize(
     "command",
     [
-        "git commit -m docs README.md",
         "git commit --mess fix",
+        "git commit -i -m docs README.md",
         "git commit -im x README.md",
     ],
 )
