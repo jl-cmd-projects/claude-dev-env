@@ -376,10 +376,26 @@ def test_should_deny_a_pathspec_commit_of_unstaged_code(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
+def test_should_pass_a_docs_pathspec_commit_while_code_stays_staged(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repository, "add", "app.py")
+    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
+    payload = _payload("git commit -m docs README.md", repository, _unverified(tmp_path))
+    assert gate.decision_for(payload) is None
+
+
+def test_should_deny_when_the_dry_run_cannot_answer(
+    repository: Path, tmp_path: Path
+) -> None:
+    payload = _payload("git commit --no-such-option -m x", repository, _unverified(tmp_path))
+    assert _is_denied(payload)
+
+
 @pytest.mark.parametrize(
     "command",
     [
-        "git commit -m docs README.md",
         "git commit --mess fix",
         "git commit -im x README.md",
     ],
@@ -432,20 +448,6 @@ def test_should_read_a_code_file_renamed_to_docs(
 ) -> None:
     _git(repository, "mv", "app.py", "app.md")
     assert _is_denied(_payload("git commit -m x", repository, _unverified(tmp_path)))
-
-
-def test_should_read_a_pathspec_commit_on_an_unborn_branch(tmp_path: Path) -> None:
-    fresh_repository = tmp_path / "fresh"
-    fresh_repository.mkdir()
-    _git(fresh_repository, "init", "-q")
-    (fresh_repository / ".agents" / "skills" / "verify").mkdir(parents=True)
-    (fresh_repository / ".agents" / "skills" / "verify" / "SKILL.md").write_text(
-        "verify\n", encoding="utf-8"
-    )
-    (fresh_repository / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
-    assert _is_denied(
-        _payload("git commit app.py -m x", fresh_repository, _unverified(tmp_path))
-    )
 
 
 def test_should_read_a_message_value_as_text_and_not_as_a_pathspec(

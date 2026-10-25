@@ -145,25 +145,24 @@ def skill_invocation_status(
         Whether any entry invoked the skill, and whether an invocation follows
         the last compact boundary.
     """
-    all_pending_calls: set[object] = set()
-    all_unrefused_calls: set[object] = set()
+    all_awaiting_calls: set[str] = set()
+    all_calls_since_compaction: set[str] = set()
     was_invoked = False
     is_loaded = False
     for each_line in all_transcript_lines:
         all_entry_fields = _relevant_entry(each_line, skill_names) or _result_entry(
-            each_line, all_unrefused_calls
+            each_line, all_awaiting_calls
         )
         if all_entry_fields is None:
             continue
         if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE:
-            all_pending_calls = set()
+            all_calls_since_compaction = set()
             is_loaded = False
             continue
-        all_loaded_calls = all_pending_calls & _succeeded_result_ids(all_entry_fields)
-        is_loaded = is_loaded or bool(all_loaded_calls)
-        all_refused_calls = _errored_result_ids(all_entry_fields)
-        all_pending_calls -= all_loaded_calls | all_refused_calls
-        all_unrefused_calls -= all_refused_calls
+        all_loaded_calls = all_awaiting_calls & _result_ids(all_entry_fields, False)
+        was_invoked = was_invoked or bool(all_loaded_calls)
+        is_loaded = is_loaded or bool(all_loaded_calls & all_calls_since_compaction)
+        all_awaiting_calls -= all_loaded_calls | _result_ids(all_entry_fields, True)
         command_text = _user_command_text(all_entry_fields)
         if command_text is not None:
             if any(marker in command_text for marker in slash_command_markers):
@@ -171,16 +170,16 @@ def skill_invocation_status(
             continue
         for each_block in _named_skill_blocks(all_entry_fields, skill_names):
             call_id = each_block.get("id")
-            if call_id:
-                all_pending_calls.add(call_id)
-                all_unrefused_calls.add(call_id)
+            if isinstance(call_id, str) and call_id:
+                all_awaiting_calls.add(call_id)
+                all_calls_since_compaction.add(call_id)
             else:
                 was_invoked = is_loaded = True
-    return was_invoked or bool(all_unrefused_calls), is_loaded
+    return was_invoked or bool(all_awaiting_calls), is_loaded
 
 
-def _result_entry(each_line: str, all_call_ids: Collection[object]) -> dict[str, object] | None:
-    if not any(isinstance(each_id, str) and each_id in each_line for each_id in all_call_ids):
+def _result_entry(each_line: str, all_call_ids: Collection[str]) -> dict[str, object] | None:
+    if not any(each_id in each_line for each_id in all_call_ids):
         return None
     return _parsed_entry(each_line)
 
@@ -257,7 +256,7 @@ def is_skill_loaded_since_last_prompt(
             for each_block in _named_skill_blocks(all_entry_fields, skill_names)
             if each_block.get("id") is not None
         )
-        loaded = loaded or bool(all_pending_ids & _succeeded_result_ids(all_entry_fields))
+        loaded = loaded or bool(all_pending_ids & _result_ids(all_entry_fields, False))
     return loaded
 
 
@@ -315,19 +314,12 @@ def _tool_use_calls(all_entry_fields: dict[str, object]) -> list[tuple[object, s
     return all_tool_use_calls
 
 
-def _errored_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
+def _result_ids(all_entry_fields: dict[str, object], is_error: bool) -> set[object]:
     return {
         each_block.get(TOOL_USE_ID_FIELD)
         for each_block in _content_blocks(all_entry_fields, USER_ENTRY_TYPE)
-        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and each_block.get(IS_ERROR_FIELD) is True
-    }
-
-
-def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
-    return {
-        each_block.get(TOOL_USE_ID_FIELD)
-        for each_block in _content_blocks(all_entry_fields, USER_ENTRY_TYPE)
-        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and each_block.get(IS_ERROR_FIELD) is not True
+        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE
+        and (each_block.get(IS_ERROR_FIELD) is True) == is_error
     }
 
 
@@ -355,7 +347,7 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
             all_calls, all_succeeded_ids = [], set()
             continue
         all_calls.extend(_tool_use_calls(each_entry_fields))
-        all_succeeded_ids.update(_succeeded_result_ids(each_entry_fields))
+        all_succeeded_ids.update(_result_ids(each_entry_fields, False))
     return [
         TranscriptToolCall(each_name, each_input, each_id is not None and each_id in all_succeeded_ids)
         for each_id, each_name, each_input in all_calls

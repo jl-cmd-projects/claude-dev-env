@@ -82,14 +82,15 @@ def poteto_mode_status(all_transcript_lines: Iterable[str]) -> tuple[bool, bool]
 
     ::
 
-        Skill(poteto-mode) ... Read                   -> (True, True)
+        Skill(poteto-mode), its result ... Read      -> (True, True)
+        Skill(poteto-mode), result with is_error     -> (False, False)
         /poteto-mode ... compact_boundary             -> (True, False)
-        Skill(poteto-mode) ... compact_boundary ... Skill(poteto-mode)
+        Skill(poteto-mode) ... compact_boundary ... Skill(poteto-mode), its result
                                                       -> (True, True)
         Read ... Edit                                 -> (False, False)
 
-    Only lines naming the skill, a compaction, or the id of a Skill call already
-    seen are parsed, so a long transcript reads fast.
+    Only lines naming the skill, a compaction, or the id of a Skill call still
+    waiting on its result are parsed, so a long transcript reads fast.
 
     Args:
         all_transcript_lines: The session transcript, one JSON entry per line.

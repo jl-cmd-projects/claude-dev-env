@@ -31,35 +31,30 @@ from hooks_constants.setup_project_paths_constants import (
 from hooks_constants.verify_before_commit_gate_constants import (
     ADD_ACTION,
     ALL_ADD_EVERYTHING_OPTIONS,
-    ALL_COMMIT_VALUED_LONG_OPTIONS,
-    ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS,
-    ALL_COMMIT_VALUED_SHORT_FLAGS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
+    ALL_DRY_RUN_ANSWER_CODES,
+    ALL_DRY_RUN_ARGUMENTS,
     ALL_GIT_EXECUTABLES,
-    ALL_PATHSPEC_CHANGE_ARGUMENTS,
-    ALL_PATHSPEC_FILE_ARGUMENTS,
+    ALL_RENAME_STATUSES,
     ALL_SLASH_COMMAND_MARKERS,
-    ALL_STAGED_PATHS_ARGUMENTS,
     ALL_TEST_DIRECTORY_NAMES,
     ALL_TEST_FILE_INFIXES,
     ALL_TEST_FILE_NAMES,
     ALL_TEST_FILE_PREFIXES,
     ALL_TEST_FILE_SUFFIXES,
+    ALL_UNRECORDED_STATUSES,
     ALL_TOP_LEVEL_ARGUMENTS,
-    ALL_TRACKED_CHANGE_ARGUMENTS,
     ALL_VERIFY_SKILL_DIRECTORIES,
     ALL_WORKING_TREE_PATHS_ARGUMENTS,
     COMMIT_ACTION,
-    COMMIT_ALL_LONG_OPTION,
-    COMMIT_ALL_SHORT_FLAG,
     DENY_REASON,
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
-    LONG_OPTION_PREFIX,
-    PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
+    PORCELAIN_FIELD_SEPARATOR,
+    PORCELAIN_PATH_OFFSET,
     SKILL_NAME,
     WHOLE_TREE_PATHSPEC,
 )
@@ -116,63 +111,54 @@ def _git_lines(directory: Path, all_arguments: Iterable[str]) -> list[str] | Non
     return [each_line for each_line in completed.stdout.splitlines() if each_line]
 
 
-@dataclass(frozen=True)
-class CommitReading:
-    """What a ``git commit`` argument list asks git to record."""
-
-    commits_all: bool
-    all_pathspecs: tuple[str, ...]
-
-
-def _read_short_cluster(cluster: str) -> tuple[bool, bool]:
-    commits_all = False
-    for each_index, each_flag in enumerate(cluster[1:], start=1):
-        if each_flag in ALL_COMMIT_VALUED_SHORT_FLAGS:
-            return commits_all, each_index == len(cluster) - 1
-        if each_flag in ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS:
-            return commits_all, False
-        commits_all = commits_all or each_flag == COMMIT_ALL_SHORT_FLAG
-    return commits_all, False
-
-
-def _names_pathspec_file(option_name: str) -> bool:
-    return (
-        len(option_name) > len(LONG_OPTION_PREFIX) + 1
-        and PATHSPEC_FROM_FILE_OPTION.startswith(option_name)
-    )
+def _dry_run_output(commit: GitCall) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(commit.directory), *ALL_DRY_RUN_ARGUMENTS, *commit.all_arguments],
+            capture_output=True,
+            text=True,
+            encoding=UTF8_ENCODING,
+            errors=DECODE_ERRORS_POLICY,
+            stdin=subprocess.DEVNULL,
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode not in ALL_DRY_RUN_ANSWER_CODES:
+        return None
+    return completed.stdout
 
 
-def _long_option_takes_value(option_name: str) -> bool:
-    return any(
-        each_option.startswith(option_name)
-        for each_option in (*ALL_COMMIT_VALUED_LONG_OPTIONS, PATHSPEC_FROM_FILE_OPTION)
-    )
+def _dry_run_paths(commit: GitCall) -> set[str]:
+    """Return every path the commit would record, as ``git commit --dry-run`` reports it.
 
+    ::
 
-def _read_commit(all_arguments: tuple[str, ...]) -> CommitReading:
-    commits_all = False
-    all_pathspecs: list[str] = []
-    skips_value = False
-    for each_index, each_word in enumerate(all_arguments):
-        if skips_value:
-            skips_value = False
-            continue
-        if each_word == PATHSPEC_TERMINATOR:
-            all_pathspecs.extend(all_arguments[each_index + 1 :])
-            break
-        if each_word.startswith(LONG_OPTION_PREFIX):
-            option_name, equals, _ = each_word.partition("=")
-            commits_all = commits_all or option_name == COMMIT_ALL_LONG_OPTION
-            if _names_pathspec_file(option_name):
-                all_pathspecs.append(WHOLE_TREE_PATHSPEC)
-            skips_value = not equals and _long_option_takes_value(option_name)
-            continue
-        if each_word.startswith("-") and len(each_word) > 1:
-            cluster_commits_all, skips_value = _read_short_cluster(each_word)
-            commits_all = commits_all or cluster_commits_all
-            continue
-        all_pathspecs.append(each_word)
-    return CommitReading(commits_all, tuple(all_pathspecs))
+        git commit app.py -m x, app.py changed     -> {"app.py"}
+        git commit -m x, nothing staged            -> set()
+        git mv app.py app.md; git commit -m x      -> {"app.md", "app.py"}
+        git cannot answer                          -> {":/"}
+
+    Git reads ``-a``, pathspecs and ``--pathspec-from-file`` itself. When git
+    cannot answer, the whole tree counts, so the gate fails closed.
+
+    Args:
+        commit: The commit call, with its directory and its arguments.
+    """
+    output = _dry_run_output(commit)
+    if output is None:
+        return {WHOLE_TREE_PATHSPEC}
+    all_paths: set[str] = set()
+    all_fields = iter(output.split(PORCELAIN_FIELD_SEPARATOR))
+    for each_field in all_fields:
+        index_status = each_field[:1]
+        if index_status in ALL_RENAME_STATUSES:
+            all_paths.add(next(all_fields, ""))
+        if index_status and index_status not in ALL_UNRECORDED_STATUSES:
+            all_paths.add(each_field[PORCELAIN_PATH_OFFSET:])
+    all_paths.discard("")
+    return all_paths
 
 
 def _added_pathspecs(all_arguments: tuple[str, ...]) -> list[str]:
@@ -187,28 +173,8 @@ def _added_pathspecs(all_arguments: tuple[str, ...]) -> list[str]:
     return all_pathspecs
 
 
-def _committed_paths(
-    commit: GitCall, all_earlier_calls: list[GitCall]
-) -> set[str] | None:
-    staged_paths = _git_lines(commit.directory, ALL_STAGED_PATHS_ARGUMENTS)
-    if staged_paths is None:
-        return None
-    all_paths = set(staged_paths)
-    reading = _read_commit(commit.all_arguments)
-    all_commit_pathspecs = reading.all_pathspecs
-    if all_commit_pathspecs:
-        pathspec_paths = _git_lines(
-            commit.directory, (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs)
-        )
-        if pathspec_paths is None:
-            pathspec_paths = _git_lines(
-                commit.directory, (*ALL_PATHSPEC_FILE_ARGUMENTS, *all_commit_pathspecs)
-            )
-        all_paths.update(pathspec_paths or [])
-    if reading.commits_all:
-        all_paths.update(
-            _git_lines(commit.directory, ALL_TRACKED_CHANGE_ARGUMENTS) or []
-        )
+def _committed_paths(commit: GitCall, all_earlier_calls: list[GitCall]) -> set[str]:
+    all_paths = _dry_run_paths(commit)
     for each_call in all_earlier_calls:
         if each_call.action != ADD_ACTION or each_call.directory != commit.directory:
             continue
@@ -302,14 +268,16 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit, code staged, no verify since the last prompt      -> DENY_REASON
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit app.py, app.py changed but not staged              -> DENY_REASON
-        git commit README.md, code staged                             -> DENY_REASON
+        git mv app.py app.md; git commit                              -> DENY_REASON
+        git commit README.md, code staged                             -> None
         git commit, only docs or test files                           -> None
         git commit, only data files (.json, .jsonl, .yaml, .yml,
             .csv) under a docs folder                                 -> None
         git commit, a .py file under a docs folder                    -> DENY_REASON
         git commit after a verify Skill call or a /verify prompt      -> None
         git commit in a repository with no verify skill directory     -> None
-        transcript missing or unreadable, or git fails                -> None
+        transcript missing or unreadable, or no repository            -> None
+        git commit when the dry run fails                             -> DENY_REASON
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
