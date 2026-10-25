@@ -42,6 +42,7 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
+    ALL_HOME_DIRECTORY_COMMANDS,
     ALL_GIT_EXECUTABLES,
     ALL_PATHSPEC_CHANGE_ARGUMENTS,
     ALL_PATHSPEC_FILE_ARGUMENTS,
@@ -75,11 +76,16 @@ from transcript_skill_scan import is_skill_loaded_since_last_prompt
 
 @dataclass(frozen=True)
 class GitCall:
-    """One git command in a shell command: its directory, action, and the words after the action."""
+    """One git command in a shell command: its directory, action, and the words after the action.
+
+    ``follows_unknown_directory`` is True when a directory change before it
+    named a target the gate cannot resolve, such as ``cd "$REPO"``.
+    """
 
     directory: Path
     action: str
     all_arguments: tuple[str, ...]
+    follows_unknown_directory: bool = False
 
 
 def _git_directory(all_global_words: list[str], base_directory: Path) -> Path:
@@ -90,7 +96,7 @@ def _git_directory(all_global_words: list[str], base_directory: Path) -> Path:
     return directory
 
 
-def _changed_directory(all_words: list[str], directory: Path) -> Path:
+def _changed_directory(all_words: list[str], directory: Path) -> Path | None:
     all_targets: list[str] = []
     skips_value = False
     skips_other_value = False
@@ -118,15 +124,15 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
             continue
         all_targets.append(each_word)
     if not all_targets:
-        return Path.home()
+        return Path.home() if file_name(all_words[0]) in ALL_HOME_DIRECTORY_COMMANDS else None
     if all_targets[0] == PREVIOUS_DIRECTORY_ARGUMENT or any(
         each_mark in all_targets[0] for each_mark in ALL_UNEXPANDED_PATH_MARKS
     ):
-        return directory
+        return None
     try:
         target = directory / Path(all_targets[0]).expanduser()
     except RuntimeError:
-        return directory
+        return None
     return Path(os.path.normpath(target))
 
 
@@ -134,11 +140,17 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_calls: list[GitCall] = []
     current_directory = base_directory
     all_visited_directories = [base_directory]
+    follows_unknown_directory = False
     for each_words in executable_word_lists(command):
-        if file_name(each_words[0]).lower() in ALL_DIRECTORY_RETURN_COMMANDS:
+        if file_name(each_words[0]) in ALL_DIRECTORY_RETURN_COMMANDS:
+            follows_unknown_directory = True
             continue
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            current_directory = _changed_directory(each_words, current_directory)
+            changed_directory = _changed_directory(each_words, current_directory)
+            if changed_directory is None:
+                follows_unknown_directory = True
+                continue
+            current_directory = changed_directory
             if current_directory not in all_visited_directories:
                 all_visited_directories.append(current_directory)
             continue
@@ -154,6 +166,7 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
                 _git_directory(each_words[1 : after_action - 1], each_directory),
                 action,
                 tuple(each_words[after_action:]),
+                follows_unknown_directory,
             )
             for each_directory in all_visited_directories
         )
@@ -338,6 +351,8 @@ def _commits_code(all_git_calls: list[GitCall]) -> bool:
             each_call.directory
         ):
             continue
+        if each_call.follows_unknown_directory:
+            return True
         all_paths = _committed_paths(each_call, all_git_calls[:each_index])
         if all_paths and not all(
             _is_docs_or_test_path(each_path) for each_path in all_paths
@@ -364,6 +379,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit app.py, app.py changed but not staged              -> DENY_REASON
         git commit README.md, code staged                             -> DENY_REASON
         cd <repo> && git commit -am x, from another directory         -> DENY_REASON
+        cd "$REPO" && git commit, session repository has verify       -> DENY_REASON
         git commit, only docs or test files                           -> None
         git commit, only data files (.json, .jsonl, .yaml, .yml,
             .csv) under a docs folder                                 -> None

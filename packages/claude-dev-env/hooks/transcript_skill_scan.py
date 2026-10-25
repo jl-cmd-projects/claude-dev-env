@@ -126,14 +126,15 @@ def skill_invocation_status(
 
     ::
 
-        Skill call                                   -> (True, True)
-        Skill call, compact boundary                 -> (True, False)
-        Skill call, its tool result with is_error    -> (False, False)
-        Skill call refused, Skill call               -> (True, True)
+        Skill call, its tool result                  -> (True, True)
+        Skill call, result, compact boundary         -> (True, False)
+        Skill call, its tool result with is_error    -> (True, False)
+        Skill call with no result yet                -> (True, False)
+        Skill call refused, Skill call, its result   -> (True, True)
 
-    A Skill call counts until its tool result comes back with ``is_error``,
-    so a refused load leaves the skill unloaded. A call whose result has not
-    arrived yet still counts.
+    A Skill call loads the skill once its tool result comes back without
+    ``is_error``, so a refused load or a load still in flight leaves the
+    skill unloaded. A Skill block with no id loads it at once.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
@@ -144,38 +145,35 @@ def skill_invocation_status(
         Whether any entry invoked the skill, and whether an invocation follows
         the last compact boundary.
     """
-    all_invoked_calls: set[object] = set()
-    all_loaded_calls: set[object] = set()
-    was_invoked_by_command = False
-    is_loaded_by_command = False
+    all_pending_calls: set[object] = set()
+    was_invoked = False
+    is_loaded = False
     for each_line in all_transcript_lines:
         all_entry_fields = _relevant_entry(each_line, skill_names) or _result_entry(
-            each_line, all_invoked_calls
+            each_line, all_pending_calls
         )
         if all_entry_fields is None:
             continue
         if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE:
-            all_loaded_calls = set()
-            is_loaded_by_command = False
+            all_pending_calls = set()
+            is_loaded = False
             continue
-        all_refused_calls = _errored_result_ids(all_entry_fields)
-        all_invoked_calls -= all_refused_calls
-        all_loaded_calls -= all_refused_calls
+        all_loaded_calls = all_pending_calls & _succeeded_result_ids(all_entry_fields)
+        is_loaded = is_loaded or bool(all_loaded_calls)
+        all_pending_calls -= all_loaded_calls | _errored_result_ids(all_entry_fields)
         command_text = _user_command_text(all_entry_fields)
         if command_text is not None:
             if any(marker in command_text for marker in slash_command_markers):
-                was_invoked_by_command = is_loaded_by_command = True
+                was_invoked = is_loaded = True
             continue
-        all_new_calls = {
-            each_block.get("id") or object()
-            for each_block in _named_skill_blocks(all_entry_fields, skill_names)
-        }
-        all_invoked_calls |= all_new_calls
-        all_loaded_calls |= all_new_calls
-    return (
-        was_invoked_by_command or bool(all_invoked_calls),
-        is_loaded_by_command or bool(all_loaded_calls),
-    )
+        for each_block in _named_skill_blocks(all_entry_fields, skill_names):
+            was_invoked = True
+            call_id = each_block.get("id")
+            if call_id:
+                all_pending_calls.add(call_id)
+            else:
+                is_loaded = True
+    return was_invoked, is_loaded
 
 
 def _result_entry(each_line: str, all_call_ids: Collection[object]) -> dict[str, object] | None:
@@ -191,7 +189,7 @@ def is_skill_loaded_after_last_compaction(
 ) -> bool:
     """Return whether a matching invocation follows the last compact boundary.
 
-    A Skill call whose tool result came back with ``is_error`` does not count.
+    A Skill call counts once its tool result comes back without ``is_error``.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.

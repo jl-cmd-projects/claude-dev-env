@@ -52,6 +52,7 @@ ALL_DIRECTORY_CHANGE_COMMANDS = frozenset(
 )
 ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", "-literalpath"})
 ALL_DIRECTORY_RETURN_COMMANDS = frozenset({"popd", "pop-location"})
+ALL_HOME_DIRECTORY_COMMANDS = frozenset({"cd", "chdir"})
 ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS = frozenset({"-stackname"})
 ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES = frozenset({"/d"})
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"

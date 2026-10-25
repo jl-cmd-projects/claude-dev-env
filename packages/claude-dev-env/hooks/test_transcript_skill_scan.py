@@ -34,6 +34,7 @@ def test_matching_skill_after_compaction_loads() -> None:
         _skill_entry("pr-lifecycle"),
         json.dumps({"type": "system", "subtype": "compact_boundary"}),
         _skill_entry("plugin:pr-lifecycle"),
+        _tool_result_entry("toolu_skill", False),
     ]
     assert is_skill_loaded_after_last_compaction(
         lines, ("pr-lifecycle",), ("<command-name>/pr-lifecycle</command-name>",)
@@ -65,8 +66,9 @@ def test_malformed_entries_do_not_load() -> None:
 
 def test_invocation_status_separates_ever_invoked_from_loaded_now() -> None:
     compaction = json.dumps({"subtype": "compact_boundary"})
-    assert skill_invocation_status([_skill_entry("pr-lifecycle")], ("pr-lifecycle",), ()) == (True, True)
-    assert skill_invocation_status([_skill_entry("pr-lifecycle"), compaction], ("pr-lifecycle",), ()) == (True, False)
+    loaded = [_skill_entry("pr-lifecycle"), _tool_result_entry("toolu_skill", False)]
+    assert skill_invocation_status(loaded, ("pr-lifecycle",), ()) == (True, True)
+    assert skill_invocation_status([*loaded, compaction], ("pr-lifecycle",), ()) == (True, False)
     assert skill_invocation_status([compaction, _skill_entry("other")], ("pr-lifecycle",), ()) == (False, False)
 
 
@@ -244,7 +246,7 @@ def _tool_result_entry(tool_use_id: str, is_error: bool) -> str:
 def test_should_not_count_a_refused_skill_load_after_the_last_compaction() -> None:
     lines = [_skill_entry("pr-lifecycle", "toolu_refused"), _tool_result_entry("toolu_refused", True)]
     assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
-    assert skill_invocation_status(lines, ("pr-lifecycle",), ()) == (False, False)
+    assert skill_invocation_status(lines, ("pr-lifecycle",), ()) == (True, False)
 
 
 def test_should_count_a_successful_load_after_a_refused_one() -> None:
@@ -257,7 +259,7 @@ def test_should_count_a_successful_load_after_a_refused_one() -> None:
     assert is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
 
 
-def test_should_keep_a_load_whose_result_has_not_arrived() -> None:
-    assert is_skill_loaded_after_last_compaction(
+def test_should_not_count_a_load_whose_result_has_not_arrived() -> None:
+    assert not is_skill_loaded_after_last_compaction(
         [_skill_entry("pr-lifecycle", "toolu_pending")], ("pr-lifecycle",), ()
     )

@@ -449,6 +449,33 @@ def test_should_follow_a_cd_target_in_each_spelling(
     )
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        'cd "$REPO" && git commit -m x',
+        "cd src* && git commit -m x",
+        "pushd sub && popd && git commit -m x",
+        "cd - && git commit -m x",
+    ],
+)
+def test_should_deny_a_commit_after_a_cd_the_gate_cannot_read(
+    repository: Path, tmp_path: Path, command: str
+) -> None:
+    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
+    _git(repository, "add", "README.md")
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
+def test_should_pass_a_commit_after_an_unread_cd_without_a_verify_skill(
+    tmp_path: Path,
+) -> None:
+    plain_repository = tmp_path / "plain"
+    plain_repository.mkdir()
+    _git(plain_repository, "init", "-q")
+    payload = _payload('cd "$REPO" && git commit -m x', plain_repository, _unverified(tmp_path))
+    assert gate.decision_for(payload) is None
+
+
 def test_should_read_a_code_file_renamed_to_docs(
     repository: Path, tmp_path: Path
 ) -> None:
