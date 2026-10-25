@@ -96,7 +96,7 @@ def _expanded_token(token: str, all_bindings: dict[str, str]) -> str:
         )
         expanded_token = re.sub(
             reference_pattern,
-            lambda _reference_match, bound_value=each_value: bound_value,
+            each_value.replace("\\", "\\\\"),
             expanded_token,
             flags=re.IGNORECASE,
         )
