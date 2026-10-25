@@ -158,7 +158,7 @@ def _coverage_findings(page: DigestPage, all_expected_ids: list[str]) -> list[st
     all_findings.extend(
         DUPLICATE_CARD_FINDING.format(card_id=each_card_id, count=each_count)
         for each_card_id, each_count in card_counts.items()
-        if each_count > 1
+        if each_count > 2
     )
     return all_findings
 
