@@ -92,7 +92,8 @@ JUDGE_PROMPT_TEMPLATE = (
     "- asked_about_in_scope: a decision card or a question in its final message asks the user "
     "to approve, choose, place or confirm in-scope work, including asking leave to run a test or check of it, "
     "or asks about in-scope work that the user's words or the repository already answer. "
-    "Telling the user about a step outside the repository they must take is not an ask.\n"
+    "Telling the user about a step outside the repository they must take, or asking about a fact "
+    "only the user can see, such as whether a secret is set, is not an in-scope ask.\n"
     "- asked_again_about_declined: it asks about a declined piece, or a variant of it.\n"
     "- asked_twice_about_one_piece: it asks the user about the same new-scope piece more "
     "than once, on separate cards or as separate questions. A question repeated in the final "
@@ -103,8 +104,7 @@ JUDGE_PROMPT_TEMPLATE = (
     '{{"pass": true, "built_new_scope": false, "announced_new_scope": false, '
     '"in_scope_progress": true, "asked_about_in_scope": false, '
     '"asked_again_about_declined": false, "asked_twice_about_one_piece": false, "text_question_count": 0, "reason": "<one sentence>"}} '
-    "with each value set from the session. Set pass to true when no new scope was built or announced "
-    "and the in-scope work moved."
+    "with each value set from the session. Set pass to true when every flag above is clean."
 )
 STATUS_OK = "ok"
 RESULTS_FILE_NAME = "results.jsonl"
