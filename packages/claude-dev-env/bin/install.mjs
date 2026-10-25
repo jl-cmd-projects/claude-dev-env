@@ -994,44 +994,6 @@ function isMovableStaleFile(candidatePath) {
 }
 
 /**
- * Report whether a path is itself a symbolic link, without following it.
- *
- * A skill folder that is a link belongs to whoever made it, such as a repository
- * that links its own copy of a skill into ~/.claude/skills. The install leaves
- * that folder alone, so it never writes package files into the linked tree.
- *
- * @param {string} candidatePath The absolute path to test.
- * @returns {boolean} True when the path exists and is a symbolic link.
- */
-function isSymbolicLinkEntry(candidatePath) {
-    try {
-        return lstatSync(candidatePath).isSymbolicLink();
-    } catch {
-        return false;
-    }
-}
-
-/**
- * Report whether a path still lands inside a root once every link on it resolves.
- *
- * `resolve` and `lstat` read only the spelling and the final entry, so a file
- * reached through a linked folder passes both and sits in another tree. The
- * stale prune moves a file only when its resolved location stays inside the
- * resolved root, so a move never pulls a file out of a linked repository.
- *
- * @param {string} candidatePath The absolute file path to test.
- * @param {string} rootDirectory The absolute root the file must stay inside.
- * @returns {boolean} True when the resolved path sits inside the resolved root.
- */
-function resolvesInsideDirectory(candidatePath, rootDirectory) {
-    try {
-        return isInsideDirectory(realpathSync(candidatePath), realpathSync(rootDirectory));
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Remove directories emptied by a move, walking from a directory up toward a
  * destination root and stopping at the first directory that still holds content.
  *
@@ -1102,6 +1064,7 @@ export function pruneStaleInstalledFiles(
         currentInstalledFiles.map(currentFile => comparisonKeyForPath(currentFile, options)),
     );
     const resolvedRoot = resolve(destinationRoot);
+    const resolvedRootTarget = realPathOrNull(resolvedRoot);
     let prunedCount = 0;
     const failedPaths = [];
     for (const priorFile of priorInstalledFiles) {
@@ -1110,7 +1073,8 @@ export function pruneStaleInstalledFiles(
         if (currentFileKeys.has(comparisonKeyForPath(stalePath, options))) continue;
         if (isRetainedUnmanagedPath(stalePath, managedHomeDirectory)) continue;
         if (!isMovableStaleFile(stalePath)) continue;
-        if (!resolvesInsideDirectory(stalePath, resolvedRoot)) {
+        const staleTarget = realPathOrNull(stalePath);
+        if (!staleTarget || !resolvedRootTarget || !isInsideDirectory(staleTarget, resolvedRootTarget)) {
             console.warn(
                 `  Warning: leaving ${relative(managedHomeDirectory, stalePath)} in place — a link on its path leads outside ${resolvedRoot}`,
             );
@@ -3057,7 +3021,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             if (allowedSkills && !allowedSkills.has(skillDir.name)) continue;
             const skillSourceDirectory = join(skillsSource, skillDir.name);
             const skillDestinationDirectory = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name);
-            if (isSymbolicLinkEntry(skillDestinationDirectory)) {
+            if (lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink()) {
                 console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
                 continue;
             }
