@@ -393,9 +393,11 @@ def _unreadable_text(reading: Reading) -> str:
 
 
 def _room_text(reading: Reading, is_spent: bool) -> str:
-    percent_left = None if is_spent or reading.meters is None else reading.meters.tightest_percent_left
-    if percent_left is None:
+    if is_spent or reading.meters is None:
         return f"{reading.account.name} spent"
+    percent_left = reading.meters.tightest_percent_left
+    if percent_left is None:
+        return f"{reading.account.name} percent left unread"
     return f"{reading.account.name} {percent_left:g}% left"
 
 

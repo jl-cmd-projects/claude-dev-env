@@ -584,6 +584,13 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
             NOW + timedelta(hours=1),
             id="no-account-in-the-roster",
         ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, Meters(None, None, None, None)),),
+            {},
+            "no account has room (main percent left unread); next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="meter-read-without-a-percent",
+        ),
     ),
 )
 def test_should_name_what_the_broker_knows_in_the_wait_reason(
