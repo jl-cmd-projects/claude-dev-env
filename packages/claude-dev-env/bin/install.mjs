@@ -1074,7 +1074,11 @@ export function pruneStaleInstalledFiles(
         if (isRetainedUnmanagedPath(stalePath, managedHomeDirectory)) continue;
         if (!isMovableStaleFile(stalePath)) continue;
         const staleTarget = realPathOrNull(stalePath);
-        if (!staleTarget || !resolvedRootTarget || !isInsideDirectory(staleTarget, resolvedRootTarget)) {
+        if (!staleTarget || !resolvedRootTarget) {
+            failedPaths.push(stalePath);
+            continue;
+        }
+        if (!isInsideDirectory(staleTarget, resolvedRootTarget)) {
             console.warn(
                 `  Warning: leaving ${relative(managedHomeDirectory, stalePath)} in place — a link on its path leads outside ${resolvedRoot}`,
             );

@@ -841,7 +841,7 @@ test('a full reinstall leaves a skill folder linked into another repository unto
         writeFileWithParents(join(repositorySkillDirectory, 'SKILL.md'), repositorySkillText);
         const skillLinkPath = join(sandbox.skillsDirectory, linkedSkillName);
         rmSync(skillLinkPath, { recursive: true, force: true });
-        symlinkSync(repositorySkillDirectory, skillLinkPath, 'dir');
+        symlinkSync(repositorySkillDirectory, skillLinkPath, 'junction');
 
         const installerOutput = runInstallerReadingBothStreams(sandbox.homeDirectory, []);
 
@@ -861,7 +861,7 @@ test('a full reinstall leaves a skill folder linked into another repository unto
             false,
             'the stale prune moves no file out of the linked repository',
         );
-        assert.match(installerOutput, /skills\/efficient-review \(linked skill left in place\)/);
+        assert.match(installerOutput, /skills[\\/]efficient-review \(linked skill left in place\)/);
         assert.equal(
             readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(linkedSkillName)),
             false,
