@@ -30,13 +30,13 @@ from dev_env_scripts_constants.contrast_framing_constants import (
     ContrastFramingForm,
 )
 
-_BARE_NOT = re.compile(r"\bnot\b", re.IGNORECASE)
+_BARE_NOT_WORD = re.compile(r"\bnot\b", re.IGNORECASE)
 
 
 def _reports(form: ContrastFramingForm, prose_line: str, match_start: int) -> bool:
     if not form.repeats_as_a_list:
         return True
-    return _BARE_NOT.search(prose_line[:match_start]) is None
+    return _BARE_NOT_WORD.search(prose_line[:match_start]) is None
 
 
 def _line_hits(line_number: int, prose_line: str) -> list[tuple[int, int, str]]:
