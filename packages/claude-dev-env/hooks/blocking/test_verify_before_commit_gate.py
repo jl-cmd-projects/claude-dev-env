@@ -417,6 +417,20 @@ def test_should_keep_checking_the_session_repository_after_a_wrapped_cd(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
+def test_should_resolve_a_relative_cd_after_a_cd_back(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "tools").mkdir()
+    (repository / "tools" / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    _git(repository, "commit", "-q", "-m", "tools")
+    (repository / "tools" / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = (
+        f'cd .agents && git status; cd "{repository}" && cd tools && git commit app.py -m x'
+    )
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
 def test_should_skip_a_push_location_stack_name(
     repository: Path, tmp_path: Path
 ) -> None:

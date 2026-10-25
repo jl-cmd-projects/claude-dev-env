@@ -88,8 +88,8 @@ def poteto_mode_status(all_transcript_lines: Iterable[str]) -> tuple[bool, bool]
                                                       -> (True, True)
         Read ... Edit                                 -> (False, False)
 
-    Only lines naming the skill or a compaction are parsed, so a long transcript
-    reads fast.
+    Only lines naming the skill, a compaction, or the id of a Skill call already
+    seen are parsed, so a long transcript reads fast.
 
     Args:
         all_transcript_lines: The session transcript, one JSON entry per line.

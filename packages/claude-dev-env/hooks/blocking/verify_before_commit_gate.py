@@ -120,9 +120,14 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_base_directories = [base_directory]
     for each_words in executable_word_lists(command):
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            changed_directory = _changed_directory(each_words, all_base_directories[-1])
-            if changed_directory not in all_base_directories:
-                all_base_directories.append(changed_directory)
+            all_base_directories.extend(
+                each_changed
+                for each_changed in dict.fromkeys(
+                    _changed_directory(each_words, each_directory)
+                    for each_directory in all_base_directories
+                )
+                if each_changed not in all_base_directories and each_changed.is_dir()
+            )
             continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
             continue
