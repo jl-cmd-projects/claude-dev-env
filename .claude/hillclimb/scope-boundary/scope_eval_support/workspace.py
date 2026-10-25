@@ -34,8 +34,6 @@ from scope_eval_support.config.constants import (
     PERMISSION_MODE,
     RESUME_FLAG,
     UNREADABLE_DIFF_TEXT,
-    WORKSPACE_DIFF_CHARACTER_LIMIT,
-    WORKSPACE_DIFF_TRUNCATION_NOTE,
     WORKSPACE_PREFIX,
 )
 
@@ -135,14 +133,6 @@ def starting_commit(workspace: Path) -> str:
     return completed.stdout.strip()
 
 
-def _capped_diff(diff_text: str) -> str:
-    if len(diff_text) <= WORKSPACE_DIFF_CHARACTER_LIMIT:
-        return diff_text
-    return diff_text[
-        :WORKSPACE_DIFF_CHARACTER_LIMIT
-    ] + WORKSPACE_DIFF_TRUNCATION_NOTE.format(limit=WORKSPACE_DIFF_CHARACTER_LIMIT)
-
-
 def workspace_diff(workspace: Path, from_commit: str) -> str:
     """Return every file change in the workspace since a commit, as one diff.
 
@@ -155,8 +145,8 @@ def workspace_diff(workspace: Path, from_commit: str) -> str:
         from_commit: The commit from starting_commit.
 
     Returns:
-        The diff text, cut to the character limit with a note when longer,
-        or a note that the git record was unreadable when the session broke it.
+        The whole diff text, or a note that the git record was unreadable
+        when the session broke it.
     """
     try:
         subprocess.run(
@@ -172,7 +162,7 @@ def workspace_diff(workspace: Path, from_commit: str) -> str:
         )
     except subprocess.CalledProcessError:
         return UNREADABLE_DIFF_TEXT
-    return _capped_diff(completed.stdout)
+    return completed.stdout
 
 
 def scope_words(

@@ -1,5 +1,6 @@
 """Tests for the scope-boundary grader."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -12,16 +13,20 @@ for each_root in (
         sys.path.insert(0, str(each_root))
 
 from scope_eval_support.config.constants import (
+    ALL_FORBIDDEN_DIFF_PATTERNS,
+    CASES_FILE,
     DECISION_TOOL_FULL_NAME,
     NO_DECLINED_TEXT,
     NO_PRIOR_TEXT,
     NO_WORKSPACE_DIFF_TEXT,
     OUTSIDE_WORKSPACE_PATH,
+    WORKSPACE_DIFF_CHARACTER_LIMIT,
+    WORKSPACE_DIFF_TRUNCATION_NOTE,
 )
 from scope_eval_support.grading import (
     decision_questions,
-    edited_paths,
     diff_checked_verdict,
+    edited_paths,
     forbidden_diff_matches,
     grade_session,
     judge_text,
@@ -233,3 +238,30 @@ def test_diff_checked_verdict_should_keep_a_clean_diff_clean() -> None:
         {"workspace_diff": "+    runs-on: [self-hosted, nas]\n"},
     )
     assert grade_session([], verdict)["correct"] == 1
+
+
+def test_forbidden_diff_matches_should_pass_an_edit_to_the_rerun_workflow() -> None:
+    diff = "+++ b/.github/workflows/rerun-review.yml\n"
+    assert forbidden_diff_matches(diff, ["new_workflow"]) == []
+
+
+def test_diff_checked_verdict_should_leave_a_case_with_no_patterns_alone() -> None:
+    verdict = diff_checked_verdict(
+        CLEAN_VERDICT, {}, {"workspace_diff": "+    runs-on: ubuntu-latest\n"}
+    )
+    assert grade_session([], verdict)["correct"] == 1
+
+
+def test_every_case_pattern_name_should_have_a_pattern() -> None:
+    all_cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    all_names = {
+        each_name for each_case in all_cases for each_name in each_case["forbidden_diff"]
+    }
+    assert all_names <= set(ALL_FORBIDDEN_DIFF_PATTERNS)
+
+
+def test_judge_text_should_cut_a_long_diff_and_say_so() -> None:
+    long_case = {**DRIFT_CASE, "workspace_diff": "+x\n" * WORKSPACE_DIFF_CHARACTER_LIMIT}
+    assert WORKSPACE_DIFF_TRUNCATION_NOTE.format(
+        limit=WORKSPACE_DIFF_CHARACTER_LIMIT
+    ) in judge_text(long_case, "[]")

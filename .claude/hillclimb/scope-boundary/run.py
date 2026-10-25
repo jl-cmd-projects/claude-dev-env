@@ -6,15 +6,18 @@
     python3 run.py --variant shipped --direct --cases d01,c02
 
 Each case runs once per rep in a new git workspace copied from ``fixture/``.
-Variant ``baseline`` installs nothing. Variant ``shipped`` installs the rules
-index and the verified-work guide, which carry the scope rule; variant ``v2``
-installs the candidate text under ``candidates/v2/``. Each session
-loads project and local settings only, edits files without a prompt, and has
-one extra tool, ``request_decision``, a stub that stands in for a decision
-card. A judge model reads each transcript against the case's scope labels.
-Rows land in ``<variant>/results.jsonl`` as each case finishes, tagged with a
-run digest over the fixture, the installed files, the settings, each
-case's id, prompt and setup turn, and the harness source, so a rerun skips every (case, rep) already scored.
+Each variant installs its rule files, as ``_state.json`` lists them:
+
+    baseline   nothing
+    shipped    the rules index and the verified-work guide
+    v2, v3     the candidate text under ``candidates/<variant>/``
+    no-scope   the shipped files with the scope text removed
+
+Each session loads project and local settings only, with auto memory off.
+It edits files without a prompt. Its one extra tool, ``request_decision``,
+is a stub for a decision card. A judge reads each transcript against the
+case's scope labels. Rows land in ``<variant>/results.jsonl`` as each case
+finishes. A run digest tags each row, so a rerun skips every scored pair.
 """
 
 import argparse
@@ -45,6 +48,7 @@ from rules_eval_support.judge import run_judge
 from rules_eval_support.launch import launch_words
 from scope_eval_support import grading
 from scope_eval_support.config.constants import (
+    ALL_SESSION_ENVIRONMENT,
     CASES_DIGEST_FIELD,
     CASES_FILE,
     DEFAULT_EFFORT,
@@ -58,7 +62,6 @@ from scope_eval_support.config.constants import (
     FLOW_ROOT,
     PRIOR_REPLY_FIELD,
     RESULTS_FILE_NAME,
-    ALL_SESSION_ENVIRONMENT,
     SESSION_ID_FIELD,
     STATE_FILE,
     TRACES_DIRECTORY_NAME,
@@ -67,8 +70,8 @@ from scope_eval_support.config.constants import (
 )
 from scope_eval_support.grading import (
     decision_questions,
-    edited_paths,
     diff_checked_verdict,
+    edited_paths,
     grade_session,
     judge_text,
 )
