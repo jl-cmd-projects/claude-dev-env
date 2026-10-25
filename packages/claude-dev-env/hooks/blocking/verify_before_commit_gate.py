@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -35,15 +34,9 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_COMMIT_VALUED_LONG_OPTIONS,
     ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS,
     ALL_COMMIT_VALUED_SHORT_FLAGS,
-    ALL_DIRECTORY_CHANGE_COMMANDS,
-    ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS,
-    ALL_DIRECTORY_RETURN_COMMANDS,
-    ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES,
-    ALL_DIRECTORY_CHANGE_TARGET_OPTIONS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
-    ALL_HOME_DIRECTORY_COMMANDS,
     ALL_GIT_EXECUTABLES,
     ALL_PATHSPEC_CHANGE_ARGUMENTS,
     ALL_PATHSPEC_FILE_ARGUMENTS,
@@ -56,7 +49,6 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_TEST_FILE_SUFFIXES,
     ALL_TOP_LEVEL_ARGUMENTS,
     ALL_TRACKED_CHANGE_ARGUMENTS,
-    ALL_UNEXPANDED_PATH_MARKS,
     ALL_VERIFY_SKILL_DIRECTORIES,
     ALL_WORKING_TREE_PATHS_ARGUMENTS,
     COMMIT_ACTION,
@@ -66,10 +58,8 @@ from hooks_constants.verify_before_commit_gate_constants import (
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
     LONG_OPTION_PREFIX,
-    MAXIMUM_VISITED_DIRECTORIES,
     PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
-    PREVIOUS_DIRECTORY_ARGUMENT,
     SKILL_NAME,
     WHOLE_TREE_PATHSPEC,
 )
@@ -78,16 +68,11 @@ from transcript_skill_scan import is_skill_loaded_since_last_prompt
 
 @dataclass(frozen=True)
 class GitCall:
-    """One git command in a shell command: its directory, action, and the words after the action.
-
-    ``follows_unknown_directory`` is True when a directory change before it
-    named a target the gate cannot resolve, such as ``cd "$REPO"``.
-    """
+    """One git command in a shell command: its directory, action, and the words after the action."""
 
     directory: Path
     action: str
     all_arguments: tuple[str, ...]
-    follows_unknown_directory: bool = False
 
 
 def _git_directory(all_global_words: list[str], base_directory: Path) -> Path:
@@ -98,69 +83,9 @@ def _git_directory(all_global_words: list[str], base_directory: Path) -> Path:
     return directory
 
 
-def _changed_directory(all_words: list[str], directory: Path) -> Path | None:
-    all_targets: list[str] = []
-    skips_value = False
-    skips_other_value = False
-    for each_word in all_words[1:]:
-        if skips_value:
-            skips_value = False
-            all_targets.append(each_word)
-            continue
-        option_name, colon, attached_value = each_word.partition(":")
-        if option_name.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
-            if colon:
-                all_targets.append(attached_value)
-            else:
-                skips_value = True
-            continue
-        if each_word.lower() in ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES:
-            continue
-        if each_word.lower() in ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS:
-            skips_other_value = True
-            continue
-        if skips_other_value:
-            skips_other_value = False
-            continue
-        if each_word.startswith("-") and each_word != PREVIOUS_DIRECTORY_ARGUMENT:
-            continue
-        all_targets.append(each_word)
-    if not all_targets:
-        return Path.home() if file_name(all_words[0]) in ALL_HOME_DIRECTORY_COMMANDS else None
-    if all_targets[0] == PREVIOUS_DIRECTORY_ARGUMENT or any(
-        each_mark in all_targets[0] for each_mark in ALL_UNEXPANDED_PATH_MARKS
-    ):
-        return None
-    try:
-        target = directory / Path(all_targets[0]).expanduser()
-    except RuntimeError:
-        return None
-    return Path(os.path.normpath(target))
-
-
 def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_calls: list[GitCall] = []
-    all_visited_directories = [base_directory]
-    follows_unknown_directory = False
     for each_words in executable_word_lists(command):
-        if file_name(each_words[0]) in ALL_DIRECTORY_RETURN_COMMANDS:
-            follows_unknown_directory = True
-            continue
-        if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            all_changed = [
-                _changed_directory(each_words, each_directory)
-                for each_directory in all_visited_directories
-            ]
-            follows_unknown_directory |= None in all_changed
-            all_visited_directories.extend(
-                each_changed
-                for each_changed in dict.fromkeys(all_changed)
-                if each_changed is not None and each_changed not in all_visited_directories
-            )
-            if len(all_visited_directories) > MAXIMUM_VISITED_DIRECTORIES:
-                follows_unknown_directory = True
-                del all_visited_directories[MAXIMUM_VISITED_DIRECTORIES:]
-            continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
             continue
         action, after_action = next_command_word(
@@ -168,17 +93,8 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
         )
         if action is None:
             continue
-        all_calls.extend(
-            dict.fromkeys(
-                GitCall(
-                    _git_directory(each_words[1 : after_action - 1], each_directory),
-                    action,
-                    tuple(each_words[after_action:]),
-                    follows_unknown_directory,
-                )
-                for each_directory in all_visited_directories
-            )
-        )
+        directory = _git_directory(each_words[1 : after_action - 1], base_directory)
+        all_calls.append(GitCall(directory, action, tuple(each_words[after_action:])))
     return all_calls
 
 
@@ -362,8 +278,6 @@ def _commits_code(all_git_calls: list[GitCall]) -> bool:
             each_call.directory
         ):
             continue
-        if each_call.follows_unknown_directory:
-            return True
         all_paths = _committed_paths(each_call, all_git_calls[:each_index])
         if all_paths and not all(
             _is_docs_or_test_path(each_path) for each_path in all_paths
@@ -389,8 +303,6 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit app.py, app.py changed but not staged              -> DENY_REASON
         git commit README.md, code staged                             -> DENY_REASON
-        cd <repo> && git commit -am x, from another directory         -> DENY_REASON
-        cd "$REPO" && git commit, session repository has verify       -> DENY_REASON
         git commit, only docs or test files                           -> None
         git commit, only data files (.json, .jsonl, .yaml, .yml,
             .csv) under a docs folder                                 -> None

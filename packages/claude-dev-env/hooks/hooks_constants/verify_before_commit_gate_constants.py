@@ -48,18 +48,7 @@ ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
         "--trailer",
     }
 )
-ALL_DIRECTORY_CHANGE_COMMANDS = frozenset(
-    {"cd", "chdir", "pushd", "set-location", "sl", "push-location"}
-)
-ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", "-literalpath"})
-ALL_DIRECTORY_RETURN_COMMANDS = frozenset({"popd", "pop-location"})
-ALL_HOME_DIRECTORY_COMMANDS = frozenset({"cd", "chdir"})
-MAXIMUM_VISITED_DIRECTORIES = 16
-ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS = frozenset({"-stackname"})
-ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES = frozenset({"/d"})
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"
-PREVIOUS_DIRECTORY_ARGUMENT = "-"
-ALL_UNEXPANDED_PATH_MARKS = ("$", "`", "%", "*", "?", "[")
 ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "ls-files",
     "--modified",

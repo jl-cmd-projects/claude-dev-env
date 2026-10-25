@@ -409,73 +409,6 @@ def test_should_read_a_pathspec_file_commit_as_the_whole_tree(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
-def test_should_keep_checking_the_session_repository_after_a_wrapped_cd(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    _git(repository, "add", "app.py")
-    command = f"bash -c 'cd {tmp_path}' ; git commit -m x"
-    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
-
-
-def test_should_resolve_a_relative_cd_after_a_cd_back(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "tools").mkdir()
-    (repository / "tools" / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
-    _git(repository, "add", "-A")
-    _git(repository, "commit", "-q", "-m", "tools")
-    (repository / "tools" / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = (
-        f'cd .agents && git status; cd "{repository}" && cd tools && git commit app.py -m x'
-    )
-    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
-
-
-@pytest.mark.parametrize(
-    ("command_template", "tool_name"),
-    [
-        ('Set-Location -Path:"{repository}"; git commit -am x', "PowerShell"),
-        ('cd /d "{repository}" && git commit -am x', "Bash"),
-    ],
-)
-def test_should_follow_a_cd_target_in_each_spelling(
-    repository: Path, tmp_path: Path, command_template: str, tool_name: str
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = command_template.format(repository=repository)
-    assert _is_denied(
-        _payload(command, tmp_path, _unverified(tmp_path), tool_name=tool_name)
-    )
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
-        'cd "$REPO" && git commit -m x',
-        "cd src* && git commit -m x",
-        "pushd sub && popd && git commit -m x",
-        "cd - && git commit -m x",
-    ],
-)
-def test_should_deny_a_commit_after_a_cd_the_gate_cannot_read(
-    repository: Path, tmp_path: Path, command: str
-) -> None:
-    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
-    _git(repository, "add", "README.md")
-    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
-
-
-def test_should_pass_a_commit_after_an_unread_cd_without_a_verify_skill(
-    tmp_path: Path,
-) -> None:
-    plain_repository = tmp_path / "plain"
-    plain_repository.mkdir()
-    _git(plain_repository, "init", "-q")
-    payload = _payload('cd "$REPO" && git commit -m x', plain_repository, _unverified(tmp_path))
-    assert gate.decision_for(payload) is None
-
-
 def test_should_check_a_repeated_commit_after_its_own_add(
     repository: Path, tmp_path: Path
 ) -> None:
@@ -484,14 +417,6 @@ def test_should_check_a_repeated_commit_after_its_own_add(
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
     command = "git commit -m x; git add app.py; git commit -m x"
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
-
-
-def test_should_check_a_relative_cd_after_a_subshell_cd(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = "(cd /tmp); cd repo && git commit -am x"
-    assert _is_denied(_payload(command, tmp_path, _unverified(tmp_path)))
 
 
 def test_should_read_an_attached_signing_key_as_a_value(
@@ -509,14 +434,6 @@ def test_should_read_a_code_file_renamed_to_docs(
     assert _is_denied(_payload("git commit -m x", repository, _unverified(tmp_path)))
 
 
-def test_should_survive_a_cd_to_an_unknown_user_home(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = f'cd ~no_such_user_here; cd "{repository}" && git commit -am x'
-    assert _is_denied(_payload(command, tmp_path, _unverified(tmp_path)))
-
-
 def test_should_read_a_pathspec_commit_on_an_unborn_branch(tmp_path: Path) -> None:
     fresh_repository = tmp_path / "fresh"
     fresh_repository.mkdir()
@@ -531,16 +448,6 @@ def test_should_read_a_pathspec_commit_on_an_unborn_branch(tmp_path: Path) -> No
     )
 
 
-def test_should_skip_a_push_location_stack_name(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = f'Push-Location -StackName s "{repository}"; git commit -am x'
-    assert _is_denied(
-        _payload(command, tmp_path, _unverified(tmp_path), tool_name="PowerShell")
-    )
-
-
 def test_should_read_a_message_value_as_text_and_not_as_a_pathspec(
     repository: Path, tmp_path: Path
 ) -> None:
@@ -551,46 +458,6 @@ def test_should_read_a_message_value_as_text_and_not_as_a_pathspec(
             "git commit -m app.py README.md", repository, _unverified(tmp_path)
         )
     )
-
-
-@pytest.mark.parametrize(
-    ("command_template", "tool_name"),
-    [
-        ('cd "{repository}" && git add app.py && git commit -m change', "Bash"),
-        ('cd "{repository}"; git commit -am change', "Bash"),
-        ('Set-Location -Path "{repository}"; git commit -am change', "PowerShell"),
-    ],
-)
-def test_should_check_the_repository_a_cd_moves_into(
-    repository: Path, tmp_path: Path, command_template: str, tool_name: str
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = command_template.format(repository=repository)
-    assert _is_denied(
-        _payload(command, tmp_path, _unverified(tmp_path), tool_name=tool_name)
-    )
-
-
-def test_should_keep_the_directory_when_a_cd_target_is_a_variable(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    assert _is_denied(
-        _payload(
-            'cd "$WORK"; git commit -am change', repository, _unverified(tmp_path)
-        )
-    )
-
-
-def test_should_pass_a_cd_into_a_repository_without_a_verify_skill(
-    repository: Path, tmp_path: Path
-) -> None:
-    other_repository = tmp_path / "other"
-    other_repository.mkdir()
-    _git(other_repository, "init", "-q")
-    (other_repository / "tool.py").write_text("NAME = 1\n", encoding="utf-8")
-    command = f'cd "{other_repository}" && git add tool.py && git commit -m add'
-    assert not _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
 def test_commands_other_than_commit_pass(repository: Path, tmp_path: Path) -> None:
