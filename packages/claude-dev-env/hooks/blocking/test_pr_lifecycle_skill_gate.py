@@ -125,6 +125,17 @@ def test_user_slash_command_loads_skill(tmp_path: Path) -> None:
     assert _run_main(_payload("git commit", path)) == (0, "")
 
 
+def test_should_deny_after_a_refused_skill_load(tmp_path: Path) -> None:
+    path = tmp_path / "refused.jsonl"
+    all_entries = [
+        {"type": "user", "message": {"content": "Start."}},
+        {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "toolu_1", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "Skill pr-lifecycle cannot be used with Skill tool", "is_error": True}]}},
+    ]
+    path.write_text("".join(json.dumps(each_entry) + "\n" for each_entry in all_entries), encoding="utf-8")
+    _assert_denied(_payload("git push", path))
+
+
 def test_compaction_requires_another_invocation(tmp_path: Path) -> None:
     _assert_denied(_payload("git push", _transcript(tmp_path, "pr-lifecycle", compact=True)))
 

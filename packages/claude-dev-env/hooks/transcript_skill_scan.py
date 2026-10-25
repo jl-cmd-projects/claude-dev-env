@@ -135,6 +135,17 @@ def skill_invocation_status(
 ) -> tuple[bool, bool]:
     """Report whether the skill was ever invoked and whether it is loaded now.
 
+    ::
+
+        Skill call                                   -> (True, True)
+        Skill call, compact boundary                 -> (True, False)
+        Skill call, its tool result with is_error    -> (False, False)
+        Skill call refused, Skill call               -> (True, True)
+
+    A Skill call counts until its tool result comes back with ``is_error``,
+    so a refused load leaves the skill unloaded. A call whose result has not
+    arrived yet still counts.
+
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
         skill_names: Accepted skill names, with plugin prefixes accepted.
@@ -144,16 +155,44 @@ def skill_invocation_status(
         Whether any entry invoked the skill, and whether an invocation follows
         the last compact boundary.
     """
-    was_invoked = False
-    loaded = False
+    all_invoked_calls: set[object] = set()
+    all_loaded_calls: set[object] = set()
+    was_invoked_by_command = False
+    is_loaded_by_command = False
     for each_line in all_transcript_lines:
-        all_entry_fields = _relevant_entry(each_line, skill_names)
-        if all_entry_fields is not None:
-            loaded = all_entry_fields.get("subtype") != COMPACT_BOUNDARY_SUBTYPE and (
-                loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
-            )
-            was_invoked = was_invoked or loaded
-    return was_invoked, loaded
+        all_entry_fields = _relevant_entry(each_line, skill_names) or _result_entry(
+            each_line, all_invoked_calls
+        )
+        if all_entry_fields is None:
+            continue
+        if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE:
+            all_loaded_calls = set()
+            is_loaded_by_command = False
+            continue
+        all_refused_calls = _errored_result_ids(all_entry_fields)
+        all_invoked_calls -= all_refused_calls
+        all_loaded_calls -= all_refused_calls
+        command_text = _user_command_text(all_entry_fields)
+        if command_text is not None:
+            if any(marker in command_text for marker in slash_command_markers):
+                was_invoked_by_command = is_loaded_by_command = True
+            continue
+        all_new_calls = {
+            each_block.get("id") or object()
+            for each_block in _named_skill_blocks(all_entry_fields, skill_names)
+        }
+        all_invoked_calls |= all_new_calls
+        all_loaded_calls |= all_new_calls
+    return (
+        was_invoked_by_command or bool(all_invoked_calls),
+        is_loaded_by_command or bool(all_loaded_calls),
+    )
+
+
+def _result_entry(each_line: str, all_call_ids: Collection[object]) -> dict[str, object] | None:
+    if not any(isinstance(each_id, str) and each_id in each_line for each_id in all_call_ids):
+        return None
+    return _parsed_entry(each_line)
 
 
 def is_skill_loaded_after_last_compaction(
@@ -162,6 +201,8 @@ def is_skill_loaded_after_last_compaction(
     slash_command_markers: Collection[str],
 ) -> bool:
     """Return whether a matching invocation follows the last compact boundary.
+
+    A Skill call whose tool result came back with ``is_error`` does not count.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
@@ -282,6 +323,14 @@ def _tool_use_calls(all_entry_fields: dict[str, object]) -> list[tuple[object, s
         if each_block.get("type") == TOOL_USE_BLOCK_TYPE and isinstance(tool_name, str):
             all_tool_use_calls.append((each_block.get("id"), tool_name, tool_input if isinstance(tool_input, dict) else {}))
     return all_tool_use_calls
+
+
+def _errored_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
+    return {
+        each_block.get(TOOL_USE_ID_FIELD)
+        for each_block in _content_blocks(all_entry_fields, USER_ENTRY_TYPE)
+        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE and each_block.get(IS_ERROR_FIELD) is True
+    }
 
 
 def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:

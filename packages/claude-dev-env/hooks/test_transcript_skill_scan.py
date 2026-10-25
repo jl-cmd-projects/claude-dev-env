@@ -221,3 +221,43 @@ def should_list_each_tool_call_since_the_last_prompt_with_its_outcome() -> None:
         TranscriptToolCall("Edit", {}, False),
         TranscriptToolCall("Write", {}, False),
     ]
+
+
+def _tool_result_entry(tool_use_id: str, is_error: bool) -> str:
+    return json.dumps(
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": "Skill pr-lifecycle cannot be used" if is_error else "Launching skill",
+                        "is_error": is_error,
+                    }
+                ]
+            },
+        }
+    )
+
+
+def test_should_not_count_a_refused_skill_load_after_the_last_compaction() -> None:
+    lines = [_skill_entry("pr-lifecycle", "toolu_refused"), _tool_result_entry("toolu_refused", True)]
+    assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
+    assert skill_invocation_status(lines, ("pr-lifecycle",), ()) == (False, False)
+
+
+def test_should_count_a_successful_load_after_a_refused_one() -> None:
+    lines = [
+        _skill_entry("pr-lifecycle", "toolu_refused"),
+        _tool_result_entry("toolu_refused", True),
+        _skill_entry("pr-lifecycle", "toolu_loaded"),
+        _tool_result_entry("toolu_loaded", False),
+    ]
+    assert is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
+
+
+def test_should_keep_a_load_whose_result_has_not_arrived() -> None:
+    assert is_skill_loaded_after_last_compaction(
+        [_skill_entry("pr-lifecycle", "toolu_pending")], ("pr-lifecycle",), ()
+    )
