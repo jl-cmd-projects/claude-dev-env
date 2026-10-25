@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.105.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.1...claude-dev-env-v8.105.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **account-broker:** name each account's room in the wait reason ([#2198](https://github.com/jl-cmd-projects/claude-dev-env/issues/2198)) ([b5f32d0](https://github.com/jl-cmd-projects/claude-dev-env/commit/b5f32d0332215373e6df0e733bf8d06d97f872bc))
+
 ## [8.105.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.0...claude-dev-env-v8.105.1) (2026-10-24)
 
 
