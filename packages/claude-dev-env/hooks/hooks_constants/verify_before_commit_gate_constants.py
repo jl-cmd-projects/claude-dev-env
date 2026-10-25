@@ -20,10 +20,17 @@ WHOLE_TREE_PATHSPEC = ":/"
 PATHSPEC_TERMINATOR = "--"
 GIT_TIMEOUT_SECONDS = 5
 ALL_TOP_LEVEL_ARGUMENTS = ("rev-parse", "--show-toplevel")
-ALL_STAGED_PATHS_ARGUMENTS = ("diff", "--cached", "--name-only")
-ALL_TRACKED_CHANGE_ARGUMENTS = ("diff", "--name-only")
-ALL_PATHSPEC_CHANGE_ARGUMENTS = ("diff", "--name-only", "HEAD", "--")
-ALL_PATHSPEC_FILE_ARGUMENTS = ("ls-files", "--cached", "--others", "--exclude-standard", "--")
+ALL_STAGED_PATHS_ARGUMENTS = ("diff", "--cached", "--name-only", "--no-renames")
+ALL_TRACKED_CHANGE_ARGUMENTS = ("diff", "--name-only", "--no-renames")
+ALL_PATHSPEC_CHANGE_ARGUMENTS = ("diff", "--name-only", "--no-renames", "HEAD", "--")
+ALL_PATHSPEC_FILE_ARGUMENTS = (
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--full-name",
+    "--",
+)
 ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
     {
         "--author",
@@ -42,7 +49,8 @@ ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
 ALL_DIRECTORY_CHANGE_COMMANDS = frozenset(
     {"cd", "chdir", "pushd", "set-location", "sl", "push-location"}
 )
-ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", "-literalpath"})
+LITERAL_PATH_OPTION = "-literalpath"
+ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", LITERAL_PATH_OPTION})
 ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS = frozenset({"-stackname"})
 ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES = frozenset({"/d"})
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"

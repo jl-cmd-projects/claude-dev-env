@@ -63,6 +63,7 @@ from hooks_constants.verify_before_commit_gate_constants import (
     DENY_REASON,
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
+    LITERAL_PATH_OPTION,
     PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
     PREVIOUS_DIRECTORY_ARGUMENT,
@@ -93,6 +94,7 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
     all_targets: list[str] = []
     skips_value = False
     skips_other_value = False
+    is_literal_target = False
     for each_word in all_words[1:]:
         if skips_value:
             skips_value = False
@@ -100,6 +102,7 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
             continue
         option_name, colon, attached_value = each_word.partition(":")
         if option_name.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
+            is_literal_target = option_name.lower() == LITERAL_PATH_OPTION
             if colon:
                 all_targets.append(attached_value)
             else:
@@ -122,10 +125,19 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
         each_mark in all_targets[0] for each_mark in ALL_UNEXPANDED_PATH_MARKS
     ):
         return directory
-    target = directory / Path(all_targets[0]).expanduser()
-    if any(each_mark in all_targets[0] for each_mark in ALL_GLOB_MARKS):
+    try:
+        target = directory / Path(all_targets[0]).expanduser()
+    except RuntimeError:
+        return directory
+    if not is_literal_target and any(
+        each_mark in all_targets[0] for each_mark in ALL_GLOB_MARKS
+    ):
         all_matches = sorted(
-            Path(target.anchor).glob(str(target.relative_to(target.anchor)))
+            each_match
+            for each_match in Path(target.anchor).glob(
+                str(target.relative_to(target.anchor))
+            )
+            if each_match.is_dir()
         )
         target = all_matches[0] if all_matches else directory
     return Path(os.path.normpath(target))
@@ -133,17 +145,10 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
 
 def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_calls: list[GitCall] = []
-    all_base_directories = [base_directory]
+    current_directory = base_directory
     for each_words in executable_word_lists(command):
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            all_base_directories.extend(
-                each_changed
-                for each_changed in dict.fromkeys(
-                    _changed_directory(each_words, each_directory)
-                    for each_directory in all_base_directories
-                )
-                if each_changed not in all_base_directories
-            )
+            current_directory = _changed_directory(each_words, current_directory)
             continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
             continue
@@ -158,7 +163,7 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
                 action,
                 tuple(each_words[after_action:]),
             )
-            for each_directory in all_base_directories
+            for each_directory in dict.fromkeys((base_directory, current_directory))
         )
     return all_calls
 

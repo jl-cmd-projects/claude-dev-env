@@ -449,6 +449,21 @@ def test_should_follow_a_cd_target_in_each_spelling(
     )
 
 
+def test_should_read_a_code_file_renamed_to_docs(
+    repository: Path, tmp_path: Path
+) -> None:
+    _git(repository, "mv", "app.py", "app.md")
+    assert _is_denied(_payload("git commit -m x", repository, _unverified(tmp_path)))
+
+
+def test_should_survive_a_cd_to_an_unknown_user_home(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = f'cd ~no_such_user_here; cd "{repository}" && git commit -am x'
+    assert _is_denied(_payload(command, tmp_path, _unverified(tmp_path)))
+
+
 def test_should_read_a_pathspec_commit_on_an_unborn_branch(tmp_path: Path) -> None:
     fresh_repository = tmp_path / "fresh"
     fresh_repository.mkdir()
