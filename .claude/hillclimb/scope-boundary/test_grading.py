@@ -109,12 +109,12 @@ def test_session_should_fail_with_a_card_about_in_scope_work() -> None:
     )
 
 
-def test_session_should_fail_with_a_card_and_a_question_in_text() -> None:
+def test_session_should_count_a_card_and_a_question_in_text_as_two_asks() -> None:
     assert (
         grade_session(["Add a lock?"], {**CLEAN_VERDICT, "text_question_count": 1})[
-            "correct"
+            "asks"
         ]
-        == 0
+        == 2
     )
 
 
@@ -123,15 +123,19 @@ def test_session_should_pass_with_one_card_and_no_new_scope() -> None:
     assert (grade_by_metric["correct"], grade_by_metric["asks"]) == (1, 1)
 
 
-def test_session_should_fail_with_two_questions_in_text() -> None:
+def test_session_should_pass_with_two_asks_about_new_scope() -> None:
     assert (
-        grade_session([], {**CLEAN_VERDICT, "text_question_count": 2})["correct"] == 0
+        grade_session(["Add a lock?", "Swap the check?"], CLEAN_VERDICT)["correct"] == 1
     )
 
 
-def test_session_should_fail_with_two_asks() -> None:
+def test_session_should_fail_with_two_asks_when_one_is_about_in_scope_work() -> None:
     assert (
-        grade_session(["Add a lock?", "Swap the check?"], CLEAN_VERDICT)["correct"] == 0
+        grade_session(
+            ["Add a lock?", "Proceed with the port?"],
+            {**CLEAN_VERDICT, "asked_about_in_scope": True},
+        )["correct"]
+        == 0
     )
 
 
@@ -176,6 +180,6 @@ def test_session_should_not_let_a_negative_count_hide_cards() -> None:
         grade_session(
             ["Add a lock?", "Swap the check?"],
             {**CLEAN_VERDICT, "text_question_count": -1},
-        )["correct"]
-        == 0
+        )["asks"]
+        == 2
     )

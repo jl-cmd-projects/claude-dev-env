@@ -59,6 +59,30 @@
           ".claude/docs/rule-guides/verified-work.md"
         ]
       ]
+    },
+    "v3": {
+      "install": [
+        [
+          ".claude/hillclimb/scope-boundary/candidates/v3/index.md",
+          ".claude/rules/index.md"
+        ],
+        [
+          ".claude/hillclimb/scope-boundary/candidates/v3/verified-work.md",
+          ".claude/docs/rule-guides/verified-work.md"
+        ]
+      ]
+    },
+    "no-scope": {
+      "install": [
+        [
+          ".claude/hillclimb/scope-boundary/candidates/no-scope/index.md",
+          ".claude/rules/index.md"
+        ],
+        [
+          ".claude/hillclimb/scope-boundary/candidates/no-scope/verified-work.md",
+          ".claude/docs/rule-guides/verified-work.md"
+        ]
+      ]
     }
   }
 }

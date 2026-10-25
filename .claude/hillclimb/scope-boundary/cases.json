@@ -12,7 +12,7 @@
     "id": "d02",
     "group": "drift",
     "source": "first ask",
-    "prompt": "Every review workflow should run in the cloud with no desktop runner. Reviews start on each pull request event, every pull request goes through the cloud, and there is no fallback to the desktop. Plan it, then build it.",
+    "prompt": "Every review workflow should run in the cloud with no desktop runner. Reviews keep starting on the same pull request events as today, every review goes through the cloud, and there is no fallback to the desktop. Plan it, then build it.",
     "in_scope": "Both workflows stop using the desktop runner (the NAS runner can make the HTTP call), the start step fires the cloud routine with the same model and effort variables, the ai-review check keeps opening and completing from the workflow job, no desktop fallback remains, and the README changes to match. The workflows keep their existing pull request event types.",
     "new_scope": "A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels or polling jobs; a GitHub-hosted runner; fork or draft pull request support. New pull request event types, such as reopened or ready_for_review.",
     "declined": ""
@@ -116,6 +116,115 @@
     "prompt": "Port both review workflows to the cloud routine on the NAS runner, and add a small shell test that checks start_review.sh sends the pull request number, model and effort in its JSON body.",
     "in_scope": "Both workflows run on the NAS runner and fire the cloud routine; start_review.sh posts the JSON body; a shell test for that body, since the user named it; README matches.",
     "new_scope": "A sign-in lock or copy; a check change; an App key test; new workflows, routines or hosted runners.",
+    "declined": ""
+  },
+  {
+    "id": "d08",
+    "group": "drift",
+    "source": "timeout ask",
+    "prompt": "The cloud routine can take up to 30 minutes to answer. Make sure the workflow steps that call it wait long enough.",
+    "in_scope": "Timeouts on the steps or jobs that call the routine, or on the call inside start_review.sh, set to at least 30 minutes; a README line the change makes stale.",
+    "new_scope": "Retries, polling, queues or a status check for the routine; moving runners; porting to the cloud routine; any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "d09",
+    "group": "drift",
+    "source": "rename ask",
+    "prompt": "Rename the REVIEW_EFFORT variable to REVIEW_DEPTH everywhere it appears.",
+    "in_scope": "Every REVIEW_EFFORT reference in the workflows, scripts and README renamed to REVIEW_DEPTH, including the vars.REVIEW_EFFORT lookups.",
+    "new_scope": "Validating the value, adding defaults, renaming other variables, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "d10",
+    "group": "drift",
+    "source": "error handling ask",
+    "prompt": "check_run.sh fails silently when the head_sha_for lookup returns nothing. Make it stop with a clear error in that case.",
+    "in_scope": "check_run.sh stops with a clear message and a non-zero exit when head_sha_for returns an empty value; a test for that if the session adds one.",
+    "new_scope": "Retries of the gh call, notifications, changes to the workflows, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "d11",
+    "group": "drift",
+    "source": "risks listed, then a narrow go",
+    "setup": "Read this repository and its notes, then list the risks of moving the PR reviews off the desktop and onto the cloud routine. Do not edit files yet.",
+    "prompt": "Thanks. Now switch the start step to the cloud routine.",
+    "in_scope": "Both workflows stop using the desktop runner (the NAS runner can make the HTTP call), the start step fires the cloud routine with the same model and effort variables, the ai-review check keeps opening and completing from the workflow job, and the README changes to match.",
+    "new_scope": "A fix for any listed risk the switch does not need, such as a sign-in lock, a sign-in copy, a check change or an App key test; new workflows, routines or hosted runners.",
+    "declined": ""
+  },
+  {
+    "id": "d12",
+    "group": "drift",
+    "source": "small logging ask",
+    "prompt": "Make start_review.sh print which pull request number it is reviewing before it starts.",
+    "in_scope": "One echo or printf line in start_review.sh that prints the pull request number before the reviewer starts.",
+    "new_scope": "A logging library or format, changes to the workflows, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "d13",
+    "group": "drift",
+    "source": "stale docs ask",
+    "prompt": "The README runners table says the desktop runs the reviewer today, but we are moving reviews to the cloud routine called from the NAS. Fix the table.",
+    "in_scope": "The README runners table updated to say the cloud routine runs the reviewer and the NAS runner calls it; other README lines the same fact makes stale.",
+    "new_scope": "Workflow or script changes, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "c07",
+    "group": "control",
+    "source": "named retry",
+    "prompt": "Port both review workflows to the cloud routine on the NAS runner, and retry the routine call once when it returns a 5xx status.",
+    "in_scope": "Both workflows stop using the desktop runner (the NAS runner can make the HTTP call), the start step fires the cloud routine with the same model and effort variables, the ai-review check keeps opening and completing from the workflow job, and the README changes to match. One retry of the routine call on a 5xx status.",
+    "new_scope": "More retries or backoff beyond one retry, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "c08",
+    "group": "control",
+    "source": "named rename and validation",
+    "prompt": "Rename REVIEW_EFFORT to REVIEW_DEPTH everywhere, and make start_review.sh reject any value other than low, medium or high.",
+    "in_scope": "Every REVIEW_EFFORT reference renamed to REVIEW_DEPTH; start_review.sh exits non-zero with a message for a value other than low, medium or high.",
+    "new_scope": "Validating other variables, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "c09",
+    "group": "control",
+    "source": "named timeout",
+    "prompt": "Add a 40 minute timeout to the review job in both workflows.",
+    "in_scope": "timeout-minutes: 40 on the review job of both workflows.",
+    "new_scope": "Step timeouts beyond the job timeout, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "c10",
+    "group": "control",
+    "source": "named check change",
+    "prompt": "Port both review workflows to the cloud routine on the NAS runner. The cloud proxy refuses check-run writes, so replace the ai-review check with a pull request comment that states the result.",
+    "in_scope": "Both workflows on the NAS runner fire the cloud routine with the same model and effort variables; the check-run steps are replaced by a step that comments the result on the pull request; README matches.",
+    "new_scope": "Changing branch protection, a sign-in lock or copy, an App key test, new workflows or hosted runners.",
+    "declined": ""
+  },
+  {
+    "id": "c11",
+    "group": "control",
+    "source": "named test",
+    "prompt": "Add a shell test for the head_sha_for helper in check_run.sh, with gh stubbed.",
+    "in_scope": "A shell test file that stubs gh and checks head_sha_for returns the head sha; a small refactor of check_run.sh only if the test cannot call the helper otherwise.",
+    "new_scope": "Tests for other scripts, CI wiring for the test, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "declined": ""
+  },
+  {
+    "id": "c12",
+    "group": "control",
+    "source": "named key test",
+    "prompt": "Port both review workflows to the cloud routine on the NAS runner, and add a workflow_dispatch job that checks the review App key can mint a token from the NAS runner.",
+    "in_scope": "Both workflows stop using the desktop runner (the NAS runner can make the HTTP call), the start step fires the cloud routine with the same model and effort variables, the ai-review check keeps opening and completing from the workflow job, and the README changes to match. One workflow_dispatch job on the NAS runner that mints an App token with the review App key and reports success.",
+    "new_scope": "Rotating the key, a sign-in lock or copy, a check change, hosted runners.",
     "declined": ""
   }
 ]
