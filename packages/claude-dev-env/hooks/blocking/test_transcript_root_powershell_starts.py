@@ -40,3 +40,19 @@ def test_select_string_search_starts_reads_only_its_named_paths() -> None:
     assert select_string_search_starts(["-Path", "p/*.jsonl", "-Pattern", "needle"]) == [
         SearchStart("p/*.jsonl", False)
     ]
+
+
+def test_reads_recurse_after_a_switch_off_the_list() -> None:
+    assert powershell_listing_search_starts(["x", "-Verbose", "-Recurse"]) == [
+        SearchStart("x", True)
+    ]
+
+
+def test_reads_a_switch_abbreviation_as_its_switch() -> None:
+    assert powershell_listing_search_starts(["x", "-Recu", "-Filter", "*.jsonl"]) == [
+        SearchStart("x", True)
+    ]
+
+
+def test_reads_a_directory_abbreviation_without_taking_the_path() -> None:
+    assert powershell_listing_search_starts(["-Dire", "x"]) == [SearchStart("x", False)]

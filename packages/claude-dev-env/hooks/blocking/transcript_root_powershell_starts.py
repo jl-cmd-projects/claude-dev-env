@@ -4,7 +4,9 @@
 Reads the paths and recursion of a ``Get-ChildItem`` or ``Select-String``
 call. ``-Path`` and ``-LiteralPath`` values and positional tokens are paths,
 split on commas. An option off the switch list takes the next token as its
-value, so ``-ErrorAction 0`` never reads as a path. ``-Depth`` decides
+value unless the next token is an option, so ``-ErrorAction 0`` never reads
+as a path and ``-Verbose -Recurse`` still recurses. A switch abbreviation such
+as ``-Recu`` reads as its switch. ``-Depth`` decides
 recursion when given, ``0`` meaning one level; otherwise ``-Recurse`` does.
 """
 
@@ -45,6 +47,18 @@ def _split_path_list(path_text: str) -> list[str]:
     ]
 
 
+def _canonical_option_name(option_name: str) -> str:
+    """Return the switch an abbreviation such as ``-recu`` names, or the name unchanged."""
+    if len(option_name) < search_rules.POWERSHELL_MINIMUM_ABBREVIATION_LENGTH:
+        return option_name
+    all_matching_switches = [
+        each_switch
+        for each_switch in search_rules.ALL_POWERSHELL_SWITCH_OPTIONS
+        if each_switch.startswith(option_name)
+    ]
+    return min(all_matching_switches, key=len) if all_matching_switches else option_name
+
+
 def _powershell_arguments(all_arguments: list[str]) -> tuple[list[str], list[OptionValue]]:
     """Return a cmdlet call's paths and options; an option off the switch list takes a value."""
     all_paths: list[str] = []
@@ -58,9 +72,12 @@ def _powershell_arguments(all_arguments: list[str]) -> tuple[list[str], list[Opt
         option_name, glued_separator, glued_value = bare_token.partition(
             search_rules.POWERSHELL_GLUED_VALUE_SEPARATOR
         )
-        option_name = option_name.lower()
-        takes_spaced_value = not glued_separator and (
-            option_name not in search_rules.ALL_POWERSHELL_SWITCH_OPTIONS
+        option_name = _canonical_option_name(option_name.lower())
+        takes_spaced_value = (
+            not glued_separator
+            and option_name not in search_rules.ALL_POWERSHELL_SWITCH_OPTIONS
+            and bool(all_remaining)
+            and not is_option(all_remaining[0])
         )
         option_value = next_value(all_remaining) if takes_spaced_value else glued_value
         all_options.append((option_name, unquoted_token(option_value)))
