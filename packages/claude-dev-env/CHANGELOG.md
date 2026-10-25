@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.106.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.2...claude-dev-env-v8.106.0) (2026-10-25)
+
+
+### Features
+
+* **hooks:** refuse a recursive walk or search over a Claude transcript root ([#2200](https://github.com/jl-cmd-projects/claude-dev-env/issues/2200)) ([b2457f5](https://github.com/jl-cmd-projects/claude-dev-env/commit/b2457f5575173bb1e62423dfe1d25532ff94476c))
+
 ## [8.105.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.1...claude-dev-env-v8.105.2) (2026-10-25)
 
 
