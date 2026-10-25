@@ -376,21 +376,11 @@ def test_should_deny_a_pathspec_commit_of_unstaged_code(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
-def test_should_pass_a_docs_pathspec_commit_while_code_stays_staged(
-    repository: Path, tmp_path: Path
-) -> None:
-    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    _git(repository, "add", "app.py")
-    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
-    payload = _payload("git commit -m docs README.md", repository, _unverified(tmp_path))
-    assert gate.decision_for(payload) is None
-
-
 @pytest.mark.parametrize(
     "command",
     [
+        "git commit -m docs README.md",
         "git commit --mess fix",
-        "git commit -i -m docs README.md",
         "git commit -im x README.md",
     ],
 )
@@ -408,6 +398,7 @@ def test_should_keep_staged_code_in_a_pathspec_commit(
     [
         "git commit --pathspec-from-file=list.txt -m x",
         "git commit --pathspec-from-file list.txt -m x",
+        "git commit --pathspec-from list.txt -m x",
     ],
 )
 def test_should_read_a_pathspec_file_commit_as_the_whole_tree(
@@ -446,14 +437,13 @@ def test_should_resolve_a_relative_cd_after_a_cd_back(
     [
         ('Set-Location -Path:"{repository}"; git commit -am x', "PowerShell"),
         ('cd /d "{repository}" && git commit -am x', "Bash"),
-        ('cd "{parent}"/rep* && git commit -am x', "Bash"),
     ],
 )
 def test_should_follow_a_cd_target_in_each_spelling(
     repository: Path, tmp_path: Path, command_template: str, tool_name: str
 ) -> None:
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    command = command_template.format(repository=repository, parent=repository.parent)
+    command = command_template.format(repository=repository)
     assert _is_denied(
         _payload(command, tmp_path, _unverified(tmp_path), tool_name=tool_name)
     )

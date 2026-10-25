@@ -14,8 +14,7 @@ ALL_GIT_EXECUTABLES = frozenset({"git", "git.exe"})
 GIT_DIRECTORY_OPTION = "-C"
 COMMIT_ALL_LONG_OPTION = "--all"
 COMMIT_ALL_SHORT_FLAG = "a"
-COMMIT_INCLUDE_LONG_OPTION = "--include"
-COMMIT_INCLUDE_SHORT_FLAG = "i"
+LONG_OPTION_PREFIX = "--"
 ALL_COMMIT_VALUED_SHORT_FLAGS = frozenset("mFCct")
 ALL_ADD_EVERYTHING_OPTIONS = frozenset({"-A", "--all", "-u", "--update"})
 WHOLE_TREE_PATHSPEC = ":/"
@@ -51,14 +50,13 @@ ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
 ALL_DIRECTORY_CHANGE_COMMANDS = frozenset(
     {"cd", "chdir", "pushd", "set-location", "sl", "push-location"}
 )
-LITERAL_PATH_OPTION = "-literalpath"
-ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", LITERAL_PATH_OPTION})
+ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", "-literalpath"})
+ALL_DIRECTORY_RETURN_COMMANDS = frozenset({"popd", "pop-location"})
 ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS = frozenset({"-stackname"})
 ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES = frozenset({"/d"})
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"
 PREVIOUS_DIRECTORY_ARGUMENT = "-"
-ALL_UNEXPANDED_PATH_MARKS = ("$", "`", "%")
-ALL_GLOB_MARKS = ("*", "?", "[")
+ALL_UNEXPANDED_PATH_MARKS = ("$", "`", "%", "*", "?", "[")
 ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "ls-files",
     "--modified",

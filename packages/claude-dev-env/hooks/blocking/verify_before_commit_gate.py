@@ -36,13 +36,13 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_COMMIT_VALUED_SHORT_FLAGS,
     ALL_DIRECTORY_CHANGE_COMMANDS,
     ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS,
+    ALL_DIRECTORY_RETURN_COMMANDS,
     ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES,
     ALL_DIRECTORY_CHANGE_TARGET_OPTIONS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
     ALL_GIT_EXECUTABLES,
-    ALL_GLOB_MARKS,
     ALL_PATHSPEC_CHANGE_ARGUMENTS,
     ALL_PATHSPEC_FILE_ARGUMENTS,
     ALL_SLASH_COMMAND_MARKERS,
@@ -60,12 +60,10 @@ from hooks_constants.verify_before_commit_gate_constants import (
     COMMIT_ACTION,
     COMMIT_ALL_LONG_OPTION,
     COMMIT_ALL_SHORT_FLAG,
-    COMMIT_INCLUDE_LONG_OPTION,
-    COMMIT_INCLUDE_SHORT_FLAG,
     DENY_REASON,
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
-    LITERAL_PATH_OPTION,
+    LONG_OPTION_PREFIX,
     PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
     PREVIOUS_DIRECTORY_ARGUMENT,
@@ -96,7 +94,6 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
     all_targets: list[str] = []
     skips_value = False
     skips_other_value = False
-    is_literal_target = False
     for each_word in all_words[1:]:
         if skips_value:
             skips_value = False
@@ -104,7 +101,6 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
             continue
         option_name, colon, attached_value = each_word.partition(":")
         if option_name.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
-            is_literal_target = option_name.lower() == LITERAL_PATH_OPTION
             if colon:
                 all_targets.append(attached_value)
             else:
@@ -131,17 +127,6 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
         target = directory / Path(all_targets[0]).expanduser()
     except RuntimeError:
         return directory
-    if not is_literal_target and any(
-        each_mark in all_targets[0] for each_mark in ALL_GLOB_MARKS
-    ):
-        all_matches = sorted(
-            each_match
-            for each_match in Path(target.anchor).glob(
-                str(target.relative_to(target.anchor))
-            )
-            if each_match.is_dir()
-        )
-        target = all_matches[0] if all_matches else directory
     return Path(os.path.normpath(target))
 
 
@@ -150,6 +135,8 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     current_directory = base_directory
     all_visited_directories = [base_directory]
     for each_words in executable_word_lists(command):
+        if file_name(each_words[0]).lower() in ALL_DIRECTORY_RETURN_COMMANDS:
+            continue
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
             current_directory = _changed_directory(each_words, current_directory)
             if current_directory not in all_visited_directories:
@@ -170,7 +157,7 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
             )
             for each_directory in all_visited_directories
         )
-    return all_calls
+    return list(dict.fromkeys(all_calls))
 
 
 def _git_lines(directory: Path, all_arguments: Iterable[str]) -> list[str] | None:
@@ -196,7 +183,6 @@ class CommitReading:
     """What a ``git commit`` argument list asks git to record."""
 
     commits_all: bool
-    includes_index: bool
     all_pathspecs: tuple[str, ...]
 
 
@@ -209,16 +195,22 @@ def _read_short_cluster(cluster: str) -> tuple[set[str], bool]:
     return all_flags, False
 
 
+def _names_pathspec_file(option_name: str) -> bool:
+    return (
+        len(option_name) > len(LONG_OPTION_PREFIX) + 1
+        and PATHSPEC_FROM_FILE_OPTION.startswith(option_name)
+    )
+
+
 def _long_option_takes_value(option_name: str) -> bool:
     return any(
         each_option.startswith(option_name)
-        for each_option in ALL_COMMIT_VALUED_LONG_OPTIONS
+        for each_option in (*ALL_COMMIT_VALUED_LONG_OPTIONS, PATHSPEC_FROM_FILE_OPTION)
     )
 
 
 def _read_commit(all_arguments: tuple[str, ...]) -> CommitReading:
     commits_all = False
-    includes_index = False
     all_pathspecs: list[str] = []
     skips_value = False
     for each_index, each_word in enumerate(all_arguments):
@@ -228,23 +220,19 @@ def _read_commit(all_arguments: tuple[str, ...]) -> CommitReading:
         if each_word == PATHSPEC_TERMINATOR:
             all_pathspecs.extend(all_arguments[each_index + 1 :])
             break
-        if each_word.startswith(PATHSPEC_FROM_FILE_OPTION):
-            all_pathspecs.append(WHOLE_TREE_PATHSPEC)
-            skips_value = PATHSPEC_FROM_FILE_OPTION == each_word
-            continue
-        if each_word.startswith("--"):
+        if each_word.startswith(LONG_OPTION_PREFIX):
             option_name, equals, _ = each_word.partition("=")
             commits_all = commits_all or option_name == COMMIT_ALL_LONG_OPTION
-            includes_index |= COMMIT_INCLUDE_LONG_OPTION.startswith(option_name)
+            if _names_pathspec_file(option_name):
+                all_pathspecs.append(WHOLE_TREE_PATHSPEC)
             skips_value = not equals and _long_option_takes_value(option_name)
             continue
         if each_word.startswith("-") and len(each_word) > 1:
             all_flags, skips_value = _read_short_cluster(each_word)
             commits_all = commits_all or COMMIT_ALL_SHORT_FLAG in all_flags
-            includes_index = includes_index or COMMIT_INCLUDE_SHORT_FLAG in all_flags
             continue
         all_pathspecs.append(each_word)
-    return CommitReading(commits_all, includes_index, tuple(all_pathspecs))
+    return CommitReading(commits_all, tuple(all_pathspecs))
 
 
 def _added_pathspecs(all_arguments: tuple[str, ...]) -> list[str]:
@@ -265,10 +253,9 @@ def _committed_paths(
     staged_paths = _git_lines(commit.directory, ALL_STAGED_PATHS_ARGUMENTS)
     if staged_paths is None:
         return None
+    all_paths = set(staged_paths)
     reading = _read_commit(commit.all_arguments)
     all_commit_pathspecs = reading.all_pathspecs
-    commits_index = not all_commit_pathspecs or reading.includes_index
-    all_paths = set(staged_paths) if commits_index else set()
     if all_commit_pathspecs:
         pathspec_paths = _git_lines(
             commit.directory, (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs)
@@ -375,8 +362,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit, code staged, no verify since the last prompt      -> DENY_REASON
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit app.py, app.py changed but not staged              -> DENY_REASON
-        git commit README.md, code staged                             -> None
-        git commit -i README.md, code staged                          -> DENY_REASON
+        git commit README.md, code staged                             -> DENY_REASON
         cd <repo> && git commit -am x, from another directory         -> DENY_REASON
         git commit, only docs or test files                           -> None
         git commit, only data files (.json, .jsonl, .yaml, .yml,
