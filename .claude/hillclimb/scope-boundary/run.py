@@ -56,7 +56,6 @@ from scope_eval_support.config.constants import (
     ERRORS_FILE_NAME,
     FAILURE_JUDGE,
     FLOW_ROOT,
-    FORBIDDEN_DIFF_FIELD,
     PRIOR_REPLY_FIELD,
     RESULTS_FILE_NAME,
     ALL_SESSION_ENVIRONMENT,
@@ -69,7 +68,7 @@ from scope_eval_support.config.constants import (
 from scope_eval_support.grading import (
     decision_questions,
     edited_paths,
-    forbidden_diff_matches,
+    diff_checked_verdict,
     grade_session,
     judge_text,
 )
@@ -87,7 +86,7 @@ from scope_eval_support.workspace import (
 )
 from session_eval_support import session
 from session_eval_support.config.constants import RUN_DIGEST_FIELD
-from session_eval_support.grading import tool_calls
+from session_eval_support.grading import ToolCall, tool_calls
 from session_eval_support.rows import (
     append_row,
     failure_row,
@@ -244,6 +243,18 @@ def _record_failure(plan: RunPlan, failure_by_field: dict[str, object]) -> None:
     append_row(plan.variant_directory / ERRORS_FILE_NAME, failure_by_field)
 
 
+def _grade(
+    case_by_field: dict[str, str],
+    verdict_by_flag: dict[str, object],
+    all_calls: list[ToolCall],
+    meta_by_field: dict[str, object],
+) -> dict[str, int]:
+    return grade_session(
+        decision_questions(all_calls),
+        diff_checked_verdict(verdict_by_flag, case_by_field, meta_by_field),
+    )
+
+
 def _judge_and_record(
     case_by_field: dict[str, str],
     rep: int,
@@ -262,14 +273,7 @@ def _judge_and_record(
     all_calls = tool_calls(session_run.all_events)
     meta_by_field = {**judge_record, RUN_DIGEST_FIELD: plan.digest}
     meta_by_field["edited_paths"] = edited_paths(all_calls, workspace)
-    grade_by_metric = grade_session(
-        decision_questions(all_calls),
-        verdict,
-        forbidden_diff_matches(
-            str(meta_by_field.get(WORKSPACE_DIFF_FIELD, "")),
-            case_by_field.get(FORBIDDEN_DIFF_FIELD, []),
-        ),
-    )
+    grade_by_metric = _grade(case_by_field, verdict, all_calls, meta_by_field)
     append_row(
         plan.variant_directory / RESULTS_FILE_NAME,
         scored_row(

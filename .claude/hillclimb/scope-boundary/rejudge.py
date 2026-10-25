@@ -35,7 +35,6 @@ from scope_eval_support.config.constants import (
     CASES_FILE,
     DEFAULT_PARALLEL,
     FLOW_ROOT,
-    FORBIDDEN_DIFF_FIELD,
     NO_RECORDED_DIFF_TEXT,
     PRIOR_REPLY_FIELD,
     REJUDGED_FILE_NAME,
@@ -44,7 +43,7 @@ from scope_eval_support.config.constants import (
     WORKSPACE_DIFF_FIELD,
 )
 from scope_eval_support.grading import (
-    forbidden_diff_matches,
+    diff_checked_verdict,
     grade_session,
     judge_text,
 )
@@ -91,11 +90,7 @@ def _regraded_row(
         **row_by_field,
         "grade": grade_session(
             meta_by_field["questions"],
-            verdict,
-            forbidden_diff_matches(
-                str(meta_by_field.get(WORKSPACE_DIFF_FIELD, "")),
-                case_by_field.get(FORBIDDEN_DIFF_FIELD, []),
-            ),
+            diff_checked_verdict(verdict, case_by_field, meta_by_field),
         ),
         "meta": meta_by_field,
     }

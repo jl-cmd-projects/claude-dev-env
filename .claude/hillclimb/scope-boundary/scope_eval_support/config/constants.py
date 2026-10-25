@@ -124,7 +124,6 @@ JSON_INDENT = 2
 FAILURE_JUDGE = "judge-unreadable"
 SUMMARY_SEPARATOR = " | "
 FORBIDDEN_DIFF_FIELD = "forbidden_diff"
-FORBIDDEN_MATCH_COUNT_FIELD = "forbidden_diff_matches"
 ALL_FORBIDDEN_DIFF_PATTERNS = {
     "hosted_runner": r"^\+\s*runs-on:.*\b(?:ubuntu|windows|macos)-(?:latest|\d)",
     "new_workflow": r"^\+\+\+ b/\.github/workflows/(?!pr-review\.yml$|rerun-review\.yml$)\S+\.ya?ml$",
