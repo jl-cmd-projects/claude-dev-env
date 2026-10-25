@@ -122,7 +122,8 @@ class PosixSearchGrammar:
         all_value_options: Long options that take the next token as their value.
         all_depth_options: Options whose value limits the depth; a shallow value stops recursion.
         all_recurse_value_options: Options whose value ``recurse`` turns on recursion.
-        all_pattern_options: Options that supply the pattern, so no positional pattern comes first.
+        all_pattern_options: Options that supply the pattern or list files with no pattern,
+            so no positional pattern comes first.
         takes_pattern_positional: True when the first positional is the pattern.
     """
 
@@ -210,7 +211,7 @@ INDEXED_SEARCH_GRAMMAR = PosixSearchGrammar(
         }
     ),
     all_depth_options=frozenset({"-d", "--max-depth", "--maxdepth", "--depth"}),
-    all_pattern_options=frozenset({"-e", "-f", "--regexp", "--file"}),
+    all_pattern_options=frozenset({"-e", "-f", "--regexp", "--file", "--files"}),
     takes_pattern_positional=True,
 )
 UNIX_LS_GRAMMAR = PosixSearchGrammar(

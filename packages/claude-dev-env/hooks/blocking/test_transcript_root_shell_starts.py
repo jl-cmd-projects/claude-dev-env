@@ -55,6 +55,8 @@ def test_skips_a_command_that_never_names_a_projects_folder() -> None:
         pytest.param(f"grep -d recurse needle {ROOT}", "", id="grep-directories-recurse"),
         pytest.param(f"grep --directories=recurse needle {ROOT}", "", id="grep-glued-directories"),
         pytest.param(f"rg needle {ROOT}", "", id="rg-default"),
+        pytest.param(f"rg --files {ROOT}", "", id="rg-files"),
+        pytest.param(f"rg --files -g '*.jsonl' {ROOT}", "", id="rg-files-glob"),
         pytest.param(f"fd . {ROOT}", "", id="fd"),
         pytest.param(f"tree {ROOT}", "", id="tree"),
         pytest.param(f"find {ROOT} -name '*.jsonl'", "", id="find"),
