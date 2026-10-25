@@ -10,7 +10,9 @@ recursion, so ``cat <root>/*/*.jsonl`` still counts as a walk.
 Each tokenization of the command runs in order with its own state: variables
 expand from the assignments before them, PowerShell names without regard to
 case, and a relative path resolves from the session directory or the last
-``cd`` or ``Set-Location`` before it. A search with no path starts there.
+``cd`` or ``Set-Location`` before it, and ``popd`` or ``Pop-Location``
+returns to the folder before the matching ``pushd`` or ``Push-Location``. A
+search with no path starts there.
 """
 
 from __future__ import annotations
@@ -265,25 +267,51 @@ def _changed_directory(current_directory: str, program_name: str, all_arguments:
     return current_directory
 
 
+def _moved_directory(
+    current_directory: str,
+    all_pushed_directories: list[str],
+    program_name: str,
+    all_arguments: list[str],
+) -> str | None:
+    """Return the folder a ``cd``, ``pushd`` or ``popd`` moves to, else None."""
+    if program_name in search_rules.ALL_POP_DIRECTORY_PROGRAM_NAMES:
+        return all_pushed_directories.pop() if all_pushed_directories else current_directory
+    if program_name not in search_rules.ALL_CHANGE_DIRECTORY_PROGRAM_NAMES:
+        return None
+    if program_name in search_rules.ALL_PUSH_DIRECTORY_PROGRAM_NAMES:
+        all_pushed_directories.append(current_directory)
+    return _changed_directory(current_directory, program_name, all_arguments)
+
+
+def _expanded_program_call(
+    all_segment_tokens: list[str], all_bindings: dict[str, str]
+) -> tuple[str, list[str]]:
+    """Return a segment's lowercase program name and its arguments with variables expanded."""
+    program_name, all_raw_arguments = segment_program_and_arguments(all_segment_tokens)
+    return program_name.lower(), [
+        _expanded_token(each_argument, all_bindings) for each_argument in all_raw_arguments
+    ]
+
+
 def _run_search_starts(
     all_segments: list[list[str]], cwd: str, is_powershell: bool
 ) -> list[SearchStart]:
     """Return the starts of one tokenization's segments, read in order with their own state."""
     all_bindings: dict[str, str] = {}
     current_directory = cwd
+    all_pushed_directories: list[str] = []
     all_search_starts: list[SearchStart] = []
     for each_segment in all_segments:
         assignment = _assignment_from_segment(each_segment)
         if assignment is not None:
             all_bindings[assignment[0].lower()] = _expanded_token(assignment[1], all_bindings)
             continue
-        program_name, all_raw_arguments = segment_program_and_arguments(each_segment)
-        program_name = program_name.lower()
-        all_arguments = [
-            _expanded_token(each_argument, all_bindings) for each_argument in all_raw_arguments
-        ]
-        if program_name in search_rules.ALL_CHANGE_DIRECTORY_PROGRAM_NAMES:
-            current_directory = _changed_directory(current_directory, program_name, all_arguments)
+        program_name, all_arguments = _expanded_program_call(each_segment, all_bindings)
+        moved_directory = _moved_directory(
+            current_directory, all_pushed_directories, program_name, all_arguments
+        )
+        if moved_directory is not None:
+            current_directory = moved_directory
             continue
         all_search_starts.extend(
             SearchStart(

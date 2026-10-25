@@ -60,6 +60,12 @@ def test_skips_a_command_that_never_names_a_projects_folder() -> None:
         pytest.param(f"find {ROOT} -name '*.jsonl'", "", id="find"),
         pytest.param(f"ls -R {ROOT}", "", id="ls-recursive"),
         pytest.param(f"cat {ROOT}/*/*.jsonl | grep needle", "", id="cat-every-transcript"),
+        pytest.param(f"pushd {ROOT} && grep -r needle .", "", id="pushd-then-walk"),
+        pytest.param(
+            f"pushd {ROOT} && pushd {ROOT}/C--x && popd && grep -r needle .",
+            "",
+            id="popd-one-level",
+        ),
     ],
 )
 def test_reads_a_bash_walk_of_the_root(command: str, cwd: str) -> None:
@@ -103,6 +109,7 @@ def test_reads_a_powershell_walk_of_the_root(command: str, cwd: str) -> None:
         pytest.param(f"grep -eremote {ROOT}", id="glued-pattern-is-no-recursion"),
         pytest.param(f"git status {ROOT}", id="plain-program-on-the-root"),
         pytest.param(f"p={ROOT}/C--x; grep -r x $p; p={ROOT}", id="assignment-after-scoped-use"),
+        pytest.param(f"pushd {ROOT} && popd && grep -r needle .", id="popd-returns"),
     ],
 )
 def test_reads_a_scoped_bash_search_as_no_walk(command: str) -> None:

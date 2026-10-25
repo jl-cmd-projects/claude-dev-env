@@ -32,6 +32,8 @@ __all__ = [
     "SHELL_VARIABLE_REFERENCE_TEMPLATE",
     "ALL_CHANGE_DIRECTORY_PROGRAM_NAMES",
     "ALL_HOME_DEFAULT_CHANGE_DIRECTORY_PROGRAM_NAMES",
+    "ALL_PUSH_DIRECTORY_PROGRAM_NAMES",
+    "ALL_POP_DIRECTORY_PROGRAM_NAMES",
     "HOME_DIRECTORY",
     "FIND_MAXIMUM_DEPTH_OPTION",
     "ALL_SHALLOW_DEPTH_VALUES",
@@ -96,6 +98,8 @@ ALL_CHANGE_DIRECTORY_PROGRAM_NAMES: frozenset[str] = frozenset(
 ALL_HOME_DEFAULT_CHANGE_DIRECTORY_PROGRAM_NAMES: frozenset[str] = frozenset(
     {"cd", "chdir", "set-location", "sl"}
 )
+ALL_PUSH_DIRECTORY_PROGRAM_NAMES: frozenset[str] = frozenset({"pushd", "push-location"})
+ALL_POP_DIRECTORY_PROGRAM_NAMES: frozenset[str] = frozenset({"popd", "pop-location"})
 HOME_DIRECTORY = "~"
 
 FIND_MAXIMUM_DEPTH_OPTION = "-maxdepth"
