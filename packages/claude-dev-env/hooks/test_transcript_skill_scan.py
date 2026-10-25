@@ -246,7 +246,7 @@ def _tool_result_entry(tool_use_id: str, is_error: bool) -> str:
 def test_should_not_count_a_refused_skill_load_after_the_last_compaction() -> None:
     lines = [_skill_entry("pr-lifecycle", "toolu_refused"), _tool_result_entry("toolu_refused", True)]
     assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
-    assert skill_invocation_status(lines, ("pr-lifecycle",), ()) == (True, False)
+    assert skill_invocation_status(lines, ("pr-lifecycle",), ()) == (False, False)
 
 
 def test_should_count_a_successful_load_after_a_refused_one() -> None:

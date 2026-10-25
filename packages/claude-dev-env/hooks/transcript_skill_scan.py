@@ -128,7 +128,7 @@ def skill_invocation_status(
 
         Skill call, its tool result                  -> (True, True)
         Skill call, result, compact boundary         -> (True, False)
-        Skill call, its tool result with is_error    -> (True, False)
+        Skill call, its tool result with is_error    -> (False, False)
         Skill call with no result yet                -> (True, False)
         Skill call refused, Skill call, its result   -> (True, True)
 
@@ -146,11 +146,12 @@ def skill_invocation_status(
         the last compact boundary.
     """
     all_pending_calls: set[object] = set()
+    all_unrefused_calls: set[object] = set()
     was_invoked = False
     is_loaded = False
     for each_line in all_transcript_lines:
         all_entry_fields = _relevant_entry(each_line, skill_names) or _result_entry(
-            each_line, all_pending_calls
+            each_line, all_unrefused_calls
         )
         if all_entry_fields is None:
             continue
@@ -160,20 +161,22 @@ def skill_invocation_status(
             continue
         all_loaded_calls = all_pending_calls & _succeeded_result_ids(all_entry_fields)
         is_loaded = is_loaded or bool(all_loaded_calls)
-        all_pending_calls -= all_loaded_calls | _errored_result_ids(all_entry_fields)
+        all_refused_calls = _errored_result_ids(all_entry_fields)
+        all_pending_calls -= all_loaded_calls | all_refused_calls
+        all_unrefused_calls -= all_refused_calls
         command_text = _user_command_text(all_entry_fields)
         if command_text is not None:
             if any(marker in command_text for marker in slash_command_markers):
                 was_invoked = is_loaded = True
             continue
         for each_block in _named_skill_blocks(all_entry_fields, skill_names):
-            was_invoked = True
             call_id = each_block.get("id")
             if call_id:
                 all_pending_calls.add(call_id)
+                all_unrefused_calls.add(call_id)
             else:
-                is_loaded = True
-    return was_invoked, is_loaded
+                was_invoked = is_loaded = True
+    return was_invoked or bool(all_unrefused_calls), is_loaded
 
 
 def _result_entry(each_line: str, all_call_ids: Collection[object]) -> dict[str, object] | None:

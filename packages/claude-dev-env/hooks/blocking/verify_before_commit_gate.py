@@ -33,6 +33,7 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ADD_ACTION,
     ALL_ADD_EVERYTHING_OPTIONS,
     ALL_COMMIT_VALUED_LONG_OPTIONS,
+    ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS,
     ALL_COMMIT_VALUED_SHORT_FLAGS,
     ALL_DIRECTORY_CHANGE_COMMANDS,
     ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS,
@@ -65,6 +66,7 @@ from hooks_constants.verify_before_commit_gate_constants import (
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
     LONG_OPTION_PREFIX,
+    MAXIMUM_VISITED_DIRECTORIES,
     PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
     PREVIOUS_DIRECTORY_ARGUMENT,
@@ -138,7 +140,6 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path | None:
 
 def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_calls: list[GitCall] = []
-    current_directory = base_directory
     all_visited_directories = [base_directory]
     follows_unknown_directory = False
     for each_words in executable_word_lists(command):
@@ -146,13 +147,19 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
             follows_unknown_directory = True
             continue
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            changed_directory = _changed_directory(each_words, current_directory)
-            if changed_directory is None:
+            all_changed = [
+                _changed_directory(each_words, each_directory)
+                for each_directory in all_visited_directories
+            ]
+            follows_unknown_directory |= None in all_changed
+            all_visited_directories.extend(
+                each_changed
+                for each_changed in dict.fromkeys(all_changed)
+                if each_changed is not None and each_changed not in all_visited_directories
+            )
+            if len(all_visited_directories) > MAXIMUM_VISITED_DIRECTORIES:
                 follows_unknown_directory = True
-                continue
-            current_directory = changed_directory
-            if current_directory not in all_visited_directories:
-                all_visited_directories.append(current_directory)
+                del all_visited_directories[MAXIMUM_VISITED_DIRECTORIES:]
             continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
             continue
@@ -162,15 +169,17 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
         if action is None:
             continue
         all_calls.extend(
-            GitCall(
-                _git_directory(each_words[1 : after_action - 1], each_directory),
-                action,
-                tuple(each_words[after_action:]),
-                follows_unknown_directory,
+            dict.fromkeys(
+                GitCall(
+                    _git_directory(each_words[1 : after_action - 1], each_directory),
+                    action,
+                    tuple(each_words[after_action:]),
+                    follows_unknown_directory,
+                )
+                for each_directory in all_visited_directories
             )
-            for each_directory in all_visited_directories
         )
-    return list(dict.fromkeys(all_calls))
+    return all_calls
 
 
 def _git_lines(directory: Path, all_arguments: Iterable[str]) -> list[str] | None:
@@ -199,13 +208,15 @@ class CommitReading:
     all_pathspecs: tuple[str, ...]
 
 
-def _read_short_cluster(cluster: str) -> tuple[set[str], bool]:
-    all_flags: set[str] = set()
+def _read_short_cluster(cluster: str) -> tuple[bool, bool]:
+    commits_all = False
     for each_index, each_flag in enumerate(cluster[1:], start=1):
         if each_flag in ALL_COMMIT_VALUED_SHORT_FLAGS:
-            return all_flags, each_index == len(cluster) - 1
-        all_flags.add(each_flag)
-    return all_flags, False
+            return commits_all, each_index == len(cluster) - 1
+        if each_flag in ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS:
+            return commits_all, False
+        commits_all = commits_all or each_flag == COMMIT_ALL_SHORT_FLAG
+    return commits_all, False
 
 
 def _names_pathspec_file(option_name: str) -> bool:
@@ -241,8 +252,8 @@ def _read_commit(all_arguments: tuple[str, ...]) -> CommitReading:
             skips_value = not equals and _long_option_takes_value(option_name)
             continue
         if each_word.startswith("-") and len(each_word) > 1:
-            all_flags, skips_value = _read_short_cluster(each_word)
-            commits_all = commits_all or COMMIT_ALL_SHORT_FLAG in all_flags
+            cluster_commits_all, skips_value = _read_short_cluster(each_word)
+            commits_all = commits_all or cluster_commits_all
             continue
         all_pathspecs.append(each_word)
     return CommitReading(commits_all, tuple(all_pathspecs))

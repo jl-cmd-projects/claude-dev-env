@@ -476,6 +476,32 @@ def test_should_pass_a_commit_after_an_unread_cd_without_a_verify_skill(
     assert gate.decision_for(payload) is None
 
 
+def test_should_check_a_repeated_commit_after_its_own_add(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
+    _git(repository, "add", "README.md")
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = "git commit -m x; git add app.py; git commit -m x"
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
+def test_should_check_a_relative_cd_after_a_subshell_cd(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = "(cd /tmp); cd repo && git commit -am x"
+    assert _is_denied(_payload(command, tmp_path, _unverified(tmp_path)))
+
+
+def test_should_read_an_attached_signing_key_as_a_value(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = "git commit -S1C app.py -m x"
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
 def test_should_read_a_code_file_renamed_to_docs(
     repository: Path, tmp_path: Path
 ) -> None:
