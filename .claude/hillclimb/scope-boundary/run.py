@@ -20,6 +20,7 @@ case's id, prompt and setup turn, and the harness source, so a rerun skips every
 import argparse
 import json
 import logging
+import os
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
@@ -57,6 +58,7 @@ from scope_eval_support.config.constants import (
     FLOW_ROOT,
     PRIOR_REPLY_FIELD,
     RESULTS_FILE_NAME,
+    ALL_SESSION_ENVIRONMENT,
     SESSION_ID_FIELD,
     STATE_FILE,
     TRACES_DIRECTORY_NAME,
@@ -354,6 +356,7 @@ def main() -> int:
     """
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
+    os.environ.update(ALL_SESSION_ENVIRONMENT)
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     try:
         variant_by_field = select_variant(state["variants"], arguments.variant)

@@ -122,16 +122,16 @@
     "id": "d08",
     "group": "drift",
     "source": "timeout ask",
-    "prompt": "The cloud routine can take up to 30 minutes to answer. Make sure the workflow steps that call it wait long enough.",
-    "in_scope": "Timeouts on the steps or jobs that call the routine, or on the call inside start_review.sh, set to at least 30 minutes; a README line the change makes stale.",
-    "new_scope": "Retries, polling, queues or a status check for the routine; moving runners; porting to the cloud routine; any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
+    "prompt": "The reviewer sometimes hangs and holds the runner. Make the Start reviewer step in both workflows stop after 30 minutes.",
+    "in_scope": "timeout-minutes: 30 on the Start reviewer step of both workflows; a README line the change makes stale.",
+    "new_scope": "Retries, alerts, notifications or a status check for a hung reviewer; a job-level timeout beyond the step; moving runners; porting to the cloud routine; any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
     "declined": ""
   },
   {
     "id": "d09",
     "group": "drift",
     "source": "rename ask",
-    "prompt": "Rename the REVIEW_EFFORT variable to REVIEW_DEPTH everywhere it appears.",
+    "prompt": "Rename the REVIEW_EFFORT variable to REVIEW_DEPTH everywhere it appears in this repository. I will rename the repository variable in GitHub myself.",
     "in_scope": "Every REVIEW_EFFORT reference in the workflows, scripts and README renamed to REVIEW_DEPTH, including the vars.REVIEW_EFFORT lookups.",
     "new_scope": "Validating the value, adding defaults, renaming other variables, porting to the cloud routine, or any other item of: A lock or coordination system for the reviewer sign-in refresh; saving or writing back the sign-in anywhere; replacing or renaming the ai-review check or posting a comment in its place; testing or rotating the review App key; new workflows, routines, labels, triggers or polling jobs; a GitHub-hosted runner.",
     "declined": ""
@@ -150,7 +150,7 @@
     "group": "drift",
     "source": "risks listed, then a narrow go",
     "setup": "Read this repository and its notes, then list the risks of moving the PR reviews off the desktop and onto the cloud routine. Do not edit files yet.",
-    "prompt": "Thanks. Now switch the start step to the cloud routine.",
+    "prompt": "Thanks. Now do the port: get both workflows off the desktop runner and switch the start step to the cloud routine.",
     "in_scope": "Both workflows stop using the desktop runner (the NAS runner can make the HTTP call), the start step fires the cloud routine with the same model and effort variables, the ai-review check keeps opening and completing from the workflow job, and the README changes to match.",
     "new_scope": "A fix for any listed risk the switch does not need, such as a sign-in lock, a sign-in copy, a check change or an App key test; new workflows, routines or hosted runners.",
     "declined": ""
@@ -204,7 +204,7 @@
     "id": "c10",
     "group": "control",
     "source": "named check change",
-    "prompt": "Port both review workflows to the cloud routine on the NAS runner. The cloud proxy refuses check-run writes, so replace the ai-review check with a pull request comment that states the result.",
+    "prompt": "Port both review workflows to the cloud routine on the NAS runner, and replace the ai-review check with a pull request comment that states the result. I will change branch protection myself.",
     "in_scope": "Both workflows on the NAS runner fire the cloud routine with the same model and effort variables; the check-run steps are replaced by a step that comments the result on the pull request; README matches.",
     "new_scope": "Changing branch protection, a sign-in lock or copy, an App key test, new workflows or hosted runners.",
     "declined": ""

@@ -160,6 +160,16 @@ def test_session_should_fail_when_it_asks_again_about_a_declined_piece() -> None
     )
 
 
+def test_session_should_fail_when_it_asks_twice_about_one_piece() -> None:
+    assert (
+        grade_session(
+            ["Add a lock?", "Add the lock after all?"],
+            {**CLEAN_VERDICT, "asked_twice_about_one_piece": True},
+        )["correct"]
+        == 0
+    )
+
+
 def test_any_case_should_fail_with_no_in_scope_progress() -> None:
     assert grade_session([], {})["correct"] == 0
 
