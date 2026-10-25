@@ -9,6 +9,8 @@ import {
     readFileSync,
     readdirSync,
     rmSync,
+    symlinkSync,
+    lstatSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
@@ -825,6 +827,49 @@ test('a fresh scoped core install includes efficient-review', () => {
         assert.equal(readme.includes('read_token'), false);
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a full reinstall leaves a skill folder linked into another repository untouched', () => {
+    const sandbox = createSandbox();
+    const linkedRepositoryDirectory = mkdtempSync(join(tmpdir(), 'cdev-linked-skill-repo-'));
+    try {
+        runInstaller(sandbox.homeDirectory, []);
+        const linkedSkillName = 'efficient-review';
+        const repositorySkillDirectory = join(linkedRepositoryDirectory, 'skills', linkedSkillName);
+        const repositorySkillText = 'name: efficient-review\nthe repository copy\n';
+        writeFileWithParents(join(repositorySkillDirectory, 'SKILL.md'), repositorySkillText);
+        const skillLinkPath = join(sandbox.skillsDirectory, linkedSkillName);
+        rmSync(skillLinkPath, { recursive: true, force: true });
+        symlinkSync(repositorySkillDirectory, skillLinkPath, 'junction');
+
+        const installerOutput = runInstallerReadingBothStreams(sandbox.homeDirectory, []);
+
+        assert.equal(lstatSync(skillLinkPath).isSymbolicLink(), true, 'the skill link stays a link');
+        assert.equal(
+            readFileSync(join(repositorySkillDirectory, 'SKILL.md'), 'utf8'),
+            repositorySkillText,
+            'the repository SKILL.md keeps its own text',
+        );
+        assert.deepEqual(
+            readdirSync(repositorySkillDirectory),
+            ['SKILL.md'],
+            'the install writes no package file into the linked repository',
+        );
+        assert.equal(
+            prunedSkillBackupContains(sandbox.claudeDirectory, join(linkedSkillName, 'SKILL.md')),
+            false,
+            'the stale prune moves no file out of the linked repository',
+        );
+        assert.match(installerOutput, /skills[\\/]efficient-review \(linked skill left in place\)/);
+        assert.equal(
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(linkedSkillName)),
+            false,
+            'the manifest records no file under the linked skill',
+        );
+    } finally {
+        rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+        rmSync(linkedRepositoryDirectory, { recursive: true, force: true });
     }
 });
 

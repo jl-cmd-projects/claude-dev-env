@@ -1064,6 +1064,7 @@ export function pruneStaleInstalledFiles(
         currentInstalledFiles.map(currentFile => comparisonKeyForPath(currentFile, options)),
     );
     const resolvedRoot = resolve(destinationRoot);
+    const resolvedRootTarget = realPathOrNull(resolvedRoot);
     let prunedCount = 0;
     const failedPaths = [];
     for (const priorFile of priorInstalledFiles) {
@@ -1072,6 +1073,17 @@ export function pruneStaleInstalledFiles(
         if (currentFileKeys.has(comparisonKeyForPath(stalePath, options))) continue;
         if (isRetainedUnmanagedPath(stalePath, managedHomeDirectory)) continue;
         if (!isMovableStaleFile(stalePath)) continue;
+        const staleTarget = realPathOrNull(stalePath);
+        if (!staleTarget || !resolvedRootTarget) {
+            failedPaths.push(stalePath);
+            continue;
+        }
+        if (!isInsideDirectory(staleTarget, resolvedRootTarget)) {
+            console.warn(
+                `  Warning: leaving ${relative(managedHomeDirectory, stalePath)} in place — a link on its path leads outside ${resolvedRoot}`,
+            );
+            continue;
+        }
         const backupRelativePath = relative(resolvedRoot, stalePath);
         const didMove = moveIntoRunBackup(
             stalePath, backupRoot, backupRelativePath, STALE_FILE_REASON_LABEL, managedHomeDirectory,
@@ -3013,6 +3025,10 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             if (allowedSkills && !allowedSkills.has(skillDir.name)) continue;
             const skillSourceDirectory = join(skillsSource, skillDir.name);
             const skillDestinationDirectory = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name);
+            if (lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+                console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
+                continue;
+            }
             const stats = copyTree(skillSourceDirectory, skillDestinationDirectory);
             skillsCreated += stats.created;
             skillsUpdated += stats.updated;
