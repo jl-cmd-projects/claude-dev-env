@@ -69,3 +69,11 @@ def test_reads_the_path_after_a_common_parameter_switch() -> None:
     assert powershell_listing_search_starts(["-WhatIf", "x", "-Recurse"]) == [
         SearchStart("x", True)
     ]
+
+
+def test_reads_a_short_path_abbreviation_as_path() -> None:
+    assert powershell_listing_search_starts(["-Pa", "x", "-Recurse"]) == [SearchStart("x", True)]
+
+
+def test_reads_an_ambiguous_abbreviation_as_an_option_value() -> None:
+    assert powershell_listing_search_starts(["-De", "2", "x"]) == [SearchStart("x", False)]
