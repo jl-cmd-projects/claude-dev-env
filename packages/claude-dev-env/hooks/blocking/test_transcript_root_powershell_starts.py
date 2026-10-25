@@ -60,3 +60,8 @@ def test_reads_a_directory_abbreviation_without_taking_the_path() -> None:
 
 def test_reads_a_depth_abbreviation_as_depth() -> None:
     assert powershell_listing_search_starts(["x", "-Dep", "2"]) == [SearchStart("x", True)]
+
+
+def test_reads_the_path_after_a_common_parameter_switch() -> None:
+    assert powershell_listing_search_starts(["-Verbose", "x", "-Recurse"]) == [SearchStart("x", True)]
+    assert powershell_listing_search_starts(["-WhatIf", "x", "-Recurse"]) == [SearchStart("x", True)]

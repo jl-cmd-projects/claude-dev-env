@@ -237,6 +237,9 @@ ALL_POWERSHELL_SWITCH_OPTIONS: frozenset[str] = frozenset(
         "-directory",
         "-ad",
         "-af",
+        "-ah",
+        "-ar",
+        "-as",
         "-force",
         "-name",
         "-hidden",
@@ -252,6 +255,16 @@ ALL_POWERSHELL_SWITCH_OPTIONS: frozenset[str] = frozenset(
         "-raw",
         "-noemphasis",
         "-wait",
+        "-verbose",
+        "-vb",
+        "-debug",
+        "-db",
+        "-whatif",
+        "-wi",
+        "-confirm",
+        "-cf",
+        "-usetransaction",
+        "-usetx",
     }
 )
 POWERSHELL_GLUED_VALUE_SEPARATOR = ":"
