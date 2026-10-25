@@ -376,14 +376,54 @@ def test_should_deny_a_pathspec_commit_of_unstaged_code(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
-def test_should_pass_a_docs_pathspec_commit_while_code_stays_staged(
-    repository: Path, tmp_path: Path
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m docs README.md",
+        "git commit --mess fix",
+        "git commit -im x README.md",
+    ],
+)
+def test_should_keep_staged_code_in_a_pathspec_commit(
+    repository: Path, tmp_path: Path, command: str
 ) -> None:
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
     _git(repository, "add", "app.py")
     (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
-    assert not _is_denied(
-        _payload("git commit -m docs README.md", repository, _unverified(tmp_path))
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit --pathspec-from-file=list.txt -m x",
+        "git commit --pathspec-from-file list.txt -m x",
+    ],
+)
+def test_should_read_a_pathspec_file_commit_as_the_whole_tree(
+    repository: Path, tmp_path: Path, command: str
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    (repository / "list.txt").write_text("app.py\n", encoding="utf-8")
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
+def test_should_keep_checking_the_session_repository_after_a_wrapped_cd(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repository, "add", "app.py")
+    command = f"bash -c 'cd {tmp_path}' ; git commit -m x"
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
+def test_should_skip_a_push_location_stack_name(
+    repository: Path, tmp_path: Path
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = f'Push-Location -StackName s "{repository}"; git commit -am x'
+    assert _is_denied(
+        _payload(command, tmp_path, _unverified(tmp_path), tool_name="PowerShell")
     )
 
 

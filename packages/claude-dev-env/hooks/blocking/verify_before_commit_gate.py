@@ -32,11 +32,11 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ADD_ACTION,
     ALL_ADD_EVERYTHING_OPTIONS,
     ALL_COMMIT_ALL_OPTIONS,
-    ALL_COMMIT_INCLUDE_OPTIONS,
     ALL_COMMIT_VALUED_LONG_OPTIONS,
     ALL_COMMIT_VALUED_SHORT_FLAGS,
     ALL_DIRECTORY_CHANGE_COMMANDS,
-    ALL_DIRECTORY_CHANGE_VALUED_OPTIONS,
+    ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS,
+    ALL_DIRECTORY_CHANGE_TARGET_OPTIONS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
@@ -59,6 +59,7 @@ from hooks_constants.verify_before_commit_gate_constants import (
     DENY_REASON,
     GIT_DIRECTORY_OPTION,
     GIT_TIMEOUT_SECONDS,
+    PATHSPEC_FROM_FILE_OPTION,
     PATHSPEC_TERMINATOR,
     PREVIOUS_DIRECTORY_ARGUMENT,
     SKILL_NAME,
@@ -87,13 +88,20 @@ def _git_directory(all_global_words: list[str], base_directory: Path) -> Path:
 def _changed_directory(all_words: list[str], directory: Path) -> Path:
     all_targets: list[str] = []
     skips_value = False
+    skips_other_value = False
     for each_word in all_words[1:]:
         if skips_value:
             skips_value = False
             all_targets.append(each_word)
             continue
-        if each_word.lower() in ALL_DIRECTORY_CHANGE_VALUED_OPTIONS:
+        if each_word.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
             skips_value = True
+            continue
+        if each_word.lower() in ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS:
+            skips_other_value = True
+            continue
+        if skips_other_value:
+            skips_other_value = False
             continue
         if each_word.startswith("-") and each_word != PREVIOUS_DIRECTORY_ARGUMENT:
             continue
@@ -109,9 +117,12 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
 
 def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
     all_calls: list[GitCall] = []
+    all_base_directories = [base_directory]
     for each_words in executable_word_lists(command):
         if file_name(each_words[0]) in ALL_DIRECTORY_CHANGE_COMMANDS:
-            base_directory = _changed_directory(each_words, base_directory)
+            changed_directory = _changed_directory(each_words, all_base_directories[-1])
+            if changed_directory not in all_base_directories:
+                all_base_directories.append(changed_directory)
             continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
             continue
@@ -120,8 +131,14 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
         )
         if action is None:
             continue
-        directory = _git_directory(each_words[1 : after_action - 1], base_directory)
-        all_calls.append(GitCall(directory, action, tuple(each_words[after_action:])))
+        all_calls.extend(
+            GitCall(
+                _git_directory(each_words[1 : after_action - 1], each_directory),
+                action,
+                tuple(each_words[after_action:]),
+            )
+            for each_directory in all_base_directories
+        )
     return all_calls
 
 
@@ -186,6 +203,8 @@ def _commit_pathspecs(all_arguments: tuple[str, ...]) -> list[str]:
         if each_word == PATHSPEC_TERMINATOR:
             all_pathspecs.extend(all_arguments[each_index + 1 :])
             break
+        if each_word.startswith(PATHSPEC_FROM_FILE_OPTION):
+            return [WHOLE_TREE_PATHSPEC]
         if each_word.startswith("--"):
             skips_value = each_word in ALL_COMMIT_VALUED_LONG_OPTIONS
             continue
@@ -217,15 +236,13 @@ def _committed_paths(
     all_paths = set(staged_paths)
     all_commit_pathspecs = _commit_pathspecs(commit.all_arguments)
     if all_commit_pathspecs:
-        pathspec_paths = _git_lines(
-            commit.directory, (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs)
-        )
-        if pathspec_paths is not None:
-            includes_staged = any(
-                each_word in ALL_COMMIT_INCLUDE_OPTIONS
-                for each_word in commit.all_arguments
+        all_paths.update(
+            _git_lines(
+                commit.directory,
+                (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs),
             )
-            all_paths = set(pathspec_paths) | (all_paths if includes_staged else set())
+            or []
+        )
     if _commits_all_tracked_changes(commit.all_arguments):
         all_paths.update(
             _git_lines(commit.directory, ALL_TRACKED_CHANGE_ARGUMENTS) or []
@@ -323,7 +340,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         git commit, code staged, no verify since the last prompt      -> DENY_REASON
         git add app.py; git commit, empty index, no verify            -> DENY_REASON
         git commit app.py, app.py changed but not staged              -> DENY_REASON
-        git commit README.md, only code staged                        -> None
+        git commit README.md, code staged                             -> DENY_REASON
         cd <repo> && git commit -am x, from another directory         -> DENY_REASON
         git commit, only docs or test files                           -> None
         git commit, only data files (.json, .jsonl, .yaml, .yml,
