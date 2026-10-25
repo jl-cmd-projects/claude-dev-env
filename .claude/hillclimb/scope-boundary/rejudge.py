@@ -29,20 +29,36 @@ sys.path[:0] = [
 ]
 
 from rules_eval_support import judge as rules_judge
+from rules_eval_support.config.constants import JUDGE_MODEL
 from rules_eval_support.judge import run_judge
 from scope_eval_support.config.constants import (
     CASES_FILE,
     DEFAULT_PARALLEL,
     FLOW_ROOT,
+    NO_RECORDED_DIFF_TEXT,
     PRIOR_REPLY_FIELD,
     REJUDGED_FILE_NAME,
     RESULTS_FILE_NAME,
     TRACES_DIRECTORY_NAME,
+    WORKSPACE_DIFF_FIELD,
 )
 from scope_eval_support.grading import grade_session, judge_text
 from session_eval_support.config.constants import RUN_DIGEST_FIELD
+from session_eval_support.rows import read_rows
 
 logger = logging.getLogger(__name__)
+
+
+def _judged_case(
+    case_by_field: dict[str, str], meta_by_field: dict[str, object]
+) -> dict[str, str]:
+    return {
+        **case_by_field,
+        PRIOR_REPLY_FIELD: meta_by_field.get(PRIOR_REPLY_FIELD, ""),
+        WORKSPACE_DIFF_FIELD: meta_by_field.get(
+            WORKSPACE_DIFF_FIELD, NO_RECORDED_DIFF_TEXT
+        ),
+    }
 
 
 def _regraded_row(
@@ -52,21 +68,20 @@ def _regraded_row(
     is_direct: bool,
 ) -> dict[str, object] | None:
     trace_name = f"{row_by_field['prompt_id']}_rep{row_by_field['rep']}.json"
-    all_turns = json.loads(
-        (variant_directory / TRACES_DIRECTORY_NAME / trace_name).read_text(
-            encoding="utf-8"
-        )
-    )
+    trace_path = variant_directory / TRACES_DIRECTORY_NAME / trace_name
+    if not trace_path.is_file():
+        logger.warning("no saved trace %s; the row is left out", trace_name)
+        return None
+    all_turns = json.loads(trace_path.read_text(encoding="utf-8"))
     meta_by_field = dict(row_by_field["meta"])
-    judged_case = {
-        **case_by_field,
-        PRIOR_REPLY_FIELD: meta_by_field.get(PRIOR_REPLY_FIELD, ""),
-    }
     transcript = rules_judge._transcript_within_limit(all_turns)
-    verdict, _ = run_judge(judge_text(judged_case, transcript), is_direct)
+    verdict, _ = run_judge(
+        judge_text(_judged_case(case_by_field, meta_by_field), transcript), is_direct
+    )
     if verdict is None:
         return None
     meta_by_field["judge_verdict"] = verdict
+    meta_by_field["judge_model"] = JUDGE_MODEL
     return {
         **row_by_field,
         "grade": grade_session(meta_by_field["questions"], verdict),
@@ -83,13 +98,7 @@ def _parse_arguments() -> argparse.Namespace:
 
 
 def _read_rows(variant_directory: Path) -> list[dict[str, object]]:
-    all_rows = [
-        json.loads(each_line)
-        for each_line in (variant_directory / RESULTS_FILE_NAME)
-        .read_text(encoding="utf-8")
-        .splitlines()
-        if each_line.strip()
-    ]
+    all_rows = read_rows(variant_directory / RESULTS_FILE_NAME)
     if not all_rows:
         return []
     newest_digest = all_rows[-1]["meta"][RUN_DIGEST_FIELD]
@@ -118,7 +127,11 @@ def _regrade_all(
                     variant_directory,
                     arguments.direct,
                 ),
-                all_rows,
+                [
+                    each_row
+                    for each_row in all_rows
+                    if each_row["prompt_id"] in case_by_id
+                ],
             )
         )
 
@@ -142,7 +155,7 @@ def main() -> int:
     )
     passed = sum(each_row["grade"]["correct"] for each_row in all_regraded)
     logger.info(
-        "%s regraded: %d/%d correct, %d judge failures left out",
+        "%s regraded: %d/%d correct, %d rows left out for a judge failure or a missing trace",
         arguments.variant,
         passed,
         len(all_regraded),

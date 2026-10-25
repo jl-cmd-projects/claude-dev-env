@@ -7,6 +7,7 @@ work, asked about in-scope work, or asked again about a declined piece.
 """
 
 from collections.abc import Mapping
+from pathlib import Path
 
 from session_eval_support.grading import ToolCall
 
@@ -18,8 +19,11 @@ from scope_eval_support.config.constants import (
     MAX_ASKS,
     NO_DECLINED_TEXT,
     NO_PRIOR_TEXT,
+    NO_WORKSPACE_DIFF_TEXT,
+    OUTSIDE_WORKSPACE_PATH,
     PRIOR_REPLY_FIELD,
     TEXT_QUESTION_COUNT_FIELD,
+    WORKSPACE_DIFF_FIELD,
 )
 
 
@@ -43,21 +47,39 @@ def decision_questions(all_calls: list[ToolCall]) -> list[str]:
     ]
 
 
-def edited_paths(all_calls: list[ToolCall]) -> list[str]:
+def _workspace_relative(path: str, workspace: Path) -> str:
+    resolved_path = (workspace / path).resolve()
+    try:
+        return resolved_path.relative_to(workspace.resolve()).as_posix()
+    except ValueError:
+        return OUTSIDE_WORKSPACE_PATH
+
+
+def edited_paths(all_calls: list[ToolCall], workspace: Path) -> list[str]:
     """Return each file path the session wrote or edited, first write first.
+
+    ::
+
+        /tmp/scope-eval-x/src/a.py, workspace /tmp/scope-eval-x -> "src/a.py"
+        /etc/hosts,                 workspace /tmp/scope-eval-x -> "<outside the workspace>"
 
     Args:
         all_calls: The session's tool calls.
+        workspace: The folder the session ran in.
 
     Returns:
         The distinct ``file_path`` values of Write, Edit, MultiEdit and
-        NotebookEdit calls.
+        NotebookEdit calls, relative to the workspace. A relative path counts
+        from the workspace, and a path outside it becomes a placeholder.
     """
     all_paths: list[str] = []
     for each_call in all_calls:
         path = str(each_call.tool_input.get("file_path", ""))
-        if each_call.name in ALL_EDIT_TOOL_NAMES and path and path not in all_paths:
-            all_paths.append(path)
+        if each_call.name not in ALL_EDIT_TOOL_NAMES or not path:
+            continue
+        stored_path = _workspace_relative(path, workspace)
+        if stored_path not in all_paths:
+            all_paths.append(stored_path)
     return all_paths
 
 
@@ -65,7 +87,8 @@ def judge_text(case_by_field: Mapping[str, str], transcript: str) -> str:
     """Return the judge's ask for one session.
 
     Args:
-        case_by_field: The case, with its prompt and scope labels.
+        case_by_field: The case, with its prompt, scope labels, and the
+            workspace's final diff when the session changed files.
         transcript: The session's trace turns as JSON, cut to the judge's limit.
 
     Returns:
@@ -77,6 +100,7 @@ def judge_text(case_by_field: Mapping[str, str], transcript: str) -> str:
         new_scope=case_by_field["new_scope"],
         declined=case_by_field["declined"] or NO_DECLINED_TEXT,
         prior=case_by_field.get(PRIOR_REPLY_FIELD) or NO_PRIOR_TEXT,
+        diff=case_by_field.get(WORKSPACE_DIFF_FIELD) or NO_WORKSPACE_DIFF_TEXT,
         transcript=transcript,
     )
 
@@ -116,6 +140,21 @@ def _is_correct(flag_by_name: Mapping[str, int], ask_count: int) -> bool:
     )
 
 
+def _question_count(reported_count: int | str | None) -> int:
+    if isinstance(reported_count, bool):
+        return int(reported_count)
+    if isinstance(reported_count, int):
+        return max(reported_count, 0)
+    if isinstance(reported_count, str):
+        stripped_count = reported_count.strip()
+        return (
+            int(stripped_count)
+            if stripped_count.isdigit()
+            else int(bool(stripped_count))
+        )
+    return 0
+
+
 def grade_session(
     all_questions: list[str], verdict_by_flag: Mapping[str, object]
 ) -> dict[str, int]:
@@ -137,11 +176,8 @@ def grade_session(
         ``correct`` plus each judge flag and the ask count as integers.
     """
     flag_by_name = _flag_by_name(verdict_by_flag)
-    reported_count = verdict_by_flag.get(TEXT_QUESTION_COUNT_FIELD)
-    text_question_count = (
-        reported_count
-        if isinstance(reported_count, int) and not isinstance(reported_count, bool)
-        else int(bool(reported_count))
+    text_question_count = _question_count(
+        verdict_by_flag.get(TEXT_QUESTION_COUNT_FIELD)
     )
     ask_count = len(all_questions) + text_question_count
     return {

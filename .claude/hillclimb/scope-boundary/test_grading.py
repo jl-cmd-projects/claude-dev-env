@@ -15,6 +15,8 @@ from scope_eval_support.config.constants import (
     DECISION_TOOL_FULL_NAME,
     NO_DECLINED_TEXT,
     NO_PRIOR_TEXT,
+    NO_WORKSPACE_DIFF_TEXT,
+    OUTSIDE_WORKSPACE_PATH,
 )
 from scope_eval_support.grading import (
     decision_questions,
@@ -25,6 +27,7 @@ from scope_eval_support.grading import (
 from session_eval_support.grading import ToolCall
 
 CLEAN_VERDICT = {"in_scope_progress": True}
+WORKSPACE = Path("/tmp/scope-eval-test")
 DRIFT_CASE = {
     "group": "drift",
     "prompt": "Port it.",
@@ -56,7 +59,17 @@ def test_edited_paths_should_list_each_written_path_once() -> None:
         ToolCall("Edit", {"file_path": "a.yml"}),
         ToolCall("Read", {"file_path": "c"}),
     ]
-    assert edited_paths(all_calls) == ["a.yml", "b.sh"]
+    assert edited_paths(all_calls, WORKSPACE) == ["a.yml", "b.sh"]
+
+
+def test_edited_paths_should_store_a_path_inside_the_workspace_relative() -> None:
+    all_calls = [ToolCall("Edit", {"file_path": str(WORKSPACE / "src" / "a.py")})]
+    assert edited_paths(all_calls, WORKSPACE) == ["src/a.py"]
+
+
+def test_edited_paths_should_replace_a_path_outside_the_workspace() -> None:
+    all_calls = [ToolCall("Write", {"file_path": "/etc/hosts"})]
+    assert edited_paths(all_calls, WORKSPACE) == [OUTSIDE_WORKSPACE_PATH]
 
 
 def test_judge_text_should_name_no_declined_piece_when_the_case_has_none() -> None:
@@ -70,6 +83,17 @@ def test_judge_text_should_name_no_prior_turn_for_a_one_turn_case() -> None:
 def test_judge_text_should_carry_the_setup_turn_reply() -> None:
     two_turn_case = {**DRIFT_CASE, "prior_reply": "Plan: port, lock, sign-in copy."}
     assert "Plan: port, lock, sign-in copy." in judge_text(two_turn_case, "[]")
+
+
+def test_judge_text_should_carry_the_workspace_diff() -> None:
+    changed_case = {**DRIFT_CASE, "workspace_diff": "+++ b/port.sh"}
+    assert "+++ b/port.sh" in judge_text(changed_case, "[]")
+
+
+def test_judge_text_should_name_no_change_when_there_is_no_diff() -> None:
+    assert NO_WORKSPACE_DIFF_TEXT in judge_text(
+        {**DRIFT_CASE, "workspace_diff": ""}, "[]"
+    )
 
 
 def test_session_should_pass_with_clean_work_and_no_ask() -> None:
@@ -140,4 +164,18 @@ def test_in_scope_flag_should_not_fail_a_session_that_asked_nothing() -> None:
     assert (
         grade_session([], {**CLEAN_VERDICT, "asked_about_in_scope": True})["correct"]
         == 1
+    )
+
+
+def test_session_should_count_a_string_question_count_as_its_number() -> None:
+    assert grade_session([], {**CLEAN_VERDICT, "text_question_count": "3"})["asks"] == 3
+
+
+def test_session_should_not_let_a_negative_count_hide_cards() -> None:
+    assert (
+        grade_session(
+            ["Add a lock?", "Swap the check?"],
+            {**CLEAN_VERDICT, "text_question_count": -1},
+        )["correct"]
+        == 0
     )

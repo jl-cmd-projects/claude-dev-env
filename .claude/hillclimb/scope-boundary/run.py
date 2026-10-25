@@ -13,8 +13,8 @@ loads project and local settings only, edits files without a prompt, and has
 one extra tool, ``request_decision``, a stub that stands in for a decision
 card. A judge model reads each transcript against the case's scope labels.
 Rows land in ``<variant>/results.jsonl`` as each case finishes, tagged with a
-run digest over the fixture, the installed files, the settings and the
-harness source, so a rerun skips every (case, rep) already scored.
+run digest over the fixture, the installed files, the settings, each
+case's id, prompt and setup turn, and the harness source, so a rerun skips every (case, rep) already scored.
 """
 
 import argparse
@@ -44,6 +44,7 @@ from rules_eval_support.judge import run_judge
 from rules_eval_support.launch import launch_words
 from scope_eval_support import grading
 from scope_eval_support.config.constants import (
+    CASES_DIGEST_FIELD,
     CASES_FILE,
     DEFAULT_EFFORT,
     DEFAULT_MAX_TURNS,
@@ -54,14 +55,13 @@ from scope_eval_support.config.constants import (
     ERRORS_FILE_NAME,
     FAILURE_JUDGE,
     FLOW_ROOT,
-    LATENCY_DECIMALS,
     PRIOR_REPLY_FIELD,
     RESULTS_FILE_NAME,
     SESSION_ID_FIELD,
     STATE_FILE,
-    STATUS_OK,
     TRACES_DIRECTORY_NAME,
     USAGE_ERROR_EXIT_CODE,
+    WORKSPACE_DIFF_FIELD,
 )
 from scope_eval_support.grading import (
     decision_questions,
@@ -69,16 +69,21 @@ from scope_eval_support.grading import (
     grade_session,
     judge_text,
 )
+from scope_eval_support.scoring import scored_row
 from scope_eval_support.summary import summary
 from scope_eval_support.workspace import (
+    cases_digest,
+    decision_stub_failure,
     fixture_bytes,
     prepare_workspace,
     scope_words,
+    starting_commit,
+    workspace_diff,
     write_mcp_config,
 )
 from session_eval_support import session
 from session_eval_support.config.constants import RUN_DIGEST_FIELD
-from session_eval_support.grading import ToolCall, tool_calls
+from session_eval_support.grading import tool_calls
 from session_eval_support.rows import (
     append_row,
     failure_row,
@@ -95,7 +100,6 @@ from session_eval_support.session import (
     installed_files,
     remove_workspace,
     run_digest,
-    served_models,
     trace_turns,
     unscorable,
     write_trace,
@@ -134,8 +138,19 @@ class RunPlan:
     mcp_config_path: Path
 
 
+def _harness_paths() -> list[Path]:
+    return harness_sources(
+        Path(grading.__file__).parent,
+        Path(session.__file__).parent,
+        Path(rules_judge.__file__).parent,
+        Path(__file__),
+    )
+
+
 def _plan(
-    arguments: argparse.Namespace, variant_by_field: dict[str, object]
+    arguments: argparse.Namespace,
+    variant_by_field: dict[str, object],
+    all_file_cases: list[dict[str, str]],
 ) -> RunPlan:
     bytes_by_target = installed_files(
         [tuple(each_pair) for each_pair in variant_by_field["install"]]
@@ -143,16 +158,14 @@ def _plan(
     settings = SessionSettings(
         arguments.model, arguments.effort, arguments.max_turns, arguments.timeout_s
     )
-    all_harness_paths = harness_sources(
-        Path(grading.__file__).parent,
-        Path(session.__file__).parent,
-        Path(rules_judge.__file__),
-        Path(__file__),
-    )
     digest = run_digest(
         {**bytes_by_target, **fixture_bytes()},
-        {**asdict(settings), "direct": arguments.direct},
-        all_harness_paths,
+        {
+            **asdict(settings),
+            "direct": arguments.direct,
+            CASES_DIGEST_FIELD: cases_digest(all_file_cases),
+        },
+        _harness_paths(),
     )
     variant_directory = FLOW_ROOT / arguments.variant
     (variant_directory / TRACES_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
@@ -218,49 +231,8 @@ def _judge(
         "judge_model": JUDGE_MODEL,
         "judge_usage": judge_event.get("usage"),
         "judge_verdict": verdict,
-    }
-
-
-def _row_meta(
-    all_calls: list[ToolCall],
-    final_by_field: dict[str, object],
-    plan: RunPlan,
-    meta_by_field: dict[str, object],
-) -> dict[str, object]:
-    return {
-        "questions": decision_questions(all_calls),
-        "edited_paths": edited_paths(all_calls),
-        "num_turns": final_by_field.get("num_turns"),
-        "effort": plan.settings.effort,
-        **meta_by_field,
-    }
-
-
-def _scored_row(
-    case_by_field: dict[str, str],
-    rep: int,
-    session_run: SessionRun,
-    plan: RunPlan,
-    grade_by_metric: dict[str, int],
-    meta_by_field: dict[str, object],
-) -> dict[str, object]:
-    final_by_field = final_event(session_run.all_events) or {}
-    all_calls = tool_calls(session_run.all_events)
-    return {
-        "prompt_id": case_by_field["id"],
-        "rep": rep,
-        "prompt": case_by_field["prompt"],
-        "tags": [case_by_field["group"], case_by_field["source"]],
-        "stop_reason": final_by_field.get("subtype"),
-        "status": STATUS_OK,
-        "grade": grade_by_metric,
-        "model": plan.settings.model,
-        "served_models": served_models(final_by_field),
-        "usage": final_by_field.get("usage"),
-        "cost_usd": final_by_field.get("total_cost_usd"),
-        "latency_s": round(session_run.latency_seconds, LATENCY_DECIMALS),
-        "tool_calls": len(all_calls),
-        "meta": _row_meta(all_calls, final_by_field, plan, meta_by_field),
+        PRIOR_REPLY_FIELD: case_by_field[PRIOR_REPLY_FIELD],
+        WORKSPACE_DIFF_FIELD: case_by_field[WORKSPACE_DIFF_FIELD],
     }
 
 
@@ -269,28 +241,33 @@ def _record_failure(plan: RunPlan, failure_by_field: dict[str, object]) -> None:
 
 
 def _judge_and_record(
-    case_by_field: dict[str, str], rep: int, session_run: SessionRun, plan: RunPlan
+    case_by_field: dict[str, str],
+    rep: int,
+    session_run: SessionRun,
+    plan: RunPlan,
+    workspace: Path,
 ) -> None:
     verdict, judge_record = _judge(case_by_field, session_run, plan.is_direct)
-    judge_record = {**judge_record, PRIOR_REPLY_FIELD: case_by_field[PRIOR_REPLY_FIELD]}
     if verdict is None:
         _record_failure(
             plan,
             failure_row(case_by_field, rep, plan.digest, FAILURE_JUDGE, judge_record),
         )
         return
-    grade_by_metric = grade_session(
-        decision_questions(tool_calls(session_run.all_events)), verdict
-    )
+    write_trace(case_by_field, rep, plan.variant_directory, session_run)
+    all_calls = tool_calls(session_run.all_events)
+    meta_by_field = {**judge_record, RUN_DIGEST_FIELD: plan.digest}
+    meta_by_field["edited_paths"] = edited_paths(all_calls, workspace)
+    grade_by_metric = grade_session(decision_questions(all_calls), verdict)
     append_row(
         plan.variant_directory / RESULTS_FILE_NAME,
-        _scored_row(
+        scored_row(
             case_by_field,
             rep,
             session_run,
-            plan,
+            plan.settings,
             grade_by_metric,
-            {**judge_record, RUN_DIGEST_FIELD: plan.digest},
+            meta_by_field,
         ),
     )
 
@@ -298,17 +275,23 @@ def _judge_and_record(
 def _run_one(case_by_field: dict[str, str], rep: int, plan: RunPlan) -> None:
     workspace = prepare_workspace(plan.bytes_by_target)
     try:
+        from_commit = starting_commit(workspace)
         session_run, prior_reply = _run_turns(workspace, case_by_field, plan)
+        final_diff = workspace_diff(workspace, from_commit)
     finally:
         remove_workspace(workspace)
-    failure = unscorable(session_run, plan.settings)
+    failure = unscorable(session_run, plan.settings) or decision_stub_failure(
+        session_run.all_events
+    )
     if failure is not None:
         _record_failure(plan, failure_row(case_by_field, rep, plan.digest, *failure))
         return
-    write_trace(case_by_field, rep, plan.variant_directory, session_run)
-    _judge_and_record(
-        {**case_by_field, PRIOR_REPLY_FIELD: prior_reply}, rep, session_run, plan
-    )
+    judged_case = {
+        **case_by_field,
+        PRIOR_REPLY_FIELD: prior_reply,
+        WORKSPACE_DIFF_FIELD: final_diff,
+    }
+    _judge_and_record(judged_case, rep, session_run, plan, workspace)
 
 
 def _wait_for_all(all_futures: list[Future[None]]) -> None:
@@ -380,7 +363,11 @@ def main() -> int:
     except ValueError as error:
         logger.error("%s", error)
         return USAGE_ERROR_EXIT_CODE
-    plan = _plan(arguments, variant_by_field)
+    plan = _plan(
+        arguments,
+        variant_by_field,
+        json.loads(CASES_FILE.read_text(encoding="utf-8")),
+    )
     all_case_ids = {each_case["id"] for each_case in all_cases}
     all_pending = _pending_pairs(all_cases, arguments.reps, plan, all_case_ids)
     _run_pending(all_pending, plan, arguments.parallel)
