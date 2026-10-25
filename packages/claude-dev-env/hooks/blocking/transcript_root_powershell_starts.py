@@ -6,7 +6,7 @@ call. ``-Path`` and ``-LiteralPath`` values and positional tokens are paths,
 split on commas. An option off the switch list takes the next token as its
 value unless the next token is an option, so ``-ErrorAction 0`` never reads
 as a path and ``-Verbose -Recurse`` still recurses. A switch abbreviation such
-as ``-Recu`` reads as its switch. ``-Depth`` decides
+as ``-Recu`` or ``-Dep`` reads as its full name. ``-Depth`` decides
 recursion when given, ``0`` meaning one level; otherwise ``-Recurse`` does.
 """
 
@@ -48,15 +48,15 @@ def _split_path_list(path_text: str) -> list[str]:
 
 
 def _canonical_option_name(option_name: str) -> str:
-    """Return the switch an abbreviation such as ``-recu`` names, or the name unchanged."""
+    """Return the option an abbreviation such as ``-recu`` or ``-dep`` names, or the name unchanged."""
     if len(option_name) < search_rules.POWERSHELL_MINIMUM_ABBREVIATION_LENGTH:
         return option_name
-    all_matching_switches = [
-        each_switch
-        for each_switch in search_rules.ALL_POWERSHELL_SWITCH_OPTIONS
-        if each_switch.startswith(option_name)
+    all_matching_options = [
+        each_option
+        for each_option in search_rules.ALL_POWERSHELL_ABBREVIABLE_OPTIONS
+        if each_option.startswith(option_name)
     ]
-    return min(all_matching_switches, key=len) if all_matching_switches else option_name
+    return min(all_matching_options, key=len) if all_matching_options else option_name
 
 
 def _powershell_arguments(all_arguments: list[str]) -> tuple[list[str], list[OptionValue]]:

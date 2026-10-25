@@ -56,3 +56,7 @@ def test_reads_a_switch_abbreviation_as_its_switch() -> None:
 
 def test_reads_a_directory_abbreviation_without_taking_the_path() -> None:
     assert powershell_listing_search_starts(["-Dire", "x"]) == [SearchStart("x", False)]
+
+
+def test_reads_a_depth_abbreviation_as_depth() -> None:
+    assert powershell_listing_search_starts(["x", "-Dep", "2"]) == [SearchStart("x", True)]
