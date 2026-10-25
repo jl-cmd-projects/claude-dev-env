@@ -75,17 +75,6 @@ def _named_skill_blocks(
             yield each_block
 
 
-def _invokes_skill(
-    all_entry_fields: dict[str, object],
-    skill_names: Collection[str],
-    slash_command_markers: Collection[str],
-) -> bool:
-    command_text = _user_command_text(all_entry_fields)
-    if command_text is not None:
-        return any(marker in command_text for marker in slash_command_markers)
-    return next(_named_skill_inputs(all_entry_fields, skill_names), None) is not None
-
-
 def _first_word_is(text: object, argument_word: str) -> bool:
     return isinstance(text, str) and [
         each_word.casefold() for each_word in text.split()[:1]

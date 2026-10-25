@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -36,12 +37,15 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_COMMIT_VALUED_SHORT_FLAGS,
     ALL_DIRECTORY_CHANGE_COMMANDS,
     ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS,
+    ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES,
     ALL_DIRECTORY_CHANGE_TARGET_OPTIONS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
     ALL_GIT_EXECUTABLES,
+    ALL_GLOB_MARKS,
     ALL_PATHSPEC_CHANGE_ARGUMENTS,
+    ALL_PATHSPEC_FILE_ARGUMENTS,
     ALL_SLASH_COMMAND_MARKERS,
     ALL_STAGED_PATHS_ARGUMENTS,
     ALL_TEST_DIRECTORY_NAMES,
@@ -94,8 +98,14 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
             skips_value = False
             all_targets.append(each_word)
             continue
-        if each_word.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
-            skips_value = True
+        option_name, colon, attached_value = each_word.partition(":")
+        if option_name.lower() in ALL_DIRECTORY_CHANGE_TARGET_OPTIONS:
+            if colon:
+                all_targets.append(attached_value)
+            else:
+                skips_value = True
+            continue
+        if each_word.lower() in ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES:
             continue
         if each_word.lower() in ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS:
             skips_other_value = True
@@ -112,7 +122,13 @@ def _changed_directory(all_words: list[str], directory: Path) -> Path:
         each_mark in all_targets[0] for each_mark in ALL_UNEXPANDED_PATH_MARKS
     ):
         return directory
-    return directory / Path(all_targets[0]).expanduser()
+    target = directory / Path(all_targets[0]).expanduser()
+    if any(each_mark in all_targets[0] for each_mark in ALL_GLOB_MARKS):
+        all_matches = sorted(
+            Path(target.anchor).glob(str(target.relative_to(target.anchor)))
+        )
+        target = all_matches[0] if all_matches else directory
+    return Path(os.path.normpath(target))
 
 
 def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
@@ -126,7 +142,7 @@ def _git_calls(command: str, base_directory: Path) -> list[GitCall]:
                     _changed_directory(each_words, each_directory)
                     for each_directory in all_base_directories
                 )
-                if each_changed not in all_base_directories and each_changed.is_dir()
+                if each_changed not in all_base_directories
             )
             continue
         if file_name(each_words[0]) not in ALL_GIT_EXECUTABLES:
@@ -241,13 +257,14 @@ def _committed_paths(
     all_paths = set(staged_paths)
     all_commit_pathspecs = _commit_pathspecs(commit.all_arguments)
     if all_commit_pathspecs:
-        all_paths.update(
-            _git_lines(
-                commit.directory,
-                (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs),
-            )
-            or []
+        pathspec_paths = _git_lines(
+            commit.directory, (*ALL_PATHSPEC_CHANGE_ARGUMENTS, *all_commit_pathspecs)
         )
+        if pathspec_paths is None:
+            pathspec_paths = _git_lines(
+                commit.directory, (*ALL_PATHSPEC_FILE_ARGUMENTS, *all_commit_pathspecs)
+            )
+        all_paths.update(pathspec_paths or [])
     if _commits_all_tracked_changes(commit.all_arguments):
         all_paths.update(
             _git_lines(commit.directory, ALL_TRACKED_CHANGE_ARGUMENTS) or []

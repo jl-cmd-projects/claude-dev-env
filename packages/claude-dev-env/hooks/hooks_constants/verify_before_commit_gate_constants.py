@@ -23,6 +23,7 @@ ALL_TOP_LEVEL_ARGUMENTS = ("rev-parse", "--show-toplevel")
 ALL_STAGED_PATHS_ARGUMENTS = ("diff", "--cached", "--name-only")
 ALL_TRACKED_CHANGE_ARGUMENTS = ("diff", "--name-only")
 ALL_PATHSPEC_CHANGE_ARGUMENTS = ("diff", "--name-only", "HEAD", "--")
+ALL_PATHSPEC_FILE_ARGUMENTS = ("ls-files", "--cached", "--others", "--exclude-standard", "--")
 ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
     {
         "--author",
@@ -43,9 +44,11 @@ ALL_DIRECTORY_CHANGE_COMMANDS = frozenset(
 )
 ALL_DIRECTORY_CHANGE_TARGET_OPTIONS = frozenset({"-path", "-literalpath"})
 ALL_DIRECTORY_CHANGE_OTHER_VALUED_OPTIONS = frozenset({"-stackname"})
+ALL_DIRECTORY_CHANGE_SKIPPED_SWITCHES = frozenset({"/d"})
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"
 PREVIOUS_DIRECTORY_ARGUMENT = "-"
 ALL_UNEXPANDED_PATH_MARKS = ("$", "`", "%")
+ALL_GLOB_MARKS = ("*", "?", "[")
 ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "ls-files",
     "--modified",

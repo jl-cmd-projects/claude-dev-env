@@ -431,6 +431,38 @@ def test_should_resolve_a_relative_cd_after_a_cd_back(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
+@pytest.mark.parametrize(
+    ("command_template", "tool_name"),
+    [
+        ('Set-Location -Path:"{repository}"; git commit -am x', "PowerShell"),
+        ('cd /d "{repository}" && git commit -am x', "Bash"),
+        ('cd "{parent}"/rep* && git commit -am x', "Bash"),
+    ],
+)
+def test_should_follow_a_cd_target_in_each_spelling(
+    repository: Path, tmp_path: Path, command_template: str, tool_name: str
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    command = command_template.format(repository=repository, parent=repository.parent)
+    assert _is_denied(
+        _payload(command, tmp_path, _unverified(tmp_path), tool_name=tool_name)
+    )
+
+
+def test_should_read_a_pathspec_commit_on_an_unborn_branch(tmp_path: Path) -> None:
+    fresh_repository = tmp_path / "fresh"
+    fresh_repository.mkdir()
+    _git(fresh_repository, "init", "-q")
+    (fresh_repository / ".agents" / "skills" / "verify").mkdir(parents=True)
+    (fresh_repository / ".agents" / "skills" / "verify" / "SKILL.md").write_text(
+        "verify\n", encoding="utf-8"
+    )
+    (fresh_repository / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    assert _is_denied(
+        _payload("git commit app.py -m x", fresh_repository, _unverified(tmp_path))
+    )
+
+
 def test_should_skip_a_push_location_stack_name(
     repository: Path, tmp_path: Path
 ) -> None:
