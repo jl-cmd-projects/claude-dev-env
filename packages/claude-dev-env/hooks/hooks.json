@@ -527,16 +527,6 @@
         ]
       },
       {
-        "matcher": "Agent|Task|TeamCreate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/workflow/investigation_tracker_reset.py",
-            "timeout": 30
-          }
-        ]
-      },
-      {
         "matcher": "Bash|PowerShell",
         "hooks": [
           {
