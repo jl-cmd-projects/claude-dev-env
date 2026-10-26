@@ -16,7 +16,7 @@ from policy_lint import adapters
 from policy_lint.model import ContentOrigin, Diagnostic, Document
 from policy_lint.selection import _changed_lines
 
-FUNCTION_LENGTH_MESSAGE_FRAGMENT = "exceeds the length smell threshold"
+FUNCTION_LENGTH_MESSAGE_FRAGMENT = "exceeds blocking threshold"
 PRODUCTION_RELATIVE_PATH = "packages/claude-dev-env/scripts/sample_long_module.py"
 OVER_THRESHOLD_BODY_LINE_COUNT = 70
 UNDER_THRESHOLD_BODY_LINE_COUNT = 40

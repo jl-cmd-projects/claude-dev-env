@@ -335,7 +335,7 @@ ALL_DIFF_CHANGED_OPCODE_TAGS: tuple[str, str] = ("replace", "insert")
 
 FUNCTION_LENGTH_BLOCKING_THRESHOLD: int = 60
 FUNCTION_LENGTH_BLOCKING_MESSAGE_SUFFIX: str = (
-    "exceeds the length smell threshold - split into helpers (small functions: Robert C. "
+    "exceeds blocking threshold - split into helpers (small functions: Robert C. "
     "Martin, Clean Code Ch. 3 'Functions'; Google Python Style Guide ~40-line "
     "function review hint)"
 )

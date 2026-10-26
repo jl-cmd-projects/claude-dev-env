@@ -30,7 +30,7 @@ ALL_BUNDLING_RULE_IDS: frozenset[str] = frozenset({"code-rules", "validators"})
 
 ALL_CHECK_CATALOG_ENTRIES: tuple[CheckCatalogEntry, ...] = (
     CheckCatalogEntry(
-        "exceeds the length smell threshold - split into helpers", "function-length"
+        "exceeds blocking threshold - split into helpers", "function-length"
     ),
     CheckCatalogEntry(" - consider moving to config/", "function-local-constant"),
     CheckCatalogEntry(" - move to config/", "constant-outside-config"),

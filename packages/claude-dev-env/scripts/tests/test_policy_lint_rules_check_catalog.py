@@ -22,10 +22,16 @@ _HOOKS_DIRECTORY = Path(__file__).resolve().parents[2] / "hooks"
 _TEST_FILE_PREFIX = "test_"
 _PYTHON_GLOB = "*.py"
 _SOURCE_ENCODING = "utf-8"
+_RULE_ID_BY_SIZE_CHECK_NAME = {
+    "function-length": "code-rules",
+    "file-length": "validators",
+    "function-line-cap": "validators",
+    "nesting-depth": "validators",
+}
 
 ALL_MESSAGE_SAMPLES: tuple[tuple[str, str], ...] = (
     (
-        "Line 20: Function 'run' is 74 lines - exceeds the length smell threshold - "
+        "Line 20: Function 'run' is 74 lines - exceeds blocking threshold - "
         "split into helpers",
         "function-length",
     ),
@@ -173,17 +179,20 @@ def test_a_paired_test_check_reports_as_a_warning(check_name: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("rule_id", "sample_message"),
-    (
-        ("code-rules", "Line 20: Function 'run' is 74 lines - exceeds the length smell threshold - split into helpers"),
-        ("validators", "src/app.py:1: File is 412 lines (max 400) - consider splitting"),
-        ("validators", "src/app.py:4: Function 'run' is 37 lines (max 30)"),
-        ("validators", "src/app.py:9: Function 'run' has nesting depth 3 (max 2)"),
+    ("sample_message", "check_name"),
+    tuple(
+        each_sample
+        for each_sample in ALL_MESSAGE_SAMPLES
+        if each_sample[1] in _RULE_ID_BY_SIZE_CHECK_NAME
     ),
 )
-def test_a_size_check_reports_as_a_warning(rule_id: str, sample_message: str) -> None:
+def test_a_size_check_reports_as_a_warning(
+    sample_message: str, check_name: str
+) -> None:
+    rule_id = _RULE_ID_BY_SIZE_CHECK_NAME[check_name]
     check_id = check_id_for_message(rule_id, sample_message)
 
+    assert check_id == f"{rule_id}/{check_name}"
     assert severity_for_check_id(check_id) is Severity.WARNING
 
 

@@ -72,7 +72,7 @@ def test_should_block_at_sixty_lines() -> None:
     source = _build_function_source("oversized_helper", body_line_count=body_line_count)
     issues = check_function_length(source, PRODUCTION_FILE_PATH)
     assert any("oversized_helper" in each_issue for each_issue in issues)
-    assert any("smell threshold" in each_issue for each_issue in issues)
+    assert any("blocking" in each_issue.lower() for each_issue in issues)
 
 
 def test_should_not_block_at_fifty_nine_line_span() -> None:
