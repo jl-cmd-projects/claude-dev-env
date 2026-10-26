@@ -34,7 +34,7 @@ Preconditions:
 
 ## Gotchas
 
-- The nested checkout runner forwards child denials and asks. It drops child allow decisions so a child cannot widen permission.
+- The nested checkout runner forwards child denials and asks, a denial ahead of an ask. It drops child allow decisions so a child cannot widen permission.
 - Worktree prefetch applies to fresh creation and exits zero after a failed fetch.
 - Session-end cleanup has no adjacent behavior test. Its direct probe calls `purge_old_entries` with an isolated directory.
 - The session edit tracker survives a compact or resume. Cleanup targets the current session only.

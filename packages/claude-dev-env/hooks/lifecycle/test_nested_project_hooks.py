@@ -244,7 +244,7 @@ def test_should_carry_child_deny_reasons_into_a_blocking_exit(
     assert completed_process.stderr == "no tests ran\n\nno link"
 
 
-def test_should_keep_an_earlier_child_ask_ahead_of_a_later_deny(
+def test_should_forward_a_later_child_deny_ahead_of_an_earlier_ask(
     tmp_path: pathlib.Path,
 ) -> None:
     ask_output = {
@@ -267,7 +267,7 @@ def test_should_keep_an_earlier_child_ask_ahead_of_a_later_deny(
 
     completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
 
-    assert json.loads(completed_process.stdout) == ask_output
+    assert json.loads(completed_process.stdout) == _deny_output("no link")
 
 
 def test_should_not_forward_a_child_allow_decision(tmp_path: pathlib.Path) -> None:

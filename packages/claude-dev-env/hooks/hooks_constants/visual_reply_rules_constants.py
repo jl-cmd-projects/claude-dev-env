@@ -66,6 +66,7 @@ RESULT_TEXT_SEPARATOR = "\n"
 
 ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'
+VIOLATION_LINE_SEPARATOR = "\n"
 NO_VISUAL_MESSAGE = "This reply has {sentence_count} sentences and no visual this turn. {reminder}"
 SECOND_REPLY_MESSAGE = "A reply already went out this turn. {reminder}"
 NOT_FLOWCHART_MESSAGE = "This widget is not a flowchart. {reminder}"

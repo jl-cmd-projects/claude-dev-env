@@ -130,7 +130,6 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_EVIDENCE_PATTERNS,
     ALL_QUESTION_CARD_PROSE_KEYS,
     ALL_QUESTION_OPTION_PROSE_KEYS,
-    ALL_TOLERATED_CHECK_ERRORS,
     ALLOW_EXIT_CODE,
     BANNED_WORD_MESSAGE,
     BANNED_WORD_PART_SEPARATOR,
@@ -212,21 +211,35 @@ def sentence_word_lists(reply_text: str) -> list[list[str]]:
 
 
 def joined_violations(all_violations: Iterable[str | None]) -> str | None:
-    """Join every violation found into one deny reason.
+    """Join every violation found into one deny reason, one violation per line.
 
     ::
 
         []                         -> None
         ["Too long."]              -> "Too long."
-        ["Too long.", "Em dash."]  -> "1. Too long." and "2. Em dash." on two lines
+        ["Too long.", "Em dash."]  -> "Too long." and "Em dash." on two lines
 
-    A repeated violation appears once, and None entries are skipped.
+    None entries are skipped. A joined reason can join again at an outer
+    level and stays one violation per line, so ``numbered_violations``
+    numbers the whole reason once.
     """
-    all_distinct = list(dict.fromkeys(each_violation for each_violation in all_violations if each_violation))
-    if len(all_distinct) <= 1:
-        return all_distinct[0] if all_distinct else None
+    all_found = [each_violation for each_violation in all_violations if each_violation]
+    return FINDING_SEPARATOR.join(all_found) if all_found else None
+
+
+def numbered_violations(violation: str) -> str:
+    """Number each line of a joined deny reason that holds several violations.
+
+    ::
+
+        "Too long."             -> "Too long."
+        "Too long.\nEm dash."   -> "1. Too long." and "2. Em dash." on two lines
+    """
+    all_lines = violation.split(FINDING_SEPARATOR)
+    if len(all_lines) == 1:
+        return violation
     return FINDING_SEPARATOR.join(
-        f"{each_position}. {each_violation}" for each_position, each_violation in enumerate(all_distinct, start=1)
+        f"{each_position}. {each_line}" for each_position, each_line in enumerate(all_lines, start=1)
     )
 
 
@@ -234,8 +247,9 @@ def collected_violations(all_checks: Iterable[Callable[[], str | None]]) -> str 
     """Run every check in order and join each violation it reports.
 
     A check that raises ends the run. With nothing found yet the error
-    propagates, which lets the call through as an early-return gate did;
-    after a finding, the findings so far stand, as the first one did.
+    propagates, which lets the call through as an early-return gate did.
+    After a finding, the findings so far stand, as the first one did when
+    the gate never ran the later checks.
     """
     all_violations: list[str | None] = []
     for each_check in all_checks:
@@ -249,7 +263,7 @@ def collected_violations(all_checks: Iterable[Callable[[], str | None]]) -> str 
 def _checked_violation(check: Callable[[], str | None], has_finding: bool) -> tuple[bool, str | None]:
     try:
         return False, check()
-    except ALL_TOLERATED_CHECK_ERRORS:
+    except Exception:
         if has_finding:
             return True, None
         raise
@@ -542,12 +556,15 @@ def tool_violation(
         if isinstance(tool_name, str) and mode_rules is not None
         else None
     )
-    checked = _text_violation(tool_name, all_tool_input, transcript_path, mode_rules)
     if anchor_violation is None:
-        return checked
+        return _text_violation(tool_name, all_tool_input, transcript_path, mode_rules)
+    try:
+        checked = _text_violation(tool_name, all_tool_input, transcript_path, mode_rules)
+    except Exception:
+        checked = None
     if checked is None:
         return anchor_violation, str(all_tool_input)
-    return joined_violations([anchor_violation, checked[0]]) or anchor_violation, checked[1]
+    return FINDING_SEPARATOR.join([anchor_violation, checked[0]]), checked[1]
 
 
 def _text_violation(
@@ -675,7 +692,7 @@ def github_comment_violation(tool_name: object, all_tool_input: dict[str, object
     if not all_over_long:
         return None
     return (
-        joined_violations(each_violation for each_violation, _ in all_over_long) or all_over_long[0][0],
+        FINDING_SEPARATOR.join(each_violation for each_violation, _ in all_over_long),
         CARD_TEXT_SEPARATOR.join(each_text for _, each_text in all_over_long),
     )
 
@@ -707,7 +724,7 @@ def main() -> int:
         write_flowchart_advice(tool_name, tool_input)
         return ALLOW_EXIT_CODE
     violation, reply_text = checked
-    block_reason = violation + RETRY_INSTRUCTION + FIX_EVERY_ITEM_INSTRUCTION
+    block_reason = numbered_violations(violation) + RETRY_INSTRUCTION + FIX_EVERY_ITEM_INSTRUCTION
     log_hook_block(
         Path(__file__).name,
         HOOK_EVENT_NAME,

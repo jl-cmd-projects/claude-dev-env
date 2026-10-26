@@ -13,7 +13,7 @@ hooks, and tool guards then never run. This hook runs them::
 
 Each child hook receives the same stdin payload, runs inside its checkout, and
 keeps its own matcher and timeout. A child ``exit 2`` blocks the tool call and a
-child ``deny`` or ``ask`` decision passes through, a ``deny`` carrying every
+child ``deny``, else a child ``ask``, passes through, a ``deny`` carrying every
 refusing child's reason; a child ``allow`` is dropped,
 so no child widens permissions for the session. The ``additionalContext`` of
 every child, at SessionStart, UserPromptSubmit, and PreToolUse, joins into one
@@ -57,7 +57,6 @@ from hooks_constants.nested_project_hooks_constants import (
     MATCHER_KEY,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
-    REASON_SECTION_SEPARATOR,
     SESSION_START_EVENT,
     SETTINGS_DIRECTORY_NAME,
     SETTINGS_ENCODING,
@@ -293,7 +292,7 @@ def _deny_reason(all_output_fields: dict[str, object]) -> str:
 
 
 def _joined_reasons(all_reasons: Iterable[str]) -> str:
-    return REASON_SECTION_SEPARATOR.join(dict.fromkeys(_non_empty_sections(all_reasons)))
+    return CONTEXT_SECTION_SEPARATOR.join(dict.fromkeys(_non_empty_sections(all_reasons)))
 
 
 def pre_tool_use_verdict(
@@ -306,7 +305,7 @@ def pre_tool_use_verdict(
 
         alpha exits 2 "no tests", beta denies "no link"  -> exit 2, both reasons
         alpha denies "no link", beta denies "too long"   -> deny, both reasons
-        alpha asks, beta denies "no link"                -> alpha's ask, as before
+        alpha asks, beta denies "no link"                -> deny, "no link"
 
     Args:
         all_results: The completed nested hooks, in run order.
@@ -314,10 +313,10 @@ def pre_tool_use_verdict(
     Returns:
         A blocking exit when any child exits 2, its stderr holding every
         exit-2 child's stderr and every child ``deny`` reason; else the first
-        child ``deny`` or ``ask`` output, a ``deny`` reason holding every
-        child ``deny`` reason, carrying one copy of each distinct child
-        ``additionalContext``; else a pass carrying that context, else an
-        empty pass.
+        child ``deny`` output, its reason holding every child ``deny``
+        reason, or with no ``deny`` the first child ``ask`` output, either
+        carrying one copy of each distinct child ``additionalContext``; else
+        a pass carrying that context, else an empty pass.
     """
     all_parsed_outputs = [
         _parsed_hook_output(each_result.stdout)
@@ -340,17 +339,17 @@ def pre_tool_use_verdict(
     )
     all_distinct_context_sections = list(dict.fromkeys(all_context_sections))
     joined_context = CONTEXT_SECTION_SEPARATOR.join(all_distinct_context_sections)
-    for each_parsed_output in all_parsed_outputs:
-        decision = _permission_decision(each_parsed_output)
-        if decision in ALL_FORWARDED_PERMISSION_DECISIONS:
+    for each_decision in ALL_FORWARDED_PERMISSION_DECISIONS:
+        for each_parsed_output in all_parsed_outputs:
+            if _permission_decision(each_parsed_output) != each_decision:
+                continue
             decision_output = dict(each_parsed_output)
             decision_specific_output = dict(decision_output[HOOK_SPECIFIC_OUTPUT_KEY])
             if joined_context:
                 decision_specific_output[ADDITIONAL_CONTEXT_KEY] = joined_context
-            if decision == DENY_PERMISSION_DECISION:
-                decision_specific_output[PERMISSION_DECISION_REASON_KEY] = _joined_reasons(
-                    all_deny_reasons
-                )
+            joined_deny_reasons = _joined_reasons(all_deny_reasons)
+            if each_decision == DENY_PERMISSION_DECISION and joined_deny_reasons:
+                decision_specific_output[PERMISSION_DECISION_REASON_KEY] = joined_deny_reasons
             decision_output[HOOK_SPECIFIC_OUTPUT_KEY] = decision_specific_output
             return HookVerdict(0, json.dumps(decision_output), "")
     if not joined_context:
