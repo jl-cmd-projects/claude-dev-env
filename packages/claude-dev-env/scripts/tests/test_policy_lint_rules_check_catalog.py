@@ -18,16 +18,11 @@ from policy_lint.config.check_catalog_constants import (
 from policy_lint.model import Diagnostic, Severity
 
 _BUNDLING_RULE_ID = "code-rules"
+_VALIDATORS_RULE_ID = "validators"
 _HOOKS_DIRECTORY = Path(__file__).resolve().parents[2] / "hooks"
 _TEST_FILE_PREFIX = "test_"
 _PYTHON_GLOB = "*.py"
 _SOURCE_ENCODING = "utf-8"
-_RULE_ID_BY_SIZE_CHECK_NAME = {
-    "function-length": "code-rules",
-    "file-length": "validators",
-    "function-line-cap": "validators",
-    "nesting-depth": "validators",
-}
 
 ALL_MESSAGE_SAMPLES: tuple[tuple[str, str], ...] = (
     (
@@ -183,16 +178,15 @@ def test_a_paired_test_check_reports_as_a_warning(check_name: str) -> None:
     tuple(
         each_sample
         for each_sample in ALL_MESSAGE_SAMPLES
-        if each_sample[1] in _RULE_ID_BY_SIZE_CHECK_NAME
+        if each_sample[1] in ("file-length", "function-line-cap", "nesting-depth")
     ),
 )
-def test_a_size_check_reports_as_a_warning(
+def test_a_validator_smell_reports_as_a_warning(
     sample_message: str, check_name: str
 ) -> None:
-    rule_id = _RULE_ID_BY_SIZE_CHECK_NAME[check_name]
-    check_id = check_id_for_message(rule_id, sample_message)
+    check_id = check_id_for_message(_VALIDATORS_RULE_ID, sample_message)
 
-    assert check_id == f"{rule_id}/{check_name}"
+    assert check_id == f"{_VALIDATORS_RULE_ID}/{check_name}"
     assert severity_for_check_id(check_id) is Severity.WARNING
 
 
