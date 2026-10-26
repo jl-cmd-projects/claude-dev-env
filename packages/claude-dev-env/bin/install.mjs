@@ -50,7 +50,7 @@ import {
     SUBAGENT_MODEL_POLICY_FILE_NAME,
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
-    ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
+    CODEX_NATIVE_ROUTING_MATCHER,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -1315,6 +1315,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/session_title_stop_gate.py',
     'session/issue_tracker_session_starter.py',
     'session/deepen_first_prompt.py',
+    'workflow/investigation_tracker_reset.py',
 ]);
 
 export const MOVED_HOOK_RELATIVE_PATHS = new Set([
@@ -2283,7 +2284,7 @@ function selectCodexNativeHooksConfig(hooksConfig) {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
-                ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
+                ? preToolUseGroups.filter(group => group?.matcher === CODEX_NATIVE_ROUTING_MATCHER)
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
             PostToolUse: selectCodexNativeGroupsByScriptName(

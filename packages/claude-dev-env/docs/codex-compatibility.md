@@ -26,8 +26,8 @@ Run `codex-compat bridge --surface <name> --payload '<json-object>'`. The bridge
 
 The package installer seeds `subagent-model-policy.json` in the agents-home
 `rules/` directory when the file is absent. It registers one `PreToolUse` group
-for `multi_agent_v1__spawn_agent` and one for `Agent|Task` in `$CODEX_HOME/hooks.json`.
-Before adding these groups, the installer removes obsolete package-owned hook
+for `multi_agent_v1__spawn_agent` in `$CODEX_HOME/hooks.json`.
+Before adding this group, the installer removes obsolete package-owned hook
 registrations from every event. Custom hook entries and Codex's enabled or
 disabled hook settings stay unchanged. Claude-only hook groups do not enter the
 Codex file.
