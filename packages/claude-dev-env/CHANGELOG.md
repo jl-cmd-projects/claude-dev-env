@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.106.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.3...claude-dev-env-v8.106.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **lint:** report validator size checks as smells ([#2209](https://github.com/jl-cmd-projects/claude-dev-env/issues/2209)) ([e810826](https://github.com/jl-cmd-projects/claude-dev-env/commit/e8108269f70c4e869c0d9a2c73612c75448a52ab))
+
 ## [8.106.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.2...claude-dev-env-v8.106.3) (2026-10-26)
 
 
