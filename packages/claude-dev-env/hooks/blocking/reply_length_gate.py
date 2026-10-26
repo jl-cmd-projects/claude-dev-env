@@ -83,6 +83,7 @@ import os
 import re
 import shlex
 import sys
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -129,6 +130,7 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_EVIDENCE_PATTERNS,
     ALL_QUESTION_CARD_PROSE_KEYS,
     ALL_QUESTION_OPTION_PROSE_KEYS,
+    ALL_TOLERATED_CHECK_ERRORS,
     ALLOW_EXIT_CODE,
     BANNED_WORD_MESSAGE,
     BANNED_WORD_PART_SEPARATOR,
@@ -155,6 +157,8 @@ from hooks_constants.reply_length_gate_constants import (
     EM_DASH_MESSAGE,
     EM_DASH_PATTERN,
     FENCED_BLOCK_PATTERN,
+    FINDING_SEPARATOR,
+    FIX_EVERY_ITEM_INSTRUCTION,
     ADDITIONAL_CONTEXT_KEY,
     HOOK_EVENT_NAME,
     INLINE_CODE_PATTERN,
@@ -207,27 +211,77 @@ def sentence_word_lists(reply_text: str) -> list[list[str]]:
     return [each_word_list for each_word_list in all_word_lists if each_word_list]
 
 
+def joined_violations(all_violations: Iterable[str | None]) -> str | None:
+    """Join every violation found into one deny reason.
+
+    ::
+
+        []                         -> None
+        ["Too long."]              -> "Too long."
+        ["Too long.", "Em dash."]  -> "1. Too long." and "2. Em dash." on two lines
+
+    A repeated violation appears once, and None entries are skipped.
+    """
+    all_distinct = list(dict.fromkeys(each_violation for each_violation in all_violations if each_violation))
+    if len(all_distinct) <= 1:
+        return all_distinct[0] if all_distinct else None
+    return FINDING_SEPARATOR.join(
+        f"{each_position}. {each_violation}" for each_position, each_violation in enumerate(all_distinct, start=1)
+    )
+
+
+def collected_violations(all_checks: Iterable[Callable[[], str | None]]) -> str | None:
+    """Run every check in order and join each violation it reports.
+
+    A check that raises ends the run. With nothing found yet the error
+    propagates, which lets the call through as an early-return gate did;
+    after a finding, the findings so far stand, as the first one did.
+    """
+    all_violations: list[str | None] = []
+    for each_check in all_checks:
+        is_stopped, violation = _checked_violation(each_check, any(all_violations))
+        if is_stopped:
+            break
+        all_violations.append(violation)
+    return joined_violations(all_violations)
+
+
+def _checked_violation(check: Callable[[], str | None], has_finding: bool) -> tuple[bool, str | None]:
+    try:
+        return False, check()
+    except ALL_TOLERATED_CHECK_ERRORS:
+        if has_finding:
+            return True, None
+        raise
+
+
 def length_violation(reply_text: str) -> str | None:
-    """Return the deny reason for an over-long reply, or None when it fits."""
+    """Return the deny reason for an over-long reply and each over-long sentence, or None when it fits."""
     all_sentences = sentence_word_lists(reply_text)
-    if len(all_sentences) > MAXIMUM_SENTENCE_COUNT:
-        return TOO_MANY_SENTENCES_MESSAGE.format(
-            sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
-        )
-    return long_sentence_violation(reply_text)
+    return joined_violations(
+        [
+            TOO_MANY_SENTENCES_MESSAGE.format(
+                sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
+            )
+            if len(all_sentences) > MAXIMUM_SENTENCE_COUNT
+            else None,
+            long_sentence_violation(reply_text),
+        ]
+    )
 
 
 def long_sentence_violation(prose_text: str) -> str | None:
-    """Return the deny reason for the first sentence over the word limit, or None."""
-    for each_sentence in sentence_word_lists(prose_text):
-        if len(each_sentence) > MAXIMUM_WORDS_PER_SENTENCE:
-            sentence_preview = WORD_SEPARATOR.join(each_sentence[:SENTENCE_PREVIEW_WORD_COUNT])
-            return LONG_SENTENCE_MESSAGE.format(
-                word_count=len(each_sentence),
-                word_limit=MAXIMUM_WORDS_PER_SENTENCE,
-                sentence_preview=sentence_preview + SENTENCE_PREVIEW_SUFFIX,
-            )
-    return None
+    """Return the deny reason for each sentence over the word limit, or None."""
+    return joined_violations(
+        LONG_SENTENCE_MESSAGE.format(
+            word_count=len(each_sentence),
+            word_limit=MAXIMUM_WORDS_PER_SENTENCE,
+            sentence_preview=WORD_SEPARATOR.join(each_sentence[:SENTENCE_PREVIEW_WORD_COUNT])
+            + SENTENCE_PREVIEW_SUFFIX,
+        )
+        for each_sentence in sentence_word_lists(prose_text)
+        if len(each_sentence) > MAXIMUM_WORDS_PER_SENTENCE
+    )
 
 
 def mid_sentence_colon_violation(reply_text: str) -> str | None:
@@ -254,13 +308,13 @@ def prose_sentences(reply_text: str) -> list[str]:
 
 
 def unsourced_cause_violation(reply_text: str) -> str | None:
-    """Return the deny reason for the first causal sentence that cites no evidence itself, or None."""
-    for each_sentence in prose_sentences(reply_text):
-        is_causal = CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence))
-        has_evidence = any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
-        if is_causal and not has_evidence:
-            return UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
-    return None
+    """Return the deny reason for each causal sentence that cites no evidence itself, or None."""
+    return joined_violations(
+        UNSOURCED_CAUSE_MESSAGE.format(sentence=each_sentence.strip())
+        for each_sentence in prose_sentences(reply_text)
+        if CAUSAL_CLAIM_PATTERN.search(INLINE_CODE_PATTERN.sub(" ", each_sentence))
+        and not any(each_pattern.search(each_sentence) for each_pattern in ALL_EVIDENCE_PATTERNS)
+    )
 
 
 def prose_outside_links(reply_text: str) -> str:
@@ -272,11 +326,11 @@ def prose_outside_links(reply_text: str) -> str:
 
 
 def unlinked_pull_request_violation(reply_text: str) -> str | None:
-    """Return the deny reason for a pull request number outside a link, or None."""
-    unlinked_match = UNLINKED_PULL_REQUEST_PATTERN.search(prose_outside_links(reply_text))
-    if unlinked_match is None:
-        return None
-    return UNLINKED_PULL_REQUEST_MESSAGE.format(reference=unlinked_match.group(0))
+    """Return the deny reason for each pull request number outside a link, or None."""
+    return joined_violations(
+        UNLINKED_PULL_REQUEST_MESSAGE.format(reference=each_match.group(0))
+        for each_match in UNLINKED_PULL_REQUEST_PATTERN.finditer(prose_outside_links(reply_text))
+    )
 
 
 def banned_words_config_path() -> Path:
@@ -303,20 +357,25 @@ def configured_banned_words() -> tuple[str, ...]:
 
 
 def banned_word_violation(reply_text: str, all_banned_words: tuple[str, ...]) -> str | None:
-    """Return the deny reason for the first banned word in the prose, or None."""
+    """Return the deny reason for each banned word in the prose, or None."""
     prose_text = countable_text(reply_text)
-    for each_banned_word in all_banned_words:
-        word_pattern = BANNED_WORD_PART_SEPARATOR.join(
-            re.escape(each_part) for each_part in each_banned_word.split()
+    return joined_violations(
+        BANNED_WORD_MESSAGE.format(banned_word=each_banned_word)
+        for each_banned_word in all_banned_words
+        if re.search(
+            BANNED_WORD_PATTERN_TEMPLATE.format(
+                word_pattern=BANNED_WORD_PART_SEPARATOR.join(
+                    re.escape(each_part) for each_part in each_banned_word.split()
+                )
+            ),
+            prose_text,
+            re.IGNORECASE,
         )
-        whole_word_pattern = BANNED_WORD_PATTERN_TEMPLATE.format(word_pattern=word_pattern)
-        if re.search(whole_word_pattern, prose_text, re.IGNORECASE):
-            return BANNED_WORD_MESSAGE.format(banned_word=each_banned_word)
-    return None
+    )
 
 
 def unvalidated_claim_violation(reply_text: str) -> str | None:
-    """Return the deny reason quoting the first sentence that guesses or admits a skipped check, or None.
+    """Return the deny reason quoting each sentence that guesses or admits a skipped check, or None.
 
     A duration counts as a guess unless its sentence cites the run, job, check,
     or pull request that measured it::
@@ -324,6 +383,7 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
         flag: It should take about 40 minutes.
         ok:   The last queue build took 39 minutes, run 18239174012.
     """
+    all_claims: list[str] = []
     for each_sentence in prose_sentences(reply_text):
         prose_text = countable_text(each_sentence).replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)
         is_guess = UNVALIDATED_CLAIM_PATTERN.search(prose_text) is not None
@@ -332,12 +392,12 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
             and CITED_NUMBER_PATTERN.search(each_sentence) is None
         )
         if is_guess or is_uncited_duration:
-            return UNVALIDATED_CLAIM_MESSAGE.format(claim=each_sentence)
-    return None
+            all_claims.append(UNVALIDATED_CLAIM_MESSAGE.format(claim=each_sentence))
+    return joined_violations(all_claims)
 
 
 def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
-    """Return the deny reason for the first cited run, job, check, or pull request no tool result shows.
+    """Return the deny reason for each cited run, job, check, or pull request no tool result shows.
 
     Returns None when the text cites nothing or the transcript cannot be read.
     """
@@ -347,11 +407,17 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
     result_text = successful_result_text(transcript_path)
     if result_text is None:
         return None
-    for each_match in all_citations:
-        cited_number = next(each_group for each_group in each_match.groups() if each_group)
-        if re.search(CITED_NUMBER_IN_RESULT_TEMPLATE.format(number=cited_number), result_text) is None:
-            return UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
-    return None
+    return joined_violations(
+        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        for each_match in all_citations
+        if re.search(
+            CITED_NUMBER_IN_RESULT_TEMPLATE.format(
+                number=next(each_group for each_group in each_match.groups() if each_group)
+            ),
+            result_text,
+        )
+        is None
+    )
 
 
 def all_card_texts(
@@ -382,25 +448,25 @@ def card_length_violation(all_card_input: dict[str, object]) -> str | None:
 
 
 def card_shape_violation(all_card_input: dict[str, object]) -> str | None:
-    """Return the deny reason for a listed or over-long card context or card sentence, or None."""
+    """Return the deny reason for each listed or over-long card context and card sentence, or None."""
     context_text = all_card_input.get(DECISION_CARD_CONTEXT_KEY)
+    all_violations: list[str | None] = []
     if isinstance(context_text, str):
         if CARD_LIST_ITEM_PATTERN.search(FENCED_BLOCK_PATTERN.sub(" ", context_text)) is not None:
-            return CARD_CONTEXT_LIST_MESSAGE
+            all_violations.append(CARD_CONTEXT_LIST_MESSAGE)
         context_sentence_count = len(sentence_word_lists(context_text))
         if context_sentence_count > MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT:
-            return CARD_CONTEXT_TOO_LONG_MESSAGE.format(
-                sentence_count=context_sentence_count,
-                sentence_limit=MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+            all_violations.append(
+                CARD_CONTEXT_TOO_LONG_MESSAGE.format(
+                    sentence_count=context_sentence_count,
+                    sentence_limit=MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT,
+                )
             )
     all_length_checked_texts = all_card_texts(
         all_card_input, ALL_DECISION_CARD_LENGTH_KEYS, ALL_DECISION_OPTION_LENGTH_KEYS
     )
-    for each_text in all_length_checked_texts:
-        violation = long_sentence_violation(each_text)
-        if violation is not None:
-            return violation
-    return None
+    all_violations.extend(long_sentence_violation(each_text) for each_text in all_length_checked_texts)
+    return joined_violations(all_violations)
 
 
 def all_question_card_texts(all_card_input: dict[str, object]) -> list[str]:
@@ -429,37 +495,41 @@ def active_mode_rules() -> VisualReplyRules | None:
 
 
 def card_violation(card_text: str, mode_rules: VisualReplyRules | None) -> str | None:
-    """Return the deny reason for a decision card's prose, or None."""
-    return (
-        banned_word_violation(card_text, configured_banned_words())
-        or unvalidated_claim_violation(card_text)
-    ) or (
-        None if mode_rules is None else abbreviation_violation(prose_outside_links(card_text), mode_rules)
+    """Return the deny reason for each problem in a decision card's prose, or None."""
+    return collected_violations(
+        [
+            lambda: banned_word_violation(card_text, configured_banned_words()),
+            lambda: unvalidated_claim_violation(card_text),
+            lambda: None
+            if mode_rules is None
+            else abbreviation_violation(prose_outside_links(card_text), mode_rules),
+        ]
     )
 
 
 def reply_violation(
     reply_text: str, transcript_path: object, mode_rules: VisualReplyRules | None
 ) -> str | None:
-    """Return the deny reason for a reply's text, or None."""
-    violation = (
-        length_violation(reply_text)
-        or mid_sentence_colon_violation(reply_text)
-        or em_dash_violation(reply_text)
-        or unlinked_pull_request_violation(reply_text)
-        or unsourced_cause_violation(reply_text)
-        or banned_word_violation(reply_text, configured_banned_words())
-        or unvalidated_claim_violation(reply_text)
-        or unseen_citation_violation(reply_text, transcript_path)
-    )
-    if violation is not None or mode_rules is None:
-        return violation
-    prose_text = prose_outside_links(reply_text)
-    return (
-        abbreviation_violation(prose_text, mode_rules)
-        or second_reply_violation(transcript_path, mode_rules)
-        or visual_violation(len(sentence_word_lists(reply_text)), transcript_path, mode_rules)
-    )
+    """Return the deny reason for each problem in a reply's text, or None."""
+    all_checks: list[Callable[[], str | None]] = [
+        lambda: length_violation(reply_text),
+        lambda: mid_sentence_colon_violation(reply_text),
+        lambda: em_dash_violation(reply_text),
+        lambda: unlinked_pull_request_violation(reply_text),
+        lambda: unsourced_cause_violation(reply_text),
+        lambda: banned_word_violation(reply_text, configured_banned_words()),
+        lambda: unvalidated_claim_violation(reply_text),
+        lambda: unseen_citation_violation(reply_text, transcript_path),
+    ]
+    if mode_rules is not None:
+        all_checks.extend(
+            [
+                lambda: abbreviation_violation(prose_outside_links(reply_text), mode_rules),
+                lambda: second_reply_violation(transcript_path, mode_rules),
+                lambda: visual_violation(len(sentence_word_lists(reply_text)), transcript_path, mode_rules),
+            ]
+        )
+    return collected_violations(all_checks)
 
 
 def tool_violation(
@@ -467,26 +537,27 @@ def tool_violation(
 ) -> tuple[str, str] | None:
     """Return the deny reason and the checked text for one call, or None when it passes."""
     mode_rules = active_mode_rules()
-    if isinstance(tool_name, str) and mode_rules is not None:
-        anchor_violation = widget_anchor_violation(tool_name, all_tool_input)
-        if anchor_violation is not None:
-            return anchor_violation, str(all_tool_input)
+    anchor_violation = (
+        widget_anchor_violation(tool_name, all_tool_input)
+        if isinstance(tool_name, str) and mode_rules is not None
+        else None
+    )
+    checked = _text_violation(tool_name, all_tool_input, transcript_path, mode_rules)
+    if anchor_violation is None:
+        return checked
+    if checked is None:
+        return anchor_violation, str(all_tool_input)
+    return joined_violations([anchor_violation, checked[0]]) or anchor_violation, checked[1]
+
+
+def _text_violation(
+    tool_name: object,
+    all_tool_input: dict[str, object],
+    transcript_path: object,
+    mode_rules: VisualReplyRules | None,
+) -> tuple[str, str] | None:
     if tool_name in (DECISION_CARD_TOOL_NAME, QUESTION_CARD_TOOL_NAME):
-        if tool_name == DECISION_CARD_TOOL_NAME:
-            all_texts = all_card_texts(
-                all_tool_input, ALL_DECISION_CARD_PROSE_KEYS, ALL_DECISION_OPTION_PROSE_KEYS
-            )
-            shape_violation = card_length_violation(all_tool_input)
-        else:
-            all_texts = all_question_card_texts(all_tool_input)
-            shape_violation = None
-        card_text = CARD_TEXT_SEPARATOR.join(all_texts)
-        violation = (
-            shape_violation
-            or card_violation(card_text, mode_rules)
-            or unseen_citation_violation(card_text, transcript_path)
-        )
-        return None if violation is None else (violation, card_text)
+        return _card_text_violation(tool_name, all_tool_input, transcript_path, mode_rules)
     if tool_name not in ALL_CHECKED_TOOL_NAMES:
         return None
     reply_text = all_tool_input.get(TEXT_KEY)
@@ -494,6 +565,29 @@ def tool_violation(
         return None
     violation = reply_violation(reply_text, transcript_path, mode_rules)
     return None if violation is None else (violation, reply_text)
+
+
+def _card_text_violation(
+    tool_name: object,
+    all_tool_input: dict[str, object],
+    transcript_path: object,
+    mode_rules: VisualReplyRules | None,
+) -> tuple[str, str] | None:
+    if tool_name == DECISION_CARD_TOOL_NAME:
+        all_texts = all_card_texts(all_tool_input, ALL_DECISION_CARD_PROSE_KEYS, ALL_DECISION_OPTION_PROSE_KEYS)
+        shape_violation = card_length_violation(all_tool_input)
+    else:
+        all_texts = all_question_card_texts(all_tool_input)
+        shape_violation = None
+    card_text = CARD_TEXT_SEPARATOR.join(all_texts)
+    violation = collected_violations(
+        [
+            lambda: shape_violation,
+            lambda: card_violation(card_text, mode_rules),
+            lambda: unseen_citation_violation(card_text, transcript_path),
+        ]
+    )
+    return None if violation is None else (violation, card_text)
 
 
 def github_comment_texts(tool_name: object, all_tool_input: dict[str, object]) -> list[str]:
@@ -569,15 +663,21 @@ def comment_length_violation(comment_text: str) -> str | None:
 
 
 def github_comment_violation(tool_name: object, all_tool_input: dict[str, object]) -> tuple[str, str] | None:
-    """Return the deny reason and text for an over-long GitHub comment, or None.
+    """Return the deny reason and text for every over-long GitHub comment, or None.
 
     Fenced code blocks and collapsed ``<details>`` blocks carry no words.
     """
-    for each_comment_text in github_comment_texts(tool_name, all_tool_input):
-        violation = comment_length_violation(each_comment_text)
-        if violation is not None:
-            return violation, each_comment_text
-    return None
+    all_over_long = [
+        (violation, each_comment_text)
+        for each_comment_text in github_comment_texts(tool_name, all_tool_input)
+        if (violation := comment_length_violation(each_comment_text)) is not None
+    ]
+    if not all_over_long:
+        return None
+    return (
+        joined_violations(each_violation for each_violation, _ in all_over_long) or all_over_long[0][0],
+        CARD_TEXT_SEPARATOR.join(each_text for _, each_text in all_over_long),
+    )
 
 
 def write_flowchart_advice(tool_name: object, all_tool_input: dict[str, object]) -> None:
@@ -607,7 +707,7 @@ def main() -> int:
         write_flowchart_advice(tool_name, tool_input)
         return ALLOW_EXIT_CODE
     violation, reply_text = checked
-    block_reason = violation + RETRY_INSTRUCTION
+    block_reason = violation + RETRY_INSTRUCTION + FIX_EVERY_ITEM_INSTRUCTION
     log_hook_block(
         Path(__file__).name,
         HOOK_EVENT_NAME,

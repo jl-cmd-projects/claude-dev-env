@@ -13,7 +13,8 @@ hooks, and tool guards then never run. This hook runs them::
 
 Each child hook receives the same stdin payload, runs inside its checkout, and
 keeps its own matcher and timeout. A child ``exit 2`` blocks the tool call and a
-child ``deny`` or ``ask`` decision passes through; a child ``allow`` is dropped,
+child ``deny`` or ``ask`` decision passes through, a ``deny`` carrying every
+refusing child's reason; a child ``allow`` is dropped,
 so no child widens permissions for the session. The ``additionalContext`` of
 every child, at SessionStart, UserPromptSubmit, and PreToolUse, joins into one
 ``additionalContext``.
@@ -48,6 +49,7 @@ from hooks_constants.nested_project_hooks_constants import (
     COMMAND_KEY,
     CONTEXT_SECTION_SEPARATOR,
     DEFAULT_HOOK_TIMEOUT_SECONDS,
+    DENY_PERMISSION_DECISION,
     HOOK_EVENT_NAME_KEY,
     HOOK_TYPE_KEY,
     HOOKS_KEY,
@@ -55,6 +57,7 @@ from hooks_constants.nested_project_hooks_constants import (
     MATCHER_KEY,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
+    REASON_SECTION_SEPARATOR,
     SESSION_START_EVENT,
     SETTINGS_DIRECTORY_NAME,
     SETTINGS_ENCODING,
@@ -67,6 +70,7 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY as HOOK_EVENT_NAME_OUTPUT_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
+    PERMISSION_DECISION_REASON_KEY,
 )
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 
@@ -276,41 +280,78 @@ def _permission_decision(all_output_fields: dict[str, object]) -> object:
     return specific_output.get(PERMISSION_DECISION_KEY)
 
 
+def _deny_reason(all_output_fields: dict[str, object]) -> str:
+    if _permission_decision(all_output_fields) != DENY_PERMISSION_DECISION:
+        return ""
+    specific_output = all_output_fields.get(HOOK_SPECIFIC_OUTPUT_KEY)
+    reason = (
+        specific_output.get(PERMISSION_DECISION_REASON_KEY)
+        if isinstance(specific_output, dict)
+        else None
+    )
+    return reason.strip() if isinstance(reason, str) else ""
+
+
+def _joined_reasons(all_reasons: Iterable[str]) -> str:
+    return REASON_SECTION_SEPARATOR.join(dict.fromkeys(_non_empty_sections(all_reasons)))
+
+
 def pre_tool_use_verdict(
     all_results: list[subprocess.CompletedProcess[str]],
 ) -> HookVerdict:
     """Fold nested PreToolUse results into the one verdict Claude Code reads.
 
+    Claude Code shows one reason per refused call, so every refusing child's
+    reason travels in that one reason::
+
+        alpha exits 2 "no tests", beta denies "no link"  -> exit 2, both reasons
+        alpha denies "no link", beta denies "too long"   -> deny, both reasons
+        alpha asks, beta denies "no link"                -> alpha's ask, as before
+
     Args:
         all_results: The completed nested hooks, in run order.
 
     Returns:
-        A blocking exit carrying the child's stderr when any child exits 2,
-        else the first child ``deny`` or ``ask`` output carrying one copy
-        of each distinct child ``additionalContext``, else a pass carrying
-        that context, else an empty pass.
+        A blocking exit when any child exits 2, its stderr holding every
+        exit-2 child's stderr and every child ``deny`` reason; else the first
+        child ``deny`` or ``ask`` output, a ``deny`` reason holding every
+        child ``deny`` reason, carrying one copy of each distinct child
+        ``additionalContext``; else a pass carrying that context, else an
+        empty pass.
     """
-    for each_result in all_results:
-        if each_result.returncode == BLOCKING_EXIT_CODE:
-            return HookVerdict(BLOCKING_EXIT_CODE, "", each_result.stderr)
     all_parsed_outputs = [
         _parsed_hook_output(each_result.stdout)
         for each_result in all_results
         if each_result.returncode == 0
     ]
     all_parsed_outputs = [each_output for each_output in all_parsed_outputs if each_output is not None]
+    all_deny_reasons = [_deny_reason(each_output) for each_output in all_parsed_outputs]
+    all_blocking_stderr = [
+        each_result.stderr.strip()
+        for each_result in all_results
+        if each_result.returncode == BLOCKING_EXIT_CODE
+    ]
+    if all_blocking_stderr:
+        return HookVerdict(
+            BLOCKING_EXIT_CODE, "", _joined_reasons([*all_blocking_stderr, *all_deny_reasons])
+        )
     all_context_sections = _non_empty_sections(
         _json_additional_context(each_parsed_output) for each_parsed_output in all_parsed_outputs
     )
     all_distinct_context_sections = list(dict.fromkeys(all_context_sections))
     joined_context = CONTEXT_SECTION_SEPARATOR.join(all_distinct_context_sections)
     for each_parsed_output in all_parsed_outputs:
-        if _permission_decision(each_parsed_output) in ALL_FORWARDED_PERMISSION_DECISIONS:
+        decision = _permission_decision(each_parsed_output)
+        if decision in ALL_FORWARDED_PERMISSION_DECISIONS:
             decision_output = dict(each_parsed_output)
+            decision_specific_output = dict(decision_output[HOOK_SPECIFIC_OUTPUT_KEY])
             if joined_context:
-                decision_specific_output = dict(decision_output[HOOK_SPECIFIC_OUTPUT_KEY])
                 decision_specific_output[ADDITIONAL_CONTEXT_KEY] = joined_context
-                decision_output[HOOK_SPECIFIC_OUTPUT_KEY] = decision_specific_output
+            if decision == DENY_PERMISSION_DECISION:
+                decision_specific_output[PERMISSION_DECISION_REASON_KEY] = _joined_reasons(
+                    all_deny_reasons
+                )
+            decision_output[HOOK_SPECIFIC_OUTPUT_KEY] = decision_specific_output
             return HookVerdict(0, json.dumps(decision_output), "")
     if not joined_context:
         return HookVerdict(0, "", "")

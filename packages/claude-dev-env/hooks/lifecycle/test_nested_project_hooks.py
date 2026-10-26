@@ -189,6 +189,87 @@ def test_should_pass_a_child_deny_decision_through(tmp_path: pathlib.Path) -> No
     assert json.loads(completed_process.stdout) == deny_output
 
 
+def _deny_output(reason: str) -> dict[str, object]:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+
+
+def test_should_carry_every_child_deny_reason_in_one_refusal(
+    tmp_path: pathlib.Path,
+) -> None:
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {
+            "PreToolUse": [
+                _command_group("Bash", f"echo '{json.dumps(_deny_output('no link'))}'"),
+                _command_group("Bash", f"echo '{json.dumps(_deny_output('too long'))}'"),
+            ]
+        },
+    )
+    _make_checkout(
+        tmp_path,
+        "beta",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('no link'))}'")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
+
+    assert completed_process.returncode == 0
+    assert json.loads(completed_process.stdout) == _deny_output("no link\n\ntoo long")
+
+
+def test_should_carry_child_deny_reasons_into_a_blocking_exit(
+    tmp_path: pathlib.Path,
+) -> None:
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('no link'))}'")]},
+    )
+    _make_checkout(
+        tmp_path,
+        "beta",
+        {"PreToolUse": [_command_group("Bash", "echo no tests ran >&2; exit 2")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
+
+    assert completed_process.returncode == BLOCKING_EXIT_CODE
+    assert completed_process.stderr == "no tests ran\n\nno link"
+
+
+def test_should_keep_an_earlier_child_ask_ahead_of_a_later_deny(
+    tmp_path: pathlib.Path,
+) -> None:
+    ask_output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": "publishing needs a person",
+        }
+    }
+    _make_checkout(
+        tmp_path,
+        "alpha",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(ask_output)}'")]},
+    )
+    _make_checkout(
+        tmp_path,
+        "beta",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('no link'))}'")]},
+    )
+
+    completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
+
+    assert json.loads(completed_process.stdout) == ask_output
+
+
 def test_should_not_forward_a_child_allow_decision(tmp_path: pathlib.Path) -> None:
     allow_output = {
         "hookSpecificOutput": {

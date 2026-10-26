@@ -4,7 +4,7 @@ This family runs nested checkout hooks, refreshes a worktree base, and clears st
 
 ## Checks
 
-- `lifecycle/nested_project_hooks.py` runs hook registrations from checkouts nested one level below a session directory.
+- `lifecycle/nested_project_hooks.py` runs hook registrations from checkouts nested one level below a session directory. When several nested hooks refuse a tool call, the one refusal it returns carries every refusing hook's reason.
 - `lifecycle/enter_worktree_origin_prefetch.py` fetches the default branch before a fresh worktree is created.
 - `lifecycle/session_end_cleanup.py` removes old context cache files, temporary files, and transcript backups at session end.
 - `session/plugin_data_dir_cleanup.py` removes empty plugin data directories at session start.
