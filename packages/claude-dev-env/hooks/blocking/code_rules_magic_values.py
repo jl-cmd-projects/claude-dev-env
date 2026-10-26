@@ -205,7 +205,16 @@ def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
         all_pending.extend((each_child, is_child_inside_function) for each_child in ast.iter_child_nodes(node))
 
 
-def _is_fragment_named_number_line(line: str, function_indent: int) -> bool:
+def _fragment_global_and_nonlocal_names(content: str) -> set[str]:
+    """Return every name a ``global`` or ``nonlocal`` line declares in text that does not parse."""
+    return {
+        each_name.strip()
+        for each_match in re.finditer(r"^\s*(?:global|nonlocal)\s+([\w\s,]+)$", content, re.MULTILINE)
+        for each_name in each_match.group(1).split(",")
+    }
+
+
+def _is_fragment_named_number_line(line: str, function_indent: int, all_outer_scope_names: set[str]) -> bool:
     """Return True when a line of unparseable content binds one number to one name in a function.
 
     An Edit fragment that ends partway through a block does not parse whole::
@@ -215,7 +224,8 @@ def _is_fragment_named_number_line(line: str, function_indent: int) -> bool:
             if attempt > 0:
 
     The line must sit deeper than the last ``def`` line and parse alone as
-    the binding, so ``retry_backoff_factor = 2.5`` passes there.
+    the binding, so ``retry_backoff_factor = 2.5`` passes there. A name a
+    ``global`` or ``nonlocal`` line declares still fires.
     """
     stripped_line = line.strip()
     if len(line) - len(line.lstrip()) <= function_indent:
@@ -224,7 +234,7 @@ def _is_fragment_named_number_line(line: str, function_indent: int) -> bool:
         line_tree = ast.parse(stripped_line)
     except SyntaxError:
         return False
-    return len(line_tree.body) == 1 and _number_bound_name(line_tree.body[0]) is not None
+    return len(line_tree.body) == 1 and _number_bound_name(line_tree.body[0]) not in (None, *all_outer_scope_names)
 
 
 def _number_bound_name(node: ast.AST) -> str | None:
@@ -257,6 +267,9 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
     lines = content.split("\n")
     all_docstring_line_numbers = docstring_line_numbers(content)
     all_named_number_line_numbers = _named_number_binding_line_numbers(content)
+    all_fragment_outer_scope_names = (
+        _fragment_global_and_nonlocal_names(content) if all_named_number_line_numbers is None else set()
+    )
     is_inside_function = False
     function_indent = 0
 
@@ -286,7 +299,9 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
                 continue
 
             if all_named_number_line_numbers is None:
-                is_named_number_line = _is_fragment_named_number_line(each_line, function_indent)
+                is_named_number_line = _is_fragment_named_number_line(
+                    each_line, function_indent, all_fragment_outer_scope_names
+                )
             else:
                 is_named_number_line = each_line_number in all_named_number_line_numbers
             if is_named_number_line:

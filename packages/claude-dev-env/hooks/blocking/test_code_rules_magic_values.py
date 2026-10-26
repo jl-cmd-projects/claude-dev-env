@@ -168,3 +168,10 @@ def test_should_pass_a_named_number_in_a_method_fragment_with_a_column_zero_stri
         "        return retry_backoff_factor\n"
     )
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_flag_a_global_name_binding_in_a_fragment_ending_inside_a_block() -> None:
+    source = "def raise_limit(attempt: int) -> None:\n    global retry_limit\n    retry_limit = 40\n    if attempt > 0:\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 40 - extract to named constant"
+    ]
