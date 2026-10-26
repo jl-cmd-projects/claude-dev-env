@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.106.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.2...claude-dev-env-v8.106.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **hooks:** list every refusal reason in one message ([#2206](https://github.com/jl-cmd-projects/claude-dev-env/issues/2206)) ([4affce7](https://github.com/jl-cmd-projects/claude-dev-env/commit/4affce776713372ae1c04f0da505935cd8ed634d))
+
 ## [8.106.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.1...claude-dev-env-v8.106.2) (2026-10-26)
 
 
