@@ -3,6 +3,7 @@
 import ast
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 _blocking_directory = str(Path(__file__).resolve().parent)
@@ -156,9 +157,9 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
         def backoff_seconds(attempt: int) -> float:
             retry_backoff_factor = 2.5
 
-    A number inside an expression, a keyword argument, a default parameter,
-    and a module-level or class-level binding still fire. Unparseable
-    content yields no lines, so every number keeps firing.
+    A number inside an expression, a keyword argument on its own line, and
+    a module-level binding still fire. Unparseable content yields no lines,
+    so every number keeps firing.
     """
     try:
         syntax_tree = ast.parse(content)
@@ -167,15 +168,37 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
 
     return {
         each_node.lineno
-        for each_function in ast.walk(syntax_tree)
-        if isinstance(each_function, (ast.FunctionDef, ast.AsyncFunctionDef))
-        for each_node in ast.walk(each_function)
-        if _is_one_line_number_bound_to_one_name(each_node)
+        for each_node in _nodes_inside_functions(syntax_tree)
+        if _is_number_bound_to_one_name(each_node) and each_node.lineno == each_node.end_lineno
     }
 
 
-def _is_one_line_number_bound_to_one_name(node: ast.AST) -> bool:
-    """Return True when ``node`` is a one-line ``name = <number>`` binding."""
+def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
+    """Yield every node that sits inside a function body, each one once."""
+    all_pending: list[tuple[ast.AST, bool]] = [(syntax_tree, False)]
+    while all_pending:
+        node, is_inside_function = all_pending.pop()
+        if is_inside_function:
+            yield node
+        is_child_inside_function = is_inside_function or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        all_pending.extend((each_child, is_child_inside_function) for each_child in ast.iter_child_nodes(node))
+
+
+def _is_lone_named_number_binding(stripped_line: str) -> bool:
+    """Return True when the line holds one ``name = <number>`` statement and nothing else.
+
+    ``x = 5; y = a * 99`` and ``if a > 99: limit = 40`` hold more than the
+    binding, so they return False and their other numbers still fire.
+    """
+    try:
+        line_tree = ast.parse(stripped_line)
+    except SyntaxError:
+        return False
+    return len(line_tree.body) == 1 and _is_number_bound_to_one_name(line_tree.body[0])
+
+
+def _is_number_bound_to_one_name(node: ast.AST) -> bool:
+    """Return True when ``node`` binds one signed number literal to one name."""
     if isinstance(node, ast.Assign):
         all_targets, bound_value = node.targets, node.value
     elif isinstance(node, ast.AnnAssign) and node.value is not None:
@@ -184,10 +207,9 @@ def _is_one_line_number_bound_to_one_name(node: ast.AST) -> bool:
         return False
     if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
         return False
-    if isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, ast.USub):
+    if isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, (ast.USub, ast.UAdd)):
         bound_value = bound_value.operand
-    is_number_literal = isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
-    return is_number_literal and node.lineno == node.end_lineno
+    return isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
 
 
 def check_magic_values(content: str, file_path: str) -> list[str]:
@@ -230,7 +252,8 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            if each_line_number in all_named_number_line_numbers:
+            is_named_number_line = each_line_number in all_named_number_line_numbers
+            if is_named_number_line and _is_lone_named_number_binding(stripped):
                 continue
 
             if stripped.startswith(("return", "yield", "raise")):

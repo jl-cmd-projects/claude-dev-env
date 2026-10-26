@@ -458,7 +458,7 @@ class TestBaselineScopedGate:
                 "tool_input": {
                     "file_path": str(target_file),
                     "old_string": "    return 199\n",
-                    "new_string": "    threshold = 42\n    return 199 + threshold\n",
+                    "new_string": "    threshold = abs(42)\n    return 199 + threshold\n",
                 },
             }
         )

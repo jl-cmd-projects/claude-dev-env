@@ -99,3 +99,19 @@ def test_should_flag_a_module_level_binding_after_a_function() -> None:
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 3: Magic value 30 - extract to named constant"
     ]
+
+
+def test_should_pass_a_positive_signed_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("lowest_offset = +40") == []
+
+
+def test_should_flag_a_number_sharing_a_line_with_a_named_binding() -> None:
+    assert _magic_issues_for_function_line("limit = 5; scaled = attempt * 99") == [
+        "Line 2: Magic value 5 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_condition_number_beside_a_named_binding() -> None:
+    assert _magic_issues_for_function_line("if attempt > 99: limit = 40") == [
+        "Line 2: Magic value 99 - extract to named constant"
+    ]

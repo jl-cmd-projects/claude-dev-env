@@ -27,8 +27,8 @@ def process():
 '''
 
 BAD_MAGIC_NUMBER = '''
-def process():
-    timeout = 5000
+def process(attempts):
+    timeout = attempts * 5000
     return timeout
 '''
 
@@ -113,8 +113,8 @@ SETTINGS: dict[str, int] = {"timeout": 30}
 '''
 
 NON_CONSTANT_ASSIGNMENT_IN_FUNCTION = '''
-def configure():
-    delay = 30
+def configure(base):
+    delay = base + 30
     return delay
 '''
 
@@ -415,3 +415,37 @@ class TestValidateFilePathExemptions:
             violations = validate_file(production_path)
             assert len(violations) == 1
             assert "42" in violations[0].message
+
+
+NAMED_FUNCTION_LOCAL_NUMBERS = """
+def configure():
+    retry_backoff_factor = 2.5
+    timeout_seconds: int = 30
+    lowest_offset = -40
+    highest_offset = +40
+    return retry_backoff_factor, timeout_seconds, lowest_offset, highest_offset
+"""
+
+DEFAULT_PARAMETER_NUMBER = """
+def configure(timeout_seconds=30):
+    return timeout_seconds
+"""
+
+CLASS_LEVEL_NUMBER = """
+class Settings:
+    timeout_seconds = 30
+"""
+
+
+def test_should_pass_numbers_bound_alone_to_function_local_names() -> None:
+    assert check_magic_values(ast.parse(NAMED_FUNCTION_LOCAL_NUMBERS), "test.py") == []
+
+
+def test_should_flag_a_default_parameter_number() -> None:
+    violations = check_magic_values(ast.parse(DEFAULT_PARAMETER_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+def test_should_flag_a_class_level_number() -> None:
+    violations = check_magic_values(ast.parse(CLASS_LEVEL_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]

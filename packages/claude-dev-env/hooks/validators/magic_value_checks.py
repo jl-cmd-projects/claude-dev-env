@@ -16,7 +16,7 @@ from .exempt_paths import (
     is_config_file,
     is_test_file,
 )
-from .validator_base import Violation
+from .validator_base import Violation, run_file_validator_cli
 
 
 ALLOWED_NUMBERS: FrozenSet[int] = frozenset({-1, 0, 1})
@@ -55,6 +55,8 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
                     continue
                 if _is_in_constant_definition(outermost_unary, parent_by_child_id):
                     continue
+                if _is_named_function_local_binding(outermost_unary, parent_by_child_id):
+                    continue
                 violations.append(
                     Violation(
                         filename,
@@ -73,6 +75,8 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
             if node.value in ALLOWED_NUMBERS:
                 continue
             if _is_in_constant_definition(node, parent_by_child_id):
+                continue
+            if _is_named_function_local_binding(node, parent_by_child_id):
                 continue
             violations.append(
                 Violation(
@@ -130,6 +134,49 @@ def _is_in_constant_definition(
     return False
 
 
+def _is_named_function_local_binding(
+    node: ast.AST,
+    parent_by_child_id: Dict[int, ast.AST],
+) -> bool:
+    """Return True when a function binds ``node`` alone to one plain name.
+
+    ``retry_backoff_factor = 2.5`` inside a function passes, since the name
+    explains the number. A number inside an expression, a default parameter,
+    a keyword argument, and a module-level or class-level binding still fire.
+    """
+    bound_value: ast.AST = node
+    parent = parent_by_child_id.get(id(bound_value))
+    if isinstance(parent, ast.UnaryOp) and isinstance(parent.op, ast.UAdd):
+        bound_value = parent
+        parent = parent_by_child_id.get(id(bound_value))
+    if isinstance(parent, ast.Assign):
+        all_targets = parent.targets
+    elif isinstance(parent, ast.AnnAssign):
+        all_targets = [parent.target]
+    else:
+        return False
+    if parent.value is not bound_value:
+        return False
+    if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
+        return False
+    return _encloses_in_function(parent, parent_by_child_id)
+
+
+def _encloses_in_function(
+    node: ast.AST,
+    parent_by_child_id: Dict[int, ast.AST],
+) -> bool:
+    """Return True when the nearest enclosing scope of ``node`` is a function."""
+    current_node: ast.AST = node
+    while id(current_node) in parent_by_child_id:
+        current_node = parent_by_child_id[id(current_node)]
+        if isinstance(current_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return True
+        if isinstance(current_node, ast.ClassDef):
+            return False
+    return False
+
+
 def _is_upper_snake_constant_assignment(node: ast.AST) -> bool:
     if isinstance(node, ast.Assign):
         for target in node.targets:
@@ -164,17 +211,7 @@ def validate_file(file_path: Path) -> List[Violation]:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        return 1
-
-    all_violations: List[Violation] = []
-    for file_arg in sys.argv[1:]:
-        all_violations.extend(validate_file(Path(file_arg)))
-
-    for violation in all_violations:
-        print(violation)
-
-    return 1 if all_violations else 0
+    return run_file_validator_cli(validate_file)
 
 
 if __name__ == "__main__":

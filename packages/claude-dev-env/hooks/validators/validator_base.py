@@ -5,6 +5,8 @@ read and the one parse each of those modules shares for a given file.
 """
 
 import ast
+import sys
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -89,3 +91,31 @@ def syntax_tree(source: str) -> ast.Module:
         The parsed module.
     """
     return ast.parse(source)
+
+
+def run_file_validator_cli(
+    validate_file: Callable[[Path], list[Violation]],
+    all_arguments: Sequence[str] | None = None,
+) -> int:
+    """Validate each file named on the command line and print its violations.
+
+    ``python -m validators.todo_checks a.py b.py`` prints one line per
+    violation and exits 1 when any file has one.
+
+    Args:
+        validate_file: The module's per-file check.
+        all_arguments: The command-line arguments, program name first.
+            Defaults to ``sys.argv``.
+
+    Returns:
+        1 with no file named or any violation found, else 0.
+    """
+    all_file_arguments = list(sys.argv if all_arguments is None else all_arguments)[1:]
+    if not all_file_arguments:
+        return 1
+    all_violations: list[Violation] = []
+    for each_file_argument in all_file_arguments:
+        all_violations.extend(validate_file(Path(each_file_argument)))
+    for each_violation in all_violations:
+        sys.stdout.write(f"{each_violation}\n")
+    return 1 if all_violations else 0

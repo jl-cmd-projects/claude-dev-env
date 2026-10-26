@@ -1,8 +1,10 @@
 """Tests for TODO/FIXME detection."""
 
+from pathlib import Path
+
 import pytest
 
-from .todo_checks import check_untracked_todos
+from .todo_checks import check_untracked_todos, main
 from .validator_base import Violation
 
 
@@ -38,3 +40,13 @@ class TestUntrackedTodos:
         code = "# FIXME: broken\ndef foo(): pass"
         violations = check_untracked_todos(code, "test.py")
         assert len(violations) == 1
+
+
+def test_main_should_report_an_untracked_todo_in_a_named_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source_path = tmp_path / "worker.py"
+    source_path.write_text("def run():\n    pass  # TODO tidy up\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["todo_checks", str(source_path)])
+    assert main() == 1
+    assert capsys.readouterr().out.startswith(f"{source_path}:2:")

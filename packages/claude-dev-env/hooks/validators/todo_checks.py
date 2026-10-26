@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from .validator_base import Violation, source_text
+from .validator_base import Violation, run_file_validator_cli, source_text
 
 
 TODO_PATTERN = re.compile(r"#\s*(TODO|FIXME)\b(?!.*#\d+)", re.IGNORECASE)
@@ -42,17 +42,7 @@ def validate_file(file_path: Path) -> List[Violation]:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        return 1
-
-    all_violations: List[Violation] = []
-    for file_arg in sys.argv[1:]:
-        all_violations.extend(validate_file(Path(file_arg)))
-
-    for violation in all_violations:
-        print(violation)
-
-    return 1 if all_violations else 0
+    return run_file_validator_cli(validate_file)
 
 
 if __name__ == "__main__":
