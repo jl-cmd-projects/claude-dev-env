@@ -130,13 +130,9 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         assert.match(firstRoutingGroups[0].hooks[0].command, /subagent_model_routing\.mjs/);
         assert.match(firstRoutingGroups[0].hooks[1].command, /spawn_readiness_hook\.py/);
         assert.match(firstRoutingGroups[0].hooks[2].command, /spawn_oversight_hook\.py/);
-        const firstSpawnPromptGroups = firstCodexHooks.hooks.PreToolUse.filter(
-            group => group.matcher === 'Agent|Task',
-        );
-        assert.equal(firstSpawnPromptGroups.length, 1);
-        assert.equal(
-            firstSpawnPromptGroups[0].hooks.some(hook => hook.command.includes('skill_loaded_reminder.py')),
-            false,
+        assert.deepEqual(
+            firstCodexHooks.hooks.PreToolUse.map(group => group.matcher),
+            ['multi_agent_v1__spawn_agent'],
         );
         assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionStart']);
         const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
@@ -315,7 +311,7 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         const migratedHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
         const allSpawnGroups = migratedHooks.hooks.PreToolUse.filter(eachGroup =>
             ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
-        assert.equal(allSpawnGroups.length, 2);
+        assert.deepEqual(allSpawnGroups.map(eachGroup => eachGroup.matcher), ['multi_agent_v1__spawn_agent']);
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
         const allPackagePromptCommands = (migratedHooks.hooks.UserPromptSubmit ?? [])
             .flatMap(eachGroup => eachGroup.hooks)

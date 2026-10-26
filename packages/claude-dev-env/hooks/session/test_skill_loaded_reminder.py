@@ -76,10 +76,6 @@ def _run_main(hook_payload: object) -> str:
     return captured_stdout.getvalue()
 
 
-def _agent_call(tool_input: dict[str, object], tool_name: str = "Agent") -> dict[str, object]:
-    return {"hook_event_name": "PreToolUse", "tool_name": tool_name, "tool_input": tool_input}
-
-
 def _user_turn(transcript_path: Path) -> dict[str, object]:
     return {"hook_event_name": "UserPromptSubmit", "transcript_path": str(transcript_path)}
 
@@ -90,9 +86,21 @@ def _write_transcript(tmp_path: Path, all_lines: list[str]) -> Path:
     return transcript_path
 
 
-class TestSubagentSpawn:
-    def test_a_subagent_spawn_prompt_is_left_unchanged(self) -> None:
-        assert _run_main(_agent_call({"prompt": "Reply leaf."})) == ""
+class TestRegistration:
+    def test_no_pre_tool_use_group_runs_the_reminder(self) -> None:
+        shipped_hooks = json.loads(
+            (Path(__file__).resolve().parents[1] / "hooks.json").read_text(encoding="utf-8")
+        )
+        all_pre_tool_use_commands = [
+            each_hook.get("command", "")
+            for each_group in shipped_hooks["hooks"]["PreToolUse"]
+            for each_hook in each_group["hooks"]
+        ]
+        assert all_pre_tool_use_commands
+        assert not any(
+            "skill_loaded_reminder.py" in each_command
+            for each_command in all_pre_tool_use_commands
+        )
 
 
 class TestIsPotetoModeLoaded:
