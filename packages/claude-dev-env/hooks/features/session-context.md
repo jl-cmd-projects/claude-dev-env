@@ -1,6 +1,6 @@
 # Session context
 
-This family injects reminders and task guidance when an agent starts, resumes, submits a prompt, spawns a helper, starts an artifact page, or hits an auto mode denial. The startup scripts leave the session quiet when their opt-in conditions fail.
+This family injects reminders and task guidance when an agent starts, resumes, submits a prompt, starts a workflow helper, starts an artifact page, or hits an auto mode denial. The startup scripts leave the session quiet when their opt-in conditions fail.
 
 ## Checks
 
@@ -17,7 +17,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 
 ## When it fires
 
-- `session/skill_loaded_reminder.py` runs on `PreToolUse` matcher `Agent|Task` at `10` seconds, `UserPromptSubmit` matcher empty at `10` seconds, `SessionStart` matcher `compact` at `10` seconds, and `SubagentStart` matcher `workflow-subagent` at `10` seconds in `hooks.json`.
+- `session/skill_loaded_reminder.py` runs on `UserPromptSubmit` matcher empty at `10` seconds, `SessionStart` matcher `compact` at `10` seconds, and `SubagentStart` matcher `workflow-subagent` at `10` seconds in `hooks.json`.
 - `session/compaction_recall_prompt.py` runs on `SessionStart` matcher `compact` at `10` seconds in `hooks.json`. The installer also writes it to the Codex `hooks.json`, the only `SessionStart` hook Codex gets.
 - `session/task_tool_prompt.py`, `session/working_style_prompt.py`, `session/advisor_rules_prompt.py`, and `session/orchestrator_auto_starter.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.
 - `session/plugin_session_baseline_writer.py` runs on `SessionStart`, matcher empty, at `10` seconds, so it sees every source. `session/plugin_change_warning.py` runs on `UserPromptSubmit`, matcher empty, at `10` seconds in `hooks.json`.
@@ -30,7 +30,7 @@ Preconditions:
 
 - Run each command from the repository root with Python and pytest available. Enable opt-in flags only inside the tests.
 
-- **Skill reminder.** Input is a helper spawn whose prompt lacks poteto-mode. Run `python -m pytest packages/claude-dev-env/hooks/session/test_skill_loaded_reminder.py -q`. The adjacent test observes the reminder and leaves an already prepared prompt unchanged.
+- **Skill reminder.** Input is a compaction, a user turn, or a workflow helper start. Run `python -m pytest packages/claude-dev-env/hooks/session/test_skill_loaded_reminder.py -q`. The adjacent test observes the reminder and leaves a spawn prompt unchanged.
 - **Compaction recall.** Input is a Claude Code transcript or a Codex rollout with typed, meta, sidechain, peer, and harness entries across a compaction. Run `python -m pytest packages/claude-dev-env/hooks/session/test_compaction_user_messages.py packages/claude-dev-env/hooks/session/test_compaction_trim.py packages/claude-dev-env/hooks/session/test_compaction_recall_prompt.py packages/claude-dev-env/hooks/session/test_compaction_trim_eval.py -q`. The tests observe only typed messages, a stable result across a second compaction, the trim rules, the recall budget, and the trimmed lines in the hook's `additionalContext`. `python packages/claude-dev-env/hooks/session/compaction_trim_eval.py` trims each fixture transcript with planted facts, prints the share of facts that survive, the reversals marked, and the compression ratio, and exits 1 on any loss.
 - **Task tracking.** Input is a SessionStart event. Run `python -m pytest packages/claude-dev-env/hooks/session/test_task_tool_prompt.py -q`. The adjacent test observes a `SessionStart` context directive that names the task tool.
 - **Working style.** Input is a SessionStart event. Run `python -m pytest packages/claude-dev-env/hooks/session/test_working_style_prompt.py -q`. The adjacent test observes the fixed context text.
@@ -44,7 +44,7 @@ Preconditions:
 
 - The recall keeps the first message and the newest that fit in 6,000 characters, under the 2,500 token preview limit Codex applies to hook context. A message over 1,500 characters is cut, and the line says how much was left out.
 - The overruled mark comes from cue phrases such as `instead` or `change of plan` and shared words. A reversal with no cue phrase gets no mark, and the later line still overrides by its place. A cue in a message that agrees with an earlier one, such as `dont use haiku` after `use Python trim instead of Haiku`, marks that earlier line too, so the context tells the agent to follow the later message where the two differ.
-- `session/skill_loaded_reminder.py` has four registration points. Its tests cover helper prompt rewriting and repeated prompt suppression.
+- `session/skill_loaded_reminder.py` has three registration points. Its tests cover the compaction restore and repeated prompt suppression.
 - The advisor prompt depends on settings and an environment disable flag. The two starter scripts each use separate opt-in checks.
 - The issue tracker starter requires the checkout to appear in the project path registry.
 - `advisory/auto_mode_denial_quick_fix.py` lives under `advisory/` but belongs here because its only output is agent context and a one-line user message.

@@ -134,7 +134,10 @@ test('seeds one editable policy and one native Codex routing hook', () => {
             group => group.matcher === 'Agent|Task',
         );
         assert.equal(firstSpawnPromptGroups.length, 1);
-        assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
+        assert.equal(
+            firstSpawnPromptGroups[0].hooks.some(hook => hook.command.includes('skill_loaded_reminder.py')),
+            false,
+        );
         assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionStart']);
         const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
             group => group.hooks.map(hook => hook.command),
