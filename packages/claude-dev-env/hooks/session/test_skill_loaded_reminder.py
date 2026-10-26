@@ -94,9 +94,6 @@ class TestSubagentSpawn:
     def test_a_subagent_spawn_prompt_is_left_unchanged(self) -> None:
         assert _run_main(_agent_call({"prompt": "Reply leaf."})) == ""
 
-    def test_a_codex_spawn_message_is_left_unchanged(self) -> None:
-        assert _run_main(_agent_call({"message": "Fix it."}, tool_name="spawn_agent")) == ""
-
 
 class TestIsPotetoModeLoaded:
     def test_status_without_a_skill_call_reports_no_invocation_or_load(self) -> None:

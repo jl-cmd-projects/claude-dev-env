@@ -7,8 +7,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - `hook-roster` puts every `hooks/hooks.json` entry into the installed `settings.json`, with paths under the installed hooks tree.
 - `session-start-envelope` returns a `SessionStart` envelope with `additionalContext` from `working_style_prompt.py`.
 - `bash-rewrite` returns a `PreToolUse` envelope that allows a `git show <rev>:<path>` call and prefixes `MSYS2_ARG_CONV_EXCL`.
-- `poteto-spawn` opens an `Agent` or `Task` prompt with the poteto-mode invocation.
-- `poteto-codex-spawn` opens a Codex `spawn_agent` message with `$poteto-mode`.
+- `spawn-pass-through` leaves an `Agent` or `Task` prompt as written.
 - `poteto-reminder` tells a workflow helper to load poteto-mode at its start, and tells a session that invoked the skill to load it again after a compaction drops it.
 - `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call.
 - `policy-lint-timing` runs policy checks from `cde lint` and CI only.
@@ -16,7 +15,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 ## How to get to it (user POV)
 
 - Install the package, then start a Claude Code or Codex session.
-- Spawn a subagent through `Agent`, `Task`, or Codex `spawn_agent`.
+- Spawn a subagent through `Agent` or `Task`.
 - Compact a session, start a Workflow helper, or submit a prompt.
 - Run a Bash `git show` command with a `<rev>:<path>` argument.
 - Make a `Write`, `Edit`, `apply_patch`, shell, or MCP write call after reasoning that hedges.

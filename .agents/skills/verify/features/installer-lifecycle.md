@@ -6,7 +6,7 @@ The installer shows help, installs the package into a home directory, writes the
 
 - `install-help` prints usage and writes nothing.
 - `install-full` writes skills, hooks, rules, `CLAUDE.md`, a manifest, and a `settings.json` hook roster.
-- `install-codex-hooks` writes `~/.codex/hooks.json` with two `PreToolUse` groups: `multi_agent_v1__spawn_agent` for model routing and `Agent|Task` for the poteto-mode spawn rewrite.
+- `install-codex-hooks` writes `~/.codex/hooks.json` with two `PreToolUse` groups: `multi_agent_v1__spawn_agent` for model routing and `Agent|Task` for the spawn readiness and oversight gates.
 - `install-retired-prune` removes retired hook registrations on reinstall.
 - `install-playtest` installs, then starts installed hooks from the roster the install wrote.
 - `install-uninstall` removes the manifest and every tracked file.
