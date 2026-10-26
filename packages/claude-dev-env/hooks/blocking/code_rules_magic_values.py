@@ -176,7 +176,8 @@ def _named_number_binding_line_numbers(content: str) -> set[int] | None:
     return {
         each_node.lineno
         for each_node in _nodes_inside_functions(syntax_tree)
-        if _number_bound_name(each_node) not in (None, *all_outer_scope_names)
+        if isinstance(each_node, ast.stmt)
+        and _number_bound_name(each_node) not in (None, *all_outer_scope_names)
         and each_node.lineno == each_node.end_lineno
         and statement_count_by_line[each_node.lineno] == 1
     }
