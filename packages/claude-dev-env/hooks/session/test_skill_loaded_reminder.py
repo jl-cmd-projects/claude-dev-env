@@ -87,6 +87,14 @@ def _write_transcript(tmp_path: Path, all_lines: list[str]) -> Path:
 
 
 class TestRegistration:
+    def test_a_spawn_payload_from_a_stale_registration_prints_nothing(self) -> None:
+        stale_spawn_payload = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Agent",
+            "tool_input": {"prompt": "Reply leaf."},
+        }
+        assert _run_main(stale_spawn_payload) == ""
+
     def test_no_pre_tool_use_group_runs_the_reminder(self) -> None:
         shipped_hooks = json.loads(
             (Path(__file__).resolve().parents[1] / "hooks.json").read_text(encoding="utf-8")

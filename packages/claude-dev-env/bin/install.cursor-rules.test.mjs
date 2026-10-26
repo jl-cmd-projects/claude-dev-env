@@ -310,8 +310,9 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
 
         const migratedHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
         const allSpawnGroups = migratedHooks.hooks.PreToolUse.filter(eachGroup =>
-            ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
-        assert.deepEqual(allSpawnGroups.map(eachGroup => eachGroup.matcher), ['multi_agent_v1__spawn_agent']);
+            eachGroup.matcher === 'multi_agent_v1__spawn_agent');
+        assert.equal(allSpawnGroups.length, 1);
+        assert.equal(migratedHooks.hooks.PreToolUse.some(eachGroup => eachGroup.matcher === 'Agent|Task'), false);
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
         const allPackagePromptCommands = (migratedHooks.hooks.UserPromptSubmit ?? [])
             .flatMap(eachGroup => eachGroup.hooks)

@@ -174,9 +174,6 @@ export const WINDOWS_PYTHON_LAUNCHER_COMMAND = 'py -3';
 export const PYTHON_PROBE_TIMEOUT_MILLISECONDS = 10_000;
 export const ADDITIONAL_SETTINGS_BLOB_PREFIX = 'settings-';
 export const CODEX_NATIVE_ROUTING_MATCHER = 'multi_agent_v1__spawn_agent';
-export const ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS = new Set([
-    CODEX_NATIVE_ROUTING_MATCHER,
-]);
 export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
     'open_tasks_stop_gate.py',
     'owned_pr_merge_stop_gate.py',
