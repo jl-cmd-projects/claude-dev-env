@@ -62,7 +62,7 @@ Open [details](code-rules/design-and-structure.md) when adding a class or parame
 
 ## 7.5 SOLID PRINCIPLES
 
-Apply SRP throughout. Apply OCP, LSP, ISP, and DIP when two concrete implementations share a contract. Keep cohesive classes together.
+Keep a function whole while it reads top to bottom. Split it when the new piece has a second caller or makes the caller easier to read. Apply OCP, LSP, ISP, and DIP when two concrete implementations share a contract. Keep cohesive classes together.
 
 Open [details](code-rules/design-and-structure.md) when extracting a responsibility.
 

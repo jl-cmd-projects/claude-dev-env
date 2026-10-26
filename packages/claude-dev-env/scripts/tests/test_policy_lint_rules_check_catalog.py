@@ -25,7 +25,7 @@ _SOURCE_ENCODING = "utf-8"
 
 ALL_MESSAGE_SAMPLES: tuple[tuple[str, str], ...] = (
     (
-        "Line 20: Function 'run' is 74 lines - exceeds blocking threshold - "
+        "Line 20: Function 'run' is 74 lines - exceeds the length smell threshold - "
         "split into helpers",
         "function-length",
     ),
@@ -82,6 +82,9 @@ ALL_MESSAGE_SAMPLES: tuple[tuple[str, str], ...] = (
         " already covers another public function in that module",
         "paired-test-omitted-function",
     ),
+    ("src/app.py:1: File is 412 lines (max 400) - consider splitting", "file-length"),
+    ("src/app.py:4: Function 'run' is 37 lines (max 30)", "function-line-cap"),
+    ("src/app.py:9: Function 'run' has nesting depth 3 (max 2)", "nesting-depth"),
 )
 
 
@@ -167,6 +170,21 @@ def test_a_diagnostic_reports_the_check_identifier_it_carries() -> None:
 )
 def test_a_paired_test_check_reports_as_a_warning(check_name: str) -> None:
     assert severity_for_check_id(f"{_BUNDLING_RULE_ID}/{check_name}") is Severity.WARNING
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "sample_message"),
+    (
+        ("code-rules", "Line 20: Function 'run' is 74 lines - exceeds the length smell threshold - split into helpers"),
+        ("validators", "src/app.py:1: File is 412 lines (max 400) - consider splitting"),
+        ("validators", "src/app.py:4: Function 'run' is 37 lines (max 30)"),
+        ("validators", "src/app.py:9: Function 'run' has nesting depth 3 (max 2)"),
+    ),
+)
+def test_a_size_check_reports_as_a_warning(rule_id: str, sample_message: str) -> None:
+    check_id = check_id_for_message(rule_id, sample_message)
+
+    assert severity_for_check_id(check_id) is Severity.WARNING
 
 
 def test_an_unclassified_check_reports_as_an_error() -> None:

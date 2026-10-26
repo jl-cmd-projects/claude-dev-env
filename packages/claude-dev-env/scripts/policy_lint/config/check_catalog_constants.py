@@ -30,7 +30,7 @@ ALL_BUNDLING_RULE_IDS: frozenset[str] = frozenset({"code-rules", "validators"})
 
 ALL_CHECK_CATALOG_ENTRIES: tuple[CheckCatalogEntry, ...] = (
     CheckCatalogEntry(
-        "exceeds blocking threshold - split into helpers", "function-length"
+        "exceeds the length smell threshold - split into helpers", "function-length"
     ),
     CheckCatalogEntry(" - consider moving to config/", "function-local-constant"),
     CheckCatalogEntry(" - move to config/", "constant-outside-config"),
@@ -61,6 +61,9 @@ ALL_CHECK_CATALOG_ENTRIES: tuple[CheckCatalogEntry, ...] = (
         "paired-test-missing-function",
     ),
     CheckCatalogEntry("but exercises nowhere", "paired-test-omitted-function"),
+    CheckCatalogEntry(") - consider splitting", "file-length"),
+    CheckCatalogEntry(" lines (max ", "function-line-cap"),
+    CheckCatalogEntry(" has nesting depth ", "nesting-depth"),
 )
 
 SEVERITY_BREAKING: str = "breaking"
@@ -68,5 +71,9 @@ SEVERITY_SMELL: str = "smell"
 SEVERITY_BY_CHECK_ID: dict[str, str] = {
     "code-rules/paired-test-missing-function": SEVERITY_SMELL,
     "code-rules/paired-test-omitted-function": SEVERITY_SMELL,
+    "code-rules/function-length": SEVERITY_SMELL,
+    "validators/file-length": SEVERITY_SMELL,
+    "validators/function-line-cap": SEVERITY_SMELL,
+    "validators/nesting-depth": SEVERITY_SMELL,
     "test-pairing": SEVERITY_SMELL,
 }
