@@ -111,6 +111,12 @@ def test_should_flag_a_number_sharing_a_line_with_a_named_binding() -> None:
     ]
 
 
+def test_should_flag_two_named_bindings_sharing_one_line() -> None:
+    assert _magic_issues_for_function_line("low_offset = 30; high_offset = 40") == [
+        "Line 2: Magic value 30 - extract to named constant"
+    ]
+
+
 def test_should_flag_a_condition_number_beside_a_named_binding() -> None:
     assert _magic_issues_for_function_line("if attempt > 99: limit = 40") == [
         "Line 2: Magic value 99 - extract to named constant"

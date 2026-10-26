@@ -484,3 +484,18 @@ def configure():
 def test_should_flag_a_number_bound_across_several_lines() -> None:
     violations = check_magic_values(ast.parse(MULTI_LINE_NAMED_LOCAL), "test.py")
     assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+SHARED_LINE_NAMED_LOCALS = """
+def configure():
+    low_offset = 30; high_offset = 40
+    return low_offset, high_offset
+"""
+
+
+def test_should_flag_numbers_bound_on_a_line_shared_with_another_statement() -> None:
+    violations = check_magic_values(ast.parse(SHARED_LINE_NAMED_LOCALS), "test.py")
+    assert sorted(violation.message for violation in violations) == [
+        "Magic number 30 - use named constant",
+        "Magic number 40 - use named constant",
+    ]

@@ -4,6 +4,7 @@ import ast
 import re
 import sys
 import textwrap
+from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -158,11 +159,10 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
         def backoff_seconds(attempt: int) -> float:
             retry_backoff_factor = 2.5
 
-    A number inside an expression, a keyword argument on its own line, and
-    a module-level binding still fire, and so does a binding to a name the
-    file declares ``global`` or ``nonlocal``. An indented edit fragment, such as one
-    method, is dedented before the parse. Content that still does not parse
-    yields no lines, so every number keeps firing.
+    A binding sharing its line with another statement, a number in an
+    expression, a keyword argument, a module-level binding, and a ``global``
+    or ``nonlocal`` name still fire. A fragment is dedented before the
+    parse; content that does not parse yields no lines.
     """
     try:
         syntax_tree = ast.parse(textwrap.dedent(content))
@@ -170,12 +170,15 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
         return set()
 
     all_outer_scope_names = _global_and_nonlocal_names(syntax_tree)
+    statement_count_by_line = Counter(
+        each_node.lineno for each_node in ast.walk(syntax_tree) if isinstance(each_node, ast.stmt)
+    )
     return {
         each_node.lineno
         for each_node in _nodes_inside_functions(syntax_tree)
-        if _is_number_bound_to_one_name(each_node)
+        if _number_bound_name(each_node) not in (None, *all_outer_scope_names)
         and each_node.lineno == each_node.end_lineno
-        and _bound_name(each_node) not in all_outer_scope_names
+        and statement_count_by_line[each_node.lineno] == 1
     }
 
 
@@ -187,12 +190,6 @@ def _global_and_nonlocal_names(syntax_tree: ast.AST) -> set[str]:
         if isinstance(each_node, (ast.Global, ast.Nonlocal))
         for each_name in each_node.names
     }
-
-
-def _bound_name(binding: ast.Assign | ast.AnnAssign) -> str:
-    """Return the single name a one-name ``Assign`` or ``AnnAssign`` binding targets."""
-    target = binding.target if isinstance(binding, ast.AnnAssign) else binding.targets[0]
-    return target.id
 
 
 def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
@@ -208,32 +205,20 @@ def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
         all_pending.extend((each_child, is_child_inside_function) for each_child in ast.iter_child_nodes(node))
 
 
-def _is_lone_named_number_binding(stripped_line: str) -> bool:
-    """Return True when the line holds one ``name = <number>`` statement and nothing else.
-
-    ``x = 5; y = a * 99`` and ``if a > 99: limit = 40`` hold more than the
-    binding, so they return False and their other numbers still fire.
-    """
-    try:
-        line_tree = ast.parse(stripped_line)
-    except SyntaxError:
-        return False
-    return len(line_tree.body) == 1 and _is_number_bound_to_one_name(line_tree.body[0])
-
-
-def _is_number_bound_to_one_name(node: ast.AST) -> bool:
-    """Return True when ``node`` binds one signed number literal to one name."""
+def _number_bound_name(node: ast.AST) -> str | None:
+    """Return the name ``node`` binds one signed number literal to, else None."""
     if isinstance(node, ast.Assign):
         all_targets, bound_value = node.targets, node.value
     elif isinstance(node, ast.AnnAssign) and node.value is not None:
         all_targets, bound_value = [node.target], node.value
     else:
-        return False
+        return None
     if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
-        return False
+        return None
     while isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, (ast.USub, ast.UAdd)):
         bound_value = bound_value.operand
-    return isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
+    is_number_literal = isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
+    return all_targets[0].id if is_number_literal else None
 
 
 def check_magic_values(content: str, file_path: str) -> list[str]:
@@ -276,8 +261,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            is_named_number_line = each_line_number in all_named_number_line_numbers
-            if is_named_number_line and _is_lone_named_number_binding(stripped):
+            if each_line_number in all_named_number_line_numbers:
                 continue
 
             if stripped.startswith(("return", "yield", "raise")):
