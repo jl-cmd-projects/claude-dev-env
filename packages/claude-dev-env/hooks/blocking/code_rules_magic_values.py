@@ -209,7 +209,7 @@ def _fragment_global_and_nonlocal_names(content: str) -> set[str]:
     """Return every name a ``global`` or ``nonlocal`` line declares in text that does not parse."""
     return {
         each_name.strip()
-        for each_match in re.finditer(r"^\s*(?:global|nonlocal)\s+([\w\s,]+)$", content, re.MULTILINE)
+        for each_match in re.finditer(r"^[ \t]*(?:global|nonlocal)[ \t]+([\w \t,]+)$", content, re.MULTILINE)
         for each_name in each_match.group(1).split(",")
     }
 

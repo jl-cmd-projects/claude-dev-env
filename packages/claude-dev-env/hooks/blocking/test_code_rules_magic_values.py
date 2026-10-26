@@ -189,3 +189,16 @@ def test_should_flag_the_last_keyword_argument_in_a_fragment_ending_inside_a_blo
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 4: Magic value 30 - extract to named constant"
     ]
+
+
+def test_should_flag_each_name_of_consecutive_global_lines_in_a_fragment() -> None:
+    source = (
+        "def tally(attempt: int) -> None:\n"
+        "    global total\n"
+        "    global count\n"
+        "    total = 7\n"
+        "    if attempt > 0:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 7 - extract to named constant"
+    ]
