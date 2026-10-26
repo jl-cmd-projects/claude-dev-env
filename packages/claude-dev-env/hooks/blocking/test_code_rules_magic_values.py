@@ -175,3 +175,17 @@ def test_should_flag_a_global_name_binding_in_a_fragment_ending_inside_a_block()
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 3: Magic value 40 - extract to named constant"
     ]
+
+
+def test_should_flag_the_last_keyword_argument_in_a_fragment_ending_inside_a_block() -> None:
+    source = (
+        "def fetch(address: str) -> None:\n"
+        "    response = send(\n"
+        "        address,\n"
+        "        timeout=30\n"
+        "    )\n"
+        "    if response:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 30 - extract to named constant"
+    ]

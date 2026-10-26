@@ -214,7 +214,9 @@ def _fragment_global_and_nonlocal_names(content: str) -> set[str]:
     }
 
 
-def _is_fragment_named_number_line(line: str, function_indent: int, all_outer_scope_names: set[str]) -> bool:
+def _is_fragment_named_number_line(
+    all_lines: list[str], line_number: int, function_indent: int, all_outer_scope_names: set[str]
+) -> bool:
     """Return True when a line of unparseable content binds one number to one name in a function.
 
     An Edit fragment that ends partway through a block does not parse whole::
@@ -225,10 +227,15 @@ def _is_fragment_named_number_line(line: str, function_indent: int, all_outer_sc
 
     The line must sit deeper than the last ``def`` line and parse alone as
     the binding, so ``retry_backoff_factor = 2.5`` passes there. A name a
-    ``global`` or ``nonlocal`` line declares still fires.
+    ``global`` or ``nonlocal`` line declares still fires, and so does a line
+    after one ending in ``,``, ``(``, ``[`` or ``{``, such as the last
+    keyword argument of a call split across lines.
     """
+    line = all_lines[line_number - 1]
     stripped_line = line.strip()
-    if len(line) - len(line.lstrip()) <= function_indent:
+    all_earlier_code_lines = [each_line.strip() for each_line in all_lines[: line_number - 1] if each_line.strip()]
+    is_inside_brackets = bool(all_earlier_code_lines) and all_earlier_code_lines[-1].endswith((",", "(", "[", "{"))
+    if is_inside_brackets or len(line) - len(line.lstrip()) <= function_indent:
         return False
     try:
         line_tree = ast.parse(stripped_line)
@@ -300,7 +307,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
 
             if all_named_number_line_numbers is None:
                 is_named_number_line = _is_fragment_named_number_line(
-                    each_line, function_indent, all_fragment_outer_scope_names
+                    lines, each_line_number, function_indent, all_fragment_outer_scope_names
                 )
             else:
                 is_named_number_line = each_line_number in all_named_number_line_numbers
