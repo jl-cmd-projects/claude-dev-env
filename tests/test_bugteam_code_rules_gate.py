@@ -200,7 +200,7 @@ def test_preexisting_violation_on_untouched_line_is_advisory(tmp_path: Path) -> 
     repository_root = set_up_fixture_repo(tmp_path)
     baseline_content = (
         "def compute() -> int:\n"
-        "    local_number = 9999\n"
+        "    local_number = abs(9999)\n"
         "    return local_number\n"
         "\n"
         "\n"
@@ -230,7 +230,7 @@ def test_new_violation_on_added_line_is_blocking(tmp_path: Path) -> None:
     write_file(repository_root, SRC_RELATIVE_PATH, baseline_content)
     stage_and_commit(repository_root, "baseline")
     run_git(repository_root, "checkout", "-b", "feature")
-    changed_content = "def compute() -> int:\n    local_number = 7777\n    return local_number\n"
+    changed_content = "def compute() -> int:\n    local_number = abs(7777)\n    return local_number\n"
     write_file(repository_root, SRC_RELATIVE_PATH, changed_content)
     stage_and_commit(repository_root, "introduce magic")
     completed = invoke_gate(repository_root)
@@ -244,7 +244,7 @@ def test_mixed_preexisting_and_new_violations_split_correctly(tmp_path: Path) ->
     repository_root = set_up_fixture_repo(tmp_path)
     baseline_content = (
         "def compute() -> int:\n"
-        "    old_number = 9999\n"
+        "    old_number = abs(9999)\n"
         "    return old_number\n"
         "\n"
         "\n"
@@ -256,12 +256,12 @@ def test_mixed_preexisting_and_new_violations_split_correctly(tmp_path: Path) ->
     run_git(repository_root, "checkout", "-b", "feature")
     changed_content = (
         "def compute() -> int:\n"
-        "    old_number = 9999\n"
+        "    old_number = abs(9999)\n"
         "    return old_number\n"
         "\n"
         "\n"
         "def neighbor() -> int:\n"
-        "    new_number = 7777\n"
+        "    new_number = abs(7777)\n"
         "    return new_number\n"
     )
     write_file(repository_root, SRC_RELATIVE_PATH, changed_content)
@@ -277,7 +277,7 @@ def test_mixed_preexisting_and_new_violations_split_correctly(tmp_path: Path) ->
 
 def test_explicit_paths_invocation_does_full_file_scan(tmp_path: Path) -> None:
     repository_root = set_up_fixture_repo(tmp_path)
-    baseline_content = "def compute() -> int:\n    old_number = 9999\n    return old_number\n"
+    baseline_content = "def compute() -> int:\n    old_number = abs(9999)\n    return old_number\n"
     write_file(repository_root, SRC_RELATIVE_PATH, baseline_content)
     stage_and_commit(repository_root, "baseline with pre-existing magic")
     run_git(repository_root, "checkout", "-b", "feature")

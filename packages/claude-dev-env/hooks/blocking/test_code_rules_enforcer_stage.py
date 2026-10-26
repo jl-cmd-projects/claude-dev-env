@@ -171,7 +171,7 @@ def test_gate_caller_scans_staged_content_with_commit_stage_scope(
     committed_source = "def calculate_total() -> int:\n    return 0\n"
     staged_source = (
         "def calculate_total() -> int:\n"
-        "    total = 9999\n"
+        "    total = abs(9999)\n"
         "    return total\n"
     )
     file_path = write_commit_and_stage_change(

@@ -52,3 +52,165 @@ def test_magic_value_check_still_flags_real_magic_number_in_code_statement() -> 
     assert any(issue.endswith("Magic value 42 - extract to named constant") for issue in issues), (
         f"Expected the real magic number 42 to stay flagged, got: {issues}"
     )
+
+
+def _magic_issues_for_function_line(function_body_line: str) -> list[str]:
+    source = f"def backoff_seconds(attempt: int) -> float:\n    {function_body_line}\n    return attempt\n"
+    return check_magic_values(source, PRODUCTION_FILE_PATH)
+
+
+def test_should_pass_a_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("retry_backoff_factor = 2.5") == []
+
+
+def test_should_pass_an_annotated_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("header_row_count: int | None = 30") == []
+
+
+def test_should_pass_a_named_number_with_a_trailing_comment() -> None:
+    assert _magic_issues_for_function_line("header_row_count = 30  # rows") == []
+
+
+def test_should_pass_a_negative_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("lowest_offset = -40") == []
+
+
+def test_should_flag_a_number_inside_an_expression() -> None:
+    assert _magic_issues_for_function_line("backoff = attempt * 2.5") == [
+        "Line 2: Magic value 2.5 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_number_in_a_comparison_assignment() -> None:
+    assert _magic_issues_for_function_line("is_slow = attempt > 40") == [
+        "Line 2: Magic value 40 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_keyword_argument_on_its_own_line() -> None:
+    source = "def backoff_seconds(attempt: int) -> float:\n    wait_for(\n        attempt,\n        timeout=30\n    )\n    return attempt\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_module_level_binding_after_a_function() -> None:
+    source = "def backoff_seconds(attempt: int) -> float:\n    return attempt\nretry_limit = 30\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_pass_a_positive_signed_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("lowest_offset = +40") == []
+
+
+def test_should_flag_a_number_sharing_a_line_with_a_named_binding() -> None:
+    assert _magic_issues_for_function_line("limit = 5; scaled = attempt * 99") == [
+        "Line 2: Magic value 5 - extract to named constant"
+    ]
+
+
+def test_should_flag_two_named_bindings_sharing_one_line() -> None:
+    assert _magic_issues_for_function_line("low_offset = 30; high_offset = 40") == [
+        "Line 2: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_condition_number_beside_a_named_binding() -> None:
+    assert _magic_issues_for_function_line("if attempt > 99: limit = 40") == [
+        "Line 2: Magic value 99 - extract to named constant"
+    ]
+
+
+def test_should_pass_a_named_number_in_an_indented_method_fragment() -> None:
+    fragment = "    def backoff_seconds(self) -> float:\n        retry_backoff_factor = 2.5\n        return retry_backoff_factor\n"
+    assert check_magic_values(fragment, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_pass_a_doubly_signed_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("lowest_offset = --40") == []
+
+
+def test_should_flag_a_keyword_argument_in_an_indented_method_fragment() -> None:
+    fragment = "    def wait(self) -> None:\n        wait_for(\n            self,\n            timeout=30\n        )\n"
+    assert check_magic_values(fragment, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_module_level_binding_in_unparseable_content() -> None:
+    source = "def build() -> int:\n    return 0\nretry_limit = 30\nprint 'x'\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_number_bound_to_a_global_name() -> None:
+    source = "retry_limit = 0\ndef raise_limit() -> None:\n    global retry_limit\n    retry_limit = 40\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 40 - extract to named constant"
+    ]
+
+
+def test_should_pass_a_named_number_in_a_fragment_ending_inside_a_block() -> None:
+    source = "def backoff_seconds(attempt: int) -> float:\n    retry_backoff_factor = 2.5\n    if attempt > 0:\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_pass_a_named_number_in_a_method_fragment_with_a_column_zero_string() -> None:
+    source = (
+        "    def backoff_seconds(self) -> float:\n"
+        "        retry_backoff_factor = 2.5\n"
+        '        banner = """\n'
+        "hello\n"
+        '"""\n'
+        "        return retry_backoff_factor\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_flag_a_global_name_binding_in_a_fragment_ending_inside_a_block() -> None:
+    source = "def raise_limit(attempt: int) -> None:\n    global retry_limit\n    retry_limit = 40\n    if attempt > 0:\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 40 - extract to named constant"
+    ]
+
+
+def test_should_flag_the_last_keyword_argument_in_a_fragment_ending_inside_a_block() -> None:
+    source = (
+        "def fetch(address: str) -> None:\n"
+        "    response = send(\n"
+        "        address,\n"
+        "        timeout=30\n"
+        "    )\n"
+        "    if response:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_each_name_of_consecutive_global_lines_in_a_fragment() -> None:
+    source = (
+        "def tally(attempt: int) -> None:\n"
+        "    global total\n"
+        "    global count\n"
+        "    total = 7\n"
+        "    if attempt > 0:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 7 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_global_name_declared_beside_a_comment_in_a_fragment() -> None:
+    source = (
+        "def tally(attempt: int) -> None:\n"
+        "    global total  # shared\n"
+        "    total = 7\n"
+        "    if attempt > 0:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 7 - extract to named constant"
+    ]

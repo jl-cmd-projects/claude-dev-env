@@ -317,7 +317,7 @@ def test_should_block_second_identical_string_magic_per_occurrence() -> None:
 def test_should_surface_magic_when_gate_defers_scope_with_head_as_old() -> None:
     source = (
         "def compute() -> int:\n"
-        "    old_number = 9999\n"
+        "    old_number = abs(9999)\n"
         "    return old_number\n"
     )
     issues = code_rules_enforcer.validate_content_for_full_gate(

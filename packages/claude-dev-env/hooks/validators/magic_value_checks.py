@@ -9,6 +9,7 @@ Note: Only checks for magic numbers. Magic string detection is not implemented.
 import ast
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Dict, FrozenSet, List, Set, Tuple, Type
 
@@ -16,7 +17,7 @@ from .exempt_paths import (
     is_config_file,
     is_test_file,
 )
-from .validator_base import Violation
+from .validator_base import Violation, run_file_validator_cli
 
 
 ALLOWED_NUMBERS: FrozenSet[int] = frozenset({-1, 0, 1})
@@ -35,6 +36,8 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
     violations: List[Violation] = []
     negated_literal_ids: Set[int] = set()
     parent_by_child_id = _build_parent_map(tree)
+    all_outer_scope_names = _global_and_nonlocal_names(tree)
+    all_shared_statement_lines = _lines_holding_several_statements(tree)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
@@ -55,6 +58,10 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
                     continue
                 if _is_in_constant_definition(outermost_unary, parent_by_child_id):
                     continue
+                if _is_named_function_local_binding(
+                    outermost_unary, parent_by_child_id, all_outer_scope_names, all_shared_statement_lines
+                ):
+                    continue
                 violations.append(
                     Violation(
                         filename,
@@ -73,6 +80,10 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
             if node.value in ALLOWED_NUMBERS:
                 continue
             if _is_in_constant_definition(node, parent_by_child_id):
+                continue
+            if _is_named_function_local_binding(
+                node, parent_by_child_id, all_outer_scope_names, all_shared_statement_lines
+            ):
                 continue
             violations.append(
                 Violation(
@@ -130,6 +141,70 @@ def _is_in_constant_definition(
     return False
 
 
+def _global_and_nonlocal_names(tree: ast.AST) -> Set[str]:
+    """Return every name a ``global`` or ``nonlocal`` statement declares in the tree."""
+    return {
+        each_name
+        for each_node in ast.walk(tree)
+        if isinstance(each_node, (ast.Global, ast.Nonlocal))
+        for each_name in each_node.names
+    }
+
+
+def _lines_holding_several_statements(tree: ast.AST) -> Set[int]:
+    """Return the line numbers where more than one statement starts."""
+    statement_count_by_line = Counter(
+        each_node.lineno for each_node in ast.walk(tree) if isinstance(each_node, ast.stmt)
+    )
+    return {each_line for each_line, each_count in statement_count_by_line.items() if each_count > 1}
+
+
+def _is_named_function_local_binding(
+    node: ast.AST,
+    parent_by_child_id: Dict[int, ast.AST],
+    all_outer_scope_names: Set[str],
+    all_shared_statement_lines: Set[int],
+) -> bool:
+    """Return True when a function binds ``node`` alone to one plain name.
+
+    ``header_row_count = 30`` on one line inside a function passes, since
+    the name explains the number. A number inside an expression, a default
+    parameter, a keyword argument, a module-level or class-level binding, a
+    binding that shares its line with another statement, and a binding to a
+    name the tree declares ``global`` or ``nonlocal`` still fire.
+    """
+    bound_value: ast.AST = node
+    parent = parent_by_child_id.get(id(bound_value))
+    while isinstance(parent, ast.UnaryOp) and isinstance(parent.op, (ast.USub, ast.UAdd)):
+        bound_value = parent
+        parent = parent_by_child_id.get(id(bound_value))
+    if not isinstance(parent, (ast.Assign, ast.AnnAssign)) or parent.value is not bound_value:
+        return False
+    all_targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+    if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
+        return False
+    is_one_line = parent.lineno == parent.end_lineno
+    is_alone_on_line = parent.lineno not in all_shared_statement_lines
+    if not (is_one_line and is_alone_on_line) or all_targets[0].id in all_outer_scope_names:
+        return False
+    return _encloses_in_function(parent, parent_by_child_id)
+
+
+def _encloses_in_function(
+    node: ast.AST,
+    parent_by_child_id: Dict[int, ast.AST],
+) -> bool:
+    """Return True when the nearest enclosing scope of ``node`` is a function."""
+    current_node: ast.AST = node
+    while id(current_node) in parent_by_child_id:
+        current_node = parent_by_child_id[id(current_node)]
+        if isinstance(current_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return True
+        if isinstance(current_node, ast.ClassDef):
+            return False
+    return False
+
+
 def _is_upper_snake_constant_assignment(node: ast.AST) -> bool:
     if isinstance(node, ast.Assign):
         for target in node.targets:
@@ -164,17 +239,7 @@ def validate_file(file_path: Path) -> List[Violation]:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        return 1
-
-    all_violations: List[Violation] = []
-    for file_arg in sys.argv[1:]:
-        all_violations.extend(validate_file(Path(file_arg)))
-
-    for violation in all_violations:
-        print(violation)
-
-    return 1 if all_violations else 0
+    return run_file_validator_cli(validate_file)
 
 
 if __name__ == "__main__":
