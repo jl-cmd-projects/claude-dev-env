@@ -152,9 +152,9 @@ def _is_named_function_local_binding(
 ) -> bool:
     """Return True when a function binds ``node`` alone to one plain name.
 
-    ``retry_backoff_factor = 2.5`` inside a function passes, since the name
-    explains the number. A number inside an expression, a default parameter,
-    a keyword argument, a module-level or class-level binding, and a binding
+    ``header_row_count = 30`` on one line inside a function passes, since
+    the name explains the number. A number inside an expression, a default
+    parameter, a keyword argument, a module-level or class-level binding, and a binding
     to a name the tree declares ``global`` or ``nonlocal`` still fire.
     """
     bound_value: ast.AST = node
@@ -162,17 +162,13 @@ def _is_named_function_local_binding(
     while isinstance(parent, ast.UnaryOp) and isinstance(parent.op, (ast.USub, ast.UAdd)):
         bound_value = parent
         parent = parent_by_child_id.get(id(bound_value))
-    if isinstance(parent, ast.Assign):
-        all_targets = parent.targets
-    elif isinstance(parent, ast.AnnAssign):
-        all_targets = [parent.target]
-    else:
+    if not isinstance(parent, (ast.Assign, ast.AnnAssign)) or parent.value is not bound_value:
         return False
-    if parent.value is not bound_value:
-        return False
+    all_targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
     if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
         return False
-    if all_targets[0].id in all_outer_scope_names:
+    is_one_line = parent.lineno == parent.end_lineno
+    if not is_one_line or all_targets[0].id in all_outer_scope_names:
         return False
     return _encloses_in_function(parent, parent_by_child_id)
 

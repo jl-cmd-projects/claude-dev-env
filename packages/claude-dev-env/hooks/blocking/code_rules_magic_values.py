@@ -189,10 +189,10 @@ def _global_and_nonlocal_names(syntax_tree: ast.AST) -> set[str]:
     }
 
 
-def _bound_name(binding: ast.AST) -> str:
-    """Return the single name an ``Assign`` or ``AnnAssign`` binding targets."""
+def _bound_name(binding: ast.Assign | ast.AnnAssign) -> str:
+    """Return the single name a one-name ``Assign`` or ``AnnAssign`` binding targets."""
     target = binding.target if isinstance(binding, ast.AnnAssign) else binding.targets[0]
-    return target.id if isinstance(target, ast.Name) else ""
+    return target.id
 
 
 def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:

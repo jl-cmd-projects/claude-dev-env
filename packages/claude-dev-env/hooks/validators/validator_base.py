@@ -1,7 +1,8 @@
 """Base classes for validators.
 
-Provides shared dataclasses used across all validator modules, and the one
-read and the one parse each of those modules shares for a given file.
+Provides shared dataclasses used across all validator modules, the one
+read and the one parse each of those modules shares for a given file, and
+the command-line runner a validator module's ``main`` can call.
 """
 
 import ast

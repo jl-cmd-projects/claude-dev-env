@@ -470,3 +470,17 @@ def test_should_flag_a_number_bound_to_a_global_name() -> None:
 
 def test_should_pass_a_mixed_sign_number_bound_to_a_local_name() -> None:
     assert check_magic_values(ast.parse(MIXED_SIGN_NAMED_LOCAL), "test.py") == []
+
+
+MULTI_LINE_NAMED_LOCAL = """
+def configure():
+    header_row_count = (
+        30
+    )
+    return header_row_count
+"""
+
+
+def test_should_flag_a_number_bound_across_several_lines() -> None:
+    violations = check_magic_values(ast.parse(MULTI_LINE_NAMED_LOCAL), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
