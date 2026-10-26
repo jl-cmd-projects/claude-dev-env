@@ -115,3 +115,8 @@ def test_should_flag_a_condition_number_beside_a_named_binding() -> None:
     assert _magic_issues_for_function_line("if attempt > 99: limit = 40") == [
         "Line 2: Magic value 99 - extract to named constant"
     ]
+
+
+def test_should_pass_a_named_number_in_an_indented_method_fragment() -> None:
+    fragment = "    def backoff_seconds(self) -> float:\n        retry_backoff_factor = 2.5\n        return retry_backoff_factor\n"
+    assert check_magic_values(fragment, PRODUCTION_FILE_PATH) == []

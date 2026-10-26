@@ -149,7 +149,7 @@ def _is_magic_number_inside_slice_bound(masked_line: str, number_text: str) -> b
     return False
 
 
-def _named_number_binding_line_numbers(content: str) -> set[int]:
+def _named_number_binding_line_numbers(content: str) -> set[int] | None:
     """Return the lines where a function binds one number literal to one name.
 
     The name carries the meaning, so the number needs no constant::
@@ -158,13 +158,14 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
             retry_backoff_factor = 2.5
 
     A number inside an expression, a keyword argument on its own line, and
-    a module-level binding still fire. Unparseable content yields no lines,
-    so every number keeps firing.
+    a module-level binding still fire. Content that does not
+    parse, such as an indented method fragment, returns None, and the line
+    scanner's own function tracking decides instead.
     """
     try:
         syntax_tree = ast.parse(content)
     except SyntaxError:
-        return set()
+        return None
 
     return {
         each_node.lineno
@@ -174,13 +175,15 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
 
 
 def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
-    """Yield every node that sits inside a function body, each one once."""
+    """Yield every node whose nearest enclosing scope is a function, each one once."""
     all_pending: list[tuple[ast.AST, bool]] = [(syntax_tree, False)]
     while all_pending:
         node, is_inside_function = all_pending.pop()
         if is_inside_function:
             yield node
-        is_child_inside_function = is_inside_function or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        is_child_inside_function = not isinstance(node, ast.ClassDef) and (
+            is_inside_function or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        )
         all_pending.extend((each_child, is_child_inside_function) for each_child in ast.iter_child_nodes(node))
 
 
@@ -252,7 +255,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            is_named_number_line = each_line_number in all_named_number_line_numbers
+            is_named_number_line = all_named_number_line_numbers is None or each_line_number in all_named_number_line_numbers
             if is_named_number_line and _is_lone_named_number_binding(stripped):
                 continue
 
