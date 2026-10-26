@@ -25,4 +25,3 @@ Preconditions:
 
 - The instruction logger keeps only selected payload fields. It exits zero if logging fails.
 - The edit tracker never blocks a tool call. Its per-session file is read later by the stage gate.
-- The investigation reset applies to delegation tools. Its companion investigation gate lives outside this Claude hook registration map.
