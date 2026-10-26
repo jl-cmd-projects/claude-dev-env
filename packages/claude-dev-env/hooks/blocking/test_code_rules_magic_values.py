@@ -202,3 +202,15 @@ def test_should_flag_each_name_of_consecutive_global_lines_in_a_fragment() -> No
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 4: Magic value 7 - extract to named constant"
     ]
+
+
+def test_should_flag_a_global_name_declared_beside_a_comment_in_a_fragment() -> None:
+    source = (
+        "def tally(attempt: int) -> None:\n"
+        "    global total  # shared\n"
+        "    total = 7\n"
+        "    if attempt > 0:\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 7 - extract to named constant"
+    ]
