@@ -64,11 +64,11 @@ def test_should_pass_a_number_bound_to_a_local_name() -> None:
 
 
 def test_should_pass_an_annotated_number_bound_to_a_local_name() -> None:
-    assert _magic_issues_for_function_line("timeout_seconds: int | None = 30") == []
+    assert _magic_issues_for_function_line("header_row_count: int | None = 30") == []
 
 
 def test_should_pass_a_named_number_with_a_trailing_comment() -> None:
-    assert _magic_issues_for_function_line("timeout = 30  # seconds") == []
+    assert _magic_issues_for_function_line("header_row_count = 30  # rows") == []
 
 
 def test_should_pass_a_negative_number_bound_to_a_local_name() -> None:
@@ -120,3 +120,21 @@ def test_should_flag_a_condition_number_beside_a_named_binding() -> None:
 def test_should_pass_a_named_number_in_an_indented_method_fragment() -> None:
     fragment = "    def backoff_seconds(self) -> float:\n        retry_backoff_factor = 2.5\n        return retry_backoff_factor\n"
     assert check_magic_values(fragment, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_pass_a_doubly_signed_number_bound_to_a_local_name() -> None:
+    assert _magic_issues_for_function_line("lowest_offset = --40") == []
+
+
+def test_should_flag_a_keyword_argument_in_an_indented_method_fragment() -> None:
+    fragment = "    def wait(self) -> None:\n        wait_for(\n            self,\n            timeout=30\n        )\n"
+    assert check_magic_values(fragment, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 30 - extract to named constant"
+    ]
+
+
+def test_should_flag_a_module_level_binding_in_unparseable_content() -> None:
+    source = "def build() -> int:\n    return 0\nretry_limit = 30\nprint 'x'\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 3: Magic value 30 - extract to named constant"
+    ]

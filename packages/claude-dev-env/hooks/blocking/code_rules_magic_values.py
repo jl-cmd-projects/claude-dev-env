@@ -3,6 +3,7 @@
 import ast
 import re
 import sys
+import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -149,7 +150,7 @@ def _is_magic_number_inside_slice_bound(masked_line: str, number_text: str) -> b
     return False
 
 
-def _named_number_binding_line_numbers(content: str) -> set[int] | None:
+def _named_number_binding_line_numbers(content: str) -> set[int]:
     """Return the lines where a function binds one number literal to one name.
 
     The name carries the meaning, so the number needs no constant::
@@ -158,14 +159,14 @@ def _named_number_binding_line_numbers(content: str) -> set[int] | None:
             retry_backoff_factor = 2.5
 
     A number inside an expression, a keyword argument on its own line, and
-    a module-level binding still fire. Content that does not
-    parse, such as an indented method fragment, returns None, and the line
-    scanner's own function tracking decides instead.
+    a module-level binding still fire. An indented edit fragment, such as one
+    method, is dedented before the parse. Content that still does not parse
+    yields no lines, so every number keeps firing.
     """
     try:
-        syntax_tree = ast.parse(content)
+        syntax_tree = ast.parse(textwrap.dedent(content))
     except SyntaxError:
-        return None
+        return set()
 
     return {
         each_node.lineno
@@ -210,7 +211,7 @@ def _is_number_bound_to_one_name(node: ast.AST) -> bool:
         return False
     if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
         return False
-    if isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, (ast.USub, ast.UAdd)):
+    while isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, (ast.USub, ast.UAdd)):
         bound_value = bound_value.operand
     return isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
 
@@ -255,7 +256,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            is_named_number_line = all_named_number_line_numbers is None or each_line_number in all_named_number_line_numbers
+            is_named_number_line = each_line_number in all_named_number_line_numbers
             if is_named_number_line and _is_lone_named_number_binding(stripped):
                 continue
 

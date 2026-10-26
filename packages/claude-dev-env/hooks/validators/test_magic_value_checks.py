@@ -419,21 +419,20 @@ class TestValidateFilePathExemptions:
 
 NAMED_FUNCTION_LOCAL_NUMBERS = """
 def configure():
-    retry_backoff_factor = 2.5
-    timeout_seconds: int = 30
+    header_row_count: int = 30
     lowest_offset = -40
     highest_offset = +40
-    return retry_backoff_factor, timeout_seconds, lowest_offset, highest_offset
+    return header_row_count, lowest_offset, highest_offset
 """
 
 DEFAULT_PARAMETER_NUMBER = """
-def configure(timeout_seconds=30):
-    return timeout_seconds
+def configure(header_row_count=30):
+    return header_row_count
 """
 
 CLASS_LEVEL_NUMBER = """
 class Settings:
-    timeout_seconds = 30
+    header_row_count = 30
 """
 
 
