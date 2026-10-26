@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.106.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.1...claude-dev-env-v8.106.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **hooks:** remove two per-spawn hooks that do no work ([#2204](https://github.com/jl-cmd-projects/claude-dev-env/issues/2204)) ([eb03e32](https://github.com/jl-cmd-projects/claude-dev-env/commit/eb03e32cc428e786a9e7c206564af318c050de77))
+
 ## [8.106.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.0...claude-dev-env-v8.106.1) (2026-10-25)
 
 
