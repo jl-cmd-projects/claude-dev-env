@@ -275,6 +275,7 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         const allLegacyRegistrations = [
             ['PreToolUse', 'Edit', '.claude', 'blocking/pre_tool_use_dispatcher.py'],
             ['PreToolUse', 'Bash', '.agents', 'blocking/bash_pre_tool_use_dispatcher.py'],
+            ['PreToolUse', 'Agent|Task', 'custom-codex', 'session/skill_loaded_reminder.py'],
             ['SessionStart', '*', 'custom-codex', 'session/issue_tracker_session_starter.py'],
             ['Stop', '*', '.claude', 'session/skill_loaded_reminder.py'],
             ['SessionEnd', '*', 'custom-codex', 'lifecycle/session_end_cleanup.py'],
@@ -312,7 +313,11 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         const allSpawnGroups = migratedHooks.hooks.PreToolUse.filter(eachGroup =>
             eachGroup.matcher === 'multi_agent_v1__spawn_agent');
         assert.equal(allSpawnGroups.length, 1);
-        assert.equal(migratedHooks.hooks.PreToolUse.some(eachGroup => eachGroup.matcher === 'Agent|Task'), false);
+        assert.equal(
+            migratedHooks.hooks.PreToolUse.flatMap(eachGroup => eachGroup.hooks)
+                .some(eachHook => String(eachHook.command).includes('skill_loaded_reminder.py')),
+            false,
+        );
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
         const allPackagePromptCommands = (migratedHooks.hooks.UserPromptSubmit ?? [])
             .flatMap(eachGroup => eachGroup.hooks)
