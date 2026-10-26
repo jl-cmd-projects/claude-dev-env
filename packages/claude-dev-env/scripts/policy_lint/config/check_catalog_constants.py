@@ -69,6 +69,7 @@ ALL_CHECK_CATALOG_ENTRIES: tuple[CheckCatalogEntry, ...] = (
 SEVERITY_BREAKING: str = "breaking"
 SEVERITY_SMELL: str = "smell"
 SEVERITY_BY_CHECK_ID: dict[str, str] = {
+    "code-rules/constant-outside-config": SEVERITY_SMELL,
     "code-rules/paired-test-missing-function": SEVERITY_SMELL,
     "code-rules/paired-test-omitted-function": SEVERITY_SMELL,
     "validators/file-length": SEVERITY_SMELL,

@@ -190,6 +190,15 @@ def test_a_validator_smell_reports_as_a_warning(
     assert severity_for_check_id(check_id) is Severity.WARNING
 
 
+def test_a_constant_outside_config_reports_as_a_warning() -> None:
+    check_id = check_id_for_message(
+        _BUNDLING_RULE_ID, "Line 3: Constant RETRY_LIMIT - move to config/"
+    )
+
+    assert check_id == f"{_BUNDLING_RULE_ID}/constant-outside-config"
+    assert severity_for_check_id(check_id) is Severity.WARNING
+
+
 def test_an_unclassified_check_reports_as_an_error() -> None:
     unclassified_check_id = f"{_BUNDLING_RULE_ID}/{UNCLASSIFIED_CHECK_NAME}"
 

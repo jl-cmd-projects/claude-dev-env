@@ -148,8 +148,26 @@ def _is_magic_number_inside_slice_bound(masked_line: str, number_text: str) -> b
     return False
 
 
+def _is_named_number_assignment(stripped_line: str) -> bool:
+    """Return True when the line binds one number literal to one name.
+
+    The name carries the meaning, so the number needs no constant::
+
+        retry_backoff_factor = 2.5
+
+    A number inside an expression, as in ``backoff = attempt * 2.5``,
+    still fires.
+    """
+    named_number_pattern = re.compile(r"^[A-Za-z_]\w*(?:\s*:\s*[\w.\[\], ]+)?\s*=\s*-?\d+\.?\d*\s*$")
+    return named_number_pattern.match(stripped_line) is not None
+
+
 def check_magic_values(content: str, file_path: str) -> list[str]:
-    """Check for magic values in function bodies."""
+    """Check for magic values in function bodies.
+
+    A line that binds a single number literal to a name passes, since the
+    name explains the number. A number inside a larger expression fires.
+    """
     if is_config_file(file_path) or is_test_file(file_path):
         return []
 
@@ -180,6 +198,9 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
 
         if is_inside_function:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
+                continue
+
+            if _is_named_number_assignment(stripped):
                 continue
 
             if stripped.startswith(("return", "yield", "raise")):

@@ -185,7 +185,7 @@ def _write_scoped_service_file_with_a_committed_baseline(repository_root: Path) 
         repository_root,
         "service.py",
         "def read_port() -> int:\n    return 0\n",
-        "def read_port() -> int:\n    port_number = 9999\n    return port_number\n",
+        "def read_port() -> int:\n    port_number = abs(9999)\n    return port_number\n",
     )
 
 
