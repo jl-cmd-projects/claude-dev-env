@@ -724,7 +724,13 @@ def main() -> int:
         write_flowchart_advice(tool_name, tool_input)
         return ALLOW_EXIT_CODE
     violation, reply_text = checked
-    block_reason = numbered_violations(violation) + RETRY_INSTRUCTION + FIX_EVERY_ITEM_INSTRUCTION
+    numbered_violation = numbered_violations(violation)
+    instruction = RETRY_INSTRUCTION + FIX_EVERY_ITEM_INSTRUCTION
+    block_reason = (
+        numbered_violation + FINDING_SEPARATOR + instruction.lstrip()
+        if FINDING_SEPARATOR in numbered_violation
+        else numbered_violation + instruction
+    )
     log_hook_block(
         Path(__file__).name,
         HOOK_EVENT_NAME,
