@@ -19,6 +19,7 @@ from pathlib import Path
 from json_file_reader import read_json_object
 from hooks_constants.visual_reply_rules_constants import (
     ABBREVIATION_MESSAGE,
+    VIOLATION_LINE_SEPARATOR,
     ABBREVIATIONS_RULE_KEY,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_VISUAL_TOOL_NAME_SUFFIXES,
@@ -140,19 +141,35 @@ def mode_enabled(claude_home: Path) -> bool:
 
 
 def abbreviation_violation(prose_text: str, rules: VisualReplyRules) -> str | None:
-    """Return the deny reason for the first abbreviation in prose with links and code removed."""
+    """Return the deny reason naming each abbreviation and tracker number in prose with links and code removed.
+
+    Each one gets its own line, so one refusal names them all.
+    """
     reminder = rules.reminder(ABBREVIATIONS_RULE_KEY)
-    for each_match in CAPITALIZED_ABBREVIATION_PATTERN.finditer(prose_text):
-        if each_match.group(0) not in rules.all_allowed_capitalized_words:
-            return ABBREVIATION_MESSAGE.format(abbreviation=each_match.group(0), reminder=reminder)
-    for each_abbreviation in rules.all_lowercase_abbreviations:
-        pattern = LOWERCASE_ABBREVIATION_TEMPLATE.format(abbreviation=re.escape(each_abbreviation))
-        if re.search(pattern, prose_text, re.IGNORECASE):
-            return ABBREVIATION_MESSAGE.format(abbreviation=each_abbreviation, reminder=reminder)
-    tracker_match = TRACKER_NUMBER_PATTERN.search(prose_text)
-    if tracker_match is not None:
-        return TRACKER_NUMBER_MESSAGE.format(reference=tracker_match.group(0), reminder=reminder)
-    return None
+    all_abbreviations = [
+        each_match.group(0)
+        for each_match in CAPITALIZED_ABBREVIATION_PATTERN.finditer(prose_text)
+        if each_match.group(0) not in rules.all_allowed_capitalized_words
+    ] + [
+        each_abbreviation
+        for each_abbreviation in rules.all_lowercase_abbreviations
+        if re.search(
+            LOWERCASE_ABBREVIATION_TEMPLATE.format(abbreviation=re.escape(each_abbreviation)),
+            prose_text,
+            re.IGNORECASE,
+        )
+    ]
+    all_violations = [
+        *(
+            ABBREVIATION_MESSAGE.format(abbreviation=each_abbreviation, reminder=reminder)
+            for each_abbreviation in dict.fromkeys(all_abbreviations)
+        ),
+        *(
+            TRACKER_NUMBER_MESSAGE.format(reference=each_match.group(0), reminder=reminder)
+            for each_match in TRACKER_NUMBER_PATTERN.finditer(prose_text)
+        ),
+    ]
+    return VIOLATION_LINE_SEPARATOR.join(all_violations) if all_violations else None
 
 
 def widget_anchor_violation(tool_name: str, all_tool_input: dict[str, object]) -> str | None:

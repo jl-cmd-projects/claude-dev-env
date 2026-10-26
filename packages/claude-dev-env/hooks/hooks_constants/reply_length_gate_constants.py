@@ -44,6 +44,8 @@ SENTENCE_PREVIEW_WORD_COUNT = 6
 WORD_SEPARATOR = " "
 SENTENCE_PREVIEW_SUFFIX = "..."
 RETRY_INSTRUCTION = " Cut the text and resend the call."
+FIX_EVERY_ITEM_INSTRUCTION = " Fix every item above in your next write."
+FINDING_SEPARATOR = "\n"
 TOO_MANY_SENTENCES_MESSAGE = "Reply too long: {sentence_count} sentences, limit {sentence_limit}."
 CARD_CONTEXT_TOO_LONG_MESSAGE = (
     "Card context too long: {sentence_count} sentences, limit {sentence_limit}."

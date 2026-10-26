@@ -72,6 +72,18 @@ def test_abbreviation_violation_flags_a_lowercase_abbreviation_and_a_tracker_num
     assert 'Tracker number "card 12"' in str(abbreviation_violation("See card 12.", SHIPPED_RULES))
 
 
+def test_abbreviation_violation_names_every_abbreviation_and_tracker_number_on_its_own_line() -> None:
+    assert SHIPPED_RULES is not None
+    violation = str(abbreviation_violation("The UI and the API, e.g. card 12 and card 13.", SHIPPED_RULES))
+    all_lines = violation.splitlines()
+    assert len(all_lines) == 5
+    assert 'Abbreviation "UI"' in all_lines[0]
+    assert 'Abbreviation "API"' in all_lines[1]
+    assert 'Abbreviation "e.g."' in all_lines[2]
+    assert 'Tracker number "card 12"' in all_lines[3]
+    assert 'Tracker number "card 13"' in all_lines[4]
+
+
 def test_widget_anchor_violation_reads_only_widget_calls() -> None:
     anchor_input = {"widget_code": '<a href="https://example.com">page</a>'}
     assert widget_anchor_violation("mcp__hearthbot__post_widget", anchor_input) is not None

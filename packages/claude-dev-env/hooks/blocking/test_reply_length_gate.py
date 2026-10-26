@@ -1076,3 +1076,80 @@ def test_should_report_an_over_long_comment_text_with_the_comment_instruction() 
 def test_should_pass_a_comment_text_whose_long_part_sits_in_a_details_block() -> None:
     comment_text = "Fixed.\n<details><summary>Log</summary>\n" + LONG_GITHUB_COMMENT + "\n</details>"
     assert reply_length_gate.comment_length_violation(comment_text) is None
+
+
+def test_joined_violations_should_put_each_violation_on_its_own_line() -> None:
+    assert reply_length_gate.joined_violations(["Too long.", None, "Em dash.\nNo link."]) == (
+        "Too long.\nEm dash.\nNo link."
+    )
+
+
+def test_numbered_violations_should_number_each_line_once() -> None:
+    assert reply_length_gate.numbered_violations("Too long.\nEm dash.\nNo link.") == (
+        "1. Too long.\n2. Em dash.\n3. No link."
+    )
+    assert reply_length_gate.numbered_violations("Too long.") == "Too long."
+
+
+def test_joined_violations_should_keep_one_violation_unchanged() -> None:
+    assert reply_length_gate.joined_violations([None, "Too long."]) == "Too long."
+
+
+def test_collected_violations_should_keep_findings_made_before_a_check_raises() -> None:
+    def broken_check() -> str | None:
+        raise TypeError("malformed input")
+
+    assert reply_length_gate.collected_violations([lambda: "Too long.", broken_check]) == "Too long."
+
+
+def test_collected_violations_should_keep_findings_when_a_later_check_raises_any_error() -> None:
+    def broken_check() -> str | None:
+        raise RuntimeError("transcript unreadable")
+
+    assert reply_length_gate.collected_violations([lambda: "Too long.", broken_check]) == "Too long."
+
+
+def test_collected_violations_should_raise_when_a_check_breaks_before_any_finding() -> None:
+    def broken_check() -> str | None:
+        raise TypeError("malformed input")
+
+    with pytest.raises(TypeError):
+        reply_length_gate.collected_violations([lambda: None, broken_check])
+
+
+def test_should_name_every_broken_rule_in_one_refusal(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {"text": f"See PR 7452 and PR 7460.\n{SIXTEEN_WORD_SENTENCE}\nIt failed — again."},
+    )
+
+    assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    assert "PR 7452" in error_text
+    assert "PR 7460" in error_text
+    assert "16 words" in error_text
+    assert reply_length_gate.EM_DASH_MESSAGE in error_text
+    assert error_text.endswith(reply_length_gate.FIX_EVERY_ITEM_INSTRUCTION)
+
+
+def test_should_number_nested_violations_once_in_one_refusal(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {"text": f"One.\nTwo.\nThree.\n{SIXTEEN_WORD_SENTENCE}\n{SIXTEEN_WORD_SENTENCE}\nIt failed — again."},
+    )
+
+    assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    all_numbered_lines = [each_line for each_line in error_text.splitlines() if each_line[:1].isdigit()]
+    assert [each_line.split(". ", 1)[0] for each_line in all_numbered_lines] == ["1", "2", "3", "4"]
+    assert not any(each_line.split(". ", 1)[1][:1].isdigit() for each_line in all_numbered_lines)
+    assert "Reply too long: 6 sentences" in all_numbered_lines[0]
+    assert all_numbered_lines[1].count("16 words") == 1
+    assert all_numbered_lines[2].count("16 words") == 1
+    assert reply_length_gate.EM_DASH_MESSAGE in all_numbered_lines[3]
