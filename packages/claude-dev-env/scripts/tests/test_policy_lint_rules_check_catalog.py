@@ -18,6 +18,7 @@ from policy_lint.config.check_catalog_constants import (
 from policy_lint.model import Diagnostic, Severity
 
 _BUNDLING_RULE_ID = "code-rules"
+_VALIDATORS_RULE_ID = "validators"
 _HOOKS_DIRECTORY = Path(__file__).resolve().parents[2] / "hooks"
 _TEST_FILE_PREFIX = "test_"
 _PYTHON_GLOB = "*.py"
@@ -82,6 +83,9 @@ ALL_MESSAGE_SAMPLES: tuple[tuple[str, str], ...] = (
         " already covers another public function in that module",
         "paired-test-omitted-function",
     ),
+    ("src/app.py:1: File is 412 lines (max 400) - consider splitting", "file-length"),
+    ("src/app.py:4: Function 'run' is 37 lines (max 30)", "function-line-cap"),
+    ("src/app.py:9: Function 'run' has nesting depth 3 (max 2)", "nesting-depth"),
 )
 
 
@@ -167,6 +171,23 @@ def test_a_diagnostic_reports_the_check_identifier_it_carries() -> None:
 )
 def test_a_paired_test_check_reports_as_a_warning(check_name: str) -> None:
     assert severity_for_check_id(f"{_BUNDLING_RULE_ID}/{check_name}") is Severity.WARNING
+
+
+@pytest.mark.parametrize(
+    ("sample_message", "check_name"),
+    tuple(
+        each_sample
+        for each_sample in ALL_MESSAGE_SAMPLES
+        if each_sample[1] in ("file-length", "function-line-cap", "nesting-depth")
+    ),
+)
+def test_a_validator_smell_reports_as_a_warning(
+    sample_message: str, check_name: str
+) -> None:
+    check_id = check_id_for_message(_VALIDATORS_RULE_ID, sample_message)
+
+    assert check_id == f"{_VALIDATORS_RULE_ID}/{check_name}"
+    assert severity_for_check_id(check_id) is Severity.WARNING
 
 
 def test_an_unclassified_check_reports_as_an_error() -> None:
