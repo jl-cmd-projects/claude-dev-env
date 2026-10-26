@@ -159,7 +159,8 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
             retry_backoff_factor = 2.5
 
     A number inside an expression, a keyword argument on its own line, and
-    a module-level binding still fire. An indented edit fragment, such as one
+    a module-level binding still fire, and so does a binding to a name the
+    file declares ``global`` or ``nonlocal``. An indented edit fragment, such as one
     method, is dedented before the parse. Content that still does not parse
     yields no lines, so every number keeps firing.
     """
@@ -168,11 +169,30 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
     except SyntaxError:
         return set()
 
+    all_outer_scope_names = _global_and_nonlocal_names(syntax_tree)
     return {
         each_node.lineno
         for each_node in _nodes_inside_functions(syntax_tree)
-        if _is_number_bound_to_one_name(each_node) and each_node.lineno == each_node.end_lineno
+        if _is_number_bound_to_one_name(each_node)
+        and each_node.lineno == each_node.end_lineno
+        and _bound_name(each_node) not in all_outer_scope_names
     }
+
+
+def _global_and_nonlocal_names(syntax_tree: ast.AST) -> set[str]:
+    """Return every name a ``global`` or ``nonlocal`` statement declares in the file."""
+    return {
+        each_name
+        for each_node in ast.walk(syntax_tree)
+        if isinstance(each_node, (ast.Global, ast.Nonlocal))
+        for each_name in each_node.names
+    }
+
+
+def _bound_name(binding: ast.AST) -> str:
+    """Return the single name an ``Assign`` or ``AnnAssign`` binding targets."""
+    target = binding.target if isinstance(binding, ast.AnnAssign) else binding.targets[0]
+    return target.id if isinstance(target, ast.Name) else ""
 
 
 def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:

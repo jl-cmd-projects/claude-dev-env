@@ -35,6 +35,7 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
     violations: List[Violation] = []
     negated_literal_ids: Set[int] = set()
     parent_by_child_id = _build_parent_map(tree)
+    all_outer_scope_names = _global_and_nonlocal_names(tree)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
@@ -55,7 +56,7 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
                     continue
                 if _is_in_constant_definition(outermost_unary, parent_by_child_id):
                     continue
-                if _is_named_function_local_binding(outermost_unary, parent_by_child_id):
+                if _is_named_function_local_binding(outermost_unary, parent_by_child_id, all_outer_scope_names):
                     continue
                 violations.append(
                     Violation(
@@ -76,7 +77,7 @@ def check_magic_values(tree: ast.AST, filename: str) -> List[Violation]:
                 continue
             if _is_in_constant_definition(node, parent_by_child_id):
                 continue
-            if _is_named_function_local_binding(node, parent_by_child_id):
+            if _is_named_function_local_binding(node, parent_by_child_id, all_outer_scope_names):
                 continue
             violations.append(
                 Violation(
@@ -134,19 +135,31 @@ def _is_in_constant_definition(
     return False
 
 
+def _global_and_nonlocal_names(tree: ast.AST) -> Set[str]:
+    """Return every name a ``global`` or ``nonlocal`` statement declares in the tree."""
+    return {
+        each_name
+        for each_node in ast.walk(tree)
+        if isinstance(each_node, (ast.Global, ast.Nonlocal))
+        for each_name in each_node.names
+    }
+
+
 def _is_named_function_local_binding(
     node: ast.AST,
     parent_by_child_id: Dict[int, ast.AST],
+    all_outer_scope_names: Set[str],
 ) -> bool:
     """Return True when a function binds ``node`` alone to one plain name.
 
     ``retry_backoff_factor = 2.5`` inside a function passes, since the name
     explains the number. A number inside an expression, a default parameter,
-    a keyword argument, and a module-level or class-level binding still fire.
+    a keyword argument, a module-level or class-level binding, and a binding
+    to a name the tree declares ``global`` or ``nonlocal`` still fire.
     """
     bound_value: ast.AST = node
     parent = parent_by_child_id.get(id(bound_value))
-    if isinstance(parent, ast.UnaryOp) and isinstance(parent.op, ast.UAdd):
+    while isinstance(parent, ast.UnaryOp) and isinstance(parent.op, (ast.USub, ast.UAdd)):
         bound_value = parent
         parent = parent_by_child_id.get(id(bound_value))
     if isinstance(parent, ast.Assign):
@@ -158,6 +171,8 @@ def _is_named_function_local_binding(
     if parent.value is not bound_value:
         return False
     if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
+        return False
+    if all_targets[0].id in all_outer_scope_names:
         return False
     return _encloses_in_function(parent, parent_by_child_id)
 

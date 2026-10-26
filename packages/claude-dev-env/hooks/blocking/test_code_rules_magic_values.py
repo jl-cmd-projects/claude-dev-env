@@ -138,3 +138,10 @@ def test_should_flag_a_module_level_binding_in_unparseable_content() -> None:
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 3: Magic value 30 - extract to named constant"
     ]
+
+
+def test_should_flag_a_number_bound_to_a_global_name() -> None:
+    source = "retry_limit = 0\ndef raise_limit() -> None:\n    global retry_limit\n    retry_limit = 40\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
+        "Line 4: Magic value 40 - extract to named constant"
+    ]

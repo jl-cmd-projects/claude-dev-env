@@ -448,3 +448,25 @@ def test_should_flag_a_default_parameter_number() -> None:
 def test_should_flag_a_class_level_number() -> None:
     violations = check_magic_values(ast.parse(CLASS_LEVEL_NUMBER), "test.py")
     assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+GLOBAL_NAME_NUMBER = """
+def raise_limit():
+    global retry_limit
+    retry_limit = 40
+"""
+
+MIXED_SIGN_NAMED_LOCAL = """
+def configure():
+    lowest_offset = -+40
+    return lowest_offset
+"""
+
+
+def test_should_flag_a_number_bound_to_a_global_name() -> None:
+    violations = check_magic_values(ast.parse(GLOBAL_NAME_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 40 - use named constant"]
+
+
+def test_should_pass_a_mixed_sign_number_bound_to_a_local_name() -> None:
+    assert check_magic_values(ast.parse(MIXED_SIGN_NAMED_LOCAL), "test.py") == []
