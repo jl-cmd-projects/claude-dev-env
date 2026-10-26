@@ -24,7 +24,7 @@ I search for shared code and configuration before adding a constant or repeating
 
 The code-rules enforcer runs constant, path, magic-value, and duplicate-format checks on changed *.py files. String and collection checks inspect production function bodies in *.py files.
 
-A value used once stays in its function under a descriptive local name, such as `retry_backoff_factor = 2.5`. A value moves to config when two modules share it or someone tunes it, such as a timeout, threshold, port, or selector. Search config for the exact value and a semantic match. Add timing to config/timing.py, ports and thresholds to config/constants.py, and selectors to config/selectors.py. Keep construction and formatting with the owner of the data. Constants outside config are exempt in migrations, workflow registries, and test files. Workflow registry matching uses path substrings /workflow/, _tab.py, /states.py, and /modules.py. The test-file patterns include test_, _test., .spec., conftest, and /tests/.
+A value used once stays in its function under a local name, such as `retry_backoff_factor = 2.5`. A value moves to config when two modules share it or someone tunes it, such as a timeout, threshold, port, or selector. Search config for the exact value and a semantic match. Add timing to config/timing.py, ports and thresholds to config/constants.py, and selectors to config/selectors.py. Keep construction and formatting with the owner of the data. Constants outside config are exempt in migrations, workflow registries, and test files. Workflow registry matching uses path substrings /workflow/, _tab.py, /states.py, and /modules.py. The test-file patterns include test_, _test., .spec., conftest, and /tests/.
 
 ## Proving it
 

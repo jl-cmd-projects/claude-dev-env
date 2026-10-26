@@ -151,3 +151,21 @@ def test_should_flag_a_number_bound_to_a_global_name() -> None:
     assert check_magic_values(source, PRODUCTION_FILE_PATH) == [
         "Line 4: Magic value 40 - extract to named constant"
     ]
+
+
+def test_should_pass_a_named_number_in_a_fragment_ending_inside_a_block() -> None:
+    source = "def backoff_seconds(attempt: int) -> float:\n    retry_backoff_factor = 2.5\n    if attempt > 0:\n"
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == []
+
+
+def test_should_pass_a_named_number_in_a_method_fragment_with_a_column_zero_string() -> None:
+    source = (
+        "    def backoff_seconds(self) -> float:\n"
+        "        retry_backoff_factor = 2.5\n"
+        '        banner = """\n'
+        "hello\n"
+        '"""\n'
+        "        return retry_backoff_factor\n"
+    )
+    assert check_magic_values(source, PRODUCTION_FILE_PATH) == []
+

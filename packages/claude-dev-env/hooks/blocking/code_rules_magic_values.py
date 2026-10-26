@@ -151,7 +151,7 @@ def _is_magic_number_inside_slice_bound(masked_line: str, number_text: str) -> b
     return False
 
 
-def _named_number_binding_line_numbers(content: str) -> set[int]:
+def _named_number_binding_line_numbers(content: str) -> set[int] | None:
     """Return the lines where a function binds one number literal to one name.
 
     The name carries the meaning, so the number needs no constant::
@@ -162,12 +162,12 @@ def _named_number_binding_line_numbers(content: str) -> set[int]:
     A binding sharing its line with another statement, a number in an
     expression, a keyword argument, a module-level binding, and a ``global``
     or ``nonlocal`` name still fire. A fragment is dedented before the
-    parse; content that does not parse yields no lines.
+    parse; content that does not parse returns None.
     """
     try:
         syntax_tree = ast.parse(textwrap.dedent(content))
     except SyntaxError:
-        return set()
+        return None
 
     all_outer_scope_names = _global_and_nonlocal_names(syntax_tree)
     statement_count_by_line = Counter(
@@ -205,6 +205,28 @@ def _nodes_inside_functions(syntax_tree: ast.AST) -> Iterator[ast.AST]:
         all_pending.extend((each_child, is_child_inside_function) for each_child in ast.iter_child_nodes(node))
 
 
+def _is_fragment_named_number_line(line: str, function_indent: int) -> bool:
+    """Return True when a line of unparseable content binds one number to one name in a function.
+
+    An Edit fragment that ends partway through a block does not parse whole::
+
+        def backoff_seconds(attempt: int) -> float:
+            retry_backoff_factor = 2.5
+            if attempt > 0:
+
+    The line must sit deeper than the last ``def`` line and parse alone as
+    the binding, so ``retry_backoff_factor = 2.5`` passes there.
+    """
+    stripped_line = line.strip()
+    if len(line) - len(line.lstrip()) <= function_indent:
+        return False
+    try:
+        line_tree = ast.parse(stripped_line)
+    except SyntaxError:
+        return False
+    return len(line_tree.body) == 1 and _number_bound_name(line_tree.body[0]) is not None
+
+
 def _number_bound_name(node: ast.AST) -> str | None:
     """Return the name ``node`` binds one signed number literal to, else None."""
     if isinstance(node, ast.Assign):
@@ -236,6 +258,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
     all_docstring_line_numbers = docstring_line_numbers(content)
     all_named_number_line_numbers = _named_number_binding_line_numbers(content)
     is_inside_function = False
+    function_indent = 0
 
     number_pattern = re.compile(r"(?<![.\w])(\d+\.?\d*)(?![.\w])")
     allowed_numbers = ALL_ALLOWED_MAGIC_NUMBER_LITERALS
@@ -251,6 +274,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
 
         if re.match(r"^(async\s+)?def\s+\w+", stripped):
             is_inside_function = True
+            function_indent = len(each_line) - len(each_line.lstrip())
             continue
 
         if re.match(r"^class\s+\w+", stripped):
@@ -261,7 +285,11 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            if each_line_number in all_named_number_line_numbers:
+            if all_named_number_line_numbers is None:
+                is_named_number_line = _is_fragment_named_number_line(each_line, function_indent)
+            else:
+                is_named_number_line = each_line_number in all_named_number_line_numbers
+            if is_named_number_line:
                 continue
 
             if stripped.startswith(("return", "yield", "raise")):
