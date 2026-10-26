@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.106.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.4...claude-dev-env-v8.106.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **lint:** let a number used once stay in its function under a local name ([#2211](https://github.com/jl-cmd-projects/claude-dev-env/issues/2211)) ([79933df](https://github.com/jl-cmd-projects/claude-dev-env/commit/79933df10fcb4346c96b13ffd0fd2b2f67589187))
+
 ## [8.106.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.3...claude-dev-env-v8.106.4) (2026-10-26)
 
 
