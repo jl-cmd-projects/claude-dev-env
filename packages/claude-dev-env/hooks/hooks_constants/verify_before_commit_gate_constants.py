@@ -12,17 +12,43 @@ COMMIT_ACTION = "commit"
 ADD_ACTION = "add"
 ALL_GIT_EXECUTABLES = frozenset({"git", "git.exe"})
 GIT_DIRECTORY_OPTION = "-C"
+COMMIT_ALL_LONG_OPTION = "--all"
+COMMIT_ALL_SHORT_FLAG = "a"
+LONG_OPTION_PREFIX = "--"
+ALL_COMMIT_VALUED_SHORT_FLAGS = frozenset("mFCct")
+ALL_COMMIT_OPTIONAL_VALUE_SHORT_FLAGS = frozenset("Su")
 ALL_ADD_EVERYTHING_OPTIONS = frozenset({"-A", "--all", "-u", "--update"})
 WHOLE_TREE_PATHSPEC = ":/"
 PATHSPEC_TERMINATOR = "--"
 GIT_TIMEOUT_SECONDS = 5
 ALL_TOP_LEVEL_ARGUMENTS = ("rev-parse", "--show-toplevel")
-ALL_DRY_RUN_ARGUMENTS = ("commit", "--dry-run", "--porcelain", "-z")
-ALL_DRY_RUN_ANSWER_CODES = frozenset({0, 1})
-PORCELAIN_FIELD_SEPARATOR = "\0"
-PORCELAIN_PATH_OFFSET = 3
-ALL_RENAME_STATUSES = frozenset("RC")
-ALL_UNRECORDED_STATUSES = frozenset(" ?!")
+ALL_STAGED_PATHS_ARGUMENTS = ("diff", "--cached", "--name-only", "--no-renames")
+ALL_TRACKED_CHANGE_ARGUMENTS = ("diff", "--name-only", "--no-renames")
+ALL_PATHSPEC_CHANGE_ARGUMENTS = ("diff", "--name-only", "--no-renames", "HEAD", "--")
+ALL_PATHSPEC_FILE_ARGUMENTS = (
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--full-name",
+    "--",
+)
+ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
+    {
+        "--author",
+        "--cleanup",
+        "--date",
+        "--file",
+        "--fixup",
+        "--message",
+        "--reedit-message",
+        "--reuse-message",
+        "--squash",
+        "--template",
+        "--trailer",
+    }
+)
+PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"
 ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "ls-files",
     "--modified",
