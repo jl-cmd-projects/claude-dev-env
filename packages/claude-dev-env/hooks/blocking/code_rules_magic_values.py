@@ -148,25 +148,54 @@ def _is_magic_number_inside_slice_bound(masked_line: str, number_text: str) -> b
     return False
 
 
-def _is_named_number_assignment(stripped_line: str) -> bool:
-    """Return True when the line binds one number literal to one name.
+def _named_number_binding_line_numbers(content: str) -> set[int]:
+    """Return the lines where a function binds one number literal to one name.
 
     The name carries the meaning, so the number needs no constant::
 
-        retry_backoff_factor = 2.5
+        def backoff_seconds(attempt: int) -> float:
+            retry_backoff_factor = 2.5
 
-    A number inside an expression, as in ``backoff = attempt * 2.5``,
-    still fires.
+    A number inside an expression, a keyword argument, a default parameter,
+    and a module-level or class-level binding still fire. Unparseable
+    content yields no lines, so every number keeps firing.
     """
-    named_number_pattern = re.compile(r"^[A-Za-z_]\w*(?:\s*:\s*[\w.\[\], ]+)?\s*=\s*-?\d+\.?\d*\s*$")
-    return named_number_pattern.match(stripped_line) is not None
+    try:
+        syntax_tree = ast.parse(content)
+    except SyntaxError:
+        return set()
+
+    return {
+        each_node.lineno
+        for each_function in ast.walk(syntax_tree)
+        if isinstance(each_function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for each_node in ast.walk(each_function)
+        if _is_one_line_number_bound_to_one_name(each_node)
+    }
+
+
+def _is_one_line_number_bound_to_one_name(node: ast.AST) -> bool:
+    """Return True when ``node`` is a one-line ``name = <number>`` binding."""
+    if isinstance(node, ast.Assign):
+        all_targets, bound_value = node.targets, node.value
+    elif isinstance(node, ast.AnnAssign) and node.value is not None:
+        all_targets, bound_value = [node.target], node.value
+    else:
+        return False
+    if len(all_targets) != 1 or not isinstance(all_targets[0], ast.Name):
+        return False
+    if isinstance(bound_value, ast.UnaryOp) and isinstance(bound_value.op, ast.USub):
+        bound_value = bound_value.operand
+    is_number_literal = isinstance(bound_value, ast.Constant) and type(bound_value.value) in (int, float)
+    return is_number_literal and node.lineno == node.end_lineno
 
 
 def check_magic_values(content: str, file_path: str) -> list[str]:
     """Check for magic values in function bodies.
 
-    A line that binds a single number literal to a name passes, since the
-    name explains the number. A number inside a larger expression fires.
+    A line inside a function that binds a single number literal to a name
+    passes, since the name explains the number. A number inside a larger
+    expression fires.
     """
     if is_config_file(file_path) or is_test_file(file_path):
         return []
@@ -174,6 +203,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
     issues = []
     lines = content.split("\n")
     all_docstring_line_numbers = docstring_line_numbers(content)
+    all_named_number_line_numbers = _named_number_binding_line_numbers(content)
     is_inside_function = False
 
     number_pattern = re.compile(r"(?<![.\w])(\d+\.?\d*)(?![.\w])")
@@ -200,7 +230,7 @@ def check_magic_values(content: str, file_path: str) -> list[str]:
             if "=" in stripped and stripped.split("=")[0].strip().isupper():
                 continue
 
-            if _is_named_number_assignment(stripped):
+            if each_line_number in all_named_number_line_numbers:
                 continue
 
             if stripped.startswith(("return", "yield", "raise")):
