@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Hook that restores poteto-mode after compaction and loads it for helpers.
+"""Hook that restores poteto-mode after compaction and loads it for workflow helpers.
 
 ::
 
-    Agent or Codex spawn_agent, skill not named -> prompt opens with "invoke poteto-mode"
     Workflow script helper starts               -> "invoke poteto-mode now"
     compact SessionStart, skill invoked before   -> "invoke the skill again"
     compact SessionStart, no prior invocation
@@ -28,53 +27,19 @@ if _hooks_dir not in sys.path:
     sys.path.insert(0, _hooks_dir)
 
 from hooks_constants.skill_loaded_reminder_constants import (
-    ALL_SELF_LOADING_SUBAGENT_TYPES,
     COMPACTION_REMINDER,
     COMPACTION_SOURCE,
     NOT_LOADED_REMINDER,
     ALL_POTETO_MODE_SKILL_NAMES,
-    PRE_TOOL_USE_EVENT_NAME,
-    PROMPT_SEPARATOR,
     SESSION_START_EVENT_NAME,
     ALL_SLASH_COMMAND_MARKERS,
     SUBAGENT_START_EVENT_NAME,
-    ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME,
     USER_PROMPT_SUBMIT_EVENT_NAME,
     WORKFLOW_SUBAGENT_TYPE,
 )
-from hooks_constants.pre_tool_use_allow_output import write_pre_tool_use_allow_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from transcript_skill_scan import skill_invocation_status
-
-
-def subagent_input_with_poteto_mode(
-    tool_name: str,
-    all_tool_input_fields: dict[str, object],
-) -> dict[str, object] | None:
-    """Return the spawn input with the poteto-mode invocation first, or None to leave it.
-
-    ::
-
-        Agent        {"prompt": "Reply leaf."}   -> {"prompt": "Before any ...\\n\\nReply leaf."}
-        spawn_agent  {"message": "Fix it."}      -> {"message": "$poteto-mode\\n\\nFix it."}
-        Agent        {"prompt": "Invoke poteto-mode, then ..."}  -> None
-        Agent        {"subagent_type": "poteto-agent", ...}      -> None, it loads the skill
-
-    Claude Code spawns through Agent or Task and Codex through spawn_agent, so
-    each tool name carries its own prompt field and invocation text.
-
-    Args:
-        tool_name: The spawn tool the session called.
-        all_tool_input_fields: The spawn input the session is about to send.
-    """
-    field_name, invocation_prefix = ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME[tool_name]
-    prompt = all_tool_input_fields.get(field_name)
-    if not isinstance(prompt, str) or ALL_POTETO_MODE_SKILL_NAMES[0] in prompt:
-        return None
-    if all_tool_input_fields.get("subagent_type") in ALL_SELF_LOADING_SUBAGENT_TYPES:
-        return None
-    return {**all_tool_input_fields, field_name: invocation_prefix + PROMPT_SEPARATOR + prompt}
 
 
 def poteto_mode_status(all_transcript_lines: Iterable[str]) -> tuple[bool, bool]:
@@ -160,25 +125,10 @@ def reminder_for(all_hook_fields: dict[str, object]) -> str | None:
     return NOT_LOADED_REMINDER if was_invoked and not is_loaded else None
 
 
-def _is_subagent_spawn(all_hook_fields: dict[str, object]) -> bool:
-    return (
-        all_hook_fields.get("hook_event_name") == PRE_TOOL_USE_EVENT_NAME
-        and all_hook_fields.get("tool_name") in ALL_SPAWN_PROMPT_FIELDS_AND_PREFIXES_BY_TOOL_NAME
-        and isinstance(all_hook_fields.get("tool_input"), dict)
-    )
-
-
 def main() -> None:
-    """Rewrite a subagent prompt, or print the reminder its event needs, or stay quiet."""
+    """Print the reminder its event needs, or stay quiet."""
     hook_payload = read_hook_input_dictionary_from_stdin()
     if hook_payload is None:
-        return
-    if _is_subagent_spawn(hook_payload):
-        rewritten_input = subagent_input_with_poteto_mode(
-            hook_payload["tool_name"], hook_payload["tool_input"]
-        )
-        if rewritten_input is not None:
-            write_pre_tool_use_allow_to_stdout(rewritten_input)
         return
     reminder = reminder_for(hook_payload)
     if reminder is None:

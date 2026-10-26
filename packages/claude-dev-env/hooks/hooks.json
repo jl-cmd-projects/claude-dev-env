@@ -7,11 +7,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/skill_loaded_reminder.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/haiku_spawn_slim_gate.py",
             "timeout": 10
           },
@@ -522,16 +517,6 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/observability/session_file_edit_tracker.py",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "Agent|Task|TeamCreate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/workflow/investigation_tracker_reset.py",
             "timeout": 30
           }
         ]
