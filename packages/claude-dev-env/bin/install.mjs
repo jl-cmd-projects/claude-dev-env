@@ -3683,7 +3683,7 @@ function uninstall() {
             faultPhase,
             runMutations: ({ throwIfFault }) => {
                 executeUninstallPlan(plan, { throwIfFault, allProfileSettingsPaths: gateRemoval.allReadablePaths });
-                if (removePelePackage(peleInstallDirectory(CLAUDE_HOME))) console.log('  Pele: install folder removed');
+                if (removePelePackage(peleInstallDirectory(CLAUDE_HOME))) console.log('  Pele: install directory removed');
             },
         });
     } catch (mutationError) {

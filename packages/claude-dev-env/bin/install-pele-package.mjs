@@ -149,7 +149,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
 }
 
 /**
- * Delete the Pele install folder an earlier install created.
+ * Delete the Pele install directory an earlier install created.
  *
  * @param {string} installDirectory The folder `installPelePackage` filled.
  * @returns {boolean} True when a folder was removed.
