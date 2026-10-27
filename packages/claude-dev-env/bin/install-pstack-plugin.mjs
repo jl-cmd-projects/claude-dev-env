@@ -209,11 +209,12 @@ const BARE_COMMAND_NAME_PATTERN = /^[A-Za-z0-9_][\w.-]*$/;
  * The hosts, `claude`, `codex` and the `npm` that installs Pele, ship on
  * Windows as a `.cmd` shim. Node's synchronous spawn rejects a batch file with
  * `EINVAL` unless a shell runs it, so Windows goes through `cmd.exe /d /s /c`
- * with the whole command line as one verbatim argument. A path carries its own quotes inside that line, which is why the
- * line is passed verbatim rather than quoted again by Node. A bare name stays
- * unquoted because `cmd.exe` hands a quoted bare name to a shim as `%0`, and the
- * shim then resolves `%~dp0` against the working directory instead of its own
- * folder. Every other platform launches the executable directly.
+ * with the whole command line as one verbatim argument. A path carries its own
+ * quotes inside that line, which is why the line is passed verbatim rather than
+ * quoted again by Node. A bare name stays unquoted because `cmd.exe` hands a
+ * quoted bare name to a shim as `%0`, and the shim then resolves `%~dp0`
+ * against the working directory instead of its own folder. Every other
+ * platform launches the executable directly.
  *
  * @param {string} executable The host command, a bare name or a path.
  * @param {string[]} commandArguments The arguments after the executable.
