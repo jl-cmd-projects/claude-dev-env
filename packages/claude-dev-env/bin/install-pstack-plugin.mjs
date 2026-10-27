@@ -201,10 +201,13 @@ export function shouldInstallMarketplacePlugin(
     return environment[spec.optOutVariable] !== '0';
 }
 
+const BARE_COMMAND_NAME_PATTERN = /^[A-Za-z0-9_][\w.-]*$/;
+
 /**
  * Build the process launch one platform needs to run a host command.
  *
- * Both hosts ship on Windows as a `.cmd` shim, and Node's synchronous spawn
+ * The hosts, `claude`, `codex` and the `npm` that installs Pele, ship on
+ * Windows as a `.cmd` shim, and Node's synchronous spawn
  * rejects a batch file with `EINVAL` unless a shell runs it, so Windows goes
  * through `cmd.exe /d /s /c` with the whole command line as one verbatim
  * argument. A path carries its own quotes inside that line, which is why the
@@ -254,7 +257,6 @@ export function runHostCommand(executable, commandArguments, options = {}) {
     };
 }
 
-const BARE_COMMAND_NAME_PATTERN = /^[\w.-]+$/;
 const COMMAND_NOT_FOUND_EXIT_CODE = 9009;
 const COMMAND_NOT_FOUND_PATTERN = /is not recognized as an internal or external command/;
 

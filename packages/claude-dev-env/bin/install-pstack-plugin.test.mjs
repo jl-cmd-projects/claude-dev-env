@@ -280,6 +280,11 @@ test('a Windows executable name with a shell metacharacter stays quoted', () => 
     assert.equal(invocation.args.at(-1), '""npm&calc" view"');
 });
 
+test('a Windows executable name that is a dot path or starts with a dash stays quoted', () => {
+    assert.equal(hostCommandInvocation('..', ['view'], 'win32', WINDOWS_ENVIRONMENT).args.at(-1), '"".." view"');
+    assert.equal(hostCommandInvocation('-npm', ['view'], 'win32', WINDOWS_ENVIRONMENT).args.at(-1), '""-npm" view"');
+});
+
 test('a Windows executable path holding a space stays one quoted token', () => {
     const invocation = hostCommandInvocation(
         'C:\\Program Files\\nodejs\\claude.cmd',
