@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.107.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.107.0...claude-dev-env-v8.107.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **installer:** keep a bare Windows command name unquoted so npm.cmd finds its folder ([#2215](https://github.com/jl-cmd-projects/claude-dev-env/issues/2215)) ([c686722](https://github.com/jl-cmd-projects/claude-dev-env/commit/c686722ab98d5ba2cb808be330c075d88b00a89f))
+
 ## [8.107.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.5...claude-dev-env-v8.107.0) (2026-10-27)
 
 
