@@ -392,15 +392,27 @@ def _unreadable_text(reading: Reading) -> str:
     return f"{reading.account.name} ({reading.unread_reason})"
 
 
-def _wait_reason(all_unreadable_names: Sequence[str], is_every_account_unreadable: bool, soonest: _RetryTime) -> str:
+def _room_text(reading: Reading, is_spent: bool) -> str:
+    if is_spent or reading.meters is None:
+        return f"{reading.account.name} spent"
+    percent_left = reading.meters.tightest_percent_left
+    if percent_left is None:
+        return f"{reading.account.name} percent left unread"
+    return f"{reading.account.name} {percent_left:g}% left"
+
+
+def _wait_reason(
+    all_room_texts: Sequence[str], all_unreadable_names: Sequence[str], is_every_account_unreadable: bool, soonest: _RetryTime
+) -> str:
     next_event = "reset" if soonest.is_known_reset else "check"
     next_text = f"next {next_event} at {utc_time_text(soonest.at)}"
+    room_text = f" ({', '.join(all_room_texts)})" if all_room_texts else ""
     if not all_unreadable_names:
-        return f"no account has room; {next_text}"
+        return f"no account has room{room_text}; {next_text}"
     unreadable_text = ", ".join(all_unreadable_names)
     if is_every_account_unreadable:
         return f"no account meter could be read ({unreadable_text}); {next_text}"
-    return f"no readable account has room; meter unreadable for {unreadable_text}; {next_text}"
+    return f"no readable account has room{room_text}; meter unreadable for {unreadable_text}; {next_text}"
 
 
 def _wait_decision(
@@ -423,5 +435,11 @@ def _wait_decision(
         for each_reading in all_readings
         if each_reading.meters is None and each_reading.account not in all_spent_accounts
     ]
+    all_room_texts = [
+        _room_text(each_reading, each_reading.account in all_spent_accounts)
+        for each_reading in all_readings
+        if each_reading.meters is not None or each_reading.account in all_spent_accounts
+    ]
     is_every_account_unreadable = len(all_unreadable_names) == len(all_readings)
-    return Decision("wait", None, soonest.at, _wait_reason(all_unreadable_names, is_every_account_unreadable, soonest), "wait")
+    reason = _wait_reason(all_room_texts, all_unreadable_names, is_every_account_unreadable, soonest)
+    return Decision("wait", None, soonest.at, reason, "wait")

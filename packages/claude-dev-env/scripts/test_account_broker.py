@@ -91,7 +91,7 @@ def test_should_name_the_unread_account_and_its_reason_when_no_account_has_room(
 
     assert decision.action == "wait"
     assert decision.reason == (
-        "no readable account has room; meter unreadable for codex-3 (codex app-server failed: timed out); "
+        "no readable account has room (codex-4 0% left); meter unreadable for codex-3 (codex app-server failed: timed out); "
         "next check at 2026-10-03T01:00:00+00:00"
     )
     assert payload[0]["unread_reason"] == "codex app-server failed: timed out"
@@ -542,21 +542,21 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
         pytest.param(
             (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(minutes=30))), Reading(_EV_CLAUDE, None)),
             {},
-            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            "no readable account has room (main 5% left); meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
             NOW + timedelta(minutes=30),
             id="unreadable-beside-a-reset-before-the-check",
         ),
         pytest.param(
             (Reading(_MAIN_CLAUDE, _meters(5, 50, short_reset=NOW + timedelta(hours=2))), Reading(_EV_CLAUDE, None)),
             {},
-            "no readable account has room; meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
+            "no readable account has room (main 5% left); meter unreadable for ev; next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
             id="unreadable-beside-a-reset-after-the-check",
         ),
         pytest.param(
             (Reading(_MAIN_CLAUDE, _meters(80, 80)), Reading(_EV_CLAUDE, None)),
             {_MAIN_CLAUDE: NOW + timedelta(minutes=30)},
-            "no readable account has room; meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
+            "no readable account has room (main spent); meter unreadable for ev; next reset at 2026-10-03T00:30:00+00:00",
             NOW + timedelta(minutes=30),
             id="unreadable-beside-a-spent-account",
         ),
@@ -566,16 +566,30 @@ _EV_CLAUDE = _account("ev", Product.CLAUDE)
                 Reading(_EV_CLAUDE, _meters(5, 80, short_reset=NOW + timedelta(hours=3))),
             ),
             {},
-            "no account has room; next reset at 2026-10-03T02:00:00+00:00",
+            "no account has room (main 5% left, ev 5% left); next reset at 2026-10-03T02:00:00+00:00",
             NOW + timedelta(hours=2),
             id="every-meter-read-with-known-resets",
         ),
         pytest.param(
             (Reading(_MAIN_CLAUDE, Meters(5, None, 50, None)),),
             {},
-            "no account has room; next check at 2026-10-03T01:00:00+00:00",
+            "no account has room (main 5% left); next check at 2026-10-03T01:00:00+00:00",
             NOW + timedelta(hours=1),
             id="every-meter-read-without-a-known-reset",
+        ),
+        pytest.param(
+            (),
+            {},
+            "no account has room; next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="no-account-in-the-roster",
+        ),
+        pytest.param(
+            (Reading(_MAIN_CLAUDE, Meters(None, None, None, None)),),
+            {},
+            "no account has room (main percent left unread); next check at 2026-10-03T01:00:00+00:00",
+            NOW + timedelta(hours=1),
+            id="meter-read-without-a-percent",
         ),
     ),
 )

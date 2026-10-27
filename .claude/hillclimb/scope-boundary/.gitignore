@@ -1,0 +1,7 @@
+*/traces/
+*/errors.jsonl
+*/decision-mcp.json
+report.html
+__pycache__/
+*/results.jsonl
+*/rejudged.jsonl

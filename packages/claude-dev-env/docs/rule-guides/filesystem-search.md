@@ -6,7 +6,7 @@ Back to the [rules index](../../rules/index.md).
 
 Scope every search to a project, worktree, package, or narrowing filter. Never start at a filesystem root, drive root, bare home, or share root. Read a known path directly; use scoped `es.exe`, Glob, or Grep for discovery. After `es.exe` Error 8, retry twice before falling back within the same scope. Run one large shell walk at a time.
 
-**Enforcement:** none.
+**Enforcement:** `hooks/blocking/transcript_root_search_gate.py` for Claude transcript roots only. The rest is guidance.
 
 **When this applies:** Any search for files by name, path, extension, size, or date. That includes `es.exe`, a shell `find`, a recursive `Get-ChildItem` / `gci` / `dir` / `ls -R`, or the harness Grep and Glob tools.
 
@@ -55,5 +55,6 @@ Issue one shell search at a time when the walk is large. Parallel full-tree sear
 
 ## Search controls
 
-- No hook denies a walk from an unscoped root. The scope invariant above is guidance a reader follows.
+- `hooks/blocking/transcript_root_search_gate.py` denies a recursive walk or content search that starts at a Claude transcript root, such as `~/.claude/projects` or `~/.claude-profiles/<profile>/projects`. List the project folders by name first, then read the one transcript.
+- No hook denies a walk from any other unscoped root. The scope invariant above is guidance a reader follows.
 - For Everything searches that use a project name, run `python "${CLAUDE_SKILL_DIR}/scripts/everything_search.py" <project-name> <search arguments>`. An exact project name becomes its path from `~/.claude/project-paths.json`. The command then starts `es.exe` without a shell. `scripts/setup_project_paths.py` writes the registry.

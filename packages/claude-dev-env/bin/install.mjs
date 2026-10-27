@@ -50,7 +50,7 @@ import {
     SUBAGENT_MODEL_POLICY_FILE_NAME,
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
-    ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS,
+    CODEX_NATIVE_ROUTING_MATCHER,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -1064,6 +1064,7 @@ export function pruneStaleInstalledFiles(
         currentInstalledFiles.map(currentFile => comparisonKeyForPath(currentFile, options)),
     );
     const resolvedRoot = resolve(destinationRoot);
+    const resolvedRootTarget = realPathOrNull(resolvedRoot);
     let prunedCount = 0;
     const failedPaths = [];
     for (const priorFile of priorInstalledFiles) {
@@ -1072,6 +1073,17 @@ export function pruneStaleInstalledFiles(
         if (currentFileKeys.has(comparisonKeyForPath(stalePath, options))) continue;
         if (isRetainedUnmanagedPath(stalePath, managedHomeDirectory)) continue;
         if (!isMovableStaleFile(stalePath)) continue;
+        const staleTarget = realPathOrNull(stalePath);
+        if (!staleTarget || !resolvedRootTarget) {
+            failedPaths.push(stalePath);
+            continue;
+        }
+        if (!isInsideDirectory(staleTarget, resolvedRootTarget)) {
+            console.warn(
+                `  Warning: leaving ${relative(managedHomeDirectory, stalePath)} in place — a link on its path leads outside ${resolvedRoot}`,
+            );
+            continue;
+        }
         const backupRelativePath = relative(resolvedRoot, stalePath);
         const didMove = moveIntoRunBackup(
             stalePath, backupRoot, backupRelativePath, STALE_FILE_REASON_LABEL, managedHomeDirectory,
@@ -1303,6 +1315,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/session_title_stop_gate.py',
     'session/issue_tracker_session_starter.py',
     'session/deepen_first_prompt.py',
+    'workflow/investigation_tracker_reset.py',
 ]);
 
 export const MOVED_HOOK_RELATIVE_PATHS = new Set([
@@ -2271,7 +2284,7 @@ function selectCodexNativeHooksConfig(hooksConfig) {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
-                ? preToolUseGroups.filter(group => ALL_CODEX_NATIVE_PRE_TOOL_USE_MATCHERS.has(group?.matcher))
+                ? preToolUseGroups.filter(group => group?.matcher === CODEX_NATIVE_ROUTING_MATCHER)
                 : [],
             UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
             PostToolUse: selectCodexNativeGroupsByScriptName(
@@ -3013,6 +3026,10 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             if (allowedSkills && !allowedSkills.has(skillDir.name)) continue;
             const skillSourceDirectory = join(skillsSource, skillDir.name);
             const skillDestinationDirectory = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name);
+            if (lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+                console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
+                continue;
+            }
             const stats = copyTree(skillSourceDirectory, skillDestinationDirectory);
             skillsCreated += stats.created;
             skillsUpdated += stats.updated;

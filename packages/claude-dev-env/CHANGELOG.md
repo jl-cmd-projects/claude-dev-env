@@ -1,5 +1,54 @@
 # Changelog
 
+## [8.106.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.4...claude-dev-env-v8.106.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **lint:** let a number used once stay in its function under a local name ([#2211](https://github.com/jl-cmd-projects/claude-dev-env/issues/2211)) ([79933df](https://github.com/jl-cmd-projects/claude-dev-env/commit/79933df10fcb4346c96b13ffd0fd2b2f67589187))
+
+## [8.106.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.3...claude-dev-env-v8.106.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **lint:** report validator size checks as smells ([#2209](https://github.com/jl-cmd-projects/claude-dev-env/issues/2209)) ([e810826](https://github.com/jl-cmd-projects/claude-dev-env/commit/e8108269f70c4e869c0d9a2c73612c75448a52ab))
+
+## [8.106.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.2...claude-dev-env-v8.106.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **hooks:** list every refusal reason in one message ([#2206](https://github.com/jl-cmd-projects/claude-dev-env/issues/2206)) ([4affce7](https://github.com/jl-cmd-projects/claude-dev-env/commit/4affce776713372ae1c04f0da505935cd8ed634d))
+
+## [8.106.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.1...claude-dev-env-v8.106.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **hooks:** remove two per-spawn hooks that do no work ([#2204](https://github.com/jl-cmd-projects/claude-dev-env/issues/2204)) ([eb03e32](https://github.com/jl-cmd-projects/claude-dev-env/commit/eb03e32cc428e786a9e7c206564af318c050de77))
+
+## [8.106.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.0...claude-dev-env-v8.106.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **installer:** leave linked skill folders alone ([#2202](https://github.com/jl-cmd-projects/claude-dev-env/issues/2202)) ([1f126b5](https://github.com/jl-cmd-projects/claude-dev-env/commit/1f126b5411ff16dd8713ca6fe0f32f962a273312))
+
+## [8.106.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.2...claude-dev-env-v8.106.0) (2026-10-25)
+
+
+### Features
+
+* **hooks:** refuse a recursive walk or search over a Claude transcript root ([#2200](https://github.com/jl-cmd-projects/claude-dev-env/issues/2200)) ([b2457f5](https://github.com/jl-cmd-projects/claude-dev-env/commit/b2457f5575173bb1e62423dfe1d25532ff94476c))
+
+## [8.105.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.1...claude-dev-env-v8.105.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **account-broker:** name each account's room in the wait reason ([#2198](https://github.com/jl-cmd-projects/claude-dev-env/issues/2198)) ([b5f32d0](https://github.com/jl-cmd-projects/claude-dev-env/commit/b5f32d0332215373e6df0e733bf8d06d97f872bc))
+
 ## [8.105.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.105.0...claude-dev-env-v8.105.1) (2026-10-24)
 
 

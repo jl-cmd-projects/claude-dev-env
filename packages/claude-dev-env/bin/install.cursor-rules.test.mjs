@@ -130,11 +130,10 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         assert.match(firstRoutingGroups[0].hooks[0].command, /subagent_model_routing\.mjs/);
         assert.match(firstRoutingGroups[0].hooks[1].command, /spawn_readiness_hook\.py/);
         assert.match(firstRoutingGroups[0].hooks[2].command, /spawn_oversight_hook\.py/);
-        const firstSpawnPromptGroups = firstCodexHooks.hooks.PreToolUse.filter(
-            group => group.matcher === 'Agent|Task',
+        assert.deepEqual(
+            firstCodexHooks.hooks.PreToolUse.map(group => group.matcher),
+            ['multi_agent_v1__spawn_agent'],
         );
-        assert.equal(firstSpawnPromptGroups.length, 1);
-        assert.match(firstSpawnPromptGroups[0].hooks[0].command, /skill_loaded_reminder\.py/);
         assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionStart']);
         const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
             group => group.hooks.map(hook => hook.command),
@@ -276,6 +275,7 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         const allLegacyRegistrations = [
             ['PreToolUse', 'Edit', '.claude', 'blocking/pre_tool_use_dispatcher.py'],
             ['PreToolUse', 'Bash', '.agents', 'blocking/bash_pre_tool_use_dispatcher.py'],
+            ['PreToolUse', 'Agent|Task', 'custom-codex', 'session/skill_loaded_reminder.py'],
             ['SessionStart', '*', 'custom-codex', 'session/issue_tracker_session_starter.py'],
             ['Stop', '*', '.claude', 'session/skill_loaded_reminder.py'],
             ['SessionEnd', '*', 'custom-codex', 'lifecycle/session_end_cleanup.py'],
@@ -311,8 +311,13 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
 
         const migratedHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
         const allSpawnGroups = migratedHooks.hooks.PreToolUse.filter(eachGroup =>
-            ['Agent|Task', 'multi_agent_v1__spawn_agent'].includes(eachGroup.matcher));
-        assert.equal(allSpawnGroups.length, 2);
+            eachGroup.matcher === 'multi_agent_v1__spawn_agent');
+        assert.equal(allSpawnGroups.length, 1);
+        assert.equal(
+            migratedHooks.hooks.PreToolUse.flatMap(eachGroup => eachGroup.hooks)
+                .some(eachHook => String(eachHook.command).includes('skill_loaded_reminder.py')),
+            false,
+        );
         migratedHooks.hooks.PreToolUse = migratedHooks.hooks.PreToolUse.filter(eachGroup => !allSpawnGroups.includes(eachGroup));
         const allPackagePromptCommands = (migratedHooks.hooks.UserPromptSubmit ?? [])
             .flatMap(eachGroup => eachGroup.hooks)

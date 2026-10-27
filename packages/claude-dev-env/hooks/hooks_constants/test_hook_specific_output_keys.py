@@ -13,5 +13,6 @@ def test_keys_match_the_harness_hook_specific_output_field_names() -> None:
         "HOOK_SPECIFIC_OUTPUT_KEY": "hookSpecificOutput",
         "HOOK_EVENT_NAME_KEY": "hookEventName",
         "PERMISSION_DECISION_KEY": "permissionDecision",
+        "PERMISSION_DECISION_REASON_KEY": "permissionDecisionReason",
         "UPDATED_INPUT_KEY": "updatedInput",
     }

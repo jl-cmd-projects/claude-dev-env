@@ -12,7 +12,7 @@ ALL_BASH_AND_POWERSHELL_TOOL_NAMES = ALL_CONSTANT_BINDINGS["ALL_BASH_AND_POWERSH
 BashHostedHookEntry = ALL_CONSTANT_BINDINGS["BashHostedHookEntry"]
 
 
-def test_roster_hosts_the_five_gates_and_hands_two_to_the_shell_guards_mod() -> None:
+def test_roster_hosts_the_six_gates_and_hands_two_to_the_shell_guards_mod() -> None:
     assert ALL_BASH_HOSTED_HOOK_ENTRIES == (
         BashHostedHookEntry(
             script_relative_path="blocking/msys_rev_path_rewriter.py",
@@ -34,6 +34,10 @@ def test_roster_hosts_the_five_gates_and_hands_two_to_the_shell_guards_mod() -> 
         ),
         BashHostedHookEntry(
             script_relative_path="blocking/python_windows_invocation_gate.py",
+            applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+        ),
+        BashHostedHookEntry(
+            script_relative_path="blocking/transcript_root_search_gate.py",
             applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
         ),
     )

@@ -1,4 +1,4 @@
-"""Tests for skill_loaded_reminder. Checks restoration after compaction and helper prompts."""
+"""Tests for skill_loaded_reminder. Checks restoration after compaction and spawn pass-through."""
 
 import json
 import sys
@@ -76,10 +76,6 @@ def _run_main(hook_payload: object) -> str:
     return captured_stdout.getvalue()
 
 
-def _agent_call(tool_input: dict[str, object], tool_name: str = "Agent") -> dict[str, object]:
-    return {"hook_event_name": "PreToolUse", "tool_name": tool_name, "tool_input": tool_input}
-
-
 def _user_turn(transcript_path: Path) -> dict[str, object]:
     return {"hook_event_name": "UserPromptSubmit", "transcript_path": str(transcript_path)}
 
@@ -90,85 +86,28 @@ def _write_transcript(tmp_path: Path, all_lines: list[str]) -> Path:
     return transcript_path
 
 
-class TestSubagentSpawn:
-    def test_a_plain_subagent_prompt_opens_with_the_poteto_mode_invocation(self) -> None:
-        emitted = json.loads(
-            _run_main(
-                _agent_call(
-                    {
-                        "description": "Find callers",
-                        "subagent_type": "Explore",
-                        "prompt": "List every caller of main.",
-                    }
-                )
-            )
+class TestRegistration:
+    def test_a_spawn_payload_from_a_stale_registration_prints_nothing(self) -> None:
+        stale_spawn_payload = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Agent",
+            "tool_input": {"prompt": "Reply leaf."},
+        }
+        assert _run_main(stale_spawn_payload) == ""
+
+    def test_no_pre_tool_use_group_runs_the_reminder(self) -> None:
+        shipped_hooks = json.loads(
+            (Path(__file__).resolve().parents[1] / "hooks.json").read_text(encoding="utf-8")
         )
-        hook_output = emitted["hookSpecificOutput"]
-        rewritten_input = hook_output["updatedInput"]
-        assert hook_output["permissionDecision"] == "allow"
-        assert rewritten_input["prompt"].startswith(
-            "Before any other work, invoke the poteto-mode skill with the Skill tool."
-        )
-        assert rewritten_input["prompt"].endswith("\n\nList every caller of main.")
-        assert rewritten_input["subagent_type"] == "Explore"
-        assert rewritten_input["description"] == "Find callers"
-
-    def test_the_legacy_task_tool_name_is_rewritten_too(self) -> None:
-        emitted = json.loads(_run_main(_agent_call({"prompt": "Go."}, tool_name="Task")))
-        assert "poteto-mode" in emitted["hookSpecificOutput"]["updatedInput"]["prompt"]
-
-    def test_a_prompt_that_already_names_the_skill_is_left_alone(self) -> None:
-        assert _run_main(_agent_call({"prompt": "Invoke poteto-mode first. Then go."})) == ""
-
-    def test_a_poteto_agent_is_left_alone_because_it_loads_the_skill_itself(self) -> None:
-        assert (
-            _run_main(_agent_call({"subagent_type": "pstack:poteto-agent", "prompt": "Go."})) == ""
-        )
-
-    def test_another_tool_is_left_alone(self) -> None:
-        assert _run_main(_agent_call({"prompt": "Go."}, tool_name="Bash")) == ""
-
-
-class TestSubagentInputWithPotetoMode:
-    def test_every_other_input_field_is_kept(self) -> None:
-        rewritten_input = reminder.subagent_input_with_poteto_mode(
-            "Agent", {"prompt": "Go.", "model": "sonnet", "run_in_background": True}
-        )
-        assert rewritten_input is not None
-        assert rewritten_input["model"] == "sonnet"
-        assert rewritten_input["run_in_background"] is True
-
-    def test_an_input_with_no_prompt_is_left_alone(self) -> None:
-        assert reminder.subagent_input_with_poteto_mode("Agent", {"description": "Go"}) is None
-
-    def test_a_codex_spawn_input_with_only_items_is_left_alone(self) -> None:
-        assert (
-            reminder.subagent_input_with_poteto_mode(
-                "spawn_agent", {"items": [{"type": "text", "text": "Go."}]}
-            )
-            is None
-        )
-
-
-class TestCodexSpawn:
-    def test_a_codex_spawn_message_opens_with_the_skill_mention(self) -> None:
-        emitted = json.loads(
-            _run_main(
-                _agent_call(
-                    {"message": "Fix the failing test.", "model": "gpt-6-luna"},
-                    tool_name="spawn_agent",
-                )
-            )
-        )
-        rewritten_input = emitted["hookSpecificOutput"]["updatedInput"]
-        assert rewritten_input["message"] == "$poteto-mode\n\nFix the failing test."
-        assert rewritten_input["model"] == "gpt-6-luna"
-        assert "prompt" not in rewritten_input
-
-    def test_a_codex_spawn_message_that_already_mentions_the_skill_is_left_alone(self) -> None:
-        assert (
-            _run_main(_agent_call({"message": "$poteto-mode\n\nFix it."}, tool_name="spawn_agent"))
-            == ""
+        all_pre_tool_use_commands = [
+            each_hook.get("command", "")
+            for each_group in shipped_hooks["hooks"]["PreToolUse"]
+            for each_hook in each_group["hooks"]
+        ]
+        assert all_pre_tool_use_commands
+        assert not any(
+            "skill_loaded_reminder.py" in each_command
+            for each_command in all_pre_tool_use_commands
         )
 
 
@@ -353,9 +292,7 @@ class TestReminderFor:
         assert hook_output["hookEventName"] == "SubagentStart"
         assert hook_output["additionalContext"] == NOT_LOADED_REMINDER
 
-    def test_an_agent_tool_helper_starting_prints_nothing_since_its_prompt_carries_the_line(
-        self,
-    ) -> None:
+    def test_an_agent_tool_helper_starting_prints_nothing(self) -> None:
         assert (
             _run_main({"hook_event_name": "SubagentStart", "agent_type": "general-purpose"}) == ""
         )

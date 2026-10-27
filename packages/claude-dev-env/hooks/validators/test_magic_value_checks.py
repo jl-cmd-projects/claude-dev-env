@@ -27,8 +27,8 @@ def process():
 '''
 
 BAD_MAGIC_NUMBER = '''
-def process():
-    timeout = 5000
+def process(attempts):
+    timeout = attempts * 5000
     return timeout
 '''
 
@@ -113,8 +113,8 @@ SETTINGS: dict[str, int] = {"timeout": 30}
 '''
 
 NON_CONSTANT_ASSIGNMENT_IN_FUNCTION = '''
-def configure():
-    delay = 30
+def configure(base):
+    delay = base + 30
     return delay
 '''
 
@@ -415,3 +415,87 @@ class TestValidateFilePathExemptions:
             violations = validate_file(production_path)
             assert len(violations) == 1
             assert "42" in violations[0].message
+
+
+NAMED_FUNCTION_LOCAL_NUMBERS = """
+def configure():
+    header_row_count: int = 30
+    lowest_offset = -40
+    highest_offset = +40
+    return header_row_count, lowest_offset, highest_offset
+"""
+
+DEFAULT_PARAMETER_NUMBER = """
+def configure(header_row_count=30):
+    return header_row_count
+"""
+
+CLASS_LEVEL_NUMBER = """
+class Settings:
+    header_row_count = 30
+"""
+
+
+def test_should_pass_numbers_bound_alone_to_function_local_names() -> None:
+    assert check_magic_values(ast.parse(NAMED_FUNCTION_LOCAL_NUMBERS), "test.py") == []
+
+
+def test_should_flag_a_default_parameter_number() -> None:
+    violations = check_magic_values(ast.parse(DEFAULT_PARAMETER_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+def test_should_flag_a_class_level_number() -> None:
+    violations = check_magic_values(ast.parse(CLASS_LEVEL_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+GLOBAL_NAME_NUMBER = """
+def raise_limit():
+    global retry_limit
+    retry_limit = 40
+"""
+
+MIXED_SIGN_NAMED_LOCAL = """
+def configure():
+    lowest_offset = -+40
+    return lowest_offset
+"""
+
+
+def test_should_flag_a_number_bound_to_a_global_name() -> None:
+    violations = check_magic_values(ast.parse(GLOBAL_NAME_NUMBER), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 40 - use named constant"]
+
+
+def test_should_pass_a_mixed_sign_number_bound_to_a_local_name() -> None:
+    assert check_magic_values(ast.parse(MIXED_SIGN_NAMED_LOCAL), "test.py") == []
+
+
+MULTI_LINE_NAMED_LOCAL = """
+def configure():
+    header_row_count = (
+        30
+    )
+    return header_row_count
+"""
+
+
+def test_should_flag_a_number_bound_across_several_lines() -> None:
+    violations = check_magic_values(ast.parse(MULTI_LINE_NAMED_LOCAL), "test.py")
+    assert [violation.message for violation in violations] == ["Magic number 30 - use named constant"]
+
+
+SHARED_LINE_NAMED_LOCALS = """
+def configure():
+    low_offset = 30; high_offset = 40
+    return low_offset, high_offset
+"""
+
+
+def test_should_flag_numbers_bound_on_a_line_shared_with_another_statement() -> None:
+    violations = check_magic_values(ast.parse(SHARED_LINE_NAMED_LOCALS), "test.py")
+    assert sorted(violation.message for violation in violations) == [
+        "Magic number 30 - use named constant",
+        "Magic number 40 - use named constant",
+    ]

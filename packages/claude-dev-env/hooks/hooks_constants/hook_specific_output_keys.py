@@ -6,10 +6,12 @@ __all__ = [
     "HOOK_SPECIFIC_OUTPUT_KEY",
     "HOOK_EVENT_NAME_KEY",
     "PERMISSION_DECISION_KEY",
+    "PERMISSION_DECISION_REASON_KEY",
     "UPDATED_INPUT_KEY",
 ]
 
 HOOK_SPECIFIC_OUTPUT_KEY: str = "hookSpecificOutput"
 HOOK_EVENT_NAME_KEY: str = "hookEventName"
 PERMISSION_DECISION_KEY: str = "permissionDecision"
+PERMISSION_DECISION_REASON_KEY: str = "permissionDecisionReason"
 UPDATED_INPUT_KEY: str = "updatedInput"

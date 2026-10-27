@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from .validator_base import Violation, source_text, syntax_tree
+from .validator_base import Violation, run_file_validator_cli, source_text, syntax_tree
 
 
 class TestViolation:
@@ -73,3 +73,21 @@ def test_syntax_tree_raises_syntax_error_for_unparseable_source() -> None:
     """A caller's own SyntaxError branch still fires."""
     with pytest.raises(SyntaxError):
         syntax_tree("def broken(:\n")
+
+
+def _flag_every_file(file_path: Path) -> list[Violation]:
+    return [Violation(file=str(file_path), line=3, message="flagged")]
+
+
+def test_run_file_validator_cli_should_print_violations_and_fail(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = run_file_validator_cli(_flag_every_file, ["validator", "a.py", "b.py"])
+    assert exit_code == 1
+    assert capsys.readouterr().out == "a.py:3: flagged\nb.py:3: flagged\n"
+
+
+def test_run_file_validator_cli_should_pass_clean_files() -> None:
+    assert run_file_validator_cli(lambda file_path: [], ["validator", "a.py"]) == 0
+
+
+def test_run_file_validator_cli_should_fail_with_no_file_named() -> None:
+    assert run_file_validator_cli(_flag_every_file, ["validator"]) == 1

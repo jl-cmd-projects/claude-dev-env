@@ -7,8 +7,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - `hook-roster` puts every `hooks/hooks.json` entry into the installed `settings.json`, with paths under the installed hooks tree.
 - `session-start-envelope` returns a `SessionStart` envelope with `additionalContext` from `working_style_prompt.py`.
 - `bash-rewrite` returns a `PreToolUse` envelope that allows a `git show <rev>:<path>` call and prefixes `MSYS2_ARG_CONV_EXCL`.
-- `poteto-spawn` opens an `Agent` or `Task` prompt with the poteto-mode invocation.
-- `poteto-codex-spawn` opens a Codex `spawn_agent` message with `$poteto-mode`.
+- `spawn-pass-through` adds no poteto-mode line to an `Agent` or `Task` prompt.
 - `poteto-reminder` tells a workflow helper to load poteto-mode at its start, and tells a session that invoked the skill to load it again after a compaction drops it.
 - `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call.
 - `policy-lint-timing` runs policy checks from `cde lint` and CI only.
@@ -16,7 +15,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 ## How to get to it (user POV)
 
 - Install the package, then start a Claude Code or Codex session.
-- Spawn a subagent through `Agent`, `Task`, or Codex `spawn_agent`.
+- Spawn a subagent through `Agent` or `Task`.
 - Compact a session, start a Workflow helper, or submit a prompt.
 - Run a Bash `git show` command with a `<rev>:<path>` argument.
 - Make a `Write`, `Edit`, `apply_patch`, shell, or MCP write call after reasoning that hedges.
@@ -29,10 +28,8 @@ Preconditions:
 - `<scratch>` is an empty directory under the OS temporary root or the session scratchpad.
 
 - **Install and start two hooks.** Run `node packages/claude-dev-env/scripts/ci/install-playtest.mjs --home <scratch> --evidence <scratch>-evidence` from the repository root. Exit code `0`. Three `[PASS] playtest` lines name `install`, `session_start_hook`, and `blocking_hook`, each with an evidence path and a `sha256=` digest.
-- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.PreToolUse` has an `Agent|Task` group, `hooks.SessionStart` has a `compact` group, and `hooks.SubagentStart` has a `workflow-subagent` group. Each group runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. `hooks.MessageDisplay` has one group that runs `<scratch>/.claude/hooks/blocking/chat_reply_gate.py`.
-- **Spawn rewrite.** Pipe `{"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"prompt":"Reply leaf."}}` into `python3 <scratch>/.claude/hooks/session/skill_loaded_reminder.py`. Stdout is one envelope with `permissionDecision` `allow` and an `updatedInput.prompt` that starts `Before any other work, invoke the poteto-mode skill`.
-- **Self-loading agent.** Add `"subagent_type":"pstack:poteto-agent"` to the same `tool_input`. Stdout is empty and the exit code is `0`.
-- **Codex spawn.** Pipe `{"hook_event_name":"PreToolUse","tool_name":"spawn_agent","tool_input":{"message":"Fix it."}}` into `python3 <scratch>/.codex/hooks/session/skill_loaded_reminder.py`. `updatedInput.message` is `$poteto-mode` followed by a blank line and `Fix it.`.
+- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.SessionStart` has a `compact` group, `hooks.SubagentStart` has a `workflow-subagent` group, and `hooks.UserPromptSubmit` has a group. Each of those runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. `hooks.MessageDisplay` has one group that runs `<scratch>/.claude/hooks/blocking/chat_reply_gate.py`.
+- **Spawn pass-through.** No `hooks.PreToolUse` group in `<scratch>/.claude/settings.json` or `<scratch>/.codex/hooks.json` runs `skill_loaded_reminder.py`, so the reminder adds no poteto-mode line to a spawn prompt. Piping `{"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"prompt":"Reply leaf."}}` into the script prints nothing, and the exit code is `0`.
 - **Compaction reminder.** Write `<scratch>/skill.jsonl` with an assistant record holding a `tool_use` block named `Skill` with input `{"skill":"poteto-mode"}`, then a record with `subtype` `compact_boundary`. Pipe `{"hook_event_name":"SessionStart","source":"compact","transcript_path":"<scratch>/skill.jsonl"}`. The `SessionStart` envelope's `additionalContext` starts `The context was just compacted`. The same payload without `transcript_path`, or with `"source":"startup"`, prints nothing.
 - **Workflow helper.** Pipe `{"hook_event_name":"SubagentStart","agent_type":"workflow-subagent"}`. The `SubagentStart` envelope's `additionalContext` starts `The poteto-mode skill is not loaded`.
 - **User turn.** Pipe `{"hook_event_name":"UserPromptSubmit","transcript_path":"<file>"}`. `<scratch>/skill.jsonl` returns the not-loaded reminder, since its `Skill` call for `poteto-mode` comes before its last `compact_boundary`. A transcript without such a call prints nothing, and so does a transcript whose last such call follows its last `compact_boundary`.
