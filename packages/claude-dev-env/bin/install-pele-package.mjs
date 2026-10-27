@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { namesAnAbsentCommand, runHostCommand, singleLineDetail } from './install-pstack-plugin.mjs';
 
 export const PELE_PACKAGE_NAME = 'pele';
@@ -59,15 +59,21 @@ function isNewerVersion(candidateVersion, baselineVersion) {
     return false;
 }
 
+function nearestExistingDirectory(directory) {
+    let candidate = directory;
+    while (!existsSync(candidate) && dirname(candidate) !== candidate) candidate = dirname(candidate);
+    return candidate;
+}
+
 function runNpm(commandArguments, options = {}) {
     return runHostCommand('npm', commandArguments, {
-        cwd: options.installDirectory,
+        cwd: options.workingDirectory ?? options.installDirectory,
         timeoutMilliseconds: NPM_COMMAND_TIMEOUT_MILLISECONDS,
     });
 }
 
 function failureDetail(outcome, fallback) {
-    return singleLineDetail(outcome.stderr || outcome.error?.message || fallback);
+    return singleLineDetail(outcome.error?.message || outcome.stderr || fallback);
 }
 
 function prepareInstallDirectory(installDirectory) {
@@ -98,7 +104,9 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
         previousVersion,
         warning,
     });
-    const lookup = run(['view', PELE_PACKAGE_NAME, 'version']);
+    const lookup = run(['view', PELE_PACKAGE_NAME, 'version'], {
+        workingDirectory: nearestExistingDirectory(installDirectory),
+    });
     if (namesAnAbsentCommand(lookup)) {
         return outcome('skipped', previousVersion, 'npm was not found on PATH');
     }

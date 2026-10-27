@@ -23,14 +23,16 @@ function writeInstalledPele(installDirectory, version) {
 
 function fakeNpm({ latestVersion, installedAfterInstall, failOn }) {
     const recordedCalls = [];
+    const recordedOptions = [];
     const run = (commandArguments, options) => {
         recordedCalls.push(commandArguments);
+        recordedOptions.push(options);
         if (failOn === commandArguments[0]) return { status: 1, stdout: '', stderr: `${failOn} exploded` };
         if (commandArguments[0] === 'view') return { status: 0, stdout: `${latestVersion}\n`, stderr: '' };
         writeInstalledPele(options.installDirectory, installedAfterInstall ?? latestVersion);
         return { status: 0, stdout: '', stderr: '' };
     };
-    return { run, recordedCalls };
+    return { run, recordedCalls, recordedOptions };
 }
 
 function withInstallDirectory(body) {
@@ -45,6 +47,33 @@ function withInstallDirectory(body) {
 test('the install directory sits under the managed root and the package is named pele', () => {
     assert.equal(PELE_PACKAGE_NAME, 'pele');
     assert.match(peleInstallDirectory('/home/dev/.claude').replaceAll('\\', '/'), /\/home\/dev\/\.claude\/tools\/pele$/);
+});
+
+test('the registry lookup runs beside the install folder, not in the caller directory', () => {
+    const managedRoot = mkdtempSync(join(tmpdir(), 'cde-pele-'));
+    try {
+        const installDirectory = peleInstallDirectory(managedRoot);
+        const { run, recordedOptions } = fakeNpm({ latestVersion: '1.2.0' });
+        installPelePackage({ installDirectory, run });
+        assert.equal(recordedOptions[0].workingDirectory, managedRoot);
+        assert.equal(recordedOptions[1].installDirectory, installDirectory);
+    } finally {
+        rmSync(managedRoot, { recursive: true, force: true });
+    }
+});
+
+test('a timed out npm call names the timeout ahead of partial output', () => {
+    withInstallDirectory(installDirectory => {
+        const timedOut = () => ({
+            status: null,
+            stdout: '',
+            stderr: 'npm warn config old setting',
+            error: Object.assign(new Error('spawnSync npm ETIMEDOUT'), { code: 'ETIMEDOUT' }),
+        });
+        const outcome = installPelePackage({ installDirectory, run: timedOut });
+        assert.equal(outcome.status, 'failed');
+        assert.match(outcome.warning, /ETIMEDOUT/);
+    });
 });
 
 test('a missing install is installed at the latest registry version', () => {
