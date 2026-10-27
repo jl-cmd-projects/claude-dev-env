@@ -19,6 +19,7 @@ import {
     removeStaleMarketplaceClone,
     removeRetiredMarketplacePlugins,
     restartNotice,
+    runHostCommand,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 
@@ -273,6 +274,17 @@ test('Windows launches the host command through cmd.exe, which alone can run a .
 test('a bare Windows command name stays unquoted so a .cmd shim finds its own folder through %~dp0', () => {
     const invocation = hostCommandInvocation('npm', ['view', 'pele', 'version'], 'win32', WINDOWS_ENVIRONMENT);
     assert.equal(invocation.args.at(-1), '"npm view pele version"');
+});
+
+test('npm runs from a folder away from its own install on Windows', { skip: process.platform !== 'win32' }, () => {
+    const workingDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-launch-'));
+    try {
+        const outcome = runHostCommand('npm', ['--version'], { cwd: workingDirectory });
+        assert.equal(outcome.status, 0, outcome.stderr);
+        assert.match(outcome.stdout, /^\d+\.\d+\.\d+/);
+    } finally {
+        rmSync(workingDirectory, { recursive: true, force: true });
+    }
 });
 
 test('a Windows executable name with a shell metacharacter stays quoted', () => {
