@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.107.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.5...claude-dev-env-v8.107.0) (2026-10-27)
+
+
+### Features
+
+* **installer:** install and update the Pele npm package ([#2213](https://github.com/jl-cmd-projects/claude-dev-env/issues/2213)) ([48b4aa1](https://github.com/jl-cmd-projects/claude-dev-env/commit/48b4aa1ec83ea984694013c6beed86b2751b4df9))
+
 ## [8.106.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.106.4...claude-dev-env-v8.106.5) (2026-10-26)
 
 
