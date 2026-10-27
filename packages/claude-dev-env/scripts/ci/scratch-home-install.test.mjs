@@ -57,18 +57,14 @@ test('an install into a scratch home leaves the caller Codex home config alone',
     writeFileSync(callerConfigPath, callerConfigBody);
     const priorCodexHome = process.env.CODEX_HOME;
     process.env.CODEX_HOME = callerCodexHome;
-    const priorPeleInstall = process.env.CDE_INSTALL_PELE;
-    process.env.CDE_INSTALL_PELE = '0';
     const scratchHome = createScratchHome();
     try {
-        const install = runInstaller(scratchHome, []);
+        const install = runInstaller(scratchHome, ['--no-pele']);
         assert.equal(install.status, 0, `${install.stdout}\n${install.stderr}`);
         assert.equal(readFileSync(callerConfigPath, 'utf8'), callerConfigBody);
     } finally {
         if (priorCodexHome === undefined) delete process.env.CODEX_HOME;
         else process.env.CODEX_HOME = priorCodexHome;
-        if (priorPeleInstall === undefined) delete process.env.CDE_INSTALL_PELE;
-        else process.env.CDE_INSTALL_PELE = priorPeleInstall;
         removeScratchHome(scratchHome);
         rmSync(callerCodexHome, { recursive: true, force: true });
     }

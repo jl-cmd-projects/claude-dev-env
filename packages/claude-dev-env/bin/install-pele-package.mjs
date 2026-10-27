@@ -1,21 +1,19 @@
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { hostCommandInvocation, namesAnAbsentCommand } from './install-pstack-plugin.mjs';
+import { namesAnAbsentCommand, runHostCommand, singleLineDetail } from './install-pstack-plugin.mjs';
 
 export const PELE_PACKAGE_NAME = 'pele';
 export const PELE_PACKAGE_OPT_OUT_FLAG = '--no-pele';
 export const PELE_PACKAGE_OPT_OUT_VARIABLE = 'CDE_INSTALL_PELE';
 export const PELE_TOOLS_DIRECTORY_NAME = 'tools';
 const PELE_HOST_PACKAGE_NAME = 'claude-dev-env-pele-host';
-const NPM_COMMAND_TIMEOUT_MILLISECONDS = 120000;
+const NPM_INSTALL_TIMEOUT_MILLISECONDS = 120000;
+const NPM_VIEW_TIMEOUT_MILLISECONDS = 20000;
 const PELE_REMOVAL_RETRIES = 3;
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)/;
 const PLAIN_VERSION_PATTERN = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 
 export const PELE_PACKAGE_SPEC = Object.freeze({
-    name: PELE_PACKAGE_NAME,
-    label: 'Pele',
     optOutFlag: PELE_PACKAGE_OPT_OUT_FLAG,
     optOutVariable: PELE_PACKAGE_OPT_OUT_VARIABLE,
 });
@@ -63,24 +61,14 @@ function isNewerVersion(candidateVersion, baselineVersion) {
 }
 
 function runNpm(commandArguments, options = {}) {
-    const invocation = hostCommandInvocation('npm', commandArguments);
-    const spawned = spawnSync(invocation.file, invocation.args, {
-        encoding: 'utf8',
+    return runHostCommand('npm', commandArguments, {
         cwd: options.installDirectory,
-        timeout: NPM_COMMAND_TIMEOUT_MILLISECONDS,
-        windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+        timeoutMilliseconds: options.timeoutMilliseconds ?? NPM_INSTALL_TIMEOUT_MILLISECONDS,
     });
-    return {
-        status: spawned.status,
-        stdout: spawned.stdout ?? '',
-        stderr: spawned.stderr ?? '',
-        error: spawned.error,
-    };
 }
 
 function failureDetail(outcome, fallback) {
-    const detail = (outcome.stderr || outcome.error?.message || fallback).trim();
-    return detail.split(/\r?\n/).map(eachLine => eachLine.trim()).filter(Boolean).join(' ');
+    return singleLineDetail(outcome.stderr || outcome.error?.message || fallback);
 }
 
 function prepareInstallDirectory(installDirectory) {
@@ -111,7 +99,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
         previousVersion,
         warning,
     });
-    const lookup = run(['view', PELE_PACKAGE_NAME, 'version']);
+    const lookup = run(['view', PELE_PACKAGE_NAME, 'version'], { timeoutMilliseconds: NPM_VIEW_TIMEOUT_MILLISECONDS });
     if (namesAnAbsentCommand(lookup)) {
         return outcome('skipped', previousVersion, 'npm was not found on PATH');
     }

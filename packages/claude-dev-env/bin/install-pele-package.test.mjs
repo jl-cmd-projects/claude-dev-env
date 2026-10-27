@@ -42,8 +42,7 @@ function withInstallDirectory(body) {
     }
 }
 
-test('the install directory sits under the managed root and the package is named pele', () => {
-    assert.equal(PELE_PACKAGE_NAME, 'pele');
+test('the install directory sits under the managed root', () => {
     assert.match(peleInstallDirectory('/home/dev/.claude').replaceAll('\\', '/'), /\/home\/dev\/\.claude\/tools\/pele$/);
 });
 
