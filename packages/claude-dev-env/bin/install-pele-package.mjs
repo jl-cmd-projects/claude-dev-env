@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { namesAnAbsentCommand, runHostCommand, singleLineDetail } from './install-pstack-plugin.mjs';
 
 export const PELE_PACKAGE_NAME = 'pele';
@@ -74,12 +74,12 @@ function nearestExistingDirectory(directory) {
  *
  * @param {string} [platform] The platform to resolve for.
  * @param {Record<string, string|undefined>} [environment] Supplies `PATH`, or `Path` on Windows.
- * @returns {string} The absolute `npm.cmd` path, or the bare name `npm` when none is found.
+ * @returns {string} The absolute `npm.cmd` path from an absolute `PATH` entry, or the bare name `npm` when none is found.
  */
 export function resolveNpmExecutable(platform = process.platform, environment = process.env) {
     if (platform !== 'win32') return 'npm';
     const pathText = environment.PATH ?? environment.Path ?? '';
-    for (const directory of pathText.split(';').filter(Boolean)) {
+    for (const directory of pathText.split(';').filter(isAbsolute)) {
         const shimPath = join(directory, 'npm.cmd');
         if (existsSync(shimPath)) return shimPath;
     }

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     PELE_PACKAGE_NAME,
@@ -74,6 +74,17 @@ test('on Windows npm resolves to the absolute npm.cmd on PATH so its shim keeps 
     } finally {
         rmSync(nodeDirectory, { recursive: true, force: true });
         rmSync(otherDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a relative Windows PATH entry is skipped because cmd runs from another folder', () => {
+    const nodeDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-relative-'));
+    try {
+        writeFileSync(join(nodeDirectory, 'npm.cmd'), '@echo off\n');
+        const relativeDirectory = relative(process.cwd(), nodeDirectory);
+        assert.equal(resolveNpmExecutable('win32', { PATH: relativeDirectory }), 'npm');
+    } finally {
+        rmSync(nodeDirectory, { recursive: true, force: true });
     }
 });
 
