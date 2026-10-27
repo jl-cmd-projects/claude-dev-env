@@ -12,7 +12,6 @@ import {
     installedPeleVersion,
     peleInstallDirectory,
     removePelePackage,
-    resolveNpmExecutable,
 } from './install-pele-package.mjs';
 import { shouldInstallMarketplacePlugin } from './install-pstack-plugin.mjs';
 
@@ -61,50 +60,6 @@ test('the registry lookup runs beside the install folder, not in the caller dire
     } finally {
         rmSync(managedRoot, { recursive: true, force: true });
     }
-});
-
-const NODE_DIRECTORY = 'C:\\Program Files\\nodejs';
-const NODE_SHIM = `${NODE_DIRECTORY}\\npm.cmd`;
-
-function filesOnDisk(...paths) {
-    return candidate => paths.includes(candidate);
-}
-
-test('on Windows npm resolves to the absolute npm.cmd on PATH so its shim keeps its own directory', () => {
-    const environment = { PATH: `C:\\Tools;${NODE_DIRECTORY}` };
-    assert.equal(resolveNpmExecutable('win32', environment, filesOnDisk(NODE_SHIM)), NODE_SHIM);
-});
-
-test('a quoted PATH entry and any casing of PATH still resolve the shim', () => {
-    assert.equal(
-        resolveNpmExecutable('win32', { PATH: `"${NODE_DIRECTORY}";C:\\Windows` }, filesOnDisk(NODE_SHIM)),
-        NODE_SHIM,
-    );
-    assert.equal(
-        resolveNpmExecutable('win32', { PATH: '', Path: NODE_DIRECTORY }, filesOnDisk(NODE_SHIM)),
-        NODE_SHIM,
-    );
-});
-
-test('an earlier npm.exe on PATH wins over a later npm.cmd, as cmd would choose', () => {
-    const environment = { PATH: `C:\\Volta\\bin;${NODE_DIRECTORY}`, PATHEXT: '.COM;.EXE;.BAT;.CMD' };
-    assert.equal(
-        resolveNpmExecutable('win32', environment, filesOnDisk('C:\\Volta\\bin\\npm.exe', NODE_SHIM)),
-        'npm',
-    );
-});
-
-test('a relative Windows PATH entry is skipped because cmd runs from another folder', () => {
-    assert.equal(
-        resolveNpmExecutable('win32', { PATH: 'nodejs;.\\bin' }, filesOnDisk('nodejs\\npm.cmd', '.\\bin\\npm.cmd')),
-        'npm',
-    );
-});
-
-test('npm stays a bare name when PATH holds no npm shim or the host is not Windows', () => {
-    assert.equal(resolveNpmExecutable('win32', { PATH: NODE_DIRECTORY }, filesOnDisk()), 'npm');
-    assert.equal(resolveNpmExecutable('win32', {}, filesOnDisk(NODE_SHIM)), 'npm');
-    assert.equal(resolveNpmExecutable('linux', { PATH: NODE_DIRECTORY }, filesOnDisk(NODE_SHIM)), 'npm');
 });
 
 test('a timed out npm call names the limit and keeps the partial output', () => {

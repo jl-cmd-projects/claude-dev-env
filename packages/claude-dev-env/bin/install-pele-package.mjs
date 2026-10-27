@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, win32 } from 'node:path';
+import { dirname, join } from 'node:path';
 import { namesAnAbsentCommand, runHostCommand, singleLineDetail } from './install-pstack-plugin.mjs';
 
 export const PELE_PACKAGE_NAME = 'pele';
@@ -8,9 +8,6 @@ export const PELE_PACKAGE_OPT_OUT_VARIABLE = 'CDE_INSTALL_PELE';
 export const PELE_TOOLS_DIRECTORY_NAME = 'tools';
 const PELE_HOST_PACKAGE_NAME = 'claude-dev-env-pele-host';
 const NPM_COMMAND_TIMEOUT_MILLISECONDS = 120000;
-const PELE_NPM_COMMAND = 'npm';
-const WINDOWS_DEFAULT_PATHEXT = '.COM;.EXE;.BAT;.CMD';
-const WINDOWS_SHIM_EXTENSIONS = ['.cmd', '.bat'];
 const PELE_REMOVAL_RETRIES = 3;
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)/;
 const PLAIN_VERSION_PATTERN = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
@@ -68,46 +65,8 @@ function nearestExistingDirectory(directory) {
     return candidate;
 }
 
-function windowsVariable(environment, name) {
-    const entry = Object.entries(environment).find(([key, value]) => key.toUpperCase() === name && value);
-    return entry ? entry[1] : '';
-}
-
-/**
- * Name the npm executable to launch.
- *
- * `cmd.exe` gives the `npm.cmd` shim a bare command name for `%~dp0`, so the shim
- * resolves its Node folder against the working directory and cannot find npm. On
- * Windows the first npm that `PATH` and `PATHEXT` select is therefore launched by
- * absolute path when it is a `.cmd` or `.bat` shim. Any other npm, such as a
- * version manager's `npm.exe`, keeps the bare name and `cmd.exe` chooses it.
- *
- * @param {string} [platform] The platform to resolve for.
- * @param {Record<string, string|undefined>} [environment] Supplies `PATH` and `PATHEXT` in any casing.
- * @param {(candidate: string) => boolean} [fileExists] Tells whether a candidate file exists.
- * @returns {string} The absolute shim path, or the bare name `npm`.
- */
-export function resolveNpmExecutable(platform = process.platform, environment = process.env, fileExists = existsSync) {
-    if (platform !== 'win32') return 'npm';
-    const directories = windowsVariable(environment, 'PATH')
-        .split(';')
-        .map(directory => directory.replace(/^"(.*)"$/, '$1'))
-        .filter(directory => win32.isAbsolute(directory));
-    const extensions = (windowsVariable(environment, 'PATHEXT') || WINDOWS_DEFAULT_PATHEXT)
-        .split(';')
-        .filter(Boolean)
-        .map(extension => extension.toLowerCase());
-    for (const directory of directories) {
-        for (const extension of extensions) {
-            const candidate = win32.join(directory, `${PELE_NPM_COMMAND}${extension}`);
-            if (fileExists(candidate)) return WINDOWS_SHIM_EXTENSIONS.includes(extension) ? candidate : PELE_NPM_COMMAND;
-        }
-    }
-    return PELE_NPM_COMMAND;
-}
-
 function runNpm(commandArguments, options = {}) {
-    return runHostCommand(resolveNpmExecutable(), commandArguments, {
+    return runHostCommand('npm', commandArguments, {
         cwd: options.cwd,
         timeoutMilliseconds: NPM_COMMAND_TIMEOUT_MILLISECONDS,
     });

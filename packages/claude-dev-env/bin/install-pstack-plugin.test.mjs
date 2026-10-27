@@ -265,9 +265,19 @@ test('Windows launches the host command through cmd.exe, which alone can run a .
         '/d',
         '/s',
         '/c',
-        `""claude" plugin install ${PSTACK_PLUGIN_IDENTIFIER}"`,
+        `"claude plugin install ${PSTACK_PLUGIN_IDENTIFIER}"`,
     ]);
     assert.equal(invocation.windowsVerbatimArguments, true);
+});
+
+test('a bare Windows command name stays unquoted so a .cmd shim finds its own folder through %~dp0', () => {
+    const invocation = hostCommandInvocation('npm', ['view', 'pele', 'version'], 'win32', WINDOWS_ENVIRONMENT);
+    assert.equal(invocation.args.at(-1), '"npm view pele version"');
+});
+
+test('a Windows executable name with a shell metacharacter stays quoted', () => {
+    const invocation = hostCommandInvocation('npm&calc', ['view'], 'win32', WINDOWS_ENVIRONMENT);
+    assert.equal(invocation.args.at(-1), '""npm&calc" view"');
 });
 
 test('a Windows executable path holding a space stays one quoted token', () => {
