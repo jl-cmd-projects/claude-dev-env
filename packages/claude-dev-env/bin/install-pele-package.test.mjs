@@ -54,7 +54,7 @@ test('a missing install is installed at the latest registry version', () => {
         assert.equal(outcome.status, 'installed');
         assert.equal(outcome.installedVersion, '1.2.0');
         assert.equal(installedPeleVersion(installDirectory), '1.2.0');
-        assert.deepEqual(recordedCalls[1], ['install', '--no-audit', '--no-fund', '--loglevel=error', 'pele@1.2.0']);
+        assert.deepEqual(recordedCalls[1], ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error', 'pele@1.2.0']);
     });
 });
 
@@ -90,6 +90,19 @@ test('a registry lookup failure keeps an existing install and fails a missing on
         assert.equal(kept.installedVersion, '1.0.0');
         assert.match(kept.warning, /view exploded/);
     });
+});
+
+test('a registry answer that is not a plain version never reaches the install command', () => {
+    for (const hostileAnswer of ['1.2.0 & echo pwned', '1.2.0\n&& calc', '^1.2.0', 'latest', '1.2', '1.2.0;rm']) {
+        withInstallDirectory(installDirectory => {
+            const { run, recordedCalls } = fakeNpm({ latestVersion: hostileAnswer });
+            const outcome = installPelePackage({ installDirectory, run });
+            assert.equal(outcome.status, 'failed', hostileAnswer);
+            assert.match(outcome.warning, /not a version/);
+            assert.deepEqual(recordedCalls.map(eachCall => eachCall[0]), ['view'], hostileAnswer);
+            assert.equal(existsSync(join(installDirectory, 'package.json')), false);
+        });
+    }
 });
 
 test('a failing install command is reported and leaves the older version in place', () => {

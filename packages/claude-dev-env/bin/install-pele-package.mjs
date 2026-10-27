@@ -11,6 +11,7 @@ const PELE_HOST_PACKAGE_NAME = 'claude-dev-env-pele-host';
 const NPM_COMMAND_TIMEOUT_MILLISECONDS = 120000;
 const PELE_REMOVAL_RETRIES = 3;
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)/;
+const PLAIN_VERSION_PATTERN = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 
 export const PELE_PACKAGE_SPEC = Object.freeze({
     name: PELE_PACKAGE_NAME,
@@ -115,8 +116,10 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
         return outcome('skipped', previousVersion, 'npm was not found on PATH');
     }
     const latestVersion = lookup.status === 0 ? lookup.stdout.trim() : '';
-    if (!latestVersion) {
-        const detail = `npm view ${PELE_PACKAGE_NAME} failed: ${failureDetail(lookup, 'no version returned')}`;
+    if (!PLAIN_VERSION_PATTERN.test(latestVersion)) {
+        const detail = lookup.status === 0
+            ? `npm view ${PELE_PACKAGE_NAME} returned something that is not a version`
+            : `npm view ${PELE_PACKAGE_NAME} failed: ${failureDetail(lookup, 'no version returned')}`;
         return previousVersion
             ? outcome('current', previousVersion, detail)
             : outcome('failed', null, detail);
@@ -126,7 +129,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
     }
     prepareInstallDirectory(installDirectory);
     const installation = run(
-        ['install', '--no-audit', '--no-fund', '--loglevel=error', `${PELE_PACKAGE_NAME}@${latestVersion}`],
+        ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error',`${PELE_PACKAGE_NAME}@${latestVersion}`],
         { installDirectory },
     );
     if (installation.status !== 0) {
