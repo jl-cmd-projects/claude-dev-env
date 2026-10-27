@@ -12,6 +12,7 @@ import {
     installedPeleVersion,
     peleInstallDirectory,
     removePelePackage,
+    resolveNpmExecutable,
 } from './install-pele-package.mjs';
 import { shouldInstallMarketplacePlugin } from './install-pstack-plugin.mjs';
 
@@ -59,6 +60,31 @@ test('the registry lookup runs beside the install folder, not in the caller dire
         assert.equal(recordedOptions[1].cwd, installDirectory);
     } finally {
         rmSync(managedRoot, { recursive: true, force: true });
+    }
+});
+
+test('on Windows npm resolves to the absolute npm.cmd on PATH so its shim keeps its own directory', () => {
+    const nodeDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-path-'));
+    const otherDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-other-'));
+    try {
+        writeFileSync(join(nodeDirectory, 'npm.cmd'), '@echo off\n');
+        const environment = { PATH: [otherDirectory, nodeDirectory].join(';') };
+        assert.equal(resolveNpmExecutable('win32', environment), join(nodeDirectory, 'npm.cmd'));
+        assert.equal(resolveNpmExecutable('win32', { Path: nodeDirectory }), join(nodeDirectory, 'npm.cmd'));
+    } finally {
+        rmSync(nodeDirectory, { recursive: true, force: true });
+        rmSync(otherDirectory, { recursive: true, force: true });
+    }
+});
+
+test('npm stays a bare name when no Windows PATH entry holds npm.cmd or the host is not Windows', () => {
+    const emptyDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-empty-'));
+    try {
+        assert.equal(resolveNpmExecutable('win32', { PATH: emptyDirectory }), 'npm');
+        assert.equal(resolveNpmExecutable('win32', {}), 'npm');
+        assert.equal(resolveNpmExecutable('linux', { PATH: emptyDirectory }), 'npm');
+    } finally {
+        rmSync(emptyDirectory, { recursive: true, force: true });
     }
 });
 

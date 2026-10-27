@@ -65,8 +65,29 @@ function nearestExistingDirectory(directory) {
     return candidate;
 }
 
+/**
+ * Name the npm executable to launch.
+ *
+ * `cmd.exe` gives the `npm.cmd` shim a bare command name for `%~dp0`, so the shim
+ * resolves its Node folder against the working directory and cannot find npm. On
+ * Windows the shim is therefore launched by absolute path.
+ *
+ * @param {string} [platform] The platform to resolve for.
+ * @param {Record<string, string|undefined>} [environment] Supplies `PATH`, or `Path` on Windows.
+ * @returns {string} The absolute `npm.cmd` path, or the bare name `npm` when none is found.
+ */
+export function resolveNpmExecutable(platform = process.platform, environment = process.env) {
+    if (platform !== 'win32') return 'npm';
+    const pathText = environment.PATH ?? environment.Path ?? '';
+    for (const directory of pathText.split(';').filter(Boolean)) {
+        const shimPath = join(directory, 'npm.cmd');
+        if (existsSync(shimPath)) return shimPath;
+    }
+    return 'npm';
+}
+
 function runNpm(commandArguments, options = {}) {
-    return runHostCommand('npm', commandArguments, {
+    return runHostCommand(resolveNpmExecutable(), commandArguments, {
         cwd: options.cwd,
         timeoutMilliseconds: NPM_COMMAND_TIMEOUT_MILLISECONDS,
     });
