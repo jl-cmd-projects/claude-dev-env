@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     PELE_PACKAGE_NAME,
@@ -63,40 +63,48 @@ test('the registry lookup runs beside the install folder, not in the caller dire
     }
 });
 
+const NODE_DIRECTORY = 'C:\\Program Files\\nodejs';
+const NODE_SHIM = `${NODE_DIRECTORY}\\npm.cmd`;
+
+function filesOnDisk(...paths) {
+    return candidate => paths.includes(candidate);
+}
+
 test('on Windows npm resolves to the absolute npm.cmd on PATH so its shim keeps its own directory', () => {
-    const nodeDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-path-'));
-    const otherDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-other-'));
-    try {
-        writeFileSync(join(nodeDirectory, 'npm.cmd'), '@echo off\n');
-        const environment = { PATH: [otherDirectory, nodeDirectory].join(';') };
-        assert.equal(resolveNpmExecutable('win32', environment), join(nodeDirectory, 'npm.cmd'));
-        assert.equal(resolveNpmExecutable('win32', { Path: nodeDirectory }), join(nodeDirectory, 'npm.cmd'));
-    } finally {
-        rmSync(nodeDirectory, { recursive: true, force: true });
-        rmSync(otherDirectory, { recursive: true, force: true });
-    }
+    const environment = { PATH: `C:\\Tools;${NODE_DIRECTORY}` };
+    assert.equal(resolveNpmExecutable('win32', environment, filesOnDisk(NODE_SHIM)), NODE_SHIM);
+});
+
+test('a quoted PATH entry and any casing of PATH still resolve the shim', () => {
+    assert.equal(
+        resolveNpmExecutable('win32', { PATH: `"${NODE_DIRECTORY}";C:\\Windows` }, filesOnDisk(NODE_SHIM)),
+        NODE_SHIM,
+    );
+    assert.equal(
+        resolveNpmExecutable('win32', { PATH: '', Path: NODE_DIRECTORY }, filesOnDisk(NODE_SHIM)),
+        NODE_SHIM,
+    );
+});
+
+test('an earlier npm.exe on PATH wins over a later npm.cmd, as cmd would choose', () => {
+    const environment = { PATH: `C:\\Volta\\bin;${NODE_DIRECTORY}`, PATHEXT: '.COM;.EXE;.BAT;.CMD' };
+    assert.equal(
+        resolveNpmExecutable('win32', environment, filesOnDisk('C:\\Volta\\bin\\npm.exe', NODE_SHIM)),
+        'npm',
+    );
 });
 
 test('a relative Windows PATH entry is skipped because cmd runs from another folder', () => {
-    const nodeDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-relative-'));
-    try {
-        writeFileSync(join(nodeDirectory, 'npm.cmd'), '@echo off\n');
-        const relativeDirectory = relative(process.cwd(), nodeDirectory);
-        assert.equal(resolveNpmExecutable('win32', { PATH: relativeDirectory }), 'npm');
-    } finally {
-        rmSync(nodeDirectory, { recursive: true, force: true });
-    }
+    assert.equal(
+        resolveNpmExecutable('win32', { PATH: 'nodejs;.\\bin' }, filesOnDisk('nodejs\\npm.cmd', '.\\bin\\npm.cmd')),
+        'npm',
+    );
 });
 
-test('npm stays a bare name when no Windows PATH entry holds npm.cmd or the host is not Windows', () => {
-    const emptyDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-empty-'));
-    try {
-        assert.equal(resolveNpmExecutable('win32', { PATH: emptyDirectory }), 'npm');
-        assert.equal(resolveNpmExecutable('win32', {}), 'npm');
-        assert.equal(resolveNpmExecutable('linux', { PATH: emptyDirectory }), 'npm');
-    } finally {
-        rmSync(emptyDirectory, { recursive: true, force: true });
-    }
+test('npm stays a bare name when PATH holds no npm shim or the host is not Windows', () => {
+    assert.equal(resolveNpmExecutable('win32', { PATH: NODE_DIRECTORY }, filesOnDisk()), 'npm');
+    assert.equal(resolveNpmExecutable('win32', {}, filesOnDisk(NODE_SHIM)), 'npm');
+    assert.equal(resolveNpmExecutable('linux', { PATH: NODE_DIRECTORY }, filesOnDisk(NODE_SHIM)), 'npm');
 });
 
 test('a timed out npm call names the limit and keeps the partial output', () => {
