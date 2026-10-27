@@ -71,6 +71,12 @@ import {
     removeDeepStackCursorHooks,
     removeRetiredCursorFirstTaskHook,
 } from './install-deepstack-plugin.mjs';
+import {
+    PELE_PACKAGE_SPEC,
+    installPelePackage,
+    peleInstallDirectory,
+    removePelePackage,
+} from './install-pele-package.mjs';
 import { seedCodexPstackModels } from './seed-codex-pstack-models.mjs';
 import {
     removeCursorAgentsGuidanceHooks,
@@ -3110,6 +3116,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             allActionNeededLines.push(`DeepStack (cursor): failed — ${cursorOutcome.warning}`);
         }
     }
+    if (!selectedGroups && shouldInstallMarketplacePlugin(PELE_PACKAGE_SPEC)) {
+        const pelePackage = installPelePackage({ installDirectory: peleInstallDirectory(CLAUDE_HOME) });
+        summary.pelePackage = pelePackage;
+        const peleVersionText = pelePackage.installedVersion ? ` ${pelePackage.installedVersion}` : '';
+        const peleLine = pelePackage.warning
+            ? `Pele${peleVersionText}: ${pelePackage.status} — ${pelePackage.warning}`
+            : `Pele${peleVersionText}: ${pelePackage.status}`;
+        console.log(`  ${peleLine}`);
+        if (pelePackage.status === 'failed') allActionNeededLines.push(peleLine);
+    }
     if (!selectedGroups) {
         const retiredCursorHooksPath = removeRetiredCursorFirstTaskHook(
             INSTALL_ROOT_RESOLUTION.cursorInstallDirectory,
@@ -3667,6 +3683,7 @@ function uninstall() {
             faultPhase,
             runMutations: ({ throwIfFault }) => {
                 executeUninstallPlan(plan, { throwIfFault, allProfileSettingsPaths: gateRemoval.allReadablePaths });
+                if (removePelePackage(peleInstallDirectory(CLAUDE_HOME))) console.log('  Pele: install folder removed');
             },
         });
     } catch (mutationError) {
@@ -3712,6 +3729,7 @@ Usage:
   npx ${PACKAGE_NAME} --no-usage-wrapup  Full install without the usage-wrapup plugin (also CDE_INSTALL_USAGE_WRAPUP=0)
   npx ${PACKAGE_NAME} --no-subagent-models  Full install without the subagent-models plugin (also CDE_INSTALL_SUBAGENT_MODELS=0)
   npx ${PACKAGE_NAME} --no-security-guidance  Full install without Anthropic's security-guidance plugin (also CDE_INSTALL_SECURITY_GUIDANCE=0)
+  npx ${PACKAGE_NAME} --no-pele  Full install without the Pele Mermaid renderer npm package (also CDE_INSTALL_PELE=0)
   npx ${PACKAGE_NAME} --uninstall  Remove installed files from the selected root
   npx ${PACKAGE_NAME} --help       Show this help
 

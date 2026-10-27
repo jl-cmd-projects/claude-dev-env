@@ -33,6 +33,7 @@ function installInScratchHome(homeDirectory, argumentsList = [], environment = {
             LLM_SETTINGS_PROFILES_ROOT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',

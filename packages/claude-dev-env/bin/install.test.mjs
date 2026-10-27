@@ -3049,6 +3049,7 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
@@ -3104,6 +3105,7 @@ function runPstackInstaller(homeDirectory, extraArguments, environmentOverrides 
             GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'),
             CDE_INSTALL_PSTACK: '1',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
@@ -3189,6 +3191,7 @@ test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
         ...sandbox.environment,
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_DEEPSTACK: '1',
+        CDE_INSTALL_PELE: '0',
         CDE_DEEPSTACK_SOURCE: sourceDirectory,
     });
 
@@ -3484,6 +3487,7 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
 
     assert.equal(helpRun.status, 0, helpRun.stderr);
     assert.match(helpRun.stdout, /--no-pstack .*\n.*--no-deepstack .*CDE_INSTALL_DEEPSTACK=0.*\n.*--no-usage-wrapup .*CDE_INSTALL_USAGE_WRAPUP=0/);
+    assert.match(helpRun.stdout, /--no-security-guidance .*\n.*--no-pele .*CDE_INSTALL_PELE=0/);
     assert.doesNotMatch(helpRun.stdout, /--no-deepen-first-prompt/);
 });
 
@@ -3672,6 +3676,7 @@ function installWithGlobalPrefix(context, globalPrefix) {
             CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
@@ -3729,6 +3734,7 @@ test('install adds the open-tasks Stop gate to every profile with its own settin
             CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
@@ -3772,6 +3778,7 @@ test('a profile settings.json that is not valid JSON is left alone and named und
             CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
@@ -3818,6 +3825,7 @@ test('uninstall stops before changing anything while a profile settings.json tha
             CLAUDE_DEV_ENV_INSTALL_FAULT: undefined,
             CDE_INSTALL_PSTACK: '0',
             CDE_INSTALL_DEEPSTACK: '0',
+            CDE_INSTALL_PELE: '0',
             CDE_INSTALL_USAGE_WRAPUP: '0',
             CDE_INSTALL_SUBAGENT_MODELS: '0',
             CDE_INSTALL_SECURITY_GUIDANCE: '0',
