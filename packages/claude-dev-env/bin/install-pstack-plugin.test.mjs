@@ -19,6 +19,7 @@ import {
     removeStaleMarketplaceClone,
     removeRetiredMarketplacePlugins,
     restartNotice,
+    runHostCommand,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 
@@ -265,9 +266,35 @@ test('Windows launches the host command through cmd.exe, which alone can run a .
         '/d',
         '/s',
         '/c',
-        `""claude" plugin install ${PSTACK_PLUGIN_IDENTIFIER}"`,
+        `"claude plugin install ${PSTACK_PLUGIN_IDENTIFIER}"`,
     ]);
     assert.equal(invocation.windowsVerbatimArguments, true);
+});
+
+test('a bare Windows command name stays unquoted so a .cmd shim finds its own folder through %~dp0', () => {
+    const invocation = hostCommandInvocation('npm', ['view', 'pele', 'version'], 'win32', WINDOWS_ENVIRONMENT);
+    assert.equal(invocation.args.at(-1), '"npm view pele version"');
+});
+
+test('npm runs from a folder away from its own install on Windows', { skip: process.platform !== 'win32' }, () => {
+    const workingDirectory = mkdtempSync(join(tmpdir(), 'cde-npm-launch-'));
+    try {
+        const outcome = runHostCommand('npm', ['--version'], { cwd: workingDirectory });
+        assert.equal(outcome.status, 0, outcome.stderr);
+        assert.match(outcome.stdout, /^\d+\.\d+\.\d+/);
+    } finally {
+        rmSync(workingDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a Windows executable name with a shell metacharacter stays quoted', () => {
+    const invocation = hostCommandInvocation('npm&calc', ['view'], 'win32', WINDOWS_ENVIRONMENT);
+    assert.equal(invocation.args.at(-1), '""npm&calc" view"');
+});
+
+test('a Windows executable name that is a dot path or starts with a dash stays quoted', () => {
+    assert.equal(hostCommandInvocation('..', ['view'], 'win32', WINDOWS_ENVIRONMENT).args.at(-1), '"".." view"');
+    assert.equal(hostCommandInvocation('-npm', ['view'], 'win32', WINDOWS_ENVIRONMENT).args.at(-1), '""-npm" view"');
 });
 
 test('a Windows executable path holding a space stays one quoted token', () => {
