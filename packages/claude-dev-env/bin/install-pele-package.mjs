@@ -7,8 +7,7 @@ export const PELE_PACKAGE_OPT_OUT_FLAG = '--no-pele';
 export const PELE_PACKAGE_OPT_OUT_VARIABLE = 'CDE_INSTALL_PELE';
 export const PELE_TOOLS_DIRECTORY_NAME = 'tools';
 const PELE_HOST_PACKAGE_NAME = 'claude-dev-env-pele-host';
-const NPM_INSTALL_TIMEOUT_MILLISECONDS = 120000;
-const NPM_VIEW_TIMEOUT_MILLISECONDS = 20000;
+const NPM_COMMAND_TIMEOUT_MILLISECONDS = 120000;
 const PELE_REMOVAL_RETRIES = 3;
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)/;
 const PLAIN_VERSION_PATTERN = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
@@ -63,7 +62,7 @@ function isNewerVersion(candidateVersion, baselineVersion) {
 function runNpm(commandArguments, options = {}) {
     return runHostCommand('npm', commandArguments, {
         cwd: options.installDirectory,
-        timeoutMilliseconds: options.timeoutMilliseconds ?? NPM_INSTALL_TIMEOUT_MILLISECONDS,
+        timeoutMilliseconds: NPM_COMMAND_TIMEOUT_MILLISECONDS,
     });
 }
 
@@ -99,7 +98,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
         previousVersion,
         warning,
     });
-    const lookup = run(['view', PELE_PACKAGE_NAME, 'version'], { timeoutMilliseconds: NPM_VIEW_TIMEOUT_MILLISECONDS });
+    const lookup = run(['view', PELE_PACKAGE_NAME, 'version']);
     if (namesAnAbsentCommand(lookup)) {
         return outcome('skipped', previousVersion, 'npm was not found on PATH');
     }
