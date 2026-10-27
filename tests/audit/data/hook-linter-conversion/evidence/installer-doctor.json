@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-10-24T21:14:50.555Z",
+  "isReady": true,
+  "checks": {
+    "driverExists": true,
+    "packageExists": true,
+    "nodeVersionSupported": true,
+    "gitAvailable": true,
+    "pythonAvailable": true
+  },
+  "nodeVersion": "22.22.0",
+  "gitVersion": "git version 2.43.0",
+  "pythonVersion": "Python 3.13.16",
+  "paths": {
+    "driver": ".agents/skills/verify/scripts/driver.mjs",
+    "package": "packages/claude-dev-env"
+  }
+}
