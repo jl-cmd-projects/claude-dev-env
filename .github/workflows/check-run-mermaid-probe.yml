@@ -1,0 +1,34 @@
+name: Check run mermaid probe
+
+on:
+  push:
+    branches:
+      - claude/project-thread-iilm76
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post a check run whose output holds a mermaid fence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > body.json <<'EOF'
+          {
+            "name": "Mermaid probe",
+            "head_sha": "HEAD_SHA",
+            "status": "completed",
+            "conclusion": "neutral",
+            "output": {
+              "title": "Code review found 2 issues",
+              "summary": "Code review found 2 issues.\n\n```mermaid\nflowchart TD\n  A[\"Summary chart\"] --> B{\"Renders?\"}\n```",
+              "text": "## Code review\n\nFound 2 issues: 1 Important, 1 Nit, 0 Pre-existing.\n\n```mermaid\n%%{init: {\"themeVariables\": {\"fontSize\": \"13px\"}, \"flowchart\": {\"wrappingWidth\": 260, \"padding\": 6, \"nodeSpacing\": 24, \"rankSpacing\": 22, \"diagramPadding\": 4}}}%%\nflowchart TD\n  A[\"Reviewed head abc1234\"] --> B{\"2 findings\"}\n  B --> C[\"1 Important\"]\n  B --> D[\"1 Nit\"]\n  classDef step fill:#dbeafe,stroke:#1e40af,color:#0b1b3f\n  classDef ask fill:#ede9fe,stroke:#6d28d9,color:#2e1065\n  classDef problem fill:#fee2e2,stroke:#b91c1c,color:#450a0a\n  classDef fix fill:#fef3c7,stroke:#b45309,color:#451a03\n  class A step\n  class B ask\n  class C problem\n  class D fix\n```\n\n<details><summary>Full detail</summary>\n\n| Severity | File:Line | Issue |\n| - | - | - |\n| 🔴 Important | `a.py:3` | Probe row |\n\n</details>\n\n<!-- bughunter-severity: {\"nit\": 1, \"normal\": 1, \"pre_existing\": 0} -->"
+            }
+          }
+          EOF
+          sed -i "s/HEAD_SHA/$GITHUB_SHA/" body.json
+          gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" --input body.json --jq .html_url
