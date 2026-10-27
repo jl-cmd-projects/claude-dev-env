@@ -32,6 +32,7 @@ function installEnvironment(homeDirectory) {
         CODEX_HOME: join(homeDirectory, '.codex'),
         CDE_INSTALL_PSTACK: '0',
         CDE_INSTALL_DEEPSTACK: '0',
+        CDE_INSTALL_PELE: '0',
         CDE_INSTALL_USAGE_WRAPUP: '0',
     };
 }

@@ -22,7 +22,7 @@ test('packed full and core installs ship the runnable PR visual skill to the sha
             const homeDirectory = join(sandbox, `home-${eachIndex}`);
             execFileSync(process.execPath, [join(packaged, 'bin/install.mjs'), ...eachArguments], {
                 encoding: 'utf8',
-                env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined, HOME: homeDirectory, USERPROFILE: homeDirectory, CODEX_HOME: join(homeDirectory, '.codex'), GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'), CDE_INSTALL_PSTACK: '0', CDE_INSTALL_DEEPSTACK: '0', CDE_INSTALL_USAGE_WRAPUP: '0', CDE_INSTALL_SUBAGENT_MODELS: '0', CDE_INSTALL_SECURITY_GUIDANCE: '0', CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0' },
+                env: { ...process.env, CLAUDE_CONFIG_DIR: undefined, LLM_SETTINGS_PROFILES_ROOT: undefined, HOME: homeDirectory, USERPROFILE: homeDirectory, CODEX_HOME: join(homeDirectory, '.codex'), GIT_CONFIG_GLOBAL: join(homeDirectory, '.gitconfig'), CDE_INSTALL_PSTACK: '0', CDE_INSTALL_DEEPSTACK: '0', CDE_INSTALL_PELE: '0', CDE_INSTALL_USAGE_WRAPUP: '0', CDE_INSTALL_SUBAGENT_MODELS: '0', CDE_INSTALL_SECURITY_GUIDANCE: '0', CDE_INSTALL_DEEPEN_FIRST_PROMPT: '0' },
             });
             const installed = join(homeDirectory, ...SKILL_PATH_SEGMENTS);
             for (const eachFile of REQUIRED_FILES) assert.deepEqual(readFileSync(join(installed, eachFile)), readFileSync(join(packaged, ...SKILL_PATH_SEGMENTS, eachFile)));

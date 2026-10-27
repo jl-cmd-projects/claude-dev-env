@@ -59,7 +59,7 @@ test('an install into a scratch home leaves the caller Codex home config alone',
     process.env.CODEX_HOME = callerCodexHome;
     const scratchHome = createScratchHome();
     try {
-        const install = runInstaller(scratchHome, []);
+        const install = runInstaller(scratchHome, ['--no-pele']);
         assert.equal(install.status, 0, `${install.stdout}\n${install.stderr}`);
         assert.equal(readFileSync(callerConfigPath, 'utf8'), callerConfigBody);
     } finally {

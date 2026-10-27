@@ -234,11 +234,13 @@ export function hostCommandInvocation(
     };
 }
 
-function runHostCommand(executable, commandArguments, options) {
+export function runHostCommand(executable, commandArguments, options = {}) {
     const invocation = hostCommandInvocation(executable, commandArguments);
     const spawned = spawnSync(invocation.file, invocation.args, {
         encoding: 'utf8',
         env: { ...process.env, ...options.environment },
+        cwd: options.cwd,
+        timeout: options.timeoutMilliseconds,
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
     });
     return {
@@ -252,13 +254,13 @@ function runHostCommand(executable, commandArguments, options) {
 const COMMAND_NOT_FOUND_EXIT_CODE = 9009;
 const COMMAND_NOT_FOUND_PATTERN = /is not recognized as an internal or external command/;
 
-function namesAnAbsentCommand(outcome) {
+export function namesAnAbsentCommand(outcome) {
     if (outcome.error?.code === 'ENOENT') return true;
     return outcome.status === COMMAND_NOT_FOUND_EXIT_CODE
         && COMMAND_NOT_FOUND_PATTERN.test(outcome.stderr ?? '');
 }
 
-function singleLineDetail(text) {
+export function singleLineDetail(text) {
     return (text ?? '').split(/\r?\n/).map(eachLine => eachLine.trim()).filter(Boolean).join(' ');
 }
 
