@@ -67,13 +67,16 @@ function nearestExistingDirectory(directory) {
 
 function runNpm(commandArguments, options = {}) {
     return runHostCommand('npm', commandArguments, {
-        cwd: options.workingDirectory ?? options.installDirectory,
+        cwd: options.cwd,
         timeoutMilliseconds: NPM_COMMAND_TIMEOUT_MILLISECONDS,
     });
 }
 
 function failureDetail(outcome, fallback) {
-    return singleLineDetail(outcome.error?.message || outcome.stderr || fallback);
+    const cause = outcome.error?.code === 'ETIMEDOUT'
+        ? `timed out after ${NPM_COMMAND_TIMEOUT_MILLISECONDS} ms`
+        : outcome.error?.message;
+    return singleLineDetail([cause, outcome.stderr].filter(Boolean).join(' ') || fallback);
 }
 
 function prepareInstallDirectory(installDirectory) {
@@ -92,7 +95,7 @@ function prepareInstallDirectory(installDirectory) {
  * registry or install failure leaves any existing copy in place and reports a
  * warning, so the rest of the install still completes.
  *
- * @param {{installDirectory: string, run?: (commandArguments: string[], options?: {installDirectory?: string}) => {status: number|null, stdout: string, stderr: string, error?: Error}}} options
+ * @param {{installDirectory: string, run?: (commandArguments: string[], options?: {cwd?: string}) => {status: number|null, stdout: string, stderr: string, error?: Error}}} options
  *   The install folder and an optional npm runner.
  * @returns {{status: 'installed'|'updated'|'current'|'skipped'|'failed', installedVersion: string|null, previousVersion: string|null, warning: string|null}} The outcome.
  */
@@ -105,7 +108,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
         warning,
     });
     const lookup = run(['view', PELE_PACKAGE_NAME, 'version'], {
-        workingDirectory: nearestExistingDirectory(installDirectory),
+        cwd: nearestExistingDirectory(installDirectory),
     });
     if (namesAnAbsentCommand(lookup)) {
         return outcome('skipped', previousVersion, 'npm was not found on PATH');
@@ -125,7 +128,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
     prepareInstallDirectory(installDirectory);
     const installation = run(
         ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error',`${PELE_PACKAGE_NAME}@${latestVersion}`],
-        { installDirectory },
+        { cwd: installDirectory },
     );
     if (installation.status !== 0) {
         return outcome(

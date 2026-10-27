@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +29,7 @@ function fakeNpm({ latestVersion, installedAfterInstall, failOn }) {
         recordedOptions.push(options);
         if (failOn === commandArguments[0]) return { status: 1, stdout: '', stderr: `${failOn} exploded` };
         if (commandArguments[0] === 'view') return { status: 0, stdout: `${latestVersion}\n`, stderr: '' };
-        writeInstalledPele(options.installDirectory, installedAfterInstall ?? latestVersion);
+        writeInstalledPele(options.cwd, installedAfterInstall ?? latestVersion);
         return { status: 0, stdout: '', stderr: '' };
     };
     return { run, recordedCalls, recordedOptions };
@@ -55,14 +55,14 @@ test('the registry lookup runs beside the install folder, not in the caller dire
         const installDirectory = peleInstallDirectory(managedRoot);
         const { run, recordedOptions } = fakeNpm({ latestVersion: '1.2.0' });
         installPelePackage({ installDirectory, run });
-        assert.equal(recordedOptions[0].workingDirectory, managedRoot);
-        assert.equal(recordedOptions[1].installDirectory, installDirectory);
+        assert.equal(recordedOptions[0].cwd, managedRoot);
+        assert.equal(recordedOptions[1].cwd, installDirectory);
     } finally {
         rmSync(managedRoot, { recursive: true, force: true });
     }
 });
 
-test('a timed out npm call names the timeout ahead of partial output', () => {
+test('a timed out npm call names the limit and keeps the partial output', () => {
     withInstallDirectory(installDirectory => {
         const timedOut = () => ({
             status: null,
@@ -72,7 +72,7 @@ test('a timed out npm call names the timeout ahead of partial output', () => {
         });
         const outcome = installPelePackage({ installDirectory, run: timedOut });
         assert.equal(outcome.status, 'failed');
-        assert.match(outcome.warning, /ETIMEDOUT/);
+        assert.match(outcome.warning, /timed out after 120000 ms npm warn config old setting/);
     });
 });
 
@@ -209,6 +209,7 @@ const STUB_NPM_SOURCE = `#!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
 fs.appendFileSync(process.env.STUB_NPM_LOG, process.argv.slice(2).join(' ') + '\\n');
+fs.appendFileSync(process.env.STUB_NPM_CWD_LOG, process.argv[2] + ' ' + process.cwd() + '\\n');
 if (process.argv[2] === 'view') { process.stdout.write('3.4.5\\n'); process.exit(0); }
 const packageDirectory = path.join(process.cwd(), 'node_modules', 'pele');
 fs.mkdirSync(packageDirectory, { recursive: true });
@@ -221,6 +222,7 @@ test('a full install adds Pele once, skips it on a rerun, and --uninstall remove
         const stubDirectory = join(scratchRoot, 'stub-bin');
         const homeDirectory = join(scratchRoot, 'home');
         const callLog = join(scratchRoot, 'npm-calls.log');
+        const cwdLog = join(scratchRoot, 'npm-cwds.log');
         mkdirSync(stubDirectory, { recursive: true });
         mkdirSync(homeDirectory, { recursive: true });
         writeFileSync(join(stubDirectory, 'npm'), STUB_NPM_SOURCE);
@@ -230,6 +232,7 @@ test('a full install adds Pele once, skips it on a rerun, and --uninstall remove
             ...process.env,
             PATH: `${stubDirectory}:${process.env.PATH}`,
             STUB_NPM_LOG: callLog,
+            STUB_NPM_CWD_LOG: cwdLog,
             LLM_SETTINGS_PROFILES_ROOT: undefined,
             HOME: homeDirectory,
             USERPROFILE: homeDirectory,
@@ -251,6 +254,8 @@ test('a full install adds Pele once, skips it on a rerun, and --uninstall remove
         assert.match(secondRun.stdout, /Pele 3\.4\.5: current/);
         const installCalls = readFileSync(callLog, 'utf8').split('\n').filter(eachLine => eachLine.startsWith('install '));
         assert.equal(installCalls.length, 1);
+        const viewCwd = readFileSync(cwdLog, 'utf8').split('\n').find(eachLine => eachLine.startsWith('view ')).slice('view '.length);
+        assert.equal(viewCwd.startsWith(realpathSync(homeDirectory)), true, viewCwd);
         const optedOut = spawnSync(process.execPath, [INSTALLER_PATH, '--no-pele'], { encoding: 'utf8', env: environment });
         assert.equal(optedOut.status, 0, optedOut.stdout + optedOut.stderr);
         assert.doesNotMatch(optedOut.stdout, /Pele/);
