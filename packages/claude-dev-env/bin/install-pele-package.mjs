@@ -127,7 +127,7 @@ export function installPelePackage({ installDirectory, run = runNpm }) {
     }
     prepareInstallDirectory(installDirectory);
     const installation = run(
-        ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error',`${PELE_PACKAGE_NAME}@${latestVersion}`],
+        ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error', `${PELE_PACKAGE_NAME}@${latestVersion}`],
         { cwd: installDirectory },
     );
     if (installation.status !== 0) {

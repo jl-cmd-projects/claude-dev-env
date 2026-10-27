@@ -254,8 +254,9 @@ test('a full install adds Pele once, skips it on a rerun, and --uninstall remove
         assert.match(secondRun.stdout, /Pele 3\.4\.5: current/);
         const installCalls = readFileSync(callLog, 'utf8').split('\n').filter(eachLine => eachLine.startsWith('install '));
         assert.equal(installCalls.length, 1);
-        const viewCwd = readFileSync(cwdLog, 'utf8').split('\n').find(eachLine => eachLine.startsWith('view ')).slice('view '.length);
-        assert.equal(viewCwd.startsWith(realpathSync(homeDirectory)), true, viewCwd);
+        const viewLine = readFileSync(cwdLog, 'utf8').split('\n').find(eachLine => eachLine.startsWith('view '));
+        assert.ok(viewLine, 'the installer never ran npm view');
+        assert.equal(viewLine.slice('view '.length), realpathSync(join(homeDirectory, '.claude')));
         const optedOut = spawnSync(process.execPath, [INSTALLER_PATH, '--no-pele'], { encoding: 'utf8', env: environment });
         assert.equal(optedOut.status, 0, optedOut.stdout + optedOut.stderr);
         assert.doesNotMatch(optedOut.stdout, /Pele/);
