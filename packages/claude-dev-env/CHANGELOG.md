@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.107.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.107.1...claude-dev-env-v8.107.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **settings:** set Haiku autoCompactWindow to 250000 ([#2217](https://github.com/jl-cmd-projects/claude-dev-env/issues/2217)) ([c638025](https://github.com/jl-cmd-projects/claude-dev-env/commit/c63802535b9ca00671dfad3779f7b794113ad3f3))
+
 ## [8.107.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.107.0...claude-dev-env-v8.107.1) (2026-10-27)
 
 
