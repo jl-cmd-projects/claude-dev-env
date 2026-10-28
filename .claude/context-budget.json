@@ -189,6 +189,21 @@
         }
       },
       "char_limit": 1500
+    },
+    {
+      "name": "npx pele guidance",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/npx_pele_guidance.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "npx pele chain.mmd"
+        }
+      },
+      "char_limit": 1500
     }
   ],
   "baseline": {

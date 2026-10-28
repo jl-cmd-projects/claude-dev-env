@@ -270,6 +270,16 @@
         ]
       },
       {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/npx_pele_guidance.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__hearthbot__start_thread_session",
         "hooks": [
           {
