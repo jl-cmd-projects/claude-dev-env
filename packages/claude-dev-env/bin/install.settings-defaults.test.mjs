@@ -285,8 +285,8 @@ test('package settings.json publishes the session agent, advisor model, auto-com
     assert.equal(settingsDefaults.autoCompactWindow, 350000);
     assert.deepEqual(settingsDefaults.env, { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000', PYTHONUTF8: '1' });
     assert.deepEqual(settingsDefaults.modelSettings, {
-        'claude-haiku-5-5': { autoCompactWindow: 100000 },
-        'claude-haiku-4-5': { autoCompactWindow: 100000 },
+        'claude-haiku-5-5': { autoCompactWindow: 250000 },
+        'claude-haiku-4-5': { autoCompactWindow: 250000 },
     });
     assert.equal(settingsDefaults.agent, 'dev-env-session');
     assert.ok(
