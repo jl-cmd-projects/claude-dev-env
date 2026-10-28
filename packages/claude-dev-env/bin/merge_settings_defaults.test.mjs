@@ -53,8 +53,8 @@ test('mergeMissingSettingsDefaults should add a missing model entry and a missin
     assert.deepEqual(
         mergeMissingSettingsDefaults(targetSettings, {
             modelSettings: {
-                'claude-haiku-5-5': { autoCompactWindow: 100000 },
-                'claude-haiku-4-5': { autoCompactWindow: 100000 },
+                'claude-haiku-5-5': { autoCompactWindow: 250000 },
+                'claude-haiku-4-5': { autoCompactWindow: 250000 },
             },
         }),
         {
@@ -66,13 +66,13 @@ test('mergeMissingSettingsDefaults should add a missing model entry and a missin
     );
     assert.deepEqual(targetSettings.modelSettings, {
         'claude-opus-5-5': { effortLevel: 'medium' },
-        'claude-haiku-4-5': { effortLevel: 'low', autoCompactWindow: 100000 },
-        'claude-haiku-5-5': { autoCompactWindow: 100000 },
+        'claude-haiku-4-5': { effortLevel: 'low', autoCompactWindow: 250000 },
+        'claude-haiku-5-5': { autoCompactWindow: 250000 },
     });
 });
 
 test('mergeMissingSettingsDefaults should give each target its own copy of an added default', () => {
-    const settingsDefaults = { modelSettings: { 'claude-haiku-5-5': { autoCompactWindow: 100000 } } };
+    const settingsDefaults = { modelSettings: { 'claude-haiku-5-5': { autoCompactWindow: 250000 } } };
     const firstTarget = {};
     const secondTarget = {};
 
@@ -80,7 +80,7 @@ test('mergeMissingSettingsDefaults should give each target its own copy of an ad
     firstTarget.modelSettings['claude-haiku-5-5'].autoCompactWindow = 200000;
     mergeMissingSettingsDefaults(secondTarget, settingsDefaults);
 
-    assert.deepEqual(secondTarget.modelSettings, { 'claude-haiku-5-5': { autoCompactWindow: 100000 } });
+    assert.deepEqual(secondTarget.modelSettings, { 'claude-haiku-5-5': { autoCompactWindow: 250000 } });
 });
 
 test('mergeMissingSettingsDefaults should keep a per-model value the user already set', () => {
@@ -88,7 +88,7 @@ test('mergeMissingSettingsDefaults should keep a per-model value the user alread
 
     assert.deepEqual(
         mergeMissingSettingsDefaults(targetSettings, {
-            modelSettings: { 'claude-haiku-5-5': { autoCompactWindow: 100000 } },
+            modelSettings: { 'claude-haiku-5-5': { autoCompactWindow: 250000 } },
         }),
         { addedKeys: [] },
     );

@@ -15,10 +15,10 @@
   "autoCompactWindow": 350000,
   "modelSettings": {
     "claude-haiku-5-5": {
-      "autoCompactWindow": 100000
+      "autoCompactWindow": 250000
     },
     "claude-haiku-4-5": {
-      "autoCompactWindow": 100000
+      "autoCompactWindow": 250000
     }
   },
   "autoMode": {
