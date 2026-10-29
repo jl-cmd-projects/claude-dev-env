@@ -1,10 +1,12 @@
 /**
- * Publish a Claude Code lookup path as a directory pointer to the agents home.
+ * Publish Claude Code lookup paths that point into the agents home.
  *
- * Skills and agents live under the agents home. Claude Code still discovers
- * them at `managedRoot/skills` and `managedRoot/agents`, so the installer
- * writes those two paths as directory pointers (a POSIX symlink, or a Windows
- * junction). One helper owns the create, refresh, and relocate steps.
+ * Agents, hooks, and scripts live under the agents home. Claude Code discovers
+ * them at `managedRoot/<name>`, so the installer writes those paths as
+ * directory pointers (a POSIX symlink, or a Windows junction). The skills
+ * lookup is a folder of pointers, one per shipped skill, so Claude reads
+ * the shared skills while the agents home keeps the skill files and the plugin
+ * links. One helper owns the create, refresh, and relocate steps.
  */
 
 import {
@@ -18,7 +20,7 @@ import {
     symlinkSync,
     unlinkSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { normalizePathForComparison } from './resolve-install-root.mjs';
 
 export const DIRECTORY_POINTER_TYPE_JUNCTION = 'junction';
@@ -107,6 +109,56 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
 }
 
 /**
+ * Make lookupDirectory a folder with one directory pointer per directory in
+ * installDirectory.
+ *
+ * A pointer left by an earlier install is replaced by the folder. A link that
+ * aims at any other directory is refused, so the folder never writes into a
+ * directory the installer does not own. A per-skill link that aims at another
+ * directory is left in place. A link whose target under
+ * installDirectory is gone is removed. A symbolic link inside installDirectory
+ * is not linked here, which keeps plugin links out of this folder. A
+ * directory in lookupDirectory that installDirectory lacks is a personal skill
+ * and stays where it is.
+ *
+ * @param {string} lookupDirectory Claude lookup path (for example `~/.claude/skills`).
+ * @param {string} installDirectory Canonical skills folder (for example `~/.agents/skills`).
+ * @returns {string[]} The link paths this call created.
+ */
+export function ensureLinkedSkillFolder(lookupDirectory, installDirectory) {
+    const resolvedLookup = resolve(lookupDirectory);
+    const resolvedInstall = resolve(installDirectory);
+    mkdirSync(resolvedInstall, { recursive: true });
+
+    const lookupKind = readPathKind(resolvedLookup);
+    if (lookupKind === 'symlink') {
+        if (!isDirectoryPointerTo(resolvedLookup, resolvedInstall)) {
+            throw new Error(
+                `Cannot publish linked skills: ${resolvedLookup} is a link to another directory`,
+            );
+        }
+        unlinkSync(resolvedLookup);
+    } else if (lookupKind === 'file') {
+        throw new Error(`Cannot publish linked skills: ${resolvedLookup} is a file`);
+    }
+    mkdirSync(resolvedLookup, { recursive: true });
+
+    removeDanglingLinksInto(resolvedLookup, resolvedInstall);
+    const createdLinkPaths = [];
+    for (const eachEntry of readdirSync(resolvedInstall, { withFileTypes: true })) {
+        if (!eachEntry.isDirectory()) continue;
+        const linkPath = join(resolvedLookup, eachEntry.name);
+        const targetPath = join(resolvedInstall, eachEntry.name);
+        if (readPathKind(linkPath) === 'symlink' && !isDirectoryPointerTo(linkPath, targetPath)) continue;
+        const publication = ensureDirectoryPointer(linkPath, targetPath);
+        if (publication.action === POINTER_ACTION_CREATED) {
+            createdLinkPaths.push(linkPath);
+        }
+    }
+    return createdLinkPaths;
+}
+
+/**
  * Remove a directory pointer when it aims at the expected target.
  *
  * @param {string} pointerPath
@@ -145,6 +197,29 @@ function readPathKind(absolutePath) {
         return 'file';
     }
     return 'other';
+}
+
+/**
+ * Remove links in lookupDirectory whose target sits under installDirectory and
+ * no longer exists.
+ *
+ * @param {string} lookupDirectory
+ * @param {string} installDirectory
+ * @returns {void}
+ */
+function removeDanglingLinksInto(lookupDirectory, installDirectory) {
+    for (const eachEntry of readdirSync(lookupDirectory, { withFileTypes: true })) {
+        if (!eachEntry.isSymbolicLink()) continue;
+        const linkPath = join(lookupDirectory, eachEntry.name);
+        const linkTarget = resolve(lookupDirectory, readlinkSync(linkPath));
+        const targetOffset = relative(installDirectory, linkTarget);
+        const targetIsInside = targetOffset !== ''
+            && !isAbsolute(targetOffset)
+            && targetOffset.split(sep)[0] !== '..';
+        if (targetIsInside && !existsSync(linkPath)) {
+            unlinkSync(linkPath);
+        }
+    }
 }
 
 /**

@@ -446,10 +446,14 @@ test('a stale file whose move fails stays on the manifest record for the next ru
 
         assert.equal(existsSync(staleFilePath), true, 'the failed move leaves the file in the skill');
         const recordedFiles = readManifest(sandbox.manifestPath).files;
+        const canonicalStaleFilePath = join(
+            sandbox.homeDirectory, '.agents', SKILLS_DIRECTORY_NAME,
+            SHIPPED_SKILL_DIRECTORY, ...STALE_SKILL_FILE_RELATIVE_SEGMENTS,
+        );
         assert.equal(
-            recordedFiles.filter(recordedPath => recordedPath === staleFilePath).length,
+            recordedFiles.filter(recordedPath => recordedPath === canonicalStaleFilePath).length,
             1,
-            'the fresh manifest carries the failed path exactly once',
+            'the fresh manifest carries the failed agents-home path exactly once',
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
@@ -862,11 +866,10 @@ test('a full reinstall leaves a skill folder linked into another repository unto
             false,
             'the stale prune moves no file out of the linked repository',
         );
-        assert.match(installerOutput, /skills[\\/]efficient-review \(linked skill left in place\)/);
         assert.equal(
-            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(linkedSkillName)),
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.startsWith(linkedRepositoryDirectory)),
             false,
-            'the manifest records no file under the linked skill',
+            'the manifest records no file in the linked repository',
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });

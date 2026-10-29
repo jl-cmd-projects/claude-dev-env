@@ -14,7 +14,7 @@ Each skill is a directory under `packages/claude-dev-env/.agents/skills/<name>/`
 
 Skills are auto-discovered from `packages/claude-dev-env/.agents/skills/`. `packages/claude-dev-env/.claude/skills` is a directory pointer to that folder. There is no manifest that lists them, so a new directory with a valid `SKILL.md` is a complete new skill on the source side.
 
-Installed skills live at `~/.agents/skills/<name>/`. Claude Code discovers them at `~/.claude/skills/<name>/`, which is a directory pointer (a POSIX symlink, or a Windows junction) to that agents-home folder. Agent definition files follow the same rule: they live at `~/.agents/agents/` and `~/.claude/agents` points there. Rules, hooks, commands, docs, and `settings.json` stay under `~/.claude/`.
+Installed skills live at `~/.agents/skills/<name>/`. Claude Code discovers them at `~/.claude/skills/<name>/`. `~/.claude/skills` is a folder that holds one directory pointer (a POSIX symlink, or a Windows junction) per skill directory in `~/.agents/skills/`, so Claude and Codex both reach the shipped skills while the agents home keeps the skill files. Agent definition files follow the pointer rule: they live at `~/.agents/agents/` and `~/.claude/agents` points there. Rules, hooks, commands, docs, and `settings.json` stay under `~/.claude/`.
 
 ## How the installer copies content
 
@@ -23,7 +23,7 @@ The entry point is `packages/claude-dev-env/bin/install.mjs`, run as `npx claude
 Two paths matter:
 
 - **Whole directories.** `CONTENT_DIRECTORIES` lists folders copied as-is from the package root: `rules`, `docs`, `commands`, `system-prompts`, `scripts`, `_shared`, `audit-rubrics`. Each maps to the same folder name under `~/.claude/`.
-- **Skills and agents.** Skill directories under `.agents/skills/` copy to `~/.agents/skills/<name>/`. The `.agents/agents/` tree copies to `~/.agents/agents/`. The installer then publishes `~/.claude/skills` → `~/.agents/skills` and `~/.claude/agents` → `~/.agents/agents`. A full install also moves stale content out of every managed root, described below. A real directory already sitting at a Claude lookup path is merged into the agents home, then the pointer is written, so a personal skill next to the packaged ones stays reachable.
+- **Skills and agents.** Skill directories under `.agents/skills/` copy to `~/.agents/skills/<name>/`. The `.agents/agents/` tree copies to `~/.agents/agents/`. The installer then links each skill directory in `~/.agents/skills/` into `~/.claude/skills/` and publishes `~/.claude/agents` → `~/.agents/agents`. The folder takes the place of a pointer at `~/.claude/skills` that an older install left. A link whose target was removed is cleared. A personal skill folder in `~/.claude/skills/` that the agents home does not hold stays where it is. A symbolic link in `~/.agents/skills/` (a plugin link) is not linked into `~/.claude/skills/`. A full install also moves stale content out of every managed root, described below. A folder in `~/.claude/skills/` that shares a name with an agents-home skill is merged into the agents home before its link is written, and an entry that already exists there keeps the agents-home version.
 
 The agents-home path is one rule in `resolveAgentsHome`: a managed root named `.claude` pairs with a sibling `.agents` (`~/.claude` → `~/.agents`). Any other managed root — a named profile directory or an explicit `--target` — pairs with a sibling named `<root-name>.agents`, so two profile directories keep separate skill and agent trees.
 
@@ -90,7 +90,7 @@ Once the file loop ends, the purge walks up from each directory a removal touche
 - `packages/claude-dev-env/bin/install.mjs` — the install pipeline.
 - `packages/claude-dev-env/bin/resolve-install-root.mjs` — managed Claude root, agents home, and allowed destinations.
 - `packages/claude-dev-env/bin/resolve-package-managed-directory.mjs` — package-source skills/agents directory (`.agents/<name>` first).
-- `packages/claude-dev-env/bin/publish-directory-pointer.mjs` — lookup-path pointers (POSIX symlink or Windows junction).
+- `packages/claude-dev-env/bin/publish-directory-pointer.mjs`: lookup-path pointers (POSIX symlink or Windows junction) and the `~/.claude/skills` link folder (`ensureLinkedSkillFolder`).
 - `packages/claude-dev-env/bin/install.test.mjs` — install behavior tests.
 - `packages/claude-dev-env/bin/install.agents-home.test.mjs` — agents-home layout and pointer tests.
 - `packages/claude-dev-env/bin/install.prune.test.mjs` — end-to-end prune and uninstall tests against a sandbox home.

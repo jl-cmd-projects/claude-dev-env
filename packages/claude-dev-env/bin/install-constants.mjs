@@ -64,11 +64,12 @@ export const SUBAGENT_MODEL_POLICY_FILE_NAME = 'subagent-model-policy.json';
  * The copy loop reads `<package-root>/.agents/skills` (or `<package-root>/skills`
  * when a dependency still ships that layout) and writes `~/.agents/skills`.
  * Claude Code still looks up skills at `~/.claude/skills`, which the installer
- * publishes as a directory pointer to that agents-home folder. The dependency
- * walk reads the resolved skills source, the retired-skill prune reads the
- * installed directory through the pointer, and the per-root stale-file prune
- * names it as one of its roots. One spelling serves every one of them, so the
- * copy destination and the prune target stay the same directory.
+ * fills with one directory link per skill in that agents-home folder. The
+ * dependency walk reads the resolved skills source, the retired-skill prune
+ * reads the installed skill directories, and the per-root stale-file prune
+ * names the agents-home folder as one of its roots. One spelling serves every
+ * one of them, so the copy destination and the prune target stay the same
+ * directory.
  */
 export const MANAGED_SKILLS_DIRECTORY_NAME = 'skills';
 
