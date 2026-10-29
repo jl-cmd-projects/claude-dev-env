@@ -24,6 +24,8 @@ Run `codex-compat bridge --surface <name> --payload '<json-object>'`. The bridge
 
 ## Automatic model routing
 
+See [child model choices](subagent-model-routing.md).
+
 The package installer seeds `subagent-model-policy.json` in the agents-home
 `rules/` directory when the file is absent. It registers one `PreToolUse` group
 for `multi_agent_v1__spawn_agent` in `$CODEX_HOME/hooks.json`.
