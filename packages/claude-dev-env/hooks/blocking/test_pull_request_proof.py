@@ -13,6 +13,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
+    DEFERRED_PROOF_REASON,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -686,3 +687,81 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
     assert gate.is_create_call(_mcp_create("b"))
     assert not gate.is_create_call(_shell("gh pr edit 7 --body b"))
     assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})
+
+
+@pytest.mark.parametrize(
+    "admission",
+    [
+        "Not run: the first publish on the live remote.",
+        "- Not run: a push race between live sessions.",
+        "1. Not run: the live publish.",
+        "The live publish has not yet been run.",
+        "It hasn't been run on the target.",
+        "The dialer path has not been exercised here.",
+    ],
+)
+def test_each_unrun_wording_in_proof_prose_should_be_denied(admission: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{admission}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=admission)
+
+
+@pytest.mark.parametrize(
+    "merge_line",
+    [
+        "I check the first live publish after the merge.",
+        "The seed step happens once merged.",
+        "Post-merge, a session confirms the publish.",
+        "A session verifies it after merging.",
+        "After it merges, I verify the publish.",
+        "I will verify the publish on merge.",
+        "I verify the live publish post merge.",
+        "Verified the output after merging main into the branch.",
+    ],
+)
+def test_each_merge_word_in_proof_prose_should_be_denied(merge_line: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{merge_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=merge_line)
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "The gate does not run on edits.",
+        "With the change, the hook is not run on edits.",
+        "Without the change, the hook was not run for edits.",
+        "Before this change the gate had not run on edits.",
+        "Ran `git merge origin/main`, then `python run.py`.",
+        "Confirmed the hold label stays until the PR lands.",
+        "Not run-dependent.",
+        "Without the change the publish failed; with it the publish passed.",
+    ],
+)
+def test_proof_prose_without_an_unrun_line_or_a_merge_word_should_pass(prose: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{prose}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_not_covered_heading_nested_under_the_proof_heading_should_stay_proof_text() -> None:
+    line = "Not run: an older shape."
+    body = f"## Proof in practice\nRan `python run.py`.\n\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_proof_made_only_of_a_nested_not_covered_line_should_be_denied() -> None:
+    line = "Not run: `python publish.py`"
+    body = f"## Proof in practice\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_merge_step_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\n"
+        "Not run: the publish check that follows the merge.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_merge_word_line_should_return_the_line_or_none() -> None:
+    assert gate.merge_word_line("Ran `python run.py`.\nChecked after the merge.\n") == "Checked after the merge."
+    assert gate.merge_word_line("Ran `git merge main`.\n") is None
+    assert gate.merge_word_line("```\nmerged ok\n```\n") is None

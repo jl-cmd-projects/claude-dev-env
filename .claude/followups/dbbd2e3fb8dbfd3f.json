@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/context_budget/model.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "ac9a12a1cff6cd952b5ccc10bb353379a29592a7"
+}
