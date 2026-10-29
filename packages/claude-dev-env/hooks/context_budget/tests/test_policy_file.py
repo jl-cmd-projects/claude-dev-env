@@ -9,7 +9,12 @@ import pytest
 
 from context_budget.tests.budget_support import policy_text
 from context_budget.model import ContextBudgetPolicyError
-from context_budget.policy_file import find_repository_root, parse_policy, read_policy_file
+from context_budget.policy_file import (
+    default_policy,
+    find_repository_root,
+    parse_policy,
+    read_policy_file,
+)
 
 
 def test_parse_ignores_unknown_keys_and_rejects_a_bad_shape() -> None:
@@ -71,3 +76,7 @@ def test_prose_line_word_limit_defaults_to_25_and_reads_its_key() -> None:
     raw_policy["prose_line_word_limit"] = "twelve"
     with pytest.raises(ContextBudgetPolicyError):
         parse_policy(json.dumps(raw_policy))
+
+
+def test_default_policy_for_a_repository_with_no_policy_file_keeps_the_25_word_limit() -> None:
+    assert default_policy().prose_line_word_limit == 25

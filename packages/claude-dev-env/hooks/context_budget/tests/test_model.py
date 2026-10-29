@@ -9,10 +9,8 @@ from context_budget.model import (
     ContextKind,
     FileMeasure,
     HookBudget,
-    ProseScan,
     SectionScan,
 )
-from context_budget.policy_file import default_policy
 from hooks_constants.context_budget_constants import DEFAULT_PROSE_LINE_WORD_LIMIT
 
 SKILL_ENTRY_KIND = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
@@ -62,17 +60,7 @@ def test_policy_prose_line_word_limit_defaults_and_holds_an_override() -> None:
     )
 
     assert bare_policy.prose_line_word_limit == DEFAULT_PROSE_LINE_WORD_LIMIT
-    assert default_policy().prose_line_word_limit == DEFAULT_PROSE_LINE_WORD_LIMIT
     assert raised_policy.prose_line_word_limit == 40
-
-
-def test_prose_scan_holds_its_fields() -> None:
-    unlinked_line = "Selection records own icon choice."
-    scan = ProseScan(True, False, (unlinked_line,))
-
-    assert scan.has_detail_line is True
-    assert scan.has_pointer_line is False
-    assert scan.all_long_unlinked_lines == (unlinked_line,)
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
