@@ -211,10 +211,6 @@ def test_pr_body_reports_each_missing_heading(missing_heading: str) -> None:
     ]
 
 
-MISSING_FLOWCHART_MESSAGE = (
-    "## What this does needs a mermaid flowchart that draws the flow before "
-    "and after the change"
-)
 
 
 def _flowchart_codes(action: str, body_text: str) -> list[str]:
@@ -225,7 +221,7 @@ def _flowchart_codes(action: str, body_text: str) -> list[str]:
             title="feat: add durable post linting",
             body_text=body_text,
         )
-        if each_finding.code == "missing-pr-description-flowchart"
+        if each_finding.code == durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
@@ -241,7 +237,7 @@ def should_report_a_create_body_with_no_flowchart() -> None:
         body_text=body_text,
     )
     assert [each_finding.message for each_finding in all_findings] == [
-        MISSING_FLOWCHART_MESSAGE
+        durable_post_lint.MISSING_FLOWCHART_MESSAGE
     ]
 
 
@@ -250,7 +246,7 @@ def should_report_a_flowchart_placed_under_another_heading() -> None:
         "Scope text.", f"Scope text.\n\n{FLOWCHART_BLOCK}"
     )
     assert _flowchart_codes("pr-create", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
@@ -264,14 +260,14 @@ def should_report_a_mermaid_block_of_another_diagram_type(
     other_block = f"```mermaid\n{diagram_opening}\n    a --> b\n```"
     body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, other_block)
     assert _flowchart_codes("pr-create", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
 def should_report_a_flowchart_fenced_under_another_language() -> None:
     body_text = VALID_PR_BODY.replace("```mermaid", "```text")
     assert _flowchart_codes("pr-create", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
@@ -290,7 +286,7 @@ def should_report_a_flowchart_with_no_arrow_between_two_nodes(
     thin_block = f"```mermaid\n{block_lines}\n```"
     body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, thin_block)
     assert _flowchart_codes("pr-create", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
@@ -322,14 +318,14 @@ def should_accept_a_tilde_fenced_flowchart() -> None:
 def should_report_an_unclosed_flowchart_fence() -> None:
     body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, FLOWCHART_BLOCK[:-3])
     assert _flowchart_codes("pr-create", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 
 def should_report_an_edit_body_that_has_the_heading_and_no_flowchart() -> None:
     body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, "")
     assert _flowchart_codes("pr-edit", body_text) == [
-        "missing-pr-description-flowchart"
+        durable_post_lint.MISSING_FLOWCHART_CODE
     ]
 
 

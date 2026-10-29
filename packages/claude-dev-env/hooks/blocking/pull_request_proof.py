@@ -109,25 +109,39 @@ def _heading_level(line: str, heading_pattern: str) -> int | None:
     return None if heading is None else len(heading.group(1))
 
 
-def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
+def _open_marker_after(line: str, open_marker: str | None) -> str | None:
+    line_marker = _fence_marker(line)
+    if line_marker is None:
+        return open_marker
+    if open_marker is None:
+        return line_marker
+    return None if line_marker == open_marker else open_marker
+
+
+def _fenced_line_flags(all_lines: list[str]) -> list[bool]:
+    all_flags: list[bool] = []
     open_marker: str | None = None
+    for each_line in all_lines:
+        was_open = open_marker is not None
+        open_marker = _open_marker_after(each_line, open_marker)
+        all_flags.append(was_open or open_marker is not None)
+    return [False] * len(all_lines) if open_marker is not None else all_flags
+
+
+def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
+    all_fenced_flags = _fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
-        line_marker = _fence_marker(each_line)
-        if line_marker is not None and open_marker is None:
-            open_marker = line_marker
-        elif line_marker is not None and line_marker == open_marker:
-            open_marker = None
-        elif open_marker is None:
-            next_level = _heading_level(each_line, NEXT_HEADING_PATTERN)
-            if next_level is not None and next_level <= heading_level:
-                return all_lines[:each_index]
+        next_level = None if all_fenced_flags[each_index] else _heading_level(each_line, NEXT_HEADING_PATTERN)
+        if next_level is not None and next_level <= heading_level:
+            return all_lines[:each_index]
     return all_lines
 
 
 def _section_text(body: str, heading_pattern: str) -> str | None:
     all_lines = body.splitlines()
+    all_fenced_flags = _fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
-        heading_level = _heading_level(each_line, heading_pattern)
+        heading_level = None if all_fenced_flags[each_index] else _heading_level(each_line, heading_pattern)
         if heading_level is not None:
             all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
             return LINE_SEPARATOR.join(all_section_lines).strip()
@@ -156,7 +170,8 @@ def what_this_does_section(body: str) -> str | None:
         "## Summary\\nno what-this-does heading"      -> None
 
     The section runs to the next heading of the same or a higher level. A line
-    that starts with a hash inside a fenced block is code, not a heading.
+    that starts with a hash inside a fenced block is code, not a heading. A
+    fence that never closes is read as plain text.
     """
     return _section_text(body, WHAT_THIS_DOES_HEADING_PATTERN)
 
@@ -658,6 +673,17 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
 
 
 def has_flowchart_under_what_this_does(body: str) -> bool:
+    """Return whether the body's 'What this does' section holds a mermaid flowchart.
+
+    ::
+
+        "## What this does\\n```mermaid\\nflowchart LR\\n a --> b\\n```" -> True
+        "## What this does\\nwords only"                                  -> False
+        "## Summary\\nno what-this-does heading"                          -> False
+
+    Args:
+        body: The pull request body.
+    """
     section = what_this_does_section(body)
     return section is not None and section_has_flowchart(section)
 

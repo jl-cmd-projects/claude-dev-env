@@ -373,6 +373,16 @@ def test_what_this_does_section_should_not_end_at_a_hash_line_inside_a_fenced_bl
     assert gate.has_flowchart_under_what_this_does(body)
 
 
+def test_unclosed_fence_should_not_swallow_the_next_heading() -> None:
+    body = "## Proof in practice\nRan `python probe.py`.\n```\nout\n## Not covered\nnot run: x"
+    assert gate.proof_section(body) == "Ran `python probe.py`.\n```\nout"
+
+
+def test_what_this_does_heading_inside_a_fenced_block_should_not_start_the_section() -> None:
+    body = f"```\n## What this does\n```\n\n{CHARTED_BODY}"
+    assert gate.has_flowchart_under_what_this_does(body)
+
+
 def test_has_flowchart_under_what_this_does_should_read_only_that_section() -> None:
     assert gate.has_flowchart_under_what_this_does(CHARTED_BODY)
     assert not gate.has_flowchart_under_what_this_does(f"## What this does\nWords.\n\n## Risk\n{FLOWCHART_BLOCK}\n")
