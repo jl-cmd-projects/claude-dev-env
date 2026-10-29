@@ -4,7 +4,7 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
-Keep the title's status current: set `<emoji> <name>` when the status changes, and set the hourglass when a new ask starts work. Use the red flag when the user must act, the construction sign when an outside dependency blocks the work, the check mark when the work is done, and the hourglass while work, CI, or a merge queue runs. The name has 25 characters or fewer, in sentence case, with concrete nouns and no IDs, dates, or branch names.
+Keep the title's status current. Set `<emoji> <name>` when the status changes. Set the hourglass when a new ask starts work. Use the red flag when the user must act, the construction sign when an outside dependency blocks the work, the check mark when the work is done, and the hourglass while work, CI, or a merge queue runs. The name has 25 characters or fewer, in sentence case, with concrete nouns and no IDs, dates, or branch names.
 
 **Enforcement:** `hooks/blocking/session_title_format_gate.py` denies a malformed title. `hooks/blocking/session_title_turn_gate.py` holds a turn once when the title shows a stale status.
 
