@@ -70,6 +70,7 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "npx --registry https://r.example pele chain.mmd",
         "npx --timeout 5000 pele chain.mmd",
         "npx -p pele mmdc -i a.mmd",
+        "npx --package=pele mmdc chain.mmd",
         "npm --prefix exec pele chain.mmd",
         "cd diagrams && npx pele chain.mmd",
         "npm exec pele chain.mmd",
@@ -245,3 +246,24 @@ def test_pele_argument_outside_the_package_slot_gets_only_the_hint(tmp_path: Pat
     hook_output = json.loads(completed.stdout)
     assert "permissionDecision" not in hook_output["hookSpecificOutput"]
     assert "playground at pele.run" in hook_output["hookSpecificOutput"]["additionalContext"]
+
+
+def test_installed_snippet_prints_usage_without_a_diagram(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    claude_root = tmp_path / "claude"
+    _write_installed_pele(claude_root, "1.12.0")
+    monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(claude_root))
+    work_directory = tmp_path / "work"
+    work_directory.mkdir()
+    context_text = npx_pele_guidance.guidance_text()
+    snippet = context_text.split(JS_FENCE_OPEN, 1)[1].split(JS_FENCE_CLOSE, 1)[0]
+    (work_directory / "pele-render.mjs").write_text(snippet, encoding="utf-8")
+    completed = subprocess.run(
+        ["node", "pele-render.mjs"],
+        cwd=work_directory,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 1
+    assert "usage: node pele-render.mjs <diagram.mmd>" in completed.stderr

@@ -41,6 +41,7 @@ from hooks_constants.npx_pele_guidance_constants import (
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
     NPM_PROGRAM_NAME,
+    OPTION_VALUE_SEPARATOR,
     PACKAGE_MANIFEST_NAME,
     PACKAGE_VERSION_SEPARATOR,
     PELE_PACKAGE_NAME,
@@ -153,7 +154,8 @@ def _has_pele_argument(all_arguments: list[str]) -> bool:
 
 
 def _is_pele_package(argument: str) -> bool:
-    package_name = unquoted_token(argument).split(PACKAGE_VERSION_SEPARATOR, 1)[0]
+    package_spec = unquoted_token(argument).rsplit(OPTION_VALUE_SEPARATOR, 1)[-1]
+    package_name = package_spec.split(PACKAGE_VERSION_SEPARATOR, 1)[0]
     return package_name == PELE_PACKAGE_NAME
 
 

@@ -12,6 +12,7 @@ __all__ = [
     "NODE_MODULES_DIRECTORY_NAME",
     "NPM_PROGRAM_NAME",
     "NPX_PELE_FAILURE_SENTENCE",
+    "OPTION_VALUE_SEPARATOR",
     "PACKAGE_MANIFEST_NAME",
     "PACKAGE_VERSION_SEPARATOR",
     "PELE_PACKAGE_NAME",
@@ -22,6 +23,7 @@ COMMAND_INPUT_KEY = "command"
 ALL_NPX_PROGRAM_NAMES = ("npx", "npx.cmd")
 NPM_PROGRAM_NAME = "npm"
 ALL_NPM_EXEC_SUBCOMMANDS = ("exec", "x")
+OPTION_VALUE_SEPARATOR = "="
 PACKAGE_VERSION_SEPARATOR = "@"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"
@@ -41,6 +43,7 @@ INSTALLED_GUIDANCE_TEMPLATE = (
     "import {{ readFileSync, writeFileSync }} from 'node:fs';\n"
     "import {{ pathToFileURL }} from 'node:url';\n\n"
     "const [inputPath] = process.argv.slice(2);\n"
+    "if (!inputPath) {{ console.error('usage: node pele-render.mjs <diagram.mmd>'); process.exit(1); }}\n"
     "const {{ render }} = await import(pathToFileURL({package_entry}).href);\n"
     "const {{ svg }} = render(readFileSync(inputPath, 'utf8'));\n"
     "const outputPath = inputPath.replace(/\\.mmd$/, '') + '.svg';\n"
