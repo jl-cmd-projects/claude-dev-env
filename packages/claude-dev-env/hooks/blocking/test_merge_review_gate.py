@@ -25,16 +25,16 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(tmp_path))
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", raising=False)
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
+    remotes = tmp_path / "github.com"
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
     return tmp_path
 
 
 @pytest.fixture
-def remote_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    remotes = tmp_path / "remotes"
-    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
-    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
-    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
-    return remotes
+def remote_folder(receipt_folder: Path) -> Path:
+    return receipt_folder / "github.com"
 
 
 def _merge_tool(head: str | None = None) -> dict[str, object]:

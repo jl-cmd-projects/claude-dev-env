@@ -132,6 +132,6 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "head stays {head}."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
-    "This pull request names no repository or head commit the review gate can read. Push the "
-    "head branch to GitHub, then open the pull request again, or run it from the branch checkout."
+    "This pull request names no repository or head commit the review gate can read. Check that "
+    "the head branch is on GitHub and GitHub is reachable, or run it from the branch checkout."
 )

@@ -154,18 +154,17 @@ def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> st
     if ":" in branch:
         fork_owner, _, fork_branch = branch.partition(":")
         return _remote_branch_commit(fork_owner, repo, fork_branch)
-    all_references = (
-        (branch,) if branch == CURRENT_HEAD_REFERENCE else (REMOTE_BRANCH_PREFIX + branch, branch)
-    )
-    for each_reference in all_references:
-        commit = _run_git(
-            ["rev-parse", "--verify", "--quiet", f"{each_reference}^{{commit}}"], folder
-        )
-        if commit:
-            return commit
     if branch == CURRENT_HEAD_REFERENCE:
-        return None
-    return _remote_branch_commit(owner, repo, branch)
+        return _local_commit(branch, folder)
+    return (
+        _remote_branch_commit(owner, repo, branch)
+        or _local_commit(REMOTE_BRANCH_PREFIX + branch, folder)
+        or _local_commit(branch, folder)
+    )
+
+
+def _local_commit(reference: str, folder: str | None) -> str | None:
+    return _run_git(["rev-parse", "--verify", "--quiet", f"{reference}^{{commit}}"], folder)
 
 
 def _remote_branch_commit(owner: str, repo: str, branch_name: str) -> str | None:

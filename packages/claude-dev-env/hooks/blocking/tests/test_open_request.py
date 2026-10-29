@@ -124,6 +124,58 @@ def test_should_read_a_fork_branch_from_the_fork_not_a_same_named_local_branch(
     assert open_request_from(payload) == OpenRequest(owner="acme", repo="tools", head=fork_head)
 
 
+def test_should_read_the_github_branch_before_a_diverged_local_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    _git(checkout, "init", "--quiet", "--initial-branch", "feature")
+    _git(
+        checkout,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "local",
+    )
+    local_head = _git(checkout, "rev-parse", "HEAD")
+    _git(checkout, "checkout", "--quiet", "-b", "pushed-work")
+    _git(
+        checkout,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "pushed",
+    )
+    pushed_head = _git(checkout, "rev-parse", "HEAD")
+    _git(checkout, "checkout", "--quiet", "feature")
+    remotes = tmp_path / "github.com"
+    (remotes / "acme" / "tools.git").mkdir(parents=True)
+    _git(remotes / "acme" / "tools.git", "init", "--quiet", "--bare")
+    _git(checkout, "push", "--quiet", str(remotes / "acme" / "tools.git"), "pushed-work:feature")
+    assert local_head != pushed_head
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "head": "feature"},
+        "cwd": str(checkout),
+    }
+    assert open_request_from(payload) == OpenRequest(
+        owner="acme", repo="tools", head=pushed_head
+    )
+
+
 def test_should_return_none_for_a_command_that_opens_nothing(tmp_path: Path) -> None:
     assert open_request_from(_shell_payload("gh pr merge 12", tmp_path)) is None
 
