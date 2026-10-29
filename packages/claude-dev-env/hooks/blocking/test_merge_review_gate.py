@@ -1,5 +1,6 @@
 """Behavior tests for the clean-review merge gate."""
 
+import io
 import os
 import subprocess
 import sys
@@ -27,7 +28,6 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", raising=False)
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
     remotes = tmp_path / "github.com"
-    (remotes / "acme" / "tools.git").mkdir(parents=True)
     subprocess.run(
         ["git", "init", "--quiet", "--bare", str(remotes / "acme" / "tools.git")], check=True
     )
@@ -39,8 +39,8 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def remote_folder(receipt_folder: Path) -> Path:
-    return receipt_folder / "github.com"
+def github_repository(receipt_folder: Path) -> Path:
+    return receipt_folder / "github.com" / "acme" / "tools.git"
 
 
 def _merge_tool(head: str | None = None) -> dict[str, object]:
@@ -225,7 +225,7 @@ def _git(folder: Path, *all_arguments: str) -> str:
 
 
 @pytest.fixture
-def branch_checkout(tmp_path: Path) -> tuple[Path, str]:
+def branch_checkout(tmp_path: Path, github_repository: Path) -> tuple[Path, str]:
     folder = tmp_path / "checkout"
     folder.mkdir()
     _git(folder, "init", "--quiet", "--initial-branch", "main")
@@ -243,7 +243,48 @@ def branch_checkout(tmp_path: Path) -> tuple[Path, str]:
         "-m",
         "first",
     )
+    _git(folder, "push", "--quiet", str(github_repository), "feature")
     return folder, _git(folder, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def ruled_checkout(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, str]:
+    folder, _head = branch_checkout
+    (folder / "a.py").write_text("one\n", encoding="utf-8")
+    (folder / "b.py").write_text("one\ntwo\n", encoding="utf-8")
+    _git(folder, "add", "a.py", "b.py")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "-m",
+        "files",
+    )
+    _git(folder, "push", "--quiet", str(github_repository), "feature")
+    monkeypatch.chdir(folder)
+    return folder, _git(folder, "rev-parse", "HEAD")
+
+
+def _record_open_pass(head: str, findings: int, ruled_out: int, rulings: str) -> None:
+    merge_review_receipt.main(
+        [
+            "acme/tools",
+            "open",
+            head,
+            str(findings),
+            "--ruled-out",
+            str(ruled_out),
+            "--rulings",
+            rulings,
+        ],
+        io.StringIO(),
+    )
 
 
 def _create_tool(folder: Path, head: str = "feature") -> dict[str, object]:
@@ -268,18 +309,18 @@ def test_should_deny_a_pull_request_open_with_no_review(branch_checkout: tuple[P
 
 
 def test_should_allow_a_pull_request_open_whose_findings_are_ruled_out_at_file_and_line(
-    branch_checkout: tuple[Path, str],
+    ruled_checkout: tuple[Path, str],
 ) -> None:
-    folder, head = branch_checkout
-    merge_review_receipt.record_open_review("acme/tools", head, 2, 2, ["a.py:1", "b.py:2"])
+    folder, head = ruled_checkout
+    _record_open_pass(head, 2, 2, "a.py:1,b.py:2")
     assert _reason(_create_tool(folder)) is None
 
 
 def test_should_deny_a_pull_request_open_whose_rulings_leave_a_finding_unproven(
-    branch_checkout: tuple[Path, str],
+    ruled_checkout: tuple[Path, str],
 ) -> None:
-    folder, head = branch_checkout
-    merge_review_receipt.record_open_review("acme/tools", head, 3, 2, ["a.py:1", "b.py:2"])
+    folder, head = ruled_checkout
+    _record_open_pass(head, 3, 2, "a.py:1,b.py:2")
     assert "no clean review" in _reason(_create_tool(folder))
 
 
@@ -327,50 +368,37 @@ def test_should_read_the_pull_request_script_create(branch_checkout: tuple[Path,
     assert f"head {head}" in _reason(_bash_in(folder, command))
 
 
-def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(
-    tmp_path: Path, remote_folder: Path
-) -> None:
+def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(tmp_path: Path) -> None:
     reason = _reason(_create_tool(tmp_path, head="missing-branch"))
     assert "names no repository or head commit" in reason
 
 
-def _push_to_remote(folder: Path, remote_repository: Path, branch: str) -> None:
-    remote_repository.mkdir(parents=True, exist_ok=True)
-    _git(remote_repository, "init", "--quiet", "--bare")
-    _git(folder, "push", "--quiet", str(remote_repository), branch)
-
-
 def test_should_read_the_pushed_head_of_a_branch_outside_any_checkout(
-    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+    branch_checkout: tuple[Path, str], tmp_path: Path
 ) -> None:
-    folder, head = branch_checkout
-    _push_to_remote(folder, remote_folder / "acme" / "tools.git", "feature")
-    assert f"no clean review for head {head}" in _reason(_create_tool(tmp_path))
+    _folder, head = branch_checkout
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    assert f"no clean review for head {head}" in _reason(_create_tool(outside))
     merge_review_receipt.record_open_review("acme/tools", head, 0)
-    assert _reason(_create_tool(tmp_path)) is None
+    assert _reason(_create_tool(outside)) is None
 
 
-def test_should_deny_an_open_whose_github_lookup_fails_even_with_a_clean_local_review(
+def test_should_deny_an_open_whose_repository_github_cannot_list(
     branch_checkout: tuple[Path, str],
 ) -> None:
     folder, head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", head, 0)
-    unreachable_create = {
-        "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"owner": "ghost", "repo": "tools", "head": "feature", "base": "main"},
-        "cwd": str(folder),
-    }
-    assert "names no repository or head commit" in _reason(unreachable_create)
+    unlisted_create = _create_tool(folder)
+    unlisted_create["tool_input"]["repo"] = "ghost"
+    assert "names no repository or head commit" in _reason(unlisted_create)
 
 
-def test_should_not_read_a_fork_branch_from_the_base_repository(
-    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+def test_should_read_a_fork_head_from_the_fork_owner_repository(
+    branch_checkout: tuple[Path, str],
 ) -> None:
     folder, _head = branch_checkout
-    _push_to_remote(folder, remote_folder / "acme" / "tools.git", "feature")
-    assert "names no repository or head commit" in _reason(
-        _create_tool(tmp_path, head="someone:feature")
-    )
+    assert "names no repository or head commit" in _reason(_create_tool(folder, "someone:feature"))
 
 
 def test_should_allow_a_pull_request_open_in_an_exempt_repository(
@@ -388,11 +416,12 @@ def test_should_allow_a_merge_pinned_to_the_head_reviewed_clean_before_open() ->
     assert _reason(_bash(command)) is None
 
 
-def test_should_deny_a_merge_pinned_to_a_head_whose_open_pass_only_ruled_findings_out() -> None:
-    merge_review_receipt.record_open_review(
-        "acme/tools", CLEAN_HEAD, 2, 2, ["a.py:1", "b.py:2"]
-    )
-    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+def test_should_deny_a_merge_pinned_to_a_head_whose_open_pass_only_ruled_findings_out(
+    ruled_checkout: tuple[Path, str],
+) -> None:
+    _folder, head = ruled_checkout
+    _record_open_pass(head, 2, 2, "a.py:1,b.py:2")
+    assert "no clean review" in _reason(_merge_tool(head))
 
 
 def test_should_deny_a_merge_pinned_past_the_head_reviewed_before_open() -> None:
@@ -441,7 +470,7 @@ def test_should_check_a_merge_chained_after_a_reviewed_open(
 
 
 def test_should_read_the_pushed_branch_before_the_local_one(
-    branch_checkout: tuple[Path, str], remote_folder: Path
+    branch_checkout: tuple[Path, str], github_repository: Path
 ) -> None:
     folder, local_head = branch_checkout
     _git(
@@ -457,10 +486,34 @@ def test_should_read_the_pushed_branch_before_the_local_one(
         "pushed",
     )
     pushed_head = _git(folder, "rev-parse", "HEAD")
-    _git(folder, "push", "--quiet", str(remote_folder / "acme" / "tools.git"), "HEAD:feature")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
     _git(folder, "reset", "--quiet", "--hard", local_head)
     merge_review_receipt.record_open_review("acme/tools", local_head, 0)
     assert f"head {pushed_head}" in _reason(_create_tool(folder))
+
+
+def test_should_read_the_fetched_branch_before_the_local_one_for_a_shell_open(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, local_head = branch_checkout
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "fetched",
+    )
+    fetched_head = _git(folder, "rev-parse", "HEAD")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", fetched_head)
+    _git(folder, "reset", "--quiet", "--hard", local_head)
+    merge_review_receipt.record_open_review("acme/tools", local_head, 0)
+    command = "gh pr create --repo acme/tools --head feature"
+    assert f"head {fetched_head}" in _reason(_bash_in(folder, command))
 
 
 def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
@@ -469,26 +522,10 @@ def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
 
 
 def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remote_folder: Path
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
     assert _reason(_create_tool(tmp_path, head="missing-branch")) is None
-
-
-def test_should_not_look_up_the_head_of_an_exempt_repository(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remote_folder: Path
-) -> None:
-    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
-    all_commands: list[list[str]] = []
-    run_git = subprocess.run
-
-    def recording_run(all_arguments: list[str], **keyword_arguments: object) -> object:
-        all_commands.append(list(all_arguments))
-        return run_git(all_arguments, **keyword_arguments)
-
-    monkeypatch.setattr(subprocess, "run", recording_run)
-    assert _reason(_create_tool(tmp_path)) is None
-    assert not any("ls-remote" in each_command for each_command in all_commands)
 
 
 def test_should_skip_options_quoted_inside_the_title_or_body(

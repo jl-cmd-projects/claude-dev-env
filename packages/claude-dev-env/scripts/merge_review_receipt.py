@@ -94,39 +94,20 @@ def record_review(
     return _write_receipt(slug, number, receipt)
 
 
-def record_open_review(
-    slug: str,
-    head: str,
-    finding_count: int,
-    ruled_out_count: int = 0,
-    all_rulings: Sequence[str] = (),
-) -> Path:
+def record_open_review(slug: str, head: str, finding_count: int) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
     Args:
         slug: Repository as ``owner/name``.
         head: The commit the pass reviewed.
         finding_count: How many findings the pass reported.
-        ruled_out_count: How many of those findings were ruled out.
-        all_rulings: One ``path:line`` of evidence for each ruled out finding.
 
     Returns:
         The receipt path written.
     """
-    return _record_open_fields(slug, head, finding_count, ruled_out_count, all_rulings)[0]
-
-
-def _record_open_fields(
-    slug: str,
-    head: str,
-    finding_count: int,
-    ruled_out_count: int,
-    all_rulings: Sequence[str],
-) -> tuple[Path, dict[str, object]]:
-    receipt = _receipt_fields(
-        head, finding_count, ruled_out_count, RECEIPT_RULING_LINES_KEY, list(all_rulings)
+    return _write_open_receipt(
+        slug, head, _receipt_fields(head, finding_count, 0, RECEIPT_RULING_LINES_KEY, [])
     )
-    return _write_open_receipt(slug, head, receipt), receipt
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
@@ -231,9 +212,10 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    _, receipt = _record_open_fields(
-        parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings
+    receipt = _receipt_fields(
+        parsed.head, parsed.findings, parsed.ruled_out, RECEIPT_RULING_LINES_KEY, all_rulings
     )
+    _write_open_receipt(parsed.slug, parsed.head, receipt)
     if is_clean_open_pass(receipt):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"

@@ -139,6 +139,14 @@ def test_record_open_review_writes_the_head_receipt_in_lowercase(receipt_folder:
     assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD.upper(), "findings": 2}
 
 
+def test_should_leave_ruling_keys_out_of_an_open_pass_that_rules_nothing_out(
+    receipt_folder: Path,
+) -> None:
+    merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], StringIO())
+    receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{HEAD}.json").read_text())
+    assert receipt == {"head": HEAD, "findings": 2}
+
+
 def test_should_exit_one_for_an_open_pass_with_findings() -> None:
     verdict_stream = StringIO()
     assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
