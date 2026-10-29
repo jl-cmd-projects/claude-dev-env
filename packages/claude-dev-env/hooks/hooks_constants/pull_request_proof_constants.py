@@ -5,8 +5,10 @@ NEXT_HEADING_PATTERN = r"^(#{1,6})[ \t]+\S"
 COMMAND_MARKER = "`"
 LINE_SEPARATOR = "\n"
 ALL_GH_CREATE_WORDS = ["pr", "create"]
+ALL_GH_EDIT_WORDS = ["pr", "edit"]
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PULL_REQUEST_SCRIPT_CREATE_WORD = "create"
+PULL_REQUEST_SCRIPT_EDIT_WORD = "edit"
 ALL_PYTHON_PROGRAM_NAMES = frozenset({"python", "python3", "py"})
 PROOF_GUIDE_PATH = "~/.claude/docs/rule-guides/proof-before-pull-request.md"
 MISSING_BODY_REASON = (
@@ -78,8 +80,9 @@ ALL_CODE_FENCE_MARKERS = ("```", "~~~")
 UNPROVEN_PROOF_REASON = (
     "This pull request's 'Proof in practice' section says part of the change is not"
     " proven: \"{admission}\". When that part is what the change exists to do, such as"
-    " the run on the target that failed, leave the pull request unopened. Run it, quote"
-    " its output, then open the pull request. When it is a condition the change does not"
+    " the run on the target that failed, run it first and quote its output in the section."
+    " Do not open the pull request, or ask for review of an open one, until that output"
+    " is there. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
     " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
