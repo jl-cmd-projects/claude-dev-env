@@ -128,7 +128,7 @@ STATUS_FIELD_SEPARATOR = "\t"
 COMPARE_FILE_STATUS_QUERY = (
     '.files[] | [(if .status == "renamed" and .changes == 0 then "'
     + PURE_RENAME_STATUS
-    + '" else .status end), .filename] | @tsv'
+    + '" else .status end)] + [.previous_filename // empty, .filename] | @tsv'
 )
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"

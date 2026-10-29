@@ -674,7 +674,9 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
 
-    A rename that keeps every byte (git status R100) changes nothing people see.
+    A rename that keeps every byte (git reports R100) from one visible file to another
+    changes nothing people see. One from a file people do not see, such as notes.txt
+    to page.html, still makes a page.
 
     Args:
         working_directory: The session directory the hook payload names.
@@ -688,17 +690,27 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     merge_base = _first_merge_base(working_directory, head_reference)
     if merge_base is None:
         return None
-    all_status_lines = _git_lines(working_directory, "diff", "--name-status", "-M", merge_base, head_reference)
+    all_status_lines = _git_lines(
+        working_directory, "-c", "core.quotePath=false", "diff", "--name-status", "-M", merge_base, head_reference
+    )
     if all_status_lines is None:
         return None
     return _visible_paths(all_status_lines)
+
+
+def _is_pure_rename_between_pages(all_fields: list[str]) -> bool:
+    return (
+        len(all_fields) > 1
+        and all_fields[0] == PURE_RENAME_STATUS
+        and all_fields[1].lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
+    )
 
 
 def _visible_paths(all_status_lines: list[str]) -> list[str]:
     all_visible_paths = []
     for each_line in all_status_lines:
         all_fields = each_line.split(STATUS_FIELD_SEPARATOR)
-        if all_fields[0] == PURE_RENAME_STATUS:
+        if _is_pure_rename_between_pages(all_fields):
             continue
         if all_fields[-1].lower().endswith(ALL_VISIBLE_FILE_SUFFIXES):
             all_visible_paths.append(all_fields[-1])

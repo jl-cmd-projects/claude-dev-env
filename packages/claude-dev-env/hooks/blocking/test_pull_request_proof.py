@@ -1,5 +1,7 @@
 """Behavior tests for the proof-in-practice, existing-work and eval checks on a new pull request."""
 
+import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +15,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
+    COMPARE_FILE_STATUS_QUERY,
     DEFERRED_PROOF_REASON,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
@@ -435,21 +438,26 @@ def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     assert all_endpoints == ["repos/o/r", "repos/o/r/compare/trunk...feature"]
 
 
-def _repository_with_rename(tmp_path: Path, edited_text: str | None) -> Path:
+def _repository_with_rename(
+    tmp_path: Path,
+    edited_text: str | None,
+    old_name: str = "asset-specs.html",
+    new_name: str = "references/asset-specs.html",
+) -> Path:
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
-    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
     page_text = "<p>" + "page body line\n" * 20 + "</p>\n"
     subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
-    (origin_path / "asset-specs.html").write_text(page_text, encoding="utf-8")
+    (origin_path / old_name).write_text(page_text, encoding="utf-8")
     subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
     subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
     subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
     subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
-    (clone_path / "references").mkdir()
-    subprocess.run(["git", "-C", str(clone_path), "mv", "asset-specs.html", "references/asset-specs.html"], check=True)
+    (clone_path / new_name).parent.mkdir(exist_ok=True)
+    subprocess.run(["git", "-C", str(clone_path), "mv", old_name, new_name], check=True)
     if edited_text is not None:
-        (clone_path / "references" / "asset-specs.html").write_text(page_text + edited_text, encoding="utf-8")
+        (clone_path / new_name).write_text(page_text + edited_text, encoding="utf-8")
     subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
     subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "move"], check=True)
     return clone_path
@@ -501,19 +509,33 @@ def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_rena
     assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
 
 
-def test_should_ask_the_compare_api_to_mark_a_rename_with_no_change_as_a_pure_rename(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    all_queries: list[str] = []
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is not installed")
+def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -> None:
+    all_files = {
+        "files": [
+            {"status": "renamed", "changes": 0, "previous_filename": "a/x.html", "filename": "b/x.html"},
+            {"status": "renamed", "changes": 3, "previous_filename": "a/y.html", "filename": "b/y.html"},
+            {"status": "added", "changes": 5, "filename": "c.py"},
+        ]
+    }
+    completed = subprocess.run(
+        ["jq", "-r", COMPARE_FILE_STATUS_QUERY],
+        input=json.dumps(all_files),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout.splitlines() == ["R100\ta/x.html\tb/x.html", "renamed\ta/y.html\tb/y.html", "added\tc.py"]
 
-    def fake_gh_api_lines(endpoint: str, query: str) -> list[str] | None:
-        all_queries.append(query)
-        return []
 
-    monkeypatch.setattr(gate, "_gh_api_lines", fake_gh_api_lines)
-    gate.remote_visible_changed_files("o/r", "main", "feature")
-    all_expected_terms = ('.status == "renamed"', ".changes == 0", '"R100"', ".filename")
-    assert all(each_term in all_queries[0] for each_term in all_expected_terms)
+def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, "notes.txt", "site/notes.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/notes.html"]
+
+
+def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, "página.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["página.html"]
 
 
 def test_should_deny_as_unreadable_when_the_compare_api_fails(
