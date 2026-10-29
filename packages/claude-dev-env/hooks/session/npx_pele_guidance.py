@@ -33,10 +33,8 @@ from hooks_constants.npx_pele_guidance_constants import (
     ABSENT_GUIDANCE_TEMPLATE,
     ALL_NPM_EXEC_SUBCOMMANDS,
     ALL_NPX_PROGRAM_NAMES,
-    ALL_OPTIONS_WITH_SEPARATE_VALUE,
     ALL_PELE_ENTRY_PATH_PARTS,
     COMMAND_INPUT_KEY,
-    FLAG_PREFIX,
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
     NPM_PROGRAM_NAME,
@@ -131,30 +129,23 @@ def is_npx_pele_command(tool_input: object) -> bool:
 
 def _segment_runs_npx_pele(all_segment_tokens: list[str]) -> bool:
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    all_package_arguments = _package_arguments_of(program_name, all_arguments)
-    return bool(all_package_arguments) and _is_pele_package(all_package_arguments[0])
-
-
-def _package_arguments_of(program_name: str, all_arguments: list[str]) -> list[str]:
     if program_name in ALL_NPX_PROGRAM_NAMES:
-        return _arguments_after_options(all_arguments)
+        return _has_pele_argument(all_arguments)
     if program_name != NPM_PROGRAM_NAME:
-        return []
-    all_npm_arguments = _arguments_after_options(all_arguments)
-    npm_subcommand = unquoted_token(all_npm_arguments[0]) if all_npm_arguments else ""
-    if npm_subcommand not in ALL_NPM_EXEC_SUBCOMMANDS:
-        return []
-    return _arguments_after_options(all_npm_arguments[1:])
+        return False
+    exec_index = next(
+        (
+            each_index
+            for each_index, each_argument in enumerate(all_arguments)
+            if unquoted_token(each_argument) in ALL_NPM_EXEC_SUBCOMMANDS
+        ),
+        None,
+    )
+    return exec_index is not None and _has_pele_argument(all_arguments[exec_index + 1 :])
 
 
-def _arguments_after_options(all_arguments: list[str]) -> list[str]:
-    all_remaining = list(all_arguments)
-    while all_remaining and unquoted_token(all_remaining[0]).startswith(FLAG_PREFIX):
-        takes_separate_value = unquoted_token(all_remaining[0]) in ALL_OPTIONS_WITH_SEPARATE_VALUE
-        all_remaining = all_remaining[1:]
-        if takes_separate_value:
-            all_remaining = all_remaining[1:]
-    return all_remaining
+def _has_pele_argument(all_arguments: list[str]) -> bool:
+    return any(_is_pele_package(each_argument) for each_argument in all_arguments)
 
 
 def _is_pele_package(argument: str) -> bool:

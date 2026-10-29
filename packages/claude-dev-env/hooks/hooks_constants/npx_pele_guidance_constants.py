@@ -6,10 +6,8 @@ __all__ = [
     "ABSENT_GUIDANCE_TEMPLATE",
     "ALL_NPM_EXEC_SUBCOMMANDS",
     "ALL_NPX_PROGRAM_NAMES",
-    "ALL_OPTIONS_WITH_SEPARATE_VALUE",
     "ALL_PELE_ENTRY_PATH_PARTS",
     "COMMAND_INPUT_KEY",
-    "FLAG_PREFIX",
     "INSTALLED_GUIDANCE_TEMPLATE",
     "NODE_MODULES_DIRECTORY_NAME",
     "NPM_PROGRAM_NAME",
@@ -24,22 +22,6 @@ COMMAND_INPUT_KEY = "command"
 ALL_NPX_PROGRAM_NAMES = ("npx", "npx.cmd")
 NPM_PROGRAM_NAME = "npm"
 ALL_NPM_EXEC_SUBCOMMANDS = ("exec", "x")
-ALL_OPTIONS_WITH_SEPARATE_VALUE = (
-    "-c",
-    "--call",
-    "-p",
-    "--package",
-    "-w",
-    "--workspace",
-    "--cache",
-    "--globalconfig",
-    "--otp",
-    "--registry",
-    "--userconfig",
-    "--prefix",
-    "--loglevel",
-)
-FLAG_PREFIX = "-"
 PACKAGE_VERSION_SEPARATOR = "@"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"
