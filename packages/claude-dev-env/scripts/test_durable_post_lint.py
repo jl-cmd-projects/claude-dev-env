@@ -769,6 +769,8 @@ def test_cli_accepts_a_repository(tmp_path: Path) -> None:
     )
     assert completed_process.returncode == 0
     assert completed_process.stderr == ""
+
+
 def _repository_adding_workflow(tmp_path: Path, workflow_name: str) -> Path:
     git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
     repository_path = tmp_path / "repository"

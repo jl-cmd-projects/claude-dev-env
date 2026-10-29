@@ -460,7 +460,7 @@ def unproven_admissions(section: str) -> list[str]:
 
     ::
 
-        "Not proven here: the live run.\nUntested on Windows." -> both lines
+        "Not proven here: the live run.\\nUntested on Windows." -> both lines
         "Ran `python run.py`."                                  -> []
 
     The markers and the skipped spans are those of unproven_admission.
@@ -624,7 +624,8 @@ def added_workflow_files(working_directory: str, head_branch: object) -> list[st
     """Return the workflow files the head branch adds, or None when git cannot tell.
 
     The head and base are chosen as in visible_changed_files. Only a file git
-    reports as added counts, so a workflow the branch edits is left out::
+    reports as added counts, and a rename counts as an add, so a workflow the
+    branch edits is left out::
 
         branch adds .github/workflows/release.yml   -> [".github/workflows/release.yml"]
         branch edits an existing workflow           -> []
@@ -634,7 +635,7 @@ def added_workflow_files(working_directory: str, head_branch: object) -> list[st
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
     """
-    all_added_paths = _paths_since_merge_base(working_directory, head_branch, "--diff-filter=A")
+    all_added_paths = _paths_since_merge_base(working_directory, head_branch, "--no-renames", "--diff-filter=A")
     return None if all_added_paths is None else _workflow_paths(all_added_paths)
 
 
@@ -799,7 +800,7 @@ def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, objec
     if re.search(AFTER_MERGE_NO_RECORDER_PATTERN, after_merge, re.IGNORECASE) is not None:
         return False
     return any(
-        f"`{each_path.rsplit('/', 1)[-1]}`" in after_merge
+        re.search(rf"`[^`\n]*{re.escape(each_path.rsplit('/', 1)[-1])}`", after_merge) is not None
         for each_path in _added_workflow_files_for_create(all_payload_fields)
     )
 

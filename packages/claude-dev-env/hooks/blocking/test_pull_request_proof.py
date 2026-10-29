@@ -686,6 +686,8 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
     assert gate.is_create_call(_mcp_create("b"))
     assert not gate.is_create_call(_shell("gh pr edit 7 --body b"))
     assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})
+
+
 WORKFLOW_DIRECTORY = ".github/workflows"
 NEW_WORKFLOW_NAME = "release-hold.yml"
 UNPROVEN_RUN_LINE = "Not proven here: the live GitHub Actions run."
@@ -879,3 +881,62 @@ def test_unproven_admissions_should_list_every_line_and_the_first_stays_unproven
     assert gate.unproven_admissions(section) == ["Not proven here: the live run.", "Untested on Windows."]
     assert gate.unproven_admission(section) == "Not proven here: the live run."
     assert gate.unproven_admissions("Ran `python run.py`.\n") == []
+
+
+def test_unproven_line_should_pass_when_the_after_merge_section_names_the_full_workflow_path(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = AFTER_MERGE_SECTION.replace(
+        NEW_WORKFLOW_NAME, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    )
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) is None
+
+
+def test_added_workflow_files_should_count_a_renamed_workflow_as_added(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(clone_path),
+            "mv",
+            f"{WORKFLOW_DIRECTORY}/ci.yml",
+            f"{WORKFLOW_DIRECTORY}/renamed.yml",
+        ],
+        check=True,
+    )
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run(
+        ["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "rename"],
+        check=True,
+    )
+    assert f"{WORKFLOW_DIRECTORY}/renamed.yml" in gate.added_workflow_files(
+        str(clone_path), "feature"
+    )
+
+
+def test_unproven_line_should_stay_denied_when_a_run_line_names_no_workflow(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    unrelated_line = "Untested: the Convert run on Windows."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(
+        UNPROVEN_RUN_LINE, unrelated_line
+    )
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=unrelated_line
+    )
+
+
+def test_unproven_line_should_pass_when_a_negation_sits_in_an_earlier_clause(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = "\n## After merge\n\n- `release-hold.yml` does not run on pull requests; the agent records the run link.\n"
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) is None
