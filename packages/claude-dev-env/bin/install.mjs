@@ -198,10 +198,9 @@ export const CONTENT_DIRECTORIES = ['rules', 'docs', 'commands', 'system-prompts
  * the content directories plus skills, agents, and hooks. Skills and agents
  * live under the agents home. `~/.claude/skills` is a folder of links into
  * it, and `~/.claude/agents` is a directory pointer to that home. The uninstall
- * purge walks this list to find
- * the root a recorded file belongs to and to drop a managed directory the purge
- * empties, and the full-install stale-file prune walks it to give each root its
- * own diff.
+ * purge walks this list to find the root a recorded file belongs to and to drop
+ * a managed directory the purge empties, and the full-install stale-file prune
+ * walks it to give each root its own diff.
  */
 export const MANAGED_TOP_LEVEL_DIRECTORY_NAMES = [
     ...CONTENT_DIRECTORIES,
