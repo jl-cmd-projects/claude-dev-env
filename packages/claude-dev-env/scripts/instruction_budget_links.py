@@ -14,7 +14,6 @@ from dev_env_scripts_constants.followup_constants import INSTRUCTION_NESTING_RUL
 from dev_env_scripts_constants.instruction_budget_constants import (
     ANCHOR_SEPARATOR,
     EXTERNAL_TARGET_PATTERN,
-    IMPORT_LINE_PATTERN,
     MARKDOWN_LINK_PATTERN,
     MARKDOWN_SUFFIX,
     NESTING_FINDING_MESSAGE_TEMPLATE,
@@ -22,6 +21,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionFinding,
+    import_targets,
     read_text_outside_fences,
     root_files,
 )
@@ -34,7 +34,7 @@ def _link_targets(source_path: Path, repository_root: Path) -> list[Path]:
         for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_fences)
         if not EXTERNAL_TARGET_PATTERN.match(each_target)
     ]
-    all_raw_targets.extend(IMPORT_LINE_PATTERN.findall(text_outside_fences))
+    all_raw_targets.extend(import_targets(text_outside_fences))
     all_resolved = [
         (source_path.parent / each_target).resolve() for each_target in all_raw_targets
     ]

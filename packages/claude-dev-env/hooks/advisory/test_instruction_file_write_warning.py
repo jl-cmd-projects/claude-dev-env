@@ -33,6 +33,17 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
+def test_empty_stdin_is_silent() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(HOOK_PATH)],
+        input="",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout == ""
+
+
 def test_a_write_outside_the_instruction_set_is_silent(tmp_path: Path) -> None:
     (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 1}', encoding="utf-8")
     guide_path = _write(tmp_path / "docs" / "guide.md", "x" * 500)

@@ -33,7 +33,10 @@ ALL_SKIPPED_DIRECTORY_NAMES: frozenset[str] = frozenset(
     {".git", "node_modules", ".venv", "__pycache__"}
 )
 
-IMPORT_LINE_PATTERN: re.Pattern[str] = re.compile(r"^@(\S+)\s*$", re.MULTILINE)
+IMPORT_PATTERN: re.Pattern[str] = re.compile(
+    r"(?:^|(?<=\s))@([^\s`]*[^\s`.,;:!?)\]])", re.MULTILINE
+)
+INLINE_CODE_SPAN_PATTERN: re.Pattern[str] = re.compile(r"(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 MARKDOWN_LINK_PATTERN: re.Pattern[str] = re.compile(
     r'\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)'
 )

@@ -51,7 +51,9 @@ from instruction_budget_files import (
 )
 
 
-def _written_path(payload: dict) -> Path | None:
+def _written_path(payload: dict | None) -> Path | None:
+    if not isinstance(payload, dict):
+        return None
     tool_input = payload.get(TOOL_INPUT_KEY)
     if not isinstance(tool_input, dict):
         return None

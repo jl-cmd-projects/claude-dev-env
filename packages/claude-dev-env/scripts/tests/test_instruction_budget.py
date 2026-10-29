@@ -28,12 +28,14 @@ from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
     budget_findings,
+    import_targets,
     instruction_files,
     is_instruction_file,
     launch_files,
     load_config,
     measure_launch_bytes,
     read_text_outside_fences,
+    rule_files,
 )
 from instruction_budget_links import hop_distances, nesting_findings
 from instruction_budget_names import personal_name_findings, personal_name_line_numbers
@@ -156,6 +158,35 @@ def test_launch_files_skip_a_scoped_rule_that_starts_with_a_byte_order_mark(
     )
 
 
+def test_import_targets_find_inline_imports_and_skip_code_spans() -> None:
+    text = "See @docs/a.md and `@docs/b.md` then mail@host.md, plus @docs/c.md.\n"
+    assert import_targets(text) == ["docs/a.md", "docs/c.md"]
+
+
+def test_launch_files_follow_an_inline_import(tmp_path: Path) -> None:
+    _write(tmp_path / "AGENTS.md", "See @notes/big.md for details.\n")
+    imported = _write(tmp_path / "notes" / "big.md", "x" * 50)
+    assert imported.resolve() in launch_files(tmp_path.resolve(), _config())
+
+
+def test_launch_files_count_a_symlinked_rule_once(tmp_path: Path) -> None:
+    target_path = _write(tmp_path / "docs" / "a.md", "x" * 20)
+    rules_directory = tmp_path / ".claude" / "rules"
+    rules_directory.mkdir(parents=True)
+    (rules_directory / "a.md").symlink_to(target_path)
+    _write(tmp_path / "CLAUDE.md", "@.claude/rules/a.md\n")
+    assert len(launch_files(tmp_path.resolve(), _config())) == 2
+
+
+def test_rule_files_skip_a_directory_named_like_a_markdown_file(
+    tmp_path: Path,
+) -> None:
+    rules_directory = tmp_path / ".claude" / "rules"
+    (rules_directory / "archive.md").mkdir(parents=True)
+    kept_path = _write(rules_directory / "kept.md", "# Kept\n")
+    assert rule_files(tmp_path.resolve(), _config()) == [kept_path.resolve()]
+
+
 def test_load_config_names_a_malformed_budget_file(tmp_path: Path) -> None:
     _write(tmp_path / INSTRUCTION_BUDGET_CONFIG_FILE_NAME, "{not json")
     with pytest.raises(InstructionBudgetConfigError):
@@ -178,7 +209,8 @@ def test_load_config_rejects_a_negative_cap_or_a_boolean_hop_limit(
 
 
 @pytest.mark.parametrize(
-    "rules_dirs_json", ['"shared/rules"', "[5]", '["/etc"]', '["../outside"]']
+    "rules_dirs_json",
+    ['"shared/rules"', "[5]", '["/etc"]', '["../outside"]', '[""]', '["."]'],
 )
 def test_load_config_rejects_rules_dirs_that_are_not_a_list_of_folder_names(
     tmp_path: Path, rules_dirs_json: str

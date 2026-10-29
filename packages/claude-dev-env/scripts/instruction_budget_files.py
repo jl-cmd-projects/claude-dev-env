@@ -22,7 +22,8 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     DEFAULT_RULES_DIR_RELATIVE_PATH,
     FENCED_BLOCK_PATTERN,
     FRONTMATTER_DELIMITER,
-    IMPORT_LINE_PATTERN,
+    IMPORT_PATTERN,
+    INLINE_CODE_SPAN_PATTERN,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     INSTRUCTION_TEXT_ENCODING,
     MARKDOWN_SUFFIX,
@@ -79,7 +80,11 @@ def _is_folder_inside_repository(raw_folder: object) -> bool:
     if not isinstance(raw_folder, str):
         return False
     folder_path = Path(raw_folder)
-    return not folder_path.is_absolute() and ".." not in folder_path.parts
+    return (
+        bool(folder_path.parts)
+        and not folder_path.is_absolute()
+        and ".." not in folder_path.parts
+    )
 
 
 def _parse_rules_dirs(raw_rules_dirs: object) -> tuple[str, ...]:
@@ -153,6 +158,20 @@ def read_text_outside_fences(path: Path) -> str:
     return FENCED_BLOCK_PATTERN.sub("", read_instruction_text(path))
 
 
+def import_targets(text_outside_fences: str) -> list[str]:
+    """List the ``@`` import paths that sit outside code spans and fenced blocks.
+
+    Args:
+        text_outside_fences: Instruction text with its fenced blocks removed.
+
+    Returns:
+        Each import path, in order of appearance. An import may sit anywhere in
+        a line, after whitespace.
+    """
+    text_outside_code = INLINE_CODE_SPAN_PATTERN.sub("", text_outside_fences)
+    return IMPORT_PATTERN.findall(text_outside_code)
+
+
 def _rules_directories(
     repository_root: Path, config: InstructionBudgetConfig
 ) -> list[Path]:
@@ -185,7 +204,7 @@ def _import_closure(start: Path, all_found: dict[Path, None]) -> None:
     if start in all_found or not start.is_file():
         return
     all_found[start] = None
-    for each_target in IMPORT_LINE_PATTERN.findall(read_text_outside_fences(start)):
+    for each_target in import_targets(read_text_outside_fences(start)):
         _import_closure((start.parent / each_target).resolve(), all_found)
 
 
@@ -203,7 +222,11 @@ def rule_files(repository_root: Path, config: InstructionBudgetConfig) -> list[P
     for each_rules_directory in _rules_directories(repository_root, config):
         if each_rules_directory.is_dir():
             all_rule_files.extend(
-                sorted(each_rules_directory.rglob(f"*{MARKDOWN_SUFFIX}"))
+                each_path.resolve()
+                for each_path in sorted(
+                    each_rules_directory.rglob(f"*{MARKDOWN_SUFFIX}")
+                )
+                if each_path.is_file()
             )
     return all_rule_files
 
