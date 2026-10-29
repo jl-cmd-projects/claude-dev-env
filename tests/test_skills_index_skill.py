@@ -51,12 +51,17 @@ def test_skills_index_frontmatter_keeps_model_invocation_on() -> None:
 def test_skills_index_description_fits_the_length_limit() -> None:
     frontmatter_lines, _ = _frontmatter_and_body(_read(INDEX_PATH))
     description_line = next(
-        each_line
-        for each_line in frontmatter_lines
-        if each_line.startswith(DESCRIPTION_PREFIX)
+        (
+            each_line
+            for each_line in frontmatter_lines
+            if each_line.startswith(DESCRIPTION_PREFIX)
+        ),
+        "",
     )
     description = description_line.removeprefix(DESCRIPTION_PREFIX)
 
+    assert description, "frontmatter needs a description line"
+    assert not description.startswith((">", "|")), "keep the description on one line"
     assert len(description) <= MAX_DESCRIPTION_LENGTH
 
 
