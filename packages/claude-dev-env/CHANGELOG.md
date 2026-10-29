@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.6...claude-dev-env-v8.109.7) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** let a new workflow plan its first run after merge ([#2253](https://github.com/jl-cmd-projects/claude-dev-env/issues/2253)) ([4142469](https://github.com/jl-cmd-projects/claude-dev-env/commit/4142469de9dec81c4a4d8de2c31916d31a56f17b))
+
 ## [8.109.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.5...claude-dev-env-v8.109.6) (2026-10-29)
 
 
