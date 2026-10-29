@@ -60,6 +60,7 @@ def test_skills_index_description_fits_the_length_limit() -> None:
     )
     description = description_line.removeprefix(DESCRIPTION_PREFIX)
 
+    assert len(frontmatter_lines) == 2, "frontmatter holds name and description only"
     assert description, "frontmatter needs a description line"
     assert not description.startswith((">", "|")), "keep the description on one line"
     assert len(description) <= MAX_DESCRIPTION_LENGTH
