@@ -2693,7 +2693,7 @@ function pruneRetiredHookRegistrations(settingsPath, retiredHookPaths) {
  * read before the run mutated settings. The caller records each stand-in in
  * the manifest so a later install removes it once no registration names it.
  *
- * @param {Set<string>} copiedSkillNames Skill directory names this run wrote.
+ * @param {Set<string>} copiedSkillNames Skill directory names this run wrote or left in place as a user link.
  * @param {string[]|null} priorManifestSkills The prior manifest's skill names, or null.
  * @param {string[]|null} priorManifestFiles The prior manifest's file list, or null.
  * @param {string[]} installedFiles Every file this run copied.
