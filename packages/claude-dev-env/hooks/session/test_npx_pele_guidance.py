@@ -77,6 +77,9 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "timeout 60 npx pele chain.mmd",
         "if [ -f x ]; then npx pele chain.mmd; fi",
         "timeout --foreground 60 npx pele chain.mmd",
+        'bash -c "npx pele chain.mmd"',
+        "env -i npx pele a.mmd",
+        'npm exec "pele" chain.mmd',
         "echo `npx pele chain.mmd`",
         "echo \\'; npx pele a.mmd; echo \\'",
     ],
@@ -97,6 +100,7 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         'git commit -m "fix; npx pele docs"',
         "cat > notes.md <<'EOF'\nnpx pele chain.mmd\nEOF",
         "cat > notes.md <<'EOF'\nnpx pele chain.mmd",
+        "npx @scope/pele chain.mmd",
         "echo pele",
     ],
 )
@@ -118,7 +122,7 @@ def test_installed_version_is_none_without_a_manifest(tmp_path: Path) -> None:
     assert npx_pele_guidance.installed_pele_version(npx_pele_guidance.pele_package_directory_under(tmp_path)) is None
 
 
-@pytest.mark.parametrize("manifest_text", ["not json", '["list"]', '{"version": 1}'])
+@pytest.mark.parametrize("manifest_text", ["not json", '["list"]', '{"version": 1}', '{"version": ""}'])
 def test_unreadable_manifest_reads_as_no_version(tmp_path: Path, manifest_text: str) -> None:
     package_directory = npx_pele_guidance.pele_package_directory_under(tmp_path)
     package_directory.mkdir(parents=True)

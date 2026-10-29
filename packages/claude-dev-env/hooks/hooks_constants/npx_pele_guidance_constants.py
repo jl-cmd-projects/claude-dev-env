@@ -1,32 +1,30 @@
-"""Pattern, names, and guidance text for the npx_pele_guidance PreToolUse hook."""
+"""Names and guidance text for the npx_pele_guidance PreToolUse hook."""
 
 from __future__ import annotations
 
-import re
-
 __all__ = [
     "ABSENT_GUIDANCE_TEMPLATE",
+    "ALL_NPM_EXEC_SUBCOMMANDS",
+    "ALL_NPX_PROGRAM_NAMES",
     "ALL_PELE_ENTRY_PATH_PARTS",
     "COMMAND_INPUT_KEY",
-    "HEREDOC_BODY_PATTERN",
+    "FLAG_PREFIX",
     "INSTALLED_GUIDANCE_TEMPLATE",
     "NODE_MODULES_DIRECTORY_NAME",
-    "NPX_PELE_COMMAND_PATTERN",
+    "NPM_PROGRAM_NAME",
     "NPX_PELE_FAILURE_SENTENCE",
     "PACKAGE_MANIFEST_NAME",
+    "PACKAGE_VERSION_SEPARATOR",
     "PELE_PACKAGE_NAME",
     "PELE_TOOLS_DIRECTORY_NAME",
-    "QUOTED_SPAN_PATTERN",
 ]
 
-NPX_PELE_COMMAND_PATTERN = re.compile(
-    r"(?:^|[;&|(\n`])\s*"
-    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup|then|do|else|timeout(?:\s+-{1,2}\S+)*\s+\S+)\s+)*"
-    r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)`])"
-)
-QUOTED_SPAN_PATTERN = re.compile(r"(?<!\\)\"[^\"]*\"|(?<!\\)'[^']*'")
-HEREDOC_BODY_PATTERN = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?(?:^\s*\2\s*$|\Z)", re.DOTALL | re.MULTILINE)
 COMMAND_INPUT_KEY = "command"
+ALL_NPX_PROGRAM_NAMES = ("npx", "npx.cmd")
+NPM_PROGRAM_NAME = "npm"
+ALL_NPM_EXEC_SUBCOMMANDS = ("exec", "x")
+FLAG_PREFIX = "-"
+PACKAGE_VERSION_SEPARATOR = "@"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"
 NODE_MODULES_DIRECTORY_NAME = "node_modules"

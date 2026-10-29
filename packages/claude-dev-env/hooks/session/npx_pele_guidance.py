@@ -31,18 +31,25 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.npx_pele_guidance_constants import (
     ABSENT_GUIDANCE_TEMPLATE,
+    ALL_NPM_EXEC_SUBCOMMANDS,
+    ALL_NPX_PROGRAM_NAMES,
     ALL_PELE_ENTRY_PATH_PARTS,
     COMMAND_INPUT_KEY,
-    HEREDOC_BODY_PATTERN,
+    FLAG_PREFIX,
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
-    NPX_PELE_COMMAND_PATTERN,
+    NPM_PROGRAM_NAME,
     PACKAGE_MANIFEST_NAME,
+    PACKAGE_VERSION_SEPARATOR,
     PELE_PACKAGE_NAME,
     PELE_TOOLS_DIRECTORY_NAME,
-    QUOTED_SPAN_PATTERN,
 )
 from hooks_constants.pre_tool_use_context_runner import run_context_hook
+from hooks_constants.pytest_invocation import unquoted_token
+from hooks_constants.shell_command_wrappers import (
+    all_wrapped_command_segments,
+    segment_program_and_arguments,
+)
 from hooks_constants.spawn_readiness_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     PRE_TOOL_USE_EVENT_NAME,
@@ -96,7 +103,7 @@ def installed_pele_version(package_directory: Path) -> str | None:
     if not isinstance(manifest, dict):
         return None
     version = manifest.get("version")
-    return version if isinstance(version, str) else None
+    return version if isinstance(version, str) and version else None
 
 
 def is_npx_pele_command(tool_input: object) -> bool:
@@ -106,19 +113,47 @@ def is_npx_pele_command(tool_input: object) -> bool:
         tool_input: The Bash or PowerShell ``tool_input``.
 
     Returns:
-        True when a command segment runs ``npx pele``, ``npx -y pele``,
-        ``npm exec pele``, or a versioned form of those. Leading environment
-        assignments and wrapper words such as sudo or timeout may precede them,
-        and quoted text and heredoc bodies do not count.
+        True when a command segment runs ``npx`` or ``npm exec`` on the
+        ``pele`` package. The shared shell parser reads wrapper words, quotes,
+        substitutions, and heredocs.
     """
     if not isinstance(tool_input, dict):
         return False
     command_text = tool_input.get(COMMAND_INPUT_KEY)
     if not isinstance(command_text, str):
         return False
-    plain_text = HEREDOC_BODY_PATTERN.sub(" ", command_text)
-    unquoted_text = QUOTED_SPAN_PATTERN.sub(" ", plain_text)
-    return NPX_PELE_COMMAND_PATTERN.search(unquoted_text) is not None
+    return any(
+        _segment_runs_npx_pele(each_segment)
+        for each_segment in all_wrapped_command_segments(command_text)
+    )
+
+
+def _segment_runs_npx_pele(all_segment_tokens: list[str]) -> bool:
+    program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if program_name in ALL_NPX_PROGRAM_NAMES:
+        all_package_arguments = all_arguments
+    elif (
+        program_name == NPM_PROGRAM_NAME
+        and all_arguments
+        and unquoted_token(all_arguments[0]) in ALL_NPM_EXEC_SUBCOMMANDS
+    ):
+        all_package_arguments = all_arguments[1:]
+    else:
+        return False
+    first_package_argument = next(
+        (
+            each_argument
+            for each_argument in all_package_arguments
+            if not unquoted_token(each_argument).startswith(FLAG_PREFIX)
+        ),
+        None,
+    )
+    return first_package_argument is not None and _is_pele_package(first_package_argument)
+
+
+def _is_pele_package(argument: str) -> bool:
+    package_name = unquoted_token(argument).split(PACKAGE_VERSION_SEPARATOR, 1)[0]
+    return package_name == PELE_PACKAGE_NAME
 
 
 def guidance_text() -> str:
