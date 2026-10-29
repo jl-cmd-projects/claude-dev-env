@@ -14,7 +14,7 @@ Each skill is a directory under `packages/claude-dev-env/.agents/skills/<name>/`
 
 Skills are auto-discovered from `packages/claude-dev-env/.agents/skills/`. `packages/claude-dev-env/.claude/skills` is a directory pointer to that folder. There is no manifest that lists them, so a new directory with a valid `SKILL.md` is a complete new skill on the source side.
 
-Installed skills live at `~/.agents/skills/<name>/`. Claude Code discovers them at `~/.claude/skills/<name>/`. `~/.claude/skills` is a folder that holds one directory pointer (a POSIX symlink, or a Windows junction) per skill directory in `~/.agents/skills/`, so Claude and Codex both reach the shipped skills while the agents home keeps the skill files. Agent definition files follow the pointer rule: they live at `~/.agents/agents/` and `~/.claude/agents` points there. Rules, hooks, commands, docs, and `settings.json` stay under `~/.claude/`.
+Installed skills live at `~/.agents/skills/<name>/`. Claude Code discovers them at `~/.claude/skills/<name>/`. `~/.claude/skills` is a folder that holds one directory pointer (a POSIX symlink, or a Windows junction) per skill directory in `~/.agents/skills/` (plugin links there are left out), so Claude and Codex both reach the shipped skills while the agents home keeps the skill files. Agent definition files follow the pointer rule: they live at `~/.agents/agents/` and `~/.claude/agents` points there. Rules, hooks, commands, docs, and `settings.json` stay under `~/.claude/`.
 
 ## How the installer copies content
 

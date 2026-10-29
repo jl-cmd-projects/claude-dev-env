@@ -3036,7 +3036,7 @@ test('pruneRetiredHookEntriesFromSettings warns and returns 0 when the host conf
 const PSTACK_TEST_PACKAGE_ROOT = dirname(fileURLToPath(new URL('./install.mjs', import.meta.url)));
 const PSTACK_TEST_INSTALLER_PATH = fileURLToPath(new URL('./install.mjs', import.meta.url));
 
-test('a failed update preserves an existing skills lookup pointer', () => {
+test('a failed update preserves an existing skills lookup folder of links', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-install-pointer-'));
     try {
         writeFileSync(join(homeDirectory, '.gitconfig'), '');

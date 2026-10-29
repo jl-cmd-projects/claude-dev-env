@@ -202,7 +202,7 @@ Slash commands for common workflows.
 
 ### Skills
 
-Each skill lands under the agents home, and `~/.claude/skills` holds one link to each of them.
+Each skill lands under the agents home, and `~/.claude/skills` holds one link to each skill directory there. Plugin links in the agents home get no entry.
 A declared dependency package can add more; `node bin/install.mjs --help` names the groups
 that carry them.
 
