@@ -31,11 +31,11 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.npx_pele_guidance_constants import (
     ABSENT_GUIDANCE_TEMPLATE,
+    ALL_PELE_ENTRY_PATH_PARTS,
     COMMAND_INPUT_KEY,
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
     NPX_PELE_COMMAND_PATTERN,
-    ALL_PELE_ENTRY_PATH_PARTS,
     PACKAGE_MANIFEST_NAME,
     PELE_PACKAGE_NAME,
     PELE_TOOLS_DIRECTORY_NAME,

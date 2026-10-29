@@ -11,6 +11,7 @@ __all__ = [
     "INSTALLED_GUIDANCE_TEMPLATE",
     "NODE_MODULES_DIRECTORY_NAME",
     "NPX_PELE_COMMAND_PATTERN",
+    "NPX_PELE_FAILURE_SENTENCE",
     "PACKAGE_MANIFEST_NAME",
     "PELE_PACKAGE_NAME",
     "PELE_TOOLS_DIRECTORY_NAME",
@@ -25,11 +26,14 @@ PELE_TOOLS_DIRECTORY_NAME = "tools"
 NODE_MODULES_DIRECTORY_NAME = "node_modules"
 PACKAGE_MANIFEST_NAME = "package.json"
 ALL_PELE_ENTRY_PATH_PARTS = ("dist", "pele.js")
-INSTALLED_GUIDANCE_TEMPLATE = (
+NPX_PELE_FAILURE_SENTENCE = (
     "`npx pele` cannot run: pele is a library with no command, so npx stops with"
-    ' "could not determine executable to run". Pele {version} is installed at'
-    " {package_directory}. Render Mermaid from Node instead. Save the diagram as"
-    " chain.mmd, save this script as render.mjs in the same folder, and run"
+    ' "could not determine executable to run".'
+)
+INSTALLED_GUIDANCE_TEMPLATE = (
+    NPX_PELE_FAILURE_SENTENCE
+    + " Pele {version} is installed at {package_directory}. Render Mermaid from Node instead."
+    " Save the diagram as chain.mmd, save this script as render.mjs in the same folder, and run"
     " `node render.mjs`. It writes chain.svg.\n\n"
     "```js\n"
     "import {{ readFileSync, writeFileSync }} from 'node:fs';\n"
@@ -41,9 +45,8 @@ INSTALLED_GUIDANCE_TEMPLATE = (
     "```"
 )
 ABSENT_GUIDANCE_TEMPLATE = (
-    "`npx pele` cannot run: pele is a library with no command, so npx stops with"
-    ' "could not determine executable to run". Pele is not installed at'
-    " {package_directory}, so no local copy can render this diagram. Render the"
-    " Mermaid text in the playground at pele.run instead, which needs no install."
+    NPX_PELE_FAILURE_SENTENCE
+    + " Pele is not installed at {package_directory}, so no local copy can render this diagram."
+    " Render the Mermaid text in the playground at pele.run instead, which needs no install."
     " Auto mode denies `npm install pele`, so skip that step."
 )
