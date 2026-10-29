@@ -333,7 +333,7 @@ def test_should_read_the_pushed_head_of_a_branch_outside_any_checkout(
 
 
 def test_should_deny_an_open_whose_github_lookup_fails_even_with_a_clean_local_review(
-    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+    branch_checkout: tuple[Path, str],
 ) -> None:
     folder, head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", head, 0)
