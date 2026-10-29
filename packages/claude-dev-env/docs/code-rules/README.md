@@ -12,8 +12,7 @@ Open [the index](../CODE_RULES.md) for the rule core, then follow the family tha
 
 ## Feature entry contract
 
-Each family has one agent-facing paragraph and four sections in order: Checks, When it fires, Proving it, and Gotchas. Checks lists each imported check id once across the map. Proving it names a breaking input, a pytest node or command, and an observable result for each id. Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
-
+Each family has one agent-facing paragraph and four sections in order: Checks, When it fires, Proving it, and Gotchas. Checks lists each imported check id once across the map. Proving it names a breaking input, a pytest node or command, and an observable result for each id. Run the named pytest node or command with the described input.
 ## Conventions
 
 Keep rule headings and their short instructions in the index. Put patterns, exemptions, and procedures in the family file. Link each family back to its index section. Update the check map and its proof when the enforcer imports change.
