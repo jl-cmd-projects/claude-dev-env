@@ -15,13 +15,15 @@ __all__ = [
     "PACKAGE_MANIFEST_NAME",
     "PELE_PACKAGE_NAME",
     "PELE_TOOLS_DIRECTORY_NAME",
+    "QUOTED_SPAN_PATTERN",
 ]
 
 NPX_PELE_COMMAND_PATTERN = re.compile(
     r"(?:^|[;&|(\n])\s*"
-    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup)\s+)*"
+    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup|then|do|else|timeout\s+\S+)\s+)*"
     r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)])"
 )
+QUOTED_SPAN_PATTERN = re.compile(r"\"[^\"]*\"|'[^']*'")
 COMMAND_INPUT_KEY = "command"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"
@@ -35,14 +37,16 @@ NPX_PELE_FAILURE_SENTENCE = (
 INSTALLED_GUIDANCE_TEMPLATE = (
     NPX_PELE_FAILURE_SENTENCE
     + " Pele {version} is installed at {package_directory}. Render Mermaid from Node instead."
-    " Save the diagram as chain.mmd, save this script as render.mjs in the same folder, and run"
-    " `node render.mjs`. It writes chain.svg.\n\n"
+    " Save the diagram as a .mmd file, save this script as pele-render.mjs in the same folder, and"
+    " run `node pele-render.mjs <diagram.mmd>`. It writes the SVG next to the diagram.\n\n"
     "```js\n"
     "import {{ readFileSync, writeFileSync }} from 'node:fs';\n"
     "import {{ pathToFileURL }} from 'node:url';\n\n"
+    "const [inputPath] = process.argv.slice(2);\n"
     "const {{ render }} = await import(pathToFileURL({package_entry}).href);\n"
-    "const {{ svg }} = render(readFileSync('chain.mmd', 'utf8'));\n"
-    "writeFileSync('chain.svg', svg);\n"
+    "const {{ svg }} = render(readFileSync(inputPath, 'utf8'));\n"
+    "const outputPath = inputPath.replace(/\\.mmd$/, '') + '.svg';\n"
+    "writeFileSync(outputPath, svg);\n"
     "console.log('svg bytes:', svg.length);\n"
     "```"
 )

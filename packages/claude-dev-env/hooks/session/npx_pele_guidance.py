@@ -39,6 +39,7 @@ from hooks_constants.npx_pele_guidance_constants import (
     PACKAGE_MANIFEST_NAME,
     PELE_PACKAGE_NAME,
     PELE_TOOLS_DIRECTORY_NAME,
+    QUOTED_SPAN_PATTERN,
 )
 from hooks_constants.pre_tool_use_context_runner import run_context_hook
 from hooks_constants.spawn_readiness_hook_constants import (
@@ -94,14 +95,16 @@ def is_npx_pele_command(tool_input: object) -> bool:
     Returns:
         True when a command segment runs ``npx pele``, ``npx -y pele``,
         ``npm exec pele``, or a versioned form of those. Leading environment
-        assignments and the words sudo, time, env, and nohup may precede them.
+        assignments and wrapper words such as sudo or timeout may precede them,
+        and quoted text does not count.
     """
     if not isinstance(tool_input, dict):
         return False
     command_text = tool_input.get(COMMAND_INPUT_KEY)
     if not isinstance(command_text, str):
         return False
-    return NPX_PELE_COMMAND_PATTERN.search(command_text) is not None
+    unquoted_text = QUOTED_SPAN_PATTERN.sub(" ", command_text)
+    return NPX_PELE_COMMAND_PATTERN.search(unquoted_text) is not None
 
 
 def guidance_text() -> str:

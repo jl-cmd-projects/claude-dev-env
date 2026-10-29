@@ -86,6 +86,8 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "env CI=1 npx pele chain.mmd",
         "sudo npx pele chain.mmd",
         "time npx pele chain.mmd",
+        "timeout 60 npx pele chain.mmd",
+        "if [ -f x ]; then npx pele chain.mmd; fi",
     ],
 )
 def test_npx_pele_commands_match(command_text: str) -> None:
@@ -101,6 +103,7 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         "npx pelee",
         "npx -y create-pele-app my-app",
         "CI=1 npx prettier --check .",
+        'git commit -m "fix; npx pele docs"',
         "echo pele",
     ],
 )
@@ -193,18 +196,18 @@ def test_installed_snippet_renders_an_svg_file(
     monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(claude_root))
     work_directory = tmp_path / "work"
     work_directory.mkdir()
-    (work_directory / "chain.mmd").write_text(CHAIN_TEXT, encoding="utf-8")
+    (work_directory / "diagram.mmd").write_text(CHAIN_TEXT, encoding="utf-8")
     context_text = npx_pele_guidance.guidance_text()
     snippet = context_text.split(JS_FENCE_OPEN, 1)[1].split(JS_FENCE_CLOSE, 1)[0]
-    (work_directory / "render.mjs").write_text(snippet, encoding="utf-8")
+    (work_directory / "pele-render.mjs").write_text(snippet, encoding="utf-8")
     completed = subprocess.run(
-        ["node", "render.mjs"],
+        ["node", "pele-render.mjs", "diagram.mmd"],
         cwd=work_directory,
         capture_output=True,
         text=True,
         check=True,
     )
-    rendered_svg = (work_directory / "chain.svg").read_text(encoding="utf-8")
+    rendered_svg = (work_directory / "diagram.svg").read_text(encoding="utf-8")
     assert rendered_svg == f"<svg>{len(CHAIN_TEXT)}</svg>"
     assert "svg bytes:" in completed.stdout
 
