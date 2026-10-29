@@ -76,6 +76,9 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "time npx pele chain.mmd",
         "timeout 60 npx pele chain.mmd",
         "if [ -f x ]; then npx pele chain.mmd; fi",
+        "timeout --foreground 60 npx pele chain.mmd",
+        "echo `npx pele chain.mmd`",
+        "echo \\'; npx pele a.mmd; echo \\'",
     ],
 )
 def test_npx_pele_commands_match(command_text: str) -> None:
@@ -93,6 +96,7 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         "CI=1 npx prettier --check .",
         'git commit -m "fix; npx pele docs"',
         "cat > notes.md <<'EOF'\nnpx pele chain.mmd\nEOF",
+        "cat > notes.md <<'EOF'\nnpx pele chain.mmd",
         "echo pele",
     ],
 )

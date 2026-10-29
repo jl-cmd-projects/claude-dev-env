@@ -20,12 +20,12 @@ __all__ = [
 ]
 
 NPX_PELE_COMMAND_PATTERN = re.compile(
-    r"(?:^|[;&|(\n])\s*"
-    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup|then|do|else|timeout\s+\S+)\s+)*"
-    r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)])"
+    r"(?:^|[;&|(\n`])\s*"
+    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup|then|do|else|timeout(?:\s+-{1,2}\S+)*\s+\S+)\s+)*"
+    r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)`])"
 )
-QUOTED_SPAN_PATTERN = re.compile(r"\"[^\"]*\"|'[^']*'")
-HEREDOC_BODY_PATTERN = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?^\s*\2\s*$", re.DOTALL | re.MULTILINE)
+QUOTED_SPAN_PATTERN = re.compile(r"(?<!\\)\"[^\"]*\"|(?<!\\)'[^']*'")
+HEREDOC_BODY_PATTERN = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?(?:^\s*\2\s*$|\Z)", re.DOTALL | re.MULTILINE)
 COMMAND_INPUT_KEY = "command"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"
