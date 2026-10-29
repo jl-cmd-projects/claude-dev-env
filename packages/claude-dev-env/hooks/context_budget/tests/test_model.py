@@ -12,6 +12,8 @@ from context_budget.model import (
     ProseScan,
     SectionScan,
 )
+from context_budget.policy_file import default_policy
+from hooks_constants.context_budget_constants import DEFAULT_PROSE_LINE_WORD_LIMIT
 
 SKILL_ENTRY_KIND = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
 
@@ -53,23 +55,24 @@ def test_policy_defaults_are_empty() -> None:
     assert policy.is_baseline_the_prior_text is False
 
 
-def test_policy_prose_line_word_limit_defaults_to_25_and_holds_an_override() -> None:
-    default_policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
+def test_policy_prose_line_word_limit_defaults_and_holds_an_override() -> None:
+    bare_policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
     raised_policy = BudgetPolicy(
         section_detail_line_limit=12, all_kinds=(), prose_line_word_limit=40
     )
 
-    assert default_policy.prose_line_word_limit == 25
+    assert bare_policy.prose_line_word_limit == DEFAULT_PROSE_LINE_WORD_LIMIT
+    assert default_policy().prose_line_word_limit == DEFAULT_PROSE_LINE_WORD_LIMIT
     assert raised_policy.prose_line_word_limit == 40
 
 
 def test_prose_scan_holds_its_fields() -> None:
-    long_line = "word " * 26
-    scan = ProseScan(True, False, (long_line,))
+    unlinked_line = "Selection records own icon choice."
+    scan = ProseScan(True, False, (unlinked_line,))
 
     assert scan.has_detail_line is True
     assert scan.has_pointer_line is False
-    assert scan.all_long_unlinked_lines == (long_line,)
+    assert scan.all_long_unlinked_lines == (unlinked_line,)
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
