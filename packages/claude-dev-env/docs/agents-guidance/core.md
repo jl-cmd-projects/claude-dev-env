@@ -11,5 +11,5 @@
 ## Edits
 
 - **Writes.** Write/Edit only. LF. After: git diff --check, file <path>. ASCII unless the file already isn't.
-- **Edit gate.** Own worktree. Path overlap with another session → stop. Behind origin/main → rebase or report.
+- **Edit gate.** Own worktree. Path overlap with another session -> stop. Behind origin/main -> rebase or report.
 - **Scope.** Min diff. No drive-by reformat. No blanket autofix without tests and revert on break.
