@@ -30,6 +30,9 @@ EXTRA_PROFILES_FILE_NAME: str = "extra-profiles.json"
 CLAUDE_ACCOUNT_ORDER_FILE_NAME: str = "claude-account-order.json"
 """Optional main-home file listing Claude accounts in pick priority, first choice first."""
 
+ALL_DEACTIVATED_ACCOUNT_NAMES: frozenset[str] = frozenset({"org-mel", "claude-org-mel"})
+"""Lowercase names of deactivated Claude accounts the broker never picks, matched against an account's name, command or launcher name, including the ``claude-`` launcher form."""
+
 PROFILE_NAME_PATTERN: str = r"[A-Za-z0-9][A-Za-z0-9_-]*"
 """Allowed profile names for directories and command launchers."""
 

@@ -59,6 +59,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     utc_time_text,
 )
 from dev_env_scripts_constants.claude_account_constants import (
+    ALL_DEACTIVATED_ACCOUNT_NAMES,
     CLAUDE_ACCOUNT_ORDER_FILE_NAME,
     CLAUDE_LAUNCHER_PROGRAM,
     CREDENTIALS_FILE_NAME,
@@ -169,6 +170,14 @@ def _with_priorities(all_accounts: Sequence[Account], all_ordered_names: Sequenc
     return tuple(dataclasses.replace(each_account, priority=priority_of(each_account)) for each_account in all_accounts)
 
 
+def _without_deactivated(all_accounts: Sequence[Account]) -> tuple[Account, ...]:
+    return tuple(
+        each_account
+        for each_account in all_accounts
+        if each_account.is_main or ALL_DEACTIVATED_ACCOUNT_NAMES.isdisjoint(_order_names(each_account))
+    )
+
+
 def _home_profile(home: Path) -> str | None:
     try:
         profile_home = default_profile_home(home.name).resolve()
@@ -182,7 +191,8 @@ def load_claude_accounts() -> tuple[Account, ...]:
 
     Returns:
         Main and additional accounts in configured order, each with its place in the account order file
-        and, for a home under the profiles root, its profile name.
+        and, for a home under the profiles root, its profile name. A deactivated account, such as
+        ``org-mel`` or its ``claude-org-mel`` launcher, is left out.
 
     Raises:
         BrokerConfigurationError: An account list is unreadable.
@@ -196,7 +206,7 @@ def load_claude_accounts() -> tuple[Account, ...]:
         home = each_home.resolve()
         extra_account = Account(Product.CLAUDE, home.name, home, command=home.name, profile=_home_profile(home))
         _append_claude_account(all_accounts, all_seen, extra_account, main_home)
-    return _with_priorities(all_accounts, _account_order(main_home))
+    return _without_deactivated(_with_priorities(all_accounts, _account_order(main_home)))
 
 
 def load_codex_accounts() -> tuple[Account, ...]:

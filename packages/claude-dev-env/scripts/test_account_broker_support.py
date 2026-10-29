@@ -130,6 +130,50 @@ def test_should_assign_claude_priorities_from_the_order_file(
     }
 
 
+def test_should_leave_a_deactivated_account_out_of_the_claude_roster(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["org-mel", "ev"])
+    (main_home / "claude-account-order.json").write_text(
+        json.dumps(["ev", "claude-org-mel"]), encoding="utf-8"
+    )
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.name for each_account in accounts] == ["main", "ev"]
+
+
+def test_should_leave_a_deactivated_chain_account_out_of_the_claude_roster(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_home = _claude_home_with_extras(monkeypatch, tmp_path, ["ev"])
+    (main_home / "claude-chain.json").write_text(
+        json.dumps(
+            {
+                "chain": [
+                    {"command": "C:\\bin\\claude-ORG-MEL.cmd", "credentials_path": str(tmp_path / "dead" / ".credentials.json")},
+                    {"command": "C:\\bin\\other.cmd", "credentials_path": str(tmp_path / "other" / ".credentials.json")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.name for each_account in accounts] == ["main", "C:\\bin\\other.cmd", "ev"]
+
+
+def test_should_keep_the_account_that_only_shares_a_prefix_with_a_deactivated_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _claude_home_with_extras(monkeypatch, tmp_path, ["mel", "org-mel-two"])
+
+    accounts = support.load_claude_accounts()
+
+    assert [each_account.name for each_account in accounts] == ["main", "mel", "org-mel-two"]
+
+
 def test_should_read_an_order_file_saved_with_a_byte_order_mark(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
