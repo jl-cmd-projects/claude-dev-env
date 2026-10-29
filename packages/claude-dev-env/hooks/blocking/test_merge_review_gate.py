@@ -1,5 +1,6 @@
 """Behavior tests for the clean-review merge gate."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,9 +27,14 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", raising=False)
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
     remotes = tmp_path / "github.com"
-    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
-    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
-    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
+    (remotes / "acme" / "tools.git").mkdir(parents=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--bare", str(remotes / "acme" / "tools.git")], check=True
+    )
+    index = int(os.environ.get("GIT_CONFIG_COUNT", "0"))
+    monkeypatch.setenv("GIT_CONFIG_COUNT", str(index + 1))
+    monkeypatch.setenv(f"GIT_CONFIG_KEY_{index}", f"url.{remotes}/.insteadOf")
+    monkeypatch.setenv(f"GIT_CONFIG_VALUE_{index}", "https://github.com/")
     return tmp_path
 
 
@@ -311,7 +317,7 @@ def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(
 
 
 def _push_to_remote(folder: Path, remote_repository: Path, branch: str) -> None:
-    remote_repository.mkdir(parents=True)
+    remote_repository.mkdir(parents=True, exist_ok=True)
     _git(remote_repository, "init", "--quiet", "--bare")
     _git(folder, "push", "--quiet", str(remote_repository), branch)
 
@@ -324,6 +330,19 @@ def test_should_read_the_pushed_head_of_a_branch_outside_any_checkout(
     assert f"no clean review for head {head}" in _reason(_create_tool(tmp_path))
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     assert _reason(_create_tool(tmp_path)) is None
+
+
+def test_should_deny_an_open_whose_github_lookup_fails_even_with_a_clean_local_review(
+    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    unreachable_create = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "ghost", "repo": "tools", "head": "feature", "base": "main"},
+        "cwd": str(folder),
+    }
+    assert "names no repository or head commit" in _reason(unreachable_create)
 
 
 def test_should_not_read_a_fork_branch_from_the_base_repository(

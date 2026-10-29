@@ -147,7 +147,7 @@ def _run_git(
         return None
     if completed.returncode != 0:
         return None
-    return completed.stdout.strip() or None
+    return completed.stdout.strip()
 
 
 def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> str | None:
@@ -156,11 +156,16 @@ def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> st
         return _remote_branch_commit(fork_owner, repo, fork_branch)
     if branch == CURRENT_HEAD_REFERENCE:
         return _local_commit(branch, folder)
-    return (
-        _remote_branch_commit(owner, repo, branch)
-        or _local_commit(REMOTE_BRANCH_PREFIX + branch, folder)
-        or _local_commit(branch, folder)
-    )
+    if not owner or not repo:
+        return _local_branch_commit(branch, folder)
+    listing = _remote_listing(owner, repo, branch)
+    if listing is None:
+        return None
+    return _listed_commit(listing, branch) or _local_branch_commit(branch, folder)
+
+
+def _local_branch_commit(branch: str, folder: str | None) -> str | None:
+    return _local_commit(REMOTE_BRANCH_PREFIX + branch, folder) or _local_commit(branch, folder)
 
 
 def _local_commit(reference: str, folder: str | None) -> str | None:
@@ -170,10 +175,19 @@ def _local_commit(reference: str, folder: str | None) -> str | None:
 def _remote_branch_commit(owner: str, repo: str, branch_name: str) -> str | None:
     if not owner or not repo:
         return None
+    listing = _remote_listing(owner, repo, branch_name)
+    return _listed_commit(listing, branch_name) if listing else None
+
+
+def _remote_listing(owner: str, repo: str, branch_name: str) -> str | None:
     remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
-    listing = _run_git(["ls-remote", remote_url, reference], None, REMOTE_LOOKUP_TIMEOUT_SECONDS)
-    for each_line in (listing or "").splitlines():
+    return _run_git(["ls-remote", remote_url, reference], None, REMOTE_LOOKUP_TIMEOUT_SECONDS)
+
+
+def _listed_commit(listing: str, branch_name: str) -> str | None:
+    reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
+    for each_line in listing.splitlines():
         commit, separator, listed_reference = each_line.partition(LS_REMOTE_FIELD_SEPARATOR)
         if separator and listed_reference == reference:
             return commit
