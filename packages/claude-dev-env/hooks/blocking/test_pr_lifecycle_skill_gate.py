@@ -14,7 +14,11 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
-from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON, MISSING_PROOF_REASON
+from hooks_constants.pull_request_proof_constants import (
+    MISSING_BUILD_EVAL_REASON,
+    MISSING_PROOF_REASON,
+    UNPROVEN_PROOF_REASON,
+)
 
 PROVEN_FOLLOWUP_BODY = (
     "Follow-up to #1731\n\n## Existing work\nNothing found in open or merged pull requests.\n\n"
@@ -350,6 +354,19 @@ def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Pa
     exit_code, output = _run_main(_payload("gh pr create --body 'Adds a gate.'", _transcript(tmp_path, "pr-lifecycle")))
     assert exit_code == 0
     assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON
+
+
+def test_loaded_skill_denies_a_body_edit_that_adds_an_unrun_proof_line(tmp_path: Path) -> None:
+    unrun_line = "Not run: the first publish on the live remote."
+    body = f"## Proof in practice\nRan `python run.py`.\n{unrun_line}\n"
+    payload = {
+        "tool_name": "mcp__github__update_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "pullNumber": 7, "body": body},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+    }
+    decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNPROVEN_PROOF_REASON.format(admission=unrun_line)
 
 
 EVALUATED_BODY = (
