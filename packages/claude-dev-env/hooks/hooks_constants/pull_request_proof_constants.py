@@ -5,8 +5,10 @@ NEXT_HEADING_PATTERN = r"^(#{1,6})[ \t]+\S"
 COMMAND_MARKER = "`"
 LINE_SEPARATOR = "\n"
 ALL_GH_CREATE_WORDS = ["pr", "create"]
+ALL_GH_EDIT_WORDS = ["pr", "edit"]
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PULL_REQUEST_SCRIPT_CREATE_WORD = "create"
+PULL_REQUEST_SCRIPT_EDIT_WORD = "edit"
 ALL_PYTHON_PROGRAM_NAMES = frozenset({"python", "python3", "py"})
 PROOF_GUIDE_PATH = "~/.claude/docs/rule-guides/proof-before-pull-request.md"
 MISSING_BODY_REASON = (
@@ -63,17 +65,33 @@ TEST_ONLY_PROOF_REASON = (
     " command in backticks and quote the output lines that show the difference. Keep the"
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
-UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+_LIST_MARKER = r"^\s*(?:(?:[-*>]|\d+[.)])\s*)*"
+NOT_RUN_LINE_PATTERN = _LIST_MARKER + r"not (?:(?:yet|been) )*(?:run|ran|exercised|executed)(?![\w-])"
+UNPROVEN_ADMISSION_PATTERN = (
+    r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+    r"|"
+    + NOT_RUN_LINE_PATTERN
+    + r"|\b(?:has|have)(?: not|n't) (?:yet )?been (?:run|exercised|executed)(?![\w-])"
+)
+MERGE_WORD_PATTERN = r"\bmerg(?:e|ed|es|ing)\b"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
 BLOCKQUOTE_MARKERS = "> "
 ALL_CODE_FENCE_MARKERS = ("```", "~~~")
 UNPROVEN_PROOF_REASON = (
     "This pull request's 'Proof in practice' section says part of the change is not"
     " proven: \"{admission}\". When that part is what the change exists to do, such as"
-    " the run on the target that failed, leave the pull request unopened. Run it, quote"
-    " its output, then open the pull request. When it is a condition the change does not"
+    " the run on the target that failed, run it first and quote its output in the section."
+    " Do not open the pull request, or ask for review of an open one, until that output"
+    " is there. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
     " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+DEFERRED_PROOF_REASON = (
+    "This pull request's 'Proof in practice' section mentions a merge: \"{deferral}\". Run that"
+    " check on the branch before the review request and quote its output. Put a file or"
+    " command name that contains merge in backticks. A step that needs the merged code to"
+    " exist goes under a 'Not covered' heading at the same level as the proof heading, as"
+    " a line that opens with 'Not run:'. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
@@ -105,7 +123,17 @@ REPOSITORY_FLAG_ASSIGNMENT_PREFIX = "--repo="
 GIT_TIMEOUT_SECONDS = 5
 GH_TIMEOUT_SECONDS = 15
 COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
-COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+PURE_RENAME_STATUS = "R100"
+RAW_RECORD_PREFIX = ":"
+RAW_RENAME_PATH_COUNT = 2
+RAW_HEADER_FIELD_COUNT = 5
+RAW_RENAME_STATUS_LETTER = "R"
+ALL_RAW_TWO_PATH_STATUS_LETTERS = (RAW_RENAME_STATUS_LETTER, "C")
+COMPARE_FILE_STATUS_QUERY = (
+    '.files[] | [(if .status == "renamed" and .changes == 0 then "'
+    + PURE_RENAME_STATUS
+    + '" else .status end), (.previous_filename // ""), .filename] | @json'
+)
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
 DEFAULT_BRANCH_QUERY = ".default_branch"

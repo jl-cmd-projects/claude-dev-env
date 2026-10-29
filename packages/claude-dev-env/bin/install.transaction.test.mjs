@@ -560,7 +560,7 @@ test('installer fault keeps the lookup pointers a prior install published', () =
         });
         assert.equal(okRun.status, 0, okRun.stdout + okRun.stderr);
         const allPointerTargets = [
-            ...['skills', 'agents', 'hooks', 'scripts'].map((name) => ({
+            ...['agents', 'hooks', 'scripts'].map((name) => ({
                 pointerPath: join(homeDirectory, '.claude', name),
                 targetPath: realpathSync(join(homeDirectory, '.agents', name)),
             })),
@@ -585,6 +585,11 @@ test('installer fault keeps the lookup pointers a prior install published', () =
                 );
                 assert.equal(realpathSync(pointerPath), targetPath);
             }
+            assert.equal(
+                lstatSync(join(homeDirectory, '.claude', 'skills')).isDirectory(),
+                true,
+                `the skills folder survives a fault at ${faultPhase}`,
+            );
         }
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });

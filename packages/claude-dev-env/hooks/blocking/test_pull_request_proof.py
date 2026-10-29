@@ -1,5 +1,6 @@
 """Behavior tests for the proof-in-practice, existing-work and eval checks on a new pull request."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +14,8 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
+    COMPARE_FILE_STATUS_QUERY,
+    DEFERRED_PROOF_REASON,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -346,7 +349,7 @@ def test_other_pull_request_commands_should_pass_the_existing_work_check() -> No
 def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
-    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
     subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
     (origin_path / "readme.md").write_text("base\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
@@ -396,6 +399,10 @@ def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(
     assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
 
 
+def _compare_line(status: str, old_path: str, path: str) -> str:
+    return json.dumps([status, old_path, path], separators=(",", ":"), ensure_ascii=False)
+
+
 def _fake_gh_api(all_responses: dict[str, list[str] | None], all_endpoints: list[str]):
     def fake_gh_api_lines(endpoint: str, query: str) -> list[str] | None:
         all_endpoints.append(endpoint)
@@ -415,7 +422,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints))
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
     assert gate.missing_look_reason(payload) is None
     assert all_endpoints == [compare_endpoint]
@@ -424,7 +431,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": ["web/page.html", "tool.py"]}
+    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": [_compare_line("M", "", "web/page.html"), _compare_line("M", "", "tool.py")]}
     all_endpoints: list[str] = []
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "-R o/r --head=feature"))
@@ -432,6 +439,151 @@ def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     assert "web/page.html" in reason
     assert "tool.py" not in reason
     assert all_endpoints == ["repos/o/r", "repos/o/r/compare/trunk...feature"]
+
+
+def _repository_with_rename(
+    tmp_path: Path,
+    edited_text: str | None,
+    old_name: str = "asset-specs.html",
+    new_name: str = "references/asset-specs.html",
+    reorder_lines: bool = False,
+) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    all_page_lines = [f"page body line {each_index}\n" for each_index in range(20)]
+    page_text = "".join(all_page_lines)
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / old_name).write_text(page_text, encoding="utf-8")
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
+    (clone_path / new_name).parent.mkdir(exist_ok=True)
+    subprocess.run(["git", "-C", str(clone_path), "mv", old_name, new_name], check=True)
+    moved_text = "".join(reversed(all_page_lines)) if reorder_lines else page_text
+    if edited_text is not None or reorder_lines:
+        (clone_path / new_name).write_text(moved_text + (edited_text or ""), encoding="utf-8")
+    subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "move"], check=True)
+    return clone_path
+
+
+def test_should_allow_a_pure_html_rename_without_a_picture(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None)
+    assert gate.visible_changed_files(str(clone_path), "feature") == []
+    assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is None
+
+
+def test_should_deny_an_html_rename_that_also_edits_the_page(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, "<p>new line</p>\n")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    reason = gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path))
+    assert reason is not None
+    assert "references/asset-specs.html" in reason
+
+
+def _stub_compare(monkeypatch: pytest.MonkeyPatch, all_lines: list[str]) -> None:
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_lines}, []))
+
+
+def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_compare(monkeypatch, [_compare_line("R100", "asset-specs.html", "references/asset-specs.html"), _compare_line("added", "", "tool.py")])
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
+    assert gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")) is None
+
+
+def test_should_keep_a_compare_listed_pure_rename_from_a_hidden_suffix_to_a_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_compare(monkeypatch, [_compare_line("R100", "notes.txt", "site/notes.html")])
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == ["site/notes.html"]
+
+
+def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_compare(monkeypatch, [_compare_line("renamed", "asset-specs.html", "references/asset-specs.html")])
+    reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
+    assert reason is not None
+    assert "references/asset-specs.html" in reason
+
+
+def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_renames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_lines = [
+        _compare_line("R100", f"old/skill_{each_index}/page.html", f"skills/skill_{each_index}/page.html")
+        for each_index in range(COMPARE_FILE_LIST_LIMIT)
+    ]
+    _stub_compare(monkeypatch, all_lines)
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+
+
+def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -> None:
+    all_files = {
+        "files": [
+            {"status": "renamed", "changes": 0, "previous_filename": "a/x.html", "filename": "b/x.html"},
+            {"status": "renamed", "changes": 3, "previous_filename": "a/y.html", "filename": "b/y.html"},
+            {"status": "added", "changes": 5, "filename": "c.py"},
+            {"status": "modified", "changes": 2, "filename": "we\tird\nname.html"},
+        ]
+    }
+    completed = subprocess.run(
+        ["jq", "-r", COMPARE_FILE_STATUS_QUERY],
+        input=json.dumps(all_files),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout.splitlines() == [
+        _compare_line("R100", "a/x.html", "b/x.html"),
+        _compare_line("renamed", "a/y.html", "b/y.html"),
+        _compare_line("added", "", "c.py"),
+        _compare_line("modified", "", "we\tird\nname.html"),
+    ]
+
+
+def test_should_report_an_unparseable_compare_line_as_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_compare(monkeypatch, ["not json"])
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
+
+
+def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, "notes.txt", "site/notes.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/notes.html"]
+    assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is not None
+
+
+def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, reorder_lines=True)
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+
+
+def test_should_deny_a_byte_identical_rename_from_one_page_type_to_another(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, "Widget.tsx", "site/widget.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/widget.html"]
+
+
+def test_should_report_unreadable_git_output_as_unknown() -> None:
+    assert gate._git_changes([":100644 100644 abc R100", "a.html", "b.html"]) is None
+    assert gate._git_changes([":100644 100644 aaa bbb R100", "a.html"]) is None
+    assert gate._git_changes([":100644 100644 aaa bbb M", "a.html", "stray", ""]) is None
+
+
+def test_should_keep_a_page_whose_name_holds_a_quote(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, 'q"t.html')
+    assert gate.visible_changed_files(str(clone_path), "feature") == ['q"t.html']
+
+
+def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, "página.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["página.html"]
 
 
 def test_should_deny_as_unreadable_when_the_compare_api_fails(
@@ -450,8 +602,8 @@ def test_should_deny_as_unreadable_when_the_compare_api_fails(
     assert "before any change to this gate" in reason
 
 
-def _python_paths(count: int) -> list[str]:
-    return [f"pkg/module_{each_index}.py" for each_index in range(count)]
+def _python_status_lines(count: int) -> list[str]:
+    return [_compare_line("M", "", f"pkg/module_{each_index}.py") for each_index in range(count)]
 
 
 def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_file(
@@ -462,7 +614,7 @@ def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_fil
     monkeypatch.setattr(
         gate,
         "_gh_api_lines",
-        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT)}, all_endpoints),
+        _fake_gh_api({compare_endpoint: _python_status_lines(COMPARE_FILE_LIST_LIMIT)}, all_endpoints),
     )
     assert COMPARE_FILE_LIST_LIMIT == 300
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
@@ -479,7 +631,7 @@ def test_should_allow_a_short_compare_page_that_lists_only_python(
     monkeypatch.setattr(
         gate,
         "_gh_api_lines",
-        _fake_gh_api({compare_endpoint: _python_paths(COMPARE_FILE_LIST_LIMIT - 1)}, all_endpoints),
+        _fake_gh_api({compare_endpoint: _python_status_lines(COMPARE_FILE_LIST_LIMIT - 1)}, all_endpoints),
     )
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
     assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
@@ -491,7 +643,7 @@ def test_should_deny_a_visible_file_on_a_full_compare_page(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    all_paths = [*_python_paths(COMPARE_FILE_LIST_LIMIT - 1), "web/page.html"]
+    all_paths = [*_python_status_lines(COMPARE_FILE_LIST_LIMIT - 1), _compare_line("M", "", "web/page.html")]
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_paths}, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
     assert reason is not None
@@ -504,7 +656,7 @@ def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artif
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["page.html"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "page.html")]}, all_endpoints))
     body_path = tmp_path / "body.md"
     body_path.write_text(PROVEN_BODY + "https://claude.ai/code/artifact/abc-123\n", encoding="utf-8")
     payload = _shell(
@@ -530,7 +682,7 @@ def test_should_read_owner_and_repo_of_an_mcp_create_for_the_compare_api(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints))
     payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
     payload["tool_input"].update(owner="o", repo="r", base="main")
     assert gate.missing_look_reason(payload) is None
@@ -686,3 +838,158 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
     assert gate.is_create_call(_mcp_create("b"))
     assert not gate.is_create_call(_shell("gh pr edit 7 --body b"))
     assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})
+
+
+@pytest.mark.parametrize(
+    "admission",
+    [
+        "Not run: the first publish on the live remote.",
+        "- Not run: a push race between live sessions.",
+        "1. Not run: the live publish.",
+        "The live publish has not yet been run.",
+        "It hasn't been run on the target.",
+        "The dialer path has not been exercised here.",
+    ],
+)
+def test_each_unrun_wording_in_proof_prose_should_be_denied(admission: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{admission}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=admission)
+
+
+@pytest.mark.parametrize(
+    "merge_line",
+    [
+        "I check the first live publish after the merge.",
+        "The seed step happens once merged.",
+        "Post-merge, a session confirms the publish.",
+        "A session verifies it after merging.",
+        "After it merges, I verify the publish.",
+        "I will verify the publish on merge.",
+        "I verify the live publish post merge.",
+        "Verified the output after merging main into the branch.",
+    ],
+)
+def test_each_merge_word_in_proof_prose_should_be_denied(merge_line: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{merge_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=merge_line)
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "The gate does not run on edits.",
+        "With the change, the hook is not run on edits.",
+        "Without the change, the hook was not run for edits.",
+        "Before this change the gate had not run on edits.",
+        "Ran `git merge origin/main`, then `python run.py`.",
+        "Confirmed the hold label stays until the PR lands.",
+        "Not run-dependent.",
+        "Without the change the publish failed; with it the publish passed.",
+    ],
+)
+def test_proof_prose_without_an_unrun_line_or_a_merge_word_should_pass(prose: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{prose}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_not_covered_heading_nested_under_the_proof_heading_should_stay_proof_text() -> None:
+    line = "Not run: an older shape."
+    body = f"## Proof in practice\nRan `python run.py`.\n\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_proof_made_only_of_a_nested_not_covered_line_should_be_denied() -> None:
+    line = "Not run: `python publish.py`"
+    body = f"## Proof in practice\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_merge_step_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\n"
+        "Not run: the publish check that follows the merge.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_merge_word_line_should_return_the_line_or_none() -> None:
+    assert gate.merge_word_line("Ran `python run.py`.\nChecked after the merge.\n") == "Checked after the merge."
+    assert gate.merge_word_line("Ran `git merge main`.\n") is None
+    assert gate.merge_word_line("```\nmerged ok\n```\n") is None
+
+
+def _mcp_update(body: object) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__update_pull_request",
+        "tool_input": {"owner": "o", "repo": "r", "pullNumber": 7, "body": body},
+    }
+
+
+def test_body_edit_that_adds_an_unrun_proof_line_should_be_denied() -> None:
+    line = "Not run: the first publish on the live remote."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_adds_a_merge_word_to_the_proof_should_be_denied() -> None:
+    line = "I check the first live publish after the merge."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == DEFERRED_PROOF_REASON.format(deferral=line)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr edit 7 --body-file body.md",
+        "python pull_request.py edit 7 --body-file body.md",
+    ],
+)
+def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str, tmp_path: Path) -> None:
+    line = "Not run: the live publish."
+    (tmp_path / "body.md").write_text(f"## Proof in practice\nRan `python run.py`.\n{line}\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell(command, tmp_path)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest -q`.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
+    body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
+def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
+    body = "## Proof in practice\nIt works.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
+def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("## Proof in practice\nRan `python run.py`.\nNot run: x.\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell("gh pr view edit --body-file body.md", tmp_path)) is None
+
+
+def test_body_edit_without_a_proof_section_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update("## Summary\nNot run: nothing here is a proof.\n")) is None
+
+
+def test_body_edit_with_a_clean_proof_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update(PROVEN_BODY)) is None
+
+
+def test_body_edit_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\nNot run: the check after the merge.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) is None
+
+
+def test_edit_without_a_readable_body_should_pass(tmp_path: Path) -> None:
+    assert gate.edit_proof_reason(_mcp_update(None)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --title t", tmp_path)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --body-file -", tmp_path)) is None
+
+
+def test_create_calls_and_other_tools_should_pass_the_edit_check(tmp_path: Path) -> None:
+    unrun_body = "## Proof in practice\nRan `python run.py`.\nNot run: x.\n"
+    assert gate.edit_proof_reason(_mcp_create(unrun_body)) is None
+    assert gate.edit_proof_reason(_shell("git push -u origin b", tmp_path)) is None

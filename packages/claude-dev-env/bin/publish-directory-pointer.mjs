@@ -1,10 +1,12 @@
 /**
- * Publish a Claude Code lookup path as a directory pointer to the agents home.
+ * Publish Claude Code lookup paths that point into the agents home.
  *
- * Skills and agents live under the agents home. Claude Code still discovers
- * them at `managedRoot/skills` and `managedRoot/agents`, so the installer
- * writes those two paths as directory pointers (a POSIX symlink, or a Windows
- * junction). One helper owns the create, refresh, and relocate steps.
+ * Agents, hooks, and scripts live under the agents home. Claude Code discovers
+ * them at `managedRoot/<name>`, so the installer writes those paths as
+ * directory pointers (a POSIX symlink, or a Windows junction). The skills
+ * lookup is a folder of pointers, one per shipped skill, so Claude reads
+ * the shared skills while the agents home keeps the skill files and the plugin
+ * links. One helper owns the create, refresh, and relocate steps.
  */
 
 import {
@@ -18,7 +20,7 @@ import {
     symlinkSync,
     unlinkSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { normalizePathForComparison } from './resolve-install-root.mjs';
 
 export const DIRECTORY_POINTER_TYPE_JUNCTION = 'junction';
@@ -57,6 +59,17 @@ export function isDirectoryPointerTo(pointerPath, targetPath) {
     const resolvedLinkTarget = resolve(dirname(pointerPath), linkTarget);
     return normalizePathForComparison(resolvedLinkTarget)
         === normalizePathForComparison(resolve(targetPath));
+}
+
+/**
+ * Report whether linkPath is a symbolic link that does not aim at targetPath.
+ *
+ * @param {string} linkPath
+ * @param {string} targetPath
+ * @returns {boolean}
+ */
+export function isLinkToOtherDirectory(linkPath, targetPath) {
+    return readPathKind(linkPath) === 'symlink' && !isDirectoryPointerTo(linkPath, targetPath);
 }
 
 /**
@@ -107,6 +120,62 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
 }
 
 /**
+ * Make lookupDirectory a folder with one directory pointer per directory in
+ * installDirectory.
+ *
+ * A link at lookupDirectory, whether it aims at installDirectory or somewhere
+ * else, is unlinked and the folder takes its place. The directory it aimed at
+ * is left alone. A per-skill link that aims at another directory is left in
+ * place. A link whose target under
+ * installDirectory is gone is removed. A symbolic link inside installDirectory
+ * is not linked here, which keeps plugin links out of this folder and leaves a
+ * skill a user linked there without an entry. A
+ * directory in lookupDirectory that installDirectory lacks is a personal skill
+ * and stays where it is. A file in a same-named lookup directory that
+ * installDirectory already holds moves to conflictBackupDirectory before the
+ * merge, so a local edit survives.
+ *
+ * @param {string} lookupDirectory Claude lookup path (for example `~/.claude/skills`).
+ * @param {string} installDirectory Canonical skills folder (for example `~/.agents/skills`).
+ * @param {string} conflictBackupDirectory Folder that receives displaced lookup files.
+ * @returns {{ createdLinkPaths: string[], linkPaths: string[] }} The links this
+ *   call created, and every link to a directory in installDirectory after the call.
+ */
+export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, conflictBackupDirectory) {
+    const resolvedLookup = resolve(lookupDirectory);
+    const resolvedInstall = resolve(installDirectory);
+    mkdirSync(resolvedInstall, { recursive: true });
+
+    const lookupKind = readPathKind(resolvedLookup);
+    if (lookupKind === 'symlink') {
+        unlinkSync(resolvedLookup);
+        console.log(`  Replaced the link at ${resolvedLookup} with a folder of skill links`);
+    } else if (lookupKind === 'file') {
+        throw new Error(`Cannot publish linked skills: ${resolvedLookup} is a file`);
+    }
+    mkdirSync(resolvedLookup, { recursive: true });
+
+    removeDanglingLinksInto(resolvedLookup, resolvedInstall);
+    const createdLinkPaths = [];
+    const linkPaths = [];
+    for (const eachEntry of readdirSync(resolvedInstall, { withFileTypes: true })) {
+        if (!eachEntry.isDirectory()) continue;
+        const linkPath = join(resolvedLookup, eachEntry.name);
+        const targetPath = join(resolvedInstall, eachEntry.name);
+        if (isLinkToOtherDirectory(linkPath, targetPath)) continue;
+        if (readPathKind(linkPath) === 'directory') {
+            setAsideConflictingEntries(linkPath, targetPath, join(conflictBackupDirectory, eachEntry.name));
+        }
+        const publication = ensureDirectoryPointer(linkPath, targetPath);
+        linkPaths.push(linkPath);
+        if (publication.action === POINTER_ACTION_CREATED) {
+            createdLinkPaths.push(linkPath);
+        }
+    }
+    return { createdLinkPaths, linkPaths };
+}
+
+/**
  * Remove a directory pointer when it aims at the expected target.
  *
  * @param {string} pointerPath
@@ -125,7 +194,7 @@ export function unlinkDirectoryPointerIfMatch(pointerPath, targetPath) {
  * @param {string} absolutePath
  * @returns {'missing' | 'symlink' | 'directory' | 'file' | 'other'}
  */
-function readPathKind(absolutePath) {
+export function readPathKind(absolutePath) {
     let stats;
     try {
         stats = lstatSync(absolutePath);
@@ -145,6 +214,55 @@ function readPathKind(absolutePath) {
         return 'file';
     }
     return 'other';
+}
+
+/**
+ * Remove links in lookupDirectory whose target sits under installDirectory and
+ * no longer exists.
+ *
+ * @param {string} lookupDirectory
+ * @param {string} installDirectory
+ * @returns {void}
+ */
+function removeDanglingLinksInto(lookupDirectory, installDirectory) {
+    for (const eachEntry of readdirSync(lookupDirectory, { withFileTypes: true })) {
+        if (!eachEntry.isSymbolicLink()) continue;
+        const linkPath = join(lookupDirectory, eachEntry.name);
+        const linkTarget = resolve(lookupDirectory, readlinkSync(linkPath));
+        const targetOffset = relative(installDirectory, linkTarget);
+        const targetIsInside = targetOffset !== ''
+            && !isAbsolute(targetOffset)
+            && targetOffset.split(sep)[0] !== '..';
+        if (targetIsInside && !existsSync(linkPath)) {
+            unlinkSync(linkPath);
+        }
+    }
+}
+
+/**
+ * Move each entry in sourceDirectory that destinationDirectory already holds
+ * into backupDirectory, keeping its relative path. A directory that exists on
+ * both sides is walked the same way. Entries the destination lacks stay in
+ * place for the merge that follows.
+ *
+ * @param {string} sourceDirectory
+ * @param {string} destinationDirectory
+ * @param {string} backupDirectory
+ * @returns {void}
+ */
+function setAsideConflictingEntries(sourceDirectory, destinationDirectory, backupDirectory) {
+    for (const eachEntry of readdirSync(sourceDirectory, { withFileTypes: true })) {
+        const sourceChild = join(sourceDirectory, eachEntry.name);
+        const destinationChild = join(destinationDirectory, eachEntry.name);
+        if (!existsSync(destinationChild)) continue;
+        if (eachEntry.isDirectory() && readPathKind(destinationChild) === 'directory') {
+            setAsideConflictingEntries(sourceChild, destinationChild, join(backupDirectory, eachEntry.name));
+            continue;
+        }
+        mkdirSync(backupDirectory, { recursive: true });
+        renameSync(sourceChild, join(backupDirectory, eachEntry.name));
+        console.log(`  Kept the local copy of ${sourceChild} in ${backupDirectory}`);
+    }
 }
 
 /**

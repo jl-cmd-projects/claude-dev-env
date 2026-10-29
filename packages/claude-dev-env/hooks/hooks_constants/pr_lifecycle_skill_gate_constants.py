@@ -11,11 +11,12 @@ DENY_REASON = (
 SKILL_NAME = "pr-lifecycle"
 ALL_SLASH_COMMAND_MARKERS = ("<command-name>/pr-lifecycle</command-name>",)
 SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
+UPDATE_PULL_REQUEST_TOOL_SUFFIX = "__update_pull_request"
 ALL_GITHUB_MCP_TOOL_SUFFIXES = (
     "__create_pull_request",
     "__merge_pull_request",
     "__enable_pr_auto_merge",
-    "__update_pull_request",
+    UPDATE_PULL_REQUEST_TOOL_SUFFIX,
 )
 ALL_TRANSCRIPT_PATH_FIELDS = ("transcript_path", "agent_transcript_path")
 SESSION_TRANSCRIPT_PATH_FIELD = "transcript_path"

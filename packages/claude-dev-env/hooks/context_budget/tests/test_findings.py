@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from context_budget.tests.budget_support import SKILL_PATH, policy_text, section_text
+from context_budget.tests.budget_support import SKILL_PATH, policy_text, section_text, words_text
 from context_budget.findings import edit_findings, file_findings
 from context_budget.policy_file import default_policy, parse_policy
 
@@ -118,3 +118,108 @@ def test_edit_of_an_unlisted_over_budget_file_is_allowed_when_it_shrinks_under_a
         "file",
         "Alpha",
     ]
+
+
+AGENT_PATH = "shared_utils/files/AGENTS.md"
+LONG_LINE = words_text(26)
+POINTER_LINE = "Read [the plan](reference/plan.md)."
+
+
+def test_agent_file_with_no_relative_link_fails_the_pointer_rule() -> None:
+    policy = parse_policy(policy_text())
+
+    all_findings = file_findings(policy, AGENT_PATH, "Selection records own icon choice.\n", None)
+
+    assert [each.scope for each in all_findings] == ["no pointer line"]
+    assert (
+        "shared_utils/files/AGENTS.md: context-budget: file has no pointer line"
+        in all_findings[0].message
+    )
+
+
+def test_agent_file_fails_on_an_unlinked_line_over_the_word_limit_only() -> None:
+    policy = parse_policy(policy_text())
+    exact_line = words_text(25)
+
+    over_limit = file_findings(policy, AGENT_PATH, f"{LONG_LINE}\n{POINTER_LINE}\n", None)
+    at_limit = file_findings(policy, AGENT_PATH, f"{exact_line}\n{POINTER_LINE}\n", None)
+
+    assert [each.scope for each in over_limit] == [f"prose line: {LONG_LINE}"]
+    assert "26 words" in over_limit[0].message
+    assert at_limit == ()
+
+
+def test_claude_file_gets_the_same_rule_and_a_skill_file_does_not() -> None:
+    policy = parse_policy(policy_text())
+
+    claude_findings = file_findings(policy, "app/CLAUDE.md", f"{LONG_LINE}\n{POINTER_LINE}\n", None)
+
+    assert [each.scope for each in claude_findings] == [f"prose line: {LONG_LINE}"]
+    assert file_findings(policy, SKILL_PATH, f"{LONG_LINE}\n", None) == ()
+
+
+def test_blank_agent_file_passes_the_pointer_rule() -> None:
+    policy = parse_policy(policy_text())
+
+    assert file_findings(policy, AGENT_PATH, "\n", None) == ()
+    assert file_findings(policy, AGENT_PATH, "", None) == ()
+
+
+def test_edit_that_adds_a_long_unlinked_line_introduces_its_finding_once() -> None:
+    policy = parse_policy(policy_text())
+    prior_text = f"{POINTER_LINE}\n"
+    post_text = f"{prior_text}{LONG_LINE}\n"
+
+    introduced = edit_findings(policy, AGENT_PATH, prior_text, post_text, False)
+
+    assert [each.scope for each in introduced] == [f"prose line: {LONG_LINE}"]
+    assert edit_findings(policy, AGENT_PATH, post_text, f"{post_text}Short line.\n", False) == ()
+
+
+def test_changed_file_reports_only_prose_findings_its_prior_text_lacked() -> None:
+    policy = parse_policy(policy_text())
+    prior_text = f"{POINTER_LINE}\n{LONG_LINE}\n"
+    kept_text = f"{prior_text}Short line.\n"
+    added_line = words_text(27)
+    added_text = f"{kept_text}{added_line}\n"
+    long_line_scopes = [f"prose line: {LONG_LINE}"]
+
+    assert file_findings(policy, AGENT_PATH, kept_text, prior_text) == ()
+    added_findings = file_findings(policy, AGENT_PATH, added_text, prior_text)
+    assert [each.scope for each in added_findings] == [f"prose line: {added_line}"]
+    assert [each.scope for each in file_findings(policy, AGENT_PATH, kept_text, None)] == (
+        long_line_scopes
+    )
+    assert [
+        each.scope for each in file_findings(policy, AGENT_PATH, prior_text, prior_text)
+    ] == long_line_scopes
+
+
+def test_claude_file_that_only_imports_agents_md_passes_the_pointer_rule() -> None:
+    policy = parse_policy(policy_text())
+
+    assert file_findings(policy, "app/CLAUDE.md", "@AGENTS.md\n", None) == ()
+
+
+def test_import_line_satisfies_the_pointer_rule_but_not_the_word_limit() -> None:
+    policy = parse_policy(policy_text())
+
+    all_findings = file_findings(policy, "app/CLAUDE.md", f"@AGENTS.md\n{LONG_LINE}\n", None)
+
+    assert [each.scope for each in all_findings] == [f"prose line: {LONG_LINE}"]
+
+
+def test_import_line_does_not_exempt_a_section_from_the_section_rule() -> None:
+    policy = parse_policy(policy_text())
+    text = section_text("Alpha", 7, "@reference/alpha.md")
+
+    assert [each.scope for each in file_findings(policy, SKILL_PATH, text, None)] == ["Alpha"]
+
+
+def test_skipped_kind_hides_an_agent_file_from_the_prose_rule() -> None:
+    policy = parse_policy(policy_text())
+    text = "Selection records own icon choice.\n"
+
+    assert file_findings(policy, "pkg/skills-archived/AGENTS.md", text, None) == ()
+    live_findings = file_findings(policy, "pkg/live/AGENTS.md", text, None)
+    assert [each.scope for each in live_findings] == ["no pointer line"]

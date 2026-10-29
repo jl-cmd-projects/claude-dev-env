@@ -2,6 +2,10 @@
 
 **When this applies:** Every reply, doc, commit message, pull request body, and comment a person reads.
 
+## In brief
+
+Plain, positive, present, task-only, specific. No em dashes, AI vocab, filler, or puffery.
+
 ## Prose
 
 Positive. Present. What to do, what it does, what was done, what's left. Task-only. Outcomes. No filler, failed attempts, or process talk.

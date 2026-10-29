@@ -79,9 +79,9 @@ function main() {
         const skillsDirectory = join(claudeHome, 'skills');
         const agentsHomeSkillsDirectory = join(sandboxHome, '.agents', 'skills');
         const installedSkills = existsSync(skillsDirectory)
-            ? readdirSync(skillsDirectory, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+            ? readdirSync(skillsDirectory, { withFileTypes: true }).filter((entry) => entry.isSymbolicLink())
             : [];
-        record('skills installed', installedSkills.length > 0, `${installedSkills.length} skill dirs`);
+        record('skills installed', installedSkills.length > 0, `${installedSkills.length} skill links`);
         record(
             'skills live under ~/.agents/skills',
             existsSync(agentsHomeSkillsDirectory)
@@ -89,8 +89,13 @@ function main() {
             agentsHomeSkillsDirectory,
         );
         record(
-            '~/.claude/skills is a directory pointer',
-            existsSync(skillsDirectory) && lstatSync(skillsDirectory).isSymbolicLink(),
+            '~/.claude/skills is a folder of skill links',
+            existsSync(skillsDirectory)
+                && lstatSync(skillsDirectory).isDirectory()
+                && installedSkills.length > 0
+                && installedSkills.every((entry) => existsSync(join(skillsDirectory, entry.name))
+                    && existsSync(join(agentsHomeSkillsDirectory, entry.name))
+                    && realpathSync(join(skillsDirectory, entry.name)) === realpathSync(join(agentsHomeSkillsDirectory, entry.name))),
             skillsDirectory,
         );
         const sampleSkillName = installedSkills.find((entry) => existsSync(join(skillsDirectory, entry.name, 'SKILL.md')))?.name;
@@ -98,14 +103,14 @@ function main() {
             const lookupSkillPath = join(skillsDirectory, sampleSkillName, 'SKILL.md');
             const canonicalSkillPath = join(agentsHomeSkillsDirectory, sampleSkillName, 'SKILL.md');
             record(
-                'skill files match through the lookup pointer',
+                'skill files match through the lookup link',
                 existsSync(lookupSkillPath)
                     && existsSync(canonicalSkillPath)
                     && realpathSync(lookupSkillPath) === realpathSync(canonicalSkillPath),
                 sampleSkillName,
             );
         } else {
-            record('skill files match through the lookup pointer', false, 'no skill dirs');
+            record('skill files match through the lookup link', false, 'no skill links');
         }
 
         const agentsLookupDirectory = join(claudeHome, 'agents');

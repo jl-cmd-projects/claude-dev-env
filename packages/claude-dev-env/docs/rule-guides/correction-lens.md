@@ -10,6 +10,10 @@ clause at the end of this document states what that binds.
 after an agent hands work back. Each one is evidence that a control is missing,
 and the correction is handled by building that control.
 
+## In brief
+
+Open a control in the guarded repository, in the same run, at the highest capable layer. State the layer, why higher layers fail, and the change opened. Pair layers when both help. Move repeated corrections up a layer. Memory records the decision.
+
 ## Rule
 
 A correction runs through five layers, in this order, and the lesson lands at the
