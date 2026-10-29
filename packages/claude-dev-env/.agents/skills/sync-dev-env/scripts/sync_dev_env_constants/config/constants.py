@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-DEFAULT_CLAUDE_HOME = Path.home() / ".claude"
+CLAUDE_HOME_DIRECTORY_NAME = ".claude"
+AGENTS_HOME_DIRECTORY_NAME = ".agents"
+DEFAULT_CLAUDE_HOME = Path.home() / CLAUDE_HOME_DIRECTORY_NAME
 INSTALLED_PLUGINS_RELATIVE_PATH = Path("plugins") / "installed_plugins.json"
 PLUGIN_CACHE_RELATIVE_PATH = Path("plugins") / "cache"
 SETTINGS_FILE_NAME = "settings.json"
@@ -15,6 +17,7 @@ LAST_UPDATED_KEY = "lastUpdated"
 CREATED_REPORT = "linked {name} -> {target}"
 REPOINTED_REPORT = "re-pointed {name} -> {target}"
 REMOVED_REPORT = "removed {name} (its skill left the plugin or the plugin is off)"
+CLAUDE_FOLDER_REMOVED_REPORT = "removed {name} from the Claude skills directory"
 SKIPPED_REPORT = (
     "skipped {name}: a skill the plugin does not own already uses that name"
 )
