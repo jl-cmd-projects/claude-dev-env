@@ -1,9 +1,6 @@
 ---
 name: search-before-acting
-description: >-
-  Search for what already does an ask before logging, planning, delegating, or
-  building it, then report it in four points. Use before any new or changed
-  behavior, tool, check, plan, or worker brief.
+description: Find what already does an ask before logging, planning, or building it, then report it in four points. Use before new or changed behavior, tool, check, workflow, tracker entry, or worker brief.
 ---
 
 # Search before acting

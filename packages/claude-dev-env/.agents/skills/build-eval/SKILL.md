@@ -1,6 +1,6 @@
 ---
 name: build-eval
-description: Evaluate skills with a Codex review suite or `claude plugin eval`, using labeled inputs. Use when the user asks to eval or test a skill, whether a context file is thin enough, or the context budget.
+description: Evaluate skills with `claude plugin eval` or a Codex review suite, using labeled inputs or with/without-plugin comparisons. Use to eval or test a skill, or check a context file or the context budget.
 ---
 
 # Build eval
