@@ -33,9 +33,10 @@ INDEX_SKILL_POINTER_PATTERN = re.compile(r"the `[a-z-]+` skill")
 
 INDEX_FILE_NAME = "index.md"
 INDEX_PATH = RULES_DIRECTORY / INDEX_FILE_NAME
-MAXIMUM_ENTRY_BYTES = 1_500
-MAXIMUM_INDEX_BYTES = 4_000
-MAXIMUM_ALWAYS_ON_BYTES = 6_000
+SHARED_TRUNK_PATH = PACKAGE_ROOT / "AGENTS.md"
+MAXIMUM_ENTRY_BYTES = 1_400
+MAXIMUM_INDEX_BYTES = 2_300
+MAXIMUM_ALWAYS_ON_BYTES = 5_350
 CODEX_VERBATIM_ENTRY_NAMES = frozenset({"question-presentation.md"})
 INDEX_SHAPE_EXEMPT_ENTRY_NAMES = CODEX_VERBATIM_ENTRY_NAMES
 CODEX_MATERIALIZED_GUIDE_NAMES = frozenset(
@@ -258,7 +259,10 @@ def test_each_guide_has_exactly_one_owner() -> None:
 
 
 def test_always_loaded_entries_stay_inside_the_total_byte_budget() -> None:
-    always_on_bytes = len(INDEX_PATH.read_bytes()) + sum(
+    trunk_and_index_bytes = len(SHARED_TRUNK_PATH.read_bytes()) + len(
+        INDEX_PATH.read_bytes()
+    )
+    always_on_bytes = trunk_and_index_bytes + sum(
         len(each_path.read_bytes())
         for each_path in _entry_paths()
         if _loads_in_every_session(_entry_text(each_path))

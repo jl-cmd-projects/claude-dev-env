@@ -4,6 +4,8 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
+Never open a pull request until the change is proven to work on the target system. Run it, or run its test or check against the shipped artifact, and put that evidence in the PR body. Proof first, then the PR. This binds every agent, script, CI job, and automation.
+
 Run the change where it runs, with and without it, and quote both results under "Proof in practice" in the body. A hook denies a body without one. Unproven: leave it unopened and tell the user.
 
 **When this applies:** Every session that builds a change and opens a pull request, in every project.
