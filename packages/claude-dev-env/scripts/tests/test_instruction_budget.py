@@ -18,6 +18,8 @@ from dev_env_scripts_constants.followup_constants import (
     INSTRUCTION_PERSONAL_NAME_RULE_ID,
 )
 from dev_env_scripts_constants.instruction_budget_constants import (
+    ALL_NAMED_PEOPLE_DIGESTS,
+    ALL_PERSONAL_NAME_DIGESTS,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     PASSED_MESSAGE,
 )
@@ -113,14 +115,26 @@ def test_personal_name_line_numbers_match_whole_words_only() -> None:
     assert personal_name_line_numbers(text, FIXTURE_DIGESTS) == (1, 3)
 
 
-def test_personal_name_line_numbers_flag_the_named_people() -> None:
-    text = "Intro line.\nJon wrote this.\nMelanie reviewed it.\n"
-    assert personal_name_line_numbers(text) == (2, 3)
+def test_shipped_name_list_holds_the_named_people() -> None:
+    assert len(ALL_NAMED_PEOPLE_DIGESTS) == 2
+    assert ALL_NAMED_PEOPLE_DIGESTS <= ALL_PERSONAL_NAME_DIGESTS
 
 
-def test_read_text_outside_fences_drops_fenced_blocks(tmp_path: Path) -> None:
-    path = _write(tmp_path / "AGENTS.md", "before\n```\n@hidden.md\n```\nafter\n")
-    assert read_text_outside_fences(path) == "before\n\nafter\n"
+def test_read_text_outside_fences_drops_both_fence_styles(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "AGENTS.md",
+        "before\n```\n@hidden.md\n```\nmid\n~~~\n@other.md\n~~~\nafter\n",
+    )
+    assert read_text_outside_fences(path) == "before\n\nmid\n\nafter\n"
+
+
+def test_launch_files_follow_imports_from_unscoped_rules(tmp_path: Path) -> None:
+    _write(tmp_path / "AGENTS.md", "entry\n")
+    _write(tmp_path / ".claude" / "rules" / "rule.md", "@../../notes/big.md\n")
+    imported = _write(tmp_path / "notes" / "big.md", "x" * 50)
+    assert imported.resolve() in launch_files(
+        tmp_path.resolve(), _config(max_launch_bytes=99)
+    )
 
 
 def test_personal_name_findings_name_lines_but_not_the_name(tmp_path: Path) -> None:

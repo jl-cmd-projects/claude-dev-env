@@ -168,14 +168,14 @@ def launch_files(repository_root: Path, config: InstructionBudgetConfig) -> list
         config: The repository's budget limits, which add its rule folders.
 
     Returns:
-        Each entry file and its imports, then each unscoped rule, once each.
+        Each entry file and its imports, then each unscoped rule and its imports, once each.
     """
     all_launch: dict[Path, None] = {}
     for each_entry_file in _entry_files(repository_root):
         _import_closure(each_entry_file, all_launch)
     for each_rule in rule_files(repository_root, config):
         if not _has_paths_frontmatter(read_instruction_text(each_rule)):
-            all_launch[each_rule] = None
+            _import_closure(each_rule, all_launch)
     return list(all_launch)
 
 
@@ -231,7 +231,8 @@ def _walk_files(repository_root: Path) -> list[Path]:
             if each_name not in ALL_SKIPPED_DIRECTORY_NAMES
         ]
         all_files.extend(
-            Path(each_directory) / each_name for each_name in each_file_names
+            (Path(each_directory) / each_name).resolve()
+            for each_name in each_file_names
         )
     return all_files
 
