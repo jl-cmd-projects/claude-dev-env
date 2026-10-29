@@ -9,10 +9,17 @@ from context_budget.tests.budget_support import (
     fixture_text,
     policy_text,
     section_text,
+    words_text,
 )
 from context_budget.findings import file_findings
 from context_budget.policy_file import default_policy, parse_policy
-from context_budget.sections import context_kind_for_path, path_matches_pattern, scan_sections
+from context_budget.sections import (
+    context_kind_for_path,
+    is_path_skipped,
+    path_matches_pattern,
+    scan_prose,
+    scan_sections,
+)
 
 
 def test_calibration_old_orchestrator_fails_on_oversee_delegated_work() -> None:
@@ -72,6 +79,14 @@ def test_first_matching_kind_wins_and_a_skipped_kind_hides_the_path() -> None:
     assert context_kind_for_path(policy, "docs/notes.md") is None
 
 
+def test_path_is_skipped_only_when_its_first_matching_kind_has_no_line_limit() -> None:
+    policy = parse_policy(policy_text())
+
+    assert is_path_skipped(policy, "pkg/skills-archived/old/SKILL.md") is True
+    assert is_path_skipped(policy, "pkg/live/SKILL.md") is False
+    assert is_path_skipped(policy, "docs/notes.md") is False
+
+
 def test_section_rule_counts_detail_and_skips_tables_link_lists_and_frontmatter() -> None:
     text = (
         "---\nname: x\ndescription: y\nmore: z\nand: w\nkeys: v\nhere: u\nlast: t\n---\n"
@@ -110,3 +125,76 @@ def test_relative_link_is_a_pointer_and_external_or_anchor_links_are_not() -> No
 
     assert scan_sections(pointed)[1].has_pointer is True
     assert scan_sections(external)[1].has_pointer is False
+
+
+def test_scan_prose_collects_unlinked_detail_lines_over_the_word_limit() -> None:
+    long_unlinked = words_text(26)
+    exact_unlinked = words_text(25)
+    text = f"# Index\n{long_unlinked}\n{exact_unlinked}\nRead [the plan](reference/plan.md).\n"
+
+    scan = scan_prose(text, 25)
+
+    assert scan.all_long_unlinked_lines == (long_unlinked,)
+    assert scan.has_detail_line is True
+    assert scan.has_pointer_line is True
+
+
+def test_scan_prose_ignores_fenced_code_tables_and_lines_that_link() -> None:
+    long_words = words_text(30)
+    text = "\n".join(
+        [
+            "```",
+            long_words,
+            "```",
+            f"| {long_words} |",
+            f"- [{long_words}](reference/plan.md)",
+            f"{long_words} [plan](reference/plan.md)",
+        ]
+    )
+
+    scan = scan_prose(text + "\n", 25)
+
+    assert scan.all_long_unlinked_lines == ()
+    assert scan.has_pointer_line is True
+
+
+def test_scan_prose_counts_words_after_a_list_marker() -> None:
+    twenty_five = words_text(25)
+
+    assert scan_prose(f"- {twenty_five}\n", 25).all_long_unlinked_lines == ()
+    assert scan_prose(f"- {twenty_five} more\n", 25).all_long_unlinked_lines == (
+        f"- {twenty_five} more",
+    )
+
+
+def test_scan_prose_does_not_count_a_lone_dash_as_a_word() -> None:
+    twenty_five = words_text(25)
+
+    assert scan_prose(f"{twenty_five} -\n", 25).all_long_unlinked_lines == ()
+
+
+def test_scan_prose_reports_a_file_with_no_relative_link() -> None:
+    scan = scan_prose("Selection records own icon choice.\n", 25)
+
+    assert scan.has_detail_line is True
+    assert scan.has_pointer_line is False
+
+
+def test_scan_prose_of_blank_or_heading_only_text_has_no_detail_line() -> None:
+    assert scan_prose("", 25).has_detail_line is False
+    assert scan_prose("# Only a heading\n", 25).has_detail_line is False
+
+
+def test_import_line_counts_as_a_pointer_and_a_mention_does_not() -> None:
+    assert scan_prose("@AGENTS.md\n", 25).has_pointer_line is True
+    assert scan_prose("  @../shared/AGENTS.md\n", 25).has_pointer_line is True
+    assert scan_prose("@reviewer\n", 25).has_pointer_line is False
+    assert scan_prose("@reviewer review this\n", 25).has_pointer_line is False
+    assert scan_prose("@https://example.com/guide\n", 25).has_pointer_line is False
+    assert scan_prose("@MAILTO:team@example.com\n", 25).has_pointer_line is False
+
+
+def test_import_line_is_not_a_section_pointer() -> None:
+    all_scans = scan_sections("## Plan\n@reference/plan.md\n")
+
+    assert all_scans[1].has_pointer is False
