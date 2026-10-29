@@ -3407,6 +3407,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     allInstalledFiles.push(...ensureLinkedSkillFolder(
         INSTALL_ROOT_RESOLUTION.skillsLookupDirectory,
         INSTALL_ROOT_RESOLUTION.skillsInstallDirectory,
+        join(currentRunBackupRoot(), MANAGED_SKILLS_DIRECTORY_NAME),
     ));
     const manifestSkillNames = didPruneFinish
         ? [...installedSkillNames].sort()

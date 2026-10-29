@@ -182,6 +182,7 @@ function main() {
             '~/.claude/skills is a folder of skill links',
             existsSync(skillsDirectory)
                 && lstatSync(skillsDirectory).isDirectory()
+                && installedSkills.length > 0
                 && installedSkills.every((entry) => entry.isSymbolicLink()),
             skillsDirectory,
         );

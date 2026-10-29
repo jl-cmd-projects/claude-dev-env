@@ -254,3 +254,32 @@ test('ensureLinkedSkillFolder refuses a lookup link that aims at another directo
         rmSync(sandbox.root, { recursive: true, force: true });
     }
 });
+
+test('ensureLinkedSkillFolder moves a lookup file that conflicts with the agents home into the backup folder', () => {
+    const sandbox = makeSandbox();
+    const conflictBackup = join(sandbox.root, 'backup', 'skills');
+    try {
+        mkdirSync(join(sandbox.targetPath, 'shared-skill'), { recursive: true });
+        writeFileSync(join(sandbox.targetPath, 'shared-skill', 'SKILL.md'), 'agents home body\n');
+        mkdirSync(join(sandbox.pointerPath, 'shared-skill'), { recursive: true });
+        writeFileSync(join(sandbox.pointerPath, 'shared-skill', 'SKILL.md'), 'local edit\n');
+        writeFileSync(join(sandbox.pointerPath, 'shared-skill', 'extra.md'), 'lookup only\n');
+
+        ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath, conflictBackup);
+
+        assert.equal(
+            readFileSync(join(conflictBackup, 'shared-skill', 'SKILL.md'), 'utf8'),
+            'local edit\n',
+        );
+        assert.equal(
+            readFileSync(join(sandbox.targetPath, 'shared-skill', 'extra.md'), 'utf8'),
+            'lookup only\n',
+        );
+        assert.equal(
+            readFileSync(join(sandbox.pointerPath, 'shared-skill', 'SKILL.md'), 'utf8'),
+            'agents home body\n',
+        );
+    } finally {
+        rmSync(sandbox.root, { recursive: true, force: true });
+    }
+});
