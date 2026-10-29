@@ -21,7 +21,7 @@ def test_should_ship_only_digests_of_named_lengths() -> None:
         assert each_digest.length > 0
 
 
-def test_should_scan_messages_for_every_digest_accepted_in_a_commit_identity() -> None:
+def test_should_keep_every_identity_accepted_digest_among_the_private_terms() -> None:
     assert ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS <= ALL_PRIVATE_TERM_DIGESTS
 
 
