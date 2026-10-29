@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
+    has_zero_finding_open_review,
     is_clean_open_pass,
     open_receipt_path,
     receipt_path,
@@ -61,6 +62,27 @@ def test_should_reject_an_open_review_whose_rulings_cover_fewer_findings() -> No
     assert has_clean_open_review("tools", HEAD[:7]) is False
 
 
+def test_should_find_a_zero_finding_open_review_by_short_head() -> None:
+    _write_open_receipt(0)
+    assert has_zero_finding_open_review("tools", HEAD[:7]) is True
+
+
+@pytest.mark.parametrize(
+    "extra_fields",
+    [{}, {"ruled_out": 2, "rulings": ["a.py:1", "b.py:20"]}],
+)
+def test_should_reject_a_zero_finding_open_review_when_findings_were_reported(
+    extra_fields: dict[str, object],
+) -> None:
+    _write_open_receipt(2, extra_fields)
+    assert has_zero_finding_open_review("tools", HEAD[:7]) is False
+
+
+def test_should_reject_a_zero_finding_open_review_for_a_head_that_is_not_a_commit() -> None:
+    _write_open_receipt(0)
+    assert has_zero_finding_open_review("tools", "main") is False
+
+
 def test_should_count_an_open_pass_with_no_findings_as_clean() -> None:
     assert is_clean_open_pass({"head": HEAD, "findings": 0}) is True
 
@@ -86,6 +108,8 @@ def test_should_count_an_open_pass_with_every_finding_ruled_out_as_clean() -> No
         {"ruled_out": 2, "rulings": ["a.py:1", "see the thread"]},
         {"ruled_out": 2, "rulings": ["a.py:1", "b.py:0"]},
         {"ruled_out": 2, "rulings": ["a.py:1", 7]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "a.py:1"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "b.py:2", "a.py:1"]},
         {"ruled_out": True, "rulings": ["a.py:1", "b.py:2"]},
     ],
 )

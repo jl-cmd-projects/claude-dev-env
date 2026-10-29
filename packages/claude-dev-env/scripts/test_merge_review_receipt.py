@@ -225,6 +225,7 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "a.py:1,missing.py:1",
         "a.py:1,docs:1",
         "a.py:1,a.py:0",
+        "a.py:1,a.py:1",
         "see the thread,a.py:3",
     ],
 )

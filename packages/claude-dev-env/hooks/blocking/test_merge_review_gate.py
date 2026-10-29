@@ -388,6 +388,13 @@ def test_should_allow_a_merge_pinned_to_the_head_reviewed_clean_before_open() ->
     assert _reason(_bash(command)) is None
 
 
+def test_should_deny_a_merge_pinned_to_a_head_whose_open_pass_only_ruled_findings_out() -> None:
+    merge_review_receipt.record_open_review(
+        "acme/tools", CLEAN_HEAD, 2, 2, ["a.py:1", "b.py:2"]
+    )
+    assert "no clean review" in _reason(_merge_tool(CLEAN_HEAD))
+
+
 def test_should_deny_a_merge_pinned_past_the_head_reviewed_before_open() -> None:
     merge_review_receipt.record_open_review("acme/tools", CLEAN_HEAD, 0)
     assert "no clean review" in _reason(_merge_tool(NEW_HEAD))

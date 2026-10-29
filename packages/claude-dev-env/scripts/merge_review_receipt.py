@@ -19,15 +19,17 @@ number, and records the head it reviewed::
     python3 merge_review_receipt.py owner/name open def5678 0   -> CLEAN owner/name open def5678
 
 No pull request exists to hold a rulings comment, so an ``open`` pass rules
-out its findings with one ``path:line`` for each, run in the checkout that
-holds the head. Each line must exist in the file at that head::
+out its findings with a different ``path:line`` for each, run in the checkout
+that holds the head. Each line must exist in the file at that head::
 
     python3 merge_review_receipt.py owner/name open def5678 2 --ruled-out 2 --rulings a.py:1,b.py:20
         -> CLEAN owner/name open def5678 (2 findings ruled out: a.py:1,b.py:20)
 
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
 the newest pass only when that pass is clean. It allows a pull request open
-whose head has a clean ``open`` pass, and a merge pinned to that same head.
+whose head has a clean ``open`` pass. It allows a merge pinned to that same
+head only when the ``open`` pass found zero findings. Ruled-out findings need
+a numbered pass that links the rulings comment on the pull request.
 """
 
 from __future__ import annotations
@@ -168,12 +170,15 @@ def _checked_open_rulings(
     ]
     if len(all_rulings) != parsed.ruled_out:
         parser.error("--rulings needs one path:line for each finding --ruled-out counts")
+    if len(set(all_rulings)) != len(all_rulings):
+        parser.error("--rulings needs a different path:line for each finding")
     all_unproven = [
         each_ruling for each_ruling in all_rulings if not _holds_line(parsed.head, each_ruling)
     ]
     if all_unproven:
         parser.error(
-            f"{parsed.head} holds no file and line at {RULING_SEPARATOR.join(all_unproven)}"
+            f"run this in the checkout that holds {parsed.head}; it has no file and line at "
+            f"{RULING_SEPARATOR.join(all_unproven)}"
         )
     return all_rulings
 
@@ -186,9 +191,10 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    record_open_review(parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings)
-    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, all_rulings)
-    if is_clean_open_pass(receipt):
+    written_path = record_open_review(
+        parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings
+    )
+    if is_clean_open_pass(json.loads(written_path.read_text(encoding="utf-8"))):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"
             if parsed.ruled_out
@@ -222,7 +228,14 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
     parser.add_argument(
         "--ruled-out", type=int, default=0, help="Findings ruled out with file:line evidence."
     )
-    parser.add_argument("--rulings", default="", help="Link to the posted rulings.")
+    parser.add_argument(
+        "--rulings",
+        default="",
+        help=(
+            "Link to the posted rulings. For an open pass, a different path:line for each "
+            "ruled out finding, comma separated."
+        ),
+    )
     parsed = parser.parse_args(all_arguments)
     rulings = parsed.rulings.strip()
     if not REPOSITORY_SLUG_PATTERN.fullmatch(parsed.slug) or ".." in parsed.slug:
