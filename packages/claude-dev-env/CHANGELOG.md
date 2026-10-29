@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.0...claude-dev-env-v8.109.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** deny an unrun or post-merge line in a pull request's proof ([#2241](https://github.com/jl-cmd-projects/claude-dev-env/issues/2241)) ([ab9578d](https://github.com/jl-cmd-projects/claude-dev-env/commit/ab9578d1e9fbfc2435e47a1e61563dc103e80334))
+
 ## [8.109.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.3...claude-dev-env-v8.109.0) (2026-10-29)
 
 
