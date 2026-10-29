@@ -1,7 +1,7 @@
 ---
 name: build-eval
 description: >-
-  Evaluate skills with a bounded Codex review suite or `claude plugin eval`.
+  Evaluate skills with a bounded direct Codex review suite or `claude plugin eval`.
   Use labeled inputs and deterministic grading for output correctness; use a plugin
   wrapper and with/without-plugin comparisons for discovery and contribution.
   Use when the user asks to eval or test a skill, asks whether a context file is
