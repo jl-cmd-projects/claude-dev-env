@@ -133,7 +133,7 @@ RAW_TWO_PATH_STATUS_LETTERS = (RAW_RENAME_STATUS_LETTER, "C")
 COMPARE_FILE_STATUS_QUERY = (
     '.files[] | [(if .status == "renamed" and .changes == 0 then "'
     + PURE_RENAME_STATUS
-    + '" else .status end)] + [.previous_filename // empty, .filename] | @tsv'
+    + '" else .status end)] + [.previous_filename // empty, .filename] | join("\\t")'
 )
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
