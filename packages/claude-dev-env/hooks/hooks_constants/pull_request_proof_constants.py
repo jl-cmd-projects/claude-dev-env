@@ -124,7 +124,6 @@ GIT_TIMEOUT_SECONDS = 5
 GH_TIMEOUT_SECONDS = 15
 COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
 PURE_RENAME_STATUS = "R100"
-STATUS_FIELD_SEPARATOR = "\t"
 RAW_RECORD_PREFIX = ":"
 RAW_RENAME_PATH_COUNT = 2
 RAW_HEADER_FIELD_COUNT = 5
@@ -133,7 +132,7 @@ RAW_TWO_PATH_STATUS_LETTERS = (RAW_RENAME_STATUS_LETTER, "C")
 COMPARE_FILE_STATUS_QUERY = (
     '.files[] | [(if .status == "renamed" and .changes == 0 then "'
     + PURE_RENAME_STATUS
-    + '" else .status end)] + [.previous_filename // empty, .filename] | join("\\t")'
+    + '" else .status end), (.previous_filename // ""), .filename] | @json'
 )
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"

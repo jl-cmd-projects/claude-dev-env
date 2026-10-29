@@ -400,6 +400,10 @@ def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(
     assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
 
 
+def _compare_line(status: str, old_path: str, path: str) -> str:
+    return json.dumps([status, old_path, path], separators=(",", ":"), ensure_ascii=False)
+
+
 def _fake_gh_api(all_responses: dict[str, list[str] | None], all_endpoints: list[str]):
     def fake_gh_api_lines(endpoint: str, query: str) -> list[str] | None:
         all_endpoints.append(endpoint)
@@ -419,7 +423,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\ttool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints))
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
     assert gate.missing_look_reason(payload) is None
     assert all_endpoints == [compare_endpoint]
@@ -428,7 +432,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": ["M\tweb/page.html", "M\ttool.py"]}
+    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": [_compare_line("M", "", "web/page.html"), _compare_line("M", "", "tool.py")]}
     all_endpoints: list[str] = []
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "-R o/r --head=feature"))
@@ -488,7 +492,7 @@ def _stub_compare(monkeypatch: pytest.MonkeyPatch, all_lines: list[str]) -> None
 def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _stub_compare(monkeypatch, ["R100\tasset-specs.html\treferences/asset-specs.html", "added\ttool.py"])
+    _stub_compare(monkeypatch, [_compare_line("R100", "asset-specs.html", "references/asset-specs.html"), _compare_line("added", "", "tool.py")])
     assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
     assert gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")) is None
 
@@ -496,14 +500,14 @@ def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
 def test_should_keep_a_compare_listed_pure_rename_from_a_hidden_suffix_to_a_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _stub_compare(monkeypatch, ["R100\tnotes.txt\tsite/notes.html"])
+    _stub_compare(monkeypatch, [_compare_line("R100", "notes.txt", "site/notes.html")])
     assert gate.remote_visible_changed_files("o/r", "main", "feature") == ["site/notes.html"]
 
 
 def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _stub_compare(monkeypatch, ["renamed\tasset-specs.html\treferences/asset-specs.html"])
+    _stub_compare(monkeypatch, [_compare_line("renamed", "asset-specs.html", "references/asset-specs.html")])
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
     assert reason is not None
     assert "references/asset-specs.html" in reason
@@ -513,7 +517,7 @@ def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_rena
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_lines = [
-        f"R100\told/skill_{each_index}/page.html\tskills/skill_{each_index}/page.html"
+        _compare_line("R100", f"old/skill_{each_index}/page.html", f"skills/skill_{each_index}/page.html")
         for each_index in range(COMPARE_FILE_LIST_LIMIT)
     ]
     _stub_compare(monkeypatch, all_lines)
@@ -529,6 +533,7 @@ def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -
             {"status": "renamed", "changes": 0, "previous_filename": "a/x.html", "filename": "b/x.html"},
             {"status": "renamed", "changes": 3, "previous_filename": "a/y.html", "filename": "b/y.html"},
             {"status": "added", "changes": 5, "filename": "c.py"},
+            {"status": "modified", "changes": 2, "filename": "we\tird\nname.html"},
         ]
     }
     completed = subprocess.run(
@@ -538,7 +543,17 @@ def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -
         text=True,
         check=True,
     )
-    assert completed.stdout.splitlines() == ["R100\ta/x.html\tb/x.html", "renamed\ta/y.html\tb/y.html", "added\tc.py"]
+    assert completed.stdout.splitlines() == [
+        _compare_line("R100", "a/x.html", "b/x.html"),
+        _compare_line("renamed", "a/y.html", "b/y.html"),
+        _compare_line("added", "", "c.py"),
+        _compare_line("modified", "", "we\tird\nname.html"),
+    ]
+
+
+def test_should_report_an_unparseable_compare_line_as_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_compare(monkeypatch, ["not json"])
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
 
 
 def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
@@ -590,7 +605,7 @@ def test_should_deny_as_unreadable_when_the_compare_api_fails(
 
 
 def _python_status_lines(count: int) -> list[str]:
-    return [f"M\tpkg/module_{each_index}.py" for each_index in range(count)]
+    return [_compare_line("M", "", f"pkg/module_{each_index}.py") for each_index in range(count)]
 
 
 def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_file(
@@ -630,7 +645,7 @@ def test_should_deny_a_visible_file_on_a_full_compare_page(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    all_paths = [*_python_status_lines(COMPARE_FILE_LIST_LIMIT - 1), "M\tweb/page.html"]
+    all_paths = [*_python_status_lines(COMPARE_FILE_LIST_LIMIT - 1), _compare_line("M", "", "web/page.html")]
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_paths}, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
     assert reason is not None
@@ -643,7 +658,7 @@ def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artif
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\tpage.html"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "page.html")]}, all_endpoints))
     body_path = tmp_path / "body.md"
     body_path.write_text(PROVEN_BODY + "https://claude.ai/code/artifact/abc-123\n", encoding="utf-8")
     payload = _shell(
@@ -669,7 +684,7 @@ def test_should_read_owner_and_repo_of_an_mcp_create_for_the_compare_api(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\ttool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints))
     payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
     payload["tool_input"].update(owner="o", repo="r", base="main")
     assert gate.missing_look_reason(payload) is None

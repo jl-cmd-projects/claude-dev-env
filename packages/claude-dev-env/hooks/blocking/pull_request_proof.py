@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -20,13 +21,6 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_GH_EDIT_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
-    PURE_RENAME_STATUS,
-    RAW_HEADER_FIELD_COUNT,
-    RAW_RECORD_PREFIX,
-    RAW_RENAME_STATUS_LETTER,
-    RAW_RENAME_PATH_COUNT,
-    RAW_TWO_PATH_STATUS_LETTERS,
-    STATUS_FIELD_SEPARATOR,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     DEFERRED_PROOF_REASON,
@@ -58,6 +52,12 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_PROOF_REASON,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
+    PURE_RENAME_STATUS,
+    RAW_HEADER_FIELD_COUNT,
+    RAW_RECORD_PREFIX,
+    RAW_RENAME_PATH_COUNT,
+    RAW_RENAME_STATUS_LETTER,
+    RAW_TWO_PATH_STATUS_LETTERS,
     PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_EDIT_WORD,
@@ -738,14 +738,14 @@ def _git_changes(all_raw_fields: list[str]) -> list[ChangedFile] | None:
     return all_changes
 
 
-def _compare_changes(all_status_lines: list[str]) -> list[ChangedFile]:
+def _compare_changes(all_json_lines: list[str]) -> list[ChangedFile] | None:
     all_changes = []
-    for each_line in all_status_lines:
-        all_fields = each_line.split(STATUS_FIELD_SEPARATOR)
-        old_path = all_fields[1] if len(all_fields) > 2 else ""
-        all_changes.append(
-            ChangedFile(path=all_fields[-1], old_path=old_path, is_pure_rename=all_fields[0] == PURE_RENAME_STATUS)
-        )
+    for each_line in all_json_lines:
+        try:
+            status, old_path, path = json.loads(each_line)
+        except (ValueError, TypeError):
+            return None
+        all_changes.append(ChangedFile(path=path, old_path=old_path, is_pure_rename=status == PURE_RENAME_STATUS))
     return all_changes
 
 
@@ -805,7 +805,10 @@ def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) 
     )
     if all_status_lines is None:
         return None
-    all_visible_paths = _visible_paths(_compare_changes(all_status_lines))
+    all_changes = _compare_changes(all_status_lines)
+    if all_changes is None:
+        return None
+    all_visible_paths = _visible_paths(all_changes)
     if all_visible_paths or len(all_status_lines) < COMPARE_FILE_LIST_LIMIT:
         return all_visible_paths
     return None
