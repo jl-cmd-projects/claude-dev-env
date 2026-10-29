@@ -1039,3 +1039,82 @@ def test_unproven_line_should_ignore_a_checkout_that_belongs_to_another_reposito
         "cwd": str(other_checkout),
     }
     assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_unproven_line_should_pass_when_a_negation_sits_in_an_earlier_comma_clause(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = (
+        "\n## After merge\n\n- `release-hold.yml` cannot run on pull requests, so the agent records the run link.\n"
+    )
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) is None
+
+
+def test_unproven_line_should_pass_when_one_sentence_names_a_recorder_beside_a_negated_one(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = (
+        "\n## After merge\n\n- Nobody records the run link for ci.yml. The agent records the run link of `release-hold.yml`.\n"
+    )
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) is None
+
+
+def test_unproven_line_should_stay_denied_when_the_recorder_records_nothing(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = "\n## After merge\n\n- Runs `release-hold.yml`. The agent records nothing; the run link is lost.\n"
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_unproven_line_should_stay_denied_when_the_line_is_about_another_live_run(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    unrelated_line = "Not proven here: the live Convert run on Windows."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(UNPROVEN_RUN_LINE, unrelated_line)
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
+
+
+@pytest.mark.parametrize(
+    ("origin_url", "repository", "expected"),
+    [
+        ("https://github.com/o/r.git", "o/r", True),
+        ("git@github.com:o/r.git", "o/r", True),
+        ("https://github.com/foo/r", "o/r", False),
+        ("https://github.com/o/r", None, True),
+    ],
+)
+def test_checkout_should_belong_to_the_target_repository_only_on_a_full_name_match(
+    tmp_path: Path, origin_url: str, repository: str | None, expected: bool
+) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", origin_url], check=True)
+    assert gate._checkout_is_for(str(tmp_path), repository) is expected
+
+
+def test_unproven_line_should_use_the_compare_api_when_a_matching_checkout_lists_no_added_workflow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stale_checkout = _repository_with_change(tmp_path, "tool.py")
+    subprocess.run(
+        ["git", "-C", str(stale_checkout), "remote", "set-url", "origin", "https://github.com/o/r.git"], check=True
+    )
+    added_path = f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: _workflow_compare_lines(2, [added_path])}, [])
+    )
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {
+            "owner": "o",
+            "repo": "r",
+            "base": "main",
+            "head": "feature",
+            "title": "t",
+            "body": _workflow_body(AFTER_MERGE_SECTION),
+        },
+        "cwd": str(stale_checkout),
+    }
+    assert gate.missing_proof_reason(payload) is None

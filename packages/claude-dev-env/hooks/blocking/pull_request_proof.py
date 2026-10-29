@@ -22,6 +22,7 @@ from hooks_constants.pull_request_proof_constants import (
     AFTER_MERGE_HEADING_PATTERN,
     AFTER_MERGE_NO_RECORDER_PATTERN,
     AFTER_MERGE_RECORDER_PATTERN,
+    AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN,
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
@@ -735,7 +736,7 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     all_workflow_paths = None
     if _checkout_is_for(working_directory, repository):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
-    if all_workflow_paths is None:
+    if not all_workflow_paths:
         all_workflow_paths = remote_added_workflow_files(
             repository, _named_base_branch(all_payload_fields), head_branch
         )
@@ -746,7 +747,10 @@ def _checkout_is_for(working_directory: str, repository: str | None) -> bool:
     if repository is None:
         return True
     all_origin_lines = _git_lines(working_directory, "remote", "get-url", "origin") if working_directory else None
-    return bool(all_origin_lines) and all_origin_lines[0].lower().removesuffix(GIT_URL_SUFFIX).endswith(repository.lower())
+    if not all_origin_lines:
+        return False
+    origin_url = all_origin_lines[0].lower().removesuffix(GIT_URL_SUFFIX)
+    return origin_url.endswith(("/" + repository.lower(), ":" + repository.lower()))
 
 
 def _admissions_wait_for_merge(
@@ -793,7 +797,7 @@ def _covered_workflow_names(body: str, all_payload_fields: Mapping[str, object])
     its live run cannot come before the merge. The section must name the added
     workflow file in backticks, by file name or by its full path, and say who
     records the run or its link in prose. Code spans and fenced blocks do not
-    count as that prose. A negation ahead of the verb in its sentence fails it.
+    count as that prose. A sentence with a negation ahead of the verb does not count.
 
     Args:
         body: The pull request body.
@@ -820,9 +824,10 @@ def _text_outside_fences(section: str) -> str:
 
 
 def _prose_names_a_recorder(prose: str) -> bool:
-    return (
-        re.search(AFTER_MERGE_RECORDER_PATTERN, prose, re.IGNORECASE) is not None
-        and re.search(AFTER_MERGE_NO_RECORDER_PATTERN, prose, re.IGNORECASE) is None
+    return any(
+        re.search(AFTER_MERGE_RECORDER_PATTERN, each_sentence, re.IGNORECASE) is not None
+        and re.search(AFTER_MERGE_NO_RECORDER_PATTERN, each_sentence, re.IGNORECASE) is None
+        for each_sentence in re.split(AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN, prose)
     )
 
 
