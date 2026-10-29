@@ -1,7 +1,7 @@
 ---
 name: mod-playbooks
 description: >-
-  Playbooks for driving a Claude Code mod: press keys, open menus, type in fields, capture screens as text and PNG. Use to test a mod, check a fix visually, or show a mod to the operator.
+  Playbooks for driving a Claude Code mod: press keys, open menus, type in fields, capture screens as text and PNG. Use when testing a mod, checking a fix visually, or showing a mod to the operator.
 ---
 
 # Mod playbooks
