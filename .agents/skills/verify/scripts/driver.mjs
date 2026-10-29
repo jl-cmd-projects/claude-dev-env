@@ -182,7 +182,7 @@ function main() {
             '~/.claude/skills is a folder of skill links',
             existsSync(skillsDirectory)
                 && lstatSync(skillsDirectory).isDirectory()
-                && installedSkills.every((entry) => lstatSync(join(skillsDirectory, entry.name)).isSymbolicLink()),
+                && installedSkills.every((entry) => entry.isSymbolicLink()),
             skillsDirectory,
         );
         const sampleSkillName = installedSkills.find((entry) => existsSync(join(skillsDirectory, entry.name, 'SKILL.md')))?.name;

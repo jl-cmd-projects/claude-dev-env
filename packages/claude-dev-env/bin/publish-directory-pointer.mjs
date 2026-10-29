@@ -177,7 +177,7 @@ export function unlinkDirectoryPointerIfMatch(pointerPath, targetPath) {
  * @param {string} absolutePath
  * @returns {'missing' | 'symlink' | 'directory' | 'file' | 'other'}
  */
-function readPathKind(absolutePath) {
+export function readPathKind(absolutePath) {
     let stats;
     try {
         stats = lstatSync(absolutePath);

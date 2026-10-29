@@ -116,6 +116,7 @@ import {
     ensureDirectoryPointer,
     ensureLinkedSkillFolder,
     POINTER_ACTION_CREATED,
+    readPathKind,
 } from './publish-directory-pointer.mjs';
 import {
     parseInstallTargetSelectionFromArgv,
@@ -2565,12 +2566,7 @@ function pruneRetiredSkills(installedSkillNames, priorManifestSkills) {
 function isRecordThroughLink(filePath, lookupRoot) {
     const firstSegment = relative(lookupRoot, resolve(filePath)).split(sep)[0];
     if (firstSegment === '' || firstSegment === '..') return false;
-    return lstatSync(join(lookupRoot, firstSegment), { throwIfNoEntry: false })?.isSymbolicLink() === true;
-}
-
-function isSkillLinkRecord(filePath, rootName, lookupRoot) {
-    return rootName === MANAGED_SKILLS_DIRECTORY_NAME
-        && dirname(resolve(filePath)) === resolve(lookupRoot);
+    return readPathKind(join(lookupRoot, firstSegment)) === 'symlink';
 }
 
 function pruneStaleFilesAcrossManagedRoots(priorInstalledFiles, currentInstalledFiles, backupRoot) {
@@ -2615,7 +2611,8 @@ function pruneStaleFilesAcrossManagedRoots(priorInstalledFiles, currentInstalled
         const canonicalPriorFiles = priorInstalledFiles === null
             ? null
             : priorInstalledFiles
-                .filter(filePath => !isSkillLinkRecord(filePath, rootName, lookupRoot))
+                .filter(filePath => !(rootName === MANAGED_SKILLS_DIRECTORY_NAME
+                    && dirname(resolve(filePath)) === resolve(lookupRoot)))
                 .map(toCanonicalPath);
         const canonicalBackupRoot = rootName === MANAGED_SKILLS_DIRECTORY_NAME
             ? join(backupRoot, rootName)
