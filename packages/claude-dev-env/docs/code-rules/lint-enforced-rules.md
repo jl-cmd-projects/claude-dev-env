@@ -34,7 +34,7 @@ The roster covers imports at top, logging format arguments, hardcoded home paths
 
 ## Proving it
 
-A breach produces a rule finding; advisory checks write to stderr.
+Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
 - check_class_docstring_names_public_methods: a class summary omitting its public methods; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_class_docstring_methods.py::test_should_flag_single_line_docstring_omitting_two_public_methods` reports a named violation.
 - check_docstring_args_match_signature: an Args entry absent from the signature; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_docstring_args_signature.py::test_should_flag_documented_arg_not_in_signature` reports a named violation.

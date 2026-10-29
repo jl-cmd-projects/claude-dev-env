@@ -24,7 +24,7 @@ A member loop catches a declared ItemBlocked type inside the loop, records the m
 
 ## Proving it
 
-A breach produces a rule finding; advisory checks write to stderr.
+Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
 - check_function_length: a function at the blocking length threshold; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_function_length.py::test_should_block_at_sixty_lines` reports a blocking violation naming the function.
 - check_blast_radius_declared: a raise inside a loop body with no declared handler; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_blast_radius.py::test_should_report_a_loop_raise_with_pending_blast_radius_declaration` reports an advisory. A RunFatal raise or an ItemBlocked raise inside a loop passes.

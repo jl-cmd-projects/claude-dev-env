@@ -28,7 +28,7 @@ A value used once stays in its function under a local name, such as `retry_backo
 
 ## Proving it
 
-A breach produces a rule finding; advisory checks write to stderr.
+Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
 - check_config_duplicate_path_anchor: two config constants pointing at the same path; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_config_duplicate_path_anchor.py::test_should_flag_reanchored_base_already_built_by_sibling` reports a named violation.
 - check_constants_outside_config: UPPER_SNAKE = 3 in a production module; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_config_path.py::test_should_produce_blocking_for_module_level_upper_snake_outside_config` reports a named violation.

@@ -27,7 +27,7 @@ The TDD loop is the default for bug fixes and new behavior. A prototype may prec
 
 ## Proving it
 
-A breach produces a rule finding; advisory checks write to stderr.
+Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
 
 - check_e2e_test_naming: a spec test name containing online; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_e2e_test_naming.py::test_should_flag_online_word_in_spec_test_name` reports a line-numbered violation.
 - check_public_function_missing_paired_test: a new public function absent from its established suite; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_paired_test.py::test_flags_public_function_absent_from_established_suite` reports a named violation.
