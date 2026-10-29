@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.2...claude-dev-env-v8.109.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* **private-terms:** accept the shared agent account address in a commit identity ([#2242](https://github.com/jl-cmd-projects/claude-dev-env/issues/2242)) ([b9f6c8c](https://github.com/jl-cmd-projects/claude-dev-env/commit/b9f6c8c65aaa7c23c8764d63299eeba36d838f86))
+
 ## [8.109.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.1...claude-dev-env-v8.109.2) (2026-10-29)
 
 
