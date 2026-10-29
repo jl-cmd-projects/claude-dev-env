@@ -128,7 +128,8 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
  * is left alone. A per-skill link that aims at another directory is left in
  * place. A link whose target under
  * installDirectory is gone is removed. A symbolic link inside installDirectory
- * is not linked here, which keeps plugin links out of this folder. A
+ * is not linked here, which keeps plugin links out of this folder and leaves a
+ * skill a user linked there without an entry. A
  * directory in lookupDirectory that installDirectory lacks is a personal skill
  * and stays where it is. A file in a same-named lookup directory that
  * installDirectory already holds moves to conflictBackupDirectory before the
@@ -138,7 +139,7 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
  * @param {string} installDirectory Canonical skills folder (for example `~/.agents/skills`).
  * @param {string} conflictBackupDirectory Folder that receives displaced lookup files.
  * @returns {{ createdLinkPaths: string[], linkPaths: string[] }} The links this
- *   call created, and every link that points at a shipped skill after the call.
+ *   call created, and every link to a directory in installDirectory after the call.
  */
 export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, conflictBackupDirectory) {
     const resolvedLookup = resolve(lookupDirectory);
