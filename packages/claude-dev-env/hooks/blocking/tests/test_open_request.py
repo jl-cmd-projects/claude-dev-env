@@ -144,6 +144,28 @@ def test_should_read_no_head_when_the_github_lookup_fails(
     )
 
 
+def test_should_look_up_the_github_branch_with_every_sign_in_prompt_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_captured_environments: list[dict[str, str]] = []
+
+    def stand_in_run(
+        all_arguments: list[str], **keyword_arguments: object
+    ) -> subprocess.CompletedProcess[str]:
+        all_captured_environments.append(dict(keyword_arguments["env"]))
+        return subprocess.CompletedProcess(all_arguments, 1, stdout="", stderr="")
+
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "1")
+    monkeypatch.setenv("GCM_INTERACTIVE", "always")
+    monkeypatch.setattr(subprocess, "run", stand_in_run)
+    assert open_request_from(_create_payload("feature", tmp_path)) == OpenRequest(
+        owner="acme", repo="tools", head=None
+    )
+    (lookup_environment,) = all_captured_environments
+    assert lookup_environment["GIT_TERMINAL_PROMPT"] == "0"
+    assert lookup_environment["GCM_INTERACTIVE"] == "never"
+
+
 def test_should_return_none_for_a_command_that_opens_nothing(tmp_path: Path) -> None:
     assert open_request_from(_shell_payload("gh pr merge 12", tmp_path)) is None
 

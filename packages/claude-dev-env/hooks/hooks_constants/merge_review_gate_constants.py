@@ -41,8 +41,7 @@ REMOTE_LOOKUP_TIMEOUT_SECONDS = 5
 GITHUB_REMOTE_URL_TEMPLATE = "https://github.com/{owner}/{repo}.git"
 REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 LS_REMOTE_FIELD_SEPARATOR = "\t"
-GIT_TERMINAL_PROMPT_VARIABLE = "GIT_TERMINAL_PROMPT"
-GIT_TERMINAL_PROMPT_DISABLED = "0"
+ALL_NON_INTERACTIVE_GIT_SETTINGS = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
@@ -62,7 +61,10 @@ RULINGS_LINK_PATTERN = re.compile(
     r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
     r"#issuecomment-\d+"
 )
-RULING_REFERENCE_PATTERN = re.compile(r"(?P<path>[^\s:,]+):(?P<line>[1-9]\d*)")
+RULING_PATH_SEGMENT = r"(?!\.{1,2}(?![^\x00-\x1f:,/]))[^\x00-\x1f:,/]+"
+RULING_REFERENCE_PATTERN = re.compile(
+    r"(?P<path>" + RULING_PATH_SEGMENT + r"(?:/" + RULING_PATH_SEGMENT + r")*):(?P<line>[1-9]\d*)"
+)
 RULING_SEPARATOR = ","
 RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")

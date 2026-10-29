@@ -13,6 +13,7 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from hooks_constants.merge_review_gate_constants import (
+    ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
     CHANGE_FOLDER_PATTERN,
@@ -22,8 +23,6 @@ from hooks_constants.merge_review_gate_constants import (
     CWD_FIELD,
     GH_PR_CREATE_PATTERN,
     GITHUB_REMOTE_URL_TEMPLATE,
-    GIT_TERMINAL_PROMPT_DISABLED,
-    GIT_TERMINAL_PROMPT_VARIABLE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
@@ -141,7 +140,7 @@ def _run_git(
             text=True,
             timeout=timeout_seconds,
             check=False,
-            env={**os.environ, GIT_TERMINAL_PROMPT_VARIABLE: GIT_TERMINAL_PROMPT_DISABLED},
+            env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
         )
     except (OSError, subprocess.SubprocessError):
         return None

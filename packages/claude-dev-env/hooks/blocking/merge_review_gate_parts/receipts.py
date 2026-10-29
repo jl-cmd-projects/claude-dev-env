@@ -183,10 +183,9 @@ def is_clean_open_pass(all_receipt_fields: dict[str, object]) -> bool:
         True when the pass counts as clean.
     """
     finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
-    if not _is_count(finding_count):
-        return False
-    return finding_count == 0 or _rules_out_every_finding_at_file_and_line(
-        all_receipt_fields, finding_count
+    return _reports_no_findings(all_receipt_fields) or (
+        _is_count(finding_count)
+        and _rules_out_every_finding_at_file_and_line(all_receipt_fields, finding_count)
     )
 
 

@@ -168,6 +168,7 @@ def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     (checkout / "a.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
     (checkout / "docs").mkdir()
     (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
+    (checkout / "docs" / "my notes.txt").write_text("spaced\nname\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(checkout), "add", "a.py", "docs"], check=True)
     subprocess.run(
         [
@@ -217,6 +218,19 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
     }
 
 
+def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "open", head, "2", "--ruled-out", "2", "--rulings", "docs/my notes.txt:2,a.py:3"],
+        StringIO(),
+    )
+    assert exit_code == 0
+    receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
+    assert receipt["rulings"] == ["docs/my notes.txt:2", "a.py:3"]
+
+
 @pytest.mark.parametrize(
     "rulings",
     [
@@ -226,6 +240,8 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "a.py:1,docs:1",
         "a.py:1,a.py:0",
         "a.py:1,a.py:1",
+        "a.py:1,./a.py:1",
+        "a.py:1,docs/../a.py:1",
         "see the thread,a.py:3",
     ],
 )

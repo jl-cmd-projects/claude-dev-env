@@ -97,6 +97,16 @@ def test_should_count_an_open_pass_with_every_finding_ruled_out_as_clean() -> No
     assert is_clean_open_pass(all_receipt_fields) is True
 
 
+def test_should_count_an_open_pass_ruled_out_at_paths_with_spaces_and_dots_as_clean() -> None:
+    all_receipt_fields = {
+        "head": HEAD,
+        "findings": 3,
+        "ruled_out": 3,
+        "rulings": ["docs/My Notes.md:4", ".github/ci.yml:2", "src/..hidden/a.py:9"],
+    }
+    assert is_clean_open_pass(all_receipt_fields) is True
+
+
 @pytest.mark.parametrize(
     "extra_fields",
     [
@@ -110,6 +120,11 @@ def test_should_count_an_open_pass_with_every_finding_ruled_out_as_clean() -> No
         {"ruled_out": 2, "rulings": ["a.py:1", 7]},
         {"ruled_out": 2, "rulings": ["a.py:1", "a.py:1"]},
         {"ruled_out": 2, "rulings": ["a.py:1", "b.py:2", "a.py:1"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "./a.py:1"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "docs/../a.py:2"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "/a.py:2"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "docs//notes.txt:1"]},
+        {"ruled_out": 2, "rulings": ["a.py:1", "docs/:1"]},
         {"ruled_out": True, "rulings": ["a.py:1", "b.py:2"]},
     ],
 )
