@@ -33,6 +33,7 @@ from hooks_constants.npx_pele_guidance_constants import (
     ABSENT_GUIDANCE_TEMPLATE,
     ALL_PELE_ENTRY_PATH_PARTS,
     COMMAND_INPUT_KEY,
+    HEREDOC_BODY_PATTERN,
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
     NPX_PELE_COMMAND_PATTERN,
@@ -50,20 +51,32 @@ from hooks_constants.spawn_readiness_hook_constants import (
 from open_task_asks import claude_home
 
 
-def pele_package_directory() -> Path:
-    """Return the folder a Claude install keeps its Pele package in.
+def pele_package_directory_under(claude_root: Path) -> Path:
+    """Return the folder a Claude root keeps its Pele package in.
+
+    Args:
+        claude_root: The Claude home, or the root an install was given.
 
     Returns:
-        ``<claude home>/tools/pele/node_modules/pele``, where the claude-dev-env
+        ``<claude_root>/tools/pele/node_modules/pele``, where the claude-dev-env
         installer places Pele.
     """
     return (
-        claude_home()
+        claude_root
         / PELE_TOOLS_DIRECTORY_NAME
         / PELE_PACKAGE_NAME
         / NODE_MODULES_DIRECTORY_NAME
         / PELE_PACKAGE_NAME
     )
+
+
+def pele_package_directory() -> Path:
+    """Return the folder the Claude home keeps its Pele package in.
+
+    Returns:
+        The Pele package folder under the Claude home.
+    """
+    return pele_package_directory_under(claude_home())
 
 
 def installed_pele_version(package_directory: Path) -> str | None:
@@ -96,14 +109,15 @@ def is_npx_pele_command(tool_input: object) -> bool:
         True when a command segment runs ``npx pele``, ``npx -y pele``,
         ``npm exec pele``, or a versioned form of those. Leading environment
         assignments and wrapper words such as sudo or timeout may precede them,
-        and quoted text does not count.
+        and quoted text and heredoc bodies do not count.
     """
     if not isinstance(tool_input, dict):
         return False
     command_text = tool_input.get(COMMAND_INPUT_KEY)
     if not isinstance(command_text, str):
         return False
-    unquoted_text = QUOTED_SPAN_PATTERN.sub(" ", command_text)
+    plain_text = HEREDOC_BODY_PATTERN.sub(" ", command_text)
+    unquoted_text = QUOTED_SPAN_PATTERN.sub(" ", plain_text)
     return NPX_PELE_COMMAND_PATTERN.search(unquoted_text) is not None
 
 

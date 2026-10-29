@@ -8,6 +8,7 @@ __all__ = [
     "ABSENT_GUIDANCE_TEMPLATE",
     "ALL_PELE_ENTRY_PATH_PARTS",
     "COMMAND_INPUT_KEY",
+    "HEREDOC_BODY_PATTERN",
     "INSTALLED_GUIDANCE_TEMPLATE",
     "NODE_MODULES_DIRECTORY_NAME",
     "NPX_PELE_COMMAND_PATTERN",
@@ -24,6 +25,7 @@ NPX_PELE_COMMAND_PATTERN = re.compile(
     r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)])"
 )
 QUOTED_SPAN_PATTERN = re.compile(r"\"[^\"]*\"|'[^']*'")
+HEREDOC_BODY_PATTERN = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?^\s*\2\s*$", re.DOTALL | re.MULTILINE)
 COMMAND_INPUT_KEY = "command"
 PELE_PACKAGE_NAME = "pele"
 PELE_TOOLS_DIRECTORY_NAME = "tools"

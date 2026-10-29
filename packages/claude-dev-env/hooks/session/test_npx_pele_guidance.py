@@ -14,10 +14,8 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
 
 import npx_pele_guidance
 from hooks_constants.npx_pele_guidance_constants import (
-    NODE_MODULES_DIRECTORY_NAME,
     PACKAGE_MANIFEST_NAME,
     PELE_PACKAGE_NAME,
-    PELE_TOOLS_DIRECTORY_NAME,
 )
 
 HOOK_SCRIPT = _SESSION_DIR / "npx_pele_guidance.py"
@@ -27,18 +25,8 @@ JS_FENCE_CLOSE = "\n```"
 CHAIN_TEXT = "flowchart LR\n  A --> B\n"
 
 
-def _package_directory_under(claude_root: Path) -> Path:
-    return (
-        claude_root
-        / PELE_TOOLS_DIRECTORY_NAME
-        / PELE_PACKAGE_NAME
-        / NODE_MODULES_DIRECTORY_NAME
-        / PELE_PACKAGE_NAME
-    )
-
-
 def _write_installed_pele(claude_root: Path, version: str) -> Path:
-    package_directory = _package_directory_under(claude_root)
+    package_directory = npx_pele_guidance.pele_package_directory_under(claude_root)
     (package_directory / "dist").mkdir(parents=True)
     (package_directory / PACKAGE_MANIFEST_NAME).write_text(
         json.dumps({"name": PELE_PACKAGE_NAME, "version": version, "type": "module"}),
@@ -104,6 +92,7 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         "npx -y create-pele-app my-app",
         "CI=1 npx prettier --check .",
         'git commit -m "fix; npx pele docs"',
+        "cat > notes.md <<'EOF'\nnpx pele chain.mmd\nEOF",
         "echo pele",
     ],
 )
@@ -122,12 +111,12 @@ def test_installed_version_reads_the_manifest(tmp_path: Path) -> None:
 
 
 def test_installed_version_is_none_without_a_manifest(tmp_path: Path) -> None:
-    assert npx_pele_guidance.installed_pele_version(_package_directory_under(tmp_path)) is None
+    assert npx_pele_guidance.installed_pele_version(npx_pele_guidance.pele_package_directory_under(tmp_path)) is None
 
 
 @pytest.mark.parametrize("manifest_text", ["not json", '["list"]', '{"version": 1}'])
 def test_unreadable_manifest_reads_as_no_version(tmp_path: Path, manifest_text: str) -> None:
-    package_directory = _package_directory_under(tmp_path)
+    package_directory = npx_pele_guidance.pele_package_directory_under(tmp_path)
     package_directory.mkdir(parents=True)
     (package_directory / PACKAGE_MANIFEST_NAME).write_text(manifest_text, encoding="utf-8")
     assert npx_pele_guidance.installed_pele_version(package_directory) is None
@@ -137,7 +126,7 @@ def test_package_directory_follows_the_claude_config_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(tmp_path))
-    assert npx_pele_guidance.pele_package_directory() == _package_directory_under(tmp_path)
+    assert npx_pele_guidance.pele_package_directory() == npx_pele_guidance.pele_package_directory_under(tmp_path)
 
 
 def test_installed_copy_gets_its_version_path_and_snippet(
@@ -175,7 +164,7 @@ def test_manifest_without_an_entry_file_points_to_the_playground(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(tmp_path))
-    package_directory = _package_directory_under(tmp_path)
+    package_directory = npx_pele_guidance.pele_package_directory_under(tmp_path)
     package_directory.mkdir(parents=True)
     (package_directory / PACKAGE_MANIFEST_NAME).write_text(
         json.dumps({"name": PELE_PACKAGE_NAME, "version": "1.12.0"}),
