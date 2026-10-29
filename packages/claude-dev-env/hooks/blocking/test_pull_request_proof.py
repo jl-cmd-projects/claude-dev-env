@@ -493,6 +493,13 @@ def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
     assert gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")) is None
 
 
+def test_should_keep_a_compare_listed_pure_rename_from_a_hidden_suffix_to_a_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_compare(monkeypatch, ["R100\tnotes.txt\tsite/notes.html"])
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == ["site/notes.html"]
+
+
 def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

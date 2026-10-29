@@ -815,8 +815,8 @@ def remote_visible_changed_files(
     The base is the named base branch, else the repository's default branch.
     A page of 300 paths is the compare API's file cap. A visible file on that
     page is returned. A full page with none is None, because a later file can
-    still be one people see. A pure rename counts toward the 300 but is never
-    visible.
+    still be one people see. A pure rename counts toward the 300. It is not
+    visible when the file it moved from was a page too.
 
     Args:
         repository: The owner/name the create call names, or None.
