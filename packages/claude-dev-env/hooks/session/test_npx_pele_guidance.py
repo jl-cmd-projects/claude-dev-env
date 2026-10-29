@@ -71,6 +71,8 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "npx --timeout 5000 pele chain.mmd",
         "npx -p pele mmdc -i a.mmd",
         "npx --package=pele mmdc chain.mmd",
+        "npx -c 'pele a.mmd'",
+        "npm.cmd exec pele a.mmd",
         "npm --prefix exec pele chain.mmd",
         "cd diagrams && npx pele chain.mmd",
         "npm exec pele chain.mmd",

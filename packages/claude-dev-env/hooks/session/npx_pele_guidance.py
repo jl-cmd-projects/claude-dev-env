@@ -35,12 +35,12 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.npx_pele_guidance_constants import (
     ABSENT_GUIDANCE_TEMPLATE,
     ALL_NPM_EXEC_SUBCOMMANDS,
+    ALL_NPM_PROGRAM_NAMES,
     ALL_NPX_PROGRAM_NAMES,
     ALL_PELE_ENTRY_PATH_PARTS,
     COMMAND_INPUT_KEY,
     INSTALLED_GUIDANCE_TEMPLATE,
     NODE_MODULES_DIRECTORY_NAME,
-    NPM_PROGRAM_NAME,
     OPTION_VALUE_SEPARATOR,
     PACKAGE_MANIFEST_NAME,
     PACKAGE_VERSION_SEPARATOR,
@@ -136,7 +136,7 @@ def _segment_runs_npx_pele(all_segment_tokens: list[str]) -> bool:
     program_name, all_arguments = segment_program_and_arguments(all_segment_tokens)
     if program_name in ALL_NPX_PROGRAM_NAMES:
         return _has_pele_argument(all_arguments)
-    if program_name != NPM_PROGRAM_NAME:
+    if program_name not in ALL_NPM_PROGRAM_NAMES:
         return False
     exec_index = next(
         (
@@ -150,7 +150,11 @@ def _segment_runs_npx_pele(all_segment_tokens: list[str]) -> bool:
 
 
 def _has_pele_argument(all_arguments: list[str]) -> bool:
-    return any(_is_pele_package(each_argument) for each_argument in all_arguments)
+    return any(
+        _is_pele_package(each_word)
+        for each_argument in all_arguments
+        for each_word in unquoted_token(each_argument).split()
+    )
 
 
 def _is_pele_package(argument: str) -> bool:
