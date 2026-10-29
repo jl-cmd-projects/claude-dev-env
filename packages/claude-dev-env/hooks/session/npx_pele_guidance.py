@@ -184,8 +184,8 @@ def guidance_text() -> str:
     """Return the guidance for the Pele copy this machine has, or none.
 
     Returns:
-        The installed-copy snippet when a Pele manifest reads and its entry
-        file exists, else the playground guidance.
+        The installed-copy snippet when the Pele manifest names a version and
+        its entry file exists, else the playground guidance.
     """
     package_directory = pele_package_directory_under(claude_home())
     manifest = installed_pele_manifest(package_directory)
