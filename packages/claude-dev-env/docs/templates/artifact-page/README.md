@@ -5,10 +5,10 @@ Three templates live here. Pick the one that fits the ask before you write a lin
 | Ask | Template |
 |---|---|
 | A status or progress report on one piece of work: what is done, where it is stuck, and what comes next. Prefer it for every such report unless the person asks for another shape | `status-flowchart.html` |
-| A tracker, board, review page or dashboard that lists many items for people to read and click | `template.html` |
-| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | `diagram.html` |
+| A tracker, board, review page or dashboard that lists many items for people to read and click | [`template.html`](template.html) |
+| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | [`diagram.html`](diagram.html) |
 
-`diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
+[`diagram.html`](diagram.html) draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
 
 Show a diagram whole when the page opens, scaled to the page width. Never put a diagram in a box with a fixed or maximum height, because the reader then sees only part of it. A wide diagram may add a full-size button that lets the page scroll.
 
@@ -16,7 +16,7 @@ Show a diagram whole when the page opens, scaled to the page width. Never put a 
 
 Render the page and look at the screenshot before you publish. Headless Chromium renders at least 500 pixels wide, so take the screenshot at 800 wide.
 
-`template.html` is the reference page for any artifact an agent builds: a tracker, a board, a review page, a dashboard. Start from it, keep its structure and house style, and replace the sample data and the parts the new page does not need.
+[`template.html`](template.html) is the reference page for any artifact an agent builds: a tracker, a board, a review page, a dashboard. Start from it, keep its structure and house style, and replace the sample data and the parts the new page does not need.
 
 ## What it demonstrates
 
@@ -46,7 +46,7 @@ Render the page and look at the screenshot before you publish. Headless Chromium
 Ask an agent: "convert <artifact link> to our format."
 
 1. Read the published page with the Artifact tool's `read` action, and keep its data and every working control.
-2. Map each part to its piece in `template.html`: status groups to board lanes, records to picture cards, filters to tabs and chips, and the data to the JSON data block.
+2. Map each part to its piece in [`template.html`](template.html): status groups to board lanes, records to picture cards, filters to tabs and chips, and the data to the JSON data block.
 3. Apply the house rules above and the template's color tokens.
 4. Check that text is 16px or larger, text contrast is 7:1 or better, and the page has no horizontal scroll at 390px, in light and dark.
 5. Publish to the same link as a new version, so the reviewer keeps one URL.

@@ -16,8 +16,6 @@ The rule applies to production and tests. Existing comments outside the changed 
 
 ## Proving it
 
-Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
-
 - check_comment_changes: a new JavaScript comment on a changed line; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_javascript_comments.py::test_check_comment_changes_reports_javascript_comment_line` reports a named violation.
 
 ## Gotchas

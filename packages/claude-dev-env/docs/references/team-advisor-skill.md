@@ -16,4 +16,4 @@ Follow the call rules in `advisor-tool.md` (orientation first, then consult befo
 
 ## Selected path
 
-`/team-advisor` is the repository's advisor implementation. It uses the built-in advisor tool when the session has it. Without the tool, it provides explicit first-consult packets, delta consults, a standing warm reviewer, an in-session Astra spawn on Codex, and a read-only Astra CLI option.
+`/team-advisor` uses the built-in advisor tool when the session has it. Without the tool, it provides explicit first-consult packets, delta consults, a standing warm reviewer, an in-session Astra spawn on Codex, and a read-only Astra CLI option.

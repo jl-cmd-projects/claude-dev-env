@@ -33,8 +33,6 @@ Known pytest fixture parameters are tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 ## Proving it
 
-Run the named pytest node or command with the described input. A breach produces a rule finding; advisory checks write to stderr.
-
 - check_known_pytest_fixture_annotations: an untyped tmp_path parameter in a test; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_annotations.py::test_should_flag_unannotated_known_fixture_in_test_file` reports a named violation.
 - check_parameter_annotations: a public parameter without an annotation; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_annotations.py::test_should_flag_parameter_without_annotation` reports a named violation.
 - check_return_annotations: a function without a return annotation; `python -m pytest packages/claude-dev-env/hooks/blocking/test_code_rules_enforcer_annotations.py::test_should_flag_function_without_return_annotation` reports a named violation.

@@ -1,6 +1,6 @@
 # Codex accounts
 
-The account broker assigns agent work across the Codex accounts.
+The [account broker](account-broker.md) assigns agent work across the Codex accounts.
 Each account signs in under its own Codex home, and every home
 shares the same Codex setup: config, rules, skills, plugins, prompts and agents.
 A job asks the broker which account to use.
