@@ -7,7 +7,9 @@ import {
     PSTACK_MARKETPLACE_REPOSITORY,
     PSTACK_PLUGIN_HOSTS,
     PSTACK_PLUGIN_IDENTIFIER,
+    ALL_REPLACED_PLUGIN_SPECS,
     ALL_RETIRED_PLUGIN_SPECS,
+    DRAWER_CORE_PLUGIN_SPEC,
     PSTACK_PLUGIN_SPEC,
     SECURITY_GUIDANCE_PLUGIN_SPEC,
     SUBAGENT_MODELS_PLUGIN_SPEC,
@@ -15,9 +17,11 @@ import {
     hostCommandInvocation,
     installMarketplacePlugins,
     marketplacePluginsPlan,
+    modsFrameworkPluginSpecs,
     removeOrphanedPluginVersions,
     removeStaleMarketplaceClone,
     removeRetiredMarketplacePlugins,
+    replacedSpecsToRemove,
     restartNotice,
     runHostCommand,
     shouldInstallMarketplacePlugin,
@@ -111,11 +115,11 @@ test('a failed Claude refresh falls back to removing and adding the marketplace 
     const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(runner.calls.map(call => call.commandArguments), [
-        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
-        ['plugin', 'uninstall', 'usage-wrapup@claude-dev-env'],
-        ['plugin', 'marketplace', 'remove', 'claude-dev-env'],
-        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
-        ['plugin', 'install', 'usage-wrapup@claude-dev-env'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
+        ['plugin', 'uninstall', 'usage-wrapup@claude-mods-framework'],
+        ['plugin', 'marketplace', 'remove', 'claude-mods-framework'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
+        ['plugin', 'install', 'usage-wrapup@claude-mods-framework'],
     ]);
 });
 
@@ -336,13 +340,13 @@ test('a non-zero exit that is not command-not-found still reads as a failure', (
     assert.match(outcome.hosts[0].warning, /rejected the catalog/);
 });
 
-test('the usage-wrapup plan adds this repository marketplace and installs the plugin on Claude', () => {
+test('the usage-wrapup plan adds the mods framework marketplace and installs the plugin on Claude', () => {
     const plan = marketplacePluginsPlan([USAGE_WRAPUP_PLUGIN_SPEC], 'claude');
     assert.equal(plan.executable, 'claude');
     assert.equal(plan.homeVariable, 'CLAUDE_CONFIG_DIR');
     assert.deepEqual(plan.commands, [
-        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
-        ['plugin', 'install', 'usage-wrapup@claude-dev-env'],
+        ['plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
+        ['plugin', 'install', 'usage-wrapup@claude-mods-framework'],
     ]);
 });
 
@@ -357,10 +361,10 @@ test('installing usage-wrapup runs only the Claude commands, inside the managed 
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
-        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env', '--sparse', '.claude-plugin', 'packages/usage-wrapup'],
-        ['claude', 'plugin', 'marketplace', 'update', 'claude-dev-env'],
-        ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
-        ['claude', 'plugin', 'update', 'usage-wrapup@claude-dev-env'],
+        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
+        ['claude', 'plugin', 'marketplace', 'update', 'claude-mods-framework'],
+        ['claude', 'plugin', 'install', 'usage-wrapup@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework'],
     ]);
     for (const call of runner.calls) {
         assert.deepEqual(call.environment, { CLAUDE_CONFIG_DIR: ROOTS.claudeRoot });
@@ -391,39 +395,30 @@ test('the usage-wrapup opt-out flag and variable turn off only usage-wrapup', ()
     );
 });
 
-for (const [spec, packageFolder] of [
-    [USAGE_WRAPUP_PLUGIN_SPEC, './packages/usage-wrapup'],
-    [SUBAGENT_MODELS_PLUGIN_SPEC, './packages/subagent-models'],
-]) {
-    test(`the repository marketplace lists ${spec.name} from its package folder in this repository`, () => {
-        const marketplace = JSON.parse(readFileSync(
-            new URL('../../../.claude-plugin/marketplace.json', import.meta.url),
-            'utf8',
-        ));
-        const [pluginName, marketplaceName] = spec.pluginIdentifier.split('@');
-        assert.equal(marketplace.name, marketplaceName);
-        const entry = marketplace.plugins.find(plugin => plugin.name === pluginName);
-        assert.ok(entry, `the marketplace lists ${pluginName}`);
-        assert.equal(entry.source, packageFolder);
-        assert.ok(spec.sparsePaths.includes(packageFolder.slice(2)), `the sparse checkout holds ${packageFolder}`);
+for (const spec of [DRAWER_CORE_PLUGIN_SPEC, USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC]) {
+    test(`${spec.name} comes from the whole mods framework marketplace`, () => {
+        assert.equal(spec.marketplaceRepository, 'jl-cmd-projects/claude-mods-framework');
+        assert.equal(spec.pluginIdentifier, `${spec.name}@claude-mods-framework`);
+        assert.deepEqual(spec.sparsePaths, []);
     });
 }
 
-test('should add and update the shared marketplace once when installing usage-wrapup and subagent-models together', () => {
+test('should add and update the mods framework marketplace once for drawer-core, usage-wrapup and subagent-models', () => {
     const runner = recordingRunner();
-    const outcome = installMarketplacePlugins([USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], ROOTS, runner);
+    const outcome = installMarketplacePlugins(
+        [DRAWER_CORE_PLUGIN_SPEC, USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], ROOTS, runner,
+    );
     assert.equal(outcome.status, 'installed');
     assert.deepEqual(outcome.hosts.map(host => host.host), ['claude']);
     assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
-        [
-            'claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-dev-env',
-            '--sparse', '.claude-plugin', 'packages/usage-wrapup', 'packages/subagent-models',
-        ],
-        ['claude', 'plugin', 'marketplace', 'update', 'claude-dev-env'],
-        ['claude', 'plugin', 'install', 'usage-wrapup@claude-dev-env'],
-        ['claude', 'plugin', 'install', 'subagent-models@claude-dev-env'],
-        ['claude', 'plugin', 'update', 'usage-wrapup@claude-dev-env'],
-        ['claude', 'plugin', 'update', 'subagent-models@claude-dev-env'],
+        ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
+        ['claude', 'plugin', 'marketplace', 'update', 'claude-mods-framework'],
+        ['claude', 'plugin', 'install', 'drawer-core@claude-mods-framework'],
+        ['claude', 'plugin', 'install', 'usage-wrapup@claude-mods-framework'],
+        ['claude', 'plugin', 'install', 'subagent-models@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'drawer-core@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'subagent-models@claude-mods-framework'],
     ]);
 });
 
@@ -437,6 +432,57 @@ test('the repository marketplace no longer lists a retired plugin', () => {
         assert.equal(allListedNames.includes(eachRetiredSpec.name), false, `${eachRetiredSpec.name} is retired`);
     }
     assert.deepEqual(ALL_RETIRED_PLUGIN_SPECS.map(spec => spec.pluginIdentifier), ['deepen-first-prompt@claude-dev-env']);
+    for (const eachReplacedSpec of ALL_REPLACED_PLUGIN_SPECS) {
+        assert.equal(allListedNames.includes(eachReplacedSpec.name), false, `${eachReplacedSpec.name} moved out`);
+    }
+});
+
+test('should remove each old copy whose mods framework replacement installed', () => {
+    assert.deepEqual(
+        replacedSpecsToRemove(
+            ALL_REPLACED_PLUGIN_SPECS,
+            [DRAWER_CORE_PLUGIN_SPEC, USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC],
+            { status: 'installed' },
+        ).map(spec => spec.pluginIdentifier),
+        ['usage-wrapup@claude-dev-env', 'subagent-models@claude-dev-env'],
+    );
+});
+
+test('should keep the old usage-wrapup copy when the install skipped usage-wrapup', () => {
+    assert.deepEqual(
+        replacedSpecsToRemove(
+            ALL_REPLACED_PLUGIN_SPECS,
+            [DRAWER_CORE_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC],
+            { status: 'installed' },
+        ).map(spec => spec.pluginIdentifier),
+        ['subagent-models@claude-dev-env'],
+    );
+});
+
+for (const status of ['failed', 'skipped']) {
+    test(`should keep every old copy when the mods framework install ${status}`, () => {
+        assert.deepEqual(
+            replacedSpecsToRemove(
+                ALL_REPLACED_PLUGIN_SPECS,
+                [DRAWER_CORE_PLUGIN_SPEC, USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC],
+                { status },
+            ),
+            [],
+        );
+    });
+}
+
+test('a Claude home that holds the old subagent-models copy gets only that copy uninstalled', (context) => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'retired-plugin-'));
+    context.after(() => rmSync(claudeRoot, { recursive: true, force: true }));
+    mkdirSync(join(claudeRoot, 'plugins', 'cache', 'claude-dev-env', 'subagent-models', '0.3.0'), { recursive: true });
+    mkdirSync(join(claudeRoot, 'plugins', 'cache', 'claude-mods-framework', 'usage-wrapup', '0.4.0'), { recursive: true });
+    const runner = recordingRunner();
+    const outcome = removeRetiredMarketplacePlugins(ALL_REPLACED_PLUGIN_SPECS, { claudeRoot, environment: {} }, runner);
+    assert.deepEqual(runner.calls.map(call => [call.executable, ...call.commandArguments]), [
+        ['claude', 'plugin', 'uninstall', 'subagent-models@claude-dev-env'],
+    ]);
+    assert.deepEqual(outcome.removedIdentifiers, ['subagent-models@claude-dev-env']);
 });
 
 test('a Claude home that holds a retired plugin gets it uninstalled and its orphaned versions deleted', (context) => {
@@ -456,6 +502,17 @@ test('a Claude home that holds a retired plugin gets it uninstalled and its orph
     assert.deepEqual(runner.calls[0].environment, { CLAUDE_CONFIG_DIR: claudeRoot });
     assert.deepEqual(outcome.removedIdentifiers, ['deepen-first-prompt@claude-dev-env']);
     assert.equal(existsSync(orphanedVersion), false);
+    assert.equal(existsSync(versionsDirectory), false);
+});
+
+test('should run no command for a retired plugin whose cache folder holds no version', (context) => {
+    const claudeRoot = mkdtempSync(join(tmpdir(), 'retired-plugin-'));
+    context.after(() => rmSync(claudeRoot, { recursive: true, force: true }));
+    mkdirSync(join(claudeRoot, 'plugins', 'cache', 'claude-dev-env', 'subagent-models'), { recursive: true });
+    const runner = recordingRunner();
+    const outcome = removeRetiredMarketplacePlugins(ALL_REPLACED_PLUGIN_SPECS, { claudeRoot, environment: {} }, runner);
+    assert.deepEqual(runner.calls, []);
+    assert.deepEqual(outcome.failedRemovals, []);
 });
 
 test('a Claude home with no retired plugin runs no command', (context) => {
@@ -484,9 +541,23 @@ test('a failed retired plugin uninstall is reported as failed and keeps its cach
 test('should refuse one plan for plugins from two marketplaces', () => {
     assert.throws(
         () => marketplacePluginsPlan([PSTACK_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC], 'claude'),
-        /subagent-models comes from jl-cmd-projects\/claude-dev-env/,
+        /subagent-models comes from jl-cmd-projects\/claude-mods-framework/,
     );
 });
+
+for (const [optOutArguments, optOutEnvironment, expectedNames] of [
+    [[], {}, ['drawer-core', 'usage-wrapup', 'subagent-models']],
+    [['--no-subagent-models'], {}, ['drawer-core', 'usage-wrapup']],
+    [[], { CDE_INSTALL_USAGE_WRAPUP: '0' }, ['drawer-core', 'subagent-models']],
+    [['--no-usage-wrapup', '--no-subagent-models'], {}, []],
+]) {
+    test(`should install drawer-core with each plugin that needs it for ${JSON.stringify([optOutArguments, optOutEnvironment])}`, () => {
+        assert.deepEqual(
+            modsFrameworkPluginSpecs(optOutArguments, optOutEnvironment).map(spec => spec.name),
+            expectedNames,
+        );
+    });
+}
 
 test('should turn off only subagent-models with its opt-out flag or variable', () => {
     assert.equal(shouldInstallMarketplacePlugin(SUBAGENT_MODELS_PLUGIN_SPEC, [], {}), true);
@@ -573,7 +644,7 @@ test('a held folder that was not searched adds no claim about what holds it', ()
 
 test('should delete a half-made marketplace clone before the shared marketplace add', () => {
     const claudeRoot = mkdtempSync(join(tmpdir(), 'cde-stale-clone-'));
-    const cloneDirectory = join(claudeRoot, 'plugins', 'marketplaces', 'jl-cmd-projects-claude-dev-env..clone');
+    const cloneDirectory = join(claudeRoot, 'plugins', 'marketplaces', 'jl-cmd-projects-claude-mods-framework..clone');
     mkdirSync(join(cloneDirectory, '.git'), { recursive: true });
     writeFileSync(join(cloneDirectory, '.git', 'shallow.lock'), '');
     const allCloneStatesAtAdd = [];
