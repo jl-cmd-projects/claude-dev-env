@@ -115,6 +115,7 @@ import {
 import {
     ensureDirectoryPointer,
     ensureLinkedSkillFolder,
+    isLinkToOtherDirectory,
     POINTER_ACTION_CREATED,
     readPathKind,
 } from './publish-directory-pointer.mjs';
@@ -3066,7 +3067,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             if (allowedSkills && !allowedSkills.has(skillDir.name)) continue;
             const skillSourceDirectory = join(skillsSource, skillDir.name);
             const skillDestinationDirectory = join(INSTALL_ROOT_RESOLUTION.skillsInstallDirectory, skillDir.name);
-            if (lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+            const skillLookupPath = join(INSTALL_ROOT_RESOLUTION.skillsLookupDirectory, skillDir.name);
+            const destinationIsLink = lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink();
+            if (isLinkToOtherDirectory(skillLookupPath, skillDestinationDirectory) || destinationIsLink) {
                 console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
                 continue;
             }
@@ -3404,15 +3407,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             );
         }
     }
-    allInstalledFiles.push(...ensureLinkedSkillFolder(
+    const skillLinks = ensureLinkedSkillFolder(
         INSTALL_ROOT_RESOLUTION.skillsLookupDirectory,
         INSTALL_ROOT_RESOLUTION.skillsInstallDirectory,
         join(currentRunBackupRoot(), MANAGED_SKILLS_DIRECTORY_NAME),
-    ));
+    );
+    allInstalledFiles.push(...skillLinks.createdLinkPaths);
     const manifestSkillNames = didPruneFinish
         ? [...installedSkillNames].sort()
         : unionOfSkillNames(priorManifestSkills || [], [...installedSkillNames]).sort();
-    const allManagedInstalledFiles = allInstalledFiles.filter(
+    const allManagedInstalledFiles = [...new Set([...allInstalledFiles, ...skillLinks.linkPaths])].filter(
         eachPath => !allUserOwnedPreferencePaths.has(eachPath),
     );
     const manifestFiles = didPruneFinish

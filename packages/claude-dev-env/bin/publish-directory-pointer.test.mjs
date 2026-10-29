@@ -149,7 +149,7 @@ test('ensureLinkedSkillFolder replaces a pointer with a folder that links each s
         symlinkSync(pluginCacheSkill, join(sandbox.targetPath, 'plugin-skill'), 'dir');
         ensureDirectoryPointer(sandbox.pointerPath, sandbox.targetPath);
 
-        const createdLinkPaths = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
+        const { createdLinkPaths } = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
 
         assert.equal(lstatSync(sandbox.pointerPath).isDirectory(), true);
         assert.equal(lstatSync(sandbox.pointerPath).isSymbolicLink(), false);
@@ -179,7 +179,7 @@ test('ensureLinkedSkillFolder keeps a personal skill that exists only in the loo
         writeFileSync(join(sandbox.pointerPath, 'personal-skill', 'notes.md'), 'personal\n');
         mkdirSync(sandbox.targetPath, { recursive: true });
 
-        const createdLinkPaths = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
+        const { createdLinkPaths } = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
 
         assert.equal(lstatSync(join(sandbox.pointerPath, 'personal-skill')).isDirectory(), true);
         assert.equal(lstatSync(join(sandbox.pointerPath, 'personal-skill')).isSymbolicLink(), false);
@@ -213,16 +213,17 @@ test('ensureLinkedSkillFolder removes a dangling link into the install folder an
     }
 });
 
-test('ensureLinkedSkillFolder creates no new links on a second call', () => {
+test('ensureLinkedSkillFolder creates no links on a second call and still reports the link in place', () => {
     const sandbox = makeSandbox();
     try {
         mkdirSync(join(sandbox.targetPath, 'shipped-skill'), { recursive: true });
         writeFileSync(join(sandbox.targetPath, 'shipped-skill', 'SKILL.md'), 'shipped body\n');
         ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
 
-        const secondCreatedLinkPaths = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
+        const secondCall = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
 
-        assert.deepEqual(secondCreatedLinkPaths, []);
+        assert.deepEqual(secondCall.createdLinkPaths, []);
+        assert.deepEqual(secondCall.linkPaths, [join(sandbox.pointerPath, 'shipped-skill')]);
         assert.equal(
             isDirectoryPointerTo(
                 join(sandbox.pointerPath, 'shipped-skill'),

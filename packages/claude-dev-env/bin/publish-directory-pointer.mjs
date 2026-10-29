@@ -62,6 +62,17 @@ export function isDirectoryPointerTo(pointerPath, targetPath) {
 }
 
 /**
+ * Report whether linkPath is a symbolic link that does not aim at targetPath.
+ *
+ * @param {string} linkPath
+ * @param {string} targetPath
+ * @returns {boolean}
+ */
+export function isLinkToOtherDirectory(linkPath, targetPath) {
+    return readPathKind(linkPath) === 'symlink' && !isDirectoryPointerTo(linkPath, targetPath);
+}
+
+/**
  * Make pointerPath a directory pointer to targetPath.
  *
  * A real directory already sitting at the lookup path is merged into the
@@ -126,7 +137,8 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
  * @param {string} lookupDirectory Claude lookup path (for example `~/.claude/skills`).
  * @param {string} installDirectory Canonical skills folder (for example `~/.agents/skills`).
  * @param {string} conflictBackupDirectory Folder that receives displaced lookup files.
- * @returns {string[]} The link paths this call created.
+ * @returns {{ createdLinkPaths: string[], linkPaths: string[] }} The links this
+ *   call created, and every link that points at a shipped skill after the call.
  */
 export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, conflictBackupDirectory) {
     const resolvedLookup = resolve(lookupDirectory);
@@ -148,21 +160,22 @@ export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, confl
 
     removeDanglingLinksInto(resolvedLookup, resolvedInstall);
     const createdLinkPaths = [];
+    const linkPaths = [];
     for (const eachEntry of readdirSync(resolvedInstall, { withFileTypes: true })) {
         if (!eachEntry.isDirectory()) continue;
         const linkPath = join(resolvedLookup, eachEntry.name);
         const targetPath = join(resolvedInstall, eachEntry.name);
-        const linkKind = readPathKind(linkPath);
-        if (linkKind === 'symlink' && !isDirectoryPointerTo(linkPath, targetPath)) continue;
-        if (linkKind === 'directory') {
+        if (isLinkToOtherDirectory(linkPath, targetPath)) continue;
+        if (readPathKind(linkPath) === 'directory') {
             setAsideConflictingEntries(linkPath, targetPath, join(conflictBackupDirectory, eachEntry.name));
         }
         const publication = ensureDirectoryPointer(linkPath, targetPath);
+        linkPaths.push(linkPath);
         if (publication.action === POINTER_ACTION_CREATED) {
             createdLinkPaths.push(linkPath);
         }
     }
-    return createdLinkPaths;
+    return { createdLinkPaths, linkPaths };
 }
 
 /**
