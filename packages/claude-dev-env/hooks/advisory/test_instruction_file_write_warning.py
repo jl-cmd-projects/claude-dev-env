@@ -107,7 +107,7 @@ def test_a_read_error_during_the_check_stays_silent(
     def raise_read_error(*_args: object) -> list:
         raise read_error
 
-    monkeypatch.setattr(hook, "check_repository", raise_read_error)
+    monkeypatch.setattr(hook, "findings_caused_by", raise_read_error)
     monkeypatch.setattr(
         hook,
         "read_hook_input_dictionary_from_stdin",
@@ -156,3 +156,16 @@ def test_a_tighter_hop_cap_in_the_budget_file_gets_a_nesting_warning(
     context = _additional_context(_run_hook(config_path))
     assert "[instruction-nesting]" in context
     assert "deep/AGENTS.md" in context
+
+
+def test_a_markdown_write_stays_silent_about_nesting_it_did_not_cause(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "instruction-budget.json").write_text(
+        '{"max_launch_bytes": 100000, "max_link_hops": 1}', encoding="utf-8"
+    )
+    _write(tmp_path / "AGENTS.md", "[one](one.md)\n")
+    _write(tmp_path / "one.md", "[deep](deep/AGENTS.md)\n")
+    _write(tmp_path / "deep" / "AGENTS.md", "# Deep\n")
+    unrelated_path = _write(tmp_path / "docs" / "guide.md", "# Guide\n")
+    assert _run_hook(unrelated_path) == ""

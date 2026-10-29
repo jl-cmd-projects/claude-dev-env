@@ -26,6 +26,7 @@ from dev_env_scripts_constants.followup_constants import (
     GATE_FAILED_EXIT_CODE,
     GATE_PASSED_EXIT_CODE,
     INSTRUCTION_BUDGET_RULE_ID,
+    INSTRUCTION_NESTING_RULE_ID,
 )
 from dev_env_scripts_constants.instruction_budget_constants import (
     FINDING_LINE_TEMPLATE,
@@ -104,6 +105,35 @@ def check_repository(
             repository_root, config, instruction_files(repository_root, config)
         )
     )
+
+
+def findings_caused_by(
+    repository_root: Path, config: InstructionBudgetConfig, written_path: Path
+) -> list[InstructionFinding]:
+    """Run the checks for one written file, and keep only the nesting it causes.
+
+    A nesting finding stays when it disappears once the written file is treated
+    as absent. A write of the budget file keeps every finding.
+
+    Args:
+        repository_root: Resolved repository root.
+        config: The repository's budget limits.
+        written_path: Resolved path of the file the agent wrote.
+
+    Returns:
+        The budget and name findings, then each nesting finding the file causes.
+    """
+    all_findings = check_repository(repository_root, config, [written_path])
+    if written_path.name == INSTRUCTION_BUDGET_CONFIG_FILE_NAME:
+        return all_findings
+    all_files = instruction_files(repository_root, config)
+    all_without = nesting_findings(repository_root, config, all_files, written_path)
+    return [
+        each_finding
+        for each_finding in all_findings
+        if each_finding.rule_id != INSTRUCTION_NESTING_RULE_ID
+        or each_finding not in all_without
+    ]
 
 
 def _build_parser() -> argparse.ArgumentParser:

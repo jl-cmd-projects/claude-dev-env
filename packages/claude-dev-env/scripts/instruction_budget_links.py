@@ -75,8 +75,11 @@ def _visit_links(
     repository_root: Path,
     all_distances: dict[Path, int],
     all_pending: deque[Path],
+    excluded_file: Path | None,
 ) -> None:
     for each_target, each_cost in _targets_with_costs(source_path, repository_root):
+        if each_target == excluded_file:
+            continue
         each_distance = all_distances[source_path] + each_cost
         known_distance = all_distances.get(each_target)
         if known_distance is not None and known_distance <= each_distance:
@@ -89,7 +92,9 @@ def _visit_links(
 
 
 def hop_distances(
-    repository_root: Path, all_root_files: Iterable[Path]
+    repository_root: Path,
+    all_root_files: Iterable[Path],
+    excluded_file: Path | None = None,
 ) -> dict[Path, int]:
     """Count the fewest link hops from any root file to each reachable file.
 
@@ -98,14 +103,23 @@ def hop_distances(
     Args:
         repository_root: Resolved repository root. Links that leave it are ignored.
         all_root_files: Files an agent reads without following a link.
+        excluded_file: A file to treat as absent, with every link it holds.
 
     Returns:
         Each reachable file mapped to its fewest hops. A root maps to zero.
     """
-    all_distances = {each_root: 0 for each_root in all_root_files}
+    all_distances = {
+        each_root: 0 for each_root in all_root_files if each_root != excluded_file
+    }
     all_pending = deque(all_distances)
     while all_pending:
-        _visit_links(all_pending.popleft(), repository_root, all_distances, all_pending)
+        _visit_links(
+            all_pending.popleft(),
+            repository_root,
+            all_distances,
+            all_pending,
+            excluded_file,
+        )
     return all_distances
 
 
@@ -123,6 +137,7 @@ def nesting_findings(
     repository_root: Path,
     config: InstructionBudgetConfig,
     all_scoped_files: Iterable[Path],
+    excluded_file: Path | None = None,
 ) -> list[InstructionFinding]:
     """Report a scoped instruction file more link hops out than the cap allows.
 
@@ -130,6 +145,7 @@ def nesting_findings(
         repository_root: Resolved repository root.
         config: The repository's budget limits.
         all_scoped_files: Instruction files to check.
+        excluded_file: A file to treat as absent, with every link it holds.
 
     Returns:
         One finding per scoped file that sits beyond max_link_hops.
@@ -137,12 +153,13 @@ def nesting_findings(
     all_scoped = list(all_scoped_files)
     if not all_scoped:
         return []
-    all_distances = hop_distances(repository_root, root_files(repository_root, config))
-    all_findings: list[InstructionFinding] = []
-    for each_path in all_scoped:
-        hops = all_distances.get(each_path)
-        if hops is not None and hops > config.max_link_hops:
-            all_findings.append(
-                _nesting_finding(repository_root, each_path, hops, config.max_link_hops)
-            )
-    return all_findings
+    all_distances = hop_distances(
+        repository_root, root_files(repository_root, config), excluded_file
+    )
+    return [
+        _nesting_finding(
+            repository_root, each_path, all_distances[each_path], config.max_link_hops
+        )
+        for each_path in all_scoped
+        if all_distances.get(each_path, 0) > config.max_link_hops
+    ]

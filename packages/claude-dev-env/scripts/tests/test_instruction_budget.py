@@ -26,6 +26,7 @@ from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from instruction_budget import (
     check_repository,
     finding_line,
+    findings_caused_by,
     main,
     scoped_instruction_files,
 )
@@ -523,6 +524,36 @@ def test_scoped_instruction_files_skip_a_changed_name_too_long_for_the_system(
     assert scoped_instruction_files(
         repository_root, _config(), [long_path, agents_path]
     ) == [agents_path]
+
+
+def test_hop_distances_treat_an_excluded_file_and_its_links_as_absent(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    agents_path = _write(repository_root / "AGENTS.md", "[a](a.md) [b](b.md)\n")
+    middle_path = _write(repository_root / "a.md", "[end](end.md)\n")
+    _write(repository_root / "b.md", "# B\n")
+    end_path = _write(repository_root / "end.md", "# End\n")
+    assert hop_distances(repository_root, [agents_path])[end_path] == 2
+    without_middle = hop_distances(repository_root, [agents_path], middle_path)
+    assert middle_path not in without_middle
+    assert end_path not in without_middle
+    assert hop_distances(repository_root, [agents_path], agents_path) == {}
+
+
+def test_findings_caused_by_keep_nesting_the_written_file_causes(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "[a](a.md)\n")
+    middle_path = _write(repository_root / "a.md", "[deep](deep/AGENTS.md)\n")
+    deep_path = _write(repository_root / "deep" / "AGENTS.md", "# Deep\n")
+    unrelated_path = _write(repository_root / "docs" / "guide.md", "# Guide\n")
+    config = _config(max_link_hops=1)
+    for each_written_path in (middle_path, deep_path):
+        all_findings = findings_caused_by(repository_root, config, each_written_path)
+        assert [each.file_path for each in all_findings] == ["deep/AGENTS.md"]
+    assert findings_caused_by(repository_root, config, unrelated_path) == []
 
 
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:

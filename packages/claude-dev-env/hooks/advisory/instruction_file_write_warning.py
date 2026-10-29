@@ -5,7 +5,8 @@ This hook never blocks. It runs after each Write, Edit, or MultiEdit. When the
 file is an instruction file, a file a launch file imports, any other markdown
 file a link can pass through, or the budget file itself, in a repository that
 has ``instruction-budget.json``, it runs the same checks the CI workflow runs and
-adds one line per finding to the agent's context::
+adds one line per finding to the agent's context. A nesting finding appears only
+when the written file causes it::
 
     AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
 
@@ -41,7 +42,7 @@ from hooks_constants.instruction_file_write_warning_constants import (
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from instruction_budget import check_repository, finding_line
+from instruction_budget import finding_line, findings_caused_by
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
@@ -83,7 +84,7 @@ def _findings_for(
             and written_path.name != INSTRUCTION_BUDGET_CONFIG_FILE_NAME
         ):
             return []
-        all_findings = check_repository(repository_root, config, [written_path])
+        all_findings = findings_caused_by(repository_root, config, written_path)
     except (OSError, ValueError, RecursionError):
         return []
     return [

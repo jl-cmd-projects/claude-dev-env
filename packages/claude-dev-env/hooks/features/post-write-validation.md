@@ -7,7 +7,7 @@ This family checks a completed Write, Edit or MultiEdit call, formats eligible n
 - `validation/post_tool_use_dispatcher.py` runs the post-write roster in order and combines any block reasons.
 - `workflow/auto_formatter.py` formats eligible untracked source files after a Write and never blocks the write.
 - `advisory/edit_lint_context.py` runs the lint command a repository names in `.claude/edit-lint.json` on the edited file and adds its findings to the agent's context. It runs only for a repository whose origin `owner/repo` slug is listed in `CLAUDE_EDIT_LINT_REPOSITORIES`, comma-separated, and whose root sits inside `CLAUDE_PROJECT_DIR`, the folder the session's workspace trust covers. It never blocks and never edits the file.
-- `advisory/instruction_file_write_warning.py` runs the instruction budget check on a written instruction file, a file a launch file imports, any other markdown file a link can pass through, or the budget file itself, in a repository that has `instruction-budget.json` at its root. It adds a note for each over-budget launch total the written file counts toward, named person, or link chain beyond the cap, and never blocks.
+- `advisory/instruction_file_write_warning.py` runs the instruction budget check on a written instruction file, a file a launch file imports, any other markdown file a link can pass through, or the budget file itself, in a repository that has `instruction-budget.json` at its root. It adds a note for each over-budget launch total the written file counts toward, named person, or link chain beyond the cap that the written file causes, and never blocks.
 
 ## When it fires
 
