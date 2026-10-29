@@ -256,3 +256,17 @@ def test_should_pair_the_default_claude_folder_with_the_home_agents_folder() -> 
     assert link_plugin_skills.default_agents_home(Path("/home/user/.claude")) == Path(
         "/home/user/.agents"
     )
+
+
+def test_should_link_into_the_sibling_agents_folder_when_the_claude_home_is_relative(
+    claude_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_path = install_plugin(claude_home, "1.0.0", ("tdd",))
+    monkeypatch.chdir(claude_home)
+    monkeypatch.setattr(sys, "argv", ["link_plugin_skills.py", "--claude-home", "."])
+
+    link_plugin_skills.main()
+
+    assert (
+        tmp_path / ".agents" / "skills" / "tdd"
+    ).resolve() == install_path / "skills" / "tdd"

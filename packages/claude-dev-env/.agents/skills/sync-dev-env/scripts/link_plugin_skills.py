@@ -243,8 +243,9 @@ def main() -> int:
     parser.add_argument("--claude-home", type=Path, default=DEFAULT_CLAUDE_HOME)
     parser.add_argument("--agents-home", type=Path, default=None)
     parsed_arguments = parser.parse_args()
-    agents_home = parsed_arguments.agents_home or default_agents_home(parsed_arguments.claude_home)
-    outcome_counts = sync_links(parsed_arguments.claude_home, agents_home)
+    claude_home = Path(os.path.abspath(parsed_arguments.claude_home))
+    agents_home = parsed_arguments.agents_home or default_agents_home(claude_home)
+    outcome_counts = sync_links(claude_home, agents_home)
     print(
         SUMMARY_REPORT.format(
             linked=outcome_counts[LINKED_OUTCOME],
