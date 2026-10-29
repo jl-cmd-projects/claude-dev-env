@@ -58,6 +58,7 @@ from hooks_constants.spawn_readiness_hook_constants import (
     PRE_TOOL_USE_EVENT_NAME,
     TOOL_INPUT_KEY,
 )
+from json_file_reader import read_json_object
 from open_task_asks import claude_home
 
 
@@ -102,11 +103,7 @@ def installed_pele_manifest(package_directory: Path) -> dict:
     Returns:
         The parsed manifest, or an empty dict when it is missing, unreadable, or not an object.
     """
-    try:
-        manifest = json.loads((package_directory / PACKAGE_MANIFEST_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return manifest if isinstance(manifest, dict) else {}
+    return read_json_object(package_directory / PACKAGE_MANIFEST_NAME, "utf-8") or {}
 
 
 def is_npx_pele_command(tool_input: object) -> bool:
