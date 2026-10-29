@@ -220,3 +220,27 @@ def test_should_keep_links_when_the_claude_skills_folder_is_the_agents_folder(
 
     assert (agents_home / "skills" / "tdd").resolve() == install_path / "skills" / "tdd"
     assert capsys.readouterr().out.strip() == "0 linked, 0 re-pointed, 0 removed, 0 skipped, 1 unchanged"
+
+
+def test_should_remove_owned_links_outside_the_wanted_names_and_count_them(
+    claude_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    install_path = install_plugin(claude_home, "1.0.0", ("tdd", "how"))
+    skills_directory = tmp_path / "skills"
+    skills_directory.mkdir()
+    (skills_directory / "tdd").symlink_to(install_path / "skills" / "tdd", target_is_directory=True)
+    (skills_directory / "how").symlink_to(install_path / "skills" / "how", target_is_directory=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (skills_directory / "mine").symlink_to(elsewhere, target_is_directory=True)
+    plugin_cache = (claude_home / "plugins" / "cache").resolve()
+
+    removed_count = link_plugin_skills.remove_owned_links(
+        skills_directory, plugin_cache, ("tdd",), "removed {name}"
+    )
+
+    assert removed_count == 1
+    assert (skills_directory / "tdd").is_symlink()
+    assert not (skills_directory / "how").is_symlink()
+    assert (skills_directory / "mine").resolve() == elsewhere
+    assert capsys.readouterr().out.strip() == "removed how"
