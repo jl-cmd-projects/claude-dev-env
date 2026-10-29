@@ -84,7 +84,8 @@ AFTER_MERGE_NO_RECORDER_PATTERN = (
     r"|\brecord(?:s|ed)?\s+(?:nothing|none|no)\b|\bno\s+records?\b"
 )
 AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[;\n]|\.(?=\s|$)"
-FIRST_RUN_ADMISSION_PATTERN = r"\b(?:github actions|(?:live|first) (?:workflow )?run)\b"
+WORKFLOW_SUBJECT_PATTERN = r"\b(?:github actions|workflow)\b"
+RUN_WORD_PATTERN = r"\bruns?\b"
 GIT_URL_SUFFIX = ".git"
 WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"

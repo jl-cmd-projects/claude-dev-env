@@ -17,9 +17,10 @@ from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields,
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
-    FIRST_RUN_ADMISSION_PATTERN,
     GIT_URL_SUFFIX,
+    RUN_WORD_PATTERN,
     WORKFLOW_NAME_MATCH_TEMPLATE,
+    WORKFLOW_SUBJECT_PATTERN,
     AFTER_MERGE_HEADING_PATTERN,
     AFTER_MERGE_NO_RECORDER_PATTERN,
     AFTER_MERGE_RECORDER_PATTERN,
@@ -773,9 +774,9 @@ def _first_unwaived_admission(
         "Not proven here: the live GitHub Actions run." with no covered workflow    -> that line
         no unproven line                                                            -> None
 
-    Each admission line must say GitHub Actions, a live or first run, or name
-    a covered workflow file, so an admission about anything else keeps the
-    refusal. The line returned is the one that failed.
+    Each admission line must use the word run and also say GitHub Actions or
+    workflow, or name a covered workflow file, so an admission about anything
+    else keeps the refusal. The line returned is the one that failed.
 
     Args:
         body: The pull request body.
@@ -789,12 +790,11 @@ def _first_unwaived_admission(
 
 
 def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str]) -> bool:
-    return bool(all_workflow_names) and (
-        re.search(FIRST_RUN_ADMISSION_PATTERN, admission, re.IGNORECASE) is not None
-        or any(
-            re.search(WORKFLOW_NAME_MATCH_TEMPLATE.format(workflow_name=re.escape(each_name)), admission, re.IGNORECASE)
-            for each_name in all_workflow_names
-        )
+    if not all_workflow_names or re.search(RUN_WORD_PATTERN, admission, re.IGNORECASE) is None:
+        return False
+    return re.search(WORKFLOW_SUBJECT_PATTERN, admission, re.IGNORECASE) is not None or any(
+        re.search(WORKFLOW_NAME_MATCH_TEMPLATE.format(workflow_name=re.escape(each_name)), admission, re.IGNORECASE)
+        for each_name in all_workflow_names
     )
 
 

@@ -958,6 +958,25 @@ def test_added_workflow_files_should_count_a_renamed_workflow_as_added(
     )
 
 
+@pytest.mark.parametrize(
+    "unrelated_line",
+    [
+        "Not proven here: the live run of the Convert change on Windows.",
+        "Not proven here: release-hold.yml on macOS.",
+    ],
+    ids=["run-without-a-workflow", "workflow-without-a-run"],
+)
+def test_unproven_line_should_stay_denied_when_it_is_not_about_a_workflow_run(
+    tmp_path: Path, unrelated_line: str
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(UNPROVEN_RUN_LINE, unrelated_line)
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=unrelated_line
+    )
+
+
 def test_unproven_line_should_stay_denied_when_a_run_line_names_no_workflow(
     tmp_path: Path,
 ) -> None:
