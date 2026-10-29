@@ -236,7 +236,8 @@ def scan_prose(text: str, word_limit: int) -> ProseScan:
 
     Returns:
         Whether the body has a detail line, whether any line links to a relative
-        target, and the unlinked detail lines over the word limit.
+        target or holds an @import line, and the unlinked detail lines over the
+        word limit.
     """
     walk = _walk_body(text)
     return ProseScan(
