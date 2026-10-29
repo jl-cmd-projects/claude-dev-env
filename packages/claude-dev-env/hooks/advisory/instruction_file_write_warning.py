@@ -44,6 +44,7 @@ from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
     InstructionFinding,
+    is_instruction_file,
     launch_files,
     load_config,
 )
@@ -72,8 +73,10 @@ def _findings_for(
     repository_root: Path, written_path: Path, config: InstructionBudgetConfig
 ) -> list[InstructionFinding]:
     try:
-        all_findings = check_repository(repository_root, config, [written_path])
         is_launch_file = written_path in launch_files(repository_root, config)
+        if not is_launch_file and not is_instruction_file(written_path, repository_root, config):
+            return []
+        all_findings = check_repository(repository_root, config, [written_path])
     except (OSError, ValueError, RecursionError):
         return []
     return [
