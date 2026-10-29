@@ -4,6 +4,8 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
+Look in files, config, environment, and tools first; ask only for a judgment or a preference.
+
 Inspect files, directories, configuration, environment, databases, and available tools for the answer. Recheck facts recalled from earlier sessions. Apply any criterion the user already supplied and state the decision. Ask only for a judgment, preference, or inaccessible fact.
 
 **Enforcement:** none.

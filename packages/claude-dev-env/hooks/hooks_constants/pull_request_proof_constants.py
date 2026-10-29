@@ -5,8 +5,10 @@ NEXT_HEADING_PATTERN = r"^(#{1,6})[ \t]+\S"
 COMMAND_MARKER = "`"
 LINE_SEPARATOR = "\n"
 ALL_GH_CREATE_WORDS = ["pr", "create"]
+ALL_GH_EDIT_WORDS = ["pr", "edit"]
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 PULL_REQUEST_SCRIPT_CREATE_WORD = "create"
+PULL_REQUEST_SCRIPT_EDIT_WORD = "edit"
 ALL_PYTHON_PROGRAM_NAMES = frozenset({"python", "python3", "py"})
 PROOF_GUIDE_PATH = "~/.claude/docs/rule-guides/proof-before-pull-request.md"
 MISSING_BODY_REASON = (
@@ -63,15 +65,24 @@ TEST_ONLY_PROOF_REASON = (
     " command in backticks and quote the output lines that show the difference. Keep the"
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
-UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+_LIST_MARKER = r"^\s*(?:(?:[-*>]|\d+[.)])\s*)*"
+NOT_RUN_LINE_PATTERN = _LIST_MARKER + r"not (?:(?:yet|been) )*(?:run|ran|exercised|executed)(?![\w-])"
+UNPROVEN_ADMISSION_PATTERN = (
+    r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+    r"|"
+    + NOT_RUN_LINE_PATTERN
+    + r"|\b(?:has|have)(?: not|n't) (?:yet )?been (?:run|exercised|executed)(?![\w-])"
+)
+MERGE_WORD_PATTERN = r"\bmerg(?:e|ed|es|ing)\b"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
 BLOCKQUOTE_MARKERS = "> "
 ALL_CODE_FENCE_MARKERS = ("```", "~~~")
 UNPROVEN_PROOF_REASON = (
     "This pull request's 'Proof in practice' section says part of the change is not"
     " proven: \"{admission}\". When that part is what the change exists to do, such as"
-    " the run on the target that failed, leave the pull request unopened. Run it, quote"
-    " its output, then open the pull request. When it is a condition the change does not"
+    " the run on the target that failed, run it first and quote its output in the section."
+    " Do not open the pull request, or ask for review of an open one, until that output"
+    " is there. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
     " heading. When the pull request adds a workflow file the default branch lacks, its first"
     " run waits for the merge: add an 'After merge' heading that names the workflow file in"
@@ -92,6 +103,13 @@ WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
 ADDED_FILE_NAMES_QUERY = (
     '(.files | length | tostring), (.files[] | select(.status == "added" or .status == "renamed" or .status == "copied") | .filename)'
+)
+DEFERRED_PROOF_REASON = (
+    "This pull request's 'Proof in practice' section mentions a merge: \"{deferral}\". Run that"
+    " check on the branch before the review request and quote its output. Put a file or"
+    " command name that contains merge in backticks. A step that needs the merged code to"
+    " exist goes under a 'Not covered' heading at the same level as the proof heading, as"
+    " a line that opens with 'Not run:'. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"

@@ -173,3 +173,22 @@ def test_appending_a_kind_and_tightening_limits_passes(tmp_path: Path) -> None:
         parse_policy(json.dumps(raw_current)),
         tmp_path,
     ) == ()
+
+
+def test_raising_the_prose_line_word_limit_is_a_loosening_change(tmp_path: Path) -> None:
+    raw_prior = json.loads(policy_text())
+    raw_prior["prose_line_word_limit"] = 25
+    raw_current = json.loads(policy_text())
+    raw_current["prose_line_word_limit"] = 40
+    prior_policy = parse_policy(json.dumps(raw_prior))
+
+    raised = policy_shrink_findings(
+        "p", prior_policy, parse_policy(json.dumps(raw_current)), tmp_path
+    )
+    raw_current["prose_line_word_limit"] = 10
+    lowered = policy_shrink_findings(
+        "p", prior_policy, parse_policy(json.dumps(raw_current)), tmp_path
+    )
+
+    assert "prose_line_word_limit rises from 25 to 40" in raised[0].message
+    assert lowered == ()

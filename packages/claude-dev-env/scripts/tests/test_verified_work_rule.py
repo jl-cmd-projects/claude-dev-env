@@ -1,4 +1,4 @@
-"""The always-loaded rules index carries the verified-work flow, and its guide spells out every step."""
+"""The always-loaded rules index points at the verified-work guide, and the guide carries the flow and spells out every step."""
 
 from pathlib import Path
 
@@ -10,8 +10,12 @@ GUIDE_PATH = PACKAGE_ROOT / "docs" / "rule-guides" / "verified-work.md"
 def test_the_index_points_every_session_at_the_verified_work_guide() -> None:
     index_text = INDEX_PATH.read_text(encoding="utf-8")
     assert "- **Verified work** ([guide](../docs/rule-guides/verified-work.md))." in index_text
-    assert "reproduces the issue before it confirms the fix" in index_text
-    assert "Ask before new scope." in index_text
+
+
+def test_the_guide_opens_with_the_flow_in_brief() -> None:
+    guide_text = GUIDE_PATH.read_text(encoding="utf-8")
+    assert "reproduces the issue before it confirms the fix" in guide_text
+    assert "Ask before new scope." in guide_text
 
 
 def test_the_guide_runs_six_steps_in_order() -> None:

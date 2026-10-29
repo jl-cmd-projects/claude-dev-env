@@ -64,6 +64,7 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from blocking.pull_request_proof import (
+    checkout_is_for,
     missing_eval_section_reason,
     missing_existing_work_reason,
     missing_proof_reason,
@@ -159,6 +160,13 @@ def _description_heading_findings(body_text: str) -> list[DurablePostFinding]:
     ]
 
 
+def _checkout_directory(head_branch: str | None, repository: str | None) -> str:
+    current_directory = str(Path.cwd())
+    if head_branch and repository and checkout_is_for(current_directory, repository):
+        return current_directory
+    return ""
+
+
 def _pull_request_proof_findings(
     title: str | None,
     body_text: str,
@@ -177,7 +185,7 @@ def _pull_request_proof_findings(
             "owner": owner,
             "repo": repository_name,
         },
-        "cwd": str(Path.cwd()) if repository_name and head_branch else "",
+        "cwd": _checkout_directory(head_branch, repository),
     }
     all_reasons = (
         missing_proof_reason(create_payload),

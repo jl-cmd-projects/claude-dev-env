@@ -48,6 +48,6 @@ paths = [
   '''(?:^|/)hooks/hooks_constants/(?:pii_prevention_constants|hardcoded_user_path_constants)\.py$''',
   '''(?:^|/)hooks/hooks_constants/test_(?:local_identity|hardcoded_user_path_constants)\.py$''',
   '''(?:^|/)hooks/blocking/test_code_rules_enforcer_hardcoded_user_path\.py$''',
-  '''(?:^|/)scripts/tests/test_(?:tracked_secrets|match_exemptions|path_exemptions|email_exemptions|exact_value_exemptions)\.py$''',
+  '''(?:^|/)scripts/tests/test_(?:tracked_secrets|match_exemptions|path_exemptions|email_exemptions|exact_value_exemptions|private_term_scan)\.py$''',
   '''(?i)(?:^|/)(?:license|copying|notice)(?:\.md|\.txt)?$''',
 ]

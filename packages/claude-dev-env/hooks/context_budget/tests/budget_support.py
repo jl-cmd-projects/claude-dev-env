@@ -69,3 +69,15 @@ def section_text(heading: str, detail_count: int, pointer_line: str = "") -> str
     if pointer_line:
         all_lines.append(pointer_line)
     return "\n".join(all_lines) + "\n"
+
+
+def words_text(word_count: int) -> str:
+    """Return one line of plain words.
+
+    Args:
+        word_count: Number of words to write.
+
+    Returns:
+        The words separated by single spaces, without a newline.
+    """
+    return " ".join(["word"] * word_count)

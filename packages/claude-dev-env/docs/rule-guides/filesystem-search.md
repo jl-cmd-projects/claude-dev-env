@@ -4,6 +4,8 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
+Scope the search to a project, worktree, or filter, never a root.
+
 Scope every search to a project, worktree, package, or narrowing filter. Never start at a filesystem root, drive root, bare home, or share root. Read a known path directly; use scoped `es.exe`, Glob, or Grep for discovery. After `es.exe` Error 8, retry twice before falling back within the same scope. Run one large shell walk at a time.
 
 **Enforcement:** `hooks/blocking/transcript_root_search_gate.py` for Claude transcript roots only. The rest is guidance.

@@ -2,6 +2,10 @@
 
 **When this applies:** Every ask from the user, in every session and every host (Claude Code, Codex, Cursor).
 
+## In brief
+
+Work every ask from the user now, without pause, until it is done with proof you saw or blocked on something only the user can give. No deadlines and no "later". Each ask is a task list item, and the user follows your work there. Keep each item's status current as the work moves. The Stop hook `open_tasks_stop_gate.py` holds a turn once when it worked on an ask and left the task list unchanged.
+
 ## Rule
 
 - Work every ask as soon as it arrives, and keep working it until it is done with proof you saw. Asks have no due dates and no deadlines. Every ask is worked now, continuously.

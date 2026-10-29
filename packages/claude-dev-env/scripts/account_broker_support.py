@@ -59,6 +59,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     utc_time_text,
 )
 from dev_env_scripts_constants.claude_account_constants import (
+    ALL_DEACTIVATED_ACCOUNT_NAMES,
     CLAUDE_ACCOUNT_ORDER_FILE_NAME,
     CLAUDE_LAUNCHER_PROGRAM,
     CREDENTIALS_FILE_NAME,
@@ -133,9 +134,16 @@ def _extra_homes(main_home: Path) -> tuple[Path, ...]:
         raise BrokerConfigurationError(f"invalid account list {extras_path}: {error}") from error
 
 
+def _is_deactivated(account: Account) -> bool:
+    all_names = _order_names(account) | {account.home.name.casefold()}
+    return not ALL_DEACTIVATED_ACCOUNT_NAMES.isdisjoint(all_names)
+
+
 def _append_claude_account(
     all_accounts: list[Account], all_seen: set[str], account: Account, main_home: Path
 ) -> None:
+    if _is_deactivated(account):
+        return
     key = str(account.home).casefold()
     if key == str(main_home).casefold():
         all_accounts[0] = Account(Product.CLAUDE, "main", main_home, True, account.command)
@@ -182,7 +190,8 @@ def load_claude_accounts() -> tuple[Account, ...]:
 
     Returns:
         Main and additional accounts in configured order, each with its place in the account order file
-        and, for a home under the profiles root, its profile name.
+        and, for a home under the profiles root, its profile name. An account named in
+        ``ALL_DEACTIVATED_ACCOUNT_NAMES`` is left out.
 
     Raises:
         BrokerConfigurationError: An account list is unreadable.

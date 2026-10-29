@@ -848,6 +848,26 @@ def should_accept_an_unproven_run_when_the_branch_adds_the_workflow_its_after_me
     assert all_findings == ()
 
 
+def should_report_an_unproven_run_when_the_checkout_belongs_to_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_adding_workflow(tmp_path, "release-hold.yml"))
+    after_merge_section = (
+        "\n## After merge\n\nThe first owner approval runs `release-hold.yml`."
+        " The agent records that run link here.\n"
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: release the hold label",
+        body_text=_unproven_workflow_body(after_merge_section),
+        head_branch="feature",
+        repository="x/y",
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
+    ]
+
+
 def should_report_an_unproven_run_when_no_head_branch_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -13,6 +13,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import pull_request_proof as gate
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
+    DEFERRED_PROOF_REASON,
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -372,28 +373,6 @@ def test_should_deny_a_page_change_whose_proof_shows_no_picture(tmp_path: Path) 
     reason = gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path))
     assert reason is not None
     assert "page.html" in reason
-
-
-def test_should_read_the_compare_api_when_the_checkout_belongs_to_another_repository(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(
-        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, [])
-    )
-    clone_path = _repository_with_change(tmp_path, "page.html")
-    payload = {
-        "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {
-            "owner": "o",
-            "repo": "r",
-            "base": "main",
-            "head": "feature",
-            "body": PROVEN_BODY,
-        },
-        "cwd": str(clone_path),
-    }
-    assert gate.missing_look_reason(payload) is None
 
 
 def test_should_read_the_checkout_when_the_call_names_a_repository_but_no_head(
@@ -978,6 +957,27 @@ def test_unproven_line_should_stay_denied_when_it_is_not_about_a_workflow_run(
     )
 
 
+def test_merge_word_line_should_pass_when_it_is_about_the_first_run_of_a_covered_workflow(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    merge_line = "The live GitHub Actions run waits until this merges."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(UNPROVEN_RUN_LINE, merge_line)
+    assert gate.missing_proof_reason(_mcp_create_on_branch(body, clone_path)) is None
+    assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=merge_line)
+
+
+def test_merge_word_line_should_stay_denied_when_it_is_not_about_a_workflow_run(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    merge_line = "The Convert change is checked after the merge."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(UNPROVEN_RUN_LINE, merge_line)
+    assert gate.missing_proof_reason(_mcp_create_on_branch(body, clone_path)) == DEFERRED_PROOF_REASON.format(
+        deferral=merge_line
+    )
+
+
 def test_unproven_line_should_stay_denied_when_a_run_line_names_no_workflow(
     tmp_path: Path,
 ) -> None:
@@ -1150,7 +1150,7 @@ def test_checkout_should_belong_to_the_target_repository_only_on_a_full_name_mat
 ) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", origin_url], check=True)
-    assert gate._checkout_is_for(str(tmp_path), repository) is expected
+    assert gate.checkout_is_for(str(tmp_path), repository) is expected
 
 
 def test_checkout_should_belong_to_the_target_repository_when_a_fork_checkout_names_it_as_upstream(
@@ -1159,8 +1159,8 @@ def test_checkout_should_belong_to_the_target_repository_when_a_fork_checkout_na
     subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
     for each_name, each_url in (("origin", "https://github.com/me/r.git"), ("upstream", "https://github.com/o/r.git")):
         subprocess.run(["git", "-C", str(tmp_path), "remote", "add", each_name, each_url], check=True)
-    assert gate._checkout_is_for(str(tmp_path), "o/r") is True
-    assert gate._checkout_is_for(str(tmp_path), "x/r") is False
+    assert gate.checkout_is_for(str(tmp_path), "o/r") is True
+    assert gate.checkout_is_for(str(tmp_path), "x/r") is False
 
 
 def test_unproven_line_should_stay_denied_when_a_matching_checkout_lists_no_added_workflow(
@@ -1197,3 +1197,158 @@ def test_unproven_line_should_stay_denied_when_a_longer_file_name_contains_the_w
     body = _workflow_body(after_merge_section).replace(UNPROVEN_RUN_LINE, unrelated_line)
     payload = _mcp_create_on_branch(body, clone_path)
     assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
+
+
+@pytest.mark.parametrize(
+    "admission",
+    [
+        "Not run: the first publish on the live remote.",
+        "- Not run: a push race between live sessions.",
+        "1. Not run: the live publish.",
+        "The live publish has not yet been run.",
+        "It hasn't been run on the target.",
+        "The dialer path has not been exercised here.",
+    ],
+)
+def test_each_unrun_wording_in_proof_prose_should_be_denied(admission: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{admission}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=admission)
+
+
+@pytest.mark.parametrize(
+    "merge_line",
+    [
+        "I check the first live publish after the merge.",
+        "The seed step happens once merged.",
+        "Post-merge, a session confirms the publish.",
+        "A session verifies it after merging.",
+        "After it merges, I verify the publish.",
+        "I will verify the publish on merge.",
+        "I verify the live publish post merge.",
+        "Verified the output after merging main into the branch.",
+    ],
+)
+def test_each_merge_word_in_proof_prose_should_be_denied(merge_line: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{merge_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=merge_line)
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "The gate does not run on edits.",
+        "With the change, the hook is not run on edits.",
+        "Without the change, the hook was not run for edits.",
+        "Before this change the gate had not run on edits.",
+        "Ran `git merge origin/main`, then `python run.py`.",
+        "Confirmed the hold label stays until the PR lands.",
+        "Not run-dependent.",
+        "Without the change the publish failed; with it the publish passed.",
+    ],
+)
+def test_proof_prose_without_an_unrun_line_or_a_merge_word_should_pass(prose: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{prose}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_not_covered_heading_nested_under_the_proof_heading_should_stay_proof_text() -> None:
+    line = "Not run: an older shape."
+    body = f"## Proof in practice\nRan `python run.py`.\n\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_proof_made_only_of_a_nested_not_covered_line_should_be_denied() -> None:
+    line = "Not run: `python publish.py`"
+    body = f"## Proof in practice\n### Not covered\n{line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_merge_step_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = (
+        "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\n"
+        "Not run: the publish check that follows the merge.\n"
+    )
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+def test_merge_word_line_should_return_the_line_or_none() -> None:
+    assert gate.merge_word_line("Ran `python run.py`.\nChecked after the merge.\n") == "Checked after the merge."
+    assert gate.merge_word_line("Ran `git merge main`.\n") is None
+    assert gate.merge_word_line("```\nmerged ok\n```\n") is None
+
+
+def _mcp_update(body: object) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__update_pull_request",
+        "tool_input": {"owner": "o", "repo": "r", "pullNumber": 7, "body": body},
+    }
+
+
+def test_body_edit_that_adds_an_unrun_proof_line_should_be_denied() -> None:
+    line = "Not run: the first publish on the live remote."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_adds_a_merge_word_to_the_proof_should_be_denied() -> None:
+    line = "I check the first live publish after the merge."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == DEFERRED_PROOF_REASON.format(deferral=line)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr edit 7 --body-file body.md",
+        "python pull_request.py edit 7 --body-file body.md",
+    ],
+)
+def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str, tmp_path: Path) -> None:
+    line = "Not run: the live publish."
+    (tmp_path / "body.md").write_text(f"## Proof in practice\nRan `python run.py`.\n{line}\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell(command, tmp_path)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest -q`.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
+    body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
+def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
+    body = "## Proof in practice\nIt works.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
+def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("## Proof in practice\nRan `python run.py`.\nNot run: x.\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell("gh pr view edit --body-file body.md", tmp_path)) is None
+
+
+def test_body_edit_without_a_proof_section_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update("## Summary\nNot run: nothing here is a proof.\n")) is None
+
+
+def test_body_edit_with_a_clean_proof_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update(PROVEN_BODY)) is None
+
+
+def test_body_edit_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\nNot run: the check after the merge.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) is None
+
+
+def test_edit_without_a_readable_body_should_pass(tmp_path: Path) -> None:
+    assert gate.edit_proof_reason(_mcp_update(None)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --title t", tmp_path)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --body-file -", tmp_path)) is None
+
+
+def test_create_calls_and_other_tools_should_pass_the_edit_check(tmp_path: Path) -> None:
+    unrun_body = "## Proof in practice\nRan `python run.py`.\nNot run: x.\n"
+    assert gate.edit_proof_reason(_mcp_create(unrun_body)) is None
+    assert gate.edit_proof_reason(_shell("git push -u origin b", tmp_path)) is None
