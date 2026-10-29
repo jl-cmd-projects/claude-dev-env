@@ -50,6 +50,7 @@ FLOWCHART_DIAMOND_PATTERN = re.compile(
 ATTACHED_OUTPUTS_KEY = "attached_outputs"
 OUTPUT_KIND_KEY = "kind"
 OUTPUT_FILE_KIND = "file"
+OUTPUT_FRAME_KIND = "frame"
 OUTPUT_REF_KEY = "ref"
 ALL_PICTURE_SUFFIXES = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp")
 MAXIMUM_FIGURES_WITHOUT_PICTURE = 2

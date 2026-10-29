@@ -78,6 +78,7 @@ from hooks_constants.visual_reply_rules_constants import (
     MARKDOWN_PICTURE_PATTERN,
     MAXIMUM_FIGURES_WITHOUT_PICTURE,
     OUTPUT_FILE_KIND,
+    OUTPUT_FRAME_KIND,
     OUTPUT_KIND_KEY,
     OUTPUT_REF_KEY,
     RESULTS_PICTURE_MESSAGE,
@@ -131,7 +132,12 @@ def load_rules(rules_path: Path = RULES_FILE_PATH) -> VisualReplyRules | None:
         if isinstance(each, dict)
         and all(field in each for field in (RULE_KEY_FIELD, RULE_LABEL_FIELD, RULE_REMINDER_FIELD))
     )
-    all_needed_keys = {ONE_ITEM_RULE_KEY, NO_PICTURE_RULE_KEY, ABBREVIATIONS_RULE_KEY}
+    all_needed_keys = {
+        ONE_ITEM_RULE_KEY,
+        NO_PICTURE_RULE_KEY,
+        ABBREVIATIONS_RULE_KEY,
+        RESULTS_PICTURE_RULE_KEY,
+    }
     if not all_needed_keys <= {each.key for each in all_rules}:
         return None
     return VisualReplyRules(
@@ -379,12 +385,17 @@ def reports_results(prose_text: str) -> bool:
 
 
 def attaches_picture(reply_text: str, all_tool_input: dict[str, object]) -> bool:
-    """Return True when the call attaches an image file or embeds a markdown picture outside code."""
+    """Return True when the call attaches an image file or a published page, or embeds a markdown picture outside code."""
     all_attached_outputs = all_tool_input.get(ATTACHED_OUTPUTS_KEY)
     has_attached_picture = isinstance(all_attached_outputs, list) and any(
         isinstance(each_output, dict)
-        and each_output.get(OUTPUT_KIND_KEY) == OUTPUT_FILE_KIND
-        and str(each_output.get(OUTPUT_REF_KEY, "")).casefold().endswith(ALL_PICTURE_SUFFIXES)
+        and (
+            each_output.get(OUTPUT_KIND_KEY) == OUTPUT_FRAME_KIND
+            or (
+                each_output.get(OUTPUT_KIND_KEY) == OUTPUT_FILE_KIND
+                and str(each_output.get(OUTPUT_REF_KEY, "")).casefold().endswith(ALL_PICTURE_SUFFIXES)
+            )
+        )
         for each_output in all_attached_outputs
     )
     without_code = INLINE_CODE_PATTERN.sub(" ", FENCED_BLOCK_PATTERN.sub(" ", reply_text))

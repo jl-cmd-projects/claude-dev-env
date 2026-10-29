@@ -1209,6 +1209,30 @@ def test_should_allow_the_same_results_with_a_markdown_picture(
     assert (exit_code, error_text) == (0, "")
 
 
+def test_should_allow_an_edit_of_a_results_message_because_the_edit_tool_attaches_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, UPDATE_TOOL_NAME, {"text": RESULTS_LINE_REPLY}
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_allow_results_with_a_published_page_attached(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {
+            "text": RESULTS_LINE_REPLY,
+            "attached_outputs": [{"kind": "frame", "ref": "https://claude.ai/artifact/dashboard"}],
+        },
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
 def test_should_deny_results_whose_only_attachment_is_not_a_picture(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

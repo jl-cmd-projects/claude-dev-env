@@ -54,6 +54,28 @@ def test_load_rules_returns_none_when_a_needed_rule_is_missing(tmp_path: Path) -
     assert load_rules(rules_path) is None
 
 
+def test_load_rules_returns_none_when_only_the_results_picture_rule_is_missing(tmp_path: Path) -> None:
+    all_other_keys = ("one_item", "no_picture", "abbreviations")
+    rules_path = tmp_path / "rules.json"
+    rules_path.write_text(
+        json.dumps({"rules": [{"key": each, "label": "Label", "reminder": "Remind."} for each in all_other_keys]}),
+        encoding="utf-8",
+    )
+    assert load_rules(rules_path) is None
+    rules_path.write_text(
+        json.dumps(
+            {
+                "rules": [
+                    {"key": each, "label": "Label", "reminder": "Remind."}
+                    for each in (*all_other_keys, "results_picture")
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert load_rules(rules_path) is not None
+
+
 def test_mode_is_off_without_a_switch_file(tmp_path: Path) -> None:
     assert mode_enabled(tmp_path) is False
 
@@ -291,6 +313,15 @@ def test_attaches_picture_accepts_an_image_file_or_a_markdown_picture_only() -> 
     assert not attaches_picture("Results.", {"attached_outputs": [{"kind": "file", "ref": "results.md"}]})
     assert not attaches_picture("Results.", {"attached_outputs": [{"kind": "link", "ref": "https://x.example/c.png"}]})
     assert not attaches_picture("Results.", {})
+
+
+def test_attaches_picture_accepts_a_published_frame_of_any_name() -> None:
+    assert attaches_picture(
+        "Results.", {"attached_outputs": [{"kind": "frame", "ref": "https://claude.ai/artifact/dashboard"}]}
+    )
+    assert not attaches_picture(
+        "Results.", {"attached_outputs": [{"kind": "other", "ref": "https://claude.ai/artifact/dashboard"}]}
+    )
 
 
 def test_results_picture_violation_names_the_picture_rule_and_allows_an_attached_chart() -> None:
