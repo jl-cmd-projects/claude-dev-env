@@ -739,7 +739,7 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     all_workflow_paths = None
     if _local_checkout_may_answer(working_directory, repository, head_branch):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
-    if not all_workflow_paths:
+    if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(
             repository, _named_base_branch(all_payload_fields), head_branch
         )

@@ -1151,7 +1151,7 @@ def test_checkout_should_belong_to_the_target_repository_only_on_a_full_name_mat
     assert gate._checkout_is_for(str(tmp_path), repository) is expected
 
 
-def test_unproven_line_should_use_the_compare_api_when_a_matching_checkout_lists_no_added_workflow(
+def test_unproven_line_should_stay_denied_when_a_matching_checkout_lists_no_added_workflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     stale_checkout = _repository_with_change(tmp_path, "tool.py")
@@ -1175,7 +1175,7 @@ def test_unproven_line_should_use_the_compare_api_when_a_matching_checkout_lists
         },
         "cwd": str(stale_checkout),
     }
-    assert gate.missing_proof_reason(payload) is None
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
 
 
 def test_unproven_line_should_stay_denied_when_a_longer_file_name_contains_the_workflow_name(tmp_path: Path) -> None:
