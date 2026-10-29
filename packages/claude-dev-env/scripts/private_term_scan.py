@@ -11,6 +11,7 @@ line number, never the name itself, so the public log stays clean::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -19,9 +20,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from dev_env_scripts_constants.private_term_constants import (
+    ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS,
     ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
     ALL_EVENT_TEXT_FIELDS,
     ALL_PRIVATE_TERM_DIGESTS,
+    ANGLE_BRACKET_ADDRESS_PATTERN,
     COMMIT_FIELD_SEPARATOR,
     COMMIT_FIELD_SPLIT_LIMIT,
     COMMIT_IDENTITY_PART,
@@ -37,7 +40,7 @@ from dev_env_scripts_constants.private_term_constants import (
     SHORT_SHA_LENGTH,
     PrivateTermDigest,
 )
-from private_terms import private_term_line_numbers
+from private_terms import normalize_text, private_term_line_numbers
 
 
 def _findings_for(
@@ -79,6 +82,23 @@ def scan_event(event_path: Path) -> list[str]:
     return all_findings
 
 
+def _mask_accepted_address(address_match: re.Match[str]) -> str:
+    address_digest = hashlib.sha256(
+        normalize_text(address_match.group(0)).encode(PRIVATE_TERM_TEXT_ENCODING)
+    ).hexdigest()
+    if address_digest in ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS:
+        return MASKED_ADDRESS
+    return address_match.group(0)
+
+
+def _identity_text_to_scan(identity: str) -> str:
+    return re.sub(
+        ANGLE_BRACKET_ADDRESS_PATTERN,
+        _mask_accepted_address,
+        re.sub(GITHUB_NOREPLY_ADDRESS_PATTERN, MASKED_ADDRESS, identity, flags=re.IGNORECASE),
+    )
+
+
 def _commit_findings(record: str) -> list[str]:
     full_sha, identity, message = record.split(
         COMMIT_FIELD_SEPARATOR, COMMIT_FIELD_SPLIT_LIMIT
@@ -87,7 +107,7 @@ def _commit_findings(record: str) -> list[str]:
     return [
         *_findings_for(
             COMMIT_LABEL_TEMPLATE.format(short_sha=short_sha, part=COMMIT_IDENTITY_PART),
-            re.sub(GITHUB_NOREPLY_ADDRESS_PATTERN, MASKED_ADDRESS, identity, flags=re.IGNORECASE),
+            _identity_text_to_scan(identity),
             ALL_PRIVATE_TERM_DIGESTS - ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
         ),
         *_findings_for(
@@ -109,8 +129,10 @@ def scan_commits(repository_root: Path, commit_range: str) -> list[str]:
         One finding per commit identity or message line that names a private
         organization. An identity address ending in users.noreply.github.com
         is left out of the scan, since GitHub builds it from the account handle.
-        The owner's own handle and the shared agent account email pass in an
-        identity and still fail in a message.
+        An identity address that matches an accepted address digest is left
+        out the same way, so the shared agent account passes while another
+        address at the same organization still fails. The owner's own handle
+        passes in an identity and still fails in a message.
     """
     log_text = subprocess.run(
         ["git", "-C", str(repository_root), "log", "--reverse", COMMIT_LOG_FORMAT, commit_range],

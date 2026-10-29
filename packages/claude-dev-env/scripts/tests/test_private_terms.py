@@ -11,7 +11,7 @@ if str(_SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIRECTORY))
 
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
-from private_terms import names_private_term, private_term_line_numbers
+from private_terms import names_private_term, normalize_text, private_term_line_numbers
 
 _FIXTURE_TERM = "acmewidget"
 _ALL_FIXTURE_DIGESTS = frozenset(
@@ -22,6 +22,14 @@ _ALL_FIXTURE_DIGESTS = frozenset(
         )
     }
 )
+
+
+def test_should_keep_only_lowercase_ascii_letters_and_digits_when_normalizing() -> None:
+    assert normalize_text("Pat <Bot-7@Acme.Example.com>") == "patbot7acmeexamplecom"
+
+
+def test_should_drop_non_ascii_letters_when_normalizing() -> None:
+    assert normalize_text("café 9") == "caf9"
 
 
 def test_should_report_the_line_of_a_spaced_spelling() -> None:

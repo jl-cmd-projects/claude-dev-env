@@ -17,16 +17,28 @@ from dev_env_scripts_constants.private_term_constants import (
 )
 
 
+def normalize_text(text: str) -> str:
+    """Return the text with only its ASCII letters and digits, in lower case.
+
+    Args:
+        text: Text to normalize.
+
+    Returns:
+        The normalized text, the form each private-term digest hashes.
+    """
+    return "".join(
+        each_character
+        for each_character in text.lower()
+        if each_character.isascii() and each_character.isalnum()
+    )
+
+
 def _normalized_text_and_line_starts(text: str) -> tuple[str, list[int]]:
     all_normalized_lines: list[str] = []
     all_line_starts: list[int] = []
     offset = 0
     for each_line in text.split("\n"):
-        normalized_line = "".join(
-            each_character
-            for each_character in each_line.lower()
-            if each_character.isascii() and each_character.isalnum()
-        )
+        normalized_line = normalize_text(each_line)
         all_line_starts.append(offset)
         all_normalized_lines.append(normalized_line)
         offset += len(normalized_line)

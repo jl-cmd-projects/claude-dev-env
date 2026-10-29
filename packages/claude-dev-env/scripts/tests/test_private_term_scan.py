@@ -23,6 +23,8 @@ _FIXTURE_OWNER_HANDLE = "patowner"
 _CLEAN_IDENTITY = ("Claude", "noreply@example.com")
 _OWNER_HANDLE = "ohcEnoJ"[::-1]
 _OWNER_IDENTITY = (_OWNER_HANDLE, f"24366590+{_OWNER_HANDLE}@users.noreply.github.com")
+_FIXTURE_BOT_IDENTITY = ("Pat Bot", "bot@acmewidget.example.com")
+_FIXTURE_BOT_ADDRESS_NORMALIZED = "botacmewidgetexamplecom"
 
 
 def _fixture_digest(term: str) -> PrivateTermDigest:
@@ -43,6 +45,11 @@ def private_fixture_terms(monkeypatch: pytest.MonkeyPatch) -> None:
         "ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS",
         frozenset({_fixture_digest(_FIXTURE_OWNER_HANDLE)}),
     )
+    monkeypatch.setattr(
+        private_term_scan,
+        "ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS",
+        frozenset({_fixture_digest(_FIXTURE_BOT_ADDRESS_NORMALIZED).sha256}),
+    )
 
 
 @pytest.fixture
@@ -56,6 +63,11 @@ def shipped_private_terms(monkeypatch: pytest.MonkeyPatch) -> None:
         private_term_scan,
         "ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS",
         private_term_constants.ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
+    )
+    monkeypatch.setattr(
+        private_term_scan,
+        "ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS",
+        private_term_constants.ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS,
     )
 
 
@@ -218,6 +230,46 @@ def test_should_accept_the_owner_handle_as_a_commit_identity(tmp_path: Path) -> 
         tmp_path, [("feat: clean change", *_OWNER_IDENTITY)]
     )
     assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+def test_should_accept_an_accepted_address_in_a_commit_identity(tmp_path: Path) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", *_FIXTURE_BOT_IDENTITY)]
+    )
+    assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+def test_should_flag_another_address_at_the_organization_of_an_accepted_address(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", "Pat Contractor", "pat@acmewidget.example.com")]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " identity:" in all_findings[0]
+
+
+def test_should_flag_a_private_name_in_the_author_name_beside_an_accepted_address(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", "Acme Widgets Bot", _FIXTURE_BOT_IDENTITY[1])]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " identity:" in all_findings[0]
+
+
+def test_should_flag_a_private_name_in_the_message_of_an_accepted_address_commit(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("docs: note\n\nWritten for Acme Widgets.", *_FIXTURE_BOT_IDENTITY)]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " message: Line 3 " in all_findings[0]
 
 
 @pytest.mark.usefixtures("shipped_private_terms")
