@@ -129,11 +129,13 @@ def test_input_without_a_command_string_does_not_match(tool_input: object) -> No
 
 def test_installed_version_reads_the_manifest(tmp_path: Path) -> None:
     package_directory = _write_installed_pele(tmp_path, "1.12.0")
-    assert npx_pele_guidance.installed_pele_version(package_directory) == "1.12.0"
+    manifest = npx_pele_guidance.installed_pele_manifest(package_directory)
+    assert npx_pele_guidance.installed_pele_version(manifest) == "1.12.0"
 
 
 def test_installed_version_is_none_without_a_manifest(tmp_path: Path) -> None:
-    assert npx_pele_guidance.installed_pele_version(npx_pele_guidance.pele_package_directory_under(tmp_path)) is None
+    manifest = npx_pele_guidance.installed_pele_manifest(npx_pele_guidance.pele_package_directory_under(tmp_path))
+    assert npx_pele_guidance.installed_pele_version(manifest) is None
 
 
 @pytest.mark.parametrize("manifest_text", ["not json", '["list"]', '{"version": 1}', '{"version": ""}'])
@@ -141,7 +143,8 @@ def test_unreadable_manifest_reads_as_no_version(tmp_path: Path, manifest_text: 
     package_directory = npx_pele_guidance.pele_package_directory_under(tmp_path)
     package_directory.mkdir(parents=True)
     (package_directory / PACKAGE_MANIFEST_NAME).write_text(manifest_text, encoding="utf-8")
-    assert npx_pele_guidance.installed_pele_version(package_directory) is None
+    manifest = npx_pele_guidance.installed_pele_manifest(package_directory)
+    assert npx_pele_guidance.installed_pele_version(manifest) is None
 
 
 def test_package_directory_follows_the_claude_config_directory(
@@ -265,7 +268,8 @@ def test_installed_guidance_points_at_the_manifest_main_entry(
     )
     entry_path = package_directory / "lib" / "index.js"
     entry_path.write_text("export function render(text) {\n    return { svg: '' };\n}\n", encoding="utf-8")
-    assert npx_pele_guidance.installed_pele_entry(package_directory) == entry_path
+    manifest = npx_pele_guidance.installed_pele_manifest(package_directory)
+    assert npx_pele_guidance.installed_pele_entry(package_directory, manifest) == entry_path
     assert str(entry_path) in npx_pele_guidance.guidance_text()
     assert "pele.run" not in npx_pele_guidance.guidance_text()
 

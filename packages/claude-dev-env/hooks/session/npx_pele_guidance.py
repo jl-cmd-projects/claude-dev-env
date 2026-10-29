@@ -80,16 +80,16 @@ def pele_package_directory_under(claude_root: Path) -> Path:
     )
 
 
-def installed_pele_version(package_directory: Path) -> str | None:
-    """Read the version from an installed Pele package manifest.
+def installed_pele_version(manifest: dict) -> str | None:
+    """Read the version from a parsed Pele package manifest.
 
     Args:
-        package_directory: The folder that holds Pele's ``package.json``.
+        manifest: The parsed Pele ``package.json``.
 
     Returns:
-        The version string, or None when the manifest is missing or unreadable.
+        The version string, or None when the manifest holds none.
     """
-    version = installed_pele_manifest(package_directory).get("version")
+    version = manifest.get("version")
     return version if isinstance(version, str) and version else None
 
 
@@ -163,17 +163,18 @@ def _is_pele_package(argument: str) -> bool:
     return package_name == PELE_PACKAGE_NAME
 
 
-def installed_pele_entry(package_directory: Path) -> Path:
+def installed_pele_entry(package_directory: Path, manifest: dict) -> Path:
     """Return the entry file the installed Pele manifest names.
 
     Args:
         package_directory: The folder that holds Pele's ``package.json``.
+        manifest: The parsed Pele ``package.json``.
 
     Returns:
         The file at the manifest's ``main`` path, or ``dist/pele.js`` when the
         manifest names no usable ``main``.
     """
-    main_path = installed_pele_manifest(package_directory).get("main")
+    main_path = manifest.get("main")
     if isinstance(main_path, str) and main_path:
         return package_directory / main_path
     return package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
@@ -187,8 +188,9 @@ def guidance_text() -> str:
         file exists, else the playground guidance.
     """
     package_directory = pele_package_directory_under(claude_home())
-    package_entry = installed_pele_entry(package_directory)
-    version = installed_pele_version(package_directory)
+    manifest = installed_pele_manifest(package_directory)
+    package_entry = installed_pele_entry(package_directory, manifest)
+    version = installed_pele_version(manifest)
     if version is None or not package_entry.is_file():
         return ABSENT_GUIDANCE_TEMPLATE.format(package_directory=package_directory)
     return INSTALLED_GUIDANCE_TEMPLATE.format(
