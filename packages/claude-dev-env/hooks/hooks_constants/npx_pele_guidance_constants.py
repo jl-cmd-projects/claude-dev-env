@@ -18,7 +18,9 @@ __all__ = [
 ]
 
 NPX_PELE_COMMAND_PATTERN = re.compile(
-    r"(?:^|[;&|(\n])\s*(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)])"
+    r"(?:^|[;&|(\n])\s*"
+    r"(?:(?:[A-Za-z_]\w*=\S*|sudo|time|env|nohup)\s+)*"
+    r"(?:npx(?:\.cmd)?|npm\s+(?:exec|x))\s+(?:-\S+\s+)*pele(?:@\S*)?(?=$|[\s;&|)])"
 )
 COMMAND_INPUT_KEY = "command"
 PELE_PACKAGE_NAME = "pele"

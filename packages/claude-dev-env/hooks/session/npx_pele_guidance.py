@@ -92,8 +92,9 @@ def is_npx_pele_command(tool_input: object) -> bool:
         tool_input: The Bash or PowerShell ``tool_input``.
 
     Returns:
-        True when the command text starts a segment with ``npx pele``,
-        ``npx -y pele``, ``npm exec pele``, or a versioned form of those.
+        True when a command segment runs ``npx pele``, ``npx -y pele``,
+        ``npm exec pele``, or a versioned form of those. Leading environment
+        assignments and the words sudo, time, env, and nohup may precede them.
     """
     if not isinstance(tool_input, dict):
         return False

@@ -81,6 +81,11 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "cd diagrams && npx pele chain.mmd",
         "npm exec pele chain.mmd",
         "npx.cmd pele chain.mmd",
+        "CI=1 npx pele chain.mmd",
+        "NODE_ENV=prod CI=1 npx -y pele",
+        "env CI=1 npx pele chain.mmd",
+        "sudo npx pele chain.mmd",
+        "time npx pele chain.mmd",
     ],
 )
 def test_npx_pele_commands_match(command_text: str) -> None:
@@ -95,6 +100,7 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         "npx -y claude-dev-env@latest",
         "npx pelee",
         "npx -y create-pele-app my-app",
+        "CI=1 npx prettier --check .",
         "echo pele",
     ],
 )
