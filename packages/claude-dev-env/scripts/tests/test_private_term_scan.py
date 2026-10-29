@@ -24,6 +24,7 @@ _CLEAN_IDENTITY = ("Claude", "noreply@example.com")
 _OWNER_HANDLE = "ohcEnoJ"[::-1]
 _OWNER_IDENTITY = (_OWNER_HANDLE, f"24366590+{_OWNER_HANDLE}@users.noreply.github.com")
 _FIXTURE_BOT_IDENTITY = ("Pat Bot", "kbot@acmewidget.example.com")
+_KELVIN_SIGN = "\N{KELVIN SIGN}"
 _FIXTURE_BOT_ADDRESS_DIGEST = hashlib.sha256(
     _FIXTURE_BOT_IDENTITY[1].encode("utf-8")
 ).hexdigest()
@@ -252,7 +253,7 @@ def test_should_flag_an_address_that_only_folds_to_an_accepted_address(
     tmp_path: Path,
 ) -> None:
     repository_root, base, head = _repository_with_commits(
-        tmp_path, [("feat: clean change", "Pat Bot", "Kbot@acmewidget.example.com")]
+        tmp_path, [("feat: clean change", "Pat Bot", f"{_KELVIN_SIGN}bot@acmewidget.example.com")]
     )
     all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
     assert len(all_findings) == 1
