@@ -71,6 +71,17 @@ from hooks_constants.visual_reply_rules_constants import (
     WIDGET_INPUT_KEY,
     WIDGET_ANCHOR_PATTERN,
     WIDGET_TOOL_NAME_SUFFIX,
+    ALL_PICTURE_SUFFIXES,
+    ATTACHED_OUTPUTS_KEY,
+    FIGURE_PATTERN,
+    MARKDOWN_PICTURE_PATTERN,
+    MAXIMUM_FIGURES_WITHOUT_PICTURE,
+    OUTPUT_FILE_KIND,
+    OUTPUT_KIND_KEY,
+    OUTPUT_REF_KEY,
+    RESULTS_PICTURE_MESSAGE,
+    RESULTS_PICTURE_RULE_KEY,
+    TABLE_SEPARATOR_PATTERN,
 )
 
 
@@ -352,3 +363,37 @@ def visual_violation(
     return NO_VISUAL_MESSAGE.format(
         sentence_count=sentence_count, reminder=rules.reminder(NO_PICTURE_RULE_KEY)
     )
+
+
+def reports_results(prose_text: str) -> bool:
+    """Return True when the prose holds a markdown table or more figures than a reply may state without a picture.
+
+    The caller removes code spans, links, and URLs first, so figures inside them do not count.
+    """
+    if TABLE_SEPARATOR_PATTERN.search(prose_text):
+        return True
+    return len(FIGURE_PATTERN.findall(prose_text)) > MAXIMUM_FIGURES_WITHOUT_PICTURE
+
+
+def attaches_picture(reply_text: str, all_tool_input: dict[str, object]) -> bool:
+    """Return True when the call attaches an image file or embeds a markdown picture."""
+    all_attached_outputs = all_tool_input.get(ATTACHED_OUTPUTS_KEY)
+    has_attached_picture = isinstance(all_attached_outputs, list) and any(
+        isinstance(each_output, dict)
+        and each_output.get(OUTPUT_KIND_KEY) == OUTPUT_FILE_KIND
+        and str(each_output.get(OUTPUT_REF_KEY, "")).casefold().endswith(ALL_PICTURE_SUFFIXES)
+        for each_output in all_attached_outputs
+    )
+    return has_attached_picture or MARKDOWN_PICTURE_PATTERN.search(reply_text) is not None
+
+
+def results_picture_violation(
+    prose_text: str,
+    reply_text: str,
+    all_tool_input: dict[str, object],
+    rules: VisualReplyRules | None,
+) -> str | None:
+    """Return the deny reason for a reply that reports results with no picture attached, or None."""
+    if rules is None or not reports_results(prose_text) or attaches_picture(reply_text, all_tool_input):
+        return None
+    return RESULTS_PICTURE_MESSAGE.format(reminder=rules.reminder(RESULTS_PICTURE_RULE_KEY))

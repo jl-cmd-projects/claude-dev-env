@@ -4,6 +4,7 @@ Each line gives a rule in brief. When its trigger matches your task, open the gu
 **Writing**
 - **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose. Short complete sentences on one topic, active voice, one action per step, each fact said once.
 - **No contrast framing** ([guide](../docs/rule-guides/no-contrast-framing.md)). Any sentence a person reads. State the chosen point and leave out the discarded reading.
+- **Results as pictures**. Any reply that reports results. Attach one pele chart as an SVG or PNG file, with every label and number shown, and keep the reply to three short sentences.
 
 **Evidence**
 - **Research mode** ([guide](../docs/rule-guides/research-mode.md)). Any claim, recommendation, or advice. Cite a source for each claim, and run the tool that settles a fact before you state it.
