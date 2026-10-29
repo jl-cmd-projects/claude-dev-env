@@ -67,6 +67,7 @@ from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
 from blocking.pull_request_proof import (
+    edit_proof_reason,
     is_feature_pull_request,
     missing_eval_section_reason,
     missing_existing_work_reason,
@@ -331,8 +332,9 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
 
         pr-lifecycle skill not loaded                     -> DENY_REASON
         new pull request with no proof section            -> MISSING_PROOF_REASON
-        proof says not run                                -> UNPROVEN_PROOF_REASON
-        proof prose holds a merge word                    -> DEFERRED_PROOF_REASON
+        proof, or a body edit, says not run               -> UNPROVEN_PROOF_REASON
+        proof, or a body edit, holds a merge word         -> DEFERRED_PROOF_REASON
+        body edit whose proof has no command or only tests -> MISSING_PROOF_REASON or TEST_ONLY_PROOF_REASON
         new pull request with no existing-work section    -> MISSING_EXISTING_WORK_REASON
         feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
@@ -346,7 +348,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         return None
     if _is_skill_unloaded(all_payload_fields):
         return deny_decision(DENY_REASON)
-    proof_reason = missing_proof_reason(all_payload_fields)
+    proof_reason = missing_proof_reason(all_payload_fields) or edit_proof_reason(all_payload_fields)
     if proof_reason is not None:
         return deny_decision(proof_reason)
     search_reason = missing_existing_work_reason(all_payload_fields)

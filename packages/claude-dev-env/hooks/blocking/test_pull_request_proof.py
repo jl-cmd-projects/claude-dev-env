@@ -765,3 +765,75 @@ def test_merge_word_line_should_return_the_line_or_none() -> None:
     assert gate.merge_word_line("Ran `python run.py`.\nChecked after the merge.\n") == "Checked after the merge."
     assert gate.merge_word_line("Ran `git merge main`.\n") is None
     assert gate.merge_word_line("```\nmerged ok\n```\n") is None
+
+
+def _mcp_update(body: object) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__update_pull_request",
+        "tool_input": {"owner": "o", "repo": "r", "pullNumber": 7, "body": body},
+    }
+
+
+def test_body_edit_that_adds_an_unrun_proof_line_should_be_denied() -> None:
+    line = "Not run: the first publish on the live remote."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_adds_a_merge_word_to_the_proof_should_be_denied() -> None:
+    line = "I check the first live publish after the merge."
+    body = f"## Proof in practice\nRan `python run.py`.\n{line}\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == DEFERRED_PROOF_REASON.format(deferral=line)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr edit 7 --body-file body.md",
+        "python pull_request.py edit 7 --body-file body.md",
+    ],
+)
+def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str, tmp_path: Path) -> None:
+    line = "Not run: the live publish."
+    (tmp_path / "body.md").write_text(f"## Proof in practice\nRan `python run.py`.\n{line}\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell(command, tmp_path)) == UNPROVEN_PROOF_REASON.format(admission=line)
+
+
+def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
+    body = "## Proof in practice\nRan `pytest -q`.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
+
+
+def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
+    body = "## Proof in practice\nIt works.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
+def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("## Proof in practice\nRan `python run.py`.\nNot run: x.\n", encoding="utf-8")
+    assert gate.edit_proof_reason(_shell("gh pr view edit --body-file body.md", tmp_path)) is None
+
+
+def test_body_edit_without_a_proof_section_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update("## Summary\nNot run: nothing here is a proof.\n")) is None
+
+
+def test_body_edit_with_a_clean_proof_should_pass() -> None:
+    assert gate.edit_proof_reason(_mcp_update(PROVEN_BODY)) is None
+
+
+def test_body_edit_under_a_same_level_not_covered_heading_should_pass() -> None:
+    body = "## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\nNot run: the check after the merge.\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) is None
+
+
+def test_edit_without_a_readable_body_should_pass(tmp_path: Path) -> None:
+    assert gate.edit_proof_reason(_mcp_update(None)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --title t", tmp_path)) is None
+    assert gate.edit_proof_reason(_shell("gh pr edit 7 --body-file -", tmp_path)) is None
+
+
+def test_create_calls_and_other_tools_should_pass_the_edit_check(tmp_path: Path) -> None:
+    unrun_body = "## Proof in practice\nRan `python run.py`.\nNot run: x.\n"
+    assert gate.edit_proof_reason(_mcp_create(unrun_body)) is None
+    assert gate.edit_proof_reason(_shell("git push -u origin b", tmp_path)) is None
