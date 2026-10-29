@@ -209,9 +209,17 @@ def test_import_line_satisfies_the_pointer_rule_but_not_the_word_limit() -> None
     assert [each.scope for each in all_findings] == [f"prose line: {LONG_LINE}"]
 
 
-def test_section_over_the_detail_limit_is_exempt_only_with_an_import_line() -> None:
+def test_import_line_does_not_exempt_a_section_from_the_section_rule() -> None:
     policy = parse_policy(policy_text())
+    text = section_text("Alpha", 7, "@reference/alpha.md")
 
-    assert file_findings(policy, SKILL_PATH, section_text("Alpha", 7, "@reference/alpha.md"), None) == ()
-    mention_findings = file_findings(policy, SKILL_PATH, section_text("Alpha", 7, "@reviewer review"), None)
-    assert [each.scope for each in mention_findings] == ["Alpha"]
+    assert [each.scope for each in file_findings(policy, SKILL_PATH, text, None)] == ["Alpha"]
+
+
+def test_skipped_kind_hides_an_agent_file_from_the_prose_rule() -> None:
+    policy = parse_policy(policy_text())
+    text = "Selection records own icon choice.\n"
+
+    assert file_findings(policy, "pkg/skills-archived/AGENTS.md", text, None) == ()
+    live_findings = file_findings(policy, "pkg/live/AGENTS.md", text, None)
+    assert [each.scope for each in live_findings] == ["no pointer line"]

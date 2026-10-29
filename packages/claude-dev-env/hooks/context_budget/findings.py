@@ -4,7 +4,7 @@
 
     unlisted file   lines > limit                         -> file finding
                     unpointed section > detail limit      -> section finding
-    agent file      no pointer, or unlinked line > words  -> prose finding
+    agent file      no pointer, or unlinked line > words  -> prose finding, unless skipped
     listed file     lines null, lines > limit             -> file finding
                     lines N, lines > limit and lines > N  -> grown finding
                     section heading not recorded          -> section finding
@@ -31,6 +31,7 @@ from context_budget.model import (
 )
 from context_budget.sections import (
     baseline_entry_for,
+    is_path_skipped,
     measure_file,
     prose_word_count,
     scan_prose,
@@ -167,10 +168,15 @@ def _file_scope_findings(
     return all_findings, all_new_sections
 
 
+def _is_prose_rule_path(policy: BudgetPolicy, relative_path: str) -> bool:
+    is_agent_file = PurePosixPath(relative_path).name in ALL_PROSE_RULE_FILE_NAMES
+    return is_agent_file and not is_path_skipped(policy, relative_path)
+
+
 def _prose_findings(
     policy: BudgetPolicy, relative_path: str, text: str
 ) -> tuple[BudgetFinding, ...]:
-    if PurePosixPath(relative_path).name not in ALL_PROSE_RULE_FILE_NAMES:
+    if not _is_prose_rule_path(policy, relative_path):
         return ()
     scan = scan_prose(text, policy.prose_line_word_limit)
     all_findings: list[BudgetFinding] = []
@@ -225,7 +231,8 @@ def file_findings(
 
     Returns:
         Findings in file, section, then prose order. Prose findings apply to
-        AGENTS.md and CLAUDE.md files whatever kind the policy gives them.
+        AGENTS.md and CLAUDE.md files whatever kind the policy gives them,
+        except a kind the policy skips.
     """
     prose_findings = _prose_findings_added_since(policy, relative_path, text, ratchet_prior_text)
     measure = measure_file(policy, relative_path, text)

@@ -100,7 +100,7 @@ class SectionScan:
     Attributes:
         heading: Heading text, or ``(top)`` for lines before the first heading.
         detail_line_count: Detail lines in the section body.
-        has_pointer: Whether the body holds a relative link or an @import line.
+        has_pointer: Whether the body links to a relative target.
     """
 
     heading: str

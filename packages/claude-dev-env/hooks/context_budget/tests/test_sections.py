@@ -15,6 +15,7 @@ from context_budget.findings import file_findings
 from context_budget.policy_file import default_policy, parse_policy
 from context_budget.sections import (
     context_kind_for_path,
+    is_path_skipped,
     path_matches_pattern,
     scan_prose,
     scan_sections,
@@ -76,6 +77,14 @@ def test_first_matching_kind_wins_and_a_skipped_kind_hides_the_path() -> None:
     skill_kind = context_kind_for_path(policy, "pkg/live/SKILL.md")
     assert skill_kind is not None and skill_kind.name == "skill entry"
     assert context_kind_for_path(policy, "docs/notes.md") is None
+
+
+def test_path_is_skipped_only_when_its_first_matching_kind_has_no_line_limit() -> None:
+    policy = parse_policy(policy_text())
+
+    assert is_path_skipped(policy, "pkg/skills-archived/old/SKILL.md") is True
+    assert is_path_skipped(policy, "pkg/live/SKILL.md") is False
+    assert is_path_skipped(policy, "docs/notes.md") is False
 
 
 def test_section_rule_counts_detail_and_skips_tables_link_lists_and_frontmatter() -> None:
@@ -183,7 +192,7 @@ def test_import_line_counts_as_a_pointer_and_a_mention_does_not() -> None:
     assert scan_prose("@reviewer review this\n", 25).has_pointer_line is False
 
 
-def test_section_with_an_import_line_has_a_pointer() -> None:
+def test_import_line_is_not_a_section_pointer() -> None:
     all_scans = scan_sections("## Plan\n@reference/plan.md\n")
 
-    assert all_scans[1].has_pointer is True
+    assert all_scans[1].has_pointer is False

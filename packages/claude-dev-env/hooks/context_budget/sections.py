@@ -6,7 +6,7 @@
     Step one.                  detail line
     | a | b |                  table row, not detail
     - [ref](reference/x.md)    pure link item, not detail; relative link is a pointer
-    @AGENTS.md                 import line, not a link; also a pointer
+    @AGENTS.md                 import line; a pointer for the prose rule only
 """
 
 from __future__ import annotations
@@ -72,6 +72,13 @@ def path_matches_pattern(pattern: str, relative_path: str) -> bool:
     return _segments_match(pattern.split(PATH_SEPARATOR), relative_path.split(PATH_SEPARATOR))
 
 
+def _first_matching_kind(policy: BudgetPolicy, relative_path: str) -> ContextKind | None:
+    for each_kind in policy.all_kinds:
+        if any(path_matches_pattern(each, relative_path) for each in each_kind.all_patterns):
+            return each_kind
+    return None
+
+
 def context_kind_for_path(policy: BudgetPolicy, relative_path: str) -> ContextKind | None:
     """Return the measured kind of a path; the first matching kind wins.
 
@@ -82,10 +89,22 @@ def context_kind_for_path(policy: BudgetPolicy, relative_path: str) -> ContextKi
     Returns:
         The matching kind, or None when no kind matches or the match is skipped.
     """
-    for each_kind in policy.all_kinds:
-        if any(path_matches_pattern(each, relative_path) for each in each_kind.all_patterns):
-            return each_kind if each_kind.line_limit is not None else None
-    return None
+    kind = _first_matching_kind(policy, relative_path)
+    return kind if kind is not None and kind.line_limit is not None else None
+
+
+def is_path_skipped(policy: BudgetPolicy, relative_path: str) -> bool:
+    """Return whether the first kind that matches a path has no line limit.
+
+    Args:
+        policy: Budget policy holding the ordered kind table.
+        relative_path: Repository-relative POSIX path.
+
+    Returns:
+        True when the matching kind is a skipped kind, else False.
+    """
+    kind = _first_matching_kind(policy, relative_path)
+    return kind is not None and kind.line_limit is None
 
 
 def _body_lines(text: str) -> list[str]:
@@ -99,8 +118,6 @@ def _body_lines(text: str) -> list[str]:
 
 
 def _line_has_pointer(line: str) -> bool:
-    if IMPORT_DIRECTIVE_PATTERN.match(line) is not None:
-        return True
     return any(
         not each_match.group("target").lower().startswith(ALL_NON_RELATIVE_TARGET_PREFIXES)
         for each_match in LINK_TARGET_PATTERN.finditer(line)
@@ -131,6 +148,7 @@ class _SectionWalk:
     has_pointer: bool = False
     opening_marker: str | None = None
     has_detail_line: bool = False
+    has_import_line: bool = False
     all_unlinked_detail_lines: list[str] = field(default_factory=list)
 
     def close_section(self) -> None:
@@ -159,10 +177,12 @@ class _SectionWalk:
     def read_body_line(self, line: str) -> None:
         is_detail = _is_detail_line(line)
         has_link = _line_has_pointer(line)
+        is_import = IMPORT_DIRECTIVE_PATTERN.match(line) is not None
         self.detail_line_count += int(is_detail)
         self.has_pointer = self.has_pointer or has_link
         self.has_detail_line = self.has_detail_line or is_detail
-        if is_detail and not has_link:
+        self.has_import_line = self.has_import_line or is_import
+        if is_detail and not has_link and not is_import:
             self.all_unlinked_detail_lines.append(line)
 
 
@@ -221,7 +241,7 @@ def scan_prose(text: str, word_limit: int) -> ProseScan:
     walk = _walk_body(text)
     return ProseScan(
         walk.has_detail_line,
-        any(each_scan.has_pointer for each_scan in walk.all_scans),
+        walk.has_import_line or any(each_scan.has_pointer for each_scan in walk.all_scans),
         tuple(
             each_line
             for each_line in walk.all_unlinked_detail_lines

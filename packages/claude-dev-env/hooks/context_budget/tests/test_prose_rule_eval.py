@@ -1,9 +1,8 @@
 """Grade the prose rule on labeled agent and Claude instruction files.
 
-Each case's label comes from the rule's text, not from the checker's output.
-A case is positive when the prose rule must report a finding for its file.
-The scope strings are spelled out here so the eval grades the findings the
-rule reports, not the constants that produce them.
+Each case's label comes from the rule's text. A case is positive when the
+prose rule must report a finding for its file. The scope strings are spelled
+out here so the eval grades the findings the rule reports.
 """
 
 from __future__ import annotations
