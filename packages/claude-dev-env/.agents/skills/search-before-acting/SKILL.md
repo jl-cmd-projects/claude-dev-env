@@ -1,11 +1,12 @@
 ---
 name: search-before-acting
 description: >-
-  Search for what already does an ask before logging, planning, delegating, or building
-  it, then report what exists in four points. When the role-level job is already
-  authorized, continue that job. Use when a user asks for new or changed
-  behavior, a tool, a check, a workflow, a report, a tracker entry, or a plan, and before
-  writing a brief for a worker.
+  Search for what already does an ask before logging, planning, delegating,
+  or building it, then report what exists in four points. When the role-level
+  job is already authorized, continue that job. Use when a user asks for new
+  or changed behavior, a tool, a check,
+  a workflow, a report, a tracker entry, or a plan, and before writing a
+  brief for a worker.
 ---
 
 # Search before acting
