@@ -14,6 +14,7 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
 
 import npx_pele_guidance
 from hooks_constants.npx_pele_guidance_constants import (
+    ALL_OPTIONS_WITH_SEPARATE_VALUE,
     PACKAGE_MANIFEST_NAME,
     PELE_PACKAGE_NAME,
 )
@@ -66,8 +67,14 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "npx pele",
         "npx -y pele chain.mmd",
         "npx --yes pele@1.12.0 chain.mmd",
+        "npx --cache ./c pele chain.mmd",
+        "npx --registry https://r.example pele chain.mmd",
         "cd diagrams && npx pele chain.mmd",
         "npm exec pele chain.mmd",
+        "npm --silent exec pele chain.mmd",
+        "npm --prefix ./p exec pele chain.mmd",
+        "npm --globalconfig ./g exec pele chain.mmd",
+        "npm --otp 123 exec pele chain.mmd",
         "npx.cmd pele chain.mmd",
         "CI=1 npx pele chain.mmd",
         "NODE_ENV=prod CI=1 npx -y pele",
@@ -101,11 +108,19 @@ def test_npx_pele_commands_match(command_text: str) -> None:
         "cat > notes.md <<'EOF'\nnpx pele chain.mmd\nEOF",
         "cat > notes.md <<'EOF'\nnpx pele chain.mmd",
         "npx @scope/pele chain.mmd",
+        "npx -p pele mmdc -i a.mmd",
+        "npm --prefix exec pele chain.mmd",
         "echo pele",
     ],
 )
 def test_other_commands_do_not_match(command_text: str) -> None:
     assert not npx_pele_guidance.is_npx_pele_command({"command": command_text})
+
+
+@pytest.mark.parametrize("option_name", ALL_OPTIONS_WITH_SEPARATE_VALUE)
+def test_each_option_with_a_separate_value_skips_that_value(option_name: str) -> None:
+    assert npx_pele_guidance.is_npx_pele_command({"command": f"npx {option_name} value pele chain.mmd"})
+    assert not npx_pele_guidance.is_npx_pele_command({"command": f"npx {option_name} value mmdc chain.mmd"})
 
 
 @pytest.mark.parametrize("tool_input", [None, "npx pele", {}, {"command": 7}])
