@@ -769,3 +769,138 @@ def test_cli_accepts_a_repository(tmp_path: Path) -> None:
     )
     assert completed_process.returncode == 0
     assert completed_process.stderr == ""
+
+
+def _repository_adding_workflow(tmp_path: Path, workflow_name: str) -> Path:
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    repository_path = tmp_path / "repository"
+    subprocess.run(
+        ["git", "init", "-q", "-b", "main", str(repository_path)], check=True
+    )
+    (repository_path / "readme.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_path),
+            *git_identity,
+            "commit",
+            "-q",
+            "-m",
+            "base",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repository_path), "checkout", "-q", "-b", "feature"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repository_path), "remote", "add", "origin", "https://github.com/o/r.git"],
+        check=True,
+    )
+    workflow_directory = repository_path / ".github" / "workflows"
+    workflow_directory.mkdir(parents=True)
+    (workflow_directory / workflow_name).write_text("name: added\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_path),
+            *git_identity,
+            "commit",
+            "-q",
+            "-m",
+            "change",
+        ],
+        check=True,
+    )
+    return repository_path
+
+
+def _unproven_workflow_body(after_merge_section: str) -> str:
+    return (
+        VALID_PR_BODY.replace(
+            "on the new body.",
+            "on the new body.\n\nNot proven here: the live GitHub Actions run.",
+        )
+        + after_merge_section
+    )
+
+
+def should_accept_an_unproven_run_when_the_branch_adds_the_workflow_its_after_merge_section_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_adding_workflow(tmp_path, "release-hold.yml"))
+    after_merge_section = (
+        "\n## After merge\n\nThe first owner approval runs `release-hold.yml`."
+        " The agent records that run link here.\n"
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: release the hold label",
+        body_text=_unproven_workflow_body(after_merge_section),
+        head_branch="feature",
+        repository="o/r",
+    )
+    assert all_findings == ()
+
+
+def should_report_an_unproven_run_when_the_checkout_belongs_to_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_adding_workflow(tmp_path, "release-hold.yml"))
+    after_merge_section = (
+        "\n## After merge\n\nThe first owner approval runs `release-hold.yml`."
+        " The agent records that run link here.\n"
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: release the hold label",
+        body_text=_unproven_workflow_body(after_merge_section),
+        head_branch="feature",
+        repository="x/y",
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
+    ]
+
+
+def should_report_an_unproven_run_when_no_head_branch_is_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_adding_workflow(tmp_path, "release-hold.yml"))
+    after_merge_section = (
+        "\n## After merge\n\nThe first owner approval runs `release-hold.yml`."
+        " The agent records that run link here.\n"
+    )
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: release the hold label",
+        body_text=_unproven_workflow_body(after_merge_section),
+        head_branch=None,
+        repository="o/r",
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
+    ]
+
+
+def should_report_an_unproven_run_when_the_after_merge_section_names_another_workflow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_adding_workflow(tmp_path, "release-hold.yml"))
+    after_merge_section = "\n## After merge\n\nThe first owner approval runs `other.yml`. The agent records that run link here.\n"
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: release the hold label",
+        body_text=_unproven_workflow_body(after_merge_section),
+        head_branch="feature",
+        repository="o/r",
+    )
+    assert [each_finding.code for each_finding in all_findings] == [
+        durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
+    ]
+    assert "Not proven here: the live GitHub Actions run." in all_findings[0].message
