@@ -23,7 +23,7 @@ _FIXTURE_OWNER_HANDLE = "patowner"
 _CLEAN_IDENTITY = ("Claude", "noreply@example.com")
 _OWNER_HANDLE = "ohcEnoJ"[::-1]
 _OWNER_IDENTITY = (_OWNER_HANDLE, f"24366590+{_OWNER_HANDLE}@users.noreply.github.com")
-_FIXTURE_BOT_IDENTITY = ("Pat Bot", "bot@acmewidget.example.com")
+_FIXTURE_BOT_IDENTITY = ("Pat Bot", "kbot@acmewidget.example.com")
 _FIXTURE_BOT_ADDRESS_DIGEST = hashlib.sha256(
     _FIXTURE_BOT_IDENTITY[1].encode("utf-8")
 ).hexdigest()
@@ -243,16 +243,49 @@ def test_should_accept_an_accepted_address_in_a_commit_identity(tmp_path: Path) 
 
 def test_should_accept_an_accepted_address_in_any_letter_case(tmp_path: Path) -> None:
     repository_root, base, head = _repository_with_commits(
-        tmp_path, [("feat: clean change", "Pat Bot", "Bot@AcmeWidget.Example.com")]
+        tmp_path, [("feat: clean change", "Pat Bot", "KBot@AcmeWidget.Example.com")]
     )
     assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+def test_should_flag_an_address_that_only_folds_to_an_accepted_address(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", "Pat Bot", "Kbot@acmewidget.example.com")]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " identity:" in all_findings[0]
+
+
+def test_should_flag_a_committer_address_beside_an_accepted_author_address(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, _head = _repository_with_commits(tmp_path, [])
+    _git(
+        repository_root,
+        "commit",
+        "-q",
+        "--allow-empty",
+        "--author",
+        f"{_FIXTURE_BOT_IDENTITY[0]} <{_FIXTURE_BOT_IDENTITY[1]}>",
+        "-m",
+        "feat: clean change",
+        name="Pat Contractor",
+        email="pat@acmewidget.example.com",
+    )
+    head = _git(repository_root, "rev-parse", "HEAD", name="x", email="x@example.com")
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " identity:" in all_findings[0]
 
 
 def test_should_flag_an_address_that_differs_from_an_accepted_address_only_by_punctuation(
     tmp_path: Path,
 ) -> None:
     repository_root, base, head = _repository_with_commits(
-        tmp_path, [("feat: clean change", "Pat Bot", "bot@acmewidget-example.com")]
+        tmp_path, [("feat: clean change", "Pat Bot", "kbot@acmewidget-example.com")]
     )
     all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
     assert len(all_findings) == 1

@@ -83,11 +83,13 @@ def scan_event(event_path: Path) -> list[str]:
 
 
 def _mask_accepted_address(address_match: re.Match[str]) -> str:
-    address_digest = hashlib.sha256(
-        address_match.group(1).lower().encode(PRIVATE_TERM_TEXT_ENCODING)
-    ).hexdigest()
-    if address_digest in ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS:
-        return MASKED_ADDRESS
+    address = address_match.group(1)
+    if address.isascii():
+        address_digest = hashlib.sha256(
+            address.lower().encode(PRIVATE_TERM_TEXT_ENCODING)
+        ).hexdigest()
+        if address_digest in ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS:
+            return MASKED_ADDRESS
     return address_match.group(0)
 
 
