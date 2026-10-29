@@ -14,6 +14,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from hooks_constants.context_budget_constants import DEFAULT_PROSE_LINE_WORD_LIMIT
+
 
 class ContextBudgetPolicyError(ValueError):
     """Raised when a policy file does not match the documented shape."""
@@ -79,6 +81,7 @@ class BudgetPolicy:
         baseline_characters_by_hook_name: Over-budget hooks by name.
         is_baseline_the_prior_text: Whether the baseline entry was measured from
             the file's prior text because the repository has no policy file.
+        prose_line_word_limit: Words an unlinked agent-file detail line may hold.
     """
 
     section_detail_line_limit: int
@@ -87,6 +90,7 @@ class BudgetPolicy:
     baseline_entry_by_path: Mapping[str, BaselineEntry] = field(default_factory=dict)
     baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict)
     is_baseline_the_prior_text: bool = False
+    prose_line_word_limit: int = DEFAULT_PROSE_LINE_WORD_LIMIT
 
 
 @dataclass(frozen=True)
@@ -96,7 +100,7 @@ class SectionScan:
     Attributes:
         heading: Heading text, or ``(top)`` for lines before the first heading.
         detail_line_count: Detail lines in the section body.
-        has_pointer: Whether the body links to a relative target.
+        has_pointer: Whether the body holds a relative link or an @import line.
     """
 
     heading: str
@@ -117,6 +121,21 @@ class FileMeasure:
     kind: ContextKind
     line_count: int
     all_over_limit_sections: tuple[SectionScan, ...]
+
+
+@dataclass(frozen=True)
+class ProseScan:
+    """Prose measurements of one Markdown body.
+
+    Attributes:
+        has_detail_line: Whether the body holds any detail line.
+        has_pointer_line: Whether any body line holds a relative link or an @import line.
+        all_long_unlinked_lines: Detail lines with no relative link over the word limit.
+    """
+
+    has_detail_line: bool
+    has_pointer_line: bool
+    all_long_unlinked_lines: tuple[str, ...]
 
 
 @dataclass(frozen=True)

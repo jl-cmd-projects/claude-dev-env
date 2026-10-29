@@ -6,12 +6,13 @@
     Step one.                  detail line
     | a | b |                  table row, not detail
     - [ref](reference/x.md)    pure link item, not detail; relative link is a pointer
+    @AGENTS.md                 import line, not a link; also a pointer
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 
 from context_budget.model import (
@@ -19,6 +20,7 @@ from context_budget.model import (
     BudgetPolicy,
     ContextKind,
     FileMeasure,
+    ProseScan,
     SectionScan,
 )
 from hooks_constants.context_budget_constants import (
@@ -26,7 +28,9 @@ from hooks_constants.context_budget_constants import (
     ATX_HEADING_PATTERN,
     FENCE_OPEN_PATTERN,
     FRONTMATTER_DELIMITER,
+    IMPORT_DIRECTIVE_PATTERN,
     LINK_TARGET_PATTERN,
+    LIST_MARKER_PATTERN,
     PATH_SEPARATOR,
     PURE_LINK_LIST_ITEM_PATTERN,
     RECURSIVE_GLOB_SEGMENT,
@@ -94,6 +98,8 @@ def _body_lines(text: str) -> list[str]:
 
 
 def _line_has_pointer(line: str) -> bool:
+    if IMPORT_DIRECTIVE_PATTERN.match(line) is not None:
+        return True
     return any(
         not each_match.group("target").lower().startswith(ALL_NON_RELATIVE_TARGET_PREFIXES)
         for each_match in LINK_TARGET_PATTERN.finditer(line)
@@ -123,6 +129,8 @@ class _SectionWalk:
     detail_line_count: int = 0
     has_pointer: bool = False
     opening_marker: str | None = None
+    has_detail_line: bool = False
+    all_unlinked_detail_lines: list[str] = field(default_factory=list)
 
     def close_section(self) -> None:
         self.all_scans.append(SectionScan(self.heading, self.detail_line_count, self.has_pointer))
@@ -145,8 +153,16 @@ class _SectionWalk:
             self.detail_line_count = 0
             self.has_pointer = False
         else:
-            self.detail_line_count += int(_is_detail_line(line))
-            self.has_pointer = self.has_pointer or _line_has_pointer(line)
+            self.read_body_line(line)
+
+    def read_body_line(self, line: str) -> None:
+        is_detail = _is_detail_line(line)
+        has_link = _line_has_pointer(line)
+        self.detail_line_count += int(is_detail)
+        self.has_pointer = self.has_pointer or has_link
+        self.has_detail_line = self.has_detail_line or is_detail
+        if is_detail and not has_link:
+            self.all_unlinked_detail_lines.append(line)
 
 
 def scan_sections(text: str) -> tuple[SectionScan, ...]:
@@ -161,6 +177,10 @@ def scan_sections(text: str) -> tuple[SectionScan, ...]:
     Returns:
         One scan per section in document order, starting with ``(top)``.
     """
+    return tuple(_walk_body(text).all_scans)
+
+
+def _walk_body(text: str) -> _SectionWalk:
     walk = _SectionWalk([])
     for each_line in _body_lines(text):
         if walk.opening_marker is not None:
@@ -168,7 +188,45 @@ def scan_sections(text: str) -> tuple[SectionScan, ...]:
         else:
             walk.read_open(each_line)
     walk.close_section()
-    return tuple(walk.all_scans)
+    return walk
+
+
+def prose_word_count(line: str) -> int:
+    """Count the words of one Markdown line after its list marker.
+
+    Args:
+        line: One line of Markdown text.
+
+    Returns:
+        The number of words in the line's text.
+    """
+    return len(LIST_MARKER_PATTERN.sub("", line).split())
+
+
+def scan_prose(text: str, word_limit: int) -> ProseScan:
+    """Measure the prose rule's inputs for one Markdown body.
+
+    Fenced lines, tables, and pure link items are not detail lines. A line
+    counts as pointed when it holds a relative link or an @import line.
+
+    Args:
+        text: Full file text; leading frontmatter is removed.
+        word_limit: Words an unlinked detail line may hold.
+
+    Returns:
+        Whether the body has a detail line, whether any line links to a relative
+        target, and the unlinked detail lines over the word limit.
+    """
+    walk = _walk_body(text)
+    return ProseScan(
+        walk.has_detail_line,
+        any(each_scan.has_pointer for each_scan in walk.all_scans),
+        tuple(
+            each_line
+            for each_line in walk.all_unlinked_detail_lines
+            if prose_word_count(each_line) > word_limit
+        ),
+    )
 
 
 def measure_file(policy: BudgetPolicy, relative_path: str, text: str) -> FileMeasure | None:

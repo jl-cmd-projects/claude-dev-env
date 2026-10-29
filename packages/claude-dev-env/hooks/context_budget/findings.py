@@ -4,6 +4,7 @@
 
     unlisted file   lines > limit                         -> file finding
                     unpointed section > detail limit      -> section finding
+    agent file      no pointer, or unlinked line > words  -> prose finding
     listed file     lines null, lines > limit             -> file finding
                     lines N, lines > limit and lines > N  -> grown finding
                     section heading not recorded          -> section finding
@@ -17,6 +18,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Iterable
+from pathlib import PurePosixPath
 
 from context_budget.model import (
     BaselineEntry,
@@ -25,15 +27,25 @@ from context_budget.model import (
     FileMeasure,
     SectionScan,
 )
-from context_budget.sections import baseline_entry_for, measure_file
+from context_budget.sections import (
+    baseline_entry_for,
+    measure_file,
+    prose_word_count,
+    scan_prose,
+)
 from hooks_constants.context_budget_constants import (
+    ALL_PROSE_RULE_FILE_NAMES,
     FILE_FINDING_TEMPLATE,
     FILE_SCOPE,
     GROWN_FINDING_TEMPLATE,
     GROWN_PAST_PRIOR_TEMPLATE,
     KEBAB_SEPARATOR,
     LINES_KEY,
+    NO_POINTER_FINDING_TEMPLATE,
+    NO_POINTER_SCOPE,
     NON_KEBAB_CHARACTER_PATTERN,
+    PROSE_LINE_FINDING_TEMPLATE,
+    PROSE_LINE_SCOPE_PREFIX,
     RATCHET_LOWER_TEMPLATE,
     RATCHET_REMOVE_TEMPLATE,
     SECTION_FINDING_TEMPLATE,
@@ -153,10 +165,42 @@ def _file_scope_findings(
     return all_findings, all_new_sections
 
 
+def _prose_findings(
+    policy: BudgetPolicy, relative_path: str, text: str
+) -> tuple[BudgetFinding, ...]:
+    if PurePosixPath(relative_path).name not in ALL_PROSE_RULE_FILE_NAMES:
+        return ()
+    scan = scan_prose(text, policy.prose_line_word_limit)
+    all_findings: list[BudgetFinding] = []
+    if scan.has_detail_line and not scan.has_pointer_line:
+        all_findings.append(
+            BudgetFinding(
+                relative_path,
+                NO_POINTER_SCOPE,
+                NO_POINTER_FINDING_TEMPLATE.format(path=relative_path),
+            )
+        )
+    for each_line in scan.all_long_unlinked_lines:
+        excerpt = each_line.strip()
+        all_findings.append(
+            BudgetFinding(
+                relative_path,
+                PROSE_LINE_SCOPE_PREFIX + excerpt,
+                PROSE_LINE_FINDING_TEMPLATE.format(
+                    path=relative_path,
+                    excerpt=excerpt,
+                    count=prose_word_count(each_line),
+                    limit=policy.prose_line_word_limit,
+                ),
+            )
+        )
+    return tuple(all_findings)
+
+
 def file_findings(
     policy: BudgetPolicy, relative_path: str, text: str, ratchet_prior_text: str | None
 ) -> tuple[BudgetFinding, ...]:
-    """Check one file against its kind and the over-budget list.
+    """Check one file against its kind, the over-budget list, and the prose rule.
 
     Args:
         policy: Budget policy.
@@ -165,11 +209,13 @@ def file_findings(
         ratchet_prior_text: Prior text when the CI ratchet applies, else None.
 
     Returns:
-        Findings in file-then-section order.
+        Findings in file, section, then prose order. Prose findings apply to
+        AGENTS.md and CLAUDE.md files whatever kind the policy gives them.
     """
+    prose_findings = _prose_findings(policy, relative_path, text)
     measure = measure_file(policy, relative_path, text)
     if measure is None:
-        return ()
+        return prose_findings
     recorded = policy.baseline_entry_by_path.get(relative_path)
     is_ratchet_due = ratchet_prior_text is not None and ratchet_prior_text != text
     grown_template = (
@@ -182,6 +228,7 @@ def file_findings(
         *all_findings,
         *(_section_finding(relative_path, each, policy.section_detail_line_limit)
           for each in all_new_sections),
+        *prose_findings,
     )
 
 
@@ -199,6 +246,7 @@ def _with_prior_as_baseline(
         {**policy.baseline_entry_by_path, relative_path: prior_entry},
         policy.baseline_characters_by_hook_name,
         is_baseline_the_prior_text=True,
+        prose_line_word_limit=policy.prose_line_word_limit,
     )
 
 

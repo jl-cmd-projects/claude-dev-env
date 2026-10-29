@@ -10,6 +10,7 @@ GIT_MARKER_NAME = ".git"
 UTF8_ENCODING = "utf-8"
 
 SECTION_DETAIL_LINE_LIMIT_KEY = "section_detail_line_limit"
+PROSE_LINE_WORD_LIMIT_KEY = "prose_line_word_limit"
 KINDS_KEY = "kinds"
 HOOKS_KEY = "hooks"
 BASELINE_KEY = "baseline"
@@ -26,6 +27,8 @@ LINES_KEY = "lines"
 SECTIONS_KEY = "sections"
 
 DEFAULT_SECTION_DETAIL_LINE_LIMIT = 6
+DEFAULT_PROSE_LINE_WORD_LIMIT = 25
+ALL_PROSE_RULE_FILE_NAMES: frozenset[str] = frozenset({"AGENTS.md", "CLAUDE.md"})
 ALL_DEFAULT_KIND_SPECS: tuple[tuple[str, tuple[str, ...], int, bool], ...] = (
     ("skill entry", ("**/SKILL.md",), 200, True),
     ("agent instructions", ("**/AGENTS.md", "**/CLAUDE.md"), 60, True),
@@ -34,6 +37,8 @@ ALL_DEFAULT_KIND_SPECS: tuple[tuple[str, tuple[str, ...], int, bool], ...] = (
 
 TOP_SECTION_HEADING = "(top)"
 FILE_SCOPE = "file"
+NO_POINTER_SCOPE = "no pointer line"
+PROSE_LINE_SCOPE_PREFIX = "prose line: "
 FRONTMATTER_DELIMITER = "---"
 TABLE_ROW_PREFIX = "|"
 PATH_SEPARATOR = "/"
@@ -43,6 +48,7 @@ ATX_HEADING_PATTERN = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(?P<text>.*?))?(?:[ \t]
 FENCE_OPEN_PATTERN = re.compile(r"^ {0,3}(?P<marker>`{3,}|~{3,})")
 PURE_LINK_LIST_ITEM_PATTERN = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[[^\]]*\]\([^)]*\)\s*$")
 LINK_TARGET_PATTERN = re.compile(r"\[[^\]]*\]\(\s*<?(?P<target>[^)\s>]+)")
+IMPORT_DIRECTIVE_PATTERN = re.compile(r"^\s*@(?=\S*[./])\S+\s*$")
 ALL_NON_RELATIVE_TARGET_PREFIXES: tuple[str, ...] = (
     "http:",
     "https:",
@@ -51,6 +57,7 @@ ALL_NON_RELATIVE_TARGET_PREFIXES: tuple[str, ...] = (
     "//",
 )
 NON_KEBAB_CHARACTER_PATTERN = re.compile(r"[^a-z0-9]+")
+LIST_MARKER_PATTERN = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 
 ENV_COMMAND_NAME = "env"
 ENV_ASSIGNMENT_SEPARATOR = "="
@@ -74,6 +81,14 @@ SECTION_FINDING_TEMPLATE = (
     MESSAGE_PREFIX + 'section "{heading}" has {count} detail lines and no pointer (limit {limit}). '
     "Move it to a reference file, for example reference/{kebab}.md, "
     "and replace the section with a one-line pointer to it. Cutting the section down to the limit keeps the detail inline and is not the fix."
+)
+NO_POINTER_FINDING_TEMPLATE = (
+    MESSAGE_PREFIX + "file has no pointer line (a relative Markdown link or an @import line). "
+    "Add a one-line pointer to a reference file."
+)
+PROSE_LINE_FINDING_TEMPLATE = (
+    MESSAGE_PREFIX + 'line "{excerpt}" has {count} words and no pointer (limit {limit}). '
+    "Move the detail to a reference file and replace the line with a one-line pointer to it."
 )
 FILE_FINDING_TEMPLATE = (
     MESSAGE_PREFIX + "file has {count} lines ({kind} limit {limit}). "
@@ -122,6 +137,7 @@ CHANGE_ADDS_SECTION = 'baseline adds section "{heading}" to "{subject}"'
 CHANGE_ADDS_HOOK = 'baseline adds hook "{subject}"'
 CHANGE_RAISES_HOOK = 'baseline raises hook "{subject}" from {prior} to {current} characters'
 CHANGE_RAISES_SECTION_LIMIT = SECTION_DETAIL_LINE_LIMIT_KEY + " rises from {prior} to {current}"
+CHANGE_RAISES_PROSE_LIMIT = PROSE_LINE_WORD_LIMIT_KEY + " rises from {prior} to {current}"
 CHANGE_RAISES_LINE_LIMIT = 'kind "{subject}" line_limit rises from {prior} to {current}'
 CHANGE_DISABLES_SECTION_RULE = 'kind "{subject}" turns its section rule off'
 CHANGE_DELETES_KIND = 'kind "{subject}" is deleted'
