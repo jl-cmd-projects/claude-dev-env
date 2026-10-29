@@ -7,6 +7,16 @@
 
 * **private-terms:** accept the shared agent account address in a commit identity ([#2242](https://github.com/jl-cmd-projects/claude-dev-env/issues/2242)) ([b9f6c8c](https://github.com/jl-cmd-projects/claude-dev-env/commit/b9f6c8c65aaa7c23c8764d63299eeba36d838f86))
 
+
+### Documentation
+
+* thin the always-loaded rules to a trigger and a link (second pass) ([#2247](https://github.com/jl-cmd-projects/claude-dev-env/issues/2247)) ([ca92d47](https://github.com/jl-cmd-projects/claude-dev-env/commit/ca92d4747c99c8fb347822736d89a8e249442254))
+
+
+### Tests
+
+* **hooks:** cover the prose limit default in the context budget tests ([#2240](https://github.com/jl-cmd-projects/claude-dev-env/issues/2240)) ([64eedce](https://github.com/jl-cmd-projects/claude-dev-env/commit/64eedce81fd642484e8683b7c56414a39ec81126))
+
 ## [8.109.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.1...claude-dev-env-v8.109.2) (2026-10-29)
 
 
