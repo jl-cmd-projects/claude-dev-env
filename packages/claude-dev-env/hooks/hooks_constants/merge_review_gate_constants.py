@@ -37,6 +37,11 @@ ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
 GIT_TIMEOUT_SECONDS = 3
+REMOTE_LOOKUP_TIMEOUT_SECONDS = 5
+GITHUB_REMOTE_URL_TEMPLATE = "https://github.com/{owner}/{repo}.git"
+REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
+LS_REMOTE_FIELD_SEPARATOR = "\t"
+ALL_NON_INTERACTIVE_GIT_SETTINGS = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
@@ -56,6 +61,12 @@ RULINGS_LINK_PATTERN = re.compile(
     r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
     r"#issuecomment-\d+"
 )
+RULING_PATH_SEGMENT = r"(?!\.{1,2}(?![^\x00-\x1f:,/\\]))[^\x00-\x1f:,/\\]+"
+RULING_REFERENCE_PATTERN = re.compile(
+    r"(?P<path>" + RULING_PATH_SEGMENT + r"(?:/" + RULING_PATH_SEGMENT + r")*):(?P<line>[1-9]\d*)"
+)
+RULING_SEPARATOR = ","
+RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
@@ -80,6 +91,7 @@ RECEIPT_HEAD_KEY = "head"
 RECEIPT_FINDINGS_KEY = "findings"
 RECEIPT_RULED_OUT_KEY = "ruled_out"
 RECEIPT_RULINGS_KEY = "rulings"
+RECEIPT_RULING_LINES_KEY = "ruling_lines"
 RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (
@@ -118,14 +130,21 @@ UNKNOWN_TARGET_REASON = (
 NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "{slug} has no clean review for head {head}, which this pull request would open with. "
     "Review the branch diff with `{review_command}`, fix and push every finding, and review "
-    "again until a pass reports zero findings. Record that pass with `"
+    "again until a pass reports zero findings or every finding is ruled out with file:line "
+    "evidence. Record a pass with zero findings with `"
     + RECORD_COMMAND
     + " {slug} "
     + OPEN_TARGET_WORD
-    + " {head} 0`, then open the pull request. The merge accepts that receipt while the "
-    "head stays {head}."
+    + " {head} 0`. Record a pass whose every finding is ruled out with `"
+    + RECORD_COMMAND
+    + " {slug} "
+    + OPEN_TARGET_WORD
+    + " {head} <finding count> --ruled-out <finding count> --rulings <path:line for each "
+    "finding, comma separated>`, each path:line a line this head holds. Then open the pull "
+    "request. A merge pinned to {head} accepts an open pass only at zero findings."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
-    "This pull request names no repository or head commit the review gate can read. Run it "
-    "from the branch checkout, or pass `--repo owner/name` and `--head <pushed branch>`."
+    "This pull request names no repository or head commit the review gate can read. Check that "
+    "the head branch is on GitHub and this session can reach it, or run it from the branch "
+    "checkout, or pass `--repo owner/name` and `--head <pushed branch>`."
 )

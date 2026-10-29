@@ -38,6 +38,7 @@ if hooks_directory not in sys.path:
 from blocking.merge_review_gate_parts.open_request import OpenRequest, open_request_from
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
+    has_zero_finding_open_review,
     is_clean_receipt,
     receipt_path,
     same_commit,
@@ -275,7 +276,7 @@ def deny_reason(request: MergeRequest) -> str | None:
     if (
         request.pinned_head
         and not pass_on_pinned_head
-        and has_clean_open_review(request.repo, request.pinned_head)
+        and has_zero_finding_open_review(request.repo, request.pinned_head)
     ):
         return None
     fields = {"slug": request.slug, "number": request.number}
