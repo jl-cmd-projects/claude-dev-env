@@ -32,8 +32,9 @@ FRONTMATTER_DELIMITER: str = "---"
 PATHS_FRONTMATTER_PREFIX: str = "paths:"
 TEXT_ENCODING: str = "utf-8"
 INSTRUCTION_TEXT_ENCODING: str = "utf-8-sig"
+GIT_ENTRY_NAME: str = ".git"
 ALL_SKIPPED_DIRECTORY_NAMES: frozenset[str] = frozenset(
-    {".git", "node_modules", ".venv", "__pycache__"}
+    {GIT_ENTRY_NAME, "node_modules", ".venv", "__pycache__"}
 )
 
 IMPORT_PATTERN: re.Pattern[str] = re.compile(

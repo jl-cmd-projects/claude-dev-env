@@ -22,6 +22,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     DEFAULT_RULES_DIR_RELATIVE_PATH,
     FENCED_BLOCK_PATTERN,
     FRONTMATTER_DELIMITER,
+    GIT_ENTRY_NAME,
     IMPORT_PATTERN,
     INLINE_CODE_SPAN_PATTERN,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
@@ -335,6 +336,7 @@ def _walk_files(repository_root: Path) -> list[Path]:
             each_name
             for each_name in each_subfolders
             if each_name not in ALL_SKIPPED_DIRECTORY_NAMES
+            and not (Path(each_folder) / each_name / GIT_ENTRY_NAME).exists()
         ]
         all_files.extend(
             (Path(each_folder) / each_name).resolve() for each_name in each_file_names

@@ -694,6 +694,25 @@ def test_instruction_files_lists_the_whole_tree(tmp_path: Path) -> None:
     assert all_relative == {"AGENTS.md", "pkg/CLAUDE.md"}
 
 
+def test_instruction_files_skips_a_nested_checkout_or_worktree(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "# Root\n")
+    _write(repository_root / "pkg" / "CLAUDE.md", "# Nested\n")
+    _write(
+        repository_root / ".claude" / "worktrees" / "branch-a" / ".git",
+        "gitdir: elsewhere\n",
+    )
+    _write(
+        repository_root / ".claude" / "worktrees" / "branch-a" / "AGENTS.md",
+        "# Worktree copy\n",
+    )
+    all_relative = {
+        each_path.relative_to(repository_root).as_posix()
+        for each_path in instruction_files(repository_root, _config())
+    }
+    assert all_relative == {"AGENTS.md", "pkg/CLAUDE.md"}
+
+
 def test_main_fails_when_the_repository_has_no_budget_file(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
