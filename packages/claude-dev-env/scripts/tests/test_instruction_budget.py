@@ -157,7 +157,7 @@ def test_launch_files_skip_a_scoped_rule_that_starts_with_a_byte_order_mark(
 ) -> None:
     scoped_rule = _write(
         tmp_path / ".claude" / "rules" / "scoped.md",
-        "﻿---\npaths:\n  - src/**\n---\nbody\n",
+        "\ufeff---\npaths:\n  - src/**\n---\nbody\n",
     )
     assert scoped_rule.resolve() not in launch_files(
         tmp_path.resolve(), _config(max_launch_bytes=99)

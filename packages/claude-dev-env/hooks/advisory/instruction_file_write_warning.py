@@ -39,7 +39,7 @@ from hooks_constants.instruction_file_write_warning_constants import (
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from instruction_budget import check_repository, finding_line, scoped_instruction_files
+from instruction_budget import check_repository, finding_line
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
@@ -72,8 +72,6 @@ def _findings_for(
     repository_root: Path, written_path: Path, config: InstructionBudgetConfig
 ) -> list[InstructionFinding]:
     try:
-        if not scoped_instruction_files(repository_root, config, [written_path]):
-            return []
         all_findings = check_repository(repository_root, config, [written_path])
         is_launch_file = written_path in launch_files(repository_root, config)
     except (OSError, ValueError, RecursionError):
