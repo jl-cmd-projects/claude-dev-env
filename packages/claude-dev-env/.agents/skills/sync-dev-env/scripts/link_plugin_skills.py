@@ -181,11 +181,15 @@ def sync_links(claude_home: Path, agents_home: Path) -> Counter:
     target_by_name = desired_skill_targets(claude_home)
     outcome_counts: Counter = Counter()
     claude_skills_directory = (claude_home / SKILLS_DIRECTORY_NAME).resolve()
-    outcome_counts[REMOVED_OUTCOME] += remove_owned_links(agents_skills_directory, plugin_cache, target_by_name, REMOVED_REPORT)
+    outcome_counts[REMOVED_OUTCOME] += remove_owned_links(
+        agents_skills_directory, plugin_cache, target_by_name, REMOVED_REPORT
+    )
     for each_name, each_target in sorted(target_by_name.items()):
         outcome_counts[link_one_skill(agents_skills_directory / each_name, each_target, plugin_cache)] += 1
     if claude_skills_directory.is_dir() and claude_skills_directory != agents_skills_directory:
-        outcome_counts[REMOVED_OUTCOME] += remove_owned_links(claude_skills_directory, plugin_cache, (), CLAUDE_FOLDER_REMOVED_REPORT)
+        outcome_counts[REMOVED_OUTCOME] += remove_owned_links(
+            claude_skills_directory, plugin_cache, (), CLAUDE_FOLDER_REMOVED_REPORT
+        )
     return outcome_counts
 
 
