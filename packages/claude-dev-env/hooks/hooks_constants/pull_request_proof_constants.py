@@ -194,3 +194,11 @@ GATE_EDIT_BEFORE_ROUTE_REASON = (
 )
 WINDOWS_PATH_SEPARATOR = "\\"
 POSIX_PATH_SEPARATOR = "/"
+WHAT_THIS_DOES_HEADING_PATTERN = r"^(#{1,6})[ \t]+what this does[ \t]*#*[ \t]*$"
+MISSING_FLOWCHART_REASON = (
+    "This pull request body has no flowchart under its 'What this does' heading. Draw"
+    " the flow before the change and after it as a fenced mermaid block whose first line"
+    " starts with 'flowchart' and that holds at least two nodes joined by an arrow."
+    " Keep the chart under 'What this does', put plain sentences around it, and draw a"
+    " short chart for a one-step change."
+)

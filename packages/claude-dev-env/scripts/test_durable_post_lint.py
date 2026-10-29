@@ -18,9 +18,15 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
-VALID_PR_BODY = """## What this does
+FLOWCHART_BLOCK = """```mermaid
+flowchart LR
+    before[Text-only body] --> after[Body with a flowchart]
+```"""
+VALID_PR_BODY = f"""## What this does
 
 What this does text.
+
+{FLOWCHART_BLOCK}
 
 ## Scope
 
@@ -203,6 +209,145 @@ def test_pr_body_reports_each_missing_heading(missing_heading: str) -> None:
     assert [each_finding.message for each_finding in all_findings] == [
         f"body is missing required heading: {missing_heading}"
     ]
+
+
+MISSING_FLOWCHART_MESSAGE = (
+    "## What this does needs a mermaid flowchart that draws the flow before "
+    "and after the change"
+)
+
+
+def _flowchart_codes(action: str, body_text: str) -> list[str]:
+    return [
+        each_finding.code
+        for each_finding in durable_post_lint.lint_durable_post(
+            action=action,
+            title="feat: add durable post linting",
+            body_text=body_text,
+        )
+        if each_finding.code == "missing-pr-description-flowchart"
+    ]
+
+
+def should_accept_a_create_body_with_a_flowchart_under_what_this_does() -> None:
+    assert _flowchart_codes("pr-create", VALID_PR_BODY) == []
+
+
+def should_report_a_create_body_with_no_flowchart() -> None:
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, "")
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="feat: add durable post linting",
+        body_text=body_text,
+    )
+    assert [each_finding.message for each_finding in all_findings] == [
+        MISSING_FLOWCHART_MESSAGE
+    ]
+
+
+def should_report_a_flowchart_placed_under_another_heading() -> None:
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, "").replace(
+        "Scope text.", f"Scope text.\n\n{FLOWCHART_BLOCK}"
+    )
+    assert _flowchart_codes("pr-create", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+@pytest.mark.parametrize(
+    "diagram_opening",
+    ["sequenceDiagram", "graph LR", "classDiagram", "pie title Pets"],
+)
+def should_report_a_mermaid_block_of_another_diagram_type(
+    diagram_opening: str,
+) -> None:
+    other_block = f"```mermaid\n{diagram_opening}\n    a --> b\n```"
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, other_block)
+    assert _flowchart_codes("pr-create", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+def should_report_a_flowchart_fenced_under_another_language() -> None:
+    body_text = VALID_PR_BODY.replace("```mermaid", "```text")
+    assert _flowchart_codes("pr-create", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+@pytest.mark.parametrize(
+    "block_lines",
+    [
+        "flowchart LR",
+        "flowchart LR\n    only_node",
+        "flowchart LR\n    a\n    b",
+        "flowchart LR\n    a --> ",
+    ],
+)
+def should_report_a_flowchart_with_no_arrow_between_two_nodes(
+    block_lines: str,
+) -> None:
+    thin_block = f"```mermaid\n{block_lines}\n```"
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, thin_block)
+    assert _flowchart_codes("pr-create", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+@pytest.mark.parametrize(
+    "block_lines",
+    [
+        "flowchart TD\n    a --> b",
+        "flowchart LR\n    a -->|yes| b --> c",
+        "flowchart LR\n    a --- b",
+        "flowchart LR\n    a -.-> b",
+        "flowchart LR\n    a ==> b",
+        "flowchart LR\n    subgraph one\n        a[Start] --> b[End]\n    end",
+    ],
+)
+def should_accept_each_flowchart_arrow_form(block_lines: str) -> None:
+    body_text = VALID_PR_BODY.replace(
+        FLOWCHART_BLOCK, f"```mermaid\n{block_lines}\n```"
+    )
+    assert _flowchart_codes("pr-create", body_text) == []
+
+
+def should_accept_a_tilde_fenced_flowchart() -> None:
+    body_text = VALID_PR_BODY.replace("```mermaid", "~~~mermaid").replace(
+        "```", "~~~"
+    )
+    assert _flowchart_codes("pr-create", body_text) == []
+
+
+def should_report_an_unclosed_flowchart_fence() -> None:
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, FLOWCHART_BLOCK[:-3])
+    assert _flowchart_codes("pr-create", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+def should_report_an_edit_body_that_has_the_heading_and_no_flowchart() -> None:
+    body_text = VALID_PR_BODY.replace(FLOWCHART_BLOCK, "")
+    assert _flowchart_codes("pr-edit", body_text) == [
+        "missing-pr-description-flowchart"
+    ]
+
+
+def should_accept_an_edit_body_with_a_flowchart() -> None:
+    assert _flowchart_codes("pr-edit", VALID_PR_BODY) == []
+
+
+def should_not_ask_a_release_automation_body_for_a_flowchart() -> None:
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="chore(main): release claude-dev-env 1.0.0",
+        body_text=(
+            ":robot: I have created a release\n\n## What this does\n\nText.\n\n"
+            "This PR was generated with [Release Please](https://github.com/x)."
+        ),
+        head_branch="release-please--branches--main",
+    )
+    assert all_findings == ()
 
 
 def should_accept_an_edit_body_without_the_reader_headings() -> None:

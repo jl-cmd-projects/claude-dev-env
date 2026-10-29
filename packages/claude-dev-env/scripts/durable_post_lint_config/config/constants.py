@@ -88,6 +88,11 @@ INVALID_TITLE_MESSAGE = (
 )
 MISSING_HEADING_CODE = "missing-pr-description-heading"
 MISSING_HEADING_MESSAGE_TEMPLATE = "body is missing required heading: {heading}"
+MISSING_FLOWCHART_CODE = "missing-pr-description-flowchart"
+MISSING_FLOWCHART_MESSAGE = (
+    "## What this does needs a mermaid flowchart that draws the flow before "
+    "and after the change"
+)
 TITLE_NOT_ALLOWED_MESSAGE = "this action does not accept a title"
 TITLE_REQUIRED_MESSAGE = "pr-create requires a title"
 VOLATILE_PATH_CODE = "volatile-local-path"
