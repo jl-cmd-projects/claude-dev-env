@@ -38,9 +38,10 @@ def _data_rows(body_lines: list[str]) -> list[tuple[str, ...]]:
     ]
 
 
-def test_skills_index_frontmatter_keeps_model_invocation_on() -> None:
+def test_skills_index_frontmatter_holds_name_and_description_only() -> None:
     frontmatter_lines, _ = _frontmatter_and_body(_read(INDEX_PATH))
 
+    assert len(frontmatter_lines) == 2, "frontmatter holds name and description only"
     assert f"name: {INDEX_NAME}" in frontmatter_lines
     assert not any(
         each_line.startswith("disable-model-invocation")
@@ -60,7 +61,6 @@ def test_skills_index_description_fits_the_length_limit() -> None:
     )
     description = description_line.removeprefix(DESCRIPTION_PREFIX)
 
-    assert len(frontmatter_lines) == 2, "frontmatter holds name and description only"
     assert description, "frontmatter needs a description line"
     assert not description.startswith((">", "|")), "keep the description on one line"
     assert len(description) <= MAX_DESCRIPTION_LENGTH
@@ -72,6 +72,7 @@ def test_skills_index_body_is_only_the_skill_table() -> None:
 
     assert all(each_line.startswith("|") for each_line in table_lines)
     assert table_lines[0] == TABLE_HEADER_LINE
+    assert all(all(each_cell for each_cell in each_row) for each_row in _data_rows(body_lines))
 
 
 def test_skills_index_lists_every_shipped_skill_once() -> None:

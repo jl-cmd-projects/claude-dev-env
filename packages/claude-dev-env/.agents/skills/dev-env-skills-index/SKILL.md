@@ -1,6 +1,6 @@
 ---
 name: dev-env-skills-index
-description: Find which claude-dev-env skill covers a task. Lists every shipped skill with its use and SKILL.md path. Use when a task may already have a skill.
+description: Find which claude-dev-env skill covers a task. Lists the other shipped skills with their use and SKILL.md path. Use when a task may already have a skill.
 ---
 
 | Skill | Use when | Path |
