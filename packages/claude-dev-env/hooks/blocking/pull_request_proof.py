@@ -732,6 +732,8 @@ def _git_changes(all_raw_fields: list[str]) -> list[ChangedFile] | None:
         is_pure_rename = status.startswith(RAW_RENAME_STATUS_LETTER) and old_mode == new_mode and old_blob == new_blob
         all_changes.append(ChangedFile(path=all_paths[-1], old_path=all_paths[0], is_pure_rename=is_pure_rename))
         field_index += 1 + path_count
+    if any(all_raw_fields[field_index:]):
+        return None
     return all_changes
 
 
@@ -761,6 +763,8 @@ def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
             ["gh", "api", endpoint, "--jq", query],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=GH_TIMEOUT_SECONDS,
             check=False,
         )

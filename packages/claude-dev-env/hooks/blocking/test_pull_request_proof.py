@@ -548,6 +548,7 @@ def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None
 def test_should_report_unreadable_git_output_as_unknown() -> None:
     assert gate._git_changes([":100644 100644 abc R100", "a.html", "b.html"]) is None
     assert gate._git_changes([":100644 100644 aaa bbb R100", "a.html"]) is None
+    assert gate._git_changes([":100644 100644 aaa bbb M", "a.html", "stray", ""]) is None
 
 
 def test_should_keep_a_page_whose_name_holds_a_quote(tmp_path: Path) -> None:
