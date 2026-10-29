@@ -177,7 +177,7 @@ def _pull_request_proof_findings(
             "owner": owner,
             "repo": repository_name,
         },
-        "cwd": str(Path.cwd()) if repository else "",
+        "cwd": str(Path.cwd()) if repository_name else "",
     }
     all_reasons = (
         missing_proof_reason(create_payload),

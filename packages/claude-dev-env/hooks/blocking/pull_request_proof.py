@@ -492,7 +492,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     markers. The line passes when the pull request adds a workflow file the
     default branch lacks and the body has an 'After merge' section that names
     that file in backticks and says who records the run, and every unproven
-    line mentions a workflow or GitHub Actions; see _admissions_wait_for_merge.
+    line mentions a workflow or GitHub Actions; see _first_unwaived_admission.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.

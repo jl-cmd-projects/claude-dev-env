@@ -78,12 +78,12 @@ UNPROVEN_PROOF_REASON = (
     " backticks and says who records the run link. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 AFTER_MERGE_HEADING_PATTERN = r"^(#{1,6})[ \t]+after merge[ \t]*#*[ \t]*$"
-AFTER_MERGE_RECORDER_PATTERN = r"\brecord(?:s|ed)?\b[^.;,\n]{0,30}\b(?:run|link|url|result)s?\b"
+AFTER_MERGE_RECORDER_PATTERN = r"\brecord(?:s|ed)?\b[^.;\n]{0,30}\b(?:run|link|url|result)s?\b"
 AFTER_MERGE_NO_RECORDER_PATTERN = (
     r"\b(?:nobody|no[ -]?one|not|never|cannot|can't|won't|doesn't)\b[^.;,\n]{0,60}\brecord(?:s|ed)?\b"
-    r"|\brecord(?:s|ed)?\s+(?:nothing|none|no)\b"
+    r"|\brecord(?:s|ed)?\s+(?:nothing|none|no)\b|\bno\s+records?\b"
 )
-AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[.;\n]"
+AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[;\n]|\.(?=\s|$)"
 FIRST_RUN_ADMISSION_PATTERN = r"\b(?:github actions|(?:live|first) (?:workflow )?run)\b"
 GIT_URL_SUFFIX = ".git"
 WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
