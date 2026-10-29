@@ -46,8 +46,8 @@ def test_empty_stdin_is_silent() -> None:
 
 def test_a_write_outside_the_instruction_set_is_silent(tmp_path: Path) -> None:
     (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 1}', encoding="utf-8")
-    guide_path = _write(tmp_path / "docs" / "guide.md", "x" * 500)
-    assert _run_hook(guide_path) == ""
+    notes_path = _write(tmp_path / "docs" / "notes.txt", "x" * 500)
+    assert _run_hook(notes_path) == ""
 
 
 def test_an_instruction_file_in_a_repository_without_a_budget_is_silent(tmp_path: Path) -> None:
@@ -125,5 +125,19 @@ def test_a_too_deep_instruction_file_gets_a_nesting_warning(tmp_path: Path) -> N
     _write(tmp_path / "one.md", "[deep](deep/AGENTS.md)\n")
     deep_path = _write(tmp_path / "deep" / "AGENTS.md", "# Deep\n")
     context = _additional_context(_run_hook(deep_path))
+    assert "[instruction-nesting]" in context
+    assert "deep/AGENTS.md" in context
+
+
+def test_a_linked_markdown_doc_that_pushes_a_file_past_the_cap_gets_a_nesting_warning(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "instruction-budget.json").write_text(
+        '{"max_launch_bytes": 100000, "max_link_hops": 1}', encoding="utf-8"
+    )
+    _write(tmp_path / "AGENTS.md", "[one](one.md)\n")
+    middle_path = _write(tmp_path / "one.md", "[deep](deep/AGENTS.md)\n")
+    _write(tmp_path / "deep" / "AGENTS.md", "# Deep\n")
+    context = _additional_context(_run_hook(middle_path))
     assert "[instruction-nesting]" in context
     assert "deep/AGENTS.md" in context

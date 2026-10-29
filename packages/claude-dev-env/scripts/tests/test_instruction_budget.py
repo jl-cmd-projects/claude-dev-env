@@ -24,6 +24,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
 )
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from instruction_budget import (
+    changes_markdown_file,
     check_repository,
     finding_line,
     main,
@@ -490,6 +491,31 @@ def test_check_repository_rechecks_nesting_for_every_instruction_file(
         "docs/deep/AGENTS.md"
     ]
     assert check_repository(repository_root, config, [notes_path]) == []
+
+
+def test_check_repository_rechecks_nesting_when_only_a_linked_doc_changes(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "[a](docs/a.md)\n")
+    middle_path = _write(repository_root / "docs" / "a.md", "[b](b.md)\n")
+    _write(repository_root / "docs" / "b.md", "[deep](deep/AGENTS.md)\n")
+    _write(repository_root / "docs" / "deep" / "AGENTS.md", "# Deep\n")
+    all_findings = check_repository(
+        repository_root, _config(max_link_hops=2), [middle_path]
+    )
+    assert [each.file_path for each in all_findings] == ["docs/deep/AGENTS.md"]
+
+
+def test_changes_markdown_file_ignores_missing_and_non_markdown_paths(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    guide_path = _write(repository_root / "guide.md", "x\n")
+    notes_path = _write(repository_root / "notes.txt", "x\n")
+    missing_path = repository_root / "gone.md"
+    assert changes_markdown_file([notes_path, missing_path]) is False
+    assert changes_markdown_file([notes_path, guide_path]) is True
 
 
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:

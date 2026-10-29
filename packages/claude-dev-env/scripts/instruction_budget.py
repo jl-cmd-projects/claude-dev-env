@@ -7,8 +7,8 @@ A repository opts in with ``instruction-budget.json`` at its root::
 The budget counts the bytes an agent loads at launch: each entry instruction
 file, its ``@`` imports, and each rule without ``paths:`` frontmatter. The name
 check runs on the instruction files the caller names. A change to any instruction
-file rechecks the nesting of every instruction file, since one edited link moves
-the files behind it.
+file, or to any markdown file a link can pass through, rechecks the nesting of
+every instruction file, since one edited link moves the files behind it.
 
 The CI workflow ``instruction-budget.yml`` runs this on the changed files of a
 pull request. The write-time hook ``instruction_file_write_warning.py`` runs it
@@ -31,6 +31,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     FINDING_LINE_TEMPLATE,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     MALFORMED_CONFIG_MESSAGE_TEMPLATE,
+    MARKDOWN_SUFFIX,
     MISSING_CONFIG_MESSAGE_TEMPLATE,
     PASSED_MESSAGE,
 )
@@ -76,12 +77,30 @@ def scoped_instruction_files(
     ]
 
 
+def changes_markdown_file(all_changed_files: Iterable[Path]) -> bool:
+    """Say whether the change touches a markdown file that still exists.
+
+    A link can pass through any markdown file, so an edit to one moves the
+    hop count of the instruction files behind it.
+
+    Args:
+        all_changed_files: Resolved paths the change touched.
+
+    Returns:
+        True when an existing changed file ends in ``.md``.
+    """
+    return any(
+        each_path.suffix == MARKDOWN_SUFFIX and each_path.is_file()
+        for each_path in all_changed_files
+    )
+
+
 def check_repository(
     repository_root: Path,
     config: InstructionBudgetConfig,
     all_changed_files: Iterable[Path],
 ) -> list[InstructionFinding]:
-    """Run the budget check, and the name and nesting checks on changed instruction files.
+    """Run the budget check, the name check on changed instruction files, and the nesting check.
 
     Args:
         repository_root: Resolved repository root.
@@ -92,11 +111,12 @@ def check_repository(
     Returns:
         Every finding, budget first, then names, then nesting.
     """
-    all_scoped_files = scoped_instruction_files(
-        repository_root, config, all_changed_files
-    )
+    all_changed = list(all_changed_files)
+    all_scoped_files = scoped_instruction_files(repository_root, config, all_changed)
     all_nesting_files = (
-        instruction_files(repository_root, config) if all_scoped_files else []
+        instruction_files(repository_root, config)
+        if all_scoped_files or changes_markdown_file(all_changed)
+        else []
     )
     return (
         budget_findings(repository_root, config)
