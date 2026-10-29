@@ -9,7 +9,9 @@ the agent's context::
     AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
 
 Quiet paths: a file that is not an instruction file, a repository without the
-budget file, and a file that passes every check each emit nothing.
+budget file, a budget file that holds no valid limits, a read error during the
+check, a file that passes every check, and a budget finding on a file the launch
+total leaves out each emit nothing.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ _scripts_directory = str(Path(__file__).resolve().parents[2] / "scripts")
 if _scripts_directory not in sys.path:
     sys.path.insert(0, _scripts_directory)
 
+from dev_env_scripts_constants.followup_constants import INSTRUCTION_BUDGET_RULE_ID
 from dev_env_scripts_constants.instruction_budget_constants import (
     FINDING_LINE_TEMPLATE,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
@@ -43,6 +46,7 @@ from instruction_budget_files import (
     InstructionBudgetConfigError,
     InstructionFinding,
     is_instruction_file,
+    launch_files,
     load_config,
 )
 
@@ -68,9 +72,15 @@ def _findings_for(
     repository_root: Path, written_path: Path, config: InstructionBudgetConfig
 ) -> list[InstructionFinding]:
     try:
-        return check_repository(repository_root, config, [written_path])
-    except OSError:
+        all_findings = check_repository(repository_root, config, [written_path])
+        is_launch_file = written_path in launch_files(repository_root, config)
+    except (OSError, ValueError, RecursionError):
         return []
+    return [
+        each_finding
+        for each_finding in all_findings
+        if each_finding.rule_id != INSTRUCTION_BUDGET_RULE_ID or is_launch_file
+    ]
 
 
 def main() -> None:

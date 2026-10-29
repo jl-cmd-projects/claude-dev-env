@@ -14,7 +14,7 @@ from dev_env_scripts_constants.followup_constants import (
     INSTRUCTION_PERSONAL_NAME_RULE_ID,
 )
 from dev_env_scripts_constants.instruction_budget_constants import (
-    ALL_PERSONAL_NAME_DIGESTS,
+    ALL_NAMED_PEOPLE_DIGESTS,
     LINE_NUMBER_SEPARATOR,
     PERSONAL_NAME_FINDING_MESSAGE_TEMPLATE,
     PERSONAL_NAME_TOKEN_PATTERN,
@@ -34,7 +34,7 @@ def _is_personal_name(token: str, all_digests: frozenset[PrivateTermDigest]) -> 
 
 
 def personal_name_line_numbers(
-    text: str, all_digests: frozenset[PrivateTermDigest] = ALL_PERSONAL_NAME_DIGESTS
+    text: str, all_digests: frozenset[PrivateTermDigest] = ALL_NAMED_PEOPLE_DIGESTS
 ) -> tuple[int, ...]:
     """Return the one-based lines that name a person, matched as whole words.
 
@@ -56,12 +56,18 @@ def personal_name_line_numbers(
     return tuple(all_line_numbers)
 
 
+def _display_path(repository_root: Path, file_path: Path) -> str:
+    if file_path.is_relative_to(repository_root):
+        return file_path.relative_to(repository_root).as_posix()
+    return file_path.as_posix()
+
+
 def _personal_name_finding(
     repository_root: Path, file_path: Path, all_line_numbers: tuple[int, ...]
 ) -> InstructionFinding:
     return InstructionFinding(
         rule_id=INSTRUCTION_PERSONAL_NAME_RULE_ID,
-        file_path=file_path.relative_to(repository_root).as_posix(),
+        file_path=_display_path(repository_root, file_path),
         message=PERSONAL_NAME_FINDING_MESSAGE_TEMPLATE.format(
             lines=LINE_NUMBER_SEPARATOR.join(
                 str(each_line) for each_line in all_line_numbers
@@ -73,7 +79,7 @@ def _personal_name_finding(
 def personal_name_findings(
     repository_root: Path,
     all_scoped_files: Iterable[Path],
-    all_digests: frozenset[PrivateTermDigest] = ALL_PERSONAL_NAME_DIGESTS,
+    all_digests: frozenset[PrivateTermDigest] = ALL_NAMED_PEOPLE_DIGESTS,
 ) -> list[InstructionFinding]:
     """Report each scoped instruction file that names a person.
 

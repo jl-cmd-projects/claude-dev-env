@@ -75,11 +75,20 @@ def _whole_number(raw_number: object, key: str) -> int:
     return raw_number
 
 
+def _is_folder_inside_repository(raw_folder: object) -> bool:
+    if not isinstance(raw_folder, str):
+        return False
+    folder_path = Path(raw_folder)
+    return not folder_path.is_absolute() and ".." not in folder_path.parts
+
+
 def _parse_rules_dirs(raw_rules_dirs: object) -> tuple[str, ...]:
     if not isinstance(raw_rules_dirs, list) or not all(
-        isinstance(each_name, str) for each_name in raw_rules_dirs
+        _is_folder_inside_repository(each_folder) for each_folder in raw_rules_dirs
     ):
-        raise ValueError(f"{RULES_DIRS_KEY} must be a list of folder names")
+        raise ValueError(
+            f"{RULES_DIRS_KEY} must be a list of folders inside the repository"
+        )
     return tuple(raw_rules_dirs)
 
 

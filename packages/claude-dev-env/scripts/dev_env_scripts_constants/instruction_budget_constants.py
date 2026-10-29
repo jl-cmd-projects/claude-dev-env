@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import re
 
-from dev_env_scripts_constants.private_term_constants import (
-    ALL_PRIVATE_TERM_DIGESTS,
-    PrivateTermDigest,
-)
+from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 
 INSTRUCTION_BUDGET_CONFIG_FILE_NAME: str = "instruction-budget.json"
 MAX_LAUNCH_BYTES_KEY: str = "max_launch_bytes"
@@ -37,9 +34,11 @@ ALL_SKIPPED_DIRECTORY_NAMES: frozenset[str] = frozenset(
 )
 
 IMPORT_LINE_PATTERN: re.Pattern[str] = re.compile(r"^@(\S+)\s*$", re.MULTILINE)
-MARKDOWN_LINK_PATTERN: re.Pattern[str] = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+MARKDOWN_LINK_PATTERN: re.Pattern[str] = re.compile(
+    r'\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)'
+)
 FENCED_BLOCK_PATTERN: re.Pattern[str] = re.compile(
-    r"^ {0,3}(`{3,}|~{3,}).*?(?:^ {0,3}\1|\Z)", re.MULTILINE | re.DOTALL
+    r"^ {0,3}(`{3,}|~{3,}).*?(?:^ {0,3}\1[`~]*[ \t\r]*$|\Z)", re.MULTILINE | re.DOTALL
 )
 EXTERNAL_TARGET_PATTERN: re.Pattern[str] = re.compile(r"^(https?:|mailto:|#)")
 ANCHOR_SEPARATOR: str = "#"
@@ -56,9 +55,6 @@ ALL_NAMED_PEOPLE_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
             sha256="dfef5e53f9848472560a3e680a310d097ecc75919740646df38d31cab7aa07ac",
         ),
     }
-)
-ALL_PERSONAL_NAME_DIGESTS: frozenset[PrivateTermDigest] = (
-    ALL_PRIVATE_TERM_DIGESTS | ALL_NAMED_PEOPLE_DIGESTS
 )
 
 BUDGET_FINDING_MESSAGE_TEMPLATE: str = (

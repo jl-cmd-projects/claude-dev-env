@@ -19,7 +19,6 @@ from dev_env_scripts_constants.followup_constants import (
 )
 from dev_env_scripts_constants.instruction_budget_constants import (
     ALL_NAMED_PEOPLE_DIGESTS,
-    ALL_PERSONAL_NAME_DIGESTS,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     PASSED_MESSAGE,
 )
@@ -118,7 +117,7 @@ def test_personal_name_line_numbers_match_whole_words_only() -> None:
 
 def test_shipped_name_list_holds_the_named_people() -> None:
     assert len(ALL_NAMED_PEOPLE_DIGESTS) == 2
-    assert ALL_NAMED_PEOPLE_DIGESTS <= ALL_PERSONAL_NAME_DIGESTS
+    assert personal_name_line_numbers.__defaults__ == (ALL_NAMED_PEOPLE_DIGESTS,)
 
 
 def test_read_text_outside_fences_drops_both_fence_styles(tmp_path: Path) -> None:
@@ -178,7 +177,9 @@ def test_load_config_rejects_a_negative_cap_or_a_boolean_hop_limit(
         load_config(tmp_path)
 
 
-@pytest.mark.parametrize("rules_dirs_json", ['"shared/rules"', "[5]"])
+@pytest.mark.parametrize(
+    "rules_dirs_json", ['"shared/rules"', "[5]", '["/etc"]', '["../outside"]']
+)
 def test_load_config_rejects_rules_dirs_that_are_not_a_list_of_folder_names(
     tmp_path: Path, rules_dirs_json: str
 ) -> None:
@@ -199,6 +200,41 @@ def test_personal_name_findings_name_lines_but_not_the_name(tmp_path: Path) -> N
     assert all_findings[0].rule_id == INSTRUCTION_PERSONAL_NAME_RULE_ID
     assert "line(s) 2" in all_findings[0].message
     assert FIXTURE_NAME not in all_findings[0].message
+
+
+def test_personal_name_findings_report_a_symlinked_file_outside_the_root(
+    tmp_path: Path,
+) -> None:
+    outside_path = _write(tmp_path / "outside" / "AGENTS.md", "zorbel here\n")
+    repository_root = tmp_path / "repo"
+    repository_root.mkdir()
+    (repository_root / "AGENTS.md").symlink_to(outside_path)
+    linked_path = (repository_root / "AGENTS.md").resolve()
+    all_findings = personal_name_findings(
+        repository_root.resolve(), [linked_path], FIXTURE_DIGESTS
+    )
+    assert [each.rule_id for each in all_findings] == [
+        INSTRUCTION_PERSONAL_NAME_RULE_ID
+    ]
+
+
+def test_read_text_outside_fences_treats_a_fence_with_an_info_string_as_content(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path / "AGENTS.md", "```\ncode\n```python\nstill code\n```\n[x](a.md)\n"
+    )
+    assert read_text_outside_fences(path) == "\n[x](a.md)\n"
+
+
+def test_hop_distances_follow_a_link_that_carries_a_title(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    root_path = _write(
+        repository_root / "AGENTS.md", '[one](one.md "The first page")\n'
+    )
+    _write(repository_root / "one.md", "# One\n")
+    distances = hop_distances(repository_root, [root_path.resolve()])
+    assert distances[repository_root / "one.md"] == 1
 
 
 def test_hop_distances_count_the_fewest_links_from_a_root(tmp_path: Path) -> None:

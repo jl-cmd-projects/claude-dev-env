@@ -62,8 +62,22 @@ def test_an_over_budget_instruction_file_gets_a_budget_warning(tmp_path: Path) -
     assert "over the cap of 10" in context
 
 
+def test_a_skill_file_does_not_get_the_repository_budget_warning(tmp_path: Path) -> None:
+    (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 10}', encoding="utf-8")
+    _write(tmp_path / "AGENTS.md", "x" * 50)
+    skill_path = _write(tmp_path / "skills" / "demo" / "SKILL.md", "# Demo\n")
+    assert _run_hook(skill_path) == ""
+
+
+@pytest.mark.parametrize(
+    "read_error",
+    [PermissionError("denied"), ValueError("outside the root"), RecursionError("deep")],
+)
 def test_a_read_error_during_the_check_stays_silent(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    read_error: Exception,
 ) -> None:
     spec = importlib.util.spec_from_file_location("hook_under_test", HOOK_PATH)
     hook = importlib.util.module_from_spec(spec)
@@ -72,7 +86,7 @@ def test_a_read_error_during_the_check_stays_silent(
     agents_path = _write(tmp_path / "AGENTS.md", "x")
 
     def raise_read_error(*_args: object) -> list:
-        raise PermissionError("denied")
+        raise read_error
 
     monkeypatch.setattr(hook, "check_repository", raise_read_error)
     monkeypatch.setattr(
