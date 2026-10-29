@@ -156,6 +156,18 @@ def test_load_config_names_a_malformed_budget_file(tmp_path: Path) -> None:
         load_config(tmp_path)
 
 
+@pytest.mark.parametrize("rules_dirs_json", ['"shared/rules"', "[5]"])
+def test_load_config_rejects_rules_dirs_that_are_not_a_list_of_folder_names(
+    tmp_path: Path, rules_dirs_json: str
+) -> None:
+    _write_budget_file(
+        tmp_path,
+        f'{{"max_launch_bytes": 1200, "rules_dirs": {rules_dirs_json}}}',
+    )
+    with pytest.raises(InstructionBudgetConfigError):
+        load_config(tmp_path)
+
+
 def test_personal_name_findings_name_lines_but_not_the_name(tmp_path: Path) -> None:
     path = _write(tmp_path / "AGENTS.md", "first\nzorbel here\n")
     all_findings = personal_name_findings(

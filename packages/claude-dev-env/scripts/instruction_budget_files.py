@@ -65,6 +65,14 @@ class InstructionFinding(NamedTuple):
     message: str
 
 
+def _parse_rules_dirs(raw_rules_dirs: object) -> tuple[str, ...]:
+    if not isinstance(raw_rules_dirs, list) or not all(
+        isinstance(each_name, str) for each_name in raw_rules_dirs
+    ):
+        raise ValueError(f"{RULES_DIRS_KEY} must be a list of folder names")
+    return tuple(raw_rules_dirs)
+
+
 def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
     """Read the repository's budget file.
 
@@ -87,7 +95,7 @@ def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
         return InstructionBudgetConfig(
             max_launch_bytes=int(raw_config[MAX_LAUNCH_BYTES_KEY]),
             max_link_hops=int(raw_config.get(MAX_LINK_HOPS_KEY, DEFAULT_MAX_LINK_HOPS)),
-            rules_dirs=tuple(raw_config.get(RULES_DIRS_KEY, ())),
+            rules_dirs=_parse_rules_dirs(raw_config.get(RULES_DIRS_KEY, [])),
         )
     except (AttributeError, KeyError, TypeError, ValueError) as error:
         raise InstructionBudgetConfigError(str(error)) from error
