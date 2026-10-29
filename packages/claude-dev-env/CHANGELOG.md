@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.5...claude-dev-env-v8.109.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* Let PRs open from any folder, and when every review finding has a recorded decision ([#2256](https://github.com/jl-cmd-projects/claude-dev-env/issues/2256)) ([bce9545](https://github.com/jl-cmd-projects/claude-dev-env/commit/bce9545f86f4f33036e4af81eacbda4fc7b22660))
+
 ## [8.109.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.4...claude-dev-env-v8.109.5) (2026-10-29)
 
 
