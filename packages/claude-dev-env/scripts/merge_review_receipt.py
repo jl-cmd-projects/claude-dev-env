@@ -170,16 +170,17 @@ def _line_count(content: bytes) -> int:
     return content.count(b"\n") + (0 if content.endswith(b"\n") else 1)
 
 
+def _split_rulings(rulings: str) -> list[str]:
+    all_entries = (each_entry.strip() for each_entry in rulings.split(RULING_SEPARATOR))
+    return [each_entry for each_entry in all_entries if each_entry]
+
+
 def _checked_open_rulings(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace
 ) -> list[str]:
     if parsed.ruled_out < 0 or parsed.ruled_out > parsed.findings:
         parser.error("--ruled-out must be between 0 and the finding count")
-    all_rulings = [
-        each_ruling.strip()
-        for each_ruling in parsed.rulings.split(RULING_SEPARATOR)
-        if each_ruling.strip()
-    ]
+    all_rulings = _split_rulings(parsed.rulings)
     if len(all_rulings) != parsed.ruled_out:
         parser.error("--rulings needs one path:line for each finding --ruled-out counts")
     all_malformed = [
