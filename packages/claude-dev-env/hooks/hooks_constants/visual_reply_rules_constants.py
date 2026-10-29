@@ -54,9 +54,10 @@ OUTPUT_REF_KEY = "ref"
 ALL_PICTURE_SUFFIXES = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp")
 MAXIMUM_FIGURES_WITHOUT_PICTURE = 2
 TABLE_SEPARATOR_PATTERN = re.compile(
-    r"^\s*\|\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$", re.MULTILINE
+    r"^\s*\|?\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$", re.MULTILINE
 )
-FIGURE_PATTERN = re.compile(r"(?<![\w.#/-])\d+(?:[.,]\d+)*%?(?![\w-])")
+FIGURE_PATTERN = re.compile(r"(?<![\w.#/:-])\d+(?:[.,]\d+)*%?(?![\w:-])")
+LIST_NUMBER_PATTERN = re.compile(r"^\s*\d+[.)](?=\s)", re.MULTILINE)
 MARKDOWN_PICTURE_PATTERN = re.compile(
     r"!\[[^\]]*\]\([^)\s]+\.(?:svg|png|jpe?g|gif|webp)\)", re.IGNORECASE
 )

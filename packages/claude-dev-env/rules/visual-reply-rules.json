@@ -38,7 +38,7 @@
     {
       "key": "results_picture",
       "label": "Results with no picture",
-      "reminder": "Show the results as one picture: a pele chart saved as an SVG or PNG file and attached with attached_outputs, with every label and number shown. Keep the reply text to three short sentences or fewer."
+      "reminder": "Show results in one pele chart, saved as an SVG or PNG file and passed in attached_outputs, with every label and number on it."
     }
   ],
   "allowed_capitalized_words": [

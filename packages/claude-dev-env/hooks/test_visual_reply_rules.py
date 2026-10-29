@@ -255,6 +255,19 @@ def test_reports_results_counts_no_figure_in_a_date_or_a_pull_request_number() -
     assert not reports_results("Shipped on 2026-10-29 in #2224.")
 
 
+def test_reports_results_counts_no_figure_in_a_clock_time_or_a_list_number() -> None:
+    assert not reports_results("The run started at 10:30 and ended at 11:45.")
+    assert not reports_results("1. Checked the hook.\n2. Checked the rule.\n3. Checked the test.")
+
+
+def test_reports_results_flags_a_markdown_table_written_without_leading_pipes() -> None:
+    assert reports_results("Check | Result\n--- | ---\nUnit tests | passed")
+
+
+def test_attaches_picture_ignores_a_picture_shown_only_inside_a_code_fence() -> None:
+    assert not attaches_picture("Example:\n```\n![Chart](chart.png)\n```\nDone.", {})
+
+
 def test_attaches_picture_accepts_an_image_file_or_a_markdown_picture_only() -> None:
     assert attaches_picture("Results.", {"attached_outputs": [{"kind": "file", "ref": "/mnt/chart.svg"}]})
     assert attaches_picture("![Chart](chart.png)", {})

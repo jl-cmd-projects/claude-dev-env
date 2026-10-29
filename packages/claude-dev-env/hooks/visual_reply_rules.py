@@ -74,6 +74,7 @@ from hooks_constants.visual_reply_rules_constants import (
     ALL_PICTURE_SUFFIXES,
     ATTACHED_OUTPUTS_KEY,
     FIGURE_PATTERN,
+    LIST_NUMBER_PATTERN,
     MARKDOWN_PICTURE_PATTERN,
     MAXIMUM_FIGURES_WITHOUT_PICTURE,
     OUTPUT_FILE_KIND,
@@ -83,6 +84,7 @@ from hooks_constants.visual_reply_rules_constants import (
     RESULTS_PICTURE_RULE_KEY,
     TABLE_SEPARATOR_PATTERN,
 )
+from hooks_constants.reply_length_gate_constants import FENCED_BLOCK_PATTERN, INLINE_CODE_PATTERN
 
 
 @dataclass(frozen=True)
@@ -372,11 +374,12 @@ def reports_results(prose_text: str) -> bool:
     """
     if TABLE_SEPARATOR_PATTERN.search(prose_text):
         return True
-    return len(FIGURE_PATTERN.findall(prose_text)) > MAXIMUM_FIGURES_WITHOUT_PICTURE
+    all_figures = FIGURE_PATTERN.findall(LIST_NUMBER_PATTERN.sub(" ", prose_text))
+    return len(all_figures) > MAXIMUM_FIGURES_WITHOUT_PICTURE
 
 
 def attaches_picture(reply_text: str, all_tool_input: dict[str, object]) -> bool:
-    """Return True when the call attaches an image file or embeds a markdown picture."""
+    """Return True when the call attaches an image file or embeds a markdown picture outside code."""
     all_attached_outputs = all_tool_input.get(ATTACHED_OUTPUTS_KEY)
     has_attached_picture = isinstance(all_attached_outputs, list) and any(
         isinstance(each_output, dict)
@@ -384,7 +387,8 @@ def attaches_picture(reply_text: str, all_tool_input: dict[str, object]) -> bool
         and str(each_output.get(OUTPUT_REF_KEY, "")).casefold().endswith(ALL_PICTURE_SUFFIXES)
         for each_output in all_attached_outputs
     )
-    return has_attached_picture or MARKDOWN_PICTURE_PATTERN.search(reply_text) is not None
+    without_code = INLINE_CODE_PATTERN.sub(" ", FENCED_BLOCK_PATTERN.sub(" ", reply_text))
+    return has_attached_picture or MARKDOWN_PICTURE_PATTERN.search(without_code) is not None
 
 
 def results_picture_violation(
