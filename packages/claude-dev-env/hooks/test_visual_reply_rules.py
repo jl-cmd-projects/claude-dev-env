@@ -255,6 +255,10 @@ def test_reports_results_counts_a_multiplier_such_as_2_5x_as_a_figure() -> None:
     assert reports_results("Latency fell 2.5x and throughput rose 3x and errors fell 4x.")
 
 
+def test_reports_results_counts_no_figure_in_a_long_run_or_job_identifier() -> None:
+    assert not reports_results("Run 24011273, job 24011274 and check 24011275 are green.")
+
+
 def test_reports_results_counts_a_negative_figure_as_a_figure() -> None:
     assert reports_results("Deltas were -2, -5 and -7 this week.")
 
