@@ -14,7 +14,7 @@ This family checks a completed Write, Edit or MultiEdit call, formats eligible n
 - `validation/post_tool_use_dispatcher.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit`, timeout `180` seconds in `hooks.json`.
 - `workflow/auto_formatter.py` runs inside that dispatcher on `PostToolUse`, matcher `Write|Edit|MultiEdit`, timeout `180` seconds, as named by `ALL_POST_HOSTED_HOOK_ENTRIES`. Its eligibility check accepts only a Write of an untracked source file.
 - `advisory/edit_lint_context.py` runs inside that dispatcher after the formatter, so it lints the file as the formatter left it.
-- `advisory/instruction_file_write_warning.py` runs on `PostToolUse`, matcher `Write|Edit|MultiEdit`, timeout `30` seconds in `hooks.json`, as its own registration beside the dispatcher.
+- `advisory/instruction_file_write_warning.py` runs inside that dispatcher after the lint hook, as named by `ALL_POST_HOSTED_HOOK_ENTRIES`.
 
 ## Proving it
 
