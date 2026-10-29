@@ -9,6 +9,7 @@ from context_budget.tests.budget_support import (
     fixture_text,
     policy_text,
     section_text,
+    words_text,
 )
 from context_budget.findings import file_findings
 from context_budget.policy_file import default_policy, parse_policy
@@ -118,8 +119,8 @@ def test_relative_link_is_a_pointer_and_external_or_anchor_links_are_not() -> No
 
 
 def test_scan_prose_collects_unlinked_detail_lines_over_the_word_limit() -> None:
-    long_unlinked = " ".join(["word"] * 26)
-    exact_unlinked = " ".join(["word"] * 25)
+    long_unlinked = words_text(26)
+    exact_unlinked = words_text(25)
     text = f"# Index\n{long_unlinked}\n{exact_unlinked}\nRead [the plan](reference/plan.md).\n"
 
     scan = scan_prose(text, 25)
@@ -130,7 +131,7 @@ def test_scan_prose_collects_unlinked_detail_lines_over_the_word_limit() -> None
 
 
 def test_scan_prose_ignores_fenced_code_tables_and_lines_that_link() -> None:
-    long_words = " ".join(["word"] * 30)
+    long_words = words_text(30)
     text = "\n".join(
         [
             "```",
@@ -149,12 +150,18 @@ def test_scan_prose_ignores_fenced_code_tables_and_lines_that_link() -> None:
 
 
 def test_scan_prose_counts_words_after_a_list_marker() -> None:
-    twenty_five = " ".join(["word"] * 25)
+    twenty_five = words_text(25)
 
     assert scan_prose(f"- {twenty_five}\n", 25).all_long_unlinked_lines == ()
     assert scan_prose(f"- {twenty_five} more\n", 25).all_long_unlinked_lines == (
         f"- {twenty_five} more",
     )
+
+
+def test_scan_prose_does_not_count_a_lone_dash_as_a_word() -> None:
+    twenty_five = words_text(25)
+
+    assert scan_prose(f"{twenty_five} -\n", 25).all_long_unlinked_lines == ()
 
 
 def test_scan_prose_reports_a_file_with_no_relative_link() -> None:

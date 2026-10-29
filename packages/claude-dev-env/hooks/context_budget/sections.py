@@ -23,6 +23,7 @@ from context_budget.model import (
     ProseScan,
     SectionScan,
 )
+from hooks_constants.ask_user_question_shape import count_prose_words
 from hooks_constants.context_budget_constants import (
     ALL_NON_RELATIVE_TARGET_PREFIXES,
     ATX_HEADING_PATTERN,
@@ -200,7 +201,7 @@ def prose_word_count(line: str) -> int:
     Returns:
         The number of words in the line's text.
     """
-    return len(LIST_MARKER_PATTERN.sub("", line).split())
+    return count_prose_words(LIST_MARKER_PATTERN.sub("", line))
 
 
 def scan_prose(text: str, word_limit: int) -> ProseScan:

@@ -14,6 +14,7 @@ import pytest
 
 from context_budget.findings import file_findings
 from context_budget.policy_file import default_policy
+from context_budget.tests.budget_support import words_text
 
 NO_POINTER_SCOPE = "no pointer line"
 LONG_LINE_SCOPE_PREFIX = "prose line: "
@@ -37,10 +38,6 @@ class LabeledCase:
     should_fail: bool
 
 
-def _words(count: int) -> str:
-    return " ".join(["word"] * count)
-
-
 ALL_LABELED_CASES = (
     LabeledCase("blank-agents-file", "app/AGENTS.md", "", False),
     LabeledCase("import-only-agents-file", "app/AGENTS.md", "@CLAUDE.md\n", False),
@@ -61,44 +58,44 @@ ALL_LABELED_CASES = (
     LabeledCase(
         "long-unlinked-line-with-pointer",
         "app/AGENTS.md",
-        f"{_words(26)}\n{POINTER_LINE}\n",
+        f"{words_text(26)}\n{POINTER_LINE}\n",
         True,
     ),
     LabeledCase(
         "line-at-word-limit",
         "app/AGENTS.md",
-        f"{_words(25)}\n{POINTER_LINE}\n",
+        f"{words_text(25)}\n{POINTER_LINE}\n",
         False,
     ),
     LabeledCase(
         "long-line-with-its-own-link",
         "app/CLAUDE.md",
-        f"{_words(26)} [plan](reference/plan.md)\n",
+        f"{words_text(26)} [plan](reference/plan.md)\n",
         False,
     ),
     LabeledCase(
         "import-with-long-unlinked-line",
         "app/CLAUDE.md",
-        f"@AGENTS.md\n{_words(26)}\n",
+        f"@AGENTS.md\n{words_text(26)}\n",
         True,
     ),
     LabeledCase("mention-is-not-an-import", "app/AGENTS.md", "@reviewer please review\n", True),
     LabeledCase(
         "long-list-item-with-link",
         "app/AGENTS.md",
-        f"- {_words(30)} [plan](reference/plan.md)\n",
+        f"- {words_text(30)} [plan](reference/plan.md)\n",
         False,
     ),
     LabeledCase(
         "long-line-inside-fence",
         "app/AGENTS.md",
-        f"```\n{_words(30)}\n```\n{POINTER_LINE}\n",
+        f"```\n{words_text(30)}\n```\n{POINTER_LINE}\n",
         False,
     ),
     LabeledCase(
         "long-table-row",
         "app/AGENTS.md",
-        f"| {_words(30)} |\n{POINTER_LINE}\n",
+        f"| {words_text(30)} |\n{POINTER_LINE}\n",
         False,
     ),
     LabeledCase(
@@ -107,7 +104,7 @@ ALL_LABELED_CASES = (
         f"Holds shared helpers.\nCallers copy and publish trees.\n{POINTER_LINE}\n",
         False,
     ),
-    LabeledCase("not-an-agent-file", "docs/notes.md", f"{_words(40)}\n", False),
+    LabeledCase("not-an-agent-file", "docs/notes.md", f"{words_text(40)}\n", False),
     LabeledCase(
         "import-and-pointer-claude-file",
         "app/CLAUDE.md",
@@ -117,7 +114,7 @@ ALL_LABELED_CASES = (
     LabeledCase(
         "wordy-paragraph-with-pointer",
         "app/AGENTS.md",
-        f"{_words(52)}\n{POINTER_LINE}\n",
+        f"{words_text(52)}\n{POINTER_LINE}\n",
         True,
     ),
 )
@@ -142,11 +139,7 @@ def test_prose_rule_confusion_matrix_has_perfect_precision_and_recall() -> None:
         (each_case.should_fail, _prose_rule_fails(each_case)) for each_case in ALL_LABELED_CASES
     ]
 
-    true_positives = sum(each_label and each_grade for each_label, each_grade in all_outcomes)
     false_positives = sum(not each_label and each_grade for each_label, each_grade in all_outcomes)
-    true_negatives = sum(
-        not each_label and not each_grade for each_label, each_grade in all_outcomes
-    )
     false_negatives = sum(each_label and not each_grade for each_label, each_grade in all_outcomes)
 
-    assert (true_positives, false_positives, true_negatives, false_negatives) == (5, 0, 13, 0)
+    assert (false_positives, false_negatives) == (0, 0)

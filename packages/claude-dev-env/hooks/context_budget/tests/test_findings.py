@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from context_budget.tests.budget_support import SKILL_PATH, policy_text, section_text
+from context_budget.tests.budget_support import SKILL_PATH, policy_text, section_text, words_text
 from context_budget.findings import edit_findings, file_findings
 from context_budget.policy_file import default_policy, parse_policy
 
@@ -121,7 +121,7 @@ def test_edit_of_an_unlisted_over_budget_file_is_allowed_when_it_shrinks_under_a
 
 
 AGENT_PATH = "shared_utils/files/AGENTS.md"
-LONG_LINE = " ".join(["word"] * 26)
+LONG_LINE = words_text(26)
 POINTER_LINE = "Read [the plan](reference/plan.md)."
 
 
@@ -139,7 +139,7 @@ def test_agent_file_with_no_relative_link_fails_the_pointer_rule() -> None:
 
 def test_agent_file_fails_on_an_unlinked_line_over_the_word_limit_only() -> None:
     policy = parse_policy(policy_text())
-    exact_line = " ".join(["word"] * 25)
+    exact_line = words_text(25)
 
     over_limit = file_findings(policy, AGENT_PATH, f"{LONG_LINE}\n{POINTER_LINE}\n", None)
     at_limit = file_findings(policy, AGENT_PATH, f"{exact_line}\n{POINTER_LINE}\n", None)

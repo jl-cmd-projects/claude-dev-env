@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import PurePosixPath
 
 from context_budget.model import (
@@ -239,14 +240,10 @@ def _with_prior_as_baseline(
     prior_entry = None if prior_measure is None else baseline_entry_for(prior_measure)
     if prior_entry is None:
         return policy
-    return BudgetPolicy(
-        policy.section_detail_line_limit,
-        policy.all_kinds,
-        policy.all_hooks,
-        {**policy.baseline_entry_by_path, relative_path: prior_entry},
-        policy.baseline_characters_by_hook_name,
+    return replace(
+        policy,
+        baseline_entry_by_path={**policy.baseline_entry_by_path, relative_path: prior_entry},
         is_baseline_the_prior_text=True,
-        prose_line_word_limit=policy.prose_line_word_limit,
     )
 
 
