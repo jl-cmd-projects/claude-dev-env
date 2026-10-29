@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.1...claude-dev-env-v8.109.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** read a pull request body edit for a weak or unrun proof section ([#2245](https://github.com/jl-cmd-projects/claude-dev-env/issues/2245)) ([ac597d7](https://github.com/jl-cmd-projects/claude-dev-env/commit/ac597d7f93637a03f7ecce7acd5410671d929a9c))
+
 ## [8.109.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.0...claude-dev-env-v8.109.1) (2026-10-29)
 
 
