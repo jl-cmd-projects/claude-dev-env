@@ -802,3 +802,27 @@ def test_untested_line_with_a_post_merge_deferral_under_not_covered_should_be_de
     line = "Untested; a session checks it after the merge."
     body = f"## Proof in practice\nRan `python run.py`.\n\n## Not covered\n\n{line}\n"
     assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=line)
+
+
+@pytest.mark.parametrize(
+    "status_line",
+    [
+        "All checks pass. Once merged, the changelog updates.",
+        "The output confirms the fix; once merged, the release ships.",
+    ],
+)
+def test_check_word_in_an_earlier_sentence_than_a_merge_phrase_should_pass(status_line: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{status_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) is None
+
+
+@pytest.mark.parametrize(
+    "deferral_line",
+    [
+        "I verify v1.2 once merged.",
+        "We check config.yaml after the merge.",
+    ],
+)
+def test_dotted_token_between_check_verb_and_merge_phrase_should_still_be_denied(deferral_line: str) -> None:
+    body = f"## Proof in practice\nRan `python run.py`.\n{deferral_line}\n"
+    assert gate.missing_proof_reason(_mcp_create(body)) == DEFERRED_PROOF_REASON.format(deferral=deferral_line)

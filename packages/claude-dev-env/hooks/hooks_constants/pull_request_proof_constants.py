@@ -80,11 +80,12 @@ _MERGE_TRIGGER = (
     r"|\b(?:after|once)\s+merging\b(?!\s+(?:\S+\s+)?(?:in|into)\b)"
     r"|\bon merge\b(?! queue)|\bpost[- ]?merge\b(?!\s+(?:hook|step|script|workflow|job|automation|tag|release)\b))"
 )
+_SAME_SENTENCE = r"(?:[^\n;!?.]|\.(?!\s|$)){0,60}"
 _CHECK_VERB = r"\b(?:" + _ACTIVE_CHECK_VERB + r"|" + _PASSIVE_CHECK_VERB + r")\b"
 POST_MERGE_DEFERRAL_PATTERN = (
-    _CHECK_VERB + r"[^\n]{0,60}" + _MERGE_TRIGGER
+    _CHECK_VERB + _SAME_SENTENCE + _MERGE_TRIGGER
     + r"|" + _MERGE_TRIGGER + r"[^\n]{0,60}" + _CHECK_VERB
-    + r"|" + _LIST_MARKER + _STARTING_CHECK_VERB + r"\b[^\n]{0,60}" + _MERGE_TRIGGER
+    + r"|" + _LIST_MARKER + _STARTING_CHECK_VERB + r"\b" + _SAME_SENTENCE + _MERGE_TRIGGER
 )
 NOT_COVERED_HEADING_PATTERN = r"^(#{1,6})[ \t]+not covered[ \t]*:?[ \t]*#*[ \t]*$"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"

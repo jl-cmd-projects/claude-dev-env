@@ -452,7 +452,9 @@ def unproven_admission(section: str) -> str | None:
     run of yet, been or fully after the not, plus unproven, untested and
     unverified. A line or list item that opens with "not run", "not ran",
     "not exercised" or "not executed", each with any run of yet or been after
-    the not, is one too, and so is "has not been run". Case is ignored.
+    the not, is one too, and so is "has not been run", "have not been exercised"
+    or "hasn't been executed", with "yet" allowed before "been". Case is
+    ignored.
     Inline code spans and fenced blocks are skipped, so output quoted there
     never counts.
     """
@@ -479,10 +481,11 @@ def post_merge_deferral(body: str) -> str | None:
         "## Risk\\nChecked after the merge."                           -> None
 
     The lines read are the proof section and every 'Not covered' section.
-    A check verb and a merge trigger make a deferral: "checked after the
+    A check verb and a merge trigger in one sentence make a deferral: "checked after the
     merge", "once merged a session confirms" or "post-merge, I verify". A line
     that only mentions a merge, such as "the merge queue picks it up", is not
-    one. A 'Not covered' line that opens with "not run" passes.
+    one. A 'Not covered' line that opens with a not-run marker passes; the
+    unproven_admission docstring lists them.
 
     Args:
         body: The pull request body.
