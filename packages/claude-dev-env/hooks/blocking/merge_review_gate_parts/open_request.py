@@ -151,11 +151,11 @@ def _run_git(
 
 
 def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> str | None:
-    branch_name = branch.split(":", 1)[-1]
+    if ":" in branch:
+        fork_owner, _, fork_branch = branch.partition(":")
+        return _remote_branch_commit(fork_owner, repo, fork_branch)
     all_references = (
-        (branch_name,)
-        if branch_name == CURRENT_HEAD_REFERENCE
-        else (REMOTE_BRANCH_PREFIX + branch_name, branch_name)
+        (branch,) if branch == CURRENT_HEAD_REFERENCE else (REMOTE_BRANCH_PREFIX + branch, branch)
     )
     for each_reference in all_references:
         commit = _run_git(
@@ -163,10 +163,9 @@ def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> st
         )
         if commit:
             return commit
-    if branch_name == CURRENT_HEAD_REFERENCE:
+    if branch == CURRENT_HEAD_REFERENCE:
         return None
-    fork_owner = branch.split(":", 1)[0] if ":" in branch else owner
-    return _remote_branch_commit(fork_owner, repo, branch_name)
+    return _remote_branch_commit(owner, repo, branch)
 
 
 def _remote_branch_commit(owner: str, repo: str, branch_name: str) -> str | None:
