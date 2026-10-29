@@ -24,12 +24,12 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     FRONTMATTER_DELIMITER,
     IMPORT_LINE_PATTERN,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+    INSTRUCTION_TEXT_ENCODING,
     MARKDOWN_SUFFIX,
     MAX_LAUNCH_BYTES_KEY,
     MAX_LINK_HOPS_KEY,
     PATHS_FRONTMATTER_PREFIX,
     RULES_DIRS_KEY,
-    TEXT_ENCODING,
 )
 
 
@@ -45,6 +45,10 @@ class InstructionBudgetConfig(NamedTuple):
     max_launch_bytes: int
     max_link_hops: int
     rules_dirs: tuple[str, ...]
+
+
+class InstructionBudgetConfigError(ValueError):
+    """The repository's budget file exists but does not hold valid limits."""
 
 
 class InstructionFinding(NamedTuple):
@@ -69,16 +73,24 @@ def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
 
     Returns:
         The parsed limits, or None when the repository has no budget file.
+
+    Raises:
+        InstructionBudgetConfigError: When the budget file is not valid JSON or lacks valid limits.
     """
     config_path = repository_root / INSTRUCTION_BUDGET_CONFIG_FILE_NAME
     if not config_path.is_file():
         return None
-    raw_config = json.loads(config_path.read_text(encoding=TEXT_ENCODING))
-    return InstructionBudgetConfig(
-        max_launch_bytes=int(raw_config[MAX_LAUNCH_BYTES_KEY]),
-        max_link_hops=int(raw_config.get(MAX_LINK_HOPS_KEY, DEFAULT_MAX_LINK_HOPS)),
-        rules_dirs=tuple(raw_config.get(RULES_DIRS_KEY, ())),
-    )
+    try:
+        raw_config = json.loads(
+            config_path.read_text(encoding=INSTRUCTION_TEXT_ENCODING)
+        )
+        return InstructionBudgetConfig(
+            max_launch_bytes=int(raw_config[MAX_LAUNCH_BYTES_KEY]),
+            max_link_hops=int(raw_config.get(MAX_LINK_HOPS_KEY, DEFAULT_MAX_LINK_HOPS)),
+            rules_dirs=tuple(raw_config.get(RULES_DIRS_KEY, ())),
+        )
+    except (AttributeError, KeyError, TypeError, ValueError) as error:
+        raise InstructionBudgetConfigError(str(error)) from error
 
 
 def read_instruction_text(path: Path) -> str:
@@ -90,7 +102,7 @@ def read_instruction_text(path: Path) -> str:
     Returns:
         The file's text.
     """
-    return path.read_text(encoding=TEXT_ENCODING, errors="replace")
+    return path.read_text(encoding=INSTRUCTION_TEXT_ENCODING, errors="replace")
 
 
 def read_text_outside_fences(path: Path) -> str:

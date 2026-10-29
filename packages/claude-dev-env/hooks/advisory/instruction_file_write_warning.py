@@ -38,7 +38,11 @@ from hooks_constants.instruction_file_write_warning_constants import (
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from instruction_budget import check_repository
-from instruction_budget_files import is_instruction_file, load_config
+from instruction_budget_files import (
+    InstructionBudgetConfigError,
+    is_instruction_file,
+    load_config,
+)
 
 
 def _written_path(payload: dict) -> Path | None:
@@ -65,7 +69,10 @@ def main() -> None:
     repository_root = _repository_root(written_path)
     if repository_root is None:
         return
-    config = load_config(repository_root)
+    try:
+        config = load_config(repository_root)
+    except InstructionBudgetConfigError:
+        return
     if config is None or not is_instruction_file(written_path, repository_root, config):
         return
     all_findings = check_repository(repository_root, config, [written_path])

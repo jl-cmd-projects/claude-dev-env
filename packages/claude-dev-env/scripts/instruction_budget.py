@@ -23,15 +23,18 @@ from pathlib import Path
 from dev_env_scripts_constants.followup_constants import (
     GATE_FAILED_EXIT_CODE,
     GATE_PASSED_EXIT_CODE,
+    INSTRUCTION_BUDGET_RULE_ID,
 )
 from dev_env_scripts_constants.instruction_budget_constants import (
     FINDING_LINE_TEMPLATE,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+    MALFORMED_CONFIG_MESSAGE_TEMPLATE,
     MISSING_CONFIG_MESSAGE_TEMPLATE,
     PASSED_MESSAGE,
 )
 from instruction_budget_files import (
     InstructionBudgetConfig,
+    InstructionBudgetConfigError,
     InstructionFinding,
     budget_findings,
     instruction_files,
@@ -96,7 +99,7 @@ def _scoped_files(
     return [(repository_root / each_path).resolve() for each_path in args.changed_file]
 
 
-def _print_findings(all_findings: Iterable[InstructionFinding]) -> None:
+def _report_findings(all_findings: list[InstructionFinding]) -> int:
     for each_finding in all_findings:
         print(
             FINDING_LINE_TEMPLATE.format(
@@ -105,6 +108,18 @@ def _print_findings(all_findings: Iterable[InstructionFinding]) -> None:
                 message=each_finding.message,
             )
         )
+    if all_findings:
+        return GATE_FAILED_EXIT_CODE
+    print(PASSED_MESSAGE)
+    return GATE_PASSED_EXIT_CODE
+
+
+def _malformed_config_line(error: InstructionBudgetConfigError) -> str:
+    return FINDING_LINE_TEMPLATE.format(
+        file_path=INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+        rule_id=INSTRUCTION_BUDGET_RULE_ID,
+        message=MALFORMED_CONFIG_MESSAGE_TEMPLATE.format(error=error),
+    )
 
 
 def main(all_argv: Sequence[str]) -> int:
@@ -118,7 +133,11 @@ def main(all_argv: Sequence[str]) -> int:
     """
     args = _build_parser().parse_args(all_argv)
     repository_root = Path(args.repository_root).resolve()
-    config = load_config(repository_root)
+    try:
+        config = load_config(repository_root)
+    except InstructionBudgetConfigError as error:
+        print(_malformed_config_line(error))
+        return GATE_FAILED_EXIT_CODE
     if config is None:
         print(
             MISSING_CONFIG_MESSAGE_TEMPLATE.format(
@@ -126,14 +145,11 @@ def main(all_argv: Sequence[str]) -> int:
             )
         )
         return GATE_FAILED_EXIT_CODE
-    all_findings = check_repository(
-        repository_root, config, _scoped_files(args, repository_root, config)
+    return _report_findings(
+        check_repository(
+            repository_root, config, _scoped_files(args, repository_root, config)
+        )
     )
-    _print_findings(all_findings)
-    if all_findings:
-        return GATE_FAILED_EXIT_CODE
-    print(PASSED_MESSAGE)
-    return GATE_PASSED_EXIT_CODE
 
 
 if __name__ == "__main__":

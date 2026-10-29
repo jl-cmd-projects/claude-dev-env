@@ -31,6 +31,7 @@ MARKDOWN_SUFFIX: str = ".md"
 FRONTMATTER_DELIMITER: str = "---"
 PATHS_FRONTMATTER_PREFIX: str = "paths:"
 TEXT_ENCODING: str = "utf-8"
+INSTRUCTION_TEXT_ENCODING: str = "utf-8-sig"
 ALL_SKIPPED_DIRECTORY_NAMES: frozenset[str] = frozenset(
     {".git", "node_modules", ".venv", "__pycache__"}
 )
@@ -74,5 +75,6 @@ NESTING_FINDING_MESSAGE_TEMPLATE: str = (
 MISSING_CONFIG_MESSAGE_TEMPLATE: str = (
     "no {config} at the repository root, so there is no budget to check."
 )
+MALFORMED_CONFIG_MESSAGE_TEMPLATE: str = "does not hold valid limits: {error}"
 FINDING_LINE_TEMPLATE: str = "{file_path}: [{rule_id}] {message}"
 PASSED_MESSAGE: str = "instruction-budget: passed"

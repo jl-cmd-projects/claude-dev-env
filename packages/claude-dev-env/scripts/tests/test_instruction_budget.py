@@ -27,6 +27,7 @@ from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from instruction_budget import check_repository, main
 from instruction_budget_files import (
     InstructionBudgetConfig,
+    InstructionBudgetConfigError,
     budget_findings,
     instruction_files,
     is_instruction_file,
@@ -135,6 +136,24 @@ def test_launch_files_follow_imports_from_unscoped_rules(tmp_path: Path) -> None
     assert imported.resolve() in launch_files(
         tmp_path.resolve(), _config(max_launch_bytes=99)
     )
+
+
+def test_launch_files_skip_a_scoped_rule_that_starts_with_a_byte_order_mark(
+    tmp_path: Path,
+) -> None:
+    scoped_rule = _write(
+        tmp_path / ".claude" / "rules" / "scoped.md",
+        "﻿---\npaths:\n  - src/**\n---\nbody\n",
+    )
+    assert scoped_rule.resolve() not in launch_files(
+        tmp_path.resolve(), _config(max_launch_bytes=99)
+    )
+
+
+def test_load_config_names_a_malformed_budget_file(tmp_path: Path) -> None:
+    _write(tmp_path / INSTRUCTION_BUDGET_CONFIG_FILE_NAME, "{not json")
+    with pytest.raises(InstructionBudgetConfigError):
+        load_config(tmp_path)
 
 
 def test_personal_name_findings_name_lines_but_not_the_name(tmp_path: Path) -> None:
