@@ -123,7 +123,17 @@ REPOSITORY_FLAG_ASSIGNMENT_PREFIX = "--repo="
 GIT_TIMEOUT_SECONDS = 5
 GH_TIMEOUT_SECONDS = 15
 COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
-COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+PURE_RENAME_STATUS = "R100"
+RAW_RECORD_PREFIX = ":"
+RAW_RENAME_PATH_COUNT = 2
+RAW_HEADER_FIELD_COUNT = 5
+RAW_RENAME_STATUS_LETTER = "R"
+ALL_RAW_TWO_PATH_STATUS_LETTERS = (RAW_RENAME_STATUS_LETTER, "C")
+COMPARE_FILE_STATUS_QUERY = (
+    '.files[] | [(if .status == "renamed" and .changes == 0 then "'
+    + PURE_RENAME_STATUS
+    + '" else .status end), (.previous_filename // ""), .filename] | @json'
+)
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
 DEFAULT_BRANCH_QUERY = ".default_branch"
