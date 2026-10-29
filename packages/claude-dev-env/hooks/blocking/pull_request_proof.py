@@ -21,6 +21,8 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
+    DEFERRED_PROOF_REASON,
+    MERGE_WORD_PATTERN,
     ALL_BASE_FLAGS,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
@@ -443,13 +445,44 @@ def unproven_admission(section: str) -> str | None:
 
     The markers are not proven, not tested and not verified, each with any
     run of yet, been or fully after the not, plus unproven, untested and
-    unverified, matched without regard to case. Inline code spans and fenced
-    blocks are skipped, so output quoted there never counts.
+    unverified. A line or list item that opens with "not run", "not ran",
+    "not exercised" or "not executed", each with any run of yet or been after
+    the not, is one too, and so is "has not been run", "have not been exercised"
+    or "hasn't been executed", with "yet" allowed before "been". Case is
+    ignored.
+    Inline code spans and fenced blocks are skipped, so output quoted there
+    never counts.
     """
+    return _first_prose_match(section, UNPROVEN_ADMISSION_PATTERN)
+
+
+def _first_prose_match(section: str, pattern: str) -> str | None:
     for each_line, each_prose in _prose_lines(section):
-        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE):
+        if re.search(pattern, each_prose, re.IGNORECASE):
             return each_line.strip()
     return None
+
+
+def merge_word_line(section: str) -> str | None:
+    """Return the first prose line of a proof section that holds a merge word, or None.
+
+    ::
+
+        "I check the publish after the merge."   -> that line
+        "A session verifies it after merging."   -> that line
+        "Post-merge, a session confirms it."     -> that line
+        "Ran `git merge origin/main`, then `python run.py`." -> None
+        "Verified on the branch."                -> None
+
+    The words are merge, merged, merges and merging, matched without regard to
+    case, so post-merge counts. Inline code spans and fenced blocks are skipped,
+    so a command or file name that holds the word passes when it sits in
+    backticks.
+
+    Args:
+        section: The text under the 'Proof in practice' heading.
+    """
+    return _first_prose_match(section, MERGE_WORD_PATTERN)
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -464,6 +497,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         proof whose only command is `python -q -m unittest`     -> TEST_ONLY_PROOF_REASON
         proof with `pytest` and `python run.py`                 -> None
         proof whose prose says "Not proven here: the run"      -> UNPROVEN_PROOF_REASON
+        proof whose prose says "Not run: the live publish"     -> UNPROVEN_PROOF_REASON
+        proof prose that says "I verify it after the merge"    -> DEFERRED_PROOF_REASON
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
@@ -479,7 +514,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
     A section whose prose says part of the change is not proven, untested or
     unverified is denied, with the line quoted; unproven_admission lists the
-    markers.
+    markers. A prose line with a merge word is denied in the proof section;
+    merge_word_line lists the words.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -495,6 +531,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         admission = unproven_admission(section)
         if admission is not None:
             return UNPROVEN_PROOF_REASON.format(admission=admission)
+        deferral = merge_word_line(section)
+        if deferral is not None:
+            return DEFERRED_PROOF_REASON.format(deferral=deferral)
     return None
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.109.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.0...claude-dev-env-v8.109.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** deny an unrun or post-merge line in a pull request's proof ([#2241](https://github.com/jl-cmd-projects/claude-dev-env/issues/2241)) ([ab9578d](https://github.com/jl-cmd-projects/claude-dev-env/commit/ab9578d1e9fbfc2435e47a1e61563dc103e80334))
+
+## [8.109.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.3...claude-dev-env-v8.109.0) (2026-10-29)
+
+
+### Features
+
+* **hooks:** flag agent files that hold prose instead of pointers ([#2233](https://github.com/jl-cmd-projects/claude-dev-env/issues/2233)) ([f754481](https://github.com/jl-cmd-projects/claude-dev-env/commit/f75448185eb422401c357d8fb9f15d876fe238c0))
+
 ## [8.108.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.2...claude-dev-env-v8.108.3) (2026-10-29)
 
 
