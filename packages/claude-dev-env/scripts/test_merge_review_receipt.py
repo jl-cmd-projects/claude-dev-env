@@ -169,7 +169,12 @@ def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     (checkout / "docs").mkdir()
     (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
     (checkout / "docs" / "my notes.txt").write_text("spaced\nname\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(checkout), "add", "a.py", "docs"], check=True)
+    (checkout / "odd.txt").write_bytes(b"a\x0cb\x1cc\xc2\x85d\n")
+    (checkout / "unterminated.txt").write_bytes(b"first\nlast")
+    subprocess.run(
+        ["git", "-C", str(checkout), "add", "a.py", "docs", "odd.txt", "unterminated.txt"],
+        check=True,
+    )
     subprocess.run(
         [
             "git",
@@ -218,6 +223,17 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
     }
 
 
+def test_should_count_a_line_by_newline_only_and_keep_an_unterminated_last_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "open", head, "2", "--ruled-out", "2", "--rulings", "odd.txt:1,unterminated.txt:2"],
+        StringIO(),
+    )
+    assert exit_code == 0
+
+
 def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
 ) -> None:
@@ -242,6 +258,8 @@ def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
         "a.py:1,a.py:1",
         "a.py:1,./a.py:1",
         "a.py:1,docs/../a.py:1",
+        "a.py:1,odd.txt:2",
+        "a.py:1,unterminated.txt:3",
         "see the thread,a.py:3",
     ],
 )

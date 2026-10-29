@@ -146,16 +146,20 @@ def _holds_line(head: str, reference: str) -> bool:
         completed = subprocess.run(
             ["git", "cat-file", "blob", f"{head}:{reference_match['path']}"],
             capture_output=True,
-            text=True,
-            errors="replace",
             timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return False
-    return completed.returncode == 0 and int(reference_match["line"]) <= len(
-        completed.stdout.splitlines()
+    return completed.returncode == 0 and int(reference_match["line"]) <= _line_count(
+        completed.stdout
     )
+
+
+def _line_count(content: bytes) -> int:
+    if not content:
+        return 0
+    return content.count(b"\n") + (0 if content.endswith(b"\n") else 1)
 
 
 def _checked_open_rulings(
