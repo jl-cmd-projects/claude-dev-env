@@ -11,6 +11,11 @@ case::
 A scan hashes every window of the normalized text whose length matches an
 entry, so any case, spacing, or punctuation of a name matches. To add a name,
 append the digest of its normalized form and its length.
+
+A commit identity may also accept one whole address. Each entry of
+``ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS`` is the SHA-256 digest of the
+address in lower case, without its angle brackets and with its punctuation
+kept, so only that address passes.
 """
 
 from __future__ import annotations
@@ -51,9 +56,9 @@ ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
     {OWNER_HANDLE_DIGEST}
 )
 ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS: frozenset[str] = frozenset(
-    {"79d1fa6fd8d6d77a9bd676a93bb9a9b9a35299eca4966ef45fdf19f8e9956615"}
+    {"4c43a26ae39d54a1cfd322e702a7beadb8b8db9ce1fa7b8b02b2bb467fe334a6"}
 )
-ANGLE_BRACKET_ADDRESS_PATTERN = r"<[^<>]*>"
+ANGLE_BRACKET_ADDRESS_PATTERN = r"<([^<>]*)>"
 PRIVATE_TERM_TEXT_ENCODING = "utf-8"
 PRIVATE_TERM_FINDING_CODE = "private-term"
 PRIVATE_TERM_MESSAGE_TEMPLATE = (

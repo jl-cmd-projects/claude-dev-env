@@ -6,6 +6,7 @@ import re
 
 from dev_env_scripts_constants.private_term_constants import (
     ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS,
+    ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS,
     ALL_EVENT_TEXT_FIELDS,
     ALL_PRIVATE_TERM_DIGESTS,
 )
@@ -18,6 +19,10 @@ def test_should_ship_only_digests_of_named_lengths() -> None:
     for each_digest in ALL_PRIVATE_TERM_DIGESTS:
         assert _SHA256_HEX_PATTERN.fullmatch(each_digest.sha256)
         assert each_digest.length > 0
+
+
+def test_should_scan_messages_for_every_digest_accepted_in_a_commit_identity() -> None:
+    assert ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS <= ALL_PRIVATE_TERM_DIGESTS
 
 
 def test_should_ship_accepted_identity_addresses_as_sha256_hex_digests() -> None:

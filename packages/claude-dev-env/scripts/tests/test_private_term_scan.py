@@ -24,7 +24,9 @@ _CLEAN_IDENTITY = ("Claude", "noreply@example.com")
 _OWNER_HANDLE = "ohcEnoJ"[::-1]
 _OWNER_IDENTITY = (_OWNER_HANDLE, f"24366590+{_OWNER_HANDLE}@users.noreply.github.com")
 _FIXTURE_BOT_IDENTITY = ("Pat Bot", "bot@acmewidget.example.com")
-_FIXTURE_BOT_ADDRESS_NORMALIZED = "botacmewidgetexamplecom"
+_FIXTURE_BOT_ADDRESS_DIGEST = hashlib.sha256(
+    _FIXTURE_BOT_IDENTITY[1].encode("utf-8")
+).hexdigest()
 
 
 def _fixture_digest(term: str) -> PrivateTermDigest:
@@ -48,7 +50,7 @@ def private_fixture_terms(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         private_term_scan,
         "ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS",
-        frozenset({_fixture_digest(_FIXTURE_BOT_ADDRESS_NORMALIZED).sha256}),
+        frozenset({_FIXTURE_BOT_ADDRESS_DIGEST}),
     )
 
 
@@ -237,6 +239,24 @@ def test_should_accept_an_accepted_address_in_a_commit_identity(tmp_path: Path) 
         tmp_path, [("feat: clean change", *_FIXTURE_BOT_IDENTITY)]
     )
     assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+def test_should_accept_an_accepted_address_in_any_letter_case(tmp_path: Path) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", "Pat Bot", "Bot@AcmeWidget.Example.com")]
+    )
+    assert private_term_scan.scan_commits(repository_root, f"{base}..{head}") == []
+
+
+def test_should_flag_an_address_that_differs_from_an_accepted_address_only_by_punctuation(
+    tmp_path: Path,
+) -> None:
+    repository_root, base, head = _repository_with_commits(
+        tmp_path, [("feat: clean change", "Pat Bot", "bot@acmewidget-example.com")]
+    )
+    all_findings = private_term_scan.scan_commits(repository_root, f"{base}..{head}")
+    assert len(all_findings) == 1
+    assert " identity:" in all_findings[0]
 
 
 def test_should_flag_another_address_at_the_organization_of_an_accepted_address(

@@ -40,7 +40,7 @@ from dev_env_scripts_constants.private_term_constants import (
     SHORT_SHA_LENGTH,
     PrivateTermDigest,
 )
-from private_terms import normalize_text, private_term_line_numbers
+from private_terms import private_term_line_numbers
 
 
 def _findings_for(
@@ -84,7 +84,7 @@ def scan_event(event_path: Path) -> list[str]:
 
 def _mask_accepted_address(address_match: re.Match[str]) -> str:
     address_digest = hashlib.sha256(
-        normalize_text(address_match.group(0)).encode(PRIVATE_TERM_TEXT_ENCODING)
+        address_match.group(1).lower().encode(PRIVATE_TERM_TEXT_ENCODING)
     ).hexdigest()
     if address_digest in ALL_COMMIT_IDENTITY_ACCEPTED_ADDRESS_DIGESTS:
         return MASKED_ADDRESS
@@ -129,10 +129,11 @@ def scan_commits(repository_root: Path, commit_range: str) -> list[str]:
         One finding per commit identity or message line that names a private
         organization. An identity address ending in users.noreply.github.com
         is left out of the scan, since GitHub builds it from the account handle.
-        An identity address that matches an accepted address digest is left
-        out the same way, so the shared agent account passes while another
-        address at the same organization still fails. The owner's own handle
-        passes in an identity and still fails in a message.
+        An identity address whose lower-case spelling matches an accepted
+        address digest is left out the same way, so the shared agent account
+        passes while another address at the same organization still fails.
+        The owner's own handle passes in an identity and still fails in a
+        message.
     """
     log_text = subprocess.run(
         ["git", "-C", str(repository_root), "log", "--reverse", COMMIT_LOG_FORMAT, commit_range],
