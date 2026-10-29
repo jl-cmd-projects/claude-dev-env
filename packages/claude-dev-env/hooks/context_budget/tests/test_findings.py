@@ -176,6 +176,25 @@ def test_edit_that_adds_a_long_unlinked_line_introduces_its_finding_once() -> No
     assert edit_findings(policy, AGENT_PATH, post_text, f"{post_text}Short line.\n", False) == ()
 
 
+def test_changed_file_reports_only_prose_findings_its_prior_text_lacked() -> None:
+    policy = parse_policy(policy_text())
+    prior_text = f"{POINTER_LINE}\n{LONG_LINE}\n"
+    kept_text = f"{prior_text}Short line.\n"
+    added_line = words_text(27)
+    added_text = f"{kept_text}{added_line}\n"
+    long_line_scopes = [f"prose line: {LONG_LINE}"]
+
+    assert file_findings(policy, AGENT_PATH, kept_text, prior_text) == ()
+    added_findings = file_findings(policy, AGENT_PATH, added_text, prior_text)
+    assert [each.scope for each in added_findings] == [f"prose line: {added_line}"]
+    assert [each.scope for each in file_findings(policy, AGENT_PATH, kept_text, None)] == (
+        long_line_scopes
+    )
+    assert [
+        each.scope for each in file_findings(policy, AGENT_PATH, prior_text, prior_text)
+    ] == long_line_scopes
+
+
 def test_claude_file_that_only_imports_agents_md_passes_the_pointer_rule() -> None:
     policy = parse_policy(policy_text())
 

@@ -11,6 +11,7 @@
     CI ratchet      changed file below its record N       -> record the new count, or null
                     changed file lost a recorded section  -> drop it from the entry
                     changed file within budget            -> remove the entry
+                    changed agent file                    -> report only the prose findings it added
 """
 
 from __future__ import annotations
@@ -198,6 +199,17 @@ def _prose_findings(
     return tuple(all_findings)
 
 
+def _prose_findings_added_since(
+    policy: BudgetPolicy, relative_path: str, text: str, prior_text: str | None
+) -> tuple[BudgetFinding, ...]:
+    all_findings = _prose_findings(policy, relative_path, text)
+    if prior_text is None or prior_text == text:
+        return all_findings
+    return _introduced(
+        all_findings, _prose_findings(policy, relative_path, prior_text), has_grown=False
+    )
+
+
 def file_findings(
     policy: BudgetPolicy, relative_path: str, text: str, ratchet_prior_text: str | None
 ) -> tuple[BudgetFinding, ...]:
@@ -208,12 +220,14 @@ def file_findings(
         relative_path: Repository-relative POSIX path.
         text: Current file text.
         ratchet_prior_text: Prior text when the CI ratchet applies, else None.
+            A changed file reports only the prose findings its prior text
+            lacked. An unchanged or new file reports every prose finding.
 
     Returns:
         Findings in file, section, then prose order. Prose findings apply to
         AGENTS.md and CLAUDE.md files whatever kind the policy gives them.
     """
-    prose_findings = _prose_findings(policy, relative_path, text)
+    prose_findings = _prose_findings_added_since(policy, relative_path, text, ratchet_prior_text)
     measure = measure_file(policy, relative_path, text)
     if measure is None:
         return prose_findings
