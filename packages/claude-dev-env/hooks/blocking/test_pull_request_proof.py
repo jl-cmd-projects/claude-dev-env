@@ -396,6 +396,19 @@ def test_should_read_the_compare_api_when_the_checkout_belongs_to_another_reposi
     assert gate.missing_look_reason(payload) is None
 
 
+def test_should_read_the_checkout_when_the_call_names_a_repository_but_no_head(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_change(tmp_path, "tool.py")
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    payload = _shell(
+        f"gh pr create --title t --body-file {body_path} --repo o/r --base main",
+        clone_path,
+    )
+    assert gate.missing_look_reason(payload) is None
+
+
 def test_should_allow_a_page_change_whose_proof_links_a_screenshot(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "page.html")
     body = PROVEN_BODY + "![after](https://example.com/after.png)\n"

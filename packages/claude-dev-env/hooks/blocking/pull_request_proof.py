@@ -736,13 +736,19 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     head_branch = _named_head_branch(all_payload_fields)
     repository = _named_repository(all_payload_fields)
     all_workflow_paths = None
-    if _checkout_is_for(working_directory, repository):
+    if _local_checkout_may_answer(working_directory, repository, head_branch):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
     if not all_workflow_paths:
         all_workflow_paths = remote_added_workflow_files(
             repository, _named_base_branch(all_payload_fields), head_branch
         )
     return all_workflow_paths or []
+
+
+def _local_checkout_may_answer(
+    working_directory: str, repository: str | None, head_branch: str | None
+) -> bool:
+    return not head_branch or _checkout_is_for(working_directory, repository)
 
 
 def _checkout_is_for(working_directory: str, repository: str | None) -> bool:
@@ -860,7 +866,7 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     head_branch = _named_head_branch(all_payload_fields)
     repository = _named_repository(all_payload_fields)
     all_visible_files = None
-    if _checkout_is_for(str(working_directory or ""), repository):
+    if _local_checkout_may_answer(str(working_directory or ""), repository, head_branch):
         all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
     if all_visible_files is None:
         all_visible_files = remote_visible_changed_files(
