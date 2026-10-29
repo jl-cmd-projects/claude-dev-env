@@ -114,7 +114,10 @@ import {
 } from './resolve-package-managed-directory.mjs';
 import {
     ensureDirectoryPointer,
+    ensureLinkedSkillFolder,
+    isLinkToOtherDirectory,
     POINTER_ACTION_CREATED,
+    readPathKind,
 } from './publish-directory-pointer.mjs';
 import {
     parseInstallTargetSelectionFromArgv,
@@ -193,11 +196,11 @@ export const CONTENT_DIRECTORIES = ['rules', 'docs', 'commands', 'system-prompts
 /**
  * Every top-level lookup directory the installer writes into under ~/.claude:
  * the content directories plus skills, agents, and hooks. Skills and agents
- * live under the agents home; `~/.claude/skills` and `~/.claude/agents` are
- * directory pointers to that home. The uninstall purge walks this list to find
- * the root a recorded file belongs to and to drop a managed directory the purge
- * empties, and the full-install stale-file prune walks it to give each root its
- * own diff.
+ * live under the agents home. `~/.claude/skills` is a folder of links into
+ * it, and `~/.claude/agents` is a directory pointer to that home. The uninstall
+ * purge walks this list to find the root a recorded file belongs to and to drop
+ * a managed directory the purge empties, and the full-install stale-file prune
+ * walks it to give each root its own diff.
  */
 export const MANAGED_TOP_LEVEL_DIRECTORY_NAMES = [
     ...CONTENT_DIRECTORIES,
@@ -934,9 +937,10 @@ function owningManagedRoot(installedFilePath) {
 /**
  * Publish harness lookup paths as directory pointers to the agents home.
  *
- * Skills and agents live under `~/.agents` (or the per-root agents home).
- * Claude Code discovers them at the lookup paths under the managed Claude root,
- * so those two paths are pointers. A real directory from an older install at a
+ * Agents, hooks, and scripts live under `~/.agents` (or the per-root agents
+ * home). Claude Code discovers them at the lookup paths under the managed Claude
+ * root, so those paths are pointers. The skills lookup is a folder of links
+ * instead; see ensureLinkedSkillFolder. A directory from an older install at a
  * lookup path is merged into the agents home before the pointer is written.
  *
  * A pointer that already aimed at its target is left out of the result, so a
@@ -947,10 +951,6 @@ function owningManagedRoot(installedFilePath) {
  */
 function publishManagedLookupPointers() {
     const pointerPairs = [
-        [
-            INSTALL_ROOT_RESOLUTION.skillsLookupDirectory,
-            INSTALL_ROOT_RESOLUTION.skillsInstallDirectory,
-        ],
         [
             INSTALL_ROOT_RESOLUTION.agentsLookupDirectory,
             INSTALL_ROOT_RESOLUTION.agentsInstallDirectory,
@@ -2530,39 +2530,53 @@ function manifestFilesWithFailedPrunes(installedFiles, failedPrunePaths) {
  * @returns {number} How many retired skill directories reached the backup root.
  */
 function pruneRetiredSkills(installedSkillNames, priorManifestSkills) {
-    const skillsDirectory = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME);
-    if (!existsSync(skillsDirectory)) return 0;
+    const skillsRoots = [
+        { directory: join(AGENTS_HOME, MANAGED_SKILLS_DIRECTORY_NAME), home: AGENTS_HOME },
+        { directory: join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME), home: CLAUDE_HOME },
+    ];
     const retiredSkillNames = new Set(
         [...EVER_SHIPPED_SKILL_NAMES].filter(skillName => !installedSkillNames.has(skillName))
     );
     const priorSkillNames = new Set(priorManifestSkills || []);
     const backupRoot = currentRunBackupRoot();
-    const existingSkillDirs = readdirSync(skillsDirectory, { withFileTypes: true })
-        .filter(entry => entry.isDirectory());
     let movedDirectoryCount = 0;
-    for (const skillDir of existingSkillDirs) {
-        const skillName = skillDir.name;
-        if (NEVER_PRUNED_SKILL_DIRECTORIES.has(skillName)) continue;
-        if (installedSkillNames.has(skillName)) continue;
-        const isPruneCandidate = priorSkillNames.has(skillName) || retiredSkillNames.has(skillName);
-        if (!isPruneCandidate) continue;
-        const didMove = moveIntoRunBackup(
-            join(skillsDirectory, skillName),
-            backupRoot,
-            join(MANAGED_SKILLS_DIRECTORY_NAME, skillName),
-            RETIRED_SKILL_REASON_LABEL,
-            CLAUDE_HOME,
-        );
-        if (didMove) movedDirectoryCount++;
+    for (const eachRoot of skillsRoots) {
+        if (lstatSync(eachRoot.directory, { throwIfNoEntry: false })?.isDirectory() !== true) continue;
+        const existingSkillDirs = readdirSync(eachRoot.directory, { withFileTypes: true })
+            .filter(entry => entry.isDirectory());
+        for (const skillDir of existingSkillDirs) {
+            const skillName = skillDir.name;
+            if (NEVER_PRUNED_SKILL_DIRECTORIES.has(skillName)) continue;
+            if (installedSkillNames.has(skillName)) continue;
+            const isPruneCandidate = priorSkillNames.has(skillName) || retiredSkillNames.has(skillName);
+            if (!isPruneCandidate) continue;
+            const didMove = moveIntoRunBackup(
+                join(eachRoot.directory, skillName),
+                backupRoot,
+                join(MANAGED_SKILLS_DIRECTORY_NAME, skillName),
+                RETIRED_SKILL_REASON_LABEL,
+                eachRoot.home,
+            );
+            if (didMove) movedDirectoryCount++;
+        }
     }
     return movedDirectoryCount;
+}
+
+function isRecordThroughLink(filePath, lookupRoot) {
+    const firstSegment = relative(lookupRoot, resolve(filePath)).split(sep)[0];
+    if (firstSegment === '' || firstSegment === '..') return false;
+    return readPathKind(join(lookupRoot, firstSegment)) === 'symlink';
 }
 
 function pruneStaleFilesAcrossManagedRoots(priorInstalledFiles, currentInstalledFiles, backupRoot) {
     let prunedCount = 0;
     let skillsPrunedCount = 0;
     const failedPaths = [];
-    for (const rootName of MANAGED_TOP_LEVEL_DIRECTORY_NAMES) {
+    const lookupRootNames = MANAGED_TOP_LEVEL_DIRECTORY_NAMES.filter(
+        rootName => rootName !== MANAGED_SKILLS_DIRECTORY_NAME,
+    );
+    for (const rootName of lookupRootNames) {
         const rootOutcome = pruneStaleInstalledFiles(
             priorInstalledFiles,
             currentInstalledFiles,
@@ -2571,23 +2585,43 @@ function pruneStaleFilesAcrossManagedRoots(priorInstalledFiles, currentInstalled
         );
         prunedCount += rootOutcome.prunedCount;
         failedPaths.push(...rootOutcome.failedPaths);
-        if (rootName === MANAGED_SKILLS_DIRECTORY_NAME) {
-            skillsPrunedCount = rootOutcome.prunedCount;
-        }
+    }
+    const skillsLookupRoot = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME);
+    const skillsCanonicalRoot = join(AGENTS_HOME, MANAGED_SKILLS_DIRECTORY_NAME);
+    if (lstatSync(skillsLookupRoot, { throwIfNoEntry: false })?.isDirectory() === true) {
+        const skillsLookupOutcome = pruneStaleInstalledFiles(
+            priorInstalledFiles?.filter(filePath => !isRecordThroughLink(filePath, skillsLookupRoot)) ?? null,
+            currentInstalledFiles.map(filePath => isInsideDirectory(filePath, skillsCanonicalRoot)
+                ? join(skillsLookupRoot, relative(skillsCanonicalRoot, filePath))
+                : filePath),
+            skillsLookupRoot,
+            join(backupRoot, MANAGED_SKILLS_DIRECTORY_NAME),
+        );
+        prunedCount += skillsLookupOutcome.prunedCount;
+        failedPaths.push(...skillsLookupOutcome.failedPaths);
+        skillsPrunedCount = skillsLookupOutcome.prunedCount;
     }
     for (const rootName of [MANAGED_AGENTS_DIRECTORY_NAME, MANAGED_SKILLS_DIRECTORY_NAME]) {
         const lookupRoot = join(CLAUDE_HOME, rootName);
         const canonicalRoot = join(AGENTS_HOME, rootName);
-        const canonicalCurrentFiles = currentInstalledFiles.map(filePath =>
-            isInsideDirectory(filePath, lookupRoot)
-                ? join(canonicalRoot, relative(lookupRoot, filePath))
-                : filePath,
-        );
+        const toCanonicalPath = filePath => isInsideDirectory(filePath, lookupRoot)
+            ? join(canonicalRoot, relative(lookupRoot, filePath))
+            : filePath;
+        const canonicalCurrentFiles = currentInstalledFiles.map(toCanonicalPath);
+        const canonicalPriorFiles = priorInstalledFiles === null
+            ? null
+            : priorInstalledFiles
+                .filter(filePath => !(rootName === MANAGED_SKILLS_DIRECTORY_NAME
+                    && dirname(resolve(filePath)) === resolve(lookupRoot)))
+                .map(toCanonicalPath);
+        const canonicalBackupRoot = rootName === MANAGED_SKILLS_DIRECTORY_NAME
+            ? join(backupRoot, rootName)
+            : join(backupRoot, 'agents-home', rootName);
         const rootOutcome = pruneStaleInstalledFiles(
-            priorInstalledFiles,
+            canonicalPriorFiles,
             canonicalCurrentFiles,
             canonicalRoot,
-            join(backupRoot, 'agents-home', rootName),
+            canonicalBackupRoot,
             { managedHomeDirectory: AGENTS_HOME },
         );
         prunedCount += rootOutcome.prunedCount;
@@ -2659,7 +2693,7 @@ function pruneRetiredHookRegistrations(settingsPath, retiredHookPaths) {
  * read before the run mutated settings. The caller records each stand-in in
  * the manifest so a later install removes it once no registration names it.
  *
- * @param {Set<string>} copiedSkillNames Skill directory names this run wrote.
+ * @param {Set<string>} copiedSkillNames Skill directory names this run wrote or left in place as a user link.
  * @param {string[]|null} priorManifestSkills The prior manifest's skill names, or null.
  * @param {string[]|null} priorManifestFiles The prior manifest's file list, or null.
  * @param {string[]} installedFiles Every file this run copied.
@@ -3031,9 +3065,13 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         for (const skillDir of skillDirs) {
             if (allowedSkills && !allowedSkills.has(skillDir.name)) continue;
             const skillSourceDirectory = join(skillsSource, skillDir.name);
-            const skillDestinationDirectory = join(CLAUDE_HOME, MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name);
-            if (lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+            const skillDestinationDirectory = join(INSTALL_ROOT_RESOLUTION.skillsInstallDirectory, skillDir.name);
+            const skillLookupPath = join(INSTALL_ROOT_RESOLUTION.skillsLookupDirectory, skillDir.name);
+            const destinationIsLink = lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink();
+            if (isLinkToOtherDirectory(skillLookupPath, skillDestinationDirectory) || destinationIsLink) {
                 console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
+                copiedSkillNames.add(skillDir.name);
+                if (!destinationIsLink) allInstalledFiles.push(...collectFiles(skillDestinationDirectory));
                 continue;
             }
             const stats = copyTree(skillSourceDirectory, skillDestinationDirectory);
@@ -3370,10 +3408,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             );
         }
     }
+    const skillLinks = ensureLinkedSkillFolder(
+        INSTALL_ROOT_RESOLUTION.skillsLookupDirectory,
+        INSTALL_ROOT_RESOLUTION.skillsInstallDirectory,
+        join(currentRunBackupRoot(), MANAGED_SKILLS_DIRECTORY_NAME),
+    );
+    allInstalledFiles.push(...skillLinks.createdLinkPaths);
     const manifestSkillNames = didPruneFinish
         ? [...installedSkillNames].sort()
         : unionOfSkillNames(priorManifestSkills || [], [...installedSkillNames]).sort();
-    const allManagedInstalledFiles = allInstalledFiles.filter(
+    const allManagedInstalledFiles = [...new Set([...allInstalledFiles, ...skillLinks.linkPaths])].filter(
         eachPath => !allUserOwnedPreferencePaths.has(eachPath),
     );
     const manifestFiles = didPruneFinish
@@ -3742,7 +3786,7 @@ Examples:
   npx ${PACKAGE_NAME} --profiles editor,mel --only core
 
 Install location: ~/.claude/ by default; CLAUDE_CONFIG_DIR or --target selects another managed root.
-Skills and agents live under ~/.agents (sibling of ~/.claude). ~/.claude/skills and ~/.claude/agents are directory pointers to that home.
+Skills and agents live under ~/.agents (sibling of ~/.claude). ~/.claude/agents is a directory pointer to that home, and ~/.claude/skills is a folder of links to the skills there.
 Named profiles resolve under LLM_SETTINGS_PROFILES_ROOT or ~/.claude-profiles/<directoryName>.
 Codex exec-policy files copy into ~/.codex/rules, or CODEX_HOME/rules when CODEX_HOME is set.
 A reinstall moves the Cursor rule files older installs generated under ~/.cursor/rules into the run backup.

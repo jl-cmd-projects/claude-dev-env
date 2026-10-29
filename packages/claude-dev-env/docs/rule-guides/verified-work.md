@@ -4,6 +4,8 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
+Research, plan, and build; a fresh `verifier` agent checks each step and reproduces the issue before it confirms the fix. Report only verified results. Ask before new scope.
+
 Every piece of work runs in six steps: research, verify the research, plan, verify the plan, implement, verify the fix. A separate `verifier` agent runs each verify step. The fix check reproduces the issue on the old state first, then confirms it is gone on the new state. The user gets only results a verifier passed. New scope goes to the user as one question before it is built.
 
 **When this applies:** Any task: a change to code, configuration, rules, or a document, and any finding, cause, or fix reported to the user.

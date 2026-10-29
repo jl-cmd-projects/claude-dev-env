@@ -167,6 +167,23 @@ function prunedSkillBackupContains(claudeDirectory, skillsRelativePath) {
 }
 
 /**
+ * Read every copy of a skill path that a timestamped backup under the skills root holds.
+ *
+ * @param {string} claudeDirectory The sandbox ~/.claude directory.
+ * @param {string} skillsRelativePath The path to read, relative to ~/.claude/skills.
+ * @returns {string[]} The text of each backed-up copy.
+ */
+function prunedSkillBackupTexts(claudeDirectory, skillsRelativePath) {
+    const backupRoot = join(claudeDirectory, PRUNED_BACKUP_DIRECTORY_NAME);
+    if (!existsSync(backupRoot)) return [];
+    return readdirSync(backupRoot, { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(timestampDir => join(backupRoot, timestampDir.name, SKILLS_DIRECTORY_NAME, skillsRelativePath))
+        .filter(backedUpPath => existsSync(backedUpPath))
+        .map(backedUpPath => readFileSync(backedUpPath, 'utf8'));
+}
+
+/**
  * Create an isolated ~/.claude sandbox and return the paths a prune test reads.
  *
  * The returned home directory becomes the installer's HOME, so every file the
@@ -446,10 +463,14 @@ test('a stale file whose move fails stays on the manifest record for the next ru
 
         assert.equal(existsSync(staleFilePath), true, 'the failed move leaves the file in the skill');
         const recordedFiles = readManifest(sandbox.manifestPath).files;
+        const canonicalStaleFilePath = join(
+            sandbox.homeDirectory, '.agents', SKILLS_DIRECTORY_NAME,
+            SHIPPED_SKILL_DIRECTORY, ...STALE_SKILL_FILE_RELATIVE_SEGMENTS,
+        );
         assert.equal(
-            recordedFiles.filter(recordedPath => recordedPath === staleFilePath).length,
+            recordedFiles.filter(recordedPath => recordedPath === canonicalStaleFilePath).length,
             1,
-            'the fresh manifest carries the failed path exactly once',
+            'the fresh manifest carries the failed agents-home path exactly once',
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
@@ -837,6 +858,7 @@ test('a full reinstall leaves a skill folder linked into another repository unto
     try {
         runInstaller(sandbox.homeDirectory, []);
         const linkedSkillName = 'efficient-review';
+        const shippedSkillText = readFileSync(join(sandbox.homeDirectory, '.agents', 'skills', linkedSkillName, 'SKILL.md'), 'utf8');
         const repositorySkillDirectory = join(linkedRepositoryDirectory, 'skills', linkedSkillName);
         const repositorySkillText = 'name: efficient-review\nthe repository copy\n';
         writeFileWithParents(join(repositorySkillDirectory, 'SKILL.md'), repositorySkillText);
@@ -846,6 +868,7 @@ test('a full reinstall leaves a skill folder linked into another repository unto
 
         const installerOutput = runInstallerReadingBothStreams(sandbox.homeDirectory, []);
 
+        assert.match(installerOutput, /skills[\\/]efficient-review \(linked skill left in place\)/);
         assert.equal(lstatSync(skillLinkPath).isSymbolicLink(), true, 'the skill link stays a link');
         assert.equal(
             readFileSync(join(repositorySkillDirectory, 'SKILL.md'), 'utf8'),
@@ -858,15 +881,29 @@ test('a full reinstall leaves a skill folder linked into another repository unto
             'the install writes no package file into the linked repository',
         );
         assert.equal(
-            prunedSkillBackupContains(sandbox.claudeDirectory, join(linkedSkillName, 'SKILL.md')),
+            prunedSkillBackupTexts(sandbox.claudeDirectory, join(linkedSkillName, 'SKILL.md')).includes(repositorySkillText),
             false,
-            'the stale prune moves no file out of the linked repository',
+            'the linked repository copy never reaches the backup',
         );
-        assert.match(installerOutput, /skills[\\/]efficient-review \(linked skill left in place\)/);
         assert.equal(
-            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(linkedSkillName)),
+            readFileSync(join(sandbox.homeDirectory, '.agents', 'skills', linkedSkillName, 'SKILL.md'), 'utf8'),
+            shippedSkillText,
+            'the shipped copy stays in the agents home for Codex',
+        );
+        assert.equal(
+            prunedSkillBackupTexts(sandbox.claudeDirectory, join(linkedSkillName, 'SKILL.md')).includes(shippedSkillText),
             false,
-            'the manifest records no file under the linked skill',
+            'the shipped copy is not moved to the backup',
+        );
+        assert.equal(
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(join('.claude', 'skills', linkedSkillName))),
+            false,
+            'the manifest records no file under the linked skill link',
+        );
+        assert.equal(
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(join('.agents', 'skills', linkedSkillName))),
+            true,
+            'the manifest keeps the shipped copy so an uninstall removes it',
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });

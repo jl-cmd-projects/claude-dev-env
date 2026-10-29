@@ -1,5 +1,48 @@
 # Changelog
 
+## [8.109.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.4...claude-dev-env-v8.109.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** let the proof gate skip a pure html rename ([#2254](https://github.com/jl-cmd-projects/claude-dev-env/issues/2254)) ([9d7beaf](https://github.com/jl-cmd-projects/claude-dev-env/commit/9d7beaf09ca4ecf7571f8bb51c5c31e7717d3553))
+
+## [8.109.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.3...claude-dev-env-v8.109.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **claude-dev-env:** link shipped skills into the Claude skills folder ([#2230](https://github.com/jl-cmd-projects/claude-dev-env/issues/2230)) ([78c1a88](https://github.com/jl-cmd-projects/claude-dev-env/commit/78c1a88755a3309dbfba5e5a623bb70faf64f984))
+
+
+### Maintenance
+
+* **main:** release claude-dev-env 8.109.3 ([#2250](https://github.com/jl-cmd-projects/claude-dev-env/issues/2250)) ([f800b7c](https://github.com/jl-cmd-projects/claude-dev-env/commit/f800b7c4694ade3fcbf2245654fc8573d8e3fba8))
+
+## [8.109.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.2...claude-dev-env-v8.109.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* **private-terms:** accept the shared agent account address in a commit identity ([#2242](https://github.com/jl-cmd-projects/claude-dev-env/issues/2242)) ([b9f6c8c](https://github.com/jl-cmd-projects/claude-dev-env/commit/b9f6c8c65aaa7c23c8764d63299eeba36d838f86))
+
+
+### Documentation
+
+* thin the always-loaded rules to a trigger and a link (second pass) ([#2247](https://github.com/jl-cmd-projects/claude-dev-env/issues/2247)) ([ca92d47](https://github.com/jl-cmd-projects/claude-dev-env/commit/ca92d4747c99c8fb347822736d89a8e249442254))
+
+
+### Tests
+
+* **hooks:** cover the prose limit default in the context budget tests ([#2240](https://github.com/jl-cmd-projects/claude-dev-env/issues/2240)) ([64eedce](https://github.com/jl-cmd-projects/claude-dev-env/commit/64eedce81fd642484e8683b7c56414a39ec81126))
+
+## [8.109.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.1...claude-dev-env-v8.109.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** read a pull request body edit for a weak or unrun proof section ([#2245](https://github.com/jl-cmd-projects/claude-dev-env/issues/2245)) ([ac597d7](https://github.com/jl-cmd-projects/claude-dev-env/commit/ac597d7f93637a03f7ecce7acd5410671d929a9c))
+
 ## [8.109.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.0...claude-dev-env-v8.109.1) (2026-10-29)
 
 

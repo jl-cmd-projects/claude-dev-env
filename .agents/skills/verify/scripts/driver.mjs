@@ -169,7 +169,7 @@ function main() {
         const skillsDirectory = join(claudeHome, 'skills');
         const agentsHomeSkillsDirectory = join(sandboxHome, '.agents', 'skills');
         const installedSkills = existsSync(skillsDirectory)
-            ? readdirSync(skillsDirectory, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+            ? readdirSync(skillsDirectory, { withFileTypes: true }).filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
             : [];
         record('skills installed', installedSkills.length > 0, `${installedSkills.length} skill dirs`);
         record(
@@ -179,8 +179,14 @@ function main() {
             agentsHomeSkillsDirectory,
         );
         record(
-            '~/.claude/skills is a directory pointer',
-            existsSync(skillsDirectory) && lstatSync(skillsDirectory).isSymbolicLink(),
+            '~/.claude/skills is a folder of skill links',
+            existsSync(skillsDirectory)
+                && lstatSync(skillsDirectory).isDirectory()
+                && installedSkills.length > 0
+                && installedSkills.every((entry) => entry.isSymbolicLink()
+                    && existsSync(join(skillsDirectory, entry.name))
+                    && existsSync(join(agentsHomeSkillsDirectory, entry.name))
+                    && realpathSync(join(skillsDirectory, entry.name)) === realpathSync(join(agentsHomeSkillsDirectory, entry.name))),
             skillsDirectory,
         );
         const sampleSkillName = installedSkills.find((entry) => existsSync(join(skillsDirectory, entry.name, 'SKILL.md')))?.name;
@@ -261,7 +267,7 @@ function main() {
         record(
             'global git hooksPath isolated to sandbox',
             gitHooksPathRedirectedIntoSandbox,
-            'GIT_CONFIG_GLOBAL kept the real ~/.gitconfig untouched',
+            'GIT_CONFIG_GLOBAL kept the global ~/.gitconfig untouched',
         );
 
         const sampleInstalledFile = manifest?.files?.find((file) => existsSync(file));

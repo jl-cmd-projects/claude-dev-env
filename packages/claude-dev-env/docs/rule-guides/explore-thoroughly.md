@@ -6,6 +6,8 @@ Back to the [rules index](../../rules/index.md).
 
 **When:** Before you log, plan, delegate, or build an ask, or choose an approach.
 
+Search for existing work and report it in four points with the `search-before-acting` skill.
+
 Search for what already does the ask, in full or in part. When something exists, report it to the user in four points and run the `search-before-acting` skill. When the role-level job is already authorized, continue that job. Then read files, patterns, and constraints, scaled to risk. Once the files, constraints, and success condition are known, act without repeating settled research.
 
 **Enforcement:** the pull request gate denies a body with no "Existing work" section.

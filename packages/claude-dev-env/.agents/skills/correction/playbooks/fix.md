@@ -3,7 +3,7 @@
 Use this playbook when this session lands the fix for the correction itself. One correction gets one control and one pull request.
 
 1. Write the brief from [`../SKILL.md`](../SKILL.md) first. It is the record every later step reads.
-2. When pstack is loaded, invoke `/pstack:poteto-mode`, then `/correct`. Point `/correct` at the brief's mistake alone, and skip its sweep of the whole repository.
+2. When pstack is loaded, invoke `/pstack:poteto-mode`, then `/pstack:correct`. Point `/pstack:correct` at the brief's mistake alone, and skip its sweep of the whole repository.
 3. Read the correction instructions of the repository the mistake happened in. Open each `AGENTS.md` or `CLAUDE.md` index line that names corrections, and any intake note it points to. Where they name the target repository, the proof, or the run route, they win over this playbook.
 4. Search for an existing control: a rule, hook, lint, test, or skill that already names this mistake. A control that exists and still let the mistake through makes this a repeat.
 5. Choose the layer with [`correction-lens.md`](../../../../docs/rule-guides/correction-lens.md). When `Repeat` is `yes`, or step 4 found a control, go one layer above the one that failed.
