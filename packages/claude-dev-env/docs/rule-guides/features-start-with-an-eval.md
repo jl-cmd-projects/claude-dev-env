@@ -28,7 +28,7 @@ An eval is three things for one feature: a set of input cases with their expecte
 
 When your work touches an existing feature, look for its eval. When it has none, start a separate session that builds it, and keep doing your own work while that session runs. Your own feature still starts with its own eval.
 
-- In a Claude project thread, call `send_message` with the coordinator's session id from `get_channel_session_id`, and ask it to start a thread for the eval. A thread session has no `start_thread_session`, so the coordinator starts that thread.
+- In a Claude project thread, call `SendMessage` with the coordinator's session id from `get_channel_session_id`, and ask it to start a thread for the eval. A thread session has no `start_thread_session`, so the coordinator starts that thread.
 - In a project's coordinator session, call `start_thread_session` with the brief.
 - In a command-line session, start a headless session through the account broker: `python ~/.claude/scripts/account_broker.py run --product claude --report <report.json> -- claude -p "<brief>" --model <model> --effort <level>`.
 
