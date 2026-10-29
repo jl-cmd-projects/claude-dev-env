@@ -133,6 +133,18 @@ def check_repository(
     )
 
 
+def _files_over_cap_without(
+    repository_root: Path, config: InstructionBudgetConfig, excluded_file: Path
+) -> set[str]:
+    all_files = instruction_files(repository_root, config)
+    return {
+        each_finding.file_path
+        for each_finding in nesting_findings(
+            repository_root, config, all_files, excluded_file
+        )
+    }
+
+
 def findings_caused_by(
     repository_root: Path, config: InstructionBudgetConfig, written_path: Path
 ) -> list[InstructionFinding]:
@@ -153,13 +165,12 @@ def findings_caused_by(
     all_findings = check_repository(repository_root, config, all_changed)
     if written_path.name == INSTRUCTION_BUDGET_CONFIG_FILE_NAME:
         return all_findings
-    all_files = instruction_files(repository_root, config)
-    all_without = nesting_findings(repository_root, config, all_files, written_path)
+    all_files_without = _files_over_cap_without(repository_root, config, written_path)
     return [
         each_finding
         for each_finding in all_findings
         if each_finding.rule_id != INSTRUCTION_NESTING_RULE_ID
-        or each_finding not in all_without
+        or each_finding.file_path not in all_files_without
     ]
 
 

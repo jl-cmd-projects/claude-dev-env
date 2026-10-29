@@ -608,6 +608,21 @@ def test_findings_caused_by_keep_nesting_the_written_file_causes(
     assert findings_caused_by(repository_root, config, unrelated_path) == []
 
 
+def test_findings_caused_by_skip_a_file_that_is_over_the_cap_without_the_written_file(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "[w](w.md) [p](p.md)\n")
+    written_path = _write(repository_root / "w.md", "[deep](deep/AGENTS.md)\n")
+    _write(repository_root / "p.md", "[q](q.md)\n")
+    _write(repository_root / "q.md", "[deep](deep/AGENTS.md)\n")
+    _write(repository_root / "deep" / "AGENTS.md", "# Deep\n")
+    all_findings = findings_caused_by(
+        repository_root, _config(max_link_hops=1), written_path
+    )
+    assert all_findings == []
+
+
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:
     repository_root = tmp_path.resolve()
     _write(repository_root / "AGENTS.md", "[one](one.md)\n")

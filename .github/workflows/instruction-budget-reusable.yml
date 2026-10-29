@@ -9,7 +9,7 @@ on:
         type: string
         default: jl-cmd-projects/claude-dev-env
       validator-ref:
-        description: Commit of the validator repository that holds the checker. A caller that passes a base-branch commit holds a pull request to a checker it cannot edit.
+        description: Commit of the validator repository that holds the checker. On pull_request_target the caller passes the base commit, so a pull request cannot edit the checker that gates it.
         required: true
         type: string
       checkout-ref:
