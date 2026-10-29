@@ -236,21 +236,24 @@ test('ensureLinkedSkillFolder creates no links on a second call and still report
     }
 });
 
-test('ensureLinkedSkillFolder refuses a lookup link that aims at another directory and leaves it in place', () => {
+test('ensureLinkedSkillFolder replaces a lookup link that aims at another directory and leaves that directory alone', () => {
     const sandbox = makeSandbox();
     const elsewhere = join(sandbox.root, 'elsewhere');
     try {
-        mkdirSync(sandbox.targetPath, { recursive: true });
+        mkdirSync(join(sandbox.targetPath, 'shipped-skill'), { recursive: true });
+        writeFileSync(join(sandbox.targetPath, 'shipped-skill', 'SKILL.md'), 'shipped body\n');
         mkdirSync(elsewhere, { recursive: true });
+        writeFileSync(join(elsewhere, 'notes.md'), 'elsewhere\n');
         mkdirSync(join(sandbox.root, 'lookup'), { recursive: true });
         symlinkSync(elsewhere, sandbox.pointerPath, 'dir');
 
-        assert.throws(
-            () => ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath),
-            /is a link to another directory/,
-        );
-        assert.equal(lstatSync(sandbox.pointerPath).isSymbolicLink(), true);
-        assert.equal(isDirectoryPointerTo(sandbox.pointerPath, elsewhere), true);
+        const { createdLinkPaths } = ensureLinkedSkillFolder(sandbox.pointerPath, sandbox.targetPath);
+
+        assert.equal(lstatSync(sandbox.pointerPath).isDirectory(), true);
+        assert.equal(lstatSync(sandbox.pointerPath).isSymbolicLink(), false);
+        assert.equal(isDirectoryPointerTo(join(sandbox.pointerPath, 'shipped-skill'), join(sandbox.targetPath, 'shipped-skill')), true);
+        assert.deepEqual(createdLinkPaths, [join(sandbox.pointerPath, 'shipped-skill')]);
+        assert.equal(readFileSync(join(elsewhere, 'notes.md'), 'utf8'), 'elsewhere\n');
     } finally {
         rmSync(sandbox.root, { recursive: true, force: true });
     }

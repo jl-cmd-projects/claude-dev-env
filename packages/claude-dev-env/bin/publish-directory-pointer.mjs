@@ -123,10 +123,10 @@ export function ensureDirectoryPointer(pointerPath, targetPath, options = {}) {
  * Make lookupDirectory a folder with one directory pointer per directory in
  * installDirectory.
  *
- * A pointer left by an earlier install is replaced by the folder. A link that
- * aims at any other directory is refused, so the folder never writes into a
- * directory the installer does not own. A per-skill link that aims at another
- * directory is left in place. A link whose target under
+ * A link at lookupDirectory, whether it aims at installDirectory or somewhere
+ * else, is unlinked and the folder takes its place. The directory it aimed at
+ * is left alone. A per-skill link that aims at another directory is left in
+ * place. A link whose target under
  * installDirectory is gone is removed. A symbolic link inside installDirectory
  * is not linked here, which keeps plugin links out of this folder. A
  * directory in lookupDirectory that installDirectory lacks is a personal skill
@@ -147,11 +147,6 @@ export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, confl
 
     const lookupKind = readPathKind(resolvedLookup);
     if (lookupKind === 'symlink') {
-        if (!isDirectoryPointerTo(resolvedLookup, resolvedInstall)) {
-            throw new Error(
-                `Cannot publish linked skills: ${resolvedLookup} is a link to another directory`,
-            );
-        }
         unlinkSync(resolvedLookup);
     } else if (lookupKind === 'file') {
         throw new Error(`Cannot publish linked skills: ${resolvedLookup} is a file`);
