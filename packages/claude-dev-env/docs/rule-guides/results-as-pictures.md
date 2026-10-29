@@ -12,4 +12,4 @@ Show the results as one chart. Render it with the pele renderer, save it as an S
 
 ## Enforcement
 
-`hooks/blocking/reply_length_gate.py` refuses a reply that reports results with no picture attached. The check reads the file name only. It does not confirm that the file exists.
+`hooks/blocking/reply_length_gate.py` refuses a reply that reports results with no picture attached. The check reads the file name only. It does not confirm that the file exists. It does not check the closing reply of a turn, which `hooks/blocking/final_reply_gate.py` handles.
