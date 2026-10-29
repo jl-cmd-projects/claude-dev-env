@@ -17,6 +17,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     ANCHOR_SEPARATOR,
     EXTERNAL_TARGET_PATTERN,
     IMPORT_HOP_COST,
+    INLINE_CODE_SPAN_PATTERN,
     LINK_HOP_COST,
     MARKDOWN_LINK_PATTERN,
     MARKDOWN_SUFFIX,
@@ -49,17 +50,19 @@ def _existing_markdown_files(
 def _targets_with_costs(
     source_path: Path, repository_root: Path
 ) -> list[tuple[Path, int]]:
-    text_outside_fences = read_text_outside_fences(source_path)
+    text_outside_code = INLINE_CODE_SPAN_PATTERN.sub(
+        "", read_text_outside_fences(source_path)
+    )
     all_link_targets = [
         each_target.split(ANCHOR_SEPARATOR, 1)[0]
-        for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_fences)
+        for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_code)
         if not EXTERNAL_TARGET_PATTERN.match(each_target)
     ]
     all_linked = _existing_markdown_files(
         source_path, repository_root, all_link_targets
     )
     all_imported = _existing_markdown_files(
-        source_path, repository_root, import_targets(text_outside_fences)
+        source_path, repository_root, import_targets(text_outside_code)
     )
     return [(each_path, LINK_HOP_COST) for each_path in all_linked] + [
         (each_path, IMPORT_HOP_COST) for each_path in all_imported

@@ -23,7 +23,12 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     PASSED_MESSAGE,
 )
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
-from instruction_budget import check_repository, finding_line, main
+from instruction_budget import (
+    check_repository,
+    finding_line,
+    main,
+    scoped_instruction_files,
+)
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
@@ -333,6 +338,49 @@ def test_launch_files_stop_following_imports_after_four_hops(tmp_path: Path) -> 
     all_launch = launch_files(repository_root, _config())
     assert repository_root / "i4.md" in all_launch
     assert repository_root / "i5.md" not in all_launch
+
+
+def test_launch_files_expand_a_rule_first_reached_as_the_deepest_import(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "@i1.md\n")
+    _write(repository_root / "i1.md", "@i2.md\n")
+    _write(repository_root / "i2.md", "@i3.md\n")
+    _write(repository_root / "i3.md", "@.claude/rules/x.md\n")
+    _write(repository_root / ".claude" / "rules" / "x.md", "@../../big.md\n")
+    big_path = _write(repository_root / "big.md", "x" * 50)
+    assert big_path in launch_files(repository_root, _config())
+
+
+def test_scoped_instruction_files_keep_instruction_files_and_launch_imports(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    agents_path = _write(repository_root / "AGENTS.md", "@docs/context.md\n")
+    imported_path = _write(repository_root / "docs" / "context.md", "# Context\n")
+    other_path = _write(repository_root / "docs" / "other.md", "# Other\n")
+    all_scoped = scoped_instruction_files(
+        repository_root,
+        _config(),
+        [agents_path, imported_path, other_path, repository_root / "missing.md"],
+    )
+    assert all_scoped == [agents_path, imported_path]
+
+
+def test_hop_distances_skip_a_link_written_inside_a_code_span(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    root_path = _write(
+        repository_root / "AGENTS.md",
+        "Write links like `[guide](guide.md)`, then [shown](shown.md).\n",
+    )
+    _write(repository_root / "guide.md", "# Guide\n")
+    _write(repository_root / "shown.md", "# Shown\n")
+    distances = hop_distances(repository_root, [root_path.resolve()])
+    assert repository_root / "shown.md" in distances
+    assert repository_root / "guide.md" not in distances
 
 
 def test_load_config_names_an_unreadable_budget_file(

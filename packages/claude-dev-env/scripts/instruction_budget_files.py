@@ -223,13 +223,12 @@ def _unseen_imports(all_sources: list[Path], all_found: dict[Path, None]) -> lis
     return all_unseen
 
 
-def _import_closure(start: Path, all_found: dict[Path, None]) -> None:
-    if start in all_found or not start.is_file():
-        return
-    all_found[start] = None
-    all_current = [start]
+def _import_closure(all_starts: list[Path]) -> list[Path]:
+    all_found = {each_start: None for each_start in all_starts if each_start.is_file()}
+    all_current = list(all_found)
     for each_hop in range(MAX_IMPORT_HOPS):
         all_current = _unseen_imports(all_current, all_found)
+    return list(all_found)
 
 
 def rule_files(repository_root: Path, config: InstructionBudgetConfig) -> list[Path]:
@@ -263,15 +262,14 @@ def launch_files(repository_root: Path, config: InstructionBudgetConfig) -> list
         config: The repository's budget limits, which add its rule folders.
 
     Returns:
-        Each entry file and its imports, then each unscoped rule and its imports, once each.
+        Each entry file and unscoped rule, then the files they import, once each.
     """
-    all_launch: dict[Path, None] = {}
-    for each_entry_file in _entry_files(repository_root):
-        _import_closure(each_entry_file, all_launch)
-    for each_rule in rule_files(repository_root, config):
-        if not _has_paths_frontmatter(read_instruction_text(each_rule)):
-            _import_closure(each_rule, all_launch)
-    return list(all_launch)
+    all_unscoped_rules = [
+        each_rule
+        for each_rule in rule_files(repository_root, config)
+        if not _has_paths_frontmatter(read_instruction_text(each_rule))
+    ]
+    return _import_closure(_entry_files(repository_root) + all_unscoped_rules)
 
 
 def measure_launch_bytes(repository_root: Path, config: InstructionBudgetConfig) -> int:

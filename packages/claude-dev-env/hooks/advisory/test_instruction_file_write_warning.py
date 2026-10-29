@@ -73,6 +73,14 @@ def test_an_over_budget_instruction_file_gets_a_budget_warning(tmp_path: Path) -
     assert "over the cap of 10" in context
 
 
+def test_a_doc_a_launch_file_imports_gets_the_budget_warning(tmp_path: Path) -> None:
+    (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 100}', encoding="utf-8")
+    _write(tmp_path / "AGENTS.md", "@docs/context.md\n")
+    context_path = _write(tmp_path / "docs" / "context.md", "x" * 500)
+    context = _additional_context(_run_hook(context_path))
+    assert "[instruction-budget]" in context
+
+
 def test_a_skill_file_does_not_get_the_repository_budget_warning(tmp_path: Path) -> None:
     (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 10}', encoding="utf-8")
     _write(tmp_path / "AGENTS.md", "x" * 50)

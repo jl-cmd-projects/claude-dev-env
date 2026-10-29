@@ -39,10 +39,39 @@ from instruction_budget_files import (
     budget_findings,
     instruction_files,
     is_instruction_file,
+    launch_files,
     load_config,
 )
 from instruction_budget_links import nesting_findings
 from instruction_budget_names import personal_name_findings
+
+
+def scoped_instruction_files(
+    repository_root: Path,
+    config: InstructionBudgetConfig,
+    all_changed_files: Iterable[Path],
+) -> list[Path]:
+    """Keep the changed files whose text an agent loads as instructions.
+
+    Args:
+        repository_root: Resolved repository root.
+        config: The repository's budget limits.
+        all_changed_files: Resolved paths the change touched.
+
+    Returns:
+        Each existing changed file that is an instruction file, or that a
+        launch file imports.
+    """
+    all_launch = set(launch_files(repository_root, config))
+    return [
+        each_path
+        for each_path in all_changed_files
+        if each_path.is_file()
+        and (
+            is_instruction_file(each_path, repository_root, config)
+            or each_path in all_launch
+        )
+    ]
 
 
 def check_repository(
@@ -55,18 +84,15 @@ def check_repository(
     Args:
         repository_root: Resolved repository root.
         config: The repository's budget limits.
-        all_changed_files: Resolved paths the change touched. Paths that are not
-            instruction files, or that are missing, are skipped.
+        all_changed_files: Resolved paths the change touched. Paths that are
+            missing, or that an agent does not load as instructions, are skipped.
 
     Returns:
         Every finding, budget first, then names, then nesting.
     """
-    all_scoped_files = [
-        each_path
-        for each_path in all_changed_files
-        if each_path.is_file()
-        and is_instruction_file(each_path, repository_root, config)
-    ]
+    all_scoped_files = scoped_instruction_files(
+        repository_root, config, all_changed_files
+    )
     return (
         budget_findings(repository_root, config)
         + personal_name_findings(repository_root, all_scoped_files)

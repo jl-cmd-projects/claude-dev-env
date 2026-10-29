@@ -2,13 +2,13 @@
 """PostToolUse warning: a written instruction file breaks the budget, names a person, or nests too deep.
 
 This hook never blocks. It runs after each Write, Edit, or MultiEdit. When the
-file is an instruction file in a repository that has ``instruction-budget.json``,
-it runs the same checks the CI workflow runs and adds one line per finding to
+file is an instruction file, or a file a launch file imports, in a repository
+that has ``instruction-budget.json``, it runs the same checks the CI workflow runs and adds one line per finding to
 the agent's context::
 
     AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
 
-Quiet paths: a file that is not an instruction file, a repository without the
+Quiet paths: a file an agent does not load as instructions, a repository without the
 budget file, a budget file that holds no valid limits, a read error during the
 check, a file that passes every check, and a budget finding on a file the launch
 total leaves out each emit nothing.
@@ -39,12 +39,11 @@ from hooks_constants.instruction_file_write_warning_constants import (
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from instruction_budget import check_repository, finding_line
+from instruction_budget import check_repository, finding_line, scoped_instruction_files
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
     InstructionFinding,
-    is_instruction_file,
     launch_files,
     load_config,
 )
@@ -73,6 +72,8 @@ def _findings_for(
     repository_root: Path, written_path: Path, config: InstructionBudgetConfig
 ) -> list[InstructionFinding]:
     try:
+        if not scoped_instruction_files(repository_root, config, [written_path]):
+            return []
         all_findings = check_repository(repository_root, config, [written_path])
         is_launch_file = written_path in launch_files(repository_root, config)
     except (OSError, ValueError, RecursionError):
@@ -95,7 +96,7 @@ def main() -> None:
         config = load_config(repository_root)
     except InstructionBudgetConfigError:
         return
-    if config is None or not is_instruction_file(written_path, repository_root, config):
+    if config is None:
         return
     all_findings = _findings_for(repository_root, written_path, config)
     if not all_findings:
