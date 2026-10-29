@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""PreToolUse gate: deny a Haiku agent spawned inside this session.
+"""PreToolUse gate: deny a Haiku agent spawned inside this session, except lean-worker.
 
 Registered on ``Agent|Task`` and ``mcp__hearthbot__start_thread_session``. An
 in-session spawn shares this session's settings, plugins, MCP servers, and
 CLAUDE.md files, so a Haiku agent started that way cannot run on the slim
-profile. The deny reason gives the headless command that loads the profile.
+profile. The deny reason gives the two routes: the ``lean-worker`` subagent
+type, and the headless command that loads the profile.
 
 ::
 
-    model "haiku"                       -> deny with the headless command
-    model "claude-haiku-5-5"            -> deny with the headless command
-    model "opus", "sonnet", or omitted  -> no output; the call runs unchanged
+    model "haiku" or "claude-haiku-5-5", subagent_type "lean-worker"   -> no output
+    model "haiku" or "claude-haiku-5-5", any other or no subagent_type -> deny
+    model "opus", "sonnet", or omitted                                 -> no output
 
 A spawn that names no model passes, even when the subagent's definition or
 ``CLAUDE_CODE_SUBAGENT_MODEL`` resolves it to Haiku.
@@ -30,9 +31,11 @@ from hooks_constants.haiku_spawn_slim_gate_constants import (
     DENY_DECISION,
     HAIKU_MODEL_FAMILY,
     HOOK_EVENT_NAME,
+    LEAN_WORKER_SUBAGENT_TYPE,
     MODEL_INPUT_KEY,
     PERMISSION_DECISION_REASON_KEY,
     SLIM_PROFILE_DENY_REASON,
+    SUBAGENT_TYPE_INPUT_KEY,
     TOOL_INPUT_KEY,
 )
 from hooks_constants.hook_specific_output_keys import (
@@ -67,6 +70,8 @@ def decide_hook_output(tool_input: object) -> dict[str, object] | None:
         None to pass the call through unchanged, else the deny output.
     """
     if not isinstance(tool_input, dict) or not is_haiku_model(tool_input.get(MODEL_INPUT_KEY)):
+        return None
+    if tool_input.get(SUBAGENT_TYPE_INPUT_KEY) == LEAN_WORKER_SUBAGENT_TYPE:
         return None
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
