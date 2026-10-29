@@ -34,6 +34,11 @@
       "key": "use_flowchart",
       "label": "Use the flowchart",
       "reminder": "Show the status as the status flowchart from docs/templates/artifact-page/status-flowchart.html: done steps, yes-or-no checks, stuck steps with recheck loops, and the next step, each opening its detail on click, unless the person asked for another shape."
+    },
+    {
+      "key": "results_picture",
+      "label": "Results with no picture",
+      "reminder": "Show the results as one picture: a pele chart saved as an SVG or PNG file and attached with attached_outputs, with every label and number shown. Keep the reply text to three short sentences or fewer."
     }
   ],
   "allowed_capitalized_words": [

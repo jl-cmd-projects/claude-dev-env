@@ -27,6 +27,7 @@ def test_rule_key_constants_name_rules_in_the_shipped_rule_list() -> None:
         constants.ABBREVIATIONS_RULE_KEY,
         constants.ONE_ITEM_RULE_KEY,
         constants.FLOWCHART_RULE_KEY,
+        constants.RESULTS_PICTURE_RULE_KEY,
     } <= all_shipped_keys
     assert constants.ALLOWED_CAPITALIZED_WORDS_KEY in rules_document
     assert constants.LOWERCASE_ABBREVIATIONS_KEY in rules_document

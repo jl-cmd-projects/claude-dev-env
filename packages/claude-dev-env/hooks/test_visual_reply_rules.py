@@ -11,9 +11,12 @@ if _hooks_directory not in sys.path:
 from hooks_constants.visual_reply_rules_constants import RULES_FILE_PATH
 from visual_reply_rules import (
     abbreviation_violation,
+    attaches_picture,
     load_rules,
     mode_enabled,
     replies_sent_this_turn,
+    reports_results,
+    results_picture_violation,
     second_reply_violation,
     successful_result_text,
     visual_shown_this_turn,
@@ -240,3 +243,32 @@ def test_successful_result_text_joins_only_results_without_an_error(tmp_path: Pa
     transcript_path.write_text("\n".join(json.dumps(each) for each in all_entries), encoding="utf-8")
     assert successful_result_text(str(transcript_path)) == "run 222 ok\nrun 333 ok"
     assert successful_result_text(str(tmp_path / "missing.jsonl")) is None
+
+
+def test_reports_results_flags_a_markdown_table_and_three_figures() -> None:
+    assert reports_results("| Check | Result |\n|---|---|\n| Unit tests | passed |")
+    assert reports_results("The run shows 65 passed, 0 failed, and 3 skipped.")
+    assert not reports_results("The run shows 65 passed and 3 skipped.")
+
+
+def test_reports_results_counts_no_figure_in_a_date_or_a_pull_request_number() -> None:
+    assert not reports_results("Shipped on 2026-10-29 in #2224.")
+
+
+def test_attaches_picture_accepts_an_image_file_or_a_markdown_picture_only() -> None:
+    assert attaches_picture("Results.", {"attached_outputs": [{"kind": "file", "ref": "/mnt/chart.svg"}]})
+    assert attaches_picture("![Chart](chart.png)", {})
+    assert not attaches_picture("Results.", {"attached_outputs": [{"kind": "file", "ref": "results.md"}]})
+    assert not attaches_picture("Results.", {"attached_outputs": [{"kind": "link", "ref": "https://x.example/c.png"}]})
+    assert not attaches_picture("Results.", {})
+
+
+def test_results_picture_violation_names_the_picture_rule_and_allows_an_attached_chart() -> None:
+    assert SHIPPED_RULES is not None
+    results_text = "The run shows 65 passed, 0 failed, and 3 skipped."
+    violation = results_picture_violation(results_text, results_text, {}, SHIPPED_RULES)
+    assert violation is not None
+    assert "reports results with no picture attached" in violation
+    chart_input = {"attached_outputs": [{"kind": "file", "ref": "chart.svg"}]}
+    assert results_picture_violation(results_text, results_text, chart_input, SHIPPED_RULES) is None
+    assert results_picture_violation(results_text, results_text, {}, None) is None
