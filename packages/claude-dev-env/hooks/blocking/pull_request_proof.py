@@ -663,19 +663,20 @@ def _compare_base_branch(repository: str, base_branch: str | None) -> str | None
     return all_default_branch_lines[0]
 
 
-def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) -> list[str] | None:
-    all_changed_paths = _gh_api_lines(
-        COMPARE_ENDPOINT_TEMPLATE.format(
-            repository=repository, base_branch=base_branch, head_branch=head_branch
-        ),
-        COMPARE_FILE_NAMES_QUERY,
-    )
-    if all_changed_paths is None:
+def _compare_lines(
+    repository: str | None, base_branch: str | None, head_branch: str | None, query: str
+) -> list[str] | None:
+    if not repository or not head_branch:
         return None
-    all_visible_paths = _visible_paths(all_changed_paths)
-    if all_visible_paths or len(all_changed_paths) < COMPARE_FILE_LIST_LIMIT:
-        return all_visible_paths
-    return None
+    resolved_base_branch = _compare_base_branch(repository, base_branch)
+    if resolved_base_branch is None:
+        return None
+    return _gh_api_lines(
+        COMPARE_ENDPOINT_TEMPLATE.format(
+            repository=repository, base_branch=resolved_base_branch, head_branch=head_branch
+        ),
+        query,
+    )
 
 
 def remote_visible_changed_files(
@@ -700,12 +701,13 @@ def remote_visible_changed_files(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    if not repository or not head_branch:
+    all_changed_paths = _compare_lines(repository, base_branch, head_branch, COMPARE_FILE_NAMES_QUERY)
+    if all_changed_paths is None:
         return None
-    resolved_base_branch = _compare_base_branch(repository, base_branch)
-    if resolved_base_branch is None:
-        return None
-    return _visible_compare_paths(repository, resolved_base_branch, head_branch)
+    all_visible_paths = _visible_paths(all_changed_paths)
+    if all_visible_paths or len(all_changed_paths) < COMPARE_FILE_LIST_LIMIT:
+        return all_visible_paths
+    return None
 
 
 def remote_added_workflow_files(
@@ -728,29 +730,13 @@ def remote_added_workflow_files(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    all_lines = _added_file_lines(repository, base_branch, head_branch)
+    all_lines = _compare_lines(repository, base_branch, head_branch, ADDED_FILE_NAMES_QUERY)
     if not all_lines or not all_lines[0].isdigit():
         return None
     all_workflow_paths = _workflow_paths(all_lines[1:])
     if all_workflow_paths or int(all_lines[0]) < COMPARE_FILE_LIST_LIMIT:
         return all_workflow_paths
     return None
-
-
-def _added_file_lines(
-    repository: str | None, base_branch: str | None, head_branch: str | None
-) -> list[str] | None:
-    if not repository or not head_branch:
-        return None
-    resolved_base_branch = _compare_base_branch(repository, base_branch)
-    if resolved_base_branch is None:
-        return None
-    return _gh_api_lines(
-        COMPARE_ENDPOINT_TEMPLATE.format(
-            repository=repository, base_branch=resolved_base_branch, head_branch=head_branch
-        ),
-        ADDED_FILE_NAMES_QUERY,
-    )
 
 
 def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -> list[str]:
