@@ -20,8 +20,8 @@ __all__ = [
 ]
 
 COMMAND_INPUT_KEY = "command"
-ALL_NPX_PROGRAM_NAMES = ("npx", "npx.cmd")
-ALL_NPM_PROGRAM_NAMES = ("npm", "npm.cmd")
+ALL_NPX_PROGRAM_NAMES = ("npx", "npx.cmd", "npx.exe", "npx.ps1")
+ALL_NPM_PROGRAM_NAMES = ("npm", "npm.cmd", "npm.exe", "npm.ps1")
 ALL_NPM_EXEC_SUBCOMMANDS = ("exec", "x")
 OPTION_VALUE_SEPARATOR = "="
 PACKAGE_VERSION_SEPARATOR = "@"

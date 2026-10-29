@@ -154,6 +154,26 @@ def _is_pele_package(argument: str) -> bool:
     return package_name == PELE_PACKAGE_NAME
 
 
+def installed_pele_entry(package_directory: Path) -> Path:
+    """Return the entry file the installed Pele manifest names.
+
+    Args:
+        package_directory: The folder that holds Pele's ``package.json``.
+
+    Returns:
+        The file at the manifest's ``main`` path, or ``dist/pele.js`` when the
+        manifest names no usable ``main``.
+    """
+    try:
+        manifest = json.loads((package_directory / PACKAGE_MANIFEST_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = None
+    main_path = manifest.get("main") if isinstance(manifest, dict) else None
+    if isinstance(main_path, str) and main_path:
+        return package_directory / main_path
+    return package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
+
+
 def guidance_text() -> str:
     """Return the guidance for the Pele copy this machine has, or none.
 
@@ -162,7 +182,7 @@ def guidance_text() -> str:
         file exists, else the playground guidance.
     """
     package_directory = pele_package_directory_under(claude_home())
-    package_entry = package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
+    package_entry = installed_pele_entry(package_directory)
     version = installed_pele_version(package_directory)
     if version is None or not package_entry.is_file():
         return ABSENT_GUIDANCE_TEMPLATE.format(package_directory=package_directory)

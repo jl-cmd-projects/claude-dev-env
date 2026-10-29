@@ -73,6 +73,8 @@ def _run_hook(payload_text: str, claude_root: Path) -> subprocess.CompletedProce
         "npx --package=pele mmdc chain.mmd",
         "npx -c 'pele a.mmd'",
         "npm.cmd exec pele a.mmd",
+        "npx.ps1 pele a.mmd",
+        "npm.ps1 exec pele a.mmd",
         "npm --prefix exec pele chain.mmd",
         "cd diagrams && npx pele chain.mmd",
         "npm exec pele chain.mmd",
@@ -249,6 +251,23 @@ def test_pele_argument_outside_the_package_slot_gets_only_the_hint(tmp_path: Pat
     hook_output = json.loads(completed.stdout)
     assert "permissionDecision" not in hook_output["hookSpecificOutput"]
     assert "playground at pele.run" in hook_output["hookSpecificOutput"]["additionalContext"]
+
+
+def test_installed_guidance_points_at_the_manifest_main_entry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(tmp_path))
+    package_directory = npx_pele_guidance.pele_package_directory_under(tmp_path)
+    (package_directory / "lib").mkdir(parents=True)
+    (package_directory / PACKAGE_MANIFEST_NAME).write_text(
+        json.dumps({"name": PELE_PACKAGE_NAME, "version": "2.0.0", "main": "./lib/index.js"}),
+        encoding="utf-8",
+    )
+    entry_path = package_directory / "lib" / "index.js"
+    entry_path.write_text("export function render(text) {\n    return { svg: '' };\n}\n", encoding="utf-8")
+    assert npx_pele_guidance.installed_pele_entry(package_directory) == entry_path
+    assert str(entry_path) in npx_pele_guidance.guidance_text()
+    assert "pele.run" not in npx_pele_guidance.guidance_text()
 
 
 def test_installed_snippet_prints_usage_without_a_diagram(
