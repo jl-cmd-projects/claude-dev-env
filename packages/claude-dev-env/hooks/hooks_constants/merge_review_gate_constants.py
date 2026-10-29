@@ -37,7 +37,7 @@ ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
 GITHUB_REMOTE_URL_PATTERN = re.compile(
-    r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+    r"(?:https://(?:[^/@\s]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)"
     r"(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?"
 )
 GIT_TIMEOUT_SECONDS = 3
@@ -46,6 +46,12 @@ GITHUB_REMOTE_URL_TEMPLATE = "https://github.com/{owner}/{repo}.git"
 REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 LS_REMOTE_FIELD_SEPARATOR = "\t"
 ALL_NON_INTERACTIVE_GIT_SETTINGS = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+HTTPS_SCHEME = "https://"
+SSH_COMMAND_VARIABLE = "GIT_SSH_COMMAND"
+SSH_PROGRAM_VARIABLE = "GIT_SSH"
+DEFAULT_SSH_COMMAND = "ssh"
+SSH_BATCH_OPTION = "-o BatchMode=yes"
+ALL_SSH_COMMAND_CONFIG_ARGUMENTS = ("config", "--get", "core.sshCommand")
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
 ALL_CURRENT_BRANCH_ARGUMENTS = ("symbolic-ref", "--short", "--quiet", "HEAD")
 ALL_REMOTE_URL_CONFIG_ARGUMENTS = ("config", "--get-regexp", r"^remote\..+\.url$")
@@ -99,6 +105,7 @@ RECEIPT_HEAD_KEY = "head"
 RECEIPT_FINDINGS_KEY = "findings"
 RECEIPT_RULED_OUT_KEY = "ruled_out"
 RECEIPT_RULINGS_KEY = "rulings"
+RECEIPT_RULING_LINES_KEY = "ruling_lines"
 RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (

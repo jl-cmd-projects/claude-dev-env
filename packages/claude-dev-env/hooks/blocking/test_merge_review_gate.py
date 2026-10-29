@@ -441,7 +441,7 @@ def test_should_check_a_merge_chained_after_a_reviewed_open(
 
 
 def test_should_read_the_pushed_branch_before_the_local_one(
-    branch_checkout: tuple[Path, str],
+    branch_checkout: tuple[Path, str], remote_folder: Path
 ) -> None:
     folder, local_head = branch_checkout
     _git(
@@ -457,7 +457,7 @@ def test_should_read_the_pushed_branch_before_the_local_one(
         "pushed",
     )
     pushed_head = _git(folder, "rev-parse", "HEAD")
-    _git(folder, "update-ref", "refs/remotes/origin/feature", pushed_head)
+    _git(folder, "push", "--quiet", str(remote_folder / "acme" / "tools.git"), "HEAD:feature")
     _git(folder, "reset", "--quiet", "--hard", local_head)
     merge_review_receipt.record_open_review("acme/tools", local_head, 0)
     assert f"head {pushed_head}" in _reason(_create_tool(folder))

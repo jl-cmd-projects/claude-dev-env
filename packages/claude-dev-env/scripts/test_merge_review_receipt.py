@@ -219,7 +219,7 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "head": head,
         "findings": 2,
         "ruled_out": 2,
-        "rulings": ["a.py:1", "a.py:3"],
+        "ruling_lines": ["a.py:1", "a.py:3"],
     }
 
 
@@ -250,7 +250,7 @@ def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_sta
         "head": head,
         "findings": 3,
         "ruled_out": 2,
-        "rulings": ["a.py:1", "a.py:2"],
+        "ruling_lines": ["a.py:1", "a.py:2"],
     }
 
 
@@ -264,7 +264,7 @@ def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
     )
     assert exit_code == 0
     receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
-    assert receipt["rulings"] == ["docs/my notes.txt:2", "a.py:3"]
+    assert receipt["ruling_lines"] == ["docs/my notes.txt:2", "a.py:3"]
 
 
 @pytest.mark.parametrize(

@@ -53,12 +53,12 @@ def test_should_reject_a_head_that_is_not_a_commit() -> None:
 
 
 def test_should_find_an_open_review_whose_findings_are_ruled_out_at_file_and_line() -> None:
-    _write_open_receipt(2, {"ruled_out": 2, "rulings": ["a.py:1", "b.py:20"]})
+    _write_open_receipt(2, {"ruled_out": 2, "ruling_lines": ["a.py:1", "b.py:20"]})
     assert has_clean_open_review("tools", HEAD[:7]) is True
 
 
 def test_should_reject_an_open_review_whose_rulings_cover_fewer_findings() -> None:
-    _write_open_receipt(2, {"ruled_out": 2, "rulings": ["a.py:1"]})
+    _write_open_receipt(2, {"ruled_out": 2, "ruling_lines": ["a.py:1"]})
     assert has_clean_open_review("tools", HEAD[:7]) is False
 
 
@@ -69,7 +69,7 @@ def test_should_find_a_zero_finding_open_review_by_short_head() -> None:
 
 @pytest.mark.parametrize(
     "extra_fields",
-    [{}, {"ruled_out": 2, "rulings": ["a.py:1", "b.py:20"]}],
+    [{}, {"ruled_out": 2, "ruling_lines": ["a.py:1", "b.py:20"]}],
 )
 def test_should_reject_a_zero_finding_open_review_when_findings_were_reported(
     extra_fields: dict[str, object],
@@ -92,7 +92,7 @@ def test_should_count_an_open_pass_with_every_finding_ruled_out_as_clean() -> No
         "head": HEAD,
         "findings": 3,
         "ruled_out": 3,
-        "rulings": ["a.py:1", "src/b.py:20", "docs/c.md:7"],
+        "ruling_lines": ["a.py:1", "src/b.py:20", "docs/c.md:7"],
     }
     assert is_clean_open_pass(all_receipt_fields) is True
 
@@ -102,7 +102,7 @@ def test_should_count_an_open_pass_ruled_out_at_paths_with_spaces_and_dots_as_cl
         "head": HEAD,
         "findings": 3,
         "ruled_out": 3,
-        "rulings": ["docs/My Notes.md:4", ".github/ci.yml:2", "src/..hidden/a.py:9"],
+        "ruling_lines": ["docs/My Notes.md:4", ".github/ci.yml:2", "src/..hidden/a.py:9"],
     }
     assert is_clean_open_pass(all_receipt_fields) is True
 
@@ -111,21 +111,21 @@ def test_should_count_an_open_pass_ruled_out_at_paths_with_spaces_and_dots_as_cl
     "extra_fields",
     [
         {},
-        {"ruled_out": 1, "rulings": ["a.py:1", "b.py:2"]},
-        {"ruled_out": 2, "rulings": ["a.py:1"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "b.py:2", "c.py:3"]},
+        {"ruled_out": 1, "ruling_lines": ["a.py:1", "b.py:2"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "b.py:2", "c.py:3"]},
         {"ruled_out": 2, "rulings": RULINGS_LINK},
-        {"ruled_out": 2, "rulings": ["a.py:1", "see the thread"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "b.py:0"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", 7]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "a.py:1"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "b.py:2", "a.py:1"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "./a.py:1"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "docs/../a.py:2"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "/a.py:2"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "docs//notes.txt:1"]},
-        {"ruled_out": 2, "rulings": ["a.py:1", "docs/:1"]},
-        {"ruled_out": True, "rulings": ["a.py:1", "b.py:2"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "see the thread"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "b.py:0"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", 7]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "a.py:1"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "b.py:2", "a.py:1"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "./a.py:1"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "docs/../a.py:2"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "/a.py:2"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "docs//notes.txt:1"]},
+        {"ruled_out": 2, "ruling_lines": ["a.py:1", "docs/:1"]},
+        {"ruled_out": True, "ruling_lines": ["a.py:1", "b.py:2"]},
     ],
 )
 def test_should_reject_an_open_pass_whose_rulings_do_not_prove_each_finding(

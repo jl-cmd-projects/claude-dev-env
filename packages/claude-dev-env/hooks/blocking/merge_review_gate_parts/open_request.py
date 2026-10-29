@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,17 +19,20 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_REMOTE_URL_CONFIG_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
+    ALL_SSH_COMMAND_CONFIG_ARGUMENTS,
     CHANGE_FOLDER_PATTERN,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
+    DEFAULT_SSH_COMMAND,
     GH_PR_CREATE_PATTERN,
     GITHUB_REMOTE_URL_PATTERN,
     GITHUB_REMOTE_URL_TEMPLATE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
+    HTTPS_SCHEME,
     LS_REMOTE_FIELD_SEPARATOR,
     ORIGIN_URL_PATTERN,
     OWNER_FIELD,
@@ -40,6 +44,9 @@ from hooks_constants.merge_review_gate_constants import (
     REMOTE_URL_LINE_PATTERN,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
+    SSH_BATCH_OPTION,
+    SSH_COMMAND_VARIABLE,
+    SSH_PROGRAM_VARIABLE,
 )
 
 
@@ -86,7 +93,7 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     https://github.com. A fork head ``user:branch`` reads a remote URL of that
     owner, the one named like the base repository first, else the fork named
     like the base repository. Other remote URLs are ignored. When GitHub lists
-    no such branch, the checkout's ``origin/<branch>`` or local branch
+    no such branch, the checkout's local branch, then ``origin/<branch>``,
     resolves it. A failed lookup reads no head. No head means the current
     branch, or the checked-out commit when HEAD is detached; no repository,
     ``origin``.
@@ -149,23 +156,29 @@ def _folder_after_changes(command_before_create: str, folder: str | None) -> str
 
 
 def _run_git(
-    all_arguments: list[str], folder: str | None, timeout_seconds: int = GIT_TIMEOUT_SECONDS
+    all_arguments: list[str],
+    folder: str | None,
+    timeout_seconds: int = GIT_TIMEOUT_SECONDS,
+    all_extra_settings: dict[str, str] | None = None,
 ) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["git", *all_arguments],
-            cwd=folder,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-            env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip()
+    with tempfile.TemporaryFile() as output:
+        try:
+            completed = subprocess.run(
+                ["git", *all_arguments],
+                cwd=folder,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout_seconds,
+                check=False,
+                env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS, **(all_extra_settings or {})},
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if completed.returncode != 0:
+            return None
+        output.seek(0)
+        return output.read().decode("utf-8", "replace").strip()
 
 
 def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> str | None:
@@ -193,7 +206,7 @@ def _fork_branch_commit(branch: str, folder: str | None, repo: str) -> str | Non
 
 
 def _local_branch_commit(branch: str, folder: str | None) -> str | None:
-    return _local_commit(REMOTE_BRANCH_PREFIX + branch, folder) or _local_commit(branch, folder)
+    return _local_commit(branch, folder) or _local_commit(REMOTE_BRANCH_PREFIX + branch, folder)
 
 
 def _local_commit(reference: str, folder: str | None) -> str | None:
@@ -207,7 +220,25 @@ def _github_listing(
     if remote_url is None:
         remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
-    return _run_git(["ls-remote", "--", remote_url, reference], None, REMOTE_LOOKUP_TIMEOUT_SECONDS)
+    return _run_git(
+        ["ls-remote", "--", remote_url, reference],
+        None,
+        REMOTE_LOOKUP_TIMEOUT_SECONDS,
+        _non_interactive_ssh_settings(remote_url),
+    )
+
+
+def _non_interactive_ssh_settings(remote_url: str) -> dict[str, str]:
+    if remote_url.startswith(HTTPS_SCHEME):
+        return {}
+    if SSH_PROGRAM_VARIABLE in os.environ and SSH_COMMAND_VARIABLE not in os.environ:
+        return {}
+    ssh_command = (
+        os.environ.get(SSH_COMMAND_VARIABLE)
+        or _run_git(list(ALL_SSH_COMMAND_CONFIG_ARGUMENTS), None)
+        or DEFAULT_SSH_COMMAND
+    )
+    return {SSH_COMMAND_VARIABLE: f"{ssh_command} {SSH_BATCH_OPTION}"}
 
 
 def _checkout_remote_url(

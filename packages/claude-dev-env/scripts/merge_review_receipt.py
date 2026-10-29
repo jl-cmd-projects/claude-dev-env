@@ -58,6 +58,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
     RECEIPT_RULED_OUT_KEY,
+    RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
     REPOSITORY_SLUG_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
@@ -87,7 +88,9 @@ def record_review(
     Returns:
         The receipt path written.
     """
-    receipt = _receipt_fields(head, finding_count, ruled_out_count, rulings)
+    receipt = _receipt_fields(
+        head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings
+    )
     return _write_receipt(slug, number, receipt)
 
 
@@ -110,7 +113,9 @@ def record_open_review(
     Returns:
         The receipt path written.
     """
-    receipt = _receipt_fields(head, finding_count, ruled_out_count, list(all_rulings))
+    receipt = _receipt_fields(
+        head, finding_count, ruled_out_count, RECEIPT_RULING_LINES_KEY, list(all_rulings)
+    )
     return _write_open_receipt(slug, head, receipt)
 
 
@@ -131,31 +136,41 @@ def _write_receipt_at(path: Path, all_receipt_fields: dict[str, object]) -> Path
 
 
 def _receipt_fields(
-    head: str, finding_count: int, ruled_out_count: int, all_rulings: str | list[str]
+    head: str, finding_count: int, ruled_out_count: int, ruling_key: str, ruling_entry: object
 ) -> dict[str, object]:
     receipt: dict[str, object] = {RECEIPT_HEAD_KEY: head, RECEIPT_FINDINGS_KEY: finding_count}
     if ruled_out_count:
         receipt[RECEIPT_RULED_OUT_KEY] = ruled_out_count
-        receipt[RECEIPT_RULINGS_KEY] = all_rulings
+        receipt[ruling_key] = ruling_entry
     return receipt
 
 
-def _holds_line(head: str, reference: str) -> bool:
-    reference_match = RULING_REFERENCE_PATTERN.fullmatch(reference)
-    if reference_match is None:
-        return False
+def _blob_line_count(head: str, file_path: str) -> int:
     try:
         completed = subprocess.run(
-            ["git", "cat-file", "blob", f"{head}:{reference_match['path']}"],
+            ["git", "cat-file", "blob", f"{head}:{file_path}"],
             capture_output=True,
             timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
-        return False
-    return completed.returncode == 0 and int(reference_match["line"]) <= _line_count(
-        completed.stdout
-    )
+        return 0
+    return _line_count(completed.stdout) if completed.returncode == 0 else 0
+
+
+def _unproven_rulings(head: str, all_rulings: Sequence[str]) -> list[str]:
+    all_line_counts: dict[str, int] = {}
+    all_unproven: list[str] = []
+    for each_ruling in all_rulings:
+        reference = RULING_REFERENCE_PATTERN.fullmatch(each_ruling)
+        if reference is None:
+            all_unproven.append(each_ruling)
+            continue
+        if reference["path"] not in all_line_counts:
+            all_line_counts[reference["path"]] = _blob_line_count(head, reference["path"])
+        if int(reference["line"]) > all_line_counts[reference["path"]]:
+            all_unproven.append(each_ruling)
+    return all_unproven
 
 
 def _line_count(content: bytes) -> int:
@@ -188,9 +203,7 @@ def _checked_open_rulings(
         )
     if len(set(all_rulings)) != len(all_rulings):
         parser.error("--rulings needs a different path:line for each finding")
-    all_unproven = [
-        each_ruling for each_ruling in all_rulings if not _holds_line(parsed.head, each_ruling)
-    ]
+    all_unproven = _unproven_rulings(parsed.head, all_rulings)
     if all_unproven:
         parser.error(
             f"run this in the checkout that holds {parsed.head}; it has no file and line at "
@@ -267,7 +280,9 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
         parser.error("--ruled-out needs --rulings, a link to the posted rulings")
     if rulings and not parsed.ruled_out:
         parser.error("--rulings needs --ruled-out, the count of findings it rules out")
-    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, rulings)
+    receipt = _receipt_fields(
+        parsed.head, parsed.findings, parsed.ruled_out, RECEIPT_RULINGS_KEY, rulings
+    )
     _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)
     if is_clean_receipt(receipt, owner, repo, parsed.number):

@@ -83,6 +83,17 @@ def _redirect_ssh_only(monkeypatch: pytest.MonkeyPatch, github: Path, unreachabl
     )
 
 
+def _completed(
+    all_arguments: list[str],
+    all_keyword_arguments: dict[str, object],
+    output: str | None,
+) -> subprocess.CompletedProcess[str]:
+    if output is None:
+        return subprocess.CompletedProcess(all_arguments, 1)
+    all_keyword_arguments["stdout"].write(output.encode())
+    return subprocess.CompletedProcess(all_arguments, 0)
+
+
 def test_should_read_the_repository_and_ignore_options_quoted_in_the_title(tmp_path: Path) -> None:
     payload = _shell_payload('gh pr create --repo acme/tools --title "--head evil"', tmp_path)
     assert open_request_from(payload) == OpenRequest(owner="acme", repo="tools", head=None)
@@ -166,7 +177,7 @@ def test_should_look_up_the_github_branch_with_every_sign_in_prompt_disabled(
         all_arguments: list[str], **keyword_arguments: object
     ) -> subprocess.CompletedProcess[str]:
         all_captured_environments.append(dict(keyword_arguments["env"]))
-        return subprocess.CompletedProcess(all_arguments, 1, stdout="", stderr="")
+        return _completed(all_arguments, keyword_arguments, None)
 
     monkeypatch.setenv("GIT_TERMINAL_PROMPT", "1")
     monkeypatch.setenv("GCM_INTERACTIVE", "always")
@@ -233,10 +244,10 @@ def test_should_list_the_branch_from_the_literal_remote_url_outside_the_checkout
         all_arguments: list[str], **keyword_arguments: object
     ) -> subprocess.CompletedProcess[str]:
         all_calls.append((list(all_arguments), keyword_arguments["cwd"]))
-        if "config" in all_arguments:
+        if "--get-regexp" in all_arguments:
             remote_line = "remote.origin.url git@github.com:acme/tools.git\n"
-            return subprocess.CompletedProcess(all_arguments, 0, stdout=remote_line, stderr="")
-        return subprocess.CompletedProcess(all_arguments, 1, stdout="", stderr="")
+            return _completed(all_arguments, keyword_arguments, remote_line)
+        return _completed(all_arguments, keyword_arguments, None)
 
     monkeypatch.setattr(subprocess, "run", stand_in_run)
     open_request_from(_create_payload("feature", tmp_path))
@@ -244,6 +255,80 @@ def test_should_list_the_branch_from_the_literal_remote_url_outside_the_checkout
     assert all_listings == [
         (["git", "ls-remote", "--", "git@github.com:acme/tools.git", "refs/heads/feature"], None)
     ]
+
+
+def test_should_read_a_branch_through_a_checkout_remote_that_names_a_user(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    head = _commit(checkout, "first")
+    github = tmp_path / "github.com"
+    _git(checkout, "push", "--quiet", str(_bare_remote(github, "acme")), "feature")
+    deploy_user_prefix = "https://deploy-user@github.com/"
+    _git(checkout, "remote", "add", "origin", f"{deploy_user_prefix}acme/tools.git")
+    _redirect_prefixes(
+        monkeypatch, [("https://github.com/", tmp_path / "unreachable"), (deploy_user_prefix, github)]
+    )
+    assert open_request_from(_create_payload("feature", checkout)) == OpenRequest(
+        owner="acme", repo="tools", head=head
+    )
+
+
+@pytest.mark.parametrize(
+    ("remote_url", "ssh_command", "ssh_program", "configured_command", "expected_command"),
+    [
+        ("git@github.com:acme/tools.git", None, None, None, "ssh -o BatchMode=yes"),
+        ("git@github.com:acme/tools.git", "ssh -i key", None, None, "ssh -i key -o BatchMode=yes"),
+        ("git@github.com:acme/tools.git", None, None, "ssh -F cfg", "ssh -F cfg -o BatchMode=yes"),
+        ("git@github.com:acme/tools.git", None, "plink", None, None),
+        ("https://github.com/acme/tools.git", None, None, None, None),
+    ],
+)
+def test_should_keep_ssh_from_prompting_while_it_lists_the_branch(
+    remote_url: str,
+    ssh_command: str | None,
+    ssh_program: str | None,
+    configured_command: str | None,
+    expected_command: str | None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for each_name, each_value in (("GIT_SSH_COMMAND", ssh_command), ("GIT_SSH", ssh_program)):
+        if each_value is None:
+            monkeypatch.delenv(each_name, raising=False)
+        else:
+            monkeypatch.setenv(each_name, each_value)
+    all_listing_commands: list[str | None] = []
+
+    def stand_in_run(
+        all_arguments: list[str], **keyword_arguments: object
+    ) -> subprocess.CompletedProcess[str]:
+        if "--get-regexp" in all_arguments:
+            return _completed(all_arguments, keyword_arguments, f"remote.origin.url {remote_url}\n")
+        if "core.sshCommand" in all_arguments:
+            return _completed(all_arguments, keyword_arguments, configured_command)
+        if "ls-remote" in all_arguments:
+            all_listing_commands.append(keyword_arguments["env"].get("GIT_SSH_COMMAND"))
+        return _completed(all_arguments, keyword_arguments, None)
+
+    monkeypatch.setattr(subprocess, "run", stand_in_run)
+    open_request_from(_create_payload("feature", tmp_path))
+    assert all_listing_commands == [expected_command]
+
+
+def test_should_read_the_local_branch_before_a_stale_remote_tracking_branch_when_github_lists_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    stale_head = _commit(checkout, "stale")
+    _git(checkout, "update-ref", "refs/remotes/origin/feature", stale_head)
+    local_head = _commit(checkout, "local")
+    github = tmp_path / "github.com"
+    _bare_remote(github, "acme")
+    _redirect_github(monkeypatch, github)
+    assert open_request_from(_create_payload("feature", checkout)) == OpenRequest(
+        owner="acme", repo="tools", head=local_head
+    )
 
 
 def test_should_read_a_fork_branch_through_a_checkout_remote_of_a_renamed_fork(

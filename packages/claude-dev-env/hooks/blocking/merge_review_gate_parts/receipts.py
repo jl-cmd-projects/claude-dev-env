@@ -28,6 +28,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
     RECEIPT_RULED_OUT_KEY,
+    RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
     RULING_REFERENCE_PATTERN,
     RULINGS_LINK_PATTERN,
@@ -93,7 +94,7 @@ def has_clean_open_review(repo: str, head: str) -> bool:
 
         open receipt {head: abc1234..., findings: 0}, head abc1234 -> True
         open receipt {head: abc1234..., findings: 2, ruled out 2,
-                      rulings [a.py:1, b.py:20]}, head abc1234     -> True
+                      ruling_lines [a.py:1, b.py:20]}, head abc1234 -> True
         open receipt {head: abc1234..., findings: 2}, head abc1234 -> False
         no open receipt for the repository                          -> False
 
@@ -115,7 +116,7 @@ def has_zero_finding_open_review(repo: str, head: str) -> bool:
 
         open receipt {head: abc1234..., findings: 0}, head abc1234 -> True
         open receipt {head: abc1234..., findings: 2, ruled out 2,
-                      rulings [a.py:1, b.py:20]}, head abc1234     -> False
+                      ruling_lines [a.py:1, b.py:20]}, head abc1234 -> False
 
     Args:
         repo: Repository name.
@@ -170,11 +171,11 @@ def is_clean_open_pass(all_receipt_fields: dict[str, object]) -> bool:
     A pass is clean when it reported zero findings, or when each finding it
     reported has its own ``path:line`` ruling beside it::
 
-        findings 0                                                  -> clean
-        findings 2, ruled out 2, rulings [a.py:1, src/b.py:20]      -> clean
-        findings 2, ruled out 2, rulings [a.py:1]                   -> not clean
-        findings 2, ruled out 2, rulings [a.py:1, a.py:1]           -> not clean
-        findings 2, ruled out 2, rulings [a.py:1, see the thread]   -> not clean
+        findings 0                                                     -> clean
+        findings 2, ruled out 2, ruling_lines [a.py:1, src/b.py:20]    -> clean
+        findings 2, ruled out 2, ruling_lines [a.py:1]                 -> not clean
+        findings 2, ruled out 2, ruling_lines [a.py:1, a.py:1]         -> not clean
+        findings 2, ruled out 2, ruling_lines [a.py:1, see the thread] -> not clean
 
     Args:
         all_receipt_fields: The parsed receipt of one review pass.
@@ -192,18 +193,16 @@ def is_clean_open_pass(all_receipt_fields: dict[str, object]) -> bool:
 def _rules_out_every_finding_at_file_and_line(
     all_receipt_fields: dict[str, object], finding_count: object
 ) -> bool:
-    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
-    rulings = all_receipt_fields.get(RECEIPT_RULINGS_KEY)
+    all_ruling_lines = all_receipt_fields.get(RECEIPT_RULING_LINES_KEY)
     return (
-        _is_count(ruled_out_count)
-        and ruled_out_count == finding_count
-        and isinstance(rulings, list)
-        and len(rulings) == finding_count
-        and len(set(map(str, rulings))) == finding_count
+        _ruled_out_count_matches(all_receipt_fields, finding_count)
+        and isinstance(all_ruling_lines, list)
+        and len(all_ruling_lines) == finding_count
+        and len(set(map(str, all_ruling_lines))) == finding_count
         and all(
             isinstance(each_ruling, str)
             and RULING_REFERENCE_PATTERN.fullmatch(each_ruling) is not None
-            for each_ruling in rulings
+            for each_ruling in all_ruling_lines
         )
     )
 
@@ -259,12 +258,14 @@ def _is_count(candidate: object) -> bool:
 def _rules_out_every_finding(
     all_receipt_fields: dict[str, object], finding_count: object, owner: str, repo: str, number: int
 ) -> bool:
-    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
-    return (
-        _is_count(ruled_out_count)
-        and ruled_out_count == finding_count
-        and _links_rulings_on(all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number)
+    return _ruled_out_count_matches(all_receipt_fields, finding_count) and _links_rulings_on(
+        all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number
     )
+
+
+def _ruled_out_count_matches(all_receipt_fields: dict[str, object], finding_count: object) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
+    return _is_count(ruled_out_count) and ruled_out_count == finding_count
 
 
 def _links_rulings_on(rulings: object, owner: str, repo: str, number: int) -> bool:
