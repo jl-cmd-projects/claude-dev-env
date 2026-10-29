@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/pull_request_proof.py",
-  "message": "packages/claude-dev-env/hooks/blocking/pull_request_proof.py:112: Function '_fenced_line_flags' has nesting depth 3 (max 2)",
-  "check_id": "validators/nesting-depth",
-  "severity": "smell",
-  "origin_commit": "2f5de70a740e8a2fcc481277b9fe964adc953e3a"
-}

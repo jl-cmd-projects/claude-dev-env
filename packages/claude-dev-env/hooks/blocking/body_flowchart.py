@@ -17,6 +17,7 @@ from hooks_constants.body_flowchart_constants import (
     MERMAID_COMMENT_PREFIX,
     MERMAID_INFO_STRING,
     NODE_TEXT_PATTERN,
+    TRAILING_COMMENT_PATTERN,
 )
 
 
@@ -61,7 +62,7 @@ def _closed_mermaid_blocks(section: str) -> Iterator[list[str]]:
 
 
 def _without_labels(line: str) -> str:
-    return EDGE_LABEL_PATTERN.sub("", NODE_TEXT_PATTERN.sub("", line))
+    return EDGE_LABEL_PATTERN.sub("", NODE_TEXT_PATTERN.sub("", TRAILING_COMMENT_PATTERN.sub("", line)))
 
 
 def _without_front_matter(all_block_lines: list[str]) -> list[str]:

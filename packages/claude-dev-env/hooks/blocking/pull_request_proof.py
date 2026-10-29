@@ -170,8 +170,8 @@ def what_this_does_section(body: str) -> str | None:
         "## Summary\\nno what-this-does heading"      -> None
 
     The section runs to the next heading of the same or a higher level. A line
-    that starts with a hash inside a fenced block is code, not a heading. A
-    fence that never closes is read as plain text.
+    that starts with a hash inside a fenced block is code, not a heading. When any fence
+    in the body never closes, every fence reads as plain text.
     """
     return _section_text(body, WHAT_THIS_DOES_HEADING_PATTERN)
 

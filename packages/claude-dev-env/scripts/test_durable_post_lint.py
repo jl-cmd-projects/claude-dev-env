@@ -211,8 +211,6 @@ def test_pr_body_reports_each_missing_heading(missing_heading: str) -> None:
     ]
 
 
-
-
 def _flowchart_codes(action: str, body_text: str) -> list[str]:
     return [
         each_finding.code

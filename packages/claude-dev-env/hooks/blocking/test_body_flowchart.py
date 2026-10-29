@@ -54,6 +54,7 @@ def should_accept_a_closed_mermaid_flowchart_with_an_arrow(block: str) -> None:
         _block("flowchart LR"),
         _block("---", "title: Flow", "---"),
         _block("---", "flowchart LR", "    a --> b"),
+        _block("flowchart LR", "    a %% --> b"),
         _block("flowchart LR", "    only_node"),
         _block("flowchart LR", "    a", "    b"),
         _block("flowchart LR", "    a --> "),
