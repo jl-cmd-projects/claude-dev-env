@@ -14,13 +14,16 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
-from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
+from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES, UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
+    ALL_GH_EDIT_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
+    DEFERRED_PROOF_REASON,
+    MERGE_WORD_PATTERN,
     ALL_BASE_FLAGS,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
@@ -50,6 +53,7 @@ from hooks_constants.pull_request_proof_constants import (
     PROOF_HEADING_PATTERN,
     PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
+    PULL_REQUEST_SCRIPT_EDIT_WORD,
     PULL_REQUEST_SCRIPT_NAME,
     ALL_TEST_RUNNER_COMMAND_PREFIXES,
     CODE_FENCE_MARKER,
@@ -148,18 +152,20 @@ def _script_arguments(program: str, all_arguments: list[str]) -> list[str] | Non
     return all_arguments[1:] if script_name == PULL_REQUEST_SCRIPT_NAME else None
 
 
-def _script_create_arguments(program: str, all_arguments: list[str]) -> list[str] | None:
+def _script_word_arguments(program: str, all_arguments: list[str], word: str) -> list[str] | None:
     all_script_arguments = _script_arguments(program, all_arguments)
-    if all_script_arguments is None or all_script_arguments[:1] != [PULL_REQUEST_SCRIPT_CREATE_WORD]:
+    if all_script_arguments is None or all_script_arguments[:1] != [word]:
         return None
     return all_script_arguments[1:]
 
 
-def _create_arguments(all_segment_tokens: list[str]) -> list[str] | None:
+def _command_arguments(
+    all_segment_tokens: list[str], all_gh_words: list[str], script_word: str
+) -> list[str] | None:
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    if program == "gh" and all_arguments[: len(ALL_GH_CREATE_WORDS)] == ALL_GH_CREATE_WORDS:
-        return all_arguments[len(ALL_GH_CREATE_WORDS) :]
-    return _script_create_arguments(program, all_arguments)
+    if program == "gh" and all_arguments[: len(all_gh_words)] == all_gh_words:
+        return all_arguments[len(all_gh_words) :]
+    return _script_word_arguments(program, all_arguments, script_word)
 
 
 def _shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -170,13 +176,21 @@ def _shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
     return command
 
 
-def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
+def _all_argument_lists(command: str, all_gh_words: list[str], script_word: str) -> Iterator[list[str]]:
     return (
-        all_create_arguments
+        all_arguments
         for each_text in all_wrapped_command_texts(command)
         for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_create_arguments := _create_arguments(each_segment)) is not None
+        if (all_arguments := _command_arguments(each_segment, all_gh_words, script_word)) is not None
     )
+
+
+def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
+    return _all_argument_lists(command, ALL_GH_CREATE_WORDS, PULL_REQUEST_SCRIPT_CREATE_WORD)
+
+
+def _all_edit_argument_lists(command: str) -> Iterator[list[str]]:
+    return _all_argument_lists(command, ALL_GH_EDIT_WORDS, PULL_REQUEST_SCRIPT_EDIT_WORD)
 
 
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
@@ -443,13 +457,44 @@ def unproven_admission(section: str) -> str | None:
 
     The markers are not proven, not tested and not verified, each with any
     run of yet, been or fully after the not, plus unproven, untested and
-    unverified, matched without regard to case. Inline code spans and fenced
-    blocks are skipped, so output quoted there never counts.
+    unverified. A line or list item that opens with "not run", "not ran",
+    "not exercised" or "not executed", each with any run of yet or been after
+    the not, is one too, and so is "has not been run", "have not been exercised"
+    or "hasn't been executed", with "yet" allowed before "been". Case is
+    ignored.
+    Inline code spans and fenced blocks are skipped, so output quoted there
+    never counts.
     """
+    return _first_prose_match(section, UNPROVEN_ADMISSION_PATTERN)
+
+
+def _first_prose_match(section: str, pattern: str) -> str | None:
     for each_line, each_prose in _prose_lines(section):
-        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE):
+        if re.search(pattern, each_prose, re.IGNORECASE):
             return each_line.strip()
     return None
+
+
+def merge_word_line(section: str) -> str | None:
+    """Return the first prose line of a proof section that holds a merge word, or None.
+
+    ::
+
+        "I check the publish after the merge."   -> that line
+        "A session verifies it after merging."   -> that line
+        "Post-merge, a session confirms it."     -> that line
+        "Ran `git merge origin/main`, then `python run.py`." -> None
+        "Verified on the branch."                -> None
+
+    The words are merge, merged, merges and merging, matched without regard to
+    case, so post-merge counts. Inline code spans and fenced blocks are skipped,
+    so a command or file name that holds the word passes when it sits in
+    backticks.
+
+    Args:
+        section: The text under the 'Proof in practice' heading.
+    """
+    return _first_prose_match(section, MERGE_WORD_PATTERN)
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -464,6 +509,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         proof whose only command is `python -q -m unittest`     -> TEST_ONLY_PROOF_REASON
         proof with `pytest` and `python run.py`                 -> None
         proof whose prose says "Not proven here: the run"      -> UNPROVEN_PROOF_REASON
+        proof whose prose says "Not run: the live publish"     -> UNPROVEN_PROOF_REASON
+        proof prose that says "I verify it after the merge"    -> DEFERRED_PROOF_REASON
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
@@ -479,7 +526,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
     A section whose prose says part of the change is not proven, untested or
     unverified is denied, with the line quoted; unproven_admission lists the
-    markers.
+    markers. A prose line with a merge word is denied in the proof section;
+    merge_word_line lists the words.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -488,14 +536,71 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         if each_body is None:
             return MISSING_BODY_REASON
         section = proof_section(each_body)
-        if not section or COMMAND_MARKER not in section:
+        if not section:
             return MISSING_PROOF_REASON
-        if _proof_runs_only_tests(section):
-            return TEST_ONLY_PROOF_REASON
-        admission = unproven_admission(section)
-        if admission is not None:
-            return UNPROVEN_PROOF_REASON.format(admission=admission)
+        section_reason = _proof_section_reason(section)
+        if section_reason is not None:
+            return section_reason
     return None
+
+
+def _proof_section_reason(section: str) -> str | None:
+    if COMMAND_MARKER not in section:
+        return MISSING_PROOF_REASON
+    if _proof_runs_only_tests(section):
+        return TEST_ONLY_PROOF_REASON
+    admission = unproven_admission(section)
+    if admission is not None:
+        return UNPROVEN_PROOF_REASON.format(admission=admission)
+    deferral = merge_word_line(section)
+    return None if deferral is None else DEFERRED_PROOF_REASON.format(deferral=deferral)
+
+
+def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a pull request body edit weakens its proof section, else None.
+
+    ::
+
+        update_pull_request, proof section says "Not run: x"       -> UNPROVEN_PROOF_REASON
+        gh pr edit --body-file, proof prose says "after the merge" -> DEFERRED_PROOF_REASON
+        update_pull_request, proof whose only command is `pytest`  -> TEST_ONLY_PROOF_REASON
+        update_pull_request, body with no proof section            -> None
+        update_pull_request with no body, create calls, any tool   -> None
+
+    An edit with no proof heading passes. A proof heading that is there meets
+    the rules a new pull request meets: a command in backticks, more than test
+    runs, no unrun line and no merge word. The edit comes through the
+    update_pull_request tool, gh pr edit, or the pull_request.py edit script.
+    A body this gate cannot read passes unread: an inline multi-line --body,
+    --body-file - from standard input, a $(...) body, a --body-file path that
+    an earlier cd changes, a gh global option before pr edit, or a gh api call.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    for each_body in _edit_bodies(all_payload_fields):
+        section = proof_section(each_body)
+        edit_reason = None if section is None else _proof_section_reason(section)
+        if edit_reason is not None:
+            return edit_reason
+    return None
+
+
+def _edit_bodies(all_payload_fields: Mapping[str, object]) -> list[str]:
+    tool_name = all_payload_fields.get("tool_name")
+    tool_input = all_payload_fields.get("tool_input")
+    if isinstance(tool_name, str) and tool_name.endswith(UPDATE_PULL_REQUEST_TOOL_SUFFIX):
+        body = tool_input.get("body") if isinstance(tool_input, dict) else None
+        return [body] if isinstance(body, str) else []
+    command = _shell_command(all_payload_fields)
+    if command is None:
+        return []
+    working_directory = all_payload_fields.get("cwd")
+    all_bodies = [
+        body_from_arguments(each_arguments, working_directory if isinstance(working_directory, str) else "")
+        for each_arguments in _all_edit_argument_lists(command)
+    ]
+    return [each_body for each_body in all_bodies if each_body is not None]
 
 
 def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> str | None:
