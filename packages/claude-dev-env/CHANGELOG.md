@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.108.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.2...claude-dev-env-v8.108.3) (2026-10-29)
+
+
+### Documentation
+
+* **skills:** keep every trigger phrase in three descriptions ([#2226](https://github.com/jl-cmd-projects/claude-dev-env/issues/2226)) ([c8b2a90](https://github.com/jl-cmd-projects/claude-dev-env/commit/c8b2a900dcffd9df0c308ae0755b212b27da0316))
+
 ## [8.108.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.1...claude-dev-env-v8.108.2) (2026-10-29)
 
 
