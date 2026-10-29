@@ -255,6 +255,10 @@ def test_reports_results_counts_a_multiplier_such_as_2_5x_as_a_figure() -> None:
     assert reports_results("Latency fell 2.5x and throughput rose 3x and errors fell 4x.")
 
 
+def test_reports_results_counts_a_negative_figure_as_a_figure() -> None:
+    assert reports_results("Deltas were -2, -5 and -7 this week.")
+
+
 def test_reports_results_counts_no_figure_in_a_date_or_a_pull_request_number() -> None:
     assert not reports_results("Shipped on 2026-10-29 in #2224.")
 
@@ -270,6 +274,11 @@ def test_reports_results_flags_a_markdown_table_written_without_leading_pipes() 
 
 def test_attaches_picture_ignores_a_picture_shown_only_inside_a_code_fence() -> None:
     assert not attaches_picture("Example:\n```\n![Chart](chart.png)\n```\nDone.", {})
+
+
+def test_attaches_picture_accepts_a_markdown_picture_with_a_title_or_a_query_string() -> None:
+    assert attaches_picture('Results.\n\n![Chart](chart.png "Results")', {})
+    assert attaches_picture("Results.\n\n![Chart](https://x.example/c.png?w=2)", {})
 
 
 def test_attaches_picture_accepts_an_image_file_or_a_markdown_picture_only() -> None:
