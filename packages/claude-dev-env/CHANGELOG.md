@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.108.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.1...claude-dev-env-v8.108.2) (2026-10-29)
+
+
+### Documentation
+
+* link orphan pages and drop repeated sentences ([#2223](https://github.com/jl-cmd-projects/claude-dev-env/issues/2223)) ([62fc358](https://github.com/jl-cmd-projects/claude-dev-env/commit/62fc3583f8767a16a3bfb331b9a4f79f9c70bd33))
+
+## [8.108.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.0...claude-dev-env-v8.108.1) (2026-10-29)
+
+
+### Documentation
+
+* thin the agent-board rule to a trigger and a link ([#2221](https://github.com/jl-cmd-projects/claude-dev-env/issues/2221)) ([1bdbd8b](https://github.com/jl-cmd-projects/claude-dev-env/commit/1bdbd8b45c47f4945af76ff74b981de51cadc1e0))
+
 ## [8.108.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.107.2...claude-dev-env-v8.108.0) (2026-10-29)
 
 
