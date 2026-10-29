@@ -1,6 +1,6 @@
 ---
 name: pr-visual
-description: Draw an interactive visual of a PR's change or an epic's status. Use for "visualize this PR", "draw this change", "PR visual", an epic status catch-up, or a PR/issue URL with a visual request.
+description: Read a pull request's summary and code, trace the changed behavior, and return an interactive visual. Also draws an epic's status from its issues and linked pull requests. Use for "visualize this PR", "draw this change", "PR visual", "chart this PR", "graph this change", a status catch-up on an epic, or a PR or issue URL with a request for a visual. Accept any accessible GitHub PR or issue.
 ---
 
 # PR visual
