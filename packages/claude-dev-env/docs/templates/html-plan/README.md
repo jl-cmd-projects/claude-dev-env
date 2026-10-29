@@ -21,7 +21,7 @@ Codex reads the same `SKILL.md` from the clone in step 2.
 
 ## House layer
 
-[`house.css`](house.css) loads after `htmlplan.css`. It:
+`house.css` loads after `htmlplan.css`. It:
 
 - sets the body text color and background from the theme tokens, so text keeps its contrast in dark mode,
 - maps the gray text tokens to the full text color,

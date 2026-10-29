@@ -79,4 +79,4 @@ Test helpers drift toward over-engineering faster than production code, because 
 
 ## Test File Organization
 
-- React test rules: see [React testing patterns](REACT_PATTERNS.md#testing-patterns).
+- React test file organization: see [React testing patterns](REACT_PATTERNS.md#testing-patterns).
