@@ -3,7 +3,6 @@
 from pathlib import Path
 
 DEFAULT_CLAUDE_HOME = Path.home() / ".claude"
-DEFAULT_AGENTS_HOME = Path.home() / ".agents"
 INSTALLED_PLUGINS_RELATIVE_PATH = Path("plugins") / "installed_plugins.json"
 PLUGIN_CACHE_RELATIVE_PATH = Path("plugins") / "cache"
 SETTINGS_FILE_NAME = "settings.json"

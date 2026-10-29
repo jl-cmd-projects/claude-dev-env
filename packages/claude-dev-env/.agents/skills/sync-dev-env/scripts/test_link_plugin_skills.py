@@ -244,3 +244,15 @@ def test_should_remove_owned_links_outside_the_wanted_names_and_count_them(
     assert not (skills_directory / "how").is_symlink()
     assert (skills_directory / "mine").resolve() == elsewhere
     assert capsys.readouterr().out.strip() == "removed how"
+
+
+def test_should_pair_a_named_profile_with_a_sibling_agents_folder() -> None:
+    assert link_plugin_skills.default_agents_home(Path("/home/user/.claude-work")) == Path(
+        "/home/user/.claude-work.agents"
+    )
+
+
+def test_should_pair_the_default_claude_folder_with_the_home_agents_folder() -> None:
+    assert link_plugin_skills.default_agents_home(Path("/home/user/.claude")) == Path(
+        "/home/user/.agents"
+    )

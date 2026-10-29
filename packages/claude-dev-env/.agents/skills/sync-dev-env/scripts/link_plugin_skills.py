@@ -30,7 +30,6 @@ if scripts_directory not in sys.path:
 from sync_dev_env_constants.config.constants import (
     CLAUDE_FOLDER_REMOVED_REPORT,
     CREATED_REPORT,
-    DEFAULT_AGENTS_HOME,
     DEFAULT_CLAUDE_HOME,
     ENABLED_PLUGINS_KEY,
     INSTALL_PATH_KEY,
@@ -174,12 +173,12 @@ def sync_links(claude_home: Path, agents_home: Path) -> Counter:
     Returns:
         The count of each outcome name across every entry the run touched.
     """
-    agents_skills_directory = Path(os.path.realpath(agents_home / SKILLS_DIRECTORY_NAME))
+    agents_skills_directory = (agents_home / SKILLS_DIRECTORY_NAME).resolve()
     agents_skills_directory.mkdir(parents=True, exist_ok=True)
     plugin_cache = Path(os.path.realpath(claude_home / PLUGIN_CACHE_RELATIVE_PATH))
     target_by_name = desired_skill_targets(claude_home)
     outcome_counts: Counter = Counter()
-    claude_skills_directory = Path(os.path.realpath(claude_home / SKILLS_DIRECTORY_NAME))
+    claude_skills_directory = (claude_home / SKILLS_DIRECTORY_NAME).resolve()
     outcome_counts[REMOVED_OUTCOME] += remove_owned_links(agents_skills_directory, plugin_cache, target_by_name, REMOVED_REPORT)
     for each_name, each_target in sorted(target_by_name.items()):
         outcome_counts[link_one_skill(agents_skills_directory / each_name, each_target, plugin_cache)] += 1
@@ -214,6 +213,20 @@ def link_one_skill(link_path: Path, target: Path, plugin_cache: Path) -> str:
     return LINKED_OUTCOME
 
 
+def default_agents_home(claude_home: Path) -> Path:
+    """Pick the agents home that pairs with a Claude home.
+
+    Args:
+        claude_home: The Claude Code home directory.
+
+    Returns:
+        The sibling `.agents` folder for a `.claude` home, or a sibling `<root-name>.agents` for any other home.
+    """
+    if claude_home.name == ".claude":
+        return claude_home.with_name(".agents")
+    return claude_home.with_name(f"{claude_home.name}.agents")
+
+
 def main() -> int:
     """Parse the homes from the command line, sync the links, and print a summary.
 
@@ -222,9 +235,10 @@ def main() -> int:
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--claude-home", type=Path, default=DEFAULT_CLAUDE_HOME)
-    parser.add_argument("--agents-home", type=Path, default=DEFAULT_AGENTS_HOME)
+    parser.add_argument("--agents-home", type=Path, default=None)
     parsed_arguments = parser.parse_args()
-    outcome_counts = sync_links(parsed_arguments.claude_home, parsed_arguments.agents_home)
+    agents_home = parsed_arguments.agents_home or default_agents_home(parsed_arguments.claude_home)
+    outcome_counts = sync_links(parsed_arguments.claude_home, agents_home)
     print(
         SUMMARY_REPORT.format(
             linked=outcome_counts[LINKED_OUTCOME],
