@@ -273,6 +273,11 @@ test('CORE_SKILLS ships test-runner for explicit Django and Playwright readiness
     assert.equal(INSTALL_GROUPS.core.skills.includes('test-runner'), true);
 });
 
+test('CORE_SKILLS ships the dev env skills index so a core install finds each skill', () => {
+    assert.ok(CORE_SKILLS.includes('dev-env-skills-index'));
+    assert.equal(INSTALL_GROUPS.core.skills.includes('dev-env-skills-index'), true);
+});
+
 
 test('EVER_SHIPPED_SKILL_NAMES retains imagegen so reinstall prunes the retired skill', () => {
     assert.ok(

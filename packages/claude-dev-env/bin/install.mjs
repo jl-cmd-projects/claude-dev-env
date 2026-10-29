@@ -259,6 +259,7 @@ export const CORE_SKILLS = [
     'eli5',
     'efficient-review',
     'pr-visual',
+    'dev-env-skills-index',
 ];
 
 export function collectPackageSourceConflicts(packageDirectory) {
