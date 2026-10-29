@@ -24,7 +24,6 @@ from dev_env_scripts_constants.instruction_budget_constants import (
 )
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from instruction_budget import (
-    changes_markdown_file,
     check_repository,
     finding_line,
     main,
@@ -476,46 +475,54 @@ def test_a_file_linked_from_a_scoped_rule_is_one_hop_out(tmp_path: Path) -> None
     assert distances[guide_path] == 1
 
 
-def test_check_repository_rechecks_nesting_for_every_instruction_file(
-    tmp_path: Path,
-) -> None:
-    repository_root = tmp_path.resolve()
-    agents_path = _write(repository_root / "AGENTS.md", "[a](docs/a.md)\n")
-    _write(repository_root / "docs" / "a.md", "[b](b.md)\n")
-    _write(repository_root / "docs" / "b.md", "[deep](deep/AGENTS.md)\n")
-    _write(repository_root / "docs" / "deep" / "AGENTS.md", "# Deep\n")
-    notes_path = _write(repository_root / "notes.txt", "x\n")
-    config = _config(max_link_hops=2)
-    after_instruction_change = check_repository(repository_root, config, [agents_path])
-    assert [each.file_path for each in after_instruction_change] == [
-        "docs/deep/AGENTS.md"
-    ]
-    assert check_repository(repository_root, config, [notes_path]) == []
-
-
-def test_check_repository_rechecks_nesting_when_only_a_linked_doc_changes(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    "changed_name",
+    ["AGENTS.md", "docs/a.md", "docs/gone.md", "notes.txt", "instruction-budget.json"],
+)
+def test_check_repository_checks_the_whole_tree_for_nesting_whatever_the_change(
+    tmp_path: Path, changed_name: str
 ) -> None:
     repository_root = tmp_path.resolve()
     _write(repository_root / "AGENTS.md", "[a](docs/a.md)\n")
-    middle_path = _write(repository_root / "docs" / "a.md", "[b](b.md)\n")
+    _write(repository_root / "docs" / "a.md", "[b](b.md)\n")
     _write(repository_root / "docs" / "b.md", "[deep](deep/AGENTS.md)\n")
     _write(repository_root / "docs" / "deep" / "AGENTS.md", "# Deep\n")
+    _write(repository_root / "notes.txt", "x\n")
     all_findings = check_repository(
-        repository_root, _config(max_link_hops=2), [middle_path]
+        repository_root, _config(max_link_hops=2), [repository_root / changed_name]
     )
     assert [each.file_path for each in all_findings] == ["docs/deep/AGENTS.md"]
 
 
-def test_changes_markdown_file_ignores_missing_and_non_markdown_paths(
+def test_check_repository_checks_nesting_when_nothing_changed(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "[a](a.md)\n")
+    _write(repository_root / "a.md", "[deep](deep/AGENTS.md)\n")
+    _write(repository_root / "deep" / "AGENTS.md", "# Deep\n")
+    all_findings = check_repository(repository_root, _config(max_link_hops=1), [])
+    assert [each.file_path for each in all_findings] == ["deep/AGENTS.md"]
+
+
+def test_launch_files_skip_an_import_outside_the_repository(tmp_path: Path) -> None:
+    repository_root = (tmp_path / "repo").resolve()
+    repository_root.mkdir()
+    outside_path = _write(tmp_path / "shared" / "AGENTS.md", "x" * 500)
+    inside_path = _write(repository_root / "inside.md", "# Inside\n")
+    agents_path = _write(
+        repository_root / "AGENTS.md", f"@{inside_path.name}\n@{outside_path}\n"
+    )
+    assert launch_files(repository_root, _config()) == [agents_path, inside_path]
+
+
+def test_scoped_instruction_files_skip_a_changed_name_too_long_for_the_system(
     tmp_path: Path,
 ) -> None:
     repository_root = tmp_path.resolve()
-    guide_path = _write(repository_root / "guide.md", "x\n")
-    notes_path = _write(repository_root / "notes.txt", "x\n")
-    missing_path = repository_root / "gone.md"
-    assert changes_markdown_file([notes_path, missing_path]) is False
-    assert changes_markdown_file([notes_path, guide_path]) is True
+    agents_path = _write(repository_root / "AGENTS.md", "# Agents\n")
+    long_path = repository_root / ("a" * 300 + ".md")
+    assert scoped_instruction_files(
+        repository_root, _config(), [long_path, agents_path]
+    ) == [agents_path]
 
 
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:

@@ -2,15 +2,15 @@
 """PostToolUse warning: a written instruction file breaks the budget, names a person, or nests too deep.
 
 This hook never blocks. It runs after each Write, Edit, or MultiEdit. When the
-file is an instruction file, a file a launch file imports, or any other markdown
-file a link can pass through, in a repository that has
-``instruction-budget.json``, it runs the same checks the CI workflow runs and
+file is an instruction file, a file a launch file imports, any other markdown
+file a link can pass through, or the budget file itself, in a repository that
+has ``instruction-budget.json``, it runs the same checks the CI workflow runs and
 adds one line per finding to the agent's context::
 
     AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
 
-Quiet paths: a file that is not markdown and that an agent does not load as
-instructions, a repository without the budget file, a budget file that holds no
+Quiet paths: a file that is not markdown, not the budget file, and not loaded
+as instructions, a repository without the budget file, a budget file that holds no
 valid limits, a read error during the check, a file that passes every check, and
 a budget finding on a file the launch total leaves out each emit nothing.
 """
@@ -31,6 +31,7 @@ if _scripts_directory not in sys.path:
 from dev_env_scripts_constants.followup_constants import INSTRUCTION_BUDGET_RULE_ID
 from dev_env_scripts_constants.instruction_budget_constants import (
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+    MARKDOWN_SUFFIX,
 )
 from hooks_constants.instruction_file_write_warning_constants import (
     CONTEXT_HEADER_TEMPLATE,
@@ -40,7 +41,7 @@ from hooks_constants.instruction_file_write_warning_constants import (
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from instruction_budget import changes_markdown_file, check_repository, finding_line
+from instruction_budget import check_repository, finding_line
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
@@ -78,7 +79,8 @@ def _findings_for(
         if (
             not is_launch_file
             and not is_instruction_file(written_path, repository_root, config)
-            and not changes_markdown_file([written_path])
+            and written_path.suffix != MARKDOWN_SUFFIX
+            and written_path.name != INSTRUCTION_BUDGET_CONFIG_FILE_NAME
         ):
             return []
         all_findings = check_repository(repository_root, config, [written_path])

@@ -17,6 +17,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     ANCHOR_SEPARATOR,
     EXTERNAL_TARGET_PATTERN,
     IMPORT_HOP_COST,
+    IMPORT_PATTERN,
     INLINE_CODE_SPAN_PATTERN,
     LINK_HOP_COST,
     MARKDOWN_LINK_PATTERN,
@@ -26,7 +27,6 @@ from dev_env_scripts_constants.instruction_budget_constants import (
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionFinding,
-    import_targets,
     is_existing_file,
     read_text_outside_fences,
     root_files,
@@ -63,7 +63,7 @@ def _targets_with_costs(
         source_path, repository_root, all_link_targets
     )
     all_imported = _existing_markdown_files(
-        source_path, repository_root, import_targets(text_outside_code)
+        source_path, repository_root, IMPORT_PATTERN.findall(text_outside_code)
     )
     return [(each_path, LINK_HOP_COST) for each_path in all_linked] + [
         (each_path, IMPORT_HOP_COST) for each_path in all_imported

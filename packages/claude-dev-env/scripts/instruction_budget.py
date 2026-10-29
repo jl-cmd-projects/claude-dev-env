@@ -6,9 +6,9 @@ A repository opts in with ``instruction-budget.json`` at its root::
 
 The budget counts the bytes an agent loads at launch: each entry instruction
 file, its ``@`` imports, and each rule without ``paths:`` frontmatter. The name
-check runs on the instruction files the caller names. A change to any instruction
-file, or to any markdown file a link can pass through, rechecks the nesting of
-every instruction file, since one edited link moves the files behind it.
+check runs on the instruction files the caller names. The nesting check covers
+every instruction file on every run, since one edited, deleted, or added link
+moves the files behind it, and so does a new cap in the budget file.
 
 The CI workflow ``instruction-budget.yml`` runs this on the changed files of a
 pull request. The write-time hook ``instruction_file_write_warning.py`` runs it
@@ -31,7 +31,6 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     FINDING_LINE_TEMPLATE,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     MALFORMED_CONFIG_MESSAGE_TEMPLATE,
-    MARKDOWN_SUFFIX,
     MISSING_CONFIG_MESSAGE_TEMPLATE,
     PASSED_MESSAGE,
 )
@@ -41,6 +40,7 @@ from instruction_budget_files import (
     InstructionFinding,
     budget_findings,
     instruction_files,
+    is_existing_file,
     is_instruction_file,
     launch_files,
     load_config,
@@ -69,7 +69,7 @@ def scoped_instruction_files(
     return [
         each_path
         for each_path in all_changed_files
-        if each_path.is_file()
+        if is_existing_file(each_path)
         and (
             is_instruction_file(each_path, repository_root, config)
             or each_path in all_launch
@@ -77,51 +77,32 @@ def scoped_instruction_files(
     ]
 
 
-def changes_markdown_file(all_changed_files: Iterable[Path]) -> bool:
-    """Say whether the change touches a markdown file that still exists.
-
-    A link can pass through any markdown file, so an edit to one moves the
-    hop count of the instruction files behind it.
-
-    Args:
-        all_changed_files: Resolved paths the change touched.
-
-    Returns:
-        True when an existing changed file ends in ``.md``.
-    """
-    return any(
-        each_path.suffix == MARKDOWN_SUFFIX and each_path.is_file()
-        for each_path in all_changed_files
-    )
-
-
 def check_repository(
     repository_root: Path,
     config: InstructionBudgetConfig,
     all_changed_files: Iterable[Path],
 ) -> list[InstructionFinding]:
-    """Run the budget check, the name check on changed instruction files, and the nesting check.
+    """Run the budget and nesting checks on the whole tree, and the name check on changed files.
 
     Args:
         repository_root: Resolved repository root.
         config: The repository's budget limits.
         all_changed_files: Resolved paths the change touched. Paths that are
-            missing, or that an agent does not load as instructions, are skipped.
+            missing, or that an agent does not load as instructions, skip the
+            name check.
 
     Returns:
         Every finding, budget first, then names, then nesting.
     """
-    all_changed = list(all_changed_files)
-    all_scoped_files = scoped_instruction_files(repository_root, config, all_changed)
-    all_nesting_files = (
-        instruction_files(repository_root, config)
-        if all_scoped_files or changes_markdown_file(all_changed)
-        else []
+    all_scoped_files = scoped_instruction_files(
+        repository_root, config, all_changed_files
     )
     return (
         budget_findings(repository_root, config)
         + personal_name_findings(repository_root, all_scoped_files)
-        + nesting_findings(repository_root, config, all_nesting_files)
+        + nesting_findings(
+            repository_root, config, instruction_files(repository_root, config)
+        )
     )
 
 

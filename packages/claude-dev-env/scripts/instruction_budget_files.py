@@ -216,32 +216,28 @@ def is_existing_file(path: Path) -> bool:
         return False
 
 
-def _imported_paths(source_path: Path) -> list[Path]:
-    return [
-        (source_path.parent / each_target).resolve()
-        for each_target in import_targets(read_text_outside_fences(source_path))
-    ]
-
-
-def _unseen_imports(all_sources: list[Path], all_found: dict[Path, None]) -> list[Path]:
+def _unseen_imports(
+    all_sources: list[Path], all_found: dict[Path, None], repository_root: Path
+) -> list[Path]:
     all_candidates = [
-        each_path
+        (each_source.parent / each_target).resolve()
         for each_source in all_sources
-        for each_path in _imported_paths(each_source)
+        for each_target in import_targets(read_text_outside_fences(each_source))
     ]
     all_unseen: list[Path] = []
     for each_path in all_candidates:
-        if is_existing_file(each_path) and each_path not in all_found:
+        is_inside = repository_root in each_path.parents
+        if is_inside and is_existing_file(each_path) and each_path not in all_found:
             all_found[each_path] = None
             all_unseen.append(each_path)
     return all_unseen
 
 
-def _import_closure(all_starts: list[Path]) -> list[Path]:
+def _import_closure(all_starts: list[Path], repository_root: Path) -> list[Path]:
     all_found = {each_start: None for each_start in all_starts if each_start.is_file()}
     all_current = list(all_found)
     for each_hop in range(MAX_IMPORT_HOPS):
-        all_current = _unseen_imports(all_current, all_found)
+        all_current = _unseen_imports(all_current, all_found, repository_root)
     return list(all_found)
 
 
@@ -282,11 +278,13 @@ def launch_files(repository_root: Path, config: InstructionBudgetConfig) -> list
         config: The repository's budget limits, which add its rule folders.
 
     Returns:
-        Each entry file and unscoped rule, then the files they import, once each.
+        Each entry file and unscoped rule, then the files inside the repository
+        they import, once each.
     """
-    return _import_closure(
-        _entry_files(repository_root) + _unscoped_rule_files(repository_root, config)
+    all_starts = _entry_files(repository_root) + _unscoped_rule_files(
+        repository_root, config
     )
+    return _import_closure(all_starts, repository_root)
 
 
 def measure_launch_bytes(repository_root: Path, config: InstructionBudgetConfig) -> int:

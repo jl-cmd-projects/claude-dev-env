@@ -141,3 +141,18 @@ def test_a_linked_markdown_doc_that_pushes_a_file_past_the_cap_gets_a_nesting_wa
     context = _additional_context(_run_hook(middle_path))
     assert "[instruction-nesting]" in context
     assert "deep/AGENTS.md" in context
+
+
+def test_a_tighter_hop_cap_in_the_budget_file_gets_a_nesting_warning(
+    tmp_path: Path,
+) -> None:
+    config_path = _write(
+        tmp_path / "instruction-budget.json",
+        '{"max_launch_bytes": 100000, "max_link_hops": 1}',
+    )
+    _write(tmp_path / "AGENTS.md", "[one](one.md)\n")
+    _write(tmp_path / "one.md", "[deep](deep/AGENTS.md)\n")
+    _write(tmp_path / "deep" / "AGENTS.md", "# Deep\n")
+    context = _additional_context(_run_hook(config_path))
+    assert "[instruction-nesting]" in context
+    assert "deep/AGENTS.md" in context
