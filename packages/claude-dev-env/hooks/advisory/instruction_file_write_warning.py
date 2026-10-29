@@ -75,13 +75,14 @@ def _repository_root(written_path: Path) -> Path | None:
 def _findings_for(
     repository_root: Path, written_path: Path, config: InstructionBudgetConfig
 ) -> list[InstructionFinding]:
+    is_budget_file = written_path.name == INSTRUCTION_BUDGET_CONFIG_FILE_NAME
     try:
         is_launch_file = written_path in launch_files(repository_root, config)
         if (
             not is_launch_file
+            and not is_budget_file
             and not is_instruction_file(written_path, repository_root, config)
             and written_path.suffix != MARKDOWN_SUFFIX
-            and written_path.name != INSTRUCTION_BUDGET_CONFIG_FILE_NAME
         ):
             return []
         all_findings = findings_caused_by(repository_root, config, written_path)
@@ -90,7 +91,7 @@ def _findings_for(
     return [
         each_finding
         for each_finding in all_findings
-        if each_finding.rule_id != INSTRUCTION_BUDGET_RULE_ID or is_launch_file
+        if each_finding.rule_id != INSTRUCTION_BUDGET_RULE_ID or is_launch_file or is_budget_file
     ]
 
 

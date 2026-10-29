@@ -169,3 +169,13 @@ def test_a_markdown_write_stays_silent_about_nesting_it_did_not_cause(
     _write(tmp_path / "deep" / "AGENTS.md", "# Deep\n")
     unrelated_path = _write(tmp_path / "docs" / "guide.md", "# Guide\n")
     assert _run_hook(unrelated_path) == ""
+
+
+def test_a_lower_launch_cap_in_the_budget_file_gets_a_budget_warning(
+    tmp_path: Path,
+) -> None:
+    config_path = _write(tmp_path / "instruction-budget.json", '{"max_launch_bytes": 10}')
+    _write(tmp_path / "AGENTS.md", "x" * 50)
+    context = _additional_context(_run_hook(config_path))
+    assert "[instruction-budget]" in context
+    assert "over the cap of 10" in context

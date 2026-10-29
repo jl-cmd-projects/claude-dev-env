@@ -1,7 +1,8 @@
 """Find the lines of an instruction file that name a person.
 
 A name is matched as a whole word against stored digests. The digests keep the
-plain name out of the repository text and out of a text search.
+plain name out of the repository text and out of a text search. They do not hide
+a short name from someone who hashes guesses.
 """
 
 from __future__ import annotations
