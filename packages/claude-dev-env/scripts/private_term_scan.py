@@ -109,8 +109,8 @@ def scan_commits(repository_root: Path, commit_range: str) -> list[str]:
         One finding per commit identity or message line that names a private
         organization. An identity address ending in users.noreply.github.com
         is left out of the scan, since GitHub builds it from the account handle.
-        The owner's own handle passes in an identity and still fails in a
-        message.
+        The owner's own handle and the shared agent account email pass in an
+        identity and still fail in a message.
     """
     log_text = subprocess.run(
         ["git", "-C", str(repository_root), "log", "--reverse", COMMIT_LOG_FORMAT, commit_range],

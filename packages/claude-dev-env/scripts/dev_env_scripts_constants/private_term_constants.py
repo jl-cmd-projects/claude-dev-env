@@ -30,12 +30,13 @@ OWNER_HANDLE_DIGEST = PrivateTermDigest(
     length=7,
     sha256="d526db5593d5986500e4770cb6018f2d33c459ed93657487958a6086e52e6147",
 )
+AGENT_ACCOUNT_EMAIL_DIGEST = PrivateTermDigest(
+    length=10,
+    sha256="c2a70b3186691a74dece4ca824bec178bfaec83be119be28faedd14aa392233f",
+)
 ALL_PRIVATE_TERM_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
     {
-        PrivateTermDigest(
-            length=10,
-            sha256="c2a70b3186691a74dece4ca824bec178bfaec83be119be28faedd14aa392233f",
-        ),
+        AGENT_ACCOUNT_EMAIL_DIGEST,
         PrivateTermDigest(
             length=16,
             sha256="182cb82e3e973d041b8527659064153f8c4af79503bd198508d3655d9a932fdf",
@@ -48,7 +49,7 @@ ALL_PRIVATE_TERM_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
     }
 )
 ALL_COMMIT_IDENTITY_ACCEPTED_DIGESTS: frozenset[PrivateTermDigest] = frozenset(
-    {OWNER_HANDLE_DIGEST}
+    {OWNER_HANDLE_DIGEST, AGENT_ACCOUNT_EMAIL_DIGEST}
 )
 PRIVATE_TERM_TEXT_ENCODING = "utf-8"
 PRIVATE_TERM_FINDING_CODE = "private-term"
