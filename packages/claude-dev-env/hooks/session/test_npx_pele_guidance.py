@@ -237,3 +237,11 @@ def test_hook_is_silent_on_malformed_stdin(tmp_path: Path) -> None:
     completed = _run_hook("not json", tmp_path)
     assert completed.returncode == 0
     assert completed.stdout == ""
+
+
+def test_pele_argument_outside_the_package_slot_gets_only_the_hint(tmp_path: Path) -> None:
+    completed = _run_hook(json.dumps(_payload("npx prettier --check pele")), tmp_path)
+    assert completed.returncode == 0
+    hook_output = json.loads(completed.stdout)
+    assert "permissionDecision" not in hook_output["hookSpecificOutput"]
+    assert "playground at pele.run" in hook_output["hookSpecificOutput"]["additionalContext"]

@@ -114,6 +114,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/verify_before_commit_gate.py",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/npx_pele_guidance.py",
+            "timeout": 10
           }
         ]
       },
@@ -265,16 +270,6 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/artifact_template_pointer.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/npx_pele_guidance.py",
             "timeout": 10
           }
         ]
