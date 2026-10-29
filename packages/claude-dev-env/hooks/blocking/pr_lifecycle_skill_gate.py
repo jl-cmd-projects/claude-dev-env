@@ -331,6 +331,8 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
 
         pr-lifecycle skill not loaded                     -> DENY_REASON
         new pull request with no proof section            -> MISSING_PROOF_REASON
+        proof says not run                                -> UNPROVEN_PROOF_REASON
+        proof or Not covered moves a check past the merge -> DEFERRED_PROOF_REASON
         new pull request with no existing-work section    -> MISSING_EXISTING_WORK_REASON
         feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON

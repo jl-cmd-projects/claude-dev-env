@@ -63,7 +63,30 @@ TEST_ONLY_PROOF_REASON = (
     " command in backticks and quote the output lines that show the difference. Keep the"
     " test run in the section as extra evidence. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
-UNPROVEN_ADMISSION_PATTERN = r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+_LIST_MARKER = r"^\s*(?:(?:[-*>]|\d+[.)])\s*)*"
+NOT_RUN_LINE_PATTERN = _LIST_MARKER + r"not (?:(?:yet|been) )*(?:run|ran|exercised|executed)(?![\w-])"
+UNPROVEN_ADMISSION_PATTERN = (
+    r"\b(?:not (?:(?:yet|been|fully) )*(?:proven|tested|verified)|unproven|untested|unverified)\b"
+    r"|"
+    + NOT_RUN_LINE_PATTERN
+    + r"|\b(?:has|have)(?: not|n't) (?:yet )?been (?:run|exercised|executed)(?![\w-])"
+)
+_ACTIVE_CHECK_VERB = r"(?:checks?|verif(?:y|ies)|confirms?|seeds?|dispatch(?:es)?)"
+_STARTING_CHECK_VERB = r"(?:checked|verified|confirmed|seeded|dispatched|proved|tested)"
+_PASSIVE_CHECK_VERB = r"(?:is|are|be|gets?)\s+" + _STARTING_CHECK_VERB
+_MERGE_TRIGGER = (
+    r"(?:\b(?:after|once)\s+(?:(?:the|this|my|it|that)\s+)?(?:(?:pull request|PR|change|branch)\s+)?"
+    r"(?:(?:is|gets)\s+)?(?:merged?|merges|lands?|landed)\b(?! queue)(?!\s+of\s+\S+\s+(?:in|into)\b)"
+    r"|\b(?:after|once)\s+merging\b(?!\s+(?:\S+\s+)?(?:in|into)\b)"
+    r"|\bon merge\b(?! queue)|\bpost[- ]?merge\b(?!\s+(?:hook|step|script|workflow|job|automation|tag|release)\b))"
+)
+_CHECK_VERB = r"\b(?:" + _ACTIVE_CHECK_VERB + r"|" + _PASSIVE_CHECK_VERB + r")\b"
+POST_MERGE_DEFERRAL_PATTERN = (
+    _CHECK_VERB + r"[^\n]{0,60}" + _MERGE_TRIGGER
+    + r"|" + _MERGE_TRIGGER + r"[^\n]{0,60}" + _CHECK_VERB
+    + r"|" + _LIST_MARKER + _STARTING_CHECK_VERB + r"\b[^\n]{0,60}" + _MERGE_TRIGGER
+)
+NOT_COVERED_HEADING_PATTERN = r"^(#{1,6})[ \t]+not covered[ \t]*:?[ \t]*#*[ \t]*$"
 INLINE_CODE_SPAN_PATTERN = r"`[^`\n]*`"
 BLOCKQUOTE_MARKERS = "> "
 ALL_CODE_FENCE_MARKERS = ("```", "~~~")
@@ -74,6 +97,13 @@ UNPROVEN_PROOF_REASON = (
     " its output, then open the pull request. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
     " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+DEFERRED_PROOF_REASON = (
+    "This pull request pushes a check to after the merge: \"{deferral}\". Run that check"
+    " on the branch before the review request, then quote its output under 'Proof in"
+    " practice'. A 'Not covered' heading holds a condition the change leaves out. Only a step"
+    " that needs the merged code to exist waits."
+    " Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
