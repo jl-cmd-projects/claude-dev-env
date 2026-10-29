@@ -1,6 +1,6 @@
 ---
 name: sync-dev-env
-description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, when a /skill fails to resolve, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
+description: Install or update claude-dev-env in a running session, link every enabled plugin's skills so a running session loads them, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to load the skills of a plugin without a restart, when a /skill fails to resolve, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
 argument-hint: "[HH:MM] [IANA time zone]"
 ---
 

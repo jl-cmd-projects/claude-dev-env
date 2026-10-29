@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.108.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.2...claude-dev-env-v8.108.3) (2026-10-29)
+
+
+### Documentation
+
+* **skills:** keep every trigger phrase in three descriptions ([#2226](https://github.com/jl-cmd-projects/claude-dev-env/issues/2226)) ([c8b2a90](https://github.com/jl-cmd-projects/claude-dev-env/commit/c8b2a900dcffd9df0c308ae0755b212b27da0316))
+
+## [8.108.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.1...claude-dev-env-v8.108.2) (2026-10-29)
+
+
+### Documentation
+
+* link orphan pages and drop repeated sentences ([#2223](https://github.com/jl-cmd-projects/claude-dev-env/issues/2223)) ([62fc358](https://github.com/jl-cmd-projects/claude-dev-env/commit/62fc3583f8767a16a3bfb331b9a4f79f9c70bd33))
+
 ## [8.108.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.0...claude-dev-env-v8.108.1) (2026-10-29)
 
 

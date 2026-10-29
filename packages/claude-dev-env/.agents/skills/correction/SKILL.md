@@ -1,6 +1,6 @@
 ---
 name: correction
-description: Turn a correction the user made to an agent into a Suggested task card that starts a fix session in one click, list the corrections filed as issues before the card, write a handoff brief, or land the fix in this session with the fix playbook. Use when the user types /correction, /correction fix, says "file this as a correction", or asks to show the open corrections.
+description: Turn a correction into a Suggested task card that starts a fix session in one click, list the corrections filed as issues, write a handoff brief, or land the fix in this session with the fix playbook. Use when the user types /correction, /correction fix, says "file this as a correction", or asks to show the open corrections.
 argument-hint: "[fix] <what the agent got wrong, in the user's words>"
 ---
 

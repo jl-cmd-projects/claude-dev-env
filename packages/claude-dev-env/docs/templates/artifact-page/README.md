@@ -5,8 +5,8 @@ Three templates live here. Pick the one that fits the ask before you write a lin
 | Ask | Template |
 |---|---|
 | A status or progress report on one piece of work: what is done, where it is stuck, and what comes next. Prefer it for every such report unless the person asks for another shape | `status-flowchart.html` |
-| A tracker, board, review page or dashboard that lists many items for people to read and click | `template.html` |
-| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | `diagram.html` |
+| A tracker, board, review page or dashboard that lists many items for people to read and click | [`template.html`](template.html) |
+| A picture of how things connect: a map, a flow, who calls what, old next to new. Also any ask for "only visuals" or "no words" | [`diagram.html`](diagram.html) |
 
 `diagram.html` draws the content in inline SVG: boxes for things, arrows for links, and color for state. Labels are a few words. Text in bordered cards is a tracker, so it never answers a visual-only ask.
 
