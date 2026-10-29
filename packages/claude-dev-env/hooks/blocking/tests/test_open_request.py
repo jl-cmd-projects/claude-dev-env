@@ -235,15 +235,18 @@ def test_should_ignore_a_checkout_remote_that_only_contains_a_github_url(
     assert open_request_from(_create_payload("feature", checkout)).head is None
 
 
-def test_should_list_the_branch_from_the_literal_remote_url_outside_the_checkout(
+def test_should_list_the_branch_from_the_literal_remote_url_in_an_empty_folder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_calls: list[tuple[list[str], object]] = []
+    monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+    monkeypatch.delenv("GIT_SSH", raising=False)
+    all_calls: list[tuple[list[str], object, bool]] = []
 
     def stand_in_run(
         all_arguments: list[str], **keyword_arguments: object
     ) -> subprocess.CompletedProcess[str]:
-        all_calls.append((list(all_arguments), keyword_arguments["cwd"]))
+        folder = keyword_arguments["cwd"]
+        all_calls.append((list(all_arguments), folder, folder is not None and Path(folder).is_dir()))
         if "--get-regexp" in all_arguments:
             remote_line = "remote.origin.url git@github.com:acme/tools.git\n"
             return _completed(all_arguments, keyword_arguments, remote_line)
@@ -251,10 +254,18 @@ def test_should_list_the_branch_from_the_literal_remote_url_outside_the_checkout
 
     monkeypatch.setattr(subprocess, "run", stand_in_run)
     open_request_from(_create_payload("feature", tmp_path))
-    all_listings = [each_call for each_call in all_calls if "ls-remote" in each_call[0]]
-    assert all_listings == [
-        (["git", "ls-remote", "--", "git@github.com:acme/tools.git", "refs/heads/feature"], None)
+    all_outside_calls = [each_call for each_call in all_calls if "--get-regexp" not in each_call[0]]
+    assert [each_call[0][1] for each_call in all_outside_calls] == ["config", "ls-remote"]
+    assert all_outside_calls[-1][0] == [
+        "git",
+        "ls-remote",
+        "--",
+        "git@github.com:acme/tools.git",
+        "refs/heads/feature",
     ]
+    for each_call in all_outside_calls:
+        assert each_call[2]
+        assert each_call[1] != str(tmp_path)
 
 
 def test_should_read_a_branch_through_a_checkout_remote_that_names_a_user(
@@ -331,18 +342,31 @@ def test_should_read_the_local_branch_before_a_stale_remote_tracking_branch_when
     )
 
 
-def test_should_read_a_fork_branch_through_a_checkout_remote_of_a_renamed_fork(
+def test_should_ignore_a_remote_of_the_fork_owner_that_is_another_repository(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     checkout = _checkout_on(tmp_path, "feature")
-    head = _commit(checkout, "fork")
+    _commit(checkout, "fork")
     github = tmp_path / "github.com"
     _git(checkout, "push", "--quiet", str(_bare_remote(github, "someone", "tools-fork")), "feature")
     _git(checkout, "remote", "add", "fork", "git@github.com:someone/tools-fork.git")
     _redirect_ssh_only(monkeypatch, github, tmp_path / "unreachable")
-    assert open_request_from(_create_payload("someone:feature", checkout)) == OpenRequest(
-        owner="acme", repo="tools", head=head
+    assert open_request_from(_create_payload("someone:feature", checkout)).head is None
+
+
+def test_should_ignore_a_remote_url_whose_user_part_hides_another_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    github = tmp_path / "github.com"
+    _git(checkout, "push", "--quiet", str(_bare_remote(github, "acme")), "feature")
+    disguised_prefix = "https://other.example#@github.com/"
+    _git(checkout, "remote", "add", "origin", f"{disguised_prefix}acme/tools.git")
+    _redirect_prefixes(
+        monkeypatch, [("https://github.com/", tmp_path / "unreachable"), (disguised_prefix, github)]
     )
+    assert open_request_from(_create_payload("feature", checkout)).head is None
 
 
 def test_should_prefer_the_fork_remote_named_like_the_base_repository(

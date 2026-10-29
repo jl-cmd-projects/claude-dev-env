@@ -37,7 +37,7 @@ ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
 GITHUB_REMOTE_URL_PATTERN = re.compile(
-    r"(?:https://(?:[^/@\s]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)"
+    r"(?:https://(?:[A-Za-z0-9._~%!$&'()*+,;=:-]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)"
     r"(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?"
 )
 GIT_TIMEOUT_SECONDS = 3

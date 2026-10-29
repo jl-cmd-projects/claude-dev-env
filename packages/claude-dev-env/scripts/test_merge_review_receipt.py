@@ -310,6 +310,7 @@ def test_should_name_the_path_form_when_a_ruling_is_malformed_not_missing(
         )
     error_text = capsys.readouterr().err
     assert "docs\\notes.txt:1" in error_text
+    assert "segment" in error_text
     assert "run this in the checkout" not in error_text
 
 

@@ -303,7 +303,9 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     Returns:
         The hook output that denies the call, or None to allow it.
     """
-    open_request = open_request_from(all_payload_fields)
+    open_request = open_request_from(
+        all_payload_fields, needs_head=lambda slug: not _is_exempt(slug)
+    )
     merge_request = merge_request_from(all_payload_fields)
     reason = (open_deny_reason(open_request) if open_request is not None else None) or (
         deny_reason(merge_request) if merge_request is not None else None

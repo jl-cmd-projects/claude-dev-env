@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -78,7 +79,14 @@ class _CheckoutRemote:
     repo: str
 
 
-def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | None:
+def _needs_every_head(slug: str) -> bool:
+    return True
+
+
+def open_request_from(
+    all_payload_fields: dict[str, object],
+    needs_head: Callable[[str], bool] = _needs_every_head,
+) -> OpenRequest | None:
     """Read the pull request open a PreToolUse payload asks for.
 
     ::
@@ -87,19 +95,15 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         gh pr create --repo o/r --head branch
         python pull_request.py create --repo o/r --head branch
 
-    A branch resolves to the commit GitHub lists for it. The lookup reads the
-    https or SSH github.com URL of a remote of the payload's folder or a ``cd``
-    target that names the same owner and repository, else
-    https://github.com. A fork head ``user:branch`` reads a remote URL of that
-    owner, the one named like the base repository first, else the fork named
-    like the base repository. Other remote URLs are ignored. When GitHub lists
-    no such branch, the checkout's local branch, then ``origin/<branch>``,
-    resolves it. A failed lookup reads no head. No head means the current
-    branch, or the checked-out commit when HEAD is detached; no repository,
-    ``origin``.
+    A branch resolves to the commit GitHub lists for it, through a github.com
+    https or SSH remote of the folder that names the same repository, else
+    https://github.com. A failed lookup reads no head. No head means the
+    current branch, or the checked-out commit when HEAD is detached; no
+    repository, ``origin``. A repository ``needs_head`` rejects gets no lookup.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
+        needs_head: Whether a repository slug needs its head read.
 
     Returns:
         The open request, or None when the call opens no pull request.
@@ -111,23 +115,29 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     working_folder = all_payload_fields.get(CWD_FIELD)
     folder = working_folder if isinstance(working_folder, str) and working_folder else None
     if tool_name.endswith(CREATE_TOOL_SUFFIX):
-        return _tool_open_request(tool_input, folder)
+        return _tool_open_request(tool_input, folder, needs_head)
     command = tool_input.get("command")
     if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
-    return _shell_open_request(command, folder)
+    return _shell_open_request(command, folder, needs_head)
 
 
-def _tool_open_request(all_tool_input: dict[object, object], folder: str | None) -> OpenRequest:
+def _tool_open_request(
+    all_tool_input: dict[object, object], folder: str | None, needs_head: Callable[[str], bool]
+) -> OpenRequest:
     owner = str(all_tool_input.get(OWNER_FIELD, ""))
     repo = str(all_tool_input.get(REPO_FIELD, ""))
     branch = all_tool_input.get(HEAD_BRANCH_FIELD)
     if not isinstance(branch, str) or not branch:
         return OpenRequest(owner=owner, repo=repo, head=None)
-    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder, owner, repo))
+    return OpenRequest(
+        owner=owner, repo=repo, head=_head_of(branch, folder, owner, repo, needs_head)
+    )
 
 
-def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
+def _shell_open_request(
+    command: str, folder: str | None, needs_head: Callable[[str], bool]
+) -> OpenRequest | None:
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
     create_match = GH_PR_CREATE_PATTERN.search(
         options_only
@@ -142,7 +152,17 @@ def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
     )
     head_match = HEAD_OPTION_PATTERN.search(rest)
     branch = head_match["head"] if head_match else CURRENT_HEAD_REFERENCE
-    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder, owner, repo))
+    return OpenRequest(
+        owner=owner, repo=repo, head=_head_of(branch, folder, owner, repo, needs_head)
+    )
+
+
+def _head_of(
+    branch: str, folder: str | None, owner: str, repo: str, needs_head: Callable[[str], bool]
+) -> str | None:
+    if not needs_head(f"{owner}/{repo}"):
+        return None
+    return _branch_commit(branch, folder, owner, repo)
 
 
 def _folder_after_changes(command_before_create: str, folder: str | None) -> str | None:
@@ -182,6 +202,14 @@ def _run_git(
 
 
 def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> str | None:
+    """Return the commit a branch opens with.
+
+    GitHub's listing wins. A fork head ``user:branch`` needs a remote of that
+    owner named like the base repository, else it reads https://github.com.
+    Other remote URLs are ignored, and the listing runs in an empty folder, so
+    no checkout's git config applies. When GitHub lists no such branch, the
+    local branch, then ``origin/<branch>``, resolves it.
+    """
     if ":" in branch:
         return _fork_branch_commit(branch, folder, repo)
     if branch == CURRENT_HEAD_REFERENCE:
@@ -191,7 +219,7 @@ def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> st
         branch = current_branch
     if not owner or not repo:
         return _local_branch_commit(branch, folder)
-    listing = _github_listing(owner, repo, branch, folder, matches_any_repository=False)
+    listing = _github_listing(owner, repo, branch, folder)
     if listing is None:
         return None
     return _listed_commit(listing, branch) or _local_branch_commit(branch, folder)
@@ -201,7 +229,7 @@ def _fork_branch_commit(branch: str, folder: str | None, repo: str) -> str | Non
     fork_owner, _, fork_branch = branch.partition(":")
     if not fork_owner or not repo:
         return None
-    listing = _github_listing(fork_owner, repo, fork_branch, folder, matches_any_repository=True)
+    listing = _github_listing(fork_owner, repo, fork_branch, folder)
     return _listed_commit(listing or "", fork_branch)
 
 
@@ -213,49 +241,43 @@ def _local_commit(reference: str, folder: str | None) -> str | None:
     return _run_git(["rev-parse", "--verify", "--quiet", f"{reference}^{{commit}}"], folder)
 
 
-def _github_listing(
-    owner: str, repo: str, branch_name: str, folder: str | None, matches_any_repository: bool
-) -> str | None:
-    remote_url = _checkout_remote_url(owner, repo, folder, matches_any_repository)
+def _github_listing(owner: str, repo: str, branch_name: str, folder: str | None) -> str | None:
+    remote_url = _checkout_remote_url(owner, repo, folder)
     if remote_url is None:
         remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
-    return _run_git(
-        ["ls-remote", "--", remote_url, reference],
-        None,
-        REMOTE_LOOKUP_TIMEOUT_SECONDS,
-        _non_interactive_ssh_settings(remote_url),
-    )
+    with tempfile.TemporaryDirectory() as empty_folder:
+        return _run_git(
+            ["ls-remote", "--", remote_url, reference],
+            empty_folder,
+            REMOTE_LOOKUP_TIMEOUT_SECONDS,
+            _non_interactive_ssh_settings(remote_url, empty_folder),
+        )
 
 
-def _non_interactive_ssh_settings(remote_url: str) -> dict[str, str]:
+def _non_interactive_ssh_settings(remote_url: str, empty_folder: str) -> dict[str, str]:
     if remote_url.startswith(HTTPS_SCHEME):
         return {}
     if SSH_PROGRAM_VARIABLE in os.environ and SSH_COMMAND_VARIABLE not in os.environ:
         return {}
     ssh_command = (
         os.environ.get(SSH_COMMAND_VARIABLE)
-        or _run_git(list(ALL_SSH_COMMAND_CONFIG_ARGUMENTS), None)
+        or _run_git(list(ALL_SSH_COMMAND_CONFIG_ARGUMENTS), empty_folder)
         or DEFAULT_SSH_COMMAND
     )
     return {SSH_COMMAND_VARIABLE: f"{ssh_command} {SSH_BATCH_OPTION}"}
 
 
-def _checkout_remote_url(
-    owner: str, repo: str, folder: str | None, matches_any_repository: bool
-) -> str | None:
+def _checkout_remote_url(owner: str, repo: str, folder: str | None) -> str | None:
     all_candidates = [
         each_remote
         for each_remote in _checkout_remotes(folder)
         if each_remote.owner.casefold() == owner.casefold()
-        and (matches_any_repository or each_remote.repo.casefold() == repo.casefold())
+        and each_remote.repo.casefold() == repo.casefold()
     ]
     best_candidate = min(
         all_candidates,
-        key=lambda each_remote: (
-            each_remote.repo.casefold() != repo.casefold(),
-            each_remote.name != PREFERRED_REMOTE_NAME,
-        ),
+        key=lambda each_remote: each_remote.name != PREFERRED_REMOTE_NAME,
         default=None,
     )
     return best_candidate.url if best_candidate else None

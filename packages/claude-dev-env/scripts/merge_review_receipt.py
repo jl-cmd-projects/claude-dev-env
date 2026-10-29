@@ -113,10 +113,20 @@ def record_open_review(
     Returns:
         The receipt path written.
     """
+    return _record_open_fields(slug, head, finding_count, ruled_out_count, all_rulings)[0]
+
+
+def _record_open_fields(
+    slug: str,
+    head: str,
+    finding_count: int,
+    ruled_out_count: int,
+    all_rulings: Sequence[str],
+) -> tuple[Path, dict[str, object]]:
     receipt = _receipt_fields(
         head, finding_count, ruled_out_count, RECEIPT_RULING_LINES_KEY, list(all_rulings)
     )
-    return _write_open_receipt(slug, head, receipt)
+    return _write_open_receipt(slug, head, receipt), receipt
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
@@ -198,7 +208,8 @@ def _checked_open_rulings(
     ]
     if all_malformed:
         parser.error(
-            "--rulings needs path:line with a / path and a line from 1, not "
+            "--rulings needs path:line, with / between folders, no backslash, colon, comma "
+            "or . and .. segment in the path, and a line from 1, not "
             f"{RULING_SEPARATOR.join(all_malformed)}"
         )
     if len(set(all_rulings)) != len(all_rulings):
@@ -220,10 +231,10 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    written_path = record_open_review(
+    _, receipt = _record_open_fields(
         parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings
     )
-    if is_clean_open_pass(json.loads(written_path.read_text(encoding="utf-8"))):
+    if is_clean_open_pass(receipt):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"
             if parsed.ruled_out

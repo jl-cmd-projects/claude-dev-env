@@ -475,6 +475,22 @@ def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
     assert _reason(_create_tool(tmp_path, head="missing-branch")) is None
 
 
+def test_should_not_look_up_the_head_of_an_exempt_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remote_folder: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
+    all_commands: list[list[str]] = []
+    run_git = subprocess.run
+
+    def recording_run(all_arguments: list[str], **keyword_arguments: object) -> object:
+        all_commands.append(list(all_arguments))
+        return run_git(all_arguments, **keyword_arguments)
+
+    monkeypatch.setattr(subprocess, "run", recording_run)
+    assert _reason(_create_tool(tmp_path)) is None
+    assert not any("ls-remote" in each_command for each_command in all_commands)
+
+
 def test_should_skip_options_quoted_inside_the_title_or_body(
     branch_checkout: tuple[Path, str],
 ) -> None:
