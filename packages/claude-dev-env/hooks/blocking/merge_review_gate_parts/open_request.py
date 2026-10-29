@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +14,7 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from hooks_constants.merge_review_gate_constants import (
+    ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
     CHANGE_FOLDER_PATTERN,
@@ -21,13 +23,17 @@ from hooks_constants.merge_review_gate_constants import (
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
     GH_PR_CREATE_PATTERN,
+    GITHUB_REMOTE_URL_TEMPLATE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
+    LS_REMOTE_FIELD_SEPARATOR,
     ORIGIN_URL_PATTERN,
     OWNER_FIELD,
     PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     REMOTE_BRANCH_PREFIX,
+    REMOTE_BRANCH_REFERENCE_TEMPLATE,
+    REMOTE_LOOKUP_TIMEOUT_SECONDS,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
 )
@@ -62,8 +68,11 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         gh pr create --repo o/r --head branch
         python pull_request.py create --repo o/r --head branch
 
-    A branch resolves in the payload's folder or a ``cd`` target, as
-    ``origin/<branch>`` first. No head means ``HEAD``; no repository, ``origin``.
+    A tool call reads its head branch from GitHub first. A fork head
+    ``user:branch`` reads the repository of ``user``. A branch GitHub does not
+    list, and every branch of a shell command, resolves in the payload's folder
+    as ``origin/<branch>`` first. A ``cd`` target names the folder. No head
+    means ``HEAD``; no repository, ``origin``.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -86,12 +95,15 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
 
 
 def _tool_open_request(all_tool_input: dict[object, object], folder: str | None) -> OpenRequest:
+    owner = str(all_tool_input.get(OWNER_FIELD, ""))
+    repo = str(all_tool_input.get(REPO_FIELD, ""))
     branch = all_tool_input.get(HEAD_BRANCH_FIELD)
-    return OpenRequest(
-        owner=str(all_tool_input.get(OWNER_FIELD, "")),
-        repo=str(all_tool_input.get(REPO_FIELD, "")),
-        head=_branch_commit(branch, folder) if isinstance(branch, str) and branch else None,
+    head = (
+        _pushed_commit(owner, repo, branch) or _branch_commit(branch, folder)
+        if isinstance(branch, str) and branch
+        else None
     )
+    return OpenRequest(owner=owner, repo=repo, head=head)
 
 
 def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
@@ -151,6 +163,40 @@ def _branch_commit(branch: str, folder: str | None) -> str | None:
             ["rev-parse", "--verify", "--quiet", f"{each_reference}^{{commit}}"], folder
         )
         if commit:
+            return commit
+    return None
+
+
+def _pushed_commit(owner: str, repo: str, branch: str) -> str | None:
+    head_owner, separator, head_branch = branch.partition(":")
+    if not separator:
+        head_owner, head_branch = owner, branch
+    if not head_owner or not repo or not head_branch:
+        return None
+    reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=head_branch)
+    remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=head_owner, repo=repo)
+    with tempfile.TemporaryDirectory() as empty_folder, tempfile.TemporaryFile() as listing:
+        try:
+            subprocess.run(
+                ["git", "ls-remote", remote_url, reference],
+                cwd=empty_folder,
+                stdin=subprocess.DEVNULL,
+                stdout=listing,
+                stderr=subprocess.DEVNULL,
+                timeout=REMOTE_LOOKUP_TIMEOUT_SECONDS,
+                check=False,
+                env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        listing.seek(0)
+        return _listed_commit(listing.read().decode("utf-8", "replace"), reference)
+
+
+def _listed_commit(listing: str, reference: str) -> str | None:
+    for each_line in listing.splitlines():
+        commit, separator, listed_reference = each_line.partition(LS_REMOTE_FIELD_SEPARATOR)
+        if separator and listed_reference == reference:
             return commit
     return None
 

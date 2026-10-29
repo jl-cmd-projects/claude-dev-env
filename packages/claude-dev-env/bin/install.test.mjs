@@ -3036,7 +3036,7 @@ test('pruneRetiredHookEntriesFromSettings warns and returns 0 when the host conf
 const PSTACK_TEST_PACKAGE_ROOT = dirname(fileURLToPath(new URL('./install.mjs', import.meta.url)));
 const PSTACK_TEST_INSTALLER_PATH = fileURLToPath(new URL('./install.mjs', import.meta.url));
 
-test('a failed update preserves an existing skills lookup pointer', () => {
+test('a failed update preserves an existing skills lookup folder of links', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-install-pointer-'));
     try {
         writeFileSync(join(homeDirectory, '.gitconfig'), '');
@@ -3060,16 +3060,23 @@ test('a failed update preserves an existing skills lookup pointer', () => {
             env: environment,
         });
         assert.equal(firstRun.status, 0, firstRun.stdout + firstRun.stderr);
-        const pointerPath = join(homeDirectory, '.claude', 'skills');
-        const targetPath = readlinkSync(pointerPath);
+        const skillsLookupPath = join(homeDirectory, '.claude', 'skills');
+        const skillLinkTargets = new Map(
+            readdirSync(skillsLookupPath)
+                .filter(eachName => lstatSync(join(skillsLookupPath, eachName)).isSymbolicLink())
+                .map(eachName => [eachName, readlinkSync(join(skillsLookupPath, eachName))]),
+        );
+        assert.ok(skillLinkTargets.size > 0);
 
         const failedRun = spawnSync(process.execPath, argumentsForCoreInstall, {
             encoding: 'utf8',
             env: { ...environment, [INSTALL_FAULT_ENV]: FAULT_PHASES.AFTER_FILE_STAGING },
         });
         assert.notEqual(failedRun.status, 0, failedRun.stdout + failedRun.stderr);
-        assert.equal(lstatSync(pointerPath).isSymbolicLink(), true);
-        assert.equal(readlinkSync(pointerPath), targetPath);
+        assert.equal(lstatSync(skillsLookupPath).isDirectory(), true);
+        for (const [eachName, eachTarget] of skillLinkTargets) {
+            assert.equal(readlinkSync(join(skillsLookupPath, eachName)), eachTarget);
+        }
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }

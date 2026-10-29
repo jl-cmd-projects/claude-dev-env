@@ -11,6 +11,7 @@ from context_budget.model import (
     HookBudget,
     SectionScan,
 )
+from hooks_constants.context_budget_constants import DEFAULT_PROSE_LINE_WORD_LIMIT
 
 SKILL_ENTRY_KIND = ContextKind("skill entry", ("**/SKILL.md",), 200, True)
 
@@ -50,6 +51,16 @@ def test_policy_defaults_are_empty() -> None:
     assert policy.baseline_entry_by_path == {}
     assert policy.baseline_characters_by_hook_name == {}
     assert policy.is_baseline_the_prior_text is False
+
+
+def test_policy_prose_line_word_limit_defaults_and_holds_an_override() -> None:
+    bare_policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
+    raised_policy = BudgetPolicy(
+        section_detail_line_limit=12, all_kinds=(), prose_line_word_limit=40
+    )
+
+    assert bare_policy.prose_line_word_limit == DEFAULT_PROSE_LINE_WORD_LIMIT
+    assert raised_policy.prose_line_word_limit == 40
 
 
 def test_measure_and_finding_hold_their_fields() -> None:

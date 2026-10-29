@@ -2,6 +2,10 @@
 
 **When this applies:** Every word you write: chat, commits, pull requests, comments, documentation, headings, and variable names.
 
+## In brief
+
+Never write `real`, `really`, or `real-world`. This ban has no exception. Swapping in `actual`, `actually`, `genuine`, or `true` is the same move, and each is banned with it.
+
 ## Rule
 
 Never write `real`, `really`, or `real-world`. This ban has no exception. Emphasis and contrast are no exception. It covers chat, commits, pull requests, comments, documentation, headings, and variable names.

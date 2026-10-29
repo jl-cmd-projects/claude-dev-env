@@ -2,6 +2,10 @@
 
 **When this applies:** Every answer, claim, and report, in every session.
 
+## In brief
+
+Act and state only on what you or your workers saw, ran, or tested. Settle an open fact with a tool before you answer. When no permitted tool reaches it, name the check and who can run it.
+
 ## Rule
 
 Act and state only on what you or your workers saw, ran, or tested. Never state an unsourced claim.

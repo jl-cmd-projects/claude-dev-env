@@ -15,6 +15,7 @@ import {
     readdirSync,
     realpathSync,
     rmSync,
+    symlinkSync,
     writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,6 +41,15 @@ const SHIPPED_AGENT_FILE_NAME = 'AGENTS.md';
 const RETIRED_AGENT_FILE_NAMES = ['clean-coder.md', 'code-quality-agent.md', 'pr-description-writer.md'];
 const PERSONAL_SKILL_NAME = 'my-notes';
 const REVIEW_PROCEDURE_FILE_NAME = 'high.md';
+
+function entryExistsWithoutFollowing(entryPath) {
+    try {
+        lstatSync(entryPath);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 /**
  * @param {string} homeDirectory
@@ -166,12 +176,17 @@ test('a full install writes skills and agents under .agents and points .claude a
         assert.equal(existsSync(canonicalSkillFile), true, 'skill file lives under .agents/skills');
         assert.equal(existsSync(canonicalEli5SkillFile), true, 'ELI5 skill file lives under .agents/skills');
         assert.equal(existsSync(canonicalAgentFile), true, 'agent file lives under .agents/agents');
-        assert.equal(lstatSync(skillsLookupDirectory).isSymbolicLink(), true);
-        assert.equal(lstatSync(agentsLookupDirectory).isSymbolicLink(), true);
+        assert.equal(lstatSync(skillsLookupDirectory).isDirectory(), true);
+        assert.equal(lstatSync(skillsLookupDirectory).isSymbolicLink(), false);
+        assert.equal(lstatSync(join(skillsLookupDirectory, SHIPPED_SKILL_NAME)).isSymbolicLink(), true);
         assert.equal(
-            isDirectoryPointerTo(skillsLookupDirectory, skillsInstallDirectory),
+            isDirectoryPointerTo(
+                join(skillsLookupDirectory, SHIPPED_SKILL_NAME),
+                join(skillsInstallDirectory, SHIPPED_SKILL_NAME),
+            ),
             true,
         );
+        assert.equal(lstatSync(agentsLookupDirectory).isSymbolicLink(), true);
         assert.equal(
             isDirectoryPointerTo(agentsLookupDirectory, agentsInstallDirectory),
             true,
@@ -381,7 +396,7 @@ test('installs omit retired agents in each active agents home', () => {
     }
 });
 
-test('a real skills directory from an older install lands in .agents and stays readable through the pointer', () => {
+test('a personal skill folder under .claude stays in the Claude folder and is not copied into .agents', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-agents-relocate-'));
     const claudeHome = join(homeDirectory, '.claude');
     const skillsLookupDirectory = join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME);
@@ -398,22 +413,23 @@ test('a real skills directory from an older install lands in .agents and stays r
             homeDirectory, '.agents', MANAGED_SKILLS_DIRECTORY_NAME,
             PERSONAL_SKILL_NAME, 'notes.md',
         );
-        assert.equal(lstatSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME)).isSymbolicLink(), true);
-        assert.equal(existsSync(canonicalPersonalFile), true);
+        assert.equal(lstatSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME)).isSymbolicLink(), false);
+        assert.equal(
+            lstatSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME, PERSONAL_SKILL_NAME)).isSymbolicLink(),
+            false,
+            'the personal skill stays a folder in the Claude folder, not a link',
+        );
+        assert.equal(existsSync(canonicalPersonalFile), false, 'the personal skill is not copied into .agents');
         assert.equal(
             readFileSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME, PERSONAL_SKILL_NAME, 'notes.md'), 'utf8'),
             'keep this personal skill\n',
-        );
-        assert.equal(
-            realpathSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME, PERSONAL_SKILL_NAME, 'notes.md')),
-            realpathSync(canonicalPersonalFile),
         );
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });
     }
 });
 
-test('uninstall removes managed skill files from the agents home and leaves a personal skill reachable through the pointer', () => {
+test('uninstall removes the shipped skills and keeps a personal skill in the Claude folder', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-agents-uninstall-'));
     const claudeHome = join(homeDirectory, '.claude');
     const skillsLookupDirectory = join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME);
@@ -435,18 +451,78 @@ test('uninstall removes managed skill files from the agents home and leaves a pe
             PERSONAL_SKILL_NAME, 'notes.md',
         );
         assert.equal(existsSync(shippedSkillFile), false);
-        assert.equal(existsSync(personalSkillFile), true);
+        assert.equal(existsSync(personalSkillFile), false, 'a personal skill never enters .agents');
         assert.equal(
-            isDirectoryPointerTo(
-                join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME),
-                join(homeDirectory, '.agents', MANAGED_SKILLS_DIRECTORY_NAME),
-            ),
-            true,
-            'the lookup pointer stays so a personal skill remains discoverable',
+            entryExistsWithoutFollowing(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME, SHIPPED_SKILL_NAME)),
+            false,
+            'the shipped skill link is removed',
+        );
+        assert.equal(
+            lstatSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME)).isSymbolicLink(),
+            false,
+            'the Claude skills folder stays a folder, not a link',
         );
         assert.equal(
             readFileSync(join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME, PERSONAL_SKILL_NAME, 'notes.md'), 'utf8'),
             'keep this personal skill\n',
+        );
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('an old skills pointer becomes a folder that links each shipped skill', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-agents-migrate-'));
+    const claudeHome = join(homeDirectory, '.claude');
+    const agentsSkillsDirectory = join(homeDirectory, '.agents', MANAGED_SKILLS_DIRECTORY_NAME);
+    const skillsLookupDirectory = join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME);
+    try {
+        runInstaller(homeDirectory, []);
+        rmSync(skillsLookupDirectory, { recursive: true, force: true });
+        symlinkSync(agentsSkillsDirectory, skillsLookupDirectory, 'dir');
+        assert.equal(lstatSync(skillsLookupDirectory).isSymbolicLink(), true);
+
+        runInstaller(homeDirectory, []);
+
+        assert.equal(lstatSync(skillsLookupDirectory).isSymbolicLink(), false);
+        assert.equal(
+            isDirectoryPointerTo(
+                join(skillsLookupDirectory, SHIPPED_SKILL_NAME),
+                join(agentsSkillsDirectory, SHIPPED_SKILL_NAME),
+            ),
+            true,
+        );
+        assert.equal(
+            readFileSync(join(skillsLookupDirectory, SHIPPED_SKILL_NAME, 'SKILL.md'), 'utf8'),
+            readFileSync(join(agentsSkillsDirectory, SHIPPED_SKILL_NAME, 'SKILL.md'), 'utf8'),
+        );
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a link left behind by a retired skill is removed on the next install', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-agents-retired-link-'));
+    const claudeHome = join(homeDirectory, '.claude');
+    const agentsSkillsDirectory = join(homeDirectory, '.agents', MANAGED_SKILLS_DIRECTORY_NAME);
+    const skillsLookupDirectory = join(claudeHome, MANAGED_SKILLS_DIRECTORY_NAME);
+    try {
+        runInstaller(homeDirectory, []);
+        symlinkSync(
+            join(agentsSkillsDirectory, 'retired-skill'),
+            join(skillsLookupDirectory, 'retired-skill'),
+            'dir',
+        );
+
+        runInstaller(homeDirectory, []);
+
+        assert.equal(entryExistsWithoutFollowing(join(skillsLookupDirectory, 'retired-skill')), false);
+        assert.equal(
+            isDirectoryPointerTo(
+                join(skillsLookupDirectory, SHIPPED_SKILL_NAME),
+                join(agentsSkillsDirectory, SHIPPED_SKILL_NAME),
+            ),
+            true,
         );
     } finally {
         rmSync(homeDirectory, { recursive: true, force: true });

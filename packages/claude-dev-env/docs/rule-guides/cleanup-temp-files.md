@@ -4,7 +4,7 @@ Back to the [rules index](../../rules/index.md).
 
 ## In brief
 
-Prefer memory to scratch files and track any temporary files you create. At completion, remove those files and leave user-requested files in place. Files under the OS temporary root or `$CLAUDE_JOB_DIR` need no explicit removal; a parent handles child-agent scratch.
+Prefer memory to scratch files and debug dumps. Track them and remove them when the task ends. Leave user-requested files in place. Files under the OS temporary root or `$CLAUDE_JOB_DIR` need no explicit removal; a parent handles child-agent scratch.
 
 **Enforcement:** none.
 

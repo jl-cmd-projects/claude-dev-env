@@ -16,6 +16,8 @@ const DRIVER_TIMEOUT_MILLISECONDS = 60_000;
     });
     assert.equal(lifecycleProcess.status, 0, `${lifecycleProcess.stdout}\n${lifecycleProcess.stderr}`);
     assert.match(lifecycleProcess.stdout, /ALL CHECKS PASSED/);
+    assert.match(lifecycleProcess.stdout, /\[PASS\] ~\/\.claude\/skills is a folder of skill links/);
+    assert.match(lifecycleProcess.stdout, /\[PASS\] skill files match through the lookup link/);
     assert.match(lifecycleProcess.stdout, /Sandbox removed:/);
 });
 
