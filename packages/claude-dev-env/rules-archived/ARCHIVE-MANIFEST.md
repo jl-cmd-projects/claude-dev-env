@@ -88,5 +88,6 @@ Each row names a retired path, the behavior it required, the trigger that covers
 | `.agents/skills/search-before-acting/SKILL.md` | When any hit is full or partial, stop. Send the four-point report | DeepStack search leaf | none |
 | `.agents/skills/search-before-acting/references/report-shape.md` | Send it before any log entry, plan, brief, or edit, and wait for the user. | DeepStack search leaf | none |
 | `docs/rule-guides/features-start-with-an-eval.md` | Your first action is the Skill tool with skill `claude-api` and args `build-eval` | DeepStack reproducible-check leaf | A reproducible, re-runnable check is still required before any done claim. Red before the fix, the wrong twin fails, and undo fails again. Only the forced position as the very first action is retired. |
+| `rules/index.md` | skill `claude-api` and args `build-eval` | DeepStack reproducible-check leaf | none |
 | `bin/codex-skill-load-block.mjs` | Answer four things the prompt left out | DeepStack intake | none |
 | none | sharpen restates a task as the intake | DeepStack intake | The DeepStack plugin lives in jl-cmd-projects/DeepStack. |
