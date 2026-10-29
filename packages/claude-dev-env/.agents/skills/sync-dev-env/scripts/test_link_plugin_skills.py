@@ -107,7 +107,7 @@ def test_should_remove_owned_plugin_links_from_the_claude_skills_folder(
 
     assert not (claude_home / "skills" / "tdd").is_symlink()
     assert (agents_home / "skills" / "tdd").resolve() == install_path / "skills" / "tdd"
-    assert "removed tdd" in capsys.readouterr().out
+    assert "removed tdd from the Claude skills folder" in capsys.readouterr().out
 
 
 def test_should_keep_a_user_link_in_the_claude_skills_folder(

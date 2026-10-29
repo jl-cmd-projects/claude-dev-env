@@ -10,7 +10,7 @@
     flag: a user skill named tdd       -> left in place, reported as skipped
 
 A link is owned when it points inside the plugin cache.
-An owned link left in the Claude skills directory is removed, so Claude loads each plugin skill once.
+An owned link left in a Claude skills directory that is separate from the agents one is removed, so Claude loads each plugin skill once.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ if scripts_directory not in sys.path:
     sys.path.insert(0, scripts_directory)
 
 from sync_dev_env_constants.config.constants import (
+    CLAUDE_FOLDER_REMOVED_REPORT,
     CREATED_REPORT,
     DEFAULT_AGENTS_HOME,
     DEFAULT_CLAUDE_HOME,
@@ -137,13 +138,16 @@ def is_owned_link(entry: Path, plugin_cache: Path) -> bool:
     return link_target.is_relative_to(plugin_cache)
 
 
-def remove_owned_links(skills_directory: Path, plugin_cache: Path, wanted_names: Container[str]) -> int:
+def remove_owned_links(
+    skills_directory: Path, plugin_cache: Path, wanted_names: Container[str], report_template: str
+) -> int:
     """Remove each owned link in a skills directory whose name is not wanted.
 
     Args:
         skills_directory: The skills directory to clean.
         plugin_cache: The resolved plugin cache directory.
         wanted_names: The skill names whose owned links stay in place.
+        report_template: The line printed for each removed link, with a name field.
 
     Returns:
         The number of links removed.
@@ -152,7 +156,7 @@ def remove_owned_links(skills_directory: Path, plugin_cache: Path, wanted_names:
     for each_entry in sorted(skills_directory.iterdir()):
         if each_entry.name not in wanted_names and is_owned_link(each_entry, plugin_cache):
             each_entry.unlink()
-            print(REMOVED_REPORT.format(name=each_entry.name))
+            print(report_template.format(name=each_entry.name))
             removed_count += 1
     return removed_count
 
@@ -176,11 +180,11 @@ def sync_links(claude_home: Path, agents_home: Path) -> Counter:
     target_by_name = desired_skill_targets(claude_home)
     outcome_counts: Counter = Counter()
     claude_skills_directory = Path(os.path.realpath(claude_home / SKILLS_DIRECTORY_NAME))
-    outcome_counts[REMOVED_OUTCOME] += remove_owned_links(agents_skills_directory, plugin_cache, target_by_name)
+    outcome_counts[REMOVED_OUTCOME] += remove_owned_links(agents_skills_directory, plugin_cache, target_by_name, REMOVED_REPORT)
     for each_name, each_target in sorted(target_by_name.items()):
         outcome_counts[link_one_skill(agents_skills_directory / each_name, each_target, plugin_cache)] += 1
     if claude_skills_directory.is_dir() and claude_skills_directory != agents_skills_directory:
-        outcome_counts[REMOVED_OUTCOME] += remove_owned_links(claude_skills_directory, plugin_cache, ())
+        outcome_counts[REMOVED_OUTCOME] += remove_owned_links(claude_skills_directory, plugin_cache, (), CLAUDE_FOLDER_REMOVED_REPORT)
     return outcome_counts
 
 

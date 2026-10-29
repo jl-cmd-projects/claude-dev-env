@@ -16,6 +16,7 @@ LAST_UPDATED_KEY = "lastUpdated"
 CREATED_REPORT = "linked {name} -> {target}"
 REPOINTED_REPORT = "re-pointed {name} -> {target}"
 REMOVED_REPORT = "removed {name} (its skill left the plugin or the plugin is off)"
+CLAUDE_FOLDER_REMOVED_REPORT = "removed {name} from the Claude skills folder"
 SKIPPED_REPORT = (
     "skipped {name}: a skill the plugin does not own already uses that name"
 )
