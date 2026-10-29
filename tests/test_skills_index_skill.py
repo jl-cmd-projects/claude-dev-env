@@ -24,12 +24,12 @@ def _frontmatter_and_body(skill_text: str) -> tuple[list[str], list[str]]:
     return frontmatter_block.splitlines(), body_block.splitlines()
 
 
-def _table_lines(body_lines: list[str]) -> list[str]:
+def _non_blank_lines(body_lines: list[str]) -> list[str]:
     return [each_line for each_line in body_lines if each_line.strip()]
 
 
 def _data_rows(body_lines: list[str]) -> list[tuple[str, ...]]:
-    _, _, *data_lines = _table_lines(body_lines)
+    _, _, *data_lines = _non_blank_lines(body_lines)
     return [
         tuple(
             each_cell.strip() for each_cell in each_line.strip().strip("|").split("|")
@@ -62,7 +62,7 @@ def test_skills_index_description_fits_the_length_limit() -> None:
 
 def test_skills_index_body_is_only_the_skill_table() -> None:
     _, body_lines = _frontmatter_and_body(_read(INDEX_PATH))
-    table_lines = _table_lines(body_lines)
+    table_lines = _non_blank_lines(body_lines)
 
     assert all(each_line.startswith("|") for each_line in table_lines)
     assert table_lines[0] == TABLE_HEADER_LINE

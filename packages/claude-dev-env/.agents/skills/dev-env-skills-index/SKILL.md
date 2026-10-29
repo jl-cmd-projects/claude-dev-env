@@ -28,7 +28,7 @@ description: Find which claude-dev-env skill covers a task. Lists every shipped 
 | repairing-hook-boundaries | Repair a hook that fails, blocks, times out, or emits invalid output | ../repairing-hook-boundaries/SKILL.md |
 | search-before-acting | Search for existing work that does an ask before logging, planning, or building it | ../search-before-acting/SKILL.md |
 | second-account-workers | Run local headless Claude workers through the account picker | ../second-account-workers/SKILL.md |
-| skill-builder | Placeholder for the skill-builder rework, with model invocation off | ../skill-builder/SKILL.md |
+| skill-builder | Placeholder with no workflow yet; the user invokes it by name | ../skill-builder/SKILL.md |
 | step-notes | Turn step-note status lines on or off | ../step-notes/SKILL.md |
 | sync-dev-env | Install or update claude-dev-env in a running session, or schedule a daily sync | ../sync-dev-env/SKILL.md |
 | syncing-submodules | Record a submodule's new commit in its parent repository | ../syncing-submodules/SKILL.md |
