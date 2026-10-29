@@ -505,8 +505,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         if _proof_runs_only_tests(section):
             return TEST_ONLY_PROOF_REASON
         all_admissions = unproven_admissions(section)
-        if all_admissions and not _admissions_wait_for_merge(each_body, all_admissions, all_payload_fields):
-            return UNPROVEN_PROOF_REASON.format(admission=all_admissions[0])
+        unwaived_admission = _first_unwaived_admission(each_body, all_admissions, all_payload_fields)
+        if unwaived_admission is not None:
+            return UNPROVEN_PROOF_REASON.format(admission=unwaived_admission)
     return None
 
 
@@ -753,35 +754,47 @@ def _checkout_is_for(working_directory: str, repository: str | None) -> bool:
     return origin_url.endswith(("/" + repository.lower(), ":" + repository.lower()))
 
 
-def _admissions_wait_for_merge(
+def _first_unwaived_admission(
     body: str, all_admissions: list[str], all_payload_fields: Mapping[str, object]
-) -> bool:
-    """Return whether every admission is about a new workflow's first run, planned for after the merge.
+) -> str | None:
+    """Return the first unproven line a new workflow's after-merge run does not explain, or None.
 
     ::
 
-        "Not proven here: the live GitHub Actions run." with a covered new workflow -> True
-        "Untested on Windows." with a covered new workflow                          -> False
-        "Not proven here: the live GitHub Actions run." with no covered workflow    -> False
+        "Not proven here: the live GitHub Actions run." with a covered new workflow -> None
+        "Untested on Windows." with a covered new workflow                          -> "Untested on Windows."
+        "Not proven here: the live GitHub Actions run." with no covered workflow    -> that line
+        no unproven line                                                            -> None
 
     Each admission line must say GitHub Actions, a live or first run, or name
     a covered workflow file, so an admission about anything else keeps the
-    refusal.
+    refusal. The line returned is the one that failed.
 
     Args:
         body: The pull request body.
         all_admissions: The proof section's unproven lines.
         all_payload_fields: The parsed PreToolUse input.
     """
+    if not all_admissions:
+        return None
     all_covered_names = _covered_workflow_names(body, all_payload_fields)
-    return bool(all_covered_names) and all(
-        _admission_is_about_a_first_run(each_admission, all_covered_names) for each_admission in all_admissions
+    return next(
+        (
+            each_admission
+            for each_admission in all_admissions
+            if not _admission_is_about_a_first_run(each_admission, all_covered_names)
+        ),
+        None,
     )
 
 
 def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str]) -> bool:
-    return re.search(FIRST_RUN_ADMISSION_PATTERN, admission, re.IGNORECASE) is not None or any(
-        each_name.lower() in admission.lower() for each_name in all_workflow_names
+    return bool(all_workflow_names) and (
+        re.search(FIRST_RUN_ADMISSION_PATTERN, admission, re.IGNORECASE) is not None
+        or any(
+            re.search(rf"(?<![\w.-]){re.escape(each_name)}(?![\w-]|\.\w)", admission, re.IGNORECASE)
+            for each_name in all_workflow_names
+        )
     )
 
 

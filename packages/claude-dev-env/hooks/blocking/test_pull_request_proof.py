@@ -853,14 +853,14 @@ def test_unproven_line_should_stay_denied_when_it_is_about_something_other_than_
     assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
 
 
-def test_unproven_line_should_stay_denied_when_one_of_two_lines_is_unrelated(tmp_path: Path) -> None:
+def test_unproven_line_should_stay_denied_and_quote_the_unrelated_line_when_one_of_two_lines_is_unrelated(tmp_path: Path) -> None:
     clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
     unrelated_line = "Untested on Windows."
     body = _workflow_body(AFTER_MERGE_SECTION).replace(
         UNPROVEN_RUN_LINE, UNPROVEN_RUN_LINE + "\n" + unrelated_line
     )
     payload = _mcp_create_on_branch(body, clone_path)
-    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
 
 
 @pytest.mark.parametrize(
@@ -1118,3 +1118,12 @@ def test_unproven_line_should_use_the_compare_api_when_a_matching_checkout_lists
         "cwd": str(stale_checkout),
     }
     assert gate.missing_proof_reason(payload) is None
+
+
+def test_unproven_line_should_stay_denied_when_a_longer_file_name_contains_the_workflow_name(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, "ci2.yml")
+    unrelated_line = "Untested: the ci2.yml.bak migration path."
+    after_merge_section = AFTER_MERGE_SECTION.replace(NEW_WORKFLOW_NAME, "ci2.yml")
+    body = _workflow_body(after_merge_section).replace(UNPROVEN_RUN_LINE, unrelated_line)
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
