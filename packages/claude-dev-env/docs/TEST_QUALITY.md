@@ -79,4 +79,8 @@ Test helpers drift toward over-engineering faster than production code, because 
 
 ## Test File Organization
 
-- React test file organization: see [React testing patterns](REACT_PATTERNS.md#testing-patterns).
+- **Use React Testing Library** - Not Enzyme
+- **Query by accessibility** - Role, label, text (not test-id as first choice)
+- **Test user flows** - Render, interact, assert on visible changes
+- **Mock API boundaries** - Not internal functions
+- **Colocate tests** - `Component.test.tsx` next to `Component.tsx`

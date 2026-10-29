@@ -19,7 +19,7 @@ Source: the repository owner's policy, recorded in [jl-cmd/claude-dev-env#1607](
 
 Never state a claim without a credible source. Don't guess. Don't infer.
 
-For an unsettled fact, follow [evidence](../agents-guidance/evidence.md).
+For an unsettled fact, follow [evidence](../agents-guidance/evidence.md). When no permitted tool reaches the fact, name the exact check and who can run or approve it.
 
 ## 2. Verify with citations
 Every recommendation, claim, or piece of advice must cite a specific source:
