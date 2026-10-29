@@ -1,7 +1,7 @@
 ---
 name: mod-playbooks
 description: >-
-  Map of playbooks for driving a Claude Code mod (plugin) and seeing its screen: press keys, open menus and drawers, hover a reply to show its action row, click a dropdown, type in a field, fire a toast or a question card, and capture each screen as text and PNG. Use when an agent must test a mod, check a fix by looking at it, or show a mod to the operator on their own desktop.
+  Playbooks for driving a Claude Code mod: press keys, open menus, type in fields, capture screens as text and PNG. Use to test a mod, check a fix visually, or show a mod to the operator.
 ---
 
 # Mod playbooks
