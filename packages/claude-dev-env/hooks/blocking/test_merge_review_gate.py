@@ -384,21 +384,14 @@ def test_should_read_the_pushed_head_of_a_branch_outside_any_checkout(
     assert _reason(_create_tool(outside)) is None
 
 
-def test_should_deny_an_open_whose_repository_github_cannot_list(
+def test_should_read_the_checkout_head_when_github_lists_no_such_repository(
     branch_checkout: tuple[Path, str],
 ) -> None:
     folder, head = branch_checkout
-    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    merge_review_receipt.record_open_review("acme/ghost", head, 0)
     unlisted_create = _create_tool(folder)
     unlisted_create["tool_input"]["repo"] = "ghost"
-    assert "names no repository or head commit" in _reason(unlisted_create)
-
-
-def test_should_read_a_fork_head_from_the_fork_owner_repository(
-    branch_checkout: tuple[Path, str],
-) -> None:
-    folder, _head = branch_checkout
-    assert "names no repository or head commit" in _reason(_create_tool(folder, "someone:feature"))
+    assert _reason(unlisted_create) is None
 
 
 def test_should_allow_a_pull_request_open_in_an_exempt_repository(

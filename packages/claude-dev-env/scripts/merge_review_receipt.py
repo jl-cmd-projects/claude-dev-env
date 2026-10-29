@@ -94,20 +94,28 @@ def record_review(
     return _write_receipt(slug, number, receipt)
 
 
-def record_open_review(slug: str, head: str, finding_count: int) -> Path:
+def record_open_review(
+    slug: str, head: str, finding_count: int, all_rulings: Sequence[str] = ()
+) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
     Args:
         slug: Repository as ``owner/name``.
         head: The commit the pass reviewed.
         finding_count: How many findings the pass reported.
+        all_rulings: One ``path:line`` of evidence for each ruled out finding.
+            Run in the checkout that holds ``head``.
 
     Returns:
         The receipt path written.
+
+    Raises:
+        ValueError: A ruling is malformed, repeated, or names a line ``head`` lacks.
     """
-    return _write_open_receipt(
-        slug, head, _receipt_fields(head, finding_count, 0, RECEIPT_RULING_LINES_KEY, [])
-    )
+    problem = _ruling_problem(head, all_rulings)
+    if problem:
+        raise ValueError(problem)
+    return _write_open_receipt(slug, head, _open_receipt(head, finding_count, all_rulings))
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
@@ -175,6 +183,37 @@ def _split_rulings(rulings: str) -> list[str]:
     return [each_entry for each_entry in all_entries if each_entry]
 
 
+def _open_receipt(
+    head: str, finding_count: int, all_rulings: Sequence[str]
+) -> dict[str, object]:
+    return _receipt_fields(
+        head, finding_count, len(all_rulings), RECEIPT_RULING_LINES_KEY, list(all_rulings)
+    )
+
+
+def _ruling_problem(head: str, all_rulings: Sequence[str]) -> str | None:
+    all_malformed = [
+        each_ruling
+        for each_ruling in all_rulings
+        if RULING_REFERENCE_PATTERN.fullmatch(each_ruling) is None
+    ]
+    if all_malformed:
+        return (
+            "--rulings needs path:line, with / between folders, no backslash, colon, comma "
+            "or . and .. segment in the path, and a line from 1, not "
+            f"{RULING_SEPARATOR.join(all_malformed)}"
+        )
+    if len(set(all_rulings)) != len(all_rulings):
+        return "--rulings needs a different path:line for each finding"
+    all_unproven = _unproven_rulings(head, all_rulings)
+    if all_unproven:
+        return (
+            f"run this in the checkout that holds {head}; it has no file and line at "
+            f"{RULING_SEPARATOR.join(all_unproven)}"
+        )
+    return None
+
+
 def _checked_open_rulings(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace
 ) -> list[str]:
@@ -183,25 +222,6 @@ def _checked_open_rulings(
     all_rulings = _split_rulings(parsed.rulings)
     if len(all_rulings) != parsed.ruled_out:
         parser.error("--rulings needs one path:line for each finding --ruled-out counts")
-    all_malformed = [
-        each_ruling
-        for each_ruling in all_rulings
-        if RULING_REFERENCE_PATTERN.fullmatch(each_ruling) is None
-    ]
-    if all_malformed:
-        parser.error(
-            "--rulings needs path:line, with / between folders, no backslash, colon, comma "
-            "or . and .. segment in the path, and a line from 1, not "
-            f"{RULING_SEPARATOR.join(all_malformed)}"
-        )
-    if len(set(all_rulings)) != len(all_rulings):
-        parser.error("--rulings needs a different path:line for each finding")
-    all_unproven = _unproven_rulings(parsed.head, all_rulings)
-    if all_unproven:
-        parser.error(
-            f"run this in the checkout that holds {parsed.head}; it has no file and line at "
-            f"{RULING_SEPARATOR.join(all_unproven)}"
-        )
     return all_rulings
 
 
@@ -213,11 +233,11 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    receipt = _receipt_fields(
-        parsed.head, parsed.findings, parsed.ruled_out, RECEIPT_RULING_LINES_KEY, all_rulings
-    )
-    _write_open_receipt(parsed.slug, parsed.head, receipt)
-    if is_clean_open_pass(receipt):
+    try:
+        record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
+    except ValueError as problem:
+        parser.error(str(problem))
+    if is_clean_open_pass(_open_receipt(parsed.head, parsed.findings, all_rulings)):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"
             if parsed.ruled_out

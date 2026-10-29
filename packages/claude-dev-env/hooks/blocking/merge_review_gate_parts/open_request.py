@@ -68,11 +68,11 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         gh pr create --repo o/r --head branch
         python pull_request.py create --repo o/r --head branch
 
-    A tool call reads its head branch from GitHub, so the working folder does
-    not matter. A fork head ``user:branch`` reads the repository of ``user``. A
-    shell command resolves its branch in the payload's folder or a ``cd``
-    target, as ``origin/<branch>`` first. No head means ``HEAD``; no
-    repository, ``origin``.
+    A tool call reads its head branch from GitHub first. A fork head
+    ``user:branch`` reads the repository of ``user``. A branch GitHub does not
+    list, and every branch of a shell command, resolves in the payload's folder
+    as ``origin/<branch>`` first. A ``cd`` target names the folder. No head
+    means ``HEAD``; no repository, ``origin``.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -84,21 +84,25 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
     tool_input = all_payload_fields.get("tool_input")
     if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
         return None
+    working_folder = all_payload_fields.get(CWD_FIELD)
+    folder = working_folder if isinstance(working_folder, str) and working_folder else None
     if tool_name.endswith(CREATE_TOOL_SUFFIX):
-        return _tool_open_request(tool_input)
+        return _tool_open_request(tool_input, folder)
     command = tool_input.get("command")
     if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
         return None
-    working_folder = all_payload_fields.get(CWD_FIELD)
-    folder = working_folder if isinstance(working_folder, str) and working_folder else None
     return _shell_open_request(command, folder)
 
 
-def _tool_open_request(all_tool_input: dict[object, object]) -> OpenRequest:
+def _tool_open_request(all_tool_input: dict[object, object], folder: str | None) -> OpenRequest:
     owner = str(all_tool_input.get(OWNER_FIELD, ""))
     repo = str(all_tool_input.get(REPO_FIELD, ""))
     branch = all_tool_input.get(HEAD_BRANCH_FIELD)
-    head = _pushed_commit(owner, repo, branch) if isinstance(branch, str) and branch else None
+    head = (
+        _pushed_commit(owner, repo, branch) or _branch_commit(branch, folder)
+        if isinstance(branch, str) and branch
+        else None
+    )
     return OpenRequest(owner=owner, repo=repo, head=head)
 
 

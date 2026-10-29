@@ -147,6 +147,12 @@ def test_should_leave_ruling_keys_out_of_an_open_pass_that_rules_nothing_out(
     assert receipt == {"head": HEAD, "findings": 2}
 
 
+def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder: Path) -> None:
+    with pytest.raises(ValueError, match="no file and line at nowhere.py:3"):
+        merge_review_receipt.record_open_review("acme/tools", HEAD, 1, ["nowhere.py:3"])
+    assert not (receipt_folder / "heads").exists()
+
+
 def test_should_exit_one_for_an_open_pass_with_findings() -> None:
     verdict_stream = StringIO()
     assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1

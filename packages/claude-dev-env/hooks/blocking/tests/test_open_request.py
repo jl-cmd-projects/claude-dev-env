@@ -154,7 +154,8 @@ def test_should_run_the_listing_without_a_terminal_prompt(monkeypatch: pytest.Mo
     def record_environment(
         all_arguments: list[str], **all_keyword_arguments: dict[str, str]
     ) -> subprocess.CompletedProcess[bytes]:
-        all_environments.append(all_keyword_arguments["env"])
+        if "env" in all_keyword_arguments:
+            all_environments.append(all_keyword_arguments["env"])
         return subprocess.CompletedProcess(all_arguments, 1)
 
     monkeypatch.setattr(open_request.subprocess, "run", record_environment)
@@ -181,11 +182,28 @@ def test_should_pick_the_listed_line_that_names_the_branch_exactly(
 def test_should_run_no_listing_for_a_call_that_names_no_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def refuse(*_all_arguments: object, **_all_keyword_arguments: object) -> None:
-        raise AssertionError("git ran")
+    all_commands: list[list[str]] = []
 
-    monkeypatch.setattr(open_request.subprocess, "run", refuse)
+    def record_command(
+        all_arguments: list[str], **_all_keyword_arguments: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        all_commands.append(all_arguments)
+        return subprocess.CompletedProcess(all_arguments, 1)
+
+    monkeypatch.setattr(open_request.subprocess, "run", record_command)
     assert open_request_from(_create_payload("feature", Path("."), owner="")).head is None
+    assert not any("ls-remote" in each_command for each_command in all_commands)
+
+
+def test_should_read_the_checkout_branch_when_github_lists_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    head = _commit(checkout, "first")
+    github = tmp_path / "github.com"
+    _bare_remote(github, "acme")
+    _redirect_github(monkeypatch, github)
+    assert open_request_from(_create_payload("feature", checkout)).head == head
 
 
 def test_should_read_a_shell_open_branch_from_the_checkout(tmp_path: Path) -> None:
