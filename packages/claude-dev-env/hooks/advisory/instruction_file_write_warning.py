@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""PostToolUse warning: a written instruction file breaks the budget, names a person, or nests too deep.
+
+This hook never blocks. It runs after each Write, Edit, or MultiEdit. When the
+file is an instruction file in a repository that has ``instruction-budget.json``,
+it runs the same checks the CI workflow runs and adds one line per finding to
+the agent's context::
+
+    AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
+
+Quiet paths: a file that is not an instruction file, a repository without the
+budget file, and a file that passes every check each emit nothing.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_hooks_directory = str(Path(__file__).resolve().parents[1])
+if _hooks_directory not in sys.path:
+    sys.path.insert(0, _hooks_directory)
+
+_scripts_directory = str(Path(__file__).resolve().parents[2] / "scripts")
+if _scripts_directory not in sys.path:
+    sys.path.insert(0, _scripts_directory)
+
+from dev_env_scripts_constants.instruction_budget_constants import (
+    FINDING_LINE_TEMPLATE,
+    INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+)
+from hooks_constants.instruction_file_write_warning_constants import (
+    CONTEXT_HEADER_TEMPLATE,
+    CONTEXT_LINE_SEPARATOR,
+    FILE_PATH_KEY,
+    TOOL_INPUT_KEY,
+)
+from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
+from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from instruction_budget import check_repository
+from instruction_budget_files import is_instruction_file, load_config
+
+
+def _written_path(payload: dict) -> Path | None:
+    tool_input = payload.get(TOOL_INPUT_KEY)
+    if not isinstance(tool_input, dict):
+        return None
+    file_path = tool_input.get(FILE_PATH_KEY)
+    if not isinstance(file_path, str) or not file_path:
+        return None
+    return Path(file_path).resolve()
+
+
+def _repository_root(written_path: Path) -> Path | None:
+    for each_directory in written_path.parents:
+        if (each_directory / INSTRUCTION_BUDGET_CONFIG_FILE_NAME).is_file():
+            return each_directory
+    return None
+
+
+def main() -> None:
+    written_path = _written_path(read_hook_input_dictionary_from_stdin())
+    if written_path is None:
+        return
+    repository_root = _repository_root(written_path)
+    if repository_root is None:
+        return
+    config = load_config(repository_root)
+    if config is None or not is_instruction_file(written_path, repository_root, config):
+        return
+    all_findings = check_repository(repository_root, config, [written_path])
+    if not all_findings:
+        return
+    all_lines = [
+        CONTEXT_HEADER_TEMPLATE.format(
+            file_path=written_path.relative_to(repository_root).as_posix()
+        )
+    ] + [
+        FINDING_LINE_TEMPLATE.format(
+            file_path=each_finding.file_path,
+            rule_id=each_finding.rule_id,
+            message=each_finding.message,
+        )
+        for each_finding in all_findings
+    ]
+    write_post_tool_use_context_to_stdout(CONTEXT_LINE_SEPARATOR.join(all_lines))
+
+
+if __name__ == "__main__":
+    main()

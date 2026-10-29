@@ -527,6 +527,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/advisory/instruction_file_write_warning.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
         "matcher": "Bash|PowerShell",
         "hooks": [
           {
