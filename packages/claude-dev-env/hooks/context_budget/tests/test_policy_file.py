@@ -60,3 +60,14 @@ def test_repository_root_accepts_a_git_file_and_policy_reads_from_it(tmp_path: P
         find_repository_root(tmp_path / "x.md") is None
         or find_repository_root(tmp_path / "x.md") != repository_root
     )
+
+
+def test_prose_line_word_limit_defaults_to_25_and_reads_its_key() -> None:
+    raw_policy = json.loads(policy_text())
+
+    assert parse_policy(json.dumps(raw_policy)).prose_line_word_limit == 25
+    raw_policy["prose_line_word_limit"] = 12
+    assert parse_policy(json.dumps(raw_policy)).prose_line_word_limit == 12
+    raw_policy["prose_line_word_limit"] = "twelve"
+    with pytest.raises(ContextBudgetPolicyError):
+        parse_policy(json.dumps(raw_policy))

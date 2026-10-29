@@ -33,6 +33,7 @@ from hooks_constants.context_budget_constants import (
     CHANGE_RAISES_FILE,
     CHANGE_RAISES_HOOK,
     CHANGE_RAISES_LINE_LIMIT,
+    CHANGE_RAISES_PROSE_LIMIT,
     CHANGE_RAISES_SECTION_LIMIT,
     CHANGE_RECORDS_FILE_LINES,
     FILE_SCOPE,
@@ -77,6 +78,12 @@ def _limit_changes(
             CHANGE_RAISES_SECTION_LIMIT.format(
                 prior=prior_section_limit, current=current_section_limit
             )
+        )
+    prior_prose_limit = prior_policy.prose_line_word_limit
+    current_prose_limit = current_policy.prose_line_word_limit
+    if current_prose_limit > prior_prose_limit:
+        all_changes.append(
+            CHANGE_RAISES_PROSE_LIMIT.format(prior=prior_prose_limit, current=current_prose_limit)
         )
     current_kind_by_name = {each.name: each for each in current_policy.all_kinds}
     all_prior_kind_names = tuple(

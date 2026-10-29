@@ -4,12 +4,14 @@
 
     unlisted file   lines > limit                         -> file finding
                     unpointed section > detail limit      -> section finding
+    agent file      no pointer, or unlinked line > words  -> prose finding, unless skipped
     listed file     lines null, lines > limit             -> file finding
                     lines N, lines > limit and lines > N  -> grown finding
                     section heading not recorded          -> section finding
     CI ratchet      changed file below its record N       -> record the new count, or null
                     changed file lost a recorded section  -> drop it from the entry
                     changed file within budget            -> remove the entry
+                    changed agent file                    -> report only the prose findings it added
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Iterable
+from dataclasses import replace
+from pathlib import PurePosixPath
 
 from context_budget.model import (
     BaselineEntry,
@@ -25,15 +29,26 @@ from context_budget.model import (
     FileMeasure,
     SectionScan,
 )
-from context_budget.sections import baseline_entry_for, measure_file
+from context_budget.sections import (
+    baseline_entry_for,
+    is_path_skipped,
+    measure_file,
+    prose_word_count,
+    scan_prose,
+)
 from hooks_constants.context_budget_constants import (
+    ALL_PROSE_RULE_FILE_NAMES,
     FILE_FINDING_TEMPLATE,
     FILE_SCOPE,
     GROWN_FINDING_TEMPLATE,
     GROWN_PAST_PRIOR_TEMPLATE,
     KEBAB_SEPARATOR,
     LINES_KEY,
+    NO_POINTER_FINDING_TEMPLATE,
+    NO_POINTER_SCOPE,
     NON_KEBAB_CHARACTER_PATTERN,
+    PROSE_LINE_FINDING_TEMPLATE,
+    PROSE_LINE_SCOPE_PREFIX,
     RATCHET_LOWER_TEMPLATE,
     RATCHET_REMOVE_TEMPLATE,
     SECTION_FINDING_TEMPLATE,
@@ -153,23 +168,76 @@ def _file_scope_findings(
     return all_findings, all_new_sections
 
 
+def _is_prose_rule_path(policy: BudgetPolicy, relative_path: str) -> bool:
+    is_agent_file = PurePosixPath(relative_path).name in ALL_PROSE_RULE_FILE_NAMES
+    return is_agent_file and not is_path_skipped(policy, relative_path)
+
+
+def _prose_findings(
+    policy: BudgetPolicy, relative_path: str, text: str
+) -> tuple[BudgetFinding, ...]:
+    if not _is_prose_rule_path(policy, relative_path):
+        return ()
+    scan = scan_prose(text, policy.prose_line_word_limit)
+    all_findings: list[BudgetFinding] = []
+    if scan.has_detail_line and not scan.has_pointer_line:
+        all_findings.append(
+            BudgetFinding(
+                relative_path,
+                NO_POINTER_SCOPE,
+                NO_POINTER_FINDING_TEMPLATE.format(path=relative_path),
+            )
+        )
+    for each_line in scan.all_long_unlinked_lines:
+        excerpt = each_line.strip()
+        all_findings.append(
+            BudgetFinding(
+                relative_path,
+                PROSE_LINE_SCOPE_PREFIX + excerpt,
+                PROSE_LINE_FINDING_TEMPLATE.format(
+                    path=relative_path,
+                    excerpt=excerpt,
+                    count=prose_word_count(each_line),
+                    limit=policy.prose_line_word_limit,
+                ),
+            )
+        )
+    return tuple(all_findings)
+
+
+def _prose_findings_added_since(
+    policy: BudgetPolicy, relative_path: str, text: str, prior_text: str | None
+) -> tuple[BudgetFinding, ...]:
+    all_findings = _prose_findings(policy, relative_path, text)
+    if prior_text is None or prior_text == text:
+        return all_findings
+    return _introduced(
+        all_findings, _prose_findings(policy, relative_path, prior_text), has_grown=False
+    )
+
+
 def file_findings(
     policy: BudgetPolicy, relative_path: str, text: str, ratchet_prior_text: str | None
 ) -> tuple[BudgetFinding, ...]:
-    """Check one file against its kind and the over-budget list.
+    """Check one file against its kind, the over-budget list, and the prose rule.
 
     Args:
         policy: Budget policy.
         relative_path: Repository-relative POSIX path.
         text: Current file text.
         ratchet_prior_text: Prior text when the CI ratchet applies, else None.
+            A changed file reports only the prose findings its prior text
+            lacked. An unchanged or new file reports every prose finding.
 
     Returns:
-        Findings in file-then-section order.
+        Findings in file, section, then prose order. Prose findings apply to
+        AGENTS.md and CLAUDE.md files whatever kind the policy gives them,
+        except a kind the policy skips.
     """
+    prose_findings = _prose_findings_added_since(policy, relative_path, text, ratchet_prior_text)
     measure = measure_file(policy, relative_path, text)
     if measure is None:
-        return ()
+        return prose_findings
     recorded = policy.baseline_entry_by_path.get(relative_path)
     is_ratchet_due = ratchet_prior_text is not None and ratchet_prior_text != text
     grown_template = (
@@ -182,6 +250,7 @@ def file_findings(
         *all_findings,
         *(_section_finding(relative_path, each, policy.section_detail_line_limit)
           for each in all_new_sections),
+        *prose_findings,
     )
 
 
@@ -192,12 +261,9 @@ def _with_prior_as_baseline(
     prior_entry = None if prior_measure is None else baseline_entry_for(prior_measure)
     if prior_entry is None:
         return policy
-    return BudgetPolicy(
-        policy.section_detail_line_limit,
-        policy.all_kinds,
-        policy.all_hooks,
-        {**policy.baseline_entry_by_path, relative_path: prior_entry},
-        policy.baseline_characters_by_hook_name,
+    return replace(
+        policy,
+        baseline_entry_by_path={**policy.baseline_entry_by_path, relative_path: prior_entry},
         is_baseline_the_prior_text=True,
     )
 
