@@ -26,6 +26,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'deep-research',
     'deepen',
     'descriptions',
+    'dev-env-skills-index',
     'e-code-review',
     'e-simplify',
     'efficient-review',

@@ -57,6 +57,10 @@ test('EVER_SHIPPED_SKILL_NAMES includes the mod playbooks skill', () => {
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('mod-playbooks'), true);
 });
 
+test('EVER_SHIPPED_SKILL_NAMES includes the dev env skills index', () => {
+    assert.equal(EVER_SHIPPED_SKILL_NAMES.has('dev-env-skills-index'), true);
+});
+
 test('build-eval ships under its matching name without the retired active directory', () => {
     const sourceSkillsDirectory = join(
         PACKAGE_DIRECTORY,
