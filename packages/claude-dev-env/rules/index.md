@@ -3,7 +3,6 @@ Each line names a rule and its trigger. When its trigger matches your task, open
 
 - **Plain language** ([guide](../docs/rule-guides/asd-ste100-language.md)). Writing chat, narration, or repository prose.
 - **No contrast framing** ([guide](../docs/rule-guides/no-contrast-framing.md)). Any sentence a person reads.
-- **Results as pictures** ([guide](../docs/rule-guides/results-as-pictures.md)). Any reply that reports results.
 - **Research mode** ([guide](../docs/rule-guides/research-mode.md)). Any claim, recommendation, or advice.
 - **Verify before asking** ([guide](../docs/rule-guides/verify-before-asking.md)). Before a clarifying question.
 - **Verified work** ([guide](../docs/rule-guides/verified-work.md)). Any task.
