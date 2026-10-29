@@ -858,10 +858,13 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         return None
     working_directory = all_payload_fields.get("cwd")
     head_branch = _named_head_branch(all_payload_fields)
-    all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
+    repository = _named_repository(all_payload_fields)
+    all_visible_files = None
+    if _checkout_is_for(str(working_directory or ""), repository):
+        all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
     if all_visible_files is None:
         all_visible_files = remote_visible_changed_files(
-            _named_repository(all_payload_fields), _named_base_branch(all_payload_fields), head_branch
+            repository, _named_base_branch(all_payload_fields), head_branch
         )
     if all_visible_files == []:
         return None

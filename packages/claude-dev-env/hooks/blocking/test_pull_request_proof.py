@@ -374,6 +374,28 @@ def test_should_deny_a_page_change_whose_proof_shows_no_picture(tmp_path: Path) 
     assert "page.html" in reason
 
 
+def test_should_read_the_compare_api_when_the_checkout_belongs_to_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, [])
+    )
+    clone_path = _repository_with_change(tmp_path, "page.html")
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {
+            "owner": "o",
+            "repo": "r",
+            "base": "main",
+            "head": "feature",
+            "body": PROVEN_BODY,
+        },
+        "cwd": str(clone_path),
+    }
+    assert gate.missing_look_reason(payload) is None
+
+
 def test_should_allow_a_page_change_whose_proof_links_a_screenshot(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "page.html")
     body = PROVEN_BODY + "![after](https://example.com/after.png)\n"
@@ -404,9 +426,11 @@ def _fake_gh_api(all_responses: dict[str, list[str] | None], all_endpoints: list
     return fake_gh_api_lines
 
 
-def _shell_create_elsewhere(tmp_path: Path, extra_flags: str) -> dict[str, object]:
+def _shell_create_elsewhere(
+    tmp_path: Path, extra_flags: str, body: str = PROVEN_BODY
+) -> dict[str, object]:
     body_path = tmp_path / "body.md"
-    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    body_path.write_text(body, encoding="utf-8")
     return _shell(f"gh pr create --title t --body-file {body_path} {extra_flags}", tmp_path)
 
 
@@ -820,9 +844,11 @@ def test_unproven_line_should_pass_on_the_compare_api_when_a_new_workflow_is_add
     monkeypatch.setattr(
         gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints)
     )
-    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
-    body_path = tmp_path / "body.md"
-    body_path.write_text(_workflow_body(AFTER_MERGE_SECTION), encoding="utf-8")
+    payload = _shell_create_elsewhere(
+        tmp_path,
+        "--repo o/r --base main --head feature",
+        _workflow_body(AFTER_MERGE_SECTION),
+    )
     assert gate.remote_added_workflow_files("o/r", "main", "feature") == [added_path]
     assert gate.missing_proof_reason(payload) is None
 
