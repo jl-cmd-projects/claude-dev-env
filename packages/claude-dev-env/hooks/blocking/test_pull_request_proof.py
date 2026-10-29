@@ -552,6 +552,11 @@ def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None
     assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
 
 
+def test_should_deny_a_byte_identical_rename_from_one_page_type_to_another(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, "Widget.tsx", "site/widget.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/widget.html"]
+
+
 def test_should_report_unreadable_git_output_as_unknown() -> None:
     assert gate._git_changes([":100644 100644 abc R100", "a.html", "b.html"]) is None
     assert gate._git_changes([":100644 100644 aaa bbb R100", "a.html"]) is None

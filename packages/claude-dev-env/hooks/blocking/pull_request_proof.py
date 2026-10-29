@@ -692,9 +692,10 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
 
-    A rename whose old and new blob ids match, from one visible file to another,
-    changes nothing people see. One from a file people do not see, such as notes.txt
-    to page.html, still makes a page. A copy or a rename with an edit keeps its path.
+    A rename whose old and new blob ids match and whose old and new names end the
+    same way, such as a.html to b/a.html, changes nothing people see. One that
+    changes the ending, such as notes.txt or Widget.tsx to page.html, still makes a
+    page. A copy or a rename with an edit keeps its path.
 
     Args:
         working_directory: The session directory the hook payload names.
@@ -748,12 +749,23 @@ def _compare_changes(all_status_lines: list[str]) -> list[ChangedFile]:
     return all_changes
 
 
+def _visible_suffix(path: str) -> str | None:
+    lowered_path = path.lower()
+    for each_suffix in ALL_VISIBLE_FILE_SUFFIXES:
+        if lowered_path.endswith(each_suffix):
+            return each_suffix
+    return None
+
+
+def _is_unchanged_move(change: ChangedFile) -> bool:
+    return change.is_pure_rename and _visible_suffix(change.old_path) == _visible_suffix(change.path)
+
+
 def _visible_paths(all_changes: list[ChangedFile]) -> list[str]:
     return [
         each_change.path
         for each_change in all_changes
-        if each_change.path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
-        and not (each_change.is_pure_rename and each_change.old_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES))
+        if _visible_suffix(each_change.path) is not None and not _is_unchanged_move(each_change)
     ]
 
 
@@ -816,7 +828,7 @@ def remote_visible_changed_files(
     A page of 300 paths is the compare API's file cap. A visible file on that
     page is returned. A full page with none is None, because a later file can
     still be one people see. A pure rename counts toward the 300. It is not
-    visible when the file it moved from was a page too.
+    visible when the file it moved from ended the same way.
 
     Args:
         repository: The owner/name the create call names, or None.
