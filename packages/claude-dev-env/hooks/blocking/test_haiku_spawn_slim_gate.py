@@ -40,13 +40,24 @@ def test_should_deny_a_haiku_spawn_with_the_headless_command(tool_name: str, mod
     assert hook_output["permissionDecisionReason"] == SLIM_PROFILE_DENY_REASON
 
 
+@pytest.mark.parametrize("tool_name", ["Agent", "Task"])
 @pytest.mark.parametrize("model", ["haiku", "claude-haiku-5-5"])
-def test_should_pass_a_haiku_spawn_of_the_lean_worker_subagent(model: str) -> None:
+def test_should_pass_a_haiku_spawn_of_the_lean_worker_subagent(tool_name: str, model: str) -> None:
     payload = {
-        "tool_name": "Agent",
+        "tool_name": tool_name,
         "tool_input": {"prompt": "Review.", "model": model, "subagent_type": "lean-worker"},
     }
     assert _run_hook(payload) == ""
+
+
+def test_should_deny_a_haiku_thread_spawn_that_names_the_lean_worker_subagent_type() -> None:
+    payload = {
+        "tool_name": "mcp__hearthbot__start_thread_session",
+        "tool_input": {"prompt": "Review.", "model": "haiku", "subagent_type": "lean-worker"},
+    }
+    hook_output = json.loads(_run_hook(payload))["hookSpecificOutput"]
+    assert hook_output["permissionDecision"] == "deny"
+    assert hook_output["permissionDecisionReason"] == SLIM_PROFILE_DENY_REASON
 
 
 @pytest.mark.parametrize("subagent_type", ["general-purpose", "Explore", "lean-worker-2"])
@@ -69,7 +80,7 @@ def test_should_pass_a_spawn_that_names_no_haiku_model(model: object) -> None:
 
 
 def test_should_pass_a_payload_without_tool_input() -> None:
-    assert haiku_spawn_slim_gate.decide_hook_output(None) is None
+    assert haiku_spawn_slim_gate.decide_hook_output("Agent", None) is None
 
 
 def test_should_name_every_slim_profile_flag_in_the_deny_reason() -> None:

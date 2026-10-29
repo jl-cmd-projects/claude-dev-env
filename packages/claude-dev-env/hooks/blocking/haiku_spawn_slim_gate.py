@@ -4,14 +4,16 @@
 Registered on ``Agent|Task`` and ``mcp__hearthbot__start_thread_session``. An
 in-session spawn shares this session's settings, plugins, MCP servers, and
 CLAUDE.md files, so a Haiku agent started that way cannot run on the slim
-profile. The deny reason gives the two routes: the ``lean-worker`` subagent
-type, and the headless command that loads the profile.
+profile. The one exception is an ``Agent`` or ``Task`` spawn that names the
+``lean-worker`` subagent type: it passes and runs in this session without the
+slim profile. The deny reason gives the two routes: the ``lean-worker``
+subagent type, and the headless command that loads the profile.
 
 ::
 
-    model "haiku" or "claude-haiku-5-5", subagent_type "lean-worker"   -> no output
-    model "haiku" or "claude-haiku-5-5", any other or no subagent_type -> deny
-    model "opus", "sonnet", or omitted                                 -> no output
+    model "haiku" or "claude-haiku-5-5", Agent or Task, subagent_type "lean-worker" -> no output
+    model "haiku" or "claude-haiku-5-5", any other tool, subagent_type, or none     -> deny
+    model "opus", "sonnet", or omitted                                              -> no output
 
 A spawn that names no model passes, even when the subagent's definition or
 ``CLAUDE_CODE_SUBAGENT_MODEL`` resolves it to Haiku.
@@ -31,12 +33,14 @@ from hooks_constants.haiku_spawn_slim_gate_constants import (
     DENY_DECISION,
     HAIKU_MODEL_FAMILY,
     HOOK_EVENT_NAME,
+    LEAN_WORKER_SPAWN_TOOL_NAMES,
     LEAN_WORKER_SUBAGENT_TYPE,
     MODEL_INPUT_KEY,
     PERMISSION_DECISION_REASON_KEY,
     SLIM_PROFILE_DENY_REASON,
     SUBAGENT_TYPE_INPUT_KEY,
     TOOL_INPUT_KEY,
+    TOOL_NAME_KEY,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
@@ -60,10 +64,11 @@ def is_haiku_model(model: object) -> bool:
     return isinstance(model, str) and HAIKU_MODEL_FAMILY in model.lower()
 
 
-def decide_hook_output(tool_input: object) -> dict[str, object] | None:
+def decide_hook_output(tool_name: object, tool_input: object) -> dict[str, object] | None:
     """Choose the hook's output for one spawn.
 
     Args:
+        tool_name: The ``tool_name`` of the PreToolUse payload.
         tool_input: The ``tool_input`` of the PreToolUse payload.
 
     Returns:
@@ -71,7 +76,11 @@ def decide_hook_output(tool_input: object) -> dict[str, object] | None:
     """
     if not isinstance(tool_input, dict) or not is_haiku_model(tool_input.get(MODEL_INPUT_KEY)):
         return None
-    if tool_input.get(SUBAGENT_TYPE_INPUT_KEY) == LEAN_WORKER_SUBAGENT_TYPE:
+    is_lean_worker_spawn = (
+        tool_name in LEAN_WORKER_SPAWN_TOOL_NAMES
+        and tool_input.get(SUBAGENT_TYPE_INPUT_KEY) == LEAN_WORKER_SUBAGENT_TYPE
+    )
+    if is_lean_worker_spawn:
         return None
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
@@ -89,8 +98,9 @@ def main() -> int:
         0 in every case.
     """
     hook_payload = read_hook_input_dictionary_from_stdin()
+    tool_name = hook_payload.get(TOOL_NAME_KEY) if hook_payload is not None else None
     tool_input = hook_payload.get(TOOL_INPUT_KEY) if hook_payload is not None else None
-    hook_output = decide_hook_output(tool_input)
+    hook_output = decide_hook_output(tool_name, tool_input)
     if hook_output is not None:
         sys.stdout.write(json.dumps(hook_output))
         sys.stdout.flush()
