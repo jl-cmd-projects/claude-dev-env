@@ -79,6 +79,8 @@ UNPROVEN_PROOF_REASON = (
 )
 AFTER_MERGE_HEADING_PATTERN = r"^(#{1,6})[ \t]+after merge[ \t]*#*[ \t]*$"
 AFTER_MERGE_RECORDER_PATTERN = r"\brecords?\b"
+AFTER_MERGE_NO_RECORDER_PATTERN = r"\b(?:nobody|no[ -]?one|not|never|cannot|can't|won't|doesn't)\b[^.\n]{0,40}\brecords?\b"
+WORKFLOW_RUN_ADMISSION_PATTERN = r"\b(?:runs?|workflows?|github actions)\b"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
 ADDED_FILE_NAMES_QUERY = '(.files | length | tostring), (.files[] | select(.status == "added") | .filename)'
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"

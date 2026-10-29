@@ -841,3 +841,41 @@ def test_remote_added_workflow_files_should_report_none_when_a_full_page_lists_n
     )
     assert gate.remote_added_workflow_files("o/r", "main", "feature") == []
     assert gate.remote_added_workflow_files(None, "main", "feature") is None
+
+
+def test_unproven_line_should_stay_denied_when_it_is_about_something_other_than_a_run(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    unrelated_line = "Untested on Windows."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(UNPROVEN_RUN_LINE, unrelated_line)
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=unrelated_line)
+
+
+def test_unproven_line_should_stay_denied_when_one_of_two_lines_is_unrelated(tmp_path: Path) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    unrelated_line = "Untested on Windows."
+    body = _workflow_body(AFTER_MERGE_SECTION).replace(
+        UNPROVEN_RUN_LINE, UNPROVEN_RUN_LINE + "\n" + unrelated_line
+    )
+    payload = _mcp_create_on_branch(body, clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+@pytest.mark.parametrize(
+    "recorder_sentence",
+    ["Nobody records that run link.", "No one will record the run link.", "The agent does not record the run link."],
+)
+def test_unproven_line_should_stay_denied_when_the_after_merge_section_denies_a_recorder(
+    tmp_path: Path, recorder_sentence: str
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    after_merge_section = f"\n## After merge\n\n- The first owner approval runs `release-hold.yml`. {recorder_sentence}\n"
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_unproven_admissions_should_list_every_line_and_the_first_stays_unproven_admission() -> None:
+    section = "Ran `python run.py`.\nNot proven here: the live run.\nUntested on Windows.\n"
+    assert gate.unproven_admissions(section) == ["Not proven here: the live run.", "Untested on Windows."]
+    assert gate.unproven_admission(section) == "Not proven here: the live run."
+    assert gate.unproven_admissions("Ran `python run.py`.\n") == []

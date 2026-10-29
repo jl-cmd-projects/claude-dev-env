@@ -18,6 +18,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     AFTER_MERGE_HEADING_PATTERN,
+    AFTER_MERGE_NO_RECORDER_PATTERN,
     AFTER_MERGE_RECORDER_PATTERN,
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
@@ -66,6 +67,7 @@ from hooks_constants.pull_request_proof_constants import (
     UNITTEST_MODULE_NAME,
     UNPROVEN_ADMISSION_PATTERN,
     UNPROVEN_PROOF_REASON,
+    WORKFLOW_RUN_ADMISSION_PATTERN,
     ALL_PASSTHROUGH_PROGRAM_NAMES,
     PATH_WITH_LINE_PATTERN,
     SINGLE_FILE_NAME_PATTERN,
@@ -450,10 +452,24 @@ def unproven_admission(section: str) -> str | None:
     unverified, matched without regard to case. Inline code spans and fenced
     blocks are skipped, so output quoted there never counts.
     """
-    for each_line, each_prose in _prose_lines(section):
-        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE):
-            return each_line.strip()
-    return None
+    return next(iter(unproven_admissions(section)), None)
+
+
+def unproven_admissions(section: str) -> list[str]:
+    """Return every prose line of a proof section that says something is not proven.
+
+    ::
+
+        "Not proven here: the live run.\nUntested on Windows." -> both lines
+        "Ran `python run.py`."                                  -> []
+
+    The markers and the skipped spans are those of unproven_admission.
+    """
+    return [
+        each_line.strip()
+        for each_line, each_prose in _prose_lines(section)
+        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE)
+    ]
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -485,8 +501,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     unverified is denied, with the line quoted; unproven_admission lists the
     markers. The line passes when the pull request adds a workflow file the
     default branch lacks and the body has an 'After merge' section that names
-    that file in backticks and says who records the run; see
-    _first_run_waits_for_merge.
+    that file in backticks and says who records the run, and every unproven
+    line mentions a run or a workflow; see _admissions_wait_for_merge.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -499,9 +515,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
             return MISSING_PROOF_REASON
         if _proof_runs_only_tests(section):
             return TEST_ONLY_PROOF_REASON
-        admission = unproven_admission(section)
-        if admission is not None and not _first_run_waits_for_merge(each_body, all_payload_fields):
-            return UNPROVEN_PROOF_REASON.format(admission=admission)
+        all_admissions = unproven_admissions(section)
+        if all_admissions and not _admissions_wait_for_merge(each_body, all_admissions, all_payload_fields):
+            return UNPROVEN_PROOF_REASON.format(admission=all_admissions[0])
     return None
 
 
@@ -748,6 +764,30 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     return all_workflow_paths or []
 
 
+def _admissions_wait_for_merge(
+    body: str, all_admissions: list[str], all_payload_fields: Mapping[str, object]
+) -> bool:
+    """Return whether every admission is about a new workflow's run that waits for the merge.
+
+    ::
+
+        "Not proven here: the live run." with a covered new workflow -> True
+        "Untested on Windows." with a covered new workflow           -> False
+        "Not proven here: the live run." with no covered workflow    -> False
+
+    Each admission line must mention a run or a workflow, so an admission about
+    anything else keeps the refusal.
+
+    Args:
+        body: The pull request body.
+        all_admissions: The proof section's unproven lines.
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    return all(
+        re.search(WORKFLOW_RUN_ADMISSION_PATTERN, each_admission, re.IGNORECASE) for each_admission in all_admissions
+    ) and _first_run_waits_for_merge(body, all_payload_fields)
+
+
 def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, object]) -> bool:
     """Return whether a new workflow's first run is planned for after the merge.
 
@@ -760,7 +800,8 @@ def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, objec
 
     A workflow added by a pull request runs only from the default branch, so
     its live run cannot come before the merge. The section must name an added
-    workflow file in backticks and say who records the run.
+    workflow file in backticks and say who records the run, with no negation
+    such as nobody or not ahead of the verb.
 
     Args:
         body: The pull request body.
@@ -768,6 +809,8 @@ def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, objec
     """
     after_merge = _section_text(body, AFTER_MERGE_HEADING_PATTERN)
     if not after_merge or re.search(AFTER_MERGE_RECORDER_PATTERN, after_merge, re.IGNORECASE) is None:
+        return False
+    if re.search(AFTER_MERGE_NO_RECORDER_PATTERN, after_merge, re.IGNORECASE) is not None:
         return False
     return any(
         f"`{each_path.rsplit('/', 1)[-1]}`" in after_merge
