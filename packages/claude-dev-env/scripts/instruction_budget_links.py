@@ -27,6 +27,7 @@ from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionFinding,
     import_targets,
+    is_existing_file,
     read_text_outside_fences,
     root_files,
 )
@@ -42,7 +43,7 @@ def _existing_markdown_files(
         each_path
         for each_path in all_resolved
         if each_path.suffix == MARKDOWN_SUFFIX
-        and each_path.is_file()
+        and is_existing_file(each_path)
         and repository_root in each_path.parents
     ]
 

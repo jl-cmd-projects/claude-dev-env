@@ -1,8 +1,7 @@
 """Find the instruction files a repository loads, and measure their launch budget.
 
-The budget counts the bytes an agent loads at launch: each entry instruction
-file, its ``@`` imports to four hops deep, and each rule without ``paths:``
-frontmatter.
+The budget counts the bytes an agent loads at launch: each entry file, its
+``@`` imports to four hops deep, and each rule without ``paths:`` frontmatter.
 """
 
 from __future__ import annotations
@@ -192,14 +191,29 @@ def _entry_files(repository_root: Path) -> list[Path]:
 
 def _has_paths_frontmatter(text: str) -> bool:
     all_lines = text.splitlines()
-    if not all_lines or all_lines[0] != FRONTMATTER_DELIMITER:
+    if not all_lines or all_lines[0].rstrip() != FRONTMATTER_DELIMITER:
         return False
     for each_line in all_lines[1:]:
-        if each_line == FRONTMATTER_DELIMITER:
+        if each_line.rstrip() == FRONTMATTER_DELIMITER:
             return False
         if each_line.startswith(PATHS_FRONTMATTER_PREFIX):
             return True
     return False
+
+
+def is_existing_file(path: Path) -> bool:
+    """Tell whether a path names an existing file.
+
+    Args:
+        path: Path to test.
+
+    Returns:
+        True for an existing file. False for any other path or rejected name.
+    """
+    try:
+        return path.is_file()
+    except OSError:
+        return False
 
 
 def _imported_paths(source_path: Path) -> list[Path]:
@@ -217,7 +231,7 @@ def _unseen_imports(all_sources: list[Path], all_found: dict[Path, None]) -> lis
     ]
     all_unseen: list[Path] = []
     for each_path in all_candidates:
-        if each_path.is_file() and each_path not in all_found:
+        if is_existing_file(each_path) and each_path not in all_found:
             all_found[each_path] = None
             all_unseen.append(each_path)
     return all_unseen

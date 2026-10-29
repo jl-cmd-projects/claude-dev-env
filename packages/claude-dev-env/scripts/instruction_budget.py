@@ -121,7 +121,12 @@ def _scoped_files(
     args: argparse.Namespace, repository_root: Path, config: InstructionBudgetConfig
 ) -> list[Path]:
     if args.all_files:
-        return instruction_files(repository_root, config)
+        return list(
+            dict.fromkeys(
+                instruction_files(repository_root, config)
+                + launch_files(repository_root, config)
+            )
+        )
     return [(repository_root / each_path).resolve() for each_path in args.changed_file]
 
 

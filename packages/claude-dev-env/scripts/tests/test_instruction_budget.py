@@ -36,6 +36,7 @@ from instruction_budget_files import (
     budget_findings,
     import_targets,
     instruction_files,
+    is_existing_file,
     is_instruction_file,
     launch_files,
     load_config,
@@ -381,6 +382,55 @@ def test_hop_distances_skip_a_link_written_inside_a_code_span(
     distances = hop_distances(repository_root, [root_path.resolve()])
     assert repository_root / "shown.md" in distances
     assert repository_root / "guide.md" not in distances
+
+
+def test_launch_files_and_hop_distances_survive_an_import_name_too_long_for_the_system(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    agents_path = _write(
+        repository_root / "AGENTS.md", "See @" + "a" * 300 + ".md for more.\n"
+    )
+    assert launch_files(repository_root, _config()) == [agents_path]
+    assert hop_distances(repository_root, [agents_path]) == {agents_path: 0}
+
+
+def test_is_existing_file_treats_a_name_too_long_for_the_system_as_absent(
+    tmp_path: Path,
+) -> None:
+    kept_path = _write(tmp_path / "kept.md", "# Kept\n")
+    assert is_existing_file(kept_path)
+    assert not is_existing_file(tmp_path / ("a" * 300 + ".md"))
+    assert not is_existing_file(tmp_path)
+
+
+def test_launch_files_skip_a_scoped_rule_whose_delimiter_has_trailing_spaces(
+    tmp_path: Path,
+) -> None:
+    scoped_rule = _write(
+        tmp_path / ".claude" / "rules" / "scoped.md",
+        "---  \npaths:\n  - src/**\n---  \nbody\n",
+    )
+    assert scoped_rule.resolve() not in launch_files(tmp_path.resolve(), _config())
+
+
+def test_main_checks_a_doc_a_launch_file_imports_in_a_full_scan(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(personal_name_findings, "__defaults__", (FIXTURE_DIGESTS,))
+    _write_budget_file(tmp_path, '{"max_launch_bytes": 1000}')
+    _write(tmp_path / "AGENTS.md", "@docs/context.md\n")
+    _write(tmp_path / "docs" / "context.md", "zorbel here\n")
+    _write(tmp_path / "docs" / "other.md", "zorbel here\n")
+    assert (
+        main(["--repository-root", str(tmp_path), "--all-files"])
+        == GATE_FAILED_EXIT_CODE
+    )
+    printed_lines = capsys.readouterr().out
+    assert f"docs/context.md: [{INSTRUCTION_PERSONAL_NAME_RULE_ID}]" in printed_lines
+    assert "docs/other.md" not in printed_lines
 
 
 def test_load_config_names_an_unreadable_budget_file(
