@@ -1,13 +1,15 @@
-"""Find the flowchart in one body section."""
+"""Find fenced lines and the mermaid flowchart in a pull request body."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import NamedTuple
 
 from hooks_constants.body_flowchart_constants import (
     BACKTICK_FENCE_CHARACTER,
     EDGE_LABEL_PATTERN,
     FENCE_MARKER_GROUP,
+    FENCE_PREFIX_CHARACTERS,
     FENCE_OPEN_PATTERN,
     FLOWCHART_EDGE_PATTERN,
     FLOWCHART_FIRST_LINE_PATTERN,
@@ -16,7 +18,6 @@ from hooks_constants.body_flowchart_constants import (
     INFO_TAIL_GROUP,
     MERMAID_COMMENT_PREFIX,
     MERMAID_INFO_STRING,
-    MINIMUM_FENCE_LENGTH,
     NODE_TEXT_PATTERN,
     TRAILING_COMMENT_PATTERN,
 )
@@ -34,8 +35,8 @@ def _opening_fence(line: str) -> tuple[str, str] | None:
 
 
 def _closes_fence(line: str, open_fence: str) -> bool:
-    stripped_line = line.strip()
-    return len(stripped_line) >= MINIMUM_FENCE_LENGTH and set(stripped_line) == {open_fence[0]}
+    stripped_line = line.lstrip(FENCE_PREFIX_CHARACTERS).rstrip()
+    return len(stripped_line) >= len(open_fence) and set(stripped_line) == {open_fence[0]}
 
 
 def _closing_index(all_lines: list[str], start_index: int, open_fence: str) -> int | None:
@@ -45,8 +46,13 @@ def _closing_index(all_lines: list[str], start_index: int, open_fence: str) -> i
     )
 
 
-def _closed_mermaid_blocks(section: str) -> Iterator[list[str]]:
-    all_lines = section.splitlines()
+class FenceSpan(NamedTuple):
+    open_index: int
+    close_index: int | None
+    info_string: str
+
+
+def _fence_spans(all_lines: list[str]) -> Iterator[FenceSpan]:
     line_index = 0
     while line_index < len(all_lines):
         opening = _opening_fence(all_lines[line_index])
@@ -55,11 +61,44 @@ def _closed_mermaid_blocks(section: str) -> Iterator[list[str]]:
             continue
         marker, info_string = opening
         close_index = _closing_index(all_lines, line_index + 1, marker)
+        yield FenceSpan(line_index, close_index, info_string)
         if close_index is None:
             return
-        if info_string.lower() == MERMAID_INFO_STRING:
-            yield [each_line.strip() for each_line in all_lines[line_index + 1 : close_index]]
         line_index = close_index + 1
+
+
+def fenced_line_flags(all_lines: list[str]) -> list[bool]:
+    """Return one flag per line: whether the line is a fence line or sits between two.
+
+    ::
+
+        ["a", "```", "# b", "```", "c"]   -> [False, True, True, True, False]
+        ["a", "```", "# b"]               -> [False, False, False]
+
+    A fence that never closes turns every flag to False, so one stray fence
+    leaves the body readable as plain text. A closing fence is a run of the
+    opening fence character at least as long as the opening run.
+
+    Args:
+        all_lines: The body split into lines.
+    """
+    all_spans = list(_fence_spans(all_lines))
+    if any(each_span.close_index is None for each_span in all_spans):
+        return [False] * len(all_lines)
+    all_flags = [False] * len(all_lines)
+    for each_span in all_spans:
+        all_flags[each_span.open_index : each_span.close_index + 1] = [True] * (each_span.close_index - each_span.open_index + 1)
+    return all_flags
+
+
+def _closed_mermaid_blocks(section: str) -> Iterator[list[str]]:
+    all_lines = section.splitlines()
+    for each_span in _fence_spans(all_lines):
+        if each_span.close_index is not None and each_span.info_string.lower() == MERMAID_INFO_STRING:
+            yield [
+                each_line.lstrip(FENCE_PREFIX_CHARACTERS).rstrip()
+                for each_line in all_lines[each_span.open_index + 1 : each_span.close_index]
+            ]
 
 
 def _without_labels(line: str) -> str:

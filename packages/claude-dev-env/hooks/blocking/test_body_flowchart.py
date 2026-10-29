@@ -9,7 +9,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
-from blocking.body_flowchart import section_has_flowchart
+from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
 
 
 def _block(*all_lines: str, fence: str = "```") -> str:
@@ -27,6 +27,7 @@ def _block(*all_lines: str, fence: str = "```") -> str:
         _block("flowchart LR", "    a ==> b"),
         _block("flowchart LR; a --> b"),
         "````mermaid\nflowchart LR\n    a --> b\n`````",
+        "> ```mermaid\n> flowchart LR\n> a --> b\n> ```",
         _block("---", "title: Flow", "---", "flowchart LR", "    a --> b"),
         "1. Flow:\n\n    ```mermaid\n    flowchart LR\n    a --> b\n    ```",
         "```js```\n\n" + _block("flowchart LR", "    a --> b"),
@@ -66,6 +67,7 @@ def should_accept_a_closed_mermaid_flowchart_with_an_arrow(block: str) -> None:
         "```text\nflowchart LR\n    a --> b\n```",
         "```mermaid\nflowchart LR\n    a --> b",
         "````text\n```mermaid\nflowchart LR\n    a --> b\n```\n````",
+        "```mermaid\nflowchart LR\n    a --> b\n``",
     ],
 )
 def should_reject_a_section_without_a_closed_mermaid_flowchart_edge(section: str) -> None:
@@ -77,3 +79,21 @@ def should_find_a_flowchart_after_a_block_of_another_diagram_type() -> None:
         _block("sequenceDiagram", "    a->>b: hi") + "\n\n" + _block("flowchart LR", "    a --> b")
     )
     assert section_has_flowchart(section)
+
+
+@pytest.mark.parametrize(
+    ("all_lines", "expected_flags"),
+    [
+        (["a", "```", "# b", "```", "c"], [False, True, True, True, False]),
+        (["a", "```", "# b"], [False, False, False]),
+        (["```", "x", "```", "# h", "~~~", "y", "~~~"], [True, True, True, False, True, True, True]),
+        (["````", "```", "# h", "```", "````", "# after"], [True, True, True, True, True, False]),
+        (["```", "x", "```", "```", "dangling"], [False] * 5),
+        (["> ```", "> # h", "> ```"], [True, True, True]),
+        (["plain", "# heading"], [False, False]),
+    ],
+)
+def should_flag_each_line_of_a_closed_fence_and_none_when_a_fence_stays_open(
+    all_lines: list[str], expected_flags: list[bool]
+) -> None:
+    assert fenced_line_flags(all_lines) == expected_flags

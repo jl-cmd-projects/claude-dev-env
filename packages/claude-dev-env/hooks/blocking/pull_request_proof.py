@@ -14,7 +14,7 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.body_flowchart import section_has_flowchart
+from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
 from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES, UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
@@ -109,27 +109,8 @@ def _heading_level(line: str, heading_pattern: str) -> int | None:
     return None if heading is None else len(heading.group(1))
 
 
-def _open_marker_after(line: str, open_marker: str | None) -> str | None:
-    line_marker = _fence_marker(line)
-    if line_marker is None:
-        return open_marker
-    if open_marker is None:
-        return line_marker
-    return None if line_marker == open_marker else open_marker
-
-
-def _fenced_line_flags(all_lines: list[str]) -> list[bool]:
-    all_flags: list[bool] = []
-    open_marker: str | None = None
-    for each_line in all_lines:
-        was_open = open_marker is not None
-        open_marker = _open_marker_after(each_line, open_marker)
-        all_flags.append(was_open or open_marker is not None)
-    return [False] * len(all_lines) if open_marker is not None else all_flags
-
-
 def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
-    all_fenced_flags = _fenced_line_flags(all_lines)
+    all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
         next_level = None if all_fenced_flags[each_index] else _heading_level(each_line, NEXT_HEADING_PATTERN)
         if next_level is not None and next_level <= heading_level:
@@ -139,7 +120,7 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
 
 def _section_text(body: str, heading_pattern: str) -> str | None:
     all_lines = body.splitlines()
-    all_fenced_flags = _fenced_line_flags(all_lines)
+    all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
         heading_level = None if all_fenced_flags[each_index] else _heading_level(each_line, heading_pattern)
         if heading_level is not None:
