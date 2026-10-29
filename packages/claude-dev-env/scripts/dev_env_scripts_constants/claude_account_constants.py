@@ -9,6 +9,7 @@ main account so its owner never runs out.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PureWindowsPath
 
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 
@@ -29,9 +30,6 @@ EXTRA_PROFILES_FILE_NAME: str = "extra-profiles.json"
 
 CLAUDE_ACCOUNT_ORDER_FILE_NAME: str = "claude-account-order.json"
 """Optional main-home file listing Claude accounts in pick priority, first choice first."""
-
-ALL_DEACTIVATED_ACCOUNT_NAMES: frozenset[str] = frozenset({"org-mel", "claude-org-mel"})
-"""Lowercase names of deactivated Claude accounts the broker never picks, matched against an account's name, command or launcher name, including the ``claude-`` launcher form."""
 
 PROFILE_NAME_PATTERN: str = r"[A-Za-z0-9][A-Za-z0-9_-]*"
 """Allowed profile names for directories and command launchers."""
@@ -79,6 +77,19 @@ CLAUDE_LAUNCHER_PROGRAM: LauncherProgram = LauncherProgram(
     file_name_template="claude-{profile_name}.cmd",
 )
 """Launcher that runs Claude with ``CLAUDE_CONFIG_DIR`` set to the profile home."""
+
+ALL_DEACTIVATED_PROFILE_NAMES: tuple[str, ...] = ("org-mel",)
+"""Lowercase profile names of deactivated Claude accounts the broker never picks."""
+
+ALL_DEACTIVATED_ACCOUNT_NAMES: frozenset[str] = frozenset(
+    each_name.casefold()
+    for each_profile_name in ALL_DEACTIVATED_PROFILE_NAMES
+    for each_name in (
+        each_profile_name,
+        PureWindowsPath(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=each_profile_name)).stem,
+    )
+)
+"""Every name a deactivated account answers to: its profile name and its launcher name."""
 
 LAUNCHER_REPLACED_SUFFIX: str = ".replaced-"
 """Suffix, before the run time, of an older launcher the sync moved aside."""
