@@ -86,6 +86,7 @@ AFTER_MERGE_NO_RECORDER_PATTERN = (
 AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[.;\n]"
 FIRST_RUN_ADMISSION_PATTERN = r"\b(?:github actions|(?:live|first) (?:workflow )?run)\b"
 GIT_URL_SUFFIX = ".git"
+WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
 ADDED_FILE_NAMES_QUERY = (
     '(.files | length | tostring), (.files[] | select(.status == "added" or .status == "renamed" or .status == "copied") | .filename)'

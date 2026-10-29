@@ -19,6 +19,7 @@ from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     FIRST_RUN_ADMISSION_PATTERN,
     GIT_URL_SUFFIX,
+    WORKFLOW_NAME_MATCH_TEMPLATE,
     AFTER_MERGE_HEADING_PATTERN,
     AFTER_MERGE_NO_RECORDER_PATTERN,
     AFTER_MERGE_RECORDER_PATTERN,
@@ -762,7 +763,7 @@ def _first_unwaived_admission(
     ::
 
         "Not proven here: the live GitHub Actions run." with a covered new workflow -> None
-        "Untested on Windows." with a covered new workflow                          -> "Untested on Windows."
+        "Untested on Windows." with a covered new workflow                          -> that line
         "Not proven here: the live GitHub Actions run." with no covered workflow    -> that line
         no unproven line                                                            -> None
 
@@ -775,16 +776,9 @@ def _first_unwaived_admission(
         all_admissions: The proof section's unproven lines.
         all_payload_fields: The parsed PreToolUse input.
     """
-    if not all_admissions:
-        return None
-    all_covered_names = _covered_workflow_names(body, all_payload_fields)
+    all_covered_names = _covered_workflow_names(body, all_payload_fields) if all_admissions else []
     return next(
-        (
-            each_admission
-            for each_admission in all_admissions
-            if not _admission_is_about_a_first_run(each_admission, all_covered_names)
-        ),
-        None,
+        (each for each in all_admissions if not _admission_is_about_a_first_run(each, all_covered_names)), None
     )
 
 
@@ -792,7 +786,7 @@ def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str
     return bool(all_workflow_names) and (
         re.search(FIRST_RUN_ADMISSION_PATTERN, admission, re.IGNORECASE) is not None
         or any(
-            re.search(rf"(?<![\w.-]){re.escape(each_name)}(?![\w-]|\.\w)", admission, re.IGNORECASE)
+            re.search(WORKFLOW_NAME_MATCH_TEMPLATE.format(workflow_name=re.escape(each_name)), admission, re.IGNORECASE)
             for each_name in all_workflow_names
         )
     )
