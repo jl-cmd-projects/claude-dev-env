@@ -278,6 +278,7 @@ def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
         "a.py:1,a.py:1",
         "a.py:1,./a.py:1",
         "a.py:1,docs/../a.py:1",
+        "a.py:1,docs\\notes.txt:1",
         "a.py:1,odd.txt:2",
         "a.py:1,unterminated.txt:3",
         "see the thread,a.py:3",
@@ -293,6 +294,23 @@ def test_should_refuse_an_open_pass_whose_rulings_do_not_prove_each_finding(
             StringIO(),
         )
     assert not (receipt_folder / "heads").exists()
+
+
+def test_should_name_the_path_form_when_a_ruling_is_malformed_not_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    receipt_folder: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "open", head, "2", "--ruled-out", "2", "--rulings", "a.py:1,docs\\notes.txt:1"],
+            StringIO(),
+        )
+    error_text = capsys.readouterr().err
+    assert "docs\\notes.txt:1" in error_text
+    assert "run this in the checkout" not in error_text
 
 
 @pytest.mark.parametrize("head", ["abc", "abc1234", "../../escape", "zzzzzzz"])

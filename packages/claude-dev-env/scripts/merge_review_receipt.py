@@ -176,6 +176,16 @@ def _checked_open_rulings(
     ]
     if len(all_rulings) != parsed.ruled_out:
         parser.error("--rulings needs one path:line for each finding --ruled-out counts")
+    all_malformed = [
+        each_ruling
+        for each_ruling in all_rulings
+        if RULING_REFERENCE_PATTERN.fullmatch(each_ruling) is None
+    ]
+    if all_malformed:
+        parser.error(
+            "--rulings needs path:line with a / path and a line from 1, not "
+            f"{RULING_SEPARATOR.join(all_malformed)}"
+        )
     if len(set(all_rulings)) != len(all_rulings):
         parser.error("--rulings needs a different path:line for each finding")
     all_unproven = [
@@ -197,9 +207,10 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, all_rulings)
-    _write_open_receipt(parsed.slug, parsed.head, receipt)
-    if is_clean_open_pass(receipt):
+    written_path = record_open_review(
+        parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings
+    )
+    if is_clean_open_pass(json.loads(written_path.read_text(encoding="utf-8"))):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"
             if parsed.ruled_out

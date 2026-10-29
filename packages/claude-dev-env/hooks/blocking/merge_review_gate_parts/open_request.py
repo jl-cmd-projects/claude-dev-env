@@ -24,6 +24,7 @@ from hooks_constants.merge_review_gate_constants import (
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
     GH_PR_CREATE_PATTERN,
+    GITHUB_REMOTE_URL_PATTERN,
     GITHUB_REMOTE_URL_TEMPLATE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
@@ -62,6 +63,14 @@ class OpenRequest:
         return f"{self.owner}/{self.repo}"
 
 
+@dataclass(frozen=True)
+class _CheckoutRemote:
+    name: str
+    url: str
+    owner: str
+    repo: str
+
+
 def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | None:
     """Read the pull request open a PreToolUse payload asks for.
 
@@ -71,14 +80,16 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         gh pr create --repo o/r --head branch
         python pull_request.py create --repo o/r --head branch
 
-    A branch resolves to the commit GitHub lists for it. The lookup goes through
-    a remote of the payload's folder or a ``cd`` target that names the same
-    owner and repository, else through https://github.com. A fork head
-    ``user:branch`` resolves on a remote of that owner, else on a fork named
-    like the base repository. When GitHub lists no such branch, the checkout's
-    ``origin/<branch>`` or local branch resolves it. A failed lookup reads no
-    head. No head means the current branch, or the checked-out commit when HEAD
-    is detached; no repository, ``origin``.
+    A branch resolves to the commit GitHub lists for it. The lookup reads the
+    https or SSH github.com URL of a remote of the payload's folder or a ``cd``
+    target that names the same owner and repository, else
+    https://github.com. A fork head ``user:branch`` reads a remote URL of that
+    owner, the one named like the base repository first, else the fork named
+    like the base repository. Other remote URLs are ignored. When GitHub lists
+    no such branch, the checkout's ``origin/<branch>`` or local branch
+    resolves it. A failed lookup reads no head. No head means the current
+    branch, or the checked-out commit when HEAD is detached; no repository,
+    ``origin``.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -167,7 +178,7 @@ def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> st
         branch = current_branch
     if not owner or not repo:
         return _local_branch_commit(branch, folder)
-    listing = _github_listing(owner, repo, branch, folder, checkout_repo=repo)
+    listing = _github_listing(owner, repo, branch, folder, matches_any_repository=False)
     if listing is None:
         return None
     return _listed_commit(listing, branch) or _local_branch_commit(branch, folder)
@@ -177,7 +188,7 @@ def _fork_branch_commit(branch: str, folder: str | None, repo: str) -> str | Non
     fork_owner, _, fork_branch = branch.partition(":")
     if not fork_owner or not repo:
         return None
-    listing = _github_listing(fork_owner, repo, fork_branch, folder, checkout_repo=None)
+    listing = _github_listing(fork_owner, repo, fork_branch, folder, matches_any_repository=True)
     return _listed_commit(listing or "", fork_branch)
 
 
@@ -190,36 +201,50 @@ def _local_commit(reference: str, folder: str | None) -> str | None:
 
 
 def _github_listing(
-    owner: str, repo: str, branch_name: str, folder: str | None, checkout_repo: str | None
+    owner: str, repo: str, branch_name: str, folder: str | None, matches_any_repository: bool
 ) -> str | None:
-    checkout_remote = _checkout_remote(owner, checkout_repo, folder)
-    remote = checkout_remote or GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
+    remote_url = _checkout_remote_url(owner, repo, folder, matches_any_repository)
+    if remote_url is None:
+        remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
-    return _run_git(
-        ["ls-remote", remote, reference],
-        folder if checkout_remote else None,
-        REMOTE_LOOKUP_TIMEOUT_SECONDS,
-    )
+    return _run_git(["ls-remote", "--", remote_url, reference], None, REMOTE_LOOKUP_TIMEOUT_SECONDS)
 
 
-def _checkout_remote(owner: str, repo: str | None, folder: str | None) -> str | None:
-    all_names = [
-        each_name
-        for each_name, each_owner, each_repo in _remote_repositories(folder)
-        if each_owner.casefold() == owner.casefold()
-        and (repo is None or each_repo.casefold() == repo.casefold())
+def _checkout_remote_url(
+    owner: str, repo: str, folder: str | None, matches_any_repository: bool
+) -> str | None:
+    all_candidates = [
+        each_remote
+        for each_remote in _checkout_remotes(folder)
+        if each_remote.owner.casefold() == owner.casefold()
+        and (matches_any_repository or each_remote.repo.casefold() == repo.casefold())
     ]
-    return min(all_names, key=lambda each_name: each_name != PREFERRED_REMOTE_NAME, default=None)
+    best_candidate = min(
+        all_candidates,
+        key=lambda each_remote: (
+            each_remote.repo.casefold() != repo.casefold(),
+            each_remote.name != PREFERRED_REMOTE_NAME,
+        ),
+        default=None,
+    )
+    return best_candidate.url if best_candidate else None
 
 
-def _remote_repositories(folder: str | None) -> list[tuple[str, str, str]]:
+def _checkout_remotes(folder: str | None) -> list[_CheckoutRemote]:
     config = _run_git(list(ALL_REMOTE_URL_CONFIG_ARGUMENTS), folder)
-    all_remotes: list[tuple[str, str, str]] = []
+    all_remotes: list[_CheckoutRemote] = []
     for each_line in (config or "").splitlines():
         line_match = REMOTE_URL_LINE_PATTERN.fullmatch(each_line)
-        url_match = ORIGIN_URL_PATTERN.search(line_match["url"]) if line_match else None
+        url_match = GITHUB_REMOTE_URL_PATTERN.fullmatch(line_match["url"]) if line_match else None
         if line_match and url_match:
-            all_remotes.append((line_match["name"], url_match["owner"], url_match["repo"]))
+            all_remotes.append(
+                _CheckoutRemote(
+                    name=line_match["name"],
+                    url=line_match["url"],
+                    owner=url_match["owner"],
+                    repo=url_match["repo"],
+                )
+            )
     return all_remotes
 
 

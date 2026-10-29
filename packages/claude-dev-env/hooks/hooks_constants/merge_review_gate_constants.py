@@ -36,6 +36,10 @@ CREATE_TEXT_OPTION_PATTERN = re.compile(
 ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
+GITHUB_REMOTE_URL_PATTERN = re.compile(
+    r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+    r"(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?"
+)
 GIT_TIMEOUT_SECONDS = 3
 REMOTE_LOOKUP_TIMEOUT_SECONDS = 5
 GITHUB_REMOTE_URL_TEMPLATE = "https://github.com/{owner}/{repo}.git"
@@ -65,7 +69,7 @@ RULINGS_LINK_PATTERN = re.compile(
     r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
     r"#issuecomment-\d+"
 )
-RULING_PATH_SEGMENT = r"(?!\.{1,2}(?![^\x00-\x1f:,/]))[^\x00-\x1f:,/]+"
+RULING_PATH_SEGMENT = r"(?!\.{1,2}(?![^\x00-\x1f:,/\\]))[^\x00-\x1f:,/\\]+"
 RULING_REFERENCE_PATTERN = re.compile(
     r"(?P<path>" + RULING_PATH_SEGMENT + r"(?:/" + RULING_PATH_SEGMENT + r")*):(?P<line>[1-9]\d*)"
 )
@@ -144,7 +148,7 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     + OPEN_TARGET_WORD
     + " {head} <finding count> --ruled-out <finding count> --rulings <path:line for each "
     "finding, comma separated>`, each path:line a line this head holds. Then open the pull "
-    "request. The merge accepts that receipt while the head stays {head}."
+    "request. A merge pinned to {head} accepts an open pass only at zero findings."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
     "This pull request names no repository or head commit the review gate can read. Check that "
