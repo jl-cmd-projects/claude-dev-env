@@ -80,15 +80,6 @@ def pele_package_directory_under(claude_root: Path) -> Path:
     )
 
 
-def pele_package_directory() -> Path:
-    """Return the folder the Claude home keeps its Pele package in.
-
-    Returns:
-        The Pele package folder under the Claude home.
-    """
-    return pele_package_directory_under(claude_home())
-
-
 def installed_pele_version(package_directory: Path) -> str | None:
     """Read the version from an installed Pele package manifest.
 
@@ -170,7 +161,7 @@ def guidance_text() -> str:
         The installed-copy snippet when a Pele manifest reads and its entry
         file exists, else the playground guidance.
     """
-    package_directory = pele_package_directory()
+    package_directory = pele_package_directory_under(claude_home())
     package_entry = package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
     version = installed_pele_version(package_directory)
     if version is None or not package_entry.is_file():

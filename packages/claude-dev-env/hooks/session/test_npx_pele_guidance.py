@@ -146,7 +146,8 @@ def test_package_directory_follows_the_claude_config_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(tmp_path))
-    assert npx_pele_guidance.pele_package_directory() == npx_pele_guidance.pele_package_directory_under(tmp_path)
+    package_directory = npx_pele_guidance.pele_package_directory_under(npx_pele_guidance.claude_home())
+    assert package_directory == npx_pele_guidance.pele_package_directory_under(tmp_path)
 
 
 def test_installed_copy_gets_its_version_path_and_snippet(
