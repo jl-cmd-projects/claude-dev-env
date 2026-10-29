@@ -6,7 +6,8 @@ A repository opts in with ``instruction-budget.json`` at its root::
 
 The budget counts the bytes an agent loads at launch: each entry instruction
 file, its ``@`` imports, and each rule without ``paths:`` frontmatter. The name
-check runs on the instruction files the caller names. The nesting check covers
+check runs on the instruction files the caller names, and on every launch file once
+the change touches an instruction file, since a new import loads an unchanged doc. The nesting check covers
 every instruction file on every run, since one edited, deleted, or added link
 moves the files behind it, and so does a new cap in the budget file.
 
@@ -163,7 +164,12 @@ def _scoped_files(
                 + launch_files(repository_root, config)
             )
         )
-    return [(repository_root / each_path).resolve() for each_path in args.changed_file]
+    all_changed = [
+        (repository_root / each_path).resolve() for each_path in args.changed_file
+    ]
+    if not scoped_instruction_files(repository_root, config, all_changed):
+        return all_changed
+    return list(dict.fromkeys(all_changed + launch_files(repository_root, config)))
 
 
 def finding_line(finding: InstructionFinding) -> str:

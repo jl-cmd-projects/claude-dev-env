@@ -435,6 +435,28 @@ def test_main_checks_a_doc_a_launch_file_imports_in_a_full_scan(
     assert "docs/other.md" not in printed_lines
 
 
+def test_main_checks_every_launch_doc_once_a_changed_file_imports_a_new_one(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(personal_name_findings, "__defaults__", (FIXTURE_DIGESTS,))
+    _write_budget_file(tmp_path, '{"max_launch_bytes": 1000}')
+    _write(tmp_path / "AGENTS.md", "@docs/people.md\n")
+    _write(tmp_path / "docs" / "people.md", "zorbel here\n")
+    _write(tmp_path / "docs" / "other.md", "zorbel here\n")
+    assert (
+        main(["--repository-root", str(tmp_path), "--changed-file", "AGENTS.md"])
+        == GATE_FAILED_EXIT_CODE
+    )
+    printed_lines = capsys.readouterr().out
+    assert f"docs/people.md: [{INSTRUCTION_PERSONAL_NAME_RULE_ID}]" in printed_lines
+    assert "docs/other.md" not in printed_lines
+    assert (
+        main(["--repository-root", str(tmp_path), "--changed-file", "notes.txt"]) == 0
+    )
+
+
 def test_load_config_names_an_unreadable_budget_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
