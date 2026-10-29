@@ -62,7 +62,7 @@ SLIM_PROFILE_DENY_REASON = (
     "BLOCKED: A Haiku agent started from this session runs with this session's settings, plugins, "
     "MCP servers, and CLAUDE.md files. An Agent, Task, or thread spawn has no field for setting sources, "
     "a plugin directory, or an MCP config, so it cannot load the slim profile. "
-    "Use one of two routes. Route 1: spawn subagent_type lean-worker with model haiku. That run stays in this session without the slim profile. "
+    "Use one of two routes. Route 1: spawn subagent_type lean-worker with model haiku. The gate allows only that type to run here without the slim profile. "
     "Route 2: start Haiku as a headless run with the slim profile. Set "
     f"{SLIM_PROFILE_ENVIRONMENT_TEXT} in the environment, then run this from Bash or another POSIX shell, "
     "because PowerShell strips the double quotes inside the single-quoted JSON: "
