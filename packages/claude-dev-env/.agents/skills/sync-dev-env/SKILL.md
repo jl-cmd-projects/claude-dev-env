@@ -1,12 +1,12 @@
 ---
 name: sync-dev-env
-description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin into the agents skills folder that Codex reads, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to link a plugin's skills for Codex, when a /skill fails to resolve, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
+description: Install or update claude-dev-env in a running session, link the skills of every enabled plugin into the agents skills directory that Codex reads, and schedule a daily re-sync at 6:00 AM local by default. Use when the user asks to sync claude-dev-env into a session, to link a plugin's skills for Codex, when a /skill fails to resolve, to set up the daily sync, to check which session prompt a session uses, or to turn the claude-dev-env session prompt off for one session.
 argument-hint: "[HH:MM] [IANA time zone]"
 ---
 
 # /sync-dev-env
 
-An always-on session starts once, so a SessionStart hook runs once and never again. Claude Code reads plugins only at session start, and a running session has no plugin reload. Codex reads the agents skills folder live, so one symlink per skill makes each plugin skill load there at once. Claude loads plugin skills under their prefix, such as `pstack:name`, and this script adds no bare-name links for Claude.
+An always-on session starts once, so a SessionStart hook runs once and never again. Claude Code reads plugins only at session start, and a running session has no plugin reload. Codex reads the agents skills directory live, so one symlink per skill makes each plugin skill load there at once. Claude loads plugin skills under their prefix, such as `pstack:name`, and this script adds no bare-name links for Claude.
 
 ## A /skill fails to resolve
 
@@ -58,6 +58,6 @@ When the user asks to turn the trimmed prompt off for one session, start that se
 | File | Role |
 |---|---|
 | `SKILL.md` | This flow: install, link, schedule |
-| `scripts/link_plugin_skills.py` | Converges the agents skills folder on one link per enabled plugin skill, and clears plugin links from the Claude folder |
+| `scripts/link_plugin_skills.py` | Converges the agents skills directory on one link per enabled plugin skill, and clears plugin links from the Claude folder |
 | `scripts/test_link_plugin_skills.py` | Behavior tests for link, skip, re-point, remove, Claude folder cleanup, and a second run |
 | `scripts/sync_dev_env_constants/config/constants.py` | Plugin file paths, settings keys, outcome names, report lines |

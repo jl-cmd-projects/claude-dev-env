@@ -28,7 +28,9 @@ if scripts_directory not in sys.path:
     sys.path.insert(0, scripts_directory)
 
 from sync_dev_env_constants.config.constants import (
+    AGENTS_HOME_DIRECTORY_NAME,
     CLAUDE_FOLDER_REMOVED_REPORT,
+    CLAUDE_HOME_DIRECTORY_NAME,
     CREATED_REPORT,
     DEFAULT_CLAUDE_HOME,
     ENABLED_PLUGINS_KEY,
@@ -222,9 +224,9 @@ def default_agents_home(claude_home: Path) -> Path:
     Returns:
         The sibling `.agents` folder for a `.claude` home, or a sibling `<root-name>.agents` for any other home.
     """
-    if claude_home.name == ".claude":
-        return claude_home.with_name(".agents")
-    return claude_home.with_name(f"{claude_home.name}.agents")
+    if claude_home.name == CLAUDE_HOME_DIRECTORY_NAME:
+        return claude_home.with_name(AGENTS_HOME_DIRECTORY_NAME)
+    return claude_home.with_name(f"{claude_home.name}{AGENTS_HOME_DIRECTORY_NAME}")
 
 
 def main() -> int:
