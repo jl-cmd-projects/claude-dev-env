@@ -21,6 +21,11 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
     PURE_RENAME_STATUS,
+    RAW_HEADER_FIELD_COUNT,
+    RAW_RECORD_PREFIX,
+    RAW_RENAME_STATUS_LETTER,
+    RAW_RENAME_PATH_COUNT,
+    RAW_TWO_PATH_STATUS_LETTERS,
     STATUS_FIELD_SEPARATOR,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
@@ -628,18 +633,31 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
     return None
 
 
-def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
+class ChangedFile(NamedTuple):
+    path: str
+    old_path: str
+    is_pure_rename: bool
+
+
+def _git_output(working_directory: str, *all_git_arguments: str) -> str | None:
     try:
         completed = subprocess.run(
             ["git", "-C", working_directory, *all_git_arguments],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=GIT_TIMEOUT_SECONDS,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    return completed.stdout.splitlines() if completed.returncode == 0 else None
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
+    output = _git_output(working_directory, *all_git_arguments)
+    return output.splitlines() if output is not None else None
 
 
 def _first_merge_base(working_directory: str, head_reference: str) -> str | None:
@@ -674,9 +692,9 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
 
-    A rename that keeps every byte (git reports R100) from one visible file to another
+    A rename whose old and new blob ids match, from one visible file to another,
     changes nothing people see. One from a file people do not see, such as notes.txt
-    to page.html, still makes a page.
+    to page.html, still makes a page. A copy or a rename with an edit keeps its path.
 
     Args:
         working_directory: The session directory the hook payload names.
@@ -690,31 +708,51 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     merge_base = _first_merge_base(working_directory, head_reference)
     if merge_base is None:
         return None
-    all_status_lines = _git_lines(
-        working_directory, "-c", "core.quotePath=false", "diff", "--name-status", "-M", merge_base, head_reference
-    )
-    if all_status_lines is None:
+    raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", merge_base, head_reference)
+    if raw_output is None:
         return None
-    return _visible_paths(all_status_lines)
+    all_changes = _git_changes(raw_output.split("\0"))
+    if all_changes is None:
+        return None
+    return _visible_paths(all_changes)
 
 
-def _is_pure_rename_between_pages(all_fields: list[str]) -> bool:
-    return (
-        len(all_fields) > 1
-        and all_fields[0] == PURE_RENAME_STATUS
-        and all_fields[1].lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
-    )
+def _git_changes(all_raw_fields: list[str]) -> list[ChangedFile] | None:
+    all_changes = []
+    field_index = 0
+    while field_index < len(all_raw_fields) and all_raw_fields[field_index].startswith(RAW_RECORD_PREFIX):
+        all_header_fields = all_raw_fields[field_index][1:].split(" ")
+        if len(all_header_fields) != RAW_HEADER_FIELD_COUNT:
+            return None
+        old_mode, new_mode, old_blob, new_blob, status = all_header_fields
+        path_count = RAW_RENAME_PATH_COUNT if status[:1] in RAW_TWO_PATH_STATUS_LETTERS else 1
+        all_paths = all_raw_fields[field_index + 1 : field_index + 1 + path_count]
+        if len(all_paths) != path_count:
+            return None
+        is_pure_rename = status.startswith(RAW_RENAME_STATUS_LETTER) and old_mode == new_mode and old_blob == new_blob
+        all_changes.append(ChangedFile(path=all_paths[-1], old_path=all_paths[0], is_pure_rename=is_pure_rename))
+        field_index += 1 + path_count
+    return all_changes
 
 
-def _visible_paths(all_status_lines: list[str]) -> list[str]:
-    all_visible_paths = []
+def _compare_changes(all_status_lines: list[str]) -> list[ChangedFile]:
+    all_changes = []
     for each_line in all_status_lines:
         all_fields = each_line.split(STATUS_FIELD_SEPARATOR)
-        if _is_pure_rename_between_pages(all_fields):
-            continue
-        if all_fields[-1].lower().endswith(ALL_VISIBLE_FILE_SUFFIXES):
-            all_visible_paths.append(all_fields[-1])
-    return all_visible_paths
+        old_path = all_fields[1] if len(all_fields) > 2 else ""
+        all_changes.append(
+            ChangedFile(path=all_fields[-1], old_path=old_path, is_pure_rename=all_fields[0] == PURE_RENAME_STATUS)
+        )
+    return all_changes
+
+
+def _visible_paths(all_changes: list[ChangedFile]) -> list[str]:
+    return [
+        each_change.path
+        for each_change in all_changes
+        if each_change.path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
+        and not (each_change.is_pure_rename and each_change.old_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES))
+    ]
 
 
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
@@ -751,7 +789,7 @@ def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) 
     )
     if all_status_lines is None:
         return None
-    all_visible_paths = _visible_paths(all_status_lines)
+    all_visible_paths = _visible_paths(_compare_changes(all_status_lines))
     if all_visible_paths or len(all_status_lines) < COMPARE_FILE_LIST_LIMIT:
         return all_visible_paths
     return None

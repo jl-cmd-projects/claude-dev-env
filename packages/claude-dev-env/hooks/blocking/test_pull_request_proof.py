@@ -350,7 +350,7 @@ def test_other_pull_request_commands_should_pass_the_existing_work_check() -> No
 def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
-    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
     subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
     (origin_path / "readme.md").write_text("base\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
@@ -443,11 +443,13 @@ def _repository_with_rename(
     edited_text: str | None,
     old_name: str = "asset-specs.html",
     new_name: str = "references/asset-specs.html",
+    reorder_lines: bool = False,
 ) -> Path:
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
     git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
-    page_text = "<p>" + "page body line\n" * 20 + "</p>\n"
+    all_page_lines = [f"page body line {each_index}\n" for each_index in range(20)]
+    page_text = "".join(all_page_lines)
     subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
     (origin_path / old_name).write_text(page_text, encoding="utf-8")
     subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
@@ -456,8 +458,9 @@ def _repository_with_rename(
     subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
     (clone_path / new_name).parent.mkdir(exist_ok=True)
     subprocess.run(["git", "-C", str(clone_path), "mv", old_name, new_name], check=True)
-    if edited_text is not None:
-        (clone_path / new_name).write_text(page_text + edited_text, encoding="utf-8")
+    moved_text = "".join(reversed(all_page_lines)) if reorder_lines else page_text
+    if edited_text is not None or reorder_lines:
+        (clone_path / new_name).write_text(moved_text + (edited_text or ""), encoding="utf-8")
     subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
     subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "move"], check=True)
     return clone_path
@@ -485,7 +488,7 @@ def _stub_compare(monkeypatch: pytest.MonkeyPatch, all_lines: list[str]) -> None
 def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _stub_compare(monkeypatch, ["R100\treferences/asset-specs.html", "M\ttool.py"])
+    _stub_compare(monkeypatch, ["R100\tasset-specs.html\treferences/asset-specs.html", "added\ttool.py"])
     assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
     assert gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")) is None
 
@@ -493,7 +496,7 @@ def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
 def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _stub_compare(monkeypatch, ["renamed\treferences/asset-specs.html"])
+    _stub_compare(monkeypatch, ["renamed\tasset-specs.html\treferences/asset-specs.html"])
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
     assert reason is not None
     assert "references/asset-specs.html" in reason
@@ -502,7 +505,10 @@ def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
 def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_renames(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_lines = [f"R100\tskills/skill_{each_index}/page.html" for each_index in range(COMPARE_FILE_LIST_LIMIT)]
+    all_lines = [
+        f"R100\told/skill_{each_index}/page.html\tskills/skill_{each_index}/page.html"
+        for each_index in range(COMPARE_FILE_LIST_LIMIT)
+    ]
     _stub_compare(monkeypatch, all_lines)
     assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
@@ -531,6 +537,22 @@ def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -
 def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, "notes.txt", "site/notes.html")
     assert gate.visible_changed_files(str(clone_path), "feature") == ["site/notes.html"]
+    assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is not None
+
+
+def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None, reorder_lines=True)
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+
+
+def test_should_report_unreadable_git_output_as_unknown() -> None:
+    assert gate._git_changes([":100644 100644 abc R100", "a.html", "b.html"]) is None
+    assert gate._git_changes([":100644 100644 aaa bbb R100", "a.html"]) is None
+
+
+def test_should_keep_a_page_whose_name_holds_a_quote(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, 'q"t.html')
+    assert gate.visible_changed_files(str(clone_path), "feature") == ['q"t.html']
 
 
 def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:
