@@ -502,7 +502,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     markers. The line passes when the pull request adds a workflow file the
     default branch lacks and the body has an 'After merge' section that names
     that file in backticks and says who records the run, and every unproven
-    line mentions a run or a workflow; see _admissions_wait_for_merge.
+    line mentions a workflow or GitHub Actions; see _admissions_wait_for_merge.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -744,7 +744,7 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     working_directory = all_payload_fields.get("cwd")
     head_branch = _named_head_branch(all_payload_fields)
     all_workflow_paths = added_workflow_files(str(working_directory or ""), head_branch)
-    if all_workflow_paths is None:
+    if not all_workflow_paths:
         all_workflow_paths = remote_added_workflow_files(
             _named_repository(all_payload_fields), _named_base_branch(all_payload_fields), head_branch
         )
@@ -758,11 +758,11 @@ def _admissions_wait_for_merge(
 
     ::
 
-        "Not proven here: the live run." with a covered new workflow -> True
+        "Not proven here: the live workflow run." with a covered new workflow -> True
         "Untested on Windows." with a covered new workflow           -> False
-        "Not proven here: the live run." with no covered workflow    -> False
+        "Not proven here: the live workflow run." with no covered workflow -> False
 
-    Each admission line must mention a run or a workflow, so an admission about
+    Each admission line must mention a workflow or GitHub Actions, so an admission about
     anything else keeps the refusal.
 
     Args:
@@ -782,26 +782,40 @@ def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, objec
 
         adds release.yml, body has "## After merge" naming `release.yml` and "records" -> True
         adds release.yml, body has no 'After merge' section                           -> False
-        'After merge' names `release.yml` but says nobody records the run             -> False
         the branch adds no workflow file, or git and the compare API cannot tell      -> False
 
     A workflow added by a pull request runs only from the default branch, so
     its live run cannot come before the merge. The section must name an added
-    workflow file in backticks and say who records the run, with no negation
-    such as nobody or not ahead of the verb.
+    workflow file in backticks, alone or at the end of a path, and say who
+    records the run or its link in prose. Code spans and fenced blocks do not
+    count as that prose. A negation ahead of the verb in its sentence fails it.
 
     Args:
         body: The pull request body.
         all_payload_fields: The parsed PreToolUse input.
     """
     after_merge = _section_text(body, AFTER_MERGE_HEADING_PATTERN)
-    if not after_merge or re.search(AFTER_MERGE_RECORDER_PATTERN, after_merge, re.IGNORECASE) is None:
+    if not after_merge:
         return False
-    if re.search(AFTER_MERGE_NO_RECORDER_PATTERN, after_merge, re.IGNORECASE) is not None:
+    outside_fence_text = _text_outside_fences(after_merge)
+    if not _prose_names_a_recorder(re.sub(INLINE_CODE_SPAN_PATTERN, "", outside_fence_text)):
         return False
     return any(
-        re.search(rf"`[^`\n]*{re.escape(each_path.rsplit('/', 1)[-1])}`", after_merge) is not None
+        re.search(rf"`(?:[^`\n]*/)?{re.escape(each_path.rsplit('/', 1)[-1])}`", outside_fence_text) is not None
         for each_path in _added_workflow_files_for_create(all_payload_fields)
+    )
+
+
+def _text_outside_fences(section: str) -> str:
+    return LINE_SEPARATOR.join(
+        each_line for each_line, each_is_inside_fence in _lines_with_fence_state(section) if not each_is_inside_fence
+    )
+
+
+def _prose_names_a_recorder(prose: str) -> bool:
+    return (
+        re.search(AFTER_MERGE_RECORDER_PATTERN, prose, re.IGNORECASE) is not None
+        and re.search(AFTER_MERGE_NO_RECORDER_PATTERN, prose, re.IGNORECASE) is None
     )
 
 

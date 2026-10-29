@@ -78,12 +78,12 @@ UNPROVEN_PROOF_REASON = (
     " backticks and says who records the run link. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 AFTER_MERGE_HEADING_PATTERN = r"^(#{1,6})[ \t]+after merge[ \t]*#*[ \t]*$"
-AFTER_MERGE_RECORDER_PATTERN = r"\brecords?\b"
+AFTER_MERGE_RECORDER_PATTERN = r"\brecord(?:s|ed)?\b[^.\n]{0,30}\b(?:run|link|url|result)s?\b"
 AFTER_MERGE_NO_RECORDER_PATTERN = r"\b(?:nobody|no[ -]?one|not|never|cannot|can't|won't|doesn't)\b[^.;\n]{0,60}\brecords?\b"
 WORKFLOW_RUN_ADMISSION_PATTERN = r"\b(?:workflows?|github actions)\b"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
 ADDED_FILE_NAMES_QUERY = (
-    '(.files | length | tostring), (.files[] | select(.status == "added" or .status == "renamed") | .filename)'
+    '(.files | length | tostring), (.files[] | select(.status == "added" or .status == "renamed" or .status == "copied") | .filename)'
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"

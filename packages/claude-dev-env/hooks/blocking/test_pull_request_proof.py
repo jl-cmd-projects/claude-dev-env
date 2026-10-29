@@ -940,3 +940,51 @@ def test_unproven_line_should_pass_when_a_negation_sits_in_an_earlier_clause(
     after_merge_section = "\n## After merge\n\n- `release-hold.yml` does not run on pull requests; the agent records the run link.\n"
     payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
     assert gate.missing_proof_reason(payload) is None
+
+
+@pytest.mark.parametrize(
+    "after_merge_section",
+    [
+        "\n## After merge\n\n- Runs `release-hold.yml`. There are no records of it yet.\n",
+        "\n## After merge\n\n- The first owner approval runs `pre-release-hold.yml`. The agent records the run link.\n",
+        "\n## After merge\n\n- The first owner approval runs `release-hold.yml`.\n\n```\nagent records the run link\n```\n",
+        "\n## After merge\n\n- The first owner approval runs `release-hold.yml`. The `agent records the run link`.\n",
+    ],
+    ids=[
+        "noun-records",
+        "name-is-a-longer-file",
+        "recorder-only-in-fence",
+        "recorder-only-in-code-span",
+    ],
+)
+def test_unproven_line_should_stay_denied_when_the_after_merge_evidence_is_not_prose_about_this_workflow(
+    tmp_path: Path, after_merge_section: str
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=UNPROVEN_RUN_LINE
+    )
+
+
+def test_unproven_line_should_use_the_compare_api_when_a_local_checkout_lists_no_added_workflow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    added_path = f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    all_responses = {compare_endpoint: _workflow_compare_lines(2, [added_path])}
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, []))
+    unrelated_checkout = _repository_with_change(tmp_path, "tool.py")
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {
+            "owner": "o",
+            "repo": "r",
+            "base": "main",
+            "head": "feature",
+            "title": "t",
+            "body": _workflow_body(AFTER_MERGE_SECTION),
+        },
+        "cwd": str(unrelated_checkout),
+    }
+    assert gate.missing_proof_reason(payload) is None
