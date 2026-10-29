@@ -9,6 +9,7 @@ from context_budget.model import (
     ContextKind,
     FileMeasure,
     HookBudget,
+    ProseScan,
     SectionScan,
 )
 
@@ -50,6 +51,25 @@ def test_policy_defaults_are_empty() -> None:
     assert policy.baseline_entry_by_path == {}
     assert policy.baseline_characters_by_hook_name == {}
     assert policy.is_baseline_the_prior_text is False
+
+
+def test_policy_prose_line_word_limit_defaults_to_25_and_holds_an_override() -> None:
+    default_policy = BudgetPolicy(section_detail_line_limit=12, all_kinds=())
+    raised_policy = BudgetPolicy(
+        section_detail_line_limit=12, all_kinds=(), prose_line_word_limit=40
+    )
+
+    assert default_policy.prose_line_word_limit == 25
+    assert raised_policy.prose_line_word_limit == 40
+
+
+def test_prose_scan_holds_its_fields() -> None:
+    long_line = "word " * 26
+    scan = ProseScan(True, False, (long_line,))
+
+    assert scan.has_detail_line is True
+    assert scan.has_pointer_line is False
+    assert scan.all_long_unlinked_lines == (long_line,)
 
 
 def test_measure_and_finding_hold_their_fields() -> None:
