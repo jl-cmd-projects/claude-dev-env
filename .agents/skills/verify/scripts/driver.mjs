@@ -31,7 +31,6 @@ import {
     existsSync,
     lstatSync,
     readFileSync,
-    readlinkSync,
     realpathSync,
     writeFileSync,
     readdirSync,
@@ -185,7 +184,9 @@ function main() {
                 && lstatSync(skillsDirectory).isDirectory()
                 && installedSkills.length > 0
                 && installedSkills.every((entry) => entry.isSymbolicLink()
-                    && resolve(skillsDirectory, readlinkSync(join(skillsDirectory, entry.name))) === join(agentsHomeSkillsDirectory, entry.name)),
+                    && existsSync(join(skillsDirectory, entry.name))
+                    && existsSync(join(agentsHomeSkillsDirectory, entry.name))
+                    && realpathSync(join(skillsDirectory, entry.name)) === realpathSync(join(agentsHomeSkillsDirectory, entry.name))),
             skillsDirectory,
         );
         const sampleSkillName = installedSkills.find((entry) => existsSync(join(skillsDirectory, entry.name, 'SKILL.md')))?.name;
