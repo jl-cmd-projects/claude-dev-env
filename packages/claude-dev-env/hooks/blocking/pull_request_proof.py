@@ -450,10 +450,11 @@ def unproven_admission(section: str) -> str | None:
 
     The markers are not proven, not tested and not verified, each with any
     run of yet, been or fully after the not, plus unproven, untested and
-    unverified, plus "not run", "not ran", "not exercised" and "not executed", each with
-    any run of yet or been after the not, at the start of a line or list item,
-    plus "has not been run", matched without regard to case. Inline code spans and fenced blocks are skipped, so output quoted
-    there never counts.
+    unverified. A line or list item that opens with "not run", "not ran",
+    "not exercised" or "not executed", each with any run of yet or been after
+    the not, is one too, and so is "has not been run". Case is ignored.
+    Inline code spans and fenced blocks are skipped, so output quoted there
+    never counts.
     """
     return _first_prose_match(section, UNPROVEN_ADMISSION_PATTERN)
 

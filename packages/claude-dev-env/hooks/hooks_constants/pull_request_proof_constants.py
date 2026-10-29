@@ -101,8 +101,8 @@ UNPROVEN_PROOF_REASON = (
 DEFERRED_PROOF_REASON = (
     "This pull request pushes a check to after the merge: \"{deferral}\". Run that check"
     " on the branch before the review request, then quote its output under 'Proof in"
-    " practice'. A 'Not covered' heading holds a condition the change leaves out. Only a step"
-    " that needs the merged code to exist waits."
+    " practice'. A step that needs the merged code to exist goes under a 'Not covered' heading"
+    " as a line that opens with 'Not run:'."
     " Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
