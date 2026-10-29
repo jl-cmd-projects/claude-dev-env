@@ -589,7 +589,10 @@ def _text_violation(
         [
             lambda: reply_violation(reply_text, transcript_path, mode_rules),
             lambda: results_picture_violation(
-                prose_outside_links(reply_text), reply_text, all_tool_input, load_rules()
+                prose_outside_links(reply_text),
+                reply_text,
+                all_tool_input,
+                mode_rules if mode_rules is not None else load_rules(),
             ),
         ]
     )

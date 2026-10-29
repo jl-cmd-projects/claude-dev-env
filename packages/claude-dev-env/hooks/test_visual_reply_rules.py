@@ -251,6 +251,10 @@ def test_reports_results_flags_a_markdown_table_and_three_figures() -> None:
     assert not reports_results("The run shows 65 passed and 3 skipped.")
 
 
+def test_reports_results_counts_a_multiplier_such_as_2_5x_as_a_figure() -> None:
+    assert reports_results("Latency fell 2.5x and throughput rose 3x and errors fell 4x.")
+
+
 def test_reports_results_counts_no_figure_in_a_date_or_a_pull_request_number() -> None:
     assert not reports_results("Shipped on 2026-10-29 in #2224.")
 
