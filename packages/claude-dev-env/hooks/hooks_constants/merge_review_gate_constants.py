@@ -62,6 +62,9 @@ RULINGS_LINK_PATTERN = re.compile(
     r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
     r"#issuecomment-\d+"
 )
+RULING_REFERENCE_PATTERN = re.compile(r"(?P<path>[^\s:,]+):(?P<line>[1-9]\d*)")
+RULING_SEPARATOR = ","
+RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
@@ -124,12 +127,18 @@ UNKNOWN_TARGET_REASON = (
 NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "{slug} has no clean review for head {head}, which this pull request would open with. "
     "Review the branch diff with `{review_command}`, fix and push every finding, and review "
-    "again until a pass reports zero findings. Record that pass with `"
+    "again until a pass reports zero findings or every finding is ruled out with file:line "
+    "evidence. Record a pass with zero findings with `"
     + RECORD_COMMAND
     + " {slug} "
     + OPEN_TARGET_WORD
-    + " {head} 0`, then open the pull request. The merge accepts that receipt while the "
-    "head stays {head}."
+    + " {head} 0`. Record a pass whose every finding is ruled out with `"
+    + RECORD_COMMAND
+    + " {slug} "
+    + OPEN_TARGET_WORD
+    + " {head} <finding count> --ruled-out <finding count> --rulings <path:line for each "
+    "finding, comma separated>`, each path:line a line this head holds. Then open the pull "
+    "request. The merge accepts that receipt while the head stays {head}."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
     "This pull request names no repository or head commit the review gate can read. Check that "

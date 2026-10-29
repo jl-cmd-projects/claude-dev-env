@@ -28,6 +28,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_HEAD_KEY,
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULINGS_KEY,
+    RULING_REFERENCE_PATTERN,
     RULINGS_LINK_PATTERN,
 )
 
@@ -118,8 +119,51 @@ def _is_clean_open_receipt(path: Path, head: str) -> bool:
         isinstance(recorded_head, str)
         and OPEN_RECEIPT_HEAD_PATTERN.fullmatch(recorded_head) is not None
         and same_commit(recorded_head, head)
-        and _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
-        and all_receipt_fields.get(RECEIPT_FINDINGS_KEY) == 0
+        and is_clean_open_pass(all_receipt_fields)
+    )
+
+
+def is_clean_open_pass(all_receipt_fields: dict[str, object]) -> bool:
+    """Return whether a pass recorded before the pull request opened lets it open.
+
+    The pull request has no number yet, so no rulings comment exists to link.
+    A pass is clean when it reported zero findings, or when each finding it
+    reported has one ``path:line`` ruling beside it::
+
+        findings 0                                                  -> clean
+        findings 2, ruled out 2, rulings [a.py:1, src/b.py:20]      -> clean
+        findings 2, ruled out 2, rulings [a.py:1]                   -> not clean
+        findings 2, ruled out 2, rulings [a.py:1, see the thread]   -> not clean
+
+    Args:
+        all_receipt_fields: The parsed receipt of one review pass.
+
+    Returns:
+        True when the pass counts as clean.
+    """
+    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
+    if not _is_count(finding_count):
+        return False
+    return finding_count == 0 or _rules_out_every_finding_at_file_and_line(
+        all_receipt_fields, finding_count
+    )
+
+
+def _rules_out_every_finding_at_file_and_line(
+    all_receipt_fields: dict[str, object], finding_count: object
+) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY)
+    rulings = all_receipt_fields.get(RECEIPT_RULINGS_KEY)
+    return (
+        _is_count(ruled_out_count)
+        and ruled_out_count == finding_count
+        and isinstance(rulings, list)
+        and len(rulings) == finding_count
+        and all(
+            isinstance(each_ruling, str)
+            and RULING_REFERENCE_PATTERN.fullmatch(each_ruling) is not None
+            for each_ruling in rulings
+        )
     )
 
 

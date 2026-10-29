@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from io import StringIO
 from pathlib import Path
 
@@ -158,6 +159,85 @@ def test_should_refuse_an_open_pass_it_cannot_record(
     with pytest.raises(SystemExit):
         merge_review_receipt.main(all_arguments, StringIO())
     assert list(receipt_folder.iterdir()) == []
+
+
+def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    (checkout / "a.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+    (checkout / "docs").mkdir()
+    (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(checkout), "add", "a.py", "docs"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.com",
+            "commit",
+            "--quiet",
+            "-m",
+            "first",
+        ],
+        check=True,
+    )
+    completed = subprocess.run(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    monkeypatch.chdir(checkout)
+    return completed.stdout.strip()
+
+
+def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "open", head, "2", "--ruled-out", "2", "--rulings", "a.py:1,a.py:3"],
+        verdict_stream,
+    )
+    assert exit_code == 0
+    assert verdict_stream.getvalue() == (
+        f"CLEAN acme/tools open {head} (2 findings ruled out: a.py:1,a.py:3)\n"
+    )
+    receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
+    assert receipt == {
+        "head": head,
+        "findings": 2,
+        "ruled_out": 2,
+        "rulings": ["a.py:1", "a.py:3"],
+    }
+
+
+@pytest.mark.parametrize(
+    "rulings",
+    [
+        "a.py:1",
+        "a.py:1,a.py:9",
+        "a.py:1,missing.py:1",
+        "a.py:1,docs:1",
+        "a.py:1,a.py:0",
+        "see the thread,a.py:3",
+    ],
+)
+def test_should_refuse_an_open_pass_whose_rulings_do_not_prove_each_finding(
+    rulings: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "open", head, "2", "--ruled-out", "2", "--rulings", rulings],
+            StringIO(),
+        )
+    assert not (receipt_folder / "heads").exists()
 
 
 @pytest.mark.parametrize("head", ["abc", "abc1234", "../../escape", "zzzzzzz"])

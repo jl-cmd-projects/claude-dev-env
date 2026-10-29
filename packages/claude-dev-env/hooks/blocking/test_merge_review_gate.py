@@ -263,6 +263,24 @@ def test_should_deny_a_pull_request_open_with_no_review(branch_checkout: tuple[P
     reason = _reason(_create_tool(folder))
     assert f"no clean review for head {head}" in reason
     assert f"acme/tools open {head} 0" in reason
+    assert "--ruled-out" in reason
+    assert "--rulings" in reason
+
+
+def test_should_allow_a_pull_request_open_whose_findings_are_ruled_out_at_file_and_line(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 2, 2, ["a.py:1", "b.py:2"])
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_deny_a_pull_request_open_whose_rulings_leave_a_finding_unproven(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 3, 2, ["a.py:1", "b.py:2"])
+    assert "no clean review" in _reason(_create_tool(folder))
 
 
 def test_should_allow_a_pull_request_open_reviewed_clean_at_its_head(
