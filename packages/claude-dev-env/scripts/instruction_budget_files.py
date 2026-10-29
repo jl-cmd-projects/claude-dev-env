@@ -65,12 +65,35 @@ class InstructionFinding(NamedTuple):
     message: str
 
 
+def _whole_number(raw_number: object, key: str) -> int:
+    if (
+        isinstance(raw_number, bool)
+        or not isinstance(raw_number, int)
+        or raw_number < 0
+    ):
+        raise ValueError(f"{key} must be a whole number, zero or more")
+    return raw_number
+
+
 def _parse_rules_dirs(raw_rules_dirs: object) -> tuple[str, ...]:
     if not isinstance(raw_rules_dirs, list) or not all(
         isinstance(each_name, str) for each_name in raw_rules_dirs
     ):
         raise ValueError(f"{RULES_DIRS_KEY} must be a list of folder names")
     return tuple(raw_rules_dirs)
+
+
+def _budget_config_from(raw_config: dict) -> InstructionBudgetConfig:
+    return InstructionBudgetConfig(
+        max_launch_bytes=_whole_number(
+            raw_config[MAX_LAUNCH_BYTES_KEY], MAX_LAUNCH_BYTES_KEY
+        ),
+        max_link_hops=_whole_number(
+            raw_config.get(MAX_LINK_HOPS_KEY, DEFAULT_MAX_LINK_HOPS),
+            MAX_LINK_HOPS_KEY,
+        ),
+        rules_dirs=_parse_rules_dirs(raw_config.get(RULES_DIRS_KEY, [])),
+    )
 
 
 def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
@@ -92,11 +115,7 @@ def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
         raw_config = json.loads(
             config_path.read_text(encoding=INSTRUCTION_TEXT_ENCODING)
         )
-        return InstructionBudgetConfig(
-            max_launch_bytes=int(raw_config[MAX_LAUNCH_BYTES_KEY]),
-            max_link_hops=int(raw_config.get(MAX_LINK_HOPS_KEY, DEFAULT_MAX_LINK_HOPS)),
-            rules_dirs=_parse_rules_dirs(raw_config.get(RULES_DIRS_KEY, [])),
-        )
+        return _budget_config_from(raw_config)
     except (AttributeError, KeyError, TypeError, ValueError) as error:
         raise InstructionBudgetConfigError(str(error)) from error
 

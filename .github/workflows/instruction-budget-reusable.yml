@@ -65,8 +65,8 @@ jobs:
           if [[ -n "${BASE_SHA}" && ! "${BASE_SHA}" =~ ^0+$ ]]; then
             scope_arguments=()
             changed_files_list="${RUNNER_TEMP}/changed-files.txt"
-            git diff --name-only --diff-filter=d "${BASE_SHA}...HEAD" > "${changed_files_list}"
-            while IFS= read -r changed_file; do
+            git diff --name-only -z --diff-filter=d "${BASE_SHA}...HEAD" > "${changed_files_list}"
+            while IFS= read -r -d '' changed_file; do
               scope_arguments+=(--changed-file "${changed_file}")
             done < "${changed_files_list}"
           fi

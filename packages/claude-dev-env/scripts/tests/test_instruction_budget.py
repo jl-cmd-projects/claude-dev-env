@@ -129,6 +129,13 @@ def test_read_text_outside_fences_drops_both_fence_styles(tmp_path: Path) -> Non
     assert read_text_outside_fences(path) == "before\n\nmid\n\nafter\n"
 
 
+def test_read_text_outside_fences_drops_an_unclosed_fence_to_the_end(
+    tmp_path: Path,
+) -> None:
+    path = _write(tmp_path / "AGENTS.md", "before\n```\n@hidden.md\nmore\n")
+    assert read_text_outside_fences(path) == "before\n"
+
+
 def test_launch_files_follow_imports_from_unscoped_rules(tmp_path: Path) -> None:
     _write(tmp_path / "AGENTS.md", "entry\n")
     _write(tmp_path / ".claude" / "rules" / "rule.md", "@../../notes/big.md\n")
@@ -152,6 +159,21 @@ def test_launch_files_skip_a_scoped_rule_that_starts_with_a_byte_order_mark(
 
 def test_load_config_names_a_malformed_budget_file(tmp_path: Path) -> None:
     _write(tmp_path / INSTRUCTION_BUDGET_CONFIG_FILE_NAME, "{not json")
+    with pytest.raises(InstructionBudgetConfigError):
+        load_config(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "budget_json",
+    [
+        '{"max_launch_bytes": -1}',
+        '{"max_launch_bytes": 1200, "max_link_hops": true}',
+    ],
+)
+def test_load_config_rejects_a_negative_cap_or_a_boolean_hop_limit(
+    tmp_path: Path, budget_json: str
+) -> None:
+    _write_budget_file(tmp_path, budget_json)
     with pytest.raises(InstructionBudgetConfigError):
         load_config(tmp_path)
 

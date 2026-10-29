@@ -1,9 +1,12 @@
 """The write-time warning names each instruction-budget finding after an instruction file is written."""
 
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 HOOK_PATH = Path(__file__).with_name("instruction_file_write_warning.py")
 
@@ -57,6 +60,28 @@ def test_an_over_budget_instruction_file_gets_a_budget_warning(tmp_path: Path) -
     context = _additional_context(_run_hook(agents_path))
     assert "[instruction-budget]" in context
     assert "over the cap of 10" in context
+
+
+def test_a_read_error_during_the_check_stays_silent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    spec = importlib.util.spec_from_file_location("hook_under_test", HOOK_PATH)
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    (tmp_path / "instruction-budget.json").write_text('{"max_launch_bytes": 10}', encoding="utf-8")
+    agents_path = _write(tmp_path / "AGENTS.md", "x")
+
+    def raise_read_error(*_args: object) -> list:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(hook, "check_repository", raise_read_error)
+    monkeypatch.setattr(
+        hook,
+        "read_hook_input_dictionary_from_stdin",
+        lambda: {"tool_input": {"file_path": str(agents_path)}},
+    )
+    hook.main()
+    assert capsys.readouterr().out == ""
 
 
 def test_a_too_deep_instruction_file_gets_a_nesting_warning(tmp_path: Path) -> None:

@@ -39,7 +39,9 @@ from hooks_constants.post_tool_use_context import write_post_tool_use_context_to
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from instruction_budget import check_repository
 from instruction_budget_files import (
+    InstructionBudgetConfig,
     InstructionBudgetConfigError,
+    InstructionFinding,
     is_instruction_file,
     load_config,
 )
@@ -62,6 +64,15 @@ def _repository_root(written_path: Path) -> Path | None:
     return None
 
 
+def _findings_for(
+    repository_root: Path, written_path: Path, config: InstructionBudgetConfig
+) -> list[InstructionFinding]:
+    try:
+        return check_repository(repository_root, config, [written_path])
+    except OSError:
+        return []
+
+
 def main() -> None:
     written_path = _written_path(read_hook_input_dictionary_from_stdin())
     if written_path is None:
@@ -75,7 +86,7 @@ def main() -> None:
         return
     if config is None or not is_instruction_file(written_path, repository_root, config):
         return
-    all_findings = check_repository(repository_root, config, [written_path])
+    all_findings = _findings_for(repository_root, written_path, config)
     if not all_findings:
         return
     all_lines = [

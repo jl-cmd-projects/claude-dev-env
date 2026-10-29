@@ -39,7 +39,7 @@ ALL_SKIPPED_DIRECTORY_NAMES: frozenset[str] = frozenset(
 IMPORT_LINE_PATTERN: re.Pattern[str] = re.compile(r"^@(\S+)\s*$", re.MULTILINE)
 MARKDOWN_LINK_PATTERN: re.Pattern[str] = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 FENCED_BLOCK_PATTERN: re.Pattern[str] = re.compile(
-    r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1", re.MULTILINE | re.DOTALL
+    r"^ {0,3}(`{3,}|~{3,}).*?(?:^ {0,3}\1|\Z)", re.MULTILINE | re.DOTALL
 )
 EXTERNAL_TARGET_PATTERN: re.Pattern[str] = re.compile(r"^(https?:|mailto:|#)")
 ANCHOR_SEPARATOR: str = "#"
