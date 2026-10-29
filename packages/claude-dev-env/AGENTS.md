@@ -19,8 +19,8 @@ Production and tests follow one rule. Changed directive, TODO, FIXME, HACK, XXX,
 
 Banned word: real ([`~/.claude/docs/agents-guidance/banned-word.md`](docs/agents-guidance/banned-word.md))
 
-Never write real, really, or real-world. This ban has no exception. Swapping in actual, actually, genuine, or true is the same move, and each is banned with it. The file holds the substitutions and the delete-then-reread test.
+Never write real, really, or real-world. This ban has no exception. Swapping in actual, actually, genuine, or true is the same move, and each is banned with it.
 
 No PR until proven ([`~/.claude/docs/rule-guides/proof-before-pull-request.md`](docs/rule-guides/proof-before-pull-request.md))
 
-Never open a pull request until the change is proven to work on the target system. Run it, or run its test or check against the shipped artifact, and put that evidence in the PR body. Proof first, then the PR. This binds every agent, script, CI job, and automation.
+Never open a pull request until the change is proven on the target system, with the evidence in the PR body. This binds every agent, script, CI job, and automation.

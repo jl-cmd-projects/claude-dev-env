@@ -12,6 +12,8 @@ Run the change where it runs, with and without it, and quote both results under 
 
 Before you open a pull request, prove the change does its job where it will run.
 
+Never open a pull request until the change is proven to work on the target system. Run it, or run its test or check against the shipped artifact, and put that evidence in the PR body. Proof first, then the PR. This binds every agent, script, CI job, and automation.
+
 What counts as proof:
 - You ran the changed thing the way its user runs it, and you saw the effect it exists to produce. A hook fires in a live Claude Code session and changes what that session does. A script runs from its launcher on inputs like the ones it will meet. A skill or rule changes what a fresh agent does with an ordinary request.
 - You saw the failure first. Run the same scenario without your change and record what goes wrong. The proof is the difference between the two runs.
