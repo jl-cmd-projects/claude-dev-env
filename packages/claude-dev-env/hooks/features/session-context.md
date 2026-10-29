@@ -23,7 +23,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/task_tool_prompt.py`, `session/working_style_prompt.py`, `session/advisor_rules_prompt.py`, and `session/orchestrator_auto_starter.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.
 - `session/plugin_session_baseline_writer.py` runs on `SessionStart`, matcher empty, at `10` seconds, so it sees every source. `session/plugin_change_warning.py` runs on `UserPromptSubmit`, matcher empty, at `10` seconds in `hooks.json`.
 - `session/artifact_template_pointer.py` runs on `PreToolUse` matcher `Artifact|Skill` at `10` seconds in `hooks.json`. It speaks only on an `Artifact` call with action `quickstart` or a `Skill` call that loads `artifact-design`.
-- `session/npx_pele_guidance.py` runs on `PreToolUse` matcher `Bash|PowerShell` at `10` seconds in `hooks.json`. It speaks only on a command that starts a segment with `npx pele`, `npx -y pele`, or `npm exec pele`.
+- `session/npx_pele_guidance.py` runs on `PreToolUse` matcher `Bash|PowerShell` at `10` seconds in `hooks.json`. It speaks only on a command that runs `npx pele` or `npm exec pele` outside quoted text and heredoc bodies. Environment assignments and wrapper words such as `sudo` or `timeout N` may come first.
 - `advisory/auto_mode_denial_quick_fix.py` runs on `PermissionDenied`, matcher `*`, timeout `10` seconds in `hooks.json`.
 
 ## Proving it
