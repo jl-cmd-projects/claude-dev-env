@@ -804,6 +804,11 @@ def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -
     assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
 
 
+def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
+    body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+
+
 def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
     assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON

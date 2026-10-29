@@ -567,7 +567,7 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         update_pull_request, body with no proof section            -> None
         update_pull_request with no body, create calls, any tool   -> None
 
-    An edit with no proof section passes. A proof section that is there meets
+    An edit with no proof heading passes. A proof heading that is there meets
     the rules a new pull request meets: a command in backticks, more than test
     runs, no unrun line and no merge word. The edit comes through the
     update_pull_request tool, gh pr edit, or the pull_request.py edit script.
@@ -580,7 +580,7 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     """
     for each_body in _edit_bodies(all_payload_fields):
         section = proof_section(each_body)
-        edit_reason = _proof_section_reason(section) if section else None
+        edit_reason = None if section is None else _proof_section_reason(section)
         if edit_reason is not None:
             return edit_reason
     return None
