@@ -5,7 +5,10 @@ Registered on ``Bash|PowerShell``. Pele is a library with no command, so
 ``npx pele`` fails. When the command matches, the hook adds one block of
 ``additionalContext`` that names the installed copy and a Node snippet that
 renders with it. When no copy is installed, the block points to the pele.run
-playground instead. Every other command gets no output:
+playground instead. A command gets the guidance when an argument equal to ``pele``
+(or ``pele@<version>``) follows ``npx``, or follows ``exec`` or ``x`` after ``npm``.
+The match is loose on purpose: a stray match shows a harmless hint, while a missed
+flag fails silently. Every other command gets no output:
 
 ::
 
@@ -112,8 +115,9 @@ def is_npx_pele_command(tool_input: object) -> bool:
         tool_input: The Bash or PowerShell ``tool_input``.
 
     Returns:
-        True when a command segment runs ``npx`` or ``npm exec`` on the
-        ``pele`` package. The shared shell parser reads wrapper words, quotes,
+        True when a command segment runs ``npx`` with a ``pele`` argument
+        anywhere after it, or ``npm`` with a ``pele`` argument after ``exec``
+        or ``x``. The shared shell parser reads wrapper words, quotes,
         substitutions, and heredocs.
     """
     if not isinstance(tool_input, dict):
