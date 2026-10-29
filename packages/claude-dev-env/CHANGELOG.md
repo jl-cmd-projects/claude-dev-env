@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.7...claude-dev-env-v8.109.8) (2026-10-29)
+
+
+### Bug Fixes
+
+* **install:** install the mods framework plugins in place of the old copies ([#2267](https://github.com/jl-cmd-projects/claude-dev-env/issues/2267)) ([70cc3ec](https://github.com/jl-cmd-projects/claude-dev-env/commit/70cc3ec9f3c2eeb4d9b984c2c48f79a3951a2740))
+
 ## [8.109.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.6...claude-dev-env-v8.109.7) (2026-10-29)
 
 
