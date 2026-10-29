@@ -1,6 +1,6 @@
 # Session context
 
-This family injects reminders and task guidance when an agent starts, resumes, submits a prompt, starts a workflow helper, starts an artifact page, or hits an auto mode denial. The startup scripts leave the session quiet when their opt-in conditions fail.
+This family injects reminders and task guidance when an agent starts, resumes, submits a prompt, starts a workflow helper, starts an artifact page, runs `npx pele`, or hits an auto mode denial. The startup scripts leave the session quiet when their opt-in conditions fail.
 
 ## Checks
 
@@ -13,6 +13,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/plugin_session_baseline_writer.py` records each plugin's `version` and `installPath` from `installed_plugins.json` to a per-session file in the system temp folder. It writes on `startup`, or when the session has no baseline yet, and leaves an existing baseline alone on `resume`, `clear`, and `compact`.
 - `session/plugin_change_warning.py` compares `installed_plugins.json` with that baseline before each prompt. It names each plugin whose version or install path changed, or that the baseline lacks, once per session, and tells the user to restart Claude Code.
 - `session/artifact_template_pointer.py` routes an agent that starts an artifact page by scope. A status or progress report prefers the status flowchart from `docs/templates/artifact-page/status-flowchart.html`, unless the person asks for another shape. One flow or one comparison is an inline SVG flowchart with minimal text. A multi-part plan or evidence is an html-plan page from `docs/templates/html-plan/README.md`. When the request names the older artifact page template, it points at `docs/templates/artifact-page/README.md`, which names the tracker template and the diagram template and which ask each fits.
+- `session/npx_pele_guidance.py` tells an agent that runs `npx pele` how to render Mermaid instead. Pele is a library with no command, so the hook names the installed copy and a Node snippet that renders with it. When no copy is installed, it points to the pele.run playground.
 - `advisory/auto_mode_denial_quick_fix.py` proposes one `autoMode.allow` entry and a PowerShell block that writes it after an auto mode denial. It never retries the denied call.
 
 ## When it fires
@@ -22,6 +23,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/task_tool_prompt.py`, `session/working_style_prompt.py`, `session/advisor_rules_prompt.py`, and `session/orchestrator_auto_starter.py` run on `SessionStart`, matcher empty, timeout `10` seconds each in `hooks.json`.
 - `session/plugin_session_baseline_writer.py` runs on `SessionStart`, matcher empty, at `10` seconds, so it sees every source. `session/plugin_change_warning.py` runs on `UserPromptSubmit`, matcher empty, at `10` seconds in `hooks.json`.
 - `session/artifact_template_pointer.py` runs on `PreToolUse` matcher `Artifact|Skill` at `10` seconds in `hooks.json`. It speaks only on an `Artifact` call with action `quickstart` or a `Skill` call that loads `artifact-design`.
+- `session/npx_pele_guidance.py` runs on `PreToolUse` matcher `Bash|PowerShell` at `10` seconds in `hooks.json`. It speaks only on an `npx` command with a `pele` argument, or an `npm exec` or `npm x` command with one after `exec` or `x`.
 - `advisory/auto_mode_denial_quick_fix.py` runs on `PermissionDenied`, matcher `*`, timeout `10` seconds in `hooks.json`.
 
 ## Proving it
@@ -38,6 +40,7 @@ Preconditions:
 - **Orchestrator start.** Input is SessionStart with its opt-in flag set. Run `python -m pytest packages/claude-dev-env/hooks/session/test_orchestrator_auto_starter.py -q`. The adjacent test observes an orchestrator directive.
 - **Plugin restart warning.** Input is a SessionStart event, an `installed_plugins.json` change, and a prompt. Run `python -m pytest packages/claude-dev-env/hooks/session/test_plugin_session_baseline_writer.py packages/claude-dev-env/hooks/session/test_plugin_change_warning.py packages/claude-dev-env/hooks/test_plugin_session_baseline.py -q`. The tests observe one warning for a changed version, a changed install path, and a plugin new since start, silence on a `lastUpdated` refresh and on a second prompt, and a warning that still fires after a `compact` SessionStart.
 - **Artifact template pointer.** Input is an `Artifact` quickstart call. Run `python -m pytest packages/claude-dev-env/hooks/session/test_artifact_template_pointer.py -q`. The adjacent test observes the status flowchart path first, the html-plan path ahead of the template path in `additionalContext`, and silence on a publish call or another skill.
+- **npx pele guidance.** Input is a `Bash` or `PowerShell` call whose command runs `npx pele`. Run `python -m pytest packages/claude-dev-env/hooks/session/test_npx_pele_guidance.py -q`. The adjacent test observes the guidance for each install state, a snippet that renders an SVG file under node, and silence on other commands and malformed input.
 - **Denial quick fix.** Input is a `PermissionDenied` event with a bracketed rule label and a classifier verdict. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_auto_mode_denial_quick_fix.py -q`. The adjacent test observes the named rule, the allow entry, and the PowerShell block; a denial with no verdict gets a note and no block.
 
 ## Gotchas
