@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.109.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.3...claude-dev-env-v8.109.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **claude-dev-env:** link shipped skills into the Claude skills folder ([#2230](https://github.com/jl-cmd-projects/claude-dev-env/issues/2230)) ([78c1a88](https://github.com/jl-cmd-projects/claude-dev-env/commit/78c1a88755a3309dbfba5e5a623bb70faf64f984))
+
+
+### Maintenance
+
+* **main:** release claude-dev-env 8.109.3 ([#2250](https://github.com/jl-cmd-projects/claude-dev-env/issues/2250)) ([f800b7c](https://github.com/jl-cmd-projects/claude-dev-env/commit/f800b7c4694ade3fcbf2245654fc8573d8e3fba8))
+
 ## [8.109.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.2...claude-dev-env-v8.109.3) (2026-10-29)
 
 
