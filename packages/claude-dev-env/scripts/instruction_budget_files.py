@@ -93,6 +93,18 @@ def read_instruction_text(path: Path) -> str:
     return path.read_text(encoding=TEXT_ENCODING, errors="replace")
 
 
+def read_text_outside_fences(path: Path) -> str:
+    """Read an instruction file as text with its fenced code blocks removed.
+
+    Args:
+        path: File to read.
+
+    Returns:
+        The file's text, minus every fenced block.
+    """
+    return FENCED_BLOCK_PATTERN.sub("", read_instruction_text(path))
+
+
 def _rules_directories(
     repository_root: Path, config: InstructionBudgetConfig
 ) -> list[Path]:
@@ -102,9 +114,8 @@ def _rules_directories(
 
 def _entry_files(repository_root: Path) -> list[Path]:
     all_entry_paths = [
-        repository_root / each_name for each_name in ALL_ENTRY_INSTRUCTION_FILE_NAMES
-    ] + [
-        repository_root / CLAUDE_FOLDER_NAME / each_name
+        each_directory / each_name
+        for each_directory in (repository_root, repository_root / CLAUDE_FOLDER_NAME)
         for each_name in ALL_ENTRY_INSTRUCTION_FILE_NAMES
     ]
     return [each_path.resolve() for each_path in all_entry_paths if each_path.is_file()]
@@ -126,9 +137,7 @@ def _import_closure(start: Path, all_found: dict[Path, None]) -> None:
     if start in all_found or not start.is_file():
         return
     all_found[start] = None
-    for each_target in IMPORT_LINE_PATTERN.findall(
-        FENCED_BLOCK_PATTERN.sub("", read_instruction_text(start))
-    ):
+    for each_target in IMPORT_LINE_PATTERN.findall(read_text_outside_fences(start)):
         _import_closure((start.parent / each_target).resolve(), all_found)
 
 

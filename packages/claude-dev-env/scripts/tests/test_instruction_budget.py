@@ -31,6 +31,7 @@ from instruction_budget_files import (
     launch_files,
     load_config,
     measure_launch_bytes,
+    read_text_outside_fences,
 )
 from instruction_budget_links import hop_distances, nesting_findings
 from instruction_budget_names import personal_name_findings, personal_name_line_numbers
@@ -115,6 +116,11 @@ def test_personal_name_line_numbers_match_whole_words_only() -> None:
 def test_personal_name_line_numbers_flag_the_named_people() -> None:
     text = "Intro line.\nJon wrote this.\nMelanie reviewed it.\n"
     assert personal_name_line_numbers(text) == (2, 3)
+
+
+def test_read_text_outside_fences_drops_fenced_blocks(tmp_path: Path) -> None:
+    path = _write(tmp_path / "AGENTS.md", "before\n```\n@hidden.md\n```\nafter\n")
+    assert read_text_outside_fences(path) == "before\n\nafter\n"
 
 
 def test_personal_name_findings_name_lines_but_not_the_name(tmp_path: Path) -> None:

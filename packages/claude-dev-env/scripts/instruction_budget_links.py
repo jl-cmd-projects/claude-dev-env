@@ -14,7 +14,6 @@ from dev_env_scripts_constants.followup_constants import INSTRUCTION_NESTING_RUL
 from dev_env_scripts_constants.instruction_budget_constants import (
     ANCHOR_SEPARATOR,
     EXTERNAL_TARGET_PATTERN,
-    FENCED_BLOCK_PATTERN,
     IMPORT_LINE_PATTERN,
     MARKDOWN_LINK_PATTERN,
     MARKDOWN_SUFFIX,
@@ -23,15 +22,13 @@ from dev_env_scripts_constants.instruction_budget_constants import (
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionFinding,
-    read_instruction_text,
+    read_text_outside_fences,
     root_files,
 )
 
 
 def _link_targets(source_path: Path, repository_root: Path) -> list[Path]:
-    text_outside_fences = FENCED_BLOCK_PATTERN.sub(
-        "", read_instruction_text(source_path)
-    )
+    text_outside_fences = read_text_outside_fences(source_path)
     all_raw_targets = [
         each_target.split(ANCHOR_SEPARATOR, 1)[0]
         for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_fences)
@@ -106,9 +103,12 @@ def nesting_findings(
     Returns:
         One finding per scoped file that sits beyond max_link_hops.
     """
+    all_scoped = list(all_scoped_files)
+    if not all_scoped:
+        return []
     all_distances = hop_distances(repository_root, root_files(repository_root, config))
     all_findings: list[InstructionFinding] = []
-    for each_path in all_scoped_files:
+    for each_path in all_scoped:
         hops = all_distances.get(each_path)
         if hops is not None and hops > config.max_link_hops:
             all_findings.append(
