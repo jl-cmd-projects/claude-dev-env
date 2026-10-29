@@ -87,6 +87,7 @@ AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[;\n]|\.(?=\s|$)"
 WORKFLOW_SUBJECT_PATTERN = r"\b(?:github actions|workflow)\b"
 RUN_WORD_PATTERN = r"\bruns?\b"
 GIT_URL_SUFFIX = ".git"
+REMOTE_LINE_FIELD_COUNT = 2
 WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
 NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
 ADDED_FILE_NAMES_QUERY = (

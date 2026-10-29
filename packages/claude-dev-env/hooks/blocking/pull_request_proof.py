@@ -18,6 +18,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     GIT_URL_SUFFIX,
+    REMOTE_LINE_FIELD_COUNT,
     RUN_WORD_PATTERN,
     WORKFLOW_NAME_MATCH_TEMPLATE,
     WORKFLOW_SUBJECT_PATTERN,
@@ -755,11 +756,15 @@ def _local_checkout_may_answer(
 def _checkout_is_for(working_directory: str, repository: str | None) -> bool:
     if repository is None:
         return True
-    all_origin_lines = _git_lines(working_directory, "remote", "get-url", "origin") if working_directory else None
-    if not all_origin_lines:
-        return False
-    origin_url = all_origin_lines[0].lower().removesuffix(GIT_URL_SUFFIX)
-    return origin_url.endswith(("/" + repository.lower(), ":" + repository.lower()))
+    all_remote_lines = _git_lines(working_directory, "remote", "-v") if working_directory else None
+    all_repository_endings = ("/" + repository.lower(), ":" + repository.lower())
+    for each_line in all_remote_lines or []:
+        all_fields = each_line.split()
+        if len(all_fields) >= REMOTE_LINE_FIELD_COUNT and all_fields[1].lower().removesuffix(GIT_URL_SUFFIX).endswith(
+            all_repository_endings
+        ):
+            return True
+    return False
 
 
 def _first_unwaived_admission(

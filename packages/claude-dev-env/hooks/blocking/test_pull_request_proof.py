@@ -1151,6 +1151,16 @@ def test_checkout_should_belong_to_the_target_repository_only_on_a_full_name_mat
     assert gate._checkout_is_for(str(tmp_path), repository) is expected
 
 
+def test_checkout_should_belong_to_the_target_repository_when_a_fork_checkout_names_it_as_upstream(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    for each_name, each_url in (("origin", "https://github.com/me/r.git"), ("upstream", "https://github.com/o/r.git")):
+        subprocess.run(["git", "-C", str(tmp_path), "remote", "add", each_name, each_url], check=True)
+    assert gate._checkout_is_for(str(tmp_path), "o/r") is True
+    assert gate._checkout_is_for(str(tmp_path), "x/r") is False
+
+
 def test_unproven_line_should_stay_denied_when_a_matching_checkout_lists_no_added_workflow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
