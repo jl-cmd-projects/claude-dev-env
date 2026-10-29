@@ -190,6 +190,8 @@ def test_import_line_counts_as_a_pointer_and_a_mention_does_not() -> None:
     assert scan_prose("  @../shared/AGENTS.md\n", 25).has_pointer_line is True
     assert scan_prose("@reviewer\n", 25).has_pointer_line is False
     assert scan_prose("@reviewer review this\n", 25).has_pointer_line is False
+    assert scan_prose("@https://example.com/guide\n", 25).has_pointer_line is False
+    assert scan_prose("@MAILTO:team@example.com\n", 25).has_pointer_line is False
 
 
 def test_import_line_is_not_a_section_pointer() -> None:

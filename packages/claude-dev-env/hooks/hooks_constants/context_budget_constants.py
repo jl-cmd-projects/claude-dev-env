@@ -48,7 +48,9 @@ ATX_HEADING_PATTERN = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(?P<text>.*?))?(?:[ \t]
 FENCE_OPEN_PATTERN = re.compile(r"^ {0,3}(?P<marker>`{3,}|~{3,})")
 PURE_LINK_LIST_ITEM_PATTERN = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[[^\]]*\]\([^)]*\)\s*$")
 LINK_TARGET_PATTERN = re.compile(r"\[[^\]]*\]\(\s*<?(?P<target>[^)\s>]+)")
-IMPORT_DIRECTIVE_PATTERN = re.compile(r"^\s*@(?=\S*[./])\S+\s*$")
+IMPORT_DIRECTIVE_PATTERN = re.compile(
+    r"^\s*@(?!(?:https?|mailto):)(?=\S*[./])\S+\s*$", re.IGNORECASE
+)
 ALL_NON_RELATIVE_TARGET_PREFIXES: tuple[str, ...] = (
     "http:",
     "https:",
