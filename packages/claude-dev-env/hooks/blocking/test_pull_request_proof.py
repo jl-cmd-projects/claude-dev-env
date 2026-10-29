@@ -1,7 +1,6 @@
 """Behavior tests for the proof-in-practice, existing-work and eval checks on a new pull request."""
 
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -526,7 +525,6 @@ def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_rena
     assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
 
 
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is not installed")
 def test_compare_query_should_label_each_file_by_whether_a_rename_changed_it() -> None:
     all_files = {
         "files": [

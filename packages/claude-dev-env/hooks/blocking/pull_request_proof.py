@@ -57,7 +57,7 @@ from hooks_constants.pull_request_proof_constants import (
     RAW_RECORD_PREFIX,
     RAW_RENAME_PATH_COUNT,
     RAW_RENAME_STATUS_LETTER,
-    RAW_TWO_PATH_STATUS_LETTERS,
+    ALL_RAW_TWO_PATH_STATUS_LETTERS,
     PROOF_IMAGE_PATTERN,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_EDIT_WORD,
@@ -726,7 +726,7 @@ def _git_changes(all_raw_fields: list[str]) -> list[ChangedFile] | None:
         if len(all_header_fields) != RAW_HEADER_FIELD_COUNT:
             return None
         old_mode, new_mode, old_blob, new_blob, status = all_header_fields
-        path_count = RAW_RENAME_PATH_COUNT if status[:1] in RAW_TWO_PATH_STATUS_LETTERS else 1
+        path_count = RAW_RENAME_PATH_COUNT if status[:1] in ALL_RAW_TWO_PATH_STATUS_LETTERS else 1
         all_paths = all_raw_fields[field_index + 1 : field_index + 1 + path_count]
         if len(all_paths) != path_count:
             return None
