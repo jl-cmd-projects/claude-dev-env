@@ -21,13 +21,19 @@ from hooks_constants.merge_review_gate_constants import (
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
     GH_PR_CREATE_PATTERN,
+    GITHUB_REMOTE_URL_TEMPLATE,
+    GIT_TERMINAL_PROMPT_DISABLED,
+    GIT_TERMINAL_PROMPT_VARIABLE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
+    LS_REMOTE_FIELD_SEPARATOR,
     ORIGIN_URL_PATTERN,
     OWNER_FIELD,
     PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     REMOTE_BRANCH_PREFIX,
+    REMOTE_BRANCH_REFERENCE_TEMPLATE,
+    REMOTE_LOOKUP_TIMEOUT_SECONDS,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
 )
@@ -63,7 +69,9 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
         python pull_request.py create --repo o/r --head branch
 
     A branch resolves in the payload's folder or a ``cd`` target, as
-    ``origin/<branch>`` first. No head means ``HEAD``; no repository, ``origin``.
+    ``origin/<branch>`` first. When no checkout holds it, GitHub's branch on the
+    named repository resolves it, or on the fork in ``user:branch``. No head
+    means ``HEAD``; no repository, ``origin``.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -86,12 +94,12 @@ def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | No
 
 
 def _tool_open_request(all_tool_input: dict[object, object], folder: str | None) -> OpenRequest:
+    owner = str(all_tool_input.get(OWNER_FIELD, ""))
+    repo = str(all_tool_input.get(REPO_FIELD, ""))
     branch = all_tool_input.get(HEAD_BRANCH_FIELD)
-    return OpenRequest(
-        owner=str(all_tool_input.get(OWNER_FIELD, "")),
-        repo=str(all_tool_input.get(REPO_FIELD, "")),
-        head=_branch_commit(branch, folder) if isinstance(branch, str) and branch else None,
-    )
+    if not isinstance(branch, str) or not branch:
+        return OpenRequest(owner=owner, repo=repo, head=None)
+    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder, owner, repo))
 
 
 def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
@@ -109,7 +117,7 @@ def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
     )
     head_match = HEAD_OPTION_PATTERN.search(rest)
     branch = head_match["head"] if head_match else CURRENT_HEAD_REFERENCE
-    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder))
+    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder, owner, repo))
 
 
 def _folder_after_changes(command_before_create: str, folder: str | None) -> str | None:
@@ -122,15 +130,18 @@ def _folder_after_changes(command_before_create: str, folder: str | None) -> str
     return str(target)
 
 
-def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
+def _run_git(
+    all_arguments: list[str], folder: str | None, timeout_seconds: int = GIT_TIMEOUT_SECONDS
+) -> str | None:
     try:
         completed = subprocess.run(
             ["git", *all_arguments],
             cwd=folder,
             capture_output=True,
             text=True,
-            timeout=GIT_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
             check=False,
+            env={**os.environ, GIT_TERMINAL_PROMPT_VARIABLE: GIT_TERMINAL_PROMPT_DISABLED},
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -139,7 +150,7 @@ def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
     return completed.stdout.strip() or None
 
 
-def _branch_commit(branch: str, folder: str | None) -> str | None:
+def _branch_commit(branch: str, folder: str | None, owner: str, repo: str) -> str | None:
     branch_name = branch.split(":", 1)[-1]
     all_references = (
         (branch_name,)
@@ -151,6 +162,22 @@ def _branch_commit(branch: str, folder: str | None) -> str | None:
             ["rev-parse", "--verify", "--quiet", f"{each_reference}^{{commit}}"], folder
         )
         if commit:
+            return commit
+    if branch_name == CURRENT_HEAD_REFERENCE:
+        return None
+    fork_owner = branch.split(":", 1)[0] if ":" in branch else owner
+    return _remote_branch_commit(fork_owner, repo, branch_name)
+
+
+def _remote_branch_commit(owner: str, repo: str, branch_name: str) -> str | None:
+    if not owner or not repo:
+        return None
+    remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
+    reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch_name)
+    listing = _run_git(["ls-remote", remote_url, reference], None, REMOTE_LOOKUP_TIMEOUT_SECONDS)
+    for each_line in (listing or "").splitlines():
+        commit, separator, listed_reference = each_line.partition(LS_REMOTE_FIELD_SEPARATOR)
+        if separator and listed_reference == reference:
             return commit
     return None
 

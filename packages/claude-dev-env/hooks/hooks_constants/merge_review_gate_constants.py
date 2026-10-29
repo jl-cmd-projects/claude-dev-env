@@ -37,6 +37,12 @@ ORIGIN_URL_PATTERN = re.compile(
     r"github\.com[:/](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?/?$"
 )
 GIT_TIMEOUT_SECONDS = 3
+REMOTE_LOOKUP_TIMEOUT_SECONDS = 5
+GITHUB_REMOTE_URL_TEMPLATE = "https://github.com/{owner}/{repo}.git"
+REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
+LS_REMOTE_FIELD_SEPARATOR = "\t"
+GIT_TERMINAL_PROMPT_VARIABLE = "GIT_TERMINAL_PROMPT"
+GIT_TERMINAL_PROMPT_DISABLED = "0"
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
@@ -126,6 +132,6 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "head stays {head}."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
-    "This pull request names no repository or head commit the review gate can read. Run it "
-    "from the branch checkout, or pass `--repo owner/name` and `--head <pushed branch>`."
+    "This pull request names no repository or head commit the review gate can read. Push the "
+    "head branch to GitHub, then open the pull request again, or run it from the branch checkout."
 )

@@ -28,6 +28,15 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def remote_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    remotes = tmp_path / "remotes"
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
+    return remotes
+
+
 def _merge_tool(head: str | None = None) -> dict[str, object]:
     tool_input: dict[str, object] = {"owner": "acme", "repo": "tools", "pullNumber": 12}
     if head is not None:
@@ -294,9 +303,37 @@ def test_should_read_the_pull_request_script_create(branch_checkout: tuple[Path,
     assert f"head {head}" in _reason(_bash_in(folder, command))
 
 
-def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(tmp_path: Path) -> None:
+def test_should_deny_a_pull_request_open_whose_head_cannot_be_read(
+    tmp_path: Path, remote_folder: Path
+) -> None:
     reason = _reason(_create_tool(tmp_path, head="missing-branch"))
     assert "names no repository or head commit" in reason
+
+
+def _push_to_remote(folder: Path, remote_repository: Path, branch: str) -> None:
+    remote_repository.mkdir(parents=True)
+    _git(remote_repository, "init", "--quiet", "--bare")
+    _git(folder, "push", "--quiet", str(remote_repository), branch)
+
+
+def test_should_read_the_pushed_head_of_a_branch_outside_any_checkout(
+    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+) -> None:
+    folder, head = branch_checkout
+    _push_to_remote(folder, remote_folder / "acme" / "tools.git", "feature")
+    assert f"no clean review for head {head}" in _reason(_create_tool(tmp_path))
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_create_tool(tmp_path)) is None
+
+
+def test_should_not_read_a_fork_branch_from_the_base_repository(
+    branch_checkout: tuple[Path, str], tmp_path: Path, remote_folder: Path
+) -> None:
+    folder, _head = branch_checkout
+    _push_to_remote(folder, remote_folder / "acme" / "tools.git", "feature")
+    assert "names no repository or head commit" in _reason(
+        _create_tool(tmp_path, head="someone:feature")
+    )
 
 
 def test_should_allow_a_pull_request_open_in_an_exempt_repository(
@@ -388,7 +425,7 @@ def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
 
 
 def test_should_allow_an_open_in_an_exempt_repository_with_an_unread_head(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remote_folder: Path
 ) -> None:
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/tools")
     assert _reason(_create_tool(tmp_path, head="missing-branch")) is None

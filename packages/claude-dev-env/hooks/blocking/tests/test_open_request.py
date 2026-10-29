@@ -7,13 +7,23 @@ gh pr merge 12                                       -> no open
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from blocking.merge_review_gate_parts.open_request import OpenRequest, open_request_from
 
 
 def _shell_payload(command: str, folder: Path) -> dict[str, object]:
     return {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(folder)}
+
+
+def _git(folder: Path, *all_arguments: str) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(folder), *all_arguments], capture_output=True, text=True, check=True
+    )
+    return completed.stdout.strip()
 
 
 def test_should_read_the_repository_and_ignore_options_quoted_in_the_title(tmp_path: Path) -> None:
@@ -28,6 +38,40 @@ def test_should_read_the_create_tool_with_no_head_branch(tmp_path: Path) -> None
         "cwd": str(tmp_path),
     }
     assert open_request_from(payload) == OpenRequest(owner="acme", repo="tools", head=None)
+
+
+def test_should_read_a_branch_no_checkout_holds_from_the_named_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    _git(checkout, "init", "--quiet", "--initial-branch", "feature")
+    _git(
+        checkout,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "first",
+    )
+    head = _git(checkout, "rev-parse", "HEAD")
+    remotes = tmp_path / "remotes"
+    (remotes / "acme" / "tools.git").mkdir(parents=True)
+    _git(remotes / "acme" / "tools.git", "init", "--quiet", "--bare")
+    _git(checkout, "push", "--quiet", str(remotes / "acme" / "tools.git"), "feature")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{remotes}/.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "https://github.com/")
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "head": "feature"},
+        "cwd": str(tmp_path),
+    }
+    assert open_request_from(payload) == OpenRequest(owner="acme", repo="tools", head=head)
 
 
 def test_should_return_none_for_a_command_that_opens_nothing(tmp_path: Path) -> None:
