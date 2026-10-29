@@ -963,8 +963,9 @@ def test_added_workflow_files_should_count_a_renamed_workflow_as_added(
     [
         "Not proven here: the live run of the Convert change on Windows.",
         "Not proven here: release-hold.yml on macOS.",
+        "Untested on Windows (`python run.py`) for the workflow helper.",
     ],
-    ids=["run-without-a-workflow", "workflow-without-a-run"],
+    ids=["run-without-a-workflow", "workflow-without-a-run", "run-only-in-a-code-span"],
 )
 def test_unproven_line_should_stay_denied_when_it_is_not_about_a_workflow_run(
     tmp_path: Path, unrelated_line: str
@@ -1139,6 +1140,7 @@ def test_unproven_line_should_stay_denied_when_the_line_is_about_another_live_ru
     [
         ("https://github.com/o/r.git", "o/r", True),
         ("git@github.com:o/r.git", "o/r", True),
+        ("https://github.com/o/r/", "o/r", True),
         ("https://github.com/foo/r", "o/r", False),
         ("https://github.com/o/r", None, True),
     ],

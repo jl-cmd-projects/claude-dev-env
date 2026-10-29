@@ -494,7 +494,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     markers. The line passes when the pull request adds a workflow file the
     default branch lacks and the body has an 'After merge' section that names
     that file in backticks and says who records the run, and every unproven
-    line mentions a workflow or GitHub Actions; see _first_unwaived_admission.
+    line uses the word run outside code spans and says workflow or GitHub Actions
+    or names a covered workflow file; see _first_unwaived_admission.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -760,7 +761,7 @@ def _checkout_is_for(working_directory: str, repository: str | None) -> bool:
     all_repository_endings = ("/" + repository.lower(), ":" + repository.lower())
     for each_line in all_remote_lines or []:
         all_fields = each_line.split()
-        if len(all_fields) >= REMOTE_LINE_FIELD_COUNT and all_fields[1].lower().removesuffix(GIT_URL_SUFFIX).endswith(
+        if len(all_fields) >= REMOTE_LINE_FIELD_COUNT and all_fields[1].lower().rstrip("/").removesuffix(GIT_URL_SUFFIX).endswith(
             all_repository_endings
         ):
             return True
@@ -795,9 +796,10 @@ def _first_unwaived_admission(
 
 
 def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str]) -> bool:
-    if not all_workflow_names or re.search(RUN_WORD_PATTERN, admission, re.IGNORECASE) is None:
+    admission_prose = re.sub(INLINE_CODE_SPAN_PATTERN, "", admission)
+    if not all_workflow_names or re.search(RUN_WORD_PATTERN, admission_prose, re.IGNORECASE) is None:
         return False
-    return re.search(WORKFLOW_SUBJECT_PATTERN, admission, re.IGNORECASE) is not None or any(
+    return re.search(WORKFLOW_SUBJECT_PATTERN, admission_prose, re.IGNORECASE) is not None or any(
         re.search(WORKFLOW_NAME_MATCH_TEMPLATE.format(workflow_name=re.escape(each_name)), admission, re.IGNORECASE)
         for each_name in all_workflow_names
     )
