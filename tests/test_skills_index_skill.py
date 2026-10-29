@@ -10,7 +10,7 @@ SHIPPED_SKILLS_PATH = (
 )
 INDEX_NAME = "dev-env-skills-index"
 INDEX_PATH = SHIPPED_SKILLS_PATH / INDEX_NAME / "SKILL.md"
-TABLE_HEADER = ("Skill", "Use when", "Path")
+TABLE_HEADER_LINE = "| Skill | Use when | Path |"
 DESCRIPTION_PREFIX = "description: "
 MAX_DESCRIPTION_LENGTH = 200
 
@@ -24,18 +24,18 @@ def _frontmatter_and_body(skill_text: str) -> tuple[list[str], list[str]]:
     return frontmatter_block.splitlines(), body_block.splitlines()
 
 
-def _table_rows(body_lines: list[str]) -> list[tuple[str, ...]]:
+def _table_lines(body_lines: list[str]) -> list[str]:
+    return [each_line for each_line in body_lines if each_line.strip()]
+
+
+def _data_rows(body_lines: list[str]) -> list[tuple[str, ...]]:
+    _, _, *data_lines = _table_lines(body_lines)
     return [
         tuple(
             each_cell.strip() for each_cell in each_line.strip().strip("|").split("|")
         )
-        for each_line in body_lines
-        if each_line.strip()
+        for each_line in data_lines
     ]
-
-
-def _data_rows(body_lines: list[str]) -> list[tuple[str, ...]]:
-    return _table_rows(body_lines)[2:]
 
 
 def test_skills_index_frontmatter_keeps_model_invocation_on() -> None:
@@ -46,21 +46,26 @@ def test_skills_index_frontmatter_keeps_model_invocation_on() -> None:
         each_line.startswith("disable-model-invocation")
         for each_line in frontmatter_lines
     )
+
+
+def test_skills_index_description_fits_the_length_limit() -> None:
+    frontmatter_lines, _ = _frontmatter_and_body(_read(INDEX_PATH))
     description_line = next(
         each_line
         for each_line in frontmatter_lines
         if each_line.startswith(DESCRIPTION_PREFIX)
     )
-    assert len(description_line[len(DESCRIPTION_PREFIX) :]) <= MAX_DESCRIPTION_LENGTH
+    description = description_line.removeprefix(DESCRIPTION_PREFIX)
+
+    assert len(description) <= MAX_DESCRIPTION_LENGTH
 
 
 def test_skills_index_body_is_only_the_skill_table() -> None:
     _, body_lines = _frontmatter_and_body(_read(INDEX_PATH))
+    table_lines = _table_lines(body_lines)
 
-    assert all(
-        each_line.startswith("|") for each_line in body_lines if each_line.strip()
-    )
-    assert _table_rows(body_lines)[0] == TABLE_HEADER
+    assert all(each_line.startswith("|") for each_line in table_lines)
+    assert table_lines[0] == TABLE_HEADER_LINE
 
 
 def test_skills_index_lists_every_shipped_skill_once() -> None:
