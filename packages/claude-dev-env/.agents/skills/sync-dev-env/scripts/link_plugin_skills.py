@@ -226,9 +226,9 @@ def default_agents_home(claude_home: Path) -> Path:
         claude_home: The Claude Code home directory.
 
     Returns:
-        The sibling `.agents` folder for a `.claude` home, or a sibling `<root-name>.agents` for any other home.
+        The sibling `.agents` folder for a `.claude` home (matched without regard to case on Windows), or a sibling `<root-name>.agents` for any other home.
     """
-    if claude_home.name == CLAUDE_HOME_DIRECTORY_NAME:
+    if os.path.normcase(claude_home.name) == os.path.normcase(CLAUDE_HOME_DIRECTORY_NAME):
         return claude_home.with_name(AGENTS_HOME_DIRECTORY_NAME)
     return claude_home.with_name(f"{claude_home.name}{AGENTS_HOME_DIRECTORY_NAME}")
 

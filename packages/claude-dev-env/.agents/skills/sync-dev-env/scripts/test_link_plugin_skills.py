@@ -258,6 +258,16 @@ def test_should_pair_the_default_claude_folder_with_the_home_agents_folder() -> 
     )
 
 
+def test_should_pair_a_differently_cased_claude_folder_on_a_case_insensitive_platform(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(link_plugin_skills.os.path, "normcase", str.lower)
+
+    assert link_plugin_skills.default_agents_home(Path("/home/user/.CLAUDE")) == Path(
+        "/home/user/.agents"
+    )
+
+
 def test_should_link_into_the_sibling_agents_folder_when_the_claude_home_is_relative(
     claude_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
