@@ -157,6 +157,7 @@ def test_missing_copy_points_to_the_playground(
     context_text = hook_output["hookSpecificOutput"]["additionalContext"]
     assert "could not determine executable to run" in context_text
     assert "is not installed at" in context_text
+    assert "checks only the Claude home" in context_text
     assert "playground at pele.run" in context_text
     assert "pathToFileURL" not in context_text
 
