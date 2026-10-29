@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Link every enabled plugin's skills into the user skills directory.
+"""Link every enabled plugin's skills into the agents skills directory that Codex reads.
 
 ::
 
-    ~/.claude/skills/tdd -> ~/.claude/plugins/cache/<market>/<plugin>/<version>/skills/tdd
+    ~/.agents/skills/tdd -> ~/.claude/plugins/cache/<market>/<plugin>/<version>/skills/tdd
     ok:   no entry named tdd           -> link created
     ok:   owned link at an old version -> link re-pointed
     ok:   owned link, skill now gone   -> link removed
     flag: a user skill named tdd       -> left in place, reported as skipped
 
 A link is owned when it points inside the plugin cache.
-A running session reads the skills directory live, so the linked skills load at once.
+An owned link left in the Claude skills directory is removed, so Claude loads each plugin skill once.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import json
 import os
 import sys
 from collections import Counter
+from collections.abc import Container
 from pathlib import Path
 
 scripts_directory = str(Path(__file__).resolve().parent)
@@ -28,6 +29,7 @@ if scripts_directory not in sys.path:
 
 from sync_dev_env_constants.config.constants import (
     CREATED_REPORT,
+    DEFAULT_AGENTS_HOME,
     DEFAULT_CLAUDE_HOME,
     ENABLED_PLUGINS_KEY,
     INSTALL_PATH_KEY,
@@ -135,27 +137,50 @@ def is_owned_link(entry: Path, plugin_cache: Path) -> bool:
     return link_target.is_relative_to(plugin_cache)
 
 
-def sync_links(claude_home: Path) -> Counter:
-    """Converge the skills directory on one link per enabled plugin skill.
+def remove_owned_links(skills_directory: Path, plugin_cache: Path, wanted_names: Container[str]) -> int:
+    """Remove each owned link in a skills directory whose name is not wanted.
+
+    Args:
+        skills_directory: The skills directory to clean.
+        plugin_cache: The resolved plugin cache directory.
+        wanted_names: The skill names whose owned links stay in place.
+
+    Returns:
+        The number of links removed.
+    """
+    removed_count = 0
+    for each_entry in sorted(skills_directory.iterdir()):
+        if each_entry.name not in wanted_names and is_owned_link(each_entry, plugin_cache):
+            each_entry.unlink()
+            print(REMOVED_REPORT.format(name=each_entry.name))
+            removed_count += 1
+    return removed_count
+
+
+def sync_links(claude_home: Path, agents_home: Path) -> Counter:
+    """Converge the agents skills directory on one link per enabled plugin skill.
+
+    The Claude skills directory gets no plugin links. An owned link left there is removed,
+    unless that directory is the agents skills directory itself.
 
     Args:
         claude_home: The Claude Code home directory.
+        agents_home: The agents home directory that Codex reads.
 
     Returns:
         The count of each outcome name across every entry the run touched.
     """
-    skills_directory = Path(os.path.realpath(claude_home / SKILLS_DIRECTORY_NAME))
-    skills_directory.mkdir(parents=True, exist_ok=True)
+    agents_skills_directory = Path(os.path.realpath(agents_home / SKILLS_DIRECTORY_NAME))
+    agents_skills_directory.mkdir(parents=True, exist_ok=True)
     plugin_cache = Path(os.path.realpath(claude_home / PLUGIN_CACHE_RELATIVE_PATH))
     target_by_name = desired_skill_targets(claude_home)
     outcome_counts: Counter = Counter()
-    for each_entry in sorted(skills_directory.iterdir()):
-        if is_owned_link(each_entry, plugin_cache) and each_entry.name not in target_by_name:
-            each_entry.unlink()
-            print(REMOVED_REPORT.format(name=each_entry.name))
-            outcome_counts[REMOVED_OUTCOME] += 1
+    claude_skills_directory = Path(os.path.realpath(claude_home / SKILLS_DIRECTORY_NAME))
+    outcome_counts[REMOVED_OUTCOME] += remove_owned_links(agents_skills_directory, plugin_cache, target_by_name)
     for each_name, each_target in sorted(target_by_name.items()):
-        outcome_counts[link_one_skill(skills_directory / each_name, each_target, plugin_cache)] += 1
+        outcome_counts[link_one_skill(agents_skills_directory / each_name, each_target, plugin_cache)] += 1
+    if claude_skills_directory.is_dir() and claude_skills_directory != agents_skills_directory:
+        outcome_counts[REMOVED_OUTCOME] += remove_owned_links(claude_skills_directory, plugin_cache, ())
     return outcome_counts
 
 
@@ -186,15 +211,16 @@ def link_one_skill(link_path: Path, target: Path, plugin_cache: Path) -> str:
 
 
 def main() -> int:
-    """Parse the Claude home from the command line, sync the links, and print a summary.
+    """Parse the homes from the command line, sync the links, and print a summary.
 
     Returns:
         0 after printing the summary line.
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--claude-home", type=Path, default=DEFAULT_CLAUDE_HOME)
+    parser.add_argument("--agents-home", type=Path, default=DEFAULT_AGENTS_HOME)
     parsed_arguments = parser.parse_args()
-    outcome_counts = sync_links(parsed_arguments.claude_home)
+    outcome_counts = sync_links(parsed_arguments.claude_home, parsed_arguments.agents_home)
     print(
         SUMMARY_REPORT.format(
             linked=outcome_counts[LINKED_OUTCOME],
