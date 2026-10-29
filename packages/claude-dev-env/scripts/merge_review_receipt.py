@@ -110,11 +110,13 @@ def record_open_review(
     Returns:
         The receipt path written.
     """
+    receipt = _receipt_fields(head, finding_count, ruled_out_count, list(all_rulings))
+    return _write_open_receipt(slug, head, receipt)
+
+
+def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
     owner, repo = slug.split("/", 1)
-    return _write_receipt_at(
-        open_receipt_path(owner, repo, head),
-        _receipt_fields(head, finding_count, ruled_out_count, list(all_rulings)),
-    )
+    return _write_receipt_at(open_receipt_path(owner, repo, head), all_receipt_fields)
 
 
 def _write_receipt(slug: str, number: int, all_receipt_fields: dict[str, object]) -> Path:
@@ -195,10 +197,9 @@ def _record_open_pass(
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
-    written_path = record_open_review(
-        parsed.slug, parsed.head, parsed.findings, parsed.ruled_out, all_rulings
-    )
-    if is_clean_open_pass(json.loads(written_path.read_text(encoding="utf-8"))):
+    receipt = _receipt_fields(parsed.head, parsed.findings, parsed.ruled_out, all_rulings)
+    _write_open_receipt(parsed.slug, parsed.head, receipt)
+    if is_clean_open_pass(receipt):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {RULING_SEPARATOR.join(all_rulings)})"
             if parsed.ruled_out

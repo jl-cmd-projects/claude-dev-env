@@ -57,8 +57,8 @@ def _checkout_on(tmp_path: Path, branch: str) -> Path:
     return checkout
 
 
-def _bare_remote(github: Path, owner: str) -> Path:
-    remote = github / owner / "tools.git"
+def _bare_remote(github: Path, owner: str, name: str = "tools") -> Path:
+    remote = github / owner / f"{name}.git"
     remote.mkdir(parents=True)
     _git(remote, "init", "--quiet", "--bare")
     return remote
@@ -161,9 +161,65 @@ def test_should_look_up_the_github_branch_with_every_sign_in_prompt_disabled(
     assert open_request_from(_create_payload("feature", tmp_path)) == OpenRequest(
         owner="acme", repo="tools", head=None
     )
-    (lookup_environment,) = all_captured_environments
-    assert lookup_environment["GIT_TERMINAL_PROMPT"] == "0"
-    assert lookup_environment["GCM_INTERACTIVE"] == "never"
+    assert len(all_captured_environments) >= 2
+    for each_environment in all_captured_environments:
+        assert each_environment["GIT_TERMINAL_PROMPT"] == "0"
+        assert each_environment["GCM_INTERACTIVE"] == "never"
+
+
+def test_should_read_a_branch_through_the_checkout_remote_when_github_is_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    head = _commit(checkout, "first")
+    origin = _bare_remote(tmp_path / "github.com", "acme")
+    _git(checkout, "remote", "add", "origin", str(origin))
+    _git(checkout, "push", "--quiet", "origin", "feature")
+    _redirect_github(monkeypatch, tmp_path / "unreachable")
+    assert open_request_from(_create_payload("feature", checkout)) == OpenRequest(
+        owner="acme", repo="tools", head=head
+    )
+
+
+def test_should_read_a_fork_branch_through_a_checkout_remote_of_a_renamed_fork(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    head = _commit(checkout, "fork")
+    renamed_fork = _bare_remote(tmp_path / "github.com", "someone", "tools-fork")
+    _git(checkout, "remote", "add", "fork", str(renamed_fork))
+    _git(checkout, "push", "--quiet", "fork", "feature")
+    _redirect_github(monkeypatch, tmp_path / "unreachable")
+    assert open_request_from(_create_payload("someone:feature", checkout)) == OpenRequest(
+        owner="acme", repo="tools", head=head
+    )
+
+
+def test_should_read_the_pushed_branch_when_the_open_names_no_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    pushed_head = _commit(checkout, "pushed")
+    github = tmp_path / "github.com"
+    _git(checkout, "push", "--quiet", str(_bare_remote(github, "acme")), "feature")
+    local_head = _commit(checkout, "local only")
+    assert pushed_head != local_head
+    _redirect_github(monkeypatch, github)
+    payload = _shell_payload("gh pr create --repo acme/tools", checkout)
+    assert open_request_from(payload) == OpenRequest(owner="acme", repo="tools", head=pushed_head)
+
+
+def test_should_read_the_checked_out_commit_when_the_open_names_no_head_and_head_is_detached(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    detached_head = _commit(checkout, "detached")
+    _git(checkout, "checkout", "--quiet", "--detach")
+    _redirect_github(monkeypatch, tmp_path / "unreachable")
+    payload = _shell_payload("gh pr create --repo acme/tools", checkout)
+    assert open_request_from(payload) == OpenRequest(
+        owner="acme", repo="tools", head=detached_head
+    )
 
 
 def test_should_return_none_for_a_command_that_opens_nothing(tmp_path: Path) -> None:

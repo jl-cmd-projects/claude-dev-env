@@ -234,6 +234,26 @@ def test_should_count_a_line_by_newline_only_and_keep_an_unterminated_last_line(
     assert exit_code == 0
 
 
+def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_stay_unruled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "open", head, "3", "--ruled-out", "2", "--rulings", "a.py:1,a.py:2"],
+        verdict_stream,
+    )
+    assert exit_code == 1
+    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {head} 3 findings\n"
+    receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
+    assert receipt == {
+        "head": head,
+        "findings": 3,
+        "ruled_out": 2,
+        "rulings": ["a.py:1", "a.py:2"],
+    }
+
+
 def test_should_accept_an_open_pass_ruled_out_at_a_path_with_a_space(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receipt_folder: Path
 ) -> None:
