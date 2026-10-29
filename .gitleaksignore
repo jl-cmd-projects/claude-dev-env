@@ -3,3 +3,8 @@
 98698d908e3dc6f57f9e66d217f79b8c2f64549a:packages/claude-dev-env/hooks/hooks_constants/test_hook_block_logger.py:generic-api-key:47
 98698d908e3dc6f57f9e66d217f79b8c2f64549a:packages/claude-dev-env/hooks/hooks_constants/test_hook_block_logger.py:personal-email-address:48
 d8efa093c405ea3b6ac75513a3b859be311883cd:packages/claude-dev-env/hooks/blocking/tests/test_open_request.py:personal-email-address:267
+8f76de6ca74f12cf827a7ebc57963c7624d38c86:packages/claude-dev-env/scripts/tests/test_instruction_budget.py:personal-email-address:122
+6c3e75ef0987ba7fe93a2e9617a42d9cc99c85a3:packages/claude-dev-env/scripts/tests/test_instruction_budget.py:personal-email-address:126
+b32e2cc71862d812201e204f52386018081fd72d:packages/claude-dev-env/scripts/tests/test_instruction_budget.py:personal-email-address:135
+57c614c90d9088cc60f73a80824269692d0c9029:packages/claude-dev-env/scripts/tests/test_instruction_budget.py:personal-email-address:162
+a7bb50938caedc27850276c475f1c579393ec24d:packages/claude-dev-env/scripts/tests/test_instruction_budget.py:personal-email-address:321
