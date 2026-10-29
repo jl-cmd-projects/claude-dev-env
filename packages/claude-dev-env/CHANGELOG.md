@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.4...claude-dev-env-v8.109.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** let the proof gate skip a pure html rename ([#2254](https://github.com/jl-cmd-projects/claude-dev-env/issues/2254)) ([9d7beaf](https://github.com/jl-cmd-projects/claude-dev-env/commit/9d7beaf09ca4ecf7571f8bb51c5c31e7717d3553))
+
 ## [8.109.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.3...claude-dev-env-v8.109.4) (2026-10-29)
 
 
