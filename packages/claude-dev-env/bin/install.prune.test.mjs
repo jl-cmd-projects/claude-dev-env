@@ -858,6 +858,7 @@ test('a full reinstall leaves a skill folder linked into another repository unto
     try {
         runInstaller(sandbox.homeDirectory, []);
         const linkedSkillName = 'efficient-review';
+        const shippedSkillText = readFileSync(join(sandbox.homeDirectory, '.agents', 'skills', linkedSkillName, 'SKILL.md'), 'utf8');
         const repositorySkillDirectory = join(linkedRepositoryDirectory, 'skills', linkedSkillName);
         const repositorySkillText = 'name: efficient-review\nthe repository copy\n';
         writeFileWithParents(join(repositorySkillDirectory, 'SKILL.md'), repositorySkillText);
@@ -885,9 +886,24 @@ test('a full reinstall leaves a skill folder linked into another repository unto
             'the linked repository copy never reaches the backup',
         );
         assert.equal(
-            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(linkedSkillName)),
+            readFileSync(join(sandbox.homeDirectory, '.agents', 'skills', linkedSkillName, 'SKILL.md'), 'utf8'),
+            shippedSkillText,
+            'the shipped copy stays in the agents home for Codex',
+        );
+        assert.equal(
+            prunedSkillBackupTexts(sandbox.claudeDirectory, join(linkedSkillName, 'SKILL.md')).includes(shippedSkillText),
             false,
-            'the manifest records no file under the linked skill',
+            'the shipped copy is not moved to the backup',
+        );
+        assert.equal(
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(join('.claude', 'skills', linkedSkillName))),
+            false,
+            'the manifest records no file under the linked skill link',
+        );
+        assert.equal(
+            readManifest(sandbox.manifestPath).files.some(recordedPath => recordedPath.includes(join('.agents', 'skills', linkedSkillName))),
+            true,
+            'the manifest keeps the shipped copy so an uninstall removes it',
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });

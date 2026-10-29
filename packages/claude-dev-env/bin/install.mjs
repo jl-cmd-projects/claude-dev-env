@@ -3070,6 +3070,8 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             const destinationIsLink = lstatSync(skillDestinationDirectory, { throwIfNoEntry: false })?.isSymbolicLink();
             if (isLinkToOtherDirectory(skillLookupPath, skillDestinationDirectory) || destinationIsLink) {
                 console.log(`  = ${join(MANAGED_SKILLS_DIRECTORY_NAME, skillDir.name)} (linked skill left in place)`);
+                copiedSkillNames.add(skillDir.name);
+                if (!destinationIsLink) allInstalledFiles.push(...collectFiles(skillDestinationDirectory));
                 continue;
             }
             const stats = copyTree(skillSourceDirectory, skillDestinationDirectory);
