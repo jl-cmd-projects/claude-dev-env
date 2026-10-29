@@ -54,7 +54,7 @@ export const ALL_RETIRED_PLUGIN_SPECS = Object.freeze([
  * The usage-wrapup and subagent-models copies this repository once shipped.
  * The mods framework marketplace now supplies each one, and an install
  * removes an old copy only after its replacement installs, so a home that
- * cannot reach the mods framework keeps the copy it has.
+ * cannot reach that marketplace keeps the copy it has.
  */
 export const ALL_REPLACED_PLUGIN_SPECS = Object.freeze([
     Object.freeze({
