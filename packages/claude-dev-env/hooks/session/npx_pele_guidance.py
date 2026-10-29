@@ -89,15 +89,24 @@ def installed_pele_version(package_directory: Path) -> str | None:
     Returns:
         The version string, or None when the manifest is missing or unreadable.
     """
-    manifest_path = package_directory / PACKAGE_MANIFEST_NAME
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(manifest, dict):
-        return None
-    version = manifest.get("version")
+    version = installed_pele_manifest(package_directory).get("version")
     return version if isinstance(version, str) and version else None
+
+
+def installed_pele_manifest(package_directory: Path) -> dict:
+    """Read the Pele package manifest as a dict.
+
+    Args:
+        package_directory: The folder that holds Pele's ``package.json``.
+
+    Returns:
+        The parsed manifest, or an empty dict when it is missing, unreadable, or not an object.
+    """
+    try:
+        manifest = json.loads((package_directory / PACKAGE_MANIFEST_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return manifest if isinstance(manifest, dict) else {}
 
 
 def is_npx_pele_command(tool_input: object) -> bool:
@@ -164,11 +173,7 @@ def installed_pele_entry(package_directory: Path) -> Path:
         The file at the manifest's ``main`` path, or ``dist/pele.js`` when the
         manifest names no usable ``main``.
     """
-    try:
-        manifest = json.loads((package_directory / PACKAGE_MANIFEST_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        manifest = None
-    main_path = manifest.get("main") if isinstance(manifest, dict) else None
+    main_path = installed_pele_manifest(package_directory).get("main")
     if isinstance(main_path, str) and main_path:
         return package_directory / main_path
     return package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
