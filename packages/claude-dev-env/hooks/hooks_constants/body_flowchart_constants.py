@@ -1,6 +1,7 @@
 import re
 
 FENCE_OPEN_PATTERN: re.Pattern[str] = re.compile(r"^\s*(`{3,}|~{3,})[ \t]*(\S*)(.*)$")
+MINIMUM_FENCE_LENGTH = 3
 FENCE_MARKER_GROUP = 1
 INFO_STRING_GROUP = 2
 INFO_TAIL_GROUP = 3

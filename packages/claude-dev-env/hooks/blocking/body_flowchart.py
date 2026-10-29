@@ -16,6 +16,7 @@ from hooks_constants.body_flowchart_constants import (
     INFO_TAIL_GROUP,
     MERMAID_COMMENT_PREFIX,
     MERMAID_INFO_STRING,
+    MINIMUM_FENCE_LENGTH,
     NODE_TEXT_PATTERN,
     TRAILING_COMMENT_PATTERN,
 )
@@ -34,7 +35,7 @@ def _opening_fence(line: str) -> tuple[str, str] | None:
 
 def _closes_fence(line: str, open_fence: str) -> bool:
     stripped_line = line.strip()
-    return len(stripped_line) >= len(open_fence) and set(stripped_line) == {open_fence[0]}
+    return len(stripped_line) >= MINIMUM_FENCE_LENGTH and set(stripped_line) == {open_fence[0]}
 
 
 def _closing_index(all_lines: list[str], start_index: int, open_fence: str) -> int | None:

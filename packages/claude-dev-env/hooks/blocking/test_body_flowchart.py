@@ -26,6 +26,7 @@ def _block(*all_lines: str, fence: str = "```") -> str:
         _block("flowchart LR", "    a -.-> b"),
         _block("flowchart LR", "    a ==> b"),
         _block("flowchart LR; a --> b"),
+        "````mermaid\nflowchart LR\n    a --> b\n`````",
         _block("---", "title: Flow", "---", "flowchart LR", "    a --> b"),
         "1. Flow:\n\n    ```mermaid\n    flowchart LR\n    a --> b\n    ```",
         "```js```\n\n" + _block("flowchart LR", "    a --> b"),
