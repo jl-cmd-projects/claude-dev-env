@@ -123,7 +123,13 @@ REPOSITORY_FLAG_ASSIGNMENT_PREFIX = "--repo="
 GIT_TIMEOUT_SECONDS = 5
 GH_TIMEOUT_SECONDS = 15
 COMPARE_ENDPOINT_TEMPLATE = "repos/{repository}/compare/{base_branch}...{head_branch}"
-COMPARE_FILE_NAMES_QUERY = ".files[].filename"
+PURE_RENAME_STATUS = "R100"
+STATUS_FIELD_SEPARATOR = "\t"
+COMPARE_FILE_STATUS_QUERY = (
+    '.files[] | [(if .status == "renamed" and .changes == 0 then "'
+    + PURE_RENAME_STATUS
+    + '" else .status end), .filename] | @tsv'
+)
 COMPARE_FILE_LIST_LIMIT = 300
 REPOSITORY_ENDPOINT_TEMPLATE = "repos/{repository}"
 DEFAULT_BRANCH_QUERY = ".default_branch"

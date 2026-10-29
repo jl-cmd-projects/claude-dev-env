@@ -20,6 +20,8 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_GH_EDIT_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
+    PURE_RENAME_STATUS,
+    STATUS_FIELD_SEPARATOR,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     DEFERRED_PROOF_REASON,
@@ -31,7 +33,7 @@ from hooks_constants.pull_request_proof_constants import (
     BASE_FLAG_ASSIGNMENT_PREFIX,
     COMPARE_ENDPOINT_TEMPLATE,
     COMPARE_FILE_LIST_LIMIT,
-    COMPARE_FILE_NAMES_QUERY,
+    COMPARE_FILE_STATUS_QUERY,
     DEFAULT_BRANCH_QUERY,
     GH_TIMEOUT_SECONDS,
     HEAD_FLAG_ASSIGNMENT_PREFIX,
@@ -667,8 +669,12 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     origin/HEAD, origin/main and main that git can reach::
 
         checkout on feature, page.html changed -> ["page.html"]
+        page.html renamed with no edit          -> []
+        page.html renamed and edited            -> ["page.html"]
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
+
+    A rename that keeps every byte (git status R100) changes nothing people see.
 
     Args:
         working_directory: The session directory the hook payload names.
@@ -682,14 +688,21 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     merge_base = _first_merge_base(working_directory, head_reference)
     if merge_base is None:
         return None
-    all_changed_paths = _git_lines(working_directory, "diff", "--name-only", merge_base, head_reference)
-    if all_changed_paths is None:
+    all_status_lines = _git_lines(working_directory, "diff", "--name-status", "-M", merge_base, head_reference)
+    if all_status_lines is None:
         return None
-    return _visible_paths(all_changed_paths)
+    return _visible_paths(all_status_lines)
 
 
-def _visible_paths(all_changed_paths: list[str]) -> list[str]:
-    return [each_path for each_path in all_changed_paths if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)]
+def _visible_paths(all_status_lines: list[str]) -> list[str]:
+    all_visible_paths = []
+    for each_line in all_status_lines:
+        all_fields = each_line.split(STATUS_FIELD_SEPARATOR)
+        if all_fields[0] == PURE_RENAME_STATUS:
+            continue
+        if all_fields[-1].lower().endswith(ALL_VISIBLE_FILE_SUFFIXES):
+            all_visible_paths.append(all_fields[-1])
+    return all_visible_paths
 
 
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
@@ -722,7 +735,7 @@ def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) 
         COMPARE_ENDPOINT_TEMPLATE.format(
             repository=repository, base_branch=base_branch, head_branch=head_branch
         ),
-        COMPARE_FILE_NAMES_QUERY,
+        COMPARE_FILE_STATUS_QUERY,
     )
     if all_changed_paths is None:
         return None
@@ -741,13 +754,15 @@ def remote_visible_changed_files(
 
         compare lists tool.py                          -> []
         compare lists web/page.html                    -> ["web/page.html"]
+        compare lists web/page.html renamed, no edit   -> []
         compare returns 300 paths and none are visible -> None
         repository or head missing                     -> None
 
     The base is the named base branch, else the repository's default branch.
     A page of 300 paths is the compare API's file cap. A visible file on that
     page is returned. A full page with none is None, because a later file can
-    still be one people see.
+    still be one people see. A pure rename counts toward the 300 but is never
+    visible.
 
     Args:
         repository: The owner/name the create call names, or None.

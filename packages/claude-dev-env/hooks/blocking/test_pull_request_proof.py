@@ -416,7 +416,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\ttool.py"]}, all_endpoints))
     payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
     assert gate.missing_look_reason(payload) is None
     assert all_endpoints == [compare_endpoint]
@@ -425,7 +425,7 @@ def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot
 def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": ["web/page.html", "tool.py"]}
+    all_responses = {"repos/o/r": ["trunk"], "repos/o/r/compare/trunk...feature": ["M\tweb/page.html", "M\ttool.py"]}
     all_endpoints: list[str] = []
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "-R o/r --head=feature"))
@@ -433,6 +433,90 @@ def test_should_deny_a_page_change_the_compare_api_lists_without_a_picture(
     assert "web/page.html" in reason
     assert "tool.py" not in reason
     assert all_endpoints == ["repos/o/r", "repos/o/r/compare/trunk...feature"]
+
+
+def _repository_with_rename(tmp_path: Path, edited_text: str | None) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    page_text = "<p>" + "page body line\n" * 20 + "</p>\n"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / "asset-specs.html").write_text(page_text, encoding="utf-8")
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
+    (clone_path / "references").mkdir()
+    subprocess.run(["git", "-C", str(clone_path), "mv", "asset-specs.html", "references/asset-specs.html"], check=True)
+    if edited_text is not None:
+        (clone_path / "references" / "asset-specs.html").write_text(page_text + edited_text, encoding="utf-8")
+    subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "move"], check=True)
+    return clone_path
+
+
+def test_should_allow_a_pure_html_rename_without_a_picture(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, None)
+    assert gate.visible_changed_files(str(clone_path), "feature") == []
+    assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is None
+
+
+def test_should_deny_an_html_rename_that_also_edits_the_page(tmp_path: Path) -> None:
+    clone_path = _repository_with_rename(tmp_path, "<p>new line</p>\n")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    reason = gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path))
+    assert reason is not None
+    assert "references/asset-specs.html" in reason
+
+
+def test_should_allow_a_compare_page_that_lists_a_pure_html_rename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_lines = ["R100\treferences/asset-specs.html", "M\ttool.py"]
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_lines}, all_endpoints))
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") == []
+    assert gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")) is None
+
+
+def test_should_deny_a_compare_page_that_lists_an_html_rename_with_an_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_lines = ["renamed\treferences/asset-specs.html"]
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_lines}, all_endpoints))
+    reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
+    assert reason is not None
+    assert "references/asset-specs.html" in reason
+
+
+def test_should_deny_as_unreadable_when_a_full_compare_page_lists_only_pure_renames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_lines = [f"R100\tskills/skill_{each_index}/page.html" for each_index in range(COMPARE_FILE_LIST_LIMIT)]
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_lines}, all_endpoints))
+    assert gate.remote_visible_changed_files("o/r", "main", "feature") is None
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.missing_look_reason(payload) == UNREADABLE_CHANGES_REASON
+
+
+def test_should_ask_the_compare_api_to_mark_a_rename_with_no_change_as_a_pure_rename(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_queries: list[str] = []
+
+    def fake_gh_api_lines(endpoint: str, query: str) -> list[str] | None:
+        all_queries.append(query)
+        return []
+
+    monkeypatch.setattr(gate, "_gh_api_lines", fake_gh_api_lines)
+    gate.remote_visible_changed_files("o/r", "main", "feature")
+    all_expected_terms = ('.status == "renamed"', ".changes == 0", '"R100"', ".filename")
+    assert all(each_term in all_queries[0] for each_term in all_expected_terms)
 
 
 def test_should_deny_as_unreadable_when_the_compare_api_fails(
@@ -452,7 +536,7 @@ def test_should_deny_as_unreadable_when_the_compare_api_fails(
 
 
 def _python_paths(count: int) -> list[str]:
-    return [f"pkg/module_{each_index}.py" for each_index in range(count)]
+    return [f"M\tpkg/module_{each_index}.py" for each_index in range(count)]
 
 
 def test_should_deny_as_unreadable_when_a_full_compare_page_lists_no_visible_file(
@@ -492,7 +576,7 @@ def test_should_deny_a_visible_file_on_a_full_compare_page(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    all_paths = [*_python_paths(COMPARE_FILE_LIST_LIMIT - 1), "web/page.html"]
+    all_paths = [*_python_paths(COMPARE_FILE_LIST_LIMIT - 1), "M\tweb/page.html"]
     monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: all_paths}, all_endpoints))
     reason = gate.missing_look_reason(_shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature"))
     assert reason is not None
@@ -505,7 +589,7 @@ def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artif
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["page.html"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\tpage.html"]}, all_endpoints))
     body_path = tmp_path / "body.md"
     body_path.write_text(PROVEN_BODY + "https://claude.ai/code/artifact/abc-123\n", encoding="utf-8")
     payload = _shell(
@@ -531,7 +615,7 @@ def test_should_read_owner_and_repo_of_an_mcp_create_for_the_compare_api(
 ) -> None:
     all_endpoints: list[str] = []
     compare_endpoint = "repos/o/r/compare/main...feature"
-    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["tool.py"]}, all_endpoints))
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: ["M\ttool.py"]}, all_endpoints))
     payload = _mcp_create_on_branch(PROVEN_BODY, tmp_path)
     payload["tool_input"].update(owner="o", repo="r", base="main")
     assert gate.missing_look_reason(payload) is None
