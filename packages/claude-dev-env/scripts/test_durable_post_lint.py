@@ -796,6 +796,10 @@ def _repository_adding_workflow(tmp_path: Path, workflow_name: str) -> Path:
         ["git", "-C", str(repository_path), "checkout", "-q", "-b", "feature"],
         check=True,
     )
+    subprocess.run(
+        ["git", "-C", str(repository_path), "remote", "add", "origin", "https://github.com/o/r.git"],
+        check=True,
+    )
     workflow_directory = repository_path / ".github" / "workflows"
     workflow_directory.mkdir(parents=True)
     (workflow_directory / workflow_name).write_text("name: added\n", encoding="utf-8")
