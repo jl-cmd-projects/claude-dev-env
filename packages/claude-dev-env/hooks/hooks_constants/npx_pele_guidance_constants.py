@@ -48,7 +48,7 @@ INSTALLED_GUIDANCE_TEMPLATE = (
 )
 ABSENT_GUIDANCE_TEMPLATE = (
     NPX_PELE_FAILURE_SENTENCE
-    + " Pele is not installed at {package_directory}. This hook checks only the Claude home,"
+    + " No readable Pele package was found at {package_directory}. This hook checks only the Claude home,"
     " so a copy kept elsewhere, such as one from an install run with --target, is not seen."
     " Render the Mermaid text in the playground at pele.run instead, which needs no install."
 )

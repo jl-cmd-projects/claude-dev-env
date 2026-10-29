@@ -108,14 +108,14 @@ def guidance_text() -> str:
     """Return the guidance for the Pele copy this machine has, or none.
 
     Returns:
-        The installed-copy snippet when a Pele manifest reads, else the
-        playground guidance.
+        The installed-copy snippet when a Pele manifest reads and its entry
+        file exists, else the playground guidance.
     """
     package_directory = pele_package_directory()
-    version = installed_pele_version(package_directory)
-    if version is None:
-        return ABSENT_GUIDANCE_TEMPLATE.format(package_directory=package_directory)
     package_entry = package_directory.joinpath(*ALL_PELE_ENTRY_PATH_PARTS)
+    version = installed_pele_version(package_directory)
+    if version is None or not package_entry.is_file():
+        return ABSENT_GUIDANCE_TEMPLATE.format(package_directory=package_directory)
     return INSTALLED_GUIDANCE_TEMPLATE.format(
         version=version,
         package_directory=package_directory,
