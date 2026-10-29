@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.109.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.3...claude-dev-env-v8.109.0) (2026-10-29)
+
+
+### Features
+
+* **hooks:** flag agent files that hold prose instead of pointers ([#2233](https://github.com/jl-cmd-projects/claude-dev-env/issues/2233)) ([f754481](https://github.com/jl-cmd-projects/claude-dev-env/commit/f75448185eb422401c357d8fb9f15d876fe238c0))
+
 ## [8.108.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.108.2...claude-dev-env-v8.108.3) (2026-10-29)
 
 
