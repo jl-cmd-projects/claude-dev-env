@@ -266,7 +266,7 @@ function main() {
         record(
             'global git hooksPath isolated to sandbox',
             gitHooksPathRedirectedIntoSandbox,
-            'GIT_CONFIG_GLOBAL kept the real ~/.gitconfig untouched',
+            'GIT_CONFIG_GLOBAL kept the global ~/.gitconfig untouched',
         );
 
         const sampleInstalledFile = manifest?.files?.find((file) => existsSync(file));
