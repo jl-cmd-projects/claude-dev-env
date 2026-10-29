@@ -23,6 +23,7 @@ from hooks_constants.context_budget_constants import (
     BASELINE_KEY,
     CHAR_LIMIT_KEY,
     COMMAND_KEY,
+    DEFAULT_PROSE_LINE_WORD_LIMIT,
     DEFAULT_SECTION_DETAIL_LINE_LIMIT,
     GIT_MARKER_NAME,
     HOOKS_KEY,
@@ -34,6 +35,7 @@ from hooks_constants.context_budget_constants import (
     POLICY_ERROR_BAD_FIELD,
     POLICY_ERROR_DUPLICATE_HOOK_NAME,
     POLICY_ERROR_NOT_OBJECT,
+    PROSE_LINE_WORD_LIMIT_KEY,
     SECTION_DETAIL_LINE_LIMIT_KEY,
     SECTION_RULE_KEY,
     SECTIONS_KEY,
@@ -175,6 +177,10 @@ def parse_policy(policy_text: str) -> BudgetPolicy:
         section_detail_line_limit=_integer(
             raw_policy.get(SECTION_DETAIL_LINE_LIMIT_KEY, DEFAULT_SECTION_DETAIL_LINE_LIMIT),
             SECTION_DETAIL_LINE_LIMIT_KEY,
+        ),
+        prose_line_word_limit=_integer(
+            raw_policy.get(PROSE_LINE_WORD_LIMIT_KEY, DEFAULT_PROSE_LINE_WORD_LIMIT),
+            PROSE_LINE_WORD_LIMIT_KEY,
         ),
         all_kinds=tuple(
             _parse_kind(each) for each in _items(raw_policy.get(KINDS_KEY, []), KINDS_KEY)
