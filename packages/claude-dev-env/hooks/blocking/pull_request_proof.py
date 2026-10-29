@@ -731,16 +731,16 @@ def _compare_base_branch(repository: str, base_branch: str | None) -> str | None
 
 
 def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) -> list[str] | None:
-    all_changed_paths = _gh_api_lines(
+    all_status_lines = _gh_api_lines(
         COMPARE_ENDPOINT_TEMPLATE.format(
             repository=repository, base_branch=base_branch, head_branch=head_branch
         ),
         COMPARE_FILE_STATUS_QUERY,
     )
-    if all_changed_paths is None:
+    if all_status_lines is None:
         return None
-    all_visible_paths = _visible_paths(all_changed_paths)
-    if all_visible_paths or len(all_changed_paths) < COMPARE_FILE_LIST_LIMIT:
+    all_visible_paths = _visible_paths(all_status_lines)
+    if all_visible_paths or len(all_status_lines) < COMPARE_FILE_LIST_LIMIT:
         return all_visible_paths
     return None
 
