@@ -16,6 +16,9 @@ if hooks_directory not in sys.path:
 from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
+    ADDED_FILE_NAMES_QUERY,
+    AFTER_MERGE_HEADING_PATTERN,
+    AFTER_MERGE_RECORDER_PATTERN,
     ALL_GH_CREATE_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
@@ -46,6 +49,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_EXISTING_WORK_REASON,
     MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
+    NEW_WORKFLOW_PATH_PATTERN,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
     PROOF_IMAGE_PATTERN,
@@ -479,7 +483,10 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
     A section whose prose says part of the change is not proven, untested or
     unverified is denied, with the line quoted; unproven_admission lists the
-    markers.
+    markers. The line passes when the pull request adds a workflow file the
+    default branch lacks and the body has an 'After merge' section that names
+    that file in backticks and says who records the run; see
+    _first_run_waits_for_merge.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -493,7 +500,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         if _proof_runs_only_tests(section):
             return TEST_ONLY_PROOF_REASON
         admission = unproven_admission(section)
-        if admission is not None:
+        if admission is not None and not _first_run_waits_for_merge(each_body, all_payload_fields):
             return UNPROVEN_PROOF_REASON.format(admission=admission)
     return None
 
@@ -569,6 +576,15 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
     """
+    all_changed_paths = _paths_since_merge_base(working_directory, head_branch)
+    if all_changed_paths is None:
+        return None
+    return _visible_paths(all_changed_paths)
+
+
+def _paths_since_merge_base(
+    working_directory: str, head_branch: object, *all_diff_options: str
+) -> list[str] | None:
     if not working_directory:
         return None
     head_reference = _head_reference(working_directory, head_branch)
@@ -577,14 +593,33 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     merge_base = _first_merge_base(working_directory, head_reference)
     if merge_base is None:
         return None
-    all_changed_paths = _git_lines(working_directory, "diff", "--name-only", merge_base, head_reference)
-    if all_changed_paths is None:
-        return None
-    return _visible_paths(all_changed_paths)
+    return _git_lines(working_directory, "diff", "--name-only", *all_diff_options, merge_base, head_reference)
 
 
 def _visible_paths(all_changed_paths: list[str]) -> list[str]:
     return [each_path for each_path in all_changed_paths if each_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)]
+
+
+def _workflow_paths(all_added_paths: list[str]) -> list[str]:
+    return [each_path for each_path in all_added_paths if re.match(NEW_WORKFLOW_PATH_PATTERN, each_path)]
+
+
+def added_workflow_files(working_directory: str, head_branch: object) -> list[str] | None:
+    """Return the workflow files the head branch adds, or None when git cannot tell.
+
+    The head and base are chosen as in visible_changed_files. Only a file git
+    reports as added counts, so a workflow the branch edits is left out::
+
+        branch adds .github/workflows/release.yml   -> [".github/workflows/release.yml"]
+        branch edits an existing workflow           -> []
+        named head exists nowhere in the clone      -> None
+
+    Args:
+        working_directory: The session directory the hook payload names.
+        head_branch: The head branch a create call names, or None.
+    """
+    all_added_paths = _paths_since_merge_base(working_directory, head_branch, "--diff-filter=A")
+    return None if all_added_paths is None else _workflow_paths(all_added_paths)
 
 
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
@@ -655,6 +690,89 @@ def remote_visible_changed_files(
     if resolved_base_branch is None:
         return None
     return _visible_compare_paths(repository, resolved_base_branch, head_branch)
+
+
+def remote_added_workflow_files(
+    repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str] | None:
+    """Return the workflow files the head branch adds, read from the GitHub compare API, or None.
+
+    ::
+
+        compare adds .github/workflows/release.yml     -> [".github/workflows/release.yml"]
+        compare adds only tool.py                      -> []
+        compare returns 300 files and adds no workflow -> None
+        repository or head missing                     -> None
+
+    A full page of 300 files is the compare API's cap, so a workflow could sit
+    on a later page and the answer is None.
+
+    Args:
+        repository: The owner/name the create call names, or None.
+        base_branch: The base branch the create call names, or None.
+        head_branch: The head branch the create call names, or None.
+    """
+    all_lines = _added_file_lines(repository, base_branch, head_branch)
+    if not all_lines or not all_lines[0].isdigit():
+        return None
+    all_workflow_paths = _workflow_paths(all_lines[1:])
+    if all_workflow_paths or int(all_lines[0]) < COMPARE_FILE_LIST_LIMIT:
+        return all_workflow_paths
+    return None
+
+
+def _added_file_lines(
+    repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str] | None:
+    if not repository or not head_branch:
+        return None
+    resolved_base_branch = _compare_base_branch(repository, base_branch)
+    if resolved_base_branch is None:
+        return None
+    return _gh_api_lines(
+        COMPARE_ENDPOINT_TEMPLATE.format(
+            repository=repository, base_branch=resolved_base_branch, head_branch=head_branch
+        ),
+        ADDED_FILE_NAMES_QUERY,
+    )
+
+
+def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -> list[str]:
+    working_directory = all_payload_fields.get("cwd")
+    head_branch = _named_head_branch(all_payload_fields)
+    all_workflow_paths = added_workflow_files(str(working_directory or ""), head_branch)
+    if all_workflow_paths is None:
+        all_workflow_paths = remote_added_workflow_files(
+            _named_repository(all_payload_fields), _named_base_branch(all_payload_fields), head_branch
+        )
+    return all_workflow_paths or []
+
+
+def _first_run_waits_for_merge(body: str, all_payload_fields: Mapping[str, object]) -> bool:
+    """Return whether a new workflow's first run is planned for after the merge.
+
+    ::
+
+        adds release.yml, body has "## After merge" naming `release.yml` and "records" -> True
+        adds release.yml, body has no 'After merge' section                           -> False
+        'After merge' names `release.yml` but says nobody records the run             -> False
+        the branch adds no workflow file, or git and the compare API cannot tell      -> False
+
+    A workflow added by a pull request runs only from the default branch, so
+    its live run cannot come before the merge. The section must name an added
+    workflow file in backticks and say who records the run.
+
+    Args:
+        body: The pull request body.
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    after_merge = _section_text(body, AFTER_MERGE_HEADING_PATTERN)
+    if not after_merge or re.search(AFTER_MERGE_RECORDER_PATTERN, after_merge, re.IGNORECASE) is None:
+        return False
+    return any(
+        f"`{each_path.rsplit('/', 1)[-1]}`" in after_merge
+        for each_path in _added_workflow_files_for_create(all_payload_fields)
+    )
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:

@@ -73,8 +73,14 @@ UNPROVEN_PROOF_REASON = (
     " the run on the target that failed, leave the pull request unopened. Run it, quote"
     " its output, then open the pull request. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
-    " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
+    " heading. When the pull request adds a workflow file the default branch lacks, its first"
+    " run waits for the merge: add an 'After merge' heading that names the workflow file in"
+    " backticks and says who records the run link. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+AFTER_MERGE_HEADING_PATTERN = r"^(#{1,6})[ \t]+after merge[ \t]*#*[ \t]*$"
+AFTER_MERGE_RECORDER_PATTERN = r"\brecords?\b"
+NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
+ADDED_FILE_NAMES_QUERY = '(.files | length | tostring), (.files[] | select(.status == "added") | .filename)'
 EXISTING_WORK_HEADING_PATTERN = r"^(#{1,6})[ \t]+existing work[ \t]*#*[ \t]*$"
 EXISTING_WORK_GUIDE_PATH = "~/.claude/docs/rule-guides/explore-thoroughly.md"
 MISSING_EXISTING_WORK_REASON = (

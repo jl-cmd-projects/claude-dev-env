@@ -686,3 +686,158 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
     assert gate.is_create_call(_mcp_create("b"))
     assert not gate.is_create_call(_shell("gh pr edit 7 --body b"))
     assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})
+WORKFLOW_DIRECTORY = ".github/workflows"
+NEW_WORKFLOW_NAME = "release-hold.yml"
+UNPROVEN_RUN_LINE = "Not proven here: the live GitHub Actions run."
+AFTER_MERGE_SECTION = (
+    "\n## After merge\n\n- The first owner approval runs `release-hold.yml`."
+    " The agent driving this change records that run link on this pull request.\n"
+)
+
+
+def _workflow_body(after_merge_section: str) -> str:
+    return (
+        "## Proof in practice\nRan `python run.py`.\n"
+        + UNPROVEN_RUN_LINE
+        + "\n"
+        + after_merge_section
+    )
+
+
+def _repository_with_workflow_change(
+    tmp_path: Path, changed_workflow_name: str
+) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / WORKFLOW_DIRECTORY).mkdir(parents=True)
+    (origin_path / WORKFLOW_DIRECTORY / "ci.yml").write_text(
+        "name: ci\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "clone", "-q", str(origin_path), str(clone_path)], check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True
+    )
+    (clone_path / WORKFLOW_DIRECTORY / changed_workflow_name).write_text(
+        "name: changed\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "change"],
+        check=True,
+    )
+    return clone_path
+
+
+def test_unproven_line_should_pass_when_a_new_workflow_names_its_after_merge_run(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    payload = _mcp_create_on_branch(_workflow_body(AFTER_MERGE_SECTION), clone_path)
+    assert gate.missing_proof_reason(payload) is None
+
+
+def test_unproven_line_should_stay_denied_when_the_branch_only_edits_an_existing_workflow(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, "ci.yml")
+    after_merge_section = AFTER_MERGE_SECTION.replace(NEW_WORKFLOW_NAME, "ci.yml")
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=UNPROVEN_RUN_LINE
+    )
+
+
+@pytest.mark.parametrize(
+    "after_merge_section",
+    [
+        "",
+        "\n## After merge\n\n- The first owner approval runs `other.yml`. The agent records the link.\n",
+        "\n## After merge\n\n- The first owner approval runs `release-hold.yml`.\n",
+        "\n## After merge\n\n- The first owner approval runs release-hold.yml. The agent records the link.\n",
+    ],
+    ids=[
+        "no-section",
+        "other-workflow-named",
+        "no-recorder",
+        "workflow-not-in-backticks",
+    ],
+)
+def test_unproven_line_should_stay_denied_when_the_after_merge_section_falls_short(
+    tmp_path: Path, after_merge_section: str
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, NEW_WORKFLOW_NAME)
+    payload = _mcp_create_on_branch(_workflow_body(after_merge_section), clone_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=UNPROVEN_RUN_LINE
+    )
+
+
+def test_unproven_line_should_stay_denied_when_git_cannot_read_the_branch(
+    tmp_path: Path,
+) -> None:
+    payload = _mcp_create_on_branch(_workflow_body(AFTER_MERGE_SECTION), tmp_path)
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(
+        admission=UNPROVEN_RUN_LINE
+    )
+
+
+def test_added_workflow_files_should_list_only_files_the_branch_adds(
+    tmp_path: Path,
+) -> None:
+    added_clone = _repository_with_workflow_change(
+        tmp_path / "added", NEW_WORKFLOW_NAME
+    )
+    edited_clone = _repository_with_workflow_change(tmp_path / "edited", "ci.yml")
+    assert gate.added_workflow_files(str(added_clone), "feature") == [
+        f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    ]
+    assert gate.added_workflow_files(str(edited_clone), "feature") == []
+    assert gate.added_workflow_files(str(added_clone), "other-branch") is None
+
+
+def _workflow_compare_lines(count: int, all_added_paths: list[str]) -> list[str]:
+    return [str(count), *all_added_paths]
+
+
+def test_unproven_line_should_pass_on_the_compare_api_when_a_new_workflow_is_added(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    added_path = f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    all_responses = {compare_endpoint: _workflow_compare_lines(2, [added_path])}
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints)
+    )
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    body_path = tmp_path / "body.md"
+    body_path.write_text(_workflow_body(AFTER_MERGE_SECTION), encoding="utf-8")
+    assert gate.remote_added_workflow_files("o/r", "main", "feature") == [added_path]
+    assert gate.missing_proof_reason(payload) is None
+
+
+def test_remote_added_workflow_files_should_report_none_when_a_full_page_lists_no_workflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    all_responses = {
+        compare_endpoint: _workflow_compare_lines(
+            COMPARE_FILE_LIST_LIMIT, ["pkg/module_0.py"]
+        ),
+    }
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, []))
+    assert gate.remote_added_workflow_files("o/r", "main", "feature") is None
+    all_responses[compare_endpoint] = _workflow_compare_lines(
+        COMPARE_FILE_LIST_LIMIT - 1, ["pkg/module_0.py"]
+    )
+    assert gate.remote_added_workflow_files("o/r", "main", "feature") == []
+    assert gate.remote_added_workflow_files(None, "main", "feature") is None
