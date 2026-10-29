@@ -29,6 +29,7 @@ from instruction_budget import (
     findings_caused_by,
     main,
     scoped_instruction_files,
+    with_launch_files,
 )
 from instruction_budget_files import (
     InstructionBudgetConfig,
@@ -455,6 +456,35 @@ def test_main_checks_every_launch_doc_once_a_changed_file_imports_a_new_one(
     assert (
         main(["--repository-root", str(tmp_path), "--changed-file", "notes.txt"]) == 0
     )
+
+
+def test_findings_caused_by_name_check_the_docs_a_written_entry_file_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(personal_name_findings, "__defaults__", (FIXTURE_DIGESTS,))
+    repository_root = tmp_path.resolve()
+    agents_path = _write(repository_root / "AGENTS.md", "@docs/people.md\n")
+    _write(repository_root / "docs" / "people.md", "zorbel here\n")
+    _write(repository_root / "docs" / "other.md", "zorbel here\n")
+    all_findings = findings_caused_by(repository_root, _config(), agents_path)
+    assert [(each.rule_id, each.file_path) for each in all_findings] == [
+        (INSTRUCTION_PERSONAL_NAME_RULE_ID, "docs/people.md")
+    ]
+
+
+def test_with_launch_files_adds_launch_files_only_after_an_instruction_change(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    agents_path = _write(repository_root / "AGENTS.md", "@docs/context.md\n")
+    context_path = _write(repository_root / "docs" / "context.md", "# Context\n")
+    notes_path = _write(repository_root / "notes.txt", "x\n")
+    config = _config()
+    assert with_launch_files(repository_root, config, [agents_path]) == [
+        agents_path,
+        context_path,
+    ]
+    assert with_launch_files(repository_root, config, [notes_path]) == [notes_path]
 
 
 def test_load_config_names_an_unreadable_budget_file(

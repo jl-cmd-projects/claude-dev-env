@@ -79,6 +79,31 @@ def scoped_instruction_files(
     ]
 
 
+def with_launch_files(
+    repository_root: Path,
+    config: InstructionBudgetConfig,
+    all_changed_files: list[Path],
+) -> list[Path]:
+    """Add the launch files to the changed files once a change touches an instruction file.
+
+    A new import loads an unchanged doc at launch, so the name check reads it too.
+
+    Args:
+        repository_root: Resolved repository root.
+        config: The repository's budget limits.
+        all_changed_files: Resolved paths the change touched.
+
+    Returns:
+        The changed files, then each launch file, once each. The changed files
+        alone when none is an instruction file.
+    """
+    if not scoped_instruction_files(repository_root, config, all_changed_files):
+        return all_changed_files
+    return list(
+        dict.fromkeys(all_changed_files + launch_files(repository_root, config))
+    )
+
+
 def check_repository(
     repository_root: Path,
     config: InstructionBudgetConfig,
@@ -124,7 +149,8 @@ def findings_caused_by(
     Returns:
         The budget and name findings, then each nesting finding the file causes.
     """
-    all_findings = check_repository(repository_root, config, [written_path])
+    all_changed = with_launch_files(repository_root, config, [written_path])
+    all_findings = check_repository(repository_root, config, all_changed)
     if written_path.name == INSTRUCTION_BUDGET_CONFIG_FILE_NAME:
         return all_findings
     all_files = instruction_files(repository_root, config)
@@ -164,12 +190,11 @@ def _scoped_files(
                 + launch_files(repository_root, config)
             )
         )
-    all_changed = [
-        (repository_root / each_path).resolve() for each_path in args.changed_file
-    ]
-    if not scoped_instruction_files(repository_root, config, all_changed):
-        return all_changed
-    return list(dict.fromkeys(all_changed + launch_files(repository_root, config)))
+    return with_launch_files(
+        repository_root,
+        config,
+        [(repository_root / each_path).resolve() for each_path in args.changed_file],
+    )
 
 
 def finding_line(finding: InstructionFinding) -> str:

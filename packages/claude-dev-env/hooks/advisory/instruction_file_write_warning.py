@@ -6,7 +6,8 @@ file is an instruction file, a file a launch file imports, any other markdown
 file a link can pass through, or the budget file itself, in a repository that
 has ``instruction-budget.json``, it runs the same checks the CI workflow runs and
 adds one line per finding to the agent's context. A nesting finding appears only
-when the written file causes it::
+when the written file causes it, and an instruction file also gets the name check
+on every launch file::
 
     AGENTS.md: [instruction-nesting] is 3 link hops from an entry file, over the cap of 2. ...
 
