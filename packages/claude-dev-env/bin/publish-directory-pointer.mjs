@@ -148,6 +148,7 @@ export function ensureLinkedSkillFolder(lookupDirectory, installDirectory, confl
     const lookupKind = readPathKind(resolvedLookup);
     if (lookupKind === 'symlink') {
         unlinkSync(resolvedLookup);
+        console.log(`  Replaced the link at ${resolvedLookup} with a folder of skill links`);
     } else if (lookupKind === 'file') {
         throw new Error(`Cannot publish linked skills: ${resolvedLookup} is a file`);
     }
