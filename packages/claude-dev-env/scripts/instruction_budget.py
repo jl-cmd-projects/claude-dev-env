@@ -6,7 +6,9 @@ A repository opts in with ``instruction-budget.json`` at its root::
 
 The budget counts the bytes an agent loads at launch: each entry instruction
 file, its ``@`` imports, and each rule without ``paths:`` frontmatter. The name
-and nesting checks run only on the instruction files the caller names.
+check runs on the instruction files the caller names. A change to any instruction
+file rechecks the nesting of every instruction file, since one edited link moves
+the files behind it.
 
 The CI workflow ``instruction-budget.yml`` runs this on the changed files of a
 pull request. The write-time hook ``instruction_file_write_warning.py`` runs it
@@ -93,10 +95,13 @@ def check_repository(
     all_scoped_files = scoped_instruction_files(
         repository_root, config, all_changed_files
     )
+    all_nesting_files = (
+        instruction_files(repository_root, config) if all_scoped_files else []
+    )
     return (
         budget_findings(repository_root, config)
         + personal_name_findings(repository_root, all_scoped_files)
-        + nesting_findings(repository_root, config, all_scoped_files)
+        + nesting_findings(repository_root, config, all_nesting_files)
     )
 
 

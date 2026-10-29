@@ -255,17 +255,23 @@ def rule_files(repository_root: Path, config: InstructionBudgetConfig) -> list[P
     Returns:
         Each markdown file in an existing rule folder, sorted within each folder.
     """
-    all_rule_files: list[Path] = []
-    for each_rules_directory in _rules_directories(repository_root, config):
-        if each_rules_directory.is_dir():
-            all_rule_files.extend(
-                each_path.resolve()
-                for each_path in sorted(
-                    each_rules_directory.rglob(f"*{MARKDOWN_SUFFIX}")
-                )
-                if each_path.is_file()
-            )
-    return all_rule_files
+    return [
+        each_path.resolve()
+        for each_directory in _rules_directories(repository_root, config)
+        if each_directory.is_dir()
+        for each_path in sorted(each_directory.rglob(f"*{MARKDOWN_SUFFIX}"))
+        if each_path.is_file()
+    ]
+
+
+def _unscoped_rule_files(
+    repository_root: Path, config: InstructionBudgetConfig
+) -> list[Path]:
+    return [
+        each_rule
+        for each_rule in rule_files(repository_root, config)
+        if not _has_paths_frontmatter(read_instruction_text(each_rule))
+    ]
 
 
 def launch_files(repository_root: Path, config: InstructionBudgetConfig) -> list[Path]:
@@ -278,12 +284,9 @@ def launch_files(repository_root: Path, config: InstructionBudgetConfig) -> list
     Returns:
         Each entry file and unscoped rule, then the files they import, once each.
     """
-    all_unscoped_rules = [
-        each_rule
-        for each_rule in rule_files(repository_root, config)
-        if not _has_paths_frontmatter(read_instruction_text(each_rule))
-    ]
-    return _import_closure(_entry_files(repository_root) + all_unscoped_rules)
+    return _import_closure(
+        _entry_files(repository_root) + _unscoped_rule_files(repository_root, config)
+    )
 
 
 def measure_launch_bytes(repository_root: Path, config: InstructionBudgetConfig) -> int:
@@ -329,17 +332,14 @@ def budget_findings(
 
 def _walk_files(repository_root: Path) -> list[Path]:
     all_files: list[Path] = []
-    for each_directory, each_directory_names, each_file_names in os.walk(
-        repository_root
-    ):
-        each_directory_names[:] = [
+    for each_folder, each_subfolders, each_file_names in os.walk(repository_root):
+        each_subfolders[:] = [
             each_name
-            for each_name in each_directory_names
+            for each_name in each_subfolders
             if each_name not in ALL_SKIPPED_DIRECTORY_NAMES
         ]
         all_files.extend(
-            (Path(each_directory) / each_name).resolve()
-            for each_name in each_file_names
+            (Path(each_folder) / each_name).resolve() for each_name in each_file_names
         )
     return all_files
 
@@ -395,6 +395,6 @@ def root_files(repository_root: Path, config: InstructionBudgetConfig) -> list[P
         config: The repository's budget limits, which add its rule folders.
 
     Returns:
-        Each entry file, then each rule file.
+        Each entry file, then each rule file, scoped by ``paths:`` or not.
     """
     return _entry_files(repository_root) + rule_files(repository_root, config)

@@ -42,6 +42,7 @@ from instruction_budget_files import (
     load_config,
     measure_launch_bytes,
     read_text_outside_fences,
+    root_files,
     rule_files,
 )
 from instruction_budget_links import hop_distances, nesting_findings
@@ -451,6 +452,44 @@ def test_finding_line_names_the_file_the_rule_and_the_message() -> None:
         rule_id="rule-x", file_path="docs/a.md", message="Too deep."
     )
     assert finding_line(finding) == "docs/a.md: [rule-x] Too deep."
+
+
+def test_root_files_include_a_rule_scoped_by_paths(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    rules_directory = repository_root / ".claude" / "rules"
+    always_path = _write(rules_directory / "always.md", "# Always\n")
+    scoped_path = _write(
+        rules_directory / "scoped.md", "---\npaths:\n  - src/**\n---\nbody\n"
+    )
+    assert root_files(repository_root, _config()) == [always_path, scoped_path]
+
+
+def test_a_file_linked_from_a_scoped_rule_is_one_hop_out(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    scoped_path = _write(
+        repository_root / ".claude" / "rules" / "scoped.md",
+        "---\npaths:\n  - src/**\n---\n[guide](../../guide.md)\n",
+    )
+    guide_path = _write(repository_root / "guide.md", "# Guide\n")
+    distances = hop_distances(repository_root, [scoped_path])
+    assert distances[guide_path] == 1
+
+
+def test_check_repository_rechecks_nesting_for_every_instruction_file(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    agents_path = _write(repository_root / "AGENTS.md", "[a](docs/a.md)\n")
+    _write(repository_root / "docs" / "a.md", "[b](b.md)\n")
+    _write(repository_root / "docs" / "b.md", "[deep](deep/AGENTS.md)\n")
+    _write(repository_root / "docs" / "deep" / "AGENTS.md", "# Deep\n")
+    notes_path = _write(repository_root / "notes.txt", "x\n")
+    config = _config(max_link_hops=2)
+    after_instruction_change = check_repository(repository_root, config, [agents_path])
+    assert [each.file_path for each in after_instruction_change] == [
+        "docs/deep/AGENTS.md"
+    ]
+    assert check_repository(repository_root, config, [notes_path]) == []
 
 
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:
