@@ -16,3 +16,11 @@ def test_slim_profile_command_passes_settings_and_mcp_config() -> None:
 def test_deny_reason_includes_the_command_and_environment() -> None:
     assert constants.SLIM_PROFILE_SHELL_COMMAND in constants.SLIM_PROFILE_DENY_REASON
     assert constants.SLIM_PROFILE_ENVIRONMENT_TEXT in constants.SLIM_PROFILE_DENY_REASON
+
+
+def test_deny_reason_names_the_lean_worker_subagent_type() -> None:
+    assert constants.LEAN_WORKER_SUBAGENT_TYPE in constants.SLIM_PROFILE_DENY_REASON
+
+
+def test_deny_reason_separates_the_route_one_and_route_two_sentences() -> None:
+    assert "without the slim profile. Route 2:" in constants.SLIM_PROFILE_DENY_REASON
