@@ -22,9 +22,7 @@ from hooks_constants.pull_request_proof_constants import (
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
     DEFERRED_PROOF_REASON,
-    NOT_COVERED_HEADING_PATTERN,
-    NOT_RUN_LINE_PATTERN,
-    POST_MERGE_DEFERRAL_PATTERN,
+    MERGE_WORD_PATTERN,
     ALL_BASE_FLAGS,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
@@ -107,17 +105,14 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
     return all_lines
 
 
-def _all_section_texts(body: str, heading_pattern: str) -> Iterator[str]:
+def _section_text(body: str, heading_pattern: str) -> str | None:
     all_lines = body.splitlines()
     for each_index, each_line in enumerate(all_lines):
         heading_level = _heading_level(each_line, heading_pattern)
         if heading_level is not None:
             all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
-            yield LINE_SEPARATOR.join(all_section_lines).strip()
-
-
-def _section_text(body: str, heading_pattern: str) -> str | None:
-    return next(_all_section_texts(body, heading_pattern), None)
+            return LINE_SEPARATOR.join(all_section_lines).strip()
+    return None
 
 
 def proof_section(body: str) -> str | None:
@@ -461,43 +456,33 @@ def unproven_admission(section: str) -> str | None:
     return _first_prose_match(section, UNPROVEN_ADMISSION_PATTERN)
 
 
-def _first_prose_match(section: str, pattern: str, exempt_pattern: str | None = None) -> str | None:
+def _first_prose_match(section: str, pattern: str) -> str | None:
     for each_line, each_prose in _prose_lines(section):
-        if exempt_pattern is not None and re.search(exempt_pattern, each_prose, re.IGNORECASE):
-            continue
         if re.search(pattern, each_prose, re.IGNORECASE):
             return each_line.strip()
     return None
 
 
-def post_merge_deferral(body: str) -> str | None:
-    """Return the first prose line that moves a check to after the merge, or None.
+def merge_word_line(section: str) -> str | None:
+    """Return the first prose line of a proof section that holds a merge word, or None.
 
     ::
 
-        "## Proof in practice\\nI check the publish after the merge."  -> that line
-        "## Not covered\\nChecked after the merge."                    -> "Checked after the merge."
-        "## Not covered\\nNot run: an older shape."                    -> None
-        "## Risk\\nChecked after the merge."                           -> None
+        "I check the publish after the merge."   -> that line
+        "A session verifies it after merging."   -> that line
+        "Post-merge, a session confirms it."     -> that line
+        "Ran `git merge origin/main`, then `python run.py`." -> None
+        "Verified on the branch."                -> None
 
-    The lines read are the proof section and every 'Not covered' section.
-    A check verb and a merge trigger in one sentence make a deferral: "checked after the
-    merge", "once merged a session confirms" or "post-merge, I verify". A line
-    that only mentions a merge, such as "the merge queue picks it up", is not
-    one. A 'Not covered' line that opens with a not-run marker passes; the
-    unproven_admission docstring lists them.
+    The words are merge, merged, merges and merging, matched without regard to
+    case, so post-merge counts. Inline code spans and fenced blocks are skipped,
+    so a command or file name that holds the word passes when it sits in
+    backticks.
 
     Args:
-        body: The pull request body.
+        section: The text under the 'Proof in practice' heading.
     """
-    proof_deferral = _first_prose_match(proof_section(body) or "", POST_MERGE_DEFERRAL_PATTERN)
-    if proof_deferral is not None:
-        return proof_deferral
-    for each_text in _all_section_texts(body, NOT_COVERED_HEADING_PATTERN):
-        deferral = _first_prose_match(each_text, POST_MERGE_DEFERRAL_PATTERN, NOT_RUN_LINE_PATTERN)
-        if deferral is not None:
-            return deferral
-    return None
+    return _first_prose_match(section, MERGE_WORD_PATTERN)
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -513,7 +498,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         proof with `pytest` and `python run.py`                 -> None
         proof whose prose says "Not proven here: the run"      -> UNPROVEN_PROOF_REASON
         proof whose prose says "Not run: the live publish"     -> UNPROVEN_PROOF_REASON
-        proof or 'Not covered' text that says "I verify it after the merge" -> DEFERRED_PROOF_REASON
+        proof prose that says "I verify it after the merge"    -> DEFERRED_PROOF_REASON
         gh pr create --fill                                     -> MISSING_BODY_REASON
         gh pr edit, git push, any other tool                    -> None
 
@@ -529,8 +514,8 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
     A section whose prose says part of the change is not proven, untested or
     unverified is denied, with the line quoted; unproven_admission lists the
-    markers. A line that moves a check to after the merge is denied in the proof
-    section and in any 'Not covered' section; post_merge_deferral lists the shapes.
+    markers. A prose line with a merge word is denied in the proof section;
+    merge_word_line lists the words.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -546,7 +531,7 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         admission = unproven_admission(section)
         if admission is not None:
             return UNPROVEN_PROOF_REASON.format(admission=admission)
-        deferral = post_merge_deferral(each_body)
+        deferral = merge_word_line(section)
         if deferral is not None:
             return DEFERRED_PROOF_REASON.format(deferral=deferral)
     return None
