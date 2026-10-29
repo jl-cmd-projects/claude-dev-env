@@ -1,7 +1,8 @@
 """Find the instruction files a repository loads, and measure their launch budget.
 
 The budget counts the bytes an agent loads at launch: each entry instruction
-file, its ``@`` imports, and each rule without ``paths:`` frontmatter.
+file, its ``@`` imports to four hops deep, and each rule without ``paths:``
+frontmatter.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
     INSTRUCTION_TEXT_ENCODING,
     MARKDOWN_SUFFIX,
+    MAX_IMPORT_HOPS,
     MAX_LAUNCH_BYTES_KEY,
     MAX_LINK_HOPS_KEY,
     PATHS_FRONTMATTER_PREFIX,
@@ -130,7 +132,7 @@ def load_config(repository_root: Path) -> InstructionBudgetConfig | None:
             config_path.read_text(encoding=INSTRUCTION_TEXT_ENCODING)
         )
         return _budget_config_from(raw_config)
-    except (AttributeError, KeyError, TypeError, ValueError) as error:
+    except (AttributeError, KeyError, OSError, TypeError, ValueError) as error:
         raise InstructionBudgetConfigError(str(error)) from error
 
 
@@ -200,12 +202,34 @@ def _has_paths_frontmatter(text: str) -> bool:
     return False
 
 
+def _imported_paths(source_path: Path) -> list[Path]:
+    return [
+        (source_path.parent / each_target).resolve()
+        for each_target in import_targets(read_text_outside_fences(source_path))
+    ]
+
+
+def _unseen_imports(all_sources: list[Path], all_found: dict[Path, None]) -> list[Path]:
+    all_candidates = [
+        each_path
+        for each_source in all_sources
+        for each_path in _imported_paths(each_source)
+    ]
+    all_unseen: list[Path] = []
+    for each_path in all_candidates:
+        if each_path.is_file() and each_path not in all_found:
+            all_found[each_path] = None
+            all_unseen.append(each_path)
+    return all_unseen
+
+
 def _import_closure(start: Path, all_found: dict[Path, None]) -> None:
     if start in all_found or not start.is_file():
         return
     all_found[start] = None
-    for each_target in import_targets(read_text_outside_fences(start)):
-        _import_closure((start.parent / each_target).resolve(), all_found)
+    all_current = [start]
+    for each_hop in range(MAX_IMPORT_HOPS):
+        all_current = _unseen_imports(all_current, all_found)
 
 
 def rule_files(repository_root: Path, config: InstructionBudgetConfig) -> list[Path]:

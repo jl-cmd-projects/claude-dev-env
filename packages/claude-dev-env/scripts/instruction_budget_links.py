@@ -1,7 +1,9 @@
 """Count the link hops an agent follows from an entry file to each instruction file.
 
 A file linked from an entry file is one hop out. A file linked from that file is
-two hops out, and so on. The nesting check flags a scoped file past the cap.
+two hops out, and so on. A file an entry file imports with ``@`` loads at launch
+with its importer, so it sits zero hops further out. The nesting check flags a
+scoped file past the cap.
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ from dev_env_scripts_constants.followup_constants import INSTRUCTION_NESTING_RUL
 from dev_env_scripts_constants.instruction_budget_constants import (
     ANCHOR_SEPARATOR,
     EXTERNAL_TARGET_PATTERN,
+    IMPORT_HOP_COST,
+    LINK_HOP_COST,
     MARKDOWN_LINK_PATTERN,
     MARKDOWN_SUFFIX,
     NESTING_FINDING_MESSAGE_TEMPLATE,
@@ -27,14 +31,9 @@ from instruction_budget_files import (
 )
 
 
-def _link_targets(source_path: Path, repository_root: Path) -> list[Path]:
-    text_outside_fences = read_text_outside_fences(source_path)
-    all_raw_targets = [
-        each_target.split(ANCHOR_SEPARATOR, 1)[0]
-        for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_fences)
-        if not EXTERNAL_TARGET_PATTERN.match(each_target)
-    ]
-    all_raw_targets.extend(import_targets(text_outside_fences))
+def _existing_markdown_files(
+    source_path: Path, repository_root: Path, all_raw_targets: Iterable[str]
+) -> list[Path]:
     all_resolved = [
         (source_path.parent / each_target).resolve() for each_target in all_raw_targets
     ]
@@ -47,15 +46,41 @@ def _link_targets(source_path: Path, repository_root: Path) -> list[Path]:
     ]
 
 
+def _targets_with_costs(
+    source_path: Path, repository_root: Path
+) -> list[tuple[Path, int]]:
+    text_outside_fences = read_text_outside_fences(source_path)
+    all_link_targets = [
+        each_target.split(ANCHOR_SEPARATOR, 1)[0]
+        for each_target in MARKDOWN_LINK_PATTERN.findall(text_outside_fences)
+        if not EXTERNAL_TARGET_PATTERN.match(each_target)
+    ]
+    all_linked = _existing_markdown_files(
+        source_path, repository_root, all_link_targets
+    )
+    all_imported = _existing_markdown_files(
+        source_path, repository_root, import_targets(text_outside_fences)
+    )
+    return [(each_path, LINK_HOP_COST) for each_path in all_linked] + [
+        (each_path, IMPORT_HOP_COST) for each_path in all_imported
+    ]
+
+
 def _visit_links(
     source_path: Path,
     repository_root: Path,
     all_distances: dict[Path, int],
     all_pending: deque[Path],
 ) -> None:
-    for each_target in _link_targets(source_path, repository_root):
-        if each_target not in all_distances:
-            all_distances[each_target] = all_distances[source_path] + 1
+    for each_target, each_cost in _targets_with_costs(source_path, repository_root):
+        each_distance = all_distances[source_path] + each_cost
+        known_distance = all_distances.get(each_target)
+        if known_distance is not None and known_distance <= each_distance:
+            continue
+        all_distances[each_target] = each_distance
+        if each_cost == IMPORT_HOP_COST:
+            all_pending.appendleft(each_target)
+        else:
             all_pending.append(each_target)
 
 
@@ -63,6 +88,8 @@ def hop_distances(
     repository_root: Path, all_root_files: Iterable[Path]
 ) -> dict[Path, int]:
     """Count the fewest link hops from any root file to each reachable file.
+
+    A markdown link adds one hop. An ``@`` import adds none.
 
     Args:
         repository_root: Resolved repository root. Links that leave it are ignored.

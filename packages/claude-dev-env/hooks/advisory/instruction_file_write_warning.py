@@ -29,7 +29,6 @@ if _scripts_directory not in sys.path:
 
 from dev_env_scripts_constants.followup_constants import INSTRUCTION_BUDGET_RULE_ID
 from dev_env_scripts_constants.instruction_budget_constants import (
-    FINDING_LINE_TEMPLATE,
     INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
 )
 from hooks_constants.instruction_file_write_warning_constants import (
@@ -40,7 +39,7 @@ from hooks_constants.instruction_file_write_warning_constants import (
 )
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from instruction_budget import check_repository
+from instruction_budget import check_repository, finding_line
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
@@ -105,14 +104,7 @@ def main() -> None:
         CONTEXT_HEADER_TEMPLATE.format(
             file_path=written_path.relative_to(repository_root).as_posix()
         )
-    ] + [
-        FINDING_LINE_TEMPLATE.format(
-            file_path=each_finding.file_path,
-            rule_id=each_finding.rule_id,
-            message=each_finding.message,
-        )
-        for each_finding in all_findings
-    ]
+    ] + [finding_line(each_finding) for each_finding in all_findings]
     write_post_tool_use_context_to_stdout(CONTEXT_LINE_SEPARATOR.join(all_lines))
 
 

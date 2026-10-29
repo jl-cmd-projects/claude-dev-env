@@ -11,6 +11,9 @@ MAX_LAUNCH_BYTES_KEY: str = "max_launch_bytes"
 MAX_LINK_HOPS_KEY: str = "max_link_hops"
 RULES_DIRS_KEY: str = "rules_dirs"
 DEFAULT_MAX_LINK_HOPS: int = 2
+MAX_IMPORT_HOPS: int = 4
+LINK_HOP_COST: int = 1
+IMPORT_HOP_COST: int = 0
 DEFAULT_RULES_DIR_RELATIVE_PATH: str = ".claude/rules"
 
 CLAUDE_FOLDER_NAME: str = ".claude"

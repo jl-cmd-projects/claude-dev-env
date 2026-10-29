@@ -99,15 +99,25 @@ def _scoped_files(
     return [(repository_root / each_path).resolve() for each_path in args.changed_file]
 
 
+def finding_line(finding: InstructionFinding) -> str:
+    """Format a finding as the one line the command line and the hook print.
+
+    Args:
+        finding: The finding to print.
+
+    Returns:
+        The file path, the rule ID in brackets, and the message.
+    """
+    return FINDING_LINE_TEMPLATE.format(
+        file_path=finding.file_path,
+        rule_id=finding.rule_id,
+        message=finding.message,
+    )
+
+
 def _report_findings(all_findings: list[InstructionFinding]) -> int:
     for each_finding in all_findings:
-        print(
-            FINDING_LINE_TEMPLATE.format(
-                file_path=each_finding.file_path,
-                rule_id=each_finding.rule_id,
-                message=each_finding.message,
-            )
-        )
+        print(finding_line(each_finding))
     if all_findings:
         return GATE_FAILED_EXIT_CODE
     print(PASSED_MESSAGE)
@@ -115,10 +125,12 @@ def _report_findings(all_findings: list[InstructionFinding]) -> int:
 
 
 def _malformed_config_line(error: InstructionBudgetConfigError) -> str:
-    return FINDING_LINE_TEMPLATE.format(
-        file_path=INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
-        rule_id=INSTRUCTION_BUDGET_RULE_ID,
-        message=MALFORMED_CONFIG_MESSAGE_TEMPLATE.format(error=error),
+    return finding_line(
+        InstructionFinding(
+            rule_id=INSTRUCTION_BUDGET_RULE_ID,
+            file_path=INSTRUCTION_BUDGET_CONFIG_FILE_NAME,
+            message=MALFORMED_CONFIG_MESSAGE_TEMPLATE.format(error=error),
+        )
     )
 
 

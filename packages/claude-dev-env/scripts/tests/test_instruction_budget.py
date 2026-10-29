@@ -23,10 +23,11 @@ from dev_env_scripts_constants.instruction_budget_constants import (
     PASSED_MESSAGE,
 )
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
-from instruction_budget import check_repository, main
+from instruction_budget import check_repository, finding_line, main
 from instruction_budget_files import (
     InstructionBudgetConfig,
     InstructionBudgetConfigError,
+    InstructionFinding,
     budget_findings,
     import_targets,
     instruction_files,
@@ -297,6 +298,61 @@ def test_hop_distances_ignore_fenced_blocks_and_external_links(tmp_path: Path) -
     distances = hop_distances(repository_root, [root_path.resolve()])
     assert repository_root / "shown.md" in distances
     assert repository_root / "hidden.md" not in distances
+
+
+def test_hop_distances_treat_an_import_as_part_of_its_importer(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    root_path = _write(repository_root / "AGENTS.md", "@core.md\n")
+    _write(repository_root / "core.md", "[one](one.md)\n")
+    _write(repository_root / "one.md", "[two](two.md)\n")
+    _write(repository_root / "two.md", "# Two\n")
+    distances = hop_distances(repository_root, [root_path.resolve()])
+    assert distances[repository_root / "core.md"] == 0
+    assert distances[repository_root / "one.md"] == 1
+    assert distances[repository_root / "two.md"] == 2
+
+
+def test_hop_distances_use_a_later_import_route_that_is_shorter(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path.resolve()
+    root_path = _write(repository_root / "AGENTS.md", "[x](x.md)\n@y.md\n")
+    _write(repository_root / "x.md", "# X\n")
+    _write(repository_root / "y.md", "@x.md\n")
+    distances = hop_distances(repository_root, [root_path.resolve()])
+    assert distances[repository_root / "x.md"] == 0
+
+
+def test_launch_files_stop_following_imports_after_four_hops(tmp_path: Path) -> None:
+    repository_root = tmp_path.resolve()
+    _write(repository_root / "AGENTS.md", "@i1.md\n")
+    for each_level in range(1, 7):
+        _write(repository_root / f"i{each_level}.md", f"@i{each_level + 1}.md\n")
+    all_launch = launch_files(repository_root, _config())
+    assert repository_root / "i4.md" in all_launch
+    assert repository_root / "i5.md" not in all_launch
+
+
+def test_load_config_names_an_unreadable_budget_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_budget_file(tmp_path, '{"max_launch_bytes": 1000}')
+
+    def refuse_read(self: Path, *args: object, **kwargs: object) -> str:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "read_text", refuse_read)
+    with pytest.raises(InstructionBudgetConfigError):
+        load_config(tmp_path)
+
+
+def test_finding_line_names_the_file_the_rule_and_the_message() -> None:
+    finding = InstructionFinding(
+        rule_id="rule-x", file_path="docs/a.md", message="Too deep."
+    )
+    assert finding_line(finding) == "docs/a.md: [rule-x] Too deep."
 
 
 def test_nesting_findings_flag_only_scoped_files_beyond_the_cap(tmp_path: Path) -> None:
