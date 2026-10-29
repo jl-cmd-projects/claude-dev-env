@@ -161,13 +161,10 @@ def _unproven_rulings(head: str, all_rulings: Sequence[str]) -> list[str]:
     all_line_counts: dict[str, int] = {}
     all_unproven: list[str] = []
     for each_ruling in all_rulings:
-        reference = RULING_REFERENCE_PATTERN.fullmatch(each_ruling)
-        if reference is None:
-            all_unproven.append(each_ruling)
-            continue
-        if reference["path"] not in all_line_counts:
-            all_line_counts[reference["path"]] = _blob_line_count(head, reference["path"])
-        if int(reference["line"]) > all_line_counts[reference["path"]]:
+        file_path, _, line_number = each_ruling.rpartition(":")
+        if file_path not in all_line_counts:
+            all_line_counts[file_path] = _blob_line_count(head, file_path)
+        if int(line_number) > all_line_counts[file_path]:
             all_unproven.append(each_ruling)
     return all_unproven
 

@@ -206,6 +206,17 @@ def test_should_read_the_checkout_branch_when_github_lists_none(
     assert open_request_from(_create_payload("feature", checkout)).head == head
 
 
+def test_should_read_a_fork_branch_from_the_checkout_when_github_lists_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    head = _commit(checkout, "first")
+    github = tmp_path / "github.com"
+    _bare_remote(github, "someone")
+    _redirect_github(monkeypatch, github)
+    assert open_request_from(_create_payload("someone:feature", checkout)).head == head
+
+
 def test_should_read_a_shell_open_branch_from_the_checkout(tmp_path: Path) -> None:
     checkout = _checkout_on(tmp_path, "feature")
     head = _commit(checkout, "first")
