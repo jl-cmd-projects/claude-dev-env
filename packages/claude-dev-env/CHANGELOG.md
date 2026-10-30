@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.110.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.8...claude-dev-env-v8.110.0) (2026-10-30)
+
+
+### Features
+
+* **hooks:** refuse a results reply with no picture attached ([#2262](https://github.com/jl-cmd-projects/claude-dev-env/issues/2262)) ([248dc1e](https://github.com/jl-cmd-projects/claude-dev-env/commit/248dc1e6ed56e53657da78276f309cecbc8ae3f5))
+
 ## [8.109.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.7...claude-dev-env-v8.109.8) (2026-10-29)
 
 
