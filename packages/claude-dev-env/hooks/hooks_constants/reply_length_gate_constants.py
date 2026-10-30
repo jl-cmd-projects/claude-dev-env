@@ -7,6 +7,7 @@ MAXIMUM_WORDS_PER_SENTENCE = 15
 ALL_CHECKED_TOOL_NAMES = frozenset(
     {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
 )
+ALL_EDIT_TOOL_NAMES = frozenset({"mcp__hearthbot__update_message"})
 DECISION_CARD_TOOL_NAME = "mcp__hearthbot__ask_decision"
 CARD_TEXT_SEPARATOR = "\n"
 ALL_DECISION_CARD_PROSE_KEYS = ("question", "context")

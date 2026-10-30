@@ -20,6 +20,7 @@ MODE_SWITCH_ENABLED_KEY = "enabled"
 NO_PICTURE_RULE_KEY = "no_picture"
 ABBREVIATIONS_RULE_KEY = "abbreviations"
 ONE_ITEM_RULE_KEY = "one_item"
+RESULTS_PICTURE_RULE_KEY = "results_picture"
 
 WIDGET_TOOL_NAME_SUFFIX = "__post_widget"
 ARTIFACT_TOOL_NAME = "Artifact"
@@ -44,6 +45,23 @@ FLOWCHART_ARROW_PATTERN = re.compile(r"marker-end", re.IGNORECASE)
 FLOWCHART_MARKER_BLOCK_PATTERN = re.compile(r"<marker\b[^>]*(?<!/)>.*?</marker>", re.IGNORECASE | re.DOTALL)
 FLOWCHART_DIAMOND_PATTERN = re.compile(
     r"<polygon\b|<path\b[^>]*\bd=[\"']M[^\"']*L[^\"']*L[^\"']*L[^\"']*Z[\"']", re.IGNORECASE
+)
+
+ATTACHED_OUTPUTS_KEY = "attached_outputs"
+OUTPUT_KIND_KEY = "kind"
+OUTPUT_FILE_KIND = "file"
+OUTPUT_FRAME_KIND = "frame"
+OUTPUT_REF_KEY = "ref"
+ALL_PICTURE_SUFFIXES = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp")
+MAXIMUM_FIGURES_WITHOUT_PICTURE = 2
+TABLE_SEPARATOR_PATTERN = re.compile(
+    r"^\s*\|?\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$", re.MULTILINE
+)
+FIGURE_PATTERN = re.compile(r"(?<![\w.#/:])(?<!\w-)(?!\d{7})\d+(?:[.,]\d+)*(?:%|x\b)?(?![\w:-])")
+LIST_NUMBER_PATTERN = re.compile(r"^\s*\d+[.)](?=\s)", re.MULTILINE)
+MARKDOWN_PICTURE_PATTERN = re.compile(
+    r"!\[[^\]]*\]\([^)\s]+\.(?:svg|png|jpe?g|gif|webp)(?:\?[^)\s]*)?(?:\s+\"[^\"]*\")?\)",
+    re.IGNORECASE,
 )
 
 TRANSCRIPT_ENCODING = "utf-8"
@@ -74,3 +92,4 @@ WIDGET_ANCHOR_MESSAGE = (
     "A link sits inside the widget code, and a widget link does not open in the Claude app."
     " Remove the anchor and put the page link in the reply text."
 )
+RESULTS_PICTURE_MESSAGE = "This reply reports results with no picture attached. {reminder}"

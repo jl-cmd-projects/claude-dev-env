@@ -70,6 +70,10 @@ in the turn. A turn sends one reply, so a reply after a delivered reply in
 the same turn is denied. A widget may hold no anchor link, since a widget
 link does not open in the Claude app.
 
+A reply that reports results, a markdown table or three or more figures outside
+links and code, needs one picture: an image file in ``attached_outputs``, or a
+markdown image. This check runs whether or not the visual mode is on.
+
 A length limit is a smell elsewhere in this package, recorded and fixed in a
 later pass. A posted reply reaches the user the moment it sends and has no
 later pass, so this gate denies it and the model resends a shorter one.
@@ -97,6 +101,7 @@ from visual_reply_rules import (
     abbreviation_violation,
     load_rules,
     mode_enabled,
+    results_picture_violation,
     second_reply_violation,
     successful_result_text,
     visual_violation,
@@ -127,6 +132,7 @@ from hooks_constants.reply_length_gate_constants import (
     ALL_DECISION_OPTION_LENGTH_KEYS,
     ALL_DECISION_OPTION_PROSE_KEYS,
     ALL_DEFAULT_BANNED_WORDS,
+    ALL_EDIT_TOOL_NAMES,
     ALL_EVIDENCE_PATTERNS,
     ALL_QUESTION_CARD_PROSE_KEYS,
     ALL_QUESTION_OPTION_PROSE_KEYS,
@@ -580,7 +586,17 @@ def _text_violation(
     reply_text = all_tool_input.get(TEXT_KEY)
     if not isinstance(reply_text, str):
         return None
-    violation = reply_violation(reply_text, transcript_path, mode_rules)
+    all_checks = [lambda: reply_violation(reply_text, transcript_path, mode_rules)]
+    if tool_name not in ALL_EDIT_TOOL_NAMES:
+        all_checks.append(
+            lambda: results_picture_violation(
+                prose_outside_links(reply_text),
+                reply_text,
+                all_tool_input,
+                mode_rules if mode_rules is not None else load_rules(),
+            )
+        )
+    violation = collected_violations(all_checks)
     return None if violation is None else (violation, reply_text)
 
 

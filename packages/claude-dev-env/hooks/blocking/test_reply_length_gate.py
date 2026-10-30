@@ -1153,3 +1153,123 @@ def test_should_number_nested_violations_once_in_one_refusal(
     assert all_numbered_lines[1].count("16 words") == 1
     assert all_numbered_lines[2].count("16 words") == 1
     assert reply_length_gate.EM_DASH_MESSAGE in all_numbered_lines[3]
+
+
+RESULTS_TABLE_REPLY = (
+    "| Check | Result |\n"
+    "|---|---|\n"
+    "| Unit tests | 65 passed |\n"
+)
+RESULTS_LINE_REPLY = "The run shows 65 passed, 0 failed, and 3 skipped."
+RESULTS_PICTURE_DENIAL = "reports results with no picture attached"
+CHART_ATTACHMENT = {"kind": "file", "ref": "/mnt/project-files/tests/chart.svg"}
+
+
+def test_should_deny_a_results_table_with_no_picture_and_name_the_picture_rule(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": RESULTS_TABLE_REPLY}
+    )
+    assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    assert RESULTS_PICTURE_DENIAL in error_text
+
+
+def test_should_deny_three_figures_with_no_picture_and_name_the_picture_rule(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": RESULTS_LINE_REPLY}
+    )
+    assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    assert RESULTS_PICTURE_DENIAL in error_text
+
+
+def test_should_allow_the_same_results_with_a_chart_attached(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {"text": RESULTS_LINE_REPLY, "attached_outputs": [CHART_ATTACHMENT]},
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_allow_the_same_results_with_a_markdown_picture(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {"text": f"{RESULTS_LINE_REPLY}\n\n![Results chart](/mnt/project-files/tests/chart.png)"},
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_allow_an_edit_of_a_results_message_because_the_edit_tool_attaches_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, UPDATE_TOOL_NAME, {"text": RESULTS_LINE_REPLY}
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_allow_results_with_a_published_page_attached(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {
+            "text": RESULTS_LINE_REPLY,
+            "attached_outputs": [{"kind": "frame", "ref": "https://claude.ai/artifact/dashboard"}],
+        },
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_deny_results_whose_only_attachment_is_not_a_picture(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {
+            "text": RESULTS_LINE_REPLY,
+            "attached_outputs": [{"kind": "file", "ref": "/mnt/project-files/tests/results.md"}],
+        },
+    )
+    assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    assert RESULTS_PICTURE_DENIAL in error_text
+
+
+def test_should_allow_two_figures_with_no_picture(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": "The run shows 65 passed and 3 skipped."}
+    )
+    assert (exit_code, error_text) == (0, "")
+
+
+def test_should_not_count_figures_in_code_spans_or_pull_request_links(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, error_text = run_gate(
+        monkeypatch,
+        capsys,
+        POST_TOOL_NAME,
+        {
+            "text": (
+                "Ran `pytest -k 1` and `pytest -k 2` and `pytest -k 3`, "
+                "see [pull request](https://github.com/jl-cmd-projects/claude-dev-env/pull/2224)."
+            )
+        },
+    )
+    assert (exit_code, error_text) == (0, "")
