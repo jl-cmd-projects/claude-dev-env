@@ -27,6 +27,7 @@ from hooks_constants.post_tool_use_dispatcher_constants import (  # noqa: E402, 
 from post_tool_use_dispatcher import (  # noqa: E402, I001
     PostHostedHookResult,
     aggregate_post_hosted_hook_results,
+    run_hosted_hook,
 )
 
 _VALIDATION_DIR = Path(__file__).resolve().parent
@@ -367,4 +368,25 @@ def test_live_roster_contains_only_nonblocking_hooks() -> None:
     assert tuple(each_entry.script_relative_path for each_entry in ALL_POST_HOSTED_HOOK_ENTRIES) == (
         "workflow/auto_formatter.py",
         "advisory/edit_lint_context.py",
+        "advisory/instruction_file_write_warning.py",
+    )
+
+
+def test_hosted_instruction_warning_adds_its_note_for_an_over_budget_write(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "instruction-budget.json").write_text(
+        json.dumps({"max_launch_bytes": 10}), encoding="utf-8"
+    )
+    agents_path = tmp_path / "AGENTS.md"
+    agents_path.write_text("x" * 50, encoding="utf-8")
+    hook_script_path = str(_HOOKS_ROOT / "advisory" / "instruction_file_write_warning.py")
+
+    hook_result = run_hosted_hook(
+        hook_script_path, [], _write_payload(str(agents_path), "x" * 50), False
+    )
+
+    assert not hook_result.did_crash
+    assert (
+        "always-loaded instruction bytes are 50, over the cap of 10" in hook_result.captured_stdout
     )

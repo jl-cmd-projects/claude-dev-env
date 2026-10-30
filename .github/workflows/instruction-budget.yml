@@ -1,0 +1,19 @@
+name: Instruction budget
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  instruction-budget:
+    uses: ./.github/workflows/instruction-budget-reusable.yml
+    with:
+      validator-ref: ${{ github.sha }}
+      checkout-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      base-sha: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || '' }}
+    permissions:
+      contents: read

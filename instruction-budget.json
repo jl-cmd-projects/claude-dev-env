@@ -1,0 +1,5 @@
+{
+  "max_launch_bytes": 7504,
+  "max_link_hops": 2,
+  "rules_dirs": ["packages/claude-dev-env/rules"]
+}

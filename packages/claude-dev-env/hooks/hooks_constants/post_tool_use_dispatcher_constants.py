@@ -62,4 +62,8 @@ ALL_POST_HOSTED_HOOK_ENTRIES: tuple[PostHostedHookEntry, ...] = (
         script_relative_path="advisory/edit_lint_context.py",
         is_blocking=False,
     ),
+    PostHostedHookEntry(
+        script_relative_path="advisory/instruction_file_write_warning.py",
+        is_blocking=False,
+    ),
 )

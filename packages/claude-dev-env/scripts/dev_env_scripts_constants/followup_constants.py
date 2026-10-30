@@ -11,6 +11,9 @@ REGULAR_FILE_RULE_ID: str = "instruction-regular-file"
 GIT_MODE_RULE_ID: str = "instruction-git-mode"
 MISSING_AGENTS_RULE_ID: str = "instruction-missing-agents"
 IMPORT_TEXT_RULE_ID: str = "instruction-import-text"
+INSTRUCTION_BUDGET_RULE_ID: str = "instruction-budget"
+INSTRUCTION_PERSONAL_NAME_RULE_ID: str = "instruction-personal-name"
+INSTRUCTION_NESTING_RULE_ID: str = "instruction-nesting"
 
 SEVERITY_BREAKING: str = "breaking"
 SEVERITY_SMELL: str = "smell"
@@ -20,6 +23,9 @@ SEVERITY_BY_RULE_ID: dict[str, str] = {
     GIT_MODE_RULE_ID: SEVERITY_SMELL,
     MISSING_AGENTS_RULE_ID: SEVERITY_BREAKING,
     IMPORT_TEXT_RULE_ID: SEVERITY_BREAKING,
+    INSTRUCTION_BUDGET_RULE_ID: SEVERITY_BREAKING,
+    INSTRUCTION_PERSONAL_NAME_RULE_ID: SEVERITY_BREAKING,
+    INSTRUCTION_NESTING_RULE_ID: SEVERITY_BREAKING,
 }
 
 GATE_PASSED_EXIT_CODE: int = 0
