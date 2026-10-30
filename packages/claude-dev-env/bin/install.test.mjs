@@ -3420,17 +3420,19 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 });
 
 const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
-    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup',
-    'claude plugin marketplace update claude-dev-env',
-    'claude plugin install usage-wrapup@claude-dev-env',
-    'claude plugin update usage-wrapup@claude-dev-env',
+    'claude plugin marketplace add jl-cmd-projects/claude-mods-framework',
+    'claude plugin marketplace update claude-mods-framework',
+    'claude plugin install drawer-core@claude-mods-framework',
+    'claude plugin install usage-wrapup@claude-mods-framework',
+    'claude plugin update drawer-core@claude-mods-framework',
+    'claude plugin update usage-wrapup@claude-mods-framework',
 ]);
 
 function usageWrapupCommands(allRecordedCommands) {
-    return allRecordedCommands.filter(eachCommand => eachCommand.includes('claude-dev-env'));
+    return allRecordedCommands.filter(eachCommand => eachCommand.includes('claude-mods-framework'));
 }
 
-test('a full install adds this marketplace and installs usage-wrapup on Claude only', t => {
+test('a full install adds the mods framework marketplace and installs usage-wrapup with drawer-core on Claude only', t => {
     const sandbox = pstackPluginSandbox(t);
 
     const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], {
@@ -3498,16 +3500,18 @@ test('the help output names the usage-wrapup opt-out beside the pstack one', () 
     assert.doesNotMatch(helpRun.stdout, /--no-deepen-first-prompt/);
 });
 
-const REPOSITORY_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
-    'claude plugin marketplace add jl-cmd-projects/claude-dev-env --sparse .claude-plugin packages/usage-wrapup packages/subagent-models',
-    'claude plugin marketplace update claude-dev-env',
-    'claude plugin install usage-wrapup@claude-dev-env',
-    'claude plugin install subagent-models@claude-dev-env',
-    'claude plugin update usage-wrapup@claude-dev-env',
-    'claude plugin update subagent-models@claude-dev-env',
+const MODS_FRAMEWORK_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
+    'claude plugin marketplace add jl-cmd-projects/claude-mods-framework',
+    'claude plugin marketplace update claude-mods-framework',
+    'claude plugin install drawer-core@claude-mods-framework',
+    'claude plugin install usage-wrapup@claude-mods-framework',
+    'claude plugin install subagent-models@claude-mods-framework',
+    'claude plugin update drawer-core@claude-mods-framework',
+    'claude plugin update usage-wrapup@claude-mods-framework',
+    'claude plugin update subagent-models@claude-mods-framework',
 ]);
 
-test('should install subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
+test('should install drawer-core and subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
     const sandbox = pstackPluginSandbox(t);
 
     const installerOutput = runPstackInstaller(sandbox.homeDirectory, ['--no-pstack'], {
@@ -3516,9 +3520,10 @@ test('should install subagent-models beside usage-wrapup with one marketplace ad
         CDE_INSTALL_SUBAGENT_MODELS: '1',
     });
 
-    assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), REPOSITORY_PLUGIN_CLAUDE_COMMANDS);
+    assert.deepEqual(usageWrapupCommands(sandbox.recordedCommands()), MODS_FRAMEWORK_PLUGIN_CLAUDE_COMMANDS);
     assert.match(installerOutput, /Usage-wrapup \(claude\): installed/);
     assert.match(installerOutput, /Subagent-models \(claude\): installed/);
+    assert.match(installerOutput, /Drawer-core \(claude\): installed/);
     assert.doesNotMatch(installerOutput, /Deepen-first-prompt \(/);
 });
 
@@ -3536,10 +3541,10 @@ for (const [caseName, extraArguments, environmentOverrides] of [
         });
 
         assert.equal(
-            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('subagent-models')),
+            sandbox.recordedCommands().some(eachCommand => eachCommand.includes('subagent-models') || eachCommand.includes('drawer-core')),
             false,
         );
-        assert.doesNotMatch(installerOutput, /Subagent-models \(/);
+        assert.doesNotMatch(installerOutput, /Subagent-models \(|Drawer-core \(/);
     });
 }
 

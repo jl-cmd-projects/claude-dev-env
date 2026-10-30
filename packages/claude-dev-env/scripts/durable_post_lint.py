@@ -64,6 +64,7 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from blocking.pull_request_proof import (
+    checkout_is_for,
     missing_eval_section_reason,
     missing_existing_work_reason,
     missing_proof_reason,
@@ -159,12 +160,32 @@ def _description_heading_findings(body_text: str) -> list[DurablePostFinding]:
     ]
 
 
+def _checkout_directory(head_branch: str | None, repository: str | None) -> str:
+    current_directory = str(Path.cwd())
+    if head_branch and repository and checkout_is_for(current_directory, repository):
+        return current_directory
+    return ""
+
+
 def _pull_request_proof_findings(
-    title: str | None, body_text: str
+    title: str | None,
+    body_text: str,
+    head_branch: str | None = None,
+    repository: str | None = None,
 ) -> list[DurablePostFinding]:
+    owner, _separator, repository_name = (repository or "").partition(
+        REPOSITORY_OWNER_SEPARATOR
+    )
     create_payload = {
         "tool_name": PROOF_GATE_CREATE_TOOL_NAME,
-        "tool_input": {"title": title, "body": body_text},
+        "tool_input": {
+            "title": title,
+            "body": body_text,
+            "head": head_branch,
+            "owner": owner,
+            "repo": repository_name,
+        },
+        "cwd": _checkout_directory(head_branch, repository),
     }
     all_reasons = (
         missing_proof_reason(create_payload),
@@ -251,6 +272,7 @@ def _body_findings(
     body_text: str | None,
     head_branch: str | None = None,
     title: str | None = None,
+    repository: str | None = None,
 ) -> list[DurablePostFinding]:
     if body_text is None:
         return []
@@ -267,7 +289,9 @@ def _body_findings(
     else:
         if action == ACTION_PR_CREATE:
             all_findings.extend(_description_heading_findings(body_text))
-            all_findings.extend(_pull_request_proof_findings(title, body_text))
+            all_findings.extend(
+                _pull_request_proof_findings(title, body_text, head_branch, repository)
+            )
         if action == ACTION_GITHUB_MCP_COMMENT:
             all_findings.extend(_comment_length_findings(body_text))
         all_findings.extend(_contrast_framing_findings(body_text))
@@ -307,7 +331,7 @@ def lint_durable_post(
     return (
         *_title_findings(title),
         *_private_term_findings(title, repository),
-        *_body_findings(action, body_text, head_branch, title),
+        *_body_findings(action, body_text, head_branch, title, repository),
         *_private_term_findings(body_text, repository),
     )
 

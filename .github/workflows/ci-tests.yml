@@ -39,7 +39,6 @@ jobs:
       package_suite: ${{ steps.filter.outputs.package_suite }}
       root_suite: ${{ steps.filter.outputs.root_suite }}
       javascript: ${{ steps.filter.outputs.javascript }}
-      subagent_models: ${{ steps.filter.outputs.subagent_models }}
       visual_plan: ${{ steps.filter.outputs.visual_plan }}
     steps:
       - uses: actions/checkout@v5
@@ -54,7 +53,6 @@ jobs:
               - 'pytest.ini'
               - 'pyproject.toml'
               - 'packages/claude-dev-env/**'
-              - 'packages/usage-wrapup/**'
               - 'tests/**'
               - '.github/workflows/ci-tests.yml'
               - '.github/ci/**'
@@ -73,9 +71,6 @@ jobs:
             javascript:
               - 'packages/claude-dev-env/**'
               - 'package.json'
-              - '.github/workflows/ci-tests.yml'
-            subagent_models:
-              - 'packages/subagent-models/**'
               - '.github/workflows/ci-tests.yml'
             visual_plan:
               - 'packages/visual-plan/**'
@@ -117,9 +112,6 @@ jobs:
       - name: Install the Claude Code CLI for plugin tests
         run: npm install --global @anthropic-ai/claude-code@2.1.288
 
-      - name: Set up Bun for usage-wrapup tests
-        uses: oven-sh/setup-bun@v2
-
       - name: Configure git identity for test repos
         run: |
           git config --global user.email "ci@example.com"
@@ -135,7 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest packages/claude-dev-env packages/usage-wrapup/tests \
+          python -m pytest packages/claude-dev-env \
             --basetemp="$RUNNER_TEMP/pytest-basetemp-pkg" \
             -q \
             -n auto \
@@ -233,26 +225,6 @@ jobs:
         run: |
           npm install
           npm test
-
-  subagent-models:
-    name: subagent-models mod (ubuntu)
-    needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.subagent_models == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Validate and test the mod
-        working-directory: packages/subagent-models
-        run: |
-          npm install --global @anthropic-ai/claude-code@2.1.288
-          claude plugin validate .
-          claude plugin test .
 
   visual-plan:
     name: visual-plan plugin (ubuntu)

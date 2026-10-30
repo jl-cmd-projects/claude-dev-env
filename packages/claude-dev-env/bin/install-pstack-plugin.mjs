@@ -23,13 +23,16 @@ export const PSTACK_PLUGIN_SPEC = Object.freeze({
     optOutVariable: PSTACK_PLUGIN_OPT_OUT_VARIABLE,
 });
 
+export const MODS_FRAMEWORK_MARKETPLACE_REPOSITORY = 'jl-cmd-projects/claude-mods-framework';
+export const MODS_FRAMEWORK_MARKETPLACE_NAME = 'claude-mods-framework';
+
 export const USAGE_WRAPUP_PLUGIN_SPEC = Object.freeze({
     name: 'usage-wrapup',
     label: 'Usage-wrapup',
-    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
-    marketplaceName: 'claude-dev-env',
-    sparsePaths: Object.freeze(['.claude-plugin', 'packages/usage-wrapup']),
-    pluginIdentifier: 'usage-wrapup@claude-dev-env',
+    marketplaceRepository: MODS_FRAMEWORK_MARKETPLACE_REPOSITORY,
+    marketplaceName: MODS_FRAMEWORK_MARKETPLACE_NAME,
+    sparsePaths: Object.freeze([]),
+    pluginIdentifier: `usage-wrapup@${MODS_FRAMEWORK_MARKETPLACE_NAME}`,
     hosts: Object.freeze(['claude']),
     optOutFlag: '--no-usage-wrapup',
     optOutVariable: 'CDE_INSTALL_USAGE_WRAPUP',
@@ -47,17 +50,78 @@ export const ALL_RETIRED_PLUGIN_SPECS = Object.freeze([
     }),
 ]);
 
+/**
+ * The usage-wrapup and subagent-models copies this repository once shipped.
+ * The mods framework marketplace now supplies each one, and an install
+ * removes an old copy only after its replacement installs, so a home that
+ * cannot reach that marketplace keeps the copy it has.
+ */
+export const ALL_REPLACED_PLUGIN_SPECS = Object.freeze([
+    Object.freeze({
+        name: 'usage-wrapup',
+        marketplaceName: 'claude-dev-env',
+        pluginIdentifier: 'usage-wrapup@claude-dev-env',
+    }),
+    Object.freeze({
+        name: 'subagent-models',
+        marketplaceName: 'claude-dev-env',
+        pluginIdentifier: 'subagent-models@claude-dev-env',
+    }),
+]);
+
+/**
+ * Pick the old copies an install may remove now that its replacements are in.
+ *
+ * @param {ReadonlyArray<{name: string}>} allReplacedSpecs The old copies.
+ * @param {ReadonlyArray<{name: string}>} allInstalledSpecs The plugins the install wrote.
+ * @param {{status: string}} installOutcome The outcome of that install.
+ * @returns {Array<{name: string}>} Each old copy whose same-named replacement installed.
+ */
+export function replacedSpecsToRemove(allReplacedSpecs, allInstalledSpecs, installOutcome) {
+    if (installOutcome.status !== 'installed') return [];
+    const allInstalledNames = new Set(allInstalledSpecs.map(eachSpec => eachSpec.name));
+    return allReplacedSpecs.filter(eachSpec => allInstalledNames.has(eachSpec.name));
+}
+
+/**
+ * The shared drawer the usage-wrapup and subagent-models panes register
+ * through. It has no opt-out of its own, and it installs whenever a plugin
+ * that depends on it installs.
+ */
+export const DRAWER_CORE_PLUGIN_SPEC = Object.freeze({
+    name: 'drawer-core',
+    label: 'Drawer-core',
+    marketplaceRepository: MODS_FRAMEWORK_MARKETPLACE_REPOSITORY,
+    marketplaceName: MODS_FRAMEWORK_MARKETPLACE_NAME,
+    sparsePaths: Object.freeze([]),
+    pluginIdentifier: `drawer-core@${MODS_FRAMEWORK_MARKETPLACE_NAME}`,
+    hosts: Object.freeze(['claude']),
+});
+
 export const SUBAGENT_MODELS_PLUGIN_SPEC = Object.freeze({
     name: 'subagent-models',
     label: 'Subagent-models',
-    marketplaceRepository: 'jl-cmd-projects/claude-dev-env',
-    marketplaceName: 'claude-dev-env',
-    sparsePaths: Object.freeze(['.claude-plugin', 'packages/subagent-models']),
-    pluginIdentifier: 'subagent-models@claude-dev-env',
+    marketplaceRepository: MODS_FRAMEWORK_MARKETPLACE_REPOSITORY,
+    marketplaceName: MODS_FRAMEWORK_MARKETPLACE_NAME,
+    sparsePaths: Object.freeze([]),
+    pluginIdentifier: `subagent-models@${MODS_FRAMEWORK_MARKETPLACE_NAME}`,
     hosts: Object.freeze(['claude']),
     optOutFlag: '--no-subagent-models',
     optOutVariable: 'CDE_INSTALL_SUBAGENT_MODELS',
 });
+
+/**
+ * Pick the mods framework plugins one install writes.
+ *
+ * @param {string[]} [argumentList] The installer's command-line arguments.
+ * @param {Record<string, string|undefined>} [environment] The process environment.
+ * @returns {Array<typeof DRAWER_CORE_PLUGIN_SPEC>} drawer-core first, then each plugin not opted out, or none when every plugin is opted out.
+ */
+export function modsFrameworkPluginSpecs(argumentList = process.argv.slice(2), environment = process.env) {
+    const allChosenSpecs = [USAGE_WRAPUP_PLUGIN_SPEC, SUBAGENT_MODELS_PLUGIN_SPEC]
+        .filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec, argumentList, environment));
+    return allChosenSpecs.length === 0 ? [] : [DRAWER_CORE_PLUGIN_SPEC, ...allChosenSpecs];
+}
 
 /**
  * Anthropic's security-guidance plugin, which reviews each edit, turn, and
@@ -529,11 +593,12 @@ export function installMarketplacePlugins(allSpecs, options = {}, dependencies =
 /**
  * Uninstall each retired plugin a Claude home still holds.
  *
- * A home holds a retired plugin when its plugin cache has a folder for it. For
- * each such plugin the step runs `claude plugin uninstall` and then deletes
- * the cached versions Claude Code marked as orphaned. A home with no cached
- * folder runs no command, so a fresh install and a second update both leave
- * the home as it stands. A missing `claude` command skips the step. A failed
+ * A home holds a retired plugin when its plugin cache folder holds a version.
+ * For each such plugin the step runs `claude plugin uninstall`, deletes the
+ * cached versions Claude Code marked as orphaned, and deletes the plugin
+ * folder once no version is left. A home with no cached version runs no
+ * command, so a fresh install and a second update both leave the home as it
+ * stands. A missing `claude` command skips the step. A failed
  * uninstall is recorded in `failedRemovals` with its detail, and its cached
  * versions stay on disk.
  *
@@ -555,7 +620,7 @@ export function removeRetiredMarketplacePlugins(allRetiredSpecs, options, depend
     if (!options.claudeRoot) return { removedIdentifiers, removedVersionPaths, failedRemovals };
     for (const eachSpec of allRetiredSpecs) {
         const versionsDirectory = hostDefinition.orphanedVersionsDirectory(options.claudeRoot, eachSpec);
-        if (!existsSync(versionsDirectory)) continue;
+        if (!existsSync(versionsDirectory) || readdirSync(versionsDirectory).length === 0) continue;
         const outcome = runCommand(
             executable,
             ['plugin', hostDefinition.uninstallVerb, eachSpec.pluginIdentifier],
@@ -569,6 +634,7 @@ export function removeRetiredMarketplacePlugins(allRetiredSpecs, options, depend
         }
         removedIdentifiers.push(eachSpec.pluginIdentifier);
         removedVersionPaths.push(...removeOrphanedPluginVersions(versionsDirectory));
+        if (readdirSync(versionsDirectory).length === 0) rmSync(versionsDirectory, { recursive: true, force: true });
     }
     return { removedIdentifiers, removedVersionPaths, failedRemovals };
 }

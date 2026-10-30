@@ -16,22 +16,6 @@
       "tags": ["code-standards", "hooks", "agents", "tdd", "quality"]
     },
     {
-      "name": "usage-wrapup",
-      "source": "./packages/usage-wrapup",
-      "description": "Tells every running agent to wrap up when plan usage gets low, and compacts the conversation when usage is nearly gone",
-      "version": "0.3.1",
-      "license": "MIT",
-      "category": "productivity"
-    },
-    {
-      "name": "subagent-models",
-      "source": "./packages/subagent-models",
-      "description": "Turn subagent models and agent types on or off and set the effort subagents run at",
-      "version": "0.3.0",
-      "license": "MIT",
-      "category": "development"
-    },
-    {
       "name": "visual-plan",
       "source": "./packages/visual-plan",
       "description": "Write a plan as one interactive HTML page: a grid of problems and fixes, the decisions to answer, and the path, where every box opens a card of pictures and every item takes a note",
