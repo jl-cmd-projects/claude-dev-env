@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.109.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.7...claude-dev-env-v8.109.8) (2026-10-29)
+
+
+### Bug Fixes
+
+* **install:** install the mods framework plugins in place of the old copies ([#2267](https://github.com/jl-cmd-projects/claude-dev-env/issues/2267)) ([70cc3ec](https://github.com/jl-cmd-projects/claude-dev-env/commit/70cc3ec9f3c2eeb4d9b984c2c48f79a3951a2740))
+
+## [8.109.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.6...claude-dev-env-v8.109.7) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hooks:** let a new workflow plan its first run after merge ([#2253](https://github.com/jl-cmd-projects/claude-dev-env/issues/2253)) ([4142469](https://github.com/jl-cmd-projects/claude-dev-env/commit/4142469de9dec81c4a4d8de2c31916d31a56f17b))
+
+## [8.109.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.5...claude-dev-env-v8.109.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* Let PRs open from any folder, and when every review finding has a recorded decision ([#2256](https://github.com/jl-cmd-projects/claude-dev-env/issues/2256)) ([bce9545](https://github.com/jl-cmd-projects/claude-dev-env/commit/bce9545f86f4f33036e4af81eacbda4fc7b22660))
+
 ## [8.109.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.4...claude-dev-env-v8.109.5) (2026-10-29)
 
 

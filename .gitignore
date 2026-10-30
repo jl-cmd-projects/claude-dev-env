@@ -76,5 +76,3 @@ pytestdebug.log
 *AppDataLocalTemp*
 
 
-# Engine type declarations the subagent-models mod is typed against, written by /plugin-types
-packages/subagent-models/.claude-plugin/types/

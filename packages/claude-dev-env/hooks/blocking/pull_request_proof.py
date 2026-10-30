@@ -18,6 +18,16 @@ from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
 from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES, UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
+    ADDED_FILE_NAMES_QUERY,
+    GIT_URL_SUFFIX,
+    REMOTE_LINE_FIELD_COUNT,
+    RUN_WORD_PATTERN,
+    WORKFLOW_NAME_MATCH_TEMPLATE,
+    WORKFLOW_SUBJECT_PATTERN,
+    AFTER_MERGE_HEADING_PATTERN,
+    AFTER_MERGE_NO_RECORDER_PATTERN,
+    AFTER_MERGE_RECORDER_PATTERN,
+    AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN,
     ALL_GH_CREATE_WORDS,
     ALL_GH_EDIT_WORDS,
     ALL_PYTHON_PROGRAM_NAMES,
@@ -53,6 +63,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_FLOWCHART_REASON,
     MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
+    NEW_WORKFLOW_PATH_PATTERN,
     NEXT_HEADING_PATTERN,
     PROOF_HEADING_PATTERN,
     PURE_RENAME_STATUS,
@@ -470,17 +481,17 @@ def _prose_lines(section: str) -> Iterator[tuple[str, str]]:
             yield each_line, re.sub(INLINE_CODE_SPAN_PATTERN, "", each_line.replace(CODE_FENCE_MARKER, "`"))
 
 
-def unproven_admission(section: str) -> str | None:
-    """Return the first prose line of a proof section that says something is not proven, or None.
+def unproven_admissions(section: str) -> list[str]:
+    """Return every prose line of a proof section that says something is not proven.
 
     ::
 
-        "Not proven here: a fresh Convert run."   -> "Not proven here: a fresh Convert run."
-        "The live run is untested."               -> "The live run is untested."
-        "It has not been tested on the target."   -> "It has not been tested on the target."
-        "`not proven` printed by the probe"       -> None
-        "> Not proven here: the live run."        -> "> Not proven here: the live run."
-        "Ran `python run.py`, quoted below."      -> None
+        "Not proven here: a fresh Convert run."   -> ["Not proven here: a fresh Convert run."]
+        "The live run is untested."               -> ["The live run is untested."]
+        "It has not been tested on the target."   -> ["It has not been tested on the target."]
+        "`not proven` printed by the probe"       -> []
+        "> Not proven here: the live run."        -> ["> Not proven here: the live run."]
+        "Ran `python run.py`, quoted below."      -> []
 
     The markers are not proven, not tested and not verified, each with any
     run of yet, been or fully after the not, plus unproven, untested and
@@ -492,17 +503,15 @@ def unproven_admission(section: str) -> str | None:
     Inline code spans and fenced blocks are skipped, so output quoted there
     never counts.
     """
-    return _first_prose_match(section, UNPROVEN_ADMISSION_PATTERN)
+    return [
+        each_line.strip()
+        for each_line, each_prose in _prose_lines(section)
+        if re.search(UNPROVEN_ADMISSION_PATTERN, each_prose, re.IGNORECASE)
+    ]
 
 
-def _first_prose_match(section: str, pattern: str) -> str | None:
-    for each_line, each_prose in _prose_lines(section):
-        if re.search(pattern, each_prose, re.IGNORECASE):
-            return each_line.strip()
-    return None
 
-
-def merge_word_line(section: str) -> str | None:
+def merge_word_line(section: str, all_covered_names: list[str] | None = None) -> str | None:
     """Return the first prose line of a proof section that holds a merge word, or None.
 
     ::
@@ -518,10 +527,18 @@ def merge_word_line(section: str) -> str | None:
     so a command or file name that holds the word passes when it sits in
     backticks.
 
+    A line that is about the first run of a covered new workflow is skipped.
+
     Args:
         section: The text under the 'Proof in practice' heading.
+        all_covered_names: The added workflow files the After merge section covers.
     """
-    return _first_prose_match(section, MERGE_WORD_PATTERN)
+    for each_line, each_prose in _prose_lines(section):
+        if re.search(MERGE_WORD_PATTERN, each_prose, re.IGNORECASE) and not _admission_is_about_a_first_run(
+            each_line, all_covered_names or []
+        ):
+            return each_line.strip()
+    return None
 
 
 def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -552,9 +569,14 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     flags before -m unittest still count. coverage run -m unittest counts.
     A pipe into tee, tail, head, grep or cat keeps a test run a test run.
     A section whose prose says part of the change is not proven, untested or
-    unverified is denied, with the line quoted; unproven_admission lists the
+    unverified is denied, with the line quoted; unproven_admissions lists the
     markers. A prose line with a merge word is denied in the proof section;
-    merge_word_line lists the words.
+    merge_word_line lists the words. The unproven line passes when the pull
+    request adds a workflow file the default branch lacks and the body has an
+    'After merge' section that names that file in backticks and says who records
+    the run, and the line uses the word run outside code spans and says workflow
+    or GitHub Actions or names a covered workflow file; see
+    _first_unwaived_admission. The same covered line is exempt from the merge word.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -565,21 +587,30 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
         section = proof_section(each_body)
         if not section:
             return MISSING_PROOF_REASON
-        section_reason = _proof_section_reason(section)
+        section_reason = _proof_section_reason(section, each_body, all_payload_fields)
         if section_reason is not None:
             return section_reason
     return None
 
 
-def _proof_section_reason(section: str) -> str | None:
+def _proof_section_reason(
+    section: str, body: str | None = None, all_payload_fields: Mapping[str, object] | None = None
+) -> str | None:
     if COMMAND_MARKER not in section:
         return MISSING_PROOF_REASON
     if _proof_runs_only_tests(section):
         return TEST_ONLY_PROOF_REASON
-    admission = unproven_admission(section)
-    if admission is not None:
-        return UNPROVEN_PROOF_REASON.format(admission=admission)
-    deferral = merge_word_line(section)
+    all_admissions = unproven_admissions(section)
+    if body is None or all_payload_fields is None:
+        unwaived_admission = all_admissions[0] if all_admissions else None
+        all_covered_names: list[str] = []
+    else:
+        needs_waiver = bool(all_admissions) or merge_word_line(section) is not None
+        all_covered_names = _covered_workflow_names(body, all_payload_fields) if needs_waiver else []
+        unwaived_admission = _first_unwaived_admission(all_admissions, all_covered_names)
+    if unwaived_admission is not None:
+        return UNPROVEN_PROOF_REASON.format(admission=unwaived_admission)
+    deferral = merge_word_line(section, all_covered_names)
     return None if deferral is None else DEFERRED_PROOF_REASON.format(deferral=deferral)
 
 
@@ -766,21 +797,26 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
     """
-    if not working_directory:
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch)
+    if merge_base_and_head is None:
         return None
-    head_reference = _head_reference(working_directory, head_branch)
-    if head_reference is None:
-        return None
-    merge_base = _first_merge_base(working_directory, head_reference)
-    if merge_base is None:
-        return None
-    raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", merge_base, head_reference)
+    raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", *merge_base_and_head)
     if raw_output is None:
         return None
     all_changes = _git_changes(raw_output.split("\0"))
     if all_changes is None:
         return None
     return _visible_paths(all_changes)
+
+
+def _merge_base_and_head(working_directory: str, head_branch: object) -> tuple[str, str] | None:
+    if not working_directory:
+        return None
+    head_reference = _head_reference(working_directory, head_branch)
+    if head_reference is None:
+        return None
+    merge_base = _first_merge_base(working_directory, head_reference)
+    return None if merge_base is None else (merge_base, head_reference)
 
 
 def _git_changes(all_raw_fields: list[str]) -> list[ChangedFile] | None:
@@ -834,6 +870,34 @@ def _visible_paths(all_changes: list[ChangedFile]) -> list[str]:
     ]
 
 
+def _workflow_paths(all_added_paths: list[str]) -> list[str]:
+    return [each_path for each_path in all_added_paths if re.match(NEW_WORKFLOW_PATH_PATTERN, each_path)]
+
+
+def added_workflow_files(working_directory: str, head_branch: object) -> list[str] | None:
+    """Return the workflow files the head branch adds, or None when git cannot tell.
+
+    The head and base are chosen as in visible_changed_files. Only a file git
+    reports as added counts, and a rename counts as an add, so a workflow the
+    branch edits is left out::
+
+        branch adds .github/workflows/release.yml   -> [".github/workflows/release.yml"]
+        branch edits an existing workflow           -> []
+        named head exists nowhere in the clone      -> None
+
+    Args:
+        working_directory: The session directory the hook payload names.
+        head_branch: The head branch a create call names, or None.
+    """
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch)
+    if merge_base_and_head is None:
+        return None
+    all_added_paths = _git_lines(
+        working_directory, "diff", "--name-only", "--no-renames", "--diff-filter=A", *merge_base_and_head
+    )
+    return None if all_added_paths is None else _workflow_paths(all_added_paths)
+
+
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
     try:
         completed = subprocess.run(
@@ -861,22 +925,20 @@ def _compare_base_branch(repository: str, base_branch: str | None) -> str | None
     return all_default_branch_lines[0]
 
 
-def _visible_compare_paths(repository: str, base_branch: str, head_branch: str) -> list[str] | None:
-    all_status_lines = _gh_api_lines(
+def _compare_lines(
+    repository: str | None, base_branch: str | None, head_branch: str | None, query: str
+) -> list[str] | None:
+    if not repository or not head_branch:
+        return None
+    resolved_base_branch = _compare_base_branch(repository, base_branch)
+    if resolved_base_branch is None:
+        return None
+    return _gh_api_lines(
         COMPARE_ENDPOINT_TEMPLATE.format(
-            repository=repository, base_branch=base_branch, head_branch=head_branch
+            repository=repository, base_branch=resolved_base_branch, head_branch=head_branch
         ),
-        COMPARE_FILE_STATUS_QUERY,
+        query,
     )
-    if all_status_lines is None:
-        return None
-    all_changes = _compare_changes(all_status_lines)
-    if all_changes is None:
-        return None
-    all_visible_paths = _visible_paths(all_changes)
-    if all_visible_paths or len(all_status_lines) < COMPARE_FILE_LIST_LIMIT:
-        return all_visible_paths
-    return None
 
 
 def remote_visible_changed_files(
@@ -903,12 +965,158 @@ def remote_visible_changed_files(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    if not repository or not head_branch:
+    all_status_lines = _compare_lines(repository, base_branch, head_branch, COMPARE_FILE_STATUS_QUERY)
+    if all_status_lines is None:
         return None
-    resolved_base_branch = _compare_base_branch(repository, base_branch)
-    if resolved_base_branch is None:
+    all_changes = _compare_changes(all_status_lines)
+    if all_changes is None:
         return None
-    return _visible_compare_paths(repository, resolved_base_branch, head_branch)
+    all_visible_paths = _visible_paths(all_changes)
+    if all_visible_paths or len(all_status_lines) < COMPARE_FILE_LIST_LIMIT:
+        return all_visible_paths
+    return None
+
+
+def remote_added_workflow_files(
+    repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str] | None:
+    """Return the workflow files the head branch adds, read from the GitHub compare API, or None.
+
+    ::
+
+        compare adds .github/workflows/release.yml     -> [".github/workflows/release.yml"]
+        compare adds only tool.py                      -> []
+        compare returns 300 files and adds no workflow -> None
+        repository or head missing                     -> None
+
+    A full page of 300 files is the compare API's cap, so a workflow could sit
+    on a later page and the answer is None.
+
+    Args:
+        repository: The owner/name the create call names, or None.
+        base_branch: The base branch the create call names, or None.
+        head_branch: The head branch the create call names, or None.
+    """
+    all_lines = _compare_lines(repository, base_branch, head_branch, ADDED_FILE_NAMES_QUERY)
+    if not all_lines or not all_lines[0].isdigit():
+        return None
+    all_workflow_paths = _workflow_paths(all_lines[1:])
+    if all_workflow_paths or int(all_lines[0]) < COMPARE_FILE_LIST_LIMIT:
+        return all_workflow_paths
+    return None
+
+
+def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -> list[str]:
+    working_directory = str(all_payload_fields.get("cwd") or "")
+    head_branch = _named_head_branch(all_payload_fields)
+    repository = _named_repository(all_payload_fields)
+    all_workflow_paths = None
+    if _local_checkout_may_answer(working_directory, repository, head_branch):
+        all_workflow_paths = added_workflow_files(working_directory, head_branch)
+    if all_workflow_paths is None:
+        all_workflow_paths = remote_added_workflow_files(
+            repository, _named_base_branch(all_payload_fields), head_branch
+        )
+    return all_workflow_paths or []
+
+
+def _local_checkout_may_answer(
+    working_directory: str, repository: str | None, head_branch: str | None
+) -> bool:
+    return not head_branch or checkout_is_for(working_directory, repository)
+
+
+def checkout_is_for(working_directory: str, repository: str | None) -> bool:
+    if repository is None:
+        return True
+    all_remote_lines = _git_lines(working_directory, "remote", "-v") if working_directory else None
+    all_repository_endings = ("/" + repository.lower(), ":" + repository.lower())
+    for each_line in all_remote_lines or []:
+        all_fields = each_line.split()
+        if len(all_fields) >= REMOTE_LINE_FIELD_COUNT and all_fields[1].lower().rstrip("/").removesuffix(GIT_URL_SUFFIX).endswith(
+            all_repository_endings
+        ):
+            return True
+    return False
+
+
+def _first_unwaived_admission(all_admissions: list[str], all_covered_names: list[str]) -> str | None:
+    """Return the first unproven line a new workflow's after-merge run does not explain, or None.
+
+    ::
+
+        "Not proven here: the live GitHub Actions run." with a covered new workflow -> None
+        "Untested on Windows." with a covered new workflow                          -> that line
+        "Not proven here: the live GitHub Actions run." with no covered workflow    -> that line
+        no unproven line                                                            -> None
+
+    Each admission line must use the word run and also say GitHub Actions or
+    workflow, or name a covered workflow file, so an admission about anything
+    else keeps the refusal. The line returned is the one that failed.
+
+    Args:
+        all_admissions: The proof section's unproven lines.
+        all_covered_names: The added workflow files the After merge section covers.
+    """
+    return next(
+        (each for each in all_admissions if not _admission_is_about_a_first_run(each, all_covered_names)), None
+    )
+
+
+def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str]) -> bool:
+    admission_prose = re.sub(INLINE_CODE_SPAN_PATTERN, "", admission)
+    if not all_workflow_names or re.search(RUN_WORD_PATTERN, admission_prose, re.IGNORECASE) is None:
+        return False
+    return re.search(WORKFLOW_SUBJECT_PATTERN, admission_prose, re.IGNORECASE) is not None or any(
+        re.search(WORKFLOW_NAME_MATCH_TEMPLATE.format(workflow_name=re.escape(each_name)), admission, re.IGNORECASE)
+        for each_name in all_workflow_names
+    )
+
+
+def _covered_workflow_names(body: str, all_payload_fields: Mapping[str, object]) -> list[str]:
+    """Return the added workflow files whose first run the body plans for after the merge.
+
+    ::
+
+        adds release.yml, "## After merge" names `release.yml` and "records the run link" -> ["release.yml"]
+        the branch adds no workflow file, or git and the compare API cannot tell          -> []
+
+    A workflow added by a pull request runs only from the default branch, so
+    its live run cannot come before the merge. The section must name the added
+    workflow file in backticks, by file name or by its full path, and say who
+    records the run or its link in prose. Code spans and fenced blocks do not
+    count as that prose. A sentence with a negation ahead of the verb does not count.
+
+    Args:
+        body: The pull request body.
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    after_merge = _section_text(body, AFTER_MERGE_HEADING_PATTERN)
+    if not after_merge:
+        return []
+    outside_fence_text = _text_outside_fences(after_merge)
+    if not _prose_names_a_recorder(re.sub(INLINE_CODE_SPAN_PATTERN, "", outside_fence_text)):
+        return []
+    all_names = []
+    for each_path in _added_workflow_files_for_create(all_payload_fields):
+        each_name = each_path.rsplit("/", 1)[-1]
+        if f"`{each_path}`" in outside_fence_text or f"`{each_name}`" in outside_fence_text:
+            all_names.append(each_name)
+    return all_names
+
+
+def _text_outside_fences(section: str) -> str:
+    return LINE_SEPARATOR.join(
+        each_line for each_line, each_is_inside_fence in _lines_with_fence_state(section) if not each_is_inside_fence
+    )
+
+
+def _prose_names_a_recorder(prose: str) -> bool:
+    return any(
+        re.search(AFTER_MERGE_RECORDER_PATTERN, each_sentence, re.IGNORECASE) is not None
+        and re.search(AFTER_MERGE_NO_RECORDER_PATTERN, each_sentence, re.IGNORECASE) is None
+        for each_sentence in re.split(AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN, prose)
+    )
 
 
 def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:

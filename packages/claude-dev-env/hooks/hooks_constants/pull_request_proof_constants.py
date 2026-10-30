@@ -84,7 +84,25 @@ UNPROVEN_PROOF_REASON = (
     " Do not open the pull request, or ask for review of an open one, until that output"
     " is there. When it is a condition the change does not"
     " target, move the line under a 'Not covered' heading at the same level as the proof"
-    " heading. Read " + PROOF_GUIDE_PATH + " for the full rule."
+    " heading. When the pull request adds a workflow file the default branch lacks, its first"
+    " run waits for the merge: add an 'After merge' heading that names the workflow file in"
+    " backticks and says who records the run link. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+AFTER_MERGE_HEADING_PATTERN = r"^(#{1,6})[ \t]+after merge[ \t]*#*[ \t]*$"
+AFTER_MERGE_RECORDER_PATTERN = r"\brecord(?:s|ed)?\b[^.;\n]{0,30}\b(?:run|link|url|result)s?\b"
+AFTER_MERGE_NO_RECORDER_PATTERN = (
+    r"\b(?:nobody|no[ -]?one|not|never|cannot|can't|won't|doesn't)\b[^.;,\n]{0,60}\brecord(?:s|ed)?\b"
+    r"|\brecord(?:s|ed)?\s+(?:nothing|none|no)\b|\bno\s+records?\b"
+)
+AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN = r"[;\n]|\.(?=\s|$)"
+WORKFLOW_SUBJECT_PATTERN = r"\b(?:github actions|workflow)\b"
+RUN_WORD_PATTERN = r"\bruns?\b"
+GIT_URL_SUFFIX = ".git"
+REMOTE_LINE_FIELD_COUNT = 2
+WORKFLOW_NAME_MATCH_TEMPLATE = r"(?<![\w.-]){workflow_name}(?![\w-]|\.\w)"
+NEW_WORKFLOW_PATH_PATTERN = r"^\.github/workflows/[^/]+\.ya?ml$"
+ADDED_FILE_NAMES_QUERY = (
+    '(.files | length | tostring), (.files[] | select(.status == "added" or .status == "renamed" or .status == "copied") | .filename)'
 )
 DEFERRED_PROOF_REASON = (
     "This pull request's 'Proof in practice' section mentions a merge: \"{deferral}\". Run that"

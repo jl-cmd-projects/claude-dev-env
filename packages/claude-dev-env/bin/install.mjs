@@ -56,13 +56,14 @@ import {
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
+    ALL_REPLACED_PLUGIN_SPECS,
     ALL_RETIRED_PLUGIN_SPECS,
     PSTACK_PLUGIN_SPEC,
     SECURITY_GUIDANCE_PLUGIN_SPEC,
-    SUBAGENT_MODELS_PLUGIN_SPEC,
-    USAGE_WRAPUP_PLUGIN_SPEC,
     installMarketplacePlugins,
+    modsFrameworkPluginSpecs,
     removeRetiredMarketplacePlugins,
+    replacedSpecsToRemove,
     shouldInstallMarketplacePlugin,
 } from './install-pstack-plugin.mjs';
 import {
@@ -479,6 +480,17 @@ function printPluginHostOutcomes(allSpecs, pluginOutcome) {
             if (eachHost.status === 'failed') allActionNeededLines.push(outcomeLine);
         }
     }
+}
+
+function removeAndReportRetiredPlugins(allRetiredSpecs) {
+    const retiredPlugins = removeRetiredMarketplacePlugins(allRetiredSpecs, { claudeRoot: CLAUDE_HOME });
+    for (const eachIdentifier of retiredPlugins.removedIdentifiers) {
+        console.log(`  Retired plugin uninstalled: ${eachIdentifier}`);
+    }
+    for (const eachFailure of retiredPlugins.failedRemovals) {
+        console.warn(`  Warning: retired plugin ${eachFailure.pluginIdentifier} was not uninstalled: ${eachFailure.detail}`);
+    }
+    return retiredPlugins;
 }
 
 function printActionNeeded() {
@@ -3171,27 +3183,18 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         if (retiredCursorHooksPath) {
             console.log(`  Retired first-task hook removed from ${retiredCursorHooksPath}`);
         }
-        const retiredPlugins = removeRetiredMarketplacePlugins(ALL_RETIRED_PLUGIN_SPECS, {
-            claudeRoot: CLAUDE_HOME,
-        });
-        summary.retiredPlugins = retiredPlugins;
-        for (const eachIdentifier of retiredPlugins.removedIdentifiers) {
-            console.log(`  Retired plugin uninstalled: ${eachIdentifier}`);
-        }
-        for (const eachFailure of retiredPlugins.failedRemovals) {
-            console.warn(`  Warning: retired plugin ${eachFailure.pluginIdentifier} was not uninstalled: ${eachFailure.detail}`);
-        }
+        summary.retiredPlugins = removeAndReportRetiredPlugins(ALL_RETIRED_PLUGIN_SPECS);
     }
-    const allRepositoryPluginSpecs = [
-        USAGE_WRAPUP_PLUGIN_SPEC,
-        SUBAGENT_MODELS_PLUGIN_SPEC,
-    ].filter(eachSpec => shouldInstallMarketplacePlugin(eachSpec));
-    if (!selectedGroups && allRepositoryPluginSpecs.length > 0) {
-        const repositoryPlugins = installMarketplacePlugins(allRepositoryPluginSpecs, {
+    const allModsFrameworkPluginSpecs = modsFrameworkPluginSpecs();
+    if (!selectedGroups && allModsFrameworkPluginSpecs.length > 0) {
+        const modsFrameworkPlugins = installMarketplacePlugins(allModsFrameworkPluginSpecs, {
             claudeRoot: CLAUDE_HOME,
         });
-        summary.repositoryPlugins = repositoryPlugins;
-        printPluginHostOutcomes(allRepositoryPluginSpecs, repositoryPlugins);
+        summary.modsFrameworkPlugins = modsFrameworkPlugins;
+        printPluginHostOutcomes(allModsFrameworkPluginSpecs, modsFrameworkPlugins);
+        summary.replacedPlugins = removeAndReportRetiredPlugins(replacedSpecsToRemove(
+            ALL_REPLACED_PLUGIN_SPECS, allModsFrameworkPluginSpecs, modsFrameworkPlugins,
+        ));
     }
     if (!selectedGroups && shouldInstallMarketplacePlugin(SECURITY_GUIDANCE_PLUGIN_SPEC)) {
         const securityGuidancePlugin = installMarketplacePlugins([SECURITY_GUIDANCE_PLUGIN_SPEC], {
