@@ -27,6 +27,7 @@ That's it. The installer will:
 7. Install the DeepStack plugin from `jl-cmd-projects/DeepStack` for Claude Code (`claude plugin install deepstack@DeepStack`) and Codex (`codex plugin add deepstack@DeepStack`), and copy that plugin into `~/.cursor/plugins/deepstack` with its SessionStart hook and the first-task command registered in `~/.cursor/hooks.json`
 8. Install Anthropic's security-guidance plugin from `anthropics/claude-plugins-official` for Claude Code (`claude plugin install security-guidance@claude-plugins-official`), which reviews each edit, turn, and commit the agent makes for security problems. `--no-security-guidance` or `CDE_INSTALL_SECURITY_GUIDANCE=0` skips it
 9. Install the Pele Mermaid renderer npm package into `~/.claude/tools/pele` (`npm install pele`), or update it when the registry holds a newer version. `--no-pele` or `CDE_INSTALL_PELE=0` skips it, and `--uninstall` removes the folder
+10. Install the drawer-core, usage-wrapup, and subagent-models plugins from the `jl-cmd-projects/claude-mods-framework` marketplace for Claude Code. Once each one installs, the older `usage-wrapup@claude-dev-env` or `subagent-models@claude-dev-env` copy is uninstalled, and a home that cannot reach the marketplace keeps its older copy. `--no-usage-wrapup` or `CDE_INSTALL_USAGE_WRAPUP=0` skips usage-wrapup, and `--no-subagent-models` or `CDE_INSTALL_SUBAGENT_MODELS=0` skips subagent-models. drawer-core installs whenever either of them does, and skipping both skips it
 
 ### Selective Install
 
