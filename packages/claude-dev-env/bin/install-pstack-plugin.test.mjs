@@ -77,7 +77,7 @@ test('each host installs into the managed root this run wrote', () => {
         ['claude', 'plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
         ['claude', 'plugin', 'marketplace', 'update', 'pstack-claude'],
         ['claude', 'plugin', 'install', PSTACK_PLUGIN_IDENTIFIER],
-        ['claude', 'plugin', 'update', PSTACK_PLUGIN_IDENTIFIER],
+        ['claude', 'plugin', 'update', PSTACK_PLUGIN_IDENTIFIER, '--scope', 'user'],
         ['codex', 'plugin', 'remove', PSTACK_PLUGIN_IDENTIFIER],
         ['codex', 'plugin', 'marketplace', 'remove', 'pstack-claude'],
         ['codex', 'plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
@@ -92,7 +92,7 @@ test('the Claude plan refreshes in place and Codex has no refresh commands', () 
         ['plugin', 'marketplace', 'add', PSTACK_MARKETPLACE_REPOSITORY],
         ['plugin', 'marketplace', 'update', 'pstack-claude'],
         ['plugin', 'install', PSTACK_PLUGIN_IDENTIFIER],
-        ['plugin', 'update', PSTACK_PLUGIN_IDENTIFIER],
+        ['plugin', 'update', PSTACK_PLUGIN_IDENTIFIER, '--scope', 'user'],
     ]);
     assert.deepEqual(marketplacePluginsPlan([PSTACK_PLUGIN_SPEC], 'codex').refreshCommands, []);
 });
@@ -140,7 +140,7 @@ test('a Claude refresh that fails on the network keeps the installed plugin and 
             : { status: 0, stderr: '' }));
     const outcome = installMarketplacePlugins([PSTACK_PLUGIN_SPEC], { ...ROOTS, hosts: ['claude'] }, runner);
     assert.equal(outcome.status, 'failed');
-    assert.match(outcome.hosts[0].warning, /claude plugin update pstack@pstack-claude failed: .*ENOTFOUND/);
+    assert.match(outcome.hosts[0].warning, /claude plugin update pstack@pstack-claude --scope user failed: .*ENOTFOUND/);
     const allRemovalCalls = runner.calls.filter(call => (
         call.commandArguments.includes('uninstall') || call.commandArguments.includes('remove')
     ));
@@ -364,7 +364,7 @@ test('installing usage-wrapup runs only the Claude commands, inside the managed 
         ['claude', 'plugin', 'marketplace', 'add', 'jl-cmd-projects/claude-mods-framework'],
         ['claude', 'plugin', 'marketplace', 'update', 'claude-mods-framework'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-mods-framework'],
-        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework', '--scope', 'user'],
     ]);
     for (const call of runner.calls) {
         assert.deepEqual(call.environment, { CLAUDE_CONFIG_DIR: ROOTS.claudeRoot });
@@ -416,9 +416,9 @@ test('should add and update the mods framework marketplace once for drawer-core,
         ['claude', 'plugin', 'install', 'drawer-core@claude-mods-framework'],
         ['claude', 'plugin', 'install', 'usage-wrapup@claude-mods-framework'],
         ['claude', 'plugin', 'install', 'subagent-models@claude-mods-framework'],
-        ['claude', 'plugin', 'update', 'drawer-core@claude-mods-framework'],
-        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework'],
-        ['claude', 'plugin', 'update', 'subagent-models@claude-mods-framework'],
+        ['claude', 'plugin', 'update', 'drawer-core@claude-mods-framework', '--scope', 'user'],
+        ['claude', 'plugin', 'update', 'usage-wrapup@claude-mods-framework', '--scope', 'user'],
+        ['claude', 'plugin', 'update', 'subagent-models@claude-mods-framework', '--scope', 'user'],
     ]);
 });
 
@@ -694,7 +694,7 @@ test('should install security-guidance from the official marketplace on Claude o
         ['claude', 'plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official'],
         ['claude', 'plugin', 'marketplace', 'update', 'claude-plugins-official'],
         ['claude', 'plugin', 'install', 'security-guidance@claude-plugins-official'],
-        ['claude', 'plugin', 'update', 'security-guidance@claude-plugins-official'],
+        ['claude', 'plugin', 'update', 'security-guidance@claude-plugins-official', '--scope', 'user'],
     ]);
     assert.equal(runner.calls[0].environment.CLAUDE_CONFIG_DIR, ROOTS.claudeRoot);
 });
@@ -710,7 +710,7 @@ test('should install against an official marketplace already known under another
         ['plugin', 'marketplace', 'add', 'anthropics/claude-plugins-official'],
         ['plugin', 'marketplace', 'update', 'claude-plugins-official'],
         ['plugin', 'install', 'security-guidance@claude-plugins-official'],
-        ['plugin', 'update', 'security-guidance@claude-plugins-official'],
+        ['plugin', 'update', 'security-guidance@claude-plugins-official', '--scope', 'user'],
     ]);
 });
 

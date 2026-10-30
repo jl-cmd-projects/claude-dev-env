@@ -228,7 +228,7 @@ export function marketplacePluginsPlan(allSpecs, host) {
             marketplaceAddCommand,
             ['plugin', 'marketplace', hostDefinition.updateVerb, firstSpec.marketplaceName],
             ...allPluginInstallCommands,
-            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.updateVerb, eachSpec.pluginIdentifier]),
+            ...allSpecs.map(eachSpec => ['plugin', hostDefinition.updateVerb, eachSpec.pluginIdentifier, '--scope', 'user']),
         ]
         : [];
     return {
