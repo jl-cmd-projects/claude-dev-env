@@ -82,12 +82,12 @@ def fenced_line_flags(all_lines: list[str]) -> list[bool]:
     Args:
         all_lines: The body split into lines.
     """
-    all_spans = list(_fence_spans(all_lines))
-    if any(each_span.close_index is None for each_span in all_spans):
-        return [False] * len(all_lines)
     all_flags = [False] * len(all_lines)
-    for each_span in all_spans:
-        all_flags[each_span.open_index : each_span.close_index + 1] = [True] * (each_span.close_index - each_span.open_index + 1)
+    for each_span in _fence_spans(all_lines):
+        close_index = each_span.close_index
+        if close_index is None:
+            return [False] * len(all_lines)
+        all_flags[each_span.open_index : close_index + 1] = [True] * (close_index - each_span.open_index + 1)
     return all_flags
 
 
