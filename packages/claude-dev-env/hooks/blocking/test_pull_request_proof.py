@@ -19,6 +19,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
+    MISSING_FLOWCHART_REASON,
     MISSING_PROOF_REASON,
     TEST_ONLY_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
@@ -344,6 +345,103 @@ def test_unreadable_body_should_leave_the_deny_to_the_proof_check() -> None:
 def test_other_pull_request_commands_should_pass_the_existing_work_check() -> None:
     for each_command in ("gh pr edit 3 --body x", "git push -u origin b", "gh pr view"):
         assert gate.missing_existing_work_reason(_shell(each_command)) is None
+
+
+FLOWCHART_BLOCK = "```mermaid\nflowchart LR\n    before --> after\n```"
+CHARTED_BODY = f"## What this does\nDraws the flow.\n\n{FLOWCHART_BLOCK}\n\n## Risk\nLow.\n"
+CREATE_WITH_BODY_FILE = "gh pr create --title 't' --body-file body.md"
+
+
+def _mcp_update(body: object) -> dict[str, object]:
+    return {
+        "tool_name": "mcp__github__update_pull_request",
+        "tool_input": {"owner": "o", "repo": "r", "pullNumber": 1, "body": body},
+    }
+
+
+def test_what_this_does_section_should_stop_at_a_heading_of_the_same_level() -> None:
+    body = "### What this does\nBefore.\n#### Child\nkept\n### Risk\ndropped"
+    assert gate.what_this_does_section(body) == "Before.\n#### Child\nkept"
+
+
+def test_what_this_does_section_should_return_none_without_the_heading() -> None:
+    assert gate.what_this_does_section(UNPROVEN_BODY) is None
+
+
+def test_what_this_does_section_should_not_end_at_a_hash_line_inside_a_fenced_block() -> None:
+    body = f"## What this does\n```bash\n# old flow\nx\n```\n{FLOWCHART_BLOCK}\n## Risk\nLow.\n"
+    assert gate.has_flowchart_under_what_this_does(body)
+
+
+def test_unclosed_fence_should_not_swallow_the_next_heading() -> None:
+    body = "## Proof in practice\nRan `python probe.py`.\n```\nout\n## Not covered\nnot run: x"
+    assert gate.proof_section(body) == "Ran `python probe.py`.\n```\nout"
+
+
+def test_what_this_does_heading_inside_a_fenced_block_should_not_start_the_section() -> None:
+    body = f"```\n## What this does\n```\n\n{CHARTED_BODY}"
+    assert gate.has_flowchart_under_what_this_does(body)
+
+
+def test_has_flowchart_under_what_this_does_should_read_only_that_section() -> None:
+    assert gate.has_flowchart_under_what_this_does(CHARTED_BODY)
+    assert not gate.has_flowchart_under_what_this_does(f"## What this does\nWords.\n\n## Risk\n{FLOWCHART_BLOCK}\n")
+    assert not gate.has_flowchart_under_what_this_does(f"{FLOWCHART_BLOCK}\n")
+
+
+def test_mcp_create_with_a_flowchart_under_what_this_does_should_pass() -> None:
+    assert gate.missing_flowchart_reason(_mcp_create(CHARTED_BODY)) is None
+
+
+def test_mcp_create_with_text_only_under_what_this_does_should_be_denied() -> None:
+    body = "## What this does\nDraws the flow in words.\n\n## Risk\nLow.\n"
+    assert gate.missing_flowchart_reason(_mcp_create(body)) == MISSING_FLOWCHART_REASON
+
+
+def test_mcp_create_without_a_what_this_does_heading_should_be_denied() -> None:
+    assert gate.missing_flowchart_reason(_mcp_create(SEARCHED_BODY)) == MISSING_FLOWCHART_REASON
+
+
+def test_mcp_create_with_the_flowchart_under_another_heading_should_be_denied() -> None:
+    body = f"## What this does\nWords.\n\n## Risk\n{FLOWCHART_BLOCK}\n"
+    assert gate.missing_flowchart_reason(_mcp_create(body)) == MISSING_FLOWCHART_REASON
+
+
+def test_mcp_create_with_a_sequence_diagram_should_be_denied() -> None:
+    body = "## What this does\n```mermaid\nsequenceDiagram\n    a->>b: hi\n```\n"
+    assert gate.missing_flowchart_reason(_mcp_create(body)) == MISSING_FLOWCHART_REASON
+
+
+def test_body_file_create_without_a_flowchart_should_be_denied(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text("## What this does\nWords only.\n", encoding="utf-8")
+    assert gate.missing_flowchart_reason(_shell(CREATE_WITH_BODY_FILE, tmp_path)) == MISSING_FLOWCHART_REASON
+
+
+def test_body_file_create_with_a_flowchart_should_pass(tmp_path: Path) -> None:
+    (tmp_path / "body.md").write_text(CHARTED_BODY, encoding="utf-8")
+    assert gate.missing_flowchart_reason(_shell(CREATE_WITH_BODY_FILE, tmp_path)) is None
+
+
+def test_flowchart_check_should_skip_an_unreadable_shell_body_and_deny_an_empty_mcp_body() -> None:
+    assert gate.missing_flowchart_reason(_shell("gh pr create --fill")) is None
+    assert gate.missing_flowchart_reason(_mcp_create(None)) == MISSING_FLOWCHART_REASON
+
+
+def test_edit_with_the_heading_and_no_flowchart_should_be_denied() -> None:
+    body = "## What this does\nWords only.\n"
+    assert gate.missing_flowchart_reason(_mcp_update(body)) == MISSING_FLOWCHART_REASON
+
+
+def test_edit_with_a_flowchart_should_pass() -> None:
+    assert gate.missing_flowchart_reason(_mcp_update(CHARTED_BODY)) is None
+
+
+def test_edit_of_an_older_body_without_the_heading_should_pass() -> None:
+    assert gate.missing_flowchart_reason(_mcp_update(SEARCHED_BODY)) is None
+
+
+def test_other_tools_should_pass_the_flowchart_check() -> None:
+    assert gate.missing_flowchart_reason(_shell("git push origin main")) is None
 
 
 def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:

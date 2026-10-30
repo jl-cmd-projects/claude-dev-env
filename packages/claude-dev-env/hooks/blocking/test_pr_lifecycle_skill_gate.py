@@ -20,8 +20,12 @@ from hooks_constants.pull_request_proof_constants import (
     UNPROVEN_PROOF_REASON,
 )
 
+WHAT_THIS_DOES_SECTION = (
+    "## What this does\nDraws the flow before and after.\n\n"
+    "```mermaid\nflowchart LR\n    before --> after\n```\n\n"
+)
 PROVEN_FOLLOWUP_BODY = (
-    "Follow-up to #1731\n\n## Existing work\nNothing found in open or merged pull requests.\n\n"
+    "Follow-up to #1731\n\n" + WHAT_THIS_DOES_SECTION + "## Existing work\nNothing found in open or merged pull requests.\n\n"
     "## Proof in practice\nRan `python probe.py`.\n"
 )
 
@@ -370,7 +374,7 @@ def test_loaded_skill_denies_a_body_edit_that_adds_an_unrun_proof_line(tmp_path:
 
 
 EVALUATED_BODY = (
-    "## Existing work\nNothing found in open or merged pull requests.\n\n"
+    WHAT_THIS_DOES_SECTION + "## Existing work\nNothing found in open or merged pull requests.\n\n"
     "## Proof in practice\nRan `python probe.py`.\n\n"
     "## Eval\nTen labeled cases, exact-match grader. Ran `python eval.py`: 10/10.\n"
 )

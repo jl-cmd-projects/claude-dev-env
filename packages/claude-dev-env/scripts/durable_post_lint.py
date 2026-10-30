@@ -42,6 +42,8 @@ from durable_post_lint_config.config.constants import (
     INVALID_ACTION_MESSAGE,
     INVALID_TITLE_CODE,
     INVALID_TITLE_MESSAGE,
+    MISSING_FLOWCHART_CODE,
+    MISSING_FLOWCHART_MESSAGE,
     MISSING_HEADING_CODE,
     MISSING_HEADING_MESSAGE_TEMPLATE,
     PATH_ANCHOR_CHARACTER,
@@ -64,10 +66,12 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from blocking.pull_request_proof import (
+    has_flowchart_under_what_this_does,
     checkout_is_for,
     missing_eval_section_reason,
     missing_existing_work_reason,
     missing_proof_reason,
+    what_this_does_section,
 )
 from blocking.reply_length_gate import comment_length_violation
 
@@ -160,6 +164,14 @@ def _description_heading_findings(body_text: str) -> list[DurablePostFinding]:
     ]
 
 
+def _description_flowchart_findings(body_text: str) -> list[DurablePostFinding]:
+    if what_this_does_section(body_text) is None or has_flowchart_under_what_this_does(body_text):
+        return []
+    return [
+        DurablePostFinding(
+            code=MISSING_FLOWCHART_CODE, message=MISSING_FLOWCHART_MESSAGE
+        )
+    ]
 def _checkout_directory(head_branch: str | None, repository: str | None) -> str:
     current_directory = str(Path.cwd())
     if head_branch and repository and checkout_is_for(current_directory, repository):
@@ -291,6 +303,9 @@ def _body_findings(
             all_findings.extend(_description_heading_findings(body_text))
             all_findings.extend(
                 _pull_request_proof_findings(title, body_text, head_branch, repository)
+            )
+        if action in (ACTION_PR_CREATE, ACTION_PR_EDIT):
+            all_findings.extend(_description_flowchart_findings(body_text)
             )
         if action == ACTION_GITHUB_MCP_COMMENT:
             all_findings.extend(_comment_length_findings(body_text))

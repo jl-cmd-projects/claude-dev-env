@@ -71,6 +71,7 @@ from blocking.pull_request_proof import (
     is_feature_pull_request,
     missing_eval_section_reason,
     missing_existing_work_reason,
+    missing_flowchart_reason,
     missing_look_reason,
     missing_proof_reason,
 )
@@ -336,6 +337,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         proof, or a body edit, holds a merge word         -> DEFERRED_PROOF_REASON
         body edit whose proof has no command or only tests -> MISSING_PROOF_REASON or TEST_ONLY_PROOF_REASON
         new pull request with no existing-work section    -> MISSING_EXISTING_WORK_REASON
+        pull request with no flowchart in What this does  -> MISSING_FLOWCHART_REASON
         feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
@@ -354,6 +356,9 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     search_reason = missing_existing_work_reason(all_payload_fields)
     if search_reason is not None:
         return deny_decision(search_reason)
+    flowchart_reason = missing_flowchart_reason(all_payload_fields)
+    if flowchart_reason is not None:
+        return deny_decision(flowchart_reason)
     eval_reason = missing_eval_section_reason(all_payload_fields)
     if eval_reason is not None:
         return deny_decision(eval_reason)

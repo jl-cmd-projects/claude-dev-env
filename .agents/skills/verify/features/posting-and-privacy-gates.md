@@ -4,7 +4,7 @@ Every GitHub post passes a local linter before it leaves the machine. CI scans e
 
 ## Sub-features
 
-- `packages/claude-dev-env/scripts/durable_post_lint.py` checks one post before publication. It checks the Conventional Commit title, the `## What this does`, `## Risk` and `## How to revert` headings and the proof gate's sections on a new pull request description, contrast framing, volatile local paths, private organization names, and a rewritten release body.
+- `packages/claude-dev-env/scripts/durable_post_lint.py` checks one post before publication. It checks the Conventional Commit title, the `## What this does`, `## Risk` and `## How to revert` headings and the proof gate's sections on a new pull request description, a mermaid flowchart under `## What this does` on a create or edit body, contrast framing, volatile local paths, private organization names, and a rewritten release body.
 - `packages/claude-dev-env/.agents/skills/pull-request/scripts/pull_request.py` runs that linter first and calls `gh` only on a clean result. It opens each pull request ready for review, or as a draft with `--draft`.
 - `packages/claude-dev-env/scripts/private_term_scan.py` runs in `.github/workflows/private-terms.yml`. It scans the event text and, on a pull request, every commit message and author identity in `base..head`. The scan leaves an accepted ASCII address out of the identity text and scans the rest, so the author name, the committer, and any other address still fail when they name the organization. The shared agent account address is the one accepted address, and the owner handle passes in an identity. A commit message that names either still fails.
 - `packages/claude-dev-env/scripts/private_terms.py` holds the matcher. It compares SHA-256 digests of normalized text windows, so no file stores the names.
@@ -37,6 +37,7 @@ Expected results:
 | Conventional title, `pr-create` body with every section in the pull-request skill's `reference/body-sections.md` | nothing | 0 |
 | Title `Add a map` | `pull request title does not use the repository Conventional Commit form` | 1 |
 | `pr-create` body with none of those sections | `body is missing required heading: What this does`, then `Risk`, then `How to revert`, then the proof gate's Proof in practice and Existing work messages | 1 |
+| `pr-create` or `pr-edit` body whose `## What this does` section holds no closed `mermaid` block that starts with `flowchart` and joins two nodes with an arrow | `## What this does needs a mermaid flowchart that draws the flow before and after the change` | 1 |
 | Body naming `/tmp/run/log.txt` | `body contains a volatile local artifact path` | 1 |
 | Body line `We park it rather than fix it.` | `Contrast framing (substitution-rather-than): ...` | 1 |
 | `--head-branch release-please--branches--main` with a rewritten body | `release automation reads this body back ...` | 1 |

@@ -46,5 +46,6 @@ The person running the loop asked for a full look, so every pass gets a full loo
 - Use picture words: hand it, open it, find it, check it, save it, skip it, stop, call by name.
 - Prefer spoken results: “found it,” “missing,” “duplicated,” “couldn’t.”
 - Keep `What this does` short and concrete.
+- Draw the flow before and after the change under `What this does` as a fenced `mermaid` flowchart with at least two nodes and one arrow.
 - Put proof only in `Proof in practice`.
 - Explain jargon immediately or replace it.

@@ -14,6 +14,7 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
 from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES, UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
@@ -50,6 +51,7 @@ from hooks_constants.pull_request_proof_constants import (
     REPOSITORY_ENDPOINT_TEMPLATE,
     REPOSITORY_FLAG_ASSIGNMENT_PREFIX,
     UNREADABLE_CHANGES_REASON,
+    WHAT_THIS_DOES_HEADING_PATTERN,
     EVAL_HEADING_PATTERN,
     EXISTING_WORK_HEADING_PATTERN,
     FEATURE_TITLE_PATTERN,
@@ -58,6 +60,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_BODY_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
+    MISSING_FLOWCHART_REASON,
     MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
     NEW_WORKFLOW_PATH_PATTERN,
@@ -118,8 +121,9 @@ def _heading_level(line: str, heading_pattern: str) -> int | None:
 
 
 def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
+    all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
-        next_level = _heading_level(each_line, NEXT_HEADING_PATTERN)
+        next_level = None if all_fenced_flags[each_index] else _heading_level(each_line, NEXT_HEADING_PATTERN)
         if next_level is not None and next_level <= heading_level:
             return all_lines[:each_index]
     return all_lines
@@ -127,8 +131,9 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
 
 def _section_text(body: str, heading_pattern: str) -> str | None:
     all_lines = body.splitlines()
+    all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
-        heading_level = _heading_level(each_line, heading_pattern)
+        heading_level = None if all_fenced_flags[each_index] else _heading_level(each_line, heading_pattern)
         if heading_level is not None:
             all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
             return LINE_SEPARATOR.join(all_section_lines).strip()
@@ -146,6 +151,21 @@ def proof_section(body: str) -> str | None:
     The section runs to the next heading of the same or a higher level.
     """
     return _section_text(body, PROOF_HEADING_PATTERN)
+
+
+def what_this_does_section(body: str) -> str | None:
+    """Return the text under the body's 'What this does' heading, or None.
+
+    ::
+
+        "## What this does\\nBefore, after.\\n## Risk" -> "Before, after."
+        "## Summary\\nno what-this-does heading"      -> None
+
+    The section runs to the next heading of the same or a higher level. A line
+    that starts with a hash inside a fenced block is code, not a heading. When any fence
+    in the body never closes, every fence reads as plain text.
+    """
+    return _section_text(body, WHAT_THIS_DOES_HEADING_PATTERN)
 
 
 def section_under_existing_work(body: str) -> str | None:
@@ -661,6 +681,51 @@ def missing_existing_work_reason(all_payload_fields: Mapping[str, object]) -> st
     for each_body in _create_bodies(all_payload_fields):
         if each_body is not None and not section_under_existing_work(each_body):
             return MISSING_EXISTING_WORK_REASON
+    return None
+
+
+def has_flowchart_under_what_this_does(body: str) -> bool:
+    """Return whether the body's 'What this does' section holds a mermaid flowchart.
+
+    ::
+
+        "## What this does\\n```mermaid\\nflowchart LR\\n a --> b\\n```" -> True
+        "## What this does\\nwords only"                                  -> False
+        "## Summary\\nno what-this-does heading"                          -> False
+
+    Args:
+        body: The pull request body.
+    """
+    section = what_this_does_section(body)
+    return section is not None and section_has_flowchart(section)
+
+
+def missing_flowchart_reason(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return a deny reason when a pull request body has no flowchart under 'What this does', else None.
+
+    ::
+
+        MCP create, flowchart under the heading        -> None
+        MCP create, text only under the heading        -> MISSING_FLOWCHART_REASON
+        MCP create, no 'What this does' heading        -> MISSING_FLOWCHART_REASON
+        update_pull_request, heading and no flowchart  -> MISSING_FLOWCHART_REASON
+        update_pull_request, no 'What this does' heading -> None
+        a create with --fill, any other tool           -> None
+
+    A new pull request needs the flowchart. A body edit needs it only when the
+    body carries the heading, so an edit to an older body passes. A create
+    command whose body this gate cannot read passes here, because
+    missing_proof_reason denies it first.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    for each_body in _create_bodies(all_payload_fields):
+        if each_body is not None and not has_flowchart_under_what_this_does(each_body):
+            return MISSING_FLOWCHART_REASON
+    for each_body in _edit_bodies(all_payload_fields):
+        if what_this_does_section(each_body) is not None and not has_flowchart_under_what_this_does(each_body):
+            return MISSING_FLOWCHART_REASON
     return None
 
 
