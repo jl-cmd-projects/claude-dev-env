@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.110.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.0...claude-dev-env-v8.110.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **hooks:** require a flowchart in every PR description ([#2265](https://github.com/jl-cmd-projects/claude-dev-env/issues/2265)) ([09562d5](https://github.com/jl-cmd-projects/claude-dev-env/commit/09562d5689ed72e44c036528ec0ccfe26d6a2d21))
+
 ## [8.110.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.109.8...claude-dev-env-v8.110.0) (2026-10-30)
 
 
