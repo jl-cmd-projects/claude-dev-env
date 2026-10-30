@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.110.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.1...claude-dev-env-v8.110.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **install:** update pstack plugin in the user scope ([#2271](https://github.com/jl-cmd-projects/claude-dev-env/issues/2271)) ([e72caf1](https://github.com/jl-cmd-projects/claude-dev-env/commit/e72caf159e62860bb57160e9f671f7e94bd985d0))
+
 ## [8.110.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.0...claude-dev-env-v8.110.1) (2026-10-30)
 
 
