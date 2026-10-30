@@ -3163,7 +3163,7 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
         'claude plugin marketplace add jl-cmd/pstack-claude',
         'claude plugin marketplace update pstack-claude',
         'claude plugin install pstack@pstack-claude',
-        'claude plugin update pstack@pstack-claude',
+        'claude plugin update pstack@pstack-claude --scope user',
         'codex plugin remove pstack@pstack-claude',
         'codex plugin marketplace remove pstack-claude',
         'codex plugin marketplace add jl-cmd/pstack-claude',
@@ -3206,7 +3206,7 @@ test('a full install adds DeepStack for Claude, Codex, and Cursor', t => {
         'claude plugin marketplace add jl-cmd-projects/DeepStack',
         'claude plugin marketplace update DeepStack',
         'claude plugin install deepstack@DeepStack',
-        'claude plugin update deepstack@DeepStack',
+        'claude plugin update deepstack@DeepStack --scope user',
         'codex plugin remove deepstack@DeepStack',
         'codex plugin marketplace remove DeepStack',
         'codex plugin marketplace add jl-cmd-projects/DeepStack',
@@ -3424,8 +3424,8 @@ const USAGE_WRAPUP_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin marketplace update claude-mods-framework',
     'claude plugin install drawer-core@claude-mods-framework',
     'claude plugin install usage-wrapup@claude-mods-framework',
-    'claude plugin update drawer-core@claude-mods-framework',
-    'claude plugin update usage-wrapup@claude-mods-framework',
+    'claude plugin update drawer-core@claude-mods-framework --scope user',
+    'claude plugin update usage-wrapup@claude-mods-framework --scope user',
 ]);
 
 function usageWrapupCommands(allRecordedCommands) {
@@ -3506,9 +3506,9 @@ const MODS_FRAMEWORK_PLUGIN_CLAUDE_COMMANDS = Object.freeze([
     'claude plugin install drawer-core@claude-mods-framework',
     'claude plugin install usage-wrapup@claude-mods-framework',
     'claude plugin install subagent-models@claude-mods-framework',
-    'claude plugin update drawer-core@claude-mods-framework',
-    'claude plugin update usage-wrapup@claude-mods-framework',
-    'claude plugin update subagent-models@claude-mods-framework',
+    'claude plugin update drawer-core@claude-mods-framework --scope user',
+    'claude plugin update usage-wrapup@claude-mods-framework --scope user',
+    'claude plugin update subagent-models@claude-mods-framework --scope user',
 ]);
 
 test('should install drawer-core and subagent-models beside usage-wrapup with one marketplace add on a full install', t => {
@@ -3560,7 +3560,7 @@ test('should install security-guidance from the official marketplace on a full i
         'claude plugin marketplace add anthropics/claude-plugins-official',
         'claude plugin marketplace update claude-plugins-official',
         'claude plugin install security-guidance@claude-plugins-official',
-        'claude plugin update security-guidance@claude-plugins-official',
+        'claude plugin update security-guidance@claude-plugins-official --scope user',
     ]);
     assert.match(installerOutput, /Security-guidance \(claude\): installed/);
 });
