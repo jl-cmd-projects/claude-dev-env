@@ -282,14 +282,6 @@ def _claude_blocking_flags(meters: Meters, is_main: bool) -> tuple[bool, bool]:
     )
 
 
-def _claude_extra_tier(meters: Meters | None) -> str | None:
-    if meters is None or meters.tightest_percent_left is None:
-        return None
-    if any(_claude_blocking_flags(meters, is_main=False)):
-        return None
-    return "normal"
-
-
 def _codex_tier(meters: Meters | None) -> str | None:
     if meters is None or meters.tightest_percent_left is None:
         return None
@@ -334,19 +326,13 @@ def _rank_key(reading: Reading) -> tuple[bool, int, bool, float]:
     return (priority is None, priority or 0, not is_pro_plan, -(room if room is not None else -1.0))
 
 
-def _main_has_room(meters: Meters | None) -> bool:
+def _claude_has_room(reading: Reading) -> bool:
+    meters = reading.meters
     return bool(
         meters is not None
-        and meters.session_percent_left is not None
-        and meters.weekly_percent_left is not None
-        and not any(_claude_blocking_flags(meters, is_main=True))
+        and meters.tightest_percent_left is not None
+        and not any(_claude_blocking_flags(meters, reading.account.is_main))
     )
-
-
-def _claude_has_room(reading: Reading) -> bool:
-    if reading.account.is_main:
-        return _main_has_room(reading.meters)
-    return _claude_extra_tier(reading.meters) is not None
 
 
 def _choose_claude(all_available: Sequence[Reading], preferred_command: str | None) -> Decision | None:
