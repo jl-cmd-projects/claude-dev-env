@@ -174,6 +174,20 @@ class TestReadOauthAccessToken:
         write_credentials(credentials_path, past_milliseconds)
         assert resolver.read_oauth_access_token(credentials_path, now) is None
 
+    def should_name_the_credential_file_when_its_token_expired(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        resolver = load_resolver_module()
+        now = local_now()
+        credentials_path = tmp_path / ".credentials.json"
+        past_milliseconds = int((now - timedelta(hours=1)).timestamp() * 1000)
+        write_credentials(credentials_path, past_milliseconds)
+        with caplog.at_level(logging.WARNING):
+            resolver.read_oauth_access_token(credentials_path, now)
+        assert [each_record.getMessage() for each_record in caplog.records] == [
+            f"stored access token at {credentials_path} is expired; probe unavailable"
+        ]
+
     def should_not_warn_when_credential_file_missing(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:

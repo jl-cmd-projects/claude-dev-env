@@ -233,6 +233,19 @@ def test_should_pick_main_when_it_is_the_only_readable_account() -> None:
     assert decision.account == main.account
 
 
+def test_should_pick_main_when_its_5_hour_meter_is_null_and_its_week_has_room() -> None:
+    main = Reading(
+        _account("main", Product.CLAUDE, main=True),
+        Meters(None, None, 96.0, NOW + timedelta(days=5)),
+    )
+
+    decision = choose_from_readings(Product.CLAUDE, (main,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == main.account
+    assert decision.reason == "main has 96% left"
+
+
 def test_should_wait_for_main_5_hour_reset_while_its_week_resets_days_away() -> None:
     short_reset = NOW + timedelta(hours=2)
     main = Reading(

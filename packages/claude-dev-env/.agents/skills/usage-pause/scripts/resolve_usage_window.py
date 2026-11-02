@@ -263,7 +263,9 @@ def read_oauth_access_token(credentials_path: Path, now: datetime) -> str | None
         logger.warning("credential file is missing the token or its expiry")
         return None
     if expires_at_milliseconds <= now.timestamp() * MILLISECONDS_PER_SECOND:
-        logger.warning("stored access token is expired; probe unavailable")
+        logger.warning(
+            "stored access token at %s is expired; probe unavailable", credentials_path
+        )
         return None
     return access_token
 
