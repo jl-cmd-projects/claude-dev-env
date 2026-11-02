@@ -15,12 +15,14 @@ on:
         default: main
         type: string
       title:
-        description: The pull request title
-        required: true
+        description: The pull request title, required to open a pull request
+        required: false
+        default: ""
         type: string
       body:
-        description: The pull request body
-        required: true
+        description: The pull request body, required to open a pull request
+        required: false
+        default: ""
         type: string
       draft:
         description: Open the pull request as a draft
@@ -98,6 +100,10 @@ jobs:
           PR_DRAFT: ${{ inputs.draft }}
         run: |
           set -euo pipefail
+          if [ -z "$PR_TITLE" ] || [ -z "$PR_BODY" ]; then
+            echo "A pull request needs a title and a body" >&2
+            exit 1
+          fi
           printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
           draft_flag=()
           if [ "$PR_DRAFT" = "true" ]; then
