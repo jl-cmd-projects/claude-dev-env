@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.111.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.3...claude-dev-env-v8.111.0) (2026-11-02)
+
+
+### Features
+
+* **rules:** repair the part the user named, with no workaround ([#2276](https://github.com/jl-cmd-projects/claude-dev-env/issues/2276)) ([19aa443](https://github.com/jl-cmd-projects/claude-dev-env/commit/19aa44336d0b6ec45efb5a1ad4b803a4813346d5))
+
 ## [8.110.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.2...claude-dev-env-v8.110.3) (2026-11-02)
 
 
