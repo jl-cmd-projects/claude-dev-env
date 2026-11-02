@@ -7,15 +7,18 @@ import pytest
 
 import spawn_oversight_hook
 from hooks_constants.spawn_oversight_hook_constants import (
+    MISMATCHED_USER_WORDS_REASON,
     MISSING_BLOCKER_CLAUSE_REASON,
     MISSING_OUTCOME_REASON,
+    MISSING_USER_WORDS_REASON,
     SPAWN_OVERSIGHT_DIRECTIVE,
 )
 
 HOOK_SCRIPT = Path(__file__).resolve().parent / "spawn_oversight_hook.py"
 
 ROUTE_ONLY_BRIEF = "Run X on the PC via RC and send me the output."
-GOOD_BRIEF = (
+USER_WORDS_BLOCK = "User's words:\n```\nSend me X's output in this thread.\n```\n"
+GOOD_BRIEF = USER_WORDS_BLOCK + (
     "Outcome: the user has X's output in this thread. Suggested route: RC on the PC. "
     "On a blocker: try the bridge, a cloud run, or another route that reaches the "
     "outcome; hand the user a step only when it needs their hands."
@@ -28,7 +31,8 @@ BLOCKER_ONLY_BRIEF = (
     "user a step only when it needs their hands."
 )
 MARKDOWN_BRIEF = (
-    "Fix the parser.\n\n"
+    "**User's words:**\n```\nFix the parser.\n```\n\n"
+    "- **Outcome:** the parser test passes on main.\n"
     "- **Outcome:** the parser test passes on main.\n"
     "- **On a blocker:** try another route; hand the user a step only when it needs "
     "their hands.\n"
@@ -272,3 +276,94 @@ def test_the_emitted_directive_reports_only_verified_results() -> None:
 
 def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
     assert "A verifier's check ends the chain and gets no verifier of its own" in _emitted_directive()
+
+
+def _write_transcript(tmp_path: Path, all_entries: list[dict[str, object]]) -> str:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_entry) for each_entry in all_entries), encoding="utf-8"
+    )
+    return str(transcript_path)
+
+
+def _user_entry(content: str) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": content}}
+
+
+def _assistant_entry(text: str) -> dict[str, object]:
+    return {
+        "type": "assistant",
+        "message": {"role": "assistant", "content": [{"type": "text", "text": text}]},
+    }
+
+
+PARAPHRASED_BRIEF = GOOD_BRIEF.replace(
+    "Send me X's output in this thread.", "Give me the X output."
+)
+
+
+@pytest.mark.parametrize("tool_name", ALL_SPAWN_TOOL_NAMES)
+def test_a_brief_without_user_words_is_refused_on_every_spawn_tool(tool_name: str) -> None:
+    brief_without_block = GOOD_BRIEF.replace(USER_WORDS_BLOCK, "")
+    reason = _deny_reason(
+        spawn_oversight_hook.decide_hook_output(_spawn_payload(tool_name, brief_without_block))
+    )
+    assert MISSING_USER_WORDS_REASON in reason
+
+
+def test_a_paraphrase_of_the_user_words_is_refused_against_the_transcript(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path, [_user_entry("Send me X's output in this thread.")]
+    )
+    payload = {**_spawn_payload("Agent", PARAPHRASED_BRIEF), "transcript_path": transcript_path}
+    assert MISMATCHED_USER_WORDS_REASON in _deny_reason(
+        spawn_oversight_hook.decide_hook_output(payload)
+    )
+
+
+def test_user_words_copied_from_an_escaped_wake_pass_the_transcript_check(tmp_path: Path) -> None:
+    wake = (
+        '<wake reason="mention"><message trigger="true" from="human">'
+        "Send me X&#39;s output in this thread.</message></wake>"
+    )
+    transcript_path = _write_transcript(tmp_path, [_user_entry(wake)])
+    payload = {**_spawn_payload("Agent", GOOD_BRIEF), "transcript_path": transcript_path}
+    assert spawn_oversight_hook.decide_hook_output(payload) == _directive_output()
+
+
+def test_a_subagent_passes_the_user_words_its_parent_brief_carried(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(tmp_path, [_user_entry(GOOD_BRIEF)])
+    payload = {
+        **_spawn_payload("Agent", GOOD_BRIEF),
+        "agent_id": "agent_child",
+        "transcript_path": transcript_path,
+    }
+    assert spawn_oversight_hook.decide_hook_output(payload) == _directive_output()
+
+
+def test_assistant_text_does_not_count_as_the_user_words(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [_user_entry("Fix the parser."), _assistant_entry("Send me X's output in this thread.")],
+    )
+    payload = {**_spawn_payload("Agent", GOOD_BRIEF), "transcript_path": transcript_path}
+    assert MISMATCHED_USER_WORDS_REASON in _deny_reason(
+        spawn_oversight_hook.decide_hook_output(payload)
+    )
+
+
+def test_an_unreadable_transcript_checks_only_the_marker(tmp_path: Path) -> None:
+    payload = {
+        **_spawn_payload("Agent", GOOD_BRIEF),
+        "transcript_path": str(tmp_path / "missing.jsonl"),
+    }
+    assert spawn_oversight_hook.decide_hook_output(payload) == _directive_output()
+
+
+def test_script_refuses_a_paraphrase_from_a_stdin_payload(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path, [_user_entry("Send me X's output in this thread.")]
+    )
+    payload = {**_spawn_payload("Agent", PARAPHRASED_BRIEF), "transcript_path": transcript_path}
+    stdout = _run_script(json.dumps(payload))
+    assert MISMATCHED_USER_WORDS_REASON in _deny_reason(json.loads(stdout))

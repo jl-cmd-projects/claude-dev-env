@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: refuse a spawn brief without the user's outcome and a blocker clause.
+"""PreToolUse hook: refuse a spawn brief without the user's outcome, blocker clause, and words.
 
 Registered on every tool that starts another agent: ``Agent``, ``Task``,
 ``Workflow``, ``multi_agent_v1__spawn_agent``,
@@ -7,7 +7,9 @@ Registered on every tool that starts another agent: ``Agent``, ``Task``,
 and ``mcp__hearthbot__start_remote_control``, plus a workflow dispatch whose
 inputs carry a ``prompt`` for an agent. The brief needs an ``Outcome:`` line
 and an ``On a blocker:`` clause, each with text after it, so the worker owns
-the outcome and any route named is a default.
+the outcome and any route named is a default. It also needs a ``User's words:``
+fenced block whose text appears word for word in the session transcript, so the
+worker starts from what the user actually asked.
 
 ::
 
@@ -62,7 +64,9 @@ from hooks_constants.spawn_oversight_hook_constants import (
     TOOL_NAME_KEY,
     WORKFLOW_TOOL_NAME,
 )
+from hooks_constants.spawn_readiness_hook_constants import TRANSCRIPT_PATH_KEY
 from spawn_brief_text import spawn_brief_text
+from spawn_user_words import user_words_gaps
 
 
 def has_marked_clause(brief: str, all_markers: tuple[str, ...]) -> bool:
@@ -151,7 +155,7 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
         return None
     if tool_name == WORKFLOW_TOOL_NAME and not brief:
         return _directive_output()
-    all_gaps = brief_gaps(brief)
+    all_gaps = brief_gaps(brief) + user_words_gaps(brief, all_hook_fields.get(TRANSCRIPT_PATH_KEY))
     if all_gaps:
         return _deny_output(all_gaps)
     return _directive_output()

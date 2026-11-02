@@ -7,6 +7,8 @@ every spawn that passes.
 
 from __future__ import annotations
 
+import re
+
 TOOL_NAME_KEY = "tool_name"
 TOOL_INPUT_KEY = "tool_input"
 PRE_TOOL_USE_EVENT_NAME = "PreToolUse"
@@ -18,6 +20,9 @@ WORKFLOW_TOOL_NAME = "Workflow"
 ALL_OUTCOME_MARKERS = ("outcome:",)
 ALL_BLOCKER_CLAUSE_MARKERS = ("on a blocker:", "at a blocker:")
 MARKER_DECORATION_CHARACTERS = "*_` \t"
+USER_WORDS_BLOCK_PATTERN = re.compile(
+    r"user's words:[*_` \t\r\n]*```[^\n]*\n(.*?)```", re.IGNORECASE | re.DOTALL
+)
 
 MISSING_OUTCOME_REASON = (
     "The brief has no outcome line. Add `Outcome: <what the user has when the "
@@ -27,6 +32,14 @@ MISSING_BLOCKER_CLAUSE_REASON = (
     "The brief has no blocker clause. Add `On a blocker: try other routes that "
     "reach the outcome; hand the user a step only when it needs their hands.` "
     "Name any route as `Suggested route: <route>`, a default the worker may leave."
+)
+MISSING_USER_WORDS_REASON = (
+    "The brief has no user's words block. Add `User's words:` then the user's "
+    "message copied word for word in a fenced block."
+)
+MISMATCHED_USER_WORDS_REASON = (
+    "The user's words block does not match the user's message in this session. "
+    "Copy the message exactly, with no paraphrase."
 )
 REFUSAL_PREFIX = "Spawn refused before the worker starts."
 REFUSAL_SUFFIX = (
