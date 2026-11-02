@@ -54,6 +54,15 @@ def test_main_refuses_an_unknown_case_id_with_a_usage_error(monkeypatch: pytest.
     assert "unknown case ids: zz9" in caplog.text
 
 
+def test_main_turns_auto_memory_off_for_every_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "0")
+    monkeypatch.setattr(sys, "argv", ["run.py", "--variant", "indx"])
+
+    run.main()
+
+    assert run.os.environ["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+
+
 def test_main_refuses_an_unknown_variant_with_a_usage_error(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     monkeypatch.setattr(sys, "argv", ["run.py", "--variant", "indx"])
 

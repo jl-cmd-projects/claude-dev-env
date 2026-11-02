@@ -20,6 +20,7 @@ comment, reruns every stored (case, rep), at the cost of a full run.
 import argparse
 import json
 import logging
+import os
 import sys
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -33,6 +34,7 @@ sys.path[:0] = [each_root for each_root in all_import_roots if each_root not in 
 import contrast_framing
 from contrast_framing import find_contrast_framing
 from rules_eval_support.config.constants import (
+    ALL_SESSION_ENVIRONMENT,
     CASES_FILE,
     ALL_TEXT_CHECKS,
     CHECK_CONTRAST,
@@ -221,6 +223,7 @@ def main() -> int:
     """
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
+    os.environ.update(ALL_SESSION_ENVIRONMENT)
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     try:
         variant = select_variant(state["variants"], arguments.variant)

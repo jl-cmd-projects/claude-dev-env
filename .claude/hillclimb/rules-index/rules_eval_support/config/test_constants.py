@@ -4,7 +4,7 @@ from pathlib import Path
 flow_directory = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(flow_directory), str(flow_directory.parent / "features-start-with-an-eval")]
 
-from rules_eval_support.config.constants import FLOW_ROOT, JUDGE_PROMPT_TEMPLATE
+from rules_eval_support.config.constants import ALL_SESSION_ENVIRONMENT, FLOW_ROOT, JUDGE_PROMPT_TEMPLATE
 from rules_eval_support.judge import parse_verdict
 
 
@@ -17,3 +17,7 @@ def test_the_reply_shape_the_judge_prompt_asks_for_parses_as_a_verdict() -> None
     filled_reply = asked_reply.replace("true or false", "false").replace("<one sentence>", "Skipped the guide.")
 
     assert parse_verdict(filled_reply) == {"pass": False, "reason": "Skipped the guide."}
+
+
+def test_session_environment_turns_auto_memory_off() -> None:
+    assert ALL_SESSION_ENVIRONMENT == {"CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"}
