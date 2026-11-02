@@ -1,0 +1,138 @@
+name: Open a pull request as the app
+
+run-name: "Open a pull request from ${{ inputs.head }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      head:
+        description: The branch the pull request comes from
+        required: true
+        type: string
+      base:
+        description: The branch the pull request merges into
+        required: false
+        default: main
+        type: string
+      title:
+        description: The pull request title, required to open a pull request
+        required: false
+        default: ""
+        type: string
+      body:
+        description: The pull request body, required to open a pull request
+        required: false
+        default: ""
+        type: string
+      draft:
+        description: Open the pull request as a draft
+        required: false
+        default: false
+        type: boolean
+      assignee:
+        description: The login to assign to the pull request, or empty
+        required: false
+        default: ""
+        type: string
+      reviewer:
+        description: The login to request a review from, or empty
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: Prove the app token reads the repository and sets a head pull request title to itself, opening nothing; needs a pull request on the head, closed ones count
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: open-pr-as-app-${{ inputs.head }}
+  cancel-in-progress: false
+
+jobs:
+  open:
+    name: Open the pull request as the app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Mint the app token
+        id: app
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Prove the token reads and writes the repository
+        if: ${{ inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_HEAD: ${{ inputs.head }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO" --jq '"The token reads " + .full_name'
+          pr_number=$(gh pr list --repo "$GH_REPO" --head "$PR_HEAD" --state all --limit 1 \
+            --json number --jq '.[0].number // empty')
+          if [ -z "$pr_number" ]; then
+            echo "No pull request on $PR_HEAD, so the write path is not proven" >&2
+            exit 1
+          fi
+          pr_title=$(gh pr view "$pr_number" --repo "$GH_REPO" --json title --jq .title)
+          gh api -X PATCH "repos/$GH_REPO/pulls/$pr_number" -f title="$pr_title" \
+            --jq '"The token wrote pull request #\(.number) with its title unchanged"'
+
+      - name: Open the pull request
+        id: open
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_HEAD: ${{ inputs.head }}
+          PR_BASE: ${{ inputs.base }}
+          PR_TITLE: ${{ inputs.title }}
+          PR_BODY: ${{ inputs.body }}
+          PR_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PR_TITLE" ] || [ -z "$PR_BODY" ]; then
+            echo "A pull request needs a title and a body" >&2
+            exit 1
+          fi
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          draft_flag=()
+          if [ "$PR_DRAFT" = "true" ]; then
+            draft_flag=(--draft)
+          fi
+          url=$(gh pr create --repo "$GH_REPO" --head "$PR_HEAD" --base "$PR_BASE" \
+            --title "$PR_TITLE" --body-file "$RUNNER_TEMP/pr-body.md" "${draft_flag[@]}" | tail -n 1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Opened $url"
+
+      - name: Assign the pull request and request review
+        if: ${{ !inputs.dry_run && (inputs.assignee != '' || inputs.reviewer != '') }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_URL: ${{ steps.open.outputs.url }}
+          PR_ASSIGNEE: ${{ inputs.assignee }}
+          PR_REVIEWER: ${{ inputs.reviewer }}
+        run: |
+          set -euo pipefail
+          edit_arguments=()
+          if [ -n "$PR_ASSIGNEE" ]; then
+            edit_arguments+=(--add-assignee "$PR_ASSIGNEE")
+          fi
+          if [ -n "$PR_REVIEWER" ]; then
+            edit_arguments+=(--add-reviewer "$PR_REVIEWER")
+          fi
+          for attempt in 1 2 3; do
+            gh pr edit "$PR_URL" "${edit_arguments[@]}" && exit 0
+            echo "gh pr edit attempt $attempt failed" >&2
+            sleep 10
+          done
+          exit 1
