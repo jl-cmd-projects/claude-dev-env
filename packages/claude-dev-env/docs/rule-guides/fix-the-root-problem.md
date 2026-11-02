@@ -64,4 +64,4 @@ A granted workaround names the root problem it leaves open and who owns that pro
 
 [`CODE_RULES.md`](../CODE_RULES.md) §9.9 puts the workaround test in front of every reviewer that loads the code rules. The reviewer reads the request, finds the part it names, and checks whether that part works after the change.
 
-The `root-problem` cases in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --cases r01,r02,r03,r04,r05 --reps 2`, and compare with the `pre-root-problem` variant, the commit before this rule.
+The `root-problem` cases in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --label root-problem --cases r01,r02,r03,r04,r05,r06,r07 --reps 2`, and compare with the `pre-root-problem` variant, the commit before this rule.
