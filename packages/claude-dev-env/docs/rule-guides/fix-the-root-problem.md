@@ -55,8 +55,7 @@ A granted workaround names the root problem it leaves open and who owns that pro
 ## Related principles
 
 - pstack `principle-fix-root-causes` applies the same idea inside code during debugging: fix the first place the system went wrong. This rule applies it to the part the user named.
-- DeepStack `principle-outcome-above-the-task` asks what should happen after the task. When the user names a part, a working part is that outcome. A wider goal gives no license for a second path around it.
-- The DeepStack intake trigger covers this rule. Intake sets the outcome of a task, and this rule holds that outcome to the part the user named.
+- DeepStack `principle-outcome-above-the-task` and the DeepStack intake trigger cover this rule. Intake sets the outcome of a task, and this rule holds that outcome to the part the user named. When the user names a part, a working part is that outcome, and a wider goal gives no license for a second path around it.
 - pstack `principle-never-block-on-the-human` keeps the rest of the work moving while a person-only step waits.
 
-**Enforcement:** review. [`CODE_RULES.md`](../CODE_RULES.md) §9.9 asks the reviewer to compare each change with the request. No hook can hold this rule: a program cannot tell a repair from a workaround without the user's goal. The `root-problem` cases in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --label root-problem --cases r01,r02,r03,r04,r05,r06,r07 --reps 2`, and compare with the `pre-root-problem` variant, the commit before this rule.
+**Enforcement:** review. [`CODE_RULES.md`](../CODE_RULES.md) §9.9 asks the reviewer to compare each change with the request. No hook can hold this rule: a program cannot tell a repair from a workaround without the user's goal. The cases whose `group` is `root-problem` in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --label root-problem --cases <ids> --reps 2`, passing the IDs of those cases, and compare with the `pre-root-problem` variant, the commit before this rule.
