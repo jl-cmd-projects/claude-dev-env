@@ -7,6 +7,7 @@
   "perf_fields": ["latency_s", "tool_calls", "usage"],
   "variants": {
     "baseline": {"ref": "ff52917"},
-    "index": {"ref": "HEAD"}
+    "index": {"ref": "HEAD"},
+    "pre-root-problem": {"ref": "180d564"}
   }
 }
