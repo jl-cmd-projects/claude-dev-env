@@ -106,6 +106,12 @@ Remove orphaned variables, functions, parameters, branches, imports, and helpers
 
 Open [details](code-rules/design-and-structure.md) when removing consumers.
 
+## 9.9 REPAIR THE PART THE REQUEST NAMES
+
+A change that reaches the request's outcome by a second path, while the part the request names stays broken, is a finding. A step only a person can do, such as a fresh sign-in or an approval, prepared as one easy action, is part of a fix. A workaround the user granted in their own words passes.
+
+Open [guide](rule-guides/fix-the-root-problem.md) when a change adds a second path, a fallback, or a bypass.
+
 ## 10. NO REDUNDANT DATA FETCHES
 
 Use data already in hand; do not fetch it again.

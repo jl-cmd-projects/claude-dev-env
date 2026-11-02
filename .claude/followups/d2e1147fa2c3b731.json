@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": ".claude/hillclimb/rules-index/rules_eval_support/config/constants.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "3642272b541170e66049fed3d8310262f3501c26"
+}

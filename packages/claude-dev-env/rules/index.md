@@ -10,6 +10,7 @@ Each line names a rule and its trigger. When its trigger matches your task, open
 - **Explore thoroughly** ([guide](../docs/rule-guides/explore-thoroughly.md)). Before you log, plan, delegate, or build an ask.
 - **Features start with an eval** ([guide](../docs/rule-guides/features-start-with-an-eval.md)). New feature or behavior change.
 - **Request scope** ([guide](../docs/rule-guides/request-scope.md)). Asked whether part of a block is still needed, or asked to change one.
+- **Fix the root problem** ([guide](../docs/rule-guides/fix-the-root-problem.md)). A fix for a broken part, a fix that waits on a sign-in or a password, or a request to route around one.
 - **Shell invocation** ([guide](../docs/rule-guides/shell-invocation.md)). Any Bash command or permission rule.
 - **Destructive commands** ([guide](../docs/rule-guides/destructive-commands.md)). Removing files.
 - **Filesystem search** ([guide](../docs/rule-guides/filesystem-search.md)). Finding files by name, path, size, or date.
