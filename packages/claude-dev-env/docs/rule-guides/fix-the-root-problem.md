@@ -8,7 +8,7 @@ Repair the part of the system the user named. A workaround reaches the user's ou
 
 **Enforcement:** review. [`CODE_RULES.md`](../CODE_RULES.md) §9.9 asks the reviewer to compare each change with the request. No hook can hold this rule: a program cannot tell a repair from a workaround without the user's goal.
 
-**When this applies:** You plan, build, or review a fix for a part the user named as broken. A request to add a second path, a fallback, or a bypass around a broken part also starts this rule.
+**When this applies:** You plan, build, or review a fix for a part the user named as broken. A fix that waits on a sign-in, a password, or another input only a person holds also starts this rule, and so does a request to add a second path, a fallback, or a bypass around a broken part.
 
 ## Rule
 
