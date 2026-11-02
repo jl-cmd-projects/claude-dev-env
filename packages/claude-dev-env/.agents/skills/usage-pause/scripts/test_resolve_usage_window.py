@@ -179,8 +179,7 @@ class TestReadOauthAccessToken:
     ) -> None:
         resolver = load_resolver_module()
         now = local_now()
-        credentials_path = tmp_path / "ev" / ".credentials.json"
-        credentials_path.parent.mkdir()
+        credentials_path = tmp_path / ".credentials.json"
         past_milliseconds = int((now - timedelta(hours=1)).timestamp() * 1000)
         write_credentials(credentials_path, past_milliseconds)
         with caplog.at_level(logging.WARNING):

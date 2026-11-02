@@ -328,7 +328,7 @@ def _rank_key(reading: Reading) -> tuple[bool, int, bool, float]:
 
 def _claude_has_room(reading: Reading) -> bool:
     meters = reading.meters
-    return bool(
+    return (
         meters is not None
         and meters.tightest_percent_left is not None
         and not any(_claude_blocking_flags(meters, reading.account.is_main))

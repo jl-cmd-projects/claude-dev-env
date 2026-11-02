@@ -48,9 +48,8 @@ room.
 When no account has room, the job waits until the next account reset, or for one
 hour when no reset is known. An unreadable meter never picks its account, and
 the wait reason names each account whose meter could not be read. A window the
-usage endpoint returns as `null` holds no account back. Main's 5-hour window
-comes back `null` while its week reads 96% left, so main has room. An account
-needs at least one window with a percent to have room.
+usage endpoint returns as `null` holds no account back, but an account needs at
+least one window with a percent to have room.
 
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product claude

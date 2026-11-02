@@ -238,7 +238,7 @@ def test_should_pick_main_when_its_5_hour_meter_is_null_and_its_week_has_room() 
         _account("main", Product.CLAUDE, main=True),
         Meters(None, None, 96.0, NOW + timedelta(days=5)),
     )
-    unread = Reading(_account("ev", Product.CLAUDE), None, "no usable bearer token")
+    unread = Reading(_account("extra", Product.CLAUDE), None, "no usable bearer token")
 
     decision = choose_from_readings(Product.CLAUDE, (main, unread), now=NOW)
 
