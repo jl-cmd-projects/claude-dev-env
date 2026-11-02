@@ -38,6 +38,10 @@ on:
         default: false
         type: boolean
 
+  push:
+    branches:
+      - claude/project-thread-tcwbig
+
 permissions: {}
 
 concurrency:
@@ -47,6 +51,7 @@ concurrency:
 jobs:
   open:
     name: Open the pull request as the App
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -110,3 +115,33 @@ jobs:
         run: |
           gh pr edit "$PR_URL" --add-assignee "$PR_REVIEWER" --add-reviewer "$PR_REVIEWER" \
             || echo "::warning::Could not assign or request review from $PR_REVIEWER"
+
+  bootstrap-dry-run:
+    name: Prove the App token on the opener branch
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Mint the App token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+
+      - name: Prove the token reads the repository and lists pull requests on the head
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR_HEAD: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO" --jq '"The token reads " + .full_name'
+          gh pr list --repo "$GH_REPO" --head "$PR_HEAD" --state all --json number --jq 'length | "Pull requests on the head: \(.)"'
