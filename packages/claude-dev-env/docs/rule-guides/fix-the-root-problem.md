@@ -6,8 +6,6 @@ Back to the [rules index](../../rules/index.md).
 
 Repair the part of the system the user named. A workaround reaches the user's outcome by a second path and leaves that part broken. Do not build one. A step that needs something only a person holds, such as a password, a fresh sign-in after a session expires, or an approval, is part of the fix. Make that step one easy action for the person. Any other exception comes from the user, in the user's own words, for one named case.
 
-**Enforcement:** review. [`CODE_RULES.md`](../CODE_RULES.md) §9.9 asks the reviewer to compare each change with the request. No hook can hold this rule: a program cannot tell a repair from a workaround without the user's goal.
-
 **When this applies:** You plan, build, or review a fix for a part the user named as broken. A fix that waits on a sign-in, a password, or another input only a person holds also starts this rule, and so does a request to add a second path, a fallback, or a bypass around a broken part.
 
 ## Rule
@@ -15,7 +13,7 @@ Repair the part of the system the user named. A workaround reaches the user's ou
 1. Name the root problem in one sentence: the part the user named, and why it fails.
 2. Plan the change that makes that part work again. Prove it the way the user uses that part.
 3. Run the workaround test on the plan before you build.
-4. When the fix needs an input only a person holds, prepare that step as one easy action. Keep working on everything that does not wait on it.
+4. When the fix needs an input only a person holds, make that step one easy action, as the section below describes.
 5. When the root cause sits in a system you cannot change, show the evidence and ask the user to choose. Keep working on the parts you can reach while the user decides.
 
 ## The workaround test
@@ -61,8 +59,4 @@ A granted workaround names the root problem it leaves open and who owns that pro
 - The DeepStack intake trigger covers this rule. Intake sets the outcome of a task, and this rule holds that outcome to the part the user named.
 - pstack `principle-never-block-on-the-human` keeps the rest of the work moving while a person-only step waits.
 
-## Enforcement
-
-[`CODE_RULES.md`](../CODE_RULES.md) §9.9 puts the workaround test in front of every reviewer that loads the code rules. The reviewer reads the request, finds the part it names, and checks whether that part works after the change.
-
-The `root-problem` cases in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --label root-problem --cases r01,r02,r03,r04,r05,r06,r07 --reps 2`, and compare with the `pre-root-problem` variant, the commit before this rule.
+**Enforcement:** review. [`CODE_RULES.md`](../CODE_RULES.md) §9.9 asks the reviewer to compare each change with the request. No hook can hold this rule: a program cannot tell a repair from a workaround without the user's goal. The `root-problem` cases in `.claude/hillclimb/rules-index/cases.json` measure the rule. Run them with `python3 .claude/hillclimb/rules-index/run.py --variant index --label root-problem --cases r01,r02,r03,r04,r05,r06,r07 --reps 2`, and compare with the `pre-root-problem` variant, the commit before this rule.
