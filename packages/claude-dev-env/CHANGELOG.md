@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.110.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.2...claude-dev-env-v8.110.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **broker:** give main room when its 5-hour meter comes back null ([#2273](https://github.com/jl-cmd-projects/claude-dev-env/issues/2273)) ([25e709a](https://github.com/jl-cmd-projects/claude-dev-env/commit/25e709ac2d64e04b6be275054c0118bbbcbe9f6b))
+
 ## [8.110.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.110.1...claude-dev-env-v8.110.2) (2026-10-30)
 
 
