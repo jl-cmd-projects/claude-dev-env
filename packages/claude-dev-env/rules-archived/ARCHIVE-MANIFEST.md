@@ -91,3 +91,4 @@ Each row names a retired path, the behavior it required, the trigger that covers
 | `rules/index.md` | skill `claude-api` and args `build-eval` | DeepStack reproducible-check leaf | none |
 | `bin/codex-skill-load-block.mjs` | Answer four things the prompt left out | DeepStack intake | none |
 | none | sharpen restates a task as the intake | DeepStack intake | The DeepStack plugin lives in jl-cmd-projects/DeepStack. |
+| none | Repair the part the user named, with no second path around it | DeepStack intake | `rules/index.md` line "Fix the root problem" and `docs/rule-guides/fix-the-root-problem.md` hold the rule and its person-only step. |

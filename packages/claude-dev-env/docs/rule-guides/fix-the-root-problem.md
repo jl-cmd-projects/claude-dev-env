@@ -58,6 +58,7 @@ A granted workaround names the root problem it leaves open and who owns that pro
 
 - pstack `principle-fix-root-causes` applies the same idea inside code during debugging: fix the first place the system went wrong. This rule applies it to the part the user named.
 - DeepStack `principle-outcome-above-the-task` asks what should happen after the task. When the user names a part, a working part is that outcome. A wider goal gives no license for a second path around it.
+- The DeepStack intake trigger covers this rule. Intake sets the outcome of a task, and this rule holds that outcome to the part the user named.
 - pstack `principle-never-block-on-the-human` keeps the rest of the work moving while a person-only step waits.
 
 ## Enforcement
