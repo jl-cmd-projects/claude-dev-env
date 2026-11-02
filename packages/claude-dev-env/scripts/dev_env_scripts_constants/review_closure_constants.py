@@ -149,11 +149,13 @@ ALL_NOTICE_COMMENT_MARKERS: tuple[str, ...] = (
     "<h3>PR Summary by Qodo</h3>",
     "<h3>Qodo is busy working</h3>",
     "<h3>Great, no issues found!</h3>",
+    "<!-- This is an auto-generated comment: skip review by coderabbit.ai -->",
 )
 """Text a bot notice carries: a Qodo skip note, a Qodo pointer to its updated
 summary, a Graphite verdict mirror whose findings arrive as review threads, a
-Qodo description of the change, a Qodo placeholder posted while it reviews, and
-a Qodo review that found nothing."""
+Qodo description of the change, a Qodo placeholder posted while it reviews, a
+Qodo review that found nothing, and a CodeRabbit skip note for a bot-authored
+pull request."""
 
 CODEX_REVIEW_BOT_LOGIN = "chatgpt-codex-connector[bot]"
 ALL_REVIEW_REQUEST_COMMANDS = ("@codex review", "@codex security review")

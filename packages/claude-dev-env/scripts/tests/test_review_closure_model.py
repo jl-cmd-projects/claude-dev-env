@@ -469,6 +469,9 @@ def should_close_a_bot_notice_posted_after_the_driver_time() -> None:
         "\n<h3>Qodo is busy working</h3>\n\nCheck back in a few minutes.",
         "\n<h3>Code Review by Qodo</h3>\n<code>\U0001f41e Bugs (0)</code>\n\n"
         "<h3>Great, no issues found!</h3>\nQodo reviewed your code",
+        "<!-- coderabbit-ai-generated:v1 -->\n\n"
+        "<!-- This is an auto-generated comment: skip review by coderabbit.ai -->\n"
+        "> [!IMPORTANT]\n> ## Review skipped\n>\n> Bot user detected.",
     ],
 )
 def should_read_a_bot_notice_as_a_notice(body: str) -> None:
