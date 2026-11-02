@@ -26,6 +26,8 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
+from user_words_carried import prompt_carries_user_words
+from dev_env_scripts_constants.user_words_carried_constants import MISSING_USER_WORDS_MESSAGE
 from dev_env_scripts_constants.grok_worker_constants import (
     ALL_KNOWN_TOOL_PROFILES,
     ALL_KNOWN_WORKER_SPEC_KEYS,
@@ -77,6 +79,7 @@ from dev_env_scripts_constants.grok_worker_constants import (
     UTF8_ENCODING,
     WORKER_EXCEPTION_RETURN_CODE,
     WORKER_SPEC_AGENT_NAME_KEY,
+    WORKER_SPEC_USER_WORDS_KEY,
     WORKER_SPEC_CWD_KEY,
     WORKER_SPEC_IS_REPO_ONLY_KEY,
     WORKER_SPEC_KEY_JOIN_SEPARATOR,
@@ -449,6 +452,7 @@ class WorkerSpec:
     working_directory: Path
     tool_profile: str
     timeout_seconds: int
+    user_words: str
     is_repo_only: bool = False
     agent_name: str | None = None
 
@@ -685,6 +689,10 @@ def _parse_worker_entry(all_worker_fields: dict[str, object]) -> WorkerSpec:
         WORKER_SPEC_IS_REPO_ONLY_KEY,
     )
     agent_name = all_worker_fields.get(WORKER_SPEC_AGENT_NAME_KEY)
+    user_words = _require_string(
+        _require_worker_field(all_worker_fields, WORKER_SPEC_USER_WORDS_KEY),
+        WORKER_SPEC_USER_WORDS_KEY,
+    )
     if not isinstance(all_prompt_parts, list) or not all_prompt_parts:
         raise ValueError("worker prompt_parts must be a non-empty list")
     if tool_profile not in ALL_KNOWN_TOOL_PROFILES:
@@ -703,6 +711,7 @@ def _parse_worker_entry(all_worker_fields: dict[str, object]) -> WorkerSpec:
         working_directory=Path(working_directory),
         tool_profile=tool_profile,
         timeout_seconds=timeout_seconds,
+        user_words=user_words,
         is_repo_only=is_repo_only,
         agent_name=agent_name,
     )
@@ -802,6 +811,8 @@ def _write_assembled_prompt(
         all_prompt_part_paths=worker_spec.all_prompt_part_paths,
         tool_profile=worker_spec.tool_profile,
     )
+    if not prompt_carries_user_words(prompt_text, worker_spec.user_words):
+        raise ValueError(MISSING_USER_WORDS_MESSAGE)
     if advisor_session_id is not None and advisor_spec is not None:
         header = ADVISOR_PROMPT_HEADER_TEMPLATE.format(
             session_id=advisor_session_id,

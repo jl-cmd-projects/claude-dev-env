@@ -7,6 +7,9 @@ import sys
 from pathlib import Path
 
 from account_broker import run_job
+from user_words_carried import prompt_carries_user_words
+from dev_env_scripts_constants.grok_worker_constants import USER_WORDS_FILE_FLAG
+from dev_env_scripts_constants.user_words_carried_constants import MISSING_USER_WORDS_MESSAGE
 from claude_account_worker_process import invoke_worker
 from claude_account_worker_report import finalize_report, make_report, pre_launch_failure_report, wait_report
 from dev_env_scripts_constants.account_broker_constants import BrokerConfigurationError, JobOutcome
@@ -49,6 +52,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for one headless worker invocation."""
     parser = argparse.ArgumentParser(description=CLI_DESCRIPTION)
     parser.add_argument(PROMPT_FILE_FLAG, type=Path, required=True)
+    parser.add_argument(USER_WORDS_FILE_FLAG, type=Path, required=True)
     parser.add_argument(CWD_FLAG, type=Path, default=Path.cwd())
     parser.add_argument(REPORT_FILE_FLAG, type=Path, required=True)
     parser.add_argument(MODEL_FLAG)
@@ -81,6 +85,7 @@ def _wait_reason(outcome: JobOutcome) -> str:
 def run_worker(
     *,
     prompt_file: Path,
+    user_words_file: Path,
     cwd: Path,
     report_file: Path,
     model: str | None,
@@ -93,11 +98,21 @@ def run_worker(
     With ``live_log`` set, the worker streams one JSON event per line into that
     file while it runs, so a watching session can read progress before the end.
     A live log that cannot be written ends the run before the broker starts.
+    The prompt must carry the user's words from ``user_words_file`` word for word,
+    or the run ends before the broker starts.
     """
     try:
         prompt_text = prompt_file.read_text(encoding=UTF8_ENCODING)
     except (OSError, UnicodeError):
         report = pre_launch_failure_report("none", "prompt file is unreadable", LAUNCH_FAILURE_EXIT_CODE)
+        return finalize_report(report_file, report)
+    try:
+        user_words = user_words_file.read_text(encoding=UTF8_ENCODING)
+    except (OSError, UnicodeError):
+        report = pre_launch_failure_report("none", MISSING_USER_WORDS_MESSAGE, CONFIGURATION_FAILURE_EXIT_CODE)
+        return finalize_report(report_file, report)
+    if not prompt_carries_user_words(prompt_text, user_words):
+        report = pre_launch_failure_report("none", MISSING_USER_WORDS_MESSAGE, CONFIGURATION_FAILURE_EXIT_CODE)
         return finalize_report(report_file, report)
     if live_log is not None:
         try:
@@ -135,6 +150,7 @@ def main() -> int:
     arguments = build_argument_parser().parse_args()
     return run_worker(
         prompt_file=arguments.prompt_file,
+        user_words_file=arguments.user_words_file,
         cwd=arguments.cwd,
         report_file=arguments.report_file,
         model=arguments.model,

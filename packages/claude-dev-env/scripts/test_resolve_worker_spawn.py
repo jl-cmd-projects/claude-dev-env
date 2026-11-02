@@ -46,6 +46,9 @@ from dev_env_scripts_constants.grok_worker_constants import (
     OUTPUT_FORMAT_FLAG,
     OUTPUT_FORMAT_JSON,
     PROMPT_FILE_FLAG,
+    USER_WORDS_FILE_FLAG,
+    REASON_CLAUDE_AGENT_REQUIRED,
+    USER_WORDS_FILE_FLAG,
     REASON_CLAUDE_AGENT_REQUIRED,
     REASON_GROK_AUTH_FAILED,
     REASON_PROMPT_FILE_MISSING,
@@ -237,6 +240,7 @@ def test_grok_ok_serves_tier_one(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=FIXTURE_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -272,6 +276,7 @@ def test_grok_usage_limited_on_claude_host_requires_agent(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=FIXTURE_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -317,6 +322,8 @@ def test_out_of_bounds_timeout_is_reported_as_config_not_worker_failure(
                 FIXTURE_ROLE,
                 PROMPT_FILE_FLAG,
                 str(prompt_file),
+                USER_WORDS_FILE_FLAG,
+                str(prompt_file),
                 CWD_FLAG,
                 str(working_directory),
                 CLI_TIMEOUT_FLAG,
@@ -360,6 +367,8 @@ def test_out_of_bounds_timeout_is_refused_when_the_grok_tier_is_unreachable(
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
             str(prompt_file),
+            USER_WORDS_FILE_FLAG,
+            str(prompt_file),
             CWD_FLAG,
             str(working_directory),
             CLI_TIMEOUT_FLAG,
@@ -400,6 +409,7 @@ def test_timed_out_grok_worker_is_recorded_as_timeout_not_served(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=FIXTURE_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -427,6 +437,7 @@ def test_grok_auth_failed_on_third_party_runs_tier_three(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=FIXTURE_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -472,6 +483,8 @@ def test_tier_three_wait_reports_reset_and_stops(
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
             str(prompt_file),
+            USER_WORDS_FILE_FLAG,
+            str(prompt_file),
             CWD_FLAG,
             str(working_directory),
             CLI_TIMEOUT_FLAG,
@@ -508,6 +521,8 @@ def test_config_error_exit_code_differs_from_the_wait_exit_code(
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
             str(prompt_file),
+            USER_WORDS_FILE_FLAG,
+            str(prompt_file),
             CWD_FLAG,
             str(working_directory),
             CLI_TIMEOUT_FLAG,
@@ -539,6 +554,8 @@ def test_below_floor_timeout_returns_json_config_exit(
             CLI_ROLE_FLAG,
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
+            str(prompt_file),
+            USER_WORDS_FILE_FLAG,
             str(prompt_file),
             CWD_FLAG,
             str(working_directory),
@@ -573,6 +590,7 @@ def test_attempts_array_ordering_across_tiers(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=FIXTURE_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=True,
@@ -598,6 +616,8 @@ def test_cli_stdout_carries_only_json_result(
             CLI_ROLE_FLAG,
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
+            str(prompt_file),
+            USER_WORDS_FILE_FLAG,
             str(prompt_file),
             CWD_FLAG,
             str(working_directory),
@@ -648,6 +668,7 @@ def test_preflight_fallthrough_skips_grok_runner(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=DEFAULT_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -689,6 +710,8 @@ def test_dispatcher_grok_invocation_carries_no_turn_cap(
             CLI_ROLE_FLAG,
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
+            str(prompt_file),
+            USER_WORDS_FILE_FLAG,
             str(prompt_file),
             CWD_FLAG,
             str(working_directory),
@@ -750,6 +773,8 @@ def test_enable_claude_tier_flag_reaches_tier_three_on_claude_host(
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
             str(prompt_file),
+            USER_WORDS_FILE_FLAG,
+            str(prompt_file),
             CWD_FLAG,
             str(working_directory),
             CLI_TIMEOUT_FLAG,
@@ -785,6 +810,7 @@ def test_default_role_maps_to_primary_agent_stem(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=DEFAULT_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -813,6 +839,7 @@ def test_tier_three_argv_includes_agent_for_default_role(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=DEFAULT_ROLE,
         prompt_file=prompt_file,
+        user_words=FIXTURE_PROMPT_TEXT,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -846,6 +873,7 @@ def test_large_prompt_stays_out_of_claude_argv(
     spawn_outcome = dispatcher.resolve_worker_spawn(
         role=DEFAULT_ROLE,
         prompt_file=prompt_file,
+        user_words=large_prompt_text,
         working_directory=working_directory,
         timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
         is_claude_tier_enabled=False,
@@ -874,6 +902,8 @@ def test_missing_prompt_file_returns_json_config_exit(
             CLI_ROLE_FLAG,
             FIXTURE_ROLE,
             PROMPT_FILE_FLAG,
+            str(missing_prompt_file),
+            USER_WORDS_FILE_FLAG,
             str(missing_prompt_file),
             CWD_FLAG,
             str(working_directory),
@@ -920,11 +950,15 @@ def _main_arguments_for_paths(
     working_directory: Path,
     run_state_directory: Path,
 ) -> list[str]:
+    user_words_file = prompt_file.with_name("user-words.txt")
+    user_words_file.write_text(FIXTURE_PROMPT_TEXT, encoding="utf-8")
     return [
         CLI_ROLE_FLAG,
         FIXTURE_ROLE,
         PROMPT_FILE_FLAG,
         str(prompt_file),
+        USER_WORDS_FILE_FLAG,
+        str(user_words_file),
         CWD_FLAG,
         str(working_directory),
         CLI_TIMEOUT_FLAG,
@@ -1047,6 +1081,7 @@ def test_headless_jobs_keep_distinct_cwds(
             dispatcher.resolve_worker_spawn(
                 role=DEFAULT_ROLE,
                 prompt_file=prompt_file,
+                user_words=FIXTURE_PROMPT_TEXT,
                 working_directory=working_directory,
                 timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
                 is_claude_tier_enabled=False,
@@ -1136,6 +1171,7 @@ def test_usage_limit_fallover_delivers_full_prompt_to_each_account(
         outcome = dispatcher.resolve_worker_spawn(
             role=DEFAULT_ROLE,
             prompt_file=prompt_file,
+            user_words=FIXTURE_PROMPT_TEXT,
             working_directory=working_directory,
             timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
             is_claude_tier_enabled=False,
@@ -1178,6 +1214,8 @@ def test_caller_named_agent_serves_an_unregistered_role(
             "vendor-agent",
             PROMPT_FILE_FLAG,
             str(prompt_file),
+            USER_WORDS_FILE_FLAG,
+            str(prompt_file),
             CWD_FLAG,
             str(working_directory),
             CLI_RUN_STATE_DIR_FLAG,
@@ -1194,3 +1232,56 @@ def test_caller_named_agent_serves_an_unregistered_role(
     assert call_log.claude_arguments is not None
     agent_flag_index = call_log.claude_arguments.index(AGENT_FLAG)
     assert call_log.claude_arguments[agent_flag_index + 1] == "vendor-agent"
+def test_a_prompt_that_paraphrases_the_user_words_is_refused_before_any_tier(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompt_file, working_directory, run_state_directory = _paths(tmp_path)
+    monkeypatch.setattr(
+        dispatcher,
+        "spawn_preflight_runner",
+        lambda **_keyword_arguments: pytest.fail("no tier may run"),
+    )
+    with pytest.raises(ValueError, match="word for word"):
+        dispatcher.resolve_worker_spawn(
+            role=FIXTURE_ROLE,
+            prompt_file=prompt_file,
+            user_words="Please list three colors.",
+            working_directory=working_directory,
+            timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
+            is_claude_tier_enabled=False,
+            run_state_directory=run_state_directory,
+        )
+
+
+def test_the_cli_exits_as_config_error_when_the_prompt_paraphrases_the_user_words(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    prompt_file, working_directory, run_state_directory = _paths(tmp_path)
+    paraphrase_file = tmp_path / "paraphrase-words.txt"
+    paraphrase_file.write_text("Please list three colors.", encoding="utf-8")
+    all_arguments = _main_arguments_for_paths(
+        prompt_file=prompt_file,
+        working_directory=working_directory,
+        run_state_directory=run_state_directory,
+    )
+    all_arguments[all_arguments.index(USER_WORDS_FILE_FLAG) + 1] = str(paraphrase_file)
+    exit_code = dispatcher.main(all_arguments)
+    assert exit_code == SPAWN_CONFIG_ERROR_EXIT_CODE
+    assert "word for word" in capsys.readouterr().out
+
+
+def test_the_prompt_check_should_pass_a_prompt_that_carries_the_user_words(
+    tmp_path: Path,
+) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("Context.\nPlease list three colors.\n", encoding="utf-8")
+    dispatcher.require_prompt_carries_user_words(prompt_file, "Please list three colors.")
+
+
+def test_the_prompt_check_should_refuse_a_prompt_that_paraphrases_the_user_words(
+    tmp_path: Path,
+) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("Name three colors.", encoding="utf-8")
+    with pytest.raises(ValueError, match="word for word"):
+        dispatcher.require_prompt_carries_user_words(prompt_file, "Please list three colors.")

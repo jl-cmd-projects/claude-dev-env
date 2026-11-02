@@ -61,6 +61,7 @@ def _run_worker(
     monkeypatch.setattr(worker, "worker_job_runner", run_job)
     exit_code = worker.run_worker(
         prompt_file=prompt_file,
+        user_words_file=_user_words_file_for(prompt_file),
         cwd=tmp_path,
         report_file=report_file,
         model=model,
@@ -121,6 +122,7 @@ def test_should_report_an_unwritable_live_log_before_the_broker_runs(
 
     exit_code = worker.run_worker(
         prompt_file=prompt_file,
+        user_words_file=_user_words_file_for(prompt_file),
         cwd=tmp_path,
         report_file=report_file,
         model=None,
@@ -231,6 +233,7 @@ def test_should_write_report_for_unreadable_prompt(
 
     exit_code = worker.run_worker(
         prompt_file=tmp_path / "missing.md",
+        user_words_file=_user_words_file_for(tmp_path / "missing.md"),
         cwd=tmp_path,
         report_file=report_file,
         model=None,
@@ -265,11 +268,42 @@ def test_should_ignore_extra_profile_list(
     assert report["account"] == "extra_2"
 
 
+def _user_words_file_for(prompt_file: Path) -> Path:
+    user_words_file = prompt_file.with_name("user-words.txt")
+    prompt_text = prompt_file.read_text(encoding="utf-8") if prompt_file.is_file() else ""
+    user_words_file.write_text(prompt_text, encoding="utf-8")
+    return user_words_file
+
+
 def test_should_require_prompt_and_report_flags() -> None:
     arguments = worker.build_argument_parser().parse_args(
-        ["--prompt-file", "brief.md", "--report-file", "report.json"]
+        ["--prompt-file", "brief.md", "--user-words-file", "words.md", "--report-file", "report.json"]
     )
 
     assert arguments.prompt_file == Path("brief.md")
     assert arguments.report_file == Path("report.json")
     assert arguments.permission_mode == "auto"
+def test_a_prompt_that_paraphrases_the_user_words_is_refused_before_the_broker_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("do the work", encoding="utf-8")
+    user_words_file = tmp_path / "user-words.md"
+    user_words_file.write_text("Please list three colors.", encoding="utf-8")
+    report_file = tmp_path / "report.json"
+    monkeypatch.setattr(
+        worker,
+        "worker_job_runner",
+        lambda *args, **kwargs: pytest.fail("the broker must not run"),
+    )
+    exit_code = worker.run_worker(
+        prompt_file=prompt_file,
+        user_words_file=user_words_file,
+        cwd=tmp_path,
+        report_file=report_file,
+        model=None,
+        permission_mode="auto",
+        timeout_minutes=5,
+    )
+    assert exit_code == worker.CONFIGURATION_FAILURE_EXIT_CODE
+    assert "word for word" in report_file.read_text(encoding="utf-8")

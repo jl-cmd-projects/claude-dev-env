@@ -40,6 +40,7 @@ standalone brief to a file, and launch the account worker in the background.
 ```bash
 python "$HOME/.claude/scripts/claude_account_worker.py" \
   --prompt-file "<brief>" \
+  --user-words-file "<user-words>" \
   --cwd "<worktree>" \
   --report-file "<report>" \
   >"<worker-log>" 2>&1 &

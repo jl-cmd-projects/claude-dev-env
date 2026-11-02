@@ -178,6 +178,7 @@ ALL_AUTH_FAILURE_SIGNATURES: tuple[str, ...] = (
 """Case-insensitive multi-token phrases that mark a non-zero completion as an auth failure."""
 
 PROMPT_FILE_FLAG: str = "--prompt-file"
+USER_WORDS_FILE_FLAG: str = "--user-words-file"
 """CLI flag that points grok at a prompt file for headless single-turn work."""
 
 CWD_FLAG: str = "--cwd"
@@ -397,6 +398,7 @@ WORKER_SPEC_IS_REPO_ONLY_KEY: str = "is_repo_only"
 """JSON key for whether a readonly worker also disables web search."""
 
 WORKER_SPEC_AGENT_NAME_KEY: str = "agent_name"
+WORKER_SPEC_USER_WORDS_KEY: str = "user_words"
 """JSON key for one worker's optional agent definition name."""
 
 ALL_KNOWN_WORKER_SPEC_KEYS: frozenset[str] = frozenset(
@@ -408,6 +410,7 @@ ALL_KNOWN_WORKER_SPEC_KEYS: frozenset[str] = frozenset(
         WORKER_SPEC_TIMEOUT_KEY,
         WORKER_SPEC_IS_REPO_ONLY_KEY,
         WORKER_SPEC_AGENT_NAME_KEY,
+        WORKER_SPEC_USER_WORDS_KEY,
     }
 )
 """Every JSON key a batch worker entry accepts.

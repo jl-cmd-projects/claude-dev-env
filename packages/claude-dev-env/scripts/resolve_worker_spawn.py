@@ -16,7 +16,7 @@ Walk order:
 Import ``resolve_worker_spawn`` for the outcome object, or run as a CLI::
 
     python resolve_worker_spawn.py --role <role> [--agent <stem>]
-        --prompt-file <path> --cwd <dir> --timeout-seconds N
+        --prompt-file <path> --user-words-file <path> --cwd <dir> --timeout-seconds N
         --run-temp-dir <dir> [--enable-claude-tier]
 """
 
@@ -57,6 +57,8 @@ from advisor_scripts_constants.model_tier_run_validator_constants import (  # no
     HOST_PROFILE_CLAUDE,
 )
 from account_broker import run_job
+from user_words_carried import prompt_carries_user_words
+from dev_env_scripts_constants.user_words_carried_constants import MISSING_USER_WORDS_MESSAGE
 from dev_env_scripts_constants.account_broker_constants import (
     BrokerConfigurationError,
     JobOutcome,
@@ -96,6 +98,7 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     TIER_CLAUDE_AGENT,
     TIER_CLAUDE_HEADLESS,
     TIER_GROK,
+    USER_WORDS_FILE_FLAG,
     UTF8_ENCODING,
 )
 from grok_headless_runner import (  # noqa: E402
@@ -374,10 +377,39 @@ def _record_grok_fallthrough(
     )
 
 
+def require_prompt_carries_user_words(prompt_file: Path, user_words: str) -> None:
+    """Raise ValueError when the prompt file does not carry the user's words.
+
+    A prompt file that is missing or unreadable passes this check, because each
+    tier reports that file fault itself and no worker starts from it.
+
+    ::
+
+        prompt "Please list three colors." with words "list three colors."  -> no error
+        prompt "Name three colors." with words "List three colors."         -> ValueError
+
+    Args:
+        prompt_file: Path to the prompt the worker receives.
+        user_words: The user's message, copied from the session.
+
+    Raises:
+        ValueError: When the prompt text does not carry ``user_words`` word for word.
+    """
+    if not prompt_file.is_file():
+        return
+    try:
+        prompt_text = prompt_file.read_text(encoding=UTF8_ENCODING)
+    except OSError:
+        return
+    if not prompt_carries_user_words(prompt_text, user_words):
+        raise ValueError(MISSING_USER_WORDS_MESSAGE)
+
+
 def resolve_worker_spawn(
     *,
     role: str,
     prompt_file: Path,
+    user_words: str,
     working_directory: Path,
     timeout_seconds: int,
     is_claude_tier_enabled: bool,
@@ -393,6 +425,7 @@ def resolve_worker_spawn(
     Args:
         role: Worker role name for preflight; mapped to a primary agent stem.
         prompt_file: Path to the prompt file for headless workers.
+        user_words: The user's message. The prompt file must carry it word for word.
         working_directory: Working directory for grok and claude headless tiers.
         timeout_seconds: Timeout applied to each tier invocation.
         is_claude_tier_enabled: When True, allow tier 3 on a Claude host.
@@ -410,6 +443,7 @@ def resolve_worker_spawn(
             config-error exit code.
     """
     require_timeout_within_bounds(timeout_seconds)
+    require_prompt_carries_user_words(prompt_file, user_words)
     agent_name = agent or _primary_agent_name_for_role(role)
     preflight_outcome: PreflightOutcome = spawn_preflight_runner(
         role=role,
@@ -474,6 +508,23 @@ def encode_spawn_outcome(spawn_outcome: SpawnOutcome) -> dict[str, object]:
     }
 
 
+def _add_prompt_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        PROMPT_FILE_FLAG,
+        dest="prompt_file",
+        required=True,
+        type=Path,
+        help="Path to the prompt file for headless workers.",
+    )
+    parser.add_argument(
+        USER_WORDS_FILE_FLAG,
+        dest="user_words_file",
+        required=True,
+        type=Path,
+        help="Path to a file holding the user's message, copied word for word.",
+    )
+
+
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Dispatch a worker role through the grok then claude tiers."
@@ -491,13 +542,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
             "package does not register."
         ),
     )
-    parser.add_argument(
-        PROMPT_FILE_FLAG,
-        dest="prompt_file",
-        required=True,
-        type=Path,
-        help="Path to the prompt file for headless workers.",
-    )
+    _add_prompt_arguments(parser)
     parser.add_argument(
         CWD_FLAG,
         dest="working_directory",
@@ -626,11 +671,19 @@ def main(all_command_arguments: list[str]) -> int:
             _missing_prompt_file_outcome(),
             is_config_error=True,
         )
+    try:
+        user_words = parsed_arguments.user_words_file.read_text(encoding=UTF8_ENCODING)
+    except OSError:
+        return _write_spawn_outcome_and_exit_code(
+            _config_error_outcome(ValueError(MISSING_USER_WORDS_MESSAGE)),
+            is_config_error=True,
+        )
     is_config_error = False
     try:
         spawn_outcome = resolve_worker_spawn(
             role=parsed_arguments.role,
             prompt_file=parsed_arguments.prompt_file,
+            user_words=user_words,
             working_directory=parsed_arguments.working_directory,
             timeout_seconds=parsed_arguments.timeout_seconds,
             is_claude_tier_enabled=parsed_arguments.is_claude_tier_enabled,

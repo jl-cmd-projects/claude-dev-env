@@ -68,6 +68,9 @@ FIXTURE_USAGE_LIMIT_TEXT = "rate limit exceeded (HTTP 429): quota exceeded"
 FIXTURE_TIMEOUT_KILL_TEXT = "worker exceeded its timeout and was killed"
 
 
+WORKER_USER_WORDS = "Inspect the package layout."
+
+
 def _write_prompt_parts(
     tmp_path: Path, *, role_marker: str = "investigator"
 ) -> tuple[Path, Path]:
@@ -97,6 +100,7 @@ def _worker_payload(
         "tool_profile": tool_profile,
         "timeout_seconds": timeout_seconds,
         "is_repo_only": is_repo_only,
+        "user_words": WORKER_USER_WORDS,
     }
 
 
@@ -959,6 +963,7 @@ def test_load_batch_spec_accepts_every_documented_worker_key(
     worker_payload: dict[str, object] = {
         "role_name": "every-key-worker",
         "prompt_parts": [str(header_part), str(body_part)],
+        "user_words": WORKER_USER_WORDS,
         "cwd": str(working_directory),
         "tool_profile": TOOL_PROFILE_READONLY,
         "timeout_seconds": 30,
@@ -1008,6 +1013,7 @@ def test_load_batch_spec_accepts_the_default_timeout(
     worker_payload = {
         "role_name": "defaults-worker",
         "prompt_parts": [str(header_part), str(body_part)],
+        "user_words": WORKER_USER_WORDS,
         "cwd": str(working_directory),
         "tool_profile": TOOL_PROFILE_BUILD,
     }
@@ -1636,3 +1642,36 @@ def test_invoke_advisor_launcher_passes_timeout(
         prompt_text="hello",
     )
     assert captured["timeout"] == batch.MAXIMUM_ADVISOR_TIMEOUT_SECONDS
+def _worker_spec_with_user_words(
+    tmp_path: Path, user_words: str
+) -> batch.WorkerSpec:
+    header_part, body_part = _write_prompt_parts(tmp_path)
+    return batch.WorkerSpec(
+        role_name="investigator",
+        all_prompt_part_paths=(header_part, body_part),
+        working_directory=tmp_path,
+        tool_profile="build",
+        timeout_seconds=30,
+        user_words=user_words,
+    )
+
+
+def test_a_worker_prompt_that_paraphrases_the_user_words_is_not_written(
+    tmp_path: Path,
+) -> None:
+    prompt_path = tmp_path / "prompt.txt"
+    worker_spec = _worker_spec_with_user_words(tmp_path, "Look at the package.")
+    with pytest.raises(ValueError, match="word for word"):
+        batch._write_assembled_prompt(
+            worker_spec=worker_spec, prompt_path=prompt_path
+        )
+    assert not prompt_path.exists()
+
+
+def test_a_worker_prompt_that_carries_the_user_words_is_written(tmp_path: Path) -> None:
+    prompt_path = tmp_path / "prompt.txt"
+    worker_spec = _worker_spec_with_user_words(tmp_path, WORKER_USER_WORDS)
+    batch._write_assembled_prompt(
+        worker_spec=worker_spec, prompt_path=prompt_path
+    )
+    assert WORKER_USER_WORDS in prompt_path.read_text(encoding=UTF8_ENCODING)

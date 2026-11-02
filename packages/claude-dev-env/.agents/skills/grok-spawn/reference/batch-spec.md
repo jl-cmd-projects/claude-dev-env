@@ -14,6 +14,7 @@ Shape:
         "/abs/path/to/task-body.md",
         "/abs/path/to/report-contract.md"
       ],
+      "user_words": "The user's message, copied word for word.",
       "cwd": "/abs/path/to/worktree",
       "tool_profile": "readonly",
       "timeout_seconds": 600,
@@ -31,6 +32,7 @@ Shape:
 | `workers` | Non-empty list of worker objects |
 | `role_name` | Label on the summary report for this worker |
 | `prompt_parts` | Ordered absolute paths to part files |
+| `user_words` | The user's message, copied word for word. The assembled prompt must carry it, or the worker is not written |
 | `cwd` | Working directory for that worker |
 | `tool_profile` | `readonly` or `build` |
 | `timeout_seconds` | Per-worker timeout (default 600, ceiling 5400). A spec asking for more is refused |
