@@ -49,6 +49,8 @@ ALL_COMMIT_VALUED_LONG_OPTIONS = frozenset(
     }
 )
 PATHSPEC_FROM_FILE_OPTION = "--pathspec-from-file"
+ALL_PATCH_LONG_OPTIONS = frozenset({"--patch", "--interactive"})
+PATCH_SHORT_FLAG = "p"
 ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "ls-files",
     "--modified",

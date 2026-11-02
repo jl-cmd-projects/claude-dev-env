@@ -427,6 +427,21 @@ def test_should_read_an_attached_signing_key_as_a_value(
     assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -p -m x",
+        "git commit --patch -m x",
+        "git commit --interactive -m x",
+    ],
+)
+def test_should_read_a_patch_commit_as_the_whole_tree(
+    repository: Path, tmp_path: Path, command: str
+) -> None:
+    (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    assert _is_denied(_payload(command, repository, _unverified(tmp_path)))
+
+
 def test_should_read_a_code_file_renamed_to_docs(
     repository: Path, tmp_path: Path
 ) -> None:

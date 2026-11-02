@@ -59,6 +59,8 @@ from hooks_constants.verify_before_commit_gate_constants import (
     GIT_TIMEOUT_SECONDS,
     LONG_OPTION_PREFIX,
     PATHSPEC_FROM_FILE_OPTION,
+    ALL_PATCH_LONG_OPTIONS,
+    PATCH_SHORT_FLAG,
     PATHSPEC_TERMINATOR,
     SKILL_NAME,
     WHOLE_TREE_PATHSPEC,
@@ -142,6 +144,12 @@ def _names_pathspec_file(option_name: str) -> bool:
     )
 
 
+def _names_patch_option(option_name: str) -> bool:
+    return len(option_name) > len(LONG_OPTION_PREFIX) and any(
+        each_option.startswith(option_name) for each_option in ALL_PATCH_LONG_OPTIONS
+    )
+
+
 def _long_option_takes_value(option_name: str) -> bool:
     return any(
         each_option.startswith(option_name)
@@ -163,13 +171,15 @@ def _read_commit(all_arguments: tuple[str, ...]) -> CommitReading:
         if each_word.startswith(LONG_OPTION_PREFIX):
             option_name, equals, _ = each_word.partition("=")
             commits_all = commits_all or option_name == COMMIT_ALL_LONG_OPTION
-            if _names_pathspec_file(option_name):
+            if _names_pathspec_file(option_name) or _names_patch_option(option_name):
                 all_pathspecs.append(WHOLE_TREE_PATHSPEC)
             skips_value = not equals and _long_option_takes_value(option_name)
             continue
         if each_word.startswith("-") and len(each_word) > 1:
             cluster_commits_all, skips_value = _read_short_cluster(each_word)
             commits_all = commits_all or cluster_commits_all
+            if PATCH_SHORT_FLAG in each_word:
+                all_pathspecs.append(WHOLE_TREE_PATHSPEC)
             continue
         all_pathspecs.append(each_word)
     return CommitReading(commits_all, tuple(all_pathspecs))
