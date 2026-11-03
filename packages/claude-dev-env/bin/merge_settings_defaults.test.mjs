@@ -164,6 +164,23 @@ test('mergeMissingSettingsDefaults should append the missing autoMode allow rule
     });
 });
 
+test('mergeMissingSettingsDefaults should keep an array env or modelSettings value as the user set it', () => {
+    const targetSettings = {
+        env: { SAMPLE_LIST: ['sample user value'] },
+        modelSettings: { 'claude-haiku-5-5': { SAMPLE_LIST: ['sample user value'] } },
+    };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, {
+            env: { SAMPLE_LIST: ['sample packaged value'] },
+            modelSettings: { 'claude-haiku-5-5': { SAMPLE_LIST: ['sample packaged value'] } },
+        }),
+        { addedKeys: [] },
+    );
+    assert.deepEqual(targetSettings.env.SAMPLE_LIST, ['sample user value']);
+    assert.deepEqual(targetSettings.modelSettings['claude-haiku-5-5'].SAMPLE_LIST, ['sample user value']);
+});
+
 test('mergeMissingSettingsDefaults should add no autoMode rule a second time', () => {
     const settingsDefaults = { autoMode: { allow: ['Sample packaged rule one'] } };
     const targetSettings = {};

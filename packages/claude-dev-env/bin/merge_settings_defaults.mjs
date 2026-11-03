@@ -32,6 +32,16 @@ function addMissingField(targetFields, fieldName, fieldDefault) {
 function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
     const addedKeys = [];
     for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
+        if (addMissingField(targetFields, fieldName, fieldDefault)) {
+            addedKeys.push(`${keyPrefix}.${fieldName}`);
+        }
+    }
+    return addedKeys;
+}
+
+function mergeMissingRuleLists(targetFields, defaultFields, keyPrefix) {
+    const addedKeys = [];
+    for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
         const targetList = targetFields[fieldName];
         if (Array.isArray(targetList) && Array.isArray(fieldDefault)) {
             const missingItems = fieldDefault.filter((eachItem) => !targetList.includes(eachItem));
@@ -39,9 +49,7 @@ function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
                 targetList.push(...structuredClone(missingItems));
                 addedKeys.push(`${keyPrefix}.${fieldName}`);
             }
-            continue;
-        }
-        if (addMissingField(targetFields, fieldName, fieldDefault)) {
+        } else if (addMissingField(targetFields, fieldName, fieldDefault)) {
             addedKeys.push(`${keyPrefix}.${fieldName}`);
         }
     }
@@ -64,7 +72,7 @@ function mergeMissingPerModelFields(targetPerModel, defaultPerModel, keyPrefix) 
 const NESTED_MERGE_BY_SETTING_KEY = new Map([
     ['modelSettings', mergeMissingPerModelFields],
     ['env', mergeMissingFields],
-    ['autoMode', mergeMissingFields],
+    ['autoMode', mergeMissingRuleLists],
 ]);
 
 /**
