@@ -275,6 +275,7 @@ def test_should_drop_the_gates_the_shell_guards_mod_holds_while_it_is_on(
         "blocking/cloud_graphql_gate.py",
         "blocking/python_windows_invocation_gate.py",
         "blocking/transcript_root_search_gate.py",
+        "blocking/dev_path_removal_gate.py",
     ]
 
 

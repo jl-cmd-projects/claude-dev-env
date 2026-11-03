@@ -22,7 +22,7 @@ from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
 )
 
 
-def test_bash_roster_starts_only_the_msys_rewriter_and_the_five_gates() -> None:
+def test_bash_roster_starts_only_the_msys_rewriter_and_the_six_gates() -> None:
     assert ALL_BASH_HOSTED_HOOK_ENTRIES == (
         BashHostedHookEntry(
             script_relative_path="blocking/msys_rev_path_rewriter.py",
@@ -49,5 +49,9 @@ def test_bash_roster_starts_only_the_msys_rewriter_and_the_five_gates() -> None:
         BashHostedHookEntry(
             script_relative_path="blocking/transcript_root_search_gate.py",
             applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
+        ),
+        BashHostedHookEntry(
+            script_relative_path="blocking/dev_path_removal_gate.py",
+            applicable_tool_names=ALL_BASH_ONLY_TOOL_NAMES,
         ),
     )

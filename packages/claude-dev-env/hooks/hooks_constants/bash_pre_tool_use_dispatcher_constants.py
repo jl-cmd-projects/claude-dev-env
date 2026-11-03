@@ -87,4 +87,8 @@ ALL_BASH_HOSTED_HOOK_ENTRIES: tuple[BashHostedHookEntry, ...] = (
         script_relative_path="blocking/transcript_root_search_gate.py",
         applicable_tool_names=ALL_BASH_AND_POWERSHELL_TOOL_NAMES,
     ),
+    BashHostedHookEntry(
+        script_relative_path="blocking/dev_path_removal_gate.py",
+        applicable_tool_names=ALL_BASH_ONLY_TOOL_NAMES,
+    ),
 )
