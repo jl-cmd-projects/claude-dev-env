@@ -1,6 +1,7 @@
 """Constants for the pull request lifecycle skill gate."""
 
 import re
+from pathlib import Path
 
 HOOK_EVENT_NAME = "PreToolUse"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
@@ -10,6 +11,19 @@ DENY_REASON = (
 )
 SKILL_NAME = "pr-lifecycle"
 ALL_SLASH_COMMAND_MARKERS = ("<command-name>/pr-lifecycle</command-name>",)
+SKILL_LOADED_MARKER = f'<skill-loaded name="{SKILL_NAME}">'
+SKILL_LOADED_CLOSING_TAG = "</skill-loaded>"
+SKILL_FILE = Path(__file__).resolve().parents[2] / ".agents" / "skills" / SKILL_NAME / "SKILL.md"
+SKILL_CONTEXT_SUMMARY = (
+    "pr-lifecycle rules, loaded at session start. Call the Skill tool with pr-lifecycle for the full text.\n"
+    "- Before opening a pull request, prove the change where it runs. The body needs a What this does section with a flowchart, an Existing work section, and a Proof in practice section.\n"
+    "- Before pushing, read the branch ruleset for its required checks. After the push, confirm each one fired.\n"
+    "- Let CI run the gate. Read its verdict instead of rerunning the full suite locally.\n"
+    "- Stage the files you edited before a commit. Never commit working documents or images.\n"
+    "- Pass post bodies with --body-file, and run durable_post_lint before a pull request or GitHub post.\n"
+    "- Fetch every review comment before fixing. Reply inline, and resolve a thread only after the reply shows.\n"
+    "- The agent that drives a pull request merges it once it is green, no review thread is open, and the merge state is clean.\n"
+)
 SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 UPDATE_PULL_REQUEST_TOOL_SUFFIX = "__update_pull_request"
 ALL_GITHUB_MCP_TOOL_SUFFIXES = (

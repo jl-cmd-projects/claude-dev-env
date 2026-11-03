@@ -221,3 +221,61 @@ def should_list_each_tool_call_since_the_last_prompt_with_its_outcome() -> None:
         TranscriptToolCall("Edit", {}, False),
         TranscriptToolCall("Write", {}, False),
     ]
+
+
+SESSION_START_MARKER = '<skill-loaded name="pr-lifecycle">'
+
+
+def _hook_context_entry(hook_event: str, marker_text: str = SESSION_START_MARKER) -> str:
+    return json.dumps(
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "hook_additional_context",
+                "hookEvent": hook_event,
+                "content": [f"{marker_text}\n# Pull request lifecycle\n</skill-loaded>"],
+            },
+        }
+    )
+
+
+def test_session_start_context_with_marker_should_load_the_skill() -> None:
+    lines = [_hook_context_entry("SessionStart")]
+    assert is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), (), (SESSION_START_MARKER,))
+
+
+def test_session_start_context_with_marker_as_plain_string_content_should_load_the_skill() -> None:
+    attachment_line = json.dumps(
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "hook_additional_context",
+                "hookEvent": "SessionStart",
+                "content": f"{SESSION_START_MARKER}\nbody",
+            },
+        }
+    )
+    assert is_skill_loaded_after_last_compaction([attachment_line], ("pr-lifecycle",), (), (SESSION_START_MARKER,))
+
+
+def test_user_prompt_context_with_the_same_marker_should_not_load_the_skill() -> None:
+    lines = [_hook_context_entry("UserPromptSubmit")]
+    assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), (), (SESSION_START_MARKER,))
+
+
+def test_session_start_context_without_the_marker_should_not_load_the_skill() -> None:
+    lines = [_hook_context_entry("SessionStart", marker_text='<skill-loaded name="other">')]
+    assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), (), (SESSION_START_MARKER,))
+
+
+def test_session_start_context_should_not_load_when_no_session_start_marker_is_passed() -> None:
+    lines = [_hook_context_entry("SessionStart")]
+    assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), ())
+
+
+def test_compaction_should_drop_session_start_context_until_the_hook_runs_again() -> None:
+    compact_boundary = json.dumps({"subtype": "compact_boundary"})
+    lines = [_hook_context_entry("SessionStart"), compact_boundary]
+    assert not is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), (), (SESSION_START_MARKER,))
+    lines.append(_hook_context_entry("SessionStart"))
+    assert is_skill_loaded_after_last_compaction(lines, ("pr-lifecycle",), (), (SESSION_START_MARKER,))

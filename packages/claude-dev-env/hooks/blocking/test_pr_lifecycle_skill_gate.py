@@ -13,7 +13,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
-from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
+from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON, SKILL_LOADED_MARKER
 from hooks_constants.pull_request_proof_constants import (
     MISSING_BUILD_EVAL_REASON,
     MISSING_PROOF_REASON,
@@ -510,3 +510,52 @@ def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
     output = gate.deny_decision("Load the skill first.")["hookSpecificOutput"]
     assert output["permissionDecision"] == "deny"
     assert output["permissionDecisionReason"] == "Load the skill first."
+
+
+SESSION_START_CONTEXT = f"{SKILL_LOADED_MARKER}\n# Pull request lifecycle\n</skill-loaded>"
+PROMPT_LINE = json.dumps({"type": "user", "message": {"content": "Push the branch."}})
+COMPACT_LINE = json.dumps({"subtype": "compact_boundary"})
+
+
+def _hook_context_line(hook_event: str) -> str:
+    return json.dumps(
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "hook_additional_context",
+                "hookEvent": hook_event,
+                "content": [SESSION_START_CONTEXT],
+            },
+        }
+    )
+
+
+def _context_transcript(tmp_path: Path, all_lines: list[str]) -> Path:
+    transcript_path = tmp_path / "context.jsonl"
+    transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
+    return transcript_path
+
+
+def test_session_start_context_should_allow_a_push_without_a_skill_call(tmp_path: Path) -> None:
+    path = _context_transcript(tmp_path, [PROMPT_LINE, _hook_context_line("SessionStart")])
+    assert _run_main(_payload("git push -u origin probe", path)) == (0, "")
+
+
+def test_user_prompt_context_should_not_stand_in_for_the_skill(tmp_path: Path) -> None:
+    path = _context_transcript(tmp_path, [PROMPT_LINE, _hook_context_line("UserPromptSubmit")])
+    _assert_denied(_payload("git push -u origin probe", path))
+
+
+def test_session_start_context_before_a_compaction_should_be_dropped(tmp_path: Path) -> None:
+    path = _context_transcript(
+        tmp_path, [PROMPT_LINE, _hook_context_line("SessionStart"), COMPACT_LINE]
+    )
+    _assert_denied(_payload("git push -u origin probe", path))
+
+
+def test_session_start_context_after_a_compaction_should_allow_again(tmp_path: Path) -> None:
+    path = _context_transcript(
+        tmp_path,
+        [PROMPT_LINE, _hook_context_line("SessionStart"), COMPACT_LINE, _hook_context_line("SessionStart")],
+    )
+    assert _run_main(_payload("git push -u origin probe", path)) == (0, "")

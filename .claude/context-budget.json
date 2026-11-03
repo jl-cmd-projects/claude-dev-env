@@ -204,6 +204,18 @@
         }
       },
       "char_limit": 1500
+    },
+    {
+      "name": "pr lifecycle skill session start",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/pr_lifecycle_skill_session_start.py"
+      ],
+      "stdin": {
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "char_limit": 1500
     }
   ],
   "baseline": {

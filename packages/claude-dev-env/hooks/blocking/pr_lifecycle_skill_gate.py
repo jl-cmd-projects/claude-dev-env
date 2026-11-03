@@ -53,6 +53,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     SEGMENT_BREAK,
     SESSION_TRANSCRIPT_PATH_FIELD,
     SHELL_TOOL_NAMES,
+    SKILL_LOADED_MARKER,
     SKILL_NAME,
     SUBAGENT_TRANSCRIPT_DIRECTORY_NAME,
     SUBAGENT_TRANSCRIPT_FILE_TEMPLATE,
@@ -298,7 +299,7 @@ def _scanned_transcript(path: str, scan: Callable[[Iterable[str]], bool]) -> boo
 
 def _shows_skill_load(all_transcript_lines: Iterable[str]) -> bool:
     return is_skill_loaded_after_last_compaction(
-        all_transcript_lines, (SKILL_NAME,), ALL_SLASH_COMMAND_MARKERS
+        all_transcript_lines, (SKILL_NAME,), ALL_SLASH_COMMAND_MARKERS, (SKILL_LOADED_MARKER,)
     )
 
 

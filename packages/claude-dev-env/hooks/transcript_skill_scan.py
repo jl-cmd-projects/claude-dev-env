@@ -12,10 +12,16 @@ from typing import NamedTuple
 
 from hooks_constants.transcript_skill_scan_constants import (
     ASSISTANT_ENTRY_TYPE,
+    ATTACHMENT_ENTRY_TYPE,
+    ATTACHMENT_FIELD,
     COMMAND_ARGUMENTS_PATTERN,
     COMPACT_BOUNDARY_SUBTYPE,
+    HOOK_CONTEXT_ATTACHMENT_TYPE,
+    HOOK_CONTEXT_CONTENT_FIELD,
+    HOOK_EVENT_FIELD,
     IS_ERROR_FIELD,
     META_ENTRY_FIELD,
+    SESSION_START_HOOK_EVENT,
     SKILL_TOOL_NAME,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -86,6 +92,30 @@ def _invokes_skill(
     return next(_named_skill_inputs(all_entry_fields, skill_names), None) is not None
 
 
+def _session_start_context_loads_skill(
+    all_entry_fields: dict[str, object],
+    session_start_markers: Collection[str],
+) -> bool:
+    if not session_start_markers or all_entry_fields.get("type") != ATTACHMENT_ENTRY_TYPE:
+        return False
+    attachment = all_entry_fields.get(ATTACHMENT_FIELD)
+    if not isinstance(attachment, dict):
+        return False
+    if attachment.get("type") != HOOK_CONTEXT_ATTACHMENT_TYPE:
+        return False
+    if attachment.get(HOOK_EVENT_FIELD) != SESSION_START_HOOK_EVENT:
+        return False
+    context_texts = attachment.get(HOOK_CONTEXT_CONTENT_FIELD)
+    if isinstance(context_texts, str):
+        context_texts = [context_texts]
+    if not isinstance(context_texts, list):
+        return False
+    return any(
+        isinstance(each_text, str) and any(marker in each_text for marker in session_start_markers)
+        for each_text in context_texts
+    )
+
+
 def _first_word_is(text: object, argument_word: str) -> bool:
     return isinstance(text, str) and [
         each_word.casefold() for each_word in text.split()[:1]
@@ -132,13 +162,18 @@ def skill_invocation_status(
     all_transcript_lines: Iterable[str],
     skill_names: Collection[str],
     slash_command_markers: Collection[str],
+    session_start_markers: Collection[str] = (),
 ) -> tuple[bool, bool]:
     """Report whether the skill was ever invoked and whether it is loaded now.
+
+    A SessionStart hook attachment whose content holds a session-start marker
+    also loads the skill, once the marker is found in its content.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
         skill_names: Accepted skill names, with plugin prefixes accepted.
         slash_command_markers: Accepted user command tags.
+        session_start_markers: Text that a SessionStart hook attachment carries to load the skill.
 
     Returns:
         Whether any entry invoked the skill, and whether an invocation follows
@@ -146,11 +181,14 @@ def skill_invocation_status(
     """
     was_invoked = False
     loaded = False
+    all_line_names = (*skill_names, *session_start_markers)
     for each_line in all_transcript_lines:
-        all_entry_fields = _relevant_entry(each_line, skill_names)
+        all_entry_fields = _relevant_entry(each_line, all_line_names)
         if all_entry_fields is not None:
             loaded = all_entry_fields.get("subtype") != COMPACT_BOUNDARY_SUBTYPE and (
-                loaded or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
+                loaded
+                or _invokes_skill(all_entry_fields, skill_names, slash_command_markers)
+                or _session_start_context_loads_skill(all_entry_fields, session_start_markers)
             )
             was_invoked = was_invoked or loaded
     return was_invoked, loaded
@@ -160,15 +198,25 @@ def is_skill_loaded_after_last_compaction(
     all_transcript_lines: Iterable[str],
     skill_names: Collection[str],
     slash_command_markers: Collection[str],
+    session_start_markers: Collection[str] = (),
 ) -> bool:
     """Return whether a matching invocation follows the last compact boundary.
+
+    ::
+
+        Skill call for the skill, then a compact boundary      -> False
+        SessionStart attachment with a marker, after the boundary -> True
+        UserPromptSubmit attachment with the same marker        -> False
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
         skill_names: Accepted skill names, with plugin prefixes accepted.
         slash_command_markers: Accepted user command tags.
+        session_start_markers: Text that a SessionStart hook attachment carries to load the skill.
     """
-    return skill_invocation_status(all_transcript_lines, skill_names, slash_command_markers)[1]
+    return skill_invocation_status(
+        all_transcript_lines, skill_names, slash_command_markers, session_start_markers
+    )[1]
 
 
 def _is_user_prompt(all_entry_fields: dict[str, object]) -> bool:
