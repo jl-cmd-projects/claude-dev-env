@@ -303,3 +303,23 @@ def test_should_deny_a_headless_claude_command_while_no_mod_is_on(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("claude -p 'say hello'"))
     assert _decision_from_stdout(completed.stdout)[0] == "deny"
+
+
+def test_should_deny_a_bash_removal_of_dev_null_through_the_dispatcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("rm -f /dev/null"))
+    assert _decision_from_stdout(completed.stdout)[0] == "deny"
+
+
+def test_should_pass_a_bash_redirect_into_dev_null_through_the_dispatcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("echo x > /dev/null"))
+    assert _decision_from_stdout(completed.stdout) == ("", "")
