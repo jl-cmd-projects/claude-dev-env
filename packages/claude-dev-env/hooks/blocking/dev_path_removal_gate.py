@@ -36,9 +36,10 @@ try:
         GATE_HOOK_NAME,
         LEADING_SLASH,
         LEADING_SLASHES_PATTERN,
+        LONG_OPTION_DASHES,
         REDIRECTION_OPERATOR_PATTERN,
         SHORT_TARGET_DIRECTORY_OPTION_PATTERN,
-        TARGET_DIRECTORY_LONG_OPTION_PREFIX,
+        TARGET_DIRECTORY_LONG_OPTION_NAME,
     )
     from hooks_constants.hook_block_logger import log_hook_block
     from hooks_constants.hook_specific_output_keys import (
@@ -98,12 +99,42 @@ def is_dev_path(path_operand: str) -> bool:
     )
 
 
+def _is_target_directory_long_option(option_name: str) -> bool:
+    """Return True when the option name is a prefix of ``--target-directory``.
+
+    GNU option parsing accepts any unambiguous prefix of a long option, so
+    ``--tar=/dev`` sets the same destination as ``--target-directory=/dev``.
+
+    ::
+
+        "--target-directory"  -> True
+        "--tar"               -> True
+        "--t"                 -> True
+        "--"                  -> False
+        "--no-target"         -> False
+
+    Args:
+        option_name: The option token, up to but not including its ``=``.
+
+    Returns:
+        True when the name after its leading dashes is a non-empty prefix of
+        ``target-directory``.
+    """
+    long_option_name = option_name.removeprefix(LONG_OPTION_DASHES)
+    return (
+        option_name.startswith(LONG_OPTION_DASHES)
+        and long_option_name != ""
+        and TARGET_DIRECTORY_LONG_OPTION_NAME.startswith(long_option_name)
+    )
+
+
 def _attached_target_directory(argument: str) -> str | None:
-    """Return the destination carried by a ``-t`` or ``--target-directory=`` token, or None.
+    """Return the destination carried by a target-directory option token, or None.
 
     ::
 
         "--target-directory=/dev"  -> "/dev"
+        "--tar=/dev"               -> "/dev"
         "-t/dev"                   -> "/dev"
         "-ft/dev"                  -> "/dev"
         "-t"                       -> None
@@ -114,8 +145,9 @@ def _attached_target_directory(argument: str) -> str | None:
     Returns:
         The destination attached to the option, or None when the token attaches none.
     """
-    if argument.startswith(TARGET_DIRECTORY_LONG_OPTION_PREFIX):
-        return argument.removeprefix(TARGET_DIRECTORY_LONG_OPTION_PREFIX)
+    option_name, has_attached_value, option_value = argument.partition("=")
+    if has_attached_value and _is_target_directory_long_option(option_name):
+        return option_value
     short_option_match = SHORT_TARGET_DIRECTORY_OPTION_PATTERN.fullmatch(argument)
     if short_option_match is None:
         return None

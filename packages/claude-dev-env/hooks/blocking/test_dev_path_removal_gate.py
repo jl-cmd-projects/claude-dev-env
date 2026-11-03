@@ -57,6 +57,8 @@ def test_should_not_treat_a_path_outside_dev_as_a_dev_path(path_operand: str) ->
         ["mv", "notes.txt", "--target-directory=/dev"],
         ["mv", "-t/dev", "notes.txt"],
         ["mv", "-ft/dev", "notes.txt"],
+        ["mv", "--tar=/dev", "notes.txt"],
+        ["mv", "--t=/dev", "notes.txt"],
     ],
 )
 def test_should_flag_a_removal_segment_with_a_dev_operand(all_segment_tokens: list[str]) -> None:
@@ -75,6 +77,7 @@ def test_should_flag_a_removal_segment_with_a_dev_operand(all_segment_tokens: li
         ["rm", "-f", "/devices/null"],
         ["mv", "--target-directory=/tmp/out", "notes.txt"],
         ["mv", "-t/tmp/out", "notes.txt"],
+        ["shred", "--random-source=/dev/urandom", "notes.txt"],
     ],
 )
 def test_should_pass_a_segment_that_reads_or_only_redirects_into_dev(
@@ -104,6 +107,7 @@ def test_should_pass_a_segment_that_reads_or_only_redirects_into_dev(
         "bash -c 'rm -f /dev/null'",
         "mv notes.txt --target-directory=/dev",
         "mv -t/dev notes.txt",
+        "mv --tar=/dev notes.txt",
     ],
 )
 def test_should_flag_a_command_that_removes_a_dev_path(command: str) -> None:
