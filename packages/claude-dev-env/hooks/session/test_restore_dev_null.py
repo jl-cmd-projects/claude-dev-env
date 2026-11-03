@@ -10,6 +10,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 _SESSION_DIR = Path(__file__).resolve().parent
 _HOOKS_ROOT = _SESSION_DIR.parent
 for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
@@ -17,6 +19,12 @@ for each_sys_path_entry in (str(_SESSION_DIR), str(_HOOKS_ROOT)):
         sys.path.insert(0, each_sys_path_entry)
 
 import restore_dev_null as restore
+
+
+POSIX_DEVICE_NUMBERS_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="device numbers come from POSIX os.makedev and os.major",
+)
 
 
 def _char_device_status(major: int, minor: int) -> SimpleNamespace:
@@ -35,11 +43,13 @@ def _completed_mknod(argv: list[str], **_kwargs: object) -> subprocess.Completed
 
 
 class TestIsDevNullDevice:
+    @POSIX_DEVICE_NUMBERS_ONLY
     def test_character_device_1_3_is_healthy(self) -> None:
         assert restore.is_dev_null_device(
             "/unused", read_status=lambda _path: _char_device_status(1, 3)
         )
 
+    @POSIX_DEVICE_NUMBERS_ONLY
     def test_character_device_with_other_numbers_is_unhealthy(self) -> None:
         assert not restore.is_dev_null_device(
             "/unused", read_status=lambda _path: _char_device_status(1, 5)
@@ -58,6 +68,7 @@ class TestIsDevNullDevice:
 
 
 class TestRestoreDevNull:
+    @POSIX_DEVICE_NUMBERS_ONLY
     def test_healthy_path_runs_no_mknod(self, tmp_path: Path) -> None:
         device_path = tmp_path / "null"
         with patch.object(restore.subprocess, "run") as run_mock:
@@ -125,7 +136,10 @@ class TestRestoreDevNull:
 
 class TestMain:
     def test_main_prints_the_restore_line(self, capsys) -> None:
-        with patch.object(restore, "restore_dev_null", return_value="sample line"):
+        with (
+            patch.object(restore.sys, "platform", "linux"),
+            patch.object(restore, "restore_dev_null", return_value="sample line"),
+        ):
             restore.main()
         assert capsys.readouterr().out == "sample line\n"
 
