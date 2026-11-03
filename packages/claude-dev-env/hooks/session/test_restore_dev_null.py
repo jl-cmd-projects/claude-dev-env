@@ -135,7 +135,7 @@ class TestRestoreDevNull:
 
 
 class TestMain:
-    def test_main_prints_the_restore_line(self, capsys) -> None:
+    def test_main_prints_the_restore_line(self, capsys: pytest.CaptureFixture[str]) -> None:
         with (
             patch.object(restore.sys, "platform", "linux"),
             patch.object(restore, "restore_dev_null", return_value="sample line"),
@@ -143,11 +143,14 @@ class TestMain:
             restore.main()
         assert capsys.readouterr().out == "sample line\n"
 
-    def test_main_prints_skip_line_on_windows(self, capsys) -> None:
+    @pytest.mark.parametrize("non_linux_platform", ["win32", "darwin"])
+    def test_main_prints_skip_line_off_linux(
+        self, capsys: pytest.CaptureFixture[str], non_linux_platform: str
+    ) -> None:
         with (
-            patch.object(restore.sys, "platform", "win32"),
+            patch.object(restore.sys, "platform", non_linux_platform),
             patch.object(restore, "restore_dev_null") as restore_mock,
         ):
             restore.main()
         restore_mock.assert_not_called()
-        assert capsys.readouterr().out == restore.WINDOWS_SKIP_LINE + "\n"
+        assert capsys.readouterr().out == restore.NON_LINUX_SKIP_LINE + "\n"

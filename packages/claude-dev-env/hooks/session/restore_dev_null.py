@@ -5,7 +5,8 @@ A command that removes or overwrites ``/dev/null`` leaves a regular file at that
 path, so later shell redirects such as ``2>/dev/null`` write into that file.
 At session start this hook checks the path. When it is not the character device
 1:3, the hook removes the entry and recreates it with
-``mknod -m 666 /dev/null c 1 3``. A healthy path is left unchanged.
+``mknod -m 666 /dev/null c 1 3``. A healthy path is left unchanged. Only Linux
+maps /dev/null to 1:3, so other platforms skip the check.
 """
 
 from __future__ import annotations
@@ -15,15 +16,22 @@ import stat
 import subprocess
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 
-DEV_NULL_PATH = "/dev/null"
-DEV_NULL_MAJOR = 1
-DEV_NULL_MINOR = 3
-DEV_NULL_MODE = "666"
-MKNOD_TIMEOUT_SECONDS = 5
-WINDOWS_PLATFORM_TAG = "win32"
-WINDOWS_SKIP_LINE = "/dev/null check skipped: Windows has no /dev/null device node."
+_hooks_directory = str(Path(__file__).resolve().parent.parent)
+if _hooks_directory not in sys.path:
+    sys.path.insert(0, _hooks_directory)
+
+from hooks_constants.restore_dev_null_constants import (
+    DEV_NULL_MAJOR,
+    DEV_NULL_MINOR,
+    DEV_NULL_MODE,
+    DEV_NULL_PATH,
+    LINUX_PLATFORM_TAG,
+    MKNOD_TIMEOUT_SECONDS,
+    NON_LINUX_SKIP_LINE,
+)
 
 
 def is_dev_null_device(
@@ -74,10 +82,10 @@ def restore_dev_null(
 
 
 def main() -> None:
-    if sys.platform == WINDOWS_PLATFORM_TAG:
-        print(WINDOWS_SKIP_LINE)
+    if sys.platform != LINUX_PLATFORM_TAG:
+        sys.stdout.write(NON_LINUX_SKIP_LINE + "\n")
         return
-    print(restore_dev_null())
+    sys.stdout.write(restore_dev_null() + "\n")
 
 
 if __name__ == "__main__":
