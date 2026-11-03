@@ -44,7 +44,7 @@ function mergeMissingRuleLists(targetFields, defaultFields, keyPrefix) {
     for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
         const targetList = targetFields[fieldName];
         if (Array.isArray(targetList) && Array.isArray(fieldDefault)) {
-            const missingItems = fieldDefault.filter((eachItem) => !targetList.includes(eachItem));
+            const missingItems = [...new Set(fieldDefault)].filter((eachItem) => !targetList.includes(eachItem));
             if (missingItems.length > 0) {
                 targetList.push(...structuredClone(missingItems));
                 addedKeys.push(`${keyPrefix}.${fieldName}`);

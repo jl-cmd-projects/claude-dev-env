@@ -164,6 +164,18 @@ test('mergeMissingSettingsDefaults should append the missing autoMode allow rule
     });
 });
 
+test('mergeMissingSettingsDefaults should add a packaged autoMode rule that repeats in the defaults once', () => {
+    const targetSettings = { autoMode: { allow: ['$defaults'] } };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, {
+            autoMode: { allow: ['Sample packaged rule one', 'Sample packaged rule one'] },
+        }),
+        { addedKeys: ['autoMode.allow'] },
+    );
+    assert.deepEqual(targetSettings.autoMode.allow, ['$defaults', 'Sample packaged rule one']);
+});
+
 test('mergeMissingSettingsDefaults should keep an array env or modelSettings value as the user set it', () => {
     const targetSettings = {
         env: { SAMPLE_LIST: ['sample user value'] },
