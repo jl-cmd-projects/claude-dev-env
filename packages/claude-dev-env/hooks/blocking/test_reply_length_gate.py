@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import reply_length_gate
+from hooks_constants import reply_length_gate_constants
 
 REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 POST_TOOL_NAME = "mcp__hearthbot__post_message"
@@ -45,6 +46,37 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     switch_path = tmp_path / ".claude" / "visual-reply-mode.json"
     switch_path.parent.mkdir(exist_ok=True)
     switch_path.write_text('{"enabled": true}', encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def length_caps_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", True)
+    monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", True)
+
+
+def test_should_ship_with_both_length_caps_off() -> None:
+    assert reply_length_gate_constants.SENTENCE_CAP_ENABLED is False
+    assert reply_length_gate_constants.WORDS_PER_SENTENCE_CAP_ENABLED is False
+
+
+def test_should_allow_a_sixteen_word_sentence_while_the_word_cap_is_off(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", False)
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": SIXTEEN_WORD_SENTENCE}
+    )
+    assert (exit_code, stderr_text) == (0, "")
+
+
+def test_should_allow_four_sentences_while_the_cap_is_off(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", False)
+    exit_code, stderr_text = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "One. Two. Three. Four."}
+    )
+    assert (exit_code, stderr_text) == (0, "")
 
 
 def test_should_allow_three_short_sentences(

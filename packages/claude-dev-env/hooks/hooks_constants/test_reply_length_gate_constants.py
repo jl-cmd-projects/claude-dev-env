@@ -1,4 +1,59 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from hooks_constants import reply_length_gate_constants as constants
+
+HOOKS_DIRECTORY = Path(__file__).resolve().parents[1]
+REPLY_LENGTH_ENVIRONMENT_PREFIX = "REPLY_LENGTH_"
+CAP_PROBE = (
+    "from hooks_constants import reply_length_gate_constants as c; "
+    "from hooks_constants import chat_reply_gate_constants as chat; "
+    "print(c.SENTENCE_CAP_ENABLED, c.WORDS_PER_SENTENCE_CAP_ENABLED); "
+    "print(chat.REPLY_LIMIT_REMINDER)"
+)
+BOTH_CAPS_ON = {"REPLY_LENGTH_SENTENCE_CAP": "on", "REPLY_LENGTH_WORD_CAP": "on"}
+
+
+def read_probe_lines_in_a_fresh_process(environment_overrides: dict[str, str]) -> list[str]:
+    environment = {
+        each_name: each_value
+        for each_name, each_value in os.environ.items()
+        if not each_name.startswith(REPLY_LENGTH_ENVIRONMENT_PREFIX)
+    }
+    environment.update(environment_overrides)
+    completed_run = subprocess.run(
+        [sys.executable, "-c", CAP_PROBE],
+        cwd=HOOKS_DIRECTORY,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return completed_run.stdout.splitlines()
+
+
+def test_should_keep_both_length_caps_off_when_the_environment_is_silent() -> None:
+    flags_line, _ = read_probe_lines_in_a_fresh_process({})
+    assert flags_line == "False False"
+
+
+def test_should_turn_both_length_caps_on_from_the_environment() -> None:
+    flags_line, _ = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
+    assert flags_line == "True True"
+
+
+def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() -> None:
+    _, reminder = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
+    assert "Keep it to 3 sentences or fewer." in reminder
+    assert "Keep each sentence to 15 words or fewer." in reminder
+
+
+def test_should_leave_the_length_limits_out_of_the_reply_reminder_when_switched_off() -> None:
+    _, reminder = read_probe_lines_in_a_fresh_process({})
+    assert "sentences or fewer" not in reminder
+    assert "words or fewer" not in reminder
 
 
 def test_gate_limits_replies_to_three_sentences_of_fifteen_words() -> None:

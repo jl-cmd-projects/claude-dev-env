@@ -5,10 +5,17 @@ from pathlib import Path
 import pytest
 
 import chat_reply_gate
+import reply_length_gate
 
 FOUR_SENTENCE_REPLY = "PR one merged. PR two is queued. PR three needs a fix. Nothing else is open."
 THREE_SENTENCE_REPLY = "PR one merged. PR two is queued. Nothing else is open."
 PASSING_DRAFT = "PR one merged. Two others wait."
+
+
+@pytest.fixture(autouse=True)
+def length_caps_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", True)
+    monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", True)
 
 
 @pytest.fixture(autouse=True)
@@ -144,7 +151,7 @@ def test_should_add_the_reply_limit_on_each_user_prompt(
     assert exit_code == 0
     assert hook_output is not None
     assert hook_output["hookEventName"] == "UserPromptSubmit"
-    assert "3 sentences or fewer" in str(hook_output["additionalContext"])
+    assert "Your reply to the user is final" in str(hook_output["additionalContext"])
 
 
 def test_should_do_nothing_inside_the_drafter_process(

@@ -5,6 +5,8 @@ import re
 from hooks_constants.reply_length_gate_constants import (
     MAXIMUM_SENTENCE_COUNT,
     MAXIMUM_WORDS_PER_SENTENCE,
+    SENTENCE_CAP_ENABLED,
+    WORDS_PER_SENTENCE_CAP_ENABLED,
 )
 
 RESOLVE_TOOL_NAME_PATTERN = re.compile(r"^mcp__.+__resolve_review_thread$")
@@ -25,6 +27,14 @@ COMMENT_ANCHOR_PATTERN = re.compile(r"(?:discussion_r|\"databaseId\"\s*:\s*)(\d+
 SHELL_REPLY_COMMENT_ID_PATTERN = re.compile(r"/comments/(\d+)/replies\b")
 TEXT_BLOCK_TYPE = "text"
 TEXT_FIELD = "text"
+if SENTENCE_CAP_ENABLED and WORDS_PER_SENTENCE_CAP_ENABLED:
+    RESOLVE_LENGTH_PHRASE = f" at most {MAXIMUM_SENTENCE_COUNT} sentences of at most {MAXIMUM_WORDS_PER_SENTENCE} words each,"
+elif SENTENCE_CAP_ENABLED:
+    RESOLVE_LENGTH_PHRASE = f" at most {MAXIMUM_SENTENCE_COUNT} sentences,"
+elif WORDS_PER_SENTENCE_CAP_ENABLED:
+    RESOLVE_LENGTH_PHRASE = f" at most {MAXIMUM_WORDS_PER_SENTENCE} words per sentence,"
+else:
+    RESOLVE_LENGTH_PHRASE = " the same meaning in fewer words,"
 MISSING_REPLY_REASON = (
     "This review thread has no reply on it that posted since the last user prompt and the last"
     " resolve of the thread. Post the reply on this thread with add_reply_to_pull_request_comment,"
@@ -32,6 +42,6 @@ MISSING_REPLY_REASON = (
     " result came back without an error, then resolve the thread by its PRRT_ id or by the comment id the reply answered. A comment id"
     " ties to a thread only through a pull_request_read get_review_comments result in this session."
     " A reply that a hook refused did not post; shorten it to"
-    f" at most {MAXIMUM_SENTENCE_COUNT} sentences of at most {MAXIMUM_WORDS_PER_SENTENCE} words each,"
-    " footer included, and send it again."
+    + RESOLVE_LENGTH_PHRASE
+    + " footer included, and send it again."
 )

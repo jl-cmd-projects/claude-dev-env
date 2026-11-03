@@ -2,8 +2,9 @@
 """PreToolUse hook that caps the length of a chat reply before it posts.
 
 The gate reads the ``text`` field of the chat tools that post to the user.
-It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
-sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
+It denies the call when SENTENCE_CAP_ENABLED is true and the text holds more
+than MAXIMUM_SENTENCE_COUNT sentences, or, while WORDS_PER_SENTENCE_CAP_ENABLED
+is true, a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
 It also denies a pull request number the reader cannot open::
 
     flag: Both land in PR 5256.
@@ -179,6 +180,7 @@ from hooks_constants.reply_length_gate_constants import (
     QUESTION_CARD_QUESTIONS_KEY,
     QUESTION_CARD_TOOL_NAME,
     RETRY_INSTRUCTION,
+    SENTENCE_CAP_ENABLED,
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
     SENTENCE_PREVIEW_WORD_COUNT,
@@ -189,6 +191,7 @@ from hooks_constants.reply_length_gate_constants import (
     TOOL_NAME_KEY,
     TRANSCRIPT_PATH_KEY,
     UNLINKED_PULL_REQUEST_MESSAGE,
+    WORDS_PER_SENTENCE_CAP_ENABLED,
     UNLINKED_PULL_REQUEST_PATTERN,
     UNSEEN_CITATION_MESSAGE,
     UNSOURCED_CAUSE_MESSAGE,
@@ -283,7 +286,7 @@ def length_violation(reply_text: str) -> str | None:
             TOO_MANY_SENTENCES_MESSAGE.format(
                 sentence_count=len(all_sentences), sentence_limit=MAXIMUM_SENTENCE_COUNT
             )
-            if len(all_sentences) > MAXIMUM_SENTENCE_COUNT
+            if SENTENCE_CAP_ENABLED and len(all_sentences) > MAXIMUM_SENTENCE_COUNT
             else None,
             long_sentence_violation(reply_text),
         ]
@@ -291,7 +294,12 @@ def length_violation(reply_text: str) -> str | None:
 
 
 def long_sentence_violation(prose_text: str) -> str | None:
-    """Return the deny reason for each sentence over the word limit, or None."""
+    """Return the deny reason for each sentence over the word limit, or None.
+
+    The check runs only while WORDS_PER_SENTENCE_CAP_ENABLED is true.
+    """
+    if not WORDS_PER_SENTENCE_CAP_ENABLED:
+        return None
     return joined_violations(
         LONG_SENTENCE_MESSAGE.format(
             word_count=len(each_sentence),

@@ -1,8 +1,11 @@
 """Constants for the reply length gate PreToolUse hook."""
 
+import os
 import re
 
 MAXIMUM_SENTENCE_COUNT = 50
+SENTENCE_CAP_ENABLED = os.environ.get("REPLY_LENGTH_SENTENCE_CAP", "off") == "on"
+WORDS_PER_SENTENCE_CAP_ENABLED = os.environ.get("REPLY_LENGTH_WORD_CAP", "off") == "on"
 MAXIMUM_WORDS_PER_SENTENCE = 35
 ALL_CHECKED_TOOL_NAMES = frozenset(
     {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
