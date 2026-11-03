@@ -32,6 +32,15 @@ function addMissingField(targetFields, fieldName, fieldDefault) {
 function mergeMissingFields(targetFields, defaultFields, keyPrefix) {
     const addedKeys = [];
     for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
+        const targetList = targetFields[fieldName];
+        if (Array.isArray(targetList) && Array.isArray(fieldDefault)) {
+            const missingItems = fieldDefault.filter((eachItem) => !targetList.includes(eachItem));
+            if (missingItems.length > 0) {
+                targetList.push(...structuredClone(missingItems));
+                addedKeys.push(`${keyPrefix}.${fieldName}`);
+            }
+            continue;
+        }
         if (addMissingField(targetFields, fieldName, fieldDefault)) {
             addedKeys.push(`${keyPrefix}.${fieldName}`);
         }
@@ -52,29 +61,10 @@ function mergeMissingPerModelFields(targetPerModel, defaultPerModel, keyPrefix) 
     return addedKeys;
 }
 
-function mergeMissingListItems(targetFields, defaultFields, keyPrefix) {
-    const addedKeys = [];
-    for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
-        const targetList = targetFields[fieldName];
-        if (Array.isArray(targetList) && Array.isArray(fieldDefault)) {
-            const missingItems = fieldDefault.filter((eachItem) => !targetList.includes(eachItem));
-            if (missingItems.length > 0) {
-                targetList.push(...structuredClone(missingItems));
-                addedKeys.push(`${keyPrefix}.${fieldName}`);
-            }
-            continue;
-        }
-        if (addMissingField(targetFields, fieldName, fieldDefault)) {
-            addedKeys.push(`${keyPrefix}.${fieldName}`);
-        }
-    }
-    return addedKeys;
-}
-
 const NESTED_MERGE_BY_SETTING_KEY = new Map([
     ['modelSettings', mergeMissingPerModelFields],
     ['env', mergeMissingFields],
-    ['autoMode', mergeMissingListItems],
+    ['autoMode', mergeMissingFields],
 ]);
 
 /**
