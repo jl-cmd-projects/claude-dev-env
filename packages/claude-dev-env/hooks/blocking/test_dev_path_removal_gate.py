@@ -53,6 +53,10 @@ def test_should_not_treat_a_path_outside_dev_as_a_dev_path(path_operand: str) ->
         ["truncate", "-s", "0", "/dev/null"],
         ["rm", "-f", "/dev/null", "2", ">&", "1"],
         ["rm", "-f", "/dev/null", ">", "/tmp/log"],
+        ["mv", "--target-directory=/dev", "notes.txt"],
+        ["mv", "notes.txt", "--target-directory=/dev"],
+        ["mv", "-t/dev", "notes.txt"],
+        ["mv", "-ft/dev", "notes.txt"],
     ],
 )
 def test_should_flag_a_removal_segment_with_a_dev_operand(all_segment_tokens: list[str]) -> None:
@@ -69,6 +73,8 @@ def test_should_flag_a_removal_segment_with_a_dev_operand(all_segment_tokens: li
         ["rm", "notes.txt", "&>", "/dev/null"],
         ["rm", "-f", "notes.txt"],
         ["rm", "-f", "/devices/null"],
+        ["mv", "--target-directory=/tmp/out", "notes.txt"],
+        ["mv", "-t/tmp/out", "notes.txt"],
     ],
 )
 def test_should_pass_a_segment_that_reads_or_only_redirects_into_dev(
@@ -96,6 +102,8 @@ def test_should_pass_a_segment_that_reads_or_only_redirects_into_dev(
         "rm -f /dev/null 2>&1",
         "rm /tmp/../dev/null",
         "bash -c 'rm -f /dev/null'",
+        "mv notes.txt --target-directory=/dev",
+        "mv -t/dev notes.txt",
     ],
 )
 def test_should_flag_a_command_that_removes_a_dev_path(command: str) -> None:

@@ -2,10 +2,12 @@
 """PreToolUse gate: stop a Bash command that removes or replaces a file under /dev.
 
 ``rm``, ``unlink``, ``mv``, ``shred`` and ``truncate`` change the files they
-name. Under ``/dev`` those files are device nodes such as ``/dev/null``, which
-other commands depend on. Each command segment is read after its wrappers, so
-``sudo rm -f /dev/null`` is denied. A redirect target is not a command operand,
-so ``rm notes.txt > /dev/null`` passes, and so does ``echo x > /dev/null``.
+name, and so does a destination attached to an option, such as
+``mv --target-directory=/dev``. Under ``/dev`` those files are device nodes
+such as ``/dev/null``, which other commands depend on. Each command segment is
+read after its wrappers, so ``sudo rm -f /dev/null`` is denied. A redirect
+target is not a command operand, so ``rm notes.txt > /dev/null`` passes, and so
+does ``echo x > /dev/null``.
 
 Hosted by ``blocking/bash_pre_tool_use_dispatcher.py`` for the Bash tool.
 """
@@ -35,6 +37,8 @@ try:
         LEADING_SLASH,
         LEADING_SLASHES_PATTERN,
         REDIRECTION_OPERATOR_PATTERN,
+        SHORT_TARGET_DIRECTORY_OPTION_PATTERN,
+        TARGET_DIRECTORY_LONG_OPTION_PREFIX,
     )
     from hooks_constants.hook_block_logger import log_hook_block
     from hooks_constants.hook_specific_output_keys import (
@@ -94,13 +98,41 @@ def is_dev_path(path_operand: str) -> bool:
     )
 
 
+def _attached_target_directory(argument: str) -> str | None:
+    """Return the destination carried by a ``-t`` or ``--target-directory=`` token, or None.
+
+    ::
+
+        "--target-directory=/dev"  -> "/dev"
+        "-t/dev"                   -> "/dev"
+        "-ft/dev"                  -> "/dev"
+        "-t"                       -> None
+
+    Args:
+        argument: One command token.
+
+    Returns:
+        The destination attached to the option, or None when the token attaches none.
+    """
+    if argument.startswith(TARGET_DIRECTORY_LONG_OPTION_PREFIX):
+        return argument.removeprefix(TARGET_DIRECTORY_LONG_OPTION_PREFIX)
+    short_option_match = SHORT_TARGET_DIRECTORY_OPTION_PATTERN.fullmatch(argument)
+    if short_option_match is None:
+        return None
+    return short_option_match.group(1)
+
+
 def _command_operands(all_arguments: list[str]) -> list[str]:
     """Return the arguments that are operands, leaving out each redirection and its target.
+
+    A destination attached to an option, such as ``-t/dev``, is also returned as
+    an operand of its own.
 
     ::
 
         ["foo", ">", "/dev/null"]    -> ["foo"]
         ["foo", "2", ">&", "1"]      -> ["foo", "2"]
+        ["-t/dev"]                   -> ["-t/dev", "/dev"]
 
     Args:
         all_arguments: The tokens after the program name.
@@ -118,6 +150,9 @@ def _command_operands(all_arguments: list[str]) -> list[str]:
             is_next_argument_redirection_target = True
             continue
         all_operands.append(each_argument)
+        attached_target_directory = _attached_target_directory(each_argument)
+        if attached_target_directory is not None:
+            all_operands.append(attached_target_directory)
     return all_operands
 
 

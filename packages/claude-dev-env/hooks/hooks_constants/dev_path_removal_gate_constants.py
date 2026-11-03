@@ -3,8 +3,9 @@
 Holds the hook name the block log records, the /dev directory and its prefix,
 the leading-slash pattern that folds ``//dev`` into ``/dev``, the program names
 that remove or replace a file, the redirection operator pattern that separates
-a redirect target from a command operand, and the deny message that names the
-fix.
+a redirect target from a command operand, the target-directory option prefix
+and pattern that carry a destination inside one token, and the deny message
+that names the fix.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ __all__ = [
     "LEADING_SLASHES_PATTERN",
     "ALL_DEV_PATH_REMOVAL_PROGRAM_NAMES",
     "REDIRECTION_OPERATOR_PATTERN",
+    "TARGET_DIRECTORY_LONG_OPTION_PREFIX",
+    "SHORT_TARGET_DIRECTORY_OPTION_PATTERN",
     "DEV_PATH_REMOVAL_DENY_REASON",
 ]
 
@@ -33,6 +36,9 @@ ALL_DEV_PATH_REMOVAL_PROGRAM_NAMES: frozenset[str] = frozenset(
 )
 
 REDIRECTION_OPERATOR_PATTERN = re.compile(r"&?[0-9]*[<>][<>&|]*")
+
+TARGET_DIRECTORY_LONG_OPTION_PREFIX = "--target-directory="
+SHORT_TARGET_DIRECTORY_OPTION_PATTERN = re.compile(r"-[A-Za-z]*t(.+)")
 
 DEV_PATH_REMOVAL_DENY_REASON = (
     "BLOCKED: this command removes or replaces a file under /dev, such as /dev/null, "
