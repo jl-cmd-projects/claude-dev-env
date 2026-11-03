@@ -9,7 +9,7 @@ inputs carry a ``prompt`` for an agent. The brief needs an ``Outcome:`` line
 and an ``On a blocker:`` clause, each with text after it, so the worker owns
 the outcome and any route named is a default. It also needs a ``User's words:``
 fenced block whose text appears word for word in the session transcript, so the
-worker starts from what the user actually asked.
+worker starts from what the user asked.
 
 ::
 
