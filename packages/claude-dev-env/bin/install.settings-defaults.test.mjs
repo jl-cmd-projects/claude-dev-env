@@ -355,3 +355,30 @@ test('install adds advisorModel when missing and keeps a user choice on rerun', 
         rmSync(sandboxHome, { recursive: true, force: true });
     }
 });
+
+test('install adds the packaged autoMode allow rules to an existing autoMode block and keeps the user rules', () => {
+    const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
+    try {
+        const settingsPath = join(sandboxHome, '.claude', 'settings.json');
+        mkdirSync(join(sandboxHome, '.claude'), { recursive: true });
+        writeFileSync(
+            settingsPath,
+            JSON.stringify({ autoMode: { allow: ['$defaults', 'Sample user rule'] } }, null, 4) + '\n',
+        );
+        const run = runInstallerInSandbox(sandboxHome);
+        assert.equal(run.status, 0, run.stderr);
+        const allowRules = JSON.parse(readFileSync(settingsPath, 'utf8')).autoMode.allow;
+        assert.equal(allowRules[0], '$defaults');
+        assert.equal(allowRules[1], 'Sample user rule');
+        const packagedAllowRules = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8')).autoMode.allow;
+        for (const eachPackagedRule of packagedAllowRules) {
+            assert.equal(
+                allowRules.filter((eachRule) => eachRule === eachPackagedRule).length,
+                1,
+                `packaged rule present exactly once: ${eachPackagedRule.slice(0, 40)}`,
+            );
+        }
+    } finally {
+        rmSync(sandboxHome, { recursive: true, force: true });
+    }
+});

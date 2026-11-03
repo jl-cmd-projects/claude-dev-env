@@ -136,3 +136,50 @@ test('mergeMissingSettingsDefaults should keep a non-object env value as the use
         assert.deepEqual(targetSettings, { env: userEnv });
     }
 });
+
+test('mergeMissingSettingsDefaults should append the missing autoMode allow rules after the user rules and keep the rest', () => {
+    const targetSettings = {
+        autoMode: {
+            allow: ['$defaults', 'Sample user rule'],
+            environment: ['Sample environment entry'],
+        },
+    };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, {
+            autoMode: { allow: ['$defaults', 'Sample packaged rule one', 'Sample packaged rule two'] },
+        }),
+        { addedKeys: ['autoMode.allow'] },
+    );
+    assert.deepEqual(targetSettings, {
+        autoMode: {
+            allow: [
+                '$defaults',
+                'Sample user rule',
+                'Sample packaged rule one',
+                'Sample packaged rule two',
+            ],
+            environment: ['Sample environment entry'],
+        },
+    });
+});
+
+test('mergeMissingSettingsDefaults should add no autoMode rule a second time', () => {
+    const settingsDefaults = { autoMode: { allow: ['Sample packaged rule one'] } };
+    const targetSettings = {};
+
+    mergeMissingSettingsDefaults(targetSettings, settingsDefaults);
+
+    assert.deepEqual(mergeMissingSettingsDefaults(targetSettings, settingsDefaults), { addedKeys: [] });
+    assert.deepEqual(targetSettings.autoMode.allow, ['Sample packaged rule one']);
+});
+
+test('mergeMissingSettingsDefaults should keep a non-list autoMode allow value as the user set it', () => {
+    const targetSettings = { autoMode: { allow: 'Sample user value' } };
+
+    assert.deepEqual(
+        mergeMissingSettingsDefaults(targetSettings, { autoMode: { allow: ['Sample packaged rule one'] } }),
+        { addedKeys: [] },
+    );
+    assert.deepEqual(targetSettings, { autoMode: { allow: 'Sample user value' } });
+});

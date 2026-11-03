@@ -11,6 +11,10 @@
  *
  * A per-variable key (`env`) merges one level deep. Install adds each variable
  * the user's block lacks and keeps each variable the user already set.
+ *
+ * A rule-list key (`autoMode`) merges one level deep. Install appends each list
+ * item, such as an `allow` rule, that the user's list lacks, and keeps every
+ * item the user already holds.
  */
 
 export const MANAGED_LIST_SETTING_KEYS = Object.freeze(['permissions']);
@@ -48,9 +52,29 @@ function mergeMissingPerModelFields(targetPerModel, defaultPerModel, keyPrefix) 
     return addedKeys;
 }
 
+function mergeMissingListItems(targetFields, defaultFields, keyPrefix) {
+    const addedKeys = [];
+    for (const [fieldName, fieldDefault] of Object.entries(defaultFields)) {
+        const targetList = targetFields[fieldName];
+        if (Array.isArray(targetList) && Array.isArray(fieldDefault)) {
+            const missingItems = fieldDefault.filter((eachItem) => !targetList.includes(eachItem));
+            if (missingItems.length > 0) {
+                targetList.push(...structuredClone(missingItems));
+                addedKeys.push(`${keyPrefix}.${fieldName}`);
+            }
+            continue;
+        }
+        if (addMissingField(targetFields, fieldName, fieldDefault)) {
+            addedKeys.push(`${keyPrefix}.${fieldName}`);
+        }
+    }
+    return addedKeys;
+}
+
 const NESTED_MERGE_BY_SETTING_KEY = new Map([
     ['modelSettings', mergeMissingPerModelFields],
     ['env', mergeMissingFields],
+    ['autoMode', mergeMissingListItems],
 ]);
 
 /**
@@ -72,7 +96,8 @@ export function settingsDefaultsFromPackageSettings(packageSettings) {
 
 /**
  * Add each default whose key the target settings lack, and fill the missing
- * entries and fields inside an existing `modelSettings` or `env` object.
+ * entries and fields inside an existing `modelSettings`, `env` or `autoMode`
+ * object.
  *
  * @param {Record<string, unknown>} targetSettings Mutated in place.
  * @param {Record<string, unknown>} settingsDefaults
