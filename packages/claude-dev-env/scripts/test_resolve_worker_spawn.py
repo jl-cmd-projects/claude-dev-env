@@ -33,6 +33,7 @@ from dev_env_scripts_constants.grok_worker_constants import (
     CLI_ENABLE_CLAUDE_TIER_FLAG,
     CLI_ROLE_FLAG,
     CLI_RUN_STATE_DIR_FLAG,
+    ROLE_TRANSLATOR,
     CLI_TIMEOUT_FLAG,
     CLASSIFICATION_AUTH_FAILURE,
     CLASSIFICATION_OK,
@@ -1268,6 +1269,75 @@ def test_the_cli_exits_as_config_error_when_the_prompt_paraphrases_the_user_word
     exit_code = dispatcher.main(all_arguments)
     assert exit_code == SPAWN_CONFIG_ERROR_EXIT_CODE
     assert "word for word" in capsys.readouterr().out
+
+
+class _SpawnReached(Exception):
+    pass
+
+
+def _arguments_without_user_words(tmp_path: Path, role: str) -> list[str]:
+    prompt_file, working_directory, run_state_directory = _paths(tmp_path)
+    all_arguments = _main_arguments_for_paths(
+        prompt_file=prompt_file,
+        working_directory=working_directory,
+        run_state_directory=run_state_directory,
+    )
+    all_arguments[all_arguments.index(CLI_ROLE_FLAG) + 1] = role
+    words_flag_index = all_arguments.index(USER_WORDS_FILE_FLAG)
+    del all_arguments[words_flag_index : words_flag_index + 2]
+    return all_arguments
+
+
+def test_a_translation_spawn_without_user_words_reaches_the_dispatcher(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    reached: dict[str, object] = {}
+
+    def record_and_stop(**keywords: object) -> None:
+        reached.update(keywords)
+        raise _SpawnReached()
+
+    monkeypatch.setattr(dispatcher, "resolve_worker_spawn", record_and_stop)
+    all_arguments = _arguments_without_user_words(tmp_path, ROLE_TRANSLATOR)
+    with pytest.raises(_SpawnReached):
+        dispatcher.main(all_arguments)
+    assert reached["role"] == ROLE_TRANSLATOR
+    assert reached["user_words"] == ""
+
+
+def test_a_worker_spawn_without_user_words_is_a_config_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_arguments = _arguments_without_user_words(tmp_path, FIXTURE_ROLE)
+    exit_code = dispatcher.main(all_arguments)
+    assert exit_code == SPAWN_CONFIG_ERROR_EXIT_CODE
+    assert "word for word" in capsys.readouterr().out
+
+
+def test_a_translation_spawn_never_runs_the_carry_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fail_if_checked(*_arguments: object) -> None:
+        raise AssertionError("the carry check must not run for a translation spawn")
+
+    def stop_after_the_check(**_keywords: object) -> None:
+        raise _SpawnReached()
+
+    monkeypatch.setattr(dispatcher, "require_prompt_carries_user_words", fail_if_checked)
+    monkeypatch.setattr(dispatcher, "spawn_preflight_runner", stop_after_the_check)
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("Translate this.", encoding="utf-8")
+    with pytest.raises(_SpawnReached):
+        dispatcher.resolve_worker_spawn(
+            role=ROLE_TRANSLATOR,
+            prompt_file=prompt_file,
+            user_words="",
+            working_directory=tmp_path,
+            timeout_seconds=DEFAULT_WORKER_TIMEOUT_SECONDS,
+            is_claude_tier_enabled=False,
+            run_state_directory=tmp_path,
+            agent="poteto-agent",
+        )
 
 
 def test_the_prompt_check_should_pass_a_prompt_that_carries_the_user_words(

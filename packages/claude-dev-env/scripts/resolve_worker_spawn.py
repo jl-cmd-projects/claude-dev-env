@@ -78,6 +78,7 @@ from dev_env_scripts_constants.grok_worker_constants import (  # noqa: E402
     CLI_TIMEOUT_FLAG,
     CWD_FLAG,
     DEFAULT_ROLE,
+    ROLE_TRANSLATOR,
     DEFAULT_WORKER_TIMEOUT_SECONDS,
     EMPTY_OUTPUT,
     OUTPUT_FORMAT_FLAG,
@@ -443,7 +444,8 @@ def resolve_worker_spawn(
             config-error exit code.
     """
     require_timeout_within_bounds(timeout_seconds)
-    require_prompt_carries_user_words(prompt_file, user_words)
+    if role != ROLE_TRANSLATOR:
+        require_prompt_carries_user_words(prompt_file, user_words)
     agent_name = agent or _primary_agent_name_for_role(role)
     preflight_outcome: PreflightOutcome = spawn_preflight_runner(
         role=role,
@@ -519,9 +521,12 @@ def _add_prompt_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         USER_WORDS_FILE_FLAG,
         dest="user_words_file",
-        required=True,
+        default=None,
         type=Path,
-        help="Path to a file holding the user's message, copied word for word.",
+        help=(
+            "Path to a file holding the user's message, copied word for word. "
+            "Required for every role except translator."
+        ),
     )
 
 
@@ -671,13 +676,23 @@ def main(all_command_arguments: list[str]) -> int:
             _missing_prompt_file_outcome(),
             is_config_error=True,
         )
-    try:
-        user_words = parsed_arguments.user_words_file.read_text(encoding=UTF8_ENCODING)
-    except OSError:
-        return _write_spawn_outcome_and_exit_code(
-            _config_error_outcome(ValueError(MISSING_USER_WORDS_MESSAGE)),
-            is_config_error=True,
-        )
+    if parsed_arguments.user_words_file is None:
+        if parsed_arguments.role != ROLE_TRANSLATOR:
+            return _write_spawn_outcome_and_exit_code(
+                _config_error_outcome(ValueError(MISSING_USER_WORDS_MESSAGE)),
+                is_config_error=True,
+            )
+        user_words = ""
+    else:
+        try:
+            user_words = parsed_arguments.user_words_file.read_text(
+                encoding=UTF8_ENCODING
+            )
+        except OSError:
+            return _write_spawn_outcome_and_exit_code(
+                _config_error_outcome(ValueError(MISSING_USER_WORDS_MESSAGE)),
+                is_config_error=True,
+            )
     is_config_error = False
     try:
         spawn_outcome = resolve_worker_spawn(

@@ -87,6 +87,9 @@ ROLE_BUGTEAM: str = "bugteam"
 ROLE_CLEAN_CODER: str = "clean-coder"
 """Compatibility role for FIX and standards-fix using poteto-agent."""
 
+ROLE_TRANSLATOR: str = "translator"
+"""Role for translation spawns, whose prompt is source text and not the user's words."""
+
 DEFAULT_ROLE: str = ROLE_BUGTEAM
 """Role applied when the caller does not pass ``--role``."""
 
