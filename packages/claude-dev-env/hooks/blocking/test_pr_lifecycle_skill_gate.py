@@ -592,6 +592,7 @@ WRAPPED_WRITE_COMMANDS = (
     "nice -n 5 gh pr merge 12",
     "find . -maxdepth 1 -exec gh pr merge 12 {} ;",
     "parallel gh pr merge 12 ::: 12",
+    'eval "gh pr merge 12"',
 )
 
 

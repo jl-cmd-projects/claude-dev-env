@@ -81,7 +81,7 @@ ALL_GH_PULL_REQUEST_SUBCOMMANDS = ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS | frozens
 )
 ALL_PREFIX_OPTIONS_WITH_VALUE = frozenset({"-u", "--unset", "-C", "--chdir", "-g", "--group", "--user"})
 ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="
-ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
+ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "eval", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
 ALL_PYTHON_EXECUTABLES = frozenset({"python", "python3", "python.exe", "python3.exe", "py", "py.exe"})
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
 ALL_NESTED_PROGRAM_WRAPPER_NAMES = frozenset({"xargs", "timeout", "nice", "ionice", "stdbuf", "parallel", "watch", "find"})
