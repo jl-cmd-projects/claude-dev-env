@@ -4,6 +4,7 @@ import json
 import io
 import shutil
 import subprocess
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from account_broker import (
     run_job,
 )
 from dev_env_scripts_constants.account_broker_constants import WAIT_EXIT_CODE
+from dev_env_scripts_constants.claude_chain_usage_constants import NO_ACCESS_TOKEN_ERROR_TEMPLATE
 
 
 NOW = datetime(2026, 10, 3, tzinfo=timezone.utc)
@@ -1513,3 +1515,138 @@ def test_should_save_every_spent_mark_in_one_write(
 
     assert len(all_saved_marks) == 1
     assert len(all_saved_marks[0]) == 2
+
+
+def _claude_adapter(accounts: tuple[Account, ...], read_meters: Callable[[Account], Meters | None]) -> ProductAdapter:
+    return ProductAdapter(
+        load_accounts=lambda: accounts,
+        read_meters=read_meters,
+        environment_variable="CLAUDE_CONFIG_DIR",
+        usage_limit_signatures=("rate limit",),
+    )
+
+
+def _execute_claude(
+    monkeypatch: pytest.MonkeyPatch,
+    accounts: tuple[Account, ...],
+    read_meters: Callable[[Account], Meters | None],
+    completions_by_name: dict[str, tuple[int, str, str]],
+    attempted: list[str],
+) -> tuple[account_broker.JobOutcome, account_broker.Report]:
+    def runner(command: object, **options: object) -> subprocess.CompletedProcess[str]:
+        selected = Path(options["env"]["CLAUDE_CONFIG_DIR"]).name
+        attempted.append(selected)
+        returncode, stdout, stderr = completions_by_name[selected]
+        return subprocess.CompletedProcess(command, returncode, stdout, stderr)
+
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, _claude_adapter(accounts, read_meters))
+    with account_broker.override_subprocess_runner(runner):
+        return account_broker._execute(Product.CLAUDE, ("job",), now=NOW)
+
+
+def test_should_skip_an_account_whose_sign_in_fails_and_run_the_next_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
+    attempted: list[str] = []
+
+    outcome, report = _execute_claude(
+        monkeypatch,
+        accounts,
+        lambda account: meters_by_name[account.name],
+        {"first": (1, "", "Stored token expired"), "second": (0, "served", "")},
+        attempted,
+    )
+
+    assert outcome.returncode == 0
+    assert attempted == ["first", "second"]
+    assert "skipped first: Stored token expired" in outcome.stderr
+    assert any(
+        each_event.get("type") == "sign_in_failure" and each_event.get("account") == "first"
+        for each_event in report.events
+    )
+
+
+def test_should_exit_four_and_name_each_account_when_every_sign_in_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
+    attempted: list[str] = []
+
+    outcome, _ = _execute_claude(
+        monkeypatch,
+        accounts,
+        lambda account: meters_by_name[account.name],
+        {
+            "first": (1, "", "Organization has status: canceled"),
+            "second": (1, "", "Stored token expired"),
+        },
+        attempted,
+    )
+
+    assert outcome.returncode == 4
+    assert outcome.status == "no_usable_account"
+    assert attempted == ["first", "second"]
+    assert "first: Organization has status: canceled" in outcome.stderr
+    assert "second: Stored token expired" in outcome.stderr
+
+
+def test_should_exit_four_when_a_signed_out_account_and_a_failed_sign_in_leave_no_usable_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    signed_out_path = Path("/profiles/second/.credentials.json")
+    attempted: list[str] = []
+
+    def read_meters(account: Account) -> Meters | None:
+        if account.name == "second":
+            raise account_broker_support.ClaudeSignedOutError(
+                NO_ACCESS_TOKEN_ERROR_TEMPLATE.format(credentials_path=signed_out_path)
+            )
+        return _meters(90, 90)
+
+    outcome, _ = _execute_claude(
+        monkeypatch,
+        accounts,
+        read_meters,
+        {"first": (1, "", "stored token expired")},
+        attempted,
+    )
+
+    assert outcome.returncode == 4
+    assert attempted == ["first"]
+    assert "second: " + NO_ACCESS_TOKEN_ERROR_TEMPLATE.format(credentials_path=signed_out_path) in outcome.stderr
+
+
+def test_should_wait_with_exit_three_when_a_failed_sign_in_leaves_a_usage_limited_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
+    attempted: list[str] = []
+
+    outcome, _ = _execute_claude(
+        monkeypatch,
+        accounts,
+        lambda account: meters_by_name[account.name],
+        {"first": (1, "", "Stored token expired"), "second": (1, "", "rate limit")},
+        attempted,
+    )
+
+    assert outcome.returncode == WAIT_EXIT_CODE
+    assert attempted == ["first", "second"]
+
+
+def test_should_stop_on_a_failure_that_is_not_a_sign_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
+    attempted: list[str] = []
+
+    outcome, _ = _execute_claude(
+        monkeypatch,
+        accounts,
+        lambda account: meters_by_name[account.name],
+        {"first": (1, "", "boom"), "second": (0, "served", "")},
+        attempted,
+    )
+
+    assert outcome.returncode == 1
+    assert attempted == ["first"]

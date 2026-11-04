@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -46,9 +46,14 @@ from dev_env_scripts_constants.account_broker_constants import (
     _choose_codex,
     _wait_decision,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
+    ALL_SIGN_IN_FAILURE_SIGNATURES,
     COMMAND_MISSING_EXIT_CODE,
+    NO_USABLE_ACCOUNT_EXIT_CODE,
+    NO_USABLE_ACCOUNT_STATUS,
+    NO_USABLE_TOKEN_REASON_PREFIX,
     PLACEHOLDER_NAME_SLOT,
     REPORT_INDENT_SPACES,
+    SIGN_IN_FAILED_STATUS,
     TIMEOUT_EXIT_CODE,
     WAIT_EXIT_CODE,
     utc_time_text as _time_text,
@@ -230,6 +235,7 @@ class _RunContext:
     all_spent_resets: dict[Account, datetime]
     start_failure_text: str = ""
     live_log: Path | None = None
+    all_sign_in_failures: dict[str, str] = field(default_factory=dict)
 
 
 def _prepare_run(
@@ -249,11 +255,70 @@ def _prepare_run(
     )
 
 
+def _is_sign_in_failure(completion: subprocess.CompletedProcess[str]) -> bool:
+    if completion.returncode == 0:
+        return False
+    combined = f"{completion.stdout}{completion.stderr}".casefold()
+    return any(signature in combined for signature in ALL_SIGN_IN_FAILURE_SIGNATURES)
+
+
+def _sign_in_failure_text(completion: subprocess.CompletedProcess[str]) -> str:
+    all_lines = [
+        each_line.strip()
+        for each_line in f"{completion.stderr}\n{completion.stdout}".splitlines()
+        if each_line.strip()
+    ]
+    all_matching = [
+        each_line
+        for each_line in all_lines
+        if any(signature in each_line.casefold() for signature in ALL_SIGN_IN_FAILURE_SIGNATURES)
+    ]
+    return (all_matching or all_lines or ["sign-in failed"])[0]
+
+
+def _record_sign_in_failure(context: _RunContext, account: Account, completion: subprocess.CompletedProcess[str]) -> None:
+    reason = _sign_in_failure_text(completion)
+    context.all_sign_in_failures[account.name] = reason
+    context.report.events.append({"type": "sign_in_failure", "account": account.name, "reason": reason})
+    _record_spent_attempt(context, account, SIGN_IN_FAILED_STATUS, completion.returncode)
+
+
+def _skip_notes(context: _RunContext) -> str:
+    return "".join(
+        f"skipped {each_name}: {each_reason}\n" for each_name, each_reason in context.all_sign_in_failures.items()
+    )
+
+
+def _is_no_token_reading(reading: Reading) -> bool:
+    return (
+        reading.meters is None
+        and reading.unread_reason is not None
+        and reading.unread_reason.startswith(NO_USABLE_TOKEN_REASON_PREFIX)
+    )
+
+
+def _no_usable_account_reasons(context: _RunContext) -> list[str]:
+    all_reasons: list[str] = []
+    for each_reading in context.all_readings:
+        name = each_reading.account.name
+        if name in context.all_sign_in_failures:
+            all_reasons.append(f"{name}: {context.all_sign_in_failures[name]}")
+        elif _is_no_token_reading(each_reading):
+            all_reasons.append(f"{name}: {each_reading.unread_reason}")
+        else:
+            return []
+    return all_reasons
+
+
 def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
     context.report.final_decision = decision
     all_attempt_statuses = {each_status for _, each_status in context.all_attempts}
     if all_attempt_statuses == {"start_failed"}:
         return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
+    all_no_usable_reasons = _no_usable_account_reasons(context)
+    if all_no_usable_reasons:
+        no_usable_text = "no usable account: " + "; ".join(all_no_usable_reasons)
+        return JobOutcome(NO_USABLE_ACCOUNT_EXIT_CODE, "", no_usable_text, None, tuple(context.all_attempts), NO_USABLE_ACCOUNT_STATUS, None, None, no_usable_text)
     status = "exhausted" if context.all_attempts else "wait"
     return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
 
@@ -297,7 +362,7 @@ def _finish_attempt(context: _RunContext, decision: Decision, completion: subpro
     if context.product is Product.CLAUDE and session_id:
         context.all_state["affinity"][session_id] = account.command or account.name
         _save_state(broker_state_path(), context.all_state)
-    return JobOutcome(completion.returncode, completion.stdout, completion.stderr, account.name, tuple(context.all_attempts), status, session_id, None)
+    return JobOutcome(completion.returncode, completion.stdout, _skip_notes(context) + completion.stderr, account.name, tuple(context.all_attempts), status, session_id, None)
 
 
 def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None:
@@ -325,6 +390,9 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
         if not context.all_readings:
             waiting = Decision("wait", None, context.now + timedelta(hours=1), "no account has room", "wait")
             return _wait_outcome(context, waiting)
+        return None
+    if context.product is Product.CLAUDE and _is_sign_in_failure(completion):
+        _record_sign_in_failure(context, account, completion)
         return None
     return _finish_attempt(context, decision, completion)
 
