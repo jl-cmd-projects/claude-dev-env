@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.111.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.2...claude-dev-env-v8.111.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* **hooks:** let read-only gh pr commands pass the PR lifecycle gate ([#2281](https://github.com/jl-cmd-projects/claude-dev-env/issues/2281)) ([9ac23b1](https://github.com/jl-cmd-projects/claude-dev-env/commit/9ac23b150484bc328eaf3b3027b3280a6ab91376))
+
 ## [8.111.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.1...claude-dev-env-v8.111.2) (2026-11-04)
 
 
