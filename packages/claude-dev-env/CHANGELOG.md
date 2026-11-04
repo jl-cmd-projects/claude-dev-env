@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.111.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.1...claude-dev-env-v8.111.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **hooks:** update stale reply-length tests to the 50/35 limits ([#2282](https://github.com/jl-cmd-projects/claude-dev-env/issues/2282)) ([07b53b4](https://github.com/jl-cmd-projects/claude-dev-env/commit/07b53b45af07a421723c87f7f78026cbf25c5999))
+
 ## [8.111.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.0...claude-dev-env-v8.111.1) (2026-11-02)
 
 
