@@ -585,3 +585,17 @@ def test_read_only_run_through_xargs_should_pass_without_the_skill(tmp_path: Pat
     path = _transcript(tmp_path)
     for each_command in XARGS_READ_COMMANDS:
         assert gate.decision_for(_payload(each_command, path)) is None, each_command
+
+
+WRAPPED_WRITE_COMMANDS = (
+    "timeout 10 gh pr merge 12",
+    "nice -n 5 gh pr merge 12",
+    "find . -maxdepth 1 -exec gh pr merge 12 {} ;",
+    "parallel gh pr merge 12 ::: 12",
+)
+
+
+def test_write_run_through_a_wrapper_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in WRAPPED_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))

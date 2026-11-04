@@ -84,7 +84,13 @@ ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="
 ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
 ALL_PYTHON_EXECUTABLES = frozenset({"python", "python3", "python.exe", "python3.exe", "py", "py.exe"})
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
-XARGS_PROGRAM_NAME = "xargs"
+ALL_NESTED_PROGRAM_WRAPPER_NAMES = frozenset({"xargs", "timeout", "nice", "ionice", "stdbuf", "parallel", "watch", "find"})
+ALL_NESTED_PROGRAM_NAMES = (
+    frozenset({"gh", "gh.exe", "git", "git.exe", PULL_REQUEST_SCRIPT_NAME})
+    | ALL_PYTHON_EXECUTABLES
+    | ALL_SHELL_WRAPPER_EXECUTABLES
+    | ALL_NESTED_PROGRAM_WRAPPER_NAMES
+)
 PATH_SEPARATOR_PATTERN = r"[\\/]"
 PYTHON_OPTIONS_WITH_VALUE = frozenset({"-X", "-W"})
 ALL_BUILD_EVAL_SKILL_NAMES = ("claude-api",)
