@@ -84,6 +84,8 @@ ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="
 ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "eval", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
 ALL_PYTHON_EXECUTABLES = frozenset({"python", "python3", "python.exe", "python3.exe", "py", "py.exe"})
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
+EVAL_PROGRAM_NAME = "eval"
+EVAL_ARGUMENT_SEPARATOR = " "
 ALL_NESTED_PROGRAM_WRAPPER_NAMES = frozenset({"xargs", "timeout", "nice", "ionice", "stdbuf", "parallel", "watch", "find"})
 ALL_NESTED_PROGRAM_NAMES = (
     frozenset({"gh", "gh.exe", "git", "git.exe", PULL_REQUEST_SCRIPT_NAME})

@@ -52,6 +52,8 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PULL_REQUEST_SCRIPT_NAME,
     ALL_NESTED_PROGRAM_NAMES,
     ALL_NESTED_PROGRAM_WRAPPER_NAMES,
+    EVAL_ARGUMENT_SEPARATOR,
+    EVAL_PROGRAM_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
     REMOVED_TEXT,
     SEGMENT_BREAK,
@@ -280,6 +282,8 @@ def _nested_program_word_lists(all_command_words: list[str]) -> list[list[str]]:
 
 
 def _wrapped_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    if file_name(all_command_words[0]) == EVAL_PROGRAM_NAME:
+        return executable_word_lists(EVAL_ARGUMENT_SEPARATOR.join(all_command_words[1:]))
     if file_name(all_command_words[0]) not in ALL_SHELL_WRAPPER_EXECUTABLES:
         return []
     return [
