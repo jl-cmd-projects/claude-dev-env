@@ -118,3 +118,92 @@ def test_should_include_line_number() -> None:
     issues = check_bare_except(source, PRODUCTION_FILE_PATH)
     assert len(issues) >= 1
     assert "Line 4" in issues[0], f"Issue must include line number, got: {issues[0]!r}"
+
+
+def test_should_accept_except_exception_with_noqa_ble001_and_reason() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except Exception as each_error:  # noqa: BLE001 - the caller must see the error\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert issues == [], f"BLE001 allowance with a reason must pass, got: {issues!r}"
+
+
+def test_should_accept_except_base_exception_with_noqa_ble001_and_reason() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except BaseException:  # noqa: BLE001 - the worker must report every failure\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert issues == [], f"BLE001 allowance with a reason must pass, got: {issues!r}"
+
+
+def test_should_accept_noqa_listing_ble001_after_another_code() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except Exception:  # noqa: E501, BLE001 - the caller must see the error\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert issues == [], f"BLE001 listed with another code must pass, got: {issues!r}"
+
+
+def test_should_flag_except_exception_with_noqa_ble001_but_no_reason() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except Exception:  # noqa: BLE001\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert len(issues) == 1, f"BLE001 without a reason must be flagged, got: {issues!r}"
+    assert "Exception" in issues[0], f"Expected 'except Exception:' flagged, got: {issues[0]!r}"
+
+
+def test_should_flag_except_exception_with_noqa_for_another_code_only() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except Exception:  # noqa: E722 - the caller must see the error\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert len(issues) == 1, f"A noqa for another code must not allow it, got: {issues!r}"
+
+
+def test_should_flag_except_exception_when_allowance_sits_on_the_try_line() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:  # noqa: BLE001 - the caller must see the error\n"
+        "        do_thing()\n"
+        "    except Exception:\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert len(issues) == 1, f"The allowance applies to its own line only, got: {issues!r}"
+    assert "Line 4" in issues[0], f"Issue must name the except line, got: {issues[0]!r}"
+
+
+def test_should_flag_only_the_handler_without_an_allowance() -> None:
+    source = (
+        "def fetch():\n"
+        "    try:\n"
+        "        do_thing()\n"
+        "    except Exception as each_error:  # noqa: BLE001 - the caller must see the error\n"
+        "        raise\n"
+        "    except BaseException:\n"
+        "        raise\n"
+    )
+    issues = check_bare_except(source, PRODUCTION_FILE_PATH)
+    assert len(issues) == 1, f"Only the unannotated handler must be flagged, got: {issues!r}"
+    assert "Line 6" in issues[0], f"Issue must name the unannotated handler, got: {issues[0]!r}"

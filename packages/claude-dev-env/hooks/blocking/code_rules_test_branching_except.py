@@ -1,6 +1,7 @@
 """Test-mode branching in production and bare-except checks."""
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from code_rules_shared import (  # noqa: E402
 from hooks_constants.blocking_check_limits import (  # noqa: E402
     ALL_BARE_EXCEPT_BANNED_HANDLER_NAMES,
     ALL_TEST_INDICATING_ENVIRONMENT_VARIABLE_NAMES,
+    BLIND_EXCEPT_ALLOWANCE_PATTERN,
     MAX_BARE_EXCEPT_ISSUES,
     MAX_TEST_BRANCHING_ISSUES,
 )
@@ -148,6 +150,24 @@ def _bare_except_handler_label(handler_node: ast.ExceptHandler) -> str | None:
     return None
 
 
+def _handler_line_carries_allowance(content_lines: list[str], handler_line_number: int) -> bool:
+    """Return True when the ``except`` line carries a BLE001 noqa with a reason.
+
+    Only the handler's own line counts, so a marker on the ``try`` line or on
+    a neighbouring handler does not excuse this one.
+
+    Args:
+        content_lines: The source split into lines, as ``ast`` numbers them.
+        handler_line_number: The 1-based line number of the ``except`` keyword.
+
+    Returns:
+        True when the line matches the BLE001 allowance pattern.
+    """
+    if not 0 < handler_line_number <= len(content_lines):
+        return False
+    return BLIND_EXCEPT_ALLOWANCE_PATTERN.search(content_lines[handler_line_number - 1]) is not None
+
+
 def check_bare_except(content: str, file_path: str) -> list[str]:
     """Flag bare/over-broad exception handlers in production code.
 
@@ -156,6 +176,10 @@ def check_bare_except(content: str, file_path: str) -> list[str]:
     error class. Production code should name the specific exception(s) it
     intends to catch
     (a tuple form like `except (ValueError, KeyError):` is fine).
+
+    A handler whose ``except`` line carries ``# noqa: BLE001 - <reason>`` is
+    accepted. The reason after the dash is required, and the marker applies
+    to that one line only.
     """
     if is_test_file(file_path) or is_hook_infrastructure(file_path):
         return []
@@ -165,12 +189,15 @@ def check_bare_except(content: str, file_path: str) -> list[str]:
     except SyntaxError:
         return []
 
+    content_lines = re.split(r"\r\n|\r|\n", content)
     issues: list[str] = []
     for each_node in _walk_skipping_type_checking_blocks(parsed_tree):
         if not isinstance(each_node, ast.ExceptHandler):
             continue
         handler_label = _bare_except_handler_label(each_node)
         if handler_label is None:
+            continue
+        if _handler_line_carries_allowance(content_lines, each_node.lineno):
             continue
         issues.append(
             f"Line {each_node.lineno}: {handler_label} is over-broad — name the "

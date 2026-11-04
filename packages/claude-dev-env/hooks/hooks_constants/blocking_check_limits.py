@@ -284,6 +284,9 @@ ALL_DOCSTRING_MULTIPLE_CONDITION_JOINING_PHRASES: tuple[str, ...] = (
 )
 
 ALL_BARE_EXCEPT_BANNED_HANDLER_NAMES: frozenset[str] = frozenset({"Exception", "BaseException"})
+BLIND_EXCEPT_ALLOWANCE_PATTERN: re.Pattern[str] = re.compile(
+    r"#\s*noqa:\s*(?:[A-Z]+[0-9]+\s*,\s*)*BLE001\b[^#]*?\s-\s+\S"
+)
 ALL_BOUNDARY_TYPE_EXEMPT_FILENAMES: frozenset[str] = frozenset({"protocols.py", "types.py"})
 ALL_DOCSTRING_IMPLICIT_INSTANCE_PARAMETER_NAMES: frozenset[str] = frozenset({"self", "cls"})
 ALL_DOCSTRING_EXEMPT_DECORATOR_NAMES: frozenset[str] = frozenset(
