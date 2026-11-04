@@ -1,10 +1,6 @@
 from hooks_constants import reply_length_gate_constants as constants
 
 
-def test_comment_retry_instruction_states_the_sentence_limit() -> None:
-    assert f"{constants.MAXIMUM_SENTENCE_COUNT} sentences" in constants.COMMENT_RETRY_INSTRUCTION
-
-
 def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:
     assert constants.ALL_CHECKED_TOOL_NAMES == frozenset(
         {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}

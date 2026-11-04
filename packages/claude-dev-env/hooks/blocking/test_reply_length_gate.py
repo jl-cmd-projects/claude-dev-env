@@ -11,11 +11,14 @@ REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 POST_TOOL_NAME = "mcp__hearthbot__post_message"
 OVER_LIMIT_SENTENCE_COUNT = reply_limits.MAXIMUM_SENTENCE_COUNT + 1
 OVER_LIMIT_WORD_COUNT = reply_limits.MAXIMUM_WORDS_PER_SENTENCE + 1
-OVER_LIMIT_WORD_SENTENCE = " ".join(["One", "two", "three"] + ["four"] * (OVER_LIMIT_WORD_COUNT - 3)) + "."
+OVER_LIMIT_WORD_SENTENCE = (
+    " ".join(["One", "two", "three"] + ["four"] * (OVER_LIMIT_WORD_COUNT - 3)) + "."
+)
 OVER_LIMIT_REPLY = " ".join(["Step is done."] * OVER_LIMIT_SENTENCE_COUNT)
 FIFTEEN_WORD_SENTENCE = (
     "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen."
 )
+AT_LIMIT_WORD_SENTENCE = " ".join(["word"] * reply_limits.MAXIMUM_WORDS_PER_SENTENCE) + "."
 
 
 def run_gate(
@@ -63,7 +66,7 @@ def test_should_allow_short_sentences_within_the_limit(
 def test_should_allow_a_sentence_at_the_word_limit(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": FIFTEEN_WORD_SENTENCE})
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": AT_LIMIT_WORD_SENTENCE})
     assert exit_code == 0
 
 
@@ -1153,13 +1156,18 @@ def test_should_number_nested_violations_once_in_one_refusal(
         monkeypatch,
         capsys,
         POST_TOOL_NAME,
-        {"text": f"{OVER_LIMIT_REPLY}\n{OVER_LIMIT_WORD_SENTENCE}\n{OVER_LIMIT_WORD_SENTENCE}\nIt failed — again."},
+        {
+            "text": f"{OVER_LIMIT_REPLY}\n{OVER_LIMIT_WORD_SENTENCE}\n{OVER_LIMIT_WORD_SENTENCE}\n"
+            "It failed — again.",
+        },
     )
 
     assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
     word_sentence_count = 2
     closing_sentence_count = 1
-    total_sentence_count = OVER_LIMIT_SENTENCE_COUNT + word_sentence_count + closing_sentence_count
+    total_sentence_count = (
+        OVER_LIMIT_SENTENCE_COUNT + word_sentence_count + closing_sentence_count
+    )
     all_numbered_lines = [each_line for each_line in error_text.splitlines() if each_line[:1].isdigit()]
     assert [each_line.split(". ", 1)[0] for each_line in all_numbered_lines] == ["1", "2", "3", "4"]
     assert not any(each_line.split(". ", 1)[1][:1].isdigit() for each_line in all_numbered_lines)
