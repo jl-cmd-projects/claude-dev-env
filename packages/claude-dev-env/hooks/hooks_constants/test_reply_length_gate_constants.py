@@ -46,8 +46,8 @@ def test_should_turn_both_length_caps_on_from_the_environment() -> None:
 
 def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() -> None:
     _, reminder = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
-    assert "Keep it to 3 sentences or fewer." in reminder
-    assert "Keep each sentence to 15 words or fewer." in reminder
+    assert f"Keep it to {constants.MAXIMUM_SENTENCE_COUNT} sentences or fewer." in reminder
+    assert f"Keep each sentence to {constants.MAXIMUM_WORDS_PER_SENTENCE} words or fewer." in reminder
 
 
 def test_should_leave_the_length_limits_out_of_the_reply_reminder_when_switched_off() -> None:
@@ -56,8 +56,8 @@ def test_should_leave_the_length_limits_out_of_the_reply_reminder_when_switched_
     assert "words or fewer" not in reminder
 
 
-def test_gate_limits_replies_to_three_sentences_of_fifteen_words() -> None:
-    assert (constants.MAXIMUM_SENTENCE_COUNT, constants.MAXIMUM_WORDS_PER_SENTENCE) == (3, 15)
+def test_gate_limits_replies_to_fifty_sentences_of_thirty_five_words() -> None:
+    assert (constants.MAXIMUM_SENTENCE_COUNT, constants.MAXIMUM_WORDS_PER_SENTENCE) == (50, 35)
 
 
 def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:

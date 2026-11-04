@@ -9,13 +9,17 @@ from hooks_constants import reply_length_gate_constants
 
 REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 POST_TOOL_NAME = "mcp__hearthbot__post_message"
-SIXTEEN_WORD_SENTENCE = (
-    "One two three four five six seven eight nine ten eleven twelve thirteen "
-    "fourteen fifteen sixteen."
-)
-FIFTEEN_WORD_SENTENCE = (
-    "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen."
-)
+def sentence_of_words(word_count: int) -> str:
+    return "One" + "".join(f" word{each_index}" for each_index in range(2, word_count + 1)) + "."
+
+
+SENTENCE_LIMIT = reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT
+WORD_LIMIT = reply_length_gate_constants.MAXIMUM_WORDS_PER_SENTENCE
+OVER_LIMIT_SENTENCE_COUNT = SENTENCE_LIMIT + 1
+OVER_LIMIT_WORD_COUNT = WORD_LIMIT + 1
+OVER_LIMIT_SENTENCE_REPLY = " ".join(["One."] * OVER_LIMIT_SENTENCE_COUNT)
+OVER_LIMIT_WORD_SENTENCE = sentence_of_words(OVER_LIMIT_WORD_COUNT)
+AT_LIMIT_WORD_SENTENCE = sentence_of_words(WORD_LIMIT)
 
 
 def run_gate(
@@ -59,12 +63,12 @@ def test_should_ship_with_both_length_caps_off() -> None:
     assert reply_length_gate_constants.WORDS_PER_SENTENCE_CAP_ENABLED is False
 
 
-def test_should_allow_a_sixteen_word_sentence_while_the_word_cap_is_off(
+def test_should_allow_an_over_limit_sentence_while_the_word_cap_is_off(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", False)
     exit_code, stderr_text = run_gate(
-        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": SIXTEEN_WORD_SENTENCE}
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": OVER_LIMIT_WORD_SENTENCE}
     )
     assert (exit_code, stderr_text) == (0, "")
 
@@ -91,57 +95,58 @@ def test_should_allow_three_short_sentences(
     assert (exit_code, stderr_text) == (0, "")
 
 
-def test_should_allow_a_fifteen_word_sentence(
+def test_should_allow_a_sentence_at_the_word_limit(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": FIFTEEN_WORD_SENTENCE})
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": AT_LIMIT_WORD_SENTENCE})
     assert exit_code == 0
 
 
-def test_should_deny_four_sentences_and_name_the_count(
+def test_should_deny_a_reply_over_the_sentence_limit_and_name_the_count(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         REPLY_TOOL_NAME,
-        {"text": "One. Two. Three. Four."},
+        {"text": OVER_LIMIT_SENTENCE_REPLY},
     )
     assert exit_code == 2
-    assert "4 sentences" in stderr_text
-    assert "3" in stderr_text
+    assert f"{OVER_LIMIT_SENTENCE_COUNT} sentences" in stderr_text
+    assert f"limit {SENTENCE_LIMIT}" in stderr_text
 
 
-def test_should_deny_a_sixteen_word_sentence_and_name_it(
+def test_should_deny_a_sentence_over_the_word_limit_and_name_it(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
-        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": SIXTEEN_WORD_SENTENCE}
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": OVER_LIMIT_WORD_SENTENCE}
     )
     assert exit_code == 2
-    assert "16 words" in stderr_text
-    assert "15" in stderr_text
-    assert "One two three" in stderr_text
+    assert f"{OVER_LIMIT_WORD_COUNT} words" in stderr_text
+    assert f"limit {WORD_LIMIT}" in stderr_text
+    assert "One word2 word3" in stderr_text
 
 
 def test_should_check_the_project_chat_post_tool(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(monkeypatch, capsys, POST_TOOL_NAME, {"text": "One. Two. Three. Four."})
+    exit_code, _ = run_gate(monkeypatch, capsys, POST_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY})
     assert exit_code == 2
 
 
 def test_should_count_each_line_of_a_list_as_a_sentence(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    list_text = "Done:\n" + "\n".join(["- one more step"] * SENTENCE_LIMIT)
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         REPLY_TOOL_NAME,
-        {"text": "Done:\n- first item\n- second item\n- third item"},
+        {"text": list_text},
     )
     assert exit_code == 2
-    assert "4 sentences" in stderr_text
+    assert f"{OVER_LIMIT_SENTENCE_COUNT} sentences" in stderr_text
 
 
 def test_should_not_count_urls_as_words(
@@ -188,7 +193,7 @@ def test_should_not_count_backticked_spans_as_words(
 def test_should_not_count_fenced_blocks(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fenced_block = "```\nOne.\nTwo.\nThree.\nFour.\n" + SIXTEEN_WORD_SENTENCE + "\n```"
+    fenced_block = "```\nOne.\nTwo.\nThree.\nFour.\n" + OVER_LIMIT_WORD_SENTENCE + "\n```"
     exit_code, _ = run_gate(
         monkeypatch,
         capsys,
@@ -401,14 +406,14 @@ def short_card(**all_overrides: object) -> dict[str, object]:
     return card
 
 
-def test_should_allow_a_card_context_of_two_fifteen_word_sentences(
+def test_should_allow_a_card_context_of_two_at_limit_word_sentences(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
         monkeypatch,
         capsys,
         DECISION_TOOL_NAME,
-        short_card(context=" ".join([FIFTEEN_WORD_SENTENCE] * 2)),
+        short_card(context=" ".join([AT_LIMIT_WORD_SENTENCE] * 2)),
     )
     assert (exit_code, stderr_text) == (0, "")
 
@@ -471,13 +476,13 @@ def test_should_deny_a_long_card_consequence(
         DECISION_TOOL_NAME,
         short_card(
             options=[
-                {"label": "Exclude it", "consequence": SIXTEEN_WORD_SENTENCE},
+                {"label": "Exclude it", "consequence": OVER_LIMIT_WORD_SENTENCE},
                 {"label": "Leave it", "consequence": "Seven themes keep a warning."},
             ]
         ),
     )
     assert exit_code == 2
-    assert "Sentence too long: 16 words, limit 15" in stderr_text
+    assert f"Sentence too long: {OVER_LIMIT_WORD_COUNT} words, limit {WORD_LIMIT}" in stderr_text
 
 
 @pytest.mark.parametrize("card_field_name", ["question", "reason"])
@@ -488,10 +493,10 @@ def test_should_deny_a_long_sentence_in_the_card_question_and_reason(
         monkeypatch,
         capsys,
         DECISION_TOOL_NAME,
-        short_card(**{card_field_name: SIXTEEN_WORD_SENTENCE}),
+        short_card(**{card_field_name: OVER_LIMIT_WORD_SENTENCE}),
     )
     assert exit_code == 2
-    assert "Sentence too long: 16 words" in stderr_text
+    assert f"Sentence too long: {OVER_LIMIT_WORD_COUNT} words" in stderr_text
 
 
 @pytest.mark.parametrize(
@@ -792,7 +797,7 @@ def test_should_keep_the_length_check_when_the_mode_is_off(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     turn_mode_off(tmp_path)
-    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": "One. Two. Three. Four."})
+    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY})
     assert exit_code == 2
 
 
@@ -1057,7 +1062,7 @@ def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
 
 
 LONG_GITHUB_COMMENT = " ".join(
-    "Sentence number one of a long comment that keeps going." for _ in range(50)
+    "Sentence number one of a long comment that keeps going." for _ in range(OVER_LIMIT_SENTENCE_COUNT)
 )
 SHORT_GITHUB_COMMENT = "Fixed the cap check. The test now covers it. Checks pass."
 
@@ -1069,7 +1074,7 @@ def test_should_deny_long_github_comment(
         monkeypatch, capsys, "mcp__github__add_issue_comment", {"body": LONG_GITHUB_COMMENT}
     )
     assert exit_code == 2
-    assert "50 sentences, limit 3" in error_text
+    assert f"{OVER_LIMIT_SENTENCE_COUNT} sentences, limit {SENTENCE_LIMIT}" in error_text
 
 
 def test_should_allow_short_github_comment_with_code_and_details(
@@ -1156,13 +1161,13 @@ def test_should_name_every_broken_rule_in_one_refusal(
         monkeypatch,
         capsys,
         POST_TOOL_NAME,
-        {"text": f"See PR 7452 and PR 7460.\n{SIXTEEN_WORD_SENTENCE}\nIt failed — again."},
+        {"text": f"See PR 7452 and PR 7460.\n{OVER_LIMIT_WORD_SENTENCE}\nIt failed — again."},
     )
 
     assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
     assert "PR 7452" in error_text
     assert "PR 7460" in error_text
-    assert "16 words" in error_text
+    assert f"{OVER_LIMIT_WORD_COUNT} words" in error_text
     assert reply_length_gate.EM_DASH_MESSAGE in error_text
     assert error_text.endswith(reply_length_gate.FIX_EVERY_ITEM_INSTRUCTION)
 
@@ -1170,20 +1175,21 @@ def test_should_name_every_broken_rule_in_one_refusal(
 def test_should_number_nested_violations_once_in_one_refusal(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    nested_reply_text = "\n".join(
+        ["One."] * OVER_LIMIT_SENTENCE_COUNT
+        + [OVER_LIMIT_WORD_SENTENCE, OVER_LIMIT_WORD_SENTENCE, "It failed — again."]
+    )
     exit_code, error_text = run_gate(
-        monkeypatch,
-        capsys,
-        POST_TOOL_NAME,
-        {"text": f"One.\nTwo.\nThree.\n{SIXTEEN_WORD_SENTENCE}\n{SIXTEEN_WORD_SENTENCE}\nIt failed — again."},
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": nested_reply_text}
     )
 
     assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
     all_numbered_lines = [each_line for each_line in error_text.splitlines() if each_line[:1].isdigit()]
     assert [each_line.split(". ", 1)[0] for each_line in all_numbered_lines] == ["1", "2", "3", "4"]
     assert not any(each_line.split(". ", 1)[1][:1].isdigit() for each_line in all_numbered_lines)
-    assert "Reply too long: 6 sentences" in all_numbered_lines[0]
-    assert all_numbered_lines[1].count("16 words") == 1
-    assert all_numbered_lines[2].count("16 words") == 1
+    assert f"Reply too long: {OVER_LIMIT_SENTENCE_COUNT + 3} sentences" in all_numbered_lines[0]
+    assert all_numbered_lines[1].count(f"{OVER_LIMIT_WORD_COUNT} words") == 1
+    assert all_numbered_lines[2].count(f"{OVER_LIMIT_WORD_COUNT} words") == 1
     assert reply_length_gate.EM_DASH_MESSAGE in all_numbered_lines[3]
 
 
