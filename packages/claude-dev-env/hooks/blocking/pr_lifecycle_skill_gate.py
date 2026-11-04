@@ -18,6 +18,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_BUILD_EVAL_SKILL_NAMES,
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
+    ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
     ALL_PIECE_REPLACEMENT_TEXTS,
     ALL_PREFIX_OPTIONS_WITH_VALUE,
@@ -188,7 +189,7 @@ def _is_git_action(all_words: list[str]) -> bool:
 def _is_gh_action(all_words: list[str]) -> bool:
     all_gh_words = gh_command_words(all_words[1:])
     if all_gh_words[:1] == [GH_PULL_REQUEST_COMMAND]:
-        return len(all_gh_words) > 1
+        return len(all_gh_words) > 1 and all_gh_words[1] not in ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS
     if all_gh_words[:1] != [GH_API_COMMAND]:
         return False
     all_api_arguments = all_words[all_words.index(GH_API_COMMAND, 1) + 1 :]

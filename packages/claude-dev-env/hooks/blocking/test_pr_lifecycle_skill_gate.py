@@ -510,3 +510,41 @@ def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
     output = gate.deny_decision("Load the skill first.")["hookSpecificOutput"]
     assert output["permissionDecision"] == "deny"
     assert output["permissionDecisionReason"] == "Load the skill first."
+
+
+READ_ONLY_PULL_REQUEST_COMMANDS = (
+    "gh pr list",
+    "gh pr list --state all",
+    "gh pr view 12",
+    "gh pr view 12 --web",
+    "gh pr checks 12",
+    "gh pr diff 12",
+    "gh pr status",
+    "gh -R jl-cmd-projects/claude-dev-env pr view 12",
+)
+WRITE_PULL_REQUEST_COMMANDS = (
+    "gh pr create --title t --body b",
+    "gh pr merge 12 --squash",
+    "gh pr edit 12 --body b",
+    "gh pr comment 12 --body b",
+    "gh pr review 12 --approve",
+    "gh pr close 12",
+    "gh pr ready 12",
+    "gh pr frobnicate 12",
+)
+
+
+def test_read_only_pull_request_commands_should_pass_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in READ_ONLY_PULL_REQUEST_COMMANDS:
+        assert gate.decision_for(_payload(each_command, path)) is None, each_command
+
+
+def test_read_only_pull_request_command_should_run_silently_without_the_skill(tmp_path: Path) -> None:
+    assert _run_main(_payload("gh pr list", _transcript(tmp_path))) == (0, "")
+
+
+def test_write_pull_request_commands_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in WRITE_PULL_REQUEST_COMMANDS:
+        _assert_denied(_payload(each_command, path))
