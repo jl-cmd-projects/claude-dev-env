@@ -44,6 +44,13 @@ def test_should_turn_both_length_caps_on_from_the_environment() -> None:
     assert flags_line == "True True"
 
 
+def test_should_read_a_switch_value_without_regard_to_case() -> None:
+    flags_line, _ = read_probe_lines_in_a_fresh_process(
+        {"REPLY_LENGTH_SENTENCE_CAP": "ON", "REPLY_LENGTH_WORD_CAP": "On"}
+    )
+    assert flags_line == "True True"
+
+
 def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() -> None:
     _, reminder = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
     assert f"Keep it to {constants.MAXIMUM_SENTENCE_COUNT} sentences or fewer." in reminder
