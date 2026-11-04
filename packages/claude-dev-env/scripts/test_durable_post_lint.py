@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +11,9 @@ from pathlib import Path
 import pytest
 
 import durable_post_lint
+from blocking import reply_length_gate
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
+from hooks_constants import reply_length_gate_constants
 from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -60,11 +63,8 @@ Ran `python scripts/durable_post_lint.py --action pr-create --body-file body.md`
 
 `python scripts/durable_post_lint.py --action pr-create --body-file eval_body.md`
 """
-OVER_LONG_REPLY_BODY = (
-    "Fixed in `abc1234`.\n\n"
-    "The parser now rejects an empty header.\n\n"
-    "The test covers both cases.\n\n"
-    "---\nPosted by the review agent."
+OVER_LONG_REPLY_BODY = " ".join(
+    ["Build one passed."] * (reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT + 1)
 )
 MINIMAL_PR_BODY = """## Why
 
@@ -444,7 +444,10 @@ def should_exit_with_findings_for_a_create_body_with_no_existing_work_section(
     assert completed_process.stderr == f"{MISSING_EXISTING_WORK_REASON}\n"
 
 
-def should_report_a_review_reply_over_three_sentences() -> None:
+def should_report_a_review_reply_over_fifty_sentences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", True)
     all_findings = durable_post_lint.lint_durable_post(
         action="github-mcp-comment",
         title=None,
@@ -455,14 +458,17 @@ def should_report_a_review_reply_over_three_sentences() -> None:
     ]
 
 
-def should_report_a_review_reply_sentence_over_fifteen_words() -> None:
+def should_report_a_review_reply_sentence_over_thirty_five_words(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", True)
+    over_long_sentence = " ".join(
+        ["keeps"] * (reply_length_gate_constants.MAXIMUM_WORDS_PER_SENTENCE + 1)
+    )
     all_findings = durable_post_lint.lint_durable_post(
         action="github-mcp-comment",
         title=None,
-        body_text=(
-            "This change moves the parser into its own module and keeps every"
-            " caller on the same import path."
-        ),
+        body_text=f"{over_long_sentence}.",
     )
     assert [each_finding.code for each_finding in all_findings] == [
         "github-comment-length"
@@ -493,9 +499,13 @@ def should_exit_with_findings_for_an_over_long_review_reply(tmp_path: Path) -> N
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, "REPLY_LENGTH_SENTENCE_CAP": "on"},
     )
     assert completed_process.returncode == 1
-    assert "at most three short sentences" in completed_process.stderr
+    assert (
+        f"at most {reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT} sentences"
+        in completed_process.stderr
+    )
 
 
 def should_exit_clean_for_a_short_review_reply(tmp_path: Path) -> None:
