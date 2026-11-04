@@ -50,6 +50,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
+    XARGS_PROGRAM_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
     REMOVED_TEXT,
     SEGMENT_BREAK,
@@ -259,8 +260,22 @@ def executable_word_lists(command: str) -> list[list[str]]:
         all_command_words = _words_from_executable(each_segment)
         if not all_command_words:
             continue
-        all_word_lists.append(all_command_words)
-        all_word_lists.extend(_wrapped_word_lists(all_command_words))
+        all_word_lists.extend(_command_and_nested_word_lists(all_command_words))
+    return all_word_lists
+
+
+def _command_and_nested_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    return [all_command_words, *_wrapped_word_lists(all_command_words), *_xargs_word_lists(all_command_words)]
+
+
+def _xargs_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    if file_name(all_command_words[0]) != XARGS_PROGRAM_NAME:
+        return []
+    all_word_lists: list[list[str]] = []
+    for each_index in range(1, len(all_command_words)):
+        all_run_words = _words_from_executable(all_command_words[each_index:])
+        if all_run_words:
+            all_word_lists.extend(_command_and_nested_word_lists(all_run_words))
     return all_word_lists
 
 

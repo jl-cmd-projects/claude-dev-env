@@ -560,3 +560,28 @@ def test_write_behind_an_unlisted_option_should_be_denied_without_the_skill(tmp_
     path = _transcript(tmp_path)
     for each_command in OPTION_SHIFTED_WRITE_COMMANDS:
         _assert_denied(_payload(each_command, path))
+
+
+XARGS_WRITE_COMMANDS = (
+    "gh pr view 12 | xargs gh pr merge",
+    "echo 12 | xargs -I {} gh pr merge {}",
+    "echo 12 | xargs -n 1 -P 4 gh pr merge",
+    "echo 12 | xargs -- gh pr merge",
+    "echo https://example.test | xargs git push origin HEAD",
+)
+XARGS_READ_COMMANDS = (
+    "echo 12 | xargs gh pr view",
+    "echo 12 | xargs -I {} gh pr checks {}",
+)
+
+
+def test_write_run_through_xargs_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in XARGS_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
+
+
+def test_read_only_run_through_xargs_should_pass_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in XARGS_READ_COMMANDS:
+        assert gate.decision_for(_payload(each_command, path)) is None, each_command
