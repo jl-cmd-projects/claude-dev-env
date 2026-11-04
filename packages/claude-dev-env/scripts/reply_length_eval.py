@@ -71,11 +71,16 @@ def run_gate(
             for each_name, each_value in os.environ.items()
             if not each_name.startswith(REPLY_LENGTH_ENVIRONMENT_PREFIX)
         }
+        python_path = os.pathsep.join(
+            each_entry
+            for each_entry in (str(hooks_directory), os.environ.get("PYTHONPATH"))
+            if each_entry
+        )
         environment.update(
             {
                 "HOME": home_directory,
                 "USERPROFILE": home_directory,
-                "PYTHONPATH": str(hooks_directory),
+                "PYTHONPATH": python_path,
                 "CLAUDE_REPLY_BANNED_WORDS_PATH": str(
                     Path(home_directory) / "absent.json"
                 ),
@@ -118,7 +123,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-hooks-dir", type=Path)
     arguments = parser.parse_args()
-    all_failed_runs = []
+    failed_run_count = 0
     total_runs = 0
     for each_case_name, each_reply, each_expected_exit_codes in CASES:
         for (
@@ -133,13 +138,13 @@ def main() -> int:
             verdict = "PASS" if exit_code == expected_exit_code else "FAIL"
             total_runs += 1
             if verdict == "FAIL":
-                all_failed_runs.append(f"{each_case_name} | {each_configuration_name}")
+                failed_run_count += 1
             print(
                 f"{verdict} | {each_case_name} | {each_configuration_name} | "
                 f"exit={exit_code} expected={expected_exit_code} | {first_stderr_line}"
             )
-    print(f"{total_runs - len(all_failed_runs)}/{total_runs} runs passed")
-    return 1 if all_failed_runs else 0
+    print(f"{total_runs - failed_run_count}/{total_runs} runs passed")
+    return 1 if failed_run_count else 0
 
 
 if __name__ == "__main__":

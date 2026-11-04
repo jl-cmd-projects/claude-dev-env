@@ -581,12 +581,9 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    all_bodies = _create_bodies(all_payload_fields)
-    if all_bodies and all(each_body is None for each_body in all_bodies):
-        return MISSING_BODY_REASON
-    for each_body in all_bodies:
+    for each_body in _create_bodies(all_payload_fields):
         if each_body is None:
-            continue
+            return MISSING_BODY_REASON
         section = proof_section(each_body)
         if not section:
             return MISSING_PROOF_REASON

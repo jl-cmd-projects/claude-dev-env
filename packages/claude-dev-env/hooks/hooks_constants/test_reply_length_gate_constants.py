@@ -11,7 +11,8 @@ CAP_PROBE = (
     "from hooks_constants import reply_length_gate_constants as c; "
     "from hooks_constants import chat_reply_gate_constants as chat; "
     "print(c.SENTENCE_CAP_ENABLED, c.WORDS_PER_SENTENCE_CAP_ENABLED); "
-    "print(chat.REPLY_LIMIT_REMINDER)"
+    "print(chat.REPLY_LIMIT_REMINDER); "
+    "print(chat.DRAFTER_LENGTH_RULE)"
 )
 BOTH_CAPS_ON = {"REPLY_LENGTH_SENTENCE_CAP": "on", "REPLY_LENGTH_WORD_CAP": "on"}
 
@@ -35,24 +36,24 @@ def read_probe_lines_in_a_fresh_process(environment_overrides: dict[str, str]) -
 
 
 def test_should_keep_both_length_caps_off_when_the_environment_is_silent() -> None:
-    flags_line, _ = read_probe_lines_in_a_fresh_process({})
+    flags_line, _, _ = read_probe_lines_in_a_fresh_process({})
     assert flags_line == "False False"
 
 
 def test_should_turn_both_length_caps_on_from_the_environment() -> None:
-    flags_line, _ = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
+    flags_line, _, _ = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
     assert flags_line == "True True"
 
 
 def test_should_read_a_switch_value_without_regard_to_case() -> None:
-    flags_line, _ = read_probe_lines_in_a_fresh_process(
+    flags_line, _, _ = read_probe_lines_in_a_fresh_process(
         {"REPLY_LENGTH_SENTENCE_CAP": "ON", "REPLY_LENGTH_WORD_CAP": "On"}
     )
     assert flags_line == "True True"
 
 
 def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() -> None:
-    _, reminder = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
+    _, reminder, _ = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
     assert f"Keep it to {constants.MAXIMUM_SENTENCE_COUNT} sentences or fewer." in reminder
     assert (
         f"Keep each sentence to {constants.MAXIMUM_WORDS_PER_SENTENCE} words or fewer." in reminder
@@ -60,9 +61,20 @@ def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() 
 
 
 def test_should_leave_the_length_limits_out_of_the_reply_reminder_when_switched_off() -> None:
-    _, reminder = read_probe_lines_in_a_fresh_process({})
+    _, reminder, _ = read_probe_lines_in_a_fresh_process({})
     assert "sentences or fewer" not in reminder
     assert "words or fewer" not in reminder
+
+
+def test_should_put_both_length_limits_in_the_drafter_rule_when_switched_on() -> None:
+    _, _, drafter_rule = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
+    assert f"At most {constants.MAXIMUM_SENTENCE_COUNT} sentences." in drafter_rule
+    assert f"Each sentence at most {constants.MAXIMUM_WORDS_PER_SENTENCE} words." in drafter_rule
+
+
+def test_should_leave_the_drafter_rule_empty_when_switched_off() -> None:
+    _, _, drafter_rule = read_probe_lines_in_a_fresh_process({})
+    assert drafter_rule == ""
 
 
 def test_gate_limits_replies_to_fifty_sentences_of_thirty_five_words() -> None:

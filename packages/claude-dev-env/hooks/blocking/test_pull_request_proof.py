@@ -527,7 +527,7 @@ def _shell_create_elsewhere(
 ) -> dict[str, object]:
     body_path = tmp_path / "body.md"
     body_path.write_text(body, encoding="utf-8")
-    return _shell(f"gh pr create --title t --body-file {body_path} {extra_flags}", tmp_path)
+    return _shell(f'gh pr create --title t --body-file "{body_path}" {extra_flags}', tmp_path)
 
 
 def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot_read_it(
