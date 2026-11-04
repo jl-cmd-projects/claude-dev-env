@@ -30,6 +30,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     BUILD_EVAL_ARGUMENT_WORD,
     BUILD_EVAL_COMMAND_MARKER,
     COMMAND_PIECE_PATTERN,
+    BACKTICK_SUBSTITUTION_GROUP,
+    COMMAND_SUBSTITUTION_PATTERN,
+    DOLLAR_SUBSTITUTION_GROUP,
     COMMAND_WHITESPACE,
     DENY_DECISION,
     DENY_REASON,
@@ -223,7 +226,7 @@ def _words_from_executable(all_words: list[str]) -> list[str]:
         if re.match(ENVIRONMENT_ASSIGNMENT_PATTERN, each_word):
             index += 1
             continue
-        if each_word not in ALL_COMMAND_PREFIX_WORDS:
+        if file_name(each_word) not in ALL_COMMAND_PREFIX_WORDS:
             return all_words[index:]
         index += 1
         while index < len(all_words) and all_words[index].startswith("-"):
@@ -264,6 +267,13 @@ def executable_word_lists(command: str) -> list[list[str]]:
         if not all_command_words:
             continue
         all_word_lists.extend(_command_and_nested_word_lists(all_command_words))
+    for each_match in COMMAND_SUBSTITUTION_PATTERN.finditer(command):
+        inner_command = (
+            each_match.group(DOLLAR_SUBSTITUTION_GROUP)
+            if each_match.group(DOLLAR_SUBSTITUTION_GROUP) is not None
+            else each_match.group(BACKTICK_SUBSTITUTION_GROUP)
+        )
+        all_word_lists.extend(executable_word_lists(inner_command))
     return all_word_lists
 
 

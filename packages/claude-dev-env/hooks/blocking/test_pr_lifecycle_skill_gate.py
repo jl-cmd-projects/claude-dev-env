@@ -596,6 +596,18 @@ WRAPPED_WRITE_COMMANDS = (
     "eval gh pr merge 12",
     'eval "gh pr" "merge 12"',
 )
+SUBSTITUTED_AND_GRAPHQL_WRITE_COMMANDS = (
+    'echo "$(gh pr merge 12 --squash)"',
+    "echo `gh pr merge 12`",
+    "/usr/bin/env gh pr merge 12",
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"PR_x\"}) { clientMutationId } }'",
+)
+
+
+def test_substituted_or_graphql_pull_request_write_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in SUBSTITUTED_AND_GRAPHQL_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
 
 
 def test_write_run_through_a_wrapper_should_be_denied_without_the_skill(tmp_path: Path) -> None:
