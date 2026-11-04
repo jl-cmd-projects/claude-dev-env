@@ -48,7 +48,7 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     switch_path.write_text('{"enabled": true}', encoding="utf-8")
 
 
-def test_should_allow_three_short_sentences(
+def test_should_allow_short_sentences_within_the_limit(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, stderr_text = run_gate(
@@ -60,7 +60,7 @@ def test_should_allow_three_short_sentences(
     assert (exit_code, stderr_text) == (0, "")
 
 
-def test_should_allow_a_fifteen_word_sentence(
+def test_should_allow_a_sentence_at_the_word_limit(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": FIFTEEN_WORD_SENTENCE})
@@ -1157,10 +1157,13 @@ def test_should_number_nested_violations_once_in_one_refusal(
     )
 
     assert exit_code == reply_length_gate.BLOCK_EXIT_CODE
+    word_sentence_count = 2
+    closing_sentence_count = 1
+    total_sentence_count = OVER_LIMIT_SENTENCE_COUNT + word_sentence_count + closing_sentence_count
     all_numbered_lines = [each_line for each_line in error_text.splitlines() if each_line[:1].isdigit()]
     assert [each_line.split(". ", 1)[0] for each_line in all_numbered_lines] == ["1", "2", "3", "4"]
     assert not any(each_line.split(". ", 1)[1][:1].isdigit() for each_line in all_numbered_lines)
-    assert f"Reply too long: {OVER_LIMIT_SENTENCE_COUNT + 3} sentences" in all_numbered_lines[0]
+    assert f"Reply too long: {total_sentence_count} sentences" in all_numbered_lines[0]
     assert all_numbered_lines[1].count(f"{OVER_LIMIT_WORD_COUNT} words") == 1
     assert all_numbered_lines[2].count(f"{OVER_LIMIT_WORD_COUNT} words") == 1
     assert reply_length_gate.EM_DASH_MESSAGE in all_numbered_lines[3]
