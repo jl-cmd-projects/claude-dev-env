@@ -7,9 +7,8 @@ import pytest
 import chat_reply_gate
 from hooks_constants import reply_length_gate_constants as reply_limits
 
-OVER_LIMIT_SENTENCES = [
-    f"Step {each_number} is done." for each_number in range(1, reply_limits.MAXIMUM_SENTENCE_COUNT + 2)
-]
+OVER_LIMIT_SENTENCE_COUNT = reply_limits.MAXIMUM_SENTENCE_COUNT + 1
+OVER_LIMIT_SENTENCES = [f"Step {each_number} is done." for each_number in range(1, OVER_LIMIT_SENTENCE_COUNT + 1)]
 OVER_LIMIT_REPLY = " ".join(OVER_LIMIT_SENTENCES)
 THREE_SENTENCE_REPLY = "PR one merged. PR two is queued. Nothing else is open."
 PASSING_DRAFT = "PR one merged. Two others wait."

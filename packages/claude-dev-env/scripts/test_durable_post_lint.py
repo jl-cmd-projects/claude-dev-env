@@ -7,8 +7,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import durable_post_lint
 import pytest
+
+import durable_post_lint
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from hooks_constants import reply_length_gate_constants as reply_limits
 from hooks_constants.pull_request_proof_constants import (
@@ -62,7 +63,7 @@ Ran `python scripts/durable_post_lint.py --action pr-create --body-file body.md`
 """
 OVER_LONG_REPLY_BODY = (
     "Fixed in `abc1234`.\n\n"
-    + " ".join(["The test covers this case."] * reply_limits.MAXIMUM_SENTENCE_COUNT)
+    + " ".join(["The test covers this case."] * (reply_limits.MAXIMUM_SENTENCE_COUNT + 1))
     + "\n\n---\nPosted by the review agent."
 )
 MINIMAL_PR_BODY = """## Why

@@ -11,7 +11,7 @@ REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 POST_TOOL_NAME = "mcp__hearthbot__post_message"
 OVER_LIMIT_SENTENCE_COUNT = reply_limits.MAXIMUM_SENTENCE_COUNT + 1
 OVER_LIMIT_WORD_COUNT = reply_limits.MAXIMUM_WORDS_PER_SENTENCE + 1
-OVER_LIMIT_WORD_SENTENCE = "One two three " + " ".join(["four"] * (OVER_LIMIT_WORD_COUNT - 3)) + "."
+OVER_LIMIT_WORD_SENTENCE = " ".join(["One", "two", "three"] + ["four"] * (OVER_LIMIT_WORD_COUNT - 3)) + "."
 OVER_LIMIT_REPLY = " ".join(["Step is done."] * OVER_LIMIT_SENTENCE_COUNT)
 FIFTEEN_WORD_SENTENCE = (
     "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen."
