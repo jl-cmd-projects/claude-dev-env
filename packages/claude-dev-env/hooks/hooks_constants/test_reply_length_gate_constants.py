@@ -1,8 +1,8 @@
 from hooks_constants import reply_length_gate_constants as constants
 
 
-def test_gate_limits_replies_to_three_sentences_of_fifteen_words() -> None:
-    assert (constants.MAXIMUM_SENTENCE_COUNT, constants.MAXIMUM_WORDS_PER_SENTENCE) == (3, 15)
+def test_gate_limits_replies_to_fifty_sentences_of_thirty_five_words() -> None:
+    assert (constants.MAXIMUM_SENTENCE_COUNT, constants.MAXIMUM_WORDS_PER_SENTENCE) == (50, 35)
 
 
 def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:
