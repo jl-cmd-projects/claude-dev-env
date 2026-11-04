@@ -63,7 +63,21 @@ ALL_API_ACTION_NAMES = ("auto-merge", "enablePullRequestAutoMerge")
 ALL_COMMAND_PREFIX_WORDS = frozenset({"env", "sudo", "command", "exec", "nohup", "time"})
 ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS = frozenset({"checks", "diff", "list", "status", "view"})
 ALL_GH_PULL_REQUEST_SUBCOMMANDS = ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS | frozenset(
-    {"checkout", "close", "comment", "create", "edit", "lock", "merge", "ready", "reopen", "review", "revert", "unlock", "update-branch"}
+    {
+        "checkout",
+        "close",
+        "comment",
+        "create",
+        "edit",
+        "lock",
+        "merge",
+        "ready",
+        "reopen",
+        "review",
+        "revert",
+        "unlock",
+        "update-branch",
+    }
 )
 ALL_PREFIX_OPTIONS_WITH_VALUE = frozenset({"-u", "--unset", "-C", "--chdir", "-g", "--group", "--user"})
 ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="
