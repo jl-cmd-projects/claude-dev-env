@@ -87,7 +87,7 @@ def test_should_deny_too_many_sentences_and_name_the_count(
     )
     assert exit_code == 2
     assert f"{MAXIMUM_SENTENCE_COUNT + 1} sentences" in stderr_text
-    assert str(MAXIMUM_SENTENCE_COUNT) in stderr_text
+    assert f"limit {MAXIMUM_SENTENCE_COUNT}" in stderr_text
 
 
 def test_should_deny_a_sentence_over_the_word_limit_and_name_it(
@@ -98,7 +98,7 @@ def test_should_deny_a_sentence_over_the_word_limit_and_name_it(
     )
     assert exit_code == 2
     assert f"{MAXIMUM_WORDS_PER_SENTENCE + 1} words" in stderr_text
-    assert str(MAXIMUM_WORDS_PER_SENTENCE) in stderr_text
+    assert f"limit {MAXIMUM_WORDS_PER_SENTENCE}" in stderr_text
     assert "One two three" in stderr_text
 
 
