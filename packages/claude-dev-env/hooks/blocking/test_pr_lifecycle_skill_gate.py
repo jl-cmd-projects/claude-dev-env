@@ -548,3 +548,15 @@ def test_write_pull_request_commands_should_be_denied_without_the_skill(tmp_path
     path = _transcript(tmp_path)
     for each_command in WRITE_PULL_REQUEST_COMMANDS:
         _assert_denied(_payload(each_command, path))
+
+
+OPTION_SHIFTED_WRITE_COMMANDS = (
+    "gh pr --subject view merge 12 --squash",
+    "gh pr --subject view 12 merge",
+)
+
+
+def test_write_behind_an_unlisted_option_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in OPTION_SHIFTED_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))

@@ -19,6 +19,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS,
+    ALL_GH_PULL_REQUEST_SUBCOMMANDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
     ALL_PIECE_REPLACEMENT_TEXTS,
     ALL_PREFIX_OPTIONS_WITH_VALUE,
@@ -186,10 +187,20 @@ def _is_git_action(all_words: list[str]) -> bool:
     return action in GIT_ACTIONS
 
 
+def _is_pull_request_action(all_gh_words: list[str]) -> bool:
+    all_subcommand_words = all_gh_words[1:]
+    if not all_subcommand_words:
+        return False
+    subcommand, *all_later_words = all_subcommand_words
+    if subcommand not in ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS:
+        return True
+    return any(each_word in ALL_GH_PULL_REQUEST_SUBCOMMANDS for each_word in all_later_words)
+
+
 def _is_gh_action(all_words: list[str]) -> bool:
     all_gh_words = gh_command_words(all_words[1:])
     if all_gh_words[:1] == [GH_PULL_REQUEST_COMMAND]:
-        return len(all_gh_words) > 1 and all_gh_words[1] not in ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS
+        return _is_pull_request_action(all_gh_words)
     if all_gh_words[:1] != [GH_API_COMMAND]:
         return False
     all_api_arguments = all_words[all_words.index(GH_API_COMMAND, 1) + 1 :]
