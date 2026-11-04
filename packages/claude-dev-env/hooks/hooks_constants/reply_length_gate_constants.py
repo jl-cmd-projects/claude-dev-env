@@ -2,8 +2,8 @@
 
 import re
 
-MAXIMUM_SENTENCE_COUNT = 3
-MAXIMUM_WORDS_PER_SENTENCE = 15
+MAXIMUM_SENTENCE_COUNT = 50
+MAXIMUM_WORDS_PER_SENTENCE = 35
 ALL_CHECKED_TOOL_NAMES = frozenset(
     {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
 )
