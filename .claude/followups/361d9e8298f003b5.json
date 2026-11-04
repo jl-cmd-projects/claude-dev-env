@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/pr_lifecycle_skill_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/pr_lifecycle_skill_gate.py:1: File is 450 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "9ea516487f77ae3a6024ade95c37e174adeea70f"
+}
