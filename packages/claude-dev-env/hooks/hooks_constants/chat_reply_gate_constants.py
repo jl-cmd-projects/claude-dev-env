@@ -20,9 +20,10 @@ STATE_FILE_ENCODING = "utf-8"
 HELD_TEXT_FILE_PREFIX = "claude-chat-reply-held-"
 SHOWN_DRAFT_FILE_PREFIX = "claude-chat-reply-shown-"
 STATE_FILE_SUFFIX = ".txt"
+ONE_SENTENCE_PER_LINE_RULE = "Each line and each list item counts as one sentence"
 SENTENCE_COUNT_CLAUSE = (
     f" Keep it to {MAXIMUM_SENTENCE_COUNT} sentences or fewer."
-    " Each line and each list item counts as one sentence, so prefer short prose over lists."
+    f" {ONE_SENTENCE_PER_LINE_RULE}, so prefer short prose over lists."
     " Count your sentences before you send."
     if SENTENCE_CAP_ENABLED
     else ""
@@ -55,7 +56,7 @@ CLAUDE_SESSION_ID_ENV_VAR = "CLAUDE_CODE_SESSION_ID"
 DRAFTER_REQUEST_TEMPLATE = "Rule the reply broke: {violation}\n\nReply to rewrite:\n\n{reply_text}"
 DRAFTER_LENGTH_RULE = (
     (
-        f" At most {MAXIMUM_SENTENCE_COUNT} sentences. Each line and each list item counts as one sentence."
+        f" At most {MAXIMUM_SENTENCE_COUNT} sentences. {ONE_SENTENCE_PER_LINE_RULE}."
         if SENTENCE_CAP_ENABLED
         else ""
     )

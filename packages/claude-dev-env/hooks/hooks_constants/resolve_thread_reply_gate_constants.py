@@ -28,7 +28,10 @@ SHELL_REPLY_COMMENT_ID_PATTERN = re.compile(r"/comments/(\d+)/replies\b")
 TEXT_BLOCK_TYPE = "text"
 TEXT_FIELD = "text"
 if SENTENCE_CAP_ENABLED and WORDS_PER_SENTENCE_CAP_ENABLED:
-    RESOLVE_LENGTH_PHRASE = f" at most {MAXIMUM_SENTENCE_COUNT} sentences of at most {MAXIMUM_WORDS_PER_SENTENCE} words each,"
+    RESOLVE_LENGTH_PHRASE = (
+        f" at most {MAXIMUM_SENTENCE_COUNT} sentences"
+        f" of at most {MAXIMUM_WORDS_PER_SENTENCE} words each,"
+    )
 elif SENTENCE_CAP_ENABLED:
     RESOLVE_LENGTH_PHRASE = f" at most {MAXIMUM_SENTENCE_COUNT} sentences,"
 elif WORDS_PER_SENTENCE_CAP_ENABLED:

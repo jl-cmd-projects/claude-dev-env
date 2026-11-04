@@ -47,7 +47,9 @@ def test_should_turn_both_length_caps_on_from_the_environment() -> None:
 def test_should_put_both_length_limits_in_the_reply_reminder_when_switched_on() -> None:
     _, reminder = read_probe_lines_in_a_fresh_process(BOTH_CAPS_ON)
     assert f"Keep it to {constants.MAXIMUM_SENTENCE_COUNT} sentences or fewer." in reminder
-    assert f"Keep each sentence to {constants.MAXIMUM_WORDS_PER_SENTENCE} words or fewer." in reminder
+    assert (
+        f"Keep each sentence to {constants.MAXIMUM_WORDS_PER_SENTENCE} words or fewer." in reminder
+    )
 
 
 def test_should_leave_the_length_limits_out_of_the_reply_reminder_when_switched_off() -> None:

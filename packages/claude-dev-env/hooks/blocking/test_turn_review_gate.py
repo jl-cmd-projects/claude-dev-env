@@ -57,9 +57,14 @@ def project(tmp_path: Path) -> Path:
 def gate_environment(tmp_path: Path, project: Path) -> dict[str, str]:
     stub_directory = tmp_path / "bin"
     stub_directory.mkdir()
-    stub_claude = stub_directory / "claude"
-    stub_claude.write_text(STUB_CLAUDE_SOURCE)
-    stub_claude.chmod(0o755)
+    if os.name == "nt":
+        stub_script = stub_directory / "claude_stub.py"
+        stub_script.write_text(STUB_CLAUDE_SOURCE)
+        (stub_directory / "claude.cmd").write_text(f'@"{sys.executable}" "{stub_script}" %*\r\n')
+    else:
+        stub_claude = stub_directory / "claude"
+        stub_claude.write_text(STUB_CLAUDE_SOURCE)
+        stub_claude.chmod(0o755)
     state_directory = tmp_path / "state"
     state_directory.mkdir()
     environment = {

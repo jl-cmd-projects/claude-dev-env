@@ -689,6 +689,7 @@ def test_should_report_unreadable_git_output_as_unknown() -> None:
     assert gate._git_changes([":100644 100644 aaa bbb M", "a.html", "stray", ""]) is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows forbids a double quote in a file name")
 def test_should_keep_a_page_whose_name_holds_a_quote(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, 'q"t.html')
     assert gate.visible_changed_files(str(clone_path), "feature") == ['q"t.html']

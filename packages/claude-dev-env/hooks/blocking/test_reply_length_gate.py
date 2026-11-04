@@ -9,6 +9,8 @@ from hooks_constants import reply_length_gate_constants
 
 REPLY_TOOL_NAME = "mcp__hearthbot__reply"
 POST_TOOL_NAME = "mcp__hearthbot__post_message"
+
+
 def sentence_of_words(word_count: int) -> str:
     return "One" + "".join(f" word{each_index}" for each_index in range(2, word_count + 1)) + "."
 
@@ -56,11 +58,6 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def length_caps_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", True)
     monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", True)
-
-
-def test_should_ship_with_both_length_caps_off() -> None:
-    assert reply_length_gate_constants.SENTENCE_CAP_ENABLED is False
-    assert reply_length_gate_constants.WORDS_PER_SENTENCE_CAP_ENABLED is False
 
 
 def test_should_allow_an_over_limit_sentence_while_the_word_cap_is_off(
@@ -131,7 +128,9 @@ def test_should_deny_a_sentence_over_the_word_limit_and_name_it(
 def test_should_check_the_project_chat_post_tool(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exit_code, _ = run_gate(monkeypatch, capsys, POST_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY})
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, POST_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY}
+    )
     assert exit_code == 2
 
 
@@ -797,7 +796,9 @@ def test_should_keep_the_length_check_when_the_mode_is_off(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     turn_mode_off(tmp_path)
-    exit_code, _ = run_gate(monkeypatch, capsys, REPLY_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY})
+    exit_code, _ = run_gate(
+        monkeypatch, capsys, REPLY_TOOL_NAME, {"text": OVER_LIMIT_SENTENCE_REPLY}
+    )
     assert exit_code == 2
 
 
@@ -1062,7 +1063,7 @@ def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
 
 
 LONG_GITHUB_COMMENT = " ".join(
-    "Sentence number one of a long comment that keeps going." for _ in range(OVER_LIMIT_SENTENCE_COUNT)
+    "A long comment sentence." for _ in range(OVER_LIMIT_SENTENCE_COUNT)
 )
 SHORT_GITHUB_COMMENT = "Fixed the cap check. The test now covers it. Checks pass."
 

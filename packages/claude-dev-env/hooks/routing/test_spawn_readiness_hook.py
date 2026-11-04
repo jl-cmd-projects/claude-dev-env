@@ -91,7 +91,7 @@ def _run_hook(tmp_path: Path, hook_payload: dict[str, object]) -> str:
         ),
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(tmp_path)},
+        env={**os.environ, "HOME": str(tmp_path), "USERPROFILE": str(tmp_path)},
         check=True,
     )
     return completed.stdout
@@ -390,7 +390,7 @@ def test_should_print_nothing_for_empty_stdin(tmp_path: Path) -> None:
         input="",
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(tmp_path)},
+        env={**os.environ, "HOME": str(tmp_path), "USERPROFILE": str(tmp_path)},
         check=True,
     )
     assert completed.stdout == ""

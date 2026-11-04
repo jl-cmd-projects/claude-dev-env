@@ -77,7 +77,7 @@ def test_should_run_a_child_session_start_hook_inside_that_child(
             "SessionStart": [
                 _command_group(
                     "",
-                    f'echo "$CLAUDE_PROJECT_DIR|$(pwd)" > "{record_path}"',
+                    f'echo "$CLAUDE_PROJECT_DIR|$(pwd -W 2>/dev/null || pwd)" > "{record_path}"',
                 )
             ]
         },

@@ -8,7 +8,9 @@ import chat_reply_gate
 import reply_length_gate
 from hooks_constants import reply_length_gate_constants
 
-OVER_LIMIT_REPLY = " ".join(["PR one merged."] * (reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT + 1))
+OVER_LIMIT_REPLY = " ".join(
+    ["PR one merged."] * (reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT + 1)
+)
 THREE_SENTENCE_REPLY = "PR one merged. PR two is queued. Nothing else is open."
 PASSING_DRAFT = "PR one merged. Two others wait."
 
@@ -71,7 +73,9 @@ def test_should_show_a_reply_within_the_limit_unchanged(
 def test_should_hold_batches_until_the_last_one_arrives(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    held_first_batch = " ".join(["PR one merged."] * reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT) + "\n"
+    held_first_batch = (
+        " ".join(["PR one merged."] * reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT) + "\n"
+    )
     held_last_batch = "PR three needs a fix. Nothing else is open."
     all_requests: list[str] = []
     monkeypatch.setattr(

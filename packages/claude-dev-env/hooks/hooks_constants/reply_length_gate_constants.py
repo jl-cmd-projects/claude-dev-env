@@ -184,7 +184,13 @@ ALL_GH_COMMENT_ACTIONS = frozenset({"comment", "review"})
 ALL_GH_BODY_FLAGS = frozenset({"--body", "-b"})
 GH_BODY_FLAG_PREFIX = "--body="
 DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
+COMMENT_SENTENCE_LIMIT_CLAUSE = (
+    f" A comment on GitHub holds at most {MAXIMUM_SENTENCE_COUNT} sentences."
+    if SENTENCE_CAP_ENABLED
+    else ""
+)
 COMMENT_RETRY_INSTRUCTION = (
-    f" A comment on GitHub holds at most {MAXIMUM_SENTENCE_COUNT} short sentences."
-    " Put detail in the pull request body, a code block, or a collapsed <details> block, then post again."
+    COMMENT_SENTENCE_LIMIT_CLAUSE
+    + " Put detail in the pull request body, a code block, or a collapsed <details> block,"
+    " then post again."
 )
