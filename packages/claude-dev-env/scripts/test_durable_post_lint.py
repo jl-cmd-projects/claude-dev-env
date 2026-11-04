@@ -7,10 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 import durable_post_lint
+import pytest
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
+from hooks_constants import reply_length_gate_constants as reply_limits
 from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
@@ -62,9 +62,8 @@ Ran `python scripts/durable_post_lint.py --action pr-create --body-file body.md`
 """
 OVER_LONG_REPLY_BODY = (
     "Fixed in `abc1234`.\n\n"
-    "The parser now rejects an empty header.\n\n"
-    "The test covers both cases.\n\n"
-    "---\nPosted by the review agent."
+    + " ".join(["The test covers this case."] * reply_limits.MAXIMUM_SENTENCE_COUNT)
+    + "\n\n---\nPosted by the review agent."
 )
 MINIMAL_PR_BODY = """## Why
 
@@ -444,7 +443,7 @@ def should_exit_with_findings_for_a_create_body_with_no_existing_work_section(
     assert completed_process.stderr == f"{MISSING_EXISTING_WORK_REASON}\n"
 
 
-def should_report_a_review_reply_over_three_sentences() -> None:
+def should_report_a_review_reply_over_the_sentence_limit() -> None:
     all_findings = durable_post_lint.lint_durable_post(
         action="github-mcp-comment",
         title=None,
@@ -455,14 +454,11 @@ def should_report_a_review_reply_over_three_sentences() -> None:
     ]
 
 
-def should_report_a_review_reply_sentence_over_fifteen_words() -> None:
+def should_report_a_review_reply_sentence_over_the_word_limit() -> None:
     all_findings = durable_post_lint.lint_durable_post(
         action="github-mcp-comment",
         title=None,
-        body_text=(
-            "This change moves the parser into its own module and keeps every"
-            " caller on the same import path."
-        ),
+        body_text=" ".join(["word"] * (reply_limits.MAXIMUM_WORDS_PER_SENTENCE + 1)) + ".",
     )
     assert [each_finding.code for each_finding in all_findings] == [
         "github-comment-length"
@@ -495,7 +491,7 @@ def should_exit_with_findings_for_an_over_long_review_reply(tmp_path: Path) -> N
         text=True,
     )
     assert completed_process.returncode == 1
-    assert "at most three short sentences" in completed_process.stderr
+    assert f"at most {reply_limits.MAXIMUM_SENTENCE_COUNT} sentences" in completed_process.stderr
 
 
 def should_exit_clean_for_a_short_review_reply(tmp_path: Path) -> None:

@@ -5,8 +5,12 @@ from pathlib import Path
 import pytest
 
 import chat_reply_gate
+from hooks_constants import reply_length_gate_constants as reply_limits
 
-FOUR_SENTENCE_REPLY = "PR one merged. PR two is queued. PR three needs a fix. Nothing else is open."
+OVER_LIMIT_SENTENCES = [
+    f"Step {each_number} is done." for each_number in range(1, reply_limits.MAXIMUM_SENTENCE_COUNT + 2)
+]
+OVER_LIMIT_REPLY = " ".join(OVER_LIMIT_SENTENCES)
 THREE_SENTENCE_REPLY = "PR one merged. PR two is queued. Nothing else is open."
 PASSING_DRAFT = "PR one merged. Two others wait."
 
@@ -46,7 +50,7 @@ def test_should_show_a_passing_draft_in_place_of_a_long_reply(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
-    exit_code, hook_output = run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    exit_code, hook_output = run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     assert exit_code == 0
     assert hook_output == {"hookEventName": "MessageDisplay", "displayContent": PASSING_DRAFT}
 
@@ -69,17 +73,14 @@ def test_should_hold_batches_until_the_last_one_arrives(
         "ask_drafter",
         lambda reply_text, _violation: all_requests.append(reply_text) or PASSING_DRAFT,
     )
-    _, first_output = run_hook(
-        monkeypatch, capsys, display_input("PR one merged. PR two is queued.\n", False)
-    )
-    _, last_output = run_hook(
-        monkeypatch, capsys, display_input("PR three needs a fix. Nothing else is open.")
-    )
+    middle_index = len(OVER_LIMIT_SENTENCES) // 2
+    first_batch = " ".join(OVER_LIMIT_SENTENCES[:middle_index]) + "\n"
+    last_batch = " ".join(OVER_LIMIT_SENTENCES[middle_index:])
+    _, first_output = run_hook(monkeypatch, capsys, display_input(first_batch, False))
+    _, last_output = run_hook(monkeypatch, capsys, display_input(last_batch))
     assert first_output == {"hookEventName": "MessageDisplay", "displayContent": ""}
     assert last_output == {"hookEventName": "MessageDisplay", "displayContent": PASSING_DRAFT}
-    assert all_requests == [
-        "PR one merged. PR two is queued.\nPR three needs a fix. Nothing else is open."
-    ]
+    assert all_requests == [first_batch + last_batch]
 
 
 def test_should_show_the_whole_held_message_when_it_passes(
@@ -100,9 +101,9 @@ def test_should_show_the_original_when_no_draft_passes(
     monkeypatch.setattr(
         chat_reply_gate,
         "ask_drafter",
-        lambda reply_text, _violation: all_calls.append(reply_text) or FOUR_SENTENCE_REPLY,
+        lambda reply_text, _violation: all_calls.append(reply_text) or OVER_LIMIT_REPLY,
     )
-    _, hook_output = run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    _, hook_output = run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     assert hook_output is None
     assert len(all_calls) == 2
 
@@ -111,7 +112,7 @@ def test_should_tell_the_agent_which_draft_the_user_saw(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
-    run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     prompt_input = {"hook_event_name": "UserPromptSubmit", "session_id": "abc"}
     _, first_output = run_hook(monkeypatch, capsys, prompt_input)
     _, second_output = run_hook(monkeypatch, capsys, prompt_input)
@@ -124,7 +125,7 @@ def test_should_delete_the_shown_draft_at_session_end(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
-    run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     shown_draft_path = chat_reply_gate.state_file_path("claude-chat-reply-shown-", "abc")
     assert shown_draft_path.exists()
     exit_code, hook_output = run_hook(
@@ -144,14 +145,16 @@ def test_should_add_the_reply_limit_on_each_user_prompt(
     assert exit_code == 0
     assert hook_output is not None
     assert hook_output["hookEventName"] == "UserPromptSubmit"
-    assert "3 sentences or fewer" in str(hook_output["additionalContext"])
+    assert f"{reply_limits.MAXIMUM_SENTENCE_COUNT} sentences or fewer" in str(
+        hook_output["additionalContext"]
+    )
 
 
 def test_should_do_nothing_inside_the_drafter_process(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("CHAT_REPLY_DRAFTER_ACTIVE", "1")
-    exit_code, hook_output = run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    exit_code, hook_output = run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     assert exit_code == 0
     assert hook_output is None
 
@@ -162,7 +165,7 @@ def test_should_ignore_the_stop_event(
     exit_code, hook_output = run_hook(
         monkeypatch,
         capsys,
-        {"hook_event_name": "Stop", "last_assistant_message": FOUR_SENTENCE_REPLY},
+        {"hook_event_name": "Stop", "last_assistant_message": OVER_LIMIT_REPLY},
     )
     assert exit_code == 0
     assert hook_output is None
@@ -179,7 +182,7 @@ def test_ask_drafter_should_read_the_result_field(monkeypatch: pytest.MonkeyPatc
         "run",
         lambda command, **_kwargs: all_commands.append(command) or CompletedDrafter(),
     )
-    assert chat_reply_gate.ask_drafter(FOUR_SENTENCE_REPLY, "too long") == PASSING_DRAFT
+    assert chat_reply_gate.ask_drafter(OVER_LIMIT_REPLY, "too long") == PASSING_DRAFT
     assert all_commands[0][:4] == ["C:/npm/claude.cmd", "-p", "--model", "haiku"]
 
 
@@ -188,14 +191,14 @@ def test_ask_drafter_should_return_none_for_an_error_result(monkeypatch: pytest.
         stdout = json.dumps({"is_error": True, "result": "Credit balance is too low"})
 
     monkeypatch.setattr(chat_reply_gate.subprocess, "run", lambda *_args, **_kwargs: FailedDrafter())
-    assert chat_reply_gate.ask_drafter(FOUR_SENTENCE_REPLY, "too long") is None
+    assert chat_reply_gate.ask_drafter(OVER_LIMIT_REPLY, "too long") is None
 
 
 def test_should_forget_the_shown_draft_when_a_later_reply_passes(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
-    run_hook(monkeypatch, capsys, display_input(FOUR_SENTENCE_REPLY))
+    run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     run_hook(monkeypatch, capsys, {**display_input(THREE_SENTENCE_REPLY), "message_id": "m2"})
     _, hook_output = run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
     assert hook_output is not None

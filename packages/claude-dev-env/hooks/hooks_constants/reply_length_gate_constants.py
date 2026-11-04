@@ -182,6 +182,7 @@ ALL_GH_BODY_FLAGS = frozenset({"--body", "-b"})
 GH_BODY_FLAG_PREFIX = "--body="
 DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
 COMMENT_RETRY_INSTRUCTION = (
-    " A comment on GitHub holds at most three short sentences."
+    f" A comment on GitHub holds at most {MAXIMUM_SENTENCE_COUNT} sentences,"
+    f" each {MAXIMUM_WORDS_PER_SENTENCE} words or fewer."
     " Put detail in the pull request body, a code block, or a collapsed <details> block, then post again."
 )
