@@ -378,7 +378,7 @@ def test_should_share_one_review_time_budget_across_the_checkouts(
         monkeypatch.setenv(each_name, gate_environment[each_name])
     monkeypatch.setenv("STUB_REVIEW_SECONDS", "5")
     monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
-    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 2)
+    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 4)
     all_roots = turn_review_gate._opted_in_repository_roots(
         turn_review_gate._opted_in_repository_slugs()
     )
