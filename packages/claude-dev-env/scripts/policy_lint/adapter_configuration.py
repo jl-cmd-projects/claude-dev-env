@@ -139,7 +139,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
-        hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
         hooks/blocking/owned_pr_merge_stop_gate.py       -> exempt
@@ -191,10 +190,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The eval write gate denies a write to an eval file until the session
     invokes ``/claude-api build-eval``. It holds eval writes until a skill
     loads, and it judges no code or safety content.
-
-    The merge offer gate denies a decision card whose text offers a merge and
-    names open review findings. It reads only the wording of a chat card and
-    decides no code or safety policy; the merge review gate holds the merge.
 
     The open tasks Stop gate holds the end of a turn once when the turn worked
     on an ask and made no task list call. It decides when a turn may end and
