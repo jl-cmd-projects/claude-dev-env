@@ -20,10 +20,8 @@ sources and no tools. The draft must pass ``reply_violation``; after
 MAXIMUM_DRAFT_ATTEMPTS failed drafts, the original shows.
 
 The checks come from ``reply_length_gate.reply_violation``: at most
-MAXIMUM_SENTENCE_COUNT sentences (only while SENTENCE_CAP_ENABLED is true) and
-at most MAXIMUM_WORDS_PER_SENTENCE words (only while WORDS_PER_SENTENCE_CAP_ENABLED
-is true), no mid-sentence colon, no em dash,
-linked pull requests, a source
+MAXIMUM_SENTENCE_COUNT sentences of at most MAXIMUM_WORDS_PER_SENTENCE
+words, no mid-sentence colon, no em dash, linked pull requests, a source
 for each causal claim, and no banned word.
 """
 

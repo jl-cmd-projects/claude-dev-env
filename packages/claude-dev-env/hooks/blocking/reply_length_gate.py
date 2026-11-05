@@ -2,9 +2,8 @@
 """PreToolUse hook that caps the length of a chat reply before it posts.
 
 The gate reads the ``text`` field of the chat tools that post to the user.
-It denies the call when SENTENCE_CAP_ENABLED is true and the text holds more
-than MAXIMUM_SENTENCE_COUNT sentences, or, while WORDS_PER_SENTENCE_CAP_ENABLED
-is true, a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
+It denies the call when the text holds more than MAXIMUM_SENTENCE_COUNT
+sentences, or a sentence longer than MAXIMUM_WORDS_PER_SENTENCE words.
 It also denies a pull request number the reader cannot open::
 
     flag: Both land in PR 5256.
@@ -51,10 +50,9 @@ decision card: its question, its context, and each option's label and
 consequence. They read an AskUserQuestion card the same way: each
 question, its header, and each option's label and description.
 A decision card gets a length check on its question, context, reason, and
-each option's consequence. While WORDS_PER_SENTENCE_CAP_ENABLED is true, no
-sentence there runs longer than MAXIMUM_WORDS_PER_SENTENCE words. The context
-holds at most MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences whatever the
-switches say. A context may hold no list
+each option's consequence. No sentence there runs longer than
+MAXIMUM_WORDS_PER_SENTENCE words, and the context holds at most
+MAXIMUM_CARD_CONTEXT_SENTENCE_COUNT sentences. A context may hold no list
 item line, such as "- Cedar" or "1. Cedar". A card refused for length or for
 a list names the page flow to use instead: an Artifact page with a tap button
 per item and a Send button, then a short reply that links the page.
@@ -181,7 +179,6 @@ from hooks_constants.reply_length_gate_constants import (
     QUESTION_CARD_QUESTIONS_KEY,
     QUESTION_CARD_TOOL_NAME,
     RETRY_INSTRUCTION,
-    SENTENCE_CAP_ENABLED,
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
     SENTENCE_PREVIEW_WORD_COUNT,
@@ -200,7 +197,6 @@ from hooks_constants.reply_length_gate_constants import (
     URL_PATTERN,
     WORD_PATTERN,
     WORD_SEPARATOR,
-    WORDS_PER_SENTENCE_CAP_ENABLED,
 )
 
 
@@ -281,8 +277,6 @@ def _checked_violation(check: Callable[[], str | None], has_finding: bool) -> tu
 
 def length_violation(reply_text: str) -> str | None:
     """Return the deny reason for an over-long reply and each over-long sentence, or None when it fits."""
-    if not SENTENCE_CAP_ENABLED:
-        return long_sentence_violation(reply_text)
     all_sentences = sentence_word_lists(reply_text)
     return joined_violations(
         [
@@ -297,12 +291,7 @@ def length_violation(reply_text: str) -> str | None:
 
 
 def long_sentence_violation(prose_text: str) -> str | None:
-    """Return the deny reason for each sentence over the word limit, or None.
-
-    The check runs only while WORDS_PER_SENTENCE_CAP_ENABLED is true.
-    """
-    if not WORDS_PER_SENTENCE_CAP_ENABLED:
-        return None
+    """Return the deny reason for each sentence over the word limit, or None."""
     return joined_violations(
         LONG_SENTENCE_MESSAGE.format(
             word_count=len(each_sentence),

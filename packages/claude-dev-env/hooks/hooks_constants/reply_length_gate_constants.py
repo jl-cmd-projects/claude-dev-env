@@ -1,11 +1,8 @@
 """Constants for the reply length gate PreToolUse hook."""
 
-import os
 import re
 
 MAXIMUM_SENTENCE_COUNT = 50
-SENTENCE_CAP_ENABLED = os.environ.get("REPLY_LENGTH_SENTENCE_CAP", "off").lower() == "on"
-WORDS_PER_SENTENCE_CAP_ENABLED = os.environ.get("REPLY_LENGTH_WORD_CAP", "off").lower() == "on"
 MAXIMUM_WORDS_PER_SENTENCE = 35
 ALL_CHECKED_TOOL_NAMES = frozenset(
     {"mcp__hearthbot__reply", "mcp__hearthbot__post_message", "mcp__hearthbot__update_message"}
@@ -184,13 +181,7 @@ ALL_GH_COMMENT_ACTIONS = frozenset({"comment", "review"})
 ALL_GH_BODY_FLAGS = frozenset({"--body", "-b"})
 GH_BODY_FLAG_PREFIX = "--body="
 DETAILS_BLOCK_PATTERN = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
-COMMENT_SENTENCE_LIMIT_CLAUSE = (
-    f" A comment on GitHub holds at most {MAXIMUM_SENTENCE_COUNT} sentences."
-    if SENTENCE_CAP_ENABLED
-    else ""
-)
 COMMENT_RETRY_INSTRUCTION = (
-    COMMENT_SENTENCE_LIMIT_CLAUSE
-    + " Put detail in the pull request body, a code block, or a collapsed <details> block,"
-    " then post again."
+    f" A comment on GitHub holds at most {MAXIMUM_SENTENCE_COUNT} short sentences."
+    " Put detail in the pull request body, a code block, or a collapsed <details> block, then post again."
 )

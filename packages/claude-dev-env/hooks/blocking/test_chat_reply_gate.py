@@ -5,20 +5,16 @@ from pathlib import Path
 import pytest
 
 import chat_reply_gate
-import reply_length_gate
-from hooks_constants import reply_length_gate_constants
+from hooks_constants.reply_length_gate_constants import MAXIMUM_SENTENCE_COUNT
 
-OVER_LIMIT_REPLY = " ".join(
-    ["PR one merged."] * (reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT + 1)
-)
+OVER_LIMIT_SENTENCES = [
+    f"Status line {each_number} is ready." for each_number in range(MAXIMUM_SENTENCE_COUNT + 1)
+]
+OVER_LIMIT_REPLY = " ".join(OVER_LIMIT_SENTENCES)
+FIRST_HELD_BATCH = " ".join(OVER_LIMIT_SENTENCES[: len(OVER_LIMIT_SENTENCES) // 2])
+LAST_HELD_BATCH = " ".join(OVER_LIMIT_SENTENCES[len(OVER_LIMIT_SENTENCES) // 2 :])
 THREE_SENTENCE_REPLY = "PR one merged. PR two is queued. Nothing else is open."
 PASSING_DRAFT = "PR one merged. Two others wait."
-
-
-@pytest.fixture(autouse=True)
-def length_caps_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(reply_length_gate, "SENTENCE_CAP_ENABLED", True)
-    monkeypatch.setattr(reply_length_gate, "WORDS_PER_SENTENCE_CAP_ENABLED", True)
 
 
 @pytest.fixture(autouse=True)
@@ -73,21 +69,21 @@ def test_should_show_a_reply_within_the_limit_unchanged(
 def test_should_hold_batches_until_the_last_one_arrives(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    held_first_batch = (
-        " ".join(["PR one merged."] * reply_length_gate_constants.MAXIMUM_SENTENCE_COUNT) + "\n"
-    )
-    held_last_batch = "PR three needs a fix. Nothing else is open."
     all_requests: list[str] = []
     monkeypatch.setattr(
         chat_reply_gate,
         "ask_drafter",
         lambda reply_text, _violation: all_requests.append(reply_text) or PASSING_DRAFT,
     )
-    _, first_output = run_hook(monkeypatch, capsys, display_input(held_first_batch, False))
-    _, last_output = run_hook(monkeypatch, capsys, display_input(held_last_batch))
+    _, first_output = run_hook(
+        monkeypatch, capsys, display_input(FIRST_HELD_BATCH + "\n", False)
+    )
+    _, last_output = run_hook(
+        monkeypatch, capsys, display_input(LAST_HELD_BATCH)
+    )
     assert first_output == {"hookEventName": "MessageDisplay", "displayContent": ""}
     assert last_output == {"hookEventName": "MessageDisplay", "displayContent": PASSING_DRAFT}
-    assert all_requests == [held_first_batch + held_last_batch]
+    assert all_requests == [FIRST_HELD_BATCH + "\n" + LAST_HELD_BATCH]
 
 
 def test_should_show_the_whole_held_message_when_it_passes(
@@ -152,7 +148,7 @@ def test_should_add_the_reply_limit_on_each_user_prompt(
     assert exit_code == 0
     assert hook_output is not None
     assert hook_output["hookEventName"] == "UserPromptSubmit"
-    assert "Your reply to the user is final" in str(hook_output["additionalContext"])
+    assert f"{MAXIMUM_SENTENCE_COUNT} sentences or fewer" in str(hook_output["additionalContext"])
 
 
 def test_should_do_nothing_inside_the_drafter_process(
