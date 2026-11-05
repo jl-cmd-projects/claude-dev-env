@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.111.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.4...claude-dev-env-v8.111.5) (2026-11-05)
+
+
+### Bug Fixes
+
+* **broker:** skip an expired secondary account instead of failing the run ([#2288](https://github.com/jl-cmd-projects/claude-dev-env/issues/2288)) ([dfeb961](https://github.com/jl-cmd-projects/claude-dev-env/commit/dfeb9618f5fd544207a71c6b53a873c3a209600b))
+
 ## [8.111.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.3...claude-dev-env-v8.111.4) (2026-11-05)
 
 
