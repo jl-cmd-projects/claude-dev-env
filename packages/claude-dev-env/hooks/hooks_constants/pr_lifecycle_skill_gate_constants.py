@@ -59,13 +59,43 @@ GIT_ACTIONS = frozenset({"commit", "push"})
 GH_PULL_REQUEST_COMMAND = "pr"
 GH_API_COMMAND = "api"
 MERGE_PATH_SUFFIX = "/merge"
-ALL_API_ACTION_NAMES = ("auto-merge", "enablePullRequestAutoMerge")
+ALL_API_ACTION_NAMES = ("auto-merge", "enablePullRequestAutoMerge", "mergePullRequest", "createPullRequest")
+COMMAND_SUBSTITUTION_PATTERN = re.compile(r"\$\(([^()]*)\)|`([^`]*)`")
+DOLLAR_SUBSTITUTION_GROUP = 1
+BACKTICK_SUBSTITUTION_GROUP = 2
 ALL_COMMAND_PREFIX_WORDS = frozenset({"env", "sudo", "command", "exec", "nohup", "time"})
+ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS = frozenset({"checks", "diff", "list", "status", "view"})
+ALL_GH_PULL_REQUEST_SUBCOMMANDS = ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS | frozenset(
+    {
+        "checkout",
+        "close",
+        "comment",
+        "create",
+        "edit",
+        "lock",
+        "merge",
+        "ready",
+        "reopen",
+        "review",
+        "revert",
+        "unlock",
+        "update-branch",
+    }
+)
 ALL_PREFIX_OPTIONS_WITH_VALUE = frozenset({"-u", "--unset", "-C", "--chdir", "-g", "--group", "--user"})
 ENVIRONMENT_ASSIGNMENT_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]*="
-ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
+ALL_SHELL_WRAPPER_EXECUTABLES = frozenset({"bash", "sh", "zsh", "dash", "eval", "pwsh", "pwsh.exe", "powershell", "powershell.exe"})
 ALL_PYTHON_EXECUTABLES = frozenset({"python", "python3", "python.exe", "python3.exe", "py", "py.exe"})
 PULL_REQUEST_SCRIPT_NAME = "pull_request.py"
+EVAL_PROGRAM_NAME = "eval"
+EVAL_ARGUMENT_SEPARATOR = " "
+ALL_NESTED_PROGRAM_WRAPPER_NAMES = frozenset({"xargs", "timeout", "nice", "ionice", "stdbuf", "parallel", "watch", "find"})
+ALL_NESTED_PROGRAM_NAMES = (
+    frozenset({"gh", "gh.exe", "git", "git.exe", PULL_REQUEST_SCRIPT_NAME})
+    | ALL_PYTHON_EXECUTABLES
+    | ALL_SHELL_WRAPPER_EXECUTABLES
+    | ALL_NESTED_PROGRAM_WRAPPER_NAMES
+)
 PATH_SEPARATOR_PATTERN = r"[\\/]"
 PYTHON_OPTIONS_WITH_VALUE = frozenset({"-X", "-W"})
 ALL_BUILD_EVAL_SKILL_NAMES = ("claude-api",)

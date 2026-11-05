@@ -18,6 +18,8 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_BUILD_EVAL_SKILL_NAMES,
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
+    ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS,
+    ALL_GH_PULL_REQUEST_SUBCOMMANDS,
     ALL_GITHUB_MCP_TOOL_SUFFIXES,
     ALL_PIECE_REPLACEMENT_TEXTS,
     ALL_PREFIX_OPTIONS_WITH_VALUE,
@@ -28,6 +30,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     BUILD_EVAL_ARGUMENT_WORD,
     BUILD_EVAL_COMMAND_MARKER,
     COMMAND_PIECE_PATTERN,
+    BACKTICK_SUBSTITUTION_GROUP,
+    COMMAND_SUBSTITUTION_PATTERN,
+    DOLLAR_SUBSTITUTION_GROUP,
     COMMAND_WHITESPACE,
     DENY_DECISION,
     DENY_REASON,
@@ -48,6 +53,10 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
+    ALL_NESTED_PROGRAM_NAMES,
+    ALL_NESTED_PROGRAM_WRAPPER_NAMES,
+    EVAL_ARGUMENT_SEPARATOR,
+    EVAL_PROGRAM_NAME,
     PYTHON_OPTIONS_WITH_VALUE,
     REMOVED_TEXT,
     SEGMENT_BREAK,
@@ -185,10 +194,20 @@ def _is_git_action(all_words: list[str]) -> bool:
     return action in GIT_ACTIONS
 
 
+def _is_pull_request_action(all_gh_words: list[str]) -> bool:
+    all_subcommand_words = all_gh_words[1:]
+    if not all_subcommand_words:
+        return False
+    subcommand, *all_later_words = all_subcommand_words
+    if subcommand not in ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS:
+        return True
+    return any(each_word in ALL_GH_PULL_REQUEST_SUBCOMMANDS for each_word in all_later_words)
+
+
 def _is_gh_action(all_words: list[str]) -> bool:
     all_gh_words = gh_command_words(all_words[1:])
     if all_gh_words[:1] == [GH_PULL_REQUEST_COMMAND]:
-        return len(all_gh_words) > 1
+        return _is_pull_request_action(all_gh_words)
     if all_gh_words[:1] != [GH_API_COMMAND]:
         return False
     all_api_arguments = all_words[all_words.index(GH_API_COMMAND, 1) + 1 :]
@@ -207,7 +226,7 @@ def _words_from_executable(all_words: list[str]) -> list[str]:
         if re.match(ENVIRONMENT_ASSIGNMENT_PATTERN, each_word):
             index += 1
             continue
-        if each_word not in ALL_COMMAND_PREFIX_WORDS:
+        if file_name(each_word) not in ALL_COMMAND_PREFIX_WORDS:
             return all_words[index:]
         index += 1
         while index < len(all_words) and all_words[index].startswith("-"):
@@ -247,12 +266,34 @@ def executable_word_lists(command: str) -> list[list[str]]:
         all_command_words = _words_from_executable(each_segment)
         if not all_command_words:
             continue
-        all_word_lists.append(all_command_words)
-        all_word_lists.extend(_wrapped_word_lists(all_command_words))
+        all_word_lists.extend(_command_and_nested_word_lists(all_command_words))
+    for each_match in COMMAND_SUBSTITUTION_PATTERN.finditer(command):
+        inner_command = (
+            each_match.group(DOLLAR_SUBSTITUTION_GROUP)
+            if each_match.group(DOLLAR_SUBSTITUTION_GROUP) is not None
+            else each_match.group(BACKTICK_SUBSTITUTION_GROUP)
+        )
+        all_word_lists.extend(executable_word_lists(inner_command))
+    return all_word_lists
+
+
+def _command_and_nested_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    return [all_command_words, *_wrapped_word_lists(all_command_words), *_nested_program_word_lists(all_command_words)]
+
+
+def _nested_program_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    if file_name(all_command_words[0]) not in ALL_NESTED_PROGRAM_WRAPPER_NAMES:
+        return []
+    all_word_lists: list[list[str]] = []
+    for each_index in range(1, len(all_command_words)):
+        if file_name(all_command_words[each_index]) in ALL_NESTED_PROGRAM_NAMES:
+            all_word_lists.extend(_command_and_nested_word_lists(all_command_words[each_index:]))
     return all_word_lists
 
 
 def _wrapped_word_lists(all_command_words: list[str]) -> list[list[str]]:
+    if file_name(all_command_words[0]) == EVAL_PROGRAM_NAME:
+        return executable_word_lists(EVAL_ARGUMENT_SEPARATOR.join(all_command_words[1:]))
     if file_name(all_command_words[0]) not in ALL_SHELL_WRAPPER_EXECUTABLES:
         return []
     return [

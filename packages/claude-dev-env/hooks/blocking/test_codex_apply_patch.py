@@ -25,7 +25,7 @@ def test_codex_patch_operation_targets_names_every_section_without_reading_conte
     all_targets = codex_patch_operation_targets(three_operation_patch, str(tmp_path))
 
     all_target_names = {
-        (each_operation, str(each_path).rsplit("/", 1)[-1])
+        (each_operation, Path(each_path).name)
         for each_operation, each_path in all_targets
     }
     assert all_target_names == {

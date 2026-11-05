@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/pr_lifecycle_skill_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/pr_lifecycle_skill_gate.py:360: Function 'decision_for' is 43 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "1b1d2e115fa2c0717f8d98c4fe1c6b611e5d1bf2"
+}

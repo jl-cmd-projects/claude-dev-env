@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.111.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.3...claude-dev-env-v8.111.4) (2026-11-05)
+
+
+### Tests
+
+* **hooks:** make turn review and hook tests pass on Windows ([#2285](https://github.com/jl-cmd-projects/claude-dev-env/issues/2285)) ([0bfc415](https://github.com/jl-cmd-projects/claude-dev-env/commit/0bfc415a10b4bbcad441eee61311080c0b34b502))
+
+## [8.111.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.2...claude-dev-env-v8.111.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* **hooks:** let read-only gh pr commands pass the PR lifecycle gate ([#2281](https://github.com/jl-cmd-projects/claude-dev-env/issues/2281)) ([9ac23b1](https://github.com/jl-cmd-projects/claude-dev-env/commit/9ac23b150484bc328eaf3b3027b3280a6ab91376))
+
+## [8.111.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.1...claude-dev-env-v8.111.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **hooks:** update stale reply-length tests to the 50/35 limits ([#2282](https://github.com/jl-cmd-projects/claude-dev-env/issues/2282)) ([07b53b4](https://github.com/jl-cmd-projects/claude-dev-env/commit/07b53b45af07a421723c87f7f78026cbf25c5999))
+
 ## [8.111.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.0...claude-dev-env-v8.111.1) (2026-11-02)
 
 

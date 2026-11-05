@@ -510,3 +510,107 @@ def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
     output = gate.deny_decision("Load the skill first.")["hookSpecificOutput"]
     assert output["permissionDecision"] == "deny"
     assert output["permissionDecisionReason"] == "Load the skill first."
+
+
+READ_ONLY_PULL_REQUEST_COMMANDS = (
+    "gh pr list",
+    "gh pr list --state all",
+    "gh pr view 12",
+    "gh pr view 12 --web",
+    "gh pr checks 12",
+    "gh pr diff 12",
+    "gh pr status",
+    "gh -R jl-cmd-projects/claude-dev-env pr view 12",
+)
+WRITE_PULL_REQUEST_COMMANDS = (
+    "gh pr create --title t --body b",
+    "gh pr merge 12 --squash",
+    "gh pr edit 12 --body b",
+    "gh pr comment 12 --body b",
+    "gh pr review 12 --approve",
+    "gh pr close 12",
+    "gh pr ready 12",
+    "gh pr frobnicate 12",
+)
+
+
+def test_read_only_pull_request_commands_should_pass_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in READ_ONLY_PULL_REQUEST_COMMANDS:
+        assert gate.decision_for(_payload(each_command, path)) is None, each_command
+
+
+def test_read_only_pull_request_command_should_run_silently_without_the_skill(tmp_path: Path) -> None:
+    assert _run_main(_payload("gh pr list", _transcript(tmp_path))) == (0, "")
+
+
+def test_write_pull_request_commands_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in WRITE_PULL_REQUEST_COMMANDS:
+        _assert_denied(_payload(each_command, path))
+
+
+OPTION_SHIFTED_WRITE_COMMANDS = (
+    "gh pr --subject view merge 12 --squash",
+    "gh pr --subject view 12 merge",
+)
+
+
+def test_write_behind_an_unlisted_option_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in OPTION_SHIFTED_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
+
+
+XARGS_WRITE_COMMANDS = (
+    "gh pr view 12 | xargs gh pr merge",
+    "echo 12 | xargs -I {} gh pr merge {}",
+    "echo 12 | xargs -n 1 -P 4 gh pr merge",
+    "echo 12 | xargs -- gh pr merge",
+    "echo https://example.test | xargs git push origin HEAD",
+)
+XARGS_READ_COMMANDS = (
+    "echo 12 | xargs gh pr view",
+    "echo 12 | xargs -I {} gh pr checks {}",
+)
+
+
+def test_write_run_through_xargs_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in XARGS_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
+
+
+def test_read_only_run_through_xargs_should_pass_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in XARGS_READ_COMMANDS:
+        assert gate.decision_for(_payload(each_command, path)) is None, each_command
+
+
+WRAPPED_WRITE_COMMANDS = (
+    "timeout 10 gh pr merge 12",
+    "nice -n 5 gh pr merge 12",
+    "find . -maxdepth 1 -exec gh pr merge 12 {} ;",
+    "parallel gh pr merge 12 ::: 12",
+    'eval "gh pr merge 12"',
+    "eval gh pr merge 12",
+    'eval "gh pr" "merge 12"',
+)
+SUBSTITUTED_AND_GRAPHQL_WRITE_COMMANDS = (
+    'echo "$(gh pr merge 12 --squash)"',
+    "echo `gh pr merge 12`",
+    "/usr/bin/env gh pr merge 12",
+    "gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"PR_x\"}) { clientMutationId } }'",
+)
+
+
+def test_substituted_or_graphql_pull_request_write_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in SUBSTITUTED_AND_GRAPHQL_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
+
+
+def test_write_run_through_a_wrapper_should_be_denied_without_the_skill(tmp_path: Path) -> None:
+    path = _transcript(tmp_path)
+    for each_command in WRAPPED_WRITE_COMMANDS:
+        _assert_denied(_payload(each_command, path))
