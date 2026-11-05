@@ -20,6 +20,7 @@ from dev_env_scripts_constants.claude_account_constants import (
     SECOND_SESSION_USED_CEILING_PERCENT,
     SECOND_WEEKLY_USED_CEILING_PERCENT,
 )
+from dev_env_scripts_constants.claude_chain_usage_constants import NO_ACCESS_TOKEN_ERROR_TEMPLATE
 from dev_env_scripts_constants.codex_account_constants import (
     ALL_PRO_PLAN_TYPES,
     CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
@@ -62,6 +63,17 @@ METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
 WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
+NO_USABLE_ACCOUNT_EXIT_CODE = 4
+NO_USABLE_ACCOUNT_STATUS = "no_usable_account"
+NO_USABLE_REASON_SEPARATOR = "; "
+SIGN_IN_FAILED_STATUS = "sign_in_failed"
+ALL_SIGN_IN_FAILURE_SIGNATURES: tuple[str, ...] = (
+    "stored token expired",
+    "authorization failed",
+    "organization has status: canceled",
+)
+"""Case-insensitive substrings that mark a failed Claude run as a sign-in failure of its account."""
+NO_USABLE_TOKEN_REASON_PREFIX = NO_ACCESS_TOKEN_ERROR_TEMPLATE.partition("{")[0]
 REPORT_INDENT_SPACES = 2
 PLACEHOLDER_NAME_SLOT = "{name}"
 BROKER_STATE_DIRECTORY_NAME = "account-broker"
