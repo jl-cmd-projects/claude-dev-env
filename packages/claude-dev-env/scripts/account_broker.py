@@ -49,6 +49,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_SIGN_IN_FAILURE_SIGNATURES,
     COMMAND_MISSING_EXIT_CODE,
     NO_USABLE_ACCOUNT_EXIT_CODE,
+    NO_USABLE_REASON_SEPARATOR,
     NO_USABLE_ACCOUNT_STATUS,
     NO_USABLE_TOKEN_REASON_PREFIX,
     PLACEHOLDER_NAME_SLOT,
@@ -302,11 +303,12 @@ def _no_usable_account_reasons(context: _RunContext) -> list[str]:
     for each_reading in context.all_readings:
         name = each_reading.account.name
         if name in context.all_sign_in_failures:
-            all_reasons.append(f"{name}: {context.all_sign_in_failures[name]}")
+            reason = context.all_sign_in_failures[name]
         elif _is_no_token_reading(each_reading):
-            all_reasons.append(f"{name}: {each_reading.unread_reason}")
+            reason = each_reading.unread_reason
         else:
             return []
+        all_reasons.append(f"{name}: {reason}")
     return all_reasons
 
 
@@ -317,7 +319,7 @@ def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
         return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", context.start_failure_text, None, tuple(context.all_attempts), "start_failed", None, None)
     all_no_usable_reasons = _no_usable_account_reasons(context)
     if all_no_usable_reasons:
-        no_usable_text = "no usable account: " + "; ".join(all_no_usable_reasons)
+        no_usable_text = "no usable account: " + NO_USABLE_REASON_SEPARATOR.join(all_no_usable_reasons)
         return JobOutcome(NO_USABLE_ACCOUNT_EXIT_CODE, "", no_usable_text, None, tuple(context.all_attempts), NO_USABLE_ACCOUNT_STATUS, None, None, no_usable_text)
     status = "exhausted" if context.all_attempts else "wait"
     return JobOutcome(WAIT_EXIT_CODE, "", "", None, tuple(context.all_attempts), status, None, decision.resets_at, decision.reason)
