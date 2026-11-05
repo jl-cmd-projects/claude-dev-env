@@ -258,8 +258,8 @@ def _prepare_run(
 def _is_sign_in_failure(completion: subprocess.CompletedProcess[str]) -> bool:
     if completion.returncode == 0:
         return False
-    combined = f"{completion.stdout}{completion.stderr}".casefold()
-    return any(signature in combined for signature in ALL_SIGN_IN_FAILURE_SIGNATURES)
+    stderr_text = completion.stderr.casefold()
+    return any(signature in stderr_text for signature in ALL_SIGN_IN_FAILURE_SIGNATURES)
 
 
 def _sign_in_failure_text(completion: subprocess.CompletedProcess[str]) -> str:

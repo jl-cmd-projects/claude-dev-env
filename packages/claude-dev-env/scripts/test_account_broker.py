@@ -1635,6 +1635,23 @@ def test_should_wait_with_exit_three_when_a_failed_sign_in_leaves_a_usage_limite
     assert attempted == ["first", "second"]
 
 
+def test_should_not_skip_an_account_when_only_stdout_quotes_a_sign_in_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
+    meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
+    attempted: list[str] = []
+
+    outcome, _ = _execute_claude(
+        monkeypatch,
+        accounts,
+        lambda account: meters_by_name[account.name],
+        {"first": (1, "stored token expired", ""), "second": (0, "served", "")},
+        attempted,
+    )
+
+    assert outcome.returncode == 1
+    assert attempted == ["first"]
+
+
 def test_should_stop_on_a_failure_that_is_not_a_sign_in(monkeypatch: pytest.MonkeyPatch) -> None:
     accounts = (_account("first", Product.CLAUDE), _account("second", Product.CLAUDE))
     meters_by_name = {"first": _meters(90, 90), "second": _meters(70, 70)}
