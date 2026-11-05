@@ -191,10 +191,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     invokes ``/claude-api build-eval``. It holds eval writes until a skill
     loads, and it judges no code or safety content.
 
-    The merge offer gate denies a decision card whose text offers a merge and
-    names open review findings. It reads only the wording of a chat card and
-    decides no code or safety policy; the merge review gate holds the merge.
-
     The open tasks Stop gate holds the end of a turn once when the turn worked
     on an ask and made no task list call. It decides when a turn may end and
     no code or safety policy.

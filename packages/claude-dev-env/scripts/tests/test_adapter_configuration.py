@@ -74,7 +74,6 @@ def test_new_turn_review_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
-
 def test_new_final_reply_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/final_reply_gate.py"],
