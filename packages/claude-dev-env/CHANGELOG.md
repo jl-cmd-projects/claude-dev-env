@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.111.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.3...claude-dev-env-v8.111.4) (2026-11-05)
+
+
+### Tests
+
+* **hooks:** make turn review and hook tests pass on Windows ([#2285](https://github.com/jl-cmd-projects/claude-dev-env/issues/2285)) ([0bfc415](https://github.com/jl-cmd-projects/claude-dev-env/commit/0bfc415a10b4bbcad441eee61311080c0b34b502))
+
 ## [8.111.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.2...claude-dev-env-v8.111.3) (2026-11-04)
 
 
