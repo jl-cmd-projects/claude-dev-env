@@ -62,8 +62,8 @@ python packages/claude-dev-env/scripts/merge_gate_checks.py \
 ## Who merges
 
 The agent that drives the pull request merges it, once the gates above pass.
-This repository runs no merge queue, so the merge is a direct call on the pull
-request.
+The branch rule on `main` enables a merge queue, so a merge call can place the
+pull request in the queue, and the queue then merges it.
 
 Every PR gets /efficient-review run through Cursor cloud agents, looped until
 clean, with all required checks green; then the agent merges it. The owner
@@ -79,11 +79,11 @@ An agent opens the pull request through the route below, and it does not stop to
 
 1. Check the branch from the repository root. Run `python packages/claude-dev-env/scripts/repository_policy.py` and `node packages/claude-dev-env/bin/cde.mjs lint --base origin/main`. Both must exit 0.
 2. Push the branch under its own name with `git push origin HEAD:refs/heads/<branch>`. Never push to `main`.
-3. Review the branch diff and fix every finding that holds. When a pass reports zero findings, record it for the head commit with `python ~/.claude/scripts/merge_review_receipt.py <owner>/<repo> open <head sha> 0`. Once the pull request exists, pass its number in place of `open`.
-4. Open the pull request through the app workflow in this repository. Write a JSON file with `"ref": "main"` and an `inputs` object holding `head`, `base`, `title`, `body`, `draft`, `assignee`, and `reviewer`. Send it with `gh api -X POST repos/<owner>/<repo>/actions/workflows/open-pr-as-app.yml/dispatches --input <file>`. A 422 that names an unexpected input means the workflow on `main` lacks that input, so drop it and send again.
-5. The body starts with a Before section and an After section, as the first gate above requires. It also carries the proof. The local proof gate does not read a body sent through the workflow, so the proof has to be in the body on its own.
+3. Review the branch diff and fix every finding that holds. When a pass reports zero findings, record it for the full 40-character head commit (`git rev-parse HEAD`) with `python ~/.claude/scripts/merge_review_receipt.py <owner>/<repo> open <head sha> 0`. Once the pull request exists, pass its number in place of `open`.
+4. Write the body first. It starts with a Before section and an After section, as the first gate above requires, and it carries the proof. The local proof gate does not read a body sent through the workflow, so the proof has to be in the body on its own. Then open the pull request through the app workflow in this repository. Write a JSON file with `"ref": "main"` and an `inputs` object holding `head`, `base`, `title`, `body`, `draft`, `assignee`, and `reviewer`. Send it with `gh api -X POST repos/<owner>/<repo>/actions/workflows/open-pr-as-app.yml/dispatches --input <file>`. A 422 that names an unexpected input means the workflow on `main` lacks that input: drop only that input and send again.
+5. The dispatch returns before the workflow opens the pull request. Find the run with `gh run list --repo <owner>/<repo> --workflow open-pr-as-app.yml --limit 1 --json databaseId,status,conclusion`, then wait for it with `gh run watch <run id> --repo <owner>/<repo> --exit-status`. If the run failed, read its log, and check for an open pull request on the branch before you send again, so a second dispatch does not open a duplicate.
 6. Find the number with `gh pr list --repo <owner>/<repo> --head <branch> --state open`. Bind the pull request to the session with the `bind_pr` tool when one is available.
-7. Wait for the checks on the head. Fix a red check, push, and record a receipt for the new head. Then merge with `gh pr merge <number> --repo <owner>/<repo> --merge --match-head-commit <head sha>`. A reply that says the pull request is already queued means the queue will merge it.
+7. Wait for the checks on the head. Fix a red check, push, and record a receipt for the new head. Then merge with `gh pr merge <number> --repo <owner>/<repo> --merge --match-head-commit <head sha>`. If the merge call reports that the pull request joined the merge queue, the queue merges it once its checks pass.
 
 Do not change `GITHUB_DEFAULT_ACCOUNT`, a token, or any other account setting to get past a suspended or invalid account. Report the account to the owner and use the workflow route above.
 
