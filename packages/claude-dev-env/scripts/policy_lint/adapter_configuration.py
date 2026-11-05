@@ -139,7 +139,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
-        hooks/blocking/merge_over_review_offer_gate.py   -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
         hooks/blocking/owned_pr_merge_stop_gate.py       -> exempt

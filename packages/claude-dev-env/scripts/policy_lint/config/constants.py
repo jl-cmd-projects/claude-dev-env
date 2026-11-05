@@ -78,7 +78,6 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/send_user_file_worktree_root_gate.py",
     "blocking/haiku_spawn_slim_gate.py",
     "blocking/build_eval_before_eval_write_gate.py",
-    "blocking/merge_over_review_offer_gate.py",
     "blocking/final_reply_gate.py",
     "blocking/open_tasks_stop_gate.py",
     "blocking/owned_pr_merge_stop_gate.py",
