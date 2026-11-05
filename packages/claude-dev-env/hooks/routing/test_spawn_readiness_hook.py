@@ -83,6 +83,10 @@ def _write_transcript(tmp_path: Path, all_entries: list[dict[str, object]]) -> P
     return transcript_path
 
 
+def _hook_environment(tmp_path: Path) -> dict[str, str]:
+    return {**os.environ, "HOME": str(tmp_path), "USERPROFILE": str(tmp_path)}
+
+
 def _run_hook(tmp_path: Path, hook_payload: dict[str, object]) -> str:
     completed = subprocess.run(
         [sys.executable, str(HOOK_SCRIPT)],
@@ -91,7 +95,7 @@ def _run_hook(tmp_path: Path, hook_payload: dict[str, object]) -> str:
         ),
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(tmp_path)},
+        env=_hook_environment(tmp_path),
         check=True,
     )
     return completed.stdout
@@ -390,7 +394,7 @@ def test_should_print_nothing_for_empty_stdin(tmp_path: Path) -> None:
         input="",
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(tmp_path)},
+        env=_hook_environment(tmp_path),
         check=True,
     )
     assert completed.stdout == ""

@@ -211,7 +211,7 @@ def test_installed_snippet_renders_an_svg_file(
     monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(claude_root))
     work_directory = tmp_path / "work"
     work_directory.mkdir()
-    (work_directory / "diagram.mmd").write_text(CHAIN_TEXT, encoding="utf-8")
+    (work_directory / "diagram.mmd").write_bytes(CHAIN_TEXT.encode("utf-8"))
     context_text = npx_pele_guidance.guidance_text()
     snippet = context_text.split(JS_FENCE_OPEN, 1)[1].split(JS_FENCE_CLOSE, 1)[0]
     (work_directory / "pele-render.mjs").write_text(snippet, encoding="utf-8")
@@ -270,7 +270,7 @@ def test_installed_guidance_points_at_the_manifest_main_entry(
     entry_path.write_text("export function render(text) {\n    return { svg: '' };\n}\n", encoding="utf-8")
     manifest = npx_pele_guidance.installed_pele_manifest(package_directory)
     assert npx_pele_guidance.installed_pele_entry(package_directory, manifest) == entry_path
-    assert str(entry_path) in npx_pele_guidance.guidance_text()
+    assert json.dumps(str(entry_path)) in npx_pele_guidance.guidance_text()
     assert "pele.run" not in npx_pele_guidance.guidance_text()
 
 

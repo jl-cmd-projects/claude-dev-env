@@ -527,7 +527,7 @@ def _shell_create_elsewhere(
 ) -> dict[str, object]:
     body_path = tmp_path / "body.md"
     body_path.write_text(body, encoding="utf-8")
-    return _shell(f"gh pr create --title t --body-file {body_path} {extra_flags}", tmp_path)
+    return _shell(f'gh pr create --title t --body-file "{body_path}" {extra_flags}', tmp_path)
 
 
 def test_should_allow_a_python_only_change_the_compare_api_lists_when_git_cannot_read_it(
@@ -689,9 +689,9 @@ def test_should_report_unreadable_git_output_as_unknown() -> None:
     assert gate._git_changes([":100644 100644 aaa bbb M", "a.html", "stray", ""]) is None
 
 
-def test_should_keep_a_page_whose_name_holds_a_quote(tmp_path: Path) -> None:
-    clone_path = _repository_with_change(tmp_path, 'q"t.html')
-    assert gate.visible_changed_files(str(clone_path), "feature") == ['q"t.html']
+def test_should_keep_a_page_whose_name_holds_an_apostrophe(tmp_path: Path) -> None:
+    clone_path = _repository_with_change(tmp_path, "q't.html")
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["q't.html"]
 
 
 def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:

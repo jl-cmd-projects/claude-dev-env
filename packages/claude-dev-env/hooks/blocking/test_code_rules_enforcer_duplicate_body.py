@@ -15,6 +15,7 @@ containing a test marker as exempt — the same way it would skip a real test fi
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import pathlib
 import shutil
@@ -261,15 +262,14 @@ def test_should_scan_explicit_sibling_directory_for_relative_path(
 
 def test_should_ignore_cwd_when_explicit_sibling_directory_given(
     module_dir: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _write(module_dir, "existing_blocker.py", SHARED_HELPER_SOURCE)
-    monkeypatch.chdir(module_dir.parent)
-    issues = check_duplicate_function_body_across_files(
-        SHARED_HELPER_SOURCE,
-        "package/new_blocker.py",
-        sibling_directory=module_dir,
-    )
+    with contextlib.chdir(module_dir.parent):
+        issues = check_duplicate_function_body_across_files(
+            SHARED_HELPER_SOURCE,
+            "package/new_blocker.py",
+            sibling_directory=module_dir,
+        )
     assert any("strip_code_and_quotes" in each_issue for each_issue in issues), (
         "An explicit sibling directory must anchor the scan independent of the "
         f"process working directory, got: {issues}"

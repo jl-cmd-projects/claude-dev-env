@@ -57,9 +57,14 @@ def project(tmp_path: Path) -> Path:
 def gate_environment(tmp_path: Path, project: Path) -> dict[str, str]:
     stub_directory = tmp_path / "bin"
     stub_directory.mkdir()
-    stub_claude = stub_directory / "claude"
-    stub_claude.write_text(STUB_CLAUDE_SOURCE)
-    stub_claude.chmod(0o755)
+    if os.name == "nt":
+        stub_script = stub_directory / "claude_stub.py"
+        stub_script.write_text(STUB_CLAUDE_SOURCE)
+        (stub_directory / "claude.cmd").write_text(f'@"{sys.executable}" "{stub_script}" %*\r\n')
+    else:
+        stub_claude = stub_directory / "claude"
+        stub_claude.write_text(STUB_CLAUDE_SOURCE)
+        stub_claude.chmod(0o755)
     state_directory = tmp_path / "state"
     state_directory.mkdir()
     environment = {
@@ -373,7 +378,7 @@ def test_should_share_one_review_time_budget_across_the_checkouts(
         monkeypatch.setenv(each_name, gate_environment[each_name])
     monkeypatch.setenv("STUB_REVIEW_SECONDS", "5")
     monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
-    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 2)
+    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 4)
     all_roots = turn_review_gate._opted_in_repository_roots(
         turn_review_gate._opted_in_repository_slugs()
     )
