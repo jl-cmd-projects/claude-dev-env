@@ -487,6 +487,51 @@ class TestBuildPausePlan:
         assert resolved_payload["reset_at"] == reset_at.isoformat()
 
 
+class TestProbeWithoutFiveHourWindow:
+    def should_plan_from_the_weekly_window_when_the_account_has_no_five_hour_window(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        resolver = load_resolver_module()
+        now = local_now()
+        payload = {
+            "seven_day": {"utilization": 100, "resets_at": "2026-11-07T20:00:00+00:00"}
+        }
+        monkeypatch.setattr(
+            sys, "argv", ["resolve_usage_window.py", "--now", now.isoformat()]
+        )
+        monkeypatch.setattr(
+            resolver, "resolve_access_token", lambda *arguments: "test-token"
+        )
+        monkeypatch.setattr(
+            resolver, "_fetch_usage_payload", lambda access_token: payload
+        )
+        exit_code = resolver.main()
+        resolved_payload = json.loads(capsys.readouterr().out)
+        assert exit_code == 0
+        assert resolved_payload["session_utilization"] is None
+        assert resolved_payload["weekly_utilization"] == 100.0
+        assert resolved_payload["seconds_until_reset"] == 0
+
+    def should_keep_the_error_when_the_five_hour_reset_time_is_unreadable(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        resolver = load_resolver_module()
+        now = local_now()
+        payload = {"five_hour": {"utilization": 10, "resets_at": "not a time"}}
+        monkeypatch.setattr(
+            sys, "argv", ["resolve_usage_window.py", "--now", now.isoformat()]
+        )
+        monkeypatch.setattr(
+            resolver, "resolve_access_token", lambda *arguments: "test-token"
+        )
+        monkeypatch.setattr(
+            resolver, "_fetch_usage_payload", lambda access_token: payload
+        )
+        exit_code = resolver.main()
+        assert exit_code == 2
+        assert "no five_hour reset time" in capsys.readouterr().out
+
+
 class TestCommandLine:
     def run_resolver(
         self,

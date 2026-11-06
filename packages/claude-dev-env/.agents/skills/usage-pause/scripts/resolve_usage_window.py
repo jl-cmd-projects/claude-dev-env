@@ -424,7 +424,8 @@ def build_pause_plan(
 
     Args:
         source: Where the reset time came from, probe or override.
-        reset_at: When the 5-hour window resets.
+        reset_at: When the 5-hour window resets, or now when the account has
+            no 5-hour window to wait for.
         now: The current local time the wait is measured from.
         session_utilization: Percent of the 5-hour window spent, when known.
         weekly_utilization: Percent of the weekly window spent, when known.
@@ -604,13 +605,17 @@ def main() -> int:
     ) as probe_error:
         return _emit_error(f"usage probe failed: {probe_error}")
     windows = extract_usage_windows(usage_payload)
-    if windows.session_resets_at is None:
+    has_five_hour_bucket = usage_payload.get(FIVE_HOUR_BUCKET_KEY) is not None
+    if windows.session_resets_at is None and has_five_hour_bucket:
         return _emit_error("usage response carried no five_hour reset time")
+    session_reset_at = (
+        now if windows.session_resets_at is None else windows.session_resets_at
+    )
     print(
         json.dumps(
             build_pause_plan(
                 SOURCE_PROBE,
-                windows.session_resets_at,
+                session_reset_at,
                 now,
                 windows.session_utilization,
                 windows.weekly_utilization,
