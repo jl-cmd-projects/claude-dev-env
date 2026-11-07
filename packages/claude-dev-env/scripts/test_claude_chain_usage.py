@@ -42,8 +42,56 @@ def test_probe_reads_both_meters_and_resets(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: Resolver())
 
     assert usage.probe_account_meters(Path("account.json")) == usage.AccountUsageMeters(
-        12.0, session_reset, 64.0, weekly_reset
+        12.0, session_reset, 64.0, weekly_reset, "present"
     )
+
+
+def test_probe_marks_the_session_window_absent_when_the_payload_has_no_five_hour_bucket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Windows:
+        session_utilization = None
+        session_resets_at = None
+        weekly_utilization = 100.0
+        weekly_resets_at = None
+
+    class Resolver:
+        def read_oauth_access_token(self, credentials_path: Path, now: datetime) -> str:
+            return "fixture-token"
+
+        def _fetch_usage_payload(self, access_token: str) -> dict[str, object]:
+            return {"seven_day": {"utilization": 100.0, "resets_at": None}}
+
+        def extract_usage_windows(self, payload: dict[str, object]) -> Windows:
+            return Windows()
+
+    monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: Resolver())
+
+    assert usage.probe_account_meters(Path("account.json")).session_window == "absent"
+
+
+def test_probe_marks_the_session_window_unreadable_when_the_five_hour_bucket_has_no_utilization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Windows:
+        session_utilization = None
+        session_resets_at = None
+        weekly_utilization = 40.0
+        weekly_resets_at = None
+
+    class Resolver:
+        def read_oauth_access_token(self, credentials_path: Path, now: datetime) -> str:
+            return "fixture-token"
+
+        def _fetch_usage_payload(self, access_token: str) -> dict[str, object]:
+            return {"five_hour": {"utilization": None}, "seven_day": {"utilization": 40.0}}
+
+        def extract_usage_windows(self, payload: dict[str, object]) -> Windows:
+            return Windows()
+
+    monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: Resolver())
+
+    assert usage.probe_account_meters(Path("account.json")).session_window == "unreadable"
 
 
 def test_probe_reads_the_session_token_for_the_session_account(
@@ -78,7 +126,7 @@ def test_probe_reads_the_session_token_for_the_session_account(
     monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: Resolver())
 
     assert usage.probe_account_meters(session_credentials) == usage.AccountUsageMeters(
-        15.0, None, 70.0, None
+        15.0, None, 70.0, None, "present"
     )
     assert all_fetched_tokens == ["session-token"]
 

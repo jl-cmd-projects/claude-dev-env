@@ -16,10 +16,14 @@ from typing import Callable
 from dev_env_scripts_constants.claude_chain_usage_constants import (
     CREDENTIALS_OAUTH_SECTION_KEY,
     CREDENTIALS_REFRESH_TOKEN_KEY,
+    FIVE_HOUR_BUCKET_NAME,
     NO_ACCESS_TOKEN_ERROR_TEMPLATE,
     RESOLVE_USAGE_WINDOW_FILENAME,
     RESOLVE_USAGE_WINDOW_MISSING_ERROR_TEMPLATE,
     RESOLVE_USAGE_WINDOW_MODULE_NAME,
+    SESSION_WINDOW_ABSENT,
+    SESSION_WINDOW_PRESENT,
+    SESSION_WINDOW_UNREADABLE,
     USAGE_PAUSE_AGENTS_HOME_DIRECTORY_NAME,
     USAGE_PAUSE_SCRIPTS_DIRECTORY_NAME,
     USAGE_PAUSE_SKILL_DIRECTORY_NAME,
@@ -116,6 +120,17 @@ class AccountUsageMeters:
     session_resets_at: datetime | None
     weekly_utilization: float | None
     weekly_resets_at: datetime | None
+    session_window: str
+
+
+def _session_window(
+    all_usage_payload: dict[str, object], session_utilization: float | None
+) -> str:
+    if session_utilization is not None:
+        return SESSION_WINDOW_PRESENT
+    if all_usage_payload.get(FIVE_HOUR_BUCKET_NAME) is not None:
+        return SESSION_WINDOW_UNREADABLE
+    return SESSION_WINDOW_ABSENT
 
 
 def _holds_refresh_token(credentials_path: Path) -> bool:
@@ -227,4 +242,7 @@ def probe_account_meters(
         session_resets_at=usage_windows.session_resets_at,
         weekly_utilization=usage_windows.weekly_utilization,
         weekly_resets_at=usage_windows.weekly_resets_at,
+        session_window=_session_window(
+            usage_payload, usage_windows.session_utilization
+        ),
     )

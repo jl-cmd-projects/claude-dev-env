@@ -65,3 +65,15 @@ RESOLVE_USAGE_WINDOW_MISSING_ERROR_TEMPLATE: str = (
     "usage-pause probe module not found at {module_path}"
 )
 """Error when the resolve_usage_window script cannot be located on disk."""
+
+FIVE_HOUR_BUCKET_NAME: str = "five_hour"
+"""Usage payload key for the 5-hour window."""
+
+SESSION_WINDOW_ABSENT: str = "absent"
+"""The account has no 5-hour window, so it has no session limit."""
+
+SESSION_WINDOW_UNREADABLE: str = "unreadable"
+"""The 5-hour window is in the payload, but its utilization cannot be read."""
+
+SESSION_WINDOW_PRESENT: str = "present"
+"""The 5-hour window reads a numeric utilization."""
