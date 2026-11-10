@@ -80,7 +80,7 @@ from hooks_constants.final_reply_gate_constants import (
     QUESTION_MARK,
     QUOTE_MARKER,
     QUOTE_MARKER_PATTERN,
-    QUOTED_PARAGRAPH_PATTERN,
+    QUOTED_LINE_PATTERN,
     REASON_KEY,
     REWRITE_INSTRUCTION,
     STANDING_QUESTION_PATTERN,
@@ -238,10 +238,11 @@ def closing_paragraph(reply_text: str) -> str:
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
     unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
     unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
+    unquoted_text = QUOTED_LINE_PATTERN.sub("", unfenced_text)
     all_prose_paragraphs = [
         code_spans_masked(each_paragraph).strip()
-        for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unfenced_text)
-        if each_paragraph.strip() and QUOTED_PARAGRAPH_PATTERN.match(each_paragraph.lstrip(LINE_BREAK)) is None
+        for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unquoted_text)
+        if each_paragraph.strip()
     ]
     return all_prose_paragraphs[-1] if all_prose_paragraphs else ""
 

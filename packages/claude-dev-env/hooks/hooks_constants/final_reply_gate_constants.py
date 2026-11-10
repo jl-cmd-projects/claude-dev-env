@@ -64,11 +64,11 @@ WINDOWS_PATH_MESSAGE = (
     " markdown and drops a backslash before punctuation, so a copied path"
     " points nowhere. Wrap the path in backticks."
 )
-QUOTED_PARAGRAPH_PATTERN = re.compile(r"\A {0,3}>")
+QUOTED_LINE_PATTERN = re.compile(r"^ {0,3}>[^\n]*$", re.MULTILINE)
 TRAILING_MARKUP_CHARACTERS = "*_)]\"'\u201d\u2019 \t\n"
 QUESTION_MARK = "?"
 STANDING_QUESTION_PATTERN = re.compile(
-    r"\b(?:question|ask|choice|decision)\b[^.!?\n]*\b(?:still\s+(?:stands|open|pending)|stays\s+open)(?![-\w])",
+    r"\b(?:question|ask|choice|decision)\b[^.!?,;\n]{0,40}\b(?:still\s+(?:stands|open|pending)|stays\s+open)(?![-\w])",
     re.IGNORECASE,
 )
 UNBRIEFED_QUESTION_MESSAGE = (
