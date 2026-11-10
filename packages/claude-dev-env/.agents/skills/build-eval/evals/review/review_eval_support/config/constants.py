@@ -45,6 +45,32 @@ ALL_CODEX_ARGUMENTS = (
     "--sandbox",
     "read-only",
 )
+CODEX_HOME_VARIABLE = "CODEX_HOME"
+NO_CODEX_ACCOUNT_FAILURE = "no_codex_account"
+ACCOUNT_BROKER_TIMEOUT_SECONDS = 150
+ACCOUNT_BROKER_PACKAGE_PARENT_INDEX = 4
+ALL_ACCOUNT_BROKER_RELATIVE_PARTS = (
+    ("scripts", "account_broker.py"),
+    (".claude", "scripts", "account_broker.py"),
+)
+ALL_ACCOUNT_BROKER_ARGUMENTS = ("choose", "--product", "codex", "--require-tier", "normal")
+ALL_ACCOUNT_BROKER_HOME_CHECK_ARGUMENTS = ("choose", "--product", "codex", "--home")
+BROKER_WAIT_EXIT_CODE = 3
+ALL_BROKER_ACCEPTED_EXIT_CODES = (0, BROKER_WAIT_EXIT_CODE)
+BROKER_DECISION_KEY = "decision"
+BROKER_TIER_KEY = "tier"
+BROKER_HOME_KEY = "home"
+BROKER_REASON_KEY = "reason"
+BROKER_NORMAL_TIER = "normal"
+BROKER_LUNA_TIER = "luna"
+ALL_NORMAL_ONLY_TIERS = (BROKER_NORMAL_TIER,)
+ALL_RUN_TIERS = (BROKER_NORMAL_TIER, BROKER_LUNA_TIER)
+BROKER_MISSING_REASON = "account broker script is not installed"
+BROKER_NOT_RUN_REASON = "account broker did not run"
+BROKER_EXIT_REASON_TEMPLATE = "account broker exit {exit_code}"
+BROKER_MALFORMED_REASON = "account broker answer is malformed"
+BROKER_NO_HOME_REASON = "account broker answer names no Codex home"
+NO_ROOM_REASON_TEMPLATE = "no Codex account has room for a review ({reason})"
 ALL_REPLY_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

@@ -1,4 +1,14 @@
-"""Bind and consult a read-only Codex CLI session through Astra."""
+"""Bind and consult a read-only Codex CLI session through Astra.
+
+Codex runs under the home the account broker approves, so it never runs on a
+free-plan, unknown-plan, unlisted-plan or unreadable account.
+
+::
+
+    CODEX_HOME exported and paid  ->  Codex runs on that home, in the roster or not, on normal or luna
+    CODEX_HOME exported, refused  ->  no Codex process starts; the reply is a declined fallback
+    CODEX_HOME not exported       ->  Codex runs on the home the broker chooses on the normal tier
+"""
 
 from __future__ import annotations
 
@@ -41,6 +51,7 @@ from advisor_scripts_constants.astra_advisor_constants import (
     ASTRA_EXECUTABLE_NOT_FOUND_REASON,
     ASTRA_FALLBACK_KIND_BROKEN,
     ASTRA_FALLBACK_KIND_DECLINED,
+    ASTRA_NO_HOME_REASON,
     ASTRA_SESSION_ID_METAVAR,
     CODEX_CONFIG_FLAG,
     CODEX_EXEC_SUBCOMMAND,
@@ -235,20 +246,23 @@ def build_codex_arguments(
     return arguments
 
 
+def _exported_codex_home(all_settings: Mapping[str, str] | None) -> str | None:
+    return _resolved_settings(all_settings).get(CODEX_HOME_ENV_VAR, "").strip() or None
+
+
 def _resolve_preflight(
     preflight: AstraPreflight | None,
     broker_path: Path | None,
+    all_settings: Mapping[str, str] | None,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
 ) -> AstraPreflight:
     if preflight is not None:
         return preflight
     resolved_path = resolve_account_broker_path() if broker_path is None else broker_path
-    return run_astra_preflight(resolved_path, process_runner)
+    return run_astra_preflight(resolved_path, process_runner, _exported_codex_home(all_settings))
 
 
-def _codex_environment(codex_home: Path | None) -> dict[str, str] | None:
-    if codex_home is None:
-        return None
+def _codex_environment(codex_home: Path) -> dict[str, str]:
     return {**os.environ, CODEX_HOME_ENV_VAR: str(codex_home)}
 
 
@@ -258,7 +272,7 @@ def _run_codex(
     session_id: str | None,
     all_settings: Mapping[str, str] | None,
     executable: str,
-    codex_home: Path | None,
+    codex_home: Path,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
 ) -> subprocess.CompletedProcess[str]:
     model_id, effort = resolve_advisor_pair(all_settings, None)
@@ -291,6 +305,8 @@ def _run_enabled_advisor(
 ) -> CodexAstraAdvisorReply:
     if not resolved_preflight.eligible:
         return build_fallback_reply(resolved_preflight.reason, True, resolved_preflight.fallback_kind)
+    if resolved_preflight.codex_home is None:
+        return build_fallback_reply(ASTRA_NO_HOME_REASON, True, ASTRA_FALLBACK_KIND_BROKEN)
     try:
         completed = _run_codex(
             prompt,
@@ -338,12 +354,19 @@ def run_codex_astra_advisor(
 ) -> CodexAstraAdvisorReply:
     """Bind or resume a read-only Codex Astra advisor.
 
+    A ``CODEX_HOME`` in the settings pins the account. The broker judges that
+    home alone, and Codex runs on it whenever its plan is paid, whatever its room,
+    on the ``normal`` or ``luna`` tier. A free, unknown, unlisted or unreadable
+    home, or a broker that cannot judge it, returns a fallback and starts no
+    Codex process. With no ``CODEX_HOME``, the broker chooses the account.
+
     Args:
         prompt: Advisor prompt text.
         working_directory: Working directory for Codex.
         preflight: Account broker result, or None to run the broker.
         broker_path: Account broker path, or None for the one beside this shared tree.
-        setting_by_name: Environment mapping, or None to read os.environ.
+        setting_by_name: Environment mapping, or None to read os.environ. A non-blank
+            ``CODEX_HOME`` in it is the pinned account.
         session_id: Session to resume, or None for a new bind.
         process_runner: Callable that runs the broker and Codex.
 
@@ -355,7 +378,7 @@ def run_codex_astra_advisor(
     executable = resolve_codex_executable(setting_by_name)
     if executable is None:
         return build_fallback_reply(ASTRA_EXECUTABLE_NOT_FOUND_REASON, True)
-    resolved_preflight = _resolve_preflight(preflight, broker_path, process_runner)
+    resolved_preflight = _resolve_preflight(preflight, broker_path, setting_by_name, process_runner)
     return _run_enabled_advisor(prompt, working_directory, setting_by_name, session_id, executable, resolved_preflight, process_runner)
 
 

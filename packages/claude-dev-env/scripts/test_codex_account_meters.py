@@ -75,6 +75,101 @@ class TestParseRateLimitsReply:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 40}}))
         assert meters.plan_type is None
 
+    def should_read_the_credits_beside_the_windows(self) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line(
+                {
+                    "primary": {"usedPercent": 40},
+                    "credits": {
+                        "hasCredits": True,
+                        "unlimited": False,
+                        "balance": "83600.8856485000",
+                    },
+                }
+            )
+        )
+        assert meters.has_credits is True
+        assert meters.is_credits_unlimited is False
+        assert meters.credit_balance == pytest.approx(83600.8856485)
+
+    def should_read_unlimited_credits(self) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line(
+                {
+                    "primary": {"usedPercent": 40},
+                    "credits": {"hasCredits": False, "unlimited": True, "balance": None},
+                }
+            )
+        )
+        assert meters.is_credits_unlimited is True
+        assert meters.has_credits is False
+        assert meters.credit_balance is None
+
+    @pytest.mark.parametrize(
+        "raw_credits",
+        [
+            None,
+            {},
+            "none",
+            [],
+            {"hasCredits": False, "unlimited": False, "balance": None},
+        ],
+    )
+    def should_read_no_credits_when_the_reply_names_none(self, raw_credits: object) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line({"primary": {"usedPercent": 40}, "credits": raw_credits})
+        )
+        assert meters.has_credits is False
+        assert meters.is_credits_unlimited is False
+        assert meters.credit_balance is None
+
+    def should_read_a_reply_without_a_credits_object(self) -> None:
+        meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 40}}))
+        assert meters.has_credits is False
+        assert meters.is_credits_unlimited is False
+        assert meters.credit_balance is None
+
+    @pytest.mark.parametrize(
+        ("raw_balance", "expected_balance"),
+        [
+            ("12.5", 12.5),
+            (7, 7.0),
+            (7.25, 7.25),
+            (" 3 ", 3.0),
+            ("0", 0.0),
+            ("abc", None),
+            ("nan", None),
+            ("inf", None),
+            (True, None),
+            ([], None),
+        ],
+    )
+    def should_read_the_balance_as_a_finite_number(
+        self, raw_balance: object, expected_balance: float | None
+    ) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line(
+                {
+                    "primary": {"usedPercent": 40},
+                    "credits": {"hasCredits": True, "balance": raw_balance},
+                }
+            )
+        )
+        assert meters.credit_balance == expected_balance
+
+    @pytest.mark.parametrize("raw_flag", ["true", 1, "yes", None])
+    def should_count_only_a_json_true_as_a_credits_flag(self, raw_flag: object) -> None:
+        meters = parse_rate_limits_reply(
+            reply_line(
+                {
+                    "primary": {"usedPercent": 40},
+                    "credits": {"hasCredits": raw_flag, "unlimited": raw_flag},
+                }
+            )
+        )
+        assert meters.has_credits is False
+        assert meters.is_credits_unlimited is False
+
     def should_clamp_used_percent_past_full(self) -> None:
         meters = parse_rate_limits_reply(reply_line({"primary": {"usedPercent": 130}}))
         assert [each.used_percent for each in meters.all_windows] == [100.0]

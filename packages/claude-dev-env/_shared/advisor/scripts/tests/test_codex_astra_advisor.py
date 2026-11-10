@@ -4,11 +4,18 @@ import io
 import json
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
+from typing import NamedTuple
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parents[2] / "scripts"))
+
+from account_broker import choose_from_readings, decision_payload, readings_payload
+from dev_env_scripts_constants.account_broker_constants import Account, Meters, Product, Reading
 
 _ProcessRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -193,7 +200,9 @@ def test_should_run_broker_choose_command_for_codex_preflight() -> None:
         return _broker_answer(NORMAL_ANSWER)
 
     astra_advisor.run_astra_preflight(BROKER_PATH, runner)
-    assert all_calls == [[sys.executable, str(BROKER_PATH), "choose", "--product", "codex"]]
+    assert all_calls == [
+        [sys.executable, str(BROKER_PATH), "choose", "--product", "codex", "--require-tier", "normal"]
+    ]
 
 
 def test_should_accept_normal_tier_and_keep_its_codex_home() -> None:
@@ -306,6 +315,31 @@ def test_should_bind_under_the_broker_chosen_home() -> None:
     assert calls[1] == astra_advisor.build_codex_arguments("codex")
 
 
+def test_injected_preflight_without_a_codex_home_fails_closed() -> None:
+    all_started_commands: list[list[str]] = []
+
+    def runner_that_must_not_start(
+        all_arguments: list[str], **_keywords: object
+    ) -> subprocess.CompletedProcess[str]:
+        all_started_commands.append(all_arguments)
+        raise AssertionError("no process may start without a chosen Codex home")
+
+    reply = astra_advisor.run_codex_astra_advisor(
+        "consult",
+        Path("."),
+        astra_advisor.AstraPreflight(True, 90, "ok"),
+        BROKER_PATH,
+        ENABLED_SETTINGS,
+        None,
+        runner_that_must_not_start,
+    )
+
+    assert reply.is_fallback
+    assert reply.fallback_kind == astra_advisor.ASTRA_FALLBACK_KIND_BROKEN
+    assert astra_advisor.ASTRA_NO_HOME_REASON in (reply.reason or "")
+    assert all_started_commands == []
+
+
 def test_bind_routes_astra_xhigh_to_the_policy_effort() -> None:
     calls: list[list[str]] = []
     settings = {**ENABLED_SETTINGS, astra_advisor.ADVISOR_EFFORT_ENV_VAR: "xhigh"}
@@ -416,3 +450,233 @@ def test_astra_docs_name_shared_effort_and_helper() -> None:
     assert "ADVISOR_ASTRA=1" in protocol
     assert "codex_astra_advisor.py" in rung
     assert "--resume <session_id>" in rung
+
+
+BROKER_WAIT_EXIT_CODE = 3
+BROKER_CLOCK = datetime(2026, 11, 9, 12, 0, tzinfo=timezone.utc)
+ROSTER_TEAM_NAME = "acct-team"
+ROSTER_PLUS_NAME = "acct-plus"
+UNREAD_REASON = "codex app-server did not answer"
+BrokerBehavior = Callable[[list[str]], subprocess.CompletedProcess[str]]
+
+
+class _Consultation(NamedTuple):
+    reply: astra_advisor.CodexAstraAdvisorReply
+    all_calls: list[list[str]]
+    all_call_keywords: list[dict[str, object]]
+
+
+def _reading(home: Path, plan_type: str | None, session_left: float, weekly_left: float) -> Reading:
+    account = Account(Product.CODEX, home.name, home.resolve())
+    return Reading(account, Meters(session_left, None, weekly_left, None, plan_type))
+
+
+def _unreadable_reading(home: Path) -> Reading:
+    return Reading(Account(Product.CODEX, home.name, home.resolve()), None, UNREAD_REASON)
+
+
+def _roster_readings(tmp_path: Path) -> tuple[Reading, Reading]:
+    return (
+        _reading(tmp_path / ROSTER_TEAM_NAME, "team", 90.0, 95.0),
+        _reading(tmp_path / ROSTER_PLUS_NAME, "plus", 60.0, 70.0),
+    )
+
+
+def _broker_completion(
+    all_arguments: Sequence[str],
+    all_roster_readings: Sequence[Reading],
+    all_outside_readings: Sequence[Reading],
+) -> subprocess.CompletedProcess[str]:
+    reading_by_home: Mapping[Path, Reading] = {
+        each_reading.account.home: each_reading
+        for each_reading in (*all_roster_readings, *all_outside_readings)
+    }
+    if "--home" in all_arguments:
+        exported_home = Path(all_arguments[all_arguments.index("--home") + 1]).resolve()
+        all_readings = [reading_by_home[exported_home]]
+    else:
+        all_readings = list(all_roster_readings)
+    required_tier = (
+        all_arguments[all_arguments.index("--require-tier") + 1]
+        if "--require-tier" in all_arguments
+        else None
+    )
+    decision = choose_from_readings(
+        Product.CODEX, all_readings, now=BROKER_CLOCK, required_tier=required_tier
+    )
+    answer = {
+        "decision": decision_payload(decision),
+        "accounts": readings_payload(all_readings),
+    }
+    exit_code = BROKER_WAIT_EXIT_CODE if decision.action == "wait" else 0
+    return subprocess.CompletedProcess(list(all_arguments), exit_code, json.dumps(answer), "")
+
+
+def _broker_exits_with_an_error(all_arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(all_arguments, 2, "", "bad roster")
+
+
+def _broker_prints_text_that_is_not_json(
+    all_arguments: list[str],
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(all_arguments, 0, "not json", "")
+
+
+def _broker_times_out(all_arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    raise subprocess.TimeoutExpired(all_arguments, 150)
+
+
+def _consult(
+    tmp_path: Path,
+    exported_home: str | None,
+    all_outside_readings: Sequence[Reading] = (),
+    broker_behavior: BrokerBehavior | None = None,
+) -> _Consultation:
+    all_calls: list[list[str]] = []
+    all_call_keywords: list[dict[str, object]] = []
+    all_roster_readings = _roster_readings(tmp_path)
+
+    def answer_from_the_roster(all_arguments: list[str]) -> subprocess.CompletedProcess[str]:
+        return _broker_completion(all_arguments, all_roster_readings, all_outside_readings)
+
+    answer_broker = answer_from_the_roster if broker_behavior is None else broker_behavior
+
+    def runner(all_arguments: list[str], **keywords: object) -> subprocess.CompletedProcess[str]:
+        all_calls.append(all_arguments)
+        all_call_keywords.append(keywords)
+        if all_arguments[1] == str(BROKER_PATH):
+            return answer_broker(all_arguments)
+        return subprocess.CompletedProcess(all_arguments, 0, _events(), "")
+
+    settings = (
+        ENABLED_SETTINGS
+        if exported_home is None
+        else {**ENABLED_SETTINGS, "CODEX_HOME": exported_home}
+    )
+    reply = astra_advisor.run_codex_astra_advisor(
+        "consult", Path("."), None, BROKER_PATH, settings, None, runner
+    )
+    return _Consultation(reply, all_calls, all_call_keywords)
+
+
+def _assert_ran_on_the_exported_home(consultation: _Consultation, exported_home: Path) -> None:
+    assert consultation.reply.successful
+    codex_environment = consultation.all_call_keywords[1]["env"]
+    assert isinstance(codex_environment, dict)
+    assert codex_environment["CODEX_HOME"] == str(exported_home.resolve())
+    assert consultation.all_calls[0] == [
+        sys.executable, str(BROKER_PATH), "choose", "--product", "codex", "--home", str(exported_home),
+    ]
+    assert len(consultation.all_calls) == 2
+
+
+def _assert_refused_without_a_launch(
+    consultation: _Consultation, all_reason_parts: Sequence[str]
+) -> None:
+    assert consultation.reply.is_fallback
+    assert not consultation.reply.successful
+    assert consultation.reply.fallback_kind == astra_advisor.ASTRA_FALLBACK_KIND_DECLINED
+    for each_reason_part in all_reason_parts:
+        assert each_reason_part in (consultation.reply.reason or "")
+    assert len(consultation.all_calls) == 1
+    assert consultation.all_calls[0][1] == str(BROKER_PATH)
+
+
+def test_should_run_on_a_paid_exported_home_that_is_in_the_roster(tmp_path: Path) -> None:
+    exported_home = tmp_path / ROSTER_PLUS_NAME
+
+    consultation = _consult(tmp_path, str(exported_home))
+
+    _assert_ran_on_the_exported_home(consultation, exported_home)
+
+
+def test_should_trim_the_padding_around_an_exported_home(tmp_path: Path) -> None:
+    exported_home = tmp_path / ROSTER_PLUS_NAME
+
+    consultation = _consult(tmp_path, f"  {exported_home}  ")
+
+    _assert_ran_on_the_exported_home(consultation, exported_home)
+
+
+def test_should_run_on_a_paid_exported_home_that_is_outside_the_roster(tmp_path: Path) -> None:
+    exported_home = tmp_path / "outside-plus"
+
+    consultation = _consult(tmp_path, str(exported_home), [_reading(exported_home, "plus", 80.0, 85.0)])
+
+    _assert_ran_on_the_exported_home(consultation, exported_home)
+
+
+def test_should_run_on_a_pro_exported_home_at_the_luna_tier(tmp_path: Path) -> None:
+    exported_home = tmp_path / "acct-pro"
+    pro_reading = _reading(exported_home, "pro", 5.0, 80.0)
+    home_answer = json.loads(
+        _broker_completion(
+            ["--home", str(exported_home)], _roster_readings(tmp_path), [pro_reading]
+        ).stdout
+    )
+    assert home_answer["decision"]["tier"] == "luna"
+
+    consultation = _consult(tmp_path, str(exported_home), [pro_reading])
+
+    _assert_ran_on_the_exported_home(consultation, exported_home)
+
+
+def test_should_refuse_a_free_exported_home_when_a_roster_exists(tmp_path: Path) -> None:
+    exported_home = tmp_path / "acct-free"
+
+    consultation = _consult(tmp_path, str(exported_home), [_reading(exported_home, "free", 95.0, 95.0)])
+
+    _assert_refused_without_a_launch(
+        consultation, ["acct-free is on a free plan and is never chosen"]
+    )
+
+
+def test_should_refuse_an_unlisted_plan_exported_home_when_a_roster_exists(tmp_path: Path) -> None:
+    exported_home = tmp_path / "acct-mystery"
+
+    consultation = _consult(
+        tmp_path, str(exported_home), [_reading(exported_home, "mystery", 95.0, 95.0)]
+    )
+
+    _assert_refused_without_a_launch(
+        consultation, ["acct-mystery reports no known plan and is never chosen"]
+    )
+
+
+def test_should_refuse_an_unreadable_exported_home(tmp_path: Path) -> None:
+    exported_home = tmp_path / "acct-unread"
+
+    consultation = _consult(tmp_path, str(exported_home), [_unreadable_reading(exported_home)])
+
+    _assert_refused_without_a_launch(consultation, ["acct-unread", UNREAD_REASON])
+
+
+@pytest.mark.parametrize(
+    "broker_behavior",
+    [_broker_exits_with_an_error, _broker_prints_text_that_is_not_json, _broker_times_out],
+)
+def test_should_refuse_the_exported_home_when_the_broker_cannot_check_it(
+    tmp_path: Path, broker_behavior: BrokerBehavior
+) -> None:
+    consultation = _consult(
+        tmp_path, str(tmp_path / ROSTER_PLUS_NAME), broker_behavior=broker_behavior
+    )
+
+    assert consultation.reply.is_fallback
+    assert consultation.reply.fallback_kind == astra_advisor.ASTRA_FALLBACK_KIND_BROKEN
+    assert len(consultation.all_calls) == 1
+
+
+@pytest.mark.parametrize("exported_home", [None, "", "   "])
+def test_should_choose_from_the_roster_when_no_home_is_exported(
+    tmp_path: Path, exported_home: str | None
+) -> None:
+    consultation = _consult(tmp_path, exported_home)
+
+    assert consultation.reply.successful
+    assert consultation.all_calls[0] == [
+        sys.executable, str(BROKER_PATH), "choose", "--product", "codex", "--require-tier", "normal",
+    ]
+    codex_environment = consultation.all_call_keywords[1]["env"]
+    assert isinstance(codex_environment, dict)
+    assert codex_environment["CODEX_HOME"] == str((tmp_path / ROSTER_TEAM_NAME).resolve())

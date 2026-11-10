@@ -72,6 +72,8 @@ from dev_env_scripts_constants.codex_account_constants import (
     CODEX_ACCOUNT_LAUNCHERS_FILE_NAME,
     CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
+    MAIN_CODEX_HOME_DIRECTORY_NAME,
+    NO_ROSTER_ACCOUNT_NAME,
 )
 from dev_env_scripts_constants.shared_tree_constants import CLAUDE_CONFIG_DIR_ENV_VAR
 from shared_tree_paths import resolve_shared_process_tree_scripts_directory
@@ -325,6 +327,9 @@ def read_codex_account_meters(account: Account) -> Meters:
         FULL_PERCENT - weekly_window.used_percent if weekly_window else None,
         weekly_window.resets_at if weekly_window else None,
         usage.plan_type,
+        usage.has_credits,
+        usage.is_credits_unlimited,
+        usage.credit_balance,
     )
 
 
@@ -511,6 +516,9 @@ def _meter_payload(meters: Meters | None) -> dict[str, object] | None:
         "weekly_percent_left": meters.weekly_percent_left,
         "weekly_resets_at": utc_time_text(meters.weekly_resets_at),
         "plan_type": meters.plan_type,
+        "has_credits": meters.has_credits,
+        "is_credits_unlimited": meters.is_credits_unlimited,
+        "credit_balance": meters.credit_balance,
     }
 
 
@@ -521,12 +529,17 @@ def _meters_from_payload(raw_meters: object) -> Meters | None:
     if any(each_percent is not None and not isinstance(each_percent, (int, float)) for each_percent in all_percentages):
         return None
     plan_type = raw_meters.get("plan_type")
+    credit_balance = raw_meters.get("credit_balance")
+    is_balance_number = isinstance(credit_balance, (int, float)) and not isinstance(credit_balance, bool)
     return Meters(
         all_percentages[0],
         parse_utc_time(raw_meters.get("session_resets_at")),
         all_percentages[1],
         parse_utc_time(raw_meters.get("weekly_resets_at")),
         plan_type if isinstance(plan_type, str) else None,
+        raw_meters.get("has_credits") is True,
+        raw_meters.get("is_credits_unlimited") is True,
+        float(credit_balance) if is_balance_number else None,
     )
 
 
@@ -573,7 +586,42 @@ def _last_good_meters(all_cached_fields: dict[str, object], now: datetime) -> tu
     return meters, measured_at
 
 
-def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None) -> tuple[Reading, ...]:
+def codex_default_account() -> Account:
+    """Return the account for the default Codex home, read when no roster is configured.
+
+    ::
+
+        CODEX_HOME "C:/work/codex-a"  ->  the home C:/work/codex-a
+        CODEX_HOME unset, "" or "  "  ->  the home ~/.codex
+
+    Returns:
+        The account named ``default``. Its home is ``CODEX_HOME`` without its
+        padding, or ``~/.codex`` when the variable is unset or blank.
+    """
+    exported_home = os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE, "").strip()
+    home = Path(exported_home or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
+    return Account(Product.CODEX, NO_ROSTER_ACCOUNT_NAME, home, True)
+
+
+def _account_for_home(all_roster: Sequence[Account], home: Path) -> Account:
+    resolved_home = home.expanduser().resolve()
+    roster_account = next(
+        (each_account for each_account in all_roster if os.path.normcase(each_account.home) == os.path.normcase(resolved_home)),
+        None,
+    )
+    return roster_account or Account(Product.CODEX, resolved_home.name or NO_ROSTER_ACCOUNT_NAME, resolved_home)
+
+
+def _accounts_to_read(product: Product, adapter: ProductAdapter, home: Path | None) -> Sequence[Account]:
+    all_roster = adapter.load_accounts()
+    if home is not None:
+        return (_account_for_home(all_roster, home),)
+    if product is Product.CODEX and not all_roster:
+        return (codex_default_account(),)
+    return all_roster
+
+
+def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, all_state: dict[str, object] | None = None, now: datetime | None = None, home: Path | None = None) -> tuple[Reading, ...]:
     """Read account meters with a 60-second cache.
 
     Args:
@@ -581,16 +629,19 @@ def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, al
         adapter: Injected account and meter readers.
         all_state: Mutable broker state document.
         now: Clock instant used for cache age.
+        home: Codex home to read alone, not the roster. A roster account
+            with that home keeps its name; any other home reads as one extra account.
 
     Returns:
-        Account readings in roster order.
+        Account readings in roster order. A Codex product with no roster reads
+        its default home as the one account.
     """
     active = adapter or all_product_adapters[product]
     current = now or datetime.now(timezone.utc)
     all_cache = all_state.get("meters", {}) if all_state is not None else {}
     all_readings: list[Reading] = []
     is_updated = False
-    for each_account in active.load_accounts():
+    for each_account in _accounts_to_read(product, active, home):
         reading, did_read = _read_one_account(each_account, active, all_cache, current)
         all_readings.append(reading)
         is_updated = is_updated or did_read

@@ -5,12 +5,15 @@ Codex reports usage through ``codex app-server`` and the JSON-RPC method
 ``account/rateLimits/read``. The reply names up to two windows, a short one
 (5 hours) and a weekly one. The account broker counts the account's room as
 the smaller of the two. The reply also names the account's plan, such as
-``pro`` or ``team``::
+``pro`` or ``team``, and the credits the account holds::
 
     5-hour window 30% used, week 85% used  -> 15% left
     week window only, 40% used             -> 60% left
     planType "promax"                      -> plan_type "promax"
     no planType                            -> plan_type None
+    credits hasCredits, balance "12.5"     -> has_credits, credit_balance 12.5
+    credits unlimited                      -> is_credits_unlimited
+    no credits object                      -> no credits, credit_balance None
     no window, error reply, no reply       -> CodexMeterUnreadError
 
 Every read failure raises ``CodexMeterUnreadError``. A missing Codex
@@ -44,7 +47,10 @@ from dev_env_scripts_constants.codex_account_constants import (
     CLIENT_VERSION,
     CODEX_BINARY_NAME,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
+    CREDIT_BALANCE_KEY,
+    CREDITS_KEY,
     FULL_PERCENT,
+    HAS_CREDITS_KEY,
     INITIALIZE_REQUEST_ID,
     JSONRPC_VERSION,
     METHOD_INITIALIZE,
@@ -54,6 +60,7 @@ from dev_env_scripts_constants.codex_account_constants import (
     RATE_LIMITS_REQUEST_ID,
     READER_JOIN_TIMEOUT_SECONDS,
     TEXT_ENCODING,
+    UNLIMITED_CREDITS_KEY,
     WEEKLY_WINDOW_MINUTES,
 )
 from shared_tree_paths import resolve_shared_process_tree_scripts_directory
@@ -95,10 +102,13 @@ class UsageWindow:
 
 @dataclass(frozen=True)
 class CodexAccountMeters:
-    """One account's windows and plan, with its tightest short window and its tightest weekly window."""
+    """One account's windows, plan and credits, with its tightest short window and its tightest weekly window."""
 
     all_windows: tuple[UsageWindow, ...]
     plan_type: str | None = None
+    has_credits: bool = False
+    is_credits_unlimited: bool = False
+    credit_balance: float | None = None
 
     @property
     def short_window(self) -> UsageWindow | None:
@@ -126,6 +136,25 @@ def _finite_number(raw_number: object) -> float | None:
     if not math.isfinite(raw_number):
         return None
     return float(raw_number)
+
+
+def _credit_balance(raw_balance: object) -> float | None:
+    if not isinstance(raw_balance, str):
+        return _finite_number(raw_balance)
+    try:
+        return _finite_number(float(raw_balance))
+    except ValueError:
+        return None
+
+
+def _parse_credits(raw_credits: object) -> tuple[bool, bool, float | None]:
+    if not isinstance(raw_credits, Mapping):
+        return False, False, None
+    return (
+        raw_credits.get(HAS_CREDITS_KEY) is True,
+        raw_credits.get(UNLIMITED_CREDITS_KEY) is True,
+        _credit_balance(raw_credits.get(CREDIT_BALANCE_KEY)),
+    )
 
 
 def _parse_resets_at(raw_resets_at: object) -> datetime | None:
@@ -184,12 +213,15 @@ def parse_rate_limits_reply(reply_text: str) -> CodexAccountMeters:
                                             "planType": "promax"}}}
         -> CodexAccountMeters with two windows, 15% left, plan_type "promax"
         the same reply without "planType" -> plan_type None
+        "credits": {"hasCredits": true, "unlimited": false, "balance": "12.5"}
+        -> has_credits True, is_credits_unlimited False, credit_balance 12.5
+        the same reply without "credits" -> no credits, credit_balance None
 
     Args:
         reply_text: One line the ``codex app-server`` process wrote.
 
     Returns:
-        The windows and the plan type the reply carries.
+        The windows, the plan type and the credits the reply carries.
 
     Raises:
         CodexMeterUnreadError: The line is no reply, an error reply, or names
@@ -204,7 +236,14 @@ def parse_rate_limits_reply(reply_text: str) -> CodexAccountMeters:
     if not all_windows:
         raise CodexMeterUnreadError("rate-limit reply names no usage window")
     plan_type = rate_limits.get("planType")
-    return CodexAccountMeters(all_windows=all_windows, plan_type=plan_type if isinstance(plan_type, str) else None)
+    has_credits, is_credits_unlimited, credit_balance = _parse_credits(rate_limits.get(CREDITS_KEY))
+    return CodexAccountMeters(
+        all_windows=all_windows,
+        plan_type=plan_type if isinstance(plan_type, str) else None,
+        has_credits=has_credits,
+        is_credits_unlimited=is_credits_unlimited,
+        credit_balance=credit_balance,
+    )
 
 
 def request_messages() -> list[dict[str, object]]:

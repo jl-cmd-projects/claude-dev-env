@@ -2,7 +2,9 @@
 
 Each account signs in under its own Codex home. The picker reads every
 account's rate-limit windows through ``codex app-server`` and names the account
-a job runs on, trying the accounts in roster order.
+a job runs on. Codex accounts carry no priority, so the picker ranks Pro plan
+accounts first, then the accounts with the most room, and roster order breaks
+only an exact tie.
 """
 
 from __future__ import annotations
@@ -10,7 +12,11 @@ from __future__ import annotations
 from dev_env_scripts_constants.claude_account_constants import LauncherProgram
 
 ALL_CODEX_ACCOUNT_NAMES: tuple[str, ...] = ("codex-1", "codex-2", "codex-3", "codex-4")
-"""Fallback Codex accounts, in try order, when no account list is saved or set."""
+"""Fallback Codex accounts for ``sync`` when no list names an account.
+
+``choose`` and ``check`` fall back to them only when ``CODEX_ACCOUNT_PROFILES`` holds
+only separators and no saved list names an account.
+"""
 
 CODEX_ACCOUNT_PROFILES_ENVIRONMENT_VARIABLE: str = "CODEX_ACCOUNT_PROFILES"
 """Environment variable naming the account list, comma-separated, over the saved file."""
@@ -113,11 +119,53 @@ NORMAL_TIER_MINIMUM_PERCENT_LEFT: float = 10.0
 LUNA_TIER_STOP_PERCENT_LEFT: float = 1.0
 """A Luna fallback job stops once its account is at or below this percent left."""
 
+CODEX_WEEKLY_FLOOR_DISABLED_ENVIRONMENT_VARIABLE: str = "CODEX_WEEKLY_FLOOR_DISABLED"
+"""Environment variable that, when truthy, lifts the Luna stop for the weekly window."""
+
+ALL_CODEX_WEEKLY_FLOOR_DISABLED_TRUTHY_VALUES: frozenset[str] = frozenset({"1", "true", "yes", "on"})
+"""Case-insensitive settings of the weekly-floor variable that turn the switch on."""
+
 LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT: float = 20.0
 """An account with a window shorter than a week runs Luna only with this much of it left."""
 
 ALL_PRO_PLAN_TYPES: frozenset[str] = frozenset({"pro", "prolite", "promax"})
 """Plan types of a personal Codex Pro subscription. The broker tries these accounts first."""
+
+PRO_PLAN_STOP_PERCENT_LEFT: float = 0.0
+"""A Pro plan account without credits stops only once one of its windows has no room left."""
+
+ALL_OTHER_PAID_PLAN_TYPES: frozenset[str] = frozenset({"team", "plus", "business", "enterprise", "edu"})
+"""Plan types of a paid Codex account that is not on a Pro plan."""
+
+ALL_PAID_PLAN_TYPES: frozenset[str] = ALL_PRO_PLAN_TYPES | ALL_OTHER_PAID_PLAN_TYPES
+"""Every plan type the broker may choose, in lowercase. A plan outside this set is never chosen, whatever its room or credits. That covers a free, missing, blank or ``unknown`` plan and any name the broker does not list."""
+
+ALL_FREE_PLAN_TYPES: frozenset[str] = frozenset({"free"})
+"""Plan types of a free Codex account. The broker never chooses one, and a wait reason names the free plan apart from an unlisted one."""
+
+CREDITS_KEY: str = "credits"
+"""Key under ``rateLimits`` that holds the account's credits."""
+
+HAS_CREDITS_KEY: str = "hasCredits"
+"""Key under ``credits`` that is true while the account holds credits."""
+
+UNLIMITED_CREDITS_KEY: str = "unlimited"
+"""Key under ``credits`` that is true while the account's credits have no cap."""
+
+CREDIT_BALANCE_KEY: str = "balance"
+"""Key under ``credits`` that holds the credit balance, usually as a decimal string."""
+
+FREE_PLAN_REASON_TEMPLATE: str = "{name} is on a free plan and is never chosen"
+"""Wait-reason text for an account the broker skips because it is on a free plan."""
+
+UNKNOWN_PLAN_REASON_TEMPLATE: str = "{name} reports no known plan and is never chosen"
+"""Wait-reason text for an account the broker skips because its plan is missing, blank, unknown or not a listed paid plan."""
+
+CREDITS_REASON_TEMPLATE: str = "{name} has {percent:g}% left and credits"
+"""Run-reason text for an account that runs on credits while its plan windows are at or under the bar."""
+
+NAMED_HOME_REASON_TEMPLATE: str = "{name} is the named home and runs whatever room it has left"
+"""Run-reason text for a named home on a paid plan that no tier would otherwise allow, so it runs on the lowest tier."""
 
 WEEKLY_WINDOW_MINUTES: int = 10080
 """Length of the weekly window. Any shorter window is a short window, such as 5 hours."""
@@ -133,6 +181,18 @@ TIER_LUNA: str = "luna"
 
 TIER_WAIT: str = "wait"
 """Picker answer: no account has room, so the job waits."""
+
+ALL_TIERS_BEST_FIRST: tuple[str, ...] = (TIER_NORMAL, TIER_LUNA)
+"""Tiers a Codex choice can run on, best first. A caller that requires one tier accepts the ones before it too."""
+
+REQUIRE_TIER_ARGUMENT: str = "--require-tier"
+"""Broker argument that names the tier a Codex choice must reach, or the broker waits."""
+
+HOME_CODEX_ONLY_MESSAGE: str = "--home applies to the codex product only"
+"""Error text when ``--home`` names a home for the Claude product."""
+
+HOME_WITH_SPENT_MESSAGE: str = "--home cannot be used with --spent"
+"""Error text when one command judges a single home and also marks accounts spent."""
 
 ALL_CODEX_BINARY_CANDIDATE_RELATIVE_PARTS: tuple[tuple[str, ...], ...] = (
     ("AppData", "Local", "Programs", "OpenAI", "Codex", "bin", "codex.exe"),

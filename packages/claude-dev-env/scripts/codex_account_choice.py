@@ -2,12 +2,16 @@
 """Keep each Codex account's home and launcher ready.
 
 Each Codex account signs in under its own Codex home in
-``~/.codex-profiles/<name>``. The account list names them in try order: the
+``~/.codex-profiles/<name>``. The account list names them. The broker ranks
+them by plan and room, and list order breaks only an exact tie. The list is the
 ``CODEX_ACCOUNT_PROFILES`` environment variable, comma-separated, else the saved
-``account-launchers.json`` list under the profiles root. With neither,
-``codex-1`` through ``codex-4`` are the roster. An environment roster that
-differs from the saved file is saved to it, so a process without the variable
-reads the same roster.
+``account-launchers.json`` list under the profiles root. With neither, ``sync``
+falls back to ``codex-1`` through ``codex-4`` and ``install`` has no accounts.
+The broker's ``choose`` and ``check`` fall back to those four only when
+``CODEX_ACCOUNT_PROFILES`` holds only separators and no saved list names an
+account; with the variable unset or blank they read the default Codex home as
+the account ``default``. An environment roster that differs from the saved file
+is saved to it, so a process without the variable reads the same roster.
 
 Three commands::
 
@@ -196,7 +200,7 @@ def _save_environment_roster(
 
 
 def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
-    """Name the account list, in try order, without duplicates.
+    """Name the account list, in roster order, without duplicates.
 
     ::
 
@@ -222,7 +226,7 @@ def saved_codex_account_names(profiles_root: Path) -> tuple[str, ...]:
 
 
 def codex_account_names(profiles_root: Path) -> tuple[str, ...]:
-    """Name the accounts the broker and setup commands use, in try order.
+    """Name the accounts the broker and setup commands use, in roster order.
 
     Args:
         profiles_root: The directory that holds every account's Codex home.
@@ -241,7 +245,7 @@ def save_codex_account_names(profiles_root: Path, all_names: Sequence[str]) -> N
 
     Args:
         profiles_root: The directory that holds every account's Codex home.
-        all_names: The account names in try order.
+        all_names: The account names in roster order.
     """
     profiles_root.mkdir(parents=True, exist_ok=True)
     roster_text = json.dumps(list(all_names), indent=ROSTER_JSON_INDENT) + "\n"
