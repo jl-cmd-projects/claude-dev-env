@@ -248,7 +248,7 @@ def closing_paragraph(reply_text: str) -> str:
 
 
 def asks_user_to_choose(reply_text: str) -> bool:
-    """Return True when the closing paragraph ends with a question mark or names a question as still open."""
+    """Return True when the closing paragraph ends with a question mark or says a question still stands."""
     paragraph_text = closing_paragraph(reply_text)
     return (
         paragraph_text.rstrip(TRAILING_MARKUP_CHARACTERS).endswith(QUESTION_MARK)

@@ -340,6 +340,10 @@ def test_should_block_a_closing_question_no_question_tool_sent(
         ),
         (REPORT_ONLY_REPLY, [prompt_record("status"), assistant_text_record(REPORT_ONLY_REPLY)]),
         (
+            "The release decision is still pending the DBA review.",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+        (
             "Your question about the flaky test is resolved, but the PR is still open.",
             [prompt_record("status"), assistant_text_record("x")],
         ),

@@ -68,14 +68,13 @@ QUOTED_LINE_PATTERN = re.compile(r"^ {0,3}>[^\n]*$", re.MULTILINE)
 TRAILING_MARKUP_CHARACTERS = "*_)]\"'\u201d\u2019 \t\n"
 QUESTION_MARK = "?"
 STANDING_QUESTION_PATTERN = re.compile(
-    r"\b(?:question|ask|choice|decision)\b"
-    r"(?:[^.!?,;\n]{0,25}\bstill\s+stands|\s+(?:is\s+)?(?:still\s+(?:open|pending)|stays\s+open))(?![-\w])",
+    r"\b(?:question|ask|choice|decision)\b[^.!?,;\n]{0,25}\bstill\s+stands\b",
     re.IGNORECASE,
 )
 UNBRIEFED_QUESTION_MESSAGE = (
     "The reply ends by asking the user to choose, and this turn sent no question"
     " through the native question tool. The user may see only the closing line,"
-    " so a question at the end of a reply reaches him with no brief. Send it"
+    " so a question at the end of a reply reaches the user with no brief. Send it"
     " through AskUserQuestion (Codex: request_user_input): put the context the"
     " user needs inside the question text, give two or three options, and put"
     " each option's effect in its description. A repeated open question goes"
