@@ -17,7 +17,7 @@ a path outside code whose backslash the terminal drops, such as
 the reason back so the model rewrites the reply. Claude Code ends the turn
 after eight blocks in a row.
 
-It also blocks a reply whose last paragraph asks the user to choose when the
+It also blocks a reply whose last paragraph ends with a question mark, or says a question still stands, when the
 turn sent no AskUserQuestion, hearthbot decision card, or Codex
 request_user_input call. Fences, HTML blocks, quoted paragraphs, and code spans
 are left out first, and the check is skipped when the transcript cannot be read::
@@ -247,7 +247,7 @@ def closing_paragraph(reply_text: str) -> str:
     return all_prose_paragraphs[-1] if all_prose_paragraphs else ""
 
 
-def asks_user_to_choose(reply_text: str) -> bool:
+def ends_on_question(reply_text: str) -> bool:
     """Return True when the closing paragraph ends with a question mark or says a question still stands."""
     paragraph_text = closing_paragraph(reply_text)
     return (
@@ -260,7 +260,7 @@ def unbriefed_question_violation(reply_text: str, transcript_path: object) -> st
     """Return the block reason for a closing question no question tool sent this turn, or None."""
     if not isinstance(transcript_path, str) or not Path(transcript_path).is_file():
         return None
-    if not asks_user_to_choose(reply_text):
+    if not ends_on_question(reply_text):
         return None
     if replayed_transcript(transcript_path).has_turn_question_tool:
         return None
