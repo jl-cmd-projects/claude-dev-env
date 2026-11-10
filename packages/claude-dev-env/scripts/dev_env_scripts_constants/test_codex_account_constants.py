@@ -296,8 +296,14 @@ def test_meter_retries_match_the_documented_table() -> None:
             "A 429 text sets no rate-limit cooldown for a Codex account |"
         ),
         (
-            f"| A meter read fails for any other reason | The broker reads it again, up to {METER_READ_ATTEMPTS} reads, "
+            "| A meter read fails with a `CodexMeterUnreadError`, `OSError`, `ValueError`, `RuntimeError` "
+            "or `subprocess.SubprocessError` that the row above does not cover "
+            f"| The broker reads it again, up to {METER_READ_ATTEMPTS} reads, "
             f"waiting {' and then '.join(all_delay_texts)} |"
+        ),
+        (
+            "| A meter read raises any other exception type "
+            "| The broker does not catch it, so the command ends with that exception after 1 read |"
         ),
     ]
     section_text = documented_section("Which account a job uses")
