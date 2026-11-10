@@ -203,7 +203,7 @@ def test_default_home_rule_matches_the_documented_paragraph() -> None:
             "After an account leaves the roster, a mark saved while it was in the roster still holds "
             "`--home <its home>` only when the account's name equals the name of its resolved home folder. "
             "A roster account `Alpha` whose home folder is `alpha`, or whose home folder is a junction "
-            "to a folder with another name, no longer holds `--home <its home>` once it leaves the roster."
+            "to a folder with another name, stops holding `--home <its home>` once it leaves the roster."
         ),
         "The broker refuses `--home` for the Claude product and with `--spent`.",
     ]

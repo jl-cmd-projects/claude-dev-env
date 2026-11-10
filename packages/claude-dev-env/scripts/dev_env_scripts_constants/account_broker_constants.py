@@ -40,6 +40,8 @@ from dev_env_scripts_constants.shared_tree_constants import (
 from codex_plan_rules import codex_blocking_flags, is_pro_plan, refusal_text
 from shared_tree_paths import resolve_shared_scripts_directory
 
+ALL_CHOOSE_AND_CHECK_ACTIONS = ("choose", "check")
+
 ALL_CLAUDE_FLOORS = {
     "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
     "main_session_used_ceiling": MAIN_SESSION_USED_CEILING_PERCENT,

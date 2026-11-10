@@ -47,6 +47,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     _wait_decision,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_SIGN_IN_FAILURE_SIGNATURES,
+    ALL_CHOOSE_AND_CHECK_ACTIONS,
     COMMAND_MISSING_EXIT_CODE,
     NO_USABLE_ACCOUNT_EXIT_CODE,
     NO_USABLE_REASON_SEPARATOR,
@@ -435,7 +436,7 @@ def _parser() -> argparse.ArgumentParser:
         command = commands.add_parser(each_action)
         all_product_choices = [Product.CODEX.value] if each_action == "limits" else [each_product.value for each_product in Product]
         command.add_argument("--product", choices=all_product_choices, required=True)
-        if each_action in ("choose", "check"):
+        if each_action in ALL_CHOOSE_AND_CHECK_ACTIONS:
             command.add_argument(REQUIRE_TIER_ARGUMENT, choices=ALL_TIERS_BEST_FIRST, default=None)
             command.add_argument("--home", type=Path, default=None)
         if each_action == "choose":

@@ -629,7 +629,7 @@ def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, al
         adapter: Injected account and meter readers.
         all_state: Mutable broker state document.
         now: Clock instant used for cache age.
-        home: Codex home to read alone, instead of the roster. A roster account
+        home: Codex home to read alone, not the roster. A roster account
             with that home keeps its name; any other home reads as one extra account.
 
     Returns:

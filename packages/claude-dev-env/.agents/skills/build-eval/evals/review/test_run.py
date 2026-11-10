@@ -3,7 +3,6 @@
 import argparse
 import importlib.util
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -177,11 +176,11 @@ class CallRecorder:
 
 
 @pytest.fixture(autouse=True)
-def no_exported_codex_home(monkeypatch) -> None:
+def no_exported_codex_home(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(CODEX_HOME_VARIABLE, raising=False)
 
 
-def run_live_attempt(recorder, monkeypatch, record_root) -> dict:
+def run_live_attempt(recorder, monkeypatch: pytest.MonkeyPatch, record_root) -> dict:
     monkeypatch.setattr(subprocess, "run", recorder)
     settings = argparse.Namespace(
         model="model-under-test", effort="low", codex=CODEX_BINARY, timeout=5
@@ -189,7 +188,7 @@ def run_live_attempt(recorder, monkeypatch, record_root) -> dict:
     return EXECUTION.execute(RUN.cases()[0], settings, record_root, "review recipe")
 
 
-def test_live_attempt_runs_on_the_home_the_broker_names(monkeypatch, tmp_path) -> None:
+def test_live_attempt_runs_on_the_home_the_broker_names(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("EVAL_MARKER", "kept")
     recorder = CallRecorder(broker_stdout=broker_answer("normal", BROKER_HOME))
 
@@ -204,7 +203,7 @@ def test_live_attempt_runs_on_the_home_the_broker_names(monkeypatch, tmp_path) -
 
 
 def test_exported_codex_home_runs_on_the_home_the_broker_answers(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CODEX_HOME_VARIABLE, "exported-home")
     recorder = CallRecorder(broker_stdout=broker_answer("normal", BROKER_HOME))
@@ -220,7 +219,7 @@ def test_exported_codex_home_runs_on_the_home_the_broker_answers(
 
 
 def test_padded_exported_codex_home_runs_on_the_home_the_broker_answers(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CODEX_HOME_VARIABLE, "  exported-home  ")
     recorder = CallRecorder(broker_stdout=broker_answer("normal", BROKER_HOME))
@@ -236,7 +235,7 @@ def test_padded_exported_codex_home_runs_on_the_home_the_broker_answers(
 
 
 def test_exported_codex_home_on_a_low_room_paid_account_still_runs(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(CODEX_HOME_VARIABLE, "exported-home")
     recorder = CallRecorder(
@@ -257,7 +256,7 @@ def test_exported_codex_home_on_a_low_room_paid_account_still_runs(
     ],
 )
 def test_exported_codex_home_the_broker_refuses_stops_before_any_model_call(
-    monkeypatch, tmp_path, broker_exit_code, broker_stdout
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, broker_exit_code, broker_stdout
 ) -> None:
     monkeypatch.setenv(CODEX_HOME_VARIABLE, "exported-home")
     recorder = CallRecorder(broker_exit_code, broker_stdout)
@@ -270,7 +269,7 @@ def test_exported_codex_home_the_broker_refuses_stops_before_any_model_call(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_blank_codex_home_does_not_count_as_a_choice(monkeypatch, tmp_path) -> None:
+def test_blank_codex_home_does_not_count_as_a_choice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(CODEX_HOME_VARIABLE, "  ")
     recorder = CallRecorder(broker_stdout=broker_answer("normal", BROKER_HOME))
 
@@ -294,7 +293,7 @@ def test_blank_codex_home_does_not_count_as_a_choice(monkeypatch, tmp_path) -> N
     ],
 )
 def test_unusable_broker_answer_stops_before_any_model_call(
-    monkeypatch, tmp_path, broker_exit_code, broker_stdout
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, broker_exit_code, broker_stdout
 ) -> None:
     recorder = CallRecorder(broker_exit_code, broker_stdout)
 
@@ -306,7 +305,7 @@ def test_unusable_broker_answer_stops_before_any_model_call(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_wait_answer_reports_the_broker_reason(monkeypatch, tmp_path) -> None:
+def test_wait_answer_reports_the_broker_reason(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     recorder = CallRecorder(3, broker_answer("wait", None, WAIT_REASON))
 
     attempt = run_live_attempt(recorder, monkeypatch, tmp_path)
@@ -319,7 +318,7 @@ def test_wait_answer_reports_the_broker_reason(monkeypatch, tmp_path) -> None:
     [subprocess.TimeoutExpired("broker", 150), OSError("interpreter missing")],
 )
 def test_broker_that_cannot_run_stops_before_any_model_call(
-    monkeypatch, tmp_path, broker_error
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, broker_error
 ) -> None:
     recorder = CallRecorder(broker_error=broker_error)
 
@@ -334,7 +333,6 @@ GIT_NOT_IGNORED_EXIT_CODE = 1
 GIT_NOT_A_REPOSITORY_EXIT_CODE = 128
 
 
-@pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 def test_every_support_module_can_be_tracked_by_git() -> None:
     support_directory = Path(__file__).with_name("review_eval_support")
     all_modules = sorted(str(each) for each in support_directory.rglob("*.py"))
@@ -359,7 +357,7 @@ def test_broker_script_is_found_beside_the_package() -> None:
     assert broker_script.name == "account_broker.py"
 
 
-def test_broker_script_prefers_the_first_candidate_that_exists(tmp_path) -> None:
+def test_broker_script_prefers_the_first_candidate_that_exists(tmp_path: Path) -> None:
     missing_script = tmp_path / "missing" / "account_broker.py"
     first_script = tmp_path / "first" / "account_broker.py"
     second_script = tmp_path / "second" / "account_broker.py"
@@ -372,6 +370,6 @@ def test_broker_script_prefers_the_first_candidate_that_exists(tmp_path) -> None
     assert chosen == first_script
 
 
-def test_missing_broker_script_refuses_the_run(tmp_path) -> None:
+def test_missing_broker_script_refuses_the_run(tmp_path: Path) -> None:
     with pytest.raises(ACCOUNT.CodexAccountUnavailable):
         ACCOUNT.broker_script((tmp_path / "account_broker.py",))

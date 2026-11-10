@@ -21,11 +21,7 @@ A user runs `setup` once, or `sync` with `CODEX_ACCOUNT_PROFILES` set, then sign
 
 ## Driving it with Python
 
-Run the unit tests from the repository root:
-
-```powershell
-python -m pytest packages/claude-dev-env/scripts/test_codex_account_choice.py packages/claude-dev-env/scripts/test_account_broker.py packages/claude-dev-env/scripts/test_account_broker_guard.py packages/claude-dev-env/_shared/pr-loop/scripts/test_codex_review_account.py packages/claude-dev-env/_shared/pr-loop/scripts/test_run_codex_review.py packages/claude-dev-env/.agents/skills/build-eval/evals/review/test_run.py -q
-```
+Run the unit tests from the repository root with `python -m pytest packages/claude-dev-env/scripts/test_codex_account_choice.py packages/claude-dev-env/scripts/test_account_broker.py packages/claude-dev-env/scripts/test_account_broker_guard.py packages/claude-dev-env/_shared/pr-loop/scripts/test_codex_review_account.py packages/claude-dev-env/_shared/pr-loop/scripts/test_run_codex_review.py packages/claude-dev-env/.agents/skills/build-eval/evals/review/test_run.py -q`
 
 On Windows the run includes `TestNpmShimLauncher`, which runs the Claude and Codex launchers through `cmd` against an npm-shaped shim and reads back `CLAUDE_CONFIG_DIR` or `CODEX_HOME`.
 

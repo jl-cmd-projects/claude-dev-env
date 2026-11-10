@@ -363,7 +363,7 @@ def _run_command(
     *,
     working_directory: Path | None,
     timeout_seconds: int,
-    process_environment: dict[str, str] | None = None,
+    all_process_environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return codex_subprocess_runner(
         all_arguments,
@@ -374,7 +374,7 @@ def _run_command(
         errors=DECODE_ERRORS_REPLACE,
         check=False,
         timeout=timeout_seconds,
-        env=dict(os.environ) if process_environment is None else process_environment,
+        env=dict(os.environ) if all_process_environment is None else all_process_environment,
     )
 
 
@@ -383,14 +383,14 @@ def _safe_run(
     *,
     working_directory: Path | None,
     timeout_seconds: int,
-    process_environment: dict[str, str] | None = None,
+    all_process_environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str] | int:
     try:
         return _run_command(
             all_arguments,
             working_directory=working_directory,
             timeout_seconds=timeout_seconds,
-            process_environment=process_environment,
+            all_process_environment=all_process_environment,
         )
     except FileNotFoundError:
         if working_directory is not None and not working_directory.is_dir():
@@ -611,13 +611,13 @@ def _capture_review_run(
     all_review_arguments: list[str],
     timeout_seconds: int,
     binary_version: str,
-    review_environment: dict[str, str],
+    all_review_environment: dict[str, str],
 ) -> CodexReviewOutcome:
     completion_or_exit = _safe_run(
         all_review_arguments,
         working_directory=repository_directory,
         timeout_seconds=timeout_seconds,
-        process_environment=review_environment,
+        all_process_environment=all_review_environment,
     )
     if isinstance(completion_or_exit, int):
         return _down(exit_code=completion_or_exit, binary_version=binary_version)
@@ -735,5 +735,5 @@ def run_codex_review(
         ),
         timeout_seconds=resolved_timeout_seconds,
         binary_version=probe_outcome,
-        review_environment=review_environment,
+        all_review_environment=review_environment,
     )
