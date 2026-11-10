@@ -344,6 +344,10 @@ def test_should_block_a_closing_question_no_question_tool_sent(
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
+            "The decision to ship still stands.",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+        (
             "Your question about the flaky test is resolved, but the PR is still open.",
             [prompt_record("status"), assistant_text_record("x")],
         ),
