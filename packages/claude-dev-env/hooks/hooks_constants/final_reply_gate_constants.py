@@ -68,7 +68,7 @@ QUOTED_LINE_PATTERN = re.compile(r"^ {0,3}>[^\n]*$", re.MULTILINE)
 TRAILING_MARKUP_CHARACTERS = "*_)]\"'\u201d\u2019 \t\n"
 QUESTION_MARK = "?"
 STANDING_QUESTION_PATTERN = re.compile(
-    r"\b(?:question|ask)\b[^.!?,;\n]{0,25}\bstill\s+stands\b",
+    r"\bquestion\b[^.!?,;\n]{0,25}\bstill\s+stands\b",
     re.IGNORECASE,
 )
 UNBRIEFED_QUESTION_MESSAGE = (

@@ -344,7 +344,7 @@ def test_should_block_a_closing_question_no_question_tool_sent(
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
-            "The decision to ship still stands.",
+            "The decision to ship still stands, and the ask to rebase still stands.",
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
