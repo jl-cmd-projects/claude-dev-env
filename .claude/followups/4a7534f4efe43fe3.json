@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/transcript_skill_scan.py",
+  "message": "packages/claude-dev-env/hooks/transcript_skill_scan.py:188: Function 'is_skill_loaded_since_last_prompt' is 45 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "50d7de7cf8ec624ba133947e53ad80b6a39c212a"
+}
