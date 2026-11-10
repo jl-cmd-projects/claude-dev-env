@@ -344,6 +344,10 @@ def test_should_block_a_closing_question_no_question_tool_sent(
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
+            "The question of the build is closed and the PR is still open.",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+        (
             "Checks pass.\n> Keep it or revert?",
             [prompt_record("status"), assistant_text_record("x")],
         ),
