@@ -64,3 +64,19 @@ WINDOWS_PATH_MESSAGE = (
     " markdown and drops a backslash before punctuation, so a copied path"
     " points nowhere. Wrap the path in backticks."
 )
+QUOTED_PARAGRAPH_PATTERN = re.compile(r"\A {0,3}>")
+TRAILING_MARKUP_CHARACTERS = "*_)]\"'\u201d\u2019 \t\n"
+QUESTION_MARK = "?"
+STANDING_QUESTION_PATTERN = re.compile(
+    r"\b(?:question|ask|choice|decision)\b[^.!?\n]*\b(?:still\s+(?:stands|open|pending)|stays\s+open|is\s+open)\b",
+    re.IGNORECASE,
+)
+UNBRIEFED_QUESTION_MESSAGE = (
+    "The reply ends by asking the user to choose, and this turn sent no question"
+    " through the native question tool. The user may see only the closing line,"
+    " so a question at the end of a reply reaches him with no brief. Send it"
+    " through AskUserQuestion (Codex: request_user_input): put the context the"
+    " user needs inside the question text, give two or three options, and put"
+    " each option's effect in its description. A repeated open question goes"
+    " through the tool again with its brief. Then end the reply without the question."
+)

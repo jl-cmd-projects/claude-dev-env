@@ -24,6 +24,8 @@ The replay also notes what the current turn did::
     has_turn_work_tool       any other assistant tool call ran, except the title tool,
                              AskUserQuestion, a hearthbot decision card, ToolSearch,
                              TaskList, TaskGet, and the Codex request_user_input card
+    has_turn_question_tool   an AskUserQuestion, hearthbot decision card, or Codex
+                             request_user_input call ran
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -52,6 +54,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
     ALL_CODEX_TOOL_CALL_TYPES,
     ALL_NON_WORK_TOOL_NAMES,
+    ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_NAMES,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
@@ -224,6 +227,14 @@ def is_codex_work_call(all_record_fields: dict[str, object]) -> bool:
     return tool_name != CODEX_PLAN_TOOL_NAME and is_work_tool_name(tool_name)
 
 
+def is_codex_question_call(all_record_fields: dict[str, object]) -> bool:
+    """Return True for a Codex tool call record that sends a question card."""
+    payload_body = _codex_payload(all_record_fields)
+    if payload_body is None or payload_body.get(RECORD_TYPE_KEY) not in ALL_CODEX_TOOL_CALL_TYPES:
+        return False
+    return payload_body.get(TOOL_NAME_KEY) in ALL_QUESTION_TOOL_NAMES
+
+
 def is_work_tool_name(tool_name: object) -> bool:
     """Return True for a tool name other than a non-work tool or the session title tool."""
     return not (
@@ -332,11 +343,13 @@ class TranscriptReplay:
         self.turn_prompt_text = ""
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
+        self.has_turn_question_tool = False
 
     def start_turn(self, prompt_text: str) -> None:
         self.turn_prompt_text = prompt_text
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
+        self.has_turn_question_tool = False
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
@@ -349,6 +362,9 @@ class TranscriptReplay:
         if plan_items is not None:
             self.latest_items = plan_items
             self.has_turn_tracker_write = True
+            return
+        if is_codex_question_call(all_record_fields):
+            self.has_turn_question_tool = True
             return
         if is_codex_work_call(all_record_fields):
             self.has_turn_work_tool = True
@@ -406,6 +422,8 @@ class TranscriptReplay:
             self.apply_tool_result(all_block_fields)
 
     def note_turn_tool(self, tool_name: str) -> None:
+        if tool_name in ALL_QUESTION_TOOL_NAMES:
+            self.has_turn_question_tool = True
         if tool_name in ALL_TRACKER_TOOL_NAMES:
             self.has_turn_tracker_write = True
         elif is_work_tool_name(tool_name):

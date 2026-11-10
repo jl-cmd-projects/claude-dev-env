@@ -239,3 +239,135 @@ def test_should_mask_code_spans_the_way_commonmark_pairs_them(
     paragraph_text: str, masked_text: str
 ) -> None:
     assert final_reply_gate.code_spans_masked(paragraph_text) == masked_text
+
+
+BARE_QUESTION_REPLY = (
+    "PR 8093 merged into the branch of PR 8007 by mistake.\n\n"
+    "My question on PR 8093 still stands. Keep it merged into the branch of PR 8007, or revert it?"
+)
+STANDING_QUESTION_REPLY = "Checks are green.\n\nMy question on the revert still stands."
+REPORT_ONLY_REPLY = "Both branches are rebuilt.\n\nThe tests pass on each."
+
+
+def prompt_record(prompt_text: str) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": prompt_text}}
+
+
+def assistant_tool_record(tool_name: str, tool_input: dict[str, object]) -> dict[str, object]:
+    tool_use = {"type": "tool_use", "id": "q1", "name": tool_name, "input": tool_input}
+    return {"type": "assistant", "message": {"role": "assistant", "content": [tool_use]}}
+
+
+def assistant_text_record(reply_text: str) -> dict[str, object]:
+    text_block = {"type": "text", "text": reply_text}
+    return {"type": "assistant", "message": {"role": "assistant", "content": [text_block]}}
+
+
+def stop_feedback_record() -> dict[str, object]:
+    feedback = {"role": "user", "content": "Stop hook feedback: send the question"}
+    return {"type": "user", "isMeta": True, "message": feedback}
+
+
+def write_records(transcript_path: Path, all_records: list[dict[str, object]]) -> Path:
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_record) for each_record in all_records), encoding="utf-8"
+    )
+    return transcript_path
+
+
+ASK_INPUT: dict[str, object] = {"questions": [{"question": "Keep PR 8093 merged?", "options": []}]}
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "all_turn_records"),
+    [
+        (BARE_QUESTION_REPLY, [prompt_record("what now"), assistant_text_record(BARE_QUESTION_REPLY)]),
+        (STANDING_QUESTION_REPLY, [prompt_record("status"), assistant_text_record(STANDING_QUESTION_REPLY)]),
+        (
+            BARE_QUESTION_REPLY,
+            [
+                prompt_record("first"),
+                assistant_tool_record("AskUserQuestion", ASK_INPUT),
+                prompt_record("second"),
+                assistant_text_record(BARE_QUESTION_REPLY),
+            ],
+        ),
+        (
+            BARE_QUESTION_REPLY,
+            [
+                prompt_record("what now"),
+                assistant_tool_record("mcp__ccd_turn__wrap_up", {"recap": "r", "ask": "Keep or revert?"}),
+                assistant_text_record(BARE_QUESTION_REPLY),
+            ],
+        ),
+    ],
+)
+def test_should_block_a_closing_question_no_question_tool_sent(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    reply_text: str,
+    all_turn_records: list[dict[str, object]],
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_turn_records)
+    _, stdout_text = run_gate(monkeypatch, capsys, reply_text, transcript_path)
+    decision = json.loads(stdout_text)
+    assert decision["decision"] == "block"
+    assert "AskUserQuestion" in decision["reason"]
+    assert "Rewrite the reply without it." not in decision["reason"]
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "all_turn_records"),
+    [
+        (
+            BARE_QUESTION_REPLY,
+            [
+                prompt_record("what now"),
+                assistant_tool_record("AskUserQuestion", ASK_INPUT),
+                assistant_text_record(BARE_QUESTION_REPLY),
+            ],
+        ),
+        (
+            BARE_QUESTION_REPLY,
+            [
+                prompt_record("what now"),
+                assistant_text_record(BARE_QUESTION_REPLY),
+                stop_feedback_record(),
+                assistant_tool_record("AskUserQuestion", ASK_INPUT),
+                assistant_text_record(BARE_QUESTION_REPLY),
+            ],
+        ),
+        (REPORT_ONLY_REPLY, [prompt_record("status"), assistant_text_record(REPORT_ONLY_REPLY)]),
+        (
+            "The log shows:\n\n```\nretry?\n```",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+        (
+            "He wrote:\n\n> Keep it or revert it?",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+        (
+            "The flag reads `--confirm?`",
+            [prompt_record("status"), assistant_text_record("x")],
+        ),
+    ],
+)
+def test_should_pass_a_reply_whose_question_went_through_the_tool_or_that_asks_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    reply_text: str,
+    all_turn_records: list[dict[str, object]],
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_turn_records)
+    exit_code, stdout_text = run_gate(monkeypatch, capsys, reply_text, transcript_path)
+    assert exit_code == 0
+    assert stdout_text == ""
+
+
+def test_should_pass_a_closing_question_when_the_transcript_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    _, stdout_text = run_gate(monkeypatch, capsys, BARE_QUESTION_REPLY, tmp_path / "missing.jsonl")
+    assert stdout_text == ""
