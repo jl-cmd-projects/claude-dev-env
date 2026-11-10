@@ -190,7 +190,7 @@ def test_default_home_rule_matches_the_documented_paragraph() -> None:
         "`check --home` answers as `choose --home` does.",
         (
             "A spent mark saved for the roster account that has this home, by `run` or by `choose --spent`, "
-            f"still gives `{constants.TIER_WAIT}` until its reset."
+            f"still gives `{constants.TIER_WAIT}` until its reset, unless that account has spendable credits."
         ),
         (
             "A mark is keyed by product, account name and home, and `--home` reads a home the roster does not list "
