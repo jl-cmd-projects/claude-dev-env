@@ -22,11 +22,13 @@ from account_broker import (
     choose_from_readings,
     run_job,
 )
+from dev_env_scripts_constants import codex_account_constants
 from dev_env_scripts_constants.account_broker_constants import WAIT_EXIT_CODE
 from dev_env_scripts_constants.claude_chain_usage_constants import NO_ACCESS_TOKEN_ERROR_TEMPLATE
 
 
 NOW = datetime(2026, 10, 3, tzinfo=timezone.utc)
+DEFAULT_PLAN = "team"
 
 
 class _FrozenClock(datetime):
@@ -54,7 +56,9 @@ def _meters(
     *,
     short_reset: datetime | None = None,
     weekly_reset: datetime | None = None,
-    plan_type: str | None = None,
+    plan_type: str | None = DEFAULT_PLAN,
+    credit_balance: float | None = None,
+    is_credits_unlimited: bool = False,
 ) -> Meters:
     return Meters(
         short_left,
@@ -62,6 +66,9 @@ def _meters(
         weekly_left,
         weekly_reset or NOW + timedelta(days=3),
         plan_type,
+        credit_balance is not None,
+        is_credits_unlimited,
+        credit_balance,
     )
 
 
@@ -135,7 +142,7 @@ def test_should_pick_a_pro_plan_account_over_a_roomier_team_account() -> None:
     assert decision.tier == "normal"
 
 
-def test_should_pick_a_team_account_in_the_normal_tier_over_a_pro_plan_account_below_the_floor() -> None:
+def test_should_pick_a_pro_plan_account_below_the_floor_over_a_team_account_in_the_normal_tier() -> None:
     readings = (
         Reading(_account("personal"), _meters(50, 8, plan_type="pro")),
         Reading(_account("team-jon"), _meters(40, 30, plan_type="team")),
@@ -143,8 +150,629 @@ def test_should_pick_a_team_account_in_the_normal_tier_over_a_pro_plan_account_b
 
     decision = choose_from_readings(Product.CODEX, readings, now=NOW)
 
+    assert decision.account == readings[0].account
+    assert decision.tier == "luna"
+
+
+FREE_PLAN = "free"
+TEAM_PLAN = "team"
+PRO_PLAN = "prolite"
+CREDIT_BALANCE = 83600.8856485
+
+
+def _current_roster() -> tuple[Reading, ...]:
+    return (
+        Reading(_account("editor"), _meters(None, 100, plan_type=FREE_PLAN)),
+        Reading(_account("team-mel"), _meters(None, 81, plan_type=TEAM_PLAN)),
+        Reading(_account("team-jon"), _meters(None, 81, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 1, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE)),
+    )
+
+
+def test_should_choose_the_pro_account_with_credits_over_free_and_team_accounts_with_more_room() -> None:
+    readings = _current_roster()
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == readings[3].account
+    assert decision.tier == "normal"
+    assert decision.reason == "personal has 1% left and credits"
+
+
+def test_should_choose_the_current_roster_through_the_choose_command(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    readings = _current_roster()
+    all_meters = {each_reading.account.name: each_reading.meters for each_reading in readings}
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter(tuple(each_reading.account for each_reading in readings), all_meters),
+    )
+
+    exit_code = account_broker.main(("choose", "--product", "codex"))
+
+    payload = json.loads(capsys.readouterr().out)
+    personal_entry = next(each_entry for each_entry in payload["accounts"] if each_entry["name"] == "personal")
+    assert exit_code == 0
+    assert payload["decision"]["account"] == "personal"
+    assert payload["decision"]["tier"] == "normal"
+    assert personal_entry["meters"]["plan_type"] == PRO_PLAN
+    assert personal_entry["meters"]["has_credits"] is True
+    assert personal_entry["meters"]["credit_balance"] == CREDIT_BALANCE
+
+
+def test_should_never_choose_a_free_account_even_when_it_has_the_most_room() -> None:
+    readings = (
+        Reading(_account("editor"), _meters(100, 100, plan_type=FREE_PLAN)),
+        Reading(_account("team"), _meters(40, 5, plan_type=TEAM_PLAN)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+@pytest.mark.parametrize(
+    ("credit_balance", "is_credits_unlimited"), ((None, False), (CREDIT_BALANCE, False), (None, True))
+)
+def test_should_wait_and_name_the_free_plan_when_the_only_account_is_free(
+    credit_balance: float | None, is_credits_unlimited: bool
+) -> None:
+    reading = Reading(
+        _account("editor"),
+        _meters(100, 100, plan_type=FREE_PLAN, credit_balance=credit_balance, is_credits_unlimited=is_credits_unlimited),
+    )
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+    assert decision.reason == (
+        "no account has room (editor is on a free plan and is never chosen); next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_exit_three_for_check_when_the_only_account_is_free(monkeypatch: pytest.MonkeyPatch) -> None:
+    account = _account("editor")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"editor": _meters(100, 100, plan_type=FREE_PLAN)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == WAIT_EXIT_CODE
+
+
+def test_should_not_run_a_job_on_a_free_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    account = _account("editor")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"editor": _meters(100, 100, plan_type=FREE_PLAN)}),
+    )
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_invoked_homes.append(Path(options["env"]["CODEX_HOME"]).name)
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert all_invoked_homes == []
+    assert outcome.status == "wait"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+def _pro_below_the_normal_bar_beside_a_roomy_team() -> tuple[Reading, ...]:
+    return (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 5, plan_type="pro")),
+    )
+
+
+def test_should_give_a_caller_with_no_tier_requirement_the_pro_account_in_the_luna_tier() -> None:
+    readings = _pro_below_the_normal_bar_beside_a_roomy_team()
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+def test_should_give_a_caller_that_requires_the_normal_tier_the_team_account_over_a_pro_account_in_luna() -> None:
+    readings = _pro_below_the_normal_bar_beside_a_roomy_team()
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW, required_tier="normal")
+
+    assert decision.action == "run"
+    assert decision.account == readings[0].account
+    assert decision.tier == "normal"
+
+
+def test_should_give_a_caller_that_requires_the_normal_tier_the_pro_account_when_it_qualifies() -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 30, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW, required_tier="normal")
+
     assert decision.account == readings[1].account
     assert decision.tier == "normal"
+
+
+def test_should_give_a_caller_that_requires_the_normal_tier_a_pro_account_that_runs_on_credits() -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 0.5, plan_type="pro", credit_balance=CREDIT_BALANCE)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW, required_tier="normal")
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
+
+
+def test_should_wait_for_a_caller_that_requires_the_normal_tier_when_every_account_is_in_luna() -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 5, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 5, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW, required_tier="normal")
+
+    assert decision.action == "wait"
+    assert decision.account is None
+    assert decision.tier == "wait"
+
+
+def test_should_never_give_a_caller_that_requires_the_normal_tier_a_free_account_with_more_room() -> None:
+    readings = (
+        Reading(_account("editor"), _meters(100, 100, plan_type=FREE_PLAN)),
+        Reading(_account("team"), _meters(None, 5, plan_type=TEAM_PLAN)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW, required_tier="normal")
+
+    assert decision.action == "wait"
+
+
+def test_should_leave_a_claude_choice_unchanged_for_a_caller_that_requires_the_normal_tier() -> None:
+    readings = (
+        Reading(_account("first", Product.CLAUDE), _meters(12, 80)),
+        Reading(_account("second", Product.CLAUDE), _meters(70, 40)),
+    )
+
+    without_requirement = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+    with_requirement = choose_from_readings(Product.CLAUDE, readings, now=NOW, required_tier="normal")
+
+    assert with_requirement == without_requirement
+
+
+def test_should_pass_the_required_tier_through_the_choose_command(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    readings = _pro_below_the_normal_bar_beside_a_roomy_team()
+    all_meters = {each_reading.account.name: each_reading.meters for each_reading in readings}
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter(tuple(each_reading.account for each_reading in readings), all_meters),
+    )
+
+    without_requirement_code = account_broker.main(("choose", "--product", "codex"))
+    without_requirement = json.loads(capsys.readouterr().out)["decision"]
+    with_requirement_code = account_broker.main(("choose", "--product", "codex", "--require-tier", "normal"))
+    with_requirement = json.loads(capsys.readouterr().out)["decision"]
+
+    assert (without_requirement_code, without_requirement["account"], without_requirement["tier"]) == (0, "personal", "luna")
+    assert (with_requirement_code, with_requirement["account"], with_requirement["tier"]) == (0, "team", "normal")
+
+
+def test_should_exit_three_with_a_wait_answer_when_the_required_tier_has_no_account(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = _account("personal")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"personal": _meters(None, 5, plan_type="pro")}),
+    )
+
+    exit_code = account_broker.main(("choose", "--product", "codex", "--require-tier", "normal"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert exit_code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["tier"] == "wait"
+
+
+def test_should_refuse_a_required_tier_the_broker_does_not_name(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as raised:
+        account_broker.main(("choose", "--product", "codex", "--require-tier", "turbo"))
+
+    assert raised.value.code == 2
+    assert "invalid choice: 'turbo'" in capsys.readouterr().err
+
+
+UNKNOWN_PLAN = "unknown"
+NO_PLAN_VALUES = (None, UNKNOWN_PLAN, "Unknown", " UNKNOWN ", "")
+
+
+@pytest.mark.parametrize("plan_type", NO_PLAN_VALUES)
+def test_should_never_choose_an_account_with_no_known_plan_even_when_it_has_the_most_room(plan_type: str | None) -> None:
+    readings = (
+        Reading(_account("unlabelled"), _meters(100, 100, plan_type=plan_type)),
+        Reading(_account("team"), _meters(40, 5, plan_type=TEAM_PLAN)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+@pytest.mark.parametrize(
+    ("credit_balance", "is_credits_unlimited"), ((None, False), (CREDIT_BALANCE, False), (None, True))
+)
+def test_should_wait_and_name_the_missing_plan_when_the_only_account_has_no_known_plan(
+    credit_balance: float | None, is_credits_unlimited: bool
+) -> None:
+    reading = Reading(
+        _account("unlabelled"),
+        _meters(100, 100, plan_type=UNKNOWN_PLAN, credit_balance=credit_balance, is_credits_unlimited=is_credits_unlimited),
+    )
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+    assert decision.reason == (
+        "no account has room (unlabelled reports no known plan and is never chosen); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_name_each_refusal_apart_when_a_free_account_and_an_account_with_no_plan_are_the_only_accounts() -> None:
+    readings = (
+        Reading(_account("editor"), _meters(100, 100, plan_type=FREE_PLAN)),
+        Reading(_account("unlabelled"), _meters(100, 100, plan_type=None)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.reason == (
+        "no account has room (editor is on a free plan and is never chosen, "
+        "unlabelled reports no known plan and is never chosen); next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_exit_three_for_check_when_the_only_account_has_no_known_plan(monkeypatch: pytest.MonkeyPatch) -> None:
+    account = _account("unlabelled")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"unlabelled": _meters(100, 100, plan_type=UNKNOWN_PLAN)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == WAIT_EXIT_CODE
+
+
+def test_should_keep_the_unread_handling_for_an_account_whose_meters_could_not_be_read() -> None:
+    readings = (
+        Reading(_account("unread"), None, "codex app-server failed: timed out"),
+        Reading(_account("unlabelled"), _meters(100, 100, plan_type=None)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.reason == (
+        "no readable account has room (unlabelled reports no known plan and is never chosen); "
+        "meter unreadable for unread (codex app-server failed: timed out); next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+UNRECOGNISED_PLANS = ("free_works", "free trial", "pro_trial", "teams", "freemium")
+PAID_PLANS = ("pro", "prolite", "promax", "team", "plus", "business", "enterprise", "edu")
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_never_choose_an_account_on_an_unrecognised_plan_even_when_it_has_the_most_room(plan_type: str) -> None:
+    readings = (
+        Reading(_account("unrecognised"), _meters(100, 100, plan_type=plan_type)),
+        Reading(_account("team"), _meters(40, 5, plan_type=TEAM_PLAN)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+@pytest.mark.parametrize(
+    ("credit_balance", "is_credits_unlimited"), ((None, False), (CREDIT_BALANCE, False), (None, True))
+)
+def test_should_wait_and_name_the_missing_plan_when_the_only_account_is_on_an_unrecognised_plan(
+    plan_type: str, credit_balance: float | None, is_credits_unlimited: bool
+) -> None:
+    reading = Reading(
+        _account("unrecognised"),
+        _meters(100, 100, plan_type=plan_type, credit_balance=credit_balance, is_credits_unlimited=is_credits_unlimited),
+    )
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+    assert decision.reason == (
+        "no account has room (unrecognised reports no known plan and is never chosen); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_never_choose_an_account_on_an_unrecognised_plan_when_the_floor_switch_is_on(
+    monkeypatch: pytest.MonkeyPatch, plan_type: str
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    reading = Reading(_account("unrecognised"), _meters(30, 0.5, plan_type=plan_type))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_exit_three_for_check_when_the_only_account_is_on_an_unrecognised_plan(
+    monkeypatch: pytest.MonkeyPatch, plan_type: str
+) -> None:
+    account = _account("unrecognised")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"unrecognised": _meters(100, 100, plan_type=plan_type)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_not_run_a_job_on_an_account_on_an_unrecognised_plan(
+    monkeypatch: pytest.MonkeyPatch, plan_type: str
+) -> None:
+    account = _account("unrecognised")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"unrecognised": _meters(100, 100, plan_type=plan_type)}),
+    )
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_invoked_homes.append(Path(options["env"]["CODEX_HOME"]).name)
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert all_invoked_homes == []
+    assert outcome.status == "wait"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("plan_type", PAID_PLANS)
+def test_should_choose_an_account_on_every_listed_paid_plan(plan_type: str) -> None:
+    reading = Reading(_account("paid"), _meters(100, 100, plan_type=plan_type))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == reading.account
+    assert decision.tier == "normal"
+
+
+@pytest.mark.parametrize("plan_type", [each_plan.upper() for each_plan in PAID_PLANS] + [f" {PAID_PLANS[0]} "])
+def test_should_choose_an_account_on_a_listed_paid_plan_whatever_its_case_or_padding(plan_type: str) -> None:
+    reading = Reading(_account("paid"), _meters(100, 100, plan_type=plan_type))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == reading.account
+
+
+def test_should_still_choose_a_claude_account_whose_meters_carry_no_plan_type() -> None:
+    readings = (Reading(_account("main", Product.CLAUDE), _meters(80, 80, plan_type=None)),)
+
+    decision = choose_from_readings(Product.CLAUDE, readings, now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == readings[0].account
+    assert decision.tier == "normal"
+
+
+def test_should_keep_the_reset_time_of_a_claude_account_with_no_plan_type_when_it_has_no_room() -> None:
+    reading = Reading(_account("main", Product.CLAUDE), _meters(0, 80, plan_type=None))
+
+    decision = choose_from_readings(Product.CLAUDE, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.session_resets_at
+    assert decision.reason == f"no account has room (main 0% left); next reset at {reading.meters.session_resets_at.isoformat()}"
+
+
+def test_should_choose_a_team_account_with_credits_at_both_floors() -> None:
+    reading = Reading(_account("team"), _meters(0, 0.5, plan_type=TEAM_PLAN, credit_balance=CREDIT_BALANCE))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == reading.account
+
+
+def test_should_exit_zero_for_check_on_an_account_with_credits_at_both_floors(monkeypatch: pytest.MonkeyPatch) -> None:
+    account = _account("personal")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"personal": _meters(0, 0.5, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == 0
+
+
+def test_should_wait_on_an_account_at_both_floors_with_a_zero_credit_balance() -> None:
+    reading = Reading(_account("team"), _meters(0, 0.5, plan_type=TEAM_PLAN, credit_balance=0.0))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.weekly_resets_at
+
+
+def test_should_wait_for_the_session_reset_of_a_pro_account_at_zero_with_a_zero_credit_balance() -> None:
+    reading = Reading(_account("personal"), _meters(0, 0.5, plan_type=PRO_PLAN, credit_balance=0.0))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.session_resets_at
+
+
+def test_should_choose_an_unlimited_credits_account_at_both_floors() -> None:
+    reading = Reading(_account("personal"), _meters(0, 0.5, plan_type="pro", is_credits_unlimited=True))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == reading.account
+
+
+def test_should_prefer_a_pro_account_with_plan_usage_over_a_pro_account_with_only_credits() -> None:
+    readings = (
+        Reading(_account("credits-only"), _meters(None, 0.5, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE)),
+        Reading(_account("with-usage"), _meters(40, 30, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.reason == "with-usage has 30% left"
+
+
+def test_should_prefer_a_team_account_with_plan_usage_over_a_team_account_with_only_credits() -> None:
+    readings = (
+        Reading(_account("credits-only"), _meters(None, 0.5, plan_type=TEAM_PLAN, credit_balance=CREDIT_BALANCE)),
+        Reading(_account("with-usage"), _meters(40, 30, plan_type=TEAM_PLAN)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+
+
+def test_should_prefer_a_pro_account_with_only_credits_over_a_team_account_with_more_room() -> None:
+    readings = (
+        Reading(_account("team"), _meters(90, 85, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, 0.5, plan_type="promax", credit_balance=CREDIT_BALANCE)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+
+
+@pytest.mark.parametrize("weekly_left", (5, 9))
+def test_should_choose_a_pro_account_below_the_normal_floor_over_a_team_account_with_more_room(weekly_left: float) -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, weekly_left, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+@pytest.mark.parametrize(("short_left", "weekly_left"), ((5, 80), (0.5, 80), (None, 1), (None, 0.5), (19, 1)))
+def test_should_choose_a_pro_account_with_plan_usage_left_in_both_windows_over_a_team_account(
+    short_left: float | None, weekly_left: float
+) -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(short_left, weekly_left, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+@pytest.mark.parametrize(("short_left", "weekly_left"), ((0, 80), (80, 0), (0, 0), (None, 0)))
+def test_should_skip_a_pro_account_with_a_window_at_zero_and_no_credits(
+    short_left: float | None, weekly_left: float
+) -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(short_left, weekly_left, plan_type="pro")),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[0].account
+    assert decision.tier == "normal"
+
+
+def test_should_wait_for_the_reset_of_a_pro_account_at_zero_when_it_is_the_only_account() -> None:
+    reading = Reading(_account("personal"), _meters(0, 80, plan_type="pro"))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.session_resets_at
+
+
+@pytest.mark.parametrize("weekly_left", (0, 1))
+def test_should_choose_a_pro_account_with_credits_at_the_stop_floor_over_a_team_account(weekly_left: float) -> None:
+    readings = (
+        Reading(_account("team"), _meters(None, 90, plan_type=TEAM_PLAN)),
+        Reading(_account("personal"), _meters(None, weekly_left, plan_type="pro", credit_balance=CREDIT_BALANCE)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "normal"
+
+
+def test_should_keep_plan_and_credits_through_the_meter_cache() -> None:
+    account = _account("personal")
+    all_reads: list[str] = []
+
+    def read_meters(each_account: Account) -> Meters:
+        all_reads.append(each_account.name)
+        return _meters(None, 1, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE)
+
+    adapter = ProductAdapter(lambda: (account,), read_meters, "CODEX_HOME", ())
+    state = account_broker._load_state(account_broker.broker_state_path())
+
+    fresh = account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW)
+    cached = account_broker.read_accounts(Product.CODEX, adapter, all_state=state, now=NOW + timedelta(seconds=10))
+
+    assert all_reads == ["personal"]
+    assert cached[0].meters == fresh[0].meters
+    assert cached[0].meters.has_spendable_credits is True
+    assert cached[0].meters.plan_type == PRO_PLAN
 
 
 def test_should_keep_list_order_when_tighter_windows_tie() -> None:
@@ -449,6 +1077,73 @@ def test_should_use_luna_floor_without_choosing_a_model() -> None:
     assert decision.account == reading.account
     assert decision.tier == "luna"
     assert not hasattr(decision, "model")
+
+
+def _disable_codex_weekly_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(codex_account_constants.CODEX_WEEKLY_FLOOR_DISABLED_ENVIRONMENT_VARIABLE, "1")
+
+
+def test_should_wait_when_the_only_account_is_at_the_weekly_floor() -> None:
+    reading = Reading(_account("credits"), _meters(30, 0.5))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.weekly_resets_at
+
+
+def test_should_choose_an_account_at_the_weekly_floor_when_the_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    reading = Reading(_account("credits"), _meters(30, 0.5))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "run"
+    assert decision.account == reading.account
+    assert decision.tier == "luna"
+
+
+def test_should_prefer_an_account_with_room_over_one_at_the_weekly_floor_when_the_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    readings = (
+        Reading(_account("credits"), _meters(30, 0.5)),
+        Reading(_account("roomy"), _meters(30, 8)),
+    )
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
+
+    assert decision.account == readings[1].account
+    assert decision.tier == "luna"
+
+
+def test_should_still_wait_on_a_spent_session_when_the_weekly_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    reading = Reading(_account("credits"), _meters(0, 0.5))
+
+    decision = choose_from_readings(Product.CODEX, (reading,), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.resets_at == reading.meters.session_resets_at
+
+
+def test_should_exit_zero_for_check_on_an_account_at_the_weekly_floor_when_the_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    account = _account("credits")
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((account,), {"credits": _meters(30, 0.5)}),
+    )
+
+    assert account_broker.main(("check", "--product", "codex")) == 0
 
 
 def test_should_keep_resume_affinity_when_account_has_room() -> None:
@@ -819,7 +1514,7 @@ def test_should_exit_with_job_failure_code(
 ) -> None:
     accounts = tuple(_account(each_name, product) for each_name in roster_names)
     monkeypatch.setitem(account_broker.all_product_adapters, product, _adapter(accounts, {
-        each_name: _meters(80, 80) for each_name in roster_names
+        each_name: _meters(80, 80) for each_name in (*roster_names, "default")
     }))
     monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
 
@@ -873,10 +1568,483 @@ def test_should_use_default_codex_home_without_roster(
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "default"))
 
     assert account_broker.load_codex_accounts() == ()
-    decision = choose_from_readings(Product.CODEX, (), now=NOW)
+    all_meters = {"default": _meters(40, 60, plan_type="pro")}
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), all_meters))
+    state = account_broker._load_state(account_broker.broker_state_path())
+
+    readings = account_broker.read_accounts(Product.CODEX, all_state=state, now=NOW)
+
+    decision = choose_from_readings(Product.CODEX, readings, now=NOW)
     assert decision.account.name == "default"
     assert decision.account.home == (tmp_path / "default").resolve()
-    assert "no roster" in decision.reason
+    assert decision.reason == "default has 40% left"
+
+
+def _use_default_home_without_roster(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_meters: Meters | Exception
+) -> tuple[Path, list[str]]:
+    home = tmp_path / "default-home"
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.setattr(account_broker_support.time, "sleep", lambda _: None)
+    all_read_names: list[str] = []
+
+    def read_meters(account: Account) -> Meters:
+        all_read_names.append(account.name)
+        if isinstance(default_meters, Exception):
+            raise default_meters
+        return default_meters
+
+    adapter = ProductAdapter(lambda: (), read_meters, "CODEX_HOME", ("rate limit",))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, adapter)
+    _freeze_clock(monkeypatch, NOW)
+    return home.resolve(), all_read_names
+
+
+def test_should_read_the_meters_of_the_default_home_when_no_roster_is_configured(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home, all_read_names = _use_default_home_without_roster(monkeypatch, tmp_path, _meters(40, 60, plan_type="pro"))
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert all_read_names == ["default"]
+    assert payload["decision"]["account"] == "default"
+    assert payload["decision"]["home"] == str(home)
+    assert payload["decision"]["reason"] == "default has 40% left"
+    assert payload["accounts"][0]["meters"]["plan_type"] == "pro"
+
+
+@pytest.mark.parametrize("blank_home", ("", "   ", "\t"))
+def test_should_choose_the_home_directory_default_when_codex_home_is_blank_and_no_roster_is_configured(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str], blank_home: str
+) -> None:
+    _use_default_home_without_roster(monkeypatch, tmp_path, _meters(40, 60, plan_type="pro"))
+    monkeypatch.setenv("CODEX_HOME", blank_home)
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["home"] == str((Path.home() / ".codex").resolve())
+
+
+@pytest.mark.parametrize(
+    ("plan_type", "refusal"),
+    (
+        ("free", "default is on a free plan and is never chosen"),
+        (None, "default reports no known plan and is never chosen"),
+        ("unknown", "default reports no known plan and is never chosen"),
+        ("free_works", "default reports no known plan and is never chosen"),
+    ),
+)
+def test_should_wait_when_the_default_home_is_free_or_has_no_known_plan(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    plan_type: str | None,
+    refusal: str,
+) -> None:
+    _use_default_home_without_roster(monkeypatch, tmp_path, _meters(100, 100, plan_type=plan_type))
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["account"] is None
+    assert decision["reason"] == f"no account has room ({refusal}); next check at 2026-10-03T01:00:00+00:00"
+
+
+def test_should_wait_and_name_the_failed_read_when_the_default_home_meters_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _use_default_home_without_roster(monkeypatch, tmp_path, OSError("codex app-server failed: timed out"))
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["reason"] == (
+        "no account meter could be read (default (codex app-server failed: timed out)); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_wait_when_the_default_home_has_no_reading() -> None:
+    decision = choose_from_readings(Product.CODEX, (), now=NOW)
+
+    assert decision.action == "wait"
+    assert decision.account is None
+
+
+def test_should_not_start_a_job_on_a_free_default_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _use_default_home_without_roster(monkeypatch, tmp_path, _meters(100, 100, plan_type=FREE_PLAN))
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_invoked_homes.append(options["env"]["CODEX_HOME"])
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert all_invoked_homes == []
+    assert outcome.status == "wait"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_not_start_a_job_on_a_default_home_on_an_unrecognised_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, plan_type: str
+) -> None:
+    _use_default_home_without_roster(monkeypatch, tmp_path, _meters(100, 100, plan_type=plan_type))
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_invoked_homes.append(options["env"]["CODEX_HOME"])
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert all_invoked_homes == []
+    assert outcome.status == "wait"
+    assert outcome.returncode == WAIT_EXIT_CODE
+
+
+def _use_roster_beside_an_outside_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, outside_meters: Meters | Exception
+) -> tuple[Path, list[str]]:
+    outside_home = (tmp_path / "exported-home").resolve()
+    roster = (_account("team"),)
+    all_read_names: list[str] = []
+
+    def read_meters(account: Account) -> Meters:
+        all_read_names.append(account.name)
+        if account.name == "team":
+            return _meters(90, 90, plan_type=TEAM_PLAN)
+        if isinstance(outside_meters, Exception):
+            raise outside_meters
+        return outside_meters
+
+    monkeypatch.setattr(account_broker_support.time, "sleep", lambda _: None)
+    monkeypatch.setitem(
+        account_broker.all_product_adapters, Product.CODEX, ProductAdapter(lambda: roster, read_meters, "CODEX_HOME", ())
+    )
+    _freeze_clock(monkeypatch, NOW)
+    return outside_home, all_read_names
+
+
+def test_should_judge_only_the_named_home_when_choose_gets_a_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, all_read_names = _use_roster_beside_an_outside_home(
+        monkeypatch, tmp_path, _meters(None, 5, plan_type="pro")
+    )
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert all_read_names == ["exported-home"]
+    assert payload["decision"]["action"] == "run"
+    assert payload["decision"]["home"] == str(outside_home)
+    assert payload["decision"]["tier"] == "luna"
+    assert [each_entry["home"] for each_entry in payload["accounts"]] == [str(outside_home)]
+
+
+@pytest.mark.parametrize(
+    ("plan_type", "refusal"),
+    (
+        ("free", "exported-home is on a free plan and is never chosen"),
+        (None, "exported-home reports no known plan and is never chosen"),
+        ("unknown", "exported-home reports no known plan and is never chosen"),
+        ("free_works", "exported-home reports no known plan and is never chosen"),
+    ),
+)
+def test_should_wait_when_the_named_home_is_free_or_has_no_known_plan(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    plan_type: str | None,
+    refusal: str,
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(100, 100, plan_type=plan_type))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["reason"] == f"no account has room ({refusal}); next check at 2026-10-03T01:00:00+00:00"
+
+
+def test_should_wait_when_the_meters_of_the_named_home_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, OSError("codex app-server failed: timed out"))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["reason"] == (
+        "no account meter could be read (exported-home (codex app-server failed: timed out)); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_exit_three_for_check_when_the_named_home_is_free(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(100, 100, plan_type=FREE_PLAN))
+
+    assert account_broker.main(("check", "--product", "codex", "--home", str(outside_home))) == WAIT_EXIT_CODE
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLANS)
+def test_should_exit_three_for_check_when_the_named_home_is_on_an_unrecognised_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, plan_type: str
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(100, 100, plan_type=plan_type))
+
+    assert account_broker.main(("check", "--product", "codex", "--home", str(outside_home))) == WAIT_EXIT_CODE
+
+
+def test_should_not_let_the_floor_switch_or_credits_unlock_a_named_home_on_an_unrecognised_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    outside_home, _ = _use_roster_beside_an_outside_home(
+        monkeypatch, tmp_path, _meters(30, 0.5, plan_type="free_works", credit_balance=CREDIT_BALANCE, is_credits_unlimited=True)
+    )
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["account"] is None
+
+
+def test_should_run_a_named_team_home_at_half_a_percent_weekly_without_credits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 0.5, plan_type=TEAM_PLAN))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["home"] == str(outside_home)
+    assert decision["tier"] == "luna"
+    assert decision["reason"] == "exported-home is the named home and runs whatever room it has left"
+
+
+def test_should_run_a_named_pro_home_with_no_session_room(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(0, 70, plan_type="pro"))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["home"] == str(outside_home)
+    assert decision["tier"] == "luna"
+
+
+@pytest.mark.parametrize("is_floor_switch_on", (False, True))
+def test_should_run_a_named_home_at_the_weekly_floor_whether_the_floor_switch_is_on_or_off(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str], is_floor_switch_on: bool
+) -> None:
+    if is_floor_switch_on:
+        _disable_codex_weekly_floor(monkeypatch)
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 0.5, plan_type=TEAM_PLAN))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["tier"] == "luna"
+
+
+@pytest.mark.parametrize(
+    ("meters", "tier"),
+    (
+        (_meters(80, 50, plan_type=TEAM_PLAN), "normal"),
+        (_meters(30, 8, plan_type=TEAM_PLAN), "luna"),
+        (_meters(80, 0.5, plan_type=TEAM_PLAN, credit_balance=CREDIT_BALANCE), "normal"),
+        (_meters(80, 0.5, plan_type=TEAM_PLAN), "luna"),
+        (_meters(0, 0, plan_type="promax"), "luna"),
+    ),
+)
+def test_should_name_the_tier_a_named_home_would_have_and_luna_when_none_fits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str], meters: Meters, tier: str
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, meters)
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["tier"] == tier
+
+
+def test_should_exit_zero_for_check_when_the_named_home_is_at_half_a_percent_weekly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 0.5, plan_type=TEAM_PLAN))
+
+    assert account_broker.main(("check", "--product", "codex", "--home", str(outside_home))) == 0
+
+
+def test_should_still_wait_on_a_roster_account_at_half_a_percent_weekly_when_no_home_is_named(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((_account("team"),), {"team": _meters(80, 0.5, plan_type=TEAM_PLAN)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["account"] is None
+
+
+def test_should_exit_three_for_check_on_a_roster_account_at_half_a_percent_weekly_when_no_home_is_named(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(
+        account_broker.all_product_adapters,
+        Product.CODEX,
+        _adapter((_account("team"),), {"team": _meters(80, 0.5, plan_type=TEAM_PLAN)}),
+    )
+    _freeze_clock(monkeypatch, NOW)
+
+    assert account_broker.main(("check", "--product", "codex")) == WAIT_EXIT_CODE
+
+
+def test_should_wait_when_a_named_home_below_normal_meets_a_normal_requirement(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 0.5, plan_type=TEAM_PLAN))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home), "--require-tier", "normal"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+
+
+def test_should_wait_on_a_named_home_that_a_saved_spent_mark_still_covers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 80, plan_type="pro"))
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {
+            "meters": {},
+            "spent": {
+                account_broker._state_key(Account(Product.CODEX, "exported-home", outside_home)): (NOW + timedelta(hours=3)).timestamp()
+            },
+            "affinity": {},
+        },
+    )
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == WAIT_EXIT_CODE
+    assert decision["action"] == "wait"
+    assert decision["account"] is None
+
+
+def test_should_use_the_roster_account_when_the_named_home_is_a_roster_home(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    roster_account = _account("team")
+    roster = (roster_account, _account("personal"))
+    all_read_names: list[str] = []
+
+    def read_meters(account: Account) -> Meters:
+        all_read_names.append(account.name)
+        return _meters(80, 80, plan_type=TEAM_PLAN)
+
+    monkeypatch.setitem(
+        account_broker.all_product_adapters, Product.CODEX, ProductAdapter(lambda: roster, read_meters, "CODEX_HOME", ())
+    )
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(roster_account.home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert all_read_names == ["team"]
+    assert decision["account"] == "team"
+
+
+def test_should_not_let_a_spent_roster_account_stop_the_named_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, _ = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 80, plan_type="pro"))
+    account_broker._save_state(
+        account_broker.broker_state_path(),
+        {"meters": {}, "spent": {account_broker._state_key(_account("team")): (NOW + timedelta(hours=3)).timestamp()}, "affinity": {}},
+    )
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home)))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert code == 0
+    assert decision["action"] == "run"
+    assert decision["tier"] == "normal"
+
+
+def test_should_refuse_a_home_beside_spent_marks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside_home, all_read_names = _use_roster_beside_an_outside_home(monkeypatch, tmp_path, _meters(80, 80, plan_type="pro"))
+
+    code = account_broker.main(("choose", "--product", "codex", "--home", str(outside_home), "--spent", "team"))
+
+    assert code == 2
+    assert all_read_names == []
+    assert "--home cannot be used with --spent" in capsys.readouterr().err
+
+
+def test_should_refuse_a_home_for_the_claude_product(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code = account_broker.main(("choose", "--product", "claude", "--home", str(tmp_path)))
+
+    assert code == 2
+    assert "--home applies to the codex product only" in capsys.readouterr().err
+
+
+def test_should_start_a_job_on_a_paid_default_home_with_its_home_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    home, _ = _use_default_home_without_roster(monkeypatch, tmp_path, _meters(40, 60, plan_type="pro"))
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        all_invoked_homes.append(options["env"]["CODEX_HOME"])
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert all_invoked_homes == [str(home)]
+    assert outcome.status == "served"
 
 
 def test_should_keep_the_codex_roster_for_a_process_without_the_roster_variable(
@@ -968,7 +2136,7 @@ def test_should_wait_for_spent_default_home_until_the_mark_passes(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     home = tmp_path / "default-home"
-    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {}))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {"default": _meters(80, 80)}))
     monkeypatch.setenv("CODEX_HOME", str(home))
     _freeze_clock(monkeypatch, NOW)
     reset = NOW + timedelta(hours=2)
@@ -1273,7 +2441,7 @@ def test_should_warn_when_a_spent_mark_names_an_account_outside_the_roster(
 def test_should_not_warn_when_the_default_account_is_marked_without_a_roster(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {}))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter((), {"default": _meters(80, 80)}))
     _freeze_clock(monkeypatch, NOW)
     reset = NOW + timedelta(hours=2)
 
@@ -1290,7 +2458,7 @@ def test_should_warn_when_a_spent_mark_names_an_account_the_roster_lacks(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], all_roster_names: tuple[str, ...], marked_name: str
 ) -> None:
     all_accounts = tuple(_account(each_name) for each_name in all_roster_names)
-    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(all_accounts, {each_name: _meters(80, 80) for each_name in all_roster_names}))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(all_accounts, {each_name: _meters(80, 80) for each_name in (*all_roster_names, "default")}))
     _freeze_clock(monkeypatch, NOW)
     reset = NOW + timedelta(hours=2)
 

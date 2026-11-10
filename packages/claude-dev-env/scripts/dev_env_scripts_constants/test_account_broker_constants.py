@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+import codex_plan_rules
 from dev_env_scripts_constants import account_broker_constants as broker_constants
 from dev_env_scripts_constants import claude_account_constants, codex_account_constants, shared_tree_constants
 from dev_env_scripts_constants.account_broker_constants import (
@@ -40,6 +41,7 @@ from dev_env_scripts_constants.codex_account_constants import (
 )
 
 TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
+FLOOR_TEST_PLAN_TYPE = "team"
 
 
 def test_should_keep_claude_floors_tied_to_the_account_ceilings() -> None:
@@ -226,10 +228,14 @@ def test_should_let_a_codex_account_at_the_short_window_floor_take_luna() -> Non
     weekly_reset = datetime(2026, 10, 4, tzinfo=timezone.utc)
     session_reset = weekly_reset + timedelta(hours=4)
     meters = broker_constants.Meters(
-        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT, session_reset, LUNA_TIER_STOP_PERCENT_LEFT / 2, weekly_reset
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT,
+        session_reset,
+        LUNA_TIER_STOP_PERCENT_LEFT / 2,
+        weekly_reset,
+        FLOOR_TEST_PLAN_TYPE,
     )
 
-    assert broker_constants._codex_tier(
+    assert codex_plan_rules.codex_tier(
         dataclasses.replace(meters, weekly_percent_left=NORMAL_TIER_MINIMUM_PERCENT_LEFT)
     ) == "luna"
     assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
@@ -252,6 +258,357 @@ def test_should_name_the_latest_codex_reset_when_every_blocking_window_has_one()
     )
 
     assert broker_constants._account_reset(_codex_reading(meters)) == weekly_reset
+
+
+WEEKLY_FLOOR_SESSION_RESET = datetime(2026, 10, 3, 2, tzinfo=timezone.utc)
+WEEKLY_FLOOR_WEEKLY_RESET = datetime(2026, 10, 4, tzinfo=timezone.utc)
+ROOMY_SESSION_PERCENT_LEFT = LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT * 2
+
+
+def _weekly_floor_meters(session_percent_left: float | None) -> broker_constants.Meters:
+    return broker_constants.Meters(
+        session_percent_left,
+        WEEKLY_FLOOR_SESSION_RESET if session_percent_left is not None else None,
+        LUNA_TIER_STOP_PERCENT_LEFT / 2,
+        WEEKLY_FLOOR_WEEKLY_RESET,
+        FLOOR_TEST_PLAN_TYPE,
+    )
+
+
+def _disable_codex_weekly_floor(monkeypatch: pytest.MonkeyPatch, setting: str = "1") -> None:
+    monkeypatch.setenv(codex_account_constants.CODEX_WEEKLY_FLOOR_DISABLED_ENVIRONMENT_VARIABLE, setting)
+
+
+def test_should_block_a_codex_account_at_the_weekly_floor_by_default() -> None:
+    meters = _weekly_floor_meters(ROOMY_SESSION_PERCENT_LEFT)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+    assert broker_constants._account_reset(_codex_reading(meters)) == WEEKLY_FLOOR_WEEKLY_RESET
+
+
+def test_should_let_a_codex_account_at_the_weekly_floor_take_luna_when_the_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _weekly_floor_meters(ROOMY_SESSION_PERCENT_LEFT)
+
+    assert codex_plan_rules.codex_tier(meters) == "luna"
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_let_a_codex_account_with_only_a_weekly_window_take_luna_when_the_floor_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _weekly_floor_meters(None)
+
+    assert codex_plan_rules.codex_tier(meters) == "luna"
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_keep_the_session_floor_when_the_weekly_floor_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _weekly_floor_meters(LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+    assert broker_constants._account_reset(_codex_reading(meters)) == WEEKLY_FLOOR_SESSION_RESET
+
+
+@pytest.mark.parametrize("setting", ("1", "true", "TRUE", " yes ", "on"))
+def test_should_disable_the_codex_weekly_floor_for_every_truthy_setting(
+    monkeypatch: pytest.MonkeyPatch, setting: str
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch, setting)
+
+    assert codex_plan_rules.codex_tier(_weekly_floor_meters(ROOMY_SESSION_PERCENT_LEFT)) == "luna"
+
+
+@pytest.mark.parametrize("setting", ("", "0", "false", "off", "no", "disabled"))
+def test_should_keep_the_codex_weekly_floor_for_every_other_setting(
+    monkeypatch: pytest.MonkeyPatch, setting: str
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch, setting)
+
+    assert codex_plan_rules.codex_tier(_weekly_floor_meters(ROOMY_SESSION_PERCENT_LEFT)) is None
+
+
+CREDIT_BALANCE = 12.5
+PRO_PLAN_TYPE = "prolite"
+FREE_PLAN_TYPE = "free"
+TEAM_PLAN_TYPE = "team"
+UNKNOWN_PLAN_TYPE = "unknown"
+WAIT_NOW = datetime(2026, 10, 3, tzinfo=timezone.utc)
+
+
+def _credit_meters(
+    session_percent_left: float | None,
+    *,
+    plan_type: str | None = PRO_PLAN_TYPE,
+    weekly_percent_left: float = LUNA_TIER_STOP_PERCENT_LEFT / 2,
+    has_credits: bool = True,
+    is_credits_unlimited: bool = False,
+    credit_balance: float | None = CREDIT_BALANCE,
+) -> broker_constants.Meters:
+    return dataclasses.replace(
+        _weekly_floor_meters(session_percent_left),
+        weekly_percent_left=weekly_percent_left,
+        plan_type=plan_type,
+        has_credits=has_credits,
+        is_credits_unlimited=is_credits_unlimited,
+        credit_balance=credit_balance,
+    )
+
+
+@pytest.mark.parametrize(
+    ("has_credits", "is_unlimited", "balance", "is_spendable"),
+    (
+        (True, False, CREDIT_BALANCE, True),
+        (True, False, 0.0, False),
+        (True, False, -1.0, False),
+        (True, False, None, False),
+        (False, False, CREDIT_BALANCE, False),
+        (False, False, None, False),
+        (False, True, None, True),
+        (True, True, 0.0, True),
+    ),
+)
+def test_should_count_credits_as_spendable_only_with_a_balance_or_unlimited_use(
+    has_credits: bool, is_unlimited: bool, balance: float | None, is_spendable: bool
+) -> None:
+    meters = _credit_meters(None, has_credits=has_credits, is_credits_unlimited=is_unlimited, credit_balance=balance)
+
+    assert meters.has_spendable_credits is is_spendable
+
+
+def test_should_report_no_credits_for_meters_built_without_them() -> None:
+    meters = broker_constants.Meters(80.0, None, 70.0, None, PRO_PLAN_TYPE)
+
+    assert meters.has_credits is False
+    assert meters.is_credits_unlimited is False
+    assert meters.credit_balance is None
+    assert meters.has_spendable_credits is False
+
+
+@pytest.mark.parametrize(
+    "session_percent_left", (ROOMY_SESSION_PERCENT_LEFT, LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 2, 0.0, None)
+)
+def test_should_let_a_codex_account_with_credits_run_under_both_floors(session_percent_left: float | None) -> None:
+    meters = _credit_meters(session_percent_left)
+
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_NORMAL
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_let_a_codex_account_with_unlimited_credits_run_under_both_floors() -> None:
+    meters = _credit_meters(0.0, has_credits=False, is_credits_unlimited=True, credit_balance=None)
+
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_NORMAL
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+def test_should_let_a_team_account_with_credits_run_under_both_floors() -> None:
+    meters = _credit_meters(0.0, plan_type=TEAM_PLAN_TYPE)
+
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_NORMAL
+
+
+def test_should_keep_both_floors_for_a_non_pro_codex_account_with_a_zero_credit_balance() -> None:
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=TEAM_PLAN_TYPE, credit_balance=0.0)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+    assert broker_constants._account_reset(_codex_reading(meters)) == WEEKLY_FLOOR_WEEKLY_RESET
+
+
+def test_should_let_a_pro_codex_account_with_a_zero_credit_balance_and_plan_room_take_luna() -> None:
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, credit_balance=0.0)
+
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_LUNA
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+@pytest.mark.parametrize("plan_type", (FREE_PLAN_TYPE, "Free", " FREE "))
+def test_should_never_give_a_free_codex_account_a_tier(plan_type: str) -> None:
+    roomy_meters = _credit_meters(
+        ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type, weekly_percent_left=codex_account_constants.FULL_PERCENT, has_credits=False, credit_balance=None
+    )
+
+    assert codex_plan_rules.codex_tier(roomy_meters) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, has_credits=True, credit_balance=CREDIT_BALANCE)) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, is_credits_unlimited=True)) is None
+
+
+def test_should_never_give_a_free_codex_account_a_tier_whatever_the_floors(monkeypatch: pytest.MonkeyPatch) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=FREE_PLAN_TYPE, has_credits=False, credit_balance=None)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+
+
+@pytest.mark.parametrize("plan_type", (None, "unknown", "Unknown", " UNKNOWN ", ""))
+def test_should_never_give_a_codex_account_with_no_known_plan_a_tier(plan_type: str | None) -> None:
+    roomy_meters = _credit_meters(
+        ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type, weekly_percent_left=codex_account_constants.FULL_PERCENT, has_credits=False, credit_balance=None
+    )
+
+    assert codex_plan_rules.codex_tier(roomy_meters) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, has_credits=True, credit_balance=CREDIT_BALANCE)) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, is_credits_unlimited=True)) is None
+
+
+def test_should_never_give_a_codex_account_with_no_known_plan_a_tier_whatever_the_floors(monkeypatch: pytest.MonkeyPatch) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=UNKNOWN_PLAN_TYPE, has_credits=False, credit_balance=None)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+
+
+UNRECOGNISED_PLAN_TYPES = ("free_works", "Free_Works", " free_works ", "free trial", "pro_trial", "teams", "freemium", "proo")
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLAN_TYPES)
+def test_should_never_give_a_codex_account_on_an_unrecognised_plan_a_tier(plan_type: str) -> None:
+    roomy_meters = _credit_meters(
+        ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type, weekly_percent_left=codex_account_constants.FULL_PERCENT, has_credits=False, credit_balance=None
+    )
+
+    assert codex_plan_rules.codex_tier(roomy_meters) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, has_credits=True, credit_balance=CREDIT_BALANCE)) is None
+    assert codex_plan_rules.codex_tier(dataclasses.replace(roomy_meters, is_credits_unlimited=True)) is None
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLAN_TYPES)
+def test_should_never_give_a_codex_account_on_an_unrecognised_plan_a_tier_whatever_the_floors_or_credits(
+    monkeypatch: pytest.MonkeyPatch, plan_type: str
+) -> None:
+    _disable_codex_weekly_floor(monkeypatch)
+    meters = _credit_meters(0.0, plan_type=plan_type, weekly_percent_left=0.0, is_credits_unlimited=True)
+
+    assert codex_plan_rules.codex_tier(meters) is None
+
+
+@pytest.mark.parametrize("plan_type", UNRECOGNISED_PLAN_TYPES)
+def test_should_name_the_missing_plan_when_a_codex_account_is_on_an_unrecognised_plan(plan_type: str) -> None:
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type)
+
+    assert codex_plan_rules.is_refused_plan(meters) is True
+    assert codex_plan_rules.refusal_text("editor", meters) == "editor reports no known plan and is never chosen"
+
+
+@pytest.mark.parametrize(
+    "plan_type", ("pro", "prolite", "promax", "team", "plus", "business", "enterprise", "edu", "Team", " PRO ")
+)
+def test_should_not_refuse_a_codex_account_on_a_listed_paid_plan(plan_type: str) -> None:
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type)
+
+    assert codex_plan_rules.is_refused_plan(meters) is False
+    assert codex_plan_rules.refusal_text("editor", meters) is None
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_NORMAL
+
+
+def test_should_not_refuse_a_codex_account_whose_meters_could_not_be_read() -> None:
+    assert codex_plan_rules.refusal_text("unread", None) is None
+
+
+@pytest.mark.parametrize(
+    ("plan_type", "expected_text"),
+    (
+        (FREE_PLAN_TYPE, "editor is on a free plan and is never chosen"),
+        (None, "editor reports no known plan and is never chosen"),
+        (UNKNOWN_PLAN_TYPE, "editor reports no known plan and is never chosen"),
+        (TEAM_PLAN_TYPE, None),
+        (PRO_PLAN_TYPE, None),
+    ),
+)
+def test_should_name_why_a_codex_plan_is_refused(plan_type: str | None, expected_text: str | None) -> None:
+    meters = _credit_meters(ROOMY_SESSION_PERCENT_LEFT, plan_type=plan_type)
+
+    assert codex_plan_rules.refusal_text("editor", meters) == expected_text
+
+
+def test_should_name_the_free_plan_when_a_free_codex_account_is_the_only_account() -> None:
+    meters = _credit_meters(
+        ROOMY_SESSION_PERCENT_LEFT, plan_type=FREE_PLAN_TYPE, weekly_percent_left=codex_account_constants.FULL_PERCENT, has_credits=False, credit_balance=None
+    )
+    reading = broker_constants.Reading(Account(Product.CODEX, "editor", Path("/profiles/editor")), meters)
+
+    decision = broker_constants._wait_decision([reading], WAIT_NOW, frozenset(), {})
+
+    assert decision.action == "wait"
+    assert decision.reason == (
+        "no account has room (editor is on a free plan and is never chosen); "
+        "next check at 2026-10-03T01:00:00+00:00"
+    )
+
+
+def test_should_not_wait_for_a_free_codex_account_to_reset() -> None:
+    free_meters = _credit_meters(
+        ROOMY_SESSION_PERCENT_LEFT, plan_type=FREE_PLAN_TYPE, weekly_percent_left=codex_account_constants.FULL_PERCENT, has_credits=False, credit_balance=None
+    )
+    team_meters = _credit_meters(None, plan_type=TEAM_PLAN_TYPE, has_credits=False, credit_balance=None)
+    all_readings = [
+        broker_constants.Reading(Account(Product.CODEX, "editor", Path("/profiles/editor")), free_meters),
+        broker_constants.Reading(Account(Product.CODEX, "team", Path("/profiles/team")), team_meters),
+    ]
+
+    decision = broker_constants._wait_decision(all_readings, WAIT_NOW, frozenset(), {})
+
+    assert decision.resets_at == WEEKLY_FLOOR_WEEKLY_RESET
+    assert decision.reason == (
+        "no account has room (editor is on a free plan and is never chosen, team 0.5% left); "
+        "next reset at 2026-10-04T00:00:00+00:00"
+    )
+
+
+@pytest.mark.parametrize(
+    ("session_percent_left", "weekly_percent_left"),
+    (
+        (LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 4, ROOMY_SESSION_PERCENT_LEFT * 2),
+        (None, LUNA_TIER_STOP_PERCENT_LEFT / 2),
+        (LUNA_TIER_STOP_PERCENT_LEFT, LUNA_TIER_STOP_PERCENT_LEFT),
+    ),
+)
+def test_should_let_a_pro_codex_account_with_plan_room_in_both_windows_take_luna(
+    session_percent_left: float | None, weekly_percent_left: float
+) -> None:
+    meters = _credit_meters(
+        session_percent_left, weekly_percent_left=weekly_percent_left, has_credits=False, credit_balance=None
+    )
+
+    assert codex_plan_rules.codex_blocking_flags(meters) == (False, False)
+    assert codex_plan_rules.codex_tier(meters) == codex_account_constants.TIER_LUNA
+    assert broker_constants._account_reset(_codex_reading(meters)) is None
+
+
+@pytest.mark.parametrize(
+    ("session_percent_left", "weekly_percent_left", "expected_flags"),
+    (
+        (codex_account_constants.PRO_PLAN_STOP_PERCENT_LEFT, ROOMY_SESSION_PERCENT_LEFT, (True, False)),
+        (ROOMY_SESSION_PERCENT_LEFT, codex_account_constants.PRO_PLAN_STOP_PERCENT_LEFT, (False, True)),
+        (codex_account_constants.PRO_PLAN_STOP_PERCENT_LEFT, codex_account_constants.PRO_PLAN_STOP_PERCENT_LEFT, (True, True)),
+    ),
+)
+def test_should_block_a_pro_codex_account_only_when_a_window_has_no_room_left(
+    session_percent_left: float, weekly_percent_left: float, expected_flags: tuple[bool, bool]
+) -> None:
+    meters = _credit_meters(
+        session_percent_left, weekly_percent_left=weekly_percent_left, has_credits=False, credit_balance=None
+    )
+
+    assert codex_plan_rules.codex_blocking_flags(meters) == expected_flags
+    assert codex_plan_rules.codex_tier(meters) is None
+
+
+def test_should_keep_the_short_window_and_weekly_floors_for_a_team_codex_account_with_pro_room() -> None:
+    meters = _credit_meters(
+        LUNA_TIER_SHORT_WINDOW_MINIMUM_PERCENT_LEFT / 4,
+        plan_type=TEAM_PLAN_TYPE,
+        weekly_percent_left=ROOMY_SESSION_PERCENT_LEFT * 2,
+        has_credits=False,
+        credit_balance=None,
+    )
+
+    assert codex_plan_rules.codex_blocking_flags(meters) == (True, False)
+    assert codex_plan_rules.codex_tier(meters) is None
 
 
 def test_should_double_the_meter_read_delay_up_to_its_cap() -> None:

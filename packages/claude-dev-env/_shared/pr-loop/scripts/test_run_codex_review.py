@@ -15,14 +15,22 @@ SCRIPTS_DIRECTORY = Path(__file__).resolve().parent
 if str(SCRIPTS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIRECTORY))
 
+import codex_review_account as account
 import run_codex_review as wrapper  # noqa: E402
-from codex_review_scripts_constants.run_constants import (  # noqa: E402
+from codex_review_scripts_constants.account_constants import (
+    ACCOUNT_BROKER_HOME_FLAG,
+    BROKER_WAIT_EXIT_CODE,
+    NO_ACCOUNT_EXIT_CODE,
+)
+from codex_review_scripts_constants.run_constants import (
     ALL_SHAPE_PROBE_REQUIRED_FLAGS,
     BASE_TARGET_FLAG,
+    CANNOT_EXECUTE_EXIT_CODE,
     CODEX_BINARY_NAME,
     CODEX_HOME_ENV_VAR,
     COMMIT_TARGET_FLAG,
     CUSTOM_INSTRUCTIONS_PROMPT,
+    DECODE_ERRORS_REPLACE,
     DEFAULT_TIMEOUT_SECONDS,
     EXEC_SUBCOMMAND,
     HELP_FLAG,
@@ -33,7 +41,6 @@ from codex_review_scripts_constants.run_constants import (  # noqa: E402
     OUTCOME_CLASS_CODEX_DOWN,
     OUTCOME_CLASS_COMPLETED,
     REVIEW_SUBCOMMAND,
-    SUBPROCESS_DECODE_EXIT_CODE,
     TIMEOUT_EXIT_CODE,
     UNCOMMITTED_TARGET_FLAG,
     UTF8_ENCODING,
@@ -47,10 +54,17 @@ HELP_TEXT_WITH_TARGETS = (
     "      --commit <SHA>\n"
     "      --json\n"
 )
+BROKER_ACCOUNT_HOME = str(Path("profiles-root") / "codex-1")
+SPAWN_PERMISSION_MESSAGE = "access denied"
+WINDOWS_NOT_EXECUTABLE_MESSAGE = "[WinError 193] not a valid Win32 application"
 VERSION_STDOUT = "codex-cli 0.144.3\n"
 EXPECTED_BINARY_VERSION = "0.144.3"
 AGENT_MESSAGE_BODY = "No issues found.\n\n```json\n[]\n```"
 CARRIAGE_RETURN_LINE_ENDING = b"\r\n"
+INVALID_UTF8_STDOUT_BYTES = b"ok\xff\xfe"
+INVALID_UTF8_STDERR_BYTES = b"\x80err"
+INVALID_UTF8_COMMAND_TIMEOUT_SECONDS = 60
+REPLACEMENT_CHARACTER = "�"
 SUCCESS_JSONL = "\n".join(
     [
         json.dumps({"type": "thread.started", "thread_id": "thread-1"}),
@@ -154,13 +168,74 @@ def _is_review_run(all_arguments: list[str]) -> bool:
     )
 
 
+def _broker_answer_text(tier: str, action: str, home: str | None, reason: str) -> str:
+    return json.dumps(
+        {
+            "decision": {
+                "action": action,
+                "account": "codex-1",
+                "profile": "codex-1",
+                "home": home,
+                "reason": reason,
+                "tier": tier,
+                "resets_at": None,
+            },
+            "accounts": [],
+            "state_path": "state.json",
+        }
+    )
+
+
+def _normal_broker_reply(
+    all_arguments: list[str],
+) -> subprocess.CompletedProcess[str]:
+    answered_home = BROKER_ACCOUNT_HOME
+    if ACCOUNT_BROKER_HOME_FLAG in all_arguments:
+        judged_home = all_arguments[all_arguments.index(ACCOUNT_BROKER_HOME_FLAG) + 1]
+        answered_home = str(Path(judged_home).expanduser().resolve())
+    return _completed(
+        all_arguments,
+        0,
+        stdout=_broker_answer_text(
+            "normal", "run", answered_home, "codex-1 has 62% left"
+        ),
+    )
+
+
+def _is_broker_choose(all_arguments: list[str]) -> bool:
+    return all_arguments == account.broker_choose_command()
+
+
+def _is_broker_home_check(all_arguments: list[str], codex_home: str) -> bool:
+    return all_arguments == account.broker_home_check_command(codex_home)
+
+
+def _is_any_broker_command(all_arguments: list[str]) -> bool:
+    return all_arguments[:2] == [sys.executable, str(account.account_broker_path())]
+
+
+@pytest.fixture(autouse=True)
+def no_codex_home_in_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(CODEX_HOME_ENV_VAR, raising=False)
+
+
 def _install_recorder(
     monkeypatch: pytest.MonkeyPatch,
     behavior_for_invocation: Callable[
         [list[str]], subprocess.CompletedProcess[str] | BaseException
     ],
+    broker_behavior: Callable[
+        [list[str]], subprocess.CompletedProcess[str] | BaseException
+    ] = _normal_broker_reply,
 ) -> _SubprocessRecorder:
-    recorder = _SubprocessRecorder(behavior_for_invocation)
+    def behavior_with_broker(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str] | BaseException:
+        if _is_any_broker_command(all_arguments):
+            return broker_behavior(all_arguments)
+        return behavior_for_invocation(all_arguments)
+
+    recorder = _SubprocessRecorder(behavior_with_broker)
     monkeypatch.setattr(wrapper, "codex_subprocess_runner", recorder)
     monkeypatch.setattr(
         wrapper, "_resolve_codex_command_prefix", lambda: [CODEX_BINARY_NAME]
@@ -465,6 +540,7 @@ def test_jsonl_capture_and_agent_message_extraction(
     assert review_keyword_arguments["capture_output"] is True
     assert review_keyword_arguments["text"] is True
     assert review_keyword_arguments["encoding"] == UTF8_ENCODING
+    assert review_keyword_arguments["errors"] == DECODE_ERRORS_REPLACE
     assert review_keyword_arguments["check"] is False
 
 
@@ -487,15 +563,23 @@ def test_jsonl_capture_preserves_stream_line_endings(
     assert captured_bytes == SUCCESS_JSONL.encode(UTF8_ENCODING)
 
 
-def test_unicode_decode_error_returns_codex_down(
+@pytest.mark.parametrize(
+    "spawn_error",
+    [
+        PermissionError(SPAWN_PERMISSION_MESSAGE),
+        OSError(WINDOWS_NOT_EXECUTABLE_MESSAGE),
+    ],
+)
+def test_codex_binary_that_cannot_start_returns_codex_down(
     monkeypatch: pytest.MonkeyPatch,
     repository_directory: Path,
     run_state_directory: Path,
+    spawn_error: OSError,
 ) -> None:
     def behavior(
         all_arguments: list[str],
     ) -> subprocess.CompletedProcess[str] | BaseException:
-        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+        return spawn_error
 
     _install_recorder(monkeypatch, behavior)
 
@@ -506,8 +590,42 @@ def test_unicode_decode_error_returns_codex_down(
     )
 
     assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
-    assert review_outcome.exit_code == SUBPROCESS_DECODE_EXIT_CODE
+    assert review_outcome.exit_code == CANNOT_EXECUTE_EXIT_CODE
     assert review_outcome.jsonl_path is None
+
+
+def test_command_output_with_invalid_utf8_is_decoded_with_replacement() -> None:
+    emit_invalid_bytes_program = (
+        "import sys;"
+        f"sys.stdout.buffer.write({INVALID_UTF8_STDOUT_BYTES!r});"
+        f"sys.stderr.buffer.write({INVALID_UTF8_STDERR_BYTES!r})"
+    )
+
+    command_completion = wrapper._run_command(
+        [sys.executable, "-c", emit_invalid_bytes_program],
+        working_directory=None,
+        timeout_seconds=INVALID_UTF8_COMMAND_TIMEOUT_SECONDS,
+    )
+
+    assert command_completion.returncode == 0
+    assert command_completion.stdout == f"ok{REPLACEMENT_CHARACTER}{REPLACEMENT_CHARACTER}"
+    assert command_completion.stderr == f"{REPLACEMENT_CHARACTER}err"
+
+
+def test_safe_run_returns_the_completion_for_invalid_utf8_output() -> None:
+    emit_invalid_bytes_program = (
+        "import sys;"
+        f"sys.stdout.buffer.write({INVALID_UTF8_STDOUT_BYTES!r})"
+    )
+
+    command_completion = wrapper._safe_run(
+        [sys.executable, "-c", emit_invalid_bytes_program],
+        working_directory=None,
+        timeout_seconds=INVALID_UTF8_COMMAND_TIMEOUT_SECONDS,
+    )
+
+    assert isinstance(command_completion, subprocess.CompletedProcess)
+    assert command_completion.stdout == f"ok{REPLACEMENT_CHARACTER}{REPLACEMENT_CHARACTER}"
 
 
 def test_timeout_returns_codex_down(
@@ -561,6 +679,389 @@ def test_codex_home_env_is_passed_through_when_set(
         assert process_environment is not None
         assert isinstance(process_environment, dict)
         assert process_environment[CODEX_HOME_ENV_VAR] == str(codex_home_directory)
+
+
+def _run_uncommitted_review(
+    repository_directory: Path, run_state_directory: Path
+) -> wrapper.CodexReviewOutcome:
+    return wrapper.run_codex_review(
+        repository_directory=repository_directory,
+        run_state_directory=run_state_directory,
+        is_uncommitted=True,
+    )
+
+
+def _environment_of(
+    recorder: _SubprocessRecorder, invocation: list[str]
+) -> dict[str, str]:
+    invocation_index = recorder.all_invocations.index(invocation)
+    environment = recorder.all_keyword_arguments[invocation_index]["env"]
+    assert isinstance(environment, dict)
+    return environment
+
+
+def test_review_runs_on_the_home_the_broker_names(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    recorder = _install_recorder(monkeypatch, _healthy_probe_then_review())
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_COMPLETED
+    review_environment = _environment_of(recorder, _only_review_invocation(recorder))
+    assert review_environment[CODEX_HOME_ENV_VAR] == BROKER_ACCOUNT_HOME
+
+
+def test_broker_is_asked_after_the_probes_and_before_the_review(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    recorder = _install_recorder(monkeypatch, _healthy_probe_then_review())
+
+    _run_uncommitted_review(repository_directory, run_state_directory)
+
+    all_stage_names = [
+        "version"
+        if _is_version_probe(each_invocation)
+        else "shape"
+        if _is_shape_probe(each_invocation)
+        else "broker"
+        if _is_broker_choose(each_invocation)
+        else "review"
+        for each_invocation in recorder.all_invocations
+    ]
+    assert all_stage_names == ["version", "shape", "broker", "review"]
+
+
+def test_broker_wait_returns_codex_down_without_running_the_review(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    wait_reason = "no account has room; next reset at 2026-11-10T00:00:00Z"
+
+    def broker_waits(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str]:
+        return _completed(
+            all_arguments,
+            BROKER_WAIT_EXIT_CODE,
+            stdout=_broker_answer_text("wait", "wait", None, wait_reason),
+        )
+
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_waits
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert review_outcome.exit_code == NO_ACCOUNT_EXIT_CODE
+    assert review_outcome.binary_version == EXPECTED_BINARY_VERSION
+    assert review_outcome.jsonl_path is None
+    assert wait_reason in review_outcome.agent_message
+    assert not any(
+        _is_review_run(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+    assert list(run_state_directory.iterdir()) == []
+
+
+def test_luna_tier_answer_returns_codex_down_without_running_the_review(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    def broker_answers_luna(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str]:
+        return _completed(
+            all_arguments,
+            0,
+            stdout=_broker_answer_text(
+                "luna", "run", BROKER_ACCOUNT_HOME, "codex-1 has 4% left"
+            ),
+        )
+
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_answers_luna
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert review_outcome.exit_code == NO_ACCOUNT_EXIT_CODE
+    assert "codex-1 has 4% left" in review_outcome.agent_message
+    assert not any(
+        _is_review_run(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+
+
+@pytest.mark.parametrize(
+    ("broker_behavior", "expected_exit_code"),
+    [
+        (lambda all_arguments: _completed(all_arguments, 2, stderr="bad roster"), 2),
+        (
+            lambda all_arguments: _completed(all_arguments, 0, stdout="not json"),
+            NO_ACCOUNT_EXIT_CODE,
+        ),
+        (
+            lambda all_arguments: _completed(
+                all_arguments,
+                0,
+                stdout=_broker_answer_text("normal", "run", None, "no home"),
+            ),
+            NO_ACCOUNT_EXIT_CODE,
+        ),
+        (
+            lambda all_arguments: subprocess.TimeoutExpired(
+                cmd=all_arguments, timeout=1
+            ),
+            TIMEOUT_EXIT_CODE,
+        ),
+        (
+            lambda all_arguments: FileNotFoundError(all_arguments[0]),
+            MISSING_BINARY_EXIT_CODE,
+        ),
+        (
+            lambda all_arguments: PermissionError(SPAWN_PERMISSION_MESSAGE),
+            CANNOT_EXECUTE_EXIT_CODE,
+        ),
+        (
+            lambda all_arguments: OSError(WINDOWS_NOT_EXECUTABLE_MESSAGE),
+            CANNOT_EXECUTE_EXIT_CODE,
+        ),
+    ],
+)
+def test_broker_failure_returns_codex_down_without_running_the_review(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+    broker_behavior: Callable[
+        [list[str]], subprocess.CompletedProcess[str] | BaseException
+    ],
+    expected_exit_code: int,
+) -> None:
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_behavior
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert review_outcome.exit_code == expected_exit_code
+    assert review_outcome.jsonl_path is None
+    assert not any(
+        _is_review_run(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+
+
+def test_codex_home_already_set_keeps_its_account_after_the_broker_checks_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    pinned_home = str(tmp_path / "pinned-codex-home")
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, pinned_home)
+    recorder = _install_recorder(monkeypatch, _healthy_probe_then_review())
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_COMPLETED
+    assert not any(
+        _is_broker_choose(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+    assert any(
+        _is_broker_home_check(each_invocation, pinned_home)
+        for each_invocation in recorder.all_invocations
+    )
+    review_environment = _environment_of(recorder, _only_review_invocation(recorder))
+    assert review_environment[CODEX_HOME_ENV_VAR] == pinned_home
+
+
+def test_padded_paid_export_launches_on_the_trimmed_absolute_folder(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    paid_home = tmp_path / "paid-codex-home"
+    paid_home.mkdir()
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, f"  {paid_home}  ")
+    recorder = _install_recorder(monkeypatch, _healthy_probe_then_review())
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_COMPLETED
+    assert any(
+        _is_broker_home_check(each_invocation, str(paid_home))
+        for each_invocation in recorder.all_invocations
+    )
+    review_environment = _environment_of(recorder, _only_review_invocation(recorder))
+    assert review_environment[CODEX_HOME_ENV_VAR] == str(paid_home.resolve())
+
+
+def test_pinned_home_review_launches_on_the_home_the_broker_answers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, str(tmp_path / "exported-codex-home"))
+
+    def broker_names_its_own_spelling(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str]:
+        return _completed(
+            all_arguments,
+            0,
+            stdout=_broker_answer_text(
+                "luna", "run", BROKER_ACCOUNT_HOME, "codex-1 has 4% left"
+            ),
+        )
+
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_names_its_own_spelling
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_COMPLETED
+    review_environment = _environment_of(recorder, _only_review_invocation(recorder))
+    assert review_environment[CODEX_HOME_ENV_VAR] == BROKER_ACCOUNT_HOME
+
+
+def test_codex_home_already_set_on_a_refused_account_returns_codex_down(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, str(tmp_path / "free-codex-home"))
+    refusal_reason = "default is on a free plan; the broker never picks it"
+
+    def broker_refuses(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str]:
+        return _completed(
+            all_arguments,
+            BROKER_WAIT_EXIT_CODE,
+            stdout=_broker_answer_text("wait", "wait", None, refusal_reason),
+        )
+
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_refuses
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert review_outcome.exit_code == NO_ACCOUNT_EXIT_CODE
+    assert refusal_reason in review_outcome.agent_message
+    assert not any(
+        _is_review_run(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+
+
+@pytest.mark.parametrize(
+    "broker_behavior",
+    [
+        lambda all_arguments: _completed(all_arguments, 2, stderr="bad roster"),
+        lambda all_arguments: _completed(all_arguments, 0, stdout="not json"),
+        lambda all_arguments: FileNotFoundError(all_arguments[0]),
+        lambda all_arguments: PermissionError(SPAWN_PERMISSION_MESSAGE),
+        lambda all_arguments: OSError(WINDOWS_NOT_EXECUTABLE_MESSAGE),
+    ],
+)
+def test_codex_home_already_set_fails_closed_when_the_broker_cannot_check_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+    broker_behavior: Callable[
+        [list[str]], subprocess.CompletedProcess[str] | BaseException
+    ],
+) -> None:
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, str(tmp_path / "unchecked-codex-home"))
+    recorder = _install_recorder(
+        monkeypatch, _healthy_probe_then_review(), broker_behavior
+    )
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert not any(
+        _is_review_run(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
+
+
+def test_codex_home_already_set_on_a_low_room_paid_account_still_runs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    pinned_home = str(tmp_path / "pinned-codex-home")
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, pinned_home)
+
+    def broker_answers_luna(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str]:
+        return _completed(
+            all_arguments,
+            0,
+            stdout=_broker_answer_text("luna", "run", pinned_home, "default has 4% left"),
+        )
+
+    _install_recorder(monkeypatch, _healthy_probe_then_review(), broker_answers_luna)
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_COMPLETED
+
+
+def test_blank_codex_home_does_not_pin_an_account(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    monkeypatch.setenv(CODEX_HOME_ENV_VAR, "  ")
+    recorder = _install_recorder(monkeypatch, _healthy_probe_then_review())
+
+    _run_uncommitted_review(repository_directory, run_state_directory)
+
+    review_environment = _environment_of(recorder, _only_review_invocation(recorder))
+    assert review_environment[CODEX_HOME_ENV_VAR] == BROKER_ACCOUNT_HOME
+
+
+def test_broker_is_not_asked_when_the_probe_already_failed(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_directory: Path,
+    run_state_directory: Path,
+) -> None:
+    def behavior(
+        all_arguments: list[str],
+    ) -> subprocess.CompletedProcess[str] | BaseException:
+        raise FileNotFoundError(all_arguments[0])
+
+    recorder = _install_recorder(monkeypatch, behavior)
+
+    review_outcome = _run_uncommitted_review(repository_directory, run_state_directory)
+
+    assert review_outcome.outcome_class == OUTCOME_CLASS_CODEX_DOWN
+    assert not any(
+        _is_broker_choose(each_invocation)
+        for each_invocation in recorder.all_invocations
+    )
 
 
 def test_rejects_multiple_targets(

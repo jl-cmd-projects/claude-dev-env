@@ -6,11 +6,13 @@ import subprocess
 import time
 from pathlib import Path
 
+from review_eval_support.account import CodexAccountUnavailable, codex_environment
 from review_eval_support.config.constants import (
     ALL_CODEX_ARGUMENTS,
     ALL_REPLY_SCHEMA,
     ERROR_TAIL_LENGTH,
     LATENCY_DECIMALS,
+    NO_CODEX_ACCOUNT_FAILURE,
     WORKSPACE_SUFFIX,
 )
 from review_eval_support.grading import (
@@ -96,6 +98,7 @@ def _score_capture(
 def _capture(
     each_case: dict, settings: argparse.Namespace, record_root: Path, recipe: str
 ) -> dict:
+    review_environment = codex_environment()
     all_command, reply_path = _prepare_command(each_case, settings, record_root)
     prompt_text = prompt(each_case, recipe)
     (record_root / f"{each_case['id']}.prompt.txt").write_text(
@@ -110,6 +113,7 @@ def _capture(
         capture_output=True,
         timeout=settings.timeout,
         check=False,
+        env=review_environment,
     )
     (record_root / f"{each_case['id']}.trace.jsonl").write_text(
         completed_call.stdout, encoding="utf-8"
@@ -141,6 +145,10 @@ def execute(
     started = time.monotonic()
     try:
         each_attempt.update(_capture(each_case, settings, record_root, recipe))
+    except CodexAccountUnavailable as error:
+        each_attempt.update(
+            status="infra_error", failure=NO_CODEX_ACCOUNT_FAILURE, detail=str(error)
+        )
     except subprocess.TimeoutExpired:
         each_attempt.update(status="infra_error", failure="timeout")
     except (ValueError, OSError) as error:

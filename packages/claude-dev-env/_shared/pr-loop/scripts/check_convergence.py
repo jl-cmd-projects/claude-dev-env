@@ -30,7 +30,7 @@ A probe error does not waive the gate; the live GitHub checks still run.
 
 The Codex gate is conditional-required: it demands
 ``codex_clean_at == current_head`` only when the account broker
-(``scripts/account_broker.py choose --product codex``) answers the ``normal`` tier, so
+(``scripts/account_broker.py choose --product codex --require-tier normal``) answers the ``normal`` tier, so
 one signed-in account has room for a review. A ``luna`` or ``wait`` answer, an
 unreadable broker, the codex token, or ``codex_down`` never blocks ready.
 """
@@ -62,6 +62,9 @@ from check_convergence_gates import (
 from check_convergence_thread_gates import (
     _check_no_pending_reviews,
     _count_unresolved_bot_threads,
+)
+from codex_review_scripts_constants.account_constants import (
+    ALL_ACCOUNT_BROKER_REQUIRE_TIER_ARGUMENTS,
 )
 from pr_converge_scripts_constants.convergence_gate_constants import (
     ALL_CODEX_ACCOUNT_BROKER_RELATIVE_PARTS,
@@ -384,6 +387,7 @@ def _read_codex_tier() -> str | None:
                 CODEX_ACCOUNT_BROKER_CHOOSE_COMMAND,
                 "--product",
                 "codex",
+                *ALL_ACCOUNT_BROKER_REQUIRE_TIER_ARGUMENTS,
             ],
             capture_output=True,
             text=True,

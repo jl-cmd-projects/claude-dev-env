@@ -10,6 +10,20 @@
     review_outcome.outcome_class  # "completed" or "codex_down"
     review_outcome.jsonl_path     # path to captured JSONL stream
     review_outcome.agent_message  # final agent_message text
+
+The review runs on the Codex account the account broker chooses, with
+``CODEX_HOME`` set to the home it names. A ``CODEX_HOME`` already set keeps its
+account once the broker confirms that account is on a listed paid plan, whatever
+its room. When the broker does not answer, exits with a code other than 0 or 3,
+prints an answer that holds no ``decision`` object, waits, answers a tier the
+wrapper does not accept, or names no home, no review starts and the outcome is
+``codex_down``. A broker that does not answer covers a timeout (124), a missing
+interpreter binary (127), and any other ``OSError`` from the spawn, such as
+``PermissionError`` (126). A missing ``account_broker.py`` makes Python exit 2,
+and that code is the exit code of the outcome. Exit 69 covers a malformed
+answer, a wait, a refused tier, and an answer that names no home. Output that is
+not UTF-8 is decoded with replacement characters and checked like any other
+output.
 """
 
 from __future__ import annotations
@@ -39,22 +53,32 @@ _shared_process_tree_scripts_directory = (
 if str(_shared_process_tree_scripts_directory) not in sys.path:
     sys.path.insert(0, str(_shared_process_tree_scripts_directory))
 
-from process_tree_kill import (  # noqa: E402
-    should_start_new_session,
-    terminate_process_tree,
+from codex_review_account import (
+    CodexAccountUnavailable,
+    broker_choose_command,
+    broker_home_check_command,
+    codex_home_from_broker_answer,
 )
-
-from codex_review_scripts_constants.run_constants import (  # noqa: E402
+from codex_review_scripts_constants.account_constants import (
+    ACCOUNT_BROKER_TIMEOUT_SECONDS,
+    ALL_RUN_TIERS,
+    BROKER_NOT_RUN_REASON_TEMPLATE,
+)
+from codex_review_scripts_constants.run_constants import (
     ALL_SHAPE_PROBE_REQUIRED_FLAGS,
     ALL_WINDOWS_SCRIPT_SUFFIXES,
     BASE_TARGET_FLAG,
+    CANNOT_EXECUTE_EXIT_CODE,
     CAPTURE_STREAMS_KEYWORD,
     CHECK_KEYWORD,
     CODEX_BINARY_NAME,
+    CODEX_HOME_ENV_VAR,
     CODEX_MODEL_PIN,
     COMMIT_TARGET_FLAG,
     CUSTOM_INSTRUCTIONS_PROMPT,
     CWD_KEYWORD,
+    DECODE_ERRORS_KEYWORD,
+    DECODE_ERRORS_REPLACE,
     DEFAULT_TIMEOUT_SECONDS,
     ENCODING_KEYWORD,
     ENVIRONMENT_KEYWORD,
@@ -75,7 +99,6 @@ from codex_review_scripts_constants.run_constants import (  # noqa: E402
     PROCESS_TREE_KILL_TIMEOUT_SECONDS,
     REVIEW_SUBCOMMAND,
     SHAPE_FLAG_TOKEN_TAIL_PATTERN,
-    SUBPROCESS_DECODE_EXIT_CODE,
     TEXT_MODE_KEYWORD,
     TIMEOUT_EXIT_CODE,
     TIMEOUT_KEYWORD,
@@ -87,7 +110,10 @@ from codex_review_scripts_constants.run_constants import (  # noqa: E402
     WINDOWS_COMMAND_SHELL_RUN_FLAG,
     WINDOWS_OS_NAME,
 )
-
+from process_tree_kill import (
+    should_start_new_session,
+    terminate_process_tree,
+)
 from subprocess_window_access import hidden_window_creation_flags
 
 
@@ -100,6 +126,7 @@ def _open_codex_popen(
     stream_target = subprocess.PIPE if should_capture else None
     working_directory = all_keyword_arguments.get(CWD_KEYWORD)
     stream_encoding = all_keyword_arguments.get(ENCODING_KEYWORD)
+    decode_errors = all_keyword_arguments.get(DECODE_ERRORS_KEYWORD)
     process_environment = all_keyword_arguments.get(ENVIRONMENT_KEYWORD)
     return subprocess.Popen(
         all_arguments,
@@ -108,6 +135,7 @@ def _open_codex_popen(
         stderr=stream_target,
         text=bool(all_keyword_arguments.get(TEXT_MODE_KEYWORD, False)),
         encoding=stream_encoding if isinstance(stream_encoding, str) else None,
+        errors=decode_errors if isinstance(decode_errors, str) else None,
         env=process_environment if isinstance(process_environment, dict) else None,
         start_new_session=should_start_new_session(),
         creationflags=hidden_window_creation_flags(),
@@ -231,8 +259,8 @@ def _run_codex_process(
     """Run a codex process, killing its whole child tree on a timeout.
 
     Mirrors the ``subprocess.run`` keyword arguments the review wrapper passes:
-    ``cwd``, ``capture_output``, ``text``, ``encoding``, ``check``, ``timeout``,
-    and ``env``. Avoids ``Popen`` as a context manager so a surviving child after
+    ``cwd``, ``capture_output``, ``text``, ``encoding``, ``errors``, ``check``,
+    ``timeout``, and ``env``. Avoids ``Popen`` as a context manager so a surviving child after
     a timed-out drain cannot hang on an unbounded ``wait()``.
     """
     timeout_seconds = _optional_timeout_seconds(all_keyword_arguments.get(TIMEOUT_KEYWORD))
@@ -281,7 +309,12 @@ class CodexReviewOutcome:
         jsonl_path: Captured JSONL path, or None when review did not run.
         agent_message: Last JSONL ``agent_message`` text when present; on a
             non-zero review exit, falls back to stderr text when JSONL has no
-            agent message (config and argument errors land on stderr).
+            agent message (config and argument errors land on stderr). When no
+            account could run the review, ``no Codex account has room for a
+            review (<the broker's reason>)`` for a ``wait`` or a refused tier,
+            and the script's own text for any other failure, such as
+            ``account broker exit 2``, ``account broker answer is malformed``
+            or ``account broker did not answer: exit 124``.
     """
 
     outcome_class: str
@@ -291,13 +324,15 @@ class CodexReviewOutcome:
     agent_message: str
 
 
-def _down(*, exit_code: int, binary_version: str) -> CodexReviewOutcome:
+def _down(
+    *, exit_code: int, binary_version: str, agent_message: str = ""
+) -> CodexReviewOutcome:
     return CodexReviewOutcome(
         outcome_class=OUTCOME_CLASS_CODEX_DOWN,
         exit_code=exit_code,
         binary_version=binary_version,
         jsonl_path=None,
-        agent_message="",
+        agent_message=agent_message,
     )
 
 
@@ -328,6 +363,7 @@ def _run_command(
     *,
     working_directory: Path | None,
     timeout_seconds: int,
+    process_environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return codex_subprocess_runner(
         all_arguments,
@@ -335,9 +371,10 @@ def _run_command(
         capture_output=True,
         text=True,
         encoding=UTF8_ENCODING,
+        errors=DECODE_ERRORS_REPLACE,
         check=False,
         timeout=timeout_seconds,
-        env=dict(os.environ),
+        env=dict(os.environ) if process_environment is None else process_environment,
     )
 
 
@@ -346,21 +383,23 @@ def _safe_run(
     *,
     working_directory: Path | None,
     timeout_seconds: int,
+    process_environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str] | int:
     try:
         return _run_command(
             all_arguments,
             working_directory=working_directory,
             timeout_seconds=timeout_seconds,
+            process_environment=process_environment,
         )
     except FileNotFoundError:
         if working_directory is not None and not working_directory.is_dir():
             raise
         return MISSING_BINARY_EXIT_CODE
+    except OSError:
+        return CANNOT_EXECUTE_EXIT_CODE
     except subprocess.TimeoutExpired:
         return TIMEOUT_EXIT_CODE
-    except UnicodeDecodeError:
-        return SUBPROCESS_DECODE_EXIT_CODE
 
 
 def _parse_binary_version(version_stdout: str) -> str:
@@ -497,6 +536,74 @@ def _probe_or_down(timeout_seconds: int) -> CodexReviewOutcome | str:
     return binary_version
 
 
+def _broker_completion(
+    all_broker_arguments: list[str],
+) -> subprocess.CompletedProcess[str]:
+    broker_completion = _safe_run(
+        all_broker_arguments,
+        working_directory=None,
+        timeout_seconds=ACCOUNT_BROKER_TIMEOUT_SECONDS,
+    )
+    if isinstance(broker_completion, int):
+        raise CodexAccountUnavailable(
+            broker_completion,
+            BROKER_NOT_RUN_REASON_TEMPLATE.format(exit_code=broker_completion),
+        )
+    return broker_completion
+
+
+def _review_environment() -> dict[str, str]:
+    """Return the environment the review runs in, with its Codex account chosen.
+
+    ::
+
+        CODEX_HOME " H "        ->  CODEX_HOME set to the home the broker answers for "H"
+        CODEX_HOME unset        ->  CODEX_HOME set to the home the account broker names
+        broker waits or fails   ->  CodexAccountUnavailable; the review does not start,
+                                    and ``run_codex_review`` returns ``codex_down``
+
+    An enclosing broker run, or a caller that exports ``CODEX_HOME``, has
+    already chosen the account, so the wrapper keeps that account. The broker
+    still checks that home, so a free-plan, unknown-plan, unlisted-plan, or
+    unreadable account never runs. The review launches on the home the broker
+    answers, the trimmed absolute folder it judged.
+
+    Returns:
+        The process environment for the review run.
+
+    Raises:
+        CodexAccountUnavailable: Raised, with the exit code in parentheses, when
+
+            - the broker did not answer: it timed out (124), its interpreter
+              binary is missing (127), or the spawn raised another ``OSError``
+              such as ``PermissionError`` (126);
+            - the broker exited with a code other than 0 or 3 (that code), such
+              as 2 when Python cannot open a missing ``account_broker.py``;
+            - its output is not JSON or holds no ``decision`` object (69);
+            - it waited, with exit code 3 (69);
+            - it answered a tier outside the accepted tiers, which are
+              ``normal`` with no home pinned and ``normal`` or ``luna`` for a
+              pinned home (69);
+            - it named no home (69).
+
+        Output that is not UTF-8 is decoded with replacement characters and
+        judged like any other output. ``run_codex_review`` catches this
+        exception and returns ``codex_down``.
+    """
+    exported_home = os.environ.get(CODEX_HOME_ENV_VAR, "").strip()
+    if exported_home:
+        home_check = _broker_completion(broker_home_check_command(exported_home))
+        judged_home = codex_home_from_broker_answer(
+            home_check.returncode, home_check.stdout or "", ALL_RUN_TIERS
+        )
+        return {**os.environ, CODEX_HOME_ENV_VAR: str(judged_home)}
+    broker_completion = _broker_completion(broker_choose_command())
+    chosen_home = codex_home_from_broker_answer(
+        broker_completion.returncode, broker_completion.stdout or ""
+    )
+    return {**os.environ, CODEX_HOME_ENV_VAR: str(chosen_home)}
+
+
 def _capture_review_run(
     *,
     repository_directory: Path,
@@ -504,11 +611,13 @@ def _capture_review_run(
     all_review_arguments: list[str],
     timeout_seconds: int,
     binary_version: str,
+    review_environment: dict[str, str],
 ) -> CodexReviewOutcome:
     completion_or_exit = _safe_run(
         all_review_arguments,
         working_directory=repository_directory,
         timeout_seconds=timeout_seconds,
+        process_environment=review_environment,
     )
     if isinstance(completion_or_exit, int):
         return _down(exit_code=completion_or_exit, binary_version=binary_version)
@@ -560,6 +669,17 @@ def run_codex_review(
         ok:   outcome_class == "completed" and exit_code == 0
         flag: outcome_class == "codex_down" even when exit_code == 0
               (shape probe ran, required flags missing)
+        flag: outcome_class == "codex_down", jsonl_path None, exit_code 69
+              (no Codex account has room, the tier is refused, the broker
+              answer is malformed, or it names no home; the review never
+              started)
+        flag: outcome_class == "codex_down", jsonl_path None, exit_code 124,
+              126 or 127 (a codex probe, the broker or the review process
+              timed out, could not start, or its binary or interpreter is
+              missing)
+        flag: outcome_class == "codex_down", jsonl_path None, exit_code 2
+              (the broker's own exit code, as when Python cannot open a
+              missing account_broker.py)
 
     Args:
         repository_directory: Repository root used as the process cwd.
@@ -596,6 +716,14 @@ def run_codex_review(
     probe_outcome = _probe_or_down(resolved_timeout_seconds)
     if isinstance(probe_outcome, CodexReviewOutcome):
         return probe_outcome
+    try:
+        review_environment = _review_environment()
+    except CodexAccountUnavailable as unavailable_account:
+        return _down(
+            exit_code=unavailable_account.exit_code,
+            binary_version=probe_outcome,
+            agent_message=unavailable_account.reason,
+        )
     return _capture_review_run(
         repository_directory=repository_directory,
         run_state_directory=run_state_directory,
@@ -607,4 +735,5 @@ def run_codex_review(
         ),
         timeout_seconds=resolved_timeout_seconds,
         binary_version=probe_outcome,
+        review_environment=review_environment,
     )

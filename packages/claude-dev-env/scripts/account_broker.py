@@ -15,6 +15,7 @@ from typing import Mapping, Sequence
 
 import account_broker_support as support
 import codex_account_meters
+from codex_account_chooser import choose_codex
 from account_broker_support import (
     all_product_adapters,
     Account,
@@ -43,7 +44,6 @@ from account_broker_support import (
 from dev_env_scripts_constants.account_broker_constants import (
     _account_reset,
     _choose_claude,
-    _choose_codex,
     _wait_decision,
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_SIGN_IN_FAILURE_SIGNATURES,
@@ -60,10 +60,11 @@ from dev_env_scripts_constants.account_broker_constants import (
     utc_time_text as _time_text,
 )
 from dev_env_scripts_constants.codex_account_constants import (
-    CODEX_HOME_ENVIRONMENT_VARIABLE,
-    MAIN_CODEX_HOME_DIRECTORY_NAME,
+    ALL_TIERS_BEST_FIRST,
+    HOME_CODEX_ONLY_MESSAGE,
+    HOME_WITH_SPENT_MESSAGE,
     NO_ROSTER_ACCOUNT_NAME,
-    TIER_NORMAL,
+    REQUIRE_TIER_ARGUMENT,
 )
 
 
@@ -75,24 +76,27 @@ def choose_from_readings(
     all_spent_accounts: frozenset[Account] = frozenset(),
     preferred_command: str | None = None,
     all_spent_resets: Mapping[Account, datetime] | None = None,
+    required_tier: str | None = None,
+    is_home_named: bool = False,
 ) -> Decision:
     """Choose an account or a wait.
 
     Args:
         product: Account product.
         all_readings: Roster and meter readings.
+        required_tier: Codex tier the job needs, or None for any tier. Claude choices ignore it.
+        is_home_named: True when the caller named one Codex home, which runs on a paid plan
+            whatever its room, unless ``required_tier`` is above the tier it reaches.
+            Claude choices ignore it.
 
     Returns:
         A run or wait decision.
     """
-    if product is Product.CODEX and not all_readings:
-        home = Path(os.environ.get(CODEX_HOME_ENVIRONMENT_VARIABLE) or Path.home() / MAIN_CODEX_HOME_DIRECTORY_NAME).resolve()
-        return Decision("run", Account(product, NO_ROSTER_ACCOUNT_NAME, home, True), None, "no roster is configured", TIER_NORMAL)
     all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
     selected = (
         _choose_claude(all_available, preferred_command)
         if product is Product.CLAUDE
-        else _choose_codex(all_available)
+        else choose_codex(all_available, required_tier, is_home_named=is_home_named)
     )
     return selected or _wait_decision(all_readings, now, all_spent_accounts, all_spent_resets or {})
 
@@ -328,11 +332,10 @@ def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
     context.all_attempts.append((account.name, status))
     context.report.events.append({"type": "attempt", "account": account.name, "status": status, "exit_code": returncode})
-    if context.all_readings:
-        reading = next(each_reading for each_reading in context.all_readings if each_reading.account == account)
-        context.all_spent_accounts.add(account)
-        if status == "usage_limited":
-            context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
+    reading = next(each_reading for each_reading in context.all_readings if each_reading.account == account)
+    context.all_spent_accounts.add(account)
+    if status == "usage_limited":
+        context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
 
 
 def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:
@@ -378,10 +381,6 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     except OSError as error:
         _record_spent_attempt(context, account, "start_failed", COMMAND_MISSING_EXIT_CODE)
         context.start_failure_text = str(error)
-        if not context.all_readings:
-            context.report.final_decision = decision
-            final_status = "advisor_blocked" if context.product is Product.CLAUDE else "start_failed"
-            return JobOutcome(COMMAND_MISSING_EXIT_CODE, "", str(error), account.name, tuple(context.all_attempts), final_status, None, None)
         return None
     combined = f"{completion.stdout}{completion.stderr}".casefold()
     is_limited = completion.returncode != 0 and any(
@@ -389,9 +388,6 @@ def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None
     )
     if is_limited:
         _record_spent_attempt(context, account, "usage_limited", completion.returncode)
-        if not context.all_readings:
-            waiting = Decision("wait", None, context.now + timedelta(hours=1), "no account has room", "wait")
-            return _wait_outcome(context, waiting)
         return None
     if context.product is Product.CLAUDE and _is_sign_in_failure(completion):
         _record_sign_in_failure(context, account, completion)
@@ -439,6 +435,9 @@ def _parser() -> argparse.ArgumentParser:
         command = commands.add_parser(each_action)
         all_product_choices = [Product.CODEX.value] if each_action == "limits" else [each_product.value for each_product in Product]
         command.add_argument("--product", choices=all_product_choices, required=True)
+        if each_action in ("choose", "check"):
+            command.add_argument(REQUIRE_TIER_ARGUMENT, choices=ALL_TIERS_BEST_FIRST, default=None)
+            command.add_argument("--home", type=Path, default=None)
         if each_action == "choose":
             command.add_argument("--spent", action="append", default=[])
         if each_action == "limits":
@@ -514,15 +513,26 @@ def _run_cli(product: Product, parsed: argparse.Namespace, parser: argparse.Argu
     return 4 if outcome.status == "advisor_blocked" else outcome.returncode
 
 
+def _refuse_home_misuse(product: Product, parsed: argparse.Namespace) -> None:
+    if parsed.home is None:
+        return
+    if product is not Product.CODEX:
+        raise BrokerConfigurationError(HOME_CODEX_ONLY_MESSAGE)
+    if getattr(parsed, "spent", None):
+        raise BrokerConfigurationError(HOME_WITH_SPENT_MESSAGE)
+
+
 def _choose_cli(product: Product, parsed: argparse.Namespace) -> int:
+    _refuse_home_misuse(product, parsed)
     now = datetime.now(timezone.utc)
     all_state = _load_state(broker_state_path())
-    all_readings = read_accounts(product, all_state=all_state, now=now)
+    all_readings = read_accounts(product, all_state=all_state, now=now, home=parsed.home)
     if parsed.action == "choose" and parsed.spent:
         _save_spent_arguments(parsed.spent, all_readings, all_state, now, product)
     spent, resets = _spent_for_readings(all_readings, all_state, now)
-    decision = choose_from_readings(product, all_readings, now=now, all_spent_accounts=spent, all_spent_resets=resets)
-    decision = _with_outside_spent_marks(decision, _outside_roster_resets(product, all_readings, all_state, now))
+    decision = choose_from_readings(product, all_readings, now=now, all_spent_accounts=spent, all_spent_resets=resets, required_tier=parsed.require_tier, is_home_named=parsed.home is not None)
+    if parsed.home is None:
+        decision = _with_outside_spent_marks(decision, _outside_roster_resets(product, all_readings, all_state, now))
     if parsed.action == "choose":
         print(json.dumps({"decision": decision_payload(decision), "accounts": readings_payload(all_readings), "state_path": str(broker_state_path())}))
     return WAIT_EXIT_CODE if decision.action == "wait" else 0

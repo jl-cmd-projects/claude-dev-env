@@ -527,7 +527,7 @@ def test_should_read_normal_tier_from_broker_decision(
     broker_path = tmp_path / "account_broker.py"
     broker_path.write_text(
         "import json, sys\n"
-        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "assert sys.argv[1:] == ['choose', '--product', 'codex', '--require-tier', 'normal']\n"
         "print(json.dumps({'decision': {'tier': 'normal', 'reason': 'room'}, 'accounts': []}))\n",
         encoding="utf-8",
     )
@@ -542,7 +542,7 @@ def test_should_read_wait_tier_from_broker_exit_three(
     broker_path = tmp_path / "account_broker.py"
     broker_path.write_text(
         "import json, sys\n"
-        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "assert sys.argv[1:] == ['choose', '--product', 'codex', '--require-tier', 'normal']\n"
         "print(json.dumps({'decision': {'tier': 'wait', 'reason': 'no room'}, 'accounts': []}))\n"
         "sys.exit(3)\n",
         encoding="utf-8",
@@ -567,7 +567,7 @@ def test_should_read_the_tier_the_broker_chooses(
         tmp_path,
         monkeypatch,
         "import json, sys\n"
-        "assert sys.argv[1:] == ['choose', '--product', 'codex']\n"
+        "assert sys.argv[1:] == ['choose', '--product', 'codex', '--require-tier', 'normal']\n"
         "print(json.dumps({'decision': {'tier': 'normal', 'account': 'codex-2'}, 'accounts': []}))\n",
     )
 

@@ -4,10 +4,13 @@
 Each Codex account signs in under its own Codex home in
 ``~/.codex-profiles/<name>``. The account list names them in try order: the
 ``CODEX_ACCOUNT_PROFILES`` environment variable, comma-separated, else the saved
-``account-launchers.json`` list under the profiles root. With neither,
-``codex-1`` through ``codex-4`` are the roster. An environment roster that
-differs from the saved file is saved to it, so a process without the variable
-reads the same roster.
+``account-launchers.json`` list under the profiles root. With neither, ``sync``
+falls back to ``codex-1`` through ``codex-4`` and ``install`` has no accounts.
+The broker's ``choose`` and ``check`` fall back to those four only when
+``CODEX_ACCOUNT_PROFILES`` holds only separators and no saved list names an
+account; with the variable unset or blank they read the default Codex home as
+the account ``default``. An environment roster that differs from the saved file
+is saved to it, so a process without the variable reads the same roster.
 
 Three commands::
 

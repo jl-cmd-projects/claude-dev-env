@@ -294,10 +294,63 @@ def test_should_read_codex_meters_through_injected_reader(
     assert meters.plan_type == "promax"
 
 
+def test_should_carry_the_codex_credits_into_the_meters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    usage = CodexAccountMeters(
+        (UsageWindow(None, 99.0, None),),
+        plan_type="prolite",
+        has_credits=True,
+        is_credits_unlimited=False,
+        credit_balance=83600.8856485,
+    )
+    monkeypatch.setattr(support.codex_account_meters, "resolve_codex_path", lambda _: tmp_path / "codex")
+    monkeypatch.setattr(support.codex_account_meters, "read_codex_meters", lambda *_: usage)
+
+    meters = support.read_codex_account_meters(Account(Product.CODEX, "personal", tmp_path))
+
+    assert meters.plan_type == "prolite"
+    assert meters.has_credits is True
+    assert meters.is_credits_unlimited is False
+    assert meters.credit_balance == 83600.8856485
+    assert meters.has_spendable_credits is True
+
+
 def test_should_keep_the_plan_through_the_cached_meter_payload() -> None:
     meters = Meters(80.0, None, 70.0, None, "pro")
 
     assert support._meters_from_payload(support._meter_payload(meters)) == meters
+
+
+def test_should_keep_the_credits_through_the_cached_meter_payload() -> None:
+    meters = Meters(None, None, 1.0, None, "prolite", True, False, 83600.8856485)
+    unlimited_meters = Meters(None, None, 1.0, None, "pro", False, True, None)
+
+    assert support._meters_from_payload(support._meter_payload(meters)) == meters
+    assert support._meters_from_payload(support._meter_payload(unlimited_meters)) == unlimited_meters
+
+
+def test_should_report_the_credits_in_the_meter_payload() -> None:
+    payload = support._meter_payload(Meters(None, None, 1.0, None, "prolite", True, False, 12.5))
+
+    assert payload["has_credits"] is True
+    assert payload["is_credits_unlimited"] is False
+    assert payload["credit_balance"] == 12.5
+
+
+def test_should_read_a_cached_meter_payload_with_bad_credit_fields_as_no_credits() -> None:
+    bad_payload = {
+        "session_percent_left": 80.0,
+        "session_resets_at": None,
+        "weekly_percent_left": 70.0,
+        "weekly_resets_at": None,
+        "plan_type": "pro",
+        "has_credits": "yes",
+        "is_credits_unlimited": 1,
+        "credit_balance": "12.5",
+    }
+
+    assert support._meters_from_payload(bad_payload) == Meters(80.0, None, 70.0, None, "pro")
 
 
 def test_should_load_a_cached_meter_payload_saved_without_a_plan() -> None:
@@ -923,3 +976,27 @@ def test_should_find_the_cli_in_the_local_bin_folder(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(support.Path, "home", classmethod(lambda cls: tmp_path))
 
     assert support.resolve_claude_path() == local_claude
+
+
+@pytest.mark.parametrize("blank_home", ("", " ", "\t", "  \t \n"))
+def test_should_take_the_home_directory_default_when_codex_home_is_blank(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, blank_home: str
+) -> None:
+    monkeypatch.setattr(support.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setenv("CODEX_HOME", blank_home)
+
+    account = support.codex_default_account()
+
+    assert account.home == (tmp_path / ".codex").resolve()
+    assert account.name == "default"
+
+
+def test_should_read_the_exported_codex_home_without_its_padding(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    exported_home = tmp_path / "exported-home"
+    monkeypatch.setenv("CODEX_HOME", f"  {exported_home}  ")
+
+    account = support.codex_default_account()
+
+    assert account.home == exported_home.resolve()

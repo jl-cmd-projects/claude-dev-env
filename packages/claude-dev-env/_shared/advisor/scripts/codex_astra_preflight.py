@@ -1,4 +1,16 @@
-"""Ask the account broker for a Codex account before an Astra advisor request."""
+"""Ask the account broker for a Codex account before an Astra advisor request.
+
+::
+
+    no home exported, or a blank one          ->  choose --product codex --require-tier normal
+    paid home exported, whatever its room     ->  choose --product codex --home <home>, runs on that home
+    free, unknown, unlisted or unreadable
+        home exported                         ->  declined, nothing launches
+
+An exported home keeps its account, in the roster or not, on the ``normal`` or
+``luna`` tier, once the broker confirms its plan, whatever its room. The broker's
+reason names the account.
+"""
 
 from __future__ import annotations
 
@@ -12,15 +24,19 @@ from pathlib import Path
 
 from advisor_scripts_constants.astra_advisor_constants import (
     ACCOUNT_BROKER_CHOOSE_COMMAND,
+    ACCOUNT_BROKER_HOME_FLAG,
+    ALL_ACCOUNT_BROKER_REQUIRE_TIER_ARGUMENTS,
     ASTRA_ACCOUNT_PICK_TIMEOUT_REASON,
+    ALL_ASTRA_EXPORTED_HOME_TIERS,
+    ALL_ASTRA_NORMAL_ONLY_TIERS,
     ALL_BROKER_ACCEPTED_EXIT_CODES,
     ALL_BROKER_METER_PERCENT_KEYS,
     ASTRA_ACCOUNT_PICK_TIMEOUT_SECONDS,
+    ASTRA_EXPORTED_HOME_REFUSED_REASON_TEMPLATE,
     BROKER_WAIT_EXIT_CODE,
     ASTRA_FALLBACK_KIND_BROKEN,
     ASTRA_FALLBACK_KIND_DECLINED,
     ASTRA_PREFLIGHT_FAILURE_REASON,
-    CODEX_TIER_NORMAL,
 )
 
 
@@ -51,13 +67,30 @@ def _finite_percent(raw_percent: object) -> float | None:
     return float(raw_percent) if math.isfinite(raw_percent) else None
 
 
-def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
+def _accepted_tiers(exported_home: str | None) -> tuple[str, ...]:
+    if exported_home is None:
+        return ALL_ASTRA_NORMAL_ONLY_TIERS
+    return ALL_ASTRA_EXPORTED_HOME_TIERS
+
+
+def _declined(broker_reason: object, exported_home: str | None) -> AstraPreflight:
+    if exported_home is None:
+        reason = f"{ASTRA_PREFLIGHT_FAILURE_REASON}: no Codex account has room ({broker_reason})"
+    else:
+        reason = ASTRA_EXPORTED_HOME_REFUSED_REASON_TEMPLATE.format(
+            home=exported_home, reason=broker_reason
+        )
+    return _preflight_fallback(reason, None, ASTRA_FALLBACK_KIND_DECLINED)
+
+
+def _preflight_from_answer(
+    field_by_name: dict[str, object], exported_home: str | None
+) -> AstraPreflight:
     decision = field_by_name.get("decision")
     if not isinstance(decision, dict) or not isinstance(decision.get("tier"), str):
         return _broken("broker answer is malformed")
-    if decision["tier"] != CODEX_TIER_NORMAL:
-        reason = f"{ASTRA_PREFLIGHT_FAILURE_REASON}: no Codex account has room ({decision.get('reason')})"
-        return _preflight_fallback(reason, None, ASTRA_FALLBACK_KIND_DECLINED)
+    if decision["tier"] not in _accepted_tiers(exported_home):
+        return _declined(decision.get("reason"), exported_home)
     codex_home = decision.get("home")
     account = decision.get("account")
     accounts = field_by_name.get("accounts")
@@ -66,8 +99,6 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
         return _broken("broker answer names no Codex home with room")
     if not isinstance(reason, str):
         return _broken("broker answer is malformed")
-    if not accounts:
-        return AstraPreflight(True, None, reason, codex_home=Path(codex_home))
     chosen = next(
         (
             entry
@@ -91,12 +122,26 @@ def _preflight_from_answer(field_by_name: dict[str, object]) -> AstraPreflight:
     return AstraPreflight(True, min(all_percent_left), reason, codex_home=Path(codex_home))
 
 
+def _broker_selection_arguments(exported_home: str | None) -> tuple[str, ...]:
+    if exported_home is None:
+        return ALL_ACCOUNT_BROKER_REQUIRE_TIER_ARGUMENTS
+    return (ACCOUNT_BROKER_HOME_FLAG, exported_home)
+
+
 def _run_broker(
     broker_path: Path,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
+    exported_home: str | None,
 ) -> subprocess.CompletedProcess[str]:
     return process_runner(
-        [sys.executable, str(broker_path), ACCOUNT_BROKER_CHOOSE_COMMAND, "--product", "codex"],
+        [
+            sys.executable,
+            str(broker_path),
+            ACCOUNT_BROKER_CHOOSE_COMMAND,
+            "--product",
+            "codex",
+            *_broker_selection_arguments(exported_home),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -105,7 +150,9 @@ def _run_broker(
     )
 
 
-def _preflight_from_broker(completed: subprocess.CompletedProcess[str]) -> AstraPreflight:
+def _preflight_from_broker(
+    completed: subprocess.CompletedProcess[str], exported_home: str | None
+) -> AstraPreflight:
     if completed.returncode not in ALL_BROKER_ACCEPTED_EXIT_CODES:
         return _broken(f"broker exit {completed.returncode}")
     try:
@@ -118,26 +165,35 @@ def _preflight_from_broker(completed: subprocess.CompletedProcess[str]) -> Astra
         decision = answer.get("decision")
         if not isinstance(decision, dict) or not isinstance(decision.get("tier"), str):
             return _broken("broker answer is malformed")
-        reason = f"{ASTRA_PREFLIGHT_FAILURE_REASON}: no Codex account has room ({decision.get('reason')})"
-        return _preflight_fallback(reason, None, ASTRA_FALLBACK_KIND_DECLINED)
-    return _preflight_from_answer(answer)
+        return _declined(decision.get("reason"), exported_home)
+    return _preflight_from_answer(answer, exported_home)
 
 
 def run_astra_preflight(
     broker_path: Path,
     process_runner: Callable[..., subprocess.CompletedProcess[str]],
+    exported_home: str | None = None,
 ) -> AstraPreflight:
     """Run the Codex account broker and decide whether Astra may bind.
+
+    ::
+
+        exported_home None    ->  the broker chooses an account that reaches the normal tier
+        exported_home "H"     ->  the broker judges H alone; normal or luna binds on H
 
     Args:
         broker_path: Path to ``account_broker.py``.
         process_runner: Callable that runs the broker.
+        exported_home: Codex home the caller exported, or None when it exported none.
 
     Returns:
         Eligibility, the chosen account's percent left and Codex home, reason, and fallback kind.
+        A pinned home the broker refuses is declined, with the broker's reason, so nothing launches.
     """
     try:
-        return _preflight_from_broker(_run_broker(broker_path, process_runner))
+        return _preflight_from_broker(
+            _run_broker(broker_path, process_runner, exported_home), exported_home
+        )
     except subprocess.TimeoutExpired as error:
         return _preflight_fallback(
             f"{ASTRA_ACCOUNT_PICK_TIMEOUT_REASON}: {error}", None, ASTRA_FALLBACK_KIND_BROKEN
