@@ -90,7 +90,7 @@ def choose_from_readings(
     Args:
         product: Account product.
         all_readings: Roster and meter readings.
-        all_spent_accounts: Accounts a saved mark holds. A Codex account with spendable credits is still chosen.
+        all_spent_accounts: Accounts a saved mark holds, or that spent an attempt in this run. A Codex account with spendable credits is still chosen unless it spent an attempt in this run.
         all_attempted_accounts: Accounts that spent an attempt in this run. Credits do not keep them.
         required_tier: Codex tier the job needs, or None for any tier. Claude choices ignore it.
         is_home_named: True when the caller named one Codex home, which runs on a paid plan

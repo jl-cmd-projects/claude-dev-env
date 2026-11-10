@@ -88,7 +88,7 @@ def choose_codex(
         named home, free plan or unread meters, any room   ->  None
 
     Args:
-        all_available: Readings of the accounts that are not spent, plus any spent Codex account with spendable credits.
+        all_available: Readings the caller left available: accounts not spent, or spent Codex accounts with spendable credits, and not already tried in this run.
         required_tier: The lowest tier the caller accepts, or None for any tier.
         is_home_named: True when the caller named one Codex home, so its reading
             runs on any paid plan whatever its room, credits or floors, unless
