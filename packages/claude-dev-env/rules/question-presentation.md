@@ -1,6 +1,6 @@
 # Present questions clearly
 
-Before asking, give a short formatted chat brief with context and each choice's effect. Add helpful visuals or artifacts.
+Before every ask, repeats included, give a short formatted chat brief with context and each choice's effect. Add helpful visuals or artifacts.
 
 Ask one short, self-contained question with two or three choices. Give each a short label and one short sentence. Reuse labels in the brief, comparison, and picker.
 

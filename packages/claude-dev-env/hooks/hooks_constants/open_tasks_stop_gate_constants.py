@@ -100,6 +100,15 @@ ALL_NON_WORK_TOOL_NAMES = frozenset(
         "request_user_input_async",
     }
 )
+ALL_QUESTION_TOOL_NAMES = frozenset(
+    {
+        "AskUserQuestion",
+        "mcp__hearthbot__ask_decision",
+        "mcp__hearthbot__request_decision",
+        "request_user_input",
+        "request_user_input_async",
+    }
+)
 SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
 ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", "local_shell_call"})
 BLOCK_REASON = (

@@ -16,6 +16,17 @@ a path outside code whose backslash the terminal drops, such as
 ``D:\\Reports\\.claude``. A block sends
 the reason back so the model rewrites the reply. Claude Code ends the turn
 after eight blocks in a row.
+
+It also blocks a reply whose last paragraph ends with a question mark, or says a question still stands, when the
+turn sent no AskUserQuestion, hearthbot decision card, or Codex
+request_user_input call. Fences, HTML blocks, quoted paragraphs, and code spans
+are left out first, and the check is skipped when the transcript cannot be read::
+
+    flag: My question still stands. Keep it merged, or revert it?   (no question tool this turn)
+    flag: My question on the revert still stands.                   (no question tool this turn)
+    ok:   the same reply after an AskUserQuestion call in this turn
+    ok:   > Keep it or revert it?                                     (a quote)
+    ok:   Both branches are rebuilt.
 """
 
 from __future__ import annotations
@@ -38,6 +49,7 @@ from reply_length_gate import (
     unseen_citation_violation,
     unvalidated_claim_violation,
 )
+from open_tasks_transcript import replayed_transcript
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.final_reply_gate_constants import (
@@ -65,11 +77,16 @@ from hooks_constants.final_reply_gate_constants import (
     MASKED_CODE_TEXT,
     NON_SPACE_TOKEN_PATTERN,
     PARAGRAPH_SEPARATOR,
+    QUESTION_MARK,
     QUOTE_MARKER,
     QUOTE_MARKER_PATTERN,
+    QUOTED_LINE_PATTERN,
     REASON_KEY,
     REWRITE_INSTRUCTION,
+    STANDING_QUESTION_PATTERN,
+    TRAILING_MARKUP_CHARACTERS,
     TRANSCRIPT_PATH_KEY,
+    UNBRIEFED_QUESTION_MESSAGE,
     WINDOWS_PATH_MESSAGE,
 )
 
@@ -216,6 +233,40 @@ def windows_path_violation(reply_text: str) -> str | None:
     return None
 
 
+def closing_paragraph(reply_text: str) -> str:
+    """Return the last prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+    line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
+    unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
+    unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
+    unquoted_text = QUOTED_LINE_PATTERN.sub("", unfenced_text)
+    all_prose_paragraphs = [
+        code_spans_masked(each_paragraph).strip()
+        for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unquoted_text)
+        if each_paragraph.strip()
+    ]
+    return all_prose_paragraphs[-1] if all_prose_paragraphs else ""
+
+
+def ends_on_question(reply_text: str) -> bool:
+    """Return True when the closing paragraph ends with a question mark or says a question still stands."""
+    paragraph_text = closing_paragraph(reply_text)
+    return (
+        paragraph_text.rstrip(TRAILING_MARKUP_CHARACTERS).endswith(QUESTION_MARK)
+        or STANDING_QUESTION_PATTERN.search(paragraph_text) is not None
+    )
+
+
+def unbriefed_question_violation(reply_text: str, transcript_path: object) -> str | None:
+    """Return the block reason for a closing question no question tool sent this turn, or None."""
+    if not isinstance(transcript_path, str) or not Path(transcript_path).is_file():
+        return None
+    if not ends_on_question(reply_text):
+        return None
+    if replayed_transcript(transcript_path).has_turn_question_tool:
+        return None
+    return UNBRIEFED_QUESTION_MESSAGE
+
+
 def final_reply_violation(reply_text: str, transcript_path: object) -> str | None:
     """Return the block reason for the closing reply, or None when it passes."""
     return (
@@ -233,10 +284,15 @@ def main() -> int:
     reply_text = hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(reply_text, str):
         return ALLOW_EXIT_CODE
-    violation = final_reply_violation(reply_text, hook_input.get(TRANSCRIPT_PATH_KEY))
-    if violation is None:
+    transcript_path = hook_input.get(TRANSCRIPT_PATH_KEY)
+    violation = final_reply_violation(reply_text, transcript_path)
+    block_reason = (
+        violation + REWRITE_INSTRUCTION
+        if violation is not None
+        else unbriefed_question_violation(reply_text, transcript_path)
+    )
+    if block_reason is None:
         return ALLOW_EXIT_CODE
-    block_reason = violation + REWRITE_INSTRUCTION
     log_hook_block(
         Path(__file__).name, HOOK_EVENT_NAME, block_reason, offending_input_preview=reply_text
     )
