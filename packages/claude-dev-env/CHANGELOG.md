@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.112.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.5...claude-dev-env-v8.112.0) (2026-11-10)
+
+
+### Features
+
+* **hooks:** block a closing question that no question tool sent ([#2292](https://github.com/jl-cmd-projects/claude-dev-env/issues/2292)) ([26b4b5d](https://github.com/jl-cmd-projects/claude-dev-env/commit/26b4b5dc91f42b558550d9d40a044e336355acfb))
+
 ## [8.111.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.4...claude-dev-env-v8.111.5) (2026-11-05)
 
 
