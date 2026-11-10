@@ -344,7 +344,7 @@ def test_should_block_a_closing_question_no_question_tool_sent(
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
-            "Question answered: the patch still stands.",
+            "Question answered: the patch still stands. The question was closed and the bug still stands.",
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (
