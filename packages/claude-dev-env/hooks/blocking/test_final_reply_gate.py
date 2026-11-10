@@ -340,7 +340,7 @@ def test_should_block_a_closing_question_no_question_tool_sent(
         ),
         (REPORT_ONLY_REPLY, [prompt_record("status"), assistant_text_record(REPORT_ONLY_REPLY)]),
         (
-            "The question of the API is open-ended.",
+            "The question of the API is open-ended, and the decision is open source.",
             [prompt_record("status"), assistant_text_record("x")],
         ),
         (

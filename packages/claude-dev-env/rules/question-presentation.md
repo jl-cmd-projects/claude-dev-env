@@ -6,7 +6,7 @@ Ask one short, self-contained question with two or three choices. Give each a sh
 
 Find the native question tool and schema. Claude may use `AskUserQuestion`; Codex may use `request_user_input_async` or `request_user_input`. Honor mode rules. Put the question in its title or question field and choices in string or object fields. If unusable, ask in chat.
 
-A repeated open question goes through the question tool again with its brief, never as a bare closing line. The `final_reply_gate.py` Stop hook blocks a reply that ends on a question when the turn sent no question tool call.
+A repeated open question goes through the question tool again with its brief, never as a bare closing line. The full text names the Stop hook that checks it.
 
 When the user asks for option cards, or for a Codex visual comparison, read the full text first.
 
