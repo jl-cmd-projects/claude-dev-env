@@ -69,12 +69,17 @@ from dev_env_scripts_constants.codex_account_constants import (
 )
 
 
+def _holds_codex_credits(product: Product, reading: Reading) -> bool:
+    return product is Product.CODEX and reading.meters is not None and reading.meters.has_spendable_credits
+
+
 def choose_from_readings(
     product: Product,
     all_readings: Sequence[Reading],
     *,
     now: datetime,
     all_spent_accounts: frozenset[Account] = frozenset(),
+    all_attempted_accounts: frozenset[Account] = frozenset(),
     preferred_command: str | None = None,
     all_spent_resets: Mapping[Account, datetime] | None = None,
     required_tier: str | None = None,
@@ -93,7 +98,12 @@ def choose_from_readings(
     Returns:
         A run or wait decision.
     """
-    all_available = [each_reading for each_reading in all_readings if each_reading.account not in all_spent_accounts]
+    all_available = [
+        each_reading
+        for each_reading in all_readings
+        if each_reading.account not in all_attempted_accounts
+        and (each_reading.account not in all_spent_accounts or _holds_codex_credits(product, each_reading))
+    ]
     selected = (
         _choose_claude(all_available, preferred_command)
         if product is Product.CLAUDE
@@ -242,6 +252,7 @@ class _RunContext:
     start_failure_text: str = ""
     live_log: Path | None = None
     all_sign_in_failures: dict[str, str] = field(default_factory=dict)
+    all_attempted_accounts: set[Account] = field(default_factory=set)
 
 
 def _prepare_run(
@@ -335,6 +346,7 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
     context.report.events.append({"type": "attempt", "account": account.name, "status": status, "exit_code": returncode})
     reading = next(each_reading for each_reading in context.all_readings if each_reading.account == account)
     context.all_spent_accounts.add(account)
+    context.all_attempted_accounts.add(account)
     if status == "usage_limited":
         context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
 
@@ -405,7 +417,7 @@ def _execute(
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     context.live_log = live_log
     while True:
-        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
+        picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), all_attempted_accounts=frozenset(context.all_attempted_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
         if decision.account is None:

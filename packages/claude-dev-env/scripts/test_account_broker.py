@@ -180,6 +180,45 @@ def test_should_choose_the_pro_account_with_credits_over_free_and_team_accounts_
     assert decision.reason == "personal has 1% left and credits"
 
 
+def test_should_pick_a_pro_account_with_credits_even_when_a_spent_mark_names_it() -> None:
+    pro_account = _account("pro-with-credits")
+    readings = (
+        Reading(_account("team"), _meters(None, 81, plan_type=TEAM_PLAN)),
+        Reading(pro_account, _meters(0, 0, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE)),
+    )
+
+    decision = choose_from_readings(
+        Product.CODEX,
+        readings,
+        now=NOW,
+        all_spent_accounts=frozenset({pro_account}),
+        all_spent_resets={pro_account: NOW + timedelta(hours=1)},
+    )
+
+    assert decision.action == "run"
+    assert decision.account == pro_account
+    assert decision.tier == "normal"
+
+
+def test_should_keep_a_spent_mark_on_a_pro_account_without_credits() -> None:
+    pro_account = _account("pro-without-credits")
+    readings = (
+        Reading(_account("team"), _meters(None, 81, plan_type=TEAM_PLAN)),
+        Reading(pro_account, _meters(0, 0, plan_type=PRO_PLAN)),
+    )
+
+    decision = choose_from_readings(
+        Product.CODEX,
+        readings,
+        now=NOW,
+        all_spent_accounts=frozenset({pro_account}),
+        all_spent_resets={pro_account: NOW + timedelta(hours=1)},
+    )
+
+    assert decision.action == "run"
+    assert decision.account == readings[0].account
+
+
 def test_should_choose_the_current_roster_through_the_choose_command(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1545,6 +1584,32 @@ def test_should_keep_usage_limited_account_spent_for_later_choices(
 
     assert account_broker.main(("choose", "--product", "codex")) == 0
     assert json.loads(capsys.readouterr().out)["decision"]["account"] == "second"
+
+
+def test_should_not_retry_a_credit_account_that_reports_a_usage_limit_in_the_same_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accounts = (_account("pro"), _account("team"))
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {
+        "pro": _meters(0, 0, plan_type=PRO_PLAN, credit_balance=CREDIT_BALANCE),
+        "team": _meters(80, 80, plan_type=TEAM_PLAN),
+    }))
+    all_invoked_homes: list[str] = []
+
+    def runner(argv: object, **options: object) -> subprocess.CompletedProcess[str]:
+        home_name = Path(options["env"]["CODEX_HOME"]).name
+        all_invoked_homes.append(home_name)
+        if len(all_invoked_homes) > 3:
+            pytest.fail("the same run kept retrying a usage-limited account")
+        if home_name == "pro":
+            return subprocess.CompletedProcess(argv, 1, "", "rate limit")
+        return subprocess.CompletedProcess(argv, 0, "served", "")
+
+    with account_broker.override_subprocess_runner(runner):
+        outcome, _ = account_broker._execute(Product.CODEX, ("job",), now=NOW)
+
+    assert [each_name for each_name, _ in outcome.attempts] == ["pro", "team"]
+    assert outcome.returncode == 0
 
 
 def test_should_list_accounts_without_reading_meters(
