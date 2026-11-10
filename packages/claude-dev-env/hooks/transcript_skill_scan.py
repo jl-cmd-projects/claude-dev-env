@@ -17,6 +17,7 @@ from hooks_constants.transcript_skill_scan_constants import (
     IS_ERROR_FIELD,
     META_ENTRY_FIELD,
     SKILL_TOOL_NAME,
+    TASK_NOTIFICATION_PREFIX,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_FIELD,
@@ -177,7 +178,7 @@ def _is_user_prompt(all_entry_fields: dict[str, object]) -> bool:
         return False
     content = message.get("content") if isinstance(message, dict) else None
     if isinstance(content, str):
-        return True
+        return not content.startswith(TASK_NOTIFICATION_PREFIX)
     return isinstance(content, list) and not any(
         isinstance(each_block, dict) and each_block.get("type") == TOOL_RESULT_BLOCK_TYPE
         for each_block in content
@@ -194,6 +195,7 @@ def is_skill_loaded_since_last_prompt(
     ::
 
         prompt, Skill verify, tool result, skill body   -> True
+        prompt, Skill verify, tool result, notification -> True
         prompt, Skill verify, tool result with is_error -> False
         prompt, Skill verify, no tool result yet        -> False
         prompt, Skill verify, prompt                    -> False

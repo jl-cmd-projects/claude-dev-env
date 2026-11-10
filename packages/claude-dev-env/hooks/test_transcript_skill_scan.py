@@ -195,6 +195,64 @@ def test_slash_command_prompt_loads_the_skill_for_its_own_turn() -> None:
     assert not is_skill_loaded_since_last_prompt([_prompt_entry(marker), compaction], ("verify",), (marker,))
 
 
+NOTIFICATION_TEXT = "<task-notification>\n<task-id>b1</task-id>\n</task-notification>"
+
+
+def test_should_keep_a_skill_loaded_across_a_background_task_notification() -> None:
+    tool_result = _prompt_entry(
+        [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_skill",
+                "content": "Launching skill: verify",
+            }
+        ]
+    )
+    lines = [
+        _prompt_entry("Commit it."),
+        _skill_entry("verify"),
+        tool_result,
+        _prompt_entry(NOTIFICATION_TEXT),
+    ]
+    assert is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_should_drop_a_skill_loaded_before_a_person_prompt_that_follows_a_notification() -> None:
+    tool_result = _prompt_entry(
+        [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_skill",
+                "content": "Launching skill: verify",
+            }
+        ]
+    )
+    lines = [
+        _prompt_entry("Commit it."),
+        _skill_entry("verify"),
+        tool_result,
+        _prompt_entry(NOTIFICATION_TEXT),
+        _prompt_entry("Second."),
+    ]
+    assert not is_skill_loaded_since_last_prompt(lines, ("verify",), ())
+
+
+def test_should_keep_tool_calls_across_a_background_task_notification() -> None:
+    tool_call = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "id": "toolu_bash", "name": "Bash", "input": {}}]
+            },
+        }
+    )
+    tool_result = _prompt_entry(
+        [{"type": "tool_result", "tool_use_id": "toolu_bash", "content": "ok"}]
+    )
+    lines = [_prompt_entry("Commit it."), tool_call, tool_result, _prompt_entry(NOTIFICATION_TEXT)]
+    assert tool_calls_since_last_prompt(lines) == [TranscriptToolCall("Bash", {}, True)]
+
+
 def should_list_each_tool_call_since_the_last_prompt_with_its_outcome() -> None:
     def _call(tool_use_id: str, name: str) -> str:
         return json.dumps(
