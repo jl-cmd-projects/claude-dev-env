@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.114.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.7...claude-dev-env-v8.114.8) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** pace an account that has only a weekly usage window ([#2321](https://github.com/jl-cmd-projects/claude-dev-env/issues/2321)) ([e63b3f7](https://github.com/jl-cmd-projects/claude-dev-env/commit/e63b3f7e18bfe3781d95f23792fdc7da9e629172))
+
 ## [8.114.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.6...claude-dev-env-v8.114.7) (2026-11-11)
 
 
