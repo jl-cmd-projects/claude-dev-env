@@ -25,26 +25,26 @@ from pathlib import Path
 from hooks_constants.once_per_session_constants import (
     AGENT_ID_KEY,
     ALL_COMPACTION_ENTRY_FIELDS,
+    ALL_COMPACTION_LINE_MARKERS,
     EXCLUSIVE_CREATE_MODE,
     ONCE_MARKER_FILE_PREFIX,
     ONCE_MARKER_FILE_SUFFIX,
     ONCE_MARKER_NAME_SEPARATOR,
     SESSION_ID_KEY,
-    TRANSCRIPT_DECODE_ERRORS,
-    TRANSCRIPT_ENCODING,
     TRANSCRIPT_PATH_KEY,
+    TRANSCRIPT_READ_MODE,
 )
 from hooks_constants.session_file_id import session_file_id
 
 __all__ = ["claim_first_showing", "clear_showings", "compaction_count"]
 
 
-def _is_compaction_entry(transcript_line: str) -> bool:
-    if not any(each_value in transcript_line for _, each_value in ALL_COMPACTION_ENTRY_FIELDS):
+def _is_compaction_entry(transcript_line: bytes) -> bool:
+    if not any(each_marker in transcript_line for each_marker in ALL_COMPACTION_LINE_MARKERS):
         return False
     try:
         all_entry_fields = json.loads(transcript_line)
-    except json.JSONDecodeError:
+    except ValueError:
         return False
     return isinstance(all_entry_fields, dict) and any(
         all_entry_fields.get(each_field) == each_value
@@ -57,9 +57,7 @@ def compaction_count(transcript_path: object) -> int:
     if not isinstance(transcript_path, str) or not transcript_path:
         return 0
     try:
-        with Path(transcript_path).open(
-            encoding=TRANSCRIPT_ENCODING, errors=TRANSCRIPT_DECODE_ERRORS
-        ) as transcript:
+        with Path(transcript_path).open(TRANSCRIPT_READ_MODE) as transcript:
             return sum(1 for each_line in transcript if _is_compaction_entry(each_line))
     except OSError:
         return 0

@@ -67,6 +67,13 @@ def test_should_not_count_a_quoted_compaction_marker(transcript_path: Path) -> N
     assert compaction_count(str(transcript_path)) == 1
 
 
+def test_should_skip_a_line_that_is_not_utf8(transcript_path: Path) -> None:
+    with transcript_path.open("ab") as transcript:
+        transcript.write(b'{"subtype": "compact_boundary\xff"}\n')
+    _append(transcript_path, CLAUDE_COMPACTION_LINE)
+    assert compaction_count(str(transcript_path)) == 1
+
+
 @pytest.mark.parametrize("transcript_value", [None, "", 7])
 def test_should_count_no_compaction_without_a_readable_transcript(
     tmp_path: Path, transcript_value: object

@@ -1,6 +1,7 @@
 import importlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -161,3 +162,37 @@ def test_should_print_the_documented_output_through_a_subprocess(tmp_path: Path)
     hook_output = json.loads(completed_process.stdout)["hookSpecificOutput"]
     assert hook_output["hookEventName"] == "UserPromptSubmit"
     assert "the session's task list tool" in hook_output["additionalContext"]
+
+
+def test_replay_of_two_asks_and_a_compaction_through_the_script(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(json.dumps({"type": "user"}) + "\n", encoding="utf-8")
+    environment = {**os.environ, "TMP": str(tmp_path), "TEMP": str(tmp_path), "TMPDIR": str(tmp_path)}
+
+    def replay_ask(prompt_text: str) -> str:
+        hook_input = {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "session_one",
+            "prompt": prompt_text,
+            "transcript_path": str(transcript_path),
+        }
+        return subprocess.run(
+            [sys.executable, str(NUDGE_PATH)],
+            input=json.dumps(hook_input),
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=True,
+        ).stdout
+
+    first_stdout = replay_ask("Export the APKs")
+    second_stdout = replay_ask("Now sign the APKs")
+    with transcript_path.open("a", encoding="utf-8") as transcript:
+        transcript.write(json.dumps(COMPACTION_ENTRY) + "\n")
+    after_compaction_stdout = replay_ask("Upload the APKs")
+    assert TASK_LIST_NUDGE in json.loads(first_stdout)["hookSpecificOutput"]["additionalContext"]
+    assert second_stdout == ""
+    assert (
+        TASK_LIST_NUDGE
+        in json.loads(after_compaction_stdout)["hookSpecificOutput"]["additionalContext"]
+    )
