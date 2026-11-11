@@ -20,6 +20,7 @@ Every agent you start runs on an Anthropic model at an allowed effort. Opus runs
 - Use Anthropic models only.
 - xhigh and max are for Haiku only.
 - Any pair outside the table is out.
+- One exception: an advisor that is not the built-in advisor tool runs on Opus at high. The built-in advisor follows the `advisorModel` setting.
 
 Codex spawns follow their own policy in [Automatic child model choices](../subagent-model-routing.md).
 

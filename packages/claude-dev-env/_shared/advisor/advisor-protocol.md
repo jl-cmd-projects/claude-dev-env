@@ -47,9 +47,9 @@ Mechanical override for scripts:
 
 ### Shared effort, any host
 
-Astra reads `ADVISOR_EFFORT` (`low`, `medium`, `high`, `xhigh`, `max`) and uses the policy default, Medium. Opus always runs at medium, per [Subagent model and effort](../../docs/rule-guides/subagent-model-effort.md).
+Astra reads `ADVISOR_EFFORT` (`low`, `medium`, `high`, `xhigh`, `max`) and uses the policy default, Medium. Opus always runs at high, the advisor exception in [Subagent model and effort](../../docs/rule-guides/subagent-model-effort.md).
 Pass `--effort <level>` on the Astra helper to set effort for that Astra run.
-Pass `--effort medium` on the Claude CLI bind for Opus, whatever `ADVISOR_EFFORT` holds.
+Pass `--effort high` on the Claude CLI bind for Opus, whatever `ADVISOR_EFFORT` holds.
 
 ### Astra rung
 
