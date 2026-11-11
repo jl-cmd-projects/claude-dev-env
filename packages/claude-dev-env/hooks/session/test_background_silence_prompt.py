@@ -240,6 +240,7 @@ def test_should_return_the_newest_message_that_sets_silence() -> None:
         ),
         ("no updates unless a PR lands", "unless a PR lands"),
         ("Stay silent. Except for a failed check.", "Except for a failed check"),
+        ("Silent on updates unless the build on v1.2 is red!", "unless the build on v1.2 is red"),
         ("Stay silent. Ship PR 12 unless it is red.", None),
         ("Stay silent.", None),
     ],

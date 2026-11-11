@@ -23,7 +23,7 @@ ALL_LIFT_PATTERNS = (
     re.compile(r"\bstop\s+being\s+(?:silent|quiet)\b", re.IGNORECASE),
     re.compile(r"\b(?:don['’]?t|do\s+not)\s+(?:stay|be|go)\s+(?:silent|quiet)\b", re.IGNORECASE),
 )
-EXCEPTION_CLAUSE_PATTERN = re.compile(r"\b(?:unless|except)\b[^.!?\n]*", re.IGNORECASE)
+EXCEPTION_CLAUSE_PATTERN = re.compile(r"\b(?:unless|except)\b.*?(?=[.!?]*\s*\Z)", re.IGNORECASE)
 QUOTED_LINE_PATTERN = re.compile(r"^[ \t]*>.*$", re.MULTILINE)
 MAXIMUM_QUOTED_CHARACTERS = 300
 SILENCE_NOTE_TEMPLATE = (
