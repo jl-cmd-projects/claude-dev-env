@@ -47,7 +47,6 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
 )
-from hooks_constants.once_per_session import claim_first_showing
 from hooks_constants.pre_tool_use_context_runner import run_context_hook
 from hooks_constants.spawn_oversight_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
@@ -68,6 +67,7 @@ from hooks_constants.spawn_oversight_hook_constants import (
     TOOL_NAME_KEY,
     WORKFLOW_TOOL_NAME,
 )
+from once_per_session import claim_first_showing
 from spawn_brief_text import spawn_brief_text
 
 

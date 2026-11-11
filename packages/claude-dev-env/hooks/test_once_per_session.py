@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hooks_constants.once_per_session import (
+from once_per_session import (
     claim_first_showing,
     clear_showings,
     compaction_count,

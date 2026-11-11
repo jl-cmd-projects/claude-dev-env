@@ -43,13 +43,13 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TRANSCRIPT_PATH_KEY,
     WORD_SEPARATOR,
 )
-from hooks_constants.once_per_session import claim_first_showing
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_title_constants import (
     ALL_STALE_AT_START_STATUSES,
     TITLE_NUDGE_TEMPLATE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
 )
+from once_per_session import claim_first_showing
 from open_task_asks import is_ask
 from session_title_turn_gate import (
     available_title_tools,

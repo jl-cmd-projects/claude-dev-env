@@ -44,6 +44,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
+from once_per_session import claim_first_showing, clear_showings
 from reply_length_gate import reply_violation
 from hooks_constants.chat_reply_gate_constants import (
     CLAUDE_SESSION_ID_ENV_VAR,
@@ -80,7 +81,6 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
-from hooks_constants.once_per_session import claim_first_showing, clear_showings
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.reply_length_gate_constants import (
     ADDITIONAL_CONTEXT_KEY,
