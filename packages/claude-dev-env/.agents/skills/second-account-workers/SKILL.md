@@ -56,6 +56,11 @@ calls and text, and the last line is the `result` event. Read new lines with
 `tail -n 20 "<events.jsonl>"` and skip screenshots unless a check needs to see
 the screen.
 
+Add `--effort "<level>"` to set the worker's effort. With `--model` set, the
+script keeps the effort inside
+[Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
+`--model opus --effort xhigh` runs at `medium`, and `--model sonnet` alone runs at `high`.
+
 Read the JSON report and worker log after the process ends. The JSON fields are
 `account`, `reason`, `exit_code`, `duration_seconds`, `result`, and `is_error`.
 The runner writes one summary line with the selected account, exit code, and
