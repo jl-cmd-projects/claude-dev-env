@@ -64,6 +64,8 @@ from hooks_constants.merge_review_gate_constants import (
     GH_API_MERGE_PATTERN,
     GH_PR_MERGE_CALL_PATTERN,
     GH_PR_MERGE_PATTERN,
+    ALL_GH_PR_MERGE_SUBCOMMAND_WORDS,
+    GH_PROGRAM_WORD_PATTERN,
     HOOK_EVENT_NAME,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
@@ -237,14 +239,26 @@ def _shell_segments(command: str) -> list[list[str]] | None:
         return None
     all_segments: list[list[str]] = [[]]
     for each_word in all_words:
-        if set(each_word) <= set(SHELL_PUNCTUATION_CHARACTERS):
+        if each_word and set(each_word) <= set(SHELL_PUNCTUATION_CHARACTERS):
             all_segments.append([])
         else:
             all_segments[-1].append(each_word)
     return all_segments
 
 
-def _carries_disable_auto(all_words: list[str]) -> bool:
+def _merge_arguments(all_words: list[str]) -> list[str] | None:
+    for each_index in range(len(all_words) - len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)):
+        is_gh_program = GH_PROGRAM_WORD_PATTERN.search(all_words[each_index]) is not None
+        subcommand_end = each_index + 1 + len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)
+        if is_gh_program and tuple(all_words[each_index + 1 : subcommand_end]) == ALL_GH_PR_MERGE_SUBCOMMAND_WORDS:
+            return all_words[subcommand_end:]
+    return None
+
+
+def _carries_disable_auto(all_segment_words: list[str]) -> bool:
+    all_words = _merge_arguments(all_segment_words)
+    if all_words is None:
+        return False
     is_option_value = False
     for each_word in all_words:
         if is_option_value:
