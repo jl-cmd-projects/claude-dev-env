@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.114.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.2...claude-dev-env-v8.114.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **workers:** effort flag for account worker; agent test reads live agents ([#2311](https://github.com/jl-cmd-projects/claude-dev-env/issues/2311)) ([4c74a4e](https://github.com/jl-cmd-projects/claude-dev-env/commit/4c74a4e4f30758578d9551ead069049253210bc3))
+
+
+### Documentation
+
+* **model-choice:** adapt the model choice article to the allowed pairs ([#2310](https://github.com/jl-cmd-projects/claude-dev-env/issues/2310)) ([a278f9b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a278f9b8220ae76a4008d1eb0c9136c5db1c7893))
+
 ## [8.114.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.1...claude-dev-env-v8.114.2) (2026-11-11)
 
 
