@@ -70,12 +70,25 @@ RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
+ALL_OPTIONS_WITH_VALUE = (
+    "-R",
+    "--repo",
+    "--match-head-commit",
+    "-t",
+    "--subject",
+    "-b",
+    "--body",
+    "-F",
+    "--body-file",
+    "-A",
+    "--author-email",
+)
 OPTION_WITH_VALUE_PATTERN = re.compile(
-    r"(?<!\S)(?:-R|--repo|--match-head-commit|-t|--subject|-b|--body|-F|--body-file|-A|--author-email)"
+    r"(?<!\S)(?:" + "|".join(ALL_OPTIONS_WITH_VALUE) + r")"
     r"(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
 )
 AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--auto(?:\s|$)")
-DISABLE_AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--disable-auto(?:\s|$)")
+DISABLE_AUTO_OPTION = "--disable-auto"
 COMMAND_SEGMENT_SEPARATOR_PATTERN = re.compile(r"[;&|\r\n()`]")
 
 EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES"

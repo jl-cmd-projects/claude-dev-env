@@ -336,9 +336,12 @@ def successful_result_text(transcript_path: object) -> str | None:
 
 def _attachment_texts(all_entry_fields: dict[str, object]) -> list[str]:
     attachment = all_entry_fields.get(ATTACHMENT_KEY)
-    if not isinstance(attachment, dict) or attachment.get(BLOCK_TYPE_KEY) not in ALL_HOOK_TEXT_ATTACHMENT_TYPES:
+    if not isinstance(attachment, dict):
         return []
-    if attachment.get(BLOCK_TYPE_KEY) == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_harness_message(attachment):
+    attachment_type = attachment.get(BLOCK_TYPE_KEY)
+    if not isinstance(attachment_type, str) or attachment_type not in ALL_HOOK_TEXT_ATTACHMENT_TYPES:
+        return []
+    if attachment_type == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_harness_message(attachment):
         return []
     all_texts = []
     for each_key in ALL_ATTACHMENT_TEXT_KEYS:

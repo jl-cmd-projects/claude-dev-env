@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,7 @@ from hooks_constants.hook_specific_output_keys import (
     PERMISSION_DECISION_KEY,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_OPTIONS_WITH_VALUE,
     ALL_SHELL_TOOL_NAMES,
     AUTO_MERGE_REASON_TEMPLATE,
     AUTO_MERGE_TOOL_SUFFIX,
@@ -57,7 +59,7 @@ from hooks_constants.merge_review_gate_constants import (
     COMMAND_SEGMENT_SEPARATOR_PATTERN,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
-    DISABLE_AUTO_OPTION_PATTERN,
+    DISABLE_AUTO_OPTION,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
@@ -203,10 +205,23 @@ def _only_disables_auto_merge(command: str) -> bool:
         for each_segment in COMMAND_SEGMENT_SEPARATOR_PATTERN.split(command)
         if GH_PR_MERGE_PATTERN.search(each_segment)
     ]
-    return all(
-        DISABLE_AUTO_OPTION_PATTERN.search(_without_option_values(each_segment))
-        for each_segment in all_merge_segments
-    )
+    return all(_carries_disable_auto(each_segment) for each_segment in all_merge_segments)
+
+
+def _carries_disable_auto(segment: str) -> bool:
+    try:
+        all_words = shlex.split(segment)
+    except ValueError:
+        return False
+    is_option_value = False
+    for each_word in all_words:
+        if is_option_value:
+            is_option_value = False
+            continue
+        if each_word == DISABLE_AUTO_OPTION:
+            return True
+        is_option_value = each_word in ALL_OPTIONS_WITH_VALUE
+    return False
 
 
 def _gh_pr_merge_target(arguments: str) -> tuple[str, str, int | None]:
