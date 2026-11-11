@@ -7,15 +7,22 @@
     gh pr create --title "t" --body-file body.md         -> ("t", the text of body.md)
     python pull_request.py create --title "t" ...        -> ("t", the text of the body file)
 
-A text the command passes on standard input, a missing file, and a quote that
-never closes give no words. The module reads no network and starts no process.
+A text the command passes on standard input, a missing file, a path that is not
+a regular file (a folder, a named pipe, a device such as ``NUL``), and a quote
+that never closes give no words. The module opens only a regular file a
+``-F``, ``--file``, or ``--body-file`` option names, and reads at most
+``MAXIMUM_FILE_BYTES`` bytes of it. It reads no network and starts no process.
 """
 
 from __future__ import annotations
 
+import bisect
+import itertools
+import os
 import shlex
+import stat
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -33,6 +40,9 @@ from hooks_constants.pieces_per_level_note_constants import (
     ALL_MESSAGE_LONG_OPTIONS,
     ALL_SHELL_CONTROL_TOKENS,
     BACKSLASH,
+    CARRIAGE_RETURN,
+    CARRIAGE_RETURN_LINE_FEED,
+    COMMIT_WORD_PATTERN,
     DOUBLED_BACKSLASH,
     EXECUTABLE_SUFFIX,
     FILE_KIND,
@@ -40,12 +50,20 @@ from hooks_constants.pieces_per_level_note_constants import (
     GH_PROGRAM_NAME,
     GIT_COMMIT_WORD,
     GIT_PROGRAM_NAME,
-    HEREDOC_COMMIT_PATTERN,
+    GIT_WORD_PATTERN,
     HEREDOC_MESSAGE_PATTERN,
+    HEREDOC_START_PATTERN,
+    HEREDOC_TAG_GROUP,
     HEREDOC_TEXT_GROUP,
+    LINE_LEADING_WORD_PATTERN,
+    LINE_SEPARATOR,
     LONG_OPTION_PREFIX,
+    MAXIMUM_FILE_BYTES,
+    MAXIMUM_PROGRAM_MENTIONS,
+    MAXIMUM_WRAPPED_TEXTS,
     MESSAGE_KIND,
     MESSAGE_SHORT_FLAG,
+    MINIMUM_HEREDOC_BODY_LINE_OFFSET,
     OPTION_VALUE_SEPARATOR,
     SHORT_OPTION_PREFIX,
     STANDARD_INPUT_PATH,
@@ -69,7 +87,7 @@ def _tokens_or_none(text: str) -> list[str] | None:
 def _all_token_lists(command: str) -> Iterator[list[str]]:
     all_variants = (
         each_variant
-        for each_text in all_wrapped_command_texts(command)
+        for each_text in itertools.islice(all_wrapped_command_texts(command), MAXIMUM_WRAPPED_TEXTS)
         for each_variant in (each_text, each_text.replace(BACKSLASH, DOUBLED_BACKSLASH))
     )
     return (
@@ -88,10 +106,24 @@ def _arguments_after(all_tokens: list[str], start_index: int) -> list[str]:
     return all_arguments
 
 
+def _first_mentions(all_indexes: Iterable[int]) -> Iterator[int]:
+    return itertools.islice(all_indexes, MAXIMUM_PROGRAM_MENTIONS)
+
+
 def _program_indexes(all_tokens: list[str], program_name: str) -> Iterator[int]:
-    for each_index, each_token in enumerate(all_tokens):
-        if token_basename(each_token).removesuffix(EXECUTABLE_SUFFIX) == program_name:
-            yield each_index
+    return _first_mentions(
+        each_index
+        for each_index, each_token in enumerate(all_tokens)
+        if token_basename(each_token).removesuffix(EXECUTABLE_SUFFIX) == program_name
+    )
+
+
+def _script_indexes(all_tokens: list[str]) -> Iterator[int]:
+    return _first_mentions(
+        each_index
+        for each_index, each_token in enumerate(all_tokens)
+        if token_basename(each_token) == PULL_REQUEST_SCRIPT_NAME
+    )
 
 
 def _all_commit_arguments(all_tokens: list[str]) -> Iterator[list[str]]:
@@ -117,12 +149,19 @@ def _message_text(message: str) -> str:
 def _file_text(path_text: str, working_directory: str) -> str | None:
     if path_text == STANDARD_INPUT_PATH:
         return None
+    file_path = Path(working_directory) / path_text
     try:
-        return (Path(working_directory) / path_text).read_text(
-            encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY
-        )
-    except OSError:
+        if not stat.S_ISREG(os.stat(file_path).st_mode):
+            return None
+        with file_path.open("rb") as file_handle:
+            all_file_bytes = file_handle.read(MAXIMUM_FILE_BYTES)
+    except (OSError, ValueError):
         return None
+    return (
+        all_file_bytes.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
+        .replace(CARRIAGE_RETURN_LINE_FEED, LINE_SEPARATOR)
+        .replace(CARRIAGE_RETURN, LINE_SEPARATOR)
+    )
 
 
 def _is_message_flag_cluster(argument: str) -> bool:
@@ -173,6 +212,47 @@ def _commit_messages(all_arguments: list[str], working_directory: str) -> list[s
     return [each_message for each_message in all_messages if each_message is not None]
 
 
+def _heredoc_start_tag(line: str) -> str | None:
+    git_match = GIT_WORD_PATTERN.search(line)
+    commit_match = None if git_match is None else COMMIT_WORD_PATTERN.search(line, git_match.end())
+    if commit_match is None:
+        return None
+    start_match = HEREDOC_START_PATTERN.search(line, commit_match.end())
+    return None if start_match is None else start_match.group(HEREDOC_TAG_GROUP)
+
+
+def _line_numbers_by_leading_word(all_lines: list[str]) -> dict[str, list[int]]:
+    all_line_numbers: dict[str, list[int]] = {}
+    for each_number, each_line in enumerate(all_lines):
+        leading_word = LINE_LEADING_WORD_PATTERN.match(each_line)
+        if leading_word is not None:
+            all_line_numbers.setdefault(leading_word.group(1), []).append(each_number)
+    return all_line_numbers
+
+
+def _all_heredoc_commit_texts(command: str) -> Iterator[str]:
+    all_lines = command.split(LINE_SEPARATOR)
+    all_line_numbers: dict[str, list[int]] | None = None
+    line_number = 0
+    while line_number < len(all_lines):
+        tag = _heredoc_start_tag(all_lines[line_number])
+        if tag is None:
+            line_number += 1
+            continue
+        if all_line_numbers is None:
+            all_line_numbers = _line_numbers_by_leading_word(all_lines)
+        all_closing_numbers = all_line_numbers.get(tag, [])
+        closing_slot = bisect.bisect_left(
+            all_closing_numbers, line_number + MINIMUM_HEREDOC_BODY_LINE_OFFSET
+        )
+        if closing_slot == len(all_closing_numbers):
+            line_number += 1
+            continue
+        closing_number = all_closing_numbers[closing_slot]
+        yield LINE_SEPARATOR.join(all_lines[line_number + 1 : closing_number])
+        line_number = closing_number + 1
+
+
 def _first_line(message: str) -> str:
     return next((each_line.strip() for each_line in message.splitlines() if each_line.strip()), "")
 
@@ -193,10 +273,7 @@ def commit_subjects(command: str, working_directory: str) -> list[str]:
         all_messages = _commit_messages(each_arguments, working_directory)
         if all_messages:
             all_subjects.append(_first_line(all_messages[0]))
-    all_subjects.extend(
-        _first_line(each_match.group(HEREDOC_TEXT_GROUP))
-        for each_match in HEREDOC_COMMIT_PATTERN.finditer(command)
-    )
+    all_subjects.extend(_first_line(each_text) for each_text in _all_heredoc_commit_texts(command))
     return list(dict.fromkeys(all_subjects))
 
 
@@ -216,9 +293,7 @@ def _all_pull_request_arguments(all_tokens: list[str]) -> Iterator[list[str]]:
         all_arguments = _arguments_after(all_tokens, each_index + 1)
         if all_arguments[: len(ALL_GH_CREATE_WORDS)] == list(ALL_GH_CREATE_WORDS):
             yield all_arguments[len(ALL_GH_CREATE_WORDS) :]
-    for each_index, each_token in enumerate(all_tokens):
-        if token_basename(each_token) != PULL_REQUEST_SCRIPT_NAME:
-            continue
+    for each_index in _script_indexes(all_tokens):
         all_arguments = _arguments_after(all_tokens, each_index + 1)
         if all_arguments[:1] == [PULL_REQUEST_SCRIPT_CREATE_WORD]:
             yield all_arguments[1:]

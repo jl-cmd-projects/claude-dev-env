@@ -39,16 +39,27 @@ FILE_SHORT_OPTION = "-F"
 STANDARD_INPUT_PATH = "-"
 MESSAGE_PARAGRAPH_SEPARATOR = "\n\n"
 SHORT_CLUSTER_MINIMUM_LENGTH = 2
+MAXIMUM_COMMAND_CHARACTERS = 8_000
+MAXIMUM_FILE_BYTES = 65_536
+MAXIMUM_PROGRAM_MENTIONS = 16
+MAXIMUM_WRAPPED_TEXTS = 8
 
 HEREDOC_MESSAGE_PATTERN = re.compile(
     r"^\s*\$\(\s*cat\s+<<-?\s*(?P<quote>['\"]?)(?P<tag>\w+)(?P=quote)[ \t]*\n(?P<text>.*?)\n[ \t]*(?P=tag)[ \t]*\n?\s*\)\s*$",
     re.DOTALL,
 )
-HEREDOC_COMMIT_PATTERN = re.compile(
-    r"git\b[^\n]*?\bcommit\b[^\n]*?(?:-\w*m|--message)[ =]+\"?\$\(\s*cat\s+<<-?\s*(?P<quote>['\"]?)"
-    r"(?P<tag>\w+)(?P=quote)[ \t]*\n(?P<text>(?s:.*?))\n[ \t]*(?P=tag)\b"
+GIT_WORD_PATTERN = re.compile(r"\bgit\b")
+COMMIT_WORD_PATTERN = re.compile(r"\bcommit\b")
+HEREDOC_START_PATTERN = re.compile(
+    r"(?:-\w*m|--message)[ =]+\"?\$\(\s*cat\s+<<-?\s*(?P<quote>['\"]?)(?P<tag>\w+)(?P=quote)[ \t]*$"
 )
+HEREDOC_TAG_GROUP = "tag"
 HEREDOC_TEXT_GROUP = "text"
+LINE_LEADING_WORD_PATTERN = re.compile(r"[ \t]*(\w*)")
+LINE_SEPARATOR = "\n"
+CARRIAGE_RETURN = "\r"
+CARRIAGE_RETURN_LINE_FEED = "\r\n"
+MINIMUM_HEREDOC_BODY_LINE_OFFSET = 2
 
 CONVENTIONAL_SUBJECT_PATTERN = re.compile(
     r"^[a-z]+(?:\([^)\n]*\))?!?:[ \t]+(?P<description>\S.*)$", re.IGNORECASE

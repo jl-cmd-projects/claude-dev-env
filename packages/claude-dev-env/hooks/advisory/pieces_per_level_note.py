@@ -21,7 +21,10 @@ The signals, all from the author's words:
   bold-led topic bullet.
 
 A single behaviour with a compound object or an alternative stays silent, and
-so does a message or body the hook cannot read. The command or tool call runs
+so does a message or body the hook cannot read. A command longer than
+``MAXIMUM_COMMAND_CHARACTERS`` gets no note, and a message or body file is read
+only when it is a regular file, and only up to ``MAXIMUM_FILE_BYTES`` bytes, so
+the hook always finishes well inside its timeout. The command or tool call runs
 with its normal permission flow.
 """
 
@@ -51,6 +54,7 @@ from hooks_constants.pieces_per_level_note_constants import (
     BODY_INPUT_KEY,
     COMMAND_INPUT_KEY,
     COMMIT_KIND,
+    MAXIMUM_COMMAND_CHARACTERS,
     MAXIMUM_NAMED_PIECES,
     MINIMUM_PROOF_PAIR_COUNT,
     MORE_PIECES_TEMPLATE,
@@ -132,8 +136,10 @@ def _note_output(kind: str, all_pieces: list[str]) -> dict[str, object]:
 
 
 def _shell_note(command: object, working_directory: str) -> dict[str, object] | None:
-    if not isinstance(command, str) or not any(
-        each_word in command for each_word in ALL_QUICK_SCAN_WORDS
+    if (
+        not isinstance(command, str)
+        or len(command) > MAXIMUM_COMMAND_CHARACTERS
+        or not any(each_word in command for each_word in ALL_QUICK_SCAN_WORDS)
     ):
         return None
     all_commit_pieces = commit_pieces(command, working_directory)

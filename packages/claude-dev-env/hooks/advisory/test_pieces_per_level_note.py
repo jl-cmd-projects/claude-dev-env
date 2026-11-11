@@ -10,13 +10,26 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
+hooks_root_directory = str(Path(__file__).resolve().parent.parent)
+if hooks_root_directory not in sys.path:
+    sys.path.insert(0, hooks_root_directory)
+advisory_directory = str(Path(__file__).resolve().parent)
+if advisory_directory not in sys.path:
+    sys.path.insert(0, advisory_directory)
+
+import pieces_per_level_note
+from hooks_constants.pieces_per_level_note_constants import MAXIMUM_COMMAND_CHARACTERS
+
 SCRIPT_PATH = Path(__file__).resolve().parent / "pieces_per_level_note.py"
 HOOKS_JSON_PATH = Path(__file__).resolve().parent.parent / "hooks.json"
 RUN_TIMEOUT_SECONDS = 30
+HOSTILE_INPUT_SECONDS_BOUND = 1.0
+HOSTILE_SUBPROCESS_SECONDS_BOUND = 3.0
 
 MIXED_SUBJECT = (
     "fix(convert): always publish drawn icons, put Tips on the tray, stop the label smear"
@@ -320,3 +333,51 @@ def test_a_heredoc_message_that_holds_a_double_quote_still_gets_the_note() -> No
 def test_a_heredoc_message_with_a_single_behaviour_subject_is_silent() -> None:
     command = "git commit -m \"$(cat <<'EOF'\nfix(x): handle empty input\n\nHe said \"stop\".\nEOF\n)\""
     _assert_silent(_run(_shell_payload(command)))
+
+
+HOSTILE_BULLET_LINE = "- **Topic** text here\n"
+ALL_HOSTILE_COMMANDS = {
+    "repeated commit words": "git commit " * 1000,
+    "repeated commit words at the cap": "git commit " * (MAXIMUM_COMMAND_CHARACTERS // 11),
+    "repeated heredoc starts": "git commit -m \"$(cat <<'EOF'\n" * 300,
+    "message over the cap": 'git commit -m "' + "a" * 200_000 + '"',
+    "bullet body over the cap": 'gh pr create --title t --body "'
+    + HOSTILE_BULLET_LINE * 9_000
+    + '"',
+    "mixed subject padded past the cap": f'git commit -m "{MIXED_SUBJECT}"'
+    + " " * MAXIMUM_COMMAND_CHARACTERS,
+}
+
+
+def _decide_seconds(command: str) -> tuple[object, float]:
+    all_fields = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": ""}
+    started_at = time.perf_counter()
+    output = pieces_per_level_note.decide_hook_output(all_fields)
+    return output, time.perf_counter() - started_at
+
+
+@pytest.mark.parametrize("command_name", list(ALL_HOSTILE_COMMANDS))
+def test_a_hostile_command_gets_no_note_within_the_time_bound(command_name: str) -> None:
+    output, elapsed_seconds = _decide_seconds(ALL_HOSTILE_COMMANDS[command_name])
+    assert output is None
+    assert elapsed_seconds < HOSTILE_INPUT_SECONDS_BOUND
+
+
+@pytest.mark.parametrize(
+    "command_name", ["repeated commit words", "message over the cap", "bullet body over the cap"]
+)
+def test_a_hostile_command_exits_zero_and_silent_inside_the_hook_timeout(
+    command_name: str,
+) -> None:
+    started_at = time.perf_counter()
+    completed = _run(_shell_payload(ALL_HOSTILE_COMMANDS[command_name]))
+    elapsed_seconds = time.perf_counter() - started_at
+    _assert_silent(completed)
+    assert elapsed_seconds < HOSTILE_SUBPROCESS_SECONDS_BOUND
+
+
+def test_a_command_just_under_the_cap_still_gets_the_note() -> None:
+    command = f'git commit -m "{MIXED_SUBJECT}"'
+    command = command + " " * (MAXIMUM_COMMAND_CHARACTERS - len(command))
+    output, _ = _decide_seconds(command)
+    assert "stop the label smear" in json.dumps(output)
