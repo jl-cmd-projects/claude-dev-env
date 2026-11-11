@@ -36,7 +36,7 @@ from hooks_constants.once_per_session_constants import (
 )
 from hooks_constants.session_file_id import session_file_id
 
-__all__ = ["claim_first_showing", "compaction_count"]
+__all__ = ["claim_first_showing", "clear_showings", "compaction_count"]
 
 
 def _is_compaction_entry(transcript_line: str) -> bool:
@@ -96,3 +96,14 @@ def claim_first_showing(hook_name: str, all_hook_fields: Mapping[str, object]) -
         return False
     except OSError:
         return True
+
+
+def clear_showings(session_id: object) -> None:
+    """Delete every hook's markers for the session, its subagents included, at session end."""
+    if not isinstance(session_id, str) or not session_id:
+        return
+    session_pattern = ONCE_MARKER_NAME_SEPARATOR.join(["*", session_file_id(session_id), "*"])
+    for each_marker in Path(tempfile.gettempdir()).glob(
+        f"{ONCE_MARKER_FILE_PREFIX}{session_pattern}{ONCE_MARKER_FILE_SUFFIX}"
+    ):
+        each_marker.unlink(missing_ok=True)

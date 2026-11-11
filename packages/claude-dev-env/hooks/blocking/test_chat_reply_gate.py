@@ -199,15 +199,18 @@ def test_should_delete_the_shown_draft_at_session_end(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
+    run_hook(monkeypatch, capsys, {"hook_event_name": "UserPromptSubmit", "session_id": "abc"})
     run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     shown_draft_path = chat_reply_gate.state_file_path("claude-chat-reply-shown-", "abc")
     assert shown_draft_path.exists()
+    assert list(Path(chat_reply_gate.tempfile.gettempdir()).glob("claude-once-*"))
     exit_code, hook_output = run_hook(
         monkeypatch, capsys, {"hook_event_name": "SessionEnd", "session_id": "abc"}
     )
     assert exit_code == 0
     assert hook_output is None
     assert not shown_draft_path.exists()
+    assert not list(Path(chat_reply_gate.tempfile.gettempdir()).glob("claude-once-*"))
 
 
 def test_should_add_the_reply_limit_to_a_prompt_with_no_session_id(

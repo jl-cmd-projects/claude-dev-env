@@ -80,7 +80,7 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
-from hooks_constants.once_per_session import claim_first_showing
+from hooks_constants.once_per_session import claim_first_showing, clear_showings
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.reply_length_gate_constants import (
     ADDITIONAL_CONTEXT_KEY,
@@ -246,6 +246,7 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     if event_name == SESSION_END_EVENT_NAME:
         state_file_path(SHOWN_DRAFT_FILE_PREFIX, hook_input.get(SESSION_ID_KEY)).unlink(missing_ok=True)
+        clear_showings(hook_input.get(SESSION_ID_KEY))
         return ALLOW_EXIT_CODE
     if event_name != MESSAGE_DISPLAY_EVENT_NAME:
         return ALLOW_EXIT_CODE

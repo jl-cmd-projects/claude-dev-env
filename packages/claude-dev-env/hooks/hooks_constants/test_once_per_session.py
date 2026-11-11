@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from hooks_constants.once_per_session import claim_first_showing, compaction_count
+from hooks_constants.once_per_session import (
+    claim_first_showing,
+    clear_showings,
+    compaction_count,
+)
 
 CLAUDE_COMPACTION_LINE = json.dumps({"type": "system", "subtype": "compact_boundary"})
 CODEX_COMPACTION_LINE = json.dumps({"type": "compacted", "payload": {"message": ""}})
@@ -78,6 +82,16 @@ def test_should_show_every_time_without_a_session_id(
     all_fields = _fields(transcript_path, session_id=session_value)
     assert claim_first_showing("hook", all_fields) is True
     assert claim_first_showing("hook", all_fields) is True
+
+
+def test_should_clear_only_the_ended_session_markers(transcript_path: Path) -> None:
+    claim_first_showing("hook", _fields(transcript_path))
+    claim_first_showing("other_hook", _fields(transcript_path, agent_id="a1"))
+    claim_first_showing("hook", _fields(transcript_path, session_id="s2"))
+    clear_showings("s1")
+    assert claim_first_showing("hook", _fields(transcript_path)) is True
+    assert claim_first_showing("other_hook", _fields(transcript_path, agent_id="a1")) is True
+    assert claim_first_showing("hook", _fields(transcript_path, session_id="s2")) is False
 
 
 def test_should_show_every_time_when_the_marker_cannot_be_written(
