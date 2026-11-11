@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.115.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.10...claude-dev-env-v8.115.0) (2026-11-11)
+
+
+### Features
+
+* **hooks:** tell every spawned worker to commit each passed piece as its own stack level ([#2329](https://github.com/jl-cmd-projects/claude-dev-env/issues/2329)) ([890142e](https://github.com/jl-cmd-projects/claude-dev-env/commit/890142e0f1b390f61838976f3c7904814302ef75))
+
 ## [8.114.10](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.9...claude-dev-env-v8.114.10) (2026-11-11)
 
 
