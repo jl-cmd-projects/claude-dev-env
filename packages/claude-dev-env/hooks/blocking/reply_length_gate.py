@@ -42,9 +42,10 @@ a check did not run::
 
 It denies an Actions run, a pull request link, or a run, job, or check id
 that no successful tool result in the transcript shows. A subagent's report
-is the result of its Agent call. A pull request link also counts as shown
-when hook or harness text shows it. With no readable transcript, this check
-is skipped.
+is the result of its Agent call. With no readable transcript, this check
+is skipped. The closing-reply gate uses
+``unseen_citation_violation_with_hook_text``, where a pull request link also
+counts as shown when hook or harness text shows it.
 
 The banned-word, unvalidated claim, and citation checks also read the prose of a
 decision card: its question, its context, and each option's label and
@@ -421,23 +422,14 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
     return joined_violations(all_claims)
 
 
-def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
-    """Return the deny reason for each cited run, job, check, or pull request the session never showed.
-
-    A tool result that shows the number counts for every kind. A ``/pull/N``
-    link also counts when hook or harness text shows the same link, such as
-    stop-hook feedback or a background agent's task notification. This gate's
-    own feedback, which quotes the citation or sentence it blocked, does not count.
-
-    Returns None when the text cites nothing or the transcript cannot be read.
-    """
+def _citations_no_tool_result_shows(reply_text: str, transcript_path: object) -> list[re.Match[str]]:
     all_citations = list(CITED_NUMBER_PATTERN.finditer(FENCED_BLOCK_PATTERN.sub(" ", reply_text)))
     if not all_citations:
-        return None
+        return []
     result_text = successful_result_text(transcript_path)
     if result_text is None:
-        return None
-    all_unseen = [
+        return []
+    return [
         each_match
         for each_match in all_citations
         if re.search(
@@ -448,6 +440,30 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
         )
         is None
     ]
+
+
+def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
+    """Return the deny reason for each cited run, job, check, or pull request no tool result shows.
+
+    Returns None when the text cites nothing or the transcript cannot be read.
+    """
+    return joined_violations(
+        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        for each_match in _citations_no_tool_result_shows(reply_text, transcript_path)
+    )
+
+
+def unseen_citation_violation_with_hook_text(reply_text: str, transcript_path: object) -> str | None:
+    """Return the deny reason for each cited run, job, check, or pull request the session never showed.
+
+    A tool result that shows the number counts for every kind. A ``/pull/N``
+    link also counts when hook or harness text shows the same link, such as
+    stop-hook feedback or a background agent's task notification. This gate's
+    own feedback, which quotes the citation or sentence it blocked, does not count.
+
+    Returns None when the text cites nothing or the transcript cannot be read.
+    """
+    all_unseen = _citations_no_tool_result_shows(reply_text, transcript_path)
     hook_text = (
         REPLY_ECHO_PATTERN.sub(" ", hook_supplied_text(transcript_path) or "")
         if any(each_match[CITED_PULL_NUMBER_GROUP] for each_match in all_unseen)

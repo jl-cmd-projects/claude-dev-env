@@ -192,6 +192,8 @@ def test_should_read_a_gh_api_merge_with_a_sha_field() -> None:
         "gh pr merge --disable-auto 12 --repo acme/tools; gh pr merge --disable-auto 13 --repo acme/tools",
         "gh pr merge 12 --repo acme/tools --body 'turn auto-merge off' --disable-auto",
         'gh pr merge 12 --repo acme/tools --disable-auto --body "Done (see notes); thanks"',
+        'gh pr merge --disable-auto 12 --repo acme/tools --body "#12 done"',
+        "gh pr merge --disable-auto 12 --repo acme/tools --body issue#12",
     ],
 )
 def test_should_allow_a_merge_call_that_only_disables_auto_merge(command: str) -> None:

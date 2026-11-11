@@ -80,8 +80,10 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
-    SHELL_COMMENT_CHARACTER,
+    SHELL_COMMENT_START_PATTERN,
     SHELL_PUNCTUATION_CHARACTERS,
+    SHELL_QUOTED_TEXT_PATTERN,
+    SHELL_QUOTED_TEXT_PLACEHOLDER,
     SHELL_WHITESPACE_CHARACTERS,
     SHELL_WORD_SEPARATOR,
     STALE_REVIEW_REASON_TEMPLATE,
@@ -217,7 +219,14 @@ def _only_disables_auto_merge(command: str) -> bool:
     )
 
 
+def _has_shell_comment(command: str) -> bool:
+    unquoted_command = SHELL_QUOTED_TEXT_PATTERN.sub(SHELL_QUOTED_TEXT_PLACEHOLDER, command)
+    return SHELL_COMMENT_START_PATTERN.search(unquoted_command) is not None
+
+
 def _shell_segments(command: str) -> list[list[str]] | None:
+    if _has_shell_comment(command):
+        return None
     lexer = shlex.shlex(command, posix=True, punctuation_chars=SHELL_PUNCTUATION_CHARACTERS)
     lexer.whitespace = SHELL_WHITESPACE_CHARACTERS
     lexer.whitespace_split = True
@@ -225,8 +234,6 @@ def _shell_segments(command: str) -> list[list[str]] | None:
     try:
         all_words = list(lexer)
     except ValueError:
-        return None
-    if any(each_word.startswith(SHELL_COMMENT_CHARACTER) for each_word in all_words):
         return None
     all_segments: list[list[str]] = [[]]
     for each_word in all_words:

@@ -1038,7 +1038,8 @@ def test_should_count_a_pull_request_link_a_task_notification_shows(tmp_path: Pa
     transcript_path = tmp_path / "s.jsonl"
     transcript_path.write_text(json.dumps(notification), encoding="utf-8")
     card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
-    assert reply_length_gate.unseen_citation_violation(card_text, str(transcript_path)) is None
+    assert reply_length_gate.unseen_citation_violation_with_hook_text(card_text, str(transcript_path)) is None
+    assert 'cites "/pull/8127"' in reply_length_gate.unseen_citation_violation(card_text, str(transcript_path))
 
 
 def test_should_not_count_the_gate_echo_of_its_own_citation(tmp_path: Path) -> None:
@@ -1051,7 +1052,9 @@ def test_should_not_count_the_gate_echo_of_its_own_citation(tmp_path: Path) -> N
     transcript_path = tmp_path / "s.jsonl"
     transcript_path.write_text(json.dumps(feedback), encoding="utf-8")
     card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
-    assert 'cites "/pull/8127"' in reply_length_gate.unseen_citation_violation(card_text, str(transcript_path))
+    assert 'cites "/pull/8127"' in reply_length_gate.unseen_citation_violation_with_hook_text(
+        card_text, str(transcript_path)
+    )
 
 
 def test_should_skip_the_hook_text_read_when_a_tool_result_shows_the_link(
@@ -1061,7 +1064,7 @@ def test_should_skip_the_hook_text_read_when_a_tool_result_shows_the_link(
     monkeypatch.setattr(reply_length_gate, "hook_supplied_text", all_read_paths.append)
     transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "pull/8127 opened")
     card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
-    assert reply_length_gate.unseen_citation_violation(card_text, str(transcript_path)) is None
+    assert reply_length_gate.unseen_citation_violation_with_hook_text(card_text, str(transcript_path)) is None
     assert all_read_paths == []
 
 

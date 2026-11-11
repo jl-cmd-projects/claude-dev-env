@@ -47,7 +47,7 @@ if hooks_root_directory not in sys.path:
 from reply_length_gate import (
     banned_word_violation,
     configured_banned_words,
-    unseen_citation_violation,
+    unseen_citation_violation_with_hook_text,
     unvalidated_claim_violation,
 )
 from open_tasks_transcript import replayed_transcript
@@ -273,7 +273,7 @@ def final_reply_violation(reply_text: str, transcript_path: object) -> str | Non
     return (
         banned_word_violation(reply_text, configured_banned_words())
         or unvalidated_claim_violation(reply_text)
-        or unseen_citation_violation(reply_text, transcript_path)
+        or unseen_citation_violation_with_hook_text(reply_text, transcript_path)
         or windows_path_violation(reply_text)
     )
 
