@@ -4,11 +4,13 @@
 The user follows a session in two places: the task list shows what the agent
 does, and the title's status emoji shows whether the session needs them. A new
 ask changes both, so the hook adds one short ``additionalContext`` note when the
-prompt asks for work::
+prompt asks for work. The task list note shows on the session's first ask and
+on the first ask after each compaction::
 
-    "Export the APKs"                        -> task list note
+    "Export the APKs", first ask             -> task list note
     "Export the APKs", title shows a red flag or a check mark
                                              -> task list note + title note
+    "Sign the APKs", a later ask             -> nothing, or the title note
     "did the export fail?"                   -> nothing
     "<task-notification>...</task-notification>"
                                              -> nothing
@@ -22,6 +24,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
@@ -36,6 +39,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     PROMPT_KEY,
     PROMPT_SUBMIT_EVENT_NAME,
     TASK_LIST_NUDGE,
+    TASK_LIST_NUDGE_ONCE_MARKER_NAME,
     TRANSCRIPT_PATH_KEY,
     WORD_SEPARATOR,
 )
@@ -45,6 +49,7 @@ from hooks_constants.session_title_constants import (
     TITLE_NUDGE_TEMPLATE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
 )
+from once_per_session import claim_first_showing
 from open_task_asks import is_ask
 from session_title_turn_gate import (
     available_title_tools,
@@ -82,12 +87,25 @@ def title_nudge(all_entries: list[dict[str, object]]) -> str | None:
     )
 
 
-def ask_tracking_context(prompt_text: str, all_entries: list[dict[str, object]]) -> str | None:
-    """Return the note for a prompt that asks for work, or None for any other prompt."""
+def ask_tracking_context(
+    prompt_text: str,
+    all_entries: list[dict[str, object]],
+    all_hook_fields: Mapping[str, object],
+) -> str | None:
+    """Return the note for a prompt that asks for work, or None for any other prompt.
+
+    The task list note shows on the session's first ask and on the first ask
+    after each compaction. The title note shows on every ask while the title is stale.
+    """
     if not is_ask(prompt_text):
         return None
-    all_notes = [TASK_LIST_NUDGE, title_nudge(all_entries)]
-    return WORD_SEPARATOR.join(each_note for each_note in all_notes if each_note)
+    tracker_note = (
+        TASK_LIST_NUDGE
+        if claim_first_showing(TASK_LIST_NUDGE_ONCE_MARKER_NAME, all_hook_fields)
+        else None
+    )
+    all_notes = [tracker_note, title_nudge(all_entries)]
+    return WORD_SEPARATOR.join(each_note for each_note in all_notes if each_note) or None
 
 
 def main() -> int:
@@ -96,7 +114,7 @@ def main() -> int:
     if hook_input is None or not isinstance(prompt_value, str):
         return ALLOW_EXIT_CODE
     context_text = ask_tracking_context(
-        prompt_value, read_transcript_entries(hook_input.get(TRANSCRIPT_PATH_KEY))
+        prompt_value, read_transcript_entries(hook_input.get(TRANSCRIPT_PATH_KEY)), hook_input
     )
     if context_text:
         hook_output = {

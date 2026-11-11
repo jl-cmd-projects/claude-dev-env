@@ -30,6 +30,8 @@ REPLY_LIMIT_REMINDER = (
     " Count your sentences before you send."
 )
 SHOWN_DRAFT_PREFIX = "\n\nThe user saw your last reply condensed to this text, so build on it:\n\n"
+SHOWN_DRAFT_HEADING = SHOWN_DRAFT_PREFIX.lstrip()
+REPLY_LIMIT_ONCE_MARKER_NAME = "chat_reply_limit"
 DRAFTER_GUARD_ENV_VAR = "CHAT_REPLY_DRAFTER_ACTIVE"
 DRAFTER_MODEL_ENV_VAR = "CHAT_REPLY_DRAFTER_MODEL"
 DEFAULT_DRAFTER_MODEL = "haiku"

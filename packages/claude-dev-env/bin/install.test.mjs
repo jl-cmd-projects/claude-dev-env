@@ -54,6 +54,7 @@ import {
     detectPython,
     pythonFileAndPrefixArguments,
     retainNewestRunBackupOnly,
+    unshippedEverRegisteredHookRelativePaths,
 } from './install.mjs';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
 import {
@@ -2736,6 +2737,57 @@ test('a retired registration reaching an owned root through a junction is named'
             [...namedPaths],
             [RETIRED_HOOK_RELATIVE_PATH],
             'the junction and the directory it reaches are one owned hooks root',
+        );
+    } finally {
+        rmSync(sandboxRoot, { recursive: true, force: true });
+    }
+});
+
+
+test('a missing script spelled through a link from an unowned spelling into an owned root is named', () => {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), 'cdev-linked-hook-spelling-'));
+    try {
+        const agentsHooksRoot = join(sandboxRoot, ...AGENTS_HOOKS_ROOT_SEGMENTS);
+        const priorUserHooksLink = join(sandboxRoot, 'prior-user', '.claude', 'hooks');
+        mkdirSync(agentsHooksRoot, { recursive: true });
+        mkdirSync(dirname(priorUserHooksLink), { recursive: true });
+        symlinkSync(agentsHooksRoot, priorUserHooksLink, 'junction');
+        const linkedCommand = `python3 ${join(priorUserHooksLink, ...RETIRED_HOOK_RELATIVE_PATH.split('/')).replace(/\\/g, '/')}`;
+
+        const namedPaths = retiredHookPathsNamedByCommands(
+            [linkedCommand],
+            new Set([RETIRED_HOOK_RELATIVE_PATH]),
+            sandboxHookOwnership(sandboxRoot, [agentsHooksRoot]),
+        );
+
+        assert.deepEqual(
+            [...namedPaths],
+            [RETIRED_HOOK_RELATIVE_PATH],
+            'the directory in front of the script resolves into the owned root',
+        );
+    } finally {
+        rmSync(sandboxRoot, { recursive: true, force: true });
+    }
+});
+
+
+test('unshippedEverRegisteredHookRelativePaths names a once-registered script no source root ships', () => {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), 'cdev-unshipped-hooks-'));
+    try {
+        const shippedRelativePath = 'blocking/pre_tool_use_dispatcher.py';
+        const unshippedRelativePath = 'blocking/merge_over_review_offer_gate.py';
+        const sourceHooksDirectory = join(sandboxRoot, 'hooks');
+        mkdirSync(join(sourceHooksDirectory, 'blocking'), { recursive: true });
+        writeFileSync(join(sourceHooksDirectory, ...shippedRelativePath.split('/')), '');
+
+        const unshippedPaths = unshippedEverRegisteredHookRelativePaths([sourceHooksDirectory]);
+
+        assert.equal(unshippedPaths.has(unshippedRelativePath), true);
+        assert.equal(unshippedPaths.has(shippedRelativePath), false);
+        assert.equal(
+            unshippedPaths.has('blocking/codemap_first_redirector.py'),
+            false,
+            'a script no release registered never counts as retired',
         );
     } finally {
         rmSync(sandboxRoot, { recursive: true, force: true });

@@ -119,6 +119,7 @@ BLOCK_REASON = (
 )
 PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 TASK_LIST_NUDGE = (
-    "The user follows your work in the task list. Give this ask a task list item (TaskCreate) and"
-    " keep each item's status current as the work moves."
+    "The user follows your work in the task list. Give each ask an item in the session's task list"
+    " tool and keep each item's status current as the work moves."
 )
+TASK_LIST_NUDGE_ONCE_MARKER_NAME = "tracking_nudge"

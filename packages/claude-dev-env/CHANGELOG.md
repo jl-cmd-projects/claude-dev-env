@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.114.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.6...claude-dev-env-v8.114.7) (2026-11-11)
+
+
+### Bug Fixes
+
+* **usage-pause:** resolve an account with only a weekly usage window ([#2318](https://github.com/jl-cmd-projects/claude-dev-env/issues/2318)) ([c28d93c](https://github.com/jl-cmd-projects/claude-dev-env/commit/c28d93c20750cb4715f4786657717ab143350129))
+
+## [8.114.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.5...claude-dev-env-v8.114.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** show three hooks' fixed text once per session and after compaction ([#2317](https://github.com/jl-cmd-projects/claude-dev-env/issues/2317)) ([d093cc0](https://github.com/jl-cmd-projects/claude-dev-env/commit/d093cc09af66373451b7ff155e5e848c0e2d2d12))
+
+## [8.114.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.4...claude-dev-env-v8.114.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **install:** prune a hook registration the package stopped shipping after a root move ([#2315](https://github.com/jl-cmd-projects/claude-dev-env/issues/2315)) ([ba3c74b](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba3c74b6d5ce5ce354d4a0c0cf2f498c5fd32d10))
+
 ## [8.114.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.3...claude-dev-env-v8.114.4) (2026-11-11)
 
 
