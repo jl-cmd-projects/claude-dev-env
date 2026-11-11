@@ -49,6 +49,9 @@ from dev_env_scripts_constants.account_broker_constants import (
     Meters,
     Product,
     ProductAdapter,
+    PUBLISHED_USAGE_DIRECTORY_ENV_VAR,
+    PUBLISHED_USAGE_FILE_PATTERN,
+    PUBLISHED_USAGE_MAX_AGE_SECONDS,
     Reading,
     Report,
     REPORT_INDENT_SPACES,
@@ -281,8 +284,53 @@ def refresh_claude_login(account_home: Path) -> bool:
     return True
 
 
+def read_published_meters(account: Account) -> Meters | None:
+    """Read one account's meters from the readings a single usage reader publishes.
+
+    ::
+
+        CLAUDE_USAGE_READINGS_DIR=/readings, account home .../alpha
+        /readings/meters-ALPHA.json  {"read_at": "<5 minutes ago>", "accounts": [{"name": "alpha",
+                                      "meters": {"weekly_percent_left": 45.0, ...}}]}
+            ->  Meters(weekly_percent_left=45.0, ...), and the usage endpoint is not called
+
+    A reading matches an account when its ``name`` equals the account home's folder name.
+    A reading older than ``PUBLISHED_USAGE_MAX_AGE_SECONDS`` is ignored.
+
+    Args:
+        account: Account whose meter is read.
+
+    Returns:
+        The published meters, or None when the folder is unset or holds no fresh reading for the account.
+    """
+    folder_text = os.environ.get(PUBLISHED_USAGE_DIRECTORY_ENV_VAR)
+    if not folder_text:
+        return None
+    now = datetime.now(timezone.utc)
+    for each_path in sorted(Path(folder_text).glob(PUBLISHED_USAGE_FILE_PATTERN)):
+        try:
+            reading = json.loads(each_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(reading, dict):
+            continue
+        read_at = parse_utc_time(reading.get("read_at"))
+        all_rows = reading.get("accounts")
+        if read_at is None or not isinstance(all_rows, list):
+            continue
+        if (now - read_at).total_seconds() > PUBLISHED_USAGE_MAX_AGE_SECONDS:
+            continue
+        for each_row in all_rows:
+            if not isinstance(each_row, dict) or not isinstance(each_row.get("meters"), dict):
+                continue
+            if str(each_row.get("name", "")).casefold() != account.home.name.casefold():
+                continue
+            return _meters_from_payload(each_row["meters"])
+    return None
+
+
 def read_claude_meters(account: Account) -> Meters | None:
-    """Probe one Claude account.
+    """Read one Claude account's meters, from a published reading when one is fresh.
 
     Args:
         account: Account whose meter is read.
@@ -294,6 +342,9 @@ def read_claude_meters(account: Account) -> Meters | None:
         WeeklyUtilizationProbeError: The usage meters could not be measured.
         OSError: The credentials file could not be read.
     """
+    published_meters = read_published_meters(account)
+    if published_meters is not None:
+        return published_meters
     usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME, refresh_claude_login)
     return Meters(
         FULL_PERCENT - usage.session_utilization if usage.session_utilization is not None else None,

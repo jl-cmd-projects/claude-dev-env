@@ -249,6 +249,62 @@ def test_should_load_codex_roster_without_meter_reads(
     assert [each_account.name for each_account in support.load_codex_accounts()] == ["one"]
 
 
+def _write_published_reading(folder: Path, profile_name: str, read_at: datetime) -> None:
+    folder.mkdir(exist_ok=True)
+    reading = {
+        "read_at": read_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "accounts": [
+            {
+                "name": profile_name,
+                "meters": {
+                    "session_percent_left": None,
+                    "session_resets_at": None,
+                    "weekly_percent_left": 45.0,
+                    "weekly_resets_at": "2026-10-10T06:00:00Z",
+                },
+            }
+        ],
+    }
+    (folder / f"meters-{profile_name.upper()}.json").write_text(json.dumps(reading), encoding="utf-8")
+
+
+def test_should_read_claude_meters_from_a_fresh_published_reading_without_a_probe(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    readings_folder = tmp_path / "readings"
+    _write_published_reading(readings_folder, "alpha", datetime.now(timezone.utc))
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
+    all_probed_paths: list[object] = []
+    monkeypatch.setattr(support, "probe_account_meters", lambda path, _: all_probed_paths.append(path))
+
+    meters = support.read_claude_meters(Account(Product.CLAUDE, "one", tmp_path / "Alpha"))
+
+    assert all_probed_paths == []
+    assert meters.weekly_percent_left == 45.0
+    assert meters.session_percent_left is None
+    assert meters.weekly_resets_at == datetime(2026, 10, 10, 6, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    ("profile_name", "age_minutes"),
+    [("alpha", 45), ("beta", 1)],
+)
+def test_should_probe_when_the_published_reading_is_old_or_for_another_account(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, profile_name: str, age_minutes: int
+) -> None:
+    readings_folder = tmp_path / "readings"
+    _write_published_reading(
+        readings_folder, profile_name, datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+    )
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
+    usage = SimpleNamespace(session_utilization=None, session_resets_at=None, weekly_utilization=30.0, weekly_resets_at=None)
+    monkeypatch.setattr(support, "probe_account_meters", lambda _, refresh_login: usage)
+
+    meters = support.read_claude_meters(Account(Product.CLAUDE, "one", tmp_path / "alpha"))
+
+    assert meters.weekly_percent_left == 70.0
+
+
 def test_should_read_claude_meters_through_injected_probe(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
