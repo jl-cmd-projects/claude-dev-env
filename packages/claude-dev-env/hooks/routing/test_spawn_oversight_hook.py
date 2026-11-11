@@ -361,3 +361,18 @@ def test_the_emitted_directive_reports_only_verified_results() -> None:
 
 def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
     assert "A verifier's check ends the chain and gets no verifier of its own" in _emitted_directive()
+
+
+def test_the_emitted_directive_commits_each_passed_piece_as_its_own_stack_level() -> None:
+    directive = _emitted_directive()
+    assert "When a piece's verifier passes and the brief allows commits, commit that piece alone as its own stack level" in directive
+    assert "a piece that depends on it goes on top" in directive
+    assert "an independent piece goes on its own branch from trunk" in directive
+    assert "Otherwise hand the piece back uncommitted and say so." in directive
+    assert directive.index("confirms the fix on the new state") < directive.index("commit that piece alone")
+
+
+def test_the_emitted_directive_stays_context_only_and_inside_its_budget() -> None:
+    directive = _emitted_directive()
+    assert len(directive) < 1500
+    assert "deny" not in directive.lower()
