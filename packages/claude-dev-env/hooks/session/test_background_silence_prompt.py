@@ -201,6 +201,8 @@ def test_should_ask_for_no_text_when_the_silence_has_no_exception(
         ("did PR 12 merge?", False),
         ('<agent-message from="a1">Report</agent-message>', False),
         ("Here is the log:\n<task-notification>done</task-notification>", False),
+        ("[SYSTEM NOTIFICATION - NOT USER INPUT]\nBackground task finished.", True),
+        ("why does [SYSTEM NOTIFICATION - NOT USER INPUT] show up?", False),
     ],
 )
 def test_should_tell_a_background_event_from_a_user_prompt(
@@ -229,6 +231,8 @@ def test_should_return_the_newest_message_that_sets_silence() -> None:
             "except for a failed check",
         ),
         ("no updates unless a PR lands", "unless a PR lands"),
+        ("Stay silent. Except for a failed check.", "Except for a failed check"),
+        ("Stay silent. Ship PR 12 unless it is red.", None),
         ("Stay silent.", None),
     ],
 )

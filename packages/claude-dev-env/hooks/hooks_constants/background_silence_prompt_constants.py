@@ -8,7 +8,9 @@ ORIGIN_KEY = "origin"
 ORIGIN_KIND_KEY = "kind"
 HUMAN_ORIGIN_KIND = "human"
 TASK_NOTIFICATION_MARKER = "<task-notification"
-BACKGROUND_EVENT_MARKER = "[SYSTEM NOTIFICATION - NOT USER INPUT]"
+BACKGROUND_EVENT_PATTERN = re.compile(
+    r"(?:\A\s*|<system-reminder>\s*)" + re.escape("[SYSTEM NOTIFICATION - NOT USER INPUT]")
+)
 ALL_SET_PATTERNS = (
     re.compile(r"\b(?:silent|quiet)\s+unless\b", re.IGNORECASE),
     re.compile(r"\b(?:stay|go)\s+(?:silent|quiet)\b", re.IGNORECASE),

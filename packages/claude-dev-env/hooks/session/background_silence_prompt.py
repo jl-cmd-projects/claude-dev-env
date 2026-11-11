@@ -37,7 +37,7 @@ if blocking_directory not in sys.path:
 from hooks_constants.background_silence_prompt_constants import (
     ALL_LIFT_PATTERNS,
     ALL_SET_PATTERNS,
-    BACKGROUND_EVENT_MARKER,
+    BACKGROUND_EVENT_PATTERN,
     EXCEPTION_CLAUSE_PATTERN,
     HUMAN_ORIGIN_KIND,
     MAXIMUM_EXCEPTION_CHARACTERS,
@@ -72,7 +72,7 @@ from session_title_turn_gate import read_transcript_entries
 
 
 def _is_user_typed_text(prompt_text: str) -> bool:
-    if BACKGROUND_EVENT_MARKER in prompt_text:
+    if BACKGROUND_EVENT_PATTERN.search(prompt_text):
         return False
     stripped_text = prompt_without_reminders(prompt_text)
     if stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
@@ -109,11 +109,12 @@ def is_background_event(prompt_text: str) -> bool:
 
     Returns:
         True for a prompt that starts with ``<task-notification>`` after its
-        ``<system-reminder>`` blocks, or that holds the system notification marker.
+        ``<system-reminder>`` blocks, or that opens itself or a
+        ``<system-reminder>`` block with the system notification marker.
     """
     if _is_user_typed_text(prompt_text):
         return False
-    return BACKGROUND_EVENT_MARKER in prompt_text or prompt_without_reminders(
+    return bool(BACKGROUND_EVENT_PATTERN.search(prompt_text)) or prompt_without_reminders(
         prompt_text
     ).startswith(TASK_NOTIFICATION_MARKER)
 
@@ -149,10 +150,14 @@ def exception_clause(silence_message: str) -> str | None:
     """Return the exception the user gave, word for word, or None when they gave none.
 
     The clause runs from "unless" or "except" to the end of the sentence that
-    sets silence::
+    sets silence, or is the next sentence when that one opens with either word::
 
         "Silent on updates unless something merges or youre blocked"
                                     -> "unless something merges or youre blocked"
+        "Stay silent. Except for a failed check."
+                                    -> "Except for a failed check"
+        "Stay silent. Ship PR 12 unless it is red."
+                                    -> None
         "Stay silent."              -> None
 
     Args:
@@ -161,10 +166,13 @@ def exception_clause(silence_message: str) -> str | None:
     Returns:
         The clause, cut to MAXIMUM_EXCEPTION_CHARACTERS, or None.
     """
-    for each_sentence in re.split(SENTENCE_SPLIT_PATTERN, silence_message):
+    all_sentences = re.split(SENTENCE_SPLIT_PATTERN, silence_message)
+    for each_index, each_sentence in enumerate(all_sentences):
         if not _sets_silence(each_sentence):
             continue
         clause_match = EXCEPTION_CLAUSE_PATTERN.search(each_sentence)
+        if clause_match is None and each_index + 1 < len(all_sentences):
+            clause_match = EXCEPTION_CLAUSE_PATTERN.match(all_sentences[each_index + 1].strip())
         if clause_match is None:
             return None
         return clause_match.group(0).strip()[:MAXIMUM_EXCEPTION_CHARACTERS]
