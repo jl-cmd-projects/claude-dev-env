@@ -1,0 +1,22 @@
+{
+  "flow": "subagent-effort-routing",
+  "metrics": [
+    {"id": "in_rule", "label": "Ran in rule", "kind": "binary"},
+    {"id": "spawned", "label": "Spawned", "kind": "binary"},
+    {"id": "named_in_rule", "label": "Named in rule", "kind": "binary"},
+    {"id": "routed", "label": "Hook routed", "kind": "binary"}
+  ],
+  "perf_fields": ["latency_s", "tool_calls", "usage"],
+  "variants": {
+    "baseline": {"install": [], "hooks": []},
+    "v1": {
+      "install": [
+        ["packages/claude-dev-env/rules/subagent-model-effort.md", ".claude/rules/subagent-model-effort.md"],
+        ["packages/claude-dev-env/docs/rule-guides/subagent-model-effort.md", ".claude/docs/rule-guides/subagent-model-effort.md"]
+      ],
+      "hooks": [
+        ["Agent|Task", "packages/claude-dev-env/hooks/routing/subagent_effort_route_hook.py"]
+      ]
+    }
+  }
+}
