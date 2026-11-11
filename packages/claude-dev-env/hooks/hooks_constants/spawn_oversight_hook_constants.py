@@ -14,6 +14,7 @@ ADDITIONAL_CONTEXT_KEY = "additionalContext"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 DENY_DECISION = "deny"
 WORKFLOW_TOOL_NAME = "Workflow"
+SPAWN_OVERSIGHT_ONCE_MARKER_NAME = "spawn_oversight"
 
 ALL_OUTCOME_MARKERS = ("outcome:",)
 ALL_BLOCKER_CLAUSE_MARKERS = ("on a blocker:", "at a blocker:")
@@ -45,8 +46,9 @@ SPAWN_OVERSIGHT_DIRECTIVE = (
     "the sources and leave the worker's conclusion out. A verifier's check ends "
     "the chain and gets no verifier of its own. When a piece's verifier passes "
     "and the brief allows commits, commit that piece alone as its own stack level "
-    "with a subject for that one behaviour, and start the next piece on top of "
-    "it. Ask the user once before "
+    "with a subject for that one behaviour: a piece that depends on it goes on "
+    "top, and an independent piece goes on its own branch from trunk. Otherwise "
+    "hand the piece back uncommitted and say so. Ask the user once before "
     "you build new scope the user's words do not name, and keep in-scope work "
     "moving while the question waits. Report as done only what a verifier "
     "passed, with its evidence. While the agent runs, read its progress and wake "

@@ -27,7 +27,7 @@ Use the brief as the agent's `prompt` parameter.
 
 ## Step 3: Spawn the agent
 
-Pass the structured prompt from Step 2 to the Agent or Task tool. Set the model and the effort from [Subagent model and effort](rule-guides/subagent-model-effort.md).
+Pass the structured prompt from Step 2 to the Agent or Task tool. Set the model and the effort from [Subagent model and effort](rule-guides/subagent-model-effort.md). The work decides the model, as [Which model for which job](model-choice/which-model.md) says, and a side task such as search or log reading goes to a cheaper model, as [Subagents and fan-out](model-choice/subagents-and-fan-out.md) says.
 
 ## Why
 

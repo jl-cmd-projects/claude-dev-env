@@ -70,3 +70,6 @@ EXIT_CODE_RESOLVED = 0
 EXIT_CODE_PROBE_UNAVAILABLE = 2
 
 LOGGING_FORMAT = "%(levelname)s %(name)s: %(message)s"
+NO_FIVE_HOUR_WINDOW_LOG_MESSAGE = (
+    "usage response has no five_hour window; nothing to wait out, reporting the weekly window only"
+)

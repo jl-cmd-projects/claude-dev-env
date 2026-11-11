@@ -8,7 +8,7 @@ This family injects reminders and task guidance when an agent starts, resumes, s
 - `session/compaction_recall_prompt.py` returns every message the user typed after a compaction. `session/compaction_user_messages.py` reads them from a Claude Code transcript or a Codex rollout. `session/compaction_trim.py` trims each one in Python: it drops filler, articles, and gratitude, keeps approvals, continuation requests, backtick spans, and paths as typed, and marks a reversed message `(overruled by #N)`. No model runs, so the hook works on Claude Code and Codex with no account.
 - `session/task_tool_prompt.py` injects a task tracking directive at session start.
 - `session/working_style_prompt.py` injects the session's working style at session start.
-- `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled.
+- `session/advisor_rules_prompt.py` injects advisor guidance when the built-in advisor is enabled. For evidence on when an advisor pays, see [Subagents and fan-out](../../docs/model-choice/subagents-and-fan-out.md).
 - `session/orchestrator_auto_starter.py` injects an orchestrator directive when its environment flag is enabled.
 - `session/plugin_session_baseline_writer.py` records each plugin's `version` and `installPath` from `installed_plugins.json` to a per-session file in the system temp folder. It writes on `startup`, or when the session has no baseline yet, and leaves an existing baseline alone on `resume`, `clear`, and `compact`.
 - `session/plugin_change_warning.py` compares `installed_plugins.json` with that baseline before each prompt. It names each plugin whose version or install path changed, or that the baseline lacks, once per session, and tells the user to restart Claude Code.

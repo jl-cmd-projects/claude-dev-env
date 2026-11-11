@@ -1,6 +1,8 @@
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -189,6 +191,93 @@ def test_other_calls_get_no_output(payload: dict[str, object]) -> None:
     assert spawn_oversight_hook.decide_hook_output(payload) is None
 
 
+def _session_spawn(
+    brief: str, transcript_path: Path, agent_id: str | None = None
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        **_spawn_payload("Agent", brief),
+        "session_id": "session_one",
+        "transcript_path": str(transcript_path),
+    }
+    if agent_id is not None:
+        payload["agent_id"] = agent_id
+    return payload
+
+
+@pytest.fixture
+def session_transcript(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(json.dumps({"type": "user"}) + "\n", encoding="utf-8")
+    return transcript_path
+
+
+def _append_compaction(transcript_path: Path) -> None:
+    with transcript_path.open("a", encoding="utf-8") as transcript:
+        transcript.write(json.dumps({"type": "system", "subtype": "compact_boundary"}) + "\n")
+
+
+def test_the_directive_shows_once_per_session_and_again_after_a_compaction(
+    session_transcript: Path,
+) -> None:
+    decide = spawn_oversight_hook.decide_hook_output
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) == _directive_output()
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) is None
+    _append_compaction(session_transcript)
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) == _directive_output()
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) is None
+
+
+def test_a_brief_missing_a_clause_is_refused_on_every_spawn_of_a_session(
+    session_transcript: Path,
+) -> None:
+    decide = spawn_oversight_hook.decide_hook_output
+    assert MISSING_OUTCOME_REASON in _deny_reason(
+        decide(_session_spawn(ROUTE_ONLY_BRIEF, session_transcript))
+    )
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) == _directive_output()
+    assert MISSING_OUTCOME_REASON in _deny_reason(
+        decide(_session_spawn(ROUTE_ONLY_BRIEF, session_transcript))
+    )
+    assert MISSING_BLOCKER_CLAUSE_REASON in _deny_reason(
+        decide(_session_spawn(OUTCOME_ONLY_BRIEF, session_transcript))
+    )
+
+
+def test_a_subagent_gets_the_directive_on_its_own_first_spawn(
+    session_transcript: Path,
+) -> None:
+    decide = spawn_oversight_hook.decide_hook_output
+    assert decide(_session_spawn(GOOD_BRIEF, session_transcript)) == _directive_output()
+    child_spawn = _session_spawn(GOOD_BRIEF, session_transcript, agent_id="agent_child")
+    assert decide(child_spawn) == _directive_output()
+    assert decide(child_spawn) is None
+
+
+def test_replay_of_two_spawns_and_a_compaction_through_the_script(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(json.dumps({"type": "user"}) + "\n", encoding="utf-8")
+    environment = {**os.environ, "TMP": str(tmp_path), "TEMP": str(tmp_path), "TMPDIR": str(tmp_path)}
+
+    def replay_spawn() -> str:
+        return subprocess.run(
+            [sys.executable, str(HOOK_SCRIPT)],
+            input=json.dumps(_session_spawn(GOOD_BRIEF, transcript_path)),
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=True,
+        ).stdout
+
+    first_stdout = replay_spawn()
+    second_stdout = replay_spawn()
+    _append_compaction(transcript_path)
+    after_compaction_stdout = replay_spawn()
+    assert json.loads(first_stdout) == _directive_output()
+    assert second_stdout == ""
+    assert json.loads(after_compaction_stdout) == _directive_output()
+
+
 def _run_script(stdin_text: str) -> str:
     completed = subprocess.run(
         [sys.executable, str(HOOK_SCRIPT)],
@@ -277,7 +366,9 @@ def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
 def test_the_emitted_directive_commits_each_passed_piece_as_its_own_stack_level() -> None:
     directive = _emitted_directive()
     assert "When a piece's verifier passes and the brief allows commits, commit that piece alone as its own stack level" in directive
-    assert "start the next piece on top of it" in directive
+    assert "a piece that depends on it goes on top" in directive
+    assert "an independent piece goes on its own branch from trunk" in directive
+    assert "Otherwise hand the piece back uncommitted and say so." in directive
     assert directive.index("confirms the fix on the new state") < directive.index("commit that piece alone")
 
 

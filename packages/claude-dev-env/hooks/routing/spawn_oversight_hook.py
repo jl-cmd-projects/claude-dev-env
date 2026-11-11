@@ -14,14 +14,18 @@ the outcome and any route named is a default.
     Agent {"prompt": "Run X via RC."}            -> deny: no outcome, no blocker clause
     Agent {"prompt": "Outcome: ... On a blocker: ..."}
                                                  -> additionalContext: the directive
+    the same spawn again in that session         -> no output
     Workflow {"name": "saved-review"}            -> additionalContext: the directive
     actions trigger {"method": "cancel_workflow_run"}
                                                  -> no output
     Bash {"command": "ls"}                       -> no output
     Agent "not an object"                        -> no output
 
-A passing spawn gets the oversight directive, so the spawner owns the work it
-delegates. Subagent and read-only helper spawns are checked the same way. A
+The first passing spawn of a session gets the oversight directive, so the
+spawner owns the work it delegates. Each subagent gets it on its own first
+spawn, and the session gets it again on the first spawn after a compaction.
+Every spawn gets the brief check. Subagent and read-only helper spawns are
+checked the same way. A
 ``Workflow`` call with no script text, such as a saved or resumed run, passes
 with the directive.
 """
@@ -58,10 +62,12 @@ from hooks_constants.spawn_oversight_hook_constants import (
     REFUSAL_PREFIX,
     REFUSAL_SUFFIX,
     SPAWN_OVERSIGHT_DIRECTIVE,
+    SPAWN_OVERSIGHT_ONCE_MARKER_NAME,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
     WORKFLOW_TOOL_NAME,
 )
+from once_per_session import claim_first_showing
 from spawn_brief_text import spawn_brief_text
 
 
@@ -112,7 +118,9 @@ def brief_gaps(brief: str) -> list[str]:
     return all_gaps
 
 
-def _directive_output() -> dict[str, object]:
+def _directive_output(all_hook_fields: dict[str, object]) -> dict[str, object] | None:
+    if not claim_first_showing(SPAWN_OVERSIGHT_ONCE_MARKER_NAME, all_hook_fields):
+        return None
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: PRE_TOOL_USE_EVENT_NAME,
@@ -134,13 +142,15 @@ def _deny_output(all_gaps: list[str]) -> dict[str, object]:
 
 
 def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] | None:
-    """Return a deny for a brief that lacks a clause, the directive for one that passes.
+    """Return a deny for a brief that lacks a clause, the directive for the session's first one that passes.
 
     Args:
         all_hook_fields: The parsed PreToolUse payload.
 
     Returns:
-        None for a call that spawns no agent, else the deny or the directive.
+        None for a call that spawns no agent or for a passing spawn after the
+        directive already showed in this session since its last compaction,
+        else the deny or the directive.
     """
     all_tool_input_fields = all_hook_fields.get(TOOL_INPUT_KEY)
     if not isinstance(all_tool_input_fields, dict):
@@ -150,11 +160,11 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     if brief is None:
         return None
     if tool_name == WORKFLOW_TOOL_NAME and not brief:
-        return _directive_output()
+        return _directive_output(all_hook_fields)
     all_gaps = brief_gaps(brief)
     if all_gaps:
         return _deny_output(all_gaps)
-    return _directive_output()
+    return _directive_output(all_hook_fields)
 
 
 def main() -> int:

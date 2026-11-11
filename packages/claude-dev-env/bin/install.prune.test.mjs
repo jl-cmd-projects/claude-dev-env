@@ -11,6 +11,7 @@ import {
     rmSync,
     symlinkSync,
     lstatSync,
+    realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
@@ -1611,6 +1612,157 @@ test('a full reinstall removes a retired hook entry under an event type the curr
         );
     } finally {
         rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
+const UNSHIPPED_GATE_RELATIVE_SEGMENTS = ['blocking', 'merge_over_review_offer_gate.py'];
+const UNSHIPPED_GATE_MATCHER = 'AskUserQuestion|mcp__.*__ask_decision';
+const USER_AUTHORED_HOOK_RELATIVE_SEGMENTS = ['blocking', 'codemap_first_redirector.py'];
+const USER_AUTHORED_HOOK_MATCHER = 'Grep|Glob';
+const USER_AUTHORED_HOOK_BYTES = Buffer.from('a redirector the user wrote\n', 'utf8');
+const SHIPPED_SCRIPT_REFERENCE_PATTERN = /\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/(\S+?\.(?:py|mjs))/g;
+
+
+/**
+ * Build a hook command the way an earlier install spelled it: unquoted, with
+ * forward slashes.
+ *
+ * @param {string} hooksRoot The hooks directory the registration names.
+ * @param {string[]} relativeSegments The script path segments under that directory.
+ * @returns {string} The registration command.
+ */
+function unquotedHookCommandUnder(hooksRoot, relativeSegments) {
+    return `python3 ${join(hooksRoot, ...relativeSegments).replace(/\\/g, '/')}`;
+}
+
+
+/**
+ * Add one matcher group holding the given commands to a host hook configuration file.
+ *
+ * @param {string} configurationPath The settings.json or Codex hooks.json path.
+ * @param {string} matcher The group's matcher.
+ * @param {string[]} allCommands The commands the group runs.
+ */
+function appendPreToolUseGroup(configurationPath, matcher, allCommands) {
+    const configuration = existsSync(configurationPath)
+        ? JSON.parse(readFileSync(configurationPath, 'utf8'))
+        : { hooks: {} };
+    configuration.hooks[RETIRED_HOOK_EVENT_TYPE] ??= [];
+    configuration.hooks[RETIRED_HOOK_EVENT_TYPE].push({
+        matcher,
+        hooks: allCommands.map(command => ({ type: 'command', command })),
+    });
+    writeFileWithParents(configurationPath, JSON.stringify(configuration, null, 4) + '\n');
+}
+
+
+/**
+ * List every script path the shipped hooks.json registers, relative to hooks/.
+ *
+ * @returns {string[]} The registered script paths.
+ */
+function shippedRegisteredScriptPaths() {
+    const shippedHooksText = readFileSync(
+        join(THIS_DIRECTORY, '..', HOOKS_DIRECTORY_NAME, 'hooks.json'), 'utf8',
+    );
+    return [...new Set([...shippedHooksText.matchAll(SHIPPED_SCRIPT_REFERENCE_PATTERN)].map(
+        scriptMatch => scriptMatch[1],
+    ))];
+}
+
+
+test('an install after the managed root moves removes a registration for a hook the package no longer ships', () => {
+    const sandboxParent = mkdtempSync(join(tmpdir(), 'cdev-root-move-'));
+    try {
+        const priorHomeDirectory = join(sandboxParent, 'prior-home');
+        const currentHomeDirectory = join(sandboxParent, 'current-home');
+        const priorClaudeDirectory = join(priorHomeDirectory, '.claude');
+        mkdirSync(priorClaudeDirectory, { recursive: true });
+        runInstaller(priorHomeDirectory, []);
+        const priorHooksRoot = join(priorClaudeDirectory, HOOKS_DIRECTORY_NAME);
+        const unshippedGatePath = join(priorHooksRoot, ...UNSHIPPED_GATE_RELATIVE_SEGMENTS);
+        writeFileWithParents(unshippedGatePath, RETIRED_HOOK_SEEDED_CONTENTS);
+        appendManifestFiles(join(priorClaudeDirectory, MANIFEST_FILE_NAME), [unshippedGatePath]);
+        const userAuthoredHookPath = join(priorHooksRoot, ...USER_AUTHORED_HOOK_RELATIVE_SEGMENTS);
+        writeFileWithParents(userAuthoredHookPath, USER_AUTHORED_HOOK_BYTES);
+        const userAuthoredHookRealPath = realpathSync(userAuthoredHookPath);
+        const settingsPath = join(priorClaudeDirectory, SETTINGS_FILE_NAME);
+        const unshippedGateCommand = unquotedHookCommandUnder(
+            priorHooksRoot, UNSHIPPED_GATE_RELATIVE_SEGMENTS,
+        );
+        const userAuthoredCommand = unquotedHookCommandUnder(
+            priorHooksRoot, USER_AUTHORED_HOOK_RELATIVE_SEGMENTS,
+        );
+        const foreignHooksRoot = join(sandboxParent, FOREIGN_TOOL_DIRECTORY_NAME, HOOKS_DIRECTORY_NAME);
+        const foreignGatePath = join(foreignHooksRoot, ...UNSHIPPED_GATE_RELATIVE_SEGMENTS);
+        const foreignGateBytes = Buffer.from('another tool keeps a gate of this name\n', 'utf8');
+        writeFileWithParents(foreignGatePath, foreignGateBytes);
+        const foreignGateCommand = unquotedHookCommandUnder(
+            foreignHooksRoot, UNSHIPPED_GATE_RELATIVE_SEGMENTS,
+        );
+        appendPreToolUseGroup(settingsPath, UNSHIPPED_GATE_MATCHER, [unshippedGateCommand]);
+        appendPreToolUseGroup(settingsPath, USER_AUTHORED_HOOK_MATCHER, [
+            userAuthoredCommand, foreignGateCommand,
+        ]);
+        mkdirSync(currentHomeDirectory, { recursive: true });
+        symlinkSync(priorClaudeDirectory, join(currentHomeDirectory, '.claude'), 'junction');
+        const codexHooksRoot = join(currentHomeDirectory, CODEX_DIRECTORY_NAME, HOOKS_DIRECTORY_NAME);
+        const codexHooksPath = join(
+            currentHomeDirectory, CODEX_DIRECTORY_NAME, CODEX_HOOKS_CONFIGURATION_FILE_NAME,
+        );
+        const codexGateCommand = unquotedHookCommandUnder(
+            codexHooksRoot, UNSHIPPED_GATE_RELATIVE_SEGMENTS,
+        );
+        appendPreToolUseGroup(codexHooksPath, UNSHIPPED_GATE_MATCHER, [codexGateCommand]);
+        appendPreToolUseGroup(codexHooksPath, USER_AUTHORED_HOOK_MATCHER, [FOREIGN_CODEX_HOOK_COMMAND]);
+
+        runInstaller(currentHomeDirectory, []);
+
+        const settings = readSettings(priorClaudeDirectory);
+        const settingsCommands = allHookCommands(settings);
+        assert.equal(
+            settingsCommands.includes(unshippedGateCommand),
+            false,
+            'the registration for the gate the package stopped shipping leaves settings.json',
+        );
+        assert.equal(
+            settings.hooks[RETIRED_HOOK_EVENT_TYPE].some(group => group.matcher === UNSHIPPED_GATE_MATCHER),
+            false,
+            'the matcher group the gate held alone leaves with it',
+        );
+        assert.equal(
+            settingsCommands.includes(userAuthoredCommand),
+            true,
+            'a hook the user wrote under the managed hooks root keeps its registration',
+        );
+        assert.deepEqual(
+            readFileSync(userAuthoredHookRealPath),
+            USER_AUTHORED_HOOK_BYTES,
+            'the user-authored hook keeps its bytes',
+        );
+        assert.equal(
+            settingsCommands.includes(foreignGateCommand),
+            true,
+            'a registration outside every managed hooks root stays even when its name matches',
+        );
+        assert.deepEqual(readFileSync(foreignGatePath), foreignGateBytes);
+        for (const shippedScriptPath of shippedRegisteredScriptPaths()) {
+            assert.ok(
+                settingsCommands.some(command => command.replace(/\\/g, '/').includes(
+                    `/${HOOKS_DIRECTORY_NAME}/${shippedScriptPath}`,
+                )),
+                `the shipped registration for ${shippedScriptPath} stays in settings.json`,
+            );
+        }
+        const codexCommands = allHookCommands(JSON.parse(readFileSync(codexHooksPath, 'utf8')));
+        assert.equal(
+            codexCommands.includes(codexGateCommand),
+            false,
+            'the Codex registration for the gate leaves hooks.json too',
+        );
+        assert.equal(codexCommands.includes(FOREIGN_CODEX_HOOK_COMMAND), true);
+    } finally {
+        rmSync(sandboxParent, { recursive: true, force: true });
     }
 });
 
