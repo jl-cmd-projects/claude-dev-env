@@ -26,6 +26,8 @@ Source of truth: `ALL_CLI_MODEL_ID_BY_TIER` and `resolve_cli_model_id(tier)` in 
 | Haiku | `haiku` |
 | ThirdParty (third-party session model field only) | `third-party` |
 
+On Bedrock, Google Cloud, Microsoft Foundry and Claude Platform on AWS, the `haiku` alias resolves to Haiku 4.5. Set `ANTHROPIC_DEFAULT_HAIKU_MODEL` to pin it.
+
 `resolve_cli_model_id(tier)` accepts any letter case and raises `ValueError` on a tier outside the map.
 
 ## Brief piping

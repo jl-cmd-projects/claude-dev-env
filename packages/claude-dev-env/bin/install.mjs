@@ -15,6 +15,7 @@ import {
     expandHomeDirectoryTokens,
     expandHomeDirectoryTokensInSettings,
 } from './expand_home_directory_tokens.mjs';
+import { EVER_REGISTERED_HOOK_RELATIVE_PATHS } from './ever-registered-hooks.mjs';
 import { EVER_SHIPPED_SKILL_NAMES } from './ever-shipped-skills.mjs';
 import {
     MANAGED_PERMISSION_LIST_NAMES,
@@ -1467,33 +1468,49 @@ export function commandReferencesManagedHook(
  * @returns {boolean} True when the command runs that script under a sharing root.
  */
 function commandRunsHookOfRootSharingSettings(normalizedCommand, relativePath, sharedSettingsRealPath) {
-    const commandArgumentBoundary = /[\s'";]/;
-    const hookPathTail = `/${MANAGED_HOOKS_DIRECTORY_NAME}/${relativePath}`;
     const sharedSettingsKey = comparisonKeyForPath(sharedSettingsRealPath);
-    let tailStart = normalizedCommand.indexOf(hookPathTail);
+    const hookPathTail = `/${MANAGED_HOOKS_DIRECTORY_NAME}/${relativePath}`;
+    return pathPrefixesBeforeTail(normalizedCommand, hookPathTail).some(rootPath => {
+        const rootSettingsRealPath = rootPath
+            ? realPathOrNull(join(rootPath, SETTINGS_FILE_NAME))
+            : null;
+        return Boolean(rootSettingsRealPath)
+            && comparisonKeyForPath(rootSettingsRealPath) === sharedSettingsKey;
+    });
+}
+
+/**
+ * List the path text in front of each spot where a command argument ends with
+ * the given tail.
+ *
+ * A tail counts only where it ends at an argument boundary. A quoted argument is
+ * decoded through quotedRootPathBeforeTail; an unquoted one runs back to the
+ * previous argument boundary.
+ *
+ * @param {string} normalizedCommand Forward-slash-normalized hook command.
+ * @param {string} pathTail The path tail to look for, starting with a slash.
+ * @returns {string[]} The prefix in front of each boundary-ended tail.
+ */
+function pathPrefixesBeforeTail(normalizedCommand, pathTail) {
+    const commandArgumentBoundary = /[\s'";]/;
+    const allPrefixes = [];
+    let tailStart = normalizedCommand.indexOf(pathTail);
     while (tailStart !== -1) {
-        const characterAfterPath = normalizedCommand[tailStart + hookPathTail.length];
-        if (characterAfterPath === undefined || commandArgumentBoundary.test(characterAfterPath)) {
-            let rootPath;
-            if (characterAfterPath === '"' || characterAfterPath === "'") {
-                rootPath = quotedRootPathBeforeTail(normalizedCommand.slice(0, tailStart), characterAfterPath);
-            } else {
-                let rootStart = tailStart;
-                while (rootStart > 0 && !commandArgumentBoundary.test(normalizedCommand[rootStart - 1])) {
-                    rootStart--;
-                }
-                rootPath = normalizedCommand.slice(rootStart, tailStart);
+        const characterAfterPath = normalizedCommand[tailStart + pathTail.length];
+        if (characterAfterPath === '"' || characterAfterPath === "'") {
+            allPrefixes.push(
+                quotedRootPathBeforeTail(normalizedCommand.slice(0, tailStart), characterAfterPath),
+            );
+        } else if (characterAfterPath === undefined || commandArgumentBoundary.test(characterAfterPath)) {
+            let prefixStart = tailStart;
+            while (prefixStart > 0 && !commandArgumentBoundary.test(normalizedCommand[prefixStart - 1])) {
+                prefixStart--;
             }
-            const rootSettingsRealPath = rootPath
-                ? realPathOrNull(join(rootPath, SETTINGS_FILE_NAME))
-                : null;
-            if (rootSettingsRealPath && comparisonKeyForPath(rootSettingsRealPath) === sharedSettingsKey) {
-                return true;
-            }
+            allPrefixes.push(normalizedCommand.slice(prefixStart, tailStart));
         }
-        tailStart = normalizedCommand.indexOf(hookPathTail, tailStart + 1);
+        tailStart = normalizedCommand.indexOf(pathTail, tailStart + 1);
     }
-    return false;
+    return allPrefixes;
 }
 
 /**
@@ -1781,6 +1798,27 @@ export function retiredManagedHookRelativePaths(
     return retiredRelativePaths;
 }
 
+/**
+ * Name each hook script some release of the package registered that no package
+ * source root ships now, each relative to the hooks root.
+ *
+ * The manifest diff misses a script a prior install recorded under another
+ * managed root, and it forgets the script once a run under the new root writes
+ * a fresh manifest. EVER_REGISTERED_HOOK_RELATIVE_PATHS keeps every name the
+ * package has registered, so a retired name stays reachable after both. A hook
+ * the user wrote is in no release, so its name never enters this set.
+ *
+ * @param {string[]} allSourceHooksDirectories The hooks directory of each package source root.
+ * @returns {Set<string>} Forward-slash relative script paths under the hooks root.
+ */
+export function unshippedEverRegisteredHookRelativePaths(allSourceHooksDirectories) {
+    return new Set([...EVER_REGISTERED_HOOK_RELATIVE_PATHS].filter(
+        relativePath => !allSourceHooksDirectories.some(
+            sourceHooksDirectory => existsSync(join(sourceHooksDirectory, ...relativePath.split('/'))),
+        ),
+    ));
+}
+
 const MANAGED_HOOK_ROOT_PATHS = [
     join(CLAUDE_HOME, MANAGED_HOOKS_DIRECTORY_NAME),
     join(AGENTS_HOME, MANAGED_HOOKS_DIRECTORY_NAME),
@@ -1865,6 +1903,11 @@ export function hookCommandComparisonSpelling(commandString, homeDirectory) {
  * Report whether a hook command runs one script under a hooks directory this
  * installer owns.
  *
+ * The command may spell the hooks directory through a link, such as a
+ * ~/.claude/hooks pointer an install under another root left behind. The
+ * directory in front of the script resolves through every link before it is
+ * compared, and the script itself need not exist.
+ *
  * @param {unknown} commandString The hook command from a host configuration file.
  * @param {string} relativePath The script path under a hooks directory.
  * @param {{allOwnedHookRootKeys: Set<string>, homeDirectory: string}} ownership The owned roots.
@@ -1881,7 +1924,13 @@ export function commandNamesOwnedHookScript(commandString, relativePath, ownersh
         const ownedScriptPath = `${ownedRootKey}/${comparisonRelativePath}`;
         if (commandHoldsPathAtBoundary(comparisonCommand, ownedScriptPath)) return true;
     }
-    return false;
+    return pathPrefixesBeforeTail(comparisonCommand, `/${comparisonRelativePath}`).some(
+        hooksDirectory => {
+            const realHooksDirectory = hooksDirectory ? realPathOrNull(hooksDirectory) : null;
+            return realHooksDirectory !== null
+                && ownership.allOwnedHookRootKeys.has(comparisonKeyForPath(realHooksDirectory));
+        },
+    );
 }
 
 /**
@@ -2724,9 +2773,14 @@ function runFullInstallPrunes(
     const hooksRoot = join(CLAUDE_HOME, MANAGED_HOOKS_DIRECTORY_NAME);
     const settingsPath = join(CLAUDE_HOME, SETTINGS_FILE_NAME);
     const retiredSkillMovedCount = pruneRetiredSkills(copiedSkillNames, priorManifestSkills);
-    const retiredHookPaths = retiredManagedHookRelativePaths(
-        priorManifestFiles, installedFiles, hooksRoot,
-    );
+    const retiredHookPaths = new Set([
+        ...retiredManagedHookRelativePaths(priorManifestFiles, installedFiles, hooksRoot),
+        ...unshippedEverRegisteredHookRelativePaths(
+            managedPackageSourceRoots().map(
+                sourceRoot => resolvePackageManagedDirectory(sourceRoot, MANAGED_HOOKS_DIRECTORY_NAME),
+            ),
+        ),
+    ]);
     const registeredRetiredPaths = retiredHookPathsNamedByCommands(
         priorSettingsHookCommands, retiredHookPaths,
     );

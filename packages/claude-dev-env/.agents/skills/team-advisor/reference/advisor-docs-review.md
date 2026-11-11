@@ -85,6 +85,12 @@ advisor achieves intelligence comparable to Sonnet at default effort, at
 lower cost. For maximum intelligence, keep the executor at default effort.
 ```
 
+The docs pair Sonnet at medium. Here Sonnet runs at high only, per
+[Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
+In the model choice article's advisor runs, no pairing clearly beat the executor alone.
+Measure the consult rate first, per
+[Subagents and fan-out](~/.claude/docs/model-choice/subagents-and-fan-out.md).
+
 Page 3 footnotes the benchmark condition: the Sonnet-plus-advisor SWE-bench
 Multilingual run uses the suggested system prompt "with thinking turned
 off" — a consult substitutes for extended thinking in that run.

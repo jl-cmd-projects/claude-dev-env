@@ -35,6 +35,10 @@ REPORT_FILE_FLAG: str = "--report-file"
 
 MODEL_FLAG: str = "--model"
 
+EFFORT_FLAG: str = "--effort"
+
+ALL_EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
+
 PERMISSION_MODE_FLAG: str = "--permission-mode"
 
 TIMEOUT_MINUTES_FLAG: str = "--timeout-minutes"
