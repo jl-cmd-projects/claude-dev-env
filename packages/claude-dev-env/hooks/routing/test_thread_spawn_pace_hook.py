@@ -55,7 +55,7 @@ def _assert_reshaped(stdout: str) -> None:
     assert decision["updatedInput"] == {
         **SPAWN_INPUT,
         "model": "claude-opus-5-5",
-        "effort": "low",
+        "effort": "medium",
     }
 
 
@@ -70,6 +70,43 @@ def test_should_pass_the_spawn_through_unchanged_when_usage_is_under_pace(
 ) -> None:
     assert (
         _run_hook(_write_pace_stub(tmp_path, 1, {"over_pace": False}), SPAWN_INPUT)
+        == ""
+    )
+
+
+@pytest.mark.parametrize(
+    ("spawn_pair", "routed_effort"),
+    [
+        ({"model": "claude-opus-5-5", "effort": "xhigh"}, "medium"),
+        ({"model": "claude-sonnet-5-5"}, "high"),
+        ({"model": "claude-fable-5-2", "effort": "max"}, "high"),
+    ],
+)
+def test_should_route_an_effort_outside_the_rule_when_usage_is_under_pace(
+    tmp_path: Path, spawn_pair: dict[str, str], routed_effort: str
+) -> None:
+    spawn_input = {**SPAWN_INPUT, **spawn_pair}
+    decision = _hook_specific_output(
+        _run_hook(_write_pace_stub(tmp_path, 1, {"over_pace": False}), spawn_input)
+    )
+    assert decision["updatedInput"] == {**spawn_input, "effort": routed_effort}
+    assert "permissionDecision" not in decision
+
+
+@pytest.mark.parametrize(
+    "spawn_pair",
+    [
+        {"model": "claude-opus-5-5", "effort": "medium"},
+        {"model": "claude-fable-5-2", "effort": "low"},
+        {"model": "claude-haiku-5-5", "effort": "max"},
+    ],
+)
+def test_should_pass_an_allowed_pair_through_when_usage_is_under_pace(
+    tmp_path: Path, spawn_pair: dict[str, str]
+) -> None:
+    spawn_input = {**SPAWN_INPUT, **spawn_pair}
+    assert (
+        _run_hook(_write_pace_stub(tmp_path, 1, {"over_pace": False}), spawn_input)
         == ""
     )
 
@@ -101,7 +138,7 @@ def test_should_quote_a_capped_pace_verdict_in_the_reshape_context(tmp_path: Pat
     )
     context_prefix = (
         "Usage over pace or unreadable: this thread spawn now runs on "
-        "claude-opus-5-5 at low effort. Pace verdict: "
+        "claude-opus-5-5 at medium effort. Pace verdict: "
     )
     assert decision["additionalContext"] == context_prefix + json.dumps(long_verdict)[:600]
 

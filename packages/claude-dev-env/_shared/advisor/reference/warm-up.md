@@ -9,6 +9,7 @@ The consuming skill's session tries Opus first. Spawn with:
 
 - `subagent_type: pstack:poteto-agent`. The charter below carries the signal contract.
 - `model`: the short alias via `resolve_cli_model_id("Opus")` (alias table: [`cli-chain.md`](cli-chain.md)): `opus`. When Opus is out of usage and the Astra rung is open, continue with the Codex helper in [`astra-rung.md`](astra-rung.md) as the Astra fallback.
+- `effort`: `high`.
 - `name`: a name the session and every consumer will use to reach it (e.g. `team-advisor-agent`).
 - `run_in_background: true`.
 - `prompt`: the charter below.

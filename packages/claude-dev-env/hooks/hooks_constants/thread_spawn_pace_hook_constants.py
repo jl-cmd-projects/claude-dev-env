@@ -1,7 +1,8 @@
 """Constants for the thread spawn pace PreToolUse hook.
 
 Groups: the usage-pace script it runs, the reshape values for an over-pace
-spawn, and the hook output keys and messages.
+spawn, and the hook output keys and messages. Opus runs at medium only,
+per the Subagent model and effort rule.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ USAGE_PACE_TIMEOUT_SECONDS = 15
 
 TOOL_INPUT_KEY = "tool_input"
 THREAD_MODEL_WHEN_OVER_PACE = "claude-opus-5-5"
-THREAD_EFFORT_WHEN_OVER_PACE = "low"
+THREAD_EFFORT_WHEN_OVER_PACE = "medium"
 MODEL_INPUT_KEY = "model"
 EFFORT_INPUT_KEY = "effort"
 
@@ -22,7 +23,7 @@ ADDITIONAL_CONTEXT_KEY = "additionalContext"
 NOT_AN_OBJECT_REASON = "start_thread_session input is not a JSON object"
 RESHAPE_CONTEXT_PREFIX = (
     "Usage over pace or unreadable: this thread spawn now runs on "
-    "claude-opus-5-5 at low effort. Pace verdict: "
+    "claude-opus-5-5 at medium effort. Pace verdict: "
 )
 PACE_VERDICT_CONTEXT_MAXIMUM_CHARACTERS = 600
 LAUNCH_FAILURE_ERROR_TEMPLATE = "usage pace did not finish: {failure_type}"
