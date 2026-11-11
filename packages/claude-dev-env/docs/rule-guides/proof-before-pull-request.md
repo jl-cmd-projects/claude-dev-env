@@ -24,9 +24,9 @@ Unit tests are welcome as extra evidence. The live run is the proof. A test you 
 
 For a change to Claude Code behavior, such as a hook, skill, rule, setting, prompt or output style:
 - Spawn every session through the account broker, with the stream saved to a file:
-  python ~/.claude/scripts/account_broker.py run --product claude --report <broker-report.json> -- claude -p "<request>" --model claude-opus-5-5 --effort <level> --output-format stream-json --verbose > <stream.jsonl>
+  python ~/.claude/scripts/account_broker.py run --product claude --report <broker-report.json> -- claude -p "<request>" --model claude-opus-5-5 --effort medium --output-format stream-json --verbose > <stream.jsonl>
 - Run each later turn the same way with `--resume <session id>`. The broker resumes a session on the account that started it when that account has room.
-- Keep `--model` and `--effort` on every call. Without them the headless run uses claude-sonnet-5-5. Confirm the served model in the result's `modelUsage`.
+- Keep `--model` and `--effort` on every call, with a pair from [Subagent model and effort](subagent-model-effort.md). Without them the headless run uses claude-sonnet-5-5. Confirm the served model in the result's `modelUsage`.
 - Start the broker from your own shell, with your environment as is. The broker reads the account meters with your session's credentials and starts Claude without your session's variables.
 - Leave out `--bare` and `claude plugin eval`. Both drop the hooks and settings the user runs with.
 - Read the broker report for the account it chose. Read the stream for the hook events and their output, `permission_denials`, the final result, and the token usage on the result event.

@@ -189,6 +189,26 @@
       "char_limit": 1500
     },
     {
+      "name": "subagent effort route",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/routing/subagent_effort_route_hook.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_use_id": "toolu_budget",
+        "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/empty_transcript.jsonl",
+        "tool_input": {
+          "description": "Budget sample",
+          "prompt": "Summarize the repository layout.",
+          "model": "opus",
+          "effort": "xhigh"
+        }
+      },
+      "char_limit": 300
+    },
+    {
       "name": "artifact template pointer",
       "command": [
         "python3",
@@ -350,7 +370,6 @@
         "lines": null,
         "sections": [
           "Configure extra profiles",
-          "Choose a worker",
           "Write a standalone brief"
         ]
       },

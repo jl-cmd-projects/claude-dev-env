@@ -44,6 +44,7 @@ def _run_worker(
     outcome: JobOutcome | Exception,
     *,
     model: str | None = None,
+    effort: str | None = None,
     permission_mode: str = "auto",
     live_log: Path | None = None,
 ) -> tuple[int, dict[str, object], dict[str, object]]:
@@ -67,6 +68,7 @@ def _run_worker(
         permission_mode=permission_mode,
         timeout_minutes=60,
         live_log=live_log,
+        effort=effort,
     )
     return exit_code, json.loads(report_file.read_text(encoding="utf-8")), captured
 
@@ -83,11 +85,69 @@ def test_should_send_prompt_and_flags_to_broker(
     assert report["result"] == "ready"
     assert captured["product"] is Product.CLAUDE
     assert captured["argv"] == [
-        "claude", "-p", "--output-format", "json", "--permission-mode", "plan", "--model", "sonnet"
+        "claude", "-p", "--output-format", "json", "--permission-mode", "plan", "--model", "sonnet",
+        "--effort", "high",
     ]
     assert captured["stdin_text"] == "standalone brief"
     assert captured["cwd"] == tmp_path
     assert captured["timeout_seconds"] == 3600
+
+
+@pytest.mark.parametrize(
+    ("model", "effort", "expected_tail"),
+    [
+        ("opus", "xhigh", ["--model", "opus", "--effort", "medium"]),
+        ("claude-fable-5-2", "low", ["--model", "claude-fable-5-2", "--effort", "low"]),
+        ("fable", "max", ["--model", "fable", "--effort", "high"]),
+        ("haiku", "max", ["--model", "haiku", "--effort", "max"]),
+        (None, "low", ["--effort", "low"]),
+    ],
+)
+def test_should_run_the_worker_at_an_allowed_effort(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    model: str | None,
+    effort: str,
+    expected_tail: list[str],
+) -> None:
+    _, _, captured = _run_worker(monkeypatch, tmp_path, _outcome(), model=model, effort=effort)
+
+    all_arguments = captured["argv"]
+    assert isinstance(all_arguments, list)
+    assert all_arguments[-len(expected_tail):] == expected_tail
+
+
+@pytest.mark.parametrize(
+    ("model", "effort", "expected_effort"),
+    [
+        ("opus", "xhigh", "medium"),
+        ("sonnet", None, "high"),
+        ("haiku", "max", "max"),
+        ("gpt-5", "xhigh", "xhigh"),
+        (None, None, None),
+    ],
+)
+def test_worker_effort_keeps_the_effort_inside_the_rule(
+    model: str | None, effort: str | None, expected_effort: str | None
+) -> None:
+    assert worker.worker_effort(model, effort) == expected_effort
+
+
+def test_should_pass_no_effort_when_neither_model_nor_effort_is_named(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _, _, captured = _run_worker(monkeypatch, tmp_path, _outcome())
+
+    all_arguments = captured["argv"]
+    assert isinstance(all_arguments, list)
+    assert "--effort" not in all_arguments
+
+
+def test_should_reject_an_effort_outside_the_cli_levels() -> None:
+    with pytest.raises(SystemExit):
+        worker.build_argument_parser().parse_args(
+            ["--prompt-file", "brief.md", "--report-file", "report.json", "--effort", "extreme"]
+        )
 
 
 def test_should_stream_events_into_the_live_log_when_one_is_named(
@@ -273,3 +333,4 @@ def test_should_require_prompt_and_report_flags() -> None:
     assert arguments.prompt_file == Path("brief.md")
     assert arguments.report_file == Path("report.json")
     assert arguments.permission_mode == "auto"
+    assert arguments.effort is None

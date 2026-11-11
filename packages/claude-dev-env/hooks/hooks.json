@@ -12,6 +12,11 @@
           },
           {
             "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/subagent_effort_route_hook.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/routing/spawn_readiness_hook.py",
             "timeout": 10
           },

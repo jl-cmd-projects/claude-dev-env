@@ -22,6 +22,8 @@ description: >-
 
 With no level, or an unknown one, run `high`.
 
+The level sets review depth. Child agents take their model and effort from [Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
+
 ## Target
 
 A PR number, branch name, or file path after the level is the review target. With no target, the review reads the current diff.

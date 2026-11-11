@@ -18,6 +18,7 @@ grading. Start with its validation command and two-case smoke. Preserve the dist
 between grader validation, stored replay, a fresh recipe run and a complete workflow run.
 Use the plugin process below when measuring skill discovery or with/without-plugin contribution.
 To check whether a context file is thin enough, follow [the context budget page](reference/context-budget.md).
+To compare models, follow [Measuring model choice](~/.claude/docs/model-choice/measuring.md): run each pair in its own session and score against spend by cost per finished task.
 
 ## Contents
 

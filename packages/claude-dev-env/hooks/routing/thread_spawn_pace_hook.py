@@ -6,10 +6,11 @@ beside it, or the script ``COORDINATOR_USAGE_PACE_SCRIPT`` names.
 
 ::
 
-    usage under pace (exit 1)          -> no output; the call runs unchanged
-    over pace (exit 0) or unreadable   -> updatedInput:
-        model "claude-opus-5-5", effort "low"
-    input that cannot be reshaped      -> deny with a one-line reason
+    under pace, allowed pair or no model -> no output; the call runs unchanged
+    under pace, effort outside the rule  -> updatedInput with the allowed effort
+    over pace (exit 0) or unreadable     -> updatedInput:
+        model "claude-opus-5-5", effort "medium"
+    input that cannot be reshaped        -> deny with a one-line reason
 
 ``updatedInput`` is the whole tool input the call runs with, so it carries
 every original key.
@@ -26,6 +27,9 @@ from pathlib import Path
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
+routing_directory = str(Path(__file__).resolve().parent)
+if routing_directory not in sys.path:
+    sys.path.insert(0, routing_directory)
 
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
 from hooks_constants.hook_specific_output_keys import (
@@ -52,12 +56,14 @@ from hooks_constants.thread_spawn_pace_hook_constants import (
     USAGE_PACE_SCRIPT_FILE_NAME,
     USAGE_PACE_TIMEOUT_SECONDS,
 )
+from hooks_constants.subagent_effort_route_constants import ROUTED_CONTEXT_TEMPLATE
 from hooks_constants.usage_pace_constants import (
     EXIT_CODE_UNDER_PACE,
     EXIT_CODE_UNREADABLE,
     RESULT_KEY_ERROR,
     RESULT_KEY_OVER_PACE,
 )
+from subagent_effort_route import route_spawn_input
 
 
 class SpawnNotReshapable(Exception):
@@ -65,13 +71,13 @@ class SpawnNotReshapable(Exception):
 
 
 def reshape_thread_spawn(tool_input: object) -> dict[str, object]:
-    """Move a thread spawn to Opus 5.5 at low effort.
+    """Move a thread spawn to Opus 5.5 at medium effort.
 
     ::
 
         {"title": "t", "instructions": "Do X."}
         -> {"title": "t", "instructions": "Do X.",
-            "model": "claude-opus-5-5", "effort": "low"}
+            "model": "claude-opus-5-5", "effort": "medium"}
 
     Args:
         tool_input: The ``tool_input`` object of the start_thread_session call.
@@ -112,14 +118,26 @@ def decide_hook_output(
         tool_input: The ``tool_input`` of the PreToolUse payload, or None when
             stdin held no JSON object.
         pace_exit_code: The usage-pace exit code; anything but under pace
-            counts as over pace.
+            counts as over pace. Under pace, a spawn that names a model gets
+            the effort the Subagent model and effort rule allows.
         pace_verdict_text: The usage-pace stdout, quoted into the context.
 
     Returns:
         None to pass the call through unchanged, else the hook JSON output.
     """
     if pace_exit_code == EXIT_CODE_UNDER_PACE:
-        return None
+        routed = route_spawn_input(tool_input, None)
+        if routed is None:
+            return None
+        routed_input, family, effort = routed
+        return _hook_output(
+            {
+                UPDATED_INPUT_KEY: routed_input,
+                ADDITIONAL_CONTEXT_KEY: ROUTED_CONTEXT_TEMPLATE.format(
+                    family=family, effort=effort
+                ),
+            }
+        )
     try:
         reshaped_input = reshape_thread_spawn(tool_input)
     except SpawnNotReshapable as not_reshapable:
