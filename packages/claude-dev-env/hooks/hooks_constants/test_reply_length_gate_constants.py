@@ -11,9 +11,16 @@ def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:
     )
 
 
-def test_unseen_citation_echo_pattern_matches_the_gate_message() -> None:
-    message = constants.UNSEEN_CITATION_MESSAGE.format(citation="/pull/8127")
-    assert constants.UNSEEN_CITATION_ECHO_PATTERN.sub("", f"before {message} after") == "before  after"
+def test_reply_echo_pattern_matches_each_message_that_quotes_the_reply() -> None:
+    quoted = 'See "the /pull/8127 link" there'
+    all_messages = [
+        constants.UNSEEN_CITATION_MESSAGE.format(citation="/pull/8127"),
+        constants.UNVALIDATED_CLAIM_MESSAGE.format(claim=quoted),
+        constants.UNSOURCED_CAUSE_MESSAGE.format(sentence=quoted),
+        constants.LONG_SENTENCE_MESSAGE.format(word_count=40, word_limit=35, sentence_preview=quoted),
+    ]
+    for each_message in all_messages:
+        assert constants.REPLY_ECHO_PATTERN.sub("", f"before {each_message} after") == "before  after"
 
 
 def test_cited_number_pattern_names_the_pull_request_group() -> None:

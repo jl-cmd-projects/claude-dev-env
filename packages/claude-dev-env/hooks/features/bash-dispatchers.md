@@ -14,7 +14,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/bash_post_call_dispatcher.py` runs hosted observers and joins their context output without blocking the call.
 - `advisory/pr_done_reminder.py` adds a pull request checklist after a successful push or pull request creation.
 - `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run efficient-review until clean, mark the pull request ready, babysit it, and ship it to merge. It also records the pull request for the session in `owned_pr_session_record.py`.
-- `blocking/owned_pr_merge_stop_gate.py` holds the end of a turn while a recorded pull request reads open on GitHub and the closing reply has no `Blocked:` line that names it. A failed state lookup passes.
+- `blocking/owned_pr_merge_stop_gate.py` holds the end of a turn while a recorded pull request reads open on GitHub and the closing reply has no `Blocked:` line that names it. It holds once per pull request head in a session, so a later stop passes until a push moves the head. A failed state lookup passes.
 
 ## When it fires
 
@@ -45,7 +45,7 @@ Preconditions:
 - **Post-call dispatch.** Input is a Bash call that yields hosted context. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_bash_post_call_dispatcher.py -q`. The adjacent test observes a joined context payload and exit code zero.
 - **Pull request reminder.** Input is a completed push or pull request creation. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_pr_done_reminder.py -q`. The adjacent test checks the reminder trigger and checklist verdict.
 - **Owned pull request review loop.** Input is a pull request creation result on an owned repository. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_owned_pr_review_loop.py -q`. The adjacent test observes the review-loop block for owned repositories and silence for the preset and foreign repositories.
-- **Owned pull request merge gate.** Input is a `session_record_path` file that lists `jl-cmd/snake-game#9` and a `gh` stub that reports `open`. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_owned_pr_merge_stop_gate.py packages/claude-dev-env/hooks/test_owned_pr_session_record.py -q`. The adjacent test observes a `block` decision that names the pull request; `closed` and a `Blocked: jl-cmd/snake-game#9 - ...` line pass.
+- **Owned pull request merge gate.** Input is a `session_record_path` file that lists `jl-cmd/snake-game#9` and a `gh` stub that reports `open` and a head sha. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_owned_pr_merge_stop_gate.py packages/claude-dev-env/hooks/test_owned_pr_session_record.py -q`. The adjacent test observes a `block` decision that names the pull request; `closed` and a `Blocked: jl-cmd/snake-game#9 - ...` line pass, and a second stop on the same head passes.
 
 ## Gotchas
 

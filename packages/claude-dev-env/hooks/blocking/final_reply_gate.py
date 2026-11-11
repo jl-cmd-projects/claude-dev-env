@@ -10,7 +10,8 @@ session ends its turn with, which reaches the user with no tool call::
     ok:   Run 18239174012 took 39 minutes. (a tool result shows the run)
 
 It applies the banned words, the unvalidated claim pattern, and the cited
-run, job, check, and pull request numbers from ``reply_length_gate.py``. The
+run, job, check, and pull request numbers from ``reply_length_gate.py``. A
+pull request link also counts as shown when hook or harness text shows it. The
 citation check is skipped when the transcript cannot be read. It also flags
 a path outside code whose backslash the terminal drops, such as
 ``D:\\Reports\\.claude``. A block sends

@@ -155,7 +155,7 @@ from hooks_constants.reply_length_gate_constants import (
     CITED_NUMBER_PATTERN,
     CITED_PULL_NUMBER_GROUP,
     PULL_LINK_IN_HOOK_TEXT_TEMPLATE,
-    UNSEEN_CITATION_ECHO_PATTERN,
+    REPLY_ECHO_PATTERN,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
     CURLY_APOSTROPHE,
@@ -426,7 +426,7 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
     A tool result that shows the number counts for every kind. A ``/pull/N``
     link also counts when hook or harness text shows the same link, such as
     stop-hook feedback or a background agent's task notification. This gate's
-    own feedback, which quotes the citation it blocked, does not count.
+    own feedback, which quotes the citation or sentence it blocked, does not count.
 
     Returns None when the text cites nothing or the transcript cannot be read.
     """
@@ -448,7 +448,7 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
         is None
     ]
     hook_text = (
-        UNSEEN_CITATION_ECHO_PATTERN.sub(" ", hook_supplied_text(transcript_path) or "")
+        REPLY_ECHO_PATTERN.sub(" ", hook_supplied_text(transcript_path) or "")
         if any(each_match[CITED_PULL_NUMBER_GROUP] for each_match in all_unseen)
         else ""
     )

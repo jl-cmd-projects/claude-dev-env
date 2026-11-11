@@ -174,6 +174,21 @@ def test_should_block_a_pull_request_link_only_the_gate_feedback_echoes(
     assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
 
 
+def test_should_block_a_pull_request_link_the_gate_quotes_in_a_sentence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoting_feedback = (
+        f'Stop hook feedback:\nNo tool validated this: "{CITED_PULL_REPLY}". Run the check yourself'
+        " or through a subagent, then state what the run, log line, output, or file and line shows."
+        " When you cannot run it this turn, report it as `Open: <check> - <next step>`."
+        f'\nSentence too long: 40 words, limit 35: "Opened {CITED_PULL_URL} and...".'
+    )
+    feedback_entry = {"type": "user", "isMeta": True, "message": {"role": "user", "content": quoting_feedback}}
+    transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [feedback_entry])
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
 def test_should_block_a_pull_request_link_no_text_shows(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
