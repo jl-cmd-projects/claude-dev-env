@@ -25,6 +25,8 @@ When a piece's verifier passes, commit that piece alone, as its own stack level.
 
 Stack with `gt create` where Graphite is installed. Without Graphite, use a plain branch from the previous level, made with `git switch -c <branch>`. The pieces in the plan set the levels, so a reviewer reads one purpose at a time.
 
+This applies where the brief and the user allow commits. A worker whose brief bars git writes hands the piece back uncommitted and says so.
+
 ## The verifier
 
 - The verifier is never the agent that did the work. The spawner is the owner of the work. A fresh agent at each verify step keeps the check apart from the author.
