@@ -88,6 +88,7 @@ ALL_HOOK_TEXT_ATTACHMENT_TYPES = frozenset(
     {"hook_additional_context", "hook_system_message", QUEUED_COMMAND_ATTACHMENT_TYPE}
 )
 ALL_ATTACHMENT_TEXT_KEYS = ("content", "prompt")
+ALL_HOOK_MESSAGE_PREFIXES = ("Stop hook feedback:", "<system-reminder>")
 ORIGIN_KEY = "origin"
 ORIGIN_KIND_KEY = "kind"
 TASK_NOTIFICATION_ORIGIN_KIND = "task-notification"

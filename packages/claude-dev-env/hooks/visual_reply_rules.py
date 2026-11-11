@@ -22,6 +22,7 @@ from hooks_constants.visual_reply_rules_constants import (
     VIOLATION_LINE_SEPARATOR,
     ABBREVIATIONS_RULE_KEY,
     ALL_ATTACHMENT_TEXT_KEYS,
+    ALL_HOOK_MESSAGE_PREFIXES,
     ALL_HOOK_TEXT_ATTACHMENT_TYPES,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_VISUAL_TOOL_NAME_SUFFIXES,
@@ -341,7 +342,7 @@ def _attachment_texts(all_entry_fields: dict[str, object]) -> list[str]:
     attachment_type = attachment.get(BLOCK_TYPE_KEY)
     if not isinstance(attachment_type, str) or attachment_type not in ALL_HOOK_TEXT_ATTACHMENT_TYPES:
         return []
-    if attachment_type == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_harness_message(attachment):
+    if attachment_type == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_task_notification(attachment):
         return []
     all_texts = []
     for each_key in ALL_ATTACHMENT_TEXT_KEYS:
@@ -352,30 +353,34 @@ def _attachment_texts(all_entry_fields: dict[str, object]) -> list[str]:
     return all_texts
 
 
-def _is_harness_message(all_entry_fields: dict[str, object]) -> bool:
+def _is_task_notification(all_entry_fields: dict[str, object]) -> bool:
     origin = all_entry_fields.get(ORIGIN_KEY)
-    return bool(all_entry_fields.get(IS_META_KEY)) or (
-        isinstance(origin, dict) and origin.get(ORIGIN_KIND_KEY) == TASK_NOTIFICATION_ORIGIN_KIND
-    )
+    return isinstance(origin, dict) and origin.get(ORIGIN_KIND_KEY) == TASK_NOTIFICATION_ORIGIN_KIND
 
 
 def _hook_texts(all_entry_fields: dict[str, object]) -> list[str]:
     entry_type = all_entry_fields.get(ENTRY_TYPE_KEY)
     if entry_type == ATTACHMENT_ENTRY_TYPE:
         return _attachment_texts(all_entry_fields)
-    if entry_type != USER_ENTRY_TYPE or not _is_harness_message(all_entry_fields):
+    if entry_type != USER_ENTRY_TYPE:
         return []
     message = all_entry_fields.get(MESSAGE_KEY)
-    return _result_texts(message.get(CONTENT_KEY) if isinstance(message, dict) else None)
+    all_texts = _result_texts(message.get(CONTENT_KEY) if isinstance(message, dict) else None)
+    if _is_task_notification(all_entry_fields):
+        return all_texts
+    if not all_entry_fields.get(IS_META_KEY):
+        return []
+    return [each_text for each_text in all_texts if each_text.lstrip().startswith(ALL_HOOK_MESSAGE_PREFIXES)]
 
 
 def hook_supplied_text(transcript_path: object) -> str | None:
     """Join the text hooks and the harness put in the session outside tool results.
 
-    It covers stop-hook feedback and other meta messages, a background agent's
-    task notification, and hook additional context, hook system message, and
-    queued task notification attachments. A prompt the user typed while the
-    session worked does not count. Returns None when the transcript cannot be read.
+    It covers stop-hook feedback, system reminders, a background agent's task
+    notification, and hook additional context, hook system message, and queued
+    task notification attachments. A skill body, or a prompt the user typed
+    while the session worked, does not count. Returns None when the transcript
+    cannot be read.
     """
     all_lines = _read_transcript_lines(transcript_path)
     if all_lines is None:

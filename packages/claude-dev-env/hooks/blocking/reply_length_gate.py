@@ -42,7 +42,8 @@ a check did not run::
 
 It denies an Actions run, a pull request link, or a run, job, or check id
 that no successful tool result in the transcript shows. A subagent's report
-is the result of its Agent call. With no readable transcript, this check
+is the result of its Agent call. A pull request link also counts as shown
+when hook or harness text shows it. With no readable transcript, this check
 is skipped.
 
 The banned-word, unvalidated claim, and citation checks also read the prose of a
