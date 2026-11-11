@@ -27,7 +27,7 @@ Use the brief as the agent's `prompt` parameter.
 
 ## Step 3: Spawn the agent
 
-Pass the structured prompt from Step 2 to the Agent or Task tool.
+Pass the structured prompt from Step 2 to the Agent or Task tool. Set the model and the effort from [Subagent model and effort](rule-guides/subagent-model-effort.md).
 
 ## Why
 

@@ -15,6 +15,7 @@ Each line names a rule and its trigger. When its trigger matches your task, open
 - **Destructive commands** ([guide](../docs/rule-guides/destructive-commands.md)). Removing files.
 - **Filesystem search** ([guide](../docs/rule-guides/filesystem-search.md)). Finding files by name, path, size, or date.
 - **Clean up temporary files** ([guide](../docs/rule-guides/cleanup-temp-files.md)). Creating scratch files or debug dumps.
+- **Subagent model and effort** ([guide](../docs/rule-guides/subagent-model-effort.md)). Before any spawn of another agent.
 - **Pull request lifecycle**. Before a commit, push, pull request action, or merge. Invoke the `pr-lifecycle` skill; a hook denies those commands until it loads.
 - **Proof before a pull request** ([guide](../docs/rule-guides/proof-before-pull-request.md)). Before you open a pull request.
 - **Session title** ([guide](../docs/rule-guides/session-title.md)). The session has a tool whose name ends in `__set_session_title`.
