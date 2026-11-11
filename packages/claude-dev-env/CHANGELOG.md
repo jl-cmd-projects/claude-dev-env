@@ -1,5 +1,25 @@
 # Changelog
 
+## [8.114.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.1...claude-dev-env-v8.114.0) (2026-11-11)
+
+
+### Features
+
+* **hooks:** allowed model and effort pairs for Claude subagents ([51ce9ab](https://github.com/jl-cmd-projects/claude-dev-env/commit/51ce9aba312163e6f26cdba3eccaa713c7f6527a))
+* **hooks:** route subagent spawns to an allowed effort ([137d861](https://github.com/jl-cmd-projects/claude-dev-env/commit/137d861fb88340b2ebc3cb3b6d4f113f4c6bd54d))
+
+
+### Bug Fixes
+
+* **rules:** keep the subagent rule inside the always-on byte budget ([6fb3d19](https://github.com/jl-cmd-projects/claude-dev-env/commit/6fb3d190b8f5597f9f47e3437ff39aafbf40f91b))
+
+
+### Documentation
+
+* **advisor:** bind the Opus advisor at medium effort ([b57da44](https://github.com/jl-cmd-projects/claude-dev-env/commit/b57da446b3022728f025a0eb876db74aabe167b3))
+* **advisor:** run a non-built-in Opus advisor at high effort ([0d5c987](https://github.com/jl-cmd-projects/claude-dev-env/commit/0d5c9872f6303c7315af57ad180e4f8b95e7e163))
+* **rules:** allowed model and effort pairs for Claude subagents ([7df703d](https://github.com/jl-cmd-projects/claude-dev-env/commit/7df703d32d6a11bf4400b2335d69a1897fe57914))
+
 ## [8.113.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.0...claude-dev-env-v8.113.1) (2026-11-11)
 
 
