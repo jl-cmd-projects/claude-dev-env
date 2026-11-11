@@ -285,6 +285,18 @@ def test_should_read_claude_meters_from_a_fresh_published_reading_without_a_prob
     assert meters.weekly_resets_at == datetime(2026, 10, 10, 6, tzinfo=timezone.utc)
 
 
+def test_should_find_no_published_meters_when_no_readings_folder_is_named(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    readings_folder = tmp_path / "readings"
+    _write_published_reading(readings_folder, "alpha", datetime.now(timezone.utc))
+    account = Account(Product.CLAUDE, "one", tmp_path / "alpha")
+    monkeypatch.delenv("CLAUDE_USAGE_READINGS_DIR", raising=False)
+    assert support.read_published_meters(account) is None
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
+    assert support.read_published_meters(account).weekly_percent_left == 45.0
+
+
 @pytest.mark.parametrize(
     ("profile_name", "age_minutes"),
     [("alpha", 45), ("beta", 1)],

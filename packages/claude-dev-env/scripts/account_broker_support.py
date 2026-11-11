@@ -306,27 +306,28 @@ def read_published_meters(account: Account) -> Meters | None:
     folder_text = os.environ.get(PUBLISHED_USAGE_DIRECTORY_ENV_VAR)
     if not folder_text:
         return None
-    now = datetime.now(timezone.utc)
-    for each_path in sorted(Path(folder_text).glob(PUBLISHED_USAGE_FILE_PATTERN)):
-        try:
-            reading = json.loads(each_path.read_text(encoding="utf-8-sig"))
-        except (OSError, ValueError):
-            continue
-        if not isinstance(reading, dict):
-            continue
-        read_at = parse_utc_time(reading.get("read_at"))
-        all_rows = reading.get("accounts")
-        if read_at is None or not isinstance(all_rows, list):
-            continue
-        if (now - read_at).total_seconds() > PUBLISHED_USAGE_MAX_AGE_SECONDS:
-            continue
-        for each_row in all_rows:
-            if not isinstance(each_row, dict) or not isinstance(each_row.get("meters"), dict):
-                continue
-            if str(each_row.get("name", "")).casefold() != account.home.name.casefold():
-                continue
-            return _meters_from_payload(each_row["meters"])
+    for each_row in _fresh_published_rows(Path(folder_text), datetime.now(timezone.utc)):
+        if str(each_row.get("name", "")).casefold() == account.home.name.casefold():
+            return _meters_from_payload(each_row.get("meters"))
     return None
+
+
+def _fresh_published_rows(folder: Path, now: datetime) -> Iterator[dict[str, object]]:
+    for each_path in sorted(folder.glob(PUBLISHED_USAGE_FILE_PATTERN)):
+        yield from _fresh_rows_of(each_path, now)
+
+
+def _fresh_rows_of(reading_path: Path, now: datetime) -> list[dict[str, object]]:
+    try:
+        reading = json.loads(reading_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(reading, dict) or not isinstance(reading.get("accounts"), list):
+        return []
+    read_at = parse_utc_time(reading.get("read_at"))
+    if read_at is None or (now - read_at).total_seconds() > PUBLISHED_USAGE_MAX_AGE_SECONDS:
+        return []
+    return [each_row for each_row in reading["accounts"] if isinstance(each_row, dict)]
 
 
 def read_claude_meters(account: Account) -> Meters | None:
