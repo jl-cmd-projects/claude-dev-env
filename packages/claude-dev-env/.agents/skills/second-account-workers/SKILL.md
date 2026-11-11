@@ -51,7 +51,6 @@ cat "<report>"
 
 Add `--model "<model>"` with a model from an allowed pair in
 [Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
-The script has no effort flag. The worker runs at the effort its account settings give.
 
 Add `--live-log "<events.jsonl>"` to watch the worker while it runs. The worker
 then writes one JSON event per line into that file as it happens. Every event
