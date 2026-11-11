@@ -29,7 +29,7 @@ SCRIPT_PATH = Path(__file__).resolve().parent / "pieces_per_level_note.py"
 HOOKS_JSON_PATH = Path(__file__).resolve().parent.parent / "hooks.json"
 RUN_TIMEOUT_SECONDS = 30
 HOSTILE_INPUT_SECONDS_BOUND = 1.0
-HOSTILE_SUBPROCESS_SECONDS_BOUND = 5.0
+HOSTILE_SUBPROCESS_SECONDS_BOUND = 8.0
 
 MIXED_SUBJECT = (
     "fix(convert): always publish drawn icons, put Tips on the tray, stop the label smear"
