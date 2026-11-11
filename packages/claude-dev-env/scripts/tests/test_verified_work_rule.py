@@ -81,8 +81,9 @@ def test_the_guide_limits_delivery_commits_to_where_the_brief_and_user_allow_the
 def test_the_pull_request_skill_points_its_decision_tree_at_the_delivery_section() -> None:
     skill_text = PR_LIFECYCLE_PATH.read_text(encoding="utf-8")
     decision_tree = skill_text.split("### Workflow decision tree", 1)[1].split("\n### ", 1)[0]
-    assert "A piece that depends on an earlier one is its own stack level" in decision_tree
-    assert "an independent piece gets its own branch from trunk" in decision_tree
+    assert "Feature B depends on Feature A's implementation." in decision_tree
     assert "Delivery section of `~/.claude/docs/rule-guides/verified-work.md`" in decision_tree
+    assert "its own stack level" not in decision_tree
+    assert "independent piece" not in decision_tree
     assert "`gt create`" not in decision_tree
     assert "a plain branch from the previous level" not in decision_tree

@@ -11,7 +11,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Workflow decision tree
 
-**When to use stacked PRs:** Feature B depends on Feature A's implementation. A piece that depends on an earlier one is its own stack level; an independent piece gets its own branch from trunk. See the Delivery section of `~/.claude/docs/rule-guides/verified-work.md`.
+**When to use stacked PRs:** Feature B depends on Feature A's implementation. See the Delivery section of `~/.claude/docs/rule-guides/verified-work.md`.
 
 **When to extract shared infrastructure first:** Multiple features need same utilities/helpers
 
