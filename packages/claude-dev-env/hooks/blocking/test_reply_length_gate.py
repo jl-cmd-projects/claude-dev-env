@@ -1029,6 +1029,45 @@ def test_should_leave_the_transcript_unread_when_the_text_cites_nothing(
     assert all_read_paths == []
 
 
+def test_should_count_a_pull_request_link_a_task_notification_shows(tmp_path: Path) -> None:
+    notification = {
+        "type": "user",
+        "origin": {"kind": "task-notification"},
+        "message": {"content": "<result>Opened https://github.com/o/r/pull/8127</result>"},
+    }
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text(json.dumps(notification), encoding="utf-8")
+    card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
+    assert reply_length_gate.unseen_citation_violation_with_hook_text(card_text, str(transcript_path)) is None
+    assert 'cites "/pull/8127"' in reply_length_gate.unseen_citation_violation(card_text, str(transcript_path))
+
+
+def test_should_not_count_the_gate_echo_of_its_own_citation(tmp_path: Path) -> None:
+    feedback = {
+        "type": "user",
+        "isMeta": True,
+        "message": {"content": 'Stop hook feedback:\nThe text cites "/pull/8127", and no tool result in this'
+        " session shows it. Read it yourself or through a subagent first."},
+    }
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text(json.dumps(feedback), encoding="utf-8")
+    card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
+    assert 'cites "/pull/8127"' in reply_length_gate.unseen_citation_violation_with_hook_text(
+        card_text, str(transcript_path)
+    )
+
+
+def test_should_skip_the_hook_text_read_when_a_tool_result_shows_the_link(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    all_read_paths: list[object] = []
+    monkeypatch.setattr(reply_length_gate, "hook_supplied_text", all_read_paths.append)
+    transcript_path = write_tool_result_transcript(tmp_path / "s.jsonl", "pull/8127 opened")
+    card_text = "Open as [PR 8127](https://github.com/o/r/pull/8127)."
+    assert reply_length_gate.unseen_citation_violation_with_hook_text(card_text, str(transcript_path)) is None
+    assert all_read_paths == []
+
+
 def test_should_split_prose_sentences_outside_fenced_blocks() -> None:
     reply_text = "First one. Second one?\n```\nskipped. code\n```\nThird"
     assert reply_length_gate.prose_sentences(reply_text) == ["First one.", "Second one?", "", "Third"]

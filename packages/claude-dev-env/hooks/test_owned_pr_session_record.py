@@ -22,6 +22,32 @@ def isolated_temp_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.setattr(owned_pr_session_record.tempfile, "gettempdir", lambda: str(tmp_path))
 
 
+def test_record_blocked_heads_should_keep_the_other_pull_requests() -> None:
+    owned_pr_session_record.record_blocked_heads(SESSION_ID, {PULL_REQUEST["url"]: "abc123"})
+    owned_pr_session_record.record_blocked_heads(SESSION_ID, {"https://github.com/o/r/pull/2": "def456"})
+    owned_pr_session_record.record_blocked_heads(SESSION_ID, {PULL_REQUEST["url"]: "fed789"})
+    assert owned_pr_session_record.all_blocked_heads(SESSION_ID) == {
+        PULL_REQUEST["url"]: "fed789",
+        "https://github.com/o/r/pull/2": "def456",
+    }
+
+
+def test_all_blocked_heads_should_read_a_malformed_record_as_empty() -> None:
+    owned_pr_session_record.stop_block_record_path(SESSION_ID).write_text("[1, 2]", encoding="utf-8")
+    assert owned_pr_session_record.all_blocked_heads(SESSION_ID) == {}
+
+
+def test_record_blocked_heads_should_skip_a_payload_with_no_session_id(tmp_path: Path) -> None:
+    owned_pr_session_record.record_blocked_heads(None, {PULL_REQUEST["url"]: "abc123"})
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_stop_block_record_path_should_stay_apart_from_the_pull_request_record() -> None:
+    assert owned_pr_session_record.stop_block_record_path(SESSION_ID) != (
+        owned_pr_session_record.session_record_path(SESSION_ID)
+    )
+
+
 def test_session_record_path_should_name_the_session_in_the_temp_folder(tmp_path: Path) -> None:
     assert (
         owned_pr_session_record.session_record_path("a/b c") == tmp_path / "owned-pr-loop-abc.json"

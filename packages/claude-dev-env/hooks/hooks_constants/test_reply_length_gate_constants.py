@@ -11,6 +11,26 @@ def test_gate_checks_the_three_chat_tools_that_post_to_the_user() -> None:
     )
 
 
+def test_reply_echo_pattern_matches_each_message_that_quotes_the_reply() -> None:
+    quoted = 'See "the /pull/8127 link" there'
+    all_messages = [
+        constants.UNSEEN_CITATION_MESSAGE.format(citation="/pull/8127"),
+        constants.UNVALIDATED_CLAIM_MESSAGE.format(claim=quoted),
+        constants.UNSOURCED_CAUSE_MESSAGE.format(sentence=quoted),
+        constants.LONG_SENTENCE_MESSAGE.format(word_count=40, word_limit=35, sentence_preview=quoted),
+    ]
+    for each_message in all_messages:
+        assert constants.REPLY_ECHO_PATTERN.sub("", f"before {each_message} after") == "before  after"
+
+
+def test_cited_number_pattern_names_the_pull_request_group() -> None:
+    all_pull_numbers = [
+        each_match[constants.CITED_PULL_NUMBER_GROUP]
+        for each_match in constants.CITED_NUMBER_PATTERN.finditer("see https://github.com/o/r/pull/42, run 123456")
+    ]
+    assert all_pull_numbers == ["42", None]
+
+
 def test_gate_exit_codes_match_the_hook_contract() -> None:
     assert (constants.ALLOW_EXIT_CODE, constants.BLOCK_EXIT_CODE) == (0, 2)
 

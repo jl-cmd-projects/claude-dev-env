@@ -15,6 +15,7 @@ link to the posted rulings. The open and the merge then name that exact head::
     merge, no receipt or the receipt counts open findings            -> deny, run the loop
     auto-merge or enqueue pinned to the clean head                    -> allow
     auto-merge that names no head                                     -> deny, pin it
+    gh pr merge --disable-auto, which only turns auto-merge off        -> allow
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
 
 The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,17 +50,25 @@ from hooks_constants.hook_specific_output_keys import (
     PERMISSION_DECISION_KEY,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_AUTO_FLAG_VALUE_PREFIXES,
+    ALL_OPTIONS_WITH_VALUE,
     ALL_SHELL_TOOL_NAMES,
     AUTO_MERGE_REASON_TEMPLATE,
     AUTO_MERGE_TOOL_SUFFIX,
+    AUTO_OPTION,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
+    DISABLE_AUTO_OPTION,
+    END_OF_OPTIONS_WORD,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
+    GH_PR_MERGE_CALL_PATTERN,
     GH_PR_MERGE_PATTERN,
+    ALL_GH_PR_MERGE_SUBCOMMAND_WORDS,
+    GH_PROGRAM_WORD_PATTERN,
     HOOK_EVENT_NAME,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
@@ -75,6 +85,13 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
+    SHELL_COMMENT_START_PATTERN,
+    SHELL_PUNCTUATION_CHARACTERS,
+    SHELL_QUOTED_TEXT_PATTERN,
+    SHELL_QUOTED_TEXT_PLACEHOLDER,
+    SHELL_WHITESPACE_CHARACTERS,
+    SHELL_WORD_SEPARATOR,
+    SHORT_OPTION_PREFIX,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
@@ -180,7 +197,7 @@ def _shell_merge_request(command: str) -> MergeRequest | None:
             is_auto_merge=False,
         )
     merge_match = GH_PR_MERGE_PATTERN.search(command)
-    if not merge_match:
+    if not merge_match or _only_disables_auto_merge(command):
         return None
     rest = merge_match["rest"]
     owner, repo, number = _gh_pr_merge_target(rest)
@@ -192,6 +209,86 @@ def _shell_merge_request(command: str) -> MergeRequest | None:
         pinned_head=head_match["sha"] if head_match else None,
         is_auto_merge=bool(AUTO_OPTION_PATTERN.search(rest)),
     )
+
+
+def _only_disables_auto_merge(command: str) -> bool:
+    all_segments = _shell_segments(command)
+    if all_segments is None:
+        return False
+    all_merge_segments = [
+        each_segment
+        for each_segment in all_segments
+        if GH_PR_MERGE_CALL_PATTERN.search(SHELL_WORD_SEPARATOR.join(each_segment))
+    ]
+    return len(all_merge_segments) == len(GH_PR_MERGE_CALL_PATTERN.findall(command)) and all(
+        _carries_disable_auto(each_segment) for each_segment in all_merge_segments
+    )
+
+
+def _has_shell_comment(command: str) -> bool:
+    unquoted_command = SHELL_QUOTED_TEXT_PATTERN.sub(SHELL_QUOTED_TEXT_PLACEHOLDER, command)
+    return SHELL_COMMENT_START_PATTERN.search(unquoted_command) is not None
+
+
+def _shell_segments(command: str) -> list[list[str]] | None:
+    if _has_shell_comment(command):
+        return None
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=SHELL_PUNCTUATION_CHARACTERS)
+    lexer.whitespace = SHELL_WHITESPACE_CHARACTERS
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        all_words = list(lexer)
+    except ValueError:
+        return None
+    all_segments: list[list[str]] = [[]]
+    for each_word in all_words:
+        if each_word and set(each_word) <= set(SHELL_PUNCTUATION_CHARACTERS):
+            all_segments.append([])
+        else:
+            all_segments[-1].append(each_word)
+    return all_segments
+
+
+def _merge_arguments(all_words: list[str]) -> list[str] | None:
+    for each_index in range(len(all_words) - len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)):
+        is_gh_program = GH_PROGRAM_WORD_PATTERN.search(all_words[each_index]) is not None
+        subcommand_end = each_index + 1 + len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)
+        if is_gh_program and tuple(all_words[each_index + 1 : subcommand_end]) == ALL_GH_PR_MERGE_SUBCOMMAND_WORDS:
+            return all_words[subcommand_end:]
+    return None
+
+
+def _carries_disable_auto(all_segment_words: list[str]) -> bool:
+    all_words = _merge_arguments(all_segment_words)
+    if all_words is None:
+        return False
+    all_argument_words = set()
+    is_option_value = False
+    for each_word in all_words:
+        if is_option_value:
+            is_option_value = False
+            continue
+        all_argument_words.add(each_word)
+        is_option_value = each_word in ALL_OPTIONS_WITH_VALUE
+    sets_auto_flag_value = any(
+        each_word.startswith(ALL_AUTO_FLAG_VALUE_PREFIXES) for each_word in all_argument_words
+    )
+    has_unread_flag_form = any(_is_unread_flag_form(each_word) for each_word in all_argument_words)
+    return (
+        DISABLE_AUTO_OPTION in all_argument_words
+        and AUTO_OPTION not in all_argument_words
+        and not sets_auto_flag_value
+        and not has_unread_flag_form
+    )
+
+
+def _is_unread_flag_form(word: str) -> bool:
+    if word == END_OF_OPTIONS_WORD:
+        return True
+    if word.startswith(END_OF_OPTIONS_WORD) or not word.startswith(SHORT_OPTION_PREFIX):
+        return False
+    return len(word) > len(SHORT_OPTION_PREFIX) + 1
 
 
 def _gh_pr_merge_target(arguments: str) -> tuple[str, str, int | None]:

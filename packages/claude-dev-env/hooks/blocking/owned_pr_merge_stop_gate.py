@@ -3,15 +3,19 @@
 
 The owned pull request review-loop hook records each pull request the agent
 opens on an owned repository outside the preset list. At the end of a turn
-this gate asks GitHub for the state of each recorded pull request::
+this gate asks GitHub for the state and head of each recorded pull request::
 
     allow: every recorded pull request reads closed (merged or closed)
     allow: the reply has "Blocked: acme/widgets#42 - the owner must approve"
-    block: acme/widgets#42 reads open and the reply names no blocker for it
+    allow: acme/widgets#42 is open on the head this gate already blocked on
+    block: acme/widgets#42 reads open on a new head and the reply names no blocker
 
-A block sends the open pull requests back as the reason, so the model keeps
-working the loop. Claude Code ends the turn after eight blocks in a row, and
-Codex turns the reason into a continuation prompt. A state lookup that fails,
+A block sends those pull requests back as the reason, so the model keeps
+working the loop, and records each head it blocked on. A later stop on the
+same head passes, and a push to a new head blocks once more. An open pull
+request whose head GitHub does not report blocks on every stop. Claude Code
+ends the turn after eight blocks in a row, and Codex turns the reason into a
+continuation prompt. A state lookup that fails,
 such as a missing ``gh`` or no network, counts as closed, so the gate never
 holds a turn on a fact it could not read. The failure goes to stderr, where
 the host shows it in the hook log.
@@ -42,6 +46,7 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     GH_API_SUBCOMMAND,
     GH_JQ_OPTION,
     GH_PROGRAM_NAME,
+    HEAD_FIELD,
     HOOK_EVENT_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
     LOOKUP_FAILURE_TEMPLATE,
@@ -54,14 +59,23 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     PULL_REQUEST_STATE_QUERY,
     REASON_KEY,
     SESSION_ID_KEY,
+    STATE_AND_HEAD_SEPARATOR,
     STATE_QUERY_TIMEOUT_SECONDS,
+    URL_FIELD,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from owned_pr_session_record import all_recorded_pull_requests
+from owned_pr_session_record import (
+    all_blocked_heads,
+    all_recorded_pull_requests,
+    record_blocked_heads,
+)
 
 
-def is_pull_request_open(all_pull_request_fields: dict[str, str]) -> bool:
-    """Return True when GitHub reports the pull request as open.
+def open_head(all_pull_request_fields: dict[str, str]) -> str | None:
+    """Return the head sha when GitHub reports the pull request as open, else None.
+
+    An open pull request whose head GitHub did not report returns an empty
+    string, which no earlier block can match.
 
     Args:
         all_pull_request_fields: The owner, repository, number, and url fields.
@@ -77,10 +91,12 @@ def is_pull_request_open(all_pull_request_fields: dict[str, str]) -> bool:
         )
     except (OSError, subprocess.TimeoutExpired) as lookup_error:
         sys.stderr.write(LOOKUP_FAILURE_TEMPLATE.format(endpoint=endpoint, detail=lookup_error))
-        return False
+        return None
     if completed.returncode != 0:
         sys.stderr.write(LOOKUP_FAILURE_TEMPLATE.format(endpoint=endpoint, detail=completed.stderr.strip()))
-    return completed.returncode == 0 and completed.stdout.strip() == OPEN_PULL_REQUEST_STATE
+        return None
+    state, _, head = completed.stdout.strip().partition(STATE_AND_HEAD_SEPARATOR)
+    return head.strip() if state == OPEN_PULL_REQUEST_STATE else None
 
 
 def is_reported_blocked(all_pull_request_fields: dict[str, str], reply_text: str) -> bool:
@@ -111,21 +127,27 @@ def is_reported_blocked(all_pull_request_fields: dict[str, str], reply_text: str
 
 
 def unfinished_pull_requests(all_hook_input_fields: dict[str, object]) -> list[dict[str, str]]:
-    """Return the recorded pull requests that are open and not reported blocked.
+    """Return the recorded pull requests that are open, not reported blocked, and on a new head.
+
+    Each entry carries its head sha under ``head``. A pull request the gate
+    already blocked on at its current head is left out.
 
     Args:
         all_hook_input_fields: The Stop hook payload.
     """
     reply_value = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     reply_text = reply_value if isinstance(reply_value, str) else ""
-    return [
-        each_pull_request
-        for each_pull_request in all_recorded_pull_requests(
-            all_hook_input_fields.get(SESSION_ID_KEY)
-        )
-        if not is_reported_blocked(each_pull_request, reply_text)
-        and is_pull_request_open(each_pull_request)
-    ]
+    session_id = all_hook_input_fields.get(SESSION_ID_KEY)
+    blocked_heads_by_url = all_blocked_heads(session_id)
+    all_unfinished = []
+    for each_pull_request in all_recorded_pull_requests(session_id):
+        if is_reported_blocked(each_pull_request, reply_text):
+            continue
+        head = open_head(each_pull_request)
+        if head is None or (head and blocked_heads_by_url.get(each_pull_request[URL_FIELD]) == head):
+            continue
+        all_unfinished.append({**each_pull_request, HEAD_FIELD: head})
+    return all_unfinished
 
 
 def block_reason_for(all_open_pull_requests: list[dict[str, str]]) -> str:
@@ -145,6 +167,14 @@ def main() -> int:
     all_open_pull_requests = unfinished_pull_requests(hook_input)
     if not all_open_pull_requests:
         return ALLOW_EXIT_CODE
+    record_blocked_heads(
+        hook_input.get(SESSION_ID_KEY),
+        {
+            each_pull_request[URL_FIELD]: each_pull_request[HEAD_FIELD]
+            for each_pull_request in all_open_pull_requests
+            if each_pull_request[HEAD_FIELD]
+        },
+    )
     block_reason = block_reason_for(all_open_pull_requests)
     log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, block_reason)
     sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
