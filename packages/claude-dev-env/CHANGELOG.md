@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.114.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.5...claude-dev-env-v8.114.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** show three hooks' fixed text once per session and after compaction ([#2317](https://github.com/jl-cmd-projects/claude-dev-env/issues/2317)) ([d093cc0](https://github.com/jl-cmd-projects/claude-dev-env/commit/d093cc09af66373451b7ff155e5e848c0e2d2d12))
+
 ## [8.114.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.4...claude-dev-env-v8.114.5) (2026-11-11)
 
 
