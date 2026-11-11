@@ -56,13 +56,13 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
-    COMMAND_SEGMENT_SEPARATOR_PATTERN,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     DISABLE_AUTO_OPTION,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
+    GH_PR_MERGE_CALL_PATTERN,
     GH_PR_MERGE_PATTERN,
     HOOK_EVENT_NAME,
     MATCH_HEAD_PATTERN,
@@ -80,6 +80,9 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
+    SHELL_PUNCTUATION_CHARACTERS,
+    SHELL_WHITESPACE_CHARACTERS,
+    SHELL_WORD_SEPARATOR,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
@@ -200,19 +203,37 @@ def _shell_merge_request(command: str) -> MergeRequest | None:
 
 
 def _only_disables_auto_merge(command: str) -> bool:
+    all_segments = _shell_segments(command)
+    if all_segments is None:
+        return False
     all_merge_segments = [
         each_segment
-        for each_segment in COMMAND_SEGMENT_SEPARATOR_PATTERN.split(command)
-        if GH_PR_MERGE_PATTERN.search(each_segment)
+        for each_segment in all_segments
+        if GH_PR_MERGE_CALL_PATTERN.search(SHELL_WORD_SEPARATOR.join(each_segment))
     ]
-    return all(_carries_disable_auto(each_segment) for each_segment in all_merge_segments)
+    return len(all_merge_segments) == len(GH_PR_MERGE_CALL_PATTERN.findall(command)) and all(
+        _carries_disable_auto(each_segment) for each_segment in all_merge_segments
+    )
 
 
-def _carries_disable_auto(segment: str) -> bool:
+def _shell_segments(command: str) -> list[list[str]] | None:
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=SHELL_PUNCTUATION_CHARACTERS)
+    lexer.whitespace = SHELL_WHITESPACE_CHARACTERS
+    lexer.whitespace_split = True
     try:
-        all_words = shlex.split(segment)
+        all_words = list(lexer)
     except ValueError:
-        return False
+        return None
+    all_segments: list[list[str]] = [[]]
+    for each_word in all_words:
+        if set(each_word) <= set(SHELL_PUNCTUATION_CHARACTERS):
+            all_segments.append([])
+        else:
+            all_segments[-1].append(each_word)
+    return all_segments
+
+
+def _carries_disable_auto(all_words: list[str]) -> bool:
     is_option_value = False
     for each_word in all_words:
         if is_option_value:
