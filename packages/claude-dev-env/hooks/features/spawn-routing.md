@@ -39,6 +39,6 @@ Preconditions:
 - The oversight hook fires inside subagents and on read-only helper types too, so every brief at every level carries the outcome and the blocker clause. A `Workflow` call with no script text, such as a saved or resumed run, passes with the directive.
 - The readiness hook emits `additionalContext` only, so it never blocks. It passes subagent calls, read-only helper types, a non-object tool input, and unreadable transcripts.
 - The Haiku slim gate reads the spawn's `model` and `subagent_type` fields. A spawn that names no model passes, even when its agent definition or `CLAUDE_CODE_SUBAGENT_MODEL` resolves it to Haiku.
-- The effort route reads the parent model from the last assistant entry in the transcript when a spawn names no model. An agent definition that sets its own model is not seen, so the route can pick that family wrong. Name the model on every spawn.
+- The effort route reads the parent model with `last_assistant_model`, from the newest assistant line of the transcript when a spawn names no model. An agent definition that sets its own model is not seen, so the route can pick that family wrong. Name the model on every spawn.
 - The effort route changes only the effort, never the model, and it leaves a model it does not know, such as a Codex model, as it is. A thread spawn that names no model is left as it is.
 - The model router allows an advisor flag to bypass the Luna restriction. Its ordinary path denies unresolved or unsupported models.

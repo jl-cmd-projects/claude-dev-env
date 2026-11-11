@@ -44,6 +44,7 @@ from hooks_constants.subagent_effort_route_constants import (
     TRANSCRIPT_ENTRY_TYPE_KEY,
     TRANSCRIPT_MESSAGE_KEY,
     TRANSCRIPT_PATH_KEY,
+    SEEK_FROM_FILE_END,
     TRANSCRIPT_TAIL_BYTES,
 )
 from subagent_effort_route import route_spawn_input
@@ -63,13 +64,25 @@ def last_assistant_model(transcript_path: object) -> str | None:
         return None
     try:
         with open(transcript_path, "rb") as transcript_file:
-            transcript_file.seek(0, 2)
+            transcript_file.seek(0, SEEK_FROM_FILE_END)
             file_size = transcript_file.tell()
             transcript_file.seek(max(0, file_size - TRANSCRIPT_TAIL_BYTES))
             tail_text = transcript_file.read().decode("utf-8", errors="replace")
     except OSError:
         return None
-    for each_line in reversed(tail_text.splitlines()):
+    return newest_assistant_model(tail_text)
+
+
+def newest_assistant_model(transcript_text: str) -> str | None:
+    """Return the model of the newest assistant line in transcript text.
+
+    Args:
+        transcript_text: JSONL transcript lines, oldest first.
+
+    Returns:
+        The model id, or None when no assistant line names a model.
+    """
+    for each_line in reversed(transcript_text.splitlines()):
         try:
             entry = json.loads(each_line)
         except json.JSONDecodeError:
@@ -82,20 +95,20 @@ def last_assistant_model(transcript_path: object) -> str | None:
     return None
 
 
-def decide_hook_output(hook_payload: dict[str, object] | None) -> dict[str, object] | None:
+def decide_hook_output(all_hook_payload: dict[str, object] | None) -> dict[str, object] | None:
     """Choose the hook output for one spawn payload.
 
     Args:
-        hook_payload: The PreToolUse payload, or None when stdin held no object.
+        all_hook_payload: The PreToolUse payload, or None when stdin held no object.
 
     Returns:
         None to pass the call through unchanged, else the hook JSON output.
     """
-    if hook_payload is None:
+    if all_hook_payload is None:
         return None
     routed = route_spawn_input(
-        hook_payload.get(TOOL_INPUT_KEY),
-        last_assistant_model(hook_payload.get(TRANSCRIPT_PATH_KEY)),
+        all_hook_payload.get(TOOL_INPUT_KEY),
+        last_assistant_model(all_hook_payload.get(TRANSCRIPT_PATH_KEY)),
     )
     if routed is None:
         return None
