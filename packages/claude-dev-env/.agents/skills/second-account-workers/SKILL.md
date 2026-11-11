@@ -49,12 +49,20 @@ worker_exit=$?
 cat "<report>"
 ```
 
+Add `--model "<model>"` with a model from an allowed pair in
+[Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
+
 Add `--live-log "<events.jsonl>"` to watch the worker while it runs. The worker
 then writes one JSON event per line into that file as it happens. Every event
 carries the `session_id`, from the first startup hook line on. Each `assistant` line names the tool
 calls and text, and the last line is the `result` event. Read new lines with
 `tail -n 20 "<events.jsonl>"` and skip screenshots unless a check needs to see
 the screen.
+
+Add `--effort "<level>"` to set the worker's effort. With `--model` set, the
+script keeps the effort inside
+[Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md).
+`--model opus --effort xhigh` runs at `medium`, and `--model sonnet` alone runs at `high`.
 
 Read the JSON report and worker log after the process ends. The JSON fields are
 `account`, `reason`, `exit_code`, `duration_seconds`, `result`, and `is_error`.

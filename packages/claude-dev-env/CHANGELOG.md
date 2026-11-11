@@ -1,5 +1,51 @@
 # Changelog
 
+## [8.114.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.2...claude-dev-env-v8.114.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **workers:** effort flag for account worker; agent test reads live agents ([#2311](https://github.com/jl-cmd-projects/claude-dev-env/issues/2311)) ([4c74a4e](https://github.com/jl-cmd-projects/claude-dev-env/commit/4c74a4e4f30758578d9551ead069049253210bc3))
+
+
+### Documentation
+
+* **model-choice:** adapt the model choice article to the allowed pairs ([#2310](https://github.com/jl-cmd-projects/claude-dev-env/issues/2310)) ([a278f9b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a278f9b8220ae76a4008d1eb0c9136c5db1c7893))
+
+## [8.114.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.1...claude-dev-env-v8.114.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **settings:** default the todo and silent-turn reminders off ([#2307](https://github.com/jl-cmd-projects/claude-dev-env/issues/2307)) ([1730cb7](https://github.com/jl-cmd-projects/claude-dev-env/commit/1730cb76ebf1c1dcbd85e558629a57905ff9e6b8))
+
+## [8.114.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.0...claude-dev-env-v8.114.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** advise on a hedged Agent or Task spawn instead of blocking it ([#2305](https://github.com/jl-cmd-projects/claude-dev-env/issues/2305)) ([6ce6689](https://github.com/jl-cmd-projects/claude-dev-env/commit/6ce6689b5081fc89bb60e4790ebcebf55e4197c2))
+
+## [8.114.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.1...claude-dev-env-v8.114.0) (2026-11-11)
+
+
+### Features
+
+* **hooks:** allowed model and effort pairs for Claude subagents ([51ce9ab](https://github.com/jl-cmd-projects/claude-dev-env/commit/51ce9aba312163e6f26cdba3eccaa713c7f6527a))
+* **hooks:** route subagent spawns to an allowed effort ([137d861](https://github.com/jl-cmd-projects/claude-dev-env/commit/137d861fb88340b2ebc3cb3b6d4f113f4c6bd54d))
+
+
+### Bug Fixes
+
+* **rules:** keep the subagent rule inside the always-on byte budget ([6fb3d19](https://github.com/jl-cmd-projects/claude-dev-env/commit/6fb3d190b8f5597f9f47e3437ff39aafbf40f91b))
+
+
+### Documentation
+
+* **advisor:** bind the Opus advisor at medium effort ([b57da44](https://github.com/jl-cmd-projects/claude-dev-env/commit/b57da446b3022728f025a0eb876db74aabe167b3))
+* **advisor:** run a non-built-in Opus advisor at high effort ([0d5c987](https://github.com/jl-cmd-projects/claude-dev-env/commit/0d5c9872f6303c7315af57ad180e4f8b95e7e163))
+* **rules:** allowed model and effort pairs for Claude subagents ([7df703d](https://github.com/jl-cmd-projects/claude-dev-env/commit/7df703d32d6a11bf4400b2335d69a1897fe57914))
+
 ## [8.113.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.0...claude-dev-env-v8.113.1) (2026-11-11)
 
 

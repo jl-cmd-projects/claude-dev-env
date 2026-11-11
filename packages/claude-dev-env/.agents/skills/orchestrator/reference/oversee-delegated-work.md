@@ -6,6 +6,7 @@ The `spawn_oversight_hook` adds this duty to the first spawn of each agent in th
 
 - Run each piece through the verified-work flow in `~/.claude/docs/rule-guides/verified-work.md`: research, verify, plan, verify, implement, verify.
 - Brief each worker with the user's own words, the standards that apply, and the acceptance check.
+- Name model and effort on each worker and verifier, per [Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md). A verifier judges, so it runs on Opus at medium.
 - Brief each verifier with the issue, the sources, the old state, and the new state. Leave the worker's conclusion out.
 - While a worker runs, read its progress. Wake a quiet agent with one concrete next step.
 - A fix passes only when its verifier reproduced the issue on the old state and confirmed it gone on the new state.

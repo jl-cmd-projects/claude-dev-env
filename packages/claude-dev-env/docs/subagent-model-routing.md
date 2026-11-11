@@ -4,6 +4,9 @@ The package routes native subagent requests before the child starts. It keeps
 approved pairs, aliases, replacements, selector exclusions, and the advisor
 default in one file.
 
+This page covers Codex children. Claude children follow
+[Subagent model and effort](rule-guides/subagent-model-effort.md).
+
 The source policy is
 `packages/claude-dev-env/rules/subagent-model-policy.json`.
 
