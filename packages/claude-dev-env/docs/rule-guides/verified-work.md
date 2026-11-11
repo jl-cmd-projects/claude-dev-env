@@ -25,6 +25,8 @@ When a piece's verifier passes, commit that piece alone, as its own stack level.
 
 Stack with `gt create` where Graphite is installed. Without Graphite, use a plain branch from the previous level, made with `git switch -c <branch>`. The pieces in the plan set the levels, so a reviewer reads one purpose at a time.
 
+This applies where the brief and the user allow commits. A worker whose brief bars git writes hands the piece back uncommitted and says so.
+
 ## The verifier
 
 - The verifier is never the agent that did the work. The spawner is the owner of the work. A fresh agent at each verify step keeps the check apart from the author.
@@ -56,4 +58,4 @@ Report only what a verifier passed. Name the verifier's verdict and the evidence
 
 ## Enforcement
 
-`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the one-piece-per-level delivery, the scope ask, and the reporting rule to every spawn at every level of the agent tree whose brief has an `Outcome:` line and an `On a blocker:` line; the hook already denies a brief without them, and the verifier brief template carries both. The flow itself adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for. `hooks/advisory/pieces_per_level_note.py` adds a context note when a commit subject or a pull request opened by an agent names several pieces in the author's own words. It names the pieces, says each gets its own commit and stack level, and gives the next command. It never denies, delays, or exits non-zero.
+`hooks/routing/spawn_oversight_hook.py` adds the six steps, the separate verifier, the reproduce-first check, the one-piece-per-level delivery where the brief allows commits, the scope ask, and the reporting rule to every spawn at every level of the agent tree whose brief has an `Outcome:` line and an `On a blocker:` line; the hook already denies a brief without them, and the verifier brief template carries both. The flow itself adds context only. No hook refuses a report, a commit, or a spawn for a missing verifier run, so the flow never blocks work the user asked for. `hooks/advisory/pieces_per_level_note.py` adds a context note when a commit subject or a pull request opened by an agent names several pieces in the author's own words. It names the pieces, says each gets its own commit and stack level, and gives the next command. It never denies, delays, or exits non-zero.

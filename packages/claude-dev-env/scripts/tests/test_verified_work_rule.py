@@ -72,12 +72,19 @@ def test_the_guide_sets_no_line_or_file_count_on_a_level() -> None:
     assert "files" not in delivery_text
 
 
-def test_the_pull_request_skill_mirrors_the_practice_in_its_decision_tree() -> None:
+def test_the_guide_limits_delivery_commits_to_where_the_brief_and_user_allow_them() -> None:
+    delivery_text = _delivery_section(GUIDE_PATH.read_text(encoding="utf-8"))
+    assert "This applies where the brief and the user allow commits." in delivery_text
+    assert "A worker whose brief bars git writes hands the piece back uncommitted and says so." in delivery_text
+
+
+def test_the_pull_request_skill_points_its_decision_tree_at_the_delivery_section() -> None:
     skill_text = PR_LIFECYCLE_PATH.read_text(encoding="utf-8")
     decision_tree = skill_text.split("### Workflow decision tree", 1)[1].split("\n### ", 1)[0]
-    assert "Each planned piece is its own commit and stack level" in decision_tree
-    assert "`gt create`" in decision_tree
-    assert "a plain branch from the previous level" in decision_tree
+    assert "Each planned piece is its own stack level" in decision_tree
+    assert "Delivery section of `~/.claude/docs/rule-guides/verified-work.md`" in decision_tree
+    assert "`gt create`" not in decision_tree
+    assert "a plain branch from the previous level" not in decision_tree
 
 
 def test_the_enforcement_section_names_the_note_and_keeps_it_non_blocking() -> None:

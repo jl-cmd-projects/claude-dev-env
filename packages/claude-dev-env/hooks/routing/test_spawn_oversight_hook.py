@@ -276,12 +276,12 @@ def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
 
 def test_the_emitted_directive_commits_each_passed_piece_as_its_own_stack_level() -> None:
     directive = _emitted_directive()
-    assert "When a piece's verifier passes, commit that piece alone as its own stack level" in directive
+    assert "When a piece's verifier passes and the brief allows commits, commit that piece alone as its own stack level" in directive
     assert "start the next piece on top of it" in directive
     assert directive.index("confirms the fix on the new state") < directive.index("commit that piece alone")
 
 
 def test_the_emitted_directive_stays_context_only_and_inside_its_budget() -> None:
     directive = _emitted_directive()
-    assert len(directive) <= 1500
+    assert len(directive) < 1500
     assert "deny" not in directive.lower()
