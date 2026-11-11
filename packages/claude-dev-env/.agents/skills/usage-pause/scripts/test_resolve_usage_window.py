@@ -487,6 +487,109 @@ class TestBuildPausePlan:
         assert resolved_payload["reset_at"] == reset_at.isoformat()
 
 
+class TestBuildPausePlanWithoutSessionWindow:
+    def should_plan_no_wait_and_keep_weekly_meters(self) -> None:
+        resolver = load_resolver_module()
+        now = local_now()
+        weekly_resets_at = now + timedelta(days=3)
+        resolved_payload = resolver.build_pause_plan(
+            "probe", None, now, None, 92.0, weekly_resets_at
+        )
+        assert resolved_payload["reset_at"] is None
+        assert resolved_payload["seconds_until_reset"] == 0
+        assert resolved_payload["stages_seconds"] == []
+        assert resolved_payload["weekly_near_cap"] is True
+        assert resolved_payload["weekly_resets_at"] == weekly_resets_at.isoformat()
+
+
+class TestWeeklyOnlyUsageReply:
+    @pytest.fixture
+    def run_probe_with_reply(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ):
+        def run(usage_reply: dict[str, object]) -> tuple[int, dict[str, object]]:
+            resolver = load_resolver_module()
+            monkeypatch.setattr(sys, "argv", ["resolve_usage_window.py"])
+            monkeypatch.setattr(
+                resolver, "resolve_access_token", lambda credentials_path, now: "stub"
+            )
+            monkeypatch.setattr(
+                resolver, "_fetch_usage_payload", lambda access_token: usage_reply
+            )
+            exit_code = resolver.main()
+            return exit_code, json.loads(capsys.readouterr().out)
+
+        return run
+
+    def should_resolve_with_no_wait_when_five_hour_is_null(
+        self, run_probe_with_reply
+    ) -> None:
+        exit_code, resolved_payload = run_probe_with_reply(
+            {
+                "five_hour": None,
+                "seven_day": {
+                    "utilization": 63,
+                    "resets_at": "2026-07-12T00:00:00+00:00",
+                },
+            }
+        )
+        assert exit_code == 0
+        assert resolved_payload["source"] == "probe"
+        assert resolved_payload["reset_at"] is None
+        assert resolved_payload["seconds_until_reset"] == 0
+        assert resolved_payload["stages_seconds"] == []
+        assert resolved_payload["session_utilization"] is None
+        assert resolved_payload["weekly_utilization"] == 63.0
+        assert resolved_payload["weekly_near_cap"] is False
+
+    def should_flag_weekly_near_cap_when_five_hour_is_null(
+        self, run_probe_with_reply
+    ) -> None:
+        exit_code, resolved_payload = run_probe_with_reply(
+            {
+                "five_hour": None,
+                "seven_day": {
+                    "utilization": 95,
+                    "resets_at": "2026-07-12T00:00:00+00:00",
+                },
+            }
+        )
+        assert exit_code == 0
+        assert resolved_payload["weekly_near_cap"] is True
+        assert resolved_payload["weekly_resets_at"] is not None
+
+    def should_resolve_when_five_hour_key_is_absent(self, run_probe_with_reply) -> None:
+        exit_code, resolved_payload = run_probe_with_reply(
+            {"seven_day": {"utilization": 20, "resets_at": "2026-07-12T00:00:00+00:00"}}
+        )
+        assert exit_code == 0
+        assert resolved_payload["stages_seconds"] == []
+
+    def should_still_exit_two_when_no_window_is_readable(
+        self, run_probe_with_reply
+    ) -> None:
+        exit_code, resolved_payload = run_probe_with_reply(
+            {"five_hour": None, "seven_day": None}
+        )
+        assert exit_code == 2
+        assert "error" in resolved_payload
+
+    def should_still_exit_two_when_five_hour_has_utilization_but_no_reset(
+        self, run_probe_with_reply
+    ) -> None:
+        exit_code, resolved_payload = run_probe_with_reply(
+            {
+                "five_hour": {"utilization": 30},
+                "seven_day": {
+                    "utilization": 20,
+                    "resets_at": "2026-07-12T00:00:00+00:00",
+                },
+            }
+        )
+        assert exit_code == 2
+        assert "error" in resolved_payload
+
+
 class TestCommandLine:
     def run_resolver(
         self,
