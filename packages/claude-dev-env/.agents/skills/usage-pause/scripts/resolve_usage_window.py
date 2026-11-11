@@ -64,6 +64,7 @@ from usage_pause_constants.resolve_usage_window_constants import (
     MINIMUM_STAGE_SECONDS,
     MINUTES_PER_HOUR,
     NOON_HOUR,
+    NO_FIVE_HOUR_WINDOW_LOG_MESSAGE,
     OAUTH_BETA_HEADER_NAME,
     OAUTH_BETA_HEADER_VALUE,
     OAUTH_USAGE_ENDPOINT_URL,
@@ -600,6 +601,18 @@ def main() -> int:
             )
         )
         return EXIT_CODE_RESOLVED
+    return _resolve_from_probe(arguments, now)
+
+
+def _has_no_resolvable_window(windows: UsageWindows) -> bool:
+    has_session_meter = windows.session_utilization is not None
+    has_weekly_window = (
+        windows.weekly_utilization is not None or windows.weekly_resets_at is not None
+    )
+    return has_session_meter or not has_weekly_window
+
+
+def _resolve_from_probe(arguments: argparse.Namespace, now: datetime) -> int:
     credentials_path = (
         Path(arguments.credentials_path)
         if arguments.credentials_path
@@ -620,17 +633,9 @@ def main() -> int:
         return _emit_error(f"usage probe failed: {probe_error}")
     windows = extract_usage_windows(usage_payload)
     if windows.session_resets_at is None:
-        has_session_meter = windows.session_utilization is not None
-        has_weekly_window = (
-            windows.weekly_utilization is not None
-            or windows.weekly_resets_at is not None
-        )
-        if has_session_meter or not has_weekly_window:
+        if _has_no_resolvable_window(windows):
             return _emit_error("usage response carried no five_hour reset time")
-        logger.info(
-            "usage response has no five_hour window; nothing to wait out, "
-            "reporting the weekly window only"
-        )
+        logger.info(NO_FIVE_HOUR_WINDOW_LOG_MESSAGE)
     print(
         json.dumps(
             build_pause_plan(
