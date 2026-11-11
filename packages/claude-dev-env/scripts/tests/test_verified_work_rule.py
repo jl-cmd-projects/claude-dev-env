@@ -92,4 +92,11 @@ def test_the_pull_request_skill_points_its_decision_tree_at_the_delivery_section
 def test_the_enforcement_section_names_the_note_and_keeps_it_non_blocking() -> None:
     enforcement_text = GUIDE_PATH.read_text(encoding="utf-8").split("## Enforcement", 1)[1]
     assert "hooks/advisory/pieces_per_level_note.py" in enforcement_text
-    assert "It never denies or exits non-zero, and one wall-clock deadline of 1 second bounds its run." in enforcement_text
+    assert "it never denies or exits non-zero" in enforcement_text
+
+
+def test_the_enforcement_section_points_to_the_feature_page_for_the_note_details() -> None:
+    enforcement_text = GUIDE_PATH.read_text(encoding="utf-8").split("## Enforcement", 1)[1]
+    assert "(../../hooks/features/session-context.md)" in enforcement_text
+    assert "wall-clock deadline" not in enforcement_text
+    assert "split the commit or the pull request" not in enforcement_text
