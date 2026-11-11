@@ -275,7 +275,11 @@ def test_hook_supplied_text_joins_hook_and_harness_text_only(tmp_path: Path) -> 
         {"type": "user", "origin": {"kind": "task-notification"}, "message": {"content": "pull/3 done"}},
         {"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["pull/4 ctx"]}},
         {"type": "attachment", "attachment": {"type": "hook_system_message", "content": "pull/5 msg"}},
-        {"type": "attachment", "attachment": {"type": "queued_command", "prompt": "pull/6 queued"}},
+        {
+            "type": "attachment",
+            "attachment": {"type": "queued_command", "origin": {"kind": "task-notification"}, "prompt": "pull/6 queued"},
+        },
+        {"type": "attachment", "attachment": {"type": "queued_command", "origin": {"kind": "human"}, "prompt": "pull/9 typed"}},
         {"type": "attachment", "attachment": {"type": "hook_blocking_error", "blockingError": {"blockingError": "pull/7"}}},
         {"type": "user", "message": {"content": [{"type": "tool_result", "content": "pull/8 result"}]}},
     ]

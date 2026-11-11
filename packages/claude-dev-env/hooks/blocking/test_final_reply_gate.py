@@ -141,6 +141,7 @@ def write_transcript_entries(transcript_path: Path, all_entries: list[dict[str, 
             "type": "attachment",
             "attachment": {
                 "type": "queued_command",
+                "origin": {"kind": "task-notification", "producer": "session-task"},
                 "prompt": f"<task-notification><result>Opened {CITED_PULL_URL}</result></task-notification>",
             },
         },
@@ -185,6 +186,18 @@ def test_should_block_a_pull_request_link_the_gate_quotes_in_a_sentence(
     )
     feedback_entry = {"type": "user", "isMeta": True, "message": {"role": "user", "content": quoting_feedback}}
     transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [feedback_entry])
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
+def test_should_block_a_pull_request_link_only_a_typed_queued_prompt_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    typed_entry = {
+        "type": "attachment",
+        "attachment": {"type": "queued_command", "origin": {"kind": "human"}, "prompt": f"Is {CITED_PULL_URL} done?"},
+    }
+    transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [typed_entry])
     _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
     assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
 

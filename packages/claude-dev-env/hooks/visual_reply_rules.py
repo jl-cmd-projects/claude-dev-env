@@ -24,14 +24,11 @@ from hooks_constants.visual_reply_rules_constants import (
     ALL_ATTACHMENT_TEXT_KEYS,
     ALL_HOOK_TEXT_ATTACHMENT_TYPES,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
-    ATTACHMENT_ENTRY_TYPE,
-    ATTACHMENT_KEY,
-    ORIGIN_KEY,
-    ORIGIN_KIND_KEY,
-    TASK_NOTIFICATION_ORIGIN_KIND,
     ALL_VISUAL_TOOL_NAME_SUFFIXES,
     ALLOWED_CAPITALIZED_WORDS_KEY,
     ASSISTANT_ENTRY_TYPE,
+    ATTACHMENT_ENTRY_TYPE,
+    ATTACHMENT_KEY,
     BLOCK_ID_KEY,
     BLOCK_NAME_KEY,
     BLOCK_TEXT_KEY,
@@ -51,6 +48,9 @@ from hooks_constants.visual_reply_rules_constants import (
     NO_PICTURE_RULE_KEY,
     NO_VISUAL_MESSAGE,
     ONE_ITEM_RULE_KEY,
+    ORIGIN_KEY,
+    ORIGIN_KIND_KEY,
+    QUEUED_COMMAND_ATTACHMENT_TYPE,
     RULE_KEY_FIELD,
     RULE_LABEL_FIELD,
     RULE_REMINDER_FIELD,
@@ -59,6 +59,7 @@ from hooks_constants.visual_reply_rules_constants import (
     RULES_FILE_PATH,
     RULES_LIST_KEY,
     SECOND_REPLY_MESSAGE,
+    TASK_NOTIFICATION_ORIGIN_KIND,
     TEXT_BLOCK_TYPE,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -337,6 +338,8 @@ def _attachment_texts(all_entry_fields: dict[str, object]) -> list[str]:
     attachment = all_entry_fields.get(ATTACHMENT_KEY)
     if not isinstance(attachment, dict) or attachment.get(BLOCK_TYPE_KEY) not in ALL_HOOK_TEXT_ATTACHMENT_TYPES:
         return []
+    if attachment.get(BLOCK_TYPE_KEY) == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_harness_message(attachment):
+        return []
     all_texts = []
     for each_key in ALL_ATTACHMENT_TEXT_KEYS:
         field_value = attachment.get(each_key)
@@ -368,7 +371,8 @@ def hook_supplied_text(transcript_path: object) -> str | None:
 
     It covers stop-hook feedback and other meta messages, a background agent's
     task notification, and hook additional context, hook system message, and
-    queued command attachments. Returns None when the transcript cannot be read.
+    queued task notification attachments. A prompt the user typed while the
+    session worked does not count. Returns None when the transcript cannot be read.
     """
     all_lines = _read_transcript_lines(transcript_path)
     if all_lines is None:

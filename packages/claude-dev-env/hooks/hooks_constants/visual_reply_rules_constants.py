@@ -83,8 +83,9 @@ BLOCK_TEXT_KEY = "text"
 RESULT_TEXT_SEPARATOR = "\n"
 ATTACHMENT_ENTRY_TYPE = "attachment"
 ATTACHMENT_KEY = "attachment"
+QUEUED_COMMAND_ATTACHMENT_TYPE = "queued_command"
 ALL_HOOK_TEXT_ATTACHMENT_TYPES = frozenset(
-    {"hook_additional_context", "hook_system_message", "queued_command"}
+    {"hook_additional_context", "hook_system_message", QUEUED_COMMAND_ATTACHMENT_TYPE}
 )
 ALL_ATTACHMENT_TEXT_KEYS = ("content", "prompt")
 ORIGIN_KEY = "origin"
