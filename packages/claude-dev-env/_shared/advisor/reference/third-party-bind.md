@@ -25,7 +25,7 @@ When the Astra flag is off, follow the Claude-chain steps below.
    python "$HOME/.claude/scripts/account_broker.py" run --product claude --report <path> -- claude -p --model <alias> --effort <effort> --output-format json
    ```
 
-   Use `--model opus --effort` with the value of `ADVISOR_EFFORT` (default `xhigh`) on Opus.
+   Use `--model opus --effort medium` on Opus.
    User-facing wording follows [`docs/rule-guides/asd-ste100-language.md`](../../../docs/rule-guides/asd-ste100-language.md).
    Account choice, failover, and the `advisor_blocked` status are in [`cli-chain.md`](cli-chain.md).
 4. Stop at the first successful bind.
