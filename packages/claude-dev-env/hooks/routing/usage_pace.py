@@ -12,7 +12,9 @@
 
 A window is over pace when at least 10% of it has elapsed and its used percent
 exceeds the percent already elapsed. The floor keeps a window's first minutes,
-where any spend outruns the clock, from reading as over pace. The account is over pace when any window is. The script reads
+where any spend outruns the clock, from reading as over pace. The account is over pace when any window is. An account with only a
+weekly window reports ``five_hour`` as null or leaves it out, and the verdict
+then covers the weekly window alone. The script reads
 the OAuth usage endpoint with the session ingress bearer token, the same probe
 the usage-pause skill's ``resolve_usage_window.py`` uses. It never prints or
 stores the token.
@@ -39,6 +41,7 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.usage_pace_constants import (
+    ALL_OPTIONAL_WINDOW_NAMES,
     ALL_RATE_WINDOW_LENGTHS,
     ANTHROPIC_BETA_HEADER,
     AUTHORIZATION_HEADER,
@@ -169,22 +172,34 @@ def measure_window_pace(
 def measure_account_pace(
     all_usage_buckets: dict[str, object], now: datetime
 ) -> list[WindowPace]:
-    """Measure every rate window the verdict covers.
+    """Measure every rate window the account has.
+
+    ::
+
+        {"five_hour": None, "seven_day": {...}}  -> [seven_day]
+        {"five_hour": {...}, "seven_day": {...}} -> [five_hour, seven_day]
+
+    The five-hour window is optional because accounts with only a weekly
+    window report it as null or leave it out. The weekly window is required.
 
     Args:
         all_usage_buckets: The decoded usage response body.
         now: The time the pace is measured at.
 
     Returns:
-        One WindowPace per rate window, five-hour first.
+        One WindowPace per rate window the account has, five-hour first.
 
     Raises:
-        UsageUnreadable: Any covered window is missing or unreadable.
+        UsageUnreadable: A required window is missing, or a window that is
+            present is unreadable.
     """
-    return [
-        measure_window_pace(each_name, each_length, all_usage_buckets.get(each_name), now)
-        for each_name, each_length in ALL_RATE_WINDOW_LENGTHS
-    ]
+    all_window_paces = []
+    for each_name, each_length in ALL_RATE_WINDOW_LENGTHS:
+        each_bucket = all_usage_buckets.get(each_name)
+        if each_bucket is None and each_name in ALL_OPTIONAL_WINDOW_NAMES:
+            continue
+        all_window_paces.append(measure_window_pace(each_name, each_length, each_bucket, now))
+    return all_window_paces
 
 
 def build_verdict(

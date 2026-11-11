@@ -105,7 +105,9 @@ def test_should_report_under_pace_when_every_window_trails() -> None:
 @pytest.mark.parametrize(
     "broken_payload",
     [
-        {"seven_day": {"utilization": 20.0, "resets_at": WEEKLY_RESET}},
+        {"five_hour": {"utilization": 1.0, "resets_at": FIVE_HOUR_RESET}},
+        {"five_hour": None, "seven_day": None},
+        {},
         {
             "five_hour": {"utilization": None, "resets_at": FIVE_HOUR_RESET},
             "seven_day": {"utilization": 1.0, "resets_at": WEEKLY_RESET},
@@ -123,6 +125,41 @@ def test_should_treat_a_missing_or_unreadable_window_as_unreadable(
         measure_account_pace(broken_payload, NOW)
 
 
+@pytest.mark.parametrize(
+    "weekly_only_payload",
+    [
+        {"five_hour": None, "seven_day": {"utilization": 93.0, "resets_at": WEEKLY_RESET}},
+        {"seven_day": {"utilization": 93.0, "resets_at": WEEKLY_RESET}},
+    ],
+)
+def test_should_measure_only_the_weekly_window_when_the_account_has_no_five_hour_window(
+    weekly_only_payload: dict[str, object],
+) -> None:
+    all_window_paces = measure_account_pace(weekly_only_payload, NOW)
+    assert [each.name for each in all_window_paces] == ["seven_day"]
+    verdict = build_verdict(all_window_paces, NOW)
+    assert verdict["over_pace"] is True
+    assert [each["window"] for each in verdict["windows"]] == ["seven_day"]
+
+
+def test_should_report_under_pace_when_a_weekly_only_account_trails_the_clock() -> None:
+    weekly_only_payload = {
+        "five_hour": None,
+        "seven_day": {"utilization": 20.0, "resets_at": WEEKLY_RESET},
+    }
+    verdict = build_verdict(measure_account_pace(weekly_only_payload, NOW), NOW)
+    assert verdict["over_pace"] is False
+
+
+def test_should_still_reject_a_five_hour_window_that_is_present_but_unreadable() -> None:
+    broken_five_hour_payload = {
+        "five_hour": {"utilization": 1.0},
+        "seven_day": {"utilization": 1.0, "resets_at": WEEKLY_RESET},
+    }
+    with pytest.raises(UsageUnreadable):
+        measure_account_pace(broken_five_hour_payload, NOW)
+
+
 def test_should_exit_zero_with_the_verdict_when_over_pace(tmp_path: Path) -> None:
     exit_code, verdict = _run_script(tmp_path, _payload(3.0, 93.0))
     assert exit_code == 0
@@ -135,8 +172,27 @@ def test_should_exit_one_when_under_pace(tmp_path: Path) -> None:
     assert verdict["over_pace"] is False
 
 
+def test_should_exit_zero_for_a_weekly_only_account_running_ahead(tmp_path: Path) -> None:
+    exit_code, verdict = _run_script(
+        tmp_path,
+        {"five_hour": None, "seven_day": {"utilization": 93.0, "resets_at": WEEKLY_RESET}},
+    )
+    assert exit_code == 0
+    assert verdict["over_pace"] is True
+    assert [each["window"] for each in verdict["windows"]] == ["seven_day"]
+
+
+def test_should_exit_one_for_a_weekly_only_account_under_pace(tmp_path: Path) -> None:
+    exit_code, verdict = _run_script(
+        tmp_path,
+        {"five_hour": None, "seven_day": {"utilization": 20.0, "resets_at": WEEKLY_RESET}},
+    )
+    assert exit_code == 1
+    assert verdict["over_pace"] is False
+
+
 def test_should_exit_two_with_a_null_verdict_when_unreadable(tmp_path: Path) -> None:
     exit_code, verdict = _run_script(tmp_path, {"five_hour": None})
     assert exit_code == 2
     assert verdict["over_pace"] is None
-    assert verdict["error"] == "usage response has no five_hour window"
+    assert verdict["error"] == "usage response has no seven_day window"
