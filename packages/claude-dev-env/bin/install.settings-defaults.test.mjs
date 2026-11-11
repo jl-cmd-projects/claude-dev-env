@@ -54,6 +54,16 @@ const LEGACY_MANAGED_DENY_ENTRIES = [
     'MultiEdit($HOME/.claude/code-review-stamps/**)',
 ];
 const USER_OWNED_DENY_ENTRY = 'Bash(rm -rf /)';
+const REMINDER_OFF_ENV = {
+    CLAUDE_CODE_TODO_REMINDER_MODE: 'off',
+    CLAUDE_CODE_SILENT_TURN_REMINDER: '0',
+    CLAUDE_CODE_SILENT_TURN_REMINDER_TURNS: '100000',
+};
+const PACKAGE_ENV_DEFAULTS = {
+    CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000',
+    PYTHONUTF8: '1',
+    ...REMINDER_OFF_ENV,
+};
 
 function packageManagedPermissions() {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
@@ -275,7 +285,7 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the session agent, advisor model, auto-compact, auto mode, idle compaction and Python UTF-8 defaults', () => {
+test('package settings.json publishes the session agent, advisor model, auto-compact, auto mode, idle compaction, Python UTF-8 and reminder-off defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
     assert.deepEqual(
@@ -283,7 +293,7 @@ test('package settings.json publishes the session agent, advisor model, auto-com
         ['advisorModel', 'agent', 'autoCompactWindow', 'autoMode', 'env', 'modelSettings'],
     );
     assert.equal(settingsDefaults.autoCompactWindow, 350000);
-    assert.deepEqual(settingsDefaults.env, { CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000', PYTHONUTF8: '1' });
+    assert.deepEqual(settingsDefaults.env, PACKAGE_ENV_DEFAULTS);
     assert.deepEqual(settingsDefaults.modelSettings, {
         'claude-haiku-5-5': { autoCompactWindow: 250000 },
         'claude-haiku-4-5': { autoCompactWindow: 250000 },
@@ -314,7 +324,7 @@ test('a missing default is added and a user-set value is kept', () => {
     assert.equal(userSettings.advisorModel, 'sonnet');
 });
 
-test('install adds the idle compaction and Python UTF-8 variables to an env block and keeps a user value on rerun', () => {
+test('install adds the idle compaction, Python UTF-8 and reminder-off variables to an env block and keeps a user value on rerun', () => {
     const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
     try {
         const settingsPath = join(sandboxHome, '.claude', 'settings.json');
@@ -324,8 +334,7 @@ test('install adds the idle compaction and Python UTF-8 variables to an env bloc
         assert.equal(firstRun.status, 0, firstRun.stderr);
         assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')).env, {
             EDITOR: 'vim',
-            CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS: '100000',
-            PYTHONUTF8: '1',
+            ...PACKAGE_ENV_DEFAULTS,
         });
         const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
         userChoice.env.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS = '300000';
@@ -333,6 +342,43 @@ test('install adds the idle compaction and Python UTF-8 variables to an env bloc
         const secondRun = runInstallerInSandbox(sandboxHome);
         assert.equal(secondRun.status, 0, secondRun.stderr);
         assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).env.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS, '300000');
+    } finally {
+        rmSync(sandboxHome, { recursive: true, force: true });
+    }
+});
+
+test('a fresh install writes the three reminder-off variables into the user settings env block', () => {
+    const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
+    try {
+        const install = runInstallerInSandbox(sandboxHome);
+        assert.equal(install.status, 0, install.stderr);
+        const settingsPath = join(sandboxHome, '.claude', 'settings.json');
+        const installedEnv = JSON.parse(readFileSync(settingsPath, 'utf8')).env;
+        for (const [variableName, variableValue] of Object.entries(REMINDER_OFF_ENV)) {
+            assert.equal(installedEnv[variableName], variableValue, variableName);
+        }
+    } finally {
+        rmSync(sandboxHome, { recursive: true, force: true });
+    }
+});
+
+test('install leaves reminder-off variables the user already set in place and adds the missing ones', () => {
+    const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
+    try {
+        const settingsPath = join(sandboxHome, '.claude', 'settings.json');
+        mkdirSync(join(sandboxHome, '.claude'), { recursive: true });
+        const userEnv = {
+            CLAUDE_CODE_TODO_REMINDER_MODE: 'off',
+            CLAUDE_CODE_SILENT_TURN_REMINDER: 'false',
+            EDITOR: 'vim',
+        };
+        writeFileSync(settingsPath, JSON.stringify({ env: userEnv }, null, 4) + '\n');
+        const install = runInstallerInSandbox(sandboxHome);
+        assert.equal(install.status, 0, install.stderr);
+        assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')).env, {
+            ...PACKAGE_ENV_DEFAULTS,
+            ...userEnv,
+        });
     } finally {
         rmSync(sandboxHome, { recursive: true, force: true });
     }

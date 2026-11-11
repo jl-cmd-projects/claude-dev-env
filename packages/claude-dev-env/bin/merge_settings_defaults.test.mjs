@@ -1,10 +1,24 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
     mergeMissingSettingsDefaults,
     settingsDefaultsFromPackageSettings,
 } from './merge_settings_defaults.mjs';
+
+const PACKAGE_SETTINGS_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'settings.json');
+const REMINDER_OFF_ENV = {
+    CLAUDE_CODE_TODO_REMINDER_MODE: 'off',
+    CLAUDE_CODE_SILENT_TURN_REMINDER: '0',
+    CLAUDE_CODE_SILENT_TURN_REMINDER_TURNS: '100000',
+};
+
+function packageSettingsDefaults() {
+    return settingsDefaultsFromPackageSettings(JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8')));
+}
 
 test('settingsDefaultsFromPackageSettings excludes managed lists', () => {
     const packageSettings = {
@@ -135,4 +149,28 @@ test('mergeMissingSettingsDefaults should keep a non-object env value as the use
         );
         assert.deepEqual(targetSettings, { env: userEnv });
     }
+});
+
+test('package defaults land the three reminder-off variables in a fresh settings object', () => {
+    const targetSettings = {};
+
+    mergeMissingSettingsDefaults(targetSettings, packageSettingsDefaults());
+
+    for (const [variableName, variableValue] of Object.entries(REMINDER_OFF_ENV)) {
+        assert.equal(targetSettings.env[variableName], variableValue, variableName);
+    }
+});
+
+test('package defaults keep the reminder-off variables a settings file already holds and add the missing one', () => {
+    const userEnv = {
+        CLAUDE_CODE_SILENT_TURN_REMINDER: 'false',
+        CLAUDE_CODE_SILENT_TURN_REMINDER_TURNS: '5',
+        EDITOR: 'code',
+    };
+    const targetSettings = { env: { ...userEnv } };
+
+    mergeMissingSettingsDefaults(targetSettings, packageSettingsDefaults());
+
+    assert.deepEqual(targetSettings.env, { ...packageSettingsDefaults().env, ...userEnv });
+    assert.equal(targetSettings.env.CLAUDE_CODE_TODO_REMINDER_MODE, 'off');
 });
