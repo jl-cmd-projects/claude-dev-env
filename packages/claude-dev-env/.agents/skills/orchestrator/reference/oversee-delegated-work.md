@@ -13,3 +13,5 @@ The `spawn_oversight_hook` adds this duty to every spawn, at every level of the 
 - Tag each piece in-scope or new scope. Ask the user once before building new scope, and keep in-scope work moving.
 - Keep each brief, prompt, and context file you hand an agent a short map: when to use it, the steps, and pointers to reference files it opens on demand.
 - Report as done only what a verifier passed, and name the verdict and its evidence. Report the rest as waiting on verification.
+
+When the user asks for silence, such as "silent unless something merges or you are blocked", the coordinator sets each watcher to emit only the events the user named. It briefs each delegate to send one final report and to start no watch loop that ends its turn. Every other event starts a turn the user did not ask to see, and `hooks/session/background_silence_prompt.py` tells that turn to end with no text.
