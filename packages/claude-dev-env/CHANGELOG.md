@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.112.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.112.0...claude-dev-env-v8.112.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **sync-repo-main:** realign a diverged -Mirror tree instead of exiting 4 ([#2296](https://github.com/jl-cmd-projects/claude-dev-env/issues/2296)) ([c9ac500](https://github.com/jl-cmd-projects/claude-dev-env/commit/c9ac500aef1a75cc3732db6382ddcbf56ff14003))
+
 ## [8.112.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.111.5...claude-dev-env-v8.112.0) (2026-11-10)
 
 
