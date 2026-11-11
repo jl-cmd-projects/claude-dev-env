@@ -44,9 +44,11 @@ from hooks_constants.background_silence_prompt_constants import (
     ORIGIN_KEY,
     ORIGIN_KIND_KEY,
     QUOTED_LINE_PATTERN,
+    RECORD_TYPE_KEY,
     SILENCE_NOTE_TEMPLATE,
     SILENCE_NOTE_WITHOUT_EXCEPTION,
     TASK_NOTIFICATION_MARKER,
+    USER_RECORD_TYPE,
 )
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
@@ -81,6 +83,8 @@ def _is_user_typed_text(prompt_text: str) -> bool:
 
 
 def _user_words(all_record_fields: dict[str, object]) -> str | None:
+    if all_record_fields.get(RECORD_TYPE_KEY) != USER_RECORD_TYPE:
+        return None
     origin = all_record_fields.get(ORIGIN_KEY)
     if isinstance(origin, dict) and origin.get(ORIGIN_KIND_KEY) not in (None, HUMAN_ORIGIN_KIND):
         return None
