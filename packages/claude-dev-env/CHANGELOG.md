@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.114.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.4...claude-dev-env-v8.114.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **install:** prune a hook registration the package stopped shipping after a root move ([#2315](https://github.com/jl-cmd-projects/claude-dev-env/issues/2315)) ([ba3c74b](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba3c74b6d5ce5ce354d4a0c0cf2f498c5fd32d10))
+
 ## [8.114.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.3...claude-dev-env-v8.114.4) (2026-11-11)
 
 
