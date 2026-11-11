@@ -54,6 +54,7 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_SHELL_TOOL_NAMES,
     AUTO_MERGE_REASON_TEMPLATE,
     AUTO_MERGE_TOOL_SUFFIX,
+    AUTO_OPTION,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
     DEFAULT_REVIEW_COMMAND,
@@ -259,15 +260,15 @@ def _carries_disable_auto(all_segment_words: list[str]) -> bool:
     all_words = _merge_arguments(all_segment_words)
     if all_words is None:
         return False
+    all_argument_words = set()
     is_option_value = False
     for each_word in all_words:
         if is_option_value:
             is_option_value = False
             continue
-        if each_word == DISABLE_AUTO_OPTION:
-            return True
+        all_argument_words.add(each_word)
         is_option_value = each_word in ALL_OPTIONS_WITH_VALUE
-    return False
+    return DISABLE_AUTO_OPTION in all_argument_words and AUTO_OPTION not in all_argument_words
 
 
 def _gh_pr_merge_target(arguments: str) -> tuple[str, str, int | None]:
