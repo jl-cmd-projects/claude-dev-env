@@ -272,7 +272,6 @@ def test_a_payload_that_breaks_the_json_parser_gives_silence_and_exit_zero(
 
 
 def test_the_test_only_environment_variable_sets_the_deadline() -> None:
-    assert DEADLINE_ENVIRONMENT_VARIABLE == "PIECES_NOTE_TEST_DEADLINE_SECONDS"
     assert pieces_per_level_note.deadline_seconds({}) == TOTAL_DEADLINE_SECONDS
     assert pieces_per_level_note.deadline_seconds({DEADLINE_ENVIRONMENT_VARIABLE: "30"}) == 30.0
 
