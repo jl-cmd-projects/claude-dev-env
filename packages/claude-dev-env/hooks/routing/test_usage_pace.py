@@ -149,6 +149,7 @@ def test_should_report_under_pace_when_a_weekly_only_account_trails_the_clock() 
     }
     verdict = build_verdict(measure_account_pace(weekly_only_payload, NOW), NOW)
     assert verdict["over_pace"] is False
+    assert [each["window"] for each in verdict["windows"]] == ["seven_day"]
 
 
 def test_should_still_reject_a_five_hour_window_that_is_present_but_unreadable() -> None:
@@ -189,6 +190,7 @@ def test_should_exit_one_for_a_weekly_only_account_under_pace(tmp_path: Path) ->
     )
     assert exit_code == 1
     assert verdict["over_pace"] is False
+    assert [each["window"] for each in verdict["windows"]] == ["seven_day"]
 
 
 def test_should_exit_two_with_a_null_verdict_when_unreadable(tmp_path: Path) -> None:
