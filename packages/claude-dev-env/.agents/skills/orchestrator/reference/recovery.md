@@ -2,6 +2,7 @@
 
 Use this procedure after compaction, handoff, parent replacement, or a gap in ownership evidence.
 Re-read current instructions. A summary helps locate evidence but cannot replace it.
+When the restart also changes the model, start the new model with a short summary. The prompt cache belongs to the old model, per [Context and caching](~/.claude/docs/model-choice/context-and-caching.md).
 
 ## Locate the run
 

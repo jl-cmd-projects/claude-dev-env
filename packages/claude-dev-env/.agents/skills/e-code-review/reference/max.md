@@ -18,7 +18,7 @@ review that target instead. Treat this diff as the review scope.
 Run **10 independent finder angles** via the Agent tool. Each
 surfaces **up to 8 candidate findings**. Do NOT let one angle's conclusions
 suppress another's — if two angles flag the same line for different reasons,
-record both. If the Agent tool is not available in your current tool set, do not error — perform each angle (and each verification) yourself, sequentially, in this context.
+record both. Run each finder on Sonnet at high and each Phase 2 verifier on Opus at medium, per [Subagent model and effort](~/.claude/docs/rule-guides/subagent-model-effort.md). If the Agent tool is not available in your current tool set, do not error — perform each angle (and each verification) yourself, sequentially, in this context.
 
 ### Angle A — line-by-line diff scan
 
