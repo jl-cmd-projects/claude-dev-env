@@ -1,7 +1,7 @@
 """Bound tests for the pieces-per-level note.
 
-The hook finishes inside a wall-clock budget whatever the input holds. These
-tests feed it inputs that were slow before the bounds existed and read the
+The analysis reads its input only up to fixed caps. These tests feed the
+analysis and the hook inputs that were slow before the caps existed and read the
 silence, the exit status, and the wall time.
 """
 
@@ -24,9 +24,8 @@ if advisory_directory not in sys.path:
 
 import commit_and_pull_request_words
 import piece_clauses
-import pieces_per_level_note
+import pieces_per_level_analysis
 from hooks_constants.pieces_per_level_note_constants import (
-    ANALYSIS_BUDGET_SECONDS,
     COMMIT_NEXT_COMMAND,
     MAXIMUM_BODY_CHARACTERS,
     MAXIMUM_TITLE_CHARACTERS,
@@ -41,7 +40,6 @@ MIXED_SUBJECT = (
     "fix(convert): always publish drawn icons, put Tips on the tray, stop the label smear"
 )
 MANY_SUBSTITUTIONS = "$(" * 3_900 + " git commit -m x"
-SLOW_CHILD_SECONDS = 30
 PROOF_HEADING = "## Proof in practice"
 
 
@@ -84,64 +82,6 @@ def _seconds_of(call, *all_arguments: object) -> tuple[object, float]:
     return result, time.perf_counter() - started_at
 
 
-READY_PRINT = "import sys; sys.stdout.write('ready' + chr(10)); sys.stdout.flush(); "
-STARTUP_ALLOWANCE_FOR_TESTS = 20.0
-
-
-def _child_arguments(code: str) -> list[str]:
-    return [sys.executable, "-c", code]
-
-
-def test_a_slow_analysis_is_cut_off_at_the_budget_with_silence() -> None:
-    all_slow_arguments = _child_arguments(READY_PRINT + f"import time; time.sleep({SLOW_CHILD_SECONDS})")
-    started_at = time.perf_counter()
-    output = pieces_per_level_note.analysis_output(
-        b"{}", all_slow_arguments, 0.3, STARTUP_ALLOWANCE_FOR_TESTS
-    )
-    assert output == b""
-    assert time.perf_counter() - started_at < SLOW_CHILD_SECONDS / 3
-
-
-def test_the_budget_starts_when_the_child_reports_ready_not_when_it_starts() -> None:
-    all_slow_start_arguments = _child_arguments(
-        "import time; time.sleep(1.0); " + READY_PRINT + "sys.stdin.read(); sys.stdout.write('done')"
-    )
-    output = pieces_per_level_note.analysis_output(
-        b"{}", all_slow_start_arguments, 0.5, STARTUP_ALLOWANCE_FOR_TESTS
-    )
-    assert output == b"done"
-
-
-def test_a_child_that_never_reports_ready_is_cut_off_at_the_startup_allowance() -> None:
-    all_silent_arguments = _child_arguments(f"import time; time.sleep({SLOW_CHILD_SECONDS})")
-    started_at = time.perf_counter()
-    output = pieces_per_level_note.analysis_output(b"{}", all_silent_arguments, 30, 0.5)
-    assert output == b""
-    assert time.perf_counter() - started_at < SLOW_CHILD_SECONDS / 3
-
-
-def test_an_analysis_that_finishes_in_time_passes_its_output_through() -> None:
-    all_fast_arguments = _child_arguments(READY_PRINT + "sys.stdin.read(); sys.stdout.write('done')")
-    output = pieces_per_level_note.analysis_output(
-        b"{}", all_fast_arguments, 30, STARTUP_ALLOWANCE_FOR_TESTS
-    )
-    assert output == b"done"
-
-
-def test_an_analysis_that_exits_non_zero_gives_no_output() -> None:
-    all_failing_arguments = _child_arguments(
-        READY_PRINT + "sys.stdin.read(); sys.stdout.write('x'); sys.exit(3)"
-    )
-    output = pieces_per_level_note.analysis_output(
-        b"{}", all_failing_arguments, 30, STARTUP_ALLOWANCE_FOR_TESTS
-    )
-    assert output == b""
-
-
-def test_the_budget_is_about_half_a_second() -> None:
-    assert 0.3 <= ANALYSIS_BUDGET_SECONDS <= 0.8
-
-
 @pytest.mark.parametrize(
     "payload",
     [
@@ -167,7 +107,7 @@ def test_an_input_that_was_slow_gives_silence_exit_zero_and_a_short_wall_time(
 
 def test_a_commit_with_many_substitutions_gets_no_note_within_the_entry_bound() -> None:
     all_fields = {"tool_name": "Bash", "tool_input": {"command": MANY_SUBSTITUTIONS}, "cwd": ""}
-    output, elapsed_seconds = _seconds_of(pieces_per_level_note.decide_hook_output, all_fields)
+    output, elapsed_seconds = _seconds_of(pieces_per_level_analysis.decide_hook_output, all_fields)
     assert output is None
     assert elapsed_seconds < ENTRY_SECONDS_BOUND
 
@@ -176,7 +116,7 @@ def test_a_heredoc_message_still_gets_the_note_with_one_substitution() -> None:
     command = f"git commit -m \"$(cat <<'EOF'{chr(10)}{MIXED_SUBJECT}{chr(10)}EOF{chr(10)})\""
     all_fields = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": ""}
     assert "stop the label smear" in json.dumps(
-        pieces_per_level_note.decide_hook_output(all_fields)
+        pieces_per_level_analysis.decide_hook_output(all_fields)
     )
 
 
@@ -194,7 +134,7 @@ def test_the_commit_and_pull_request_readers_unwrap_the_command_once(
     commit_and_pull_request_words.clear_parse_cache()
     command = "git commit -m 'fix(x): one thing' && gh pr create --title t"
     all_fields = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": ""}
-    assert pieces_per_level_note.decide_hook_output(all_fields) is None
+    assert pieces_per_level_analysis.decide_hook_output(all_fields) is None
     assert len(all_calls) == 1
 
 

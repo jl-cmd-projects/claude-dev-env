@@ -8,6 +8,7 @@ with an empty stderr and no permission decision.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -22,12 +23,16 @@ advisory_directory = str(Path(__file__).resolve().parent)
 if advisory_directory not in sys.path:
     sys.path.insert(0, advisory_directory)
 
-import pieces_per_level_note
-from hooks_constants.pieces_per_level_note_constants import MAXIMUM_COMMAND_CHARACTERS
+import pieces_per_level_analysis
+from hooks_constants.pieces_per_level_note_constants import (
+    DEADLINE_ENVIRONMENT_VARIABLE,
+    MAXIMUM_COMMAND_CHARACTERS,
+)
 
 SCRIPT_PATH = Path(__file__).resolve().parent / "pieces_per_level_note.py"
 HOOKS_JSON_PATH = Path(__file__).resolve().parent.parent / "hooks.json"
 RUN_TIMEOUT_SECONDS = 30
+TEST_DEADLINE_SECONDS = "60"
 HOSTILE_INPUT_SECONDS_BOUND = 1.0
 HOSTILE_SUBPROCESS_SECONDS_BOUND = 8.0
 
@@ -77,6 +82,7 @@ def _run(stdin_text: str) -> subprocess.CompletedProcess[str]:
         text=True,
         timeout=RUN_TIMEOUT_SECONDS,
         check=False,
+        env={**os.environ, DEADLINE_ENVIRONMENT_VARIABLE: TEST_DEADLINE_SECONDS},
     )
 
 
@@ -352,7 +358,7 @@ ALL_HOSTILE_COMMANDS = {
 def _decide_seconds(command: str) -> tuple[object, float]:
     all_fields = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": ""}
     started_at = time.perf_counter()
-    output = pieces_per_level_note.decide_hook_output(all_fields)
+    output = pieces_per_level_analysis.decide_hook_output(all_fields)
     return output, time.perf_counter() - started_at
 
 
