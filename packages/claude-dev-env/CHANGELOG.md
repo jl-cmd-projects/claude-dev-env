@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.113.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.0...claude-dev-env-v8.113.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** read silence only from user records ([#2300](https://github.com/jl-cmd-projects/claude-dev-env/issues/2300)) ([c78afed](https://github.com/jl-cmd-projects/claude-dev-env/commit/c78afeddf5b38b99c4589c8bc5bd79f7b7ec047a))
+
 ## [8.113.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.112.1...claude-dev-env-v8.113.0) (2026-11-11)
 
 
