@@ -12,12 +12,12 @@
 
 A window is over pace when at least 10% of it has elapsed and its used percent
 exceeds the percent already elapsed. The floor keeps a window's first minutes,
-where any spend outruns the clock, from reading as over pace. The account is over pace when any window is. An account with only a
-weekly window reports ``five_hour`` as null or leaves it out, and the verdict
-then covers the weekly window alone. The script reads
-the OAuth usage endpoint with the session ingress bearer token, the same probe
-the usage-pause skill's ``resolve_usage_window.py`` uses. It never prints or
-stores the token.
+where any spend outruns the clock, from reading as over pace. The account is
+over pace when any window is. An account with only a weekly window reports
+``five_hour`` as null or leaves it out, and the verdict then covers the weekly
+window alone. The script reads the OAuth usage endpoint with the session
+ingress bearer token, the same probe the usage-pause skill's
+``resolve_usage_window.py`` uses. It never prints or stores the token.
 
 Exit codes: 0 over pace, 1 under pace, 2 unreadable. ``--payload-file`` and
 ``--now`` replace the live probe and the clock for a deterministic run.
@@ -193,7 +193,7 @@ def measure_account_pace(
         UsageUnreadable: A required window is missing, or a window that is
             present is unreadable.
     """
-    all_window_paces = []
+    all_window_paces: list[WindowPace] = []
     for each_name, each_length in ALL_RATE_WINDOW_LENGTHS:
         each_bucket = all_usage_buckets.get(each_name)
         if each_bucket is None and each_name in ALL_OPTIONAL_WINDOW_NAMES:
