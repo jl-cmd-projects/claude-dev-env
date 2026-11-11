@@ -120,6 +120,19 @@ def expected_block(tool_name: str, quoted_sentence: str) -> dict[str, object]:
     }
 
 
+def expected_advisory(tool_name: str, quoted_sentence: str) -> dict[str, object]:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": (
+                f'The reasoning behind this {tool_name} call hedges: "{quoted_sentence}" '
+                "Check that claim with a read-only tool before you act on the agent's result. "
+                "If it is wrong, send the agent a correction or stop it."
+            ),
+        }
+    }
+
+
 @pytest.fixture(autouse=True)
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -438,8 +451,6 @@ def test_should_block_a_git_change_behind_a_wrapper(
         "Edit",
         "MultiEdit",
         "NotebookEdit",
-        "Agent",
-        "Task",
         "apply_patch",
         "mcp__gmail__send_message",
         "mcp__github__issue_write",
@@ -461,6 +472,45 @@ def test_should_block_each_always_mutating_tool_after_hedged_reasoning(
     exit_code, stdout_text = run_hook(monkeypatch, capsys, tool_name, {}, transcript_path)
     assert exit_code == 0
     assert json.loads(stdout_text)["decision"] == "block"
+
+
+AGENT_INPUT = {"description": "Find the config", "prompt": "Read settings.json and report."}
+
+
+@pytest.mark.parametrize("tool_name", ["Agent", "Task"])
+def test_should_advise_without_blocking_a_spawn_after_hedged_reasoning(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    tool_name: str,
+) -> None:
+    transcript_path = acting_transcript(tmp_path, HEDGED_SENTENCE, tool_name, AGENT_INPUT)
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, tool_name, AGENT_INPUT, transcript_path)
+    output = json.loads(stdout_text)
+    assert exit_code == 0
+    assert "decision" not in output
+    assert output == expected_advisory(tool_name, HEDGED_SENTENCE)
+    assert logged_outcomes(tmp_path) == ["advised"]
+
+
+def test_should_allow_a_spawn_after_clean_reasoning(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = acting_transcript(tmp_path, CLEAN_SENTENCE, "Agent", AGENT_INPUT)
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Agent", AGENT_INPUT, transcript_path)
+    assert (exit_code, stdout_text) == (0, "")
+    assert logged_outcomes(tmp_path) == ["allowed_clean"]
+
+
+def test_should_still_block_an_edit_after_the_same_hedge_that_advises_a_spawn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    edit_input = {"file_path": "settings.json", "old_string": "a", "new_string": "b"}
+    transcript_path = acting_transcript(tmp_path, HEDGED_SENTENCE, "Edit", edit_input)
+    exit_code, stdout_text = run_hook(monkeypatch, capsys, "Edit", edit_input, transcript_path)
+    assert exit_code == 0
+    assert json.loads(stdout_text) == expected_block("Edit", HEDGED_SENTENCE)
+    assert logged_outcomes(tmp_path) == ["blocked"]
 
 
 def test_should_register_a_matcher_covering_every_mutating_tool_name() -> None:
