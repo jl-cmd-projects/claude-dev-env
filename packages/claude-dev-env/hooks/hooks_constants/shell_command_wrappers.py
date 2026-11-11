@@ -330,12 +330,22 @@ def _inner_commands(command: str, all_command_segments: list[list[str]]) -> list
     return [each_command for each_command in all_inner_commands if each_command is not None]
 
 
-def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]]]:
+def _command_segments(command: str) -> list[list[str]]:
+    return [
+        each_segment for each_segment, _following_operator in pipeline_segments_for_command(command)
+    ]
+
+
+def _all_wrapped_command_parses(
+    command: str, maximum_texts: int | None = None
+) -> list[tuple[str, list[list[str]]]]:
     """Return each command text with its segments, the command first, each text parsed once.
 
     The texts after the command are the command string every shell wrapper,
     evaluating program and command substitution inside it runs, unwrapped in
     turn to ``MAXIMUM_UNWRAP_DEPTH`` levels. A text met twice is parsed once.
+    With ``maximum_texts`` set, no further text is parsed or unwrapped once that
+    many are held.
     """
     all_parses: list[tuple[str, list[list[str]]]] = []
     all_seen_texts: set[str] = set()
@@ -345,11 +355,10 @@ def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]
         if each_text in all_seen_texts or each_depth > MAXIMUM_UNWRAP_DEPTH:
             continue
         all_seen_texts.add(each_text)
-        all_command_segments = [
-            each_segment
-            for each_segment, _following_operator in pipeline_segments_for_command(each_text)
-        ]
+        all_command_segments = _command_segments(each_text)
         all_parses.append((each_text, all_command_segments))
+        if maximum_texts is not None and len(all_parses) >= maximum_texts:
+            break
         all_pending_texts.extend(
             (each_inner_command, each_depth + 1)
             for each_inner_command in _inner_commands(each_text, all_command_segments)
@@ -357,15 +366,18 @@ def _all_wrapped_command_parses(command: str) -> list[tuple[str, list[list[str]]
     return all_parses
 
 
-def all_wrapped_command_texts(command: str) -> list[str]:
+def all_wrapped_command_texts(command: str, maximum_texts: int | None = None) -> list[str]:
     """Return the command plus each command string a wrapper or substitution inside it runs.
 
     The segments come from the quote-aware pipeline parser, so the quoted
     script in ``powershell -Command "git add -A; git push"`` stays whole until
     its own turn. Nested wrappers and ``$(...)`` or backtick substitutions
-    unwrap in turn.
+    unwrap in turn. With ``maximum_texts`` set, the list stops at that many texts.
     """
-    return [each_text for each_text, _all_segments in _all_wrapped_command_parses(command)]
+    return [
+        each_text
+        for each_text, _all_segments in _all_wrapped_command_parses(command, maximum_texts)
+    ]
 
 
 def all_wrapped_command_segments(command: str) -> list[list[str]]:

@@ -29,6 +29,13 @@ def test_should_return_the_command_string_a_shell_wrapper_runs(
     assert inner_command in all_command_texts
 
 
+def test_should_stop_the_list_at_the_text_count_cap() -> None:
+    command = "bash -c \"pwsh -Command 'git push'\""
+    assert shell_command_wrappers.all_wrapped_command_texts(command, 1) == [command]
+    assert len(shell_command_wrappers.all_wrapped_command_texts(command, 2)) == 2
+    assert len(shell_command_wrappers.all_wrapped_command_texts(command)) > 2
+
+
 def test_should_return_only_the_command_when_no_wrapper_runs() -> None:
     assert shell_command_wrappers.all_wrapped_command_texts("git push") == ["git push"]
 

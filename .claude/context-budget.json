@@ -236,6 +236,22 @@
         }
       },
       "char_limit": 1500
+    },
+    {
+      "name": "pieces per level note",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/advisory/pieces_per_level_note.py"
+      ],
+      "stdin": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {
+          "title": "fix(convert): always publish drawn icons, put Tips on the tray, stop the label smear",
+          "body": ""
+        }
+      },
+      "char_limit": 1500
     }
   ],
   "baseline": {
