@@ -81,6 +81,15 @@ IS_ERROR_KEY = "is_error"
 IS_META_KEY = "isMeta"
 BLOCK_TEXT_KEY = "text"
 RESULT_TEXT_SEPARATOR = "\n"
+ATTACHMENT_ENTRY_TYPE = "attachment"
+ATTACHMENT_KEY = "attachment"
+ALL_HOOK_TEXT_ATTACHMENT_TYPES = frozenset(
+    {"hook_additional_context", "hook_system_message", "queued_command"}
+)
+ALL_ATTACHMENT_TEXT_KEYS = ("content", "prompt")
+ORIGIN_KEY = "origin"
+ORIGIN_KIND_KEY = "kind"
+TASK_NOTIFICATION_ORIGIN_KIND = "task-notification"
 
 ABBREVIATION_MESSAGE = 'Abbreviation "{abbreviation}" in the text. {reminder}'
 TRACKER_NUMBER_MESSAGE = 'Tracker number "{reference}" in the text. {reminder}'

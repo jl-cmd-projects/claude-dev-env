@@ -102,6 +102,7 @@ from visual_reply_rules import (
     load_rules,
     mode_enabled,
     results_picture_violation,
+    hook_supplied_text,
     second_reply_violation,
     successful_result_text,
     visual_violation,
@@ -152,6 +153,9 @@ from hooks_constants.reply_length_gate_constants import (
     CARD_TEXT_SEPARATOR,
     CITED_NUMBER_IN_RESULT_TEMPLATE,
     CITED_NUMBER_PATTERN,
+    CITED_PULL_NUMBER_GROUP,
+    PULL_LINK_IN_HOOK_TEXT_TEMPLATE,
+    UNSEEN_CITATION_ECHO_PATTERN,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
     CURLY_APOSTROPHE,
@@ -417,7 +421,12 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
 
 
 def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
-    """Return the deny reason for each cited run, job, check, or pull request no tool result shows.
+    """Return the deny reason for each cited run, job, check, or pull request the session never showed.
+
+    A tool result that shows the number counts for every kind. A ``/pull/N``
+    link also counts when hook or harness text shows the same link, such as
+    stop-hook feedback or a background agent's task notification. This gate's
+    own feedback, which quotes the citation it blocked, does not count.
 
     Returns None when the text cites nothing or the transcript cannot be read.
     """
@@ -427,8 +436,8 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
     result_text = successful_result_text(transcript_path)
     if result_text is None:
         return None
-    return joined_violations(
-        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+    all_unseen = [
+        each_match
         for each_match in all_citations
         if re.search(
             CITED_NUMBER_IN_RESULT_TEMPLATE.format(
@@ -437,6 +446,22 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
             result_text,
         )
         is None
+    ]
+    hook_text = (
+        UNSEEN_CITATION_ECHO_PATTERN.sub(" ", hook_supplied_text(transcript_path) or "")
+        if any(each_match[CITED_PULL_NUMBER_GROUP] for each_match in all_unseen)
+        else ""
+    )
+    return joined_violations(
+        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        for each_match in all_unseen
+        if not (
+            each_match[CITED_PULL_NUMBER_GROUP]
+            and re.search(
+                PULL_LINK_IN_HOOK_TEXT_TEMPLATE.format(number=each_match[CITED_PULL_NUMBER_GROUP]),
+                hook_text,
+            )
+        )
     )
 
 

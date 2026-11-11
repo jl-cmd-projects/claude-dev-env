@@ -184,6 +184,33 @@ def test_should_read_a_gh_api_merge_with_a_sha_field() -> None:
     assert _reason(_bash(command)) is None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge --disable-auto 7844",
+        "gh pr merge 12 --repo acme/tools --disable-auto",
+        "gh pr merge --disable-auto 12 --repo acme/tools; gh pr merge --disable-auto 13 --repo acme/tools",
+    ],
+)
+def test_should_allow_a_merge_call_that_only_disables_auto_merge(command: str) -> None:
+    assert gate.decision_for(_bash(command)) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge --disable-auto 12 --repo acme/tools && gh pr merge 12 --repo acme/tools",
+        "gh pr merge --disable-auto 12 --repo acme/tools\ngh pr merge 12 --repo acme/tools",
+        "gh pr merge 12 --repo acme/tools && gh pr merge --disable-auto 12 --repo acme/tools",
+        "gh pr merge 12 --repo acme/tools --body ' --disable-auto '",
+        "gh pr merge --disable-auto 12 --repo acme/tools $(gh pr merge 12 --repo acme/tools)",
+        "gh pr merge --disable-auto 12 --repo acme/tools `gh pr merge 12 --repo acme/tools`",
+    ],
+)
+def test_should_check_a_merge_chained_with_a_disable_auto_call(command: str) -> None:
+    assert "no clean review" in _reason(_bash(command))
+
+
 def test_should_ignore_commands_that_merge_nothing() -> None:
     assert gate.decision_for(_bash("gh pr view 12 --repo acme/tools")) is None
     assert gate.decision_for(_bash("git merge origin/main")) is None

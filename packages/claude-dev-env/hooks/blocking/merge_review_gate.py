@@ -15,6 +15,7 @@ link to the posted rulings. The open and the merge then name that exact head::
     merge, no receipt or the receipt counts open findings            -> deny, run the loop
     auto-merge or enqueue pinned to the clean head                    -> allow
     auto-merge that names no head                                     -> deny, pin it
+    gh pr merge --disable-auto, which only turns auto-merge off        -> allow
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
 
 The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
@@ -53,8 +54,10 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_MERGE_TOOL_SUFFIX,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    COMMAND_SEGMENT_SEPARATOR_PATTERN,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
+    DISABLE_AUTO_OPTION_PATTERN,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
@@ -180,7 +183,7 @@ def _shell_merge_request(command: str) -> MergeRequest | None:
             is_auto_merge=False,
         )
     merge_match = GH_PR_MERGE_PATTERN.search(command)
-    if not merge_match:
+    if not merge_match or _only_disables_auto_merge(command):
         return None
     rest = merge_match["rest"]
     owner, repo, number = _gh_pr_merge_target(rest)
@@ -191,6 +194,18 @@ def _shell_merge_request(command: str) -> MergeRequest | None:
         number=number,
         pinned_head=head_match["sha"] if head_match else None,
         is_auto_merge=bool(AUTO_OPTION_PATTERN.search(rest)),
+    )
+
+
+def _only_disables_auto_merge(command: str) -> bool:
+    all_merge_segments = [
+        each_segment
+        for each_segment in COMMAND_SEGMENT_SEPARATOR_PATTERN.split(command)
+        if GH_PR_MERGE_PATTERN.search(each_segment)
+    ]
+    return all(
+        DISABLE_AUTO_OPTION_PATTERN.search(_without_option_values(each_segment))
+        for each_segment in all_merge_segments
     )
 
 

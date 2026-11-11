@@ -75,6 +75,8 @@ OPTION_WITH_VALUE_PATTERN = re.compile(
     r"(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
 )
 AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--auto(?:\s|$)")
+DISABLE_AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--disable-auto(?:\s|$)")
+COMMAND_SEGMENT_SEPARATOR_PATTERN = re.compile(r"[;&|\r\n()`]")
 
 EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES"
 REVIEW_COMMAND_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_COMMAND"

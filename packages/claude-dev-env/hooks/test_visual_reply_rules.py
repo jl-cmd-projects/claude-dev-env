@@ -12,6 +12,7 @@ from hooks_constants.visual_reply_rules_constants import RULES_FILE_PATH
 from visual_reply_rules import (
     abbreviation_violation,
     attaches_picture,
+    hook_supplied_text,
     load_rules,
     mode_enabled,
     replies_sent_this_turn,
@@ -265,6 +266,25 @@ def test_successful_result_text_joins_only_results_without_an_error(tmp_path: Pa
     transcript_path.write_text("\n".join(json.dumps(each) for each in all_entries), encoding="utf-8")
     assert successful_result_text(str(transcript_path)) == "run 222 ok\nrun 333 ok"
     assert successful_result_text(str(tmp_path / "missing.jsonl")) is None
+
+
+def test_hook_supplied_text_joins_hook_and_harness_text_only(tmp_path: Path) -> None:
+    all_entries = [
+        {"type": "user", "message": {"content": "pull/1 from the prompt"}},
+        {"type": "user", "isMeta": True, "message": {"content": "Stop hook feedback:\npull/2 open"}},
+        {"type": "user", "origin": {"kind": "task-notification"}, "message": {"content": "pull/3 done"}},
+        {"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["pull/4 ctx"]}},
+        {"type": "attachment", "attachment": {"type": "hook_system_message", "content": "pull/5 msg"}},
+        {"type": "attachment", "attachment": {"type": "queued_command", "prompt": "pull/6 queued"}},
+        {"type": "attachment", "attachment": {"type": "hook_blocking_error", "blockingError": {"blockingError": "pull/7"}}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "pull/8 result"}]}},
+    ]
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(each) for each in all_entries), encoding="utf-8")
+    assert hook_supplied_text(str(transcript_path)) == (
+        "Stop hook feedback:\npull/2 open\npull/3 done\npull/4 ctx\npull/5 msg\npull/6 queued"
+    )
+    assert hook_supplied_text(str(tmp_path / "missing.jsonl")) is None
 
 
 def test_reports_results_flags_a_markdown_table_and_three_figures() -> None:
