@@ -39,6 +39,17 @@ def test_baseline_lines_may_be_null_but_may_not_be_missing() -> None:
         parse_policy(policy_text({"a/SKILL.md": {"sections": ["Plan"]}}))
 
 
+def test_parse_tells_a_missing_baseline_key_from_an_empty_baseline() -> None:
+    raw_policy = json.loads(policy_text())
+    empty_baseline_policy = parse_policy(json.dumps(raw_policy))
+    del raw_policy["baseline"]
+    keyless_policy = parse_policy(json.dumps(raw_policy))
+
+    assert empty_baseline_policy.has_baseline is True
+    assert keyless_policy.has_baseline is False
+    assert keyless_policy.baseline_entry_by_path == {}
+
+
 def test_duplicate_hook_names_are_rejected_before_measurement() -> None:
     raw_policy = json.loads(policy_text())
     raw_policy["hooks"].append(dict(raw_policy["hooks"][0]))

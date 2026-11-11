@@ -4,6 +4,11 @@ import re
 from hooks_constants import visual_reply_rules_constants as constants
 
 
+def test_hook_text_attachment_types_leave_out_blocking_errors() -> None:
+    assert "hook_blocking_error" not in constants.ALL_HOOK_TEXT_ATTACHMENT_TYPES
+    assert "hook_additional_context" in constants.ALL_HOOK_TEXT_ATTACHMENT_TYPES
+
+
 def test_rules_file_path_points_at_the_shipped_rule_list() -> None:
     assert constants.RULES_FILE_PATH.is_file()
 

@@ -30,6 +30,7 @@ ALL_RATE_WINDOW_LENGTHS = (
     ("five_hour", timedelta(hours=5)),
     ("seven_day", timedelta(days=7)),
 )
+ALL_OPTIONAL_WINDOW_NAMES = frozenset({"five_hour"})
 PERCENT_SCALE = 100.0
 PERCENT_DECIMAL_PLACES = 1
 MINIMUM_ELAPSED_PERCENT_FOR_PACE = 10.0

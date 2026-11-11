@@ -87,6 +87,142 @@ def test_should_allow_a_run_a_tool_result_shows(
     assert run_gate(monkeypatch, capsys, MEASURED_REPLY, transcript_path) == (0, "")
 
 
+CITED_PULL_URL = "https://github.com/acme/widgets/pull/8127"
+CITED_PULL_REPLY = f"The control is open as [PR 8127]({CITED_PULL_URL})."
+TASK_NOTIFICATION_ENTRY = {
+    "type": "user",
+    "message": {
+        "role": "user",
+        "content": (
+            "<task-notification>\n<status>completed</status>\n<result>1. PR "
+            f"[#8127]({CITED_PULL_URL}) is open. It is not armed.</result>\n</task-notification>"
+        ),
+    },
+    "origin": {"kind": "task-notification", "producer": "session-task"},
+    "promptSource": "system",
+}
+OWN_ECHO_FEEDBACK = (
+    'Stop hook feedback:\nThe text cites "/pull/8127", and no tool result in this session'
+    " shows it. Read it yourself or through a subagent first. Rewrite the reply without it."
+)
+
+
+def write_transcript_entries(transcript_path: Path, all_entries: list[dict[str, object]]) -> Path:
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_entry) for each_entry in all_entries), encoding="utf-8"
+    )
+    return transcript_path
+
+
+@pytest.mark.parametrize(
+    "hook_entry",
+    [
+        TASK_NOTIFICATION_ENTRY,
+        {
+            "type": "user",
+            "isMeta": True,
+            "message": {
+                "role": "user",
+                "content": f"Stop hook feedback:\nThese pull requests are still open:\n- {CITED_PULL_URL}",
+            },
+        },
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "hook_additional_context",
+                "content": [f"You opened acme/widgets#8127  {CITED_PULL_URL}"],
+            },
+        },
+        {
+            "type": "attachment",
+            "attachment": {"type": "hook_system_message", "content": f"Watching {CITED_PULL_URL}"},
+        },
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "queued_command",
+                "origin": {"kind": "task-notification", "producer": "session-task"},
+                "prompt": f"<task-notification><result>Opened {CITED_PULL_URL}</result></task-notification>",
+            },
+        },
+    ],
+)
+def test_should_allow_a_pull_request_link_hook_text_shows(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    hook_entry: dict[str, object],
+) -> None:
+    transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [hook_entry])
+    assert run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path) == (0, "")
+
+
+def test_should_block_a_pull_request_link_only_the_gate_feedback_echoes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    feedback_entry = {"type": "user", "isMeta": True, "message": {"role": "user", "content": OWN_ECHO_FEEDBACK}}
+    blocking_error_entry = {
+        "type": "attachment",
+        "attachment": {
+            "type": "hook_blocking_error",
+            "blockingError": {"blockingError": OWN_ECHO_FEEDBACK.removeprefix("Stop hook feedback:\n")},
+        },
+    }
+    transcript_path = write_transcript_entries(
+        tmp_path / "s.jsonl", [feedback_entry, blocking_error_entry]
+    )
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
+def test_should_block_a_pull_request_link_the_gate_quotes_in_a_sentence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoting_feedback = (
+        f'Stop hook feedback:\nNo tool validated this: "{CITED_PULL_REPLY}". Run the check yourself'
+        " or through a subagent, then state what the run, log line, output, or file and line shows."
+        " When you cannot run it this turn, report it as `Open: <check> - <next step>`."
+        f'\nSentence too long: 40 words, limit 35: "Opened {CITED_PULL_URL} and...".'
+    )
+    feedback_entry = {"type": "user", "isMeta": True, "message": {"role": "user", "content": quoting_feedback}}
+    transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [feedback_entry])
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
+def test_should_block_a_pull_request_link_only_a_typed_queued_prompt_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    typed_entry = {
+        "type": "attachment",
+        "attachment": {"type": "queued_command", "origin": {"kind": "human"}, "prompt": f"Is {CITED_PULL_URL} done?"},
+    }
+    transcript_path = write_transcript_entries(tmp_path / "s.jsonl", [typed_entry])
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
+def test_should_block_a_pull_request_link_no_text_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript_entries(
+        tmp_path / "s.jsonl", [{**TASK_NOTIFICATION_ENTRY, "message": {"role": "user", "content": "PR 8126 opened."}}]
+    )
+    _, stdout_text = run_gate(monkeypatch, capsys, CITED_PULL_REPLY, transcript_path)
+    assert 'cites "/pull/8127"' in json.loads(stdout_text)["reason"]
+
+
+def test_should_block_a_run_only_hook_text_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_transcript_entries(
+        tmp_path / "s.jsonl",
+        [{**TASK_NOTIFICATION_ENTRY, "message": {"role": "user", "content": "run 18239174012 took 39m"}}],
+    )
+    _, stdout_text = run_gate(monkeypatch, capsys, MEASURED_REPLY, transcript_path)
+    assert 'cites "run 18239174012"' in json.loads(stdout_text)["reason"]
+
+
 def test_should_steer_a_skipped_check_to_an_open_line(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

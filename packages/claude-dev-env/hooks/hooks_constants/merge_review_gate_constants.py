@@ -70,11 +70,38 @@ RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
+ALL_OPTIONS_WITH_VALUE = (
+    "-R",
+    "--repo",
+    "--match-head-commit",
+    "-t",
+    "--subject",
+    "-b",
+    "--body",
+    "-F",
+    "--body-file",
+    "-A",
+    "--author-email",
+)
 OPTION_WITH_VALUE_PATTERN = re.compile(
-    r"(?<!\S)(?:-R|--repo|--match-head-commit|-t|--subject|-b|--body|-F|--body-file|-A|--author-email)"
+    r"(?<!\S)(?:" + "|".join(ALL_OPTIONS_WITH_VALUE) + r")"
     r"(?:=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
 )
 AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--auto(?:\s|$)")
+DISABLE_AUTO_OPTION = "--disable-auto"
+AUTO_OPTION = "--auto"
+ALL_AUTO_FLAG_VALUE_PREFIXES = (AUTO_OPTION + "=", DISABLE_AUTO_OPTION + "=")
+END_OF_OPTIONS_WORD = "--"
+SHORT_OPTION_PREFIX = "-"
+GH_PR_MERGE_CALL_PATTERN = re.compile(r"\bgh(?:\.exe)?\s+pr\s+merge\b")
+GH_PROGRAM_WORD_PATTERN = re.compile(r"(?:^|[/\\])gh(?:\.exe)?$")
+ALL_GH_PR_MERGE_SUBCOMMAND_WORDS = ("pr", "merge")
+SHELL_PUNCTUATION_CHARACTERS = "();<>|&`\n"
+SHELL_WHITESPACE_CHARACTERS = " \t\r"
+SHELL_WORD_SEPARATOR = " "
+SHELL_QUOTED_TEXT_PATTERN = re.compile(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"", re.DOTALL)
+SHELL_QUOTED_TEXT_PLACEHOLDER = "_"
+SHELL_COMMENT_START_PATTERN = re.compile(r"(?:^|[\s();<>|&`])#")
 
 EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES"
 REVIEW_COMMAND_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_COMMAND"
