@@ -366,7 +366,9 @@ def test_the_emitted_directive_ends_the_chain_at_the_verifier() -> None:
 def test_the_emitted_directive_commits_each_passed_piece_as_its_own_stack_level() -> None:
     directive = _emitted_directive()
     assert "When a piece's verifier passes and the brief allows commits, commit that piece alone as its own stack level" in directive
-    assert "start the next piece on top of it" in directive
+    assert "a piece that depends on it goes on top" in directive
+    assert "an independent piece goes on its own branch from trunk" in directive
+    assert "Otherwise hand the piece back uncommitted and say so." in directive
     assert directive.index("confirms the fix on the new state") < directive.index("commit that piece alone")
 
 
