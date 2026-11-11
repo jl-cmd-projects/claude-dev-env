@@ -1,6 +1,6 @@
 {
     "name": "claude-dev-env",
-    "version": "8.114.1",
+    "version": "8.114.7",
     "description": "Claude Code development standards — rules, hooks, agents, commands, and skills",
     "type": "module",
     "bin": {

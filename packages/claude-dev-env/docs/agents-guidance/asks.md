@@ -45,7 +45,7 @@ The gate holds a turn once when all three hold:
 
 The gate never reads the reply text. A held turn passes, so the gate adds at most one step to a turn.
 
-In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For a prompt that asks for work, it adds one note that asks for a task list item, so the agent tracks the ask before it starts. The note never blocks.
+In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For the session's first prompt that asks for work, and the first after each compaction, it adds one note that asks for an item in the session's task list tool, so the agent tracks the ask before it starts. The note never blocks.
 
 ## Cursor
 

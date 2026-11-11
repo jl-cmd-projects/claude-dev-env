@@ -14,6 +14,7 @@ ADDITIONAL_CONTEXT_KEY = "additionalContext"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 DENY_DECISION = "deny"
 WORKFLOW_TOOL_NAME = "Workflow"
+SPAWN_OVERSIGHT_ONCE_MARKER_NAME = "spawn_oversight"
 
 ALL_OUTCOME_MARKERS = ("outcome:",)
 ALL_BLOCKER_CLAUSE_MARKERS = ("on a blocker:", "at a blocker:")

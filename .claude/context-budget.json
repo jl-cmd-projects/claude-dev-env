@@ -122,7 +122,6 @@
       ],
       "stdin": {
         "hook_event_name": "UserPromptSubmit",
-        "session_id": "context-budget",
         "prompt": "status?"
       },
       "char_limit": 1500
@@ -370,7 +369,6 @@
         "lines": null,
         "sections": [
           "Configure extra profiles",
-          "Choose a worker",
           "Write a standalone brief"
         ]
       },

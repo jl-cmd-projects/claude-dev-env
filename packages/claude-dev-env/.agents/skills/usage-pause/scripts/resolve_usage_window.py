@@ -64,6 +64,7 @@ from usage_pause_constants.resolve_usage_window_constants import (
     MINIMUM_STAGE_SECONDS,
     MINUTES_PER_HOUR,
     NOON_HOUR,
+    NO_FIVE_HOUR_WINDOW_LOG_MESSAGE,
     OAUTH_BETA_HEADER_NAME,
     OAUTH_BETA_HEADER_VALUE,
     OAUTH_USAGE_ENDPOINT_URL,
@@ -414,7 +415,7 @@ def extract_usage_windows(all_usage_buckets: dict[str, object]) -> UsageWindows:
 
 def build_pause_plan(
     source: str,
-    reset_at: datetime,
+    reset_at: datetime | None,
     now: datetime,
     session_utilization: float | None,
     weekly_utilization: float | None,
@@ -422,9 +423,19 @@ def build_pause_plan(
 ) -> dict[str, object]:
     """Assemble the resolver's JSON-ready output for one resolved reset time.
 
+    ::
+
+        reset_at = <74 minutes out>  ->  seconds_until_reset 4440, three stages
+        reset_at = None              ->  seconds_until_reset 0, no stages
+
+    An account with no 5-hour window has nothing to wait out, so a None
+    reset time yields a null reset, a zero wait, and an empty stage plan
+    while the weekly meters and the near-cap flag still report.
+
     Args:
         source: Where the reset time came from, probe or override.
-        reset_at: When the 5-hour window resets.
+        reset_at: When the 5-hour window resets, or None when the account
+            has no 5-hour window.
         now: The current local time the wait is measured from.
         session_utilization: Percent of the 5-hour window spent, when known.
         weekly_utilization: Percent of the weekly window spent, when known.
@@ -435,16 +446,21 @@ def build_pause_plan(
         stage plan, both utilization meters, the weekly reset time, and the
         weekly near-cap flag.
     """
-    seconds_until_reset = max(int((reset_at - now).total_seconds()), 0)
+    seconds_until_reset = (
+        max(int((reset_at - now).total_seconds()), 0) if reset_at is not None else 0
+    )
+    stages_seconds = (
+        plan_wakeup_stages(seconds_until_reset) if reset_at is not None else []
+    )
     weekly_near_cap = (
         weekly_utilization is not None
         and weekly_utilization >= WEEKLY_UTILIZATION_WARN_THRESHOLD
     )
     return {
         RESULT_KEY_SOURCE: source,
-        RESULT_KEY_RESET_AT: reset_at.isoformat(),
+        RESULT_KEY_RESET_AT: reset_at.isoformat() if reset_at is not None else None,
         RESULT_KEY_SECONDS_UNTIL_RESET: seconds_until_reset,
-        RESULT_KEY_STAGES_SECONDS: plan_wakeup_stages(seconds_until_reset),
+        RESULT_KEY_STAGES_SECONDS: stages_seconds,
         RESULT_KEY_SESSION_UTILIZATION: session_utilization,
         RESULT_KEY_WEEKLY_UTILIZATION: weekly_utilization,
         RESULT_KEY_WEEKLY_RESETS_AT: weekly_resets_at.isoformat()
@@ -585,6 +601,18 @@ def main() -> int:
             )
         )
         return EXIT_CODE_RESOLVED
+    return _resolve_from_probe(arguments, now)
+
+
+def _has_no_resolvable_window(windows: UsageWindows) -> bool:
+    has_session_meter = windows.session_utilization is not None
+    has_weekly_window = (
+        windows.weekly_utilization is not None or windows.weekly_resets_at is not None
+    )
+    return has_session_meter or not has_weekly_window
+
+
+def _resolve_from_probe(arguments: argparse.Namespace, now: datetime) -> int:
     credentials_path = (
         Path(arguments.credentials_path)
         if arguments.credentials_path
@@ -605,7 +633,9 @@ def main() -> int:
         return _emit_error(f"usage probe failed: {probe_error}")
     windows = extract_usage_windows(usage_payload)
     if windows.session_resets_at is None:
-        return _emit_error("usage response carried no five_hour reset time")
+        if _has_no_resolvable_window(windows):
+            return _emit_error("usage response carried no five_hour reset time")
+        logger.info(NO_FIVE_HOUR_WINDOW_LOG_MESSAGE)
     print(
         json.dumps(
             build_pause_plan(

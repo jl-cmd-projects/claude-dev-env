@@ -27,9 +27,9 @@ On exit 0 the script prints one JSON object:
 | Field | Meaning |
 |---|---|
 | `source` | `probe` or `override` |
-| `reset_at` | When the 5-hour window resets (ISO-8601, local zone) |
-| `seconds_until_reset` | The wait the stage plan covers |
-| `stages_seconds` | The ScheduleWakeup stage durations, in firing order |
+| `reset_at` | When the 5-hour window resets (ISO-8601, local zone). Null when the account has no 5-hour window |
+| `seconds_until_reset` | The wait the stage plan covers (0 when `reset_at` is null) |
+| `stages_seconds` | The ScheduleWakeup stage durations, in firing order (empty when `reset_at` is null) |
 | `session_utilization` | Percent of the 5-hour window spent (null on override) |
 | `weekly_utilization` | Percent of the weekly window spent (null on override) |
 | `weekly_resets_at` | When the weekly window resets (null on override) |
@@ -46,7 +46,7 @@ In short: the resolver picks a bearer token, probes the OAuth usage endpoint the
 - **Desktop host** (the `CLAUDE_CODE_ENTRYPOINT` variable is `claude-desktop`): the resolver does not read the CLI credential file, which belongs to a different authentication session than the one the desktop app counts usage against. It uses the session ingress token when one is set, and otherwise takes the manual-override path.
 - **Every other host**: the resolver reads the Claude Code CLI's stored OAuth access token first (honored only while unexpired), then the session ingress bearer token file named by `CLAUDE_SESSION_INGRESS_TOKEN_FILE` (cloud sessions) when the credential token is unavailable. The credential file lives under the directory `CLAUDE_CONFIG_DIR` names when that variable is set — a profile-isolated session's own account — else the home-directory default; the home file on a multi-profile machine can belong to a different account, whose meter is the wrong one to read.
 
-Fallbacks, in order: both token sources unavailable (expired/unreadable credential and no ingress file), a failed request, or a response with no readable session-window reset time all end in exit 2 — the manual-override ask above. The manual path works with no probe at all, so the skill functions even when both token sources are unavailable.
+Fallbacks, in order: both token sources unavailable (expired/unreadable credential and no ingress file), a failed request, or a response with no readable window all end in exit 2 — the manual-override ask above. A reply with only a weekly window is not a failure: it exits 0 with a null `reset_at`. The manual path works with no probe at all, so the skill functions even when both token sources are unavailable.
 
 Why this probe and not the others:
 
@@ -58,6 +58,8 @@ Why this probe and not the others:
 ## Weekly limit guard
 
 When `weekly_near_cap` is true, WARN the user — report `weekly_utilization` and `weekly_resets_at` — and stop. No pause choreography runs around the weekly limit; waiting out a weekly window is its own later build.
+
+A null `reset_at` with an empty `stages_seconds` says the account has no 5-hour window. Skip Step 2, since there is nothing to wait out, and still apply this guard to the weekly fields.
 
 ## Step 2 — the pause chain
 
