@@ -19,6 +19,15 @@ PULL_REQUEST = {
     "number": "9",
     "url": "https://github.com/jl-cmd/snake-game/pull/9",
 }
+RECORDED_PULL_REQUEST = {
+    "owner": "jl-cmd-projects",
+    "repository": "claude-dev-env",
+    "number": "2300",
+    "url": "https://github.com/jl-cmd-projects/claude-dev-env/pull/2300",
+}
+RECORDED_HEAD = "6ea405f886de9e3a434376a0b580cc3648d11a3c"
+FIRST_HEAD = "abc1234def5678abc1234def5678abc1234def56"
+PUSHED_HEAD = "9999999aaaaaaa9999999aaaaaaa9999999aaaaa"
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +73,9 @@ def test_main_should_block_while_a_recorded_pull_request_is_open(
     assert decision["decision"] == "block"
     assert PULL_REQUEST["url"] in decision["reason"]
     assert "/efficient-review" in decision["reason"]
-    assert all_calls == [["gh", "api", "repos/jl-cmd/snake-game/pulls/9", "--jq", ".state"]]
+    assert all_calls == [
+        ["gh", "api", "repos/jl-cmd/snake-game/pulls/9", "--jq", '.state + " " + .head.sha']
+    ]
 
 
 def test_main_should_allow_once_the_pull_request_is_closed(
@@ -109,9 +120,14 @@ def test_main_should_allow_a_session_that_opened_no_owned_pull_request(
     assert all_calls == []
 
 
-def test_is_pull_request_open_should_read_the_github_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    _gh_reports(monkeypatch, "open\n")
-    assert owned_pr_merge_stop_gate.is_pull_request_open(PULL_REQUEST)
+def test_open_head_should_read_the_github_state_and_head(monkeypatch: pytest.MonkeyPatch) -> None:
+    _gh_reports(monkeypatch, f"open {FIRST_HEAD}\n")
+    assert owned_pr_merge_stop_gate.open_head(PULL_REQUEST) == FIRST_HEAD
+
+
+def test_open_head_should_read_a_closed_pull_request_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    _gh_reports(monkeypatch, f"closed {FIRST_HEAD}\n")
+    assert owned_pr_merge_stop_gate.open_head(PULL_REQUEST) is None
 
 
 def test_is_reported_blocked_should_accept_the_url() -> None:
@@ -121,9 +137,11 @@ def test_is_reported_blocked_should_accept_the_url() -> None:
 
 def test_unfinished_pull_requests_should_list_the_open_one(monkeypatch: pytest.MonkeyPatch) -> None:
     owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
-    _gh_reports(monkeypatch, "open\n")
+    _gh_reports(monkeypatch, f"open {FIRST_HEAD}\n")
     hook_input: dict[str, object] = {"session_id": SESSION_ID, "last_assistant_message": "Open."}
-    assert owned_pr_merge_stop_gate.unfinished_pull_requests(hook_input) == [PULL_REQUEST]
+    assert owned_pr_merge_stop_gate.unfinished_pull_requests(hook_input) == [
+        {**PULL_REQUEST, "head": FIRST_HEAD}
+    ]
 
 
 def test_block_reason_for_should_name_each_pull_request_and_the_blocked_form() -> None:
@@ -161,3 +179,76 @@ def test_block_reason_for_should_name_a_user_hold_as_a_blocker() -> None:
 def test_is_reported_blocked_should_require_the_colon_after_blocked() -> None:
     reply_text = "Blocked while CI runs on jl-cmd/snake-game#9."
     assert not owned_pr_merge_stop_gate.is_reported_blocked(PULL_REQUEST, reply_text)
+
+
+def _gh_serves(
+    monkeypatch: pytest.MonkeyPatch, all_pull_requests: dict[str, tuple[str, str]]
+) -> None:
+    def fake_run(all_arguments: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        state, head = all_pull_requests[all_arguments[2]]
+        answer = state if all_arguments[4] == ".state" else f"{state} {head}"
+        return subprocess.CompletedProcess(all_arguments, 0, stdout=answer + "\n", stderr="")
+
+    monkeypatch.setattr(owned_pr_merge_stop_gate.subprocess, "run", fake_run)
+
+
+RECORDED_ENDPOINT = "repos/jl-cmd-projects/claude-dev-env/pulls/2300"
+PULL_REQUEST_ENDPOINT = "repos/jl-cmd/snake-game/pulls/9"
+
+
+def test_main_should_block_once_per_head_on_the_recorded_pull_request(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, RECORDED_PULL_REQUEST)
+    _gh_serves(monkeypatch, {RECORDED_ENDPOINT: ("open", RECORDED_HEAD)})
+    first_decision = json.loads(_run_gate(monkeypatch, capsys, "Review is clean."))
+    assert first_decision["decision"] == "block"
+    assert RECORDED_PULL_REQUEST["url"] in first_decision["reason"]
+    assert _run_gate(monkeypatch, capsys, "Waiting on CI.") == ""
+    assert _run_gate(monkeypatch, capsys, "Still waiting on CI.") == ""
+
+
+def test_main_should_block_again_after_the_head_moves(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    _gh_serves(monkeypatch, {PULL_REQUEST_ENDPOINT: ("open", FIRST_HEAD)})
+    assert json.loads(_run_gate(monkeypatch, capsys, "Open."))["decision"] == "block"
+    _gh_serves(monkeypatch, {PULL_REQUEST_ENDPOINT: ("open", PUSHED_HEAD)})
+    assert json.loads(_run_gate(monkeypatch, capsys, "Pushed a fix."))["decision"] == "block"
+    assert _run_gate(monkeypatch, capsys, "Waiting on CI.") == ""
+
+
+def test_main_should_block_every_stop_when_github_gives_no_head(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    _gh_reports(monkeypatch, "open\n")
+    assert json.loads(_run_gate(monkeypatch, capsys, "Open."))["decision"] == "block"
+    assert json.loads(_run_gate(monkeypatch, capsys, "Open."))["decision"] == "block"
+
+
+def test_main_should_list_only_the_pull_request_with_a_new_head(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    _gh_serves(monkeypatch, {PULL_REQUEST_ENDPOINT: ("open", FIRST_HEAD)})
+    assert json.loads(_run_gate(monkeypatch, capsys, "Open."))["decision"] == "block"
+    owned_pr_session_record.record_pull_request(SESSION_ID, RECORDED_PULL_REQUEST)
+    _gh_serves(
+        monkeypatch,
+        {PULL_REQUEST_ENDPOINT: ("open", FIRST_HEAD), RECORDED_ENDPOINT: ("open", RECORDED_HEAD)},
+    )
+    reason = json.loads(_run_gate(monkeypatch, capsys, "Opened another."))["reason"]
+    assert RECORDED_PULL_REQUEST["url"] in reason
+    assert PULL_REQUEST["url"] not in reason
+
+
+def test_main_should_keep_the_blocked_line_release_before_the_first_block(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    _gh_serves(monkeypatch, {PULL_REQUEST_ENDPOINT: ("open", FIRST_HEAD)})
+    reply_text = "Blocked: jl-cmd/snake-game#9 - the user holds the merge"
+    assert _run_gate(monkeypatch, capsys, reply_text) == ""
+    assert json.loads(_run_gate(monkeypatch, capsys, "Open."))["decision"] == "block"

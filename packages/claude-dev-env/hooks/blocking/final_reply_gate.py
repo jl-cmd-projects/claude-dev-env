@@ -10,7 +10,8 @@ session ends its turn with, which reaches the user with no tool call::
     ok:   Run 18239174012 took 39 minutes. (a tool result shows the run)
 
 It applies the banned words, the unvalidated claim pattern, and the cited
-run, job, check, and pull request numbers from ``reply_length_gate.py``. The
+run, job, check, and pull request numbers from ``reply_length_gate.py``. A
+pull request link also counts as shown when hook or harness text shows it. The
 citation check is skipped when the transcript cannot be read. It also flags
 a path outside code whose backslash the terminal drops, such as
 ``D:\\Reports\\.claude``. A block sends
@@ -46,7 +47,7 @@ if hooks_root_directory not in sys.path:
 from reply_length_gate import (
     banned_word_violation,
     configured_banned_words,
-    unseen_citation_violation,
+    unseen_citation_violation_with_hook_text,
     unvalidated_claim_violation,
 )
 from open_tasks_transcript import replayed_transcript
@@ -272,7 +273,7 @@ def final_reply_violation(reply_text: str, transcript_path: object) -> str | Non
     return (
         banned_word_violation(reply_text, configured_banned_words())
         or unvalidated_claim_violation(reply_text)
-        or unseen_citation_violation(reply_text, transcript_path)
+        or unseen_citation_violation_with_hook_text(reply_text, transcript_path)
         or windows_path_violation(reply_text)
     )
 
