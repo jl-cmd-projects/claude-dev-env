@@ -175,6 +175,71 @@ def test_appending_a_kind_and_tightening_limits_passes(tmp_path: Path) -> None:
     ) == ()
 
 
+def _policy_without_baseline_key() -> dict:
+    raw_policy = json.loads(policy_text())
+    del raw_policy["baseline"]
+    return raw_policy
+
+
+def _policy_with_first_list() -> dict:
+    raw_policy = json.loads(policy_text({"a/SKILL.md": {"lines": 300, "sections": ["X"]}}))
+    raw_policy["baseline"]["hooks"] = {"greeter": 2000}
+    return raw_policy
+
+
+def test_first_baseline_added_to_a_policy_without_the_key_passes(tmp_path: Path) -> None:
+    assert policy_shrink_findings(
+        "p",
+        parse_policy(json.dumps(_policy_without_baseline_key())),
+        parse_policy(json.dumps(_policy_with_first_list())),
+        tmp_path,
+    ) == ()
+
+
+def test_first_baseline_added_to_an_explicit_empty_baseline_is_a_finding(
+    tmp_path: Path,
+) -> None:
+    all_findings = policy_shrink_findings(
+        "p",
+        parse_policy(policy_text()),
+        parse_policy(json.dumps(_policy_with_first_list())),
+        tmp_path,
+    )
+
+    assert [each.message.split("context-budget: ")[1].split(";")[0] for each in all_findings] == [
+        'baseline adds file "a/SKILL.md"',
+        'baseline adds hook "greeter"',
+    ]
+
+
+def test_deleting_the_baseline_key_is_a_finding(tmp_path: Path) -> None:
+    all_findings = policy_shrink_findings(
+        "p",
+        parse_policy(policy_text()),
+        parse_policy(json.dumps(_policy_without_baseline_key())),
+        tmp_path,
+    )
+
+    assert len(all_findings) == 1
+    assert 'the "baseline" key is deleted' in all_findings[0].message
+    assert "the over-budget list may only shrink" in all_findings[0].message
+
+
+def test_first_baseline_still_holds_the_limits_to_the_prior_policy(tmp_path: Path) -> None:
+    raw_current = _policy_with_first_list()
+    raw_current["kinds"][1]["line_limit"] = 250
+
+    all_findings = policy_shrink_findings(
+        "p",
+        parse_policy(json.dumps(_policy_without_baseline_key())),
+        parse_policy(json.dumps(raw_current)),
+        tmp_path,
+    )
+
+    assert len(all_findings) == 1
+    assert "line_limit rises from 200 to 250" in all_findings[0].message
+
+
 def test_raising_the_prose_line_word_limit_is_a_loosening_change(tmp_path: Path) -> None:
     raw_prior = json.loads(policy_text())
     raw_prior["prose_line_word_limit"] = 25

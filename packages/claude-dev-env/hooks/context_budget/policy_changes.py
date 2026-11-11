@@ -5,7 +5,10 @@ limit, a section rule turned off, a deleted kind, or a deleted hook whose
 command script is still in the tree is a finding. A hook deleted together
 with its script passes.
 Existing kind patterns and precedence stay fixed. A null line count that
-becomes a number is larger. A policy file the change introduces passes.
+becomes a number is larger. A policy file the change introduces passes, and
+so does the first over-budget list added to a policy without a ``baseline``
+key. A deleted ``baseline`` key is a finding, so a later change cannot add a
+fresh list in its place.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from hooks_constants.context_budget_constants import (
     CHANGE_ADDS_SECTION,
     CHANGE_CHANGES_KIND_ORDER,
     CHANGE_CHANGES_PATTERNS,
+    CHANGE_DELETES_BASELINE_KEY,
     CHANGE_DELETES_HOOK,
     CHANGE_DELETES_KIND,
     CHANGE_DISABLES_SECTION_RULE,
@@ -189,6 +193,16 @@ def _hook_entry_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy
     return [each for each in all_candidate_changes if each is not None]
 
 
+def _baseline_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
+    if not prior_policy.has_baseline:
+        return []
+    if not current_policy.has_baseline:
+        return [CHANGE_DELETES_BASELINE_KEY]
+    return _file_entry_changes(prior_policy, current_policy) + _hook_entry_changes(
+        prior_policy, current_policy
+    )
+
+
 def policy_shrink_findings(
     policy_path: str,
     prior_policy: BudgetPolicy | None,
@@ -204,14 +218,13 @@ def policy_shrink_findings(
         repository_root: Working tree that holds each hook's command script.
 
     Returns:
-        One finding per loosening change; empty when the file is new.
+        One finding per loosening change; empty when the file is new. Baseline
+        entries are not compared when the prior policy has no ``baseline`` key.
     """
     if prior_policy is None:
         return ()
-    all_changes = (
-        _limit_changes(prior_policy, current_policy, repository_root)
-        + _file_entry_changes(prior_policy, current_policy)
-        + _hook_entry_changes(prior_policy, current_policy)
+    all_changes = _limit_changes(prior_policy, current_policy, repository_root) + (
+        _baseline_changes(prior_policy, current_policy)
     )
     return tuple(
         BudgetFinding(

@@ -125,6 +125,19 @@ def test_raising_a_baseline_entry_is_a_shrink_only_finding(tmp_path: Path) -> No
     assert "the over-budget list may only shrink" in all_diagnostics[0].message
 
 
+def test_a_first_baseline_on_a_policy_without_the_key_passes(tmp_path: Path) -> None:
+    raw_prior = _policy()
+    del raw_prior["baseline"]
+    current_text = json.dumps(_policy({_SKILL_PATH: {"lines": 300, "sections": []}}))
+
+    assert (
+        adapters.context_budget_policy_diagnostics(
+            _document(_POLICY_PATH, current_text, json.dumps(raw_prior)), tmp_path
+        )
+        == ()
+    )
+
+
 def test_a_new_or_shrunk_policy_file_passes_and_a_malformed_one_reports(
     tmp_path: Path,
 ) -> None:

@@ -82,6 +82,8 @@ class BudgetPolicy:
         is_baseline_the_prior_text: Whether the baseline entry was measured from
             the file's prior text because the repository has no policy file.
         prose_line_word_limit: Words an unlinked agent-file detail line may hold.
+        has_baseline: Whether the policy text holds a ``baseline`` key; a policy
+            without one has no over-budget list yet, so its first list may be added.
     """
 
     section_detail_line_limit: int
@@ -91,6 +93,7 @@ class BudgetPolicy:
     baseline_characters_by_hook_name: Mapping[str, int] = field(default_factory=dict)
     is_baseline_the_prior_text: bool = False
     prose_line_word_limit: int = DEFAULT_PROSE_LINE_WORD_LIMIT
+    has_baseline: bool = True
 
 
 @dataclass(frozen=True)

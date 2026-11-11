@@ -35,6 +35,7 @@ def test_policy_holds_kinds_hooks_and_baselines() -> None:
     assert policy.baseline_entry_by_path["a/SKILL.md"] == baseline
     assert policy.baseline_characters_by_hook_name["startup print"] == 5200
     assert policy.is_baseline_the_prior_text is True
+    assert policy.has_baseline is True
 
 
 def test_baseline_entry_holds_no_line_count_for_a_section_only_file() -> None:

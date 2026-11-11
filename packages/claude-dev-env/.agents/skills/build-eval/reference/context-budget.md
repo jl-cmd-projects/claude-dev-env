@@ -42,6 +42,8 @@ A person never edits the baseline by hand. After a change shrinks listed files, 
 python packages/claude-dev-env/scripts/context_budget_check.py --write-baseline
 ```
 
+A policy with no `baseline` key may gain its first list in one change. After that, the list may only shrink, and deleting the key is a finding.
+
 ## Where it runs
 
 - The `context-budget` and `context-budget-policy` rules in `cde_lint` run in CI on every pull request.
