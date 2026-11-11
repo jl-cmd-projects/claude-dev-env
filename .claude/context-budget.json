@@ -140,6 +140,19 @@
       "char_limit": 600
     },
     {
+      "name": "background silence prompt",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/background_silence_prompt.py"
+      ],
+      "stdin": {
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": "<task-notification><status>completed</status></task-notification>",
+        "transcript_path": "packages/claude-dev-env/hooks/test_files/context_budget/silence_transcript.jsonl"
+      },
+      "char_limit": 700
+    },
+    {
       "name": "spawn readiness reminder",
       "command": [
         "python3",
