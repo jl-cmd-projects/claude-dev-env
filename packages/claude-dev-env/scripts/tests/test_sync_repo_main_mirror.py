@@ -270,7 +270,7 @@ def test_should_realign_a_diverged_mirror_onto_the_remote(tmp_path: Path) -> Non
     assert "realigning the mirror" in log_path.read_text(encoding="utf-8")
 
 
-def test_should_keep_the_old_tip_when_a_diverged_mirror_has_staged_changes(
+def test_should_skip_a_diverged_mirror_with_tracked_changes_without_stash_dirty(
     tmp_path: Path,
 ) -> None:
     mirror_path, local_tip, _ = _mirror_diverged_from_remote(tmp_path)
@@ -278,6 +278,9 @@ def test_should_keep_the_old_tip_when_a_diverged_mirror_has_staged_changes(
     _git(mirror_path, "add", "tracked.txt")
     log_path = tmp_path / "sync.log"
 
-    assert _run_sync(mirror_path, log_path, "-Mirror") != _SUCCESS_EXIT_CODE
+    assert _run_sync(mirror_path, log_path, "-Mirror") == _SKIPPED_EXIT_CODE
     assert _git(mirror_path, "rev-parse", "HEAD") == local_tip
     assert _git(mirror_path, "for-each-ref", "refs/mirror-backup") == ""
+    assert "tracked changes present; refusing sync" in log_path.read_text(
+        encoding="utf-8"
+    )
