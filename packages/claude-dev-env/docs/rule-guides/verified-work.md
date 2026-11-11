@@ -6,7 +6,7 @@ Back to the [rules index](../../rules/index.md).
 
 Research, plan, and build; a fresh `verifier` agent checks each step and reproduces the issue before it confirms the fix. Report only verified results. Ask before new scope.
 
-Every piece of work runs in six steps: research, verify the research, plan, verify the plan, implement, verify the fix. A separate `verifier` agent runs each verify step. The fix check reproduces the issue on the old state first, then confirms it is gone on the new state. The user gets only results a verifier passed. New scope goes to the user as one question before it is built.
+Every piece of work runs in six steps: research, verify the research, plan, verify the plan, implement, verify the fix. A separate `verifier` agent runs each verify step. The fix check reproduces the issue on the old state first, then confirms it is gone on the new state. The user gets only results a verifier passed. New scope goes to the user as one question before it is built. Each piece a verifier passes is committed alone, as its own stack level.
 
 **When this applies:** Any task: a change to code, configuration, rules, or a document, and any finding, cause, or fix reported to the user.
 
@@ -18,6 +18,14 @@ Every piece of work runs in six steps: research, verify the research, plan, veri
 4. **Verify the plan.** Spawn a fresh `verifier` in plan mode. It reports SOUND or GAP for each piece: does it close part of the researched issue, and does it break a test, a budget, or a constraint. It checks each scope tag against the user's words. Revise the plan for each GAP.
 5. **Implement.** Build the in-scope pieces.
 6. **Verify the fix.** Spawn a fresh `verifier` in fix mode. It reproduces the issue on the old state, confirms the issue is gone on the new state, and confirms an undo of the fix fails again. When no scratch copy can revert the fix, such as an installed setting, it reports UNDO NOT RUN with the reason, and REPRODUCED plus FIXED still pass. A fix whose issue did not reproduce does not pass.
+
+## Delivery
+
+When a piece's verifier passes, commit that piece alone, as its own stack level. The subject names that one behaviour. Start the next piece on top of it. A piece that depends on nothing earlier goes on its own branch from trunk.
+
+Stack with `gt create` where Graphite is installed. Without Graphite, use a plain branch from the previous level, made with `git switch -c <branch>`. The pieces in the plan set the levels, so a reviewer reads one purpose at a time.
+
+This applies where the brief and the user allow commits. A worker whose brief bars git writes hands the piece back uncommitted and says so.
 
 ## The verifier
 
