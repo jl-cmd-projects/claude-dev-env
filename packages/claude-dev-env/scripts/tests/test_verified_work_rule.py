@@ -78,3 +78,9 @@ def test_the_pull_request_skill_mirrors_the_practice_in_its_decision_tree() -> N
     assert "Each planned piece is its own commit and stack level" in decision_tree
     assert "`gt create`" in decision_tree
     assert "a plain branch from the previous level" in decision_tree
+
+
+def test_the_enforcement_section_names_the_note_and_keeps_it_non_blocking() -> None:
+    enforcement_text = GUIDE_PATH.read_text(encoding="utf-8").split("## Enforcement", 1)[1]
+    assert "hooks/advisory/pieces_per_level_note.py" in enforcement_text
+    assert "It never denies, delays, or exits non-zero." in enforcement_text
