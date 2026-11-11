@@ -80,6 +80,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_OPTION_PATTERN,
     REPOSITORY_SEPARATOR,
     REVIEW_COMMAND_ENVIRONMENT_VARIABLE,
+    SHELL_COMMENT_CHARACTER,
     SHELL_PUNCTUATION_CHARACTERS,
     SHELL_WHITESPACE_CHARACTERS,
     SHELL_WORD_SEPARATOR,
@@ -220,9 +221,12 @@ def _shell_segments(command: str) -> list[list[str]] | None:
     lexer = shlex.shlex(command, posix=True, punctuation_chars=SHELL_PUNCTUATION_CHARACTERS)
     lexer.whitespace = SHELL_WHITESPACE_CHARACTERS
     lexer.whitespace_split = True
+    lexer.commenters = ""
     try:
         all_words = list(lexer)
     except ValueError:
+        return None
+    if any(each_word.startswith(SHELL_COMMENT_CHARACTER) for each_word in all_words):
         return None
     all_segments: list[list[str]] = [[]]
     for each_word in all_words:

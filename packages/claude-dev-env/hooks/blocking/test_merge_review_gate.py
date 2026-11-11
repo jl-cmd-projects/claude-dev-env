@@ -213,6 +213,8 @@ def test_should_allow_a_merge_call_that_only_disables_auto_merge(command: str) -
         "gh pr merge 12 --repo acme/tools # --disable-auto",
         "gh pr merge --disable-auto 12 --repo acme/tools a#b; gh pr merge 12 --repo acme/tools",
         'gh pr merge --disable-auto 12 --repo acme/tools --body "$(gh pr merge 12 --repo acme/tools)"',
+        'gh pr merge --disable-auto 12 --repo acme/tools && g""h pr merge --disable-auto 14 --repo acme/tools'
+        " && echo x#y && gh pr merge 12 --repo acme/tools",
     ],
 )
 def test_should_check_a_merge_chained_with_a_disable_auto_call(command: str) -> None:
