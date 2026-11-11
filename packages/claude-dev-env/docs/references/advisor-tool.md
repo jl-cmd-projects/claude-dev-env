@@ -73,16 +73,20 @@ The repair fields preserve the reference-path result. The fallback fields preser
 
 ## Escalation shapes
 
-Four shapes cover how a harder task gets more strength behind it. Route to the one that matches the work, not by default to the advisor.
+Four shapes cover how a harder task gets more strength behind it. Route to the one that matches the work. The advisor is one choice among four.
 
 | Shape | Fits when |
 |---|---|
 | Advisor | The task needs intermittent strategy and review, and one executor keeps the task from start to finish. |
 | Subagent | A piece of the task is a bounded subtask that benefits from its own context and its own loop. |
 | Stronger-model planning phase | The plan needs the strong model's judgment; the fast model can carry it out once written. |
-| Full model switch | Every step of the task needs the stronger tier, not just the hard decisions. |
+| Full model switch | Every step of the task needs the stronger tier, including the easy ones. |
 
 Spawn a subagent when the work is a delegable bounded subtask. Switch the whole task to the stronger model when every turn needs that tier.
+
+A full model switch pays the cache-write price on the whole conversation, so switch at a natural break. See [Context and caching](../model-choice/context-and-caching.md). A stronger-model planning phase is the `opusplan` shape. The article says to measure that shape before you make it a default. See [Subagents and fan-out](../model-choice/subagents-and-fan-out.md).
+
+In the article's advisor runs, none of four executor and advisor pairings clearly beat the executor alone. Measure the consult rate before you add an advisor for cost or score. See [Measuring model choice](../model-choice/measuring.md).
 
 ## Brevity cue
 

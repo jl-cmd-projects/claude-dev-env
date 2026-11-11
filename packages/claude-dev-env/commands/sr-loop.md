@@ -20,8 +20,10 @@ new user instruction.
 
 ## Effort
 
-Run each model call at the session's effort level. Raise a call to `xhigh` or
-`max` only where a measured run shows a quality gain at that level.
+Run each model call at an allowed pair from
+`docs/rule-guides/subagent-model-effort.md`. When a measured run shows a gain,
+move up one rung of the ladder in `docs/model-choice/escalation.md`. Measure
+per `docs/model-choice/measuring.md`.
 
 ## Stack context
 

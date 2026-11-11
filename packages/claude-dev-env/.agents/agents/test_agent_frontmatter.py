@@ -82,6 +82,7 @@ ACCEPTED_FRONTMATTER_KEYS = frozenset({"name", "description", "tools", "color"})
 CODE_QUALITY_AGENT_FILENAME = "code-quality-agent.md"
 CODE_QUALITY_READ_ONLY_TOOLS = ("Read", "Grep", "Glob")
 INSTRUCTION_ALIAS_FILENAMES = frozenset({"AGENTS.md", "CLAUDE.md", "ARCHIVE-MANIFEST.md"})
+AGENT_DEFINITION_FOLDER_NAMES = ("agents", "agents-archived")
 FRONTMATTER_FENCE_LINE = "---"
 MATERIALIZER_MODULE_NAME = "codex_compat_materializer"
 MATERIALIZER_MODULE_PATH = (
@@ -115,19 +116,20 @@ def _extract_frontmatter_block(markdown_text: str) -> str | None:
 
 @cache
 def _agent_definition_candidate_paths() -> tuple[Path, ...]:
-    """Return every markdown file in this directory that is an agent definition.
+    """Return every markdown file in the live and archived agent folders that is an agent definition.
 
     This is the floor the parametrized checks are measured against: each of
     these files is expected to yield a frontmatter block, so one that does not
     is a broken definition rather than a file to pass over.
 
     Returns:
-        Every agent-definition `*.md` path in this directory, sorted.
+        Every agent-definition `*.md` path in `agents` and `agents-archived`, sorted.
     """
-    agents_directory = Path(__file__).parent.parent / "agents-archived"
+    agents_root = Path(__file__).parent.parent
     return tuple(
         each_markdown_file
-        for each_markdown_file in sorted(agents_directory.glob("*.md"))
+        for each_folder_name in AGENT_DEFINITION_FOLDER_NAMES
+        for each_markdown_file in sorted((agents_root / each_folder_name).glob("*.md"))
         if each_markdown_file.name not in INSTRUCTION_ALIAS_FILENAMES
     )
 

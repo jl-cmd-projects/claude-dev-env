@@ -29,7 +29,7 @@ In an autonomous pipeline, the user cannot answer during the run. Reversible act
 
 ## Delegate and keep working
 
-A large independent track can run in a subagent while the lead handles other work. A few reads, a handful of edits, or a simple check fit in the lead's turn. Reusing a long-lived subagent across related tasks preserves its context. The lead steps in when that agent drifts or lacks context.
+A large independent track can run in a subagent while the lead handles other work. A few reads, a handful of edits, or a simple check fit in the lead's turn. Reusing a long-lived subagent across related tasks preserves its context. The lead steps in when that agent drifts or lacks context. [Subagents and fan-out](../model-choice/subagents-and-fan-out.md) says when fan-out pays and when one chain of steps stays in one agent.
 
 For a task that spawned workers, the completion condition and checklist live in the [workers-done-before-complete guide](workers-done-before-complete.md).
 

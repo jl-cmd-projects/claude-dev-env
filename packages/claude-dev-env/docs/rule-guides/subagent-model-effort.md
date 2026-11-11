@@ -39,8 +39,8 @@ Opus and Sonnet have one effort each here, so pick the model by the work.
 - Sonnet: well-scoped work, such as a bug fix or a feature built to a clear spec.
 - Opus: code edits, judgment calls, and decisions that rest on what other subagents report.
 - Fable: the hardest work, such as a large migration, planning a design, leading many subagents, or a long run with no one watching.
-- Keep the costly model's context lean. Cheaper subagents do the long reading and hand back a short summary.
-- Before you move work to a bigger model, give the agent a way to check its own work, such as a test, a build or a script.
 - A built-in agent such as Explore runs on the session's model unless the spawn names one, so name the model.
+
+The [model choice guides](../model-choice/README.md) cover which model, escalation, context and caching, subagents and fan-out, measuring, and API compatibility.
 
 Source for the work split: [Which Claude model should you build with](https://claude.dev/blog/which-claude-model-should-you-build-with/).

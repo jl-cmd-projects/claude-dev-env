@@ -49,6 +49,10 @@ from dev_env_scripts_constants.account_broker_constants import (
     Meters,
     Product,
     ProductAdapter,
+    PUBLISHED_USAGE_DIRECTORY_ENV_VAR,
+    PUBLISHED_USAGE_FILE_PATTERN,
+    PUBLISHED_USAGE_CLOCK_SKEW_SECONDS,
+    PUBLISHED_USAGE_MAX_AGE_SECONDS,
     Reading,
     Report,
     REPORT_INDENT_SPACES,
@@ -281,8 +285,64 @@ def refresh_claude_login(account_home: Path) -> bool:
     return True
 
 
+def read_published_meters(account: Account) -> Meters | None:
+    """Read one account's meters from the readings a single usage reader publishes.
+
+    ::
+
+        CLAUDE_USAGE_READINGS_DIR=/readings, account home .../alpha
+        /readings/meters-ALPHA.json  {"read_at": "<5 minutes ago>", "accounts": [{"name": "alpha",
+                                      "meters": {"weekly_percent_left": 45.0, ...}}]}
+            ->  Meters(weekly_percent_left=45.0, ...), and the usage endpoint is not called
+
+    A reading matches an account when its ``name`` equals the account home's folder name.
+    A reading older than ``PUBLISHED_USAGE_MAX_AGE_SECONDS``, or dated more than
+    ``PUBLISHED_USAGE_CLOCK_SKEW_SECONDS`` ahead of now, is ignored. The newest match wins.
+
+    Args:
+        account: Account whose meter is read.
+
+    Returns:
+        The published meters, or None when the folder is unset or holds no fresh reading for the account.
+    """
+    folder_text = os.environ.get(PUBLISHED_USAGE_DIRECTORY_ENV_VAR)
+    if not folder_text:
+        return None
+    home_name = account.home.name.casefold()
+    all_matches = [
+        (each_read_at, each_row)
+        for each_read_at, each_row in _fresh_published_rows(Path(folder_text), datetime.now(timezone.utc))
+        if str(each_row.get("name", "")).casefold() == home_name
+    ]
+    if not all_matches:
+        return None
+    newest_row = max(all_matches, key=lambda each_match: each_match[0])[1]
+    return _meters_from_payload(newest_row.get("meters"))
+
+
+def _fresh_published_rows(folder: Path, now: datetime) -> Iterator[tuple[datetime, dict[str, object]]]:
+    for each_path in sorted(folder.glob(PUBLISHED_USAGE_FILE_PATTERN)):
+        yield from _fresh_rows_of(each_path, now)
+
+
+def _fresh_rows_of(reading_path: Path, now: datetime) -> list[tuple[datetime, dict[str, object]]]:
+    try:
+        reading = json.loads(reading_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(reading, dict) or not isinstance(reading.get("accounts"), list):
+        return []
+    read_at = parse_utc_time(reading.get("read_at"))
+    if read_at is None:
+        return []
+    age_seconds = (now - read_at).total_seconds()
+    if not -PUBLISHED_USAGE_CLOCK_SKEW_SECONDS <= age_seconds <= PUBLISHED_USAGE_MAX_AGE_SECONDS:
+        return []
+    return [(read_at, each_row) for each_row in reading["accounts"] if isinstance(each_row, dict)]
+
+
 def read_claude_meters(account: Account) -> Meters | None:
-    """Probe one Claude account.
+    """Read one Claude account's meters, from a published reading when one is fresh.
 
     Args:
         account: Account whose meter is read.
@@ -294,6 +354,9 @@ def read_claude_meters(account: Account) -> Meters | None:
         WeeklyUtilizationProbeError: The usage meters could not be measured.
         OSError: The credentials file could not be read.
     """
+    published_meters = read_published_meters(account)
+    if published_meters is not None:
+        return published_meters
     usage = probe_account_meters(account.home / CREDENTIALS_FILE_NAME, refresh_claude_login)
     return Meters(
         FULL_PERCENT - usage.session_utilization if usage.session_utilization is not None else None,

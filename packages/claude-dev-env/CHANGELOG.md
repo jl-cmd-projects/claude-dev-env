@@ -1,5 +1,38 @@
 # Changelog
 
+## [8.114.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.3...claude-dev-env-v8.114.4) (2026-11-11)
+
+
+### Documentation
+
+* **second-account-workers:** drop the stale no-effort-flag line ([#2313](https://github.com/jl-cmd-projects/claude-dev-env/issues/2313)) ([b1a8104](https://github.com/jl-cmd-projects/claude-dev-env/commit/b1a8104cf07f419eac28e53f3b073deebcf76a70))
+
+## [8.114.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.2...claude-dev-env-v8.114.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **workers:** effort flag for account worker; agent test reads live agents ([#2311](https://github.com/jl-cmd-projects/claude-dev-env/issues/2311)) ([4c74a4e](https://github.com/jl-cmd-projects/claude-dev-env/commit/4c74a4e4f30758578d9551ead069049253210bc3))
+
+
+### Documentation
+
+* **model-choice:** adapt the model choice article to the allowed pairs ([#2310](https://github.com/jl-cmd-projects/claude-dev-env/issues/2310)) ([a278f9b](https://github.com/jl-cmd-projects/claude-dev-env/commit/a278f9b8220ae76a4008d1eb0c9136c5db1c7893))
+
+## [8.114.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.1...claude-dev-env-v8.114.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **settings:** default the todo and silent-turn reminders off ([#2307](https://github.com/jl-cmd-projects/claude-dev-env/issues/2307)) ([1730cb7](https://github.com/jl-cmd-projects/claude-dev-env/commit/1730cb76ebf1c1dcbd85e558629a57905ff9e6b8))
+
+## [8.114.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.0...claude-dev-env-v8.114.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** advise on a hedged Agent or Task spawn instead of blocking it ([#2305](https://github.com/jl-cmd-projects/claude-dev-env/issues/2305)) ([6ce6689](https://github.com/jl-cmd-projects/claude-dev-env/commit/6ce6689b5081fc89bb60e4790ebcebf55e4197c2))
+
 ## [8.114.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.113.1...claude-dev-env-v8.114.0) (2026-11-11)
 
 

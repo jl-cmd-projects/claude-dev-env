@@ -6,12 +6,16 @@ found in the session transcript by the call's ``tool_use_id``. When that
 reasoning hedges, the hook blocks and quotes the hedge sentence::
 
     flag: The config probably lives in settings.json.   -> Write blocks
+    note: The config probably lives in settings.json.   -> Agent gets advice
     ok:   The config lives in settings.json, as read.   -> Write passes
     ok:   The config probably lives in settings.json.   -> gh pr view passes
 
 The tool has already run, so the block reason tells the model to check the
 claim now with a read-only tool and to undo the change when the check
-contradicts it.
+contradicts it. A spawn in ALL_ADVISORY_TOOL_NAMES (Agent, Task) has also
+already run, so a block stops nothing there; the hook adds the same quote as
+additionalContext with no decision, and asks the model to check the claim
+before it acts on the agent's result.
 
 A call counts as mutating when its tool is in ALL_ALWAYS_MUTATING_TOOL_NAMES
 (Write, Edit, MultiEdit, NotebookEdit, apply_patch, Agent, Task), when a
@@ -24,7 +28,7 @@ from the quote-aware parser after every wrapper is stepped over, so
 is a check and passes with no log line.
 
 Each mutating call writes one JSON line to DECISION_LOG_RELATIVE_PATH under
-the home directory: blocked, allowed_clean, or reasoning_unseen when the
+the home directory: blocked, advised, allowed_clean, or reasoning_unseen when the
 transcript record is missing or its thinking text is empty. A missing or
 unreadable input always allows, so the hook never fails closed.
 """
@@ -49,9 +53,12 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
 from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.shell_command_mutation import is_mutating_shell_command
 from hooks_constants.verify_before_acting_constants import (
+    ADVISORY_CONTEXT_TEMPLATE,
+    ALL_ADVISORY_TOOL_NAMES,
     ALL_ALWAYS_MUTATING_TOOL_NAMES,
     ALL_MCP_MUTATING_ACTION_NAMES,
     ALL_MCP_MUTATING_VERBS,
@@ -80,6 +87,7 @@ from hooks_constants.verify_before_acting_constants import (
     MCP_TOOL_PREFIX,
     MESSAGE_ID_KEY,
     MESSAGE_KEY,
+    OUTCOME_ADVISED,
     OUTCOME_ALLOWED_CLEAN,
     OUTCOME_BLOCKED,
     OUTCOME_REASONING_UNSEEN,
@@ -299,6 +307,13 @@ def _emit_block(tool_name: str, tool_use_id: object, hedge_sentence: str) -> Non
     sys.stdout.write(json.dumps(block_payload))
 
 
+def _emit_advisory(tool_name: str, tool_use_id: object, hedge_sentence: str) -> None:
+    _log_decision(tool_name, tool_use_id, OUTCOME_ADVISED, hedge_sentence)
+    write_post_tool_use_context_to_stdout(
+        ADVISORY_CONTEXT_TEMPLATE.format(tool_name=tool_name, hedge_sentence=hedge_sentence)
+    )
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
@@ -316,6 +331,9 @@ def main() -> int:
     hedge_sentence = first_hedge_sentence(reasoning)
     if hedge_sentence is None:
         _log_decision(tool_name, tool_use_id, OUTCOME_ALLOWED_CLEAN, None)
+        return ALLOW_EXIT_CODE
+    if tool_name in ALL_ADVISORY_TOOL_NAMES:
+        _emit_advisory(tool_name, tool_use_id, hedge_sentence)
         return ALLOW_EXIT_CODE
     _emit_block(tool_name, tool_use_id, hedge_sentence)
     return ALLOW_EXIT_CODE
