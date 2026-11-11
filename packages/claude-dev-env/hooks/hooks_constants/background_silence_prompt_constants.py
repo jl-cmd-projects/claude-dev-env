@@ -25,7 +25,7 @@ ALL_LIFT_PATTERNS = (
 )
 EXCEPTION_CLAUSE_PATTERN = re.compile(r"\b(?:unless|except)\b[^.!?\n]*", re.IGNORECASE)
 QUOTED_LINE_PATTERN = re.compile(r"^[ \t]*>.*$", re.MULTILINE)
-MAXIMUM_EXCEPTION_CHARACTERS = 300
+MAXIMUM_QUOTED_CHARACTERS = 300
 SILENCE_NOTE_TEMPLATE = (
     'The user asked you to stay silent "{exception_clause}".'
     " This prompt is a background event, not a message from the user."
@@ -33,8 +33,8 @@ SILENCE_NOTE_TEMPLATE = (
     ' Tool calls are fine, and a status line such as "No change." counts as text.'
 )
 SILENCE_NOTE_WITHOUT_EXCEPTION = (
-    "The user asked you to stay silent."
+    'The user asked you to stay silent in the message "{silence_message}".'
     " This prompt is a background event, not a message from the user."
-    " End this turn with no text at all."
+    " End this turn with no text at all unless that message names an exception that applies now."
     ' Tool calls are fine, and a status line such as "No change." counts as text.'
 )

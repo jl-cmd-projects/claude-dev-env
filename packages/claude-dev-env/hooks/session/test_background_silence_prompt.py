@@ -182,14 +182,21 @@ def test_should_not_set_silence_from_text_that_is_not_the_users_own(
     assert run_hook(monkeypatch, capsys, tmp_path, NOTIFICATION_PROMPT, [earlier_entry]) == ""
 
 
-def test_should_ask_for_no_text_when_the_silence_has_no_exception(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+@pytest.mark.parametrize(
+    "silence_message",
+    ["Stay silent.", "Silent on updates. Only ping me when a PR merges."],
+)
+def test_should_quote_the_whole_message_when_it_has_no_unless_clause(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    silence_message: str,
 ) -> None:
     context_text = run_hook(
-        monkeypatch, capsys, tmp_path, NOTIFICATION_PROMPT, [typed_entry("Stay silent.")]
+        monkeypatch, capsys, tmp_path, NOTIFICATION_PROMPT, [typed_entry(silence_message)]
     )
+    assert f'"{silence_message}"' in context_text
     assert "no text at all" in context_text
-    assert "exception" not in context_text
 
 
 @pytest.mark.parametrize(
@@ -203,6 +210,7 @@ def test_should_ask_for_no_text_when_the_silence_has_no_exception(
         ("Here is the log:\n<task-notification>done</task-notification>", False),
         ("[SYSTEM NOTIFICATION - NOT USER INPUT]\nBackground task finished.", True),
         ("why does [SYSTEM NOTIFICATION - NOT USER INPUT] show up?", False),
+        ('<task-notification><summary>quoted from="human"</summary></task-notification>', True),
     ],
 )
 def test_should_tell_a_background_event_from_a_user_prompt(

@@ -40,7 +40,7 @@ from hooks_constants.background_silence_prompt_constants import (
     BACKGROUND_EVENT_PATTERN,
     EXCEPTION_CLAUSE_PATTERN,
     HUMAN_ORIGIN_KIND,
-    MAXIMUM_EXCEPTION_CHARACTERS,
+    MAXIMUM_QUOTED_CHARACTERS,
     ORIGIN_KEY,
     ORIGIN_KIND_KEY,
     QUOTED_LINE_PATTERN,
@@ -76,7 +76,7 @@ def _is_user_typed_text(prompt_text: str) -> bool:
         return False
     stripped_text = prompt_without_reminders(prompt_text)
     if stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
-        return HUMAN_SENDER_MARKER in stripped_text
+        return HUMAN_SENDER_MARKER in stripped_text.split(">", 1)[0]
     return bool(stripped_text)
 
 
@@ -164,7 +164,7 @@ def exception_clause(silence_message: str) -> str | None:
         silence_message: The message ``newest_silence_message`` returned.
 
     Returns:
-        The clause, cut to MAXIMUM_EXCEPTION_CHARACTERS, or None.
+        The clause, cut to MAXIMUM_QUOTED_CHARACTERS, or None.
     """
     all_sentences = re.split(SENTENCE_SPLIT_PATTERN, silence_message)
     for each_index, each_sentence in enumerate(all_sentences):
@@ -175,7 +175,7 @@ def exception_clause(silence_message: str) -> str | None:
             clause_match = EXCEPTION_CLAUSE_PATTERN.match(all_sentences[each_index + 1].strip())
         if clause_match is None:
             return None
-        return clause_match.group(0).strip()[:MAXIMUM_EXCEPTION_CHARACTERS]
+        return clause_match.group(0).strip()[:MAXIMUM_QUOTED_CHARACTERS]
     return None
 
 
@@ -186,14 +186,17 @@ def silence_context(all_entries: list[dict[str, object]]) -> str | None:
         all_entries: The transcript entries, oldest first.
 
     Returns:
-        The note that quotes the user's exception, the note with no exception, or None.
+        The note that quotes the user's exception clause, the note that quotes
+        the whole message when it has no "unless" or "except" clause, or None.
     """
     silence_message = newest_silence_message(all_entries)
     if silence_message is None:
         return None
     clause = exception_clause(silence_message)
     if clause is None:
-        return SILENCE_NOTE_WITHOUT_EXCEPTION
+        return SILENCE_NOTE_WITHOUT_EXCEPTION.format(
+            silence_message=silence_message[:MAXIMUM_QUOTED_CHARACTERS]
+        )
     return SILENCE_NOTE_TEMPLATE.format(exception_clause=clause)
 
 
