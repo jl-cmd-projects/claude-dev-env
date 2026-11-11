@@ -38,7 +38,10 @@ from hooks_constants.pieces_per_level_note_constants import (
     CONVENTIONAL_SUBJECT_PATTERN,
     DESCRIPTION_GROUP,
     MASKED_TEXT,
+    MAXIMUM_BODY_CHARACTERS,
+    MAXIMUM_LINE_CHARACTERS,
     MAXIMUM_PIECE_CHARACTERS,
+    MAXIMUM_TITLE_CHARACTERS,
     MINIMUM_CLAUSE_WORD_COUNT,
     MINIMUM_PIECE_COUNT,
     PARENTHESIS_PATTERN,
@@ -132,8 +135,11 @@ def subject_pieces(subject: str) -> list[str]:
 
     Returns:
         Each verb-led clause in the author's words when there are at least
-        two, else an empty list.
+        two, else an empty list. A subject over ``MAXIMUM_TITLE_CHARACTERS``
+        names no pieces.
     """
+    if len(subject) > MAXIMUM_TITLE_CHARACTERS:
+        return []
     subject_match = CONVENTIONAL_SUBJECT_PATTERN.match(subject.strip())
     if subject_match is None:
         return []
@@ -156,7 +162,10 @@ def _is_section_end(line: str, heading_level: int) -> bool:
 
 
 def _section_lines(body: str, heading_pattern: str) -> list[str]:
-    all_lines = body.splitlines()
+    all_lines = [
+        each_line[:MAXIMUM_LINE_CHARACTERS]
+        for each_line in body[:MAXIMUM_BODY_CHARACTERS].splitlines()
+    ]
     all_fenced_flags = fenced_line_flags(all_lines)
     all_heading_levels = [
         None if is_fenced else _heading_level(each_line, heading_pattern)

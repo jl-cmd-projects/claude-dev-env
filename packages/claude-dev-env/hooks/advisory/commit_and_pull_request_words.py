@@ -17,6 +17,7 @@ that never closes give no words. The module opens only a regular file a
 from __future__ import annotations
 
 import bisect
+import functools
 import itertools
 import os
 import shlex
@@ -39,6 +40,7 @@ from hooks_constants.pieces_per_level_note_constants import (
     ALL_GH_CREATE_WORDS,
     ALL_MESSAGE_LONG_OPTIONS,
     ALL_SHELL_CONTROL_TOKENS,
+    ALL_SUBSTITUTION_MARKERS,
     BACKSLASH,
     CARRIAGE_RETURN,
     CARRIAGE_RETURN_LINE_FEED,
@@ -60,7 +62,9 @@ from hooks_constants.pieces_per_level_note_constants import (
     LONG_OPTION_PREFIX,
     MAXIMUM_FILE_BYTES,
     MAXIMUM_PROGRAM_MENTIONS,
+    MAXIMUM_SUBSTITUTION_MARKERS,
     MAXIMUM_WRAPPED_TEXTS,
+    PARSE_CACHE_SIZE,
     MESSAGE_KIND,
     MESSAGE_SHORT_FLAG,
     MINIMUM_HEREDOC_BODY_LINE_OFFSET,
@@ -84,17 +88,30 @@ def _tokens_or_none(text: str) -> list[str] | None:
         return None
 
 
-def _all_token_lists(command: str) -> Iterator[list[str]]:
+def _command_texts(command: str) -> list[str]:
+    marker_count = sum(command.count(each_marker) for each_marker in ALL_SUBSTITUTION_MARKERS)
+    if marker_count > MAXIMUM_SUBSTITUTION_MARKERS:
+        return [command]
+    return all_wrapped_command_texts(command, MAXIMUM_WRAPPED_TEXTS)
+
+
+@functools.lru_cache(maxsize=PARSE_CACHE_SIZE)
+def _all_token_lists(command: str) -> tuple[list[str], ...]:
     all_variants = (
         each_variant
-        for each_text in itertools.islice(all_wrapped_command_texts(command), MAXIMUM_WRAPPED_TEXTS)
+        for each_text in _command_texts(command)
         for each_variant in (each_text, each_text.replace(BACKSLASH, DOUBLED_BACKSLASH))
     )
-    return (
+    return tuple(
         all_tokens
         for each_variant in all_variants
         if (all_tokens := _tokens_or_none(each_variant)) is not None
     )
+
+
+def clear_parse_cache() -> None:
+    """Forget the parsed commands, so the next read parses its command again."""
+    _all_token_lists.cache_clear()
 
 
 def _arguments_after(all_tokens: list[str], start_index: int) -> list[str]:

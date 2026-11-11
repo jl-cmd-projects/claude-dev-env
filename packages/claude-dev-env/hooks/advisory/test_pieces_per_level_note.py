@@ -29,7 +29,7 @@ SCRIPT_PATH = Path(__file__).resolve().parent / "pieces_per_level_note.py"
 HOOKS_JSON_PATH = Path(__file__).resolve().parent.parent / "hooks.json"
 RUN_TIMEOUT_SECONDS = 30
 HOSTILE_INPUT_SECONDS_BOUND = 1.0
-HOSTILE_SUBPROCESS_SECONDS_BOUND = 3.0
+HOSTILE_SUBPROCESS_SECONDS_BOUND = 5.0
 
 MIXED_SUBJECT = (
     "fix(convert): always publish drawn icons, put Tips on the tray, stop the label smear"
@@ -119,7 +119,7 @@ def test_the_mixed_commit_subject_gets_a_note_that_names_each_piece() -> None:
     assert '"put Tips on the tray"' in note
     assert '"stop the label smear"' in note
     assert "its own commit and its own stack level" in note
-    assert "`git add -p`" in note
+    assert "`git reset --soft HEAD~1`" in note
     assert "`gt create`" in note
 
 

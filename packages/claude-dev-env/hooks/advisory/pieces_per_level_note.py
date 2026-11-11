@@ -9,7 +9,8 @@ name several pieces, it adds one short note as ``additionalContext``::
 
     Your own words name several pieces in this commit: "always publish drawn
     icons"; "put Tips on the tray". Each piece gets its own commit and its own
-    stack level ... Next command: `git add -p` ...
+    stack level ... The commit that is running holds every piece. To split it,
+    run `git reset --soft HEAD~1` ...
 
 The signals, all from the author's words:
 
@@ -23,15 +24,26 @@ The signals, all from the author's words:
 A single behaviour with a compound object or an alternative stays silent, and
 so does a message or body the hook cannot read. A command longer than
 ``MAXIMUM_COMMAND_CHARACTERS`` gets no note, and a message or body file is read
-only when it is a regular file, and only up to ``MAXIMUM_FILE_BYTES`` bytes, so
-the hook always finishes well inside its timeout. The command or tool call runs
-with its normal permission flow.
+only when it is a regular file, and only up to ``MAXIMUM_FILE_BYTES`` bytes. A
+title, a body, and a line of a body are read only up to their character caps.
+
+The whole analysis has a wall-clock budget of ``ANALYSIS_BUDGET_SECONDS``. A call
+that could hold a note runs the analysis in a child process (this script with
+``--analyze``), and the hook kills the child when the budget runs out, prints
+nothing, and exits 0. A child process, not a thread, bounds it: a regular
+expression holds the interpreter lock, so a thread could not give control back
+to a timer. A call that is no commit or pull request create starts no child.
+The command or tool call runs with its normal permission flow.
 """
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
+import threading
 from pathlib import Path
+from typing import IO
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
@@ -51,9 +63,12 @@ from hooks_constants.pieces_per_level_note_constants import (
     ADDITIONAL_CONTEXT_KEY,
     ALL_NEXT_COMMAND_BY_KIND,
     ALL_QUICK_SCAN_WORDS,
+    ANALYSIS_BUDGET_SECONDS,
+    ANALYZE_FLAG,
     BODY_INPUT_KEY,
     COMMAND_INPUT_KEY,
     COMMIT_KIND,
+    CREATE_NO_WINDOW_ATTRIBUTE,
     MAXIMUM_COMMAND_CHARACTERS,
     MAXIMUM_NAMED_PIECES,
     MINIMUM_PROOF_PAIR_COUNT,
@@ -64,6 +79,8 @@ from hooks_constants.pieces_per_level_note_constants import (
     PROOF_PAIRS_PIECE_TEMPLATE,
     PULL_REQUEST_KIND,
     QUOTED_PIECE_TEMPLATE,
+    READY_LINE,
+    STARTUP_ALLOWANCE_SECONDS,
     TITLE_INPUT_KEY,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
@@ -135,12 +152,16 @@ def _note_output(kind: str, all_pieces: list[str]) -> dict[str, object]:
     }
 
 
+def _is_scannable_command(command: object) -> bool:
+    return (
+        isinstance(command, str)
+        and len(command) <= MAXIMUM_COMMAND_CHARACTERS
+        and any(each_word in command for each_word in ALL_QUICK_SCAN_WORDS)
+    )
+
+
 def _shell_note(command: object, working_directory: str) -> dict[str, object] | None:
-    if (
-        not isinstance(command, str)
-        or len(command) > MAXIMUM_COMMAND_CHARACTERS
-        or not any(each_word in command for each_word in ALL_QUICK_SCAN_WORDS)
-    ):
+    if not isinstance(command, str) or not _is_scannable_command(command):
         return None
     all_commit_pieces = commit_pieces(command, working_directory)
     if all_commit_pieces:
@@ -188,13 +209,142 @@ def decide_hook_output(all_hook_fields: dict[str, object]) -> dict[str, object] 
     return _note_output(PULL_REQUEST_KIND, all_pieces) if all_pieces else None
 
 
+def _pump_child_output(
+    stream: IO[bytes],
+    ready_signal: threading.Event,
+    finished_signal: threading.Event,
+    all_chunks: list[bytes],
+) -> None:
+    try:
+        all_chunks.append(stream.readline())
+        ready_signal.set()
+        all_chunks.append(stream.read())
+    except (OSError, ValueError):
+        pass
+    finally:
+        ready_signal.set()
+        finished_signal.set()
+
+
+def _is_ready_line(all_chunks: list[bytes]) -> bool:
+    return bool(all_chunks) and all_chunks[0].strip() == READY_LINE.strip()
+
+
+def _send_payload(child: subprocess.Popen[bytes], payload: bytes) -> bool:
+    if child.stdin is None:
+        return False
+    try:
+        child.stdin.write(payload)
+        child.stdin.close()
+    except OSError:
+        return False
+    return True
+
+
+def _start_child(all_arguments: list[str]) -> subprocess.Popen[bytes] | None:
+    try:
+        return subprocess.Popen(
+            all_arguments,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, CREATE_NO_WINDOW_ATTRIBUTE, 0),
+        )
+    except OSError:
+        return None
+
+
+def _watch_child(
+    child: subprocess.Popen[bytes],
+) -> tuple[threading.Event, threading.Event, list[bytes]]:
+    ready_signal = threading.Event()
+    finished_signal = threading.Event()
+    all_chunks: list[bytes] = []
+    threading.Thread(
+        target=_pump_child_output,
+        args=(child.stdout, ready_signal, finished_signal, all_chunks),
+        daemon=True,
+    ).start()
+    return ready_signal, finished_signal, all_chunks
+
+
+def analysis_output(
+    payload: bytes, all_arguments: list[str], budget_seconds: float, startup_seconds: float
+) -> bytes:
+    """Run the analysis as a child process and return what it printed, or nothing.
+
+    The child prints ``READY_LINE`` once it has imported, then reads the payload.
+    The budget runs from that line. A child past a limit or exiting non-zero
+    gives empty bytes, and the child is killed.
+
+    Args:
+        payload: The raw PreToolUse payload the child reads on standard input.
+        all_arguments: The child command line.
+        budget_seconds: The time the analysis may take after the ready line.
+        startup_seconds: The time the child may take to print the ready line.
+    """
+    child = _start_child(all_arguments)
+    if child is None:
+        return b""
+    ready_signal, finished_signal, all_chunks = _watch_child(child)
+    try:
+        is_ready = ready_signal.wait(startup_seconds) and _is_ready_line(all_chunks)
+        is_finished = (
+            is_ready and _send_payload(child, payload) and finished_signal.wait(budget_seconds)
+        )
+        return all_chunks[1] if is_finished and child.wait(startup_seconds) == 0 else b""
+    except (subprocess.TimeoutExpired, IndexError):
+        return b""
+    finally:
+        child.kill()
+
+
+def _could_hold_a_note(payload: bytes) -> bool:
+    try:
+        all_hook_fields = json.loads(payload)
+    except ValueError:
+        return False
+    if not isinstance(all_hook_fields, dict):
+        return False
+    all_tool_input = all_hook_fields.get(TOOL_INPUT_KEY)
+    tool_name = all_hook_fields.get(TOOL_NAME_KEY)
+    if not isinstance(all_tool_input, dict) or not isinstance(tool_name, str):
+        return False
+    if tool_name in SHELL_TOOL_NAMES:
+        return _is_scannable_command(all_tool_input.get(COMMAND_INPUT_KEY))
+    return tool_name.endswith(CREATE_PULL_REQUEST_TOOL_SUFFIX)
+
+
+def _run_within_budget() -> int:
+    try:
+        payload = sys.stdin.buffer.read()
+    except (AttributeError, OSError):
+        return 0
+    if not sys.executable or not _could_hold_a_note(payload):
+        return 0
+    output = analysis_output(
+        payload,
+        [sys.executable, str(Path(__file__).resolve()), ANALYZE_FLAG],
+        ANALYSIS_BUDGET_SECONDS,
+        STARTUP_ALLOWANCE_SECONDS,
+    )
+    if output:
+        sys.stdout.buffer.write(output)
+        sys.stdout.buffer.flush()
+    return 0
+
+
 def main() -> int:
-    """Read the PreToolUse payload and print the note when the words name several pieces.
+    """Print the note when the words name several pieces, inside the wall-clock budget.
 
     Returns:
         0 in every case; the note travels in the JSON output.
     """
-    return run_context_hook(decide_hook_output)
+    if ANALYZE_FLAG in sys.argv[1:]:
+        sys.stdout.buffer.write(READY_LINE)
+        sys.stdout.buffer.flush()
+        return run_context_hook(decide_hook_output)
+    return _run_within_budget()
 
 
 if __name__ == "__main__":

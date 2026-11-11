@@ -43,6 +43,17 @@ MAXIMUM_COMMAND_CHARACTERS = 8_000
 MAXIMUM_FILE_BYTES = 65_536
 MAXIMUM_PROGRAM_MENTIONS = 16
 MAXIMUM_WRAPPED_TEXTS = 8
+MAXIMUM_SUBSTITUTION_MARKERS = 16
+MAXIMUM_TITLE_CHARACTERS = 300
+MAXIMUM_BODY_CHARACTERS = 20_000
+MAXIMUM_LINE_CHARACTERS = 500
+ANALYSIS_BUDGET_SECONDS = 0.6
+STARTUP_ALLOWANCE_SECONDS = 5.0
+ANALYZE_FLAG = "--analyze"
+READY_LINE = b"ready\n"
+CREATE_NO_WINDOW_ATTRIBUTE = "CREATE_NO_WINDOW"
+PARSE_CACHE_SIZE = 2
+ALL_SUBSTITUTION_MARKERS = ("$(", "`")
 
 HEREDOC_MESSAGE_PATTERN = re.compile(
     r"^\s*\$\(\s*cat\s+<<-?\s*(?P<quote>['\"]?)(?P<tag>\w+)(?P=quote)[ \t]*\n(?P<text>.*?)\n[ \t]*(?P=tag)[ \t]*\n?\s*\)\s*$",
@@ -217,8 +228,9 @@ PROOF_PAIRS_PIECE_TEMPLATE = "{count} without/with proof pairs under Proof in pr
 QUOTED_PIECE_TEMPLATE = '"{piece}"'
 
 COMMIT_NEXT_COMMAND = (
-    "Next command: `git add -p` to stage the files of the first piece only, commit it, "
-    "then `gt create` (or `git switch -c <next-branch>` without Graphite) for the next piece."
+    "The commit that is running holds every piece. To split it, run `git reset --soft HEAD~1`, "
+    "then `git add <paths of the first piece>` and commit, then put the next piece on its own "
+    "level with `gt create` (or `git switch -c <next-branch>` without Graphite)."
 )
 PULL_REQUEST_NEXT_COMMAND = (
     "Next command: `gt create` (or `git switch -c <next-branch>` from the previous level) for "

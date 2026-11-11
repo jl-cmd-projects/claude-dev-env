@@ -92,4 +92,4 @@ def test_the_pull_request_skill_points_its_decision_tree_at_the_delivery_section
 def test_the_enforcement_section_names_the_note_and_keeps_it_non_blocking() -> None:
     enforcement_text = GUIDE_PATH.read_text(encoding="utf-8").split("## Enforcement", 1)[1]
     assert "hooks/advisory/pieces_per_level_note.py" in enforcement_text
-    assert "It never denies, delays, or exits non-zero." in enforcement_text
+    assert "It never denies or exits non-zero, and a wall-clock budget of 0.6 seconds bounds its run." in enforcement_text
