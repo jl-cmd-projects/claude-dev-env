@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.113.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.112.1...claude-dev-env-v8.113.0) (2026-11-11)
+
+
+### Features
+
+* **hooks:** keep a background event turn silent while the user asked for silence ([#2298](https://github.com/jl-cmd-projects/claude-dev-env/issues/2298)) ([5775548](https://github.com/jl-cmd-projects/claude-dev-env/commit/5775548d32747f03ae30e76b171b64e4f3115541))
+
 ## [8.112.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.112.0...claude-dev-env-v8.112.1) (2026-11-11)
 
 
