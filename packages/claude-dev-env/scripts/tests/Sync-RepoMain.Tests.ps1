@@ -86,6 +86,23 @@ BeforeAll {
         Invoke-TestGit -RepoPath $Fixture.MirrorPath -Arguments @('commit', '-q', '-am', 'feature edit') | Out-Null
         return Invoke-TestGit -RepoPath $Fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')
     }
+
+    function New-MirrorDivergedFromRemote {
+        <#
+          Builds the mirror from New-MirrorBehindRemote, then commits local-only.txt
+          on the mirror's main. The mirror then holds a commit the remote lacks and
+          misses the remote's newer commit, the way a mirror looks after the remote
+          history was rewritten.
+        #>
+        param([string]$Name)
+        $fixture = New-MirrorBehindRemote -Name $Name
+        Write-TestFile -RepoPath $fixture.MirrorPath -RelativePath 'local-only.txt' -Content "local commit`n"
+        Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('add', '-A') | Out-Null
+        Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('commit', '-q', '-m', 'local only') | Out-Null
+        $localTip = Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')
+        $fixture | Add-Member -NotePropertyName LocalTip -NotePropertyValue $localTip
+        return $fixture
+    }
 }
 
 Describe 'Sync-RepoMain' {
@@ -147,6 +164,44 @@ Describe 'Sync-RepoMain' {
         (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.OldTip
         [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'added.txt')) | Should -Be "local only`n"
         [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'tracked.txt')) | Should -Be "new`n"
+    }
+
+    It 'refuses a diverged tree with exit 4 when -Mirror is absent' {
+        $fixture = New-MirrorDivergedFromRemote -Name 'diverged-no-mirror'
+
+        $exitCode = Invoke-SyncScript -Fixture $fixture
+
+        $exitCode | Should -Be 4
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.LocalTip
+    }
+
+    It 'realigns a diverged mirror onto the remote tip and stashes a tracked file that differs' {
+        $fixture = New-MirrorDivergedFromRemote -Name 'diverged-mirror'
+        Write-TestFile -RepoPath $fixture.MirrorPath -RelativePath 'tracked.txt' -Content "local edit`n"
+        $backupRef = 'refs/mirror-backup/{0}-{1}' -f (Get-Date -Format 'yyyy-MM-dd'), $fixture.LocalTip.Substring(0, 12)
+
+        $exitCode = Invoke-MirrorSyncScript -Fixture $fixture
+
+        $exitCode | Should -Be 0
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.RemoteTip
+        [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'tracked.txt')) | Should -Be "new`n"
+        [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'added.txt')) | Should -Be "added`n"
+        [System.IO.File]::ReadAllText((Join-Path $fixture.MirrorPath 'local-only.txt')) | Should -Be "local commit`n"
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', $backupRef)) | Should -Be $fixture.LocalTip
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('stash', 'list')) | Should -Match 'mirror realign'
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('show', 'stash@{0}:tracked.txt')) | Should -Be 'local edit'
+    }
+
+    It 'keeps the old tip when the index holds staged changes during a realign' {
+        $fixture = New-MirrorDivergedFromRemote -Name 'diverged-staged'
+        Write-TestFile -RepoPath $fixture.MirrorPath -RelativePath 'tracked.txt' -Content "staged edit`n"
+        Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('add', 'tracked.txt') | Out-Null
+
+        $exitCode = Invoke-MirrorSyncScript -Fixture $fixture
+
+        $exitCode | Should -Be 1
+        (Invoke-TestGit -RepoPath $fixture.MirrorPath -Arguments @('rev-parse', 'HEAD')) | Should -Be $fixture.LocalTip
+        (Get-Content -LiteralPath $fixture.LogPath -Raw) | Should -Match 'realign skipped: the index holds staged changes'
     }
 
     It 'skips without fetching while another sync of the same repo holds the run lock' {

@@ -17,11 +17,15 @@
   - When the fast-forward fails because the files were already copied in,
     moves HEAD with a mixed reset, which writes no files. It keeps that move
     only when every file the remote changed now matches the remote
+  - When a -Mirror tree diverged from the remote, keeps the old tip under
+    refs/mirror-backup/, moves HEAD with a mixed reset, and stashes every
+    tracked file that still differs from the remote
   - Logs and exits non-zero on skip, diverge, or failure so a Task Scheduler
     history row can surface a problem instead of a silent no-op
 
   Exit codes: 0 success, 1 git operation failed, 2 configuration or repo
-  problem, 3 skipped by a safety rule, 4 diverged from the remote.
+  problem, 3 skipped by a safety rule, 4 diverged from the remote (a -Mirror
+  tree realigns instead).
 
 .PARAMETER RepoPath
   Absolute path to the git working tree. Required.
@@ -57,6 +61,15 @@
   content is lost. When a step of the return fails, HEAD and the index go
   back to the old checkout and the run exits 1. Without the switch, any
   other checkout is skipped.
+
+  A mirror whose history diverged from the remote, as after a rewrite of the
+  remote history, realigns instead of exiting 4. The old tip stays reachable
+  as refs/mirror-backup/<yyyy-MM-dd>-<tip>, HEAD and the index move to the
+  remote tip with a mixed reset, and every tracked file that still differs is
+  stashed as "mirror realign <yyyy-MM-dd>: tree before moving <tip> to
+  <remote>/<branch>". Untracked files are never touched. A staged index skips
+  the realign. When a step fails, HEAD goes back to the old tip and the run
+  exits 1.
 
 .PARAMETER LogPath
   Absolute path to the run log (default: $HOME\.claude\logs\sync-repo-main.log).
@@ -284,6 +297,67 @@ function Invoke-AdoptCopiedTree {
     return $false
 }
 
+function Invoke-MirrorRealign {
+    <#
+      Moves a mirror whose history diverged from the remote onto the remote
+      tip. A rewritten remote history leaves a mirror with commits the remote
+      no longer holds, and a fast-forward can never reach it again.
+
+      The old tip is kept under refs/mirror-backup/ first. A mixed reset then
+      moves HEAD and the index to the remote tip and writes no files. Every
+      tracked file that still differs from the remote is stashed, which puts the
+      remote content in its place and keeps the old content in the stash list.
+      Untracked files stay. A failure after the reset puts HEAD back on the old
+      tip, so the next run meets the same state and tries again.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [string]$LocalTip,
+        [Parameter(Mandatory)]
+        [string]$RemoteRef
+    )
+    $stagedResult = Invoke-Git -Arguments @('diff', '--cached', '--quiet')
+    if ($stagedResult.ExitCode -ne 0) {
+        Write-SyncLog -Level 'ERROR' -Message 'realign skipped: the index holds staged changes'
+        return $false
+    }
+    $backupRef = 'refs/mirror-backup/{0}-{1}' -f (Get-Date -Format 'yyyy-MM-dd'), $LocalTip.Substring(0, 12)
+    $backupResult = Invoke-Git -Arguments @('update-ref', $backupRef, $LocalTip)
+    if ($backupResult.ExitCode -ne 0) {
+        Write-SyncLog -Level 'ERROR' -Message "realign skipped: cannot keep the old tip under ${backupRef}: $($backupResult.Output)"
+        return $false
+    }
+    $resetResult = Invoke-Git -Arguments @('reset', '-q', $RemoteRef)
+    if ($resetResult.ExitCode -ne 0) {
+        Write-SyncLog -Level 'ERROR' -Message "realign skipped: mixed reset failed: $($resetResult.Output)"
+        return $false
+    }
+    $differResult = Invoke-Git -Arguments @('diff', '--name-only', '--no-renames', '-z')
+    $stashNote = 'every tracked file already matched'
+    $failure = if ($differResult.ExitCode -ne 0) { "cannot list the files that differ: $($differResult.Output)" }
+    if (-not $failure) {
+        $allDifferingPaths = @(Get-NulSeparatedPaths -Output $differResult.Output)
+        if ($allDifferingPaths.Count -gt 0) {
+            $realignStashMessage = 'mirror realign {0}: tree before moving {1} to {2}' -f (Get-Date -Format 'yyyy-MM-dd'), $LocalTip, $RemoteRef
+            $stashResult = Invoke-Git -Arguments @('stash', 'push', '-m', $realignStashMessage)
+            if ($stashResult.ExitCode -ne 0) {
+                $failure = "stashing $($allDifferingPaths.Count) differing file(s) failed: $($stashResult.Output)"
+            }
+            else {
+                $stashNote = "$($allDifferingPaths.Count) differing file(s) are stashed as '$realignStashMessage'"
+            }
+        }
+    }
+    if ($failure) {
+        $revertResult = Invoke-Git -Arguments @('reset', '-q', $LocalTip)
+        $revertNote = if ($revertResult.ExitCode -eq 0) { "HEAD is back at $LocalTip" } else { "putting HEAD back at $LocalTip also failed: $($revertResult.Output)" }
+        Write-SyncLog -Level 'ERROR' -Message "realign failed, $failure; $revertNote"
+        return $false
+    }
+    Write-SyncLog -Level 'MIRROR' -Message "realigned onto ${RemoteRef}: old tip $LocalTip is kept as $backupRef; $stashNote"
+    return $true
+}
+
 function Get-RunLockName {
     $lockPath = [System.IO.Path]::TrimEndingDirectorySeparator([System.IO.Path]::GetFullPath($RepoPath))
     $resolveLinkTarget = [System.IO.Directory].GetMethod('ResolveLinkTarget', [type[]]([string], [bool]))
@@ -361,8 +435,17 @@ try {
     $ancestorResult = Invoke-Git -Arguments @('merge-base', '--is-ancestor', $Branch, "$Remote/$Branch")
     if ($ancestorResult.ExitCode -ne 0) {
         $countResult = Invoke-Git -Arguments @('rev-list', '--left-right', '--count', "${Branch}...${Remote}/${Branch}")
-        Write-SyncLog -Level 'ERROR' -Message "diverged from $Remote/$Branch (counts=$($countResult.Output)); fast-forward refused. local=$localTip remote=$remoteTip"
-        exit 4
+        if (-not $Mirror) {
+            Write-SyncLog -Level 'ERROR' -Message "diverged from $Remote/$Branch (counts=$($countResult.Output)); fast-forward refused. local=$localTip remote=$remoteTip"
+            exit 4
+        }
+        Write-SyncLog -Level 'MIRROR' -Message "diverged from $Remote/$Branch (counts=$($countResult.Output)); realigning the mirror. local=$localTip remote=$remoteTip"
+        if (-not (Invoke-MirrorRealign -LocalTip $localTip -RemoteRef "$Remote/$Branch")) {
+            exit 1
+        }
+        $subject = Get-GitDecoration -Arguments @('log', '-1', '--format=%h %s') -Placeholder '<subject unavailable>'
+        Write-SyncLog -Level 'OK' -Message "$Branch $localTip -> $remoteTip realigned | $subject"
+        exit 0
     }
 
     $didStash = $false
