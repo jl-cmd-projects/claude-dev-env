@@ -51,6 +51,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ProductAdapter,
     PUBLISHED_USAGE_DIRECTORY_ENV_VAR,
     PUBLISHED_USAGE_FILE_PATTERN,
+    PUBLISHED_USAGE_CLOCK_SKEW_SECONDS,
     PUBLISHED_USAGE_MAX_AGE_SECONDS,
     Reading,
     Report,
@@ -295,7 +296,8 @@ def read_published_meters(account: Account) -> Meters | None:
             ->  Meters(weekly_percent_left=45.0, ...), and the usage endpoint is not called
 
     A reading matches an account when its ``name`` equals the account home's folder name.
-    A reading older than ``PUBLISHED_USAGE_MAX_AGE_SECONDS`` is ignored.
+    A reading older than ``PUBLISHED_USAGE_MAX_AGE_SECONDS``, or dated more than
+    ``PUBLISHED_USAGE_CLOCK_SKEW_SECONDS`` ahead of now, is ignored. The newest match wins.
 
     Args:
         account: Account whose meter is read.
@@ -306,18 +308,24 @@ def read_published_meters(account: Account) -> Meters | None:
     folder_text = os.environ.get(PUBLISHED_USAGE_DIRECTORY_ENV_VAR)
     if not folder_text:
         return None
-    for each_row in _fresh_published_rows(Path(folder_text), datetime.now(timezone.utc)):
-        if str(each_row.get("name", "")).casefold() == account.home.name.casefold():
-            return _meters_from_payload(each_row.get("meters"))
-    return None
+    home_name = account.home.name.casefold()
+    all_matches = [
+        (each_read_at, each_row)
+        for each_read_at, each_row in _fresh_published_rows(Path(folder_text), datetime.now(timezone.utc))
+        if str(each_row.get("name", "")).casefold() == home_name
+    ]
+    if not all_matches:
+        return None
+    newest_row = max(all_matches, key=lambda each_match: each_match[0])[1]
+    return _meters_from_payload(newest_row.get("meters"))
 
 
-def _fresh_published_rows(folder: Path, now: datetime) -> Iterator[dict[str, object]]:
+def _fresh_published_rows(folder: Path, now: datetime) -> Iterator[tuple[datetime, dict[str, object]]]:
     for each_path in sorted(folder.glob(PUBLISHED_USAGE_FILE_PATTERN)):
         yield from _fresh_rows_of(each_path, now)
 
 
-def _fresh_rows_of(reading_path: Path, now: datetime) -> list[dict[str, object]]:
+def _fresh_rows_of(reading_path: Path, now: datetime) -> list[tuple[datetime, dict[str, object]]]:
     try:
         reading = json.loads(reading_path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
@@ -325,9 +333,12 @@ def _fresh_rows_of(reading_path: Path, now: datetime) -> list[dict[str, object]]
     if not isinstance(reading, dict) or not isinstance(reading.get("accounts"), list):
         return []
     read_at = parse_utc_time(reading.get("read_at"))
-    if read_at is None or (now - read_at).total_seconds() > PUBLISHED_USAGE_MAX_AGE_SECONDS:
+    if read_at is None:
         return []
-    return [each_row for each_row in reading["accounts"] if isinstance(each_row, dict)]
+    age_seconds = (now - read_at).total_seconds()
+    if not -PUBLISHED_USAGE_CLOCK_SKEW_SECONDS <= age_seconds <= PUBLISHED_USAGE_MAX_AGE_SECONDS:
+        return []
+    return [(read_at, each_row) for each_row in reading["accounts"] if isinstance(each_row, dict)]
 
 
 def read_claude_meters(account: Account) -> Meters | None:

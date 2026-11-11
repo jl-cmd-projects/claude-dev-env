@@ -285,6 +285,22 @@ def test_should_read_claude_meters_from_a_fresh_published_reading_without_a_prob
     assert meters.weekly_resets_at == datetime(2026, 10, 10, 6, tzinfo=timezone.utc)
 
 
+def test_should_use_the_newest_of_two_published_readings_for_one_account(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    readings_folder = tmp_path / "readings"
+    _write_published_reading(readings_folder, "alpha", datetime.now(timezone.utc) - timedelta(minutes=20))
+    newer = json.loads((readings_folder / "meters-ALPHA.json").read_text(encoding="utf-8"))
+    newer["read_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    newer["accounts"][0]["meters"]["weekly_percent_left"] = 12.0
+    (readings_folder / "meters-ZULU.json").write_text(json.dumps(newer), encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
+
+    meters = support.read_published_meters(Account(Product.CLAUDE, "one", tmp_path / "alpha"))
+
+    assert meters.weekly_percent_left == 12.0
+
+
 def test_should_find_no_published_meters_when_no_readings_folder_is_named(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -299,7 +315,7 @@ def test_should_find_no_published_meters_when_no_readings_folder_is_named(
 
 @pytest.mark.parametrize(
     ("profile_name", "age_minutes"),
-    [("alpha", 45), ("beta", 1)],
+    [("alpha", 45), ("beta", 1), ("alpha", -60)],
 )
 def test_should_probe_when_the_published_reading_is_old_or_for_another_account(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, profile_name: str, age_minutes: int
