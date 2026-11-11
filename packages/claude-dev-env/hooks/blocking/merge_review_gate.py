@@ -50,6 +50,7 @@ from hooks_constants.hook_specific_output_keys import (
     PERMISSION_DECISION_KEY,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_AUTO_FLAG_VALUE_PREFIXES,
     ALL_OPTIONS_WITH_VALUE,
     ALL_SHELL_TOOL_NAMES,
     AUTO_MERGE_REASON_TEMPLATE,
@@ -60,6 +61,7 @@ from hooks_constants.merge_review_gate_constants import (
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     DISABLE_AUTO_OPTION,
+    END_OF_OPTIONS_WORD,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GH_API_MERGE_PATTERN,
@@ -89,6 +91,7 @@ from hooks_constants.merge_review_gate_constants import (
     SHELL_QUOTED_TEXT_PLACEHOLDER,
     SHELL_WHITESPACE_CHARACTERS,
     SHELL_WORD_SEPARATOR,
+    SHORT_OPTION_PREFIX,
     STALE_REVIEW_REASON_TEMPLATE,
     UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
@@ -268,7 +271,24 @@ def _carries_disable_auto(all_segment_words: list[str]) -> bool:
             continue
         all_argument_words.add(each_word)
         is_option_value = each_word in ALL_OPTIONS_WITH_VALUE
-    return DISABLE_AUTO_OPTION in all_argument_words and AUTO_OPTION not in all_argument_words
+    sets_auto_flag_value = any(
+        each_word.startswith(ALL_AUTO_FLAG_VALUE_PREFIXES) for each_word in all_argument_words
+    )
+    has_unread_flag_form = any(_is_unread_flag_form(each_word) for each_word in all_argument_words)
+    return (
+        DISABLE_AUTO_OPTION in all_argument_words
+        and AUTO_OPTION not in all_argument_words
+        and not sets_auto_flag_value
+        and not has_unread_flag_form
+    )
+
+
+def _is_unread_flag_form(word: str) -> bool:
+    if word == END_OF_OPTIONS_WORD:
+        return True
+    if word.startswith(END_OF_OPTIONS_WORD) or not word.startswith(SHORT_OPTION_PREFIX):
+        return False
+    return len(word) > len(SHORT_OPTION_PREFIX) + 1
 
 
 def _gh_pr_merge_target(arguments: str) -> tuple[str, str, int | None]:

@@ -90,6 +90,9 @@ OPTION_WITH_VALUE_PATTERN = re.compile(
 AUTO_OPTION_PATTERN = re.compile(r"(?:^|\s)--auto(?:\s|$)")
 DISABLE_AUTO_OPTION = "--disable-auto"
 AUTO_OPTION = "--auto"
+ALL_AUTO_FLAG_VALUE_PREFIXES = (AUTO_OPTION + "=", DISABLE_AUTO_OPTION + "=")
+END_OF_OPTIONS_WORD = "--"
+SHORT_OPTION_PREFIX = "-"
 GH_PR_MERGE_CALL_PATTERN = re.compile(r"\bgh(?:\.exe)?\s+pr\s+merge\b")
 GH_PROGRAM_WORD_PATTERN = re.compile(r"(?:^|[/\\])gh(?:\.exe)?$")
 ALL_GH_PR_MERGE_SUBCOMMAND_WORDS = ("pr", "merge")

@@ -220,6 +220,12 @@ def test_should_allow_a_merge_call_that_only_disables_auto_merge(command: str) -
         " && echo x#y && gh pr merge 12 --repo acme/tools",
         "bash -c ' gh pr merge 12 --repo acme/tools --squash' sh --disable-auto",
         "gh pr merge 12 --repo acme/tools --auto --disable-auto",
+        "gh pr merge 12 --repo acme/tools --disable-auto --auto=true",
+        "gh pr merge 12 --repo acme/tools --disable-auto --disable-auto=false",
+        "gh pr merge 12 --repo acme/tools -sb --disable-auto",
+        "gh pr merge 12 --repo acme/tools -dt --disable-auto",
+        "gh pr merge 12 --repo acme/tools -mF --disable-auto",
+        "gh pr merge 12 --repo acme/tools -- --disable-auto",
     ],
 )
 def test_should_check_a_merge_chained_with_a_disable_auto_call(command: str) -> None:
