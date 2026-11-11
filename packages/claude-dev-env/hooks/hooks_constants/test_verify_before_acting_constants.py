@@ -12,6 +12,11 @@ def test_mutating_tool_and_mcp_names_are_classified() -> None:
     assert "create" in constants.ALL_MCP_MUTATING_VERBS
 
 
+def test_advisory_tools_are_scanned_as_mutating_calls() -> None:
+    assert {"Agent", "Task"} == constants.ALL_ADVISORY_TOOL_NAMES
+    assert constants.ALL_ADVISORY_TOOL_NAMES <= constants.ALL_ALWAYS_MUTATING_TOOL_NAMES
+
+
 def test_hedge_pattern_matches_a_hedged_claim_only() -> None:
     assert constants.HEDGE_PATTERN.search("Perhaps the command writes a file.")
     assert constants.HEDGE_PATTERN.search("I might be mistaken.")

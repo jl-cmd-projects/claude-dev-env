@@ -1,6 +1,6 @@
 # Hook lifecycle
 
-The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and MessageDisplay hooks. A hook adds context or rewrites a tool input. The MessageDisplay hook, `chat_reply_gate.py`, shows a short draft in place of a chat reply that breaks the reply rules. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. Policy checks run as linters and continuous-integration jobs.
+The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and MessageDisplay hooks. A hook adds context or rewrites a tool input. The MessageDisplay hook, `chat_reply_gate.py`, shows a short draft in place of a chat reply that breaks the reply rules. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. For an `Agent` or `Task` spawn it returns `additionalContext` and no `block`. Policy checks run as linters and continuous-integration jobs.
 
 ## Sub-features
 
@@ -9,7 +9,7 @@ The installed package registers SessionStart, UserPromptSubmit, PreToolUse, Post
 - `bash-rewrite` returns a `PreToolUse` envelope that allows a `git show <rev>:<path>` call and prefixes `MSYS2_ARG_CONV_EXCL`.
 - `spawn-pass-through` adds no poteto-mode line to an `Agent` or `Task` prompt.
 - `poteto-reminder` tells a workflow helper to load poteto-mode at its start, and tells a session that invoked the skill to load it again after a compaction drops it.
-- `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call.
+- `verify-before-acting` returns a `PostToolUse` `block` that quotes the hedge sentence behind a mutating call. A hedged `Agent` or `Task` spawn gets the quote as `additionalContext` instead.
 - `policy-lint-timing` runs policy checks from `cde lint` and CI only.
 
 ## How to get to it (user POV)
@@ -33,12 +33,12 @@ Preconditions:
 - **Compaction reminder.** Write `<scratch>/skill.jsonl` with an assistant record holding a `tool_use` block named `Skill` with input `{"skill":"poteto-mode"}`, then a record with `subtype` `compact_boundary`. Pipe `{"hook_event_name":"SessionStart","source":"compact","transcript_path":"<scratch>/skill.jsonl"}`. The `SessionStart` envelope's `additionalContext` starts `The context was just compacted`. The same payload without `transcript_path`, or with `"source":"startup"`, prints nothing.
 - **Workflow helper.** Pipe `{"hook_event_name":"SubagentStart","agent_type":"workflow-subagent"}`. The `SubagentStart` envelope's `additionalContext` starts `The poteto-mode skill is not loaded`.
 - **User turn.** Pipe `{"hook_event_name":"UserPromptSubmit","transcript_path":"<file>"}`. `<scratch>/skill.jsonl` returns the not-loaded reminder, since its `Skill` call for `poteto-mode` comes before its last `compact_boundary`. A transcript without such a call prints nothing, and so does a transcript whose last such call follows its last `compact_boundary`.
-- **Hedged write.** Write `<scratch>/transcript.jsonl` with two assistant records that share `message.id` `m1`. The first holds a `thinking` block reading `The config probably lives in settings.json.`, and the second holds a `tool_use` block with `id` `t1`. Set `HOME` and `USERPROFILE` to `<scratch>`, then pipe `{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{},"tool_use_id":"t1","transcript_path":"<scratch>/transcript.jsonl"}` into `python3 <scratch>/.claude/hooks/blocking/verify_before_acting.py`. Stdout is one envelope with `decision` `block` and a `reason` that quotes the hedge sentence. `<scratch>/.claude/logs/verify-before-acting.jsonl` gains a `blocked` line. The same payload with `tool_name` `Read` prints nothing and logs nothing.
+- **Hedged write.** Write `<scratch>/transcript.jsonl` with two assistant records that share `message.id` `m1`. The first holds a `thinking` block reading `The config probably lives in settings.json.`, and the second holds a `tool_use` block with `id` `t1`. Set `HOME` and `USERPROFILE` to `<scratch>`, then pipe `{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{},"tool_use_id":"t1","transcript_path":"<scratch>/transcript.jsonl"}` into `python3 <scratch>/.claude/hooks/blocking/verify_before_acting.py`. Stdout is one envelope with `decision` `block` and a `reason` that quotes the hedge sentence. `<scratch>/.claude/logs/verify-before-acting.jsonl` gains a `blocked` line. The same payload with `tool_name` `Agent` prints an envelope whose `hookSpecificOutput.additionalContext` quotes the hedge sentence, with no `decision` key, and the log gains an `advised` line. The same payload with `tool_name` `Read` prints nothing and logs nothing.
 - **Proof.** Keep `<scratch>-evidence`, the three playtest lines, and the stdout of each piped payload. Remove `<scratch>` after the run.
 
 ## Gotchas
 
-- No hook returns `deny` or `ask`. A rewrite is `allow` with `updatedInput`. The one `block` comes from `verify_before_acting.py` after the tool has run, so the change stays on disk until the model undoes it. A linter fails only its own command.
+- No hook returns `deny` or `ask`. A rewrite is `allow` with `updatedInput`. The one `block` comes from `verify_before_acting.py` after a file-writing, shell, or MCP write call has run, so the change stays on disk until the model undoes it. A spawn gets an advisory note in place of the block. A linter fails only its own command.
 - Empty stdout with exit `0` is the pass for a quiet branch. Check the exit code before you read silence as a pass.
 - A missing or unreadable transcript counts as never invoked, so `UserPromptSubmit` and the compact `SessionStart` print nothing.
 - `--home` keeps the scratch home after the run. Without `--home`, the playtest removes its own scratch home.
