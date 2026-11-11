@@ -56,6 +56,8 @@ __all__ = [
     "REVIEW_LOOP_CONTEXT_TEMPLATE",
     "SESSION_RECORD_FILE_TEMPLATE",
     "SESSION_RECORD_TEMPORARY_PREFIX",
+    "STOP_BLOCK_RECORD_FILE_TEMPLATE",
+    "STOP_BLOCK_RECORD_TEMPORARY_PREFIX",
     "ALL_PULL_REQUEST_FIELD_NAMES",
 ]
 
@@ -116,6 +118,8 @@ JSON_OBJECT_OPENER: str = "{"
 
 SESSION_RECORD_FILE_TEMPLATE: str = "owned-pr-loop-{session_file_id}.json"
 SESSION_RECORD_TEMPORARY_PREFIX: str = "owned-pr-loop-"
+STOP_BLOCK_RECORD_FILE_TEMPLATE: str = "owned-pr-stop-blocks-{session_file_id}.json"
+STOP_BLOCK_RECORD_TEMPORARY_PREFIX: str = "owned-pr-stop-blocks-"
 ALL_PULL_REQUEST_FIELD_NAMES: tuple[str, ...] = ("owner", "repository", "number", "url")
 
 REVIEW_LOOP_CONTEXT_TEMPLATE: str = (

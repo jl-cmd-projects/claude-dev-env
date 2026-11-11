@@ -43,7 +43,9 @@ a check did not run::
 It denies an Actions run, a pull request link, or a run, job, or check id
 that no successful tool result in the transcript shows. A subagent's report
 is the result of its Agent call. With no readable transcript, this check
-is skipped.
+is skipped. The closing-reply gate uses
+``unseen_citation_violation_with_hook_text``, where a pull request link also
+counts as shown when hook or harness text shows it.
 
 The banned-word, unvalidated claim, and citation checks also read the prose of a
 decision card: its question, its context, and each option's label and
@@ -99,6 +101,7 @@ from json_file_reader import read_json_object
 from visual_reply_rules import (
     VisualReplyRules,
     abbreviation_violation,
+    hook_supplied_text,
     load_rules,
     mode_enabled,
     results_picture_violation,
@@ -152,6 +155,7 @@ from hooks_constants.reply_length_gate_constants import (
     CARD_TEXT_SEPARATOR,
     CITED_NUMBER_IN_RESULT_TEMPLATE,
     CITED_NUMBER_PATTERN,
+    CITED_PULL_NUMBER_GROUP,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONFIG_FILE_ENCODING,
     CURLY_APOSTROPHE,
@@ -176,8 +180,10 @@ from hooks_constants.reply_length_gate_constants import (
     MAXIMUM_WORDS_PER_SENTENCE,
     MID_SENTENCE_COLON_MESSAGE,
     MID_SENTENCE_COLON_PATTERN,
+    PULL_LINK_IN_HOOK_TEXT_TEMPLATE,
     QUESTION_CARD_QUESTIONS_KEY,
     QUESTION_CARD_TOOL_NAME,
+    REPLY_ECHO_PATTERN,
     RETRY_INSTRUCTION,
     SENTENCE_END_PATTERN,
     SENTENCE_PREVIEW_SUFFIX,
@@ -416,19 +422,15 @@ def unvalidated_claim_violation(reply_text: str) -> str | None:
     return joined_violations(all_claims)
 
 
-def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
-    """Return the deny reason for each cited run, job, check, or pull request no tool result shows.
-
-    Returns None when the text cites nothing or the transcript cannot be read.
-    """
+def _citations_no_tool_result_shows(reply_text: str, transcript_path: object) -> list[re.Match[str]]:
     all_citations = list(CITED_NUMBER_PATTERN.finditer(FENCED_BLOCK_PATTERN.sub(" ", reply_text)))
     if not all_citations:
-        return None
+        return []
     result_text = successful_result_text(transcript_path)
     if result_text is None:
-        return None
-    return joined_violations(
-        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        return []
+    return [
+        each_match
         for each_match in all_citations
         if re.search(
             CITED_NUMBER_IN_RESULT_TEMPLATE.format(
@@ -437,6 +439,46 @@ def unseen_citation_violation(reply_text: str, transcript_path: object) -> str |
             result_text,
         )
         is None
+    ]
+
+
+def unseen_citation_violation(reply_text: str, transcript_path: object) -> str | None:
+    """Return the deny reason for each cited run, job, check, or pull request no tool result shows.
+
+    Returns None when the text cites nothing or the transcript cannot be read.
+    """
+    return joined_violations(
+        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        for each_match in _citations_no_tool_result_shows(reply_text, transcript_path)
+    )
+
+
+def unseen_citation_violation_with_hook_text(reply_text: str, transcript_path: object) -> str | None:
+    """Return the deny reason for each cited run, job, check, or pull request the session never showed.
+
+    A tool result that shows the number counts for every kind. A ``/pull/N``
+    link also counts when hook or harness text shows the same link, such as
+    stop-hook feedback or a background agent's task notification. This gate's
+    own feedback, which quotes the citation or sentence it blocked, does not count.
+
+    Returns None when the text cites nothing or the transcript cannot be read.
+    """
+    all_unseen = _citations_no_tool_result_shows(reply_text, transcript_path)
+    hook_text = (
+        REPLY_ECHO_PATTERN.sub(" ", hook_supplied_text(transcript_path) or "")
+        if any(each_match[CITED_PULL_NUMBER_GROUP] for each_match in all_unseen)
+        else ""
+    )
+    return joined_violations(
+        UNSEEN_CITATION_MESSAGE.format(citation=each_match.group(0))
+        for each_match in all_unseen
+        if not (
+            each_match[CITED_PULL_NUMBER_GROUP]
+            and re.search(
+                PULL_LINK_IN_HOOK_TEXT_TEMPLATE.format(number=each_match[CITED_PULL_NUMBER_GROUP]),
+                hook_text,
+            )
+        )
     )
 
 

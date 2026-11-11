@@ -146,6 +146,7 @@ CHANGE_DELETES_KIND = 'kind "{subject}" is deleted'
 CHANGE_CHANGES_PATTERNS = 'kind "{subject}" patterns change'
 CHANGE_CHANGES_KIND_ORDER = "kind selection order changes"
 CHANGE_DELETES_HOOK = 'hook "{subject}" is deleted'
+CHANGE_DELETES_BASELINE_KEY = 'the "' + BASELINE_KEY + '" key is deleted'
 CHANGE_RAISES_CHAR_LIMIT = 'hook "{subject}" char_limit rises from {prior} to {current}'
 NO_LINE_LIMIT_TEXT = "none"
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [8.114.9](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.8...claude-dev-env-v8.114.9) (2026-11-11)
+
+
+### Bug Fixes
+
+* **context-budget:** let a policy without a baseline key gain its first over-budget list ([#2323](https://github.com/jl-cmd-projects/claude-dev-env/issues/2323)) ([fc90a81](https://github.com/jl-cmd-projects/claude-dev-env/commit/fc90a8126a2017fc4dc5af595f4468426c2974ff))
+* **hooks:** stop three recorded false blocks while each gate keeps its guard ([#2324](https://github.com/jl-cmd-projects/claude-dev-env/issues/2324)) ([e1ce83f](https://github.com/jl-cmd-projects/claude-dev-env/commit/e1ce83f90071744271317e76205394c78a56dd18))
+
+## [8.114.8](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.7...claude-dev-env-v8.114.8) (2026-11-11)
+
+
+### Bug Fixes
+
+* **hooks:** pace an account that has only a weekly usage window ([#2321](https://github.com/jl-cmd-projects/claude-dev-env/issues/2321)) ([e63b3f7](https://github.com/jl-cmd-projects/claude-dev-env/commit/e63b3f7e18bfe3781d95f23792fdc7da9e629172))
+
 ## [8.114.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.6...claude-dev-env-v8.114.7) (2026-11-11)
 
 

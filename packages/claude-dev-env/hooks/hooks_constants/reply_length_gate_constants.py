@@ -154,12 +154,28 @@ UNVALIDATED_CLAIM_MESSAGE = (
     " this turn, report it as `Open: <check> - <next step>`."
 )
 CITED_NUMBER_PATTERN = re.compile(
-    r"/actions/runs/(\d+)|/pull/(\d+)|\b(?:run|job|check)\s+#?(\d{5,})\b", re.IGNORECASE
+    r"/actions/runs/(\d+)|/pull/(?P<pull_number>\d+)|\b(?:run|job|check)\s+#?(\d{5,})\b",
+    re.IGNORECASE,
 )
+CITED_PULL_NUMBER_GROUP = "pull_number"
 CITED_NUMBER_IN_RESULT_TEMPLATE = r"(?<!\d){number}(?!\d)"
+PULL_LINK_IN_HOOK_TEXT_TEMPLATE = r"/pull/{number}(?!\d)"
 UNSEEN_CITATION_MESSAGE = (
     'The text cites "{citation}", and no tool result in this session shows it.'
     " Read it yourself or through a subagent first."
+)
+ALL_REPLY_QUOTING_MESSAGES = (
+    UNSEEN_CITATION_MESSAGE,
+    UNVALIDATED_CLAIM_MESSAGE,
+    UNSOURCED_CAUSE_MESSAGE,
+    LONG_SENTENCE_MESSAGE,
+)
+MESSAGE_PLACEHOLDER_PATTERN = re.compile(r"\\\{\w+\\\}")
+REPLY_ECHO_PATTERN = re.compile(
+    "|".join(
+        MESSAGE_PLACEHOLDER_PATTERN.sub(".*?", re.escape(each_message))
+        for each_message in ALL_REPLY_QUOTING_MESSAGES
+    )
 )
 
 ADDITIONAL_CONTEXT_KEY = "additionalContext"

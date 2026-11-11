@@ -21,10 +21,15 @@ from hooks_constants.visual_reply_rules_constants import (
     ABBREVIATION_MESSAGE,
     VIOLATION_LINE_SEPARATOR,
     ABBREVIATIONS_RULE_KEY,
+    ALL_ATTACHMENT_TEXT_KEYS,
+    ALL_HOOK_MESSAGE_PREFIXES,
+    ALL_HOOK_TEXT_ATTACHMENT_TYPES,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_VISUAL_TOOL_NAME_SUFFIXES,
     ALLOWED_CAPITALIZED_WORDS_KEY,
     ASSISTANT_ENTRY_TYPE,
+    ATTACHMENT_ENTRY_TYPE,
+    ATTACHMENT_KEY,
     BLOCK_ID_KEY,
     BLOCK_NAME_KEY,
     BLOCK_TEXT_KEY,
@@ -44,6 +49,9 @@ from hooks_constants.visual_reply_rules_constants import (
     NO_PICTURE_RULE_KEY,
     NO_VISUAL_MESSAGE,
     ONE_ITEM_RULE_KEY,
+    ORIGIN_KEY,
+    ORIGIN_KIND_KEY,
+    QUEUED_COMMAND_ATTACHMENT_TYPE,
     RULE_KEY_FIELD,
     RULE_LABEL_FIELD,
     RULE_REMINDER_FIELD,
@@ -52,6 +60,7 @@ from hooks_constants.visual_reply_rules_constants import (
     RULES_FILE_PATH,
     RULES_LIST_KEY,
     SECOND_REPLY_MESSAGE,
+    TASK_NOTIFICATION_ORIGIN_KIND,
     TEXT_BLOCK_TYPE,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -323,6 +332,61 @@ def successful_result_text(transcript_path: object) -> str | None:
         each_text
         for each_block in _result_blocks(_parsed_entries(all_lines), is_error=False)
         for each_text in _result_texts(each_block.get(CONTENT_KEY))
+    )
+
+
+def _attachment_texts(all_entry_fields: dict[str, object]) -> list[str]:
+    attachment = all_entry_fields.get(ATTACHMENT_KEY)
+    if not isinstance(attachment, dict):
+        return []
+    attachment_type = attachment.get(BLOCK_TYPE_KEY)
+    if not isinstance(attachment_type, str) or attachment_type not in ALL_HOOK_TEXT_ATTACHMENT_TYPES:
+        return []
+    if attachment_type == QUEUED_COMMAND_ATTACHMENT_TYPE and not _is_task_notification(attachment):
+        return []
+    all_texts = []
+    for each_key in ALL_ATTACHMENT_TEXT_KEYS:
+        field_value = attachment.get(each_key)
+        all_texts.extend(_result_texts(field_value))
+        if isinstance(field_value, list):
+            all_texts.extend(each_item for each_item in field_value if isinstance(each_item, str))
+    return all_texts
+
+
+def _is_task_notification(all_entry_fields: dict[str, object]) -> bool:
+    origin = all_entry_fields.get(ORIGIN_KEY)
+    return isinstance(origin, dict) and origin.get(ORIGIN_KIND_KEY) == TASK_NOTIFICATION_ORIGIN_KIND
+
+
+def _hook_texts(all_entry_fields: dict[str, object]) -> list[str]:
+    entry_type = all_entry_fields.get(ENTRY_TYPE_KEY)
+    if entry_type == ATTACHMENT_ENTRY_TYPE:
+        return _attachment_texts(all_entry_fields)
+    if entry_type != USER_ENTRY_TYPE:
+        return []
+    message = all_entry_fields.get(MESSAGE_KEY)
+    all_texts = _result_texts(message.get(CONTENT_KEY) if isinstance(message, dict) else None)
+    if _is_task_notification(all_entry_fields):
+        return all_texts
+    if not all_entry_fields.get(IS_META_KEY):
+        return []
+    return [each_text for each_text in all_texts if each_text.lstrip().startswith(ALL_HOOK_MESSAGE_PREFIXES)]
+
+
+def hook_supplied_text(transcript_path: object) -> str | None:
+    """Join the text hooks and the harness put in the session outside tool results.
+
+    It covers stop-hook feedback, system reminders, a background agent's task
+    notification, and hook additional context, hook system message, and queued
+    task notification attachments. A skill body, or a prompt the user typed
+    while the session worked, does not count. Returns None when the transcript
+    cannot be read.
+    """
+    all_lines = _read_transcript_lines(transcript_path)
+    if all_lines is None:
+        return None
+    return RESULT_TEXT_SEPARATOR.join(
+        each_text for each_entry in _parsed_entries(all_lines) for each_text in _hook_texts(each_entry)
     )
 
 

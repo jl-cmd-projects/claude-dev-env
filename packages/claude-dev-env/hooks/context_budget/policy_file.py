@@ -188,6 +188,7 @@ def parse_policy(policy_text: str) -> BudgetPolicy:
         all_hooks=_parse_hooks(raw_policy.get(HOOKS_KEY, [])),
         baseline_entry_by_path=entry_by_path,
         baseline_characters_by_hook_name=characters_by_hook_name,
+        has_baseline=BASELINE_KEY in raw_policy,
     )
 
 
