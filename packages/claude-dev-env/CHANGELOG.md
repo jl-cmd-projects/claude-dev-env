@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.114.7](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.6...claude-dev-env-v8.114.7) (2026-11-11)
+
+
+### Bug Fixes
+
+* **usage-pause:** resolve an account with only a weekly usage window ([#2318](https://github.com/jl-cmd-projects/claude-dev-env/issues/2318)) ([c28d93c](https://github.com/jl-cmd-projects/claude-dev-env/commit/c28d93c20750cb4715f4786657717ab143350129))
+
 ## [8.114.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.114.5...claude-dev-env-v8.114.6) (2026-11-11)
 
 
