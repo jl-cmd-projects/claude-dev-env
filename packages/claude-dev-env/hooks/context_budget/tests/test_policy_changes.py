@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from context_budget.tests.budget_support import policy_text
+from context_budget.tests.budget_support import policy_text, section_text
 from context_budget.policy_changes import policy_shrink_findings
 from context_budget.policy_file import parse_policy
 
@@ -187,18 +187,78 @@ def _policy_with_first_list() -> dict:
     return raw_policy
 
 
-def test_first_baseline_added_to_a_policy_without_the_key_passes(tmp_path: Path) -> None:
-    assert policy_shrink_findings(
+def _write_over_budget_skill(repository_root: Path) -> None:
+    skill_text = section_text("X", 7)
+    filler_line_count = 300 - len(skill_text.splitlines())
+    (repository_root / "a").mkdir()
+    (repository_root / "a" / "SKILL.md").write_text(
+        skill_text + "\n" * filler_line_count, encoding="utf-8"
+    )
+
+
+def _first_list_findings(raw_current: dict, repository_root: Path) -> tuple:
+    return policy_shrink_findings(
         "p",
         parse_policy(json.dumps(_policy_without_baseline_key())),
-        parse_policy(json.dumps(_policy_with_first_list())),
-        tmp_path,
-    ) == ()
+        parse_policy(json.dumps(raw_current)),
+        repository_root,
+    )
+
+
+def test_first_baseline_that_matches_the_tree_passes(tmp_path: Path) -> None:
+    _write_over_budget_skill(tmp_path)
+
+    assert _first_list_findings(_policy_with_first_list(), tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_fragment"),
+    [
+        (
+            lambda raw: raw["baseline"]["files"]["a/SKILL.md"].update({"lines": 400}),
+            'baseline raises "a/SKILL.md" from 300 to 400 lines',
+        ),
+        (
+            lambda raw: raw["baseline"]["files"]["a/SKILL.md"]["sections"].append("Y"),
+            'baseline adds section "Y" to "a/SKILL.md"',
+        ),
+        (
+            lambda raw: raw["baseline"]["files"].update(
+                {"b/SKILL.md": {"lines": 300, "sections": []}}
+            ),
+            'baseline adds file "b/SKILL.md"',
+        ),
+    ],
+)
+def test_first_baseline_entry_beyond_the_tree_is_a_finding(
+    mutation, expected_fragment: str, tmp_path: Path
+) -> None:
+    _write_over_budget_skill(tmp_path)
+    raw_current = _policy_with_first_list()
+    mutation(raw_current)
+
+    all_findings = _first_list_findings(raw_current, tmp_path)
+
+    assert len(all_findings) == 1
+    assert expected_fragment in all_findings[0].message
+    assert "the over-budget list may only shrink" in all_findings[0].message
+
+
+def test_first_baseline_entry_for_a_file_within_budget_is_a_finding(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "SKILL.md").write_text("# Short\n", encoding="utf-8")
+
+    all_findings = _first_list_findings(_policy_with_first_list(), tmp_path)
+
+    assert len(all_findings) == 1
+    assert 'baseline adds file "a/SKILL.md"' in all_findings[0].message
 
 
 def test_first_baseline_added_to_an_explicit_empty_baseline_is_a_finding(
     tmp_path: Path,
 ) -> None:
+    _write_over_budget_skill(tmp_path)
+
     all_findings = policy_shrink_findings(
         "p",
         parse_policy(policy_text()),
@@ -206,10 +266,9 @@ def test_first_baseline_added_to_an_explicit_empty_baseline_is_a_finding(
         tmp_path,
     )
 
-    assert [each.message.split("context-budget: ")[1].split(";")[0] for each in all_findings] == [
-        'baseline adds file "a/SKILL.md"',
-        'baseline adds hook "greeter"',
-    ]
+    assert len(all_findings) == 2
+    assert 'baseline adds file "a/SKILL.md"' in all_findings[0].message
+    assert 'baseline adds hook "greeter"' in all_findings[1].message
 
 
 def test_deleting_the_baseline_key_is_a_finding(tmp_path: Path) -> None:
@@ -226,15 +285,11 @@ def test_deleting_the_baseline_key_is_a_finding(tmp_path: Path) -> None:
 
 
 def test_first_baseline_still_holds_the_limits_to_the_prior_policy(tmp_path: Path) -> None:
+    _write_over_budget_skill(tmp_path)
     raw_current = _policy_with_first_list()
     raw_current["kinds"][1]["line_limit"] = 250
 
-    all_findings = policy_shrink_findings(
-        "p",
-        parse_policy(json.dumps(_policy_without_baseline_key())),
-        parse_policy(json.dumps(raw_current)),
-        tmp_path,
-    )
+    all_findings = _first_list_findings(raw_current, tmp_path)
 
     assert len(all_findings) == 1
     assert "line_limit rises from 200 to 250" in all_findings[0].message

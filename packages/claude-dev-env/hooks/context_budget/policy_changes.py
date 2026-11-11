@@ -5,15 +5,18 @@ limit, a section rule turned off, a deleted kind, or a deleted hook whose
 command script is still in the tree is a finding. A hook deleted together
 with its script passes.
 Existing kind patterns and precedence stay fixed. A null line count that
-becomes a number is larger. A policy file the change introduces passes, and
-so does the first over-budget list added to a policy without a ``baseline``
-key. A deleted ``baseline`` key is a finding, so a later change cannot add a
-fresh list in its place.
+becomes a number is larger. A policy file the change introduces passes.
+A policy without a ``baseline`` key may gain its first list; each file entry
+is then held to what the working tree measures, so the first list records
+only what is over budget now. Hook counts in a first list are not measured
+here, because measuring runs the hook's command. A deleted ``baseline`` key
+is a finding, so a later change cannot add a fresh list in its place.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 from context_budget.model import (
@@ -23,6 +26,7 @@ from context_budget.model import (
     ContextKind,
     HookBudget,
 )
+from context_budget.sections import baseline_entry_for, measure_file
 from hooks_constants.context_budget_constants import (
     CHANGE_ADDS_FILE,
     CHANGE_ADDS_HOOK,
@@ -43,6 +47,7 @@ from hooks_constants.context_budget_constants import (
     FILE_SCOPE,
     NO_LINE_LIMIT_TEXT,
     SHRINK_ONLY_TEMPLATE,
+    UTF8_ENCODING,
 )
 
 
@@ -193,9 +198,39 @@ def _hook_entry_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy
     return [each for each in all_candidate_changes if each is not None]
 
 
-def _baseline_changes(prior_policy: BudgetPolicy, current_policy: BudgetPolicy) -> list[str]:
+def _measured_entry(
+    current_policy: BudgetPolicy, relative_path: str, repository_root: Path
+) -> BaselineEntry | None:
+    try:
+        text = (repository_root / relative_path).read_text(encoding=UTF8_ENCODING)
+    except (OSError, UnicodeDecodeError):
+        return None
+    measure = measure_file(current_policy, relative_path, text)
+    return None if measure is None else baseline_entry_for(measure)
+
+
+def _measured_tree_policy(current_policy: BudgetPolicy, repository_root: Path) -> BudgetPolicy:
+    all_measured_entries = (
+        (each_path, _measured_entry(current_policy, each_path, repository_root))
+        for each_path in current_policy.baseline_entry_by_path
+    )
+    return replace(
+        current_policy,
+        baseline_entry_by_path={
+            each_path: each_entry
+            for each_path, each_entry in all_measured_entries
+            if each_entry is not None
+        },
+    )
+
+
+def _baseline_changes(
+    prior_policy: BudgetPolicy, current_policy: BudgetPolicy, repository_root: Path
+) -> list[str]:
     if not prior_policy.has_baseline:
-        return []
+        return _file_entry_changes(
+            _measured_tree_policy(current_policy, repository_root), current_policy
+        )
     if not current_policy.has_baseline:
         return [CHANGE_DELETES_BASELINE_KEY]
     return _file_entry_changes(prior_policy, current_policy) + _hook_entry_changes(
@@ -218,13 +253,14 @@ def policy_shrink_findings(
         repository_root: Working tree that holds each hook's command script.
 
     Returns:
-        One finding per loosening change; empty when the file is new. Baseline
-        entries are not compared when the prior policy has no ``baseline`` key.
+        One finding per loosening change; empty when the file is new. When the
+        prior policy has no ``baseline`` key, each file entry is compared with
+        the working tree's measurement in place of a prior entry.
     """
     if prior_policy is None:
         return ()
     all_changes = _limit_changes(prior_policy, current_policy, repository_root) + (
-        _baseline_changes(prior_policy, current_policy)
+        _baseline_changes(prior_policy, current_policy, repository_root)
     )
     return tuple(
         BudgetFinding(

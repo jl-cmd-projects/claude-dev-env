@@ -82,8 +82,8 @@ class BudgetPolicy:
         is_baseline_the_prior_text: Whether the baseline entry was measured from
             the file's prior text because the repository has no policy file.
         prose_line_word_limit: Words an unlinked agent-file detail line may hold.
-        has_baseline: Whether the policy text holds a ``baseline`` key; a policy
-            without one has no over-budget list yet, so its first list may be added.
+        has_baseline: False only when parsed policy text has no ``baseline`` key,
+            so a change may add the first over-budget list to it.
     """
 
     section_detail_line_limit: int

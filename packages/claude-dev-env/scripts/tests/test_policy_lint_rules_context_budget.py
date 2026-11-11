@@ -129,6 +129,8 @@ def test_a_first_baseline_on_a_policy_without_the_key_passes(tmp_path: Path) -> 
     raw_prior = _policy()
     del raw_prior["baseline"]
     current_text = json.dumps(_policy({_SKILL_PATH: {"lines": 300, "sections": []}}))
+    (tmp_path / _SKILL_PATH).parent.mkdir(parents=True)
+    (tmp_path / _SKILL_PATH).write_text("line\n" * 300, encoding="utf-8")
 
     assert (
         adapters.context_budget_policy_diagnostics(
