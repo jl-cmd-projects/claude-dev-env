@@ -11,6 +11,7 @@ _PWSH = shutil.which("pwsh") or "pwsh"
 _SKIPPED_EXIT_CODE = 3
 _SUCCESS_EXIT_CODE = 0
 _FAILURE_EXIT_CODE = 1
+_DIVERGED_EXIT_CODE = 4
 
 
 def _git(repository_path: Path, *arguments: str) -> str:
@@ -72,6 +73,21 @@ def _mirror_on_feature_branch_behind_remote(
         _git(author_path, "push", "-q", "origin", "main")
     remote_tip = _git(author_path, "rev-parse", "HEAD")
     return mirror_path, feature_tip, remote_tip
+
+
+def _mirror_diverged_from_remote(root_path: Path) -> tuple[Path, str, str]:
+    mirror_path, _, _ = _mirror_on_feature_branch_behind_remote(
+        root_path, should_advance_remote=False
+    )
+    _git(mirror_path, "switch", "-q", "main")
+    (mirror_path / "tracked.txt").write_text("local\n", encoding="utf-8")
+    _git(mirror_path, "commit", "-q", "-am", "local only edit")
+    local_tip = _git(mirror_path, "rev-parse", "HEAD")
+    author_path = root_path / "author"
+    (author_path / "tracked.txt").write_text("new\n", encoding="utf-8")
+    _git(author_path, "commit", "-q", "-am", "second")
+    _git(author_path, "push", "-q", "origin", "main")
+    return mirror_path, local_tip, _git(author_path, "rev-parse", "HEAD")
 
 
 def _run_sync(mirror_path: Path, log_path: Path, *switches: str) -> int:
@@ -224,3 +240,44 @@ def test_should_skip_a_checkout_with_staged_changes(tmp_path: Path) -> None:
     assert _git(mirror_path, "branch", "--show-current") == "feature"
     assert _git(mirror_path, "rev-parse", "HEAD") == feature_tip
     assert _git(mirror_path, "diff", "--cached", "--name-only") == "tracked.txt"
+
+
+def test_should_exit_diverged_without_mirror(tmp_path: Path) -> None:
+    mirror_path, local_tip, _ = _mirror_diverged_from_remote(tmp_path)
+    log_path = tmp_path / "sync.log"
+
+    assert _run_sync(mirror_path, log_path, "-StashDirty") == _DIVERGED_EXIT_CODE
+    assert _git(mirror_path, "rev-parse", "HEAD") == local_tip
+    assert _git(mirror_path, "for-each-ref", "refs/mirror-backup") == ""
+
+
+def test_should_realign_a_diverged_mirror_onto_the_remote(tmp_path: Path) -> None:
+    mirror_path, local_tip, remote_tip = _mirror_diverged_from_remote(tmp_path)
+    log_path = tmp_path / "sync.log"
+
+    assert (
+        _run_sync(mirror_path, log_path, "-StashDirty", "-Mirror")
+        == _SUCCESS_EXIT_CODE
+    )
+    assert _git(mirror_path, "rev-parse", "HEAD") == remote_tip
+    assert (mirror_path / "tracked.txt").read_text(encoding="utf-8") == "new\n"
+    assert _git(mirror_path, "status", "--porcelain") == ""
+    assert (
+        _git(mirror_path, "for-each-ref", "refs/mirror-backup", "--format=%(objectname)")
+        == local_tip
+    )
+    assert f"tree before moving {local_tip}" in _git(mirror_path, "stash", "list")
+    assert "realigning the mirror" in log_path.read_text(encoding="utf-8")
+
+
+def test_should_keep_the_old_tip_when_a_diverged_mirror_has_staged_changes(
+    tmp_path: Path,
+) -> None:
+    mirror_path, local_tip, _ = _mirror_diverged_from_remote(tmp_path)
+    (mirror_path / "tracked.txt").write_text("staged\n", encoding="utf-8")
+    _git(mirror_path, "add", "tracked.txt")
+    log_path = tmp_path / "sync.log"
+
+    assert _run_sync(mirror_path, log_path, "-Mirror") != _SUCCESS_EXIT_CODE
+    assert _git(mirror_path, "rev-parse", "HEAD") == local_tip
+    assert _git(mirror_path, "for-each-ref", "refs/mirror-backup") == ""
