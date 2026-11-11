@@ -5,7 +5,8 @@
 A reply typed straight into the chat is no tool call, so this hook runs
 the same checks on it::
 
-    UserPromptSubmit                       -> additionalContext states the rules
+    UserPromptSubmit, first of the session -> additionalContext states the rules
+    UserPromptSubmit, later                -> only the draft the user saw, if any
     MessageDisplay, batch before the last  -> hold the text, show nothing yet
     MessageDisplay, last batch, passes     -> show the whole message
     MessageDisplay, last batch, fails      -> show a draft from a small model that passes
@@ -63,10 +64,12 @@ from hooks_constants.chat_reply_gate_constants import (
     MAXIMUM_DRAFT_ATTEMPTS,
     MESSAGE_DISPLAY_EVENT_NAME,
     MESSAGE_ID_KEY,
+    REPLY_LIMIT_ONCE_MARKER_NAME,
     REPLY_LIMIT_REMINDER,
     SESSION_END_EVENT_NAME,
     SESSION_ID_KEY,
     SHOWN_DRAFT_FILE_PREFIX,
+    SHOWN_DRAFT_HEADING,
     SHOWN_DRAFT_PREFIX,
     STATE_FILE_ENCODING,
     STATE_FILE_SUFFIX,
@@ -77,6 +80,7 @@ from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
 )
+from hooks_constants.once_per_session import claim_first_showing
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.reply_length_gate_constants import (
     ADDITIONAL_CONTEXT_KEY,
@@ -207,14 +211,25 @@ def write_hook_output(event_name: str, output_key: str, output_text: str) -> Non
     sys.stdout.write(json.dumps({HOOK_SPECIFIC_OUTPUT_KEY: hook_event_output}))
 
 
-def reply_limit_reminder(session_id: object) -> str:
-    """Return the reply rules, plus the draft the user saw in place of the last reply."""
-    shown_draft_path = state_file_path(SHOWN_DRAFT_FILE_PREFIX, session_id)
+def reply_limit_reminder(all_hook_fields: dict[str, object]) -> str:
+    """Return the reply rules on a session's first prompt, plus the draft the user saw in place of the last reply.
+
+    The rules show on the first prompt of a session and on the first prompt
+    after each compaction; other prompts carry only a shown draft, or nothing.
+    """
+    reminder = (
+        REPLY_LIMIT_REMINDER
+        if claim_first_showing(REPLY_LIMIT_ONCE_MARKER_NAME, all_hook_fields)
+        else ""
+    )
+    shown_draft_path = state_file_path(SHOWN_DRAFT_FILE_PREFIX, all_hook_fields.get(SESSION_ID_KEY))
     shown_draft = read_state_text(shown_draft_path)
     if not shown_draft:
-        return REPLY_LIMIT_REMINDER
+        return reminder
     shown_draft_path.unlink(missing_ok=True)
-    return REPLY_LIMIT_REMINDER + SHOWN_DRAFT_PREFIX + shown_draft
+    if not reminder:
+        return SHOWN_DRAFT_HEADING + shown_draft
+    return reminder + SHOWN_DRAFT_PREFIX + shown_draft
 
 
 def main() -> int:
@@ -225,11 +240,9 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     event_name = hook_input.get(HOOK_EVENT_NAME_INPUT_KEY)
     if event_name == USER_PROMPT_SUBMIT_EVENT_NAME:
-        write_hook_output(
-            USER_PROMPT_SUBMIT_EVENT_NAME,
-            ADDITIONAL_CONTEXT_KEY,
-            reply_limit_reminder(hook_input.get(SESSION_ID_KEY)),
-        )
+        prompt_context = reply_limit_reminder(hook_input)
+        if prompt_context:
+            write_hook_output(USER_PROMPT_SUBMIT_EVENT_NAME, ADDITIONAL_CONTEXT_KEY, prompt_context)
         return ALLOW_EXIT_CODE
     if event_name == SESSION_END_EVENT_NAME:
         state_file_path(SHOWN_DRAFT_FILE_PREFIX, hook_input.get(SESSION_ID_KEY)).unlink(missing_ok=True)

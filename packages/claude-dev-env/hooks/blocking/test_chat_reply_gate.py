@@ -1,11 +1,17 @@
 import io
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 import chat_reply_gate
+from hooks_constants.chat_reply_gate_constants import REPLY_LIMIT_REMINDER, SHOWN_DRAFT_HEADING
 from hooks_constants.reply_length_gate_constants import MAXIMUM_SENTENCE_COUNT
+
+CHAT_REPLY_GATE_SCRIPT = Path(__file__).resolve().parent / "chat_reply_gate.py"
 
 OVER_LIMIT_SENTENCES = [
     f"Status line {each_number} is ready." for each_number in range(MAXIMUM_SENTENCE_COUNT + 1)
@@ -115,13 +121,78 @@ def test_should_tell_the_agent_which_draft_the_user_saw(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(chat_reply_gate, "ask_drafter", lambda *_args: PASSING_DRAFT)
-    run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     prompt_input = {"hook_event_name": "UserPromptSubmit", "session_id": "abc"}
     _, first_output = run_hook(monkeypatch, capsys, prompt_input)
+    run_hook(monkeypatch, capsys, display_input(OVER_LIMIT_REPLY))
     _, second_output = run_hook(monkeypatch, capsys, prompt_input)
+    _, third_output = run_hook(monkeypatch, capsys, prompt_input)
     assert first_output is not None and second_output is not None
-    assert str(first_output["additionalContext"]).endswith(PASSING_DRAFT)
-    assert PASSING_DRAFT not in str(second_output["additionalContext"])
+    assert str(first_output["additionalContext"]) == REPLY_LIMIT_REMINDER
+    assert second_output["additionalContext"] == SHOWN_DRAFT_HEADING + PASSING_DRAFT
+    assert third_output is None
+
+
+def _prompt_input(transcript_path: Path) -> dict[str, object]:
+    return {
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "abc",
+        "prompt": "status?",
+        "transcript_path": str(transcript_path),
+    }
+
+
+def test_should_add_the_reply_limit_once_per_session_and_again_after_a_compaction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(json.dumps({"type": "user"}) + "\n", encoding="utf-8")
+    _, first_output = run_hook(monkeypatch, capsys, _prompt_input(transcript_path))
+    _, second_output = run_hook(monkeypatch, capsys, _prompt_input(transcript_path))
+    with transcript_path.open("a", encoding="utf-8") as transcript:
+        transcript.write(json.dumps({"type": "system", "subtype": "compact_boundary"}) + "\n")
+    _, after_compaction_output = run_hook(monkeypatch, capsys, _prompt_input(transcript_path))
+    _, later_output = run_hook(monkeypatch, capsys, _prompt_input(transcript_path))
+    assert first_output is not None
+    assert first_output["additionalContext"] == REPLY_LIMIT_REMINDER
+    assert second_output is None
+    assert after_compaction_output is not None
+    assert after_compaction_output["additionalContext"] == REPLY_LIMIT_REMINDER
+    assert later_output is None
+
+
+def test_replay_of_two_prompts_and_a_compaction_through_the_script(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(json.dumps({"type": "user"}) + "\n", encoding="utf-8")
+    environment = {
+        **os.environ,
+        "TMP": str(tmp_path),
+        "TEMP": str(tmp_path),
+        "TMPDIR": str(tmp_path),
+        "CLAUDE_REPLY_BANNED_WORDS_PATH": str(tmp_path / "absent.json"),
+    }
+    environment.pop("CHAT_REPLY_DRAFTER_ACTIVE", None)
+
+    def replay_prompt() -> str:
+        return subprocess.run(
+            [sys.executable, str(CHAT_REPLY_GATE_SCRIPT)],
+            input=json.dumps(_prompt_input(transcript_path)),
+            capture_output=True,
+            text=True,
+            env=environment,
+            check=True,
+        ).stdout
+
+    first_stdout = replay_prompt()
+    second_stdout = replay_prompt()
+    with transcript_path.open("a", encoding="utf-8") as transcript:
+        transcript.write(json.dumps({"type": "system", "subtype": "compact_boundary"}) + "\n")
+    after_compaction_stdout = replay_prompt()
+    assert REPLY_LIMIT_REMINDER in json.loads(first_stdout)["hookSpecificOutput"]["additionalContext"]
+    assert second_stdout == ""
+    assert (
+        REPLY_LIMIT_REMINDER
+        in json.loads(after_compaction_stdout)["hookSpecificOutput"]["additionalContext"]
+    )
 
 
 def test_should_delete_the_shown_draft_at_session_end(
@@ -139,7 +210,7 @@ def test_should_delete_the_shown_draft_at_session_end(
     assert not shown_draft_path.exists()
 
 
-def test_should_add_the_reply_limit_on_each_user_prompt(
+def test_should_add_the_reply_limit_to_a_prompt_with_no_session_id(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     exit_code, hook_output = run_hook(

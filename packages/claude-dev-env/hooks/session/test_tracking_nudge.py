@@ -3,9 +3,12 @@ import io
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
+
+from hooks_constants.open_tasks_stop_gate_constants import TASK_LIST_NUDGE
 
 _SESSION_DIR = Path(__file__).resolve().parent
 if str(_SESSION_DIR) not in sys.path:
@@ -34,16 +37,19 @@ def run_nudge(
     tmp_path: Path,
     prompt_text: str,
     all_entries: list[dict[str, object]],
+    session_id: str | None = None,
 ) -> str:
     transcript_path = tmp_path / "s.jsonl"
     transcript_path.write_text(
         "\n".join(json.dumps(each) for each in all_entries), encoding="utf-8"
     )
-    hook_input = {
+    hook_input: dict[str, object] = {
         "hook_event_name": "UserPromptSubmit",
         "prompt": prompt_text,
         "transcript_path": str(transcript_path),
     }
+    if session_id is not None:
+        hook_input["session_id"] = session_id
     monkeypatch.setattr(
         "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
     )
@@ -62,8 +68,41 @@ def test_should_remind_a_work_prompt_to_use_the_task_list(
     context_text = run_nudge(
         monkeypatch, capsys, tmp_path, "Export the APKs", titled_entries("⏳ Export")
     )
-    assert "TaskCreate" in context_text
+    assert "the session's task list tool" in context_text
+    assert "TaskCreate" not in context_text
     assert "⏳ Export" not in context_text
+
+
+COMPACTION_ENTRY = {"type": "system", "subtype": "compact_boundary"}
+
+
+def test_should_add_the_task_list_note_once_per_session_and_again_after_a_compaction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    entries = titled_entries("⏳ Export")
+
+    def nudge(prompt_text: str, all_entries: list[dict[str, object]]) -> str:
+        return run_nudge(monkeypatch, capsys, tmp_path, prompt_text, all_entries, "session_one")
+
+    assert nudge("thanks!", entries) == ""
+    assert TASK_LIST_NUDGE in nudge("Export the APKs", entries)
+    assert nudge("Now sign the APKs", entries) == ""
+    assert TASK_LIST_NUDGE in nudge("Upload the APKs", [*entries, COMPACTION_ENTRY])
+    assert nudge("Tag the release", [*entries, COMPACTION_ENTRY]) == ""
+
+
+def test_should_keep_the_title_note_on_each_ask_after_the_task_list_note_shows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    entries = titled_entries("\U0001f6a9 Merge approval")
+    run_nudge(monkeypatch, capsys, tmp_path, "Export the APKs", entries, "session_one")
+    second_text = run_nudge(
+        monkeypatch, capsys, tmp_path, "Now sign the APKs", entries, "session_one"
+    )
+    assert TASK_LIST_NUDGE not in second_text
+    assert "\U0001f6a9 Merge approval" in second_text
 
 
 @pytest.mark.parametrize("earlier_title", ["\U0001f6a9 Merge approval", "✅ Gate"])
@@ -104,8 +143,8 @@ def test_should_skip_the_title_note_in_a_session_without_the_title_tool() -> Non
 
 
 def test_should_build_the_note_only_for_a_work_prompt() -> None:
-    assert tracking_nudge.ask_tracking_context("did it fail?", []) is None
-    assert "task list" in (tracking_nudge.ask_tracking_context("Export the APKs", []) or "")
+    assert tracking_nudge.ask_tracking_context("did it fail?", [], {}) is None
+    assert "task list" in (tracking_nudge.ask_tracking_context("Export the APKs", [], {}) or "")
 
 
 def test_should_print_the_documented_output_through_a_subprocess(tmp_path: Path) -> None:
@@ -121,4 +160,4 @@ def test_should_print_the_documented_output_through_a_subprocess(tmp_path: Path)
     assert completed_process.returncode == 0
     hook_output = json.loads(completed_process.stdout)["hookSpecificOutput"]
     assert hook_output["hookEventName"] == "UserPromptSubmit"
-    assert "TaskCreate" in hook_output["additionalContext"]
+    assert "the session's task list tool" in hook_output["additionalContext"]
