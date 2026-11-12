@@ -1,22 +1,11 @@
 #!/usr/bin/env python3
-"""Stop hook that checks the closing chat reply for an unvalidated claim.
+"""Stop hook that checks the closing chat reply for a path the terminal garbles.
 
-The reply length gate checks the chat tools. This gate checks the reply the
-session ends its turn with, which reaches the user with no tool call::
-
-    flag: My guess is one to two hours.
-    flag: I didn't confirm this one.
-    flag: Run 18239174012 passed.        (no tool result shows the run)
-    ok:   Run 18239174012 took 39 minutes. (a tool result shows the run)
-
-It applies the banned words, the unvalidated claim pattern, and the cited
-run, job, check, and pull request numbers from ``reply_length_gate.py``. A
-pull request link also counts as shown when hook or harness text shows it. The
-citation check is skipped when the transcript cannot be read. It also flags
-a path outside code whose backslash the terminal drops, such as
-``D:\\Reports\\.claude``. A block sends
-the reason back so the model rewrites the reply. Claude Code ends the turn
-after eight blocks in a row.
+This gate checks the reply the session ends its turn with, which reaches the
+user with no tool call. It flags a path outside code whose backslash the
+terminal drops, such as ``D:\\Reports\\.claude``. A block sends the reason
+back so the model rewrites the reply. Claude Code ends the turn after eight
+blocks in a row.
 
 It also blocks a reply whose last paragraph ends with a question mark, or says a question still stands, when the
 turn sent no AskUserQuestion, hearthbot decision card, or Codex
@@ -44,12 +33,6 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from reply_length_gate import (
-    banned_word_violation,
-    configured_banned_words,
-    unseen_citation_violation_with_hook_text,
-    unvalidated_claim_violation,
-)
 from open_tasks_transcript import replayed_transcript
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -270,12 +253,7 @@ def unbriefed_question_violation(reply_text: str, transcript_path: object) -> st
 
 def final_reply_violation(reply_text: str, transcript_path: object) -> str | None:
     """Return the block reason for the closing reply, or None when it passes."""
-    return (
-        banned_word_violation(reply_text, configured_banned_words())
-        or unvalidated_claim_violation(reply_text)
-        or unseen_citation_violation_with_hook_text(reply_text, transcript_path)
-        or windows_path_violation(reply_text)
-    )
+    return windows_path_violation(reply_text)
 
 
 def main() -> int:

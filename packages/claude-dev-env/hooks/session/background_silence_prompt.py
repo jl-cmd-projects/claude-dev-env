@@ -35,6 +35,7 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from hooks_constants.background_silence_prompt_constants import (
+    ADDITIONAL_CONTEXT_KEY,
     ALL_LIFT_PATTERNS,
     ALL_SET_PATTERNS,
     BACKGROUND_EVENT_PATTERN,
@@ -63,7 +64,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TRANSCRIPT_PATH_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
-from hooks_constants.reply_length_gate_constants import ADDITIONAL_CONTEXT_KEY
 from hooks_constants.spawn_readiness_hook_constants import (
     ALL_HARNESS_ENVELOPE_MARKERS,
     HUMAN_SENDER_MARKER,

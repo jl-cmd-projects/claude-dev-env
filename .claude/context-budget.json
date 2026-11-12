@@ -115,18 +115,6 @@
       "char_limit": 1500
     },
     {
-      "name": "chat reply gate",
-      "command": [
-        "python3",
-        "packages/claude-dev-env/hooks/blocking/chat_reply_gate.py"
-      ],
-      "stdin": {
-        "hook_event_name": "UserPromptSubmit",
-        "prompt": "status?"
-      },
-      "char_limit": 1500
-    },
-    {
       "name": "tracking nudge",
       "command": [
         "python3",

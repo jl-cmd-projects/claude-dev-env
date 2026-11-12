@@ -2,11 +2,6 @@
 
 import re
 
-from hooks_constants.reply_length_gate_constants import (
-    MAXIMUM_SENTENCE_COUNT,
-    MAXIMUM_WORDS_PER_SENTENCE,
-)
-
 RESOLVE_TOOL_NAME_PATTERN = re.compile(r"^mcp__.+__resolve_review_thread$")
 REVIEW_WRITE_TOOL_NAME_PATTERN = re.compile(r"^mcp__.+__pull_request_review_write$")
 REVIEW_WRITE_METHOD_KEY = "method"
@@ -31,7 +26,4 @@ MISSING_REPLY_REASON = (
     " or with gh api graphql addPullRequestReviewThreadReply and the thread's PRRT_ id, confirm its"
     " result came back without an error, then resolve the thread by its PRRT_ id or by the comment id the reply answered. A comment id"
     " ties to a thread only through a pull_request_read get_review_comments result in this session."
-    " A reply that a hook refused did not post; shorten it to"
-    f" at most {MAXIMUM_SENTENCE_COUNT} sentences of at most {MAXIMUM_WORDS_PER_SENTENCE} words each,"
-    " footer included, and send it again."
 )

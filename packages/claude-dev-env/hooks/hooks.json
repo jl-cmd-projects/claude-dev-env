@@ -188,16 +188,6 @@
         ]
       },
       {
-        "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision|AskUserQuestion|mcp__hearthbot__post_widget",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/reply_length_gate.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "mcp__hearthbot__reply|mcp__hearthbot__post_message|mcp__hearthbot__update_message|mcp__hearthbot__ask_decision",
         "hooks": [
           {
@@ -328,16 +318,6 @@
             "timeout": 15
           }
         ]
-      },
-      {
-        "matcher": "Bash|mcp__github__add_issue_comment|mcp__github__update_issue_comment|mcp__github__add_reply_to_pull_request_comment|mcp__github__add_comment_to_pending_review|mcp__github__pull_request_review_write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/reply_length_gate.py",
-            "timeout": 10
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [
@@ -353,11 +333,6 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lifecycle/nested_project_hooks.py",
             "timeout": 120
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/chat_reply_gate.py",
-            "timeout": 10
           },
           {
             "type": "command",
@@ -506,11 +481,6 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/session_edit_tracker_cleanup.py",
             "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/chat_reply_gate.py",
-            "timeout": 3
           }
         ]
       }
@@ -587,17 +557,6 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/advisory/auto_mode_denial_quick_fix.py",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "MessageDisplay": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/chat_reply_gate.py",
-            "timeout": 100
           }
         ]
       }

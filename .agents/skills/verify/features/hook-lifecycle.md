@@ -1,6 +1,6 @@
 # Hook lifecycle
 
-The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, InstructionsLoaded, and MessageDisplay hooks. A hook adds context or rewrites a tool input. The MessageDisplay hook, `chat_reply_gate.py`, shows a short draft in place of a chat reply that breaks the reply rules. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. For an `Agent` or `Task` spawn it returns `additionalContext` and no `block`. Policy checks run as linters and continuous-integration jobs.
+The installed package registers SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SessionEnd, and InstructionsLoaded hooks. A hook adds context or rewrites a tool input. One PostToolUse hook, `verify_before_acting.py`, returns `block` after a mutating call whose reasoning hedges, and the call it reads has already run. For an `Agent` or `Task` spawn it returns `additionalContext` and no `block`. Policy checks run as linters and continuous-integration jobs.
 
 ## Sub-features
 
@@ -28,7 +28,7 @@ Preconditions:
 - `<scratch>` is an empty directory under the OS temporary root or the session scratchpad.
 
 - **Install and start two hooks.** Run `node packages/claude-dev-env/scripts/ci/install-playtest.mjs --home <scratch> --evidence <scratch>-evidence` from the repository root. Exit code `0`. Three `[PASS] playtest` lines name `install`, `session_start_hook`, and `blocking_hook`, each with an evidence path and a `sha256=` digest.
-- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.SessionStart` has a `compact` group, `hooks.SubagentStart` has a `workflow-subagent` group, and `hooks.UserPromptSubmit` has a group. Each of those runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. `hooks.MessageDisplay` has one group that runs `<scratch>/.claude/hooks/blocking/chat_reply_gate.py`.
+- **Read the roster.** Open `<scratch>/.claude/settings.json`. `hooks.SessionStart` has a `compact` group, `hooks.SubagentStart` has a `workflow-subagent` group, and `hooks.UserPromptSubmit` has a group. Each of those runs `<scratch>/.claude/hooks/session/skill_loaded_reminder.py`. `hooks.MessageDisplay` is absent.
 - **Spawn pass-through.** No `hooks.PreToolUse` group in `<scratch>/.claude/settings.json` or `<scratch>/.codex/hooks.json` runs `skill_loaded_reminder.py`, so the reminder adds no poteto-mode line to a spawn prompt. Piping `{"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"prompt":"Reply leaf."}}` into the script prints nothing, and the exit code is `0`.
 - **Compaction reminder.** Write `<scratch>/skill.jsonl` with an assistant record holding a `tool_use` block named `Skill` with input `{"skill":"poteto-mode"}`, then a record with `subtype` `compact_boundary`. Pipe `{"hook_event_name":"SessionStart","source":"compact","transcript_path":"<scratch>/skill.jsonl"}`. The `SessionStart` envelope's `additionalContext` starts `The context was just compacted`. The same payload without `transcript_path`, or with `"source":"startup"`, prints nothing.
 - **Workflow helper.** Pipe `{"hook_event_name":"SubagentStart","agent_type":"workflow-subagent"}`. The `SubagentStart` envelope's `additionalContext` starts `The poteto-mode skill is not loaded`.

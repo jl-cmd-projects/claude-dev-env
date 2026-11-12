@@ -110,4 +110,3 @@ REWRITTEN_RELEASE_BODY_MESSAGE = (
 REPOSITORY_OWNER_SEPARATOR = "/"
 PROOF_GATE_CREATE_TOOL_NAME = "mcp__github__create_pull_request"
 PULL_REQUEST_PROOF_FINDING_CODE = "pull-request-proof-section"
-COMMENT_LENGTH_FINDING_CODE = "github-comment-length"
