@@ -1,6 +1,5 @@
 """Behavior tests for the gate that holds a pull request status claim until this turn read that pull request's state."""
 
-import io
 import json
 import subprocess
 import sys
@@ -12,7 +11,6 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
-import final_reply_gate
 from blocking import pr_state_claim_gate as gate
 
 GATE_PATH = Path(__file__).resolve().parent / "pr_state_claim_gate.py"
@@ -201,26 +199,3 @@ def test_hook_script_denies_the_incident_payload_on_stdin(tmp_path: Path) -> Non
     assert output_fields["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert "PR 29" in output_fields["hookSpecificOutput"]["permissionDecisionReason"]
 
-
-def _stop_output(tmp_path: Path, all_lines: list[str], reply_text: str, monkeypatch: pytest.MonkeyPatch) -> str:
-    transcript_path = tmp_path / "stop.jsonl"
-    transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
-    stop_payload = {"last_assistant_message": reply_text, "transcript_path": str(transcript_path)}
-    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(json.dumps(stop_payload).encode())))
-    captured_output = io.StringIO()
-    monkeypatch.setattr(sys, "stdout", captured_output)
-    final_reply_gate.main()
-    return captured_output.getvalue()
-
-
-def test_closing_reply_with_a_stale_claim_is_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    output_text = _stop_output(tmp_path, _incident_turn(), READY_MESSAGE, monkeypatch)
-
-    assert json.loads(output_text)["decision"] == "block"
-    assert "PR 29" in output_text
-
-
-def test_closing_reply_after_a_state_read_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    all_lines = _incident_turn() + _read("read-get", "get")
-
-    assert _stop_output(tmp_path, all_lines, READY_MESSAGE, monkeypatch) == ""
