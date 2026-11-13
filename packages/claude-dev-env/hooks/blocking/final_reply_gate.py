@@ -3,9 +3,9 @@
 
 This gate checks the reply the session ends its turn with, which reaches the
 user with no tool call. It flags a path outside code whose backslash the
-terminal drops, such as ``D:\\Reports\\.claude``. A block sends the reason
-back so the model rewrites the reply. Claude Code ends the turn after eight
-blocks in a row.
+terminal drops, such as ``D:\\Reports\\.claude``. A block exits with
+code 2 and sends the reason back so the model rewrites the reply. Claude Code
+ends the turn after eight blocks in a row.
 
 It also blocks a reply whose last paragraph ends with a question mark, or says a question still stands, when the
 turn sent no AskUserQuestion, hearthbot decision card, or Codex
@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import bisect
 import functools
-import json
 import re
 import sys
 from collections.abc import Callable
@@ -36,15 +35,14 @@ if hooks_root_directory not in sys.path:
 from open_tasks_transcript import replayed_transcript
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.stop_hook_hold import hold_stop
 from hooks_constants.final_reply_gate_constants import (
     ALLOW_EXIT_CODE,
     BACKSLASH,
     BACKSLASHES_PER_LITERAL,
     BACKTICK_RUN_PATTERN,
     BLOCK_BOUNDARY_PATTERN,
-    BLOCK_DECISION,
     CARRIAGE_RETURN_LINE_BREAK,
-    DECISION_KEY,
     ESCAPED_PUNCTUATION_PATTERN,
     FENCE_CLOSER_PREFIX,
     FENCE_CLOSER_SUFFIX,
@@ -65,7 +63,6 @@ from hooks_constants.final_reply_gate_constants import (
     QUOTE_MARKER,
     QUOTE_MARKER_PATTERN,
     QUOTED_LINE_PATTERN,
-    REASON_KEY,
     REWRITE_INSTRUCTION,
     STANDING_QUESTION_PATTERN,
     TRAILING_MARKUP_CHARACTERS,
@@ -275,8 +272,7 @@ def main() -> int:
     log_hook_block(
         Path(__file__).name, HOOK_EVENT_NAME, block_reason, offending_input_preview=reply_text
     )
-    sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

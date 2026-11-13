@@ -10,8 +10,8 @@ this gate asks GitHub for the state and head of each recorded pull request::
     allow: acme/widgets#42 is open on the head this gate already blocked on
     block: acme/widgets#42 reads open on a new head and the reply names no blocker
 
-A block sends those pull requests back as the reason, so the model keeps
-working the loop, and records each head it blocked on. A later stop on the
+A block exits with code 2 and sends those pull requests back as the reason,
+so the model keeps working the loop, and records each head it blocked on. A later stop on the
 same head passes, and a push to a new head blocks once more. An open pull
 request whose head GitHub does not report blocks on every stop. Claude Code
 ends the turn after eight blocks in a row, and Codex turns the reason into a
@@ -23,7 +23,6 @@ the host shows it in the hook log.
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import sys
@@ -36,13 +35,11 @@ if hooks_root_directory not in sys.path:
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.owned_pr_merge_stop_gate_constants import (
     ALLOW_EXIT_CODE,
-    BLOCK_DECISION,
     BLOCK_REASON_PREFIX,
     BLOCK_REASON_SUFFIX,
     BLOCKED_LINE_PATTERN,
     BLOCKED_TEXT_GROUP_INDEX,
     BOLD_MARKER,
-    DECISION_KEY,
     GH_API_SUBCOMMAND,
     GH_JQ_OPTION,
     GH_PROGRAM_NAME,
@@ -57,13 +54,14 @@ from hooks_constants.owned_pr_merge_stop_gate_constants import (
     PULL_REQUEST_LINE_TEMPLATE,
     PULL_REQUEST_REFERENCE_TEMPLATE,
     PULL_REQUEST_STATE_QUERY,
-    REASON_KEY,
     SESSION_ID_KEY,
     STATE_AND_HEAD_SEPARATOR,
     STATE_QUERY_TIMEOUT_SECONDS,
     URL_FIELD,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
+from hooks_constants.stop_hook_hold import hold_stop
 from owned_pr_session_record import (
     all_blocked_heads,
     all_recorded_pull_requests,
@@ -86,6 +84,8 @@ def open_head(all_pull_request_fields: dict[str, str]) -> str | None:
             [GH_PROGRAM_NAME, GH_API_SUBCOMMAND, endpoint, GH_JQ_OPTION, PULL_REQUEST_STATE_QUERY],
             capture_output=True,
             text=True,
+            encoding=UTF8_ENCODING,
+            errors=DECODE_ERRORS_POLICY,
             timeout=STATE_QUERY_TIMEOUT_SECONDS,
             check=False,
         )
@@ -177,8 +177,7 @@ def main() -> int:
     )
     block_reason = block_reason_for(all_open_pull_requests)
     log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, block_reason)
-    sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

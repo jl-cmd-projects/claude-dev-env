@@ -5,9 +5,6 @@ import re
 HOOK_EVENT_NAME = "Stop"
 SESSION_ID_KEY = "session_id"
 LAST_ASSISTANT_MESSAGE_KEY = "last_assistant_message"
-DECISION_KEY = "decision"
-BLOCK_DECISION = "block"
-REASON_KEY = "reason"
 ALLOW_EXIT_CODE = 0
 GH_PROGRAM_NAME = "gh"
 GH_API_SUBCOMMAND = "api"

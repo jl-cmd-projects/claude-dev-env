@@ -33,8 +33,9 @@ A later ``removedNames`` entry takes the name away again. With no such record,
 or with an unreadable transcript, the hook lets the turn end, so Codex,
 Cursor and sessions without the tool keep working.
 
-A block writes ``{"decision": "block", "reason": ...}`` to stdout. The reason
-names the shown title, why it does not fit, and the four status emoji.
+A block exits with code 2 and writes ``{"decision": "block", "reason": ...}``
+to stdout and the reason to stderr. The reason names the shown title, why it
+does not fit, and the four status emoji.
 """
 
 from __future__ import annotations
@@ -56,6 +57,7 @@ from open_task_asks import is_ask
 from open_tasks_stop_gate import session_task_items
 from open_tasks_transcript import TaskItem, replayed_transcript
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.stop_hook_hold import hold_stop
 from hooks_constants.session_title_constants import (
     ALL_ITEMS_COMPLETED_REASON,
     ALL_SKIPPED_PROMPT_FLAGS,
@@ -64,13 +66,11 @@ from hooks_constants.session_title_constants import (
     ALLOW_EXIT_CODE,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_KEY,
-    BLOCK_DECISION,
     BLOCK_ID_KEY,
     BLOCK_INPUT_KEY,
     BLOCK_NAME_KEY,
     CHECK_MARK_STATUS,
     CONTENT_KEY,
-    DECISION_KEY,
     DECODE_ERRORS_POLICY,
     ENTRY_TYPE_KEY,
     HOURGLASS_STATUS,
@@ -78,7 +78,6 @@ from hooks_constants.session_title_constants import (
     MESSAGE_KEY,
     NO_TITLE_REASON,
     OPEN_ITEMS_REASON,
-    REASON_KEY,
     RED_FLAG_STATUS,
     REMOVED_NAMES_KEY,
     SESSION_ID_KEY,
@@ -409,8 +408,7 @@ def main() -> int:
     if block_reason is None:
         return ALLOW_EXIT_CODE
     log_hook_block(Path(__file__).name, TURN_GATE_EVENT_NAME, block_reason)
-    sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

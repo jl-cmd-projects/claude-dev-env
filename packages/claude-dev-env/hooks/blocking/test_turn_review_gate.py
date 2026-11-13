@@ -28,6 +28,10 @@ exit_code = int(os.environ.get("STUB_REVIEW_EXIT_CODE", "0"))
 if exit_code:
     sys.exit(exit_code)
 time.sleep(float(os.environ.get("STUB_REVIEW_SECONDS", "0")))
+if os.environ.get("STUB_BLOCK_STATE_WRITE"):
+    for each_state_file in Path(os.environ["TMPDIR"]).glob("turn-review-*.json"):
+        each_state_file.unlink()
+        each_state_file.mkdir()
 print(json.dumps({"type": "result", "is_error": False, "result": os.environ["STUB_REVIEW_TEXT"]}))
 """
 
@@ -95,9 +99,15 @@ def run_hook(environment: dict[str, str], hook_event_name: str) -> dict[str, obj
         capture_output=True,
         text=True,
         env=environment,
-        check=True,
+        check=False,
     )
-    return json.loads(completed_process.stdout) if completed_process.stdout.strip() else {}
+    hook_output = json.loads(completed_process.stdout) if completed_process.stdout.strip() else {}
+    if not hook_output:
+        assert completed_process.returncode == 0, completed_process.stderr
+        return hook_output
+    assert completed_process.returncode == 2, completed_process.stderr
+    assert completed_process.stderr.endswith(str(hook_output["reason"]))
+    return hook_output
 
 
 def review_calls(environment: dict[str, str]) -> list[dict[str, object]]:
@@ -118,6 +128,16 @@ def test_should_block_the_stop_with_the_finding_when_the_turn_leaves_a_bug(
     assert stop_output["decision"] == "block"
     assert FINDING_TEXT in str(stop_output["reason"])
     assert "app" in str(stop_output["reason"])
+
+
+def test_should_block_the_stop_with_the_finding_when_the_review_state_cannot_be_saved(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    stop_output = run_hook({**gate_environment, "STUB_BLOCK_STATE_WRITE": "1"}, "Stop")
+    assert stop_output["decision"] == "block"
+    assert FINDING_TEXT in str(stop_output["reason"])
 
 
 def test_should_tell_the_agent_to_fix_a_finding_unless_the_user_asked_for_it(

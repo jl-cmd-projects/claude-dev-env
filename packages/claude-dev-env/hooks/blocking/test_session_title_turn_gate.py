@@ -76,11 +76,11 @@ def run_gate(
     tmp_path: Path,
     all_entries: list[dict[str, object]],
     is_stop_hook_active: bool = False,
+    transcript_tail: bytes = b"",
 ) -> tuple[int, str]:
     transcript_path = tmp_path / "transcript.jsonl"
-    transcript_path.write_text(
-        "\n".join(json.dumps(each) for each in all_entries) + "\n", encoding="utf-8"
-    )
+    transcript_text = "\n".join(json.dumps(each) for each in all_entries) + "\n"
+    transcript_path.write_bytes(transcript_text.encode("utf-8") + transcript_tail)
     hook_input = {
         "hook_event_name": "Stop",
         "session_id": SESSION_ID,
@@ -131,7 +131,7 @@ def test_should_hold_a_work_turn_in_a_session_with_no_title(
         monkeypatch, capsys, tmp_path, [TOOL_LISTING, PROMPT, WORK_CALL, WORK_RESULT, REPLY]
     )
     block_output = json.loads(stdout_text)
-    assert exit_code == 0
+    assert exit_code == 2
     assert block_output["decision"] == "block"
     assert "no title yet" in block_output["reason"]
     assert REMOTE_TITLE_TOOL in block_output["reason"]
@@ -201,6 +201,29 @@ def test_should_hold_a_carried_check_mark_while_items_are_open(
     write_task_store(tmp_path, ["completed", "pending"])
     all_entries = [*earlier_turn("✅ Gate"), QUESTION_PROMPT, WORK_CALL, WORK_RESULT, REPLY]
     assert "open items" in block_reason(monkeypatch, capsys, tmp_path, all_entries)
+
+
+def test_should_hold_a_carried_check_mark_when_one_task_file_holds_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, ["completed", "pending"])
+    (tmp_path / ".claude" / "tasks" / SESSION_ID / "3.json").write_bytes(b"\xff")
+    all_entries = [*earlier_turn("✅ Gate"), QUESTION_PROMPT, WORK_CALL, WORK_RESULT, REPLY]
+    assert "open items" in block_reason(monkeypatch, capsys, tmp_path, all_entries)
+
+
+def test_should_hold_a_work_turn_whose_transcript_holds_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    exit_code, stdout_text = run_gate(
+        monkeypatch,
+        capsys,
+        tmp_path,
+        [TOOL_LISTING, PROMPT, WORK_CALL, WORK_RESULT, REPLY],
+        transcript_tail=b"\xff\n",
+    )
+    assert exit_code == 2
+    assert "no title yet" in json.loads(stdout_text)["reason"]
 
 
 def test_should_hold_a_carried_hourglass_once_every_item_is_completed(

@@ -3,7 +3,7 @@
 
 The agent edits ``src/service.py`` and drops a retry. When the turn stops, a
 separate ``claude -p`` run reviews only that turn's edits with
-``/code-review low`` and the hook holds the stop with what it found::
+``/code-review low`` and the hook holds the stop, with exit code 2, on what it found::
 
     prompt arrives  ->  snapshot A of the working tree
     agent edits     ->  src/service.py loses @with_retry
@@ -53,15 +53,14 @@ from hooks_constants.atomic_file_writer_constants import ATOMIC_WRITE_TEMPORARY_
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_file_id import session_file_id
+from hooks_constants.stop_hook_hold import hold_stop
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 from hooks_constants.turn_review_gate_constants import (
     ALL_PARENT_SESSION_VARIABLES,
     ALL_REVIEW_ALLOWED_TOOLS,
     ALL_REVIEW_DISALLOWED_TOOLS,
     BASELINE_COMMIT_PATTERN,
-    BLOCK_DECISION,
     BLOCK_REASON_TEMPLATE,
-    DECISION_KEY,
     FINDING_LINE_SEPARATOR,
     GIT_DIRECTORY_NAME,
     HOOK_EVENT_NAME_KEY,
@@ -69,7 +68,6 @@ from hooks_constants.turn_review_gate_constants import (
     MAXIMUM_TURN_FILES,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
     PROMPT_EVENT_NAME,
-    REASON_KEY,
     REPOSITORIES_ENVIRONMENT_VARIABLE,
     REPOSITORY_FINDINGS_SEPARATOR,
     REPOSITORY_FINDINGS_TEMPLATE,
@@ -91,6 +89,7 @@ from hooks_constants.turn_review_gate_constants import (
     STATE_BASELINES_KEY,
     STATE_BLOCKS_KEY,
     STATE_FILE_TEMPLATE,
+    STATE_SAVE_FAILURE_DIAGNOSTIC_TEMPLATE,
     STATE_TEMPORARY_PREFIX,
     STATE_TEXT_ENCODING,
     STOP_EVENT_NAME,
@@ -257,14 +256,17 @@ def _load_state(session_id: object) -> tuple[dict[str, str], int]:
 
 
 def _save_state(session_id: object, all_baselines: dict[str, str], blocks_in_a_row: int) -> None:
-    write_text_atomically(
-        _state_path(session_id),
-        json.dumps({STATE_BASELINES_KEY: all_baselines, STATE_BLOCKS_KEY: blocks_in_a_row}),
-        STATE_TEXT_ENCODING,
-        STATE_TEMPORARY_PREFIX,
-        ATOMIC_WRITE_TEMPORARY_SUFFIX,
-        False,
-    )
+    try:
+        write_text_atomically(
+            _state_path(session_id),
+            json.dumps({STATE_BASELINES_KEY: all_baselines, STATE_BLOCKS_KEY: blocks_in_a_row}),
+            STATE_TEXT_ENCODING,
+            STATE_TEMPORARY_PREFIX,
+            ATOMIC_WRITE_TEMPORARY_SUFFIX,
+            False,
+        )
+    except (OSError, UnicodeError) as save_error:
+        sys.stderr.write(STATE_SAVE_FAILURE_DIAGNOSTIC_TEMPLATE.format(detail=save_error))
 
 
 def _record_prompt_baselines(session_id: object, all_roots: list[Path]) -> None:
@@ -354,8 +356,7 @@ def main() -> int:
     if block_reason is None:
         return 0
     log_hook_block(Path(__file__).name, STOP_EVENT_NAME, block_reason)
-    sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
-    return 0
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

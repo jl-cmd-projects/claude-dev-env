@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -60,8 +61,14 @@ def _run_gate(
     monkeypatch.setattr(
         "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
     )
-    assert owned_pr_merge_stop_gate.main() == 0
-    return capsys.readouterr().out
+    exit_code = owned_pr_merge_stop_gate.main()
+    captured = capsys.readouterr()
+    if not captured.out:
+        assert exit_code == 0
+        return captured.out
+    assert exit_code == 2
+    assert captured.err.endswith(json.loads(captured.out)["reason"])
+    return captured.out
 
 
 def test_main_should_block_while_a_recorded_pull_request_is_open(
@@ -76,6 +83,21 @@ def test_main_should_block_while_a_recorded_pull_request_is_open(
     assert all_calls == [
         ["gh", "api", "repos/jl-cmd/snake-game/pulls/9", "--jq", '.state + " " + .head.sha']
     ]
+
+
+def test_main_should_block_when_the_state_lookup_prints_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    owned_pr_session_record.record_pull_request(SESSION_ID, PULL_REQUEST)
+    stub_lookup = tmp_path / "stub_lookup.py"
+    stub_lookup.write_text(
+        "import sys\nsys.stdout.buffer.write(b'open \\xffabc\\n')\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(owned_pr_merge_stop_gate, "GH_PROGRAM_NAME", sys.executable)
+    monkeypatch.setattr(owned_pr_merge_stop_gate, "GH_API_SUBCOMMAND", str(stub_lookup))
+    decision = json.loads(_run_gate(monkeypatch, capsys, "Draft PR is open."))
+    assert decision["decision"] == "block"
+    assert PULL_REQUEST["url"] in decision["reason"]
 
 
 def test_main_should_allow_once_the_pull_request_is_closed(
