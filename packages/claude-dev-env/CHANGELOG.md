@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.116.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.0...claude-dev-env-v8.116.1) (2026-11-13)
+
+
+### Refactoring
+
+* remove the reply length and chat reply gates ([#2334](https://github.com/jl-cmd-projects/claude-dev-env/issues/2334)) ([c218a37](https://github.com/jl-cmd-projects/claude-dev-env/commit/c218a37e0a930af757485e0309332d398533312d))
+
 ## [8.116.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.115.0...claude-dev-env-v8.116.0) (2026-11-11)
 
 
