@@ -26,7 +26,7 @@ ALL_STATUS_CLAIM_PATTERNS = (
         r"(?<!not )(?<!yet )(?<!n't )\bready\s+(?:to|for)\s+(?:merge|merging|queue|queueing|queuing|land|landing)\b",
         re.IGNORECASE,
     ),
-    re.compile(r"\b(?:is|are|now|still)\s+ready\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are|now|still)\s+ready\b(?!\s+(?:for|to)\s+(?!merg|queu|land))", re.IGNORECASE),
     re.compile(r"\bmergeable\b", re.IGNORECASE),
     re.compile(r"\b(?:is|are|still|remains|stays|now)\s+open\b", re.IGNORECASE),
     re.compile(r"\bneeds?\s+(?:your\s+|his\s+|their\s+)?(?:merg\w*|approv\w*|queu\w*)", re.IGNORECASE),
@@ -43,6 +43,8 @@ PULL_REQUEST_BACKREFERENCE_PATTERN = re.compile(
 OUTPUT_FILTER_FLAG_PATTERN = re.compile(
     r"(?:--jq|--template|(?<=\s)-q|(?<=\s)-t)[\s=]+('[^']*'|\"[^\"]*\"|\S+)"
 )
+PIPE_PATTERN = re.compile(r"(?<!\|)\|(?!\|)(.*)", re.DOTALL)
+ALL_PASSTHROUGH_COMMANDS = frozenset({"cat", "head", "tail", "less", "more", "tee"})
 ALL_SHELL_TOOL_NAMES = ("Bash", "PowerShell")
 PR_VIEW_COMMAND_PATTERN = re.compile(r"\bgh\s+pr\s+view\b[^|;&\n]*", re.IGNORECASE)
 PR_VIEW_STATE_FIELDS_PATTERN = re.compile(r"\b(?:state|merged|mergedAt)\b", re.IGNORECASE)

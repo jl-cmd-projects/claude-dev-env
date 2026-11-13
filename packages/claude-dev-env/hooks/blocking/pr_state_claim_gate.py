@@ -24,6 +24,7 @@ if hooks_directory not in sys.path:
 from blocking.pr_lifecycle_skill_gate import deny_decision, transcript_paths
 from hooks_constants.pr_state_claim_gate_constants import (
     ALL_MESSAGE_TOOL_NAME_PATTERNS,
+    ALL_PASSTHROUGH_COMMANDS,
     ALL_SHELL_TOOL_NAMES,
     ALL_STATUS_CLAIM_PATTERNS,
     DIGIT_RUN_PATTERN,
@@ -32,6 +33,7 @@ from hooks_constants.pr_state_claim_gate_constants import (
     MISSING_STATE_READ_REASON,
     OUTPUT_FILTER_FLAG_PATTERN,
     OWNER_INPUT_KEY,
+    PIPE_PATTERN,
     PR_VIEW_COMMAND_PATTERN,
     PR_VIEW_JSON_FLAG_PATTERN,
     PR_VIEW_REPOSITORY_FLAG_PATTERN,
@@ -144,8 +146,18 @@ def _names_pull_request(segment_text: str, number: int) -> bool:
     return token_pattern.search(segment_text) is not None
 
 
+def _pipeline_keeps_state(command_text: str) -> bool:
+    pipe_match = PIPE_PATTERN.search(command_text)
+    if pipe_match is None:
+        return True
+    downstream_words = pipe_match.group(1).split()
+    return (
+        bool(downstream_words) and downstream_words[0] in ALL_PASSTHROUGH_COMMANDS
+    ) or PR_VIEW_STATE_FIELDS_PATTERN.search(pipe_match.group(1)) is not None
+
+
 def _filter_keeps_state(command_text: str) -> bool:
-    return all(
+    return _pipeline_keeps_state(command_text) and all(
         PR_VIEW_STATE_FIELDS_PATTERN.search(each_filter.group(1)) is not None
         for each_filter in OUTPUT_FILTER_FLAG_PATTERN.finditer(command_text)
     )

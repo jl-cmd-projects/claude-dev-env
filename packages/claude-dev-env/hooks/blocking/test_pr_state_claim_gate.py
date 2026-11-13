@@ -116,6 +116,8 @@ def test_failed_state_read_is_denied(tmp_path: Path) -> None:
         "gh api repos/o/r/pulls/29",
         "gh api repos/o/r/pulls/29 --jq '.merged'",
         "gh pr view 29 --json state,title --jq .state",
+        "gh pr view 29 --json state,title | jq .state",
+        "gh pr view 29 | head -20",
     ],
 )
 def test_shell_state_read_of_the_pull_request_passes(tmp_path: Path, command: str) -> None:
@@ -134,6 +136,7 @@ def test_shell_state_read_of_the_pull_request_passes(tmp_path: Path, command: st
         "gh api repos/o/r/pulls/290",
         "gh pr checks 29",
         "gh api repos/o/r/pulls/29 --jq .title",
+        "gh pr view 29 --json state,title | jq .title",
         "gh pr view 29 --json state,title --jq .title",
     ],
 )
@@ -196,6 +199,8 @@ def test_unreadable_transcript_passes(tmp_path: Path) -> None:
         ("[PR 7](https://github.com/O/R/pull/7) is open.", [(7, "o/r")]),
         ("PR 29 merged at 13:22 UTC.", []),
         ("PR 29 merged. The build is ready.", []),
+        ("PR 29 is ready for review.", []),
+        ("PR 29 is ready for queueing.", [(29, None)]),
         ("PR 29 landed. The PR is ready to merge.", [(29, None)]),
         ("PR 29 was closed.", []),
         ("The build is ready.", []),
