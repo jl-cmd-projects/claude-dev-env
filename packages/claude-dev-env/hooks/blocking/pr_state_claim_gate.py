@@ -1,6 +1,6 @@
 """Deny a message that states a pull request's status until this turn read that pull request's state.
 
-The gate covers messages to a user or another session. A message that calls a
+The gate covers messages to a user or another session and the closing reply. A message that calls a
 pull request ready, open, mergeable, or in need of a merge, an approval, or queueing passes when a
 state read of the same pull request ran since the last user prompt::
 
