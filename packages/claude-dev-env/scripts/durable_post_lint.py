@@ -18,7 +18,6 @@ from dev_env_scripts_constants.private_term_constants import (
     PRIVATE_TERM_MESSAGE_TEMPLATE,
 )
 from durable_post_lint_config.config.constants import (
-    ACTION_GITHUB_MCP_COMMENT,
     ACTION_PR_CREATE,
     ACTION_PR_EDIT,
     ALL_BARE_VOLATILE_PATH_MARKERS,
@@ -33,7 +32,6 @@ from durable_post_lint_config.config.constants import (
     BODY_MUST_NOT_BE_EMPTY_MESSAGE,
     BODY_REQUIRED_MESSAGE,
     CLEAN_EXIT_CODE,
-    COMMENT_LENGTH_FINDING_CODE,
     CONTENT_FINDING_EXIT_CODE,
     CONVENTIONAL_TITLE_PATTERN,
     EDIT_INPUT_REQUIRED_MESSAGE,
@@ -73,7 +71,6 @@ from blocking.pull_request_proof import (
     missing_proof_reason,
     what_this_does_section,
 )
-from blocking.reply_length_gate import comment_length_violation
 
 
 class DurablePostUsageError(ValueError):
@@ -211,13 +208,6 @@ def _pull_request_proof_findings(
     ]
 
 
-def _comment_length_findings(body_text: str) -> list[DurablePostFinding]:
-    violation = comment_length_violation(body_text)
-    if violation is None:
-        return []
-    return [DurablePostFinding(code=COMMENT_LENGTH_FINDING_CODE, message=violation)]
-
-
 def _contrast_framing_findings(text: str) -> list[DurablePostFinding]:
     all_lines = text.splitlines()
     return [
@@ -307,8 +297,6 @@ def _body_findings(
         if action in (ACTION_PR_CREATE, ACTION_PR_EDIT):
             all_findings.extend(_description_flowchart_findings(body_text)
             )
-        if action == ACTION_GITHUB_MCP_COMMENT:
-            all_findings.extend(_comment_length_findings(body_text))
         all_findings.extend(_contrast_framing_findings(body_text))
     if find_volatile_path_marker(body_text) is not None:
         all_findings.append(

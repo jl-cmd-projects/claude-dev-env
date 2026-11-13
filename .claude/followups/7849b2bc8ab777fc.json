@@ -1,8 +1,8 @@
 {
   "rule_id": "test-pairing",
-  "file_path": "packages/claude-dev-env/hooks/hooks_constants/chat_reply_gate_constants.py",
+  "file_path": "packages/claude-dev-env/hooks/session/background_silence_prompt.py",
   "message": "Changed production file has no changed matching test",
   "check_id": "test-pairing",
   "severity": "smell",
-  "origin_commit": "b1823e2d04a6ffdf00ac994e85c00ce1210aa244"
+  "origin_commit": "974284b42eeb4609e94d4ebc1f6e36df400d54ca"
 }

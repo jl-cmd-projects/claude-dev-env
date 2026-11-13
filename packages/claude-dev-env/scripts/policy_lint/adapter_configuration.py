@@ -130,8 +130,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/pr_lifecycle_skill_gate.py        -> exempt
         hooks/blocking/verify_before_commit_gate.py      -> exempt
         hooks/blocking/step_note_gate.py                 -> exempt
-        hooks/blocking/reply_length_gate.py              -> exempt
-        hooks/blocking/chat_reply_gate.py                -> exempt
         hooks/blocking/edit_marker_gate.py               -> exempt
         hooks/blocking/issue_close_handoff_gate.py       -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt

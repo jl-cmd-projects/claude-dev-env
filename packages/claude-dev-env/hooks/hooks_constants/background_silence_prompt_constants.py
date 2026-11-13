@@ -40,3 +40,5 @@ SILENCE_NOTE_WITHOUT_EXCEPTION = (
     " End this turn with no text at all unless that message names an exception that applies now."
     ' Tool calls are fine, and a status line such as "No change." counts as text.'
 )
+
+ADDITIONAL_CONTEXT_KEY = "additionalContext"
