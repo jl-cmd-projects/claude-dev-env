@@ -81,6 +81,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/owned_pr_merge_stop_gate.py",
     "blocking/session_title_turn_gate.py",
     "blocking/resolve_thread_reply_gate.py",
+    "blocking/pr_state_claim_gate.py",
     "blocking/turn_review_gate.py",
     "blocking/wakeup_cap_gate.py",
     "blocking/transcript_root_search_gate.py",

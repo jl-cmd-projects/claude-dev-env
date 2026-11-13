@@ -71,6 +71,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'blocking/pr_description_enforcer.py',
     'blocking/pr_description_writer_gate.py',
     'blocking/pr_lifecycle_skill_gate.py',
+    'blocking/pr_state_claim_gate.py',
     'blocking/pre_tool_use_dispatcher.py',
     'blocking/precommit_code_rules_gate.py',
     'blocking/prompt-workflow-stop-guard.py',

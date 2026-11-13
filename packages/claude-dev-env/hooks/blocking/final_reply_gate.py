@@ -33,6 +33,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from blocking.pr_state_claim_gate import message_violation as pr_state_message_violation
 from open_tasks_transcript import replayed_transcript
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -251,6 +252,13 @@ def unbriefed_question_violation(reply_text: str, transcript_path: object) -> st
     return UNBRIEFED_QUESTION_MESSAGE
 
 
+def unread_pull_request_violation(reply_text: str, transcript_path: object) -> str | None:
+    """Return the block reason for a closing reply that states a pull request status with no state read this turn, or None."""
+    if not isinstance(transcript_path, str):
+        return None
+    return pr_state_message_violation(reply_text, [transcript_path])
+
+
 def final_reply_violation(reply_text: str, transcript_path: object) -> str | None:
     """Return the block reason for the closing reply, or None when it passes."""
     return windows_path_violation(reply_text)
@@ -268,7 +276,8 @@ def main() -> int:
     block_reason = (
         violation + REWRITE_INSTRUCTION
         if violation is not None
-        else unbriefed_question_violation(reply_text, transcript_path)
+        else unread_pull_request_violation(reply_text, transcript_path)
+        or unbriefed_question_violation(reply_text, transcript_path)
     )
     if block_reason is None:
         return ALLOW_EXIT_CODE
