@@ -37,6 +37,12 @@ ALL_STATUS_CLAIM_PATTERNS = (
 )
 PULL_REQUEST_LIST_SEPARATOR = ", "
 MESSAGE_FIELD_SEPARATOR = "\n"
+PULL_REQUEST_BACKREFERENCE_PATTERN = re.compile(
+    r"\b(?:it|its|this|that|they|the\s+(?:PR|pull\s+request))\b", re.IGNORECASE
+)
+OUTPUT_FILTER_FLAG_PATTERN = re.compile(
+    r"(?:--jq|--template|(?<=\s)-q|(?<=\s)-t)[\s=]+('[^']*'|\"[^\"]*\"|\S+)"
+)
 ALL_SHELL_TOOL_NAMES = ("Bash", "PowerShell")
 PR_VIEW_COMMAND_PATTERN = re.compile(r"\bgh\s+pr\s+view\b[^|;&\n]*", re.IGNORECASE)
 PR_VIEW_STATE_FIELDS_PATTERN = re.compile(r"\b(?:state|merged|mergedAt)\b", re.IGNORECASE)

@@ -113,6 +113,7 @@ def test_failed_state_read_is_denied(tmp_path: Path) -> None:
         "gh pr view https://github.com/o/r/pull/29 --json mergedAt",
         "gh api repos/o/r/pulls/29",
         "gh api repos/o/r/pulls/29 --jq '.merged'",
+        "gh pr view 29 --json state,title --jq .state",
     ],
 )
 def test_shell_state_read_of_the_pull_request_passes(tmp_path: Path, command: str) -> None:
@@ -130,12 +131,28 @@ def test_shell_state_read_of_the_pull_request_passes(tmp_path: Path, command: st
         "gh api repos/o/r/pulls/29/reviews",
         "gh api repos/o/r/pulls/290",
         "gh pr checks 29",
+        "gh api repos/o/r/pulls/29 --jq .title",
+        "gh pr view 29 --json state,title --jq .title",
     ],
 )
 def test_shell_call_that_returns_no_state_is_denied(tmp_path: Path, command: str) -> None:
     all_lines = [_prompt("go")] + _shell("shell-1", command)
 
     assert _is_denied(gate.decision_for(_payload(tmp_path, all_lines, READY_MESSAGE)))
+
+
+def test_view_url_of_another_repository_is_denied_for_a_linked_claim(tmp_path: Path) -> None:
+    message_text = "[PR 29](https://github.com/o/r/pull/29) is ready to merge."
+    all_lines = [_prompt("go")] + _shell("shell-1", "gh pr view https://github.com/other/repo/pull/29 --json state")
+
+    assert _is_denied(gate.decision_for(_payload(tmp_path, all_lines, message_text)))
+
+
+def test_view_of_the_linked_repository_passes(tmp_path: Path) -> None:
+    message_text = "[PR 29](https://github.com/o/r/pull/29) is ready to merge."
+    all_lines = [_prompt("go")] + _shell("shell-1", "gh pr view https://github.com/o/r/pull/29 --json state")
+
+    assert gate.decision_for(_payload(tmp_path, all_lines, message_text)) is None
 
 
 def test_claim_that_links_another_repository_needs_a_read_of_that_repository(tmp_path: Path) -> None:
@@ -176,6 +193,8 @@ def test_unreadable_transcript_passes(tmp_path: Path) -> None:
         ("PR 7 and 8 are ready to merge.", [(7, None), (8, None)]),
         ("[PR 7](https://github.com/O/R/pull/7) is open.", [(7, "o/r")]),
         ("PR 29 merged at 13:22 UTC.", []),
+        ("PR 29 merged. The build is ready.", []),
+        ("PR 29 landed. The PR is ready to merge.", [(29, None)]),
         ("PR 29 was closed.", []),
         ("The build is ready.", []),
         ("PR 29 is not ready to merge.", []),

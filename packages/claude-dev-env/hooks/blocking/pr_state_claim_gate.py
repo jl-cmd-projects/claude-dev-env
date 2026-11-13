@@ -30,11 +30,13 @@ from hooks_constants.pr_state_claim_gate_constants import (
     FENCED_BLOCK_PATTERN,
     MESSAGE_FIELD_SEPARATOR,
     MISSING_STATE_READ_REASON,
+    OUTPUT_FILTER_FLAG_PATTERN,
     OWNER_INPUT_KEY,
     PR_VIEW_COMMAND_PATTERN,
     PR_VIEW_JSON_FLAG_PATTERN,
     PR_VIEW_REPOSITORY_FLAG_PATTERN,
     PR_VIEW_STATE_FIELDS_PATTERN,
+    PULL_REQUEST_BACKREFERENCE_PATTERN,
     PULL_REQUEST_HASH_REFERENCE_PATTERN,
     PULL_REQUEST_LIST_SEPARATOR,
     PULL_REQUEST_NUMBER_INPUT_KEY,
@@ -93,14 +95,15 @@ def _states_status(sentence_text: str) -> bool:
 def claimed_pull_requests(message_text: str) -> list[ClaimedPullRequest]:
     """Return each pull request the message gives a status, as a number and the repository its link names, or None.
 
-    A sentence that states a status and names no pull request takes the pull requests of the nearest
-    earlier sentence that names one::
+    A sentence that states a status, names no pull request, and points back with a word such as
+    ``it``, ``this`` or ``the PR`` takes the pull requests of the nearest earlier sentence that
+    names one::
 
         "PR 29 is ready to merge."                          -> [(29, None)]
         "[PR 7](https://github.com/o/r/pull/7) is open."    -> [(7, "o/r")]
         "PR 29 landed. It is ready to merge."               -> [(29, None)]
         "PR 29 merged at 13:22."                            -> []
-        "The build is ready."                               -> []
+        "PR 29 merged. The build is ready."                 -> []
 
     Args:
         message_text: The prose of one message.
@@ -110,9 +113,11 @@ def claimed_pull_requests(message_text: str) -> list[ClaimedPullRequest]:
     all_claims: list[ClaimedPullRequest] = []
     for each_sentence in SENTENCE_BOUNDARY_PATTERN.split(prose_text):
         sentence_references = _pull_requests_in_sentence(each_sentence)
+        is_backreference = PULL_REQUEST_BACKREFERENCE_PATTERN.search(each_sentence) is not None
+        claimed_references = sentence_references or (nearest_references if is_backreference else [])
         nearest_references = sentence_references or nearest_references
         if _states_status(each_sentence):
-            all_claims.extend(each_reference for each_reference in nearest_references if each_reference not in all_claims)
+            all_claims.extend(each_reference for each_reference in claimed_references if each_reference not in all_claims)
     return all_claims
 
 
@@ -139,6 +144,20 @@ def _names_pull_request(segment_text: str, number: int) -> bool:
     return token_pattern.search(segment_text) is not None
 
 
+def _filter_keeps_state(command_text: str) -> bool:
+    return all(
+        PR_VIEW_STATE_FIELDS_PATTERN.search(each_filter.group(1)) is not None
+        for each_filter in OUTPUT_FILTER_FLAG_PATTERN.finditer(command_text)
+    )
+
+
+def _view_urls_match(segment_text: str, claim: ClaimedPullRequest) -> bool:
+    return all(
+        claim[1] is None or each_url.group(1).lower() == claim[1]
+        for each_url in PULL_REQUEST_URL_PATTERN.finditer(segment_text)
+    )
+
+
 def _is_state_read_by_view(command_text: str, claim: ClaimedPullRequest) -> bool:
     for each_view_match in PR_VIEW_COMMAND_PATTERN.finditer(command_text):
         segment_text = each_view_match.group()
@@ -148,14 +167,23 @@ def _is_state_read_by_view(command_text: str, claim: ClaimedPullRequest) -> bool
         if json_flag is not None and PR_VIEW_STATE_FIELDS_PATTERN.search(segment_text[json_flag.end() :]) is None:
             continue
         repository_flag = PR_VIEW_REPOSITORY_FLAG_PATTERN.search(segment_text)
-        if claim[1] is None or repository_flag is None or repository_flag.group(1).lower() == claim[1]:
+        is_repository_match = (
+            claim[1] is None or repository_flag is None or repository_flag.group(1).lower() == claim[1]
+        )
+        if (
+            is_repository_match
+            and _view_urls_match(segment_text, claim)
+            and _filter_keeps_state(command_text[each_view_match.start() :])
+        ):
             return True
     return False
 
 
 def _is_state_read_by_rest(command_text: str, claim: ClaimedPullRequest) -> bool:
     return any(
-        int(each_match.group(2)) == claim[0] and (claim[1] is None or each_match.group(1).lower() == claim[1])
+        int(each_match.group(2)) == claim[0]
+        and (claim[1] is None or each_match.group(1).lower() == claim[1])
+        and _filter_keeps_state(command_text[each_match.start() :])
         for each_match in REST_PULLS_COMMAND_PATTERN.finditer(command_text)
     )
 
