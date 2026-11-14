@@ -33,6 +33,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.step_note_gate_constants import (
     ALLOW_EXIT_CODE,
     ASSISTANT_ROLE,
@@ -143,8 +144,8 @@ def wait_for_note_check(transcript_path: Path, tool_use_id: str) -> NoteCheck:
 def main() -> int:
     if not STEP_NOTES_ON_FLAG_PATH.exists():
         return ALLOW_EXIT_CODE
-    hook_input = json.load(sys.stdin)
-    if hook_input.get("agent_id"):
+    hook_input = read_hook_input_dictionary_from_stdin()
+    if hook_input is None or hook_input.get("agent_id"):
         return ALLOW_EXIT_CODE
     tool_use_id = hook_input.get("tool_use_id")
     transcript_path = hook_input.get("transcript_path")

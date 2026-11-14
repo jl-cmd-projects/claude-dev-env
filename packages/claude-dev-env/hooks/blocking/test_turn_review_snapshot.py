@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from hooks_constants.hook_time_budget import time_budget
 from turn_review_snapshot import turn_changed_paths, working_tree_snapshot
 
 
@@ -105,3 +106,10 @@ def test_should_keep_the_leading_space_of_a_changed_path(repository: Path) -> No
     (repository / " notes.txt").write_text("new\n")
     turn_commit = working_tree_snapshot(repository, base_commit)
     assert turn_changed_paths(repository, base_commit, turn_commit) == [" notes.txt"]
+
+
+def test_should_take_no_snapshot_once_the_time_budget_is_spent(repository: Path) -> None:
+    (repository / "service.py").write_text("call(1)\n")
+    with time_budget(0):
+        assert working_tree_snapshot(repository, None) is None
+    assert working_tree_snapshot(repository, None) is not None

@@ -26,6 +26,14 @@ ALL_MATCH_TARGET_KEYS_BY_EVENT: dict[str, str] = {
     SESSION_START_EVENT: "source",
     USER_PROMPT_SUBMIT_EVENT: "prompt",
 }
+ALL_RUN_BUDGET_SECONDS_BY_EVENT: dict[str, float] = {
+    PRE_TOOL_USE_EVENT: 118,
+    SESSION_START_EVENT: 1798,
+    USER_PROMPT_SUBMIT_EVENT: 118,
+}
+CUT_OFF_CHILD_LINE_TEMPLATE: str = "nested_project_hooks: {checkout}: {command!r} {outcome}\n"
+NOT_STARTED_OUTCOME: str = "did not start, no run time left"
+STOPPED_OUTCOME_TEMPLATE: str = "stopped after {seconds:.1f} s, its output is dropped"
 
 ALL_SHELL_PROGRAM_NAMES: tuple[str, ...] = ("bash", "sh")
 SHELL_COMMAND_FLAG: str = "-c"

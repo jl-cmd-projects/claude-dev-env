@@ -78,7 +78,6 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/build_eval_before_eval_write_gate.py",
     "blocking/final_reply_gate.py",
     "blocking/open_tasks_stop_gate.py",
-    "blocking/owned_pr_merge_stop_gate.py",
     "blocking/session_title_turn_gate.py",
     "blocking/resolve_thread_reply_gate.py",
     "blocking/turn_review_gate.py",

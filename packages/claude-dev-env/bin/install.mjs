@@ -52,6 +52,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     CODEX_NATIVE_ROUTING_MATCHER,
+    ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -2344,16 +2345,27 @@ function selectCodexNativeGroupsByScriptName(groups, allScriptNames) {
         .filter(group => group.hooks.length > 0);
 }
 
+function withoutCodexExcludedPromptHooks(groups) {
+    if (!Array.isArray(groups)) return [];
+    return groups
+        .map(group => ({
+            ...group,
+            hooks: (group?.hooks ?? []).filter(
+                hook => !ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES.has(hookScriptName(hook)),
+            ),
+        }))
+        .filter(group => group.hooks.length > 0);
+}
+
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
-    const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
     return {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
                 ? preToolUseGroups.filter(group => group?.matcher === CODEX_NATIVE_ROUTING_MATCHER)
                 : [],
-            UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
+            UserPromptSubmit: withoutCodexExcludedPromptHooks(hooksConfig.hooks?.UserPromptSubmit),
             PostToolUse: selectCodexNativeGroupsByScriptName(
                 hooksConfig.hooks?.PostToolUse,
                 ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,

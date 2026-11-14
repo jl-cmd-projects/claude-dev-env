@@ -3,11 +3,15 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
+from io import StringIO
 from pathlib import Path
 
 import pytest
 
 import turn_review_gate
+import turn_review_snapshot
+from pii_prevention_blocker_parts import repository_exemption
 
 GATE_PATH = Path(turn_review_gate.__file__)
 SESSION_ID = "turn-review-session"
@@ -34,6 +38,15 @@ if os.environ.get("STUB_BLOCK_STATE_WRITE"):
         each_state_file.mkdir()
 print(json.dumps({"type": "result", "is_error": False, "result": os.environ["STUB_REVIEW_TEXT"]}))
 """
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home_directory = tmp_path / "home"
+    home_directory.mkdir()
+    monkeypatch.setenv("HOME", str(home_directory))
+    monkeypatch.setenv("USERPROFILE", str(home_directory))
+    return home_directory
 
 
 def git(repository: Path, *all_arguments: str) -> str:
@@ -128,6 +141,16 @@ def test_should_block_the_stop_with_the_finding_when_the_turn_leaves_a_bug(
     assert stop_output["decision"] == "block"
     assert FINDING_TEXT in str(stop_output["reason"])
     assert "app" in str(stop_output["reason"])
+
+
+def test_should_log_the_block_under_the_isolated_home_folder(
+    project: Path, gate_environment: dict[str, str], isolated_home: Path
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    run_hook(gate_environment, "Stop")
+    all_logged_records = (isolated_home / ".claude" / "logs" / "hook-blocks.log").read_text().splitlines()
+    assert [json.loads(each_line)["hook"] for each_line in all_logged_records] == ["turn_review_gate.py"]
 
 
 def test_should_block_the_stop_with_the_finding_when_the_review_state_cannot_be_saved(
@@ -496,3 +519,67 @@ def test_should_start_the_turn_on_the_first_stop_without_a_prompt_snapshot(
     assert run_hook(gate_environment, "Stop") == {}
     (project / "app" / "src" / "service.py").write_text("def update():\n    call(1)\n")
     assert run_hook(gate_environment, "Stop")["decision"] == "block"
+
+
+def _hang_git_calls(monkeypatch: pytest.MonkeyPatch, hung_folder: Path, hung_word: str) -> None:
+    original_run = subprocess.run
+
+    def selectively_hanging_run(all_arguments: list[str], **all_keywords: object) -> object:
+        if (
+            all_arguments[0] == "git"
+            and all_keywords.get("cwd") == str(hung_folder)
+            and hung_word in all_arguments
+        ):
+            timeout_seconds = float(all_keywords["timeout"])
+            time.sleep(timeout_seconds)
+            raise subprocess.TimeoutExpired(all_arguments, timeout_seconds)
+        return original_run(all_arguments, **all_keywords)
+
+    monkeypatch.setattr(subprocess, "run", selectively_hanging_run)
+
+
+def _run_gate_in_process(
+    monkeypatch: pytest.MonkeyPatch, gate_environment: dict[str, str], hook_event_name: str
+) -> int:
+    for each_name in ("PATH", "CLAUDE_PROJECT_DIR", "CLAUDE_TURN_REVIEW_REPOSITORIES", "STUB_REVIEW_LOG", "STUB_REVIEW_TEXT"):
+        monkeypatch.setenv(each_name, gate_environment[each_name])
+    monkeypatch.delenv("CLAUDE_TURN_REVIEW_CHILD", raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
+    hook_input = {"hook_event_name": hook_event_name, "session_id": SESSION_ID, "cwd": "/"}
+    monkeypatch.setattr(sys, "stdin", StringIO(json.dumps(hook_input)))
+    return turn_review_gate.main()
+
+
+def test_should_end_the_stop_inside_its_run_budget_when_git_hangs_after_a_long_review(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    second_repository = project / "lib"
+    second_repository.mkdir()
+    git(second_repository, "init", "-q", "-b", "main")
+    git(second_repository, "remote", "add", "origin", f"https://github.com/{REPOSITORY_SLUG}.git")
+    git(second_repository, "-c", "user.name=Test", "-c", "user.email=test", "commit", "-q", "--allow-empty", "-m", "start")
+    _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    monkeypatch.setenv("STUB_REVIEW_SECONDS", "10")
+    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 2)
+    monkeypatch.setattr(turn_review_gate, "STOP_RUN_BUDGET_SECONDS", 1.5, raising=False)
+    monkeypatch.setattr(turn_review_snapshot, "GIT_COMMAND_TIMEOUT_SECONDS", 2)
+    monkeypatch.setattr(repository_exemption, "GIT_COMMAND_TIMEOUT_SECONDS", 2)
+    _hang_git_calls(monkeypatch, second_repository, "config")
+    started_at = time.monotonic()
+
+    _run_gate_in_process(monkeypatch, gate_environment, "Stop")
+
+    assert time.monotonic() - started_at < 2.5
+
+
+def test_should_end_the_prompt_inside_its_run_budget_when_git_add_hangs(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(turn_review_gate, "PROMPT_RUN_BUDGET_SECONDS", 1.0, raising=False)
+    monkeypatch.setattr(turn_review_snapshot, "GIT_COMMAND_TIMEOUT_SECONDS", 2)
+    _hang_git_calls(monkeypatch, project / "app", "add")
+    started_at = time.monotonic()
+
+    assert _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit") == 0
+    assert time.monotonic() - started_at < 1.5

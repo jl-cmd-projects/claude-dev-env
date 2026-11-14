@@ -4,7 +4,9 @@
 Reads the tool payload from stdin once, runs each hosted hook in-process via
 runpy in the fixed order declared in the constants module, aggregates the
 results, and emits one PostToolUse block decision when any hook blocked
-(carrying every blocking reason) or exits zero to allow.
+(carrying every blocking reason) or exits zero to allow. When a hosted hook
+exits 2, the dispatcher exits 2 after the whole roster runs, and on
+PostToolUse the host then shows that hook's stderr to the model.
 
 The hosted hooks keep every side effect they have today: the formatter writes
 the reformatted file to disk, and the doc publisher uploads the gist. Running
@@ -44,6 +46,7 @@ from hooks_constants.post_tool_use_dispatcher_constants import (  # noqa: E402
 from hooks_constants.pre_tool_use_stdin import (  # noqa: E402
     read_hook_input_dictionary_from_stdin,
 )
+from hooks_constants.hosted_hook_runner_constants import BLOCKING_EXIT_CODE
 
 
 @dataclass
@@ -54,11 +57,13 @@ class PostHostedHookResult:
         captured_stdout: The text the hook wrote to stdout during its run.
         did_crash: True when the hook raised a non-SystemExit exception.
         is_blocking: True when this hook's crash surfaces a blocking signal.
+        exit_code: The integer code the hook passed to SystemExit, else 0.
     """
 
     captured_stdout: str
     did_crash: bool = field(default=False)
     is_blocking: bool = field(default=False)
+    exit_code: int = field(default=0)
 
 
 def _log_hook_crash(hook_script_path: str, error: Exception) -> None:
@@ -88,8 +93,8 @@ def run_hosted_hook(
     Sets stdin to a fresh stream over payload_text, sets argv to the hook's
     script path plus its argument tail so a hook reading sys.argv resolves the
     same arguments the live entry passes, captures stdout into a buffer, runs
-    the hook via runpy under __main__, catches SystemExit to absorb the hook's
-    exit without ending the dispatcher, and catches a non-SystemExit exception
+    the hook via runpy under __main__, catches SystemExit to record the hook's
+    exit code without ending the dispatcher, and catches a non-SystemExit exception
     to log the crash and classify it. Always restores stdin, stdout, and argv
     in the finally block.
 
@@ -101,22 +106,23 @@ def run_hosted_hook(
         is_blocking: Whether a crash from this hook surfaces a blocking signal.
 
     Returns:
-        A PostHostedHookResult carrying the captured stdout, crash flag, and
-        blocking classification.
+        A PostHostedHookResult carrying the captured stdout, crash flag,
+        blocking classification, and exit code.
     """
     original_stdin = sys.stdin
     original_stdout = sys.stdout
     original_argv = sys.argv
     captured_output = io.StringIO()
     hook_did_crash = False
+    hook_exit_code = 0
 
     try:
         sys.stdin = io.StringIO(payload_text)
         sys.stdout = captured_output
         sys.argv = [hook_script_path, *all_hook_arguments]
         runpy.run_path(hook_script_path, run_name="__main__")
-    except SystemExit:
-        pass
+    except SystemExit as exit_signal:
+        hook_exit_code = exit_signal.code if isinstance(exit_signal.code, int) else 0
     except Exception as error:
         _log_hook_crash(hook_script_path, error)
         hook_did_crash = True
@@ -129,6 +135,7 @@ def run_hosted_hook(
         captured_stdout=captured_output.getvalue(),
         did_crash=hook_did_crash,
         is_blocking=is_blocking,
+        exit_code=hook_exit_code,
     )
 
 
@@ -288,32 +295,43 @@ def _resolve_argument_tail(each_entry: PostHostedHookEntry, plugin_root: str) ->
     return resolved_arguments
 
 
-def dispatch(payload_text: str, plugin_root: str) -> None:
-    """Run all hosted PostToolUse hooks and emit one aggregated decision.
+def _run_every_hosted_hook(payload_text: str, plugin_root: str) -> list[PostHostedHookResult]:
+    return [
+        run_hosted_hook(
+            _resolve_hook_script_path(each_entry.script_relative_path),
+            _resolve_argument_tail(each_entry, plugin_root),
+            payload_text,
+            each_entry.is_blocking,
+        )
+        for each_entry in ALL_POST_HOSTED_HOOK_ENTRIES
+    ]
+
+
+def dispatch(payload_text: str, plugin_root: str) -> int:
+    """Run all hosted PostToolUse hooks, emit one aggregated decision, and return the exit code.
 
     Runs each hosted hook in-process via run_hosted_hook in the fixed order,
     aggregates the results, and emits a block JSON object when any hook blocked.
-    A clean run with no block emits nothing and the caller exits zero to allow.
+    A clean run with no block emits nothing. Returns 2 when a hosted hook exited
+    2 and 0 otherwise, and the caller exits with that code.
 
     Args:
         payload_text: The raw JSON payload text to replay to each hook.
         plugin_root: The plugin root absolute path used to resolve hook
             arguments.
-    """
-    all_results: list[PostHostedHookResult] = []
-    for each_entry in ALL_POST_HOSTED_HOOK_ENTRIES:
-        script_path = _resolve_hook_script_path(each_entry.script_relative_path)
-        argument_tail = _resolve_argument_tail(each_entry, plugin_root)
-        hook_result = run_hosted_hook(
-            script_path, argument_tail, payload_text, each_entry.is_blocking
-        )
-        all_results.append(hook_result)
 
+    Returns:
+        The exit code the dispatcher hands the host.
+    """
+    all_results = _run_every_hosted_hook(payload_text, plugin_root)
     aggregated_decision = aggregate_post_hosted_hook_results(all_results)
     if aggregated_decision.should_block:
         _emit_block_decision(aggregated_decision)
     else:
         _emit_non_block_stdout(aggregated_decision.all_non_block_stdout, sys.stdout)
+    if any(each_result.exit_code == BLOCKING_EXIT_CODE for each_result in all_results):
+        return BLOCKING_EXIT_CODE
+    return 0
 
 
 def _resolve_plugin_root() -> str:
@@ -336,8 +354,7 @@ def main() -> None:
         sys.exit(0)
 
     payload_text = json.dumps(payload_dict)
-    dispatch(payload_text, _resolve_plugin_root())
-    sys.exit(0)
+    sys.exit(dispatch(payload_text, _resolve_plugin_root()))
 
 
 if __name__ == "__main__":

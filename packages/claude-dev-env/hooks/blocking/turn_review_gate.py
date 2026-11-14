@@ -22,6 +22,9 @@ directly inside it, and its GitHub origin ``owner/repo`` slug is listed in
 ``CLAUDE_TURN_REVIEW_REPOSITORIES``. The hook holds a stop at most three times
 in a row, skips a turn that changed more than 30 files, and lets the stop
 through when the review fails or times out; a new prompt resets the count.
+A stop gets 280 seconds of work and a prompt 25, under the 300 and 30
+second registrations. A git call or review that would start after that time
+is skipped.
 These are the limits of Anthropic's security-guidance plugin. The review run
 carries ``CLAUDE_TURN_REVIEW_CHILD=1`` and none of the parent session's id,
 messaging or ingress variables, and the hook does nothing inside such a run. The review may read
@@ -51,6 +54,7 @@ if blocking_directory not in sys.path:
 from atomic_file_writer import write_text_atomically
 from hooks_constants.atomic_file_writer_constants import ATOMIC_WRITE_TEMPORARY_SUFFIX
 from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.hook_time_budget import remaining_seconds, time_budget
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_file_id import session_file_id
 from hooks_constants.stop_hook_hold import hold_stop
@@ -68,6 +72,7 @@ from hooks_constants.turn_review_gate_constants import (
     MAXIMUM_TURN_FILES,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
     PROMPT_EVENT_NAME,
+    PROMPT_RUN_BUDGET_SECONDS,
     REPOSITORIES_ENVIRONMENT_VARIABLE,
     REPOSITORY_FINDINGS_SEPARATOR,
     REPOSITORY_FINDINGS_TEMPLATE,
@@ -93,6 +98,7 @@ from hooks_constants.turn_review_gate_constants import (
     STATE_TEMPORARY_PREFIX,
     STATE_TEXT_ENCODING,
     STOP_EVENT_NAME,
+    STOP_RUN_BUDGET_SECONDS,
     TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE,
 )
 from pii_prevention_blocker_parts.repository_exemption import repository_origin_slug
@@ -307,7 +313,7 @@ def _turn_block_reason(session_id: object, all_roots: list[Path]) -> str | None:
     all_baselines, blocks_in_a_row = _load_state(session_id)
     all_next_baselines: dict[str, str] = {}
     all_findings: list[str] = []
-    review_deadline = time.monotonic() + REVIEW_TIMEOUT_SECONDS
+    review_deadline = time.monotonic() + min(REVIEW_TIMEOUT_SECONDS, remaining_seconds())
     for each_root in all_roots:
         base_commit = all_baselines.get(str(each_root))
         turn_commit = working_tree_snapshot(each_root, base_commit)
@@ -333,12 +339,7 @@ def _turn_block_reason(session_id: object, all_roots: list[Path]) -> str | None:
     )
 
 
-def main() -> int:
-    hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None:
-        return 0
-    if os.environ.get(REVIEW_CHILD_ENVIRONMENT_VARIABLE) == REVIEW_CHILD_MARKER:
-        return 0
+def _handle_event(hook_input: dict, hook_event_name: object) -> int:
     all_slugs = _opted_in_repository_slugs()
     if not all_slugs:
         return 0
@@ -346,17 +347,31 @@ def main() -> int:
     if not all_roots:
         return 0
     session_id = hook_input.get(SESSION_ID_KEY)
-    hook_event_name = hook_input.get(HOOK_EVENT_NAME_KEY)
     if hook_event_name == PROMPT_EVENT_NAME:
         _record_prompt_baselines(session_id, all_roots)
-        return 0
-    if hook_event_name != STOP_EVENT_NAME:
         return 0
     block_reason = _turn_block_reason(session_id, all_roots)
     if block_reason is None:
         return 0
     log_hook_block(Path(__file__).name, STOP_EVENT_NAME, block_reason)
     return hold_stop(hook_input, block_reason)
+
+
+def main() -> int:
+    hook_input = read_hook_input_dictionary_from_stdin()
+    if hook_input is None:
+        return 0
+    if os.environ.get(REVIEW_CHILD_ENVIRONMENT_VARIABLE) == REVIEW_CHILD_MARKER:
+        return 0
+    hook_event_name = hook_input.get(HOOK_EVENT_NAME_KEY)
+    if hook_event_name == STOP_EVENT_NAME:
+        run_budget_seconds = STOP_RUN_BUDGET_SECONDS
+    elif hook_event_name == PROMPT_EVENT_NAME:
+        run_budget_seconds = PROMPT_RUN_BUDGET_SECONDS
+    else:
+        return 0
+    with time_budget(run_budget_seconds):
+        return _handle_event(hook_input, hook_event_name)
 
 
 if __name__ == "__main__":

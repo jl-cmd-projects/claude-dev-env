@@ -46,7 +46,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/merge_review_gate.py` runs on `PreToolUse`, matcher `Bash|PowerShell|mcp__.*__(create_pull_request|merge_pull_request|enable_pr_auto_merge)`, timeout `30` seconds in `hooks.json`. A `create_pull_request` call reads its head branch from GitHub with `git ls-remote` over https, so the working folder does not matter. The lookup runs in an empty folder, so no checkout's git config applies, takes no terminal prompt, and gets 5 seconds. A fork head `user:branch` reads the repository of `user`. A branch GitHub does not list, or a lookup that fails, resolves in the working folder as a shell open does, as `origin/<branch>` first. The timeout covers the lookup beside those local git calls.
 - `blocking/artifact_dark_mode_gate.py` runs on `PreToolUse`, matcher `Artifact`, timeout `60` seconds in `hooks.json`.
 - `blocking/send_user_file_worktree_root_gate.py` runs on `PreToolUse`, matcher `SendUserFile`, timeout `10` seconds in `hooks.json`.
-- `blocking/turn_review_gate.py` runs on `UserPromptSubmit`, matcher empty, timeout `30` seconds, and on `Stop`, timeout `300` seconds, in `hooks.json`. The review itself times out after 240 seconds.
+- `blocking/turn_review_gate.py` runs on `UserPromptSubmit`, matcher empty, timeout `30` seconds, and on `Stop`, timeout `300` seconds, in `hooks.json`. The review itself times out after 240 seconds. A stop's work stops at 280 seconds and a prompt's at 25. The installer keeps it out of the Codex prompt hooks through `ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES`.
 
 ## Proving it
 
