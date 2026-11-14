@@ -27,24 +27,40 @@ and while, and at most 240 characters back. Three shapes negate a match:
 - not, never, without, "no longer", or a word ending in n't, up to three words
   before the match.
 
-A match followed by none, nothing, n/a, "no action", or "no step" is skipped
-too, and so is one followed by a bare no that ends its line or its sentence.
-The word may sit across a colon or a dash and up to eight spaces or Markdown
-emphasis marks on each side of it, as in ``**Action required:** none.`` A word
-that runs on, as in "Action required: NO_PROXY must list the host" or
-"No-reply inbox", negates nothing.
+A match is skipped too when it is a label with nothing under it. The label
+form is closed, and it reads in this order::
+
+    the match                         Action required
+    a colon or a dash                 :
+    none, nothing, n/a, no,           none
+      "no action", or "no step"
+    then, when present: needed,       at this time
+      required, "for now",
+      "at this time", or "right now"
+    the end of the sentence or line   .
+
+Up to eight spaces or Markdown emphasis marks may sit on each side of the colon
+or dash, and up to three emphasis marks before the end, as in
+``**Action required:** none.`` Every other wording after a match is held, by
+design: "Action required: NO_PROXY must list the host", "blocked on you -
+nothing else is holding it", "Action required: no, approve item 12 first", and
+a "What needs you" heading over a paragraph that says "Nothing." A wrong hold
+costs the agent one step, and a wrong skip hides a step from the user.
+
 "Say when" counts only at the start of its clause, where it is an instruction.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
-and plain text first. An HTML file is read as its text, with every tag removed
-and the contents of script, style, template, title, textarea, noscript, code,
-pre, and blockquote elements left out. A hidden attribute and a style that
-hides an element are not read, so that text still counts.
+and plain text first, and each paragraph is read on its own. An HTML file is
+read as its text, one block at a time, with every tag removed and the contents
+of script, style, template, title, textarea, noscript, code, pre, and
+blockquote elements left out. A hidden attribute and a style that hides an
+element are not read, so that text still counts.
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -107,9 +123,11 @@ def _hands_over_a_step(phrase: str, clause_lead: str) -> bool:
 
 def waiting_phrase(shown_text: str) -> str | None:
     """Return the first phrase in Markdown or plain text that says something waits on the user, or None."""
-    all_phrases = (
-        waiting_phrase_in_prose(each_paragraph) for each_paragraph in prose_paragraphs(shown_text)
-    )
+    return _first_waiting_phrase(prose_paragraphs(shown_text))
+
+
+def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:
+    all_phrases = (waiting_phrase_in_prose(each_block) for each_block in all_blocks)
     return next((each_phrase for each_phrase in all_phrases if each_phrase is not None), None)
 
 
@@ -149,8 +167,9 @@ def html_visible_text(page_markup: str) -> str:
 
     Script, style, template, title, textarea, noscript, code, pre, and
     blockquote contents are left out. A tag that is not an inline tag leaves a
-    blank line, so a heading and the paragraph after it stay apart. A ``br``
-    leaves a space. Text under a hidden attribute or a hiding style is kept.
+    blank line, so a heading and the paragraph after it stay apart, and
+    ``file_waiting_phrase`` reads each such block on its own. A ``br`` leaves
+    a space. Text under a hidden attribute or a hiding style is kept.
     """
     text_parser = _VisibleTextParser()
     text_parser.feed(page_markup)
@@ -183,5 +202,5 @@ def file_waiting_phrase(file_path_text: str, working_directory: object) -> str |
         return None
     file_text = file_bytes.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
     if file_suffix in ALL_HTML_FILE_SUFFIXES:
-        return waiting_phrase_in_prose(html_visible_text(file_text))
+        return _first_waiting_phrase(html_visible_text(file_text).split(HTML_BLOCK_SEPARATOR))
     return waiting_phrase(file_text)

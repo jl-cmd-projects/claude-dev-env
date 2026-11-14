@@ -21,9 +21,10 @@ NEGATED_CLAUSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 NEGATED_TAIL_PATTERN = re.compile(
-    r"[\s*_]{0,8}[:\-–—]?[\s*_]{0,8}"
-    r"(?:(?:none|nothing|n/a|no\s+(?:action|step)s?)[*_]{0,3}(?![\w-])"
-    r"|no[*_]{0,3}[^\S\n]*(?:[.!?,;)]|$))",
+    r"[\s*_]{0,8}[:\-–—][\s*_]{0,8}"
+    r"(?:none|nothing|n/a|no(?:[^\S\n]+(?:action|step)s?)?)"
+    r"(?:[^\S\n]+(?:needed|required|for[^\S\n]+now|at[^\S\n]+this[^\S\n]+time|right[^\S\n]+now))?"
+    r"[*_]{0,3}[^\S\n]*(?:[.!?]|$)",
     re.IGNORECASE | re.MULTILINE,
 )
 CLAUSE_BREAK_PATTERN = re.compile(

@@ -35,6 +35,13 @@ import user_step_wording
         ("Action required: **No-reply** inbox needs a DNS record.", "Action required"),
         ("Action required: no later than Friday, rotate the key.", "Action required"),
         ("Needs you:              no later than Friday.", "Needs you"),
+        ("Let me know when none of the old sessions are still open.", "Let me know when"),
+        ("Tell me when nothing else is running, and I will archive them.", "Tell me when"),
+        ("**Action required:** None of these can wait, so approve item 12 today.", "Action required"),
+        ("The release is blocked on you - nothing else is holding it.", "blocked on you"),
+        ("Action required: no, approve item 12 first.", "Action required"),
+        ("Action required: no) approve", "Action required"),
+        ("## What needs you\n\nNothing.", "needs you"),
     ],
 )
 def test_should_find_the_phrase_that_says_something_waits_on_the_user(
@@ -69,6 +76,9 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "Action required: no action.",
         "Action required: no",
         "Needs you: no.\nBoth builds passed.",
+        "Action required: no action needed.",
+        "Action required: none at this time.",
+        "Needs you - nothing right now!",
         "There were no items that need you.",
         "Neither build needs you.",
         "The runner no longer needs you.",
@@ -103,7 +113,7 @@ def test_should_read_a_last_line_of_tildes_with_no_line_end_in_linear_time() -> 
 
 def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_page() -> None:
     page_markup = "<p>Status</p><code>needs you</code><pre>waiting on you</pre><blockquote>say when</blockquote>"
-    assert user_step_wording.waiting_phrase_in_prose(user_step_wording.html_visible_text(page_markup)) is None
+    assert user_step_wording.html_visible_text(page_markup).split() == ["Status"]
     started_at = time.perf_counter()
     user_step_wording.html_visible_text("<script " * 30000)
     assert time.perf_counter() - started_at < 5
@@ -117,10 +127,18 @@ def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_pag
         ("<title>What needs you</title><template>Two items need you.</template><p>Both builds passed.</p>", None),
         ("<ul><li>Nothing is blocked</li><li>Pull request 12 needs your approval</li></ul>", "needs your"),
         ("<p>Both builds passed.</p></code><p>Two items need you.</p>", "need you"),
+        ("<h2>What it needs</h2><p>You can skip this section.</p>", None),
+        ("<h2>Action required</h2><p>None of the items below can ship until you approve item 12.</p>", "Action required"),
+        ("<table><tr><td>Needs you</td><td>none</td></tr></table>", "Needs you"),
+        ("<p>Action required: <b>none</b>.</p>", None),
     ],
 )
-def test_should_find_the_phrase_in_the_text_of_an_html_page(page_markup: str, expected_phrase: str | None) -> None:
-    assert user_step_wording.waiting_phrase_in_prose(user_step_wording.html_visible_text(page_markup)) == expected_phrase
+def test_should_find_the_phrase_in_each_block_of_a_sent_html_page(
+    tmp_path: Path, page_markup: str, expected_phrase: str | None
+) -> None:
+    page_path = tmp_path / "status.html"
+    page_path.write_text(page_markup, encoding="utf-8")
+    assert user_step_wording.file_waiting_phrase(str(page_path), None) == expected_phrase
 
 
 def test_should_read_a_sent_file_at_the_size_limit_and_skip_one_byte_past_it(tmp_path: Path) -> None:
