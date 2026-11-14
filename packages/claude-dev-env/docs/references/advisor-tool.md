@@ -26,6 +26,8 @@ On tasks longer than a few steps, aim for an early approach consult and a comple
 
 Call for design, architecture, and risk questions where you will not touch a file. If the response would be analysis or a recommendation with no other tool calls, call first. That judgment is where a second opinion is highest value. Simple factual lookups and arithmetic do not need a call.
 
+A session that runs on the advisor model itself plans no advisor consults. A consult there would ask the same model for a second opinion. The rules on this page, the hard rule included, apply only to a session on another model. The SessionStart hook `session/advisor_rules_prompt.py` stays silent when its payload names a model of the advisor's family. Claude Code leaves `model` out of that payload in some launches, such as `claude -p` and the desktop app, so the prompt also names the advisor model.
+
 ## Hard rule
 
 Your first write, edit, or state-changing shell call on a task must be preceded by an advisor call in the same or an earlier turn. Read-only orientation (`ls`, `cat`, `grep`, `find`, and harness equivalents) is not state-changing. This is a checkpoint, not a difficulty judgment. It applies to one-line edits too.

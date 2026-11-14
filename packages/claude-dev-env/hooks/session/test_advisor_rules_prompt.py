@@ -19,17 +19,28 @@ import advisor_rules_prompt as starter
 
 from hooks_constants.advisor_rules_prompt_constants import (
     ADVISOR_DISABLE_ENV_VAR,
-    ADVISOR_RULES_PROMPT,
     ALL_ADVISOR_RULE_SENTENCES,
     CLAUDE_CONFIG_DIR_ENV_VAR,
 )
 
 
-def _run_main() -> str:
+def _run_main(session_start_payload: object = "") -> str:
+    stdin_text = (
+        session_start_payload
+        if isinstance(session_start_payload, str)
+        else json.dumps(session_start_payload)
+    )
     captured_stdout = StringIO()
-    with patch("sys.stdout", captured_stdout):
+    with patch("sys.stdin", StringIO(stdin_text)), patch("sys.stdout", captured_stdout):
         starter.main()
     return captured_stdout.getvalue()
+
+
+def _session_start_payload(session_model: str | None) -> dict[str, str]:
+    payload = {"hook_event_name": "SessionStart", "source": "startup"}
+    if session_model is not None:
+        payload["model"] = session_model
+    return payload
 
 
 @pytest.fixture
@@ -49,7 +60,60 @@ class TestAdvisorRulesPrompt:
         _write_settings(config_directory, {"advisorModel": "fable"})
         hook_output = json.loads(_run_main())["hookSpecificOutput"]
         assert hook_output["hookEventName"] == "SessionStart"
-        assert hook_output["additionalContext"] == ADVISOR_RULES_PROMPT
+        for each_rule_sentence in ALL_ADVISOR_RULE_SENTENCES:
+            assert each_rule_sentence in hook_output["additionalContext"]
+
+    def test_should_name_the_configured_advisor_model(self, config_directory: Path) -> None:
+        _write_settings(config_directory, {"advisorModel": "fable"})
+        hook_output = json.loads(_run_main())["hookSpecificOutput"]
+        assert "The advisor runs on `fable`." in hook_output["additionalContext"]
+
+    @pytest.mark.parametrize(
+        ("advisor_model", "session_model"),
+        [
+            ("fable", "claude-fable-5-2"),
+            ("claude-fable-5-2", "claude-fable-5-2"),
+            ("opus", "claude-opus-5-5[1m]"),
+            ("claude-opus-4-7", "claude-opus-5"),
+        ],
+    )
+    def test_should_emit_nothing_when_session_runs_on_the_advisor_model(
+        self, config_directory: Path, advisor_model: str, session_model: str
+    ) -> None:
+        _write_settings(config_directory, {"advisorModel": advisor_model})
+        assert _run_main(_session_start_payload(session_model)) == ""
+
+    @pytest.mark.parametrize(
+        ("advisor_model", "session_model"),
+        [
+            ("fable", "claude-opus-5-5"),
+            ("opus", "claude-sonnet-5-5"),
+            ("fable", "claude-mythos-1"),
+            ("custom-advisor", "claude-fable-5-2"),
+            ("custom-advisor", "claude-mythos-1"),
+        ],
+    )
+    def test_should_emit_rules_when_session_runs_on_another_model(
+        self, config_directory: Path, advisor_model: str, session_model: str
+    ) -> None:
+        _write_settings(config_directory, {"advisorModel": advisor_model})
+        hook_output = json.loads(_run_main(_session_start_payload(session_model)))
+        assert hook_output["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+    @pytest.mark.parametrize("session_start_payload", [_session_start_payload(None), "", "{not json", "[]"])
+    def test_should_emit_rules_when_payload_names_no_model(
+        self, config_directory: Path, session_start_payload: object
+    ) -> None:
+        _write_settings(config_directory, {"advisorModel": "fable"})
+        hook_output = json.loads(_run_main(session_start_payload))
+        assert hook_output["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+    def test_should_emit_rules_when_payload_model_is_not_a_string(
+        self, config_directory: Path
+    ) -> None:
+        _write_settings(config_directory, {"advisorModel": "fable"})
+        hook_output = json.loads(_run_main({"hook_event_name": "SessionStart", "model": 5}))
+        assert hook_output["hookSpecificOutput"]["hookEventName"] == "SessionStart"
 
     def test_should_emit_nothing_when_advisor_model_is_missing(
         self, config_directory: Path
