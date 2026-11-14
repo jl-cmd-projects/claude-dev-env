@@ -112,10 +112,17 @@ from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
 class CreateCall(NamedTuple):
-    """The title and body one pull request create call passes; None marks a value this gate cannot read."""
+    """The title, body, head, base and repository one pull request create call passes.
+
+    None in title or body marks a value this gate cannot read. None in head,
+    base or repository marks a value the create does not name.
+    """
 
     title: str | None
     body: str | None
+    head: str | None
+    base: str | None
+    repository: str | None
 
 
 def _heading_level(line: str, heading_pattern: str) -> int | None:
@@ -235,6 +242,9 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
         CreateCall(
             title_from_arguments(all_create_arguments),
             body_from_arguments(all_create_arguments, working_directory),
+            _flag_value(all_create_arguments, ALL_HEAD_FLAGS, HEAD_FLAG_ASSIGNMENT_PREFIX) or None,
+            _flag_value(all_create_arguments, ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX) or None,
+            _flag_value(all_create_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None,
         )
         for all_create_arguments in _all_create_argument_lists(command)
     ]
@@ -249,59 +259,29 @@ def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assi
     return None
 
 
-def _shell_flag_value(
-    all_payload_fields: Mapping[str, object], all_flags: frozenset[str], assignment_prefix: str
-) -> str | None:
-    command = shell_command(all_payload_fields)
-    if command is None:
-        return None
-    all_flag_values = [
-        _flag_value(all_create_arguments, all_flags, assignment_prefix)
-        for all_create_arguments in _all_create_argument_lists(command)
-    ]
-    return next((each_value for each_value in all_flag_values if each_value), None)
+def _named_text(all_create_fields: Mapping[str, object], field_name: str) -> str | None:
+    field_value = all_create_fields.get(field_name)
+    return field_value if isinstance(field_value, str) and field_value else None
 
 
-def _named_create_field(
-    all_payload_fields: Mapping[str, object], field_name: str, all_flags: frozenset[str], assignment_prefix: str
-) -> str | None:
-    create_fields = create_tool_fields(all_payload_fields)
-    field_value = None if create_fields is None else create_fields.get(field_name)
-    if isinstance(field_value, str) and field_value:
-        return field_value
-    return _shell_flag_value(all_payload_fields, all_flags, assignment_prefix)
-
-
-def _named_head_branch(all_payload_fields: Mapping[str, object]) -> str | None:
-    return _named_create_field(all_payload_fields, "head", ALL_HEAD_FLAGS, HEAD_FLAG_ASSIGNMENT_PREFIX)
-
-
-def _named_base_branch(all_payload_fields: Mapping[str, object]) -> str | None:
-    return _named_create_field(all_payload_fields, "base", ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX)
-
-
-def _named_repository(all_payload_fields: Mapping[str, object]) -> str | None:
-    create_fields = create_tool_fields(all_payload_fields)
-    if create_fields is not None:
-        owner = create_fields.get("owner")
-        repository_name = create_fields.get("repo")
-        if isinstance(owner, str) and owner and isinstance(repository_name, str) and repository_name:
-            return f"{owner}/{repository_name}"
-        return None
-    return _shell_flag_value(all_payload_fields, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX)
+def _mcp_create_call(all_create_fields: Mapping[str, object]) -> CreateCall:
+    title = all_create_fields.get("title")
+    body = all_create_fields.get("body")
+    owner = _named_text(all_create_fields, "owner")
+    repository_name = _named_text(all_create_fields, "repo")
+    return CreateCall(
+        title if isinstance(title, str) else None,
+        body if isinstance(body, str) else "",
+        _named_text(all_create_fields, "head"),
+        _named_text(all_create_fields, "base"),
+        f"{owner}/{repository_name}" if owner and repository_name else None,
+    )
 
 
 def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
     create_fields = create_tool_fields(all_payload_fields)
     if create_fields is not None:
-        title = create_fields.get("title")
-        body = create_fields.get("body")
-        return [
-            CreateCall(
-                title if isinstance(title, str) else None,
-                body if isinstance(body, str) else "",
-            )
-        ]
+        return [_mcp_create_call(create_fields)]
     command = shell_command(all_payload_fields)
     if command is None:
         return []
@@ -576,36 +556,38 @@ def missing_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None
     the run, and the line uses the word run outside code spans and says workflow
     or GitHub Actions or names a covered workflow file; see
     _first_unwaived_admission. The same covered line is exempt from the merge word.
+    The waiver reads the head branch of the create whose body holds the admission.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    for each_body in _create_bodies(all_payload_fields):
-        if each_body is None:
+    working_directory = str(all_payload_fields.get("cwd") or "")
+    for each_call in _create_calls(all_payload_fields):
+        if each_call.body is None:
             return MISSING_BODY_REASON
-        section = proof_section(each_body)
+        section = proof_section(each_call.body)
         if not section:
             return MISSING_PROOF_REASON
-        section_reason = _proof_section_reason(section, each_body, all_payload_fields)
+        section_reason = _proof_section_reason(section, each_call, working_directory)
         if section_reason is not None:
             return section_reason
     return None
 
 
 def _proof_section_reason(
-    section: str, body: str | None = None, all_payload_fields: Mapping[str, object] | None = None
+    section: str, create_call: CreateCall | None = None, working_directory: str = ""
 ) -> str | None:
     if COMMAND_MARKER not in section:
         return MISSING_PROOF_REASON
     if _proof_runs_only_tests(section):
         return TEST_ONLY_PROOF_REASON
     all_admissions = unproven_admissions(section)
-    if body is None or all_payload_fields is None:
+    if create_call is None or create_call.body is None:
         unwaived_admission = all_admissions[0] if all_admissions else None
         all_covered_names: list[str] = []
     else:
         needs_waiver = bool(all_admissions) or merge_word_line(section) is not None
-        all_covered_names = _covered_workflow_names(body, all_payload_fields) if needs_waiver else []
+        all_covered_names = _covered_workflow_names(create_call, working_directory) if needs_waiver else []
         unwaived_admission = _first_unwaived_admission(all_admissions, all_covered_names)
     if unwaived_admission is not None:
         return UNPROVEN_PROOF_REASON.format(admission=unwaived_admission)
@@ -992,11 +974,8 @@ def remote_added_workflow_files(
     return None
 
 
-def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -> list[str]:
-    working_directory = str(all_payload_fields.get("cwd") or "")
-    head_branch = _named_head_branch(all_payload_fields)
-    repository = _named_repository(all_payload_fields)
-    base_branch = _named_base_branch(all_payload_fields)
+def _added_workflow_files_for_create(create_call: CreateCall, working_directory: str) -> list[str]:
+    repository, base_branch, head_branch = create_call.repository, create_call.base, create_call.head
     return answer_once(
         ("added workflow files", working_directory, repository, base_branch, head_branch),
         lambda: _read_added_workflow_files(working_directory, repository, base_branch, head_branch),
@@ -1067,7 +1046,7 @@ def _admission_is_about_a_first_run(admission: str, all_workflow_names: list[str
     )
 
 
-def _covered_workflow_names(body: str, all_payload_fields: Mapping[str, object]) -> list[str]:
+def _covered_workflow_names(create_call: CreateCall, working_directory: str) -> list[str]:
     """Return the added workflow files whose first run the body plans for after the merge.
 
     ::
@@ -1082,17 +1061,17 @@ def _covered_workflow_names(body: str, all_payload_fields: Mapping[str, object])
     count as that prose. A sentence with a negation ahead of the verb does not count.
 
     Args:
-        body: The pull request body.
-        all_payload_fields: The parsed PreToolUse input.
+        create_call: The create whose body and head branch are read.
+        working_directory: The session directory the hook payload names.
     """
-    after_merge = _section_text(body, AFTER_MERGE_HEADING_PATTERN)
+    after_merge = _section_text(create_call.body or "", AFTER_MERGE_HEADING_PATTERN)
     if not after_merge:
         return []
     outside_fence_text = _text_outside_fences(after_merge)
     if not _prose_names_a_recorder(re.sub(INLINE_CODE_SPAN_PATTERN, "", outside_fence_text)):
         return []
     all_names = []
-    for each_path in _added_workflow_files_for_create(all_payload_fields):
+    for each_path in _added_workflow_files_for_create(create_call, working_directory):
         each_name = each_path.rsplit("/", 1)[-1]
         if f"`{each_path}`" in outside_fence_text or f"`{each_name}`" in outside_fence_text:
             all_names.append(each_name)
@@ -1124,29 +1103,48 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         git cannot read the branch, compare API lists only .py files      -> None
         git cannot read the branch, compare API returns 300 .py files     -> UNREADABLE_CHANGES_REASON
         neither git nor the compare API can read it, no picture           -> UNREADABLE_CHANGES_REASON
+        create --head a && create --head b, only b changes page.html      -> MISSING_LOOK_REASON
 
     Every body is checked for a picture first. When each one shows a picture,
-    the check passes and reads neither git nor the compare API.
+    the check passes and reads neither git nor the compare API. Each create
+    is checked against its own head, base and repository, in command order,
+    and the first deny wins.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    all_bodies_without_picture = [
-        each_body
-        for each_body in _create_bodies(all_payload_fields)
-        if each_body is not None and not re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE)
+    working_directory = str(all_payload_fields.get("cwd") or "")
+    all_calls_without_picture = [
+        each_call
+        for each_call in _create_calls(all_payload_fields)
+        if each_call.body is not None
+        and not re.search(PROOF_IMAGE_PATTERN, proof_section(each_call.body) or "", re.IGNORECASE)
     ]
-    if not all_bodies_without_picture:
-        return None
-    working_directory = all_payload_fields.get("cwd")
-    head_branch = _named_head_branch(all_payload_fields)
-    all_visible_files = visible_changed_files(str(working_directory or ""), head_branch)
-    if all_visible_files is None:
-        all_visible_files = remote_visible_changed_files(
-            _named_repository(all_payload_fields), _named_base_branch(all_payload_fields), head_branch
-        )
+    all_reasons = (_look_reason_for_create(each_call, working_directory) for each_call in all_calls_without_picture)
+    return next((each_reason for each_reason in all_reasons if each_reason is not None), None)
+
+
+def _look_reason_for_create(create_call: CreateCall, working_directory: str) -> str | None:
+    all_visible_files = _visible_files_for_create(create_call, working_directory)
     if all_visible_files == []:
         return None
     if all_visible_files is None:
         return UNREADABLE_CHANGES_REASON
     return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
+
+
+def _visible_files_for_create(create_call: CreateCall, working_directory: str) -> list[str] | None:
+    repository, base_branch, head_branch = create_call.repository, create_call.base, create_call.head
+    return answer_once(
+        ("visible changed files", working_directory, repository, base_branch, head_branch),
+        lambda: _read_visible_files(working_directory, repository, base_branch, head_branch),
+    )
+
+
+def _read_visible_files(
+    working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str] | None:
+    all_visible_files = visible_changed_files(working_directory, head_branch)
+    if all_visible_files is None:
+        return remote_visible_changed_files(repository, base_branch, head_branch)
+    return all_visible_files

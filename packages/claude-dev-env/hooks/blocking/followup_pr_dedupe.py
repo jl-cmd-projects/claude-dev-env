@@ -192,34 +192,20 @@ def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
 
 def _arguments_draft(all_arguments: list[str], working_directory: str) -> PullRequestDraft | None:
     body = body_from_arguments(all_arguments, working_directory)
+    if body is None or followup_parent_number(body) is None:
+        return None
     repository = _repository_from_arguments(all_arguments, working_directory)
-    if body is None or repository is None:
+    if repository is None:
         return None
     return PullRequestDraft(repository[0], repository[1], body)
 
 
-def _shell_draft(command: str, working_directory: str) -> PullRequestDraft | None:
+def _shell_followup_drafts(command: str, working_directory: str) -> list[PullRequestDraft]:
     all_drafts = (
         _arguments_draft(all_arguments, working_directory)
         for all_arguments in _all_create_argument_lists(command)
     )
-    return next((each_draft for each_draft in all_drafts if each_draft is not None), None)
-
-
-def _names_a_parent(all_payload_fields: Mapping[str, object]) -> bool:
-    create_fields = create_tool_fields(all_payload_fields)
-    if create_fields is not None:
-        body = create_fields.get("body")
-        return isinstance(body, str) and followup_parent_number(body) is not None
-    command = shell_command(all_payload_fields)
-    if command is None:
-        return False
-    working_directory = _working_directory(all_payload_fields)
-    return any(
-        (body := body_from_arguments(all_arguments, working_directory)) is not None
-        and followup_parent_number(body) is not None
-        for all_arguments in _all_create_argument_lists(command)
-    )
+    return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
 
 
 def shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -281,18 +267,50 @@ def create_tool_fields(all_payload_fields: Mapping[str, object]) -> Mapping[str,
     return _dispatch_fields(tool_input) if tool_name.endswith(WORKFLOW_DISPATCH_TOOL_SUFFIX) else None
 
 
-def pull_request_draft(all_payload_fields: Mapping[str, object]) -> PullRequestDraft | None:
-    """Return the pull request a PreToolUse payload is about to open, or None."""
+def followup_drafts(all_payload_fields: Mapping[str, object]) -> list[PullRequestDraft]:
+    """Return one draft per distinct repository and body among the creates whose body names a parent.
+
+    ::
+
+        create on o/r "Follow-up to #7" && create on o/r "Follow-up to #8" -> both drafts
+        create_pull_request {owner, repo, body "Follow-up to #7"}          -> that one draft
+        create whose body names no parent, or any other tool               -> []
+
+    A body that names no parent gives no draft before any repository or
+    origin read. A quoted create, which the command parser reads twice,
+    gives one draft.
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+
+    Returns:
+        The drafts, in command order.
+    """
     create_fields = create_tool_fields(all_payload_fields)
     if create_fields is not None:
         owner, repo, body = (create_fields.get(each_key) for each_key in ("owner", "repo", "body"))
-        if isinstance(owner, str) and isinstance(repo, str) and isinstance(body, str):
-            return PullRequestDraft(owner, repo, body)
-        return None
+        if not isinstance(body, str) or followup_parent_number(body) is None:
+            return []
+        return [PullRequestDraft(owner, repo, body)] if isinstance(owner, str) and isinstance(repo, str) else []
     command = shell_command(all_payload_fields)
     if command is None:
+        return []
+    return _shell_followup_drafts(command, _working_directory(all_payload_fields))
+
+
+def _open_pull_requests_once(
+    owner: str, repo: str, read_open: OpenPullRequestReader
+) -> list[Mapping[str, object]] | None:
+    return answer_once(("open pull requests", owner, repo), lambda: _open_pull_requests_or_none(owner, repo, read_open))
+
+
+def _open_pull_requests_or_none(
+    owner: str, repo: str, read_open: OpenPullRequestReader
+) -> list[Mapping[str, object]] | None:
+    try:
+        return read_open(owner, repo)
+    except Exception:
         return None
-    return _shell_draft(command, _working_directory(all_payload_fields))
 
 
 def _reason_for_parent(
@@ -318,25 +336,25 @@ def duplicate_followup_reason(
 ) -> str | None:
     """Return a deny reason when an open pull request already follows up the same parent.
 
-    Any read failure returns None, so the pull request opens. When no create
-    body carries a "Follow-up to #N" line, nothing is read, not even the
-    origin remote.
+    Every create body that names a parent is checked, in command order, and
+    the first duplicate denies. A read that fails skips that create. When no
+    create body carries a "Follow-up to #N" line, nothing is read, not even
+    the origin remote.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
         read_open: Reads the open pull requests of an owner and repository;
             None reads them from the GitHub API.
     """
-    if not _names_a_parent(all_payload_fields):
-        return None
-    draft = pull_request_draft(all_payload_fields)
-    if draft is None:
-        return None
-    parent_number = followup_parent_number(draft.body)
-    if parent_number is None:
-        return None
-    try:
-        all_open_pull_requests = (read_open or read_open_pull_requests)(draft.owner, draft.repo)
-    except Exception:
-        return None
-    return _reason_for_parent(parent_number, all_open_pull_requests)
+    reader = read_open or read_open_pull_requests
+    for each_draft in followup_drafts(all_payload_fields):
+        parent_number = followup_parent_number(each_draft.body)
+        if parent_number is None:
+            continue
+        all_open_pull_requests = _open_pull_requests_once(each_draft.owner, each_draft.repo, reader)
+        if all_open_pull_requests is None:
+            continue
+        reason = _reason_for_parent(parent_number, all_open_pull_requests)
+        if reason is not None:
+            return reason
+    return None
