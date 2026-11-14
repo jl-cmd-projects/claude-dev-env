@@ -267,10 +267,14 @@ def _native_ruff_working_directory(config_source_path: Path | None) -> str | Non
     """
     if config_source_path is None:
         return None
-    for each_candidate_directory in ancestor_directories(config_source_path):
-        if each_candidate_directory.is_dir():
-            return str(each_candidate_directory)
-    return None
+    return next(
+        (
+            str(each_candidate_directory)
+            for each_candidate_directory in ancestor_directories(config_source_path)
+            if each_candidate_directory.is_dir()
+        ),
+        None,
+    )
 
 
 def _run_native_ruff_check(
@@ -278,9 +282,7 @@ def _run_native_ruff_check(
 ) -> RuffResult:
     """Run ruff over *all_python_files* directly, resolving config from the path.
 
-    A given *config_source_path* sets ``--config`` when a pyproject above it
-    declares ``[tool.ruff]``, and ruff starts in the target's nearest existing
-    folder. Without one, ruff starts in the caller's working folder.
+    Ruff starts in the folder ``_native_ruff_working_directory`` picks.
     """
     config_argument = _ruff_config_argument(config_source_path)
     concise_output_arguments = ["--output-format", "concise"]
@@ -307,10 +309,7 @@ def run_ruff_check(
 
     A given ``config_source_path`` grades the single staged copy under the project
     config resolved from the original target, applying its path-scoped
-    per-file-ignores. When that staged run does not apply, ruff checks the
-    files natively from the target's nearest existing folder, so the caller's
-    working folder never lends its config. Without ``config_source_path``, the
-    files are checked natively from the caller's working folder."""
+    per-file-ignores. Otherwise the files are checked natively."""
     if not all_files:
         return RuffResult(passed=True, output="No files to check", fixed_count=0)
 

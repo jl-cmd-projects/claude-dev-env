@@ -90,9 +90,7 @@ def test_run_ruff_check_applies_config_resolved_from_config_source_path(
         "[tool.ruff.lint]\nselect = ['B']\n", encoding="utf-8"
     )
     original_target = ruff_repo / "asserts.py"
-    staged_copy = tmp_path / "detached" / "asserts.py"
-    staged_copy.parent.mkdir(parents=True)
-    staged_copy.write_text("def probe() -> None:\n    assert False\n", encoding="utf-8")
+    staged_copy = _write_detached_assert_false_copy(tmp_path)
 
     without_source = run_ruff_check([staged_copy])
     with_source = run_ruff_check([staged_copy], config_source_path=original_target)
@@ -132,7 +130,7 @@ def test_run_ruff_check_should_not_grade_a_staged_copy_under_the_working_folder_
         [staged_copy], config_source_path=unconfigured_repo / "asserts.py"
     )
 
-    assert "B011" not in result.output
+    assert "All checks passed" in result.output
 
 
 def test_run_ruff_check_should_grade_a_staged_copy_under_a_ruff_toml_beside_the_target(
