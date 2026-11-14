@@ -7,7 +7,7 @@ Consistent development standards for Claude Code across every repo. Install once
 ### Prerequisites
 
 - **Node.js 18+** (includes `npx`)
-- **Python 3.8+** (for hook scripts)
+- **Python 3.11+** (for hook scripts)
 - **Claude Code CLI** installed and working
 
 ### Install
@@ -326,7 +326,7 @@ Installed hooks run alongside any hooks already in your `settings.json` or `sett
 ## Requirements
 
 - Node.js 18+ (for the installer)
-- Python 3.8+ (for hooks)
+- Python 3.11+ (for hooks)
 - Claude Code CLI
 
 ## License

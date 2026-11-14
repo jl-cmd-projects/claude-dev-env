@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { constants as osConstants } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { MINIMUM_PYTHON_VERSION, pythonCommandMeetsFloor } from "./python-probe.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lintScriptPath = path.join(packageRoot, "scripts", "cde_lint.py");
@@ -60,7 +61,7 @@ export function pythonInterpreterNames(platformName = process.platform) {
 
 export function findPython(
     commandNames = pythonInterpreterNames(),
-    canRun = (commandName) => spawnSync(commandName, ["--version"], { stdio: "ignore", shell: false }).status === 0,
+    canRun = pythonCommandMeetsFloor,
 ) {
     for (const eachCommand of commandNames) {
         if (canRun(eachCommand)) return eachCommand;
@@ -224,7 +225,7 @@ export async function main(argumentsList = process.argv.slice(2), dependencies =
     const resolvePython = dependencies.findPython ?? findPython;
     const interpreter = interpreterOverride ?? process.env[pythonEnvironmentName] ?? await resolvePython();
     if (!interpreter) {
-        process.stderr.write("No usable Python interpreter found. Use --python or CDE_PYTHON.\n");
+        process.stderr.write(`No usable Python ${MINIMUM_PYTHON_VERSION}+ interpreter found. Use --python or CDE_PYTHON.\n`);
         return 2;
     }
     const command = buildCommandByName[argumentsList[0]](interpreter, remainingArguments);
