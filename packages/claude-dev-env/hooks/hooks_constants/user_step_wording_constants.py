@@ -18,21 +18,21 @@ USER_STEP_PATTERN = re.compile(
     re.IGNORECASE,
 )
 CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
-NEGATION_WORD_START = r"(?<![\w-])"
-NEGATION_WORD_END = r"\*{0,3}(?![\w-])"
+CLAUSE_WORD_START = r"(?<![\w*-])\**"
+CLAUSE_WORD_END = r"\**(?![\w*-])"
 NEGATED_CLAUSE_PATTERN = re.compile(
-    NEGATION_WORD_START
+    CLAUSE_WORD_START
     + r"(?:nothing|none|nobody)"
-    + NEGATION_WORD_END
+    + CLAUSE_WORD_END
     + r"|(?:"
-    + NEGATION_WORD_START
+    + CLAUSE_WORD_START
     + r"(?:not|never|without|no\s+longer)|n['’]t)"
-    + NEGATION_WORD_END
+    + CLAUSE_WORD_END
     + r"(?:\s+[\w*'’-]+){0,3}\s*$",
     re.IGNORECASE,
 )
 NEGATED_CLAUSE_START_PATTERN = re.compile(
-    CLAUSE_MARKERS + r"(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)" + NEGATION_WORD_END,
+    CLAUSE_MARKERS + r"(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)" + CLAUSE_WORD_END,
     re.IGNORECASE,
 )
 NEGATED_TAIL_PATTERN = re.compile(
@@ -42,7 +42,10 @@ NEGATED_TAIL_PATTERN = re.compile(
     r"[*_]{0,3}[.!?]?[*_]{0,3}[^\S\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
-CLAUSE_BREAK_PATTERN = re.compile(r"[.!?,;:|\n]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
+CLAUSE_BREAK_PATTERN = re.compile(
+    r"[.!?,;:|\n]|" + CLAUSE_WORD_START + r"(?:and|but|so|then|while)" + CLAUSE_WORD_END, re.IGNORECASE
+)
+LINE_BREAK = "\n"
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
 CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please\s+)?(?:just\s+)?", re.IGNORECASE)
@@ -57,7 +60,7 @@ ALL_HTML_INLINE_TAGS = frozenset(
     }
 )
 HTML_LINE_BREAK_TAG = "br"
-HTML_LINE_BREAK_TEXT = "\n"
+HTML_LINE_BREAK_TEXT = LINE_BREAK
 HTML_SOURCE_SPACE_PATTERN = re.compile(r"[ \t\r\n\f]+")
 HTML_SOURCE_SPACE = " "
 HTML_BLOCK_SEPARATOR = "\n\n"

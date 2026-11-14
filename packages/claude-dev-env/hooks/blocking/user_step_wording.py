@@ -34,12 +34,16 @@ match:
   before the match, where a word is a run of letters, digits, underscores,
   hyphens, apostrophes, and asterisks.
 
-Each of these words counts as a whole word. Asterisk emphasis may wrap it, as
+Each of these words counts as a whole word, and so does each of the words and,
+but, so, then, and while that end a clause. Asterisk emphasis may wrap it, as
 in "does **not** need you". A word joined to a letter, a digit, an underscore,
 or a hyphen on either side is another word, so "No-reply inbox needs your
 record", "NO_PROXY needs your value", "The do-nothing job needs your
-approval", and "_Nothing_ here needs you" are held. A phrase counts inside
-emphasis marks too, as in "_needs your_ merge".
+approval", "The yes-and-no question needs your answer", and "_Nothing_ here
+needs you" are held. The asterisks around a word do not part it from what
+they touch, so "**No**-reply inbox needs your record" and "The do-**nothing**
+job needs your approval" are held too. A phrase counts inside emphasis marks
+too, as in "_needs your_ merge".
 
 The start of a clause may carry markers: white space, a list, heading, or quote
 mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
@@ -73,8 +77,10 @@ the colon or dash, and up to three emphasis marks on each side of the closing
 mark, as in ``**Action required:** none.`` Every other wording after a match is
 held: "Action required: NO_PROXY must list the host", "blocked on you - nothing
 else is holding it", "Action required: none. Merge item 12 first.", "Action
-required: no", where a bare no can be an answer or an abbreviation, and a
-"What needs you" heading over a paragraph that says "Nothing."
+required: no", where a bare no can be an answer or an abbreviation, a
+"What needs you" heading over a paragraph that says "Nothing.", and a match
+that a line break splits, as in "Action" on one line and "required: none." on
+the next.
 
 "Say when" counts only at the start of its clause, where it is an instruction:
 after the same markers, and after the word please, the word just, or both in
@@ -124,6 +130,7 @@ from hooks_constants.user_step_wording_constants import (
     HTML_LINE_BREAK_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
+    LINE_BREAK,
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
     NEGATED_CLAUSE_START_PATTERN,
@@ -163,7 +170,8 @@ def _clause_start(prose_text: str, phrase_start: int) -> tuple[int, bool]:
 
 def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
     phrase_start = phrase_match.start()
-    if NEGATED_TAIL_PATTERN.match(prose_text, phrase_match.end()):
+    is_phrase_on_one_line = LINE_BREAK not in phrase_match.group()
+    if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(prose_text, phrase_match.end()):
         return False
     clause_start, is_clause_start_in_view = _clause_start(prose_text, phrase_start)
     if NEGATED_CLAUSE_PATTERN.search(prose_text, clause_start, phrase_start):
