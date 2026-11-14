@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.5...claude-dev-env-v8.117.0) (2026-11-14)
+
+
+### Features
+
+* **hooks:** Stop gates exit 2, background turn review, and a judge for dismissals ([#2345](https://github.com/jl-cmd-projects/claude-dev-env/issues/2345)) ([f650584](https://github.com/jl-cmd-projects/claude-dev-env/commit/f650584cb157bfee6360c209b91d8f50c8e87e33))
+
 ## [8.116.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.4...claude-dev-env-v8.116.5) (2026-11-14)
 
 
