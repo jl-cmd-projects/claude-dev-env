@@ -162,18 +162,17 @@ def run_hook(
 
 def start_hook(environment: dict[str, str], hook_event_name: str) -> subprocess.Popen[str]:
     hook_input = {"hook_event_name": hook_event_name, "session_id": SESSION_ID, "cwd": "/"}
-    running_hook = subprocess.Popen(
-        [sys.executable, str(GATE_PATH)],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=environment,
-    )
-    assert running_hook.stdin is not None
-    running_hook.stdin.write(json.dumps(hook_input))
-    running_hook.stdin.close()
-    return running_hook
+    with tempfile.TemporaryFile("w+") as hook_input_file:
+        json.dump(hook_input, hook_input_file)
+        hook_input_file.seek(0)
+        return subprocess.Popen(
+            [sys.executable, str(GATE_PATH)],
+            stdin=hook_input_file,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=environment,
+        )
 
 
 def wait_for_review_calls(environment: dict[str, str], expected_count: int) -> None:
