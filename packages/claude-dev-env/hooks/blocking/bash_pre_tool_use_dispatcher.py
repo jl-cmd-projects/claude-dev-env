@@ -11,6 +11,8 @@ A deny short-circuits the remaining chain: once any hosted hook denies, the
 dispatcher aggregates what has run so far, emits that deny immediately, and
 returns so a later process timeout cannot drop an already-known denial. Ask and
 allow continue through the full roster because a later hook may still deny.
+A hosted hook that exits 2 short-circuits the chain the same way, and the
+dispatcher exits 2, so the host blocks the tool call with that hook's stderr.
 
 A single hosted hook crash fails open: it contributes no decision and does not
 stop the remaining hooks, matching a standalone hook whose uncaught exception
@@ -36,6 +38,7 @@ from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
     BashHostedHookEntry,
 )
 from hooks_constants.hosted_hook_runner import (
+    host_exit_code,
     run_dispatcher_main,
     run_hook_capturing_output,
     HostedHookRun,
@@ -157,7 +160,9 @@ def aggregate_bash_hook_results(
 ) -> BashDispatcherDecision:
     """Aggregate hosted-hook runs into one deny>ask>allow decision.
 
-    Crashed hooks fail open: they contribute no decision. Reasons are collected
+    Crashed hooks fail open: they contribute no decision. When no hook decides,
+    the result still keeps every systemMessage, such as the warning a gate
+    prints when its check raised. Reasons are collected
     from deny and ask outputs. When the winning decision is allow, the first
     non-empty updatedInput among allow results is carried through so rewriters
     keep their contract. systemMessage, additionalContext, and suppressOutput
@@ -177,9 +182,6 @@ def aggregate_bash_hook_results(
             winning_decision = each_candidate
             break
 
-    if not winning_decision:
-        return BashDispatcherDecision(decision="")
-
     all_reasons = [
         each_parsed.reason
         for each_parsed in all_parsed
@@ -195,6 +197,8 @@ def aggregate_bash_hook_results(
     all_system_messages = [
         each_parsed.system_message for each_parsed in all_parsed if each_parsed.system_message
     ]
+    if not winning_decision:
+        return BashDispatcherDecision(decision="", all_system_messages=all_system_messages)
     all_additional_context = [
         each_parsed.additional_context
         for each_parsed in all_parsed
@@ -219,8 +223,14 @@ def _emit_decision(decision: BashDispatcherDecision) -> None:
 
     A rewrite carries updatedInput with no permissionDecision, so the harness
     applies the rewritten command and then runs its normal permission prompt.
+    With no decision, the hooks' systemMessage lines go out alone, with no
+    permissionDecision. With no decision and no message, nothing is written.
     """
     if not decision.decision:
+        if decision.all_system_messages:
+            message_payload = {_SYSTEM_MESSAGE_KEY: CONTEXT_JOIN_SEPARATOR.join(decision.all_system_messages)}
+            sys.stdout.write(json.dumps(message_payload) + "\n")
+            sys.stdout.flush()
         return
     hook_specific: dict[str, object] = {"hookEventName": HOOK_EVENT_NAME}
     is_rewrite = decision.decision == ALLOW_DECISION and decision.updated_input is not None
@@ -251,11 +261,13 @@ def _run_is_deny(hook_run: HostedHookRun) -> bool:
     return parsed_decision.decision == DENY_DECISION
 
 
-def dispatch(payload_text: str, tool_name: str) -> None:
-    """Run applicable hosted hooks and emit the aggregated decision.
+def dispatch(payload_text: str, tool_name: str) -> int:
+    """Run applicable hosted hooks, emit the aggregated decision, and return the exit code.
 
-    Emits and returns as soon as any hosted hook denies so a process timeout
-    later in the chain cannot fail-open past an already-known denial.
+    Emits and returns as soon as any hosted hook denies or exits 2, so a
+    process timeout later in the chain cannot fail-open past an already-known
+    denial. Returns 2 when a hosted hook exited 2, so the host blocks the call
+    with that hook's stderr, and 0 otherwise.
     """
     applicable_entries = select_applicable_entries(tool_name)
     all_runs: list[HostedHookRun] = []
@@ -263,12 +275,11 @@ def dispatch(payload_text: str, tool_name: str) -> None:
         script_path = resolved_hook_script_path(each_entry.script_relative_path)
         hook_run = run_hook_capturing_output(script_path, payload_text)
         all_runs.append(hook_run)
-        if _run_is_deny(hook_run):
-            aggregated_decision = aggregate_bash_hook_results(all_runs)
-            _emit_decision(aggregated_decision)
-            return
+        if _run_is_deny(hook_run) or host_exit_code([hook_run]):
+            break
     aggregated_decision = aggregate_bash_hook_results(all_runs)
     _emit_decision(aggregated_decision)
+    return host_exit_code(all_runs)
 
 
 def main() -> None:

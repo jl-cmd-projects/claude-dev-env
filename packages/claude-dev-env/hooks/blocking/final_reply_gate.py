@@ -3,9 +3,9 @@
 
 This gate checks the reply the session ends its turn with, which reaches the
 user with no tool call. It flags a path outside code whose backslash the
-terminal drops, such as ``D:\\Reports\\.claude``. A block sends the reason
-back so the model rewrites the reply. Claude Code ends the turn after eight
-blocks in a row.
+terminal drops, such as ``D:\\Reports\\.claude``. A block exits with
+code 2 and sends the reason back so the model rewrites the reply. Claude Code
+ends the turn after eight blocks in a row.
 
 It also blocks a reply whose last paragraph ends with a question mark, or says a question still stands, when the
 turn sent no AskUserQuestion, hearthbot decision card, or Codex
@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import bisect
 import functools
-import json
 import re
 import sys
 from collections.abc import Callable
@@ -36,15 +35,14 @@ if hooks_root_directory not in sys.path:
 from open_tasks_transcript import replayed_transcript
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.stop_hook_hold import hold_stop
 from hooks_constants.final_reply_gate_constants import (
     ALLOW_EXIT_CODE,
     BACKSLASH,
     BACKSLASHES_PER_LITERAL,
     BACKTICK_RUN_PATTERN,
     BLOCK_BOUNDARY_PATTERN,
-    BLOCK_DECISION,
     CARRIAGE_RETURN_LINE_BREAK,
-    DECISION_KEY,
     ESCAPED_PUNCTUATION_PATTERN,
     FENCE_CLOSER_PREFIX,
     FENCE_CLOSER_SUFFIX,
@@ -65,7 +63,6 @@ from hooks_constants.final_reply_gate_constants import (
     QUOTE_MARKER,
     QUOTE_MARKER_PATTERN,
     QUOTED_LINE_PATTERN,
-    REASON_KEY,
     REWRITE_INSTRUCTION,
     STANDING_QUESTION_PATTERN,
     TRAILING_MARKUP_CHARACTERS,
@@ -82,8 +79,8 @@ def _unescaped_start(paragraph_text: str, run_start: int) -> int:
     return run_start + (run_start - backslash_start) % BACKSLASHES_PER_LITERAL
 
 
-def code_spans_masked(paragraph_text: str) -> str:
-    """Return the paragraph with one space where each code span sat.
+def code_spans_masked(paragraph_text: str, masked_code_text: str = MASKED_CODE_TEXT) -> str:
+    """Return the paragraph with one space, or the given text, where each code span sat.
 
     A backtick run opens a span unless an odd run of backslashes escapes its
     first backtick. The span closes at the next run of the same length::
@@ -107,7 +104,7 @@ def code_spans_masked(paragraph_text: str) -> str:
             run_index += 1
             continue
         closer_index = same_length_indexes[closer_position]
-        all_masked_pieces.extend((paragraph_text[copied_up_to:opener_start], MASKED_CODE_TEXT))
+        all_masked_pieces.extend((paragraph_text[copied_up_to:opener_start], masked_code_text))
         copied_up_to = all_runs[closer_index][1]
         run_index = closer_index + 1
     all_masked_pieces.append(paragraph_text[copied_up_to:])
@@ -217,17 +214,30 @@ def windows_path_violation(reply_text: str) -> str | None:
     return None
 
 
-def closing_paragraph(reply_text: str) -> str:
-    """Return the last prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+def prose_paragraphs(reply_text: str) -> list[str]:
+    """Return each prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+    return prose_paragraphs_with_code_as(reply_text, MASKED_CODE_TEXT)
+
+
+def prose_paragraphs_with_code_as(reply_text: str, masked_code_text: str) -> list[str]:
+    """Return each prose paragraph, with the given text where each code span sat.
+
+    Fences, HTML blocks, and quoted paragraphs are left out.
+    """
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
     unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
     unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
     unquoted_text = QUOTED_LINE_PATTERN.sub("", unfenced_text)
-    all_prose_paragraphs = [
-        code_spans_masked(each_paragraph).strip()
+    return [
+        code_spans_masked(each_paragraph, masked_code_text).strip()
         for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unquoted_text)
         if each_paragraph.strip()
     ]
+
+
+def closing_paragraph(reply_text: str) -> str:
+    """Return the last prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+    all_prose_paragraphs = prose_paragraphs(reply_text)
     return all_prose_paragraphs[-1] if all_prose_paragraphs else ""
 
 
@@ -275,8 +285,7 @@ def main() -> int:
     log_hook_block(
         Path(__file__).name, HOOK_EVENT_NAME, block_reason, offending_input_preview=reply_text
     )
-    sys.stdout.write(json.dumps({DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

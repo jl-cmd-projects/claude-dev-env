@@ -20,6 +20,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from hooks_constants.hook_time_budget import call_timeout
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 from hooks_constants.turn_review_gate_constants import (
     ALL_CHANGED_PATH_ARGUMENTS,
@@ -40,6 +41,9 @@ def _git_output(
     all_arguments: list[str],
     all_environment_variables: dict[str, str] | None,
 ) -> str | None:
+    timeout_seconds = call_timeout(GIT_COMMAND_TIMEOUT_SECONDS)
+    if timeout_seconds is None:
+        return None
     try:
         completed_process = subprocess.run(
             ["git", *all_arguments],
@@ -48,7 +52,7 @@ def _git_output(
             text=True,
             encoding=GIT_OUTPUT_ENCODING,
             errors=GIT_OUTPUT_ERROR_HANDLING,
-            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
             cwd=str(repository_root),
             env=all_environment_variables,
             creationflags=hidden_window_creation_flags(),

@@ -23,3 +23,8 @@ def test_shell_keywords_and_builtins_step_to_the_command_they_run() -> None:
         )
     assert "-a" in constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["exec"].all_value_taking_options
     assert "-p" in constants.ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME["command"].all_flag_options
+
+
+def test_linear_time_lexer_starts_past_a_typed_command_length() -> None:
+    assert constants.LINEAR_TIME_LEXER_MINIMUM_LENGTH == 4096
+    assert constants.LINEAR_TIME_LEXER_MINIMUM_LENGTH > len("git push origin head " * 100)

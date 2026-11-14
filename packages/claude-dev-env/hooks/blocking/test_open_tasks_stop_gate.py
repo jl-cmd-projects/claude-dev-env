@@ -52,19 +52,26 @@ def run_gate(
     capsys: pytest.CaptureFixture[str],
     transcript_path: Path | None,
     is_stop_hook_active: bool = False,
+    reply_text: str = "Done.",
+    working_directory: Path | None = None,
 ) -> dict[str, str]:
     hook_input: dict[str, object] = {
         "hook_event_name": "Stop",
         "session_id": SESSION_ID,
         "stop_hook_active": is_stop_hook_active,
-        "last_assistant_message": "Done.",
+        "last_assistant_message": reply_text,
     }
+    if working_directory is not None:
+        hook_input["cwd"] = str(working_directory)
     if transcript_path is not None:
         hook_input["transcript_path"] = str(transcript_path)
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
-    assert open_tasks_stop_gate.main() == 0
-    printed_output = capsys.readouterr().out
-    return json.loads(printed_output) if printed_output else {}
+    exit_code = open_tasks_stop_gate.main()
+    captured = capsys.readouterr()
+    block_output = json.loads(captured.out) if captured.out else {}
+    assert exit_code == (2 if block_output else 0)
+    assert captured.err == block_output.get("reason", "")
+    return block_output
 
 
 def test_should_block_a_work_turn_that_left_the_task_list_unchanged(
@@ -203,8 +210,10 @@ def test_should_block_through_a_subprocess_with_the_documented_contract(tmp_path
         env={"HOME": str(tmp_path), "USERPROFILE": str(tmp_path), "PATH": ""},
         check=False,
     )
-    assert completed_process.returncode == 0
-    assert json.loads(completed_process.stdout)["decision"] == "block"
+    block_output = json.loads(completed_process.stdout)
+    assert completed_process.returncode == 2
+    assert block_output["decision"] == "block"
+    assert completed_process.stderr == block_output["reason"]
 
 
 def codex_record(payload: dict[str, object]) -> dict[str, object]:
@@ -252,9 +261,10 @@ def run_cursor_gate(
         "transcript_path": str(transcript_path),
     }
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
-    open_tasks_stop_gate.main()
-    printed_output = capsys.readouterr().out
-    return json.loads(printed_output) if printed_output else {}
+    assert open_tasks_stop_gate.main() == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    return json.loads(captured.out) if captured.out else {}
 
 
 def write_cursor_work_turn(tmp_path: Path, all_tool_blocks: list[dict[str, object]]) -> Path:
@@ -343,6 +353,209 @@ def test_should_tell_a_held_stop_from_a_first_stop(hook_input: dict[str, object]
     assert open_tasks_stop_gate.is_held_stop(hook_input) is is_expected_held
 
 
-def test_should_add_a_followup_message_only_for_a_cursor_payload() -> None:
-    assert open_tasks_stop_gate.block_output_for({}, "why") == {"decision": "block", "reason": "why"}
-    assert open_tasks_stop_gate.block_output_for({"conversation_id": "c-1"}, "why")["followup_message"] == "why"
+STEP_REPLY = "Three items need you. The list is below."
+READ_CALL = tool_call_record("mcp__github__pull_request_read", {"pullNumber": 12})
+QUESTION_CALL = tool_call_record("AskUserQuestion", {"questions": [{"question": "Merge pull request 12 now?"}]})
+TRACKER_CALL = tool_call_record("TaskUpdate", {"taskId": "2", "status": "in_progress"})
+OPEN_TASK = {"id": "2", "subject": "Merge the docs pull request", "status": "pending"}
+COMPLETED_TASK = {"id": "1", "subject": "Rotate the deploy key", "status": "completed"}
+
+
+def test_should_block_a_turn_that_leaves_completed_items_beside_open_ones(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, [COMPLETED_TASK, OPEN_TASK])
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("did the export fail?")])
+    block_output = run_gate(monkeypatch, capsys, transcript_path)
+    assert block_output["decision"] == "block"
+    assert "1 of 2 items are completed" in block_output["reason"]
+    assert block_output["reason"].endswith("Leave the reply as it stands.")
+
+
+@pytest.mark.parametrize("all_tasks", [[COMPLETED_TASK], [OPEN_TASK]])
+def test_should_allow_a_task_list_that_is_all_completed_or_all_open(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_tasks: list[dict[str, str]],
+) -> None:
+    write_task_store(tmp_path, all_tasks)
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("did the export fail?")])
+    assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
+def test_should_leave_a_task_list_shared_with_other_sessions_alone(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, [COMPLETED_TASK, OPEN_TASK])
+    monkeypatch.setenv("CLAUDE_CODE_TASK_LIST_ID", SESSION_ID)
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("did the export fail?")])
+    assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
+def test_should_read_completed_items_from_the_transcript_when_the_session_has_no_task_store(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_todos = [{"content": "Export", "status": "completed"}, {"content": "Submit", "status": "pending"}]
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [user_prompt_record(WORK_PROMPT), tool_call_record("TodoWrite", {"todos": all_todos})]
+    )
+    assert "1 of 2 items are completed" in run_gate(monkeypatch, capsys, transcript_path)["reason"]
+
+
+def test_should_let_the_task_store_decide_what_the_user_sees(tmp_path: Path) -> None:
+    all_todos = [{"content": "Export", "status": "completed"}, {"content": "Submit", "status": "pending"}]
+    transcript_path = write_records(tmp_path / "s.jsonl", [tool_call_record("TodoWrite", {"todos": all_todos})])
+    replay = replayed_transcript(str(transcript_path))
+    assert [each_item.subject for each_item in open_tasks_stop_gate.shown_task_items(SESSION_ID, replay)] == [
+        "Export",
+        "Submit",
+    ]
+    write_task_store(tmp_path, [OPEN_TASK])
+    assert open_tasks_stop_gate.shown_task_items(SESSION_ID, replay) == [
+        TaskItem("2", "Merge the docs pull request", "pending")
+    ]
+
+
+def test_should_count_completed_items_only_beside_open_ones() -> None:
+    completed_item = TaskItem("1", "Export", "completed")
+    open_item = TaskItem("2", "Submit", "in_progress")
+    deleted_item = TaskItem("3", "Sign", "deleted")
+    mixed_reason = open_tasks_stop_gate.stale_list_reason([completed_item, completed_item, open_item, deleted_item])
+    assert "2 of 3 items are completed" in (mixed_reason or "")
+    assert open_tasks_stop_gate.stale_list_reason([completed_item, deleted_item]) is None
+    assert open_tasks_stop_gate.stale_list_reason([open_item]) is None
+
+
+@pytest.mark.parametrize(
+    ("all_turn_calls", "expected_text", "absent_text"),
+    [
+        ([TRACKER_CALL], "ran no read call", "Leave the reply as it stands."),
+        ([TRACKER_CALL, READ_CALL], "sent no question through the native question tool", "ran no read call"),
+        ([TRACKER_CALL, QUESTION_CALL], "ran no read call", "sent no question"),
+    ],
+)
+def test_should_block_a_reply_that_hands_the_user_a_step_without_a_read_or_a_question_call(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_turn_calls: list[dict[str, object]],
+    expected_text: str,
+    absent_text: str,
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("what needs me?"), *all_turn_calls])
+    block_output = run_gate(monkeypatch, capsys, transcript_path, reply_text=STEP_REPLY)
+    assert block_output["decision"] == "block"
+    assert '"need you"' in block_output["reason"]
+    assert expected_text in block_output["reason"]
+    assert absent_text not in block_output["reason"]
+    assert "read the live state of each item you show as open" in block_output["reason"]
+    assert block_output["reason"].endswith("end the turn and leave the reply as it stands.")
+
+
+def test_should_allow_a_step_reply_after_a_read_call_and_a_question_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [user_prompt_record("what needs me?"), TRACKER_CALL, READ_CALL, QUESTION_CALL]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=STEP_REPLY) == {}
+
+
+def test_should_not_count_a_read_or_a_question_call_from_an_earlier_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [user_prompt_record("status?"), READ_CALL, QUESTION_CALL, user_prompt_record("what needs me?")]
+    )
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=STEP_REPLY)["reason"]
+    assert "ran no read call" in block_reason
+    assert "sent no question" in block_reason
+
+
+def test_should_block_a_sent_status_file_that_says_something_waits_on_the_user(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    status_path = tmp_path / "status.md"
+    status_path.write_text("## What needs you\n\nSay when the demo sessions may be archived.", encoding="utf-8")
+    send_call = tool_call_record("SendUserFile", {"files": [str(status_path)]})
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("what needs me?"), TRACKER_CALL, send_call])
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text="The status list is attached.")["reason"]
+    assert '"needs you"' in block_reason
+    assert open_tasks_stop_gate.turn_waiting_phrase(
+        {"last_assistant_message": "The status list is attached."}, replayed_transcript(str(transcript_path))
+    ) == "needs you"
+
+
+def test_should_read_a_relative_sent_path_from_the_working_directory_of_the_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    sent_directory = tmp_path / "reports"
+    sent_directory.mkdir()
+    (sent_directory / "status.md").write_text("Two items need you.", encoding="utf-8")
+    send_call = tool_call_record("SendUserFile", {"files": ["status.md"]})
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("what needs me?"), TRACKER_CALL, send_call])
+    block_output = run_gate(
+        monkeypatch, capsys, transcript_path, reply_text="The status list is attached.", working_directory=sent_directory
+    )
+    assert '"need you"' in block_output["reason"]
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text="The status list is attached.") == {}
+
+
+def test_should_read_a_path_the_turn_sent_twice_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    status_path = tmp_path / "status.md"
+    status_path.write_text("Both builds passed.", encoding="utf-8")
+    send_call = tool_call_record("SendUserFile", {"files": [str(status_path), str(status_path)]})
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("status?"), send_call, send_call])
+    all_read_paths: list[str] = []
+
+    def record_read(file_path_text: str, working_directory: object) -> None:
+        all_read_paths.append(file_path_text)
+
+    monkeypatch.setattr(open_tasks_stop_gate, "file_waiting_phrase", record_read)
+    assert open_tasks_stop_gate.turn_waiting_phrase(
+        {"last_assistant_message": "The status list is attached."}, replayed_transcript(str(transcript_path))
+    ) is None
+    assert all_read_paths == [str(status_path)]
+
+
+def test_should_read_a_task_file_that_holds_a_byte_outside_utf8(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, [OPEN_TASK])
+    task_directory = tmp_path / ".claude" / "tasks" / SESSION_ID
+    (task_directory / "1.json").write_bytes(b'{"id": "1", "subject": "caf\xe9", "status": "completed"}')
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("status?")])
+    assert "1 of 2 items are completed" in run_gate(monkeypatch, capsys, transcript_path)["reason"]
+
+
+def test_should_give_no_step_reason_when_the_transcript_cannot_be_read(tmp_path: Path) -> None:
+    all_hook_input_fields = {"last_assistant_message": STEP_REPLY, "transcript_path": str(tmp_path / "missing.jsonl")}
+    assert open_tasks_stop_gate.user_step_reasons(all_hook_input_fields, replayed_transcript(None)) == []
+    assert open_tasks_stop_gate.turn_block_reason(all_hook_input_fields, replayed_transcript(None)) is None
+
+
+def test_should_carry_every_finding_in_one_reason(tmp_path: Path) -> None:
+    write_task_store(tmp_path, [COMPLETED_TASK, OPEN_TASK])
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(WORK_PROMPT), tool_call_record("Write")])
+    all_hook_input_fields = {
+        "session_id": SESSION_ID,
+        "last_assistant_message": STEP_REPLY,
+        "transcript_path": str(transcript_path),
+    }
+    replay = replayed_transcript(str(transcript_path))
+    assert len(open_tasks_stop_gate.tracker_reasons(all_hook_input_fields, replay)) == 2
+    assert len(open_tasks_stop_gate.user_step_reasons(all_hook_input_fields, replay)) == 3
+    block_reason = open_tasks_stop_gate.turn_block_reason(all_hook_input_fields, replay) or ""
+    assert block_reason.index("left the task list unchanged") < block_reason.index("1 of 2 items are completed")
+    assert block_reason.index("1 of 2 items are completed") < block_reason.index("ran no read call")
+    assert block_reason.index("ran no read call") < block_reason.index("sent no question")
+
+
+def test_should_block_a_work_turn_whose_transcript_holds_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(WORK_PROMPT), tool_call_record("Bash")])
+    with transcript_path.open("ab") as transcript_file:
+        transcript_file.write(b"\n\xff\n")
+    assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"

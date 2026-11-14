@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -293,4 +294,89 @@ test("help names the followup command", () => {
     assert.match(createHelpText(), /cde <lint\|verify\|followup>/);
     assert.match(createHelpText(), /cde followup count/);
     assert.match(createHelpText(), /cde followup dedupe +Give each finding its own file, once/);
+});
+
+
+const posixShellStubSkip = process.platform === "win32" ? "the Python stubs are POSIX shell scripts" : false;
+
+
+async function withStubPythons(versionByName, overrideEnvironmentName, action) {
+    const stubDirectory = mkdtempSync(path.join(tmpdir(), "launcher-python-stub-"));
+    for (const [eachName, eachVersion] of Object.entries(versionByName)) {
+        const stubPath = path.join(stubDirectory, eachName);
+        writeFileSync(stubPath, `#!/bin/sh\necho "${eachVersion}"\n`);
+        chmodSync(stubPath, 0o755);
+    }
+    const originalPath = process.env.PATH;
+    const originalOverride = process.env[overrideEnvironmentName];
+    process.env.PATH = stubDirectory;
+    delete process.env[overrideEnvironmentName];
+    try {
+        return await action(stubDirectory);
+    } finally {
+        process.env.PATH = originalPath;
+        if (originalOverride !== undefined) process.env[overrideEnvironmentName] = originalOverride;
+        rmSync(stubDirectory, { recursive: true, force: true });
+    }
+}
+
+
+async function captureStandardError(action) {
+    const allMessages = [];
+    const originalWrite = process.stderr.write;
+    process.stderr.write = (message) => {
+        allMessages.push(String(message));
+        return true;
+    };
+    try {
+        const exitCode = await action();
+        return { exitCode, standardError: allMessages.join("") };
+    } finally {
+        process.stderr.write = originalWrite;
+    }
+}
+
+
+test("findPython skips a python3 below the floor and picks the next interpreter at the floor", { skip: posixShellStubSkip }, async () => {
+    const selectedName = await withStubPythons(
+        { python3: "Python 3.9.0", python: "Python 3.11.0" },
+        "CDE_PYTHON",
+        () => findPython(),
+    );
+    assert.equal(selectedName, "python");
+});
+
+
+test("no interpreter at the floor prints the floor and runs nothing", { skip: posixShellStubSkip }, async () => {
+    let wasRun = false;
+    const { exitCode, standardError } = await withStubPythons(
+        { python3: "Python 3.9.0", python: "Python 3.10.4" },
+        "CDE_PYTHON",
+        () => captureStandardError(() => main(["lint", "--staged"], {
+            runCommand: async () => {
+                wasRun = true;
+                return 0;
+            },
+        })),
+    );
+    assert.equal(exitCode, 2);
+    assert.match(standardError, /No usable Python 3\.11\+ interpreter found/);
+    assert.equal(wasRun, false);
+});
+
+
+test("an explicit python override below the floor is still honored", { skip: posixShellStubSkip }, async () => {
+    let receivedCommand;
+    const exitCode = await withStubPythons(
+        { python3: "Python 3.9.0" },
+        "CDE_PYTHON",
+        (stubDirectory) => main(["lint", "--python", path.join(stubDirectory, "python3"), "--staged"], {
+            runCommand: async (command) => {
+                receivedCommand = command;
+                return 0;
+            },
+        }),
+    );
+    assert.equal(exitCode, 0);
+    assert.match(receivedCommand.executable, /python3$/);
 });

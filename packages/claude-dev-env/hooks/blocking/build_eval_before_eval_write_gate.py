@@ -12,6 +12,7 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from blocking.codex_apply_patch import payload_patch_command, payload_patch_target_paths
+from blocking.gate_run_reads import ReadSlice, gate_run, read_deadlines_started
 from blocking.pr_lifecycle_skill_gate import deny_decision, eval_skill_call_status
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_EVAL_DIRECTORY_NAMES,
@@ -19,6 +20,7 @@ from hooks_constants.build_eval_before_eval_write_gate_constants import (
     ALL_FILE_WRITE_TOOL_NAMES,
     APPLY_PATCH_TOOL_NAME,
     EVAL_FILE_NAME_WORD_PATTERN,
+    EVAL_WRITE_SCAN_RAN_OUT_SENTENCE,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
     UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON,
 )
@@ -81,21 +83,25 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         Write evals/cases.json, no readable transcript        -> deny
         Write evals/cases.json, build-eval in transcript      -> None
         Write src/app.py, no build-eval in transcript         -> None
+        Write evals/cases.json, scan stopped at its deadline  -> deny that says to call build-eval again
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not any(is_eval_path(each_path) for each_path in _written_paths(all_payload_fields)):
         return None
-    status = eval_skill_call_status(all_payload_fields)
+    with gate_run() as run:
+        status = eval_skill_call_status(all_payload_fields, ReadSlice.EVAL_WRITE)
     if status is None:
         return deny_decision(UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON)
-    return None if status else deny_decision(MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON)
+    scan_note = EVAL_WRITE_SCAN_RAN_OUT_SENTENCE if run.cut_scan_count else ""
+    return None if status else deny_decision(MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON + scan_note)
 
 
 def main() -> int:
-    """Read one payload, print a deny when needed, and exit zero."""
-    return print_decision_from_stdin(decision_for)
+    """Start the scan deadline, read one payload, print a deny when needed, and exit zero."""
+    with read_deadlines_started():
+        return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

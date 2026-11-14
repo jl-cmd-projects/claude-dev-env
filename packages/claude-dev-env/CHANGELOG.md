@@ -1,5 +1,40 @@
 # Changelog
 
+## [8.117.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.3...claude-dev-env-v8.117.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** close seven gaps in the pull request gates ([#2360](https://github.com/jl-cmd-projects/claude-dev-env/issues/2360)) ([ae0076e](https://github.com/jl-cmd-projects/claude-dev-env/commit/ae0076ed089f8dd693b62a3f35ec5f9f49b7780b))
+
+## [8.117.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.2...claude-dev-env-v8.117.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **validators:** count lines of logic in the function length check ([#2356](https://github.com/jl-cmd-projects/claude-dev-env/issues/2356)) ([bb6dae5](https://github.com/jl-cmd-projects/claude-dev-env/commit/bb6dae5e7b369f25ea7028c6e5cb6cec9e780139))
+
+## [8.117.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.1...claude-dev-env-v8.117.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** hold a turn that shows a stale task list or hands over a step with no question ([#2348](https://github.com/jl-cmd-projects/claude-dev-env/issues/2348)) ([ab2c3bd](https://github.com/jl-cmd-projects/claude-dev-env/commit/ab2c3bda97a8a366cb9cfae1935cd38a20886281))
+
+## [8.117.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.0...claude-dev-env-v8.117.1) (2026-11-14)
+
+
+### Refactoring
+
+* **hooks:** clear the policy lint follow-ups of the hooks audit ([#2352](https://github.com/jl-cmd-projects/claude-dev-env/issues/2352)) ([2046844](https://github.com/jl-cmd-projects/claude-dev-env/commit/2046844f0deee657c8dcd0378927fb7a0b474f26))
+
+## [8.117.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.5...claude-dev-env-v8.117.0) (2026-11-14)
+
+
+### Features
+
+* **hooks:** Stop gates exit 2, background turn review, and a judge for dismissals ([#2345](https://github.com/jl-cmd-projects/claude-dev-env/issues/2345)) ([f650584](https://github.com/jl-cmd-projects/claude-dev-env/commit/f650584cb157bfee6360c209b91d8f50c8e87e33))
+
 ## [8.116.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.4...claude-dev-env-v8.116.5) (2026-11-14)
 
 

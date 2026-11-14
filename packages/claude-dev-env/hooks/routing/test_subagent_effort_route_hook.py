@@ -3,6 +3,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+import subagent_effort_route_hook
+
 HOOK_SCRIPT = Path(__file__).resolve().parent / "subagent_effort_route_hook.py"
 
 
@@ -68,6 +72,58 @@ def test_should_use_the_last_parent_model_when_the_spawn_names_none(tmp_path: Pa
 
 def test_should_print_nothing_for_an_allowed_pair() -> None:
     assert _run_hook({"model": "haiku", "effort": "max", "prompt": "Do X."}) == ""
+
+
+def test_should_print_nothing_for_an_opus_spawn_at_high() -> None:
+    assert _run_hook({"model": "opus", "effort": "high", "prompt": "Do X."}) == ""
+
+
+def test_should_move_an_opus_spawn_at_max_to_medium() -> None:
+    spawn_input = {"model": "claude-opus-5-5", "effort": "max", "prompt": "Do X."}
+    decision = _hook_specific_output(_run_hook(spawn_input))
+    assert decision["updatedInput"] == {**spawn_input, "effort": "medium"}
+
+
+def _levels_text(opus_fields: dict[str, object]) -> str:
+    return json.dumps(
+        {
+            "opus": opus_fields,
+            "sonnet": {"allowed": ["high"], "default": "high"},
+            "fable": {"allowed": ["low", "medium", "high"], "default": "high"},
+            "haiku": {"allowed": ["low", "medium", "high", "xhigh", "max"], "default": "medium"},
+        }
+    )
+
+
+def _payload(tool_input: dict[str, object]) -> dict[str, object]:
+    return {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": tool_input}
+
+
+def test_should_read_the_effort_file_each_time_it_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    levels_path = tmp_path / "subagent_effort_levels.json"
+    monkeypatch.setattr(subagent_effort_route_hook, "EFFORT_LEVELS_PATH", levels_path)
+    spawn_input = {"model": "opus", "effort": "high"}
+    levels_path.write_text(_levels_text({"allowed": ["high"], "default": "high"}), encoding="utf-8")
+    assert subagent_effort_route_hook.decide_hook_output(_payload(spawn_input)) is None
+    levels_path.write_text(_levels_text({"allowed": ["low"], "default": "low"}), encoding="utf-8")
+    decision = subagent_effort_route_hook.decide_hook_output(_payload(spawn_input))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["updatedInput"] == {"model": "opus", "effort": "low"}
+
+
+def test_should_route_with_the_built_in_levels_when_the_file_is_broken(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    levels_path = tmp_path / "subagent_effort_levels.json"
+    levels_path.write_text("{broken", encoding="utf-8")
+    monkeypatch.setattr(subagent_effort_route_hook, "EFFORT_LEVELS_PATH", levels_path)
+    decision = subagent_effort_route_hook.decide_hook_output(_payload({"model": "opus", "effort": "max"}))
+    assert decision is not None
+    assert json.loads(json.dumps(decision))["hookSpecificOutput"]["updatedInput"]["effort"] == "medium"
+    assert subagent_effort_route_hook.decide_hook_output(_payload({"model": "opus", "effort": "high"})) is None
+    assert capsys.readouterr().err.count(str(levels_path)) == 2
 
 
 def test_should_print_nothing_for_a_fork(tmp_path: Path) -> None:

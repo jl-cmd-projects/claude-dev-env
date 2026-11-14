@@ -19,54 +19,80 @@ host's timeout. Two deadlines are fixed points from that start::
 
 A read gets the smaller of its own timeout and the time left in its
 slice. A read with no time left is skipped and comes back unanswered. A
-child that outlives its allowance is killed, its pipes get a short grace,
-and it comes back unanswered. The run notes each read the deadline cut
+child that outlives its allowance is killed with every process it started,
+its pipes get a short grace, and it comes back unanswered. The run notes each read the deadline cut
 short: a skipped read, and a stopped read whose allowance was below its
 own timeout. With no deadlines started, as in a library call or a
-unit test, each read keeps its own timeout.
+unit test, each read keeps its own timeout. The run also counts every read
+that stopped at a timeout, its own or the shared deadline, which tells a
+read that gave no answer in time apart from one that failed fast.
+
+A transcript scan answers to the same deadlines through
+``transcript_lines_within_slice``, which reads the clock before each line
+and before each file block, so one long line cannot hold the gate. The run
+counts each scan the deadline stopped, apart from the reads it cut short.
 """
 
 from __future__ import annotations
 
+import functools
+import math
 import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Hashable, Iterator, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import BinaryIO, TypeVar, cast
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.gate_child_process import close_job, job_holding, started_child, stop_child
 from hooks_constants.gate_run_reads_constants import (
+    EVAL_WRITE_SCAN_SECONDS,
     FOLLOWUP_READS_SECONDS,
-    KILL_GRACE_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
 )
-from hooks_constants.subprocess_window import hidden_window_creation_flags
+from hooks_constants.transcript_skill_scan_constants import TRANSCRIPT_BLOCK_BYTES, TRANSCRIPT_LINE_BYTE_CAP
+from transcript_skill_scan import ScanCaps, transcript_lines_newest_first
 
 AnswerType = TypeVar("AnswerType")
 
 
 class ReadSlice(Enum):
-    """Which deadline a read answers to, as seconds from the start of the gate process."""
+    """Which deadline a read answers to, as seconds from the start of the gate process.
+
+    The lifecycle gate reads in ``PROOF_AND_LOOK`` and then ``FOLLOWUP``. The
+    eval-write gate scans its transcripts in ``EVAL_WRITE``.
+    """
 
     PROOF_AND_LOOK = PROOF_AND_LOOK_READS_SECONDS
     FOLLOWUP = PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS
+    EVAL_WRITE = EVAL_WRITE_SCAN_SECONDS
 
 
 @dataclass
 class GateRun:
-    """The answers one gate run has read, and whether a deadline cut one of its reads short."""
+    """What one gate run read and where its clock stopped it.
+
+    ::
+
+        answer_by_question     every answer read in the run, unanswered ones included
+        was_read_cut_short     a deadline skipped a read or stopped one below its own timeout
+        timed_out_read_count   reads that stopped at a timeout, their own or the shared deadline
+        cut_scan_count         transcript scans the deadline stopped
+    """
 
     answer_by_question: dict[Hashable, object] = field(default_factory=dict)
     was_read_cut_short: bool = False
+    timed_out_read_count: int = 0
+    cut_scan_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -168,30 +194,75 @@ def _note_read_cut_short() -> None:
         run.was_read_cut_short = True
 
 
-def _started_child(all_command_words: Sequence[str], working_directory: str | None) -> subprocess.Popen[str] | None:
-    try:
-        return subprocess.Popen(
-            list(all_command_words),
-            cwd=working_directory or None,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=hidden_window_creation_flags(),
-        )
-    except OSError:
-        return None
+def _note_read_timed_out() -> None:
+    run = open_gate_run.get()
+    if run is not None:
+        run.timed_out_read_count += 1
 
 
-def _stop_child(child: subprocess.Popen[str]) -> None:
-    """Kill the child, then wait a bounded grace, so a grandchild that keeps the output pipe open cannot hold the gate."""
-    child.kill()
-    try:
-        child.communicate(timeout=KILL_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        return
+def _note_scan_cut_short() -> None:
+    run = open_gate_run.get()
+    if run is not None:
+        run.cut_scan_count += 1
+
+
+def lines_within_slice(all_lines: Iterable[str], read_slice: ReadSlice) -> Iterator[str]:
+    """Yield each line until the slice's deadline passes, then stop and count the scan as cut.
+
+    ::
+
+        no deadlines started                  -> every line
+        the deadline passes after line 3      -> lines 1 to 3; the open run counts one cut scan
+        the deadline passed before the scan   -> no line; the open run counts one cut scan
+
+    A scan that reads through this answers to the same clock as the reads, so
+    a long transcript cannot hold the gate past its slice.
+
+    Args:
+        all_lines: The lines the scan reads, in the order it reads them.
+        read_slice: The slice whose deadline the scan answers to.
+    """
+    for each_line in all_lines:
+        if not _scan_may_continue(read_slice):
+            return
+        yield each_line
+
+
+def _scan_may_continue(read_slice: ReadSlice) -> bool:
+    if read_allowance(math.inf, read_slice) is not None:
+        return True
+    _note_scan_cut_short()
+    return False
+
+
+def transcript_lines_within_slice(
+    transcript: BinaryIO,
+    encoding: str,
+    errors: str,
+    read_slice: ReadSlice,
+    block_size: int = TRANSCRIPT_BLOCK_BYTES,
+    line_byte_cap: int = TRANSCRIPT_LINE_BYTE_CAP,
+) -> Iterator[str]:
+    """Yield the transcript's lines newest first until the slice's deadline passes.
+
+    ::
+
+        b"one\\r\\ntwo\\n", time left              -> "two", "one"
+        a 2 GB newest line, deadline in 3 s    -> stops between blocks at the deadline; one cut scan
+        a line over the cap, time left         -> the newer lines, then stops; one cut scan
+
+    Args:
+        transcript: The transcript opened in binary mode.
+        encoding: The text encoding of the transcript.
+        errors: The decode errors policy, such as ``"replace"``.
+        read_slice: The slice whose deadline the scan answers to.
+        block_size: The bytes read from the file at a time.
+        line_byte_cap: The most bytes one line may hold.
+    """
+    keeps_reading = functools.partial(_scan_may_continue, read_slice)
+    caps = ScanCaps(line_byte_cap, on_cap_passed=_note_scan_cut_short)
+    all_lines = transcript_lines_newest_first(transcript, encoding, errors, block_size, keeps_reading, caps)
+    return lines_within_slice(all_lines, read_slice)
 
 
 def child_stdout(
@@ -199,6 +270,7 @@ def child_stdout(
     own_timeout_seconds: float,
     read_slice: ReadSlice,
     working_directory: str | None = None,
+    all_environment_variables: Mapping[str, str] | None = None,
 ) -> str | None:
     """Run one read-only child and return its output, or None when it gives no answer.
 
@@ -214,22 +286,30 @@ def child_stdout(
         own_timeout_seconds: The timeout the read carries on its own.
         read_slice: The slice whose deadline the read answers to.
         working_directory: The directory the child runs in, or None for the gate's own.
+        all_environment_variables: The child's whole environment, or None for the gate's own.
     """
     allowance = read_allowance(own_timeout_seconds, read_slice)
     if allowance is None:
         _note_read_cut_short()
         return None
-    child = _started_child(all_command_words, working_directory)
+    child = started_child(all_command_words, working_directory, all_environment_variables)
     if child is None:
         return None
-    return _answer_within(child, allowance, own_timeout_seconds)
+    job = job_holding(child)
+    try:
+        return _answer_within(child, allowance, own_timeout_seconds, job)
+    finally:
+        close_job(job)
 
 
-def _answer_within(child: subprocess.Popen[str], allowance: float, own_timeout_seconds: float) -> str | None:
+def _answer_within(
+    child: subprocess.Popen[str], allowance: float, own_timeout_seconds: float, job: int | None
+) -> str | None:
     try:
         printed_text = child.communicate(timeout=allowance)[0]
     except subprocess.TimeoutExpired:
-        _stop_child(child)
+        stop_child(child, job)
+        _note_read_timed_out()
         if allowance < own_timeout_seconds:
             _note_read_cut_short()
         return None
@@ -281,6 +361,7 @@ def answer_within_allowance(
         raise all_errors[0]
     if all_answers:
         return all_answers[0]
+    _note_read_timed_out()
     if allowance < own_timeout_seconds:
         _note_read_cut_short()
     return None

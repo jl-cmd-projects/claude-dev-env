@@ -7,7 +7,7 @@
 
 [tool.mypy]
 mypy_path = "."
-python_version = "3.13"
+python_version = "3.11"
 ignore_missing_imports = true
 warn_unused_ignores = false
 warn_redundant_casts = true
@@ -32,7 +32,7 @@ disallow_untyped_defs = false
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py311"
 extend-exclude = [
     ".audit-trail",
     ".claude",
@@ -94,7 +94,6 @@ ignore = [
 # Residual production carve-outs re-homed on #57 (gate friction on multi-line touch).
 "validators/run_all_validators.py" = ["PLW1510"]
 "validators/exempt_paths.py" = ["F401"]
-"blocking/gate_run_reads.py" = ["UP047"]
 "test_*.py" = ["B011", "PLR2004", "F401", "F841", "PLW1510", "B905", "B033", "SIM115", "B007", "B018", "B904"]
 "*_test.py" = ["B011", "PLR2004", "F401", "F841", "PLW1510", "B905", "B033", "SIM115", "B007", "B018", "B904"]
 "conftest.py" = ["B011", "F401", "F841", "PLW1510"]

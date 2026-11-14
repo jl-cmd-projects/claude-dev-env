@@ -70,6 +70,7 @@ __all__ = [
     "all_wrapped_command_segments",
     "all_command_substitution_texts",
     "evaluated_inner_command",
+    "quoted_line_breaks_joined",
 ]
 
 
@@ -293,7 +294,7 @@ def evaluated_inner_command(all_segment_tokens: list[str]) -> str | None:
     return None
 
 
-def _quoted_line_breaks_joined(command: str) -> str:
+def quoted_line_breaks_joined(command: str) -> str:
     """Return a copy of the command that holds a space at each quoted line break.
 
     The pipeline parser splits a command at every line break, so a quoted
@@ -320,7 +321,7 @@ def _inner_commands(command: str, all_command_segments: list[list[str]]) -> list
 
     A copy of the command with its quoted line breaks joined comes last when it differs.
     """
-    joined_command = _quoted_line_breaks_joined(command)
+    joined_command = quoted_line_breaks_joined(command)
     all_inner_commands = [
         joined_command if joined_command != command else None,
         *(string_exec_inner_command(each_segment) for each_segment in all_command_segments),

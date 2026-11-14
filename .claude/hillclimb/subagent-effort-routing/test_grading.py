@@ -28,7 +28,8 @@ def _write_child(session_directory: Path, agent_id: str, all_pairs: list[tuple[s
 
 def test_allowed_pairs_follow_the_rule_table() -> None:
     assert is_allowed_pair(OPUS_ID, "medium")
-    assert not is_allowed_pair(OPUS_ID, "high")
+    assert is_allowed_pair(OPUS_ID, "high")
+    assert not is_allowed_pair(OPUS_ID, "xhigh")
     assert is_allowed_pair("claude-sonnet-5-5", "high")
     assert not is_allowed_pair("sonnet", "medium")
     assert is_allowed_pair("claude-fable-5-2", "low")
@@ -53,7 +54,7 @@ def test_grade_marks_a_session_with_no_spawn_as_vacuously_in_rule() -> None:
 
 def test_grade_fails_in_rule_when_any_child_turn_is_outside_the_table() -> None:
     spawn = ToolCall("Agent", {"prompt": "x"})
-    all_children = [ChildRun("t1", None, ((OPUS_ID, "medium"),)), ChildRun("t2", None, ((OPUS_ID, "medium"), (OPUS_ID, "high")))]
+    all_children = [ChildRun("t1", None, ((OPUS_ID, "medium"),)), ChildRun("t2", None, ((OPUS_ID, "medium"), (OPUS_ID, "max")))]
 
     assert grade_case([spawn, spawn], all_children, 0) == {"in_rule": 0, "spawned": 1, "named_in_rule": 0, "routed": 0}
 

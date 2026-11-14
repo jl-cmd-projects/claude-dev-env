@@ -956,6 +956,22 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
     assert not gate.is_create_call({"tool_name": "Read", "tool_input": {"file_path": "a.py"}})
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr new --title t --body b",
+        "gh -R o/r pr create --title t --body b",
+        "GH_REPO=o/r gh pr create --title t --body b",
+        "python3.11 pull_request.py create --title t --body b",
+        "py -3 pull_request.py create --title t --body b",
+        "python -X dev pull_request.py create --title t --body b",
+    ],
+)
+def test_every_create_spelling_should_need_a_proof_section(command: str) -> None:
+    assert gate.is_create_call(_shell(command))
+    assert gate.missing_proof_reason(_shell(command)) == MISSING_PROOF_REASON
+
+
 WORKFLOW_DIRECTORY = ".github/workflows"
 NEW_WORKFLOW_NAME = "release-hold.yml"
 UNPROVEN_RUN_LINE = "Not proven here: the live GitHub Actions run."

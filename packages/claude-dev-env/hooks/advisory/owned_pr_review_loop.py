@@ -14,8 +14,7 @@ block to the agent's context::
     3. Babysit. Follow the pstack babysit playbook ...
     4. Ship. Follow the pstack shipping playbook ...
 
-Each reported pull request also goes into the session record, so the owned
-pull request Stop gate holds the turn until it merges.
+Each reported pull request also goes into the session record.
 
 The pull request URL in the tool response is the proof that a pull request
 opened, so the hook needs no network call and reads the same on Claude Code
@@ -395,7 +394,7 @@ def main() -> None:
     """Add the review-loop instructions after a pull request opens on an owned repository.
 
     Reads the PostToolUse payload from stdin. The pull request also goes into
-    the session record that the owned pull request Stop gate reads. Every quiet branch returns with
+    the session record. Every quiet branch returns with
     no output, so this hook can never alter or block a tool call.
     """
     hook_payload = read_hook_input_dictionary_from_stdin()

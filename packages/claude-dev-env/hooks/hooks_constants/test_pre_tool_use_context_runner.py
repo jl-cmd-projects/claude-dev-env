@@ -45,3 +45,19 @@ def test_prints_nothing_and_exits_zero_when_the_decision_raises(
     _feed_stdin(monkeypatch, json.dumps({"tool_name": "Agent"}))
     assert run_context_hook(_raise) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_should_let_the_call_through_and_write_one_line_naming_the_crash(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def _crash(payload: dict[str, object]) -> dict[str, object] | None:
+        raise ValueError("first line\nsecond line")
+
+    _feed_stdin(monkeypatch, json.dumps({"tool_name": "Agent"}))
+    assert run_context_hook(_crash) == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    all_stderr_lines = captured.err.splitlines()
+    assert len(all_stderr_lines) == 1
+    assert "ValueError" in all_stderr_lines[0]
+    assert "first line second line" in all_stderr_lines[0]

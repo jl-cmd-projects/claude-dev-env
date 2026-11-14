@@ -9,6 +9,7 @@ updatedInput passthrough, and the fail-open posture on a crashed hook.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -35,6 +36,7 @@ from bash_pre_tool_use_dispatcher import (  # noqa: E402
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import (  # noqa: E402
     BASH_TOOL_NAME,
     POWERSHELL_TOOL_NAME,
+    BashHostedHookEntry,
 )
 from hooks_constants.hosted_hook_runner import HostedHookRun  # noqa: E402
 
@@ -302,3 +304,112 @@ def test_should_deny_a_headless_claude_command_while_no_mod_is_on(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("claude -p 'say hello'"))
     assert _decision_from_stdout(completed.stdout)[0] == "deny"
+
+
+_EXIT_PROBE_SOURCE = "import sys\nsys.stderr.write('probe child says stop\\n')\nsys.exit({exit_code})\n"
+
+
+def _write_exit_probe(tmp_path: Path, exit_code: int) -> str:
+    probe_path = tmp_path / f"exit_{exit_code}_probe.py"
+    probe_path.write_text(_EXIT_PROBE_SOURCE.format(exit_code=exit_code), encoding="utf-8")
+    return str(probe_path)
+
+
+@pytest.mark.parametrize(("child_exit_code", "expected_exit_code"), [(2, 2), (1, 0), (0, 0)])
+def test_should_pass_a_hosted_hook_exit_two_to_the_host_with_its_stderr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    child_exit_code: int,
+    expected_exit_code: int,
+) -> None:
+    dispatcher_module = sys.modules[dispatch.__module__]
+    probe_entry = dispatcher_module.BashHostedHookEntry(
+        script_relative_path=_write_exit_probe(tmp_path, child_exit_code),
+        applicable_tool_names=frozenset({BASH_TOOL_NAME}),
+    )
+    monkeypatch.setattr(dispatcher_module, "ALL_BASH_HOSTED_HOOK_ENTRIES", (probe_entry,))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(_bash_payload("echo one")))
+
+    with pytest.raises(SystemExit) as raised_exit:
+        dispatcher_module.main()
+
+    assert (raised_exit.value.code or 0) == expected_exit_code
+    assert "probe child says stop" in capsys.readouterr().err
+
+
+def test_should_stop_the_chain_at_the_first_hosted_hook_that_exits_two(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dispatcher_module = sys.modules[dispatch.__module__]
+    later_marker = tmp_path / "later_hook_ran.txt"
+    later_probe = tmp_path / "later_probe.py"
+    later_probe.write_text(
+        f"from pathlib import Path\nPath({str(later_marker)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    all_entries = tuple(
+        dispatcher_module.BashHostedHookEntry(
+            script_relative_path=each_path, applicable_tool_names=frozenset({BASH_TOOL_NAME})
+        )
+        for each_path in (_write_exit_probe(tmp_path, 2), str(later_probe))
+    )
+    monkeypatch.setattr(dispatcher_module, "ALL_BASH_HOSTED_HOOK_ENTRIES", all_entries)
+
+    exit_code = dispatch(_bash_payload("echo one"), BASH_TOOL_NAME)
+
+    assert exit_code == 2
+    assert not later_marker.exists()
+
+
+FAULT_SYSTEM_MESSAGE = "transcript_root_search_gate.py hit a fault and did not check this call"
+
+
+def test_a_system_message_with_no_decision_is_kept() -> None:
+    """A hosted gate fault prints a systemMessage alone, and aggregation keeps it."""
+    fault_run = HostedHookRun(
+        captured_stdout=json.dumps({"systemMessage": FAULT_SYSTEM_MESSAGE}) + "\n", did_crash=False
+    )
+    aggregated = aggregate_bash_hook_results([_run(""), fault_run])
+    assert aggregated.decision == ""
+    assert aggregated.all_system_messages == [FAULT_SYSTEM_MESSAGE]
+
+
+def test_dispatch_prints_a_system_message_alone_when_no_hook_decides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The dispatcher passes a fault message to the user with no permissionDecision."""
+    fault_hook = tmp_path / "fault_hook.py"
+    fault_hook.write_text(
+        "import json\nprint(json.dumps({'systemMessage': " + repr(FAULT_SYSTEM_MESSAGE) + "}))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "bash_pre_tool_use_dispatcher.select_applicable_entries",
+        lambda tool_name: [
+            BashHostedHookEntry(
+                script_relative_path=str(fault_hook), applicable_tool_names=frozenset({BASH_TOOL_NAME})
+            )
+        ],
+    )
+    dispatch(_bash_payload("ls"), BASH_TOOL_NAME)
+    all_lines = capsys.readouterr().out.splitlines()
+    assert [json.loads(each_line) for each_line in all_lines] == [{"systemMessage": FAULT_SYSTEM_MESSAGE}]
+
+
+def test_dispatch_prints_nothing_when_every_hook_is_silent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A chain with no decision and no message stays silent."""
+    silent_hook = tmp_path / "silent_hook.py"
+    silent_hook.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        "bash_pre_tool_use_dispatcher.select_applicable_entries",
+        lambda tool_name: [
+            BashHostedHookEntry(
+                script_relative_path=str(silent_hook), applicable_tool_names=frozenset({BASH_TOOL_NAME})
+            )
+        ],
+    )
+    dispatch(_bash_payload("ls"), BASH_TOOL_NAME)
+    assert capsys.readouterr().out == ""

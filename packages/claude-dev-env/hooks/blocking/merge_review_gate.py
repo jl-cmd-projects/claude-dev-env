@@ -7,6 +7,8 @@ link to the posted rulings. The open and the merge then name that exact head::
 
     open, open receipt says 0 findings at abc123, branch head abc123 -> allow
     open, no open receipt for the branch head                        -> deny, review first
+    two chained opens, the second head has no clean open receipt      -> deny, review it first
+    open whose head the reads could not answer in time                -> deny, head unknown, rerun may pass
     merge, receipt says 0 findings at abc123, merge pinned to abc123 -> allow
     merge, open receipt clean at abc123, merge pinned to abc123      -> allow
     merge, receipt rules out all 3 findings with a link, pinned       -> allow
@@ -17,6 +19,7 @@ link to the posted rulings. The open and the merge then name that exact head::
     auto-merge that names no head                                     -> deny, pin it
     gh pr merge --disable-auto, which only turns auto-merge off        -> allow
     repository listed in CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES      -> allow
+    open or merge whose check raises                                  -> deny, naming the error
 
 The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
 or ``/code-review high --max-findings all`` when it is unset.
@@ -37,7 +40,13 @@ hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.merge_review_gate_parts.open_request import OpenRequest, open_request_from
+from blocking.gate_run_reads import gate_run, read_deadlines_started
+from blocking.merge_review_gate_parts.open_request import (
+    OpenCall,
+    OpenRequest,
+    open_calls_from,
+    open_request_for,
+)
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
     has_zero_finding_open_review,
@@ -45,6 +54,8 @@ from blocking.merge_review_gate_parts.receipts import (
     receipt_path,
     same_commit,
 )
+from hooks_constants.gate_fault import gate_fault_reason
+from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from hooks_constants.hook_specific_output_keys import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     PERMISSION_DECISION_KEY,
@@ -58,18 +69,23 @@ from hooks_constants.merge_review_gate_constants import (
     AUTO_OPTION,
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
+    CREATE_TOOL_SUFFIX,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     DISABLE_AUTO_OPTION,
     END_OF_OPTIONS_WORD,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
+    GATE_NAME,
     GH_API_MERGE_PATTERN,
     GH_PR_MERGE_CALL_PATTERN,
     GH_PR_MERGE_PATTERN,
     ALL_GH_PR_MERGE_SUBCOMMAND_WORDS,
     GH_PROGRAM_WORD_PATTERN,
     HOOK_EVENT_NAME,
+    LOOSE_GH_PROGRAM_PATTERN,
+    LOOSE_OPEN_OR_MERGE_WORD_PATTERN,
+    LOOSE_PULL_REQUEST_SCRIPT_PATTERN,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
     NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
@@ -254,7 +270,11 @@ def _merge_arguments(all_words: list[str]) -> list[str] | None:
     for each_index in range(len(all_words) - len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)):
         is_gh_program = GH_PROGRAM_WORD_PATTERN.search(all_words[each_index]) is not None
         subcommand_end = each_index + 1 + len(ALL_GH_PR_MERGE_SUBCOMMAND_WORDS)
-        if is_gh_program and tuple(all_words[each_index + 1 : subcommand_end]) == ALL_GH_PR_MERGE_SUBCOMMAND_WORDS:
+        if (
+            is_gh_program
+            and tuple(all_words[each_index + 1 : subcommand_end])
+            == ALL_GH_PR_MERGE_SUBCOMMAND_WORDS
+        ):
             return all_words[subcommand_end:]
     return None
 
@@ -394,19 +414,73 @@ def deny_reason(request: MergeRequest) -> str | None:
 def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
     """Return a deny decision for an open or merge with no clean review, else None.
 
+    The gate first reads from the payload alone whether the call opens or
+    merges a pull request. Only then does it read git, GitHub, and receipts::
+
+        call opens and merges nothing                     -> None, no read runs
+        two chained creates, second head unreviewed       -> deny naming the second head
+        an open whose head read ran out of time           -> deny, head unknown, + READS_RAN_OUT_SENTENCE
+        an open or merge whose check raises KeyError      -> deny naming KeyError
+        a create or merge whose payload read raises       -> deny naming the error
+
+    A payload read that raises for any other call goes on to the shared helper.
+
     Args:
         all_payload_fields: The parsed PreToolUse input.
 
     Returns:
         The hook output that denies the call, or None to allow it.
     """
-    open_request = open_request_from(all_payload_fields)
-    merge_request = merge_request_from(all_payload_fields)
-    reason = (open_deny_reason(open_request) if open_request is not None else None) or (
-        deny_reason(merge_request) if merge_request is not None else None
-    )
-    if reason is None:
+    all_open_calls, merge_request, fault_reason = _payload_reading(all_payload_fields)
+    if fault_reason is not None:
+        return _deny_decision(fault_reason)
+    if not all_open_calls and merge_request is None:
         return None
+    try:
+        reason = _checked_reason(all_open_calls, merge_request)
+    except Exception as error:
+        reason = gate_fault_reason(GATE_NAME, error)
+    return None if reason is None else _deny_decision(reason)
+
+
+def _payload_reading(
+    all_payload_fields: dict[str, object],
+) -> tuple[list[OpenCall], MergeRequest | None, str | None]:
+    try:
+        return open_calls_from(all_payload_fields), merge_request_from(all_payload_fields), None
+    except Exception as error:
+        if not _is_open_or_merge_text(all_payload_fields):
+            raise
+        return [], None, gate_fault_reason(GATE_NAME, error)
+
+
+def _is_open_or_merge_text(all_payload_fields: dict[str, object]) -> bool:
+    tool_name = all_payload_fields.get("tool_name")
+    tool_input = all_payload_fields.get("tool_input")
+    if not isinstance(tool_name, str):
+        return False
+    if tool_name.endswith((CREATE_TOOL_SUFFIX, MERGE_TOOL_SUFFIX, AUTO_MERGE_TOOL_SUFFIX)):
+        return True
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
+        return False
+    is_gh_action = bool(LOOSE_GH_PROGRAM_PATTERN.search(command) and LOOSE_OPEN_OR_MERGE_WORD_PATTERN.search(command))
+    return is_gh_action or LOOSE_PULL_REQUEST_SCRIPT_PATTERN.search(command) is not None
+
+
+def _checked_reason(
+    all_open_calls: list[OpenCall], merge_request: MergeRequest | None
+) -> str | None:
+    with gate_run() as run:
+        reason = _first_open_deny_reason(all_open_calls) or (
+            deny_reason(merge_request) if merge_request is not None else None
+        )
+    if reason is not None and (run.was_read_cut_short or run.timed_out_read_count > 0):
+        return reason + READS_RAN_OUT_SENTENCE
+    return reason
+
+
+def _deny_decision(reason: str) -> dict[str, object]:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": HOOK_EVENT_NAME,
@@ -416,9 +490,18 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     }
 
 
+def _first_open_deny_reason(all_open_calls: list[OpenCall]) -> str | None:
+    for each_call in all_open_calls:
+        reason = open_deny_reason(open_request_for(each_call))
+        if reason is not None:
+            return reason
+    return None
+
+
 def main() -> int:
-    """Read one payload, print a deny when needed, and exit zero."""
-    return print_decision_from_stdin(decision_for)
+    """Start the read deadlines, read one payload, print a deny when needed, and exit zero."""
+    with read_deadlines_started():
+        return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,9 @@ roster unconditionally and never blocks. The one thing it forwards is context:
 a hosted hook may print a ``hookSpecificOutput.additionalContext`` string (the
 PR done reminder does), and the dispatcher joins every such string into one
 PostToolUse payload through the shared emitter every PostToolUse hook here
-writes with. A hook that prints nothing adds nothing.
+writes with. A hook that prints nothing adds nothing. A hosted hook that
+exits 2 makes the dispatcher exit 2 after the whole roster runs, and on
+PostToolUse the host then shows that hook's stderr to the model.
 
 A single hosted hook crash fails open: ``run_hook_capturing_output`` isolates
 it, so it contributes nothing and does not stop the remaining hosted hooks.
@@ -45,6 +47,8 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.post_tool_use_context import write_post_tool_use_context_to_stdout
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import BashHostedHookEntry
 from hooks_constants.hosted_hook_runner import (
+    HostedHookRun,
+    host_exit_code,
     run_hook_capturing_output,
     resolved_hook_script_path,
     run_dispatcher_main,
@@ -83,26 +87,30 @@ def additional_context_from_hook_output(captured_stdout: str) -> str | None:
     return additional_context
 
 
-def dispatch(payload_text: str, tool_name: str) -> None:
-    """Run every hosted hook applicable to tool_name, then forward their context.
+def dispatch(payload_text: str, tool_name: str) -> int:
+    """Run every hosted hook applicable to tool_name, forward their context, and return the exit code.
 
     Each hosted hook's crash is isolated by ``run_hook_capturing_output``, so
     one hook failing never stops a later one in the same roster. Every
     additionalContext string the hooks printed is joined into one PostToolUse
-    payload on stdout; when no hook printed one, nothing is written.
+    payload on stdout; when no hook printed one, nothing is written. Returns 2
+    when a hosted hook exited 2, so the host shows that hook's stderr to the
+    model, and 0 otherwise.
     """
+    all_runs: list[HostedHookRun] = []
     all_additional_context: list[str] = []
     for each_entry in select_applicable_entries(tool_name):
         script_path = resolved_hook_script_path(each_entry.script_relative_path)
         hook_run = run_hook_capturing_output(script_path, payload_text)
+        all_runs.append(hook_run)
         additional_context = additional_context_from_hook_output(hook_run.captured_stdout)
         if additional_context is not None:
             all_additional_context.append(additional_context)
-    if not all_additional_context:
-        return
-    write_post_tool_use_context_to_stdout(
-        ADDITIONAL_CONTEXT_JOIN_SEPARATOR.join(all_additional_context)
-    )
+    if all_additional_context:
+        write_post_tool_use_context_to_stdout(
+            ADDITIONAL_CONTEXT_JOIN_SEPARATOR.join(all_additional_context)
+        )
+    return host_exit_code(all_runs)
 
 
 def main() -> None:

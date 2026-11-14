@@ -52,6 +52,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     CODEX_NATIVE_ROUTING_MATCHER,
+    ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -151,7 +152,7 @@ import {
     splitUnreadableProfileSettings,
     unparsedSettingsMayHoldGate,
 } from './profile-stop-gate.mjs';
-import { pythonExecutableProbeCommand } from './python-probe.mjs';
+import { pythonExecutableProbeCommand, pythonVersionMeetsFloor } from './python-probe.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL_ROOT_RESOLUTION = resolveInstallRoot({
@@ -593,8 +594,23 @@ function quoteStandalonePluginRootHookPath(commandString, pluginRootForward) {
     );
 }
 
+export { pythonVersionMeetsFloor };
+
+/**
+ * Runs one Python probe command and returns its trimmed standard output.
+ *
+ * @param {string} commandLine The shell command to run.
+ * @returns {string} The trimmed output.
+ */
+function runPythonProbe(commandLine) {
+    return execSync(commandLine, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
+}
+
 /**
  * Picks the interpreter command baked into every managed hook in settings.json.
+ * A candidate below the package Python floor (MINIMUM_PYTHON_VERSION) is
+ * skipped, so an install on an older Python stops with the missing-Python
+ * message and installs no hooks that cannot start there.
  * On win32 the first working candidate is resolved to its absolute
  * sys.executable and that path is baked in, so a later PATH change or Microsoft
  * Store update that re-points the `py`/`python` launcher cannot silently break
@@ -603,16 +619,18 @@ function quoteStandalonePluginRootHookPath(commandString, pluginRootForward) {
  * runs from cannot slow or change it. Other platforms keep the bare command
  * (e.g. `python3`).
  *
+ * @param {(commandLine: string) => string} [runProbe] Runs one probe command and returns its output.
+ * @param {string} [platform] The platform whose candidates and path rules apply.
  * @returns {string|null} The interpreter command, or null when none is usable.
  */
-export function detectPython() {
-    const candidates = pythonCandidatesForPlatform(process.platform);
+export function detectPython(runProbe = runPythonProbe, platform = process.platform) {
+    const candidates = pythonCandidatesForPlatform(platform);
     for (const { command, versionFlag } of candidates) {
         try {
-            const version = execSync(`${command} ${versionFlag}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
-            if (!version.includes('Python 3.')) continue;
-            if (process.platform !== 'win32') return command;
-            const executablePath = execSync(pythonExecutableProbeCommand(command), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: PYTHON_PROBE_TIMEOUT_MILLISECONDS }).trim();
+            const version = runProbe(`${command} ${versionFlag}`);
+            if (!pythonVersionMeetsFloor(version)) continue;
+            if (platform !== 'win32') return command;
+            const executablePath = runProbe(pythonExecutableProbeCommand(command));
             if (!executablePath || isWindowsStorePythonStub(executablePath)) continue;
             return interpreterCommandFromPath(executablePath);
         } catch { /* try next */ }
@@ -1332,6 +1350,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/session_handoff_blocker.py',
     'blocking/artifact_look_gate.py',
     'blocking/session_title_stop_gate.py',
+    'blocking/session_title_turn_gate.py',
     'session/issue_tracker_session_starter.py',
     'session/deepen_first_prompt.py',
     'workflow/investigation_tracker_reset.py',
@@ -2344,16 +2363,27 @@ function selectCodexNativeGroupsByScriptName(groups, allScriptNames) {
         .filter(group => group.hooks.length > 0);
 }
 
+function withoutCodexExcludedPromptHooks(groups) {
+    if (!Array.isArray(groups)) return [];
+    return groups
+        .map(group => ({
+            ...group,
+            hooks: (group?.hooks ?? []).filter(
+                hook => !ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES.has(hookScriptName(hook)),
+            ),
+        }))
+        .filter(group => group.hooks.length > 0);
+}
+
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
-    const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
     return {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
                 ? preToolUseGroups.filter(group => group?.matcher === CODEX_NATIVE_ROUTING_MATCHER)
                 : [],
-            UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
+            UserPromptSubmit: withoutCodexExcludedPromptHooks(hooksConfig.hooks?.UserPromptSubmit),
             PostToolUse: selectCodexNativeGroupsByScriptName(
                 hooksConfig.hooks?.PostToolUse,
                 ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,

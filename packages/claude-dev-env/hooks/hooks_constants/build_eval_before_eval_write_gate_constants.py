@@ -17,3 +17,8 @@ UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON = (
     " held because no /claude-api build-eval call can be confirmed. A retry clears only"
     " once the hook receives a readable transcript."
 )
+EVAL_WRITE_SCAN_RAN_OUT_SENTENCE = (
+    " This hook's transcript scan ran out of time on this run, so it may have missed an"
+    " older build-eval call. Calling /claude-api build-eval again puts that call where"
+    " the scan finds it first."
+)

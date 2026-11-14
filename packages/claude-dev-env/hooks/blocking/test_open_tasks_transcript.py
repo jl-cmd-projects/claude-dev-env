@@ -8,10 +8,13 @@ from open_tasks_transcript import (
     claude_prompt_text,
     codex_prompt_text,
     is_assistant_record,
+    is_codex_read_call,
     is_codex_work_call,
+    is_read_tool_name,
     is_work_tool_name,
     parsed_object,
     replayed_transcript,
+    send_call_file_paths,
     unwrapped_tool_call,
 )
 
@@ -59,6 +62,30 @@ def test_should_replay_cursor_dynamic_todo_writes_as_tracker_calls(tmp_path: Pat
     ]
     assert replay.has_turn_tracker_write is True
     assert replay.has_turn_work_tool is False
+
+
+def test_should_keep_a_record_whose_text_holds_an_unescaped_line_separator(tmp_path: Path) -> None:
+    bash_call = {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "ls"}}
+    all_records = [
+        {"type": "user", "message": {"role": "user", "content": "Check the open pull requests"}},
+        {"type": "assistant", "message": {"content": [bash_call]}},
+        {"type": "user", "message": {"role": "user", "content": "Now list what is left\u2028and\x85thanks"}},
+    ]
+    transcript_path = tmp_path / "claude.jsonl"
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_record, ensure_ascii=False) for each_record in all_records), encoding="utf-8"
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Now list what is left\u2028and\x85thanks"
+    assert replay.has_turn_read_tool is False
+
+
+def test_should_read_a_transcript_that_ends_in_half_a_character(tmp_path: Path) -> None:
+    prompt_record = {"type": "user", "message": {"role": "user", "content": "Export the APKs"}}
+    transcript_path = tmp_path / "claude.jsonl"
+    transcript_path.write_bytes(json.dumps(prompt_record).encode("utf-8") + b"\n{\"type\": \"assistant\", \"text\": \"\xc3")
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Export the APKs"
 
 
 def test_should_start_a_new_turn_at_each_prompt_and_reset_its_flags(tmp_path: Path) -> None:
@@ -162,6 +189,11 @@ def test_should_parse_only_json_objects() -> None:
     assert parsed_object("not json") is None
 
 
+def test_should_parse_text_nested_past_the_recursion_limit_as_no_object() -> None:
+    assert parsed_object("[" * 100_000) is None
+    assert parsed_object('{"a": ' * 100_000) is None
+
+
 def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assistant") -> dict[str, object]:
     tool_use = {"type": "tool_use", "id": "p1", "name": "mcp__ccd_turn__update_plan", "input": all_plan_input}
     return {"type": record_type, "timestamp": "2026-01-01T00:00:00.000Z", "message": {"content": [tool_use]}}
@@ -249,3 +281,94 @@ def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path)
         ],
     )
     assert plan_statuses(transcript_path) == [("Beta", "completed"), ("alpha", "completed")]
+
+
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "Bash",
+        "Read",
+        "WebFetch",
+        "Agent",
+        "shell",
+        "mcp__github__pull_request_read",
+        "mcp__claude-code-remote__get_session",
+        "ReadMcpResourceTool",
+        "ListMcpResourcesTool",
+        "mcp__Context7__get-library-docs",
+        "mcp__tracker__getIssue",
+    ],
+)
+def test_should_call_a_tool_that_can_read_state_a_read_tool(tool_name: str) -> None:
+    assert is_read_tool_name(tool_name) is True
+
+
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "Write",
+        "Edit",
+        "SendUserFile",
+        "TaskList",
+        "TaskGet",
+        "TaskUpdate",
+        "AskUserQuestion",
+        "mcp__notes__getaway",
+        "mcp__tracker__update_status",
+        "mcp__store__update_auth_logs_export",
+        "AppendLog",
+        "mcp__logs__write_entry",
+        "mcp__status-page__publish",
+        None,
+    ],
+)
+def test_should_not_call_a_write_a_tracker_or_a_question_tool_a_read_tool(tool_name: object) -> None:
+    assert is_read_tool_name(tool_name) is False
+
+
+def test_should_list_the_files_a_send_user_file_call_sends() -> None:
+    assert send_call_file_paths("SendUserFile", {"files": ["a.md", 3, "b.html"]}) == ["a.md", "b.html"]
+    assert send_call_file_paths("Write", {"files": ["a.md"]}) == []
+    assert send_call_file_paths("SendUserFile", {"files": "a.md"}) == []
+
+
+def test_should_tell_a_codex_read_call_from_a_codex_write_call() -> None:
+    shell_call = {"type": "response_item", "payload": {"type": "function_call", "name": "shell", "arguments": "{}"}}
+    patch_call = {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch"}}
+    local_shell_call = {"type": "response_item", "payload": {"type": "local_shell_call", "action": {"command": ["git", "status"]}}}
+    assert is_codex_read_call(shell_call) is True
+    assert is_codex_read_call(local_shell_call) is True
+    assert is_codex_read_call(patch_call) is False
+
+
+def test_should_note_a_codex_local_shell_call_as_a_read_of_the_turn(tmp_path: Path) -> None:
+    codex_prompt = {
+        "type": "response_item",
+        "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "what needs me?"}]},
+    }
+    local_shell_call = {"type": "response_item", "payload": {"type": "local_shell_call", "action": {"command": ["git", "status"]}}}
+    patch_call = {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch"}}
+    read_replay = replayed_transcript(str(write_transcript(tmp_path / "read.jsonl", [codex_prompt, local_shell_call])))
+    write_replay = replayed_transcript(str(write_transcript(tmp_path / "write.jsonl", [codex_prompt, patch_call])))
+    assert (read_replay.has_turn_work_tool, read_replay.has_turn_read_tool) == (True, True)
+    assert (write_replay.has_turn_work_tool, write_replay.has_turn_read_tool) == (True, False)
+
+
+def assistant_call_record(tool_name: str, all_input_fields: dict[str, object]) -> dict[str, object]:
+    tool_use = {"type": "tool_use", "id": tool_name, "name": tool_name, "input": all_input_fields}
+    return {"type": "assistant", "message": {"role": "assistant", "content": [tool_use]}}
+
+
+def test_should_note_the_read_calls_and_sent_files_of_the_current_turn_only(tmp_path: Path) -> None:
+    first_prompt = {"type": "user", "message": {"role": "user", "content": "status?"}}
+    second_prompt = {"type": "user", "message": {"role": "user", "content": "what needs me?"}}
+    all_earlier_records = [
+        first_prompt,
+        assistant_call_record("Read", {}),
+        assistant_call_record("SendUserFile", {"files": ["old.md"]}),
+    ]
+    earlier_replay = replayed_transcript(str(write_transcript(tmp_path / "a.jsonl", all_earlier_records)))
+    all_later_records = [*all_earlier_records, second_prompt, assistant_call_record("SendUserFile", {"files": ["status.md"]})]
+    later_replay = replayed_transcript(str(write_transcript(tmp_path / "b.jsonl", all_later_records)))
+    assert (earlier_replay.has_turn_read_tool, earlier_replay.turn_sent_file_paths) == (True, ["old.md"])
+    assert (later_replay.has_turn_read_tool, later_replay.turn_sent_file_paths) == (False, ["status.md"])

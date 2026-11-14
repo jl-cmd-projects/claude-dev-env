@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { MINIMUM_PYTHON_VERSION, pythonCommandMeetsFloor } from "./python-probe.mjs";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const materializerPath = path.join(packageRoot, "scripts", "codex_compat_materializer.py");
@@ -65,7 +66,7 @@ export function buildCommand(commandName, argumentsList, interpreter) {
     throw new Error(`Unknown command: ${commandName}`);
 }
 
-export function findPython(commandNames = pythonNames, canRun = (command) => spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0) {
+export function findPython(commandNames = pythonNames, canRun = pythonCommandMeetsFloor) {
     for (const eachCommand of commandNames) {
         if (canRun(eachCommand)) return eachCommand;
     }
@@ -89,7 +90,7 @@ export async function main(argumentsList = process.argv.slice(2), dependencies =
     try {
         const interpreter = readOption(commandArguments, "--python") ?? process.env.CODEX_COMPAT_PYTHON ?? await (dependencies.findPython ?? findPython)();
         if (!interpreter) {
-            writeErrorRecord("python_unavailable", "No usable Python interpreter found. Use --python or CODEX_COMPAT_PYTHON.");
+            writeErrorRecord("python_unavailable", `No usable Python ${MINIMUM_PYTHON_VERSION}+ interpreter found. Use --python or CODEX_COMPAT_PYTHON.`);
             return 1;
         }
         const command = buildCommand(commandName, commandArguments, interpreter);

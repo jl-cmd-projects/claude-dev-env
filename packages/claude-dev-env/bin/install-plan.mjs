@@ -19,6 +19,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { SETTINGS_FILE_NAME } from './install-constants.mjs';
+import { MINIMUM_PYTHON_VERSION } from './python-probe.mjs';
 import {
     emptyManagedPermissions,
     managedPermissionsFromPackageSettings,
@@ -34,7 +35,7 @@ export const PREFLIGHT_ERROR_CODES = Object.freeze({
 });
 
 export const MISSING_PYTHON_ERROR_MESSAGE =
-    'ERROR: No usable Python 3 found. Install Python 3.8+ from python.org and ensure py, python3, or python is on PATH. On Windows the Microsoft Store python.exe alias is rejected because it cannot run hooks.';
+    `ERROR: No usable Python 3 found. Install Python ${MINIMUM_PYTHON_VERSION}+ from python.org and ensure py, python3, or python is on PATH. On Windows the Microsoft Store python.exe alias is rejected because it cannot run hooks.`;
 
 export const MALFORMED_SETTINGS_ERROR_MESSAGE =
     'ERROR: settings.json is malformed JSON. Fix it and rerun.';
