@@ -101,28 +101,9 @@ def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) ->
     assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None
 
 
-def test_body_from_arguments_should_give_none_for_a_directory_body_file(tmp_path: Path) -> None:
+def test_body_from_arguments_should_read_only_a_regular_body_file(tmp_path: Path) -> None:
+    assert dedupe.body_from_arguments(["--body-file", os.devnull], str(tmp_path)) is None
     assert dedupe.body_from_arguments(["--body-file", "."], str(tmp_path)) is None
-
-
-@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="this platform has no named pipes to make with os.mkfifo")
-def test_body_from_arguments_should_give_none_for_a_named_pipe_body_file(tmp_path: Path) -> None:
-    fifo_path = tmp_path / "body.fifo"
-    os.mkfifo(fifo_path)
-
-    def write_when_a_reader_waits() -> None:
-        time.sleep(0.5)
-        try:
-            descriptor = os.open(fifo_path, os.O_WRONLY | os.O_NONBLOCK)
-        except OSError:
-            return
-        os.write(descriptor, b"Follow-up to #1731\n")
-        os.close(descriptor)
-
-    writer = threading.Thread(target=write_when_a_reader_waits, daemon=True)
-    writer.start()
-    assert dedupe.body_from_arguments(["--body-file", "body.fifo"], str(tmp_path)) is None
-    writer.join()
 
 
 def _trickling_server() -> ThreadingHTTPServer:
