@@ -18,8 +18,8 @@ USER_STEP_PATTERN = re.compile(
     re.IGNORECASE,
 )
 CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
-NEGATION_WORD_START = r"(?<![^\W_])(?<![^\W_]_)(?<!-)"
-NEGATION_WORD_END = r"[*_]{0,3}(?![\w-])"
+NEGATION_WORD_START = r"(?<![\w-])"
+NEGATION_WORD_END = r"\*{0,3}(?![\w-])"
 NEGATED_CLAUSE_PATTERN = re.compile(
     NEGATION_WORD_START
     + r"(?:nothing|none|nobody)"
@@ -37,18 +37,16 @@ NEGATED_CLAUSE_START_PATTERN = re.compile(
 )
 CUT_WORD_PATTERN = re.compile(r"\A\w+")
 NEGATED_TAIL_PATTERN = re.compile(
-    r"[\s*_]{0,8}[:\-–—][\s*_]{0,8}"
+    r"(?:[^\S\n]|[*_]){0,8}[:\-–—](?:[^\S\n]|[*_]){0,8}"
     r"(?:none|nothing|n/a|no[^\S\n]+(?:action|step)s?)"
     r"(?:[^\S\n]+(?:needed|required|for[^\S\n]+now|at[^\S\n]+this[^\S\n]+time|right[^\S\n]+now))?"
-    r"[*_]{0,3}[^\S\n]*(?:[.!?]|$)",
+    r"[*_]{0,3}[.!?]?[*_]{0,3}[^\S\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
-CLAUSE_BREAK_PATTERN = re.compile(
-    r"[.!?,;:|]|\n\s*\n|\n\s*[-*+#]+\s|\b(?:and|but|so|then|while)\b", re.IGNORECASE
-)
+CLAUSE_BREAK_PATTERN = re.compile(r"[.!?,;:|\n]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
-CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please|just)?\s*", re.IGNORECASE)
+CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please\s+)?(?:just\s+)?", re.IGNORECASE)
 ALL_HTML_HIDDEN_TAGS = frozenset(
     {"script", "style", "template", "title", "textarea", "noscript", "code", "pre", "blockquote"}
 )
@@ -60,7 +58,9 @@ ALL_HTML_INLINE_TAGS = frozenset(
     }
 )
 HTML_LINE_BREAK_TAG = "br"
-HTML_LINE_BREAK_TEXT = " "
+HTML_LINE_BREAK_TEXT = "\n"
+HTML_SOURCE_SPACE_PATTERN = re.compile(r"[ \t\r\n\f]+")
+HTML_SOURCE_SPACE = " "
 HTML_BLOCK_SEPARATOR = "\n\n"
 ALL_HTML_FILE_SUFFIXES = frozenset({".html", ".htm"})
 ALL_SENT_TEXT_FILE_SUFFIXES = frozenset({".md", ".markdown", ".txt"}) | ALL_HTML_FILE_SUFFIXES

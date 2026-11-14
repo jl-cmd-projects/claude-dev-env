@@ -16,10 +16,15 @@ sent through this module::
     ok:   The label reads `needs you`.                 (a code span)
     ok:   > What needs you?                            (a quote)
 
+The rule behind every shape below: a wrong hold costs the agent one step, and
+a wrong skip hides a step from the user. So an unclear line is held, and a
+match is skipped only in the shapes this text names.
+
 A match is skipped when its clause negates it. The clause is the text before
-the match, back to a sentence mark, a comma, a semicolon, a colon, a table bar,
-a blank line, a list or heading line, or one of the words and, but, so, then,
-and while, and at most 240 characters back. Three shapes negate a match:
+the match on the same line, back to a sentence mark, a comma, a semicolon, a
+colon, a table bar, or one of the words and, but, so, then, and while, and at
+most 240 characters back. A line break always ends a clause, so "Nothing on
+this list" wrapped onto "needs you." is held. Three shapes negate a match:
 
 - nothing, none, or nobody anywhere in the clause;
 - no, neither, or nor at the start of the clause, also after "there is",
@@ -27,12 +32,12 @@ and while, and at most 240 characters back. Three shapes negate a match:
 - not, never, without, "no longer", or a word ending in n't, up to three words
   before the match.
 
-Each of these words counts as a whole word. Emphasis marks may wrap it, as in
-"does **not** need you". A word joined to a letter, a digit, an underscore, or
-a hyphen on either side is another word, so "No-reply inbox needs your
-record", "NO_PROXY needs your value", and "The do-nothing job needs your
-approval" are held. A phrase counts inside emphasis marks
-too, as in "_needs your_ merge".
+Each of these words counts as a whole word. Asterisk emphasis may wrap it, as
+in "does **not** need you". A word joined to a letter, a digit, an underscore,
+or a hyphen on either side is another word, so "No-reply inbox needs your
+record", "NO_PROXY needs your value", "The do-nothing job needs your
+approval", and "_Nothing_ here needs you" are held. A phrase counts inside
+emphasis marks too, as in "_needs your_ merge".
 
 The start of a clause may carry markers: white space, a list, heading, or quote
 mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
@@ -42,7 +47,7 @@ the window cuts is dropped, the second shape does not apply, and "say when"
 does not count.
 
 A match is skipped too when it is a label with nothing under it. The label
-form is closed, and it reads in this order::
+form is closed, it sits on one line, and it reads in this order::
 
     the match                         Action required
     a colon or a dash                 :
@@ -52,27 +57,35 @@ form is closed, and it reads in this order::
     then, when present: needed,       at this time
       required, "for now",
       "at this time", or "right now"
-    the end of the sentence or line   .
+    then, when present: one full      .
+      stop, exclamation mark, or
+      question mark
+    the end of the line
 
-Up to eight white space characters, a line break among them, or Markdown
-emphasis marks may sit on each side of the colon or dash, and up to three
-emphasis marks before the end, as in
-``**Action required:** none.`` Every other wording after a match is held, by
-design: "Action required: NO_PROXY must list the host", "blocked on you -
-nothing else is holding it", "Action required: no" and "Action required: No.
-12 is ready", where a bare no can be an answer or an abbreviation, and
-a "What needs you" heading over a paragraph that says "Nothing." A wrong hold
-costs the agent one step, and a wrong skip hides a step from the user.
+Up to eight spaces, tabs, or Markdown emphasis marks may sit on each side of
+the colon or dash, and up to three emphasis marks on each side of the closing
+mark, as in ``**Action required:** none.`` Every other wording after a match is
+held: "Action required: NO_PROXY must list the host", "blocked on you - nothing
+else is holding it", "Action required: none. Merge item 12 first.", "Action
+required: no", where a bare no can be an answer or an abbreviation, and a
+"What needs you" heading over a paragraph that says "Nothing."
 
 "Say when" counts only at the start of its clause, where it is an instruction:
-after the same markers, and after the word please or just.
+after the same markers, and after the word please, the word just, or both in
+that order.
+
+These shapes read words. They do not read grammar, so a line can hold a
+negating word in the same clause and still hand over a step, and that line is
+skipped. The gate reads the whole reply and every sent file, and one phrase
+outside the shapes is enough to hold the turn.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
 and plain text first, and each paragraph is read on its own. An HTML file is
 read as its text, one block at a time, with every tag removed and the contents
 of script, style, template, title, textarea, noscript, code, pre, and
-blockquote elements left out. A hidden attribute and a style that hides an
-element are not read, so that text still counts.
+blockquote elements left out. White space in the HTML source counts as one
+space, and a ``br`` as a line break. A hidden attribute and a style that hides
+an element are not read, so that text still counts.
 """
 
 from __future__ import annotations
@@ -103,6 +116,8 @@ from hooks_constants.user_step_wording_constants import (
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
     HTML_LINE_BREAK_TEXT,
+    HTML_SOURCE_SPACE,
+    HTML_SOURCE_SPACE_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
     NEGATED_CLAUSE_START_PATTERN,
@@ -185,7 +200,7 @@ class _VisibleTextParser(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         if not self.hidden_depth:
-            self.all_text_runs.append(data)
+            self.all_text_runs.append(HTML_SOURCE_SPACE_PATTERN.sub(HTML_SOURCE_SPACE, data))
 
 
 def html_visible_text(page_markup: str) -> str:
@@ -200,8 +215,9 @@ def html_visible_text(page_markup: str) -> str:
     Script, style, template, title, textarea, noscript, code, pre, and
     blockquote contents are left out. A tag that is not an inline tag leaves a
     blank line, so a heading and the paragraph after it stay apart, and
-    ``file_waiting_phrase`` reads each such block on its own. A ``br`` leaves
-    a space. Text under a hidden attribute or a hiding style is kept.
+    ``file_waiting_phrase`` reads each such block on its own. White space in
+    the source becomes one space, and a ``br`` leaves a line break. Text under
+    a hidden attribute or a hiding style is kept.
     """
     text_parser = _VisibleTextParser()
     text_parser.feed(page_markup)
