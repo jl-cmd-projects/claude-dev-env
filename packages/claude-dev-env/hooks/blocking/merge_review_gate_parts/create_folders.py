@@ -1,0 +1,309 @@
+"""Walk a shell command in order and give each pull request create the folder it runs in.
+
+::
+
+    cd ../a && gh pr create --head x           -> ["--head", "x"] in ../a
+    (cd ../a && gh pr create) ; gh pr create   -> one in ../a, one in the starting folder
+    pushd ../a && popd && gh pr create         -> the starting folder
+    cd "$WORK" && gh pr create                 -> folder not followed
+    { cd ../a; } | true; gh pr create          -> folder not followed
+
+The walk follows ``cd``, ``chdir``, ``Set-Location``, ``pushd`` and ``popd``,
+also after ``builtin`` or ``command``, and the end of a subshell. A folder
+change in a background job stays in that job. ``bash -c`` and substitutions
+run as child shells, while ``eval`` changes the folder of the shell that runs
+it. A folder change the walk does not model leaves each later create in that
+scope unfollowed: one in a pipeline member, a brace group, ``if``, ``case``,
+a loop or a function body, one after a redirect, or a folder word anywhere
+but the program place. So does a folder it cannot name, such as one a
+variable holds. ``followup_pr_dedupe.create_arguments`` decides what counts
+as a create. Shell variables, aliases and functions that hold a program name
+are not followed.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
+if hooks_directory not in sys.path:
+    sys.path.insert(0, hooks_directory)
+
+from blocking.followup_pr_dedupe import create_arguments
+from hooks_constants.merge_review_gate_constants import (
+    ALL_BACKGROUND_OPERATORS,
+    ALL_CHANGE_FOLDER_PROGRAMS,
+    ALL_COMMAND_PREFIX_WORDS,
+    ALL_COMPOUND_BODY_WORDS,
+    ALL_COMPOUND_CLOSE_WORDS,
+    ALL_COMPOUND_OPEN_WORDS,
+    ALL_FOLDER_CHANGE_WORDS,
+    ALL_HOME_DEFAULT_PROGRAMS,
+    ALL_PATH_PARAMETER_NAMES,
+    ALL_PIPE_OPERATORS,
+    ALL_POP_FOLDER_PROGRAMS,
+    ALL_PUSH_FOLDER_PROGRAMS,
+    ALL_UNFOLLOWED_FOLDER_CHARACTERS,
+    BRACE_CLOSE_TOKEN,
+    BRACE_OPEN_OPERATOR,
+    HOME_FOLDER,
+    IS_POSIX_TOKENIZATION,
+    OPTION_PREFIX,
+    PREVIOUS_FOLDER_ARGUMENT,
+    SEGMENT_TOKEN_JOIN,
+    SUBSHELL_CLOSE_TOKEN,
+    SUBSHELL_OPEN_OPERATOR,
+)
+from hooks_constants.pytest_invocation import string_exec_inner_command, unquoted_token
+from hooks_constants.shell_command_evaluation_constants import (
+    ALL_STRING_EVALUATING_PROGRAM_NAMES,
+    MAXIMUM_UNWRAP_DEPTH,
+)
+from hooks_constants.shell_command_pipeline import (
+    join_line_continuations,
+    operator_aware_tokens,
+    scannable_command_lines,
+    segments_with_following_operator,
+)
+from hooks_constants.shell_command_wrappers import (
+    all_command_substitution_texts,
+    all_wrapped_command_texts,
+    evaluated_inner_command,
+    quoted_line_breaks_joined,
+    segment_program_and_arguments,
+)
+
+
+@dataclass(frozen=True)
+class PlacedCreate:
+    """One create in a shell command and the folder it runs in.
+
+    Attributes:
+        all_arguments: The create's options, as ``create_arguments`` gives them.
+        folder: The folder in effect at the create, or None for the gate's own.
+        is_folder_followed: False when a folder change before it could not be followed.
+    """
+
+    all_arguments: tuple[str, ...]
+    folder: str | None
+    is_folder_followed: bool
+
+
+@dataclass(frozen=True)
+class _FolderState:
+    folder: str | None
+    is_followed: bool
+    all_pushed: tuple[tuple[str | None, bool], ...] = ()
+
+
+@dataclass
+class _Walk:
+    all_creates: list[PlacedCreate]
+
+
+@dataclass
+class _Scope:
+    state: _FolderState
+    previous_operator: str = ""
+    brace_depth: int = 0
+    compound_depth: int = 0
+
+
+def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
+    """Return each create in a shell command with the folder it runs in, in command order.
+
+    ::
+
+        "cd sub && gh pr create --fill", "/w"   -> [PlacedCreate(("--fill",), "/w/sub", True)]
+        "cd $X && gh pr create --fill", "/w"    -> [PlacedCreate(("--fill",), None, False)]
+
+    The command is walked as bash reads its quotes, once as written and once
+    with its quoted line breaks joined. A create that a POSIX reading of each
+    wrapped command text finds, and no walk placed, comes back unfollowed.
+
+    Args:
+        command: The shell command text.
+        folder: The folder the command starts in, or None for the gate's own.
+    """
+    start = _FolderState(folder, True)
+    all_creates: list[PlacedCreate] = []
+    for each_text in dict.fromkeys([command, quoted_line_breaks_joined(command)]):
+        _walk_text(_Walk(all_creates), each_text, start, 0)
+    all_creates.extend(_unplaced_creates(command, all_creates))
+    return list(dict.fromkeys(all_creates))
+
+
+def _normalized(all_arguments: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    all_words = [unquoted_token(each_argument) for each_argument in all_arguments]
+    while all_words and all_words[-1] == SUBSHELL_CLOSE_TOKEN:
+        all_words.pop()
+    return tuple(all_words)
+
+
+def _unplaced_creates(command: str, all_placed: list[PlacedCreate]) -> list[PlacedCreate]:
+    all_known = {_normalized(each_create.all_arguments) for each_create in all_placed}
+    return [
+        PlacedCreate(tuple(all_arguments), None, False)
+        for all_arguments in _wrapped_create_argument_lists(command)
+        if _normalized(all_arguments) not in all_known
+    ]
+
+
+def _wrapped_create_argument_lists(command: str) -> list[list[str]]:
+    all_argument_lists: list[list[str]] = []
+    for each_text in all_wrapped_command_texts(command):
+        for each_segment in _posix_segments(each_text):
+            all_arguments = create_arguments(each_segment)
+            if all_arguments is not None:
+                all_argument_lists.append(all_arguments)
+    return all_argument_lists
+
+
+def _posix_segments(text: str) -> list[list[str]]:
+    return [
+        each_segment
+        for each_line in scannable_command_lines(join_line_continuations(text))
+        for each_segment, _each_operator in segments_with_following_operator(
+            operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION) or []
+        )
+    ]
+
+
+def _walk_text(walk: _Walk, text: str, state: _FolderState, depth: int) -> _FolderState:
+    if depth > MAXIMUM_UNWRAP_DEPTH:
+        return state
+    scope = _Scope(state)
+    all_saved: list[_FolderState] = []
+    for each_line in scannable_command_lines(join_line_continuations(text)):
+        all_tokens = operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION)
+        for each_segment, each_operator in segments_with_following_operator(all_tokens or []):
+            _walk_segment(walk, scope, each_segment, each_operator, depth)
+            for _each_close in range(_closing_count(each_segment)):
+                scope.state = all_saved.pop() if all_saved else scope.state
+            if each_operator == SUBSHELL_OPEN_OPERATOR:
+                all_saved.append(scope.state)
+            scope.brace_depth += each_operator == BRACE_OPEN_OPERATOR
+            scope.previous_operator = each_operator
+    return scope.state
+
+
+def _walk_segment(
+    walk: _Walk, scope: _Scope, all_segment_tokens: list[str], operator: str, depth: int
+) -> None:
+    all_tokens = _without_closing_tokens(all_segment_tokens)
+    while all_tokens[:1] == [BRACE_CLOSE_TOKEN]:
+        all_tokens = all_tokens[1:]
+        scope.brace_depth = max(0, scope.brace_depth - 1)
+    first_word = unquoted_token(all_tokens[0]).lower() if all_tokens else ""
+    scope.compound_depth += first_word in ALL_COMPOUND_OPEN_WORDS
+    is_piped = scope.previous_operator in ALL_PIPE_OPERATORS or operator in ALL_PIPE_OPERATORS
+    is_modeled = (
+        not is_piped
+        and scope.brace_depth == 0
+        and scope.compound_depth == 0
+        and first_word not in ALL_COMPOUND_BODY_WORDS
+    )
+    next_state = _segment_step(walk, all_tokens, scope.state, depth, is_modeled)
+    if operator not in ALL_BACKGROUND_OPERATORS:
+        scope.state = next_state
+    if first_word in ALL_COMPOUND_CLOSE_WORDS:
+        scope.compound_depth = max(0, scope.compound_depth - 1)
+
+
+def _closing_count(all_segment_tokens: list[str]) -> int:
+    return len(all_segment_tokens) - len(_without_closing_tokens(all_segment_tokens))
+
+
+def _without_closing_tokens(all_segment_tokens: list[str]) -> list[str]:
+    all_tokens = list(all_segment_tokens)
+    while all_tokens and all_tokens[-1] == SUBSHELL_CLOSE_TOKEN:
+        all_tokens.pop()
+    return all_tokens
+
+
+def _segment_step(
+    walk: _Walk, all_tokens: list[str], state: _FolderState, depth: int, is_modeled: bool
+) -> _FolderState:
+    all_arguments = create_arguments(all_tokens)
+    if all_arguments is not None:
+        walk.all_creates.append(PlacedCreate(tuple(all_arguments), state.folder, state.is_followed))
+    for each_child_text in _child_shell_texts(all_tokens):
+        _walk_text(walk, each_child_text, state, depth + 1)
+    next_state = state
+    evaluated_text = evaluated_inner_command(all_tokens)
+    if evaluated_text is not None:
+        evaluated_state = _walk_text(walk, evaluated_text, state, depth + 1)
+        if segment_program_and_arguments(all_tokens)[0] in ALL_STRING_EVALUATING_PROGRAM_NAMES:
+            next_state = evaluated_state
+    next_state = _state_after_folder_change(_without_command_prefixes(all_tokens), next_state)
+    if (next_state != state and not is_modeled) or _has_unmodeled_folder_word(all_tokens):
+        return _FolderState(None, False)
+    return next_state
+
+
+def _without_command_prefixes(all_tokens: list[str]) -> list[str]:
+    all_remaining = list(all_tokens)
+    while (
+        len(all_remaining) > 1
+        and unquoted_token(all_remaining[0]).lower() in ALL_COMMAND_PREFIX_WORDS
+    ):
+        all_remaining = all_remaining[1:]
+    return all_remaining
+
+
+def _has_unmodeled_folder_word(all_tokens: list[str]) -> bool:
+    all_command_tokens = _without_command_prefixes(all_tokens)
+    program = segment_program_and_arguments(all_command_tokens)[0]
+    if program in ALL_FOLDER_CHANGE_WORDS:
+        return False
+    return any(each_token.lower() in ALL_FOLDER_CHANGE_WORDS for each_token in all_command_tokens)
+
+
+def _child_shell_texts(all_tokens: list[str]) -> list[str]:
+    string_exec_text = string_exec_inner_command(all_tokens)
+    all_substitution_texts = all_command_substitution_texts(SEGMENT_TOKEN_JOIN.join(all_tokens))
+    return [*([string_exec_text] if string_exec_text is not None else []), *all_substitution_texts]
+
+
+def _state_after_folder_change(all_tokens: list[str], state: _FolderState) -> _FolderState:
+    program, all_arguments = segment_program_and_arguments(all_tokens)
+    if program in ALL_POP_FOLDER_PROGRAMS:
+        if not state.all_pushed:
+            return _FolderState(None, False)
+        popped_folder, is_popped_followed = state.all_pushed[-1]
+        return _FolderState(popped_folder, is_popped_followed, state.all_pushed[:-1])
+    is_push = program in ALL_PUSH_FOLDER_PROGRAMS
+    if not is_push and program not in ALL_CHANGE_FOLDER_PROGRAMS:
+        return state
+    all_pushed = (
+        (*state.all_pushed, (state.folder, state.is_followed)) if is_push else state.all_pushed
+    )
+    target = _folder_target(all_arguments)
+    if target is None:
+        target = HOME_FOLDER if program in ALL_HOME_DEFAULT_PROGRAMS else PREVIOUS_FOLDER_ARGUMENT
+    folder, is_followed = _followed_folder(target, state)
+    return _FolderState(folder, is_followed, all_pushed)
+
+
+def _folder_target(all_arguments: list[str]) -> str | None:
+    is_path_value = False
+    for each_argument in all_arguments:
+        word = unquoted_token(each_argument)
+        if is_path_value or not word.startswith(OPTION_PREFIX) or word == PREVIOUS_FOLDER_ARGUMENT:
+            return word
+        is_path_value = word.lower() in ALL_PATH_PARAMETER_NAMES
+    return None
+
+
+def _followed_folder(target: str, state: _FolderState) -> tuple[str | None, bool]:
+    if target == PREVIOUS_FOLDER_ARGUMENT or ALL_UNFOLLOWED_FOLDER_CHARACTERS & set(target):
+        return None, False
+    target_path = Path(os.path.expanduser(target))
+    if target_path.is_absolute():
+        return str(target_path), True
+    if not state.is_followed:
+        return None, False
+    return (str(Path(state.folder) / target_path) if state.folder else str(target_path)), True

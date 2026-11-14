@@ -1,4 +1,4 @@
-"""Read the pull request open a PreToolUse payload asks for, and the head it opens with."""
+"""Read each pull request open a PreToolUse payload asks for, and the head each opens with."""
 
 from __future__ import annotations
 
@@ -13,9 +13,18 @@ hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.followup_pr_dedupe import named_repository, option_value
+from blocking.merge_review_gate_parts.create_folders import PlacedCreate, all_placed_creates
+from blocking.gate_run_reads import (
+    ReadSlice,
+    answer_once,
+    answer_within_allowance,
+    child_stdout,
+)
 from hooks_constants.merge_review_gate_constants import (
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
+    ALL_REPOSITORY_OPTIONS,
     ALL_SHELL_TOOL_NAMES,
     CHANGE_FOLDER_PATTERN,
     CREATE_TEXT_OPTION_PATTERN,
@@ -27,8 +36,12 @@ from hooks_constants.merge_review_gate_constants import (
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
+    LONG_HEAD_OPTION,
+    LONG_OPTION_PREFIX,
     LS_REMOTE_FIELD_SEPARATOR,
+    OPTION_VALUE_SEPARATOR,
     ORIGIN_URL_PATTERN,
+    ORIGIN_URL_QUESTION,
     OWNER_FIELD,
     PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     REMOTE_BRANCH_PREFIX,
@@ -36,7 +49,9 @@ from hooks_constants.merge_review_gate_constants import (
     REMOTE_LOOKUP_TIMEOUT_SECONDS,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
+    SHORT_HEAD_OPTION,
 )
+from hooks_constants.pytest_invocation import unquoted_token
 
 
 @dataclass(frozen=True)
@@ -59,54 +74,179 @@ class OpenRequest:
         return f"{self.owner}/{self.repo}"
 
 
-def open_request_from(all_payload_fields: dict[str, object]) -> OpenRequest | None:
-    """Read the pull request open a PreToolUse payload asks for.
+@dataclass(frozen=True)
+class ToolOpenCall:
+    """A create pull request tool call, before the gate reads its head.
 
-    ::
+    Attributes:
+        owner: Repository owner the call names, or empty.
+        repo: Repository name the call names, or empty.
+        branch: The head branch the call names, or None.
+        folder: The payload's folder, or None.
+    """
 
-        mcp__github__create_pull_request {owner, repo, head}
-        gh pr create --repo o/r --head branch
-        python pull_request.py create --repo o/r --head branch
+    owner: str
+    repo: str
+    branch: str | None
+    folder: str | None
 
-    A tool call reads its head branch from GitHub first. A fork head
-    ``user:branch`` reads the repository of ``user``. A branch GitHub does not
-    list, and every branch of a shell command, resolves in the payload's folder
-    as ``origin/<branch>`` first. A ``cd`` target names the folder. No head
-    means ``HEAD``; no repository, ``origin``.
+
+@dataclass(frozen=True)
+class ShellOpenCall:
+    """One create in a shell command, before the gate reads its repository and head.
+
+    Attributes:
+        repository: The ``(owner, repo)`` its ``--repo``, root ``-R`` or ``GH_REPO`` names, or None to read ``origin``.
+        branch: The branch its ``--head`` names, or ``HEAD``.
+        folder: The folder in effect at the create, after each folder change before it.
+        is_folder_followed: False when a folder change before it could not be followed.
+    """
+
+    repository: tuple[str, str] | None
+    branch: str
+    folder: str | None
+    is_folder_followed: bool = True
+
+
+OpenCall = ToolOpenCall | ShellOpenCall
+
+
+def open_calls_from(all_payload_fields: dict[str, object]) -> list[OpenCall]:
+    """Return every pull request open a PreToolUse payload asks for, in command order.
+
+    This reads the payload only. No git or GitHub read runs here::
+
+        mcp__github__create_pull_request {owner, repo, head}   -> [ToolOpenCall]
+        gh pr create --head a && cd x && pull_request.py create -> [ShellOpenCall a, ShellOpenCall HEAD in x]
+        gh pr merge 12                                          -> []
+
+    Each walked create gives one call per head it names, in its own folder.
+    The pattern reading of the first create adds one call no walk call equals.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
 
     Returns:
-        The open request, or None when the call opens no pull request.
+        One call per create, empty when the call opens no pull request.
     """
     tool_name = all_payload_fields.get("tool_name")
     tool_input = all_payload_fields.get("tool_input")
     if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
-        return None
-    working_folder = all_payload_fields.get(CWD_FIELD)
-    folder = working_folder if isinstance(working_folder, str) and working_folder else None
+        return []
+    folder = _payload_folder(all_payload_fields)
     if tool_name.endswith(CREATE_TOOL_SUFFIX):
-        return _tool_open_request(tool_input, folder)
+        return [_tool_open_call(tool_input, folder)]
     command = tool_input.get("command")
     if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
-        return None
-    return _shell_open_request(command, folder)
+        return []
+    return _shell_open_calls(command, folder)
 
 
-def _tool_open_request(all_tool_input: dict[object, object], folder: str | None) -> OpenRequest:
-    owner = str(all_tool_input.get(OWNER_FIELD, ""))
-    repo = str(all_tool_input.get(REPO_FIELD, ""))
-    branch = all_tool_input.get(HEAD_BRANCH_FIELD)
+def _payload_folder(all_payload_fields: dict[str, object]) -> str | None:
+    working_folder = all_payload_fields.get(CWD_FIELD)
+    return working_folder if isinstance(working_folder, str) and working_folder else None
+
+
+def open_request_for(call: OpenCall) -> OpenRequest:
+    """Read the repository and the head commit one open would use.
+
+    A tool call reads its head branch from GitHub first::
+
+        ToolOpenCall acme/tools, head feature pushed at abc123 -> OpenRequest(acme, tools, abc123)
+        ShellOpenCall, no --repo, origin names acme/tools      -> OpenRequest(acme, tools, <HEAD commit>)
+        a read that failed or ran out of time                  -> that part empty, or head None
+        ShellOpenCall whose folder change was not followed     -> head None, no read
+
+    A fork head ``user:branch`` reads the repository of ``user``. A branch
+    GitHub does not list, and every branch of a shell create, resolves in the
+    call's folder as ``origin/<branch>`` first.
+
+    Args:
+        call: One open from ``open_calls_from``.
+
+    Returns:
+        The open request with the commit it would open with.
+    """
+    if isinstance(call, ToolOpenCall):
+        return _tool_open_request(call)
+    return _shell_open_request(call)
+
+
+def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
     head = (
-        _pushed_commit(owner, repo, branch) or _branch_commit(branch, folder)
-        if isinstance(branch, str) and branch
+        _pushed_commit(call.owner, call.repo, call.branch)
+        or _branch_commit(call.branch, call.folder)
+        if call.branch
         else None
     )
-    return OpenRequest(owner=owner, repo=repo, head=head)
+    return OpenRequest(owner=call.owner, repo=call.repo, head=head)
 
 
-def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
+def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
+    if not call.is_folder_followed:
+        owner, repo = call.repository or ("", "")
+        return OpenRequest(owner=owner, repo=repo, head=None)
+    owner, repo = call.repository or _origin_repository(call.folder)
+    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(call.branch, call.folder))
+
+
+def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) -> ToolOpenCall:
+    branch = all_tool_input.get(HEAD_BRANCH_FIELD)
+    return ToolOpenCall(
+        owner=str(all_tool_input.get(OWNER_FIELD, "")),
+        repo=str(all_tool_input.get(REPO_FIELD, "")),
+        branch=branch if isinstance(branch, str) and branch else None,
+        folder=folder,
+    )
+
+
+def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
+    all_calls: list[OpenCall] = []
+    for each_create in all_placed_creates(command, folder):
+        all_calls.extend(_placed_open_calls(each_create))
+    floor_call = _floor_open_call(command, folder)
+    if floor_call is not None:
+        all_calls.append(floor_call)
+    return list(dict.fromkeys(all_calls))
+
+
+def _placed_open_calls(placed_create: PlacedCreate) -> list[ShellOpenCall]:
+    all_arguments = list(placed_create.all_arguments)
+    repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
+    repository = named_repository(repository_value) if repository_value is not None else None
+    return [
+        ShellOpenCall(
+            repository=repository,
+            branch=each_head,
+            folder=placed_create.folder,
+            is_folder_followed=placed_create.is_folder_followed,
+        )
+        for each_head in _named_heads(all_arguments) or [CURRENT_HEAD_REFERENCE]
+    ]
+
+
+def _named_heads(all_arguments: list[str]) -> list[str]:
+    all_heads: list[str] = []
+    all_words = [unquoted_token(each_argument) for each_argument in all_arguments]
+    for each_index, each_word in enumerate(all_words):
+        following = all_words[each_index + 1] if each_index + 1 < len(all_words) else None
+        head = _head_from_word(each_word, following)
+        if head:
+            all_heads.append(head)
+    return all_heads
+
+
+def _head_from_word(word: str, following: str | None) -> str | None:
+    if word in (SHORT_HEAD_OPTION, LONG_HEAD_OPTION):
+        return following
+    if word.startswith(LONG_HEAD_OPTION + OPTION_VALUE_SEPARATOR):
+        return word[len(LONG_HEAD_OPTION + OPTION_VALUE_SEPARATOR) :]
+    if word.startswith(SHORT_HEAD_OPTION) and not word.startswith(LONG_OPTION_PREFIX):
+        return word[len(SHORT_HEAD_OPTION) :].removeprefix(OPTION_VALUE_SEPARATOR)
+    return None
+
+
+def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
     create_match = GH_PR_CREATE_PATTERN.search(
         options_only
@@ -116,12 +256,12 @@ def _shell_open_request(command: str, folder: str | None) -> OpenRequest | None:
     folder = _folder_after_changes(options_only[: create_match.start()], folder)
     rest = create_match["rest"]
     repo_match = REPO_OPTION_PATTERN.search(rest)
-    owner, repo = (
-        (repo_match["owner"], repo_match["repo"]) if repo_match else _origin_repository(folder)
-    )
     head_match = HEAD_OPTION_PATTERN.search(rest)
-    branch = head_match["head"] if head_match else CURRENT_HEAD_REFERENCE
-    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(branch, folder))
+    return ShellOpenCall(
+        repository=(repo_match["owner"], repo_match["repo"]) if repo_match else None,
+        branch=head_match["head"] if head_match else CURRENT_HEAD_REFERENCE,
+        folder=folder,
+    )
 
 
 def _folder_after_changes(command_before_create: str, folder: str | None) -> str | None:
@@ -135,20 +275,10 @@ def _folder_after_changes(command_before_create: str, folder: str | None) -> str
 
 
 def _run_git(all_arguments: list[str], folder: str | None) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["git", *all_arguments],
-            cwd=folder,
-            capture_output=True,
-            text=True,
-            timeout=GIT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if completed.returncode != 0:
-        return None
-    return completed.stdout.strip() or None
+    printed_text = child_stdout(
+        ["git", *all_arguments], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
+    )
+    return (printed_text or "").strip() or None
 
 
 def _branch_commit(branch: str, folder: str | None) -> str | None:
@@ -175,22 +305,31 @@ def _pushed_commit(owner: str, repo: str, branch: str) -> str | None:
         return None
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=head_branch)
     remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=head_owner, repo=repo)
+    try:
+        listing = answer_within_allowance(
+            lambda allowance: _remote_listing(remote_url, reference, allowance),
+            REMOTE_LOOKUP_TIMEOUT_SECONDS,
+            ReadSlice.FOLLOWUP,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return _listed_commit(listing, reference) if listing is not None else None
+
+
+def _remote_listing(remote_url: str, reference: str, allowance: float) -> str:
     with tempfile.TemporaryDirectory() as empty_folder, tempfile.TemporaryFile() as listing:
-        try:
-            subprocess.run(
-                ["git", "ls-remote", remote_url, reference],
-                cwd=empty_folder,
-                stdin=subprocess.DEVNULL,
-                stdout=listing,
-                stderr=subprocess.DEVNULL,
-                timeout=REMOTE_LOOKUP_TIMEOUT_SECONDS,
-                check=False,
-                env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
+        subprocess.run(
+            ["git", "ls-remote", remote_url, reference],
+            cwd=empty_folder,
+            stdin=subprocess.DEVNULL,
+            stdout=listing,
+            stderr=subprocess.DEVNULL,
+            timeout=allowance,
+            check=False,
+            env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
+        )
         listing.seek(0)
-        return _listed_commit(listing.read().decode("utf-8", "replace"), reference)
+        return listing.read().decode("utf-8", "replace")
 
 
 def _listed_commit(listing: str, reference: str) -> str | None:
@@ -202,7 +341,10 @@ def _listed_commit(listing: str, reference: str) -> str | None:
 
 
 def _origin_repository(folder: str | None) -> tuple[str, str]:
-    origin_url = _run_git(list(ALL_ORIGIN_URL_ARGUMENTS), folder)
+    origin_url = answer_once(
+        (ORIGIN_URL_QUESTION, folder),
+        lambda: _run_git(list(ALL_ORIGIN_URL_ARGUMENTS), folder),
+    )
     origin_match = ORIGIN_URL_PATTERN.search(origin_url) if origin_url else None
     if not origin_match:
         return "", ""

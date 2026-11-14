@@ -55,6 +55,7 @@ __all__ = [
     "command_line_without_comment",
     "join_line_continuations",
     "live_command_lines",
+    "operator_aware_tokens",
     "paren_group_joined_lines",
     "pending_heredoc_opened_by",
     "pipeline_segments_for_command",
@@ -108,16 +109,32 @@ def all_operator_aware_tokenizations(command: str) -> list[list[str]]:
     """
     all_tokenizations: list[list[str]] = []
     for each_posix_mode in (True, False):
-        lexer = shlex.shlex(command, posix=each_posix_mode, punctuation_chars=True)
-        lexer.whitespace_split = True
-        lexer.commenters = DISABLED_LEXER_COMMENTERS
-        try:
-            all_tokens = list(lexer)
-        except ValueError:
-            continue
+        all_tokens = operator_aware_tokens(command, each_posix_mode)
         if all_tokens:
             all_tokenizations.append(all_tokens)
     return all_tokenizations
+
+
+def operator_aware_tokens(command: str, is_posix: bool) -> list[str] | None:
+    """Return one quote-aware tokenization that carries operators as their own tokens, or None.
+
+    ::
+
+        'cd "a b" && git push', POSIX  -> ["cd", "a b", "&&", "git", "push"]
+        'cd "a b" && git push', raw    -> ["cd", '"a b"', "&&", "git", "push"]
+        'echo "open', either mode      -> None
+
+    Args:
+        command: One logical Bash command line (continuations already joined).
+        is_posix: True for the POSIX reading, False for the raw one that keeps quotes and backslashes.
+    """
+    lexer = shlex.shlex(command, posix=is_posix, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = DISABLED_LEXER_COMMENTERS
+    try:
+        return list(lexer)
+    except ValueError:
+        return None
 
 
 def _trailing_operator_token(token: str) -> str | None:

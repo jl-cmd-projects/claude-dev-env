@@ -10,37 +10,50 @@ import urllib.request
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from http import HTTPStatus
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.gate_run_reads import ReadSlice, answer_once, answer_within_allowance, child_stdout
 from hooks_constants.followup_pr_dedupe_constants import (
     ALL_BODY_FILE_OPTIONS,
     ALL_BODY_OPTIONS,
+    ALL_GH_ACTION_WORDS_BY_ALIAS,
+    ALL_GIT_REMOTE_COMMAND_WORDS,
+    ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS,
+    ALL_PYTHON_NON_SCRIPT_OPTIONS,
+    ALL_PYTHON_OPTIONS_WITH_VALUE,
     ALL_REPOSITORY_OPTIONS,
     ALL_TITLE_OPTIONS,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     FOLLOWUP_PARENT_PATTERN,
-    ALL_GIT_REMOTE_COMMAND_WORDS,
-    ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS,
+    GH_PROGRAM_NAME,
+    GH_REPOSITORY_ENVIRONMENT_PREFIX,
     GITHUB_API_ROOT,
     GITHUB_REMOTE_PATTERN,
+    LONG_OPTION_PREFIX,
     OPEN_PULL_REQUESTS_PATH_TEMPLATE,
+    OPTION_AND_VALUE_WIDTH,
+    OPTION_PREFIX,
+    PYTHON_PROGRAM_NAME_PATTERN,
     READ_TIMEOUT_SECONDS,
+    REPOSITORY_OPTION,
     RUN_WORKFLOW_METHOD,
+    SHORT_OPTION_LENGTH,
     STANDARD_INPUT_PATH,
+    STANDARD_INPUT_SCRIPT,
     UNANSWERED_FOLLOWUP_REASON_TEMPLATE,
     UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE,
+    WINDOWS_EXECUTABLE_SUFFIX,
     WORKFLOW_DISPATCH_TOOL_SUFFIX,
 )
-from blocking.gate_run_reads import ReadSlice, answer_once, answer_within_allowance, child_stdout
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pull_request_proof_constants import (
     ALL_GH_CREATE_WORDS,
-    ALL_PYTHON_PROGRAM_NAMES,
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
 )
@@ -76,10 +89,14 @@ class UnreadOpenPullRequests(Enum):
     ::
 
         read raised TimeoutError, or URLError whose reason is a TimeoutError -> UNANSWERED
-        read raised HTTPError 404, a refused connection, malformed JSON     -> FAILED
+        read raised HTTPError 500 or above, a GitHub server error           -> UNANSWERED
+        read raised HTTPError 403, 404 or 429, a refused connection,
+        a name that does not resolve, or malformed JSON                     -> FAILED
 
     An unanswered read refuses the create, because a retry may answer. A
     failed read skips that create and leaves the duplicate to the CI check.
+    A rate limit can last an hour and a private repository answers 404 on
+    every read, so a retry does not help there.
     """
 
     UNANSWERED = "no answer inside the allowance"
@@ -105,8 +122,10 @@ def read_open_pull_requests(owner: str, repo: str) -> list[Mapping[str, object]]
     Raises:
         TimeoutError: The read did not finish inside its allowance, or the
             slice had no time left. ``duplicate_followup_reason`` refuses the create.
-        Exception: Any other failure, such as a 404, a refused connection or
-            a reply that is not JSON. ``duplicate_followup_reason`` skips the create.
+        urllib.error.HTTPError: GitHub answered with an error status. A status of
+            500 or above refuses the create, and any other status skips it.
+        Exception: Any other failure, such as a refused connection or a reply
+            that is not JSON. ``duplicate_followup_reason`` skips the create.
     """
     url = GITHUB_API_ROOT + OPEN_PULL_REQUESTS_PATH_TEMPLATE.format(owner=owner, repo=repo)
     answer = answer_within_allowance(
@@ -124,7 +143,19 @@ def _fetched_json(url: str, timeout_seconds: float) -> list[object]:
     return answer if isinstance(answer, list) else []
 
 
-def _option_value(all_arguments: list[str], all_option_names: frozenset[str]) -> str | None:
+def option_value(all_arguments: list[str], all_option_names: frozenset[str]) -> str | None:
+    """Return the value of the first named option in an argument list, its quotes removed, or None.
+
+    ::
+
+        ["--head", "a", "--head", "b"], {"--head"}  -> "a"
+        ["-H='c'"], {"-H", "--head"}                -> "c"
+        ["--fill"], {"--head"}                      -> None
+
+    Args:
+        all_arguments: The options of one call.
+        all_option_names: Every spelling of the option, such as ``{"-H", "--head"}``.
+    """
     for each_index, each_argument in enumerate(all_arguments):
         option_name, separator, inline_value = each_argument.partition("=")
         if option_name not in all_option_names:
@@ -144,10 +175,10 @@ def body_from_arguments(all_arguments: list[str], working_directory: str) -> str
     a directory, a named pipe, any other special file, and an unreadable file
     give None.
     """
-    inline_body = _option_value(all_arguments, ALL_BODY_OPTIONS)
+    inline_body = option_value(all_arguments, ALL_BODY_OPTIONS)
     if inline_body is not None:
         return inline_body
-    body_path = _option_value(all_arguments, ALL_BODY_FILE_OPTIONS)
+    body_path = option_value(all_arguments, ALL_BODY_FILE_OPTIONS)
     if body_path is None or body_path == STANDARD_INPUT_PATH:
         return None
     body_file = Path(working_directory) / body_path
@@ -168,7 +199,7 @@ def title_from_arguments(all_arguments: list[str]) -> str | None:
         ["-t=fix: y"]          -> "fix: y"
         ["--fill"]             -> None
     """
-    return _option_value(all_arguments, ALL_TITLE_OPTIONS)
+    return option_value(all_arguments, ALL_TITLE_OPTIONS)
 
 
 def _origin_remote_url(working_directory: str) -> str | None:
@@ -183,8 +214,19 @@ def _github_repository(remote_url: str) -> tuple[str, str] | None:
     return (match.group(1), match.group(2)) if match else None
 
 
-def _named_repository(named_repository: str) -> tuple[str, str] | None:
-    owner, separator, repo = named_repository.rpartition("/")
+def named_repository(repository_value: str) -> tuple[str, str] | None:
+    """Return the owner and name a ``--repo`` value names, or None when it names no pair.
+
+    ::
+
+        "o/r"             -> ("o", "r")
+        "github.com/o/r"  -> ("o", "r")
+        "notaslug"        -> None
+
+    Args:
+        repository_value: The value a ``--repo`` option, ``-R`` or ``GH_REPO`` gives.
+    """
+    owner, separator, repo = repository_value.rpartition("/")
     owner = owner.rpartition("/")[2]
     return (owner, repo) if separator and owner and repo else None
 
@@ -210,13 +252,28 @@ def all_command_segments(command: str) -> Iterator[list[str]]:
     )
 
 
+def _python_script_index(all_arguments: list[str]) -> int | None:
+    index = 0
+    while index < len(all_arguments):
+        option = unquoted_token(all_arguments[index])
+        if option == STANDARD_INPUT_SCRIPT or not option.startswith(OPTION_PREFIX):
+            return index
+        if not option.startswith(LONG_OPTION_PREFIX) and option[:SHORT_OPTION_LENGTH] in ALL_PYTHON_NON_SCRIPT_OPTIONS:
+            return None
+        index += OPTION_AND_VALUE_WIDTH if option in ALL_PYTHON_OPTIONS_WITH_VALUE else 1
+    return None
+
+
 def _script_arguments(program: str, all_arguments: list[str]) -> list[str] | None:
     if program == PULL_REQUEST_SCRIPT_NAME:
         return all_arguments
-    if program not in ALL_PYTHON_PROGRAM_NAMES or not all_arguments:
+    if re.fullmatch(PYTHON_PROGRAM_NAME_PATTERN, program) is None:
         return None
-    script_name = token_basename(unquoted_token(all_arguments[0]))
-    return all_arguments[1:] if script_name == PULL_REQUEST_SCRIPT_NAME else None
+    script_index = _python_script_index(all_arguments)
+    if script_index is None:
+        return None
+    script_name = token_basename(unquoted_token(all_arguments[script_index]))
+    return all_arguments[script_index + 1 :] if script_name == PULL_REQUEST_SCRIPT_NAME else None
 
 
 def _script_word_arguments(program: str, all_arguments: list[str], word: str) -> list[str] | None:
@@ -226,13 +283,67 @@ def _script_word_arguments(program: str, all_arguments: list[str], word: str) ->
     return all_script_arguments[1:]
 
 
+def _gh_action_arguments(all_arguments: list[str], all_gh_words: list[str]) -> list[str] | None:
+    index = 0
+    while index < len(all_arguments) and unquoted_token(all_arguments[index]).startswith(OPTION_PREFIX):
+        index += OPTION_AND_VALUE_WIDTH if unquoted_token(all_arguments[index]) in ALL_REPOSITORY_OPTIONS else 1
+    all_action_words = [
+        ALL_GH_ACTION_WORDS_BY_ALIAS.get(unquoted_token(each_word), unquoted_token(each_word))
+        for each_word in all_arguments[index : index + len(all_gh_words)]
+    ]
+    if all_action_words != all_gh_words:
+        return None
+    return [*all_arguments[index + len(all_gh_words) :], *all_arguments[:index]]
+
+
+def _environment_repository(all_segment_tokens: list[str]) -> str | None:
+    for each_token in all_segment_tokens:
+        unquoted_word = unquoted_token(each_token)
+        if token_basename(unquoted_word).removesuffix(WINDOWS_EXECUTABLE_SUFFIX) == GH_PROGRAM_NAME:
+            return None
+        if unquoted_word.startswith(GH_REPOSITORY_ENVIRONMENT_PREFIX):
+            return unquoted_word[len(GH_REPOSITORY_ENVIRONMENT_PREFIX) :]
+    return None
+
+
+def _gh_arguments(all_segment_tokens: list[str], all_arguments: list[str], all_gh_words: list[str]) -> list[str] | None:
+    all_action_arguments = _gh_action_arguments(all_arguments, all_gh_words)
+    if all_action_arguments is None:
+        return None
+    environment_repository = _environment_repository(all_segment_tokens)
+    if environment_repository and option_value(all_action_arguments, ALL_REPOSITORY_OPTIONS) is None:
+        return [*all_action_arguments, REPOSITORY_OPTION, environment_repository]
+    return all_action_arguments
+
+
 def _command_arguments(
     all_segment_tokens: list[str], all_gh_words: list[str], script_word: str
 ) -> list[str] | None:
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    if program == "gh" and all_arguments[: len(all_gh_words)] == all_gh_words:
-        return all_arguments[len(all_gh_words) :]
+    if program == GH_PROGRAM_NAME:
+        return _gh_arguments(all_segment_tokens, all_arguments, all_gh_words)
     return _script_word_arguments(program, all_arguments, script_word)
+
+
+def create_arguments(all_segment_tokens: list[str]) -> list[str] | None:
+    """Return the options of the pull request create one segment runs, or None when it runs none.
+
+    ::
+
+        ["gh", "pr", "new", "--head", "h"]                -> ["--head", "h"]
+        ["gh", "-R", "o/r", "pr", "create"]               -> ["-R", "o/r"]
+        ["GH_REPO=o/r", "gh", "pr", "create"]             -> ["--repo", "o/r"]
+        ["py", "-3", "~/x/pull_request.py", "create"]     -> []
+        ["git", "commit", "-m", "gh pr create"]           -> None
+
+    A repository a root ``-R``/``--repo`` or a ``GH_REPO=`` prefix names
+    comes after the create's own options, so the create's own ``--repo`` wins.
+    A shell variable, alias or function that holds the program name is not followed.
+
+    Args:
+        all_segment_tokens: The tokens of one simple command.
+    """
+    return _command_arguments(all_segment_tokens, ALL_GH_CREATE_WORDS, PULL_REQUEST_SCRIPT_CREATE_WORD)
 
 
 def all_pull_request_argument_lists(
@@ -275,6 +386,9 @@ def all_create_argument_lists(command: str) -> Iterator[list[str]]:
         python3 pull_request.py create --repo o/r --title t  -> ["--repo", "o/r", "--title", "t"]
         python3 pull_request.py edit --number 7              -> nothing
 
+    ``create_arguments`` reads each segment, so ``gh pr new``, root ``-R``
+    and ``GH_REPO=`` prefixes, and every Python spelling of the script count.
+
     Args:
         command: The shell command text.
     """
@@ -287,9 +401,9 @@ def _arguments_draft(
     body = body_from_arguments(all_arguments, working_directory)
     if body is None or followup_parent_number(body) is None:
         return None
-    named_repository = _option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
-    if named_repository is not None:
-        repository = _named_repository(named_repository)
+    repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
+    if repository_value is not None:
+        repository = named_repository(repository_value)
     else:
         remote_url = _origin_remote_url(working_directory)
         if remote_url is None:
@@ -388,14 +502,18 @@ def followup_drafts(all_payload_fields: Mapping[str, object]) -> list[PullReques
     """
     create_fields = create_tool_fields(all_payload_fields)
     if create_fields is not None:
-        owner, repo, body = (create_fields.get(each_key) for each_key in ("owner", "repo", "body"))
-        if not isinstance(body, str) or followup_parent_number(body) is None:
-            return []
-        return [PullRequestDraft(owner, repo, body)] if isinstance(owner, str) and isinstance(repo, str) else []
+        return _tool_followup_drafts(create_fields)
     command = shell_command(all_payload_fields)
     if command is None:
         return []
     return _shell_followup_drafts(command, _working_directory(all_payload_fields))
+
+
+def _tool_followup_drafts(all_create_fields: Mapping[str, object]) -> list[PullRequestDraft | UnreadOriginDraft]:
+    owner, repo, body = (all_create_fields.get(each_key) for each_key in ("owner", "repo", "body"))
+    if not isinstance(body, str) or followup_parent_number(body) is None:
+        return []
+    return [PullRequestDraft(owner, repo, body)] if isinstance(owner, str) and isinstance(repo, str) else []
 
 
 def _open_pull_requests_once(owner: str, repo: str, read_open: OpenPullRequestReader) -> OpenPullRequestsAnswer:
@@ -403,6 +521,8 @@ def _open_pull_requests_once(owner: str, repo: str, read_open: OpenPullRequestRe
 
 
 def _is_unanswered(error: Exception) -> bool:
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code >= HTTPStatus.INTERNAL_SERVER_ERROR
     return isinstance(error, TimeoutError) or (
         isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError)
     )
@@ -442,8 +562,9 @@ def duplicate_followup_reason(
 
         open pull request #9 says "Follow-up to #7"      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         the read gives no answer inside its allowance   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
+        the read answers with a GitHub server error     -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         no --repo, and the origin read gives nothing    -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
-        the read answers 404, refuses, or sends bad JSON -> None for that create
+        the read answers 403, 404 or 429, refuses, or sends bad JSON -> None for that create
 
     Every create body that names a parent is checked, in command order, and
     the first duplicate, unanswered read or unread origin denies. A read that

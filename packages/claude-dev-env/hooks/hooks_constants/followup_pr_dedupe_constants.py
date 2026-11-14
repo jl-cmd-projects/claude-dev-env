@@ -17,7 +17,8 @@ DUPLICATE_FOLLOWUP_REASON_TEMPLATE = (
     " One combined follow-up pull request per parent pull request."
 )
 UNANSWERED_FOLLOWUP_REASON_TEMPLATE = (
-    "The gate could not read the open pull requests of {owner}/{repo} in time, so it cannot tell"
+    "The gate could not read the open pull requests of {owner}/{repo}: the read timed out"
+    " or GitHub answered with a server error. So it cannot tell"
     " whether parent #{parent_number} already has an open follow-up pull request."
     " Run the create again."
 )
@@ -27,6 +28,19 @@ UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE = (
     " Name the repository with --repo and run the create again."
 )
 ALL_TITLE_OPTIONS = frozenset({"-t", "--title"})
+GH_PROGRAM_NAME = "gh"
+ALL_GH_ACTION_WORDS_BY_ALIAS = {"new": "create"}
+GH_REPOSITORY_ENVIRONMENT_PREFIX = "GH_REPO="
+REPOSITORY_OPTION = "--repo"
+OPTION_PREFIX = "-"
+LONG_OPTION_PREFIX = "--"
+STANDARD_INPUT_SCRIPT = "-"
+SHORT_OPTION_LENGTH = 2
+OPTION_AND_VALUE_WIDTH = 2
+WINDOWS_EXECUTABLE_SUFFIX = ".exe"
+PYTHON_PROGRAM_NAME_PATTERN = r"python(?:\d+(?:\.\d+)*)?w?|pyw?"
+ALL_PYTHON_OPTIONS_WITH_VALUE = frozenset({"-X", "-W", "--check-hash-based-pycs"})
+ALL_PYTHON_NON_SCRIPT_OPTIONS = frozenset({"-c", "-m"})
 WORKFLOW_DISPATCH_TOOL_SUFFIX = "__actions_run_trigger"
 RUN_WORKFLOW_METHOD = "run_workflow"
 ALL_PULL_REQUEST_DISPATCH_INPUT_KEYS = ("head", "title")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 HOOK_EVENT_NAME = "PreToolUse"
+GATE_NAME = "merge review"
 DENY_DECISION = "deny"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 
@@ -20,6 +21,36 @@ EXPECTED_HEAD_FIELD = "expectedHeadSha"
 HEAD_BRANCH_FIELD = "head"
 CWD_FIELD = "cwd"
 
+ALL_HEAD_OPTIONS = frozenset({"-H", "--head"})
+ALL_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
+ALL_CHANGE_FOLDER_PROGRAMS = frozenset({"cd", "chdir", "set-location", "sl"})
+ALL_HOME_DEFAULT_PROGRAMS = frozenset({"cd", "chdir"})
+ALL_PUSH_FOLDER_PROGRAMS = frozenset({"pushd", "push-location"})
+ALL_POP_FOLDER_PROGRAMS = frozenset({"popd", "pop-location"})
+ALL_FOLDER_CHANGE_WORDS = (
+    ALL_CHANGE_FOLDER_PROGRAMS | ALL_PUSH_FOLDER_PROGRAMS | ALL_POP_FOLDER_PROGRAMS
+)
+ALL_PATH_PARAMETER_NAMES = frozenset({"-path", "-literalpath"})
+ALL_UNFOLLOWED_FOLDER_CHARACTERS = frozenset("$`*?[{%")
+PREVIOUS_FOLDER_ARGUMENT = "-"
+HOME_FOLDER = "~"
+OPTION_PREFIX = "-"
+SUBSHELL_OPEN_OPERATOR = "("
+SUBSHELL_CLOSE_TOKEN = ")"
+ALL_PIPE_OPERATORS = frozenset({"|", "|&"})
+ALL_BACKGROUND_OPERATORS = frozenset({"&"})
+BRACE_OPEN_OPERATOR = "{"
+BRACE_CLOSE_TOKEN = "}"
+ALL_COMPOUND_OPEN_WORDS = frozenset({"if", "while", "until", "for", "case", "select"})
+ALL_COMPOUND_CLOSE_WORDS = frozenset({"fi", "done", "esac"})
+ALL_COMPOUND_BODY_WORDS = frozenset({"then", "elif", "else", "do"})
+ALL_COMMAND_PREFIX_WORDS = frozenset({"builtin", "command"})
+SEGMENT_TOKEN_JOIN = " "
+IS_POSIX_TOKENIZATION = True
+SHORT_HEAD_OPTION = "-H"
+LONG_HEAD_OPTION = "--head"
+LONG_OPTION_PREFIX = "--"
+OPTION_VALUE_SEPARATOR = "="
 GH_PR_CREATE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+create\b(?P<rest>[^;&|]*)")
 PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
     r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
@@ -43,6 +74,7 @@ REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 LS_REMOTE_FIELD_SEPARATOR = "\t"
 ALL_NON_INTERACTIVE_GIT_SETTINGS = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
+ORIGIN_URL_QUESTION = "merge review origin url"
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
@@ -69,7 +101,9 @@ RULING_SEPARATOR = ","
 RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
-API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
+API_SHA_FIELD_PATTERN = re.compile(
+    r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})"
+)
 ALL_OPTIONS_WITH_VALUE = (
     "-R",
     "--repo",

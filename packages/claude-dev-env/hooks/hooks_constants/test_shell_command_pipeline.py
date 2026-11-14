@@ -17,6 +17,7 @@ from hooks_constants.shell_command_pipeline import (  # noqa: E402
     all_operator_aware_tokenizations,
     join_line_continuations,
     live_command_lines,
+    operator_aware_tokens,
     pipeline_segments_for_command,
     scannable_command_lines,
     segments_with_following_operator,
@@ -133,3 +134,11 @@ def test_compound_shell_if_fi_tokens_survive_tokenization() -> None:
     assert "if" in flat_tokens
     assert "then" in flat_tokens
     assert "fi" in flat_tokens
+
+
+def test_operator_aware_tokens_should_read_one_mode_at_a_time() -> None:
+    command = 'cd "a b" && git push'
+    assert operator_aware_tokens(command, True) == ["cd", "a b", "&&", "git", "push"]
+    assert operator_aware_tokens(command, False) == ["cd", '"a b"', "&&", "git", "push"]
+    assert operator_aware_tokens('echo "open', True) is None
+    assert operator_aware_tokens('echo "open', False) is None

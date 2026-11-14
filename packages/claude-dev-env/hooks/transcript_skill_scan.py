@@ -1,23 +1,33 @@
 """Find a skill invocation after the last transcript compaction, or one with a given first argument anywhere.
 
+A reader gives a large transcript's lines newest first, so a recent invocation answers without reading the whole file.
+
 It also lists the tool calls made since the last user prompt, each with whether its result came back without an error.
 """
 
 from __future__ import annotations
 
+import io
 import json
 import re
-from collections.abc import Collection, Iterable, Iterator
-from typing import NamedTuple
+from collections.abc import Callable, Collection, Iterable, Iterator
+from io import SEEK_END
+from typing import BinaryIO, NamedTuple
 
 from hooks_constants.transcript_skill_scan_constants import (
+    ALL_LINE_BREAK_BYTES,
     ASSISTANT_ENTRY_TYPE,
+    CARRIAGE_RETURN_BYTE,
     COMMAND_ARGUMENTS_PATTERN,
     COMPACT_BOUNDARY_SUBTYPE,
+    FORWARD_COPY_BYTE_CAP,
     IS_ERROR_FIELD,
     META_ENTRY_FIELD,
+    NEWLINE_BYTE,
     SKILL_TOOL_NAME,
     TOOL_RESULT_BLOCK_TYPE,
+    TRANSCRIPT_BLOCK_BYTES,
+    TRANSCRIPT_LINE_BYTE_CAP,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_FIELD,
     USER_ENTRY_TYPE,
@@ -169,6 +179,227 @@ def is_skill_loaded_after_last_compaction(
         slash_command_markers: Accepted user command tags.
     """
     return skill_invocation_status(all_transcript_lines, skill_names, slash_command_markers)[1]
+
+
+def is_skill_loaded_after_last_compaction_newest_first(
+    all_lines_newest_first: Iterable[str],
+    skill_names: Collection[str],
+    slash_command_markers: Collection[str],
+) -> bool:
+    """Return whether a matching invocation follows the last compact boundary, reading the newest line first.
+
+    ::
+
+        newest first: load, ..., compact boundary   -> True
+        newest first: compact boundary, ..., load   -> False
+        no load and no compact boundary             -> False
+
+    The first load or compact boundary met decides. The answer equals
+    ``is_skill_loaded_after_last_compaction`` on the same lines in file order.
+
+    Args:
+        all_lines_newest_first: JSON transcript entries, one per line, newest first.
+        skill_names: Accepted skill names, with plugin prefixes accepted.
+        slash_command_markers: Accepted user command tags.
+    """
+    for each_line in all_lines_newest_first:
+        all_entry_fields = _relevant_entry(each_line, skill_names)
+        if all_entry_fields is None:
+            continue
+        if all_entry_fields.get("subtype") == COMPACT_BOUNDARY_SUBTYPE:
+            return False
+        if _invokes_skill(all_entry_fields, skill_names, slash_command_markers):
+            return True
+    return False
+
+
+def _always_reads() -> bool:
+    return True
+
+
+def _notes_nothing() -> None:
+    return None
+
+
+class ScanCaps(NamedTuple):
+    """The byte caps a newest-first read holds to, and what it calls when one is passed.
+
+    ::
+
+        a line over line_byte_cap                      -> the read stops; on_cap_passed runs once
+        a copied stream over forward_copy_byte_cap     -> no lines; on_cap_passed runs once
+    """
+
+    line_byte_cap: int = TRANSCRIPT_LINE_BYTE_CAP
+    forward_copy_byte_cap: int = FORWARD_COPY_BYTE_CAP
+    on_cap_passed: Callable[[], None] = _notes_nothing
+
+
+def _block_ending_at(
+    transcript: BinaryIO, end: int, block_size: int
+) -> tuple[int, bytes]:
+    start = max(0, end - block_size)
+    transcript.seek(start)
+    block = transcript.read(end - start)
+    if start > 0 and block.startswith(NEWLINE_BYTE):
+        transcript.seek(start - 1)
+        if transcript.read(1) == CARRIAGE_RETURN_BYTE:
+            return start - 1, CARRIAGE_RETURN_BYTE + block
+    return start, block
+
+
+def _blocks_newest_first(
+    transcript: BinaryIO, block_size: int, keeps_reading: Callable[[], bool]
+) -> Iterator[tuple[int, bytes]]:
+    end = transcript.seek(0, SEEK_END)
+    while end > 0 and keeps_reading():
+        end, block = _block_ending_at(transcript, end, block_size)
+        yield end, block
+
+
+def _block_pieces(block: bytes) -> list[bytes]:
+    all_pieces = block.splitlines()
+    if block.endswith(ALL_LINE_BREAK_BYTES):
+        all_pieces.append(b"")
+    return all_pieces
+
+
+def _complete_lines(
+    all_pieces: list[bytes], all_newer_parts: list[bytes], is_file_end: bool
+) -> list[bytes]:
+    newest_line = all_pieces[-1] + b"".join(reversed(all_newer_parts))
+    all_older_lines = list(reversed(all_pieces[1:-1]))
+    return (
+        [newest_line, *all_older_lines]
+        if newest_line or not is_file_end
+        else all_older_lines
+    )
+
+
+def _lines_within_cap(
+    all_lines: list[bytes], may_pass_cap: bool, caps: ScanCaps
+) -> tuple[list[bytes], bool]:
+    if not may_pass_cap:
+        return all_lines, True
+    for each_index, each_line in enumerate(all_lines):
+        if len(each_line) > caps.line_byte_cap:
+            return all_lines[:each_index], False
+    return all_lines, True
+
+
+def _byte_lines_newest_first(
+    transcript: BinaryIO,
+    block_size: int,
+    keeps_reading: Callable[[], bool],
+    caps: ScanCaps,
+) -> Iterator[bytes]:
+    all_newer_parts: list[bytes] = []
+    newer_byte_count = 0
+    is_file_end = True
+    oldest_start = 0
+    for each_start, each_block in _blocks_newest_first(
+        transcript, block_size, keeps_reading
+    ):
+        oldest_start = each_start
+        all_pieces = _block_pieces(each_block)
+        is_within_cap = True
+        if len(all_pieces) > 1:
+            all_lines = _complete_lines(all_pieces, all_newer_parts, is_file_end)
+            may_pass_cap = len(each_block) + newer_byte_count > caps.line_byte_cap
+            all_lines, is_within_cap = _lines_within_cap(all_lines, may_pass_cap, caps)
+            yield from all_lines
+            is_file_end, all_newer_parts, newer_byte_count = False, [], 0
+        all_newer_parts.append(all_pieces[0])
+        newer_byte_count += len(all_pieces[0])
+        if not is_within_cap or newer_byte_count > caps.line_byte_cap:
+            caps.on_cap_passed()
+            return
+    oldest_line = b"".join(reversed(all_newer_parts))
+    if oldest_start == 0 and (oldest_line or not is_file_end):
+        yield oldest_line
+
+
+def _open_line_byte_count(block: bytes, earlier_open_byte_count: int) -> int:
+    last_break = max(block.rfind(NEWLINE_BYTE), block.rfind(CARRIAGE_RETURN_BYTE))
+    return (
+        earlier_open_byte_count + len(block)
+        if last_break < 0
+        else len(block) - last_break - 1
+    )
+
+
+def _forward_copy(
+    transcript: BinaryIO,
+    block_size: int,
+    keeps_reading: Callable[[], bool],
+    caps: ScanCaps,
+) -> BinaryIO:
+    copy = io.BytesIO()
+    open_line_byte_count = 0
+    while keeps_reading():
+        block = transcript.read(block_size)
+        if not block:
+            return copy
+        open_line_byte_count = _open_line_byte_count(block, open_line_byte_count)
+        is_over_copy_cap = copy.tell() + len(block) > caps.forward_copy_byte_cap
+        if is_over_copy_cap or open_line_byte_count > caps.line_byte_cap:
+            caps.on_cap_passed()
+            break
+        copy.write(block)
+    return io.BytesIO()
+
+
+def _seeks_to_end(transcript: BinaryIO) -> bool:
+    if not transcript.seekable():
+        return False
+    try:
+        transcript.seek(0, SEEK_END)
+    except OSError:
+        return False
+    return True
+
+
+def _seekable_byte_lines(
+    transcript: BinaryIO,
+    block_size: int,
+    keeps_reading: Callable[[], bool],
+    caps: ScanCaps,
+) -> Iterator[bytes]:
+    if not _seeks_to_end(transcript):
+        transcript = _forward_copy(transcript, block_size, keeps_reading, caps)
+    yield from _byte_lines_newest_first(transcript, block_size, keeps_reading, caps)
+
+
+def transcript_lines_newest_first(
+    transcript: BinaryIO,
+    encoding: str,
+    errors: str,
+    block_size: int = TRANSCRIPT_BLOCK_BYTES,
+    keeps_reading: Callable[[], bool] = _always_reads,
+    caps: ScanCaps | None = None,
+) -> Iterator[str]:
+    """Yield each line of a binary transcript, newest first, split where text mode splits it.
+
+    ::
+
+        b"one\\ntwo\\r\\nthree\\rfour"   -> "four", "three", "two", "one"
+
+    ``\\n``, ``\\r\\n`` and a lone ``\\r`` end lines. A no from ``keeps_reading``, or a passed
+    cap, stops the reader. A transcript that cannot seek to its end is copied forward first.
+
+    Args:
+        transcript: The transcript opened in binary mode.
+        encoding: The text encoding of the transcript.
+        errors: The decode errors policy, such as ``"replace"``.
+        block_size: The bytes read from the file at a time.
+        keeps_reading: Whether the reader may read one more block.
+        caps: The byte caps, or None for the default ``ScanCaps()``.
+    """
+    scan_caps = ScanCaps() if caps is None else caps
+    all_byte_lines = _seekable_byte_lines(
+        transcript, block_size, keeps_reading, scan_caps
+    )
+    return (each_line.decode(encoding, errors) for each_line in all_byte_lines)
 
 
 def _is_user_prompt(all_entry_fields: dict[str, object]) -> bool:
