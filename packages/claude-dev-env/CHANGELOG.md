@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.2...claude-dev-env-v8.117.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **validators:** count lines of logic in the function length check ([#2356](https://github.com/jl-cmd-projects/claude-dev-env/issues/2356)) ([bb6dae5](https://github.com/jl-cmd-projects/claude-dev-env/commit/bb6dae5e7b369f25ea7028c6e5cb6cec9e780139))
+
 ## [8.117.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.1...claude-dev-env-v8.117.2) (2026-11-14)
 
 
