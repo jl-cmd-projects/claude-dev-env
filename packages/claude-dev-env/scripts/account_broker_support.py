@@ -293,7 +293,8 @@ def read_published_meters(account: Account) -> Meters | None:
         CLAUDE_USAGE_READINGS_DIR=/readings, account home .../alpha
         /readings/meters-ALPHA.json  {"read_at": "<5 minutes ago>", "accounts": [{"name": "alpha",
                                       "meters": {"weekly_percent_left": 45.0, ...}}]}
-            ->  Meters(weekly_percent_left=45.0, ...), and the usage endpoint is not called
+            ->  Meters(weekly_percent_left=45.0, ..., measured_at=<5 minutes ago>),
+                and the usage endpoint is not called
 
     A reading matches an account when its ``name`` equals the account home's folder name.
     A reading older than ``PUBLISHED_USAGE_MAX_AGE_SECONDS``, or dated more than
@@ -303,7 +304,8 @@ def read_published_meters(account: Account) -> Meters | None:
         account: Account whose meter is read.
 
     Returns:
-        The published meters, or None when the folder is unset or holds no fresh reading for the account.
+        The published meters with the reading's ``read_at`` as their ``measured_at``, or None
+        when the folder is unset or holds no fresh reading for the account.
     """
     folder_text = os.environ.get(PUBLISHED_USAGE_DIRECTORY_ENV_VAR)
     if not folder_text:
@@ -316,8 +318,11 @@ def read_published_meters(account: Account) -> Meters | None:
     ]
     if not all_matches:
         return None
-    newest_row = max(all_matches, key=lambda each_match: each_match[0])[1]
-    return _meters_from_payload(newest_row.get("meters"))
+    newest_read_at, newest_row = max(all_matches, key=lambda each_match: each_match[0])
+    meters = _meters_from_payload(newest_row.get("meters"))
+    if meters is None:
+        return None
+    return dataclasses.replace(meters, measured_at=newest_read_at)
 
 
 def _fresh_published_rows(folder: Path, now: datetime) -> Iterator[tuple[datetime, dict[str, object]]]:
@@ -622,7 +627,7 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
         next_probe = datetime.fromtimestamp(retry_at, timezone.utc) if is_held else None
         return Reading(account, cached_meters, cached_reason if isinstance(cached_reason, str) else None, measured, next_probe), False
     meters, unread_reason, is_rate_limited = read_meters_with_backoff(adapter.read_meters, account)
-    measured_at = now.timestamp()
+    measured_at = _measured_timestamp(meters, now)
     is_rate_limited = account.product is Product.CLAUDE and is_rate_limited
     last_good = _last_good_meters(cached, now) if is_rate_limited else None
     if last_good is not None:
@@ -632,6 +637,20 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
         all_cache[key]["retry_at"] = now.timestamp() + METER_RATE_LIMIT_COOLDOWN_SECONDS
     next_probe = datetime.fromtimestamp(all_cache[key]["retry_at"], timezone.utc) if is_rate_limited else None
     return Reading(account, meters, unread_reason, datetime.fromtimestamp(measured_at, timezone.utc), next_probe), True
+
+
+def _measured_timestamp(meters: Meters | None, now: datetime) -> float:
+    """Return when *meters* were measured, never later than *now*.
+
+    ::
+
+        probe read at 12:00                      ->  12:00 (now)
+        published reading read at 11:31         ->  11:31
+        published reading dated 12:02 (skewed)  ->  12:00 (now)
+    """
+    if meters is None or meters.measured_at is None:
+        return now.timestamp()
+    return min(meters.measured_at, now).timestamp()
 
 
 def _last_good_meters(all_cached_fields: dict[str, object], now: datetime) -> tuple[Meters, float] | None:

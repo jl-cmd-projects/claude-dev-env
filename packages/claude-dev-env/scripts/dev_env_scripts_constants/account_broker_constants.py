@@ -228,6 +228,7 @@ class Meters:
     has_credits: bool = False
     is_credits_unlimited: bool = False
     credit_balance: float | None = None
+    measured_at: datetime | None = field(default=None, compare=False)
 
     @property
     def tightest_percent_left(self) -> float | None:
