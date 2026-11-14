@@ -95,3 +95,9 @@ def test_print_decision_from_stdin_writes_nothing_on_allow() -> None:
     with patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')), patch("sys.stdout", output):
         assert pre_tool_use_stdin.print_decision_from_stdin(lambda payload: None) == 0
     assert output.getvalue() == ""
+
+
+def test_read_returns_none_for_an_integer_past_the_digit_limit() -> None:
+    oversized_payload = '{"tool_name": "Bash", "tool_use_id": ' + "7" * 6000 + "}"
+    with patch("sys.stdin", io.StringIO(oversized_payload)):
+        assert read_hook_input_dictionary_from_stdin() is None

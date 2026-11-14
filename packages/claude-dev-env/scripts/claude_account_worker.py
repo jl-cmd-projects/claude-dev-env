@@ -40,7 +40,7 @@ from dev_env_scripts_constants.claude_account_worker_constants import (
     VERBOSE_FLAG,
     UTF8_ENCODING,
 )
-from subagent_effort_route import model_family, routed_effort
+from subagent_effort_route import load_effort_levels, model_family, routed_effort
 
 worker_job_runner = run_job
 
@@ -84,10 +84,11 @@ def worker_effort(model: str | None, effort: str | None) -> str | None:
         The allowed effort for the model's family, or ``effort`` when the
         model has no Anthropic family.
     """
-    family = model_family(model)
+    all_efforts_by_family = load_effort_levels()
+    family = model_family(model, all_efforts_by_family)
     if family is None:
         return effort
-    return routed_effort(family, effort)
+    return routed_effort(family, effort, all_efforts_by_family)
 
 
 def _invocation(*, model: str | None, effort: str | None, permission_mode: str, is_streamed: bool) -> list[str]:

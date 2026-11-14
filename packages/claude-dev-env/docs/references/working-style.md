@@ -6,6 +6,7 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 
 - Document each task in a location that remains easy to find later.
 - Keep a running scratch text ledger as you work.
+- Keep each task list subject to 80 characters or fewer, start it with who acts (Me, You, or Handed off), and say what is left; put detail in the description.
 
 ## Presentation
 
