@@ -10,6 +10,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
+from blocking import gate_run_reads
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -26,6 +27,7 @@ from hooks_constants.gate_run_reads_constants import (
 )
 
 CLOCK_START = 100.0
+HIDDEN_WINDOW_FLAGS = 0x08000000
 SLEEP_THEN_PRINT = "import time; time.sleep(30); print('late')"
 GRANDCHILD_HOLDS_THE_PIPE = (
     "import subprocess, sys, time;"
@@ -135,6 +137,19 @@ def test_child_stdout_should_return_the_output_of_a_child_that_answers() -> None
         assert child_stdout([sys.executable, "-c", "print('answer')"], 5, ReadSlice.PROOF_AND_LOOK) == "answer\n"
         assert child_stdout([sys.executable, "-c", "raise SystemExit(3)"], 5, ReadSlice.PROOF_AND_LOOK) is None
     assert not run.was_read_cut_short
+
+
+def test_child_stdout_should_start_its_child_with_the_hidden_window_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_seen_flags: list[object] = []
+
+    def refuse_to_start(*all_arguments: object, **all_options: object) -> None:
+        all_seen_flags.append(all_options.get("creationflags"))
+        raise OSError("this test starts no child")
+
+    monkeypatch.setattr(gate_run_reads, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS, raising=False)
+    monkeypatch.setattr(gate_run_reads.subprocess, "Popen", refuse_to_start)
+    assert child_stdout(["git", "status"], 5, ReadSlice.PROOF_AND_LOOK) is None
+    assert all_seen_flags == [HIDDEN_WINDOW_FLAGS]
 
 
 def test_child_stdout_should_kill_a_child_that_outlives_its_own_timeout() -> None:

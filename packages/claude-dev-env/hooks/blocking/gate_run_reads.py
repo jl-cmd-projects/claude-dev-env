@@ -49,6 +49,7 @@ from hooks_constants.gate_run_reads_constants import (
     KILL_GRACE_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
 )
+from hooks_constants.subprocess_window import hidden_window_creation_flags
 
 AnswerType = TypeVar("AnswerType")
 
@@ -178,6 +179,7 @@ def _started_child(all_command_words: Sequence[str], working_directory: str | No
             text=True,
             encoding="utf-8",
             errors="replace",
+            creationflags=hidden_window_creation_flags(),
         )
     except OSError:
         return None
