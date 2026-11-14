@@ -191,3 +191,8 @@ def test_should_parse_a_repeated_inner_command_once() -> None:
         'bash -c "git push"; bash -c "git push"'
     )
     assert all_command_texts.count("git push") == 1
+
+
+def test_quoted_line_breaks_joined_should_join_only_quoted_line_breaks() -> None:
+    command = 'echo "a\nb"\ngit push'
+    assert shell_command_wrappers.quoted_line_breaks_joined(command) == 'echo "a b"\ngit push'

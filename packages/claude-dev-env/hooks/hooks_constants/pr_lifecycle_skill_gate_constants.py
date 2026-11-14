@@ -8,6 +8,11 @@ DENY_DECISION = "deny"
 DENY_REASON = (
     "Invoke the pr-lifecycle skill with the Skill tool, then run the same command again."
 )
+SCAN_RAN_OUT_SENTENCE = (
+    " The gate's transcript scan ran out of time on this run, and loading the skill again,"
+    " or calling build-eval again, puts that call where the scan finds it first."
+)
+GATE_NAME = "pull request lifecycle"
 SKILL_NAME = "pr-lifecycle"
 ALL_SLASH_COMMAND_MARKERS = ("<command-name>/pr-lifecycle</command-name>",)
 SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})

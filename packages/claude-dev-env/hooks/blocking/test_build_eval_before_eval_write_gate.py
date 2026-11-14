@@ -5,15 +5,20 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import build_eval_before_eval_write_gate as gate
+from blocking.gate_run_reads import ReadSlice, read_deadlines_started, started_read_deadlines
 from hooks_constants.build_eval_before_eval_write_gate_constants import (
+    EVAL_WRITE_SCAN_RAN_OUT_SENTENCE,
     MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON,
     UNREADABLE_TRANSCRIPT_BEFORE_EVAL_WRITE_REASON,
 )
+from hooks_constants.gate_run_reads_constants import EVAL_WRITE_SCAN_SECONDS, STARTUP_AND_OUTPUT_MARGIN_SECONDS
 
 GATE_SCRIPT = Path(gate.__file__)
 
@@ -160,3 +165,62 @@ def test_unparseable_apply_patch_naming_an_eval_file_should_be_denied(tmp_path: 
         "transcript_path": str(_transcript(tmp_path, build_eval=False)),
     }
     assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+
+
+EVAL_WRITE_GATE_COMMAND_SUFFIX = "/hooks/blocking/build_eval_before_eval_write_gate.py"
+CLOCK_START = 1000.0
+
+
+class SteppedClock:
+    def __init__(self) -> None:
+        self.now = CLOCK_START
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _registered_gate_timeout_seconds() -> int:
+    all_registration_fields = json.loads((HOOKS_DIRECTORY / "hooks.json").read_text(encoding="utf-8"))
+    all_timeouts = [
+        each_hook["timeout"]
+        for each_group in all_registration_fields["hooks"]["PreToolUse"]
+        for each_hook in each_group["hooks"]
+        if each_hook.get("command", "").endswith(EVAL_WRITE_GATE_COMMAND_SUFFIX)
+    ]
+    assert len(all_timeouts) == 1
+    return all_timeouts[0]
+
+
+def test_registered_timeout_should_outlast_the_eval_write_scan_deadline() -> None:
+    assert ReadSlice.EVAL_WRITE.value == EVAL_WRITE_SCAN_SECONDS
+    assert _registered_gate_timeout_seconds() >= EVAL_WRITE_SCAN_SECONDS + STARTUP_AND_OUTPUT_MARGIN_SECONDS
+
+
+def test_scan_the_eval_write_deadline_stopped_should_deny_and_say_to_call_build_eval_again(tmp_path: Path) -> None:
+    clock = SteppedClock()
+    payload = _payload("/repo/evals/cases.json", _transcript(tmp_path, build_eval=True))
+    with read_deadlines_started(clock):
+        clock.now = CLOCK_START + EVAL_WRITE_SCAN_SECONDS
+        decision = gate.decision_for(payload)
+    assert _reason(decision) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON + EVAL_WRITE_SCAN_RAN_OUT_SENTENCE
+
+
+def test_scan_with_time_left_should_deny_without_the_ran_out_sentence(tmp_path: Path) -> None:
+    clock = SteppedClock()
+    payload = _payload("/repo/evals/cases.json", _transcript(tmp_path, build_eval=False))
+    with read_deadlines_started(clock):
+        clock.now = CLOCK_START + EVAL_WRITE_SCAN_SECONDS - 1
+        assert _reason(gate.decision_for(payload)) == MISSING_BUILD_EVAL_BEFORE_EVAL_WRITE_REASON
+        assert gate.decision_for(_payload("/repo/evals/cases.json", _transcript(tmp_path, build_eval=True))) is None
+
+
+def test_main_should_start_the_read_deadlines_before_it_reads_the_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_seen_deadlines: list[object] = []
+
+    def recorded_print(decide: object) -> int:
+        all_seen_deadlines.append(started_read_deadlines.get())
+        return 0
+
+    monkeypatch.setattr(gate, "print_decision_from_stdin", recorded_print)
+    assert gate.main() == 0
+    assert all_seen_deadlines[0] is not None

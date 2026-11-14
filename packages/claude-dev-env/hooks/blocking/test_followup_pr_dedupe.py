@@ -285,7 +285,12 @@ def _raising_reader(error: Exception) -> dedupe.OpenPullRequestReader:
 
 @pytest.mark.parametrize(
     "unanswered_error",
-    [TimeoutError("read timed out"), urllib.error.URLError(TimeoutError("connect timed out"))],
+    [
+        TimeoutError("read timed out"),
+        urllib.error.URLError(TimeoutError("connect timed out")),
+        urllib.error.HTTPError("https://api.github.com/x", 500, "Internal Server Error", Message(), None),
+        urllib.error.HTTPError("https://api.github.com/x", 503, "Service Unavailable", Message(), None),
+    ],
 )
 def test_unanswered_read_should_refuse_the_create(unanswered_error: Exception) -> None:
     reason = dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"), _raising_reader(unanswered_error))
@@ -296,6 +301,8 @@ def test_unanswered_read_should_refuse_the_create(unanswered_error: Exception) -
     "answered_error",
     [
         urllib.error.HTTPError("https://api.github.com/x", 404, "Not Found", Message(), None),
+        urllib.error.HTTPError("https://api.github.com/x", 403, "rate limit exceeded", Message(), None),
+        urllib.error.HTTPError("https://api.github.com/x", 429, "Too Many Requests", Message(), None),
         urllib.error.URLError(ConnectionRefusedError("refused")),
         urllib.error.URLError(OSError("Name or service not known")),
         json.JSONDecodeError("Expecting value", "<html>", 0),
@@ -430,6 +437,85 @@ def test_all_create_argument_lists_should_list_gh_and_script_creates_once_each()
         ["--title", "fix: a", "--body", "x"],
         ["--repo", "o/r", "--title", "fix: b", "--body-file", "b.md"],
     ]
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_arguments"),
+    [
+        ("gh pr new --title t", ["--title", "t"]),
+        ("gh -R o/r pr create --title t", ["--title", "t", "-R", "o/r"]),
+        ("gh --repo o/r pr create", ["--repo", "o/r"]),
+        ("gh --repo=o/r pr new", ["--repo=o/r"]),
+        ("GH_REPO=o/r gh pr create --title t", ["--title", "t", "--repo", "o/r"]),
+        ("env GH_REPO=o/r gh pr create", ["--repo", "o/r"]),
+        ("GH_REPO=x/y gh pr create --repo o/r", ["--repo", "o/r"]),
+        ("python3.11 pull_request.py create --title t", ["--title", "t"]),
+        ("python3.13 pull_request.py create", []),
+        ("python3 -u pull_request.py create", []),
+        ("python -X dev pull_request.py create --head h", ["--head", "h"]),
+        ("py -3 pull_request.py create", []),
+        ("uv run python pull_request.py create", []),
+        ("uv run pull_request.py create", []),
+        ("python3 ~/.agents/skills/pull-request/scripts/pull_request.py create", []),
+    ],
+)
+def test_all_create_argument_lists_should_read_every_create_spelling(
+    command: str, expected_arguments: list[str]
+) -> None:
+    all_argument_lists = [
+        [unquoted_token(each_argument) for each_argument in each_list]
+        for each_list in dedupe.all_create_argument_lists(command)
+    ]
+    assert all_argument_lists == [expected_arguments]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python -m pull_request.py create",
+        'python -c "print(1)" pull_request.py create',
+        'git commit -m "see gh pr create --head two"',
+        "cat <<'EOF'\ngh pr create --head two\nEOF",
+        "gh pr view --repo o/r",
+    ],
+)
+def test_all_create_argument_lists_should_skip_text_that_runs_no_create(command: str) -> None:
+    assert list(dedupe.all_create_argument_lists(command)) == []
+
+
+def test_create_arguments_should_read_one_segment() -> None:
+    assert dedupe.create_arguments(["GH_REPO=o/r", "gh", "pr", "new", "--head", "h"]) == [
+        "--head",
+        "h",
+        "--repo",
+        "o/r",
+    ]
+    assert dedupe.create_arguments(["gh", "pr", "view"]) is None
+
+
+def test_option_value_should_read_spaced_and_assigned_values() -> None:
+    assert dedupe.option_value(["--head", "a", "--head", "b"], frozenset({"--head"})) == "a"
+    assert dedupe.option_value(["-H='c'"], frozenset({"-H", "--head"})) == "c"
+    assert dedupe.option_value(["--fill"], frozenset({"--head"})) is None
+
+
+def test_named_repository_should_read_owner_and_name_past_a_host() -> None:
+    assert dedupe.named_repository("github.com/o/r") == ("o", "r")
+    assert dedupe.named_repository("o/r") == ("o", "r")
+    assert dedupe.named_repository("notaslug") is None
+
+
+def test_gh_repo_environment_should_name_the_repository_when_the_origin_is_unread(tmp_path: Path) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    open_followup = _open_followup(9, 7)
+    payload = {
+        "tool_name": "Bash",
+        "cwd": str(tmp_path),
+        "tool_input": {"command": 'GH_REPO=o/r gh pr create --title "fix: a" --body "Follow-up to #7"'},
+    }
+    reader = _keyed_reader({("o", "r"): [open_followup]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(open_followup, 7)
+    assert all_asked_repositories == [("o", "r")]
 
 
 def test_all_pull_request_argument_lists_should_list_the_named_action_only() -> None:
