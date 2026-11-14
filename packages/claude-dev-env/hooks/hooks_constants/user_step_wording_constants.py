@@ -4,7 +4,12 @@ import re
 
 WORD_START = r"(?<![^\W_])"
 WORD_END = r"(?![^\W_])"
-PHRASE_GAP = r"[*_\[]{0,3}\s+[*_\[]{0,3}"
+LINK_TARGET_LIMIT = 256
+LINK_TARGET_SPAN = "{0," + str(LINK_TARGET_LIMIT) + "}"
+LINK_CLOSER = (
+    r"\](?:\([^\s)]" + LINK_TARGET_SPAN + r"\)|\[[^\s\]]" + LINK_TARGET_SPAN + r"\])?"
+)
+PHRASE_GAP = r"[*_\[]{0,3}(?:" + LINK_CLOSER + r"[*_]{0,3})?\s+[*_\[]{0,3}"
 PHRASE_GROUP = "phrase"
 USER_STEP_PATTERN = re.compile(
     WORD_START

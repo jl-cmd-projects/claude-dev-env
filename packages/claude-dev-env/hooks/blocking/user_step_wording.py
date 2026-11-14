@@ -82,14 +82,23 @@ The words before it are read with the marker characters, full stops, and
 emphasis marks at their ends removed. A word with no letter left is passed
 over, and the rest must be nothing, the word please, the word just, or both
 in that order, read with case folding. So "- [ ] Say when" counts, and "- [x] Say when" and "The docs
-say when" do not.
+say when" do not. That rule covers "say" with white space right after it. With
+an emphasis mark or the closing part of a link right after "say", the phrase
+counts wherever it sits, as in "The docs **say** when" and "- [x] [Say](link)
+when".
 
 The words of a phrase are joined by white space. Up to three asterisks,
 underscores, or opening square brackets may sit on each side of that white
 space, so "needs **your** approval" and "waiting on [you](link)" count, and so
-does "_needs your_ merge". Every place a phrase can start is read, also inside
-another phrase. In Markdown an inline HTML tag or a character entity between
-two words of a phrase breaks it.
+does "_needs your_ merge". The closing part of a link may sit before the white
+space too. That part is a closing square bracket, alone or with a target in
+parentheses or a label in square brackets after it, and then up to three
+asterisks or underscores. So "[needs](link) your approval", "[needs][1] your
+approval", and "**[You](link)** need to" count. The target or label holds no
+white space and at most 256 characters, so a link with a title, as in
+``[needs](link "title") your``, breaks the phrase. Every place a phrase can
+start is read, also inside another phrase. In Markdown an inline HTML tag or a
+character entity between two words of a phrase breaks it.
 
 These shapes read words. They do not read grammar, so a line can hold a
 negating word in the same clause and still hand over a step, and that line is

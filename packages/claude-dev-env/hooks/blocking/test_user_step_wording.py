@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import user_step_wording
+from hooks_constants.user_step_wording_constants import LINK_TARGET_LIMIT
 
 
 @pytest.mark.parametrize(
@@ -205,6 +206,55 @@ def test_should_find_a_phrase_with_emphasis_or_a_link_bracket_between_its_words(
     shown_text: str, expected_phrase: str
 ) -> None:
     assert user_step_wording.waiting_phrase(shown_text) == expected_phrase
+
+
+@pytest.mark.parametrize(
+    ("shown_text", "expected_phrase"),
+    [
+        (
+            "Pull request 12 [needs](https://example.com/12) your approval.",
+            "needs](https://example.com/12) your",
+        ),
+        (
+            "[You](https://example.com/you) need to merge pull request 12.",
+            "You](https://example.com/you) need to",
+        ),
+        (
+            "This is for [you](https://example.com/12) to approve.",
+            "for [you](https://example.com/12) to approve",
+        ),
+        (
+            "Let me [know](https://example.com/form) when the key is set.",
+            "Let me [know](https://example.com/form) when",
+        ),
+        ("Pull request 12 [**needs**](https://example.com/12) your approval.", "needs**](https://example.com/12) your"),
+        ("Pull request 12 **[needs](https://example.com/12)** your approval.", "needs](https://example.com/12)** your"),
+        ("Pull request 12 [needs][1] your approval.", "needs][1] your"),
+        ("Pull request 12 [needs][] your approval.", "needs][] your"),
+        ("Pull request 12 [needs] your approval.", "needs] your"),
+        ("The docs **say** when the token expires.", "say** when"),
+        ("The docs [say](https://example.com/docs) when the token expires.", "say](https://example.com/docs) when"),
+        ("- [x] [Say](https://example.com/form) when the demo may be archived.", "Say](https://example.com/form) when"),
+    ],
+)
+def test_should_find_a_phrase_with_a_link_around_one_of_its_words(
+    shown_text: str, expected_phrase: str
+) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) == expected_phrase
+
+
+@pytest.mark.parametrize(
+    "shown_text",
+    [
+        'Pull request 12 [needs](https://example.com/12 "the page") your approval.',
+        "Pull request 12 [needs](" + "a" * (LINK_TARGET_LIMIT + 1) + ") your approval.",
+        "Pull request 12 needs](https://example.com/12)your approval.",
+    ],
+)
+def test_should_find_no_phrase_across_a_link_target_with_white_space_or_past_the_limit(
+    shown_text: str,
+) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) is None
 
 
 def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clause() -> None:
