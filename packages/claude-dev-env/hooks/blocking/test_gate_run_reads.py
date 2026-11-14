@@ -214,6 +214,14 @@ def test_child_stdout_should_return_the_output_of_a_child_that_answers() -> None
     assert not run.was_read_cut_short
 
 
+def test_child_stdout_should_start_its_child_with_the_environment_it_is_given() -> None:
+    read_variable = [sys.executable, "-c", "import os; print(os.environ.get('GATE_READ_PROBE', 'unset'))"]
+    environment = {**os.environ, "GATE_READ_PROBE": "given"}
+    with gate_run():
+        assert child_stdout(read_variable, 5, ReadSlice.PROOF_AND_LOOK, None, environment) == "given\n"
+        assert child_stdout(read_variable, 5, ReadSlice.PROOF_AND_LOOK) == "unset\n"
+
+
 def test_child_stdout_should_start_its_child_with_the_hidden_window_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     all_seen_flags: list[object] = []
 

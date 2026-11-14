@@ -10,10 +10,12 @@ gh pr create --head a && cd x && gh pr create        -> two opens, each with its
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import pytest
 
+from blocking.gate_run_reads import ReadSlice
 from blocking.merge_review_gate_parts import open_request
 from blocking.merge_review_gate_parts.open_request import (
     OpenRequest,
@@ -149,13 +151,32 @@ def test_should_list_in_an_empty_folder_so_the_checkout_config_never_applies(
     assert _only_request(_create_payload("feature", tmp_path)).head == head
 
 
-def test_should_read_no_head_when_the_listing_times_out(
+def _listing_answered_by(
+    monkeypatch: pytest.MonkeyPatch,
+    answer: Callable[[list[str], Mapping[str, str] | None], str | None],
+) -> None:
+    run_before_patch = open_request.child_stdout
+
+    def answer_the_listing(
+        all_command_words: Sequence[str],
+        own_timeout_seconds: float,
+        read_slice: ReadSlice,
+        working_directory: str | None = None,
+        all_environment_variables: Mapping[str, str] | None = None,
+    ) -> str | None:
+        if "ls-remote" in all_command_words:
+            return answer(list(all_command_words), all_environment_variables)
+        return run_before_patch(
+            all_command_words, own_timeout_seconds, read_slice, working_directory, all_environment_variables
+        )
+
+    monkeypatch.setattr(open_request, "child_stdout", answer_the_listing)
+
+
+def test_should_read_no_head_when_the_listing_gives_no_answer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def time_out(all_arguments: list[str], **_all_keyword_arguments: object) -> None:
-        raise subprocess.TimeoutExpired(all_arguments, 1)
-
-    monkeypatch.setattr(open_request.subprocess, "run", time_out)
+    _listing_answered_by(monkeypatch, lambda _all_words, _environment: None)
     assert _only_request(_create_payload("feature", tmp_path)).head is None
 
 
@@ -164,19 +185,20 @@ def test_should_run_the_listing_without_a_terminal_prompt(
 ) -> None:
     monkeypatch.delenv("GIT_TERMINAL_PROMPT", raising=False)
     monkeypatch.delenv("GCM_INTERACTIVE", raising=False)
-    all_environments: list[dict[str, str]] = []
+    all_seen_environments: list[Mapping[str, str] | None] = []
 
     def record_environment(
-        all_arguments: list[str], **all_keyword_arguments: dict[str, str]
-    ) -> subprocess.CompletedProcess[bytes]:
-        if "env" in all_keyword_arguments:
-            all_environments.append(all_keyword_arguments["env"])
-        return subprocess.CompletedProcess(all_arguments, 1)
+        _all_words: list[str], all_environment_variables: Mapping[str, str] | None
+    ) -> str | None:
+        all_seen_environments.append(all_environment_variables)
+        return None
 
-    monkeypatch.setattr(open_request.subprocess, "run", record_environment)
+    _listing_answered_by(monkeypatch, record_environment)
     _only_request(_create_payload("feature", tmp_path))
-    assert all_environments[0]["GIT_TERMINAL_PROMPT"] == "0"
-    assert all_environments[0]["GCM_INTERACTIVE"] == "never"
+    [all_environment_variables] = all_seen_environments
+    assert all_environment_variables is not None
+    assert all_environment_variables["GIT_TERMINAL_PROMPT"] == "0"
+    assert all_environment_variables["GCM_INTERACTIVE"] == "never"
 
 
 def test_should_pick_the_listed_line_that_names_the_branch_exactly(
@@ -184,14 +206,7 @@ def test_should_pick_the_listed_line_that_names_the_branch_exactly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     listing = f"{'1' * 40}\trefs/heads/feature-two\n{'2' * 40}\trefs/heads/feature\n"
-
-    def list_branches(
-        all_arguments: list[str], **all_keyword_arguments: object
-    ) -> subprocess.CompletedProcess[bytes]:
-        all_keyword_arguments["stdout"].write(listing.encode())
-        return subprocess.CompletedProcess(all_arguments, 0)
-
-    monkeypatch.setattr(open_request.subprocess, "run", list_branches)
+    _listing_answered_by(monkeypatch, lambda _all_words, _environment: listing)
     assert _only_request(_create_payload("feature", tmp_path)).head == "2" * 40
 
 
@@ -201,15 +216,12 @@ def test_should_run_no_listing_for_a_call_that_names_no_owner(
 ) -> None:
     all_commands: list[list[str]] = []
 
-    def record_command(
-        all_arguments: list[str], **_all_keyword_arguments: object
-    ) -> subprocess.CompletedProcess[bytes]:
-        all_commands.append(all_arguments)
-        return subprocess.CompletedProcess(all_arguments, 1)
+    def record_command(all_words: list[str], _environment: Mapping[str, str] | None) -> None:
+        all_commands.append(all_words)
 
-    monkeypatch.setattr(open_request.subprocess, "run", record_command)
+    _listing_answered_by(monkeypatch, record_command)
     assert _only_request(_create_payload("feature", tmp_path, owner="")).head is None
-    assert not any("ls-remote" in each_command for each_command in all_commands)
+    assert all_commands == []
 
 
 def test_should_read_the_checkout_branch_when_github_lists_none(
@@ -425,6 +437,26 @@ def test_should_check_every_head_a_create_names(command: str) -> None:
     assert "two" in _branches(command)
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create -dHtwo",
+        "gh pr create -dH two",
+        "gh pr create -fH=two",
+        "gh pr create --head one -dHtwo",
+        "gh -R o/r pr create -wdHtwo --fill",
+    ],
+)
+def test_should_check_the_head_a_short_flag_cluster_names(command: str) -> None:
+    assert "two" in _branches(command)
+
+
+def test_should_read_the_rest_of_a_cluster_after_the_head_letter_as_the_head() -> None:
+    all_branches = _branches("gh pr create -Hdtwo")
+    assert "dtwo" in all_branches
+    assert "two" not in all_branches
+
+
 def test_should_read_each_named_head_as_its_own_call() -> None:
     assert _branches("python3 scripts/pull_request.py create --head one -Htwo --head=three") == {
         "one",
@@ -455,6 +487,31 @@ def test_should_not_read_a_repository_an_earlier_export_names() -> None:
     assert {each_call.repository for each_call in open_calls_from(payload)} == {None}
 
 
+def _repositories(command: str) -> set[tuple[str, str] | None]:
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": MAIN_FLOOR_START}
+    return {each_call.repository for each_call in open_calls_from(payload)}
+
+
+@pytest.mark.parametrize(
+    ("command", "all_expected_repositories"),
+    [
+        ("gh -R o/r pr create -R acme/tools --repo=a/b --repo=a/b", {("a", "b")}),
+        ("gh -R a/b pr create --repo acme/tools", {("acme", "tools")}),
+        ("gh -R a/b pr create --fill", {("a", "b")}),
+        ("gh pr create --repo acme/tools -dRa/b", {("a", "b"), ("acme", "tools")}),
+        ("gh pr create --repo acme/tools -R=a/b", {("a", "b"), ("acme", "tools")}),
+        ("gh pr create --repo a/b --title --repo=acme/tools", {("a", "b")}),
+        ("GH_REPO=acme/tools gh pr create -R a/b", {("a", "b")}),
+        ("x & eval \"\"gh\" -R acme/tools pr create --repo=a/b ''\"\" ~\"", {("a", "b")}),
+        ("python3 scripts/pull_request.py create --repo acme/tools --repo a/b", {("a", "b"), ("acme", "tools")}),
+    ],
+)
+def test_should_read_the_repository_the_last_repository_flag_names(
+    command: str, all_expected_repositories: set[tuple[str, str] | None]
+) -> None:
+    assert _repositories(command) == all_expected_repositories
+
+
 @pytest.mark.parametrize("separator", [";", "&&", "||", "|", "\n"])
 def test_should_read_create_words_after_a_separator_inside_a_quoted_value(separator: str) -> None:
     assert "two" in _branches(f"git commit -m 'x{separator} gh pr create --head two'")
@@ -465,10 +522,9 @@ def test_should_read_create_words_after_a_separator_inside_a_quoted_value(separa
     [
         "gh pr create --head one; git commit -m 'x; gh pr create --head two'",
         "gh pr create --head one --label 'a && gh pr create --head two'",
-        "gh pr create -dHtwo",
         "gh pr create --head one; git commit -m 'x\ngh pr create --head two'",
         'gh pr create --head one --body "a\ngh pr create --head two"',
     ],
 )
-def test_should_not_read_a_later_quoted_create_or_a_clustered_head(command: str) -> None:
+def test_should_not_read_a_later_quoted_create(command: str) -> None:
     assert "two" not in _branches(command)

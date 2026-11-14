@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -18,7 +17,6 @@ from blocking.merge_review_gate_parts.create_folders import PlacedCreate, all_pl
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
-    answer_within_allowance,
     child_stdout,
 )
 from hooks_constants.merge_review_gate_constants import (
@@ -26,19 +24,25 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_REPOSITORY_OPTIONS,
     ALL_SHELL_TOOL_NAMES,
+    ALL_VALUELESS_LONG_CREATE_OPTIONS,
+    ALL_VALUELESS_SHORT_CREATE_LETTERS,
     CHANGE_FOLDER_PATTERN,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
     GH_PR_CREATE_PATTERN,
+    GH_PROGRAM_NAME,
     GITHUB_REMOTE_URL_TEMPLATE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
+    HEAD_SHORT_LETTER,
     LONG_HEAD_OPTION,
     LONG_OPTION_PREFIX,
+    LONG_REPOSITORY_OPTION,
     LS_REMOTE_FIELD_SEPARATOR,
+    OPTION_AND_VALUE_WIDTH,
     OPTION_VALUE_SEPARATOR,
     ORIGIN_URL_PATTERN,
     ORIGIN_URL_QUESTION,
@@ -49,9 +53,12 @@ from hooks_constants.merge_review_gate_constants import (
     REMOTE_LOOKUP_TIMEOUT_SECONDS,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
+    REPOSITORY_SHORT_LETTER,
     SHORT_HEAD_OPTION,
+    SHORT_OPTION_PREFIX,
 )
 from hooks_constants.pytest_invocation import unquoted_token
+from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
 @dataclass(frozen=True)
@@ -211,18 +218,72 @@ def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
 
 
 def _placed_open_calls(placed_create: PlacedCreate) -> list[ShellOpenCall]:
-    all_arguments = list(placed_create.all_arguments)
-    repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
-    repository = named_repository(repository_value) if repository_value is not None else None
     return [
         ShellOpenCall(
-            repository=repository,
+            repository=_placed_repository(placed_create),
             branch=each_head,
             folder=placed_create.folder,
             is_folder_followed=placed_create.is_folder_followed,
         )
-        for each_head in _named_heads(all_arguments) or [CURRENT_HEAD_REFERENCE]
+        for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]
     ]
+
+
+def _option_words(placed_create: PlacedCreate) -> list[str]:
+    program, all_gh_words = segment_program_and_arguments(list(placed_create.all_command_words))
+    return all_gh_words if program == GH_PROGRAM_NAME else list(placed_create.all_arguments)
+
+
+def _placed_repository(placed_create: PlacedCreate) -> tuple[str, str] | None:
+    all_arguments = list(placed_create.all_arguments)
+    all_words = _option_words(placed_create)
+    flag_value = _last_option_value(all_words, LONG_REPOSITORY_OPTION, REPOSITORY_SHORT_LETTER)
+    if flag_value is None:
+        flag_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
+    return named_repository(flag_value) if flag_value is not None else None
+
+
+def _placed_heads(placed_create: PlacedCreate) -> list[str]:
+    all_heads = _named_heads(list(placed_create.all_arguments))
+    last_head = _last_option_value(_option_words(placed_create), LONG_HEAD_OPTION, HEAD_SHORT_LETTER)
+    if last_head and last_head not in all_heads:
+        all_heads.append(last_head)
+    return all_heads
+
+
+def _last_option_value(all_words: list[str], long_option: str, short_letter: str) -> str | None:
+    last_value: str | None = None
+    index = 0
+    while index < len(all_words) and unquoted_token(all_words[index]) != LONG_OPTION_PREFIX:
+        following = all_words[index + 1] if index + 1 < len(all_words) else None
+        flag_value, width = _option_reading(unquoted_token(all_words[index]), following, long_option, short_letter)
+        if flag_value is not None:
+            last_value = unquoted_token(flag_value)
+        index += width
+    return last_value
+
+
+def _option_reading(word: str, following: str | None, long_option: str, short_letter: str) -> tuple[str | None, int]:
+    if not word.startswith(SHORT_OPTION_PREFIX) or word == SHORT_OPTION_PREFIX:
+        return None, 1
+    if not word.startswith(LONG_OPTION_PREFIX):
+        return _short_cluster_reading(word[len(SHORT_OPTION_PREFIX) :], following, short_letter)
+    option_name, separator, inline_value = word.partition(OPTION_VALUE_SEPARATOR)
+    if option_name == long_option:
+        return (inline_value, 1) if separator else (following, OPTION_AND_VALUE_WIDTH)
+    if separator or option_name in ALL_VALUELESS_LONG_CREATE_OPTIONS:
+        return None, 1
+    return None, OPTION_AND_VALUE_WIDTH
+
+
+def _short_cluster_reading(all_letters: str, following: str | None, short_letter: str) -> tuple[str | None, int]:
+    for each_index, each_letter in enumerate(all_letters):
+        if each_letter in ALL_VALUELESS_SHORT_CREATE_LETTERS:
+            continue
+        inline_value = all_letters[each_index + 1 :].removeprefix(OPTION_VALUE_SEPARATOR)
+        flag_value, width = (inline_value, 1) if inline_value else (following, OPTION_AND_VALUE_WIDTH)
+        return (flag_value if each_letter == short_letter else None), width
+    return None, 1
 
 
 def _named_heads(all_arguments: list[str]) -> list[str]:
@@ -305,31 +366,19 @@ def _pushed_commit(owner: str, repo: str, branch: str) -> str | None:
         return None
     reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=head_branch)
     remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=head_owner, repo=repo)
-    try:
-        listing = answer_within_allowance(
-            lambda allowance: _remote_listing(remote_url, reference, allowance),
-            REMOTE_LOOKUP_TIMEOUT_SECONDS,
-            ReadSlice.FOLLOWUP,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    listing = _remote_listing(remote_url, reference)
     return _listed_commit(listing, reference) if listing is not None else None
 
 
-def _remote_listing(remote_url: str, reference: str, allowance: float) -> str:
-    with tempfile.TemporaryDirectory() as empty_folder, tempfile.TemporaryFile() as listing:
-        subprocess.run(
+def _remote_listing(remote_url: str, reference: str) -> str | None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as empty_folder:
+        return child_stdout(
             ["git", "ls-remote", remote_url, reference],
-            cwd=empty_folder,
-            stdin=subprocess.DEVNULL,
-            stdout=listing,
-            stderr=subprocess.DEVNULL,
-            timeout=allowance,
-            check=False,
-            env={**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
+            REMOTE_LOOKUP_TIMEOUT_SECONDS,
+            ReadSlice.FOLLOWUP,
+            empty_folder,
+            {**os.environ, **ALL_NON_INTERACTIVE_GIT_SETTINGS},
         )
-        listing.seek(0)
-        return listing.read().decode("utf-8", "replace")
 
 
 def _listed_commit(listing: str, reference: str) -> str | None:

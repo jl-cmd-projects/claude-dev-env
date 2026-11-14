@@ -16,6 +16,7 @@ for each_directory in (HOOKS_DIRECTORY, SCRIPTS_DIRECTORY):
         sys.path.insert(0, str(each_directory))
 
 import merge_review_receipt
+from blocking import gate_run_reads
 from blocking import merge_review_gate as gate
 from blocking.gate_run_reads import read_deadlines_started
 from blocking.merge_review_gate_parts import open_request
@@ -726,15 +727,15 @@ def test_should_start_no_github_listing_once_the_read_deadline_passed(
     folder, head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     all_started_commands: list[list[str]] = []
-    run_before_patch = subprocess.run
+    start_before_patch = gate_run_reads.subprocess.Popen
 
-    def record_and_run(
+    def record_and_start(
         all_arguments: list[str], **all_keyword_arguments: object
-    ) -> subprocess.CompletedProcess[str]:
+    ) -> subprocess.Popen[str]:
         all_started_commands.append(all_arguments)
-        return run_before_patch(all_arguments, **all_keyword_arguments)
+        return start_before_patch(all_arguments, **all_keyword_arguments)
 
-    monkeypatch.setattr(open_request.subprocess, "run", record_and_run)
+    monkeypatch.setattr(gate_run_reads.subprocess, "Popen", record_and_start)
     with read_deadlines_started(clock=_clock_past_the_read_deadline()):
         assert "names no repository or head commit" in _reason(_create_tool(folder))
     assert all_started_commands == []
@@ -752,7 +753,7 @@ def test_should_say_a_second_run_may_pass_when_a_git_read_ran_out_of_time(
 def test_should_say_a_second_run_may_pass_when_the_github_listing_was_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(open_request, "child_stdout", lambda *_all_arguments: None)
+    _git_on_path(tmp_path, monkeypatch, "exit 1")
     with read_deadlines_started(clock=_clock_past_the_read_deadline()):
         reason = _reason(_create_tool(tmp_path))
     assert reason == UNKNOWN_OPEN_TARGET_REASON + READS_RAN_OUT_SENTENCE
@@ -823,6 +824,31 @@ def test_should_deny_every_create_spelling_whose_head_has_no_review(
     reviewed_command = command.replace("--head second", "--head feature")
     assert _reason(_bash_in(folder, reviewed_command)) is None
     assert f"no clean review for head {second_head}" in _reason(_bash_in(folder, command))
+
+
+def test_should_deny_a_create_whose_last_repository_flag_names_an_unreviewed_repository(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_bash_in(folder, "gh -R o/r pr create --repo acme/tools --head feature")) is None
+    assert "no clean review" in _reason(
+        _bash_in(folder, "gh -R o/r pr create -R acme/tools --repo=a/b --repo=a/b --head feature")
+    )
+
+
+def test_should_deny_a_create_whose_short_flag_cluster_names_an_unreviewed_head(
+    two_branch_checkout: tuple[Path, str, str],
+) -> None:
+    folder, first_head, second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", second_head, 0)
+    assert _reason(_bash_in(folder, "gh pr create --repo acme/tools -dHsecond")) is None
+    assert f"no clean review for head {first_head}" in _reason(
+        _bash_in(folder, "gh pr create --repo acme/tools -dHfeature")
+    )
+    assert f"no clean review for head {first_head}" in _reason(
+        _bash_in(folder, "gh pr create --repo acme/tools --head second -dH feature")
+    )
 
 
 @pytest.fixture
@@ -921,6 +947,35 @@ def test_should_say_a_second_run_may_pass_when_the_tool_head_lookup_hits_its_own
     reason = _reason(_create_tool(tmp_path))
     assert reason is not None
     assert reason.endswith(READS_RAN_OUT_SENTENCE)
+
+
+def _is_running(process_id: int) -> bool:
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return False
+    status_file = Path(f"/proc/{process_id}/stat")
+    if not status_file.exists():
+        return True
+    return status_file.read_text(encoding="utf-8").rsplit(")", 1)[1].split()[0] != "Z"
+
+
+def test_should_leave_no_process_behind_when_the_tool_head_lookup_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    process_id_file = tmp_path / "grandchild.pid"
+    _git_on_path(
+        tmp_path,
+        monkeypatch,
+        'if [ "$1" = ls-remote ]; then\n'
+        f"  sleep 30 </dev/null >/dev/null 2>&1 & echo $! > {process_id_file}\n"
+        "  exec sleep 30\nfi\nexit 1",
+    )
+    monkeypatch.setattr(open_request, "REMOTE_LOOKUP_TIMEOUT_SECONDS", 0.5)
+    reason = _reason(_create_tool(tmp_path))
+    assert reason is not None
+    assert reason.endswith(READS_RAN_OUT_SENTENCE)
+    assert not _is_running(int(process_id_file.read_text(encoding="utf-8")))
 
 
 def test_should_not_say_a_second_run_may_pass_when_the_tool_head_lookup_fails_fast(
@@ -1066,3 +1121,95 @@ def test_should_check_the_checkout_head_too_when_a_create_joins_its_head_to_dash
     assert f"no clean review for head {second_head}" in _reason(
         _bash_in(folder, "gh pr create -Hfeature")
     )
+
+
+ALL_LATER_CREATES_BASH_RUNS = [
+    "gh pr create --head feature --body $'it\\'s' ; gh pr create --head second",
+    "gh pr create --head feature --body $'it\\'s' && gh pr create --head second",
+    "gh pr create --head feature --body $'it\\'s' | gh pr create --head second",
+    "gh pr create --head feature --body $'it\\'s' & gh pr create --head second",
+    "gh pr create --head feature --body $'\\'' ; gh pr create --head second",
+    'gh pr create --head feature && bash -c "true\ngh pr create --head second"',
+    "gh pr create --head feature && sh -c 'true\ngh pr create --head second'",
+    'gh pr create --head feature && eval "true\ngh pr create --head second"',
+    "gh pr create --head feature ; eval 'ls\nenv gh pr create -Hsecond --repo acme/tools'",
+    'gh pr create --head feature ; bash -c "if true; then export GH_REPO=acme/tools\n\n'
+    'gh pr create --head feature --head second; fi"',
+    "gh pr create --head feature --body \"$(echo '\"')\" ; gh pr create --head second",
+    "gh pr create --head feature ; bash -c -- 'gh pr create --head second'",
+    "gh pr create --head feature ; eval 'gh pr create --head second --body \"a b\"'",
+    "gh pr create --head feature ; eval \"gh pr create --head second --body 'a b'\"",
+    "gh pr create --head feature ; case x in x) eval 'gh pr create --head second';; esac",
+    "gh pr create --head feature ; case x in (x) bash -c 'gh pr create --head second';; esac",
+    "gh pr create --head feature ; (gh pr create --head second) > log",
+    "gh pr create --head feature ; (bash -c 'gh pr create --head second') 2>&1 | tee log",
+    "gh pr create --head feature ; case x in x) (gh pr create --head second) > log;; esac",
+]
+
+
+@pytest.mark.parametrize("command", ALL_LATER_CREATES_BASH_RUNS)
+def test_should_deny_a_later_create_bash_runs_on_an_unreviewed_head(
+    two_branch_checkout: tuple[Path, str, str], command: str
+) -> None:
+    folder, first_head, second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    assert f"no clean review for head {second_head}" in _reason(_bash_in(folder, command))
+
+
+def test_should_check_a_create_after_a_line_break_in_bash_c_in_the_folder_before_it(
+    two_branch_checkout: tuple[Path, str, str],
+) -> None:
+    folder, first_head, second_head = two_branch_checkout
+    _git(folder, "checkout", "--quiet", "feature")
+    _git(folder, "worktree", "add", "--quiet", str(folder.parent / "usub"), "second")
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    command = 'gh pr create ; cd ../usub && bash -c "true\ngh pr create"'
+    assert f"no clean review for head {second_head}" in _reason(_bash_in(folder, command))
+
+
+def test_should_allow_a_later_create_inside_a_quoted_value_after_a_line_break(
+    two_branch_checkout: tuple[Path, str, str],
+) -> None:
+    folder, first_head, _second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    command = 'gh pr create --head feature --body "a\ngh pr create --head second"'
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_allow_a_reviewed_create_in_a_substitution_whose_body_holds_a_line_break(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = "x=$(gh pr create --head feature --body 'a\nb'\nls '')"
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_allow_a_reviewed_create_after_an_eval_script_bash_cannot_parse(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = "bash -c \"eval 'gh pr create --title 'a b' --body \"x; gh pr create --head feature --body \"y\""
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_allow_a_reviewed_create_a_wrapped_script_runs_before_another_line(
+    two_branch_checkout: tuple[Path, str, str],
+) -> None:
+    folder, first_head, _second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    command = "gh pr create --head feature && bash -c 'gh pr create --head feature\nls'"
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_allow_a_body_a_heredoc_substitution_writes_with_quotes_inside(
+    two_branch_checkout: tuple[Path, str, str],
+) -> None:
+    folder, first_head, _second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    command = (
+        "gh pr create --head feature --body \"$(cat <<'BODY'\n"
+        'see "q" ; gh pr create --head second\nBODY\n)"'
+    )
+    assert _reason(_bash_in(folder, command)) is None

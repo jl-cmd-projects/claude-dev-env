@@ -44,7 +44,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -276,11 +276,16 @@ def transcript_lines_within_slice(
     return lines_within_slice(all_lines, read_slice)
 
 
-def _started_child(all_command_words: Sequence[str], working_directory: str | None) -> subprocess.Popen[str] | None:
+def _started_child(
+    all_command_words: Sequence[str],
+    working_directory: str | None,
+    all_environment_variables: Mapping[str, str] | None,
+) -> subprocess.Popen[str] | None:
     try:
         return subprocess.Popen(
             list(all_command_words),
             cwd=working_directory or None,
+            env=dict(all_environment_variables) if all_environment_variables is not None else None,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -388,6 +393,7 @@ def child_stdout(
     own_timeout_seconds: float,
     read_slice: ReadSlice,
     working_directory: str | None = None,
+    all_environment_variables: Mapping[str, str] | None = None,
 ) -> str | None:
     """Run one read-only child and return its output, or None when it gives no answer.
 
@@ -403,12 +409,13 @@ def child_stdout(
         own_timeout_seconds: The timeout the read carries on its own.
         read_slice: The slice whose deadline the read answers to.
         working_directory: The directory the child runs in, or None for the gate's own.
+        all_environment_variables: The child's whole environment, or None for the gate's own.
     """
     allowance = read_allowance(own_timeout_seconds, read_slice)
     if allowance is None:
         _note_read_cut_short()
         return None
-    child = _started_child(all_command_words, working_directory)
+    child = _started_child(all_command_words, working_directory, all_environment_variables)
     if child is None:
         return None
     job = _job_holding(child)
