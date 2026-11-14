@@ -139,7 +139,6 @@ UNASKED_STEP_REASON = (
 )
 NO_STEP_INSTRUCTION = "When the wording hands the user no step, end the turn and leave the reply as it stands."
 WORKING_DIRECTORY_KEY = "cwd"
-SEND_FILE_TOOL_NAME = "SendUserFile"
 SENT_FILES_KEY = "files"
 ALL_READ_TOOL_NAMES = frozenset(
     {

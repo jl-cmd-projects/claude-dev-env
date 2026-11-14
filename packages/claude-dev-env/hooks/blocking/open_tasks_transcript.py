@@ -53,6 +53,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from hooks_constants.send_user_file_worktree_root_gate_constants import SEND_USER_FILE_TOOL_NAME
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_SKIPPED_PROMPT_FLAGS,
     ASSISTANT_RECORD_TYPE,
@@ -92,7 +93,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     READ_TOOL_NAME_PATTERN,
     RECORD_TYPE_KEY,
     ROLE_KEY,
-    SEND_FILE_TOOL_NAME,
     SENT_FILES_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
     TASK_CREATED_PATTERN,
@@ -280,7 +280,7 @@ def is_read_tool_name(tool_name: object) -> bool:
 def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) -> list[str]:
     """Return the file paths a SendUserFile call sends, or an empty list for any other call."""
     all_sent_files = all_input_fields.get(SENT_FILES_KEY)
-    if tool_name != SEND_FILE_TOOL_NAME or not isinstance(all_sent_files, list):
+    if tool_name != SEND_USER_FILE_TOOL_NAME or not isinstance(all_sent_files, list):
         return []
     return [each_path for each_path in all_sent_files if isinstance(each_path, str)]
 

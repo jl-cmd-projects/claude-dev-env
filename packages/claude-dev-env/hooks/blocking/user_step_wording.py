@@ -7,17 +7,34 @@ sent through this module::
     flag: The docs pull request needs your merge.      -> "needs your"
     flag: Say when the demo sessions may be archived.  -> "Say when"
     flag: It isn't merged yet and needs your approval. -> "needs your"
+    flag: Pull request 12 (not urgent) needs your approval.
     ok:   Nothing here needs you.
     ok:   None of the open items needs you.
+    ok:   This change does not need you.
+    ok:   Action required: none.
+    ok:   The docs say when the token expires.
     ok:   The label reads `needs you`.                 (a code span)
     ok:   > What needs you?                            (a quote)
 
-A match counts unless a negating word sits before it in the same clause. A
-clause ends at a sentence mark, a comma, a semicolon, a colon, a line break, or
-one of the words and, but, so, then, and while. Fences, HTML blocks, quoted
-paragraphs, and code spans are left out of Markdown and plain text first. An
-HTML file is read as its text, with every tag removed and the contents of
-script, style, template, code, pre, and blockquote elements left out.
+A match is skipped when its clause negates it. The clause is the text before
+the match, back to a sentence mark, a comma, a semicolon, a colon, a table bar,
+a blank line, a list or heading line, or one of the words and, but, so, then,
+and while, and at most 240 characters back. Three shapes negate a match:
+
+- nothing, none, or nobody anywhere in the clause;
+- no, neither, or nor at the start of the clause, also after "there is" or
+  "there are";
+- not, never, without, "no longer", or a word ending in n't, up to three words
+  before the match.
+
+A match followed by none, nothing, no, or n/a is skipped too. "Say when"
+counts only at the start of its clause, where it is an instruction.
+
+Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
+and plain text first. An HTML file is read as its text, with every tag removed
+and the contents of script, style, template, title, textarea, noscript, code,
+pre, and blockquote elements left out. A hidden attribute and a style that
+hides an element are not read, so that text still counts.
 """
 
 from __future__ import annotations
@@ -38,12 +55,18 @@ from hooks_constants.user_step_wording_constants import (
     ALL_HTML_HIDDEN_TAGS,
     ALL_HTML_INLINE_TAGS,
     ALL_SENT_TEXT_FILE_SUFFIXES,
+    BARE_IMPERATIVE_PATTERN,
     BINARY_READ_MODE,
     CLAUSE_BREAK_PATTERN,
     CLAUSE_LEAD_WINDOW_CHARACTERS,
+    CLAUSE_OPENER_PATTERN,
     HTML_BLOCK_SEPARATOR,
+    HTML_LINE_BREAK_TAG,
+    HTML_LINE_BREAK_TEXT,
     MAXIMUM_SENT_FILE_BYTES,
-    NEGATING_WORD_PATTERN,
+    NEGATED_CLAUSE_PATTERN,
+    NEGATED_TAIL_PATTERN,
+    PHRASE_TAIL_WINDOW_CHARACTERS,
     USER_STEP_PATTERN,
 )
 
@@ -64,9 +87,18 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     for each_match in USER_STEP_PATTERN.finditer(prose_text):
         window_start = max(0, each_match.start() - CLAUSE_LEAD_WINDOW_CHARACTERS)
         clause_lead = CLAUSE_BREAK_PATTERN.split(prose_text[window_start : each_match.start()])[-1]
-        if NEGATING_WORD_PATTERN.search(clause_lead) is None:
+        phrase_tail = prose_text[each_match.end() : each_match.end() + PHRASE_TAIL_WINDOW_CHARACTERS]
+        if _hands_over_a_step(each_match.group(), clause_lead, phrase_tail):
             return each_match.group()
     return None
+
+
+def _hands_over_a_step(phrase: str, clause_lead: str, phrase_tail: str) -> bool:
+    if NEGATED_CLAUSE_PATTERN.search(clause_lead) or NEGATED_TAIL_PATTERN.match(phrase_tail):
+        return False
+    if BARE_IMPERATIVE_PATTERN.match(phrase):
+        return CLAUSE_OPENER_PATTERN.fullmatch(clause_lead) is not None
+    return True
 
 
 def waiting_phrase(shown_text: str) -> str | None:
@@ -86,13 +118,15 @@ class _VisibleTextParser(HTMLParser):
     def handle_starttag(self, tag: str, all_attributes: list[tuple[str, str | None]]) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS:
             self.hidden_depth += 1
-        if tag not in ALL_HTML_INLINE_TAGS:
+        if tag == HTML_LINE_BREAK_TAG:
+            self.all_text_runs.append(HTML_LINE_BREAK_TEXT)
+        elif tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS and self.hidden_depth:
             self.hidden_depth -= 1
-        if tag not in ALL_HTML_INLINE_TAGS:
+        if tag != HTML_LINE_BREAK_TAG and tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
 
     def handle_data(self, data: str) -> None:
@@ -101,7 +135,7 @@ class _VisibleTextParser(HTMLParser):
 
 
 def html_visible_text(page_markup: str) -> str:
-    """Return the text a reader sees on an HTML page.
+    """Return the text of an HTML page, with its tags removed.
 
     ::
 
@@ -109,9 +143,10 @@ def html_visible_text(page_markup: str) -> str:
         <script>var needsYou = 1</script>                  -> nothing
         <code>needs you</code>                             -> nothing
 
-    Script, style, template, code, pre, and blockquote contents are left out.
-    A tag that is not an inline tag ends the line, so a heading and the
-    paragraph after it stay apart.
+    Script, style, template, title, textarea, noscript, code, pre, and
+    blockquote contents are left out. A tag that is not an inline tag leaves a
+    blank line, so a heading and the paragraph after it stay apart. A ``br``
+    leaves a space. Text under a hidden attribute or a hiding style is kept.
     """
     text_parser = _VisibleTextParser()
     text_parser.feed(page_markup)

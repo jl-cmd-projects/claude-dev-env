@@ -199,14 +199,14 @@ def stale_list_reason(all_items: list[TaskItem]) -> str | None:
 
 
 def turn_waiting_phrase(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
-    """Return the first phrase the closing reply or a sent text file uses to say something waits on the user."""
+    """Return the first phrase the closing reply or a sent text file uses to say something waits on the user; a path sent twice is read once."""
     reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     reply_phrase = waiting_phrase(reply_text) if isinstance(reply_text, str) else None
     if reply_phrase is not None:
         return reply_phrase
     working_directory = all_hook_input_fields.get(WORKING_DIRECTORY_KEY)
     all_file_phrases = (
-        file_waiting_phrase(each_path, working_directory) for each_path in replay.turn_sent_file_paths
+        file_waiting_phrase(each_path, working_directory) for each_path in dict.fromkeys(replay.turn_sent_file_paths)
     )
     return next((each_phrase for each_phrase in all_file_phrases if each_phrase is not None), None)
 

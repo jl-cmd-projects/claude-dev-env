@@ -25,6 +25,10 @@ import user_step_wording
         ("The build is not merged; it needs you to approve it.", "needs you"),
         ("It isn't merged yet and needs your approval.", "needs your"),
         ("The pull request is not merged and needs your review.", "needs your"),
+        ("The pull request with no failing checks needs your approval.", "needs your"),
+        ("Pull request 12 (not urgent) needs your approval.", "needs your"),
+        ("- Say when the demo sessions may be archived.", "Say when"),
+        ("- Nothing is blocked on the runner\n- Pull request 12 needs your approval", "needs your"),
     ],
 )
 def test_should_find_the_phrase_that_says_something_waits_on_the_user(
@@ -46,6 +50,11 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "> What needs you?",
         "```\necho 'this needs you'\n```",
         "None of the open items needs you.",
+        "Nothing on this list\nneeds you.",
+        "Action required: none.",
+        "The docs say when the token expires.",
+        "There are no items that need you.",
+        "I have not found anything that needs you.",
         "No step on this long list of six open items is waiting on you.",
     ],
 )
@@ -74,6 +83,29 @@ def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_pag
     started_at = time.perf_counter()
     user_step_wording.html_visible_text("<script " * 30000)
     assert time.perf_counter() - started_at < 5
+
+
+@pytest.mark.parametrize(
+    ("page_markup", "expected_phrase"),
+    [
+        ("<p>Nothing in <code>x</code> needs you.</p>", None),
+        ("<p>No item on the <abbr>PR</abbr> list <br>needs you.</p>", None),
+        ("<title>What needs you</title><template>Two items need you.</template><p>Both builds passed.</p>", None),
+        ("<ul><li>Nothing is blocked</li><li>Pull request 12 needs your approval</li></ul>", "needs your"),
+        ("<p>Both builds passed.</p></code><p>Two items need you.</p>", "need you"),
+    ],
+)
+def test_should_find_the_phrase_in_the_text_of_an_html_page(page_markup: str, expected_phrase: str | None) -> None:
+    assert user_step_wording.waiting_phrase_in_prose(user_step_wording.html_visible_text(page_markup)) == expected_phrase
+
+
+def test_should_read_a_sent_file_at_the_size_limit_and_skip_one_byte_past_it(tmp_path: Path) -> None:
+    phrase_bytes = b"Two items need you."
+    size_limit = user_step_wording.MAXIMUM_SENT_FILE_BYTES
+    (tmp_path / "at-limit.txt").write_bytes(b" " * (size_limit - len(phrase_bytes)) + phrase_bytes)
+    (tmp_path / "past-limit.txt").write_bytes(b" " * (size_limit + 1 - len(phrase_bytes)) + phrase_bytes)
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "at-limit.txt"), None) == "need you"
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "past-limit.txt"), None) is None
 
 
 def test_should_read_an_html_page_as_its_visible_text() -> None:

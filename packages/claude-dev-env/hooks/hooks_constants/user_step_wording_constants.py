@@ -14,16 +14,33 @@ USER_STEP_PATTERN = re.compile(
     r"|\baction\s+(?:needed|required)\b",
     re.IGNORECASE,
 )
-NEGATING_WORD_PATTERN = re.compile(
-    r"\b(?:nothing|none|no|not|never|neither|nor|without)\b|n['’]t\b", re.IGNORECASE
+NEGATED_CLAUSE_PATTERN = re.compile(
+    r"\b(?:nothing|none|nobody)\b"
+    r"|^\s*(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)\b"
+    r"|(?:\b(?:not|never|without|no\s+longer)|n['’]t)(?:\s+[\w-]+){0,3}\s*$",
+    re.IGNORECASE,
 )
-CLAUSE_BREAK_PATTERN = re.compile(r"[.!?\n,;:]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
+NEGATED_TAIL_PATTERN = re.compile(r"\s*[:\-–—]?\s*(?:none|nothing|no|n/a)\b", re.IGNORECASE)
+CLAUSE_BREAK_PATTERN = re.compile(
+    r"[.!?,;:|]|\n\s*\n|\n\s*[-*+#]+\s|\b(?:and|but|so|then|while)\b", re.IGNORECASE
+)
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
-ALL_HTML_HIDDEN_TAGS = frozenset({"script", "style", "template", "code", "pre", "blockquote"})
-ALL_HTML_INLINE_TAGS = frozenset(
-    {"a", "abbr", "b", "cite", "em", "font", "i", "kbd", "label", "mark", "q", "s", "small", "span", "strong", "sub", "sup", "u", "var"}
+PHRASE_TAIL_WINDOW_CHARACTERS = 16
+BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
+CLAUSE_OPENER_PATTERN = re.compile(r"[\s\-*+#>\d.)]*(?:please|just)?\s*", re.IGNORECASE)
+ALL_HTML_HIDDEN_TAGS = frozenset(
+    {"script", "style", "template", "title", "textarea", "noscript", "code", "pre", "blockquote"}
 )
-HTML_BLOCK_SEPARATOR = "\n"
+ALL_HTML_INLINE_TAGS = frozenset(
+    {
+        "a", "abbr", "b", "bdi", "bdo", "big", "cite", "code", "data", "del", "dfn", "em", "font", "i", "img",
+        "ins", "kbd", "label", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup",
+        "time", "tt", "u", "var", "wbr",
+    }
+)
+HTML_LINE_BREAK_TAG = "br"
+HTML_LINE_BREAK_TEXT = " "
+HTML_BLOCK_SEPARATOR = "\n\n"
 ALL_HTML_FILE_SUFFIXES = frozenset({".html", ".htm"})
 ALL_SENT_TEXT_FILE_SUFFIXES = frozenset({".md", ".markdown", ".txt"}) | ALL_HTML_FILE_SUFFIXES
 MAXIMUM_SENT_FILE_BYTES = 262144
