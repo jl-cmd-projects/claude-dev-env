@@ -29,12 +29,14 @@ from hooks_constants.followup_pr_dedupe_constants import (
     ALL_REPOSITORY_OPTIONS,
     ALL_TITLE_OPTIONS,
     ALL_VARIABLE_SETTING_PROGRAM_NAMES,
+    APPEND_ASSIGNMENT_MARK,
     ASSIGNMENT_SEPARATOR,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     FOLLOWUP_PARENT_PATTERN,
     GH_PROGRAM_NAME,
     GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE,
+    GH_REPOSITORY_APPEND_PREFIX,
     GH_REPOSITORY_ENVIRONMENT_NAME,
     GH_REPOSITORY_ENVIRONMENT_PREFIX,
     GITHUB_API_ROOT,
@@ -312,19 +314,27 @@ def prefix_repository(all_segment_tokens: list[str]) -> str | None:
 
     ::
 
-        ["GH_REPO=o/r", "gh", "pr", "create"]  -> "o/r"
-        ["gh", "pr", "create", "GH_REPO=o/r"]  -> None
+        ["GH_REPO=o/r", "gh", "pr", "create"]                 -> "o/r"
+        ["GH_REPO=a/b", "GH_REPO=o/r", "gh", "pr", "create"]  -> "o/r"
+        ["GH_REPO+=o/r", "gh", "pr", "create"]                -> None
+        ["gh", "pr", "create", "GH_REPO=o/r"]                 -> None
+
+    The last prefix wins, as in the shell. A ``GH_REPO+=`` prefix appends to
+    a value the gate cannot see, so the result after it is None.
 
     Args:
         all_segment_tokens: The tokens of one simple command.
     """
+    repository: str | None = None
     for each_token in all_segment_tokens:
         unquoted_word = unquoted_token(each_token)
         if token_basename(unquoted_word).removesuffix(WINDOWS_EXECUTABLE_SUFFIX) == GH_PROGRAM_NAME:
-            return None
+            break
+        if unquoted_word.startswith(GH_REPOSITORY_APPEND_PREFIX):
+            repository = None
         if unquoted_word.startswith(GH_REPOSITORY_ENVIRONMENT_PREFIX):
-            return unquoted_word[len(GH_REPOSITORY_ENVIRONMENT_PREFIX) :]
-    return None
+            repository = unquoted_word[len(GH_REPOSITORY_ENVIRONMENT_PREFIX) :]
+    return repository
 
 
 def _gh_arguments(all_segment_tokens: list[str], all_arguments: list[str], all_gh_words: list[str]) -> list[str] | None:
@@ -443,14 +453,16 @@ def sets_gh_repository(command: str) -> bool:
         export GH_REPO=o/r ; gh pr create    -> True
         GH_REPO=o/r bash -c 'gh pr create'   -> True
         declare -x GH_REPO                   -> True
+        GH_REPO+=o/r gh pr create            -> True
         GH_REPO=o/r gh pr create             -> False
         echo GH_REPO=o/r                     -> False
 
     An ``export``, ``declare``, ``typeset``, ``local`` or ``readonly`` that
     names ``GH_REPO`` counts, and so does a ``GH_REPO=`` assignment before any
-    program but a create, in the command or in a text a wrapper runs. The gate
-    does not follow the value, so a create that names no repository of its
-    own cannot be read.
+    program but a create, in the command or in a text a wrapper runs. A
+    ``GH_REPO+=`` append counts in each of those places and before a create
+    too. The gate does not follow the value, so a create that names no
+    repository of its own cannot be read.
 
     Args:
         command: The shell command text.
@@ -459,18 +471,24 @@ def sets_gh_repository(command: str) -> bool:
 
 
 def _segment_sets_gh_repository(all_segment_tokens: list[str]) -> bool:
-    if create_arguments(all_segment_tokens) is not None:
-        return False
     program, all_arguments = segment_program_and_arguments(all_segment_tokens)
     if program in ALL_VARIABLE_SETTING_PROGRAM_NAMES:
-        all_names = [unquoted_token(each_argument).partition(ASSIGNMENT_SEPARATOR)[0] for each_argument in all_arguments]
-        return GH_REPOSITORY_ENVIRONMENT_NAME in all_names
+        return GH_REPOSITORY_ENVIRONMENT_NAME in map(_assigned_name, all_arguments)
     all_unwrapped_tokens = all_tokens_after_wrappers(all_segment_tokens)
     program_index = len(all_unwrapped_tokens) - len(all_arguments) - (1 if program else 0)
-    return any(
-        unquoted_token(each_token).startswith(GH_REPOSITORY_ENVIRONMENT_PREFIX)
-        for each_token in all_unwrapped_tokens[:program_index]
+    all_prefix_words = [unquoted_token(each_token) for each_token in all_unwrapped_tokens[:program_index]]
+    is_create = create_arguments(all_segment_tokens) is not None
+    all_setting_prefixes = (
+        (GH_REPOSITORY_APPEND_PREFIX,)
+        if is_create
+        else (GH_REPOSITORY_ENVIRONMENT_PREFIX, GH_REPOSITORY_APPEND_PREFIX)
     )
+    return any(each_word.startswith(all_setting_prefixes) for each_word in all_prefix_words)
+
+
+def _assigned_name(argument: str) -> str:
+    name = unquoted_token(argument).partition(ASSIGNMENT_SEPARATOR)[0]
+    return name.removesuffix(APPEND_ASSIGNMENT_MARK)
 
 
 def _shell_followup_drafts(command: str, working_directory: str) -> list[PullRequestDraft | UnreadOriginDraft]:

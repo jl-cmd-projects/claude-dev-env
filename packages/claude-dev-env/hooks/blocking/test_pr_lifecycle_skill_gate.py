@@ -242,6 +242,8 @@ def test_action_command_shapes(tmp_path: Path) -> None:
         "gh api graphql -f name=auto-merge",
         "echo done; gh pr edit",
         "GIT_TRACE=1 git push",
+        "GIT_TRACE+=1 git push",
+        "GH_REPO+=owner/repo gh pr create",
         "env -u GH_TOKEN gh pr merge 1",
         "env --unset=GH_TOKEN GH_HOST=github.com gh pr create",
         "sudo git push",

@@ -857,6 +857,10 @@ def test_should_deny_a_create_whose_last_repository_flag_names_an_unreviewed_rep
         "GH_REPO=a/b bash -c 'gh pr create --head feature'",
         "env GH_REPO=a/b sh -c 'gh pr create --head feature'",
         "gh pr create --head feature ; export GH_REPO=a/b",
+        "export GH_REPO+=a/b ; gh pr create --head feature",
+        "GH_REPO+=a/b ; gh pr create --head feature",
+        "GH_REPO+=a/b gh pr create --head feature",
+        "GH_REPO=acme/tools GH_REPO+=x gh pr create --head feature",
     ],
 )
 def test_should_deny_as_unread_a_create_with_no_repository_when_the_command_sets_gh_repo(
@@ -878,6 +882,9 @@ def test_should_deny_as_unread_a_create_with_no_repository_when_the_command_sets
         "GH_REPO=acme/tools gh pr create --head feature ; gh pr create --head feature",
         "echo GH_REPO=a/b ; gh pr create --head feature",
         "gh pr create --head feature --body 'export GH_REPO=a/b'",
+        "GH_REPO+=a/b gh pr create --repo acme/tools --head feature",
+        "GH_REPO=a/b GH_REPO=acme/tools gh pr create --head feature",
+        "echo GH_REPO+=a/b ; gh pr create --head feature",
     ],
 )
 def test_should_read_a_create_that_names_its_own_repository_when_the_command_sets_gh_repo(

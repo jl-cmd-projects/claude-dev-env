@@ -507,6 +507,10 @@ def test_option_value_should_read_spaced_and_assigned_values() -> None:
         (["X=1", "GH_REPO=o/r", "gh.exe", "pr", "view"], "o/r"),
         (["gh", "pr", "view", "GH_REPO=o/r"], None),
         (["gh", "pr", "view"], None),
+        (["GH_REPO=a/b", "GH_REPO=o/r", "gh", "pr", "view"], "o/r"),
+        (["GH_REPO+=o/r", "gh", "pr", "view"], None),
+        (["GH_REPO=o/r", "GH_REPO+=x", "gh", "pr", "view"], None),
+        (["GH_REPO+=x", "GH_REPO=o/r", "gh", "pr", "view"], "o/r"),
     ],
 )
 def test_prefix_repository_should_read_only_a_prefix_before_gh(all_tokens: list[str], expected: str | None) -> None:
@@ -570,8 +574,14 @@ def _unasked_reader(all_asked_repositories: list[tuple[str, str]]) -> dedupe.Ope
         ("typeset -x GH_REPO=o/r", True),
         ("bash -c 'export GH_REPO=o/r'", True),
         ("env GH_REPO=o/r bash -c 'gh pr create'", True),
+        ("export GH_REPO+=o/r ; gh pr create", True),
+        ("GH_REPO+=o/r ; gh pr create", True),
+        ("declare -x GH_REPO+=o/r", True),
+        ("GH_REPO+=o/r gh pr create", True),
+        ("GH_REPO+=o/r bash -c 'gh pr create'", True),
         ("GH_REPO=o/r gh pr create", False),
         ("echo GH_REPO=o/r ; gh pr create", False),
+        ("echo GH_REPO+=o/r ; gh pr create", False),
         ("gh pr create --body 'export GH_REPO=o/r'", False),
         ("export PATH=/bin ; gh pr create", False),
     ],
@@ -595,6 +605,32 @@ def test_create_with_no_repository_should_be_refused_when_the_command_sets_gh_re
     reason = dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories))
     assert reason == GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE.format(parent_number=7)
     assert all_asked_repositories == []
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["GH_REPO+=o/r ", "export GH_REPO+=o/r ; ", "GH_REPO+=o/r ; ", "GH_REPO=acme/tools GH_REPO+=x "],
+)
+def test_create_with_no_repository_should_be_refused_when_the_command_appends_to_gh_repo(
+    tmp_path: Path, prefix: str
+) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    checkout = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    create = 'gh pr create --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(checkout), "tool_input": {"command": prefix + create}}
+    reason = dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories))
+    assert reason == GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE.format(parent_number=7)
+    assert all_asked_repositories == []
+
+
+def test_create_with_its_own_repository_should_be_read_when_the_command_appends_to_gh_repo(tmp_path: Path) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    open_followup = _open_followup(9, 7)
+    command = 'GH_REPO+=x/y gh pr create --repo o/r --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(tmp_path), "tool_input": {"command": command}}
+    reader = _keyed_reader({("o", "r"): [open_followup]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(open_followup, 7)
+    assert all_asked_repositories == [("o", "r")]
 
 
 def test_create_with_its_own_repository_should_be_read_when_the_command_sets_gh_repo(tmp_path: Path) -> None:

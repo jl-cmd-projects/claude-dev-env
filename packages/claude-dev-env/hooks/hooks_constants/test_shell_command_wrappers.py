@@ -89,6 +89,7 @@ def test_should_return_the_segments_of_every_wrapped_command_text(command: str) 
         (["command", "git", "push"], ("git", ["push"])),
         (["command", "-p", "git", "push"], ("git", ["push"])),
         (["exec", "-a", "name", "git", "push"], ("git", ["push"])),
+        (["GIT_TRACE+=1", "git", "push"], ("git", ["push"])),
     ],
 )
 def test_should_return_the_program_past_its_wrappers(

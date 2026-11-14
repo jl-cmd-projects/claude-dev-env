@@ -40,7 +40,7 @@ ALL_SHELL_CONTROL_OPERATOR_TOKENS: frozenset[str] = frozenset(
     {"&&", "||", ";", "|", "&", "|&"}
 )
 CONTROL_OPERATOR_SPLIT_PATTERN = re.compile(r"(&&|\|\||;|\|&|\||(?<!>)&(?!>))")
-LEADING_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+LEADING_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
 LAUNCHER_DURATION_PATTERN = re.compile(r"^\d+[a-z]*$", re.IGNORECASE)
 
 
@@ -75,7 +75,7 @@ def split_into_segments(all_command_tokens: list[str]) -> list[list[str]]:
 def effective_leading_program(all_segment_tokens: list[str]) -> str | None:
     """Return the effective program token after assignments and launcher wrappers.
 
-    Skips ``VAR=value`` prefixes and known launchers (``timeout``, ``env``, …)
+    Skips ``VAR=value`` and ``VAR+=value`` prefixes and known launchers (``timeout``, ``env``, …)
     plus their flags and duration arguments. Returns None when no program token
     remains.
     """
