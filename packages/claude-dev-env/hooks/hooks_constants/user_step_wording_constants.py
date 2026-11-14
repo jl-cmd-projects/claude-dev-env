@@ -2,24 +2,39 @@
 
 import re
 
+WORD_START = r"(?<![^\W_])"
+WORD_END = r"(?![^\W_])"
 USER_STEP_PATTERN = re.compile(
-    r"\bneeds?\s+your?\b"
-    r"|\bneed(?:ed|s)?\s+from\s+you\b"
-    r"|\bwait(?:s|ing)?\s+(?:on|for)\s+your?\b"
-    r"|\bblocked\s+on\s+you\b"
-    r"|\byou(?:\s+still)?\s+need\s+to\b"
-    r"|\byou(?:['’]ll|\s+will)\s+need\s+to\b"
-    r"|\bfor\s+you\s+to\s+(?:do|run|merge|approve|add|paste|click|decide|confirm|archive|sign|set)\b"
-    r"|\b(?:let\s+me\s+know|tell\s+me|say)\s+when\b"
-    r"|\baction\s+(?:needed|required)\b",
+    WORD_START
+    + r"(?:needs?\s+your?"
+    r"|need(?:ed|s)?\s+from\s+you"
+    r"|wait(?:s|ing)?\s+(?:on|for)\s+your?"
+    r"|blocked\s+on\s+you"
+    r"|you(?:\s+still)?\s+need\s+to"
+    r"|you(?:['’]ll|\s+will)\s+need\s+to"
+    r"|for\s+you\s+to\s+(?:do|run|merge|approve|add|paste|click|decide|confirm|archive|sign|set)"
+    r"|(?:let\s+me\s+know|tell\s+me|say)\s+when"
+    r"|action\s+(?:needed|required))" + WORD_END,
     re.IGNORECASE,
 )
+CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
+NEGATION_WORD_END = r"[*_]{0,3}(?![\w-])"
 NEGATED_CLAUSE_PATTERN = re.compile(
-    r"\b(?:nothing|none|nobody)\b"
-    r"|^\s*(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)\b"
-    r"|(?:\b(?:not|never|without|no\s+longer)|n['’]t)(?:\s+[\w-]+){0,3}\s*$",
+    WORD_START
+    + r"(?:nothing|none|nobody)"
+    + NEGATION_WORD_END
+    + r"|(?:"
+    + WORD_START
+    + r"(?:not|never|without|no\s+longer)|n['’]t)"
+    + NEGATION_WORD_END
+    + r"(?:\s+[\w*-]+){0,3}\s*$",
     re.IGNORECASE,
 )
+NEGATED_CLAUSE_START_PATTERN = re.compile(
+    CLAUSE_MARKERS + r"(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)" + NEGATION_WORD_END,
+    re.IGNORECASE,
+)
+CUT_WORD_PATTERN = re.compile(r"\A\w+")
 NEGATED_TAIL_PATTERN = re.compile(
     r"[\s*_]{0,8}[:\-–—][\s*_]{0,8}"
     r"(?:none|nothing|n/a|no(?:[^\S\n]+(?:action|step)s?)?)"
@@ -32,7 +47,7 @@ CLAUSE_BREAK_PATTERN = re.compile(
 )
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
-CLAUSE_OPENER_PATTERN = re.compile(r"[\s\-*+#>\d.)]*(?:please|just)?\s*", re.IGNORECASE)
+CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please|just)?\s*", re.IGNORECASE)
 ALL_HTML_HIDDEN_TAGS = frozenset(
     {"script", "style", "template", "title", "textarea", "noscript", "code", "pre", "blockquote"}
 )

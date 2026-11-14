@@ -27,27 +27,43 @@ and while, and at most 240 characters back. Three shapes negate a match:
 - not, never, without, "no longer", or a word ending in n't, up to three words
   before the match.
 
+Each of these words counts as a whole word. Emphasis marks may wrap it, as in
+"does **not** need you". A letter, a digit, an underscore, or a hyphen that
+runs on after it ends the shape, so "No-reply inbox needs your record" and
+"NO_PROXY needs your value" are held. A phrase counts inside emphasis marks
+too, as in "_needs your_ merge".
+
+The start of a clause may carry markers: white space, a list, heading, or quote
+mark, a number, a full stop, a parenthesis, a checkbox bracket, or an emphasis
+mark, as in "- No open item needs you." and "**No** item needs you." When the
+clause runs past the 240 characters, its start is out of view. Then the word
+the window cuts is dropped, the second shape does not apply, and "say when"
+does not count.
+
 A match is skipped too when it is a label with nothing under it. The label
 form is closed, and it reads in this order::
 
     the match                         Action required
     a colon or a dash                 :
     none, nothing, n/a, no,           none
-      "no action", or "no step"
+      "no action", "no actions",
+      "no step", or "no steps"
     then, when present: needed,       at this time
       required, "for now",
       "at this time", or "right now"
     the end of the sentence or line   .
 
-Up to eight spaces or Markdown emphasis marks may sit on each side of the colon
-or dash, and up to three emphasis marks before the end, as in
+Up to eight white space characters, a line break among them, or Markdown
+emphasis marks may sit on each side of the colon or dash, and up to three
+emphasis marks before the end, as in
 ``**Action required:** none.`` Every other wording after a match is held, by
 design: "Action required: NO_PROXY must list the host", "blocked on you -
 nothing else is holding it", "Action required: no, approve item 12 first", and
 a "What needs you" heading over a paragraph that says "Nothing." A wrong hold
 costs the agent one step, and a wrong skip hides a step from the user.
 
-"Say when" counts only at the start of its clause, where it is an instruction.
+"Say when" counts only at the start of its clause, where it is an instruction:
+after the same markers, and after the word please or just.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
 and plain text first, and each paragraph is read on its own. An HTML file is
@@ -81,11 +97,13 @@ from hooks_constants.user_step_wording_constants import (
     CLAUSE_BREAK_PATTERN,
     CLAUSE_LEAD_WINDOW_CHARACTERS,
     CLAUSE_OPENER_PATTERN,
+    CUT_WORD_PATTERN,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
     HTML_LINE_BREAK_TEXT,
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
+    NEGATED_CLAUSE_START_PATTERN,
     NEGATED_TAIL_PATTERN,
     USER_STEP_PATTERN,
 )
@@ -105,16 +123,28 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     reads in time that grows with its length.
     """
     for each_match in USER_STEP_PATTERN.finditer(prose_text):
-        window_start = max(0, each_match.start() - CLAUSE_LEAD_WINDOW_CHARACTERS)
-        clause_lead = CLAUSE_BREAK_PATTERN.split(prose_text[window_start : each_match.start()])[-1]
+        clause_lead, is_clause_start_in_view = _clause_lead(prose_text, each_match.start())
         is_tail_negated = NEGATED_TAIL_PATTERN.match(prose_text, each_match.end()) is not None
-        if not is_tail_negated and _hands_over_a_step(each_match.group(), clause_lead):
+        if not is_tail_negated and _hands_over_a_step(each_match.group(), clause_lead, is_clause_start_in_view):
             return each_match.group()
     return None
 
 
-def _hands_over_a_step(phrase: str, clause_lead: str) -> bool:
+def _clause_lead(prose_text: str, phrase_start: int) -> tuple[str, bool]:
+    window_start = max(0, phrase_start - CLAUSE_LEAD_WINDOW_CHARACTERS)
+    lead_window = prose_text[window_start:phrase_start]
+    if window_start:
+        lead_window = CUT_WORD_PATTERN.sub("", lead_window, count=1)
+    all_lead_clauses = CLAUSE_BREAK_PATTERN.split(lead_window)
+    return all_lead_clauses[-1], window_start == 0 or len(all_lead_clauses) > 1
+
+
+def _hands_over_a_step(phrase: str, clause_lead: str, is_clause_start_in_view: bool) -> bool:
     if NEGATED_CLAUSE_PATTERN.search(clause_lead):
+        return False
+    if not is_clause_start_in_view:
+        return not BARE_IMPERATIVE_PATTERN.match(phrase)
+    if NEGATED_CLAUSE_START_PATTERN.match(clause_lead):
         return False
     if BARE_IMPERATIVE_PATTERN.match(phrase):
         return CLAUSE_OPENER_PATTERN.fullmatch(clause_lead) is not None
