@@ -1,11 +1,14 @@
 """Behavior tests for the pull request lifecycle PreToolUse gate."""
 
 import json
+import os
 import subprocess
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
@@ -352,6 +355,60 @@ def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> N
     }
     with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
         assert gate.decision_for(payload) is None
+
+
+PICTURE_LINE = "![after](https://example.com/after.png)\n"
+CREATE_WORDS = " ".join(("gh", "pr", "create"))
+
+
+def _git_logging_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    stub_directory = tmp_path / "stub-bin"
+    stub_directory.mkdir()
+    log_path = tmp_path / "git-calls.log"
+    stub_path = stub_directory / "git"
+    stub_path.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        f"open({str(log_path)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    stub_path.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{stub_directory}{os.pathsep}{os.environ.get('PATH', '')}")
+    log_path.write_text("", encoding="utf-8")
+    return log_path
+
+
+def _origin_reads(log_path: Path) -> int:
+    return sum(each_line.startswith("remote get-url") for each_line in log_path.read_text(encoding="utf-8").splitlines())
+
+
+def _quoted_shell_create_without_repository(tmp_path: Path, body: str) -> dict[str, object]:
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    return {
+        "tool_name": "Bash",
+        "tool_input": {"command": CREATE_WORDS + ' --title "fix: quoted title" --body-file body.md'},
+        "cwd": str(tmp_path),
+    }
+
+
+def test_one_gate_run_should_read_the_origin_once_for_a_followup_body(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log_path = _git_logging_path(tmp_path, monkeypatch)
+    payload = _quoted_shell_create_without_repository(tmp_path, PROVEN_FOLLOWUP_BODY + PICTURE_LINE)
+    assert gate.decision_for(payload) is None
+    assert _origin_reads(log_path) == 1
+
+
+def test_gate_should_not_read_the_origin_when_no_body_names_a_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log_path = _git_logging_path(tmp_path, monkeypatch)
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.") + PICTURE_LINE
+    payload = _quoted_shell_create_without_repository(tmp_path, body)
+    assert gate.decision_for(payload) is None
+    assert _origin_reads(log_path) == 0
 
 
 def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:

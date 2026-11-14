@@ -12,6 +12,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
+from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_STATUS_QUERY,
@@ -1110,6 +1111,52 @@ def test_remote_added_workflow_files_should_report_none_when_a_full_page_lists_n
     )
     assert gate.remote_added_workflow_files("o/r", "main", "feature") == []
     assert gate.remote_added_workflow_files(None, "main", "feature") is None
+
+
+WAIVER_BODY = (
+    "## What this does\nAdds a guard to the tool.\n\n"
+    "```mermaid\nflowchart LR\n  A[call] --> B[guard]\n```\n\n"
+    "## Existing work\nNothing found; I searched `hooks/` and open pull requests.\n\n"
+    "## Proof in practice\nRan `python3 tool.py --check` and it printed `ok`.\n"
+    "Not run: the first GitHub Actions workflow run.\n\n"
+    "## After merge\nThe session records the run link for `new.yml`.\n"
+)
+
+
+def test_quoted_shell_create_should_look_up_the_added_workflows_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/owner/name/compare/main...some-branch"
+    all_responses = {compare_endpoint: _workflow_compare_lines(1, [f"{WORKFLOW_DIRECTORY}/new.yml"])}
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
+    (tmp_path / "body.md").write_text(WAIVER_BODY, encoding="utf-8")
+    payload = _shell(
+        'gh pr create --title "fix: quoted title" --body-file body.md'
+        " --head some-branch --base main --repo owner/name",
+        tmp_path,
+    )
+    assert gate.missing_proof_reason(payload) is None
+    assert all_endpoints.count(compare_endpoint) == 1
+
+
+def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, "new.yml")
+    all_head_references: list[str] = []
+    original_first_merge_base = gate._first_merge_base
+
+    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+        all_head_references.append(head_reference)
+        return original_first_merge_base(working_directory, head_reference)
+
+    monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
+    payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
+    assert decision_for(payload) is None
+    assert all_head_references == ["HEAD"]
+    assert decision_for(payload) is None
+    assert all_head_references == ["HEAD", "HEAD"]
 
 
 def test_unproven_line_should_stay_denied_when_it_is_about_something_other_than_a_run(tmp_path: Path) -> None:

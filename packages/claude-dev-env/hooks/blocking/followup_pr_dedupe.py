@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +34,7 @@ from hooks_constants.followup_pr_dedupe_constants import (
     STANDARD_INPUT_PATH,
     WORKFLOW_DISPATCH_TOOL_SUFFIX,
 )
+from blocking.gate_run_reads import answer_once
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pytest_invocation import unquoted_token
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
@@ -116,6 +117,12 @@ def title_from_arguments(all_arguments: list[str]) -> str | None:
 
 
 def _origin_repository(working_directory: str) -> tuple[str, str] | None:
+    return answer_once(
+        ("origin repository", working_directory), lambda: _read_origin_repository(working_directory)
+    )
+
+
+def _read_origin_repository(working_directory: str) -> tuple[str, str] | None:
     try:
         completed = subprocess.run(
             ALL_GIT_REMOTE_COMMAND_WORDS,
@@ -142,10 +149,35 @@ def _repository_from_arguments(
     return (owner, repo) if separator and owner and repo else None
 
 
-def _segment_draft(all_segment_tokens: list[str], working_directory: str) -> PullRequestDraft | None:
-    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    if program != "gh" or all_arguments[: len(ALL_GH_CREATE_WORDS)] != ALL_GH_CREATE_WORDS:
-        return None
+def all_command_segments(command: str) -> Iterator[list[str]]:
+    """Return the token list of each segment in a command and in each command a wrapper inside it runs.
+
+    ::
+
+        "git add x && gh pr view 7"  -> ["git", "add", "x"], then ["gh", "pr", "view", "7"]
+
+    A segment with a quoted word comes back twice, once with the quotes
+    removed and once with them kept, because the pipeline parser reads it both
+    ways.
+
+    Args:
+        command: The shell command text.
+    """
+    return (
+        each_segment
+        for each_text in all_wrapped_command_texts(command)
+        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+    )
+
+
+def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
+    for each_segment in all_command_segments(command):
+        program, all_arguments = segment_program_and_arguments(each_segment)
+        if program == "gh" and all_arguments[: len(ALL_GH_CREATE_WORDS)] == ALL_GH_CREATE_WORDS:
+            yield all_arguments
+
+
+def _arguments_draft(all_arguments: list[str], working_directory: str) -> PullRequestDraft | None:
     body = body_from_arguments(all_arguments, working_directory)
     repository = _repository_from_arguments(all_arguments, working_directory)
     if body is None or repository is None:
@@ -155,11 +187,49 @@ def _segment_draft(all_segment_tokens: list[str], working_directory: str) -> Pul
 
 def _shell_draft(command: str, working_directory: str) -> PullRequestDraft | None:
     all_drafts = (
-        _segment_draft(each_segment, working_directory)
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
+        _arguments_draft(all_arguments, working_directory)
+        for all_arguments in _all_create_argument_lists(command)
     )
     return next((each_draft for each_draft in all_drafts if each_draft is not None), None)
+
+
+def _names_a_parent(all_payload_fields: Mapping[str, object]) -> bool:
+    create_fields = create_tool_fields(all_payload_fields)
+    if create_fields is not None:
+        body = create_fields.get("body")
+        return isinstance(body, str) and followup_parent_number(body) is not None
+    command = shell_command(all_payload_fields)
+    if command is None:
+        return False
+    working_directory = _working_directory(all_payload_fields)
+    return any(
+        (body := body_from_arguments(all_arguments, working_directory)) is not None
+        and followup_parent_number(body) is not None
+        for all_arguments in _all_create_argument_lists(command)
+    )
+
+
+def shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
+    """Return the command text of a Bash or PowerShell call, or None for any other tool.
+
+    ::
+
+        {"tool_name": "Bash", "tool_input": {"command": "git push"}} -> "git push"
+        {"tool_name": "Read", "tool_input": {"file_path": "a.py"}}   -> None
+
+    Args:
+        all_payload_fields: The parsed PreToolUse input.
+    """
+    tool_input = all_payload_fields.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+        return None
+    return command
+
+
+def _working_directory(all_payload_fields: Mapping[str, object]) -> str:
+    working_directory = all_payload_fields.get("cwd")
+    return working_directory if isinstance(working_directory, str) else ""
 
 
 def _dispatch_fields(all_tool_input_fields: Mapping[str, object]) -> dict[str, object] | None:
@@ -206,12 +276,10 @@ def pull_request_draft(all_payload_fields: Mapping[str, object]) -> PullRequestD
         if isinstance(owner, str) and isinstance(repo, str) and isinstance(body, str):
             return PullRequestDraft(owner, repo, body)
         return None
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
+    command = shell_command(all_payload_fields)
+    if command is None:
         return None
-    working_directory = all_payload_fields.get("cwd")
-    return _shell_draft(command, working_directory if isinstance(working_directory, str) else "")
+    return _shell_draft(command, _working_directory(all_payload_fields))
 
 
 def _reason_for_parent(
@@ -237,13 +305,17 @@ def duplicate_followup_reason(
 ) -> str | None:
     """Return a deny reason when an open pull request already follows up the same parent.
 
-    Any read failure returns None, so the pull request opens.
+    Any read failure returns None, so the pull request opens. When no create
+    body carries a "Follow-up to #N" line, nothing is read, not even the
+    origin remote.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
         read_open: Reads the open pull requests of an owner and repository;
             None reads them from the GitHub API.
     """
+    if not _names_a_parent(all_payload_fields):
+        return None
     draft = pull_request_draft(all_payload_fields)
     if draft is None:
         return None

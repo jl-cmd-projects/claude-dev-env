@@ -94,6 +94,18 @@ def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) ->
     assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None
 
 
+def test_shell_command_should_return_only_a_shell_tool_command() -> None:
+    assert dedupe.shell_command({"tool_name": "PowerShell", "tool_input": {"command": "git push"}}) == "git push"
+    assert dedupe.shell_command({"tool_name": "Read", "tool_input": {"command": "git push"}}) is None
+    assert dedupe.shell_command({"tool_name": "Bash", "tool_input": {"command": 7}}) is None
+
+
+def test_all_command_segments_should_list_each_segment_and_wrapped_command() -> None:
+    all_segments = list(dedupe.all_command_segments("git add x && bash -c 'git push'"))
+    assert ["git", "add", "x"] in all_segments
+    assert ["git", "push"] in all_segments
+
+
 def test_title_from_arguments_should_read_each_title_flag_shape() -> None:
     assert dedupe.title_from_arguments(["--title", "feat: x", "--fill"]) == "feat: x"
     assert dedupe.title_from_arguments(["-t", "fix: y"]) == "fix: y"

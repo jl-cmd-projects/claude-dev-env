@@ -75,6 +75,7 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
+from blocking.gate_run_reads import gate_run
 from blocking.pull_request_proof import (
     edit_proof_reason,
     is_feature_pull_request,
@@ -384,32 +385,40 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
 
+    The checks share one gate run, so a git or GitHub question two checks
+    ask is read once.
+
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not _is_governed_action(all_payload_fields):
         return None
+    with gate_run():
+        reason = _first_broken_rule_reason(all_payload_fields)
+    return None if reason is None else deny_decision(reason)
+
+
+def _first_broken_rule_reason(all_payload_fields: dict[str, object]) -> str | None:
     if _is_skill_unloaded(all_payload_fields):
-        return deny_decision(DENY_REASON)
+        return DENY_REASON
     proof_reason = missing_proof_reason(all_payload_fields) or edit_proof_reason(all_payload_fields)
     if proof_reason is not None:
-        return deny_decision(proof_reason)
+        return proof_reason
     search_reason = missing_existing_work_reason(all_payload_fields)
     if search_reason is not None:
-        return deny_decision(search_reason)
+        return search_reason
     flowchart_reason = missing_flowchart_reason(all_payload_fields)
     if flowchart_reason is not None:
-        return deny_decision(flowchart_reason)
+        return flowchart_reason
     eval_reason = missing_eval_section_reason(all_payload_fields)
     if eval_reason is not None:
-        return deny_decision(eval_reason)
+        return eval_reason
     look_reason = missing_look_reason(all_payload_fields)
     if look_reason is not None:
-        return deny_decision(look_reason)
+        return look_reason
     if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
-        return deny_decision(MISSING_BUILD_EVAL_REASON)
-    duplicate_reason = duplicate_followup_reason(all_payload_fields)
-    return None if duplicate_reason is None else deny_decision(duplicate_reason)
+        return MISSING_BUILD_EVAL_REASON
+    return duplicate_followup_reason(all_payload_fields)
 
 
 def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
