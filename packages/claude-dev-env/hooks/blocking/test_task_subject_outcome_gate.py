@@ -38,6 +38,7 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         "Merge PR #2347 once review is clean",
         "Feature flag removed from the settings page",
         "Step notes turn off when the user asks",
+        "Phase 2.0 released to all users",
     ],
 )
 def test_should_allow_a_plain_outcome_subject(

@@ -18,7 +18,7 @@ TODO_CONTENT_KEY = "content"
 
 PROCEDURE_STEP_PREFIX_PATTERN = re.compile(
     r"^\s*(?:step|phase|stage|part|feature|bug\s+fix|refactoring|playbook)"
-    r"\s*\d{1,2}(?:\s*[-–]\s*\d{1,2})?\s*[:.)]",
+    r"\s*\d{1,2}(?:\s*[-–]\s*\d{1,2})?\s*(?:[:)]|\.(?!\d))",
     re.IGNORECASE,
 )
 CODE_SPAN_MARKER = "`"

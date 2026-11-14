@@ -7,7 +7,8 @@ carries one of these markers:
 
 - It starts with a procedure step label: step, phase, stage, part, feature,
   bug fix, refactoring, or playbook, then a number or a range of one or two
-  digits, then a colon, period, or closing parenthesis.
+  digits, then a colon, a closing parenthesis, or a period that no digit
+  follows, so a version such as 2.0 passes.
 - It holds a backtick, the mark of a code-formatted name.
 
 A call with no string subject passes, so a status-only TaskUpdate keeps working.
