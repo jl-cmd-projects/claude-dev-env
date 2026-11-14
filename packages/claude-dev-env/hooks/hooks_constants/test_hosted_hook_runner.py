@@ -20,6 +20,7 @@ if _HOOKS_DIR not in sys.path:
 
 from hooks_constants.hosted_hook_runner import (  # noqa: E402
     HostedHookRun,
+    host_exit_code,
     run_dispatcher_main,
     run_hook_capturing_output,
 )
@@ -153,3 +154,14 @@ def test_run_dispatcher_main_skips_dispatch_when_tool_name_is_missing(
 
     assert int(raised_exit.value.code or 0) == 0
     assert all_calls == []
+
+
+def test_should_record_the_exit_code_a_hook_passes_to_system_exit(tmp_path: Path) -> None:
+    probe_path = _write_probe(tmp_path, "import sys\nsys.exit(2)\n")
+    assert run_hook_capturing_output(probe_path, "{}").exit_code == 2
+
+
+def test_should_hand_the_host_exit_two_only_when_a_hosted_hook_exited_two() -> None:
+    assert host_exit_code([HostedHookRun("", False, 0), HostedHookRun("", False, 2)]) == 2
+    assert host_exit_code([HostedHookRun("", False, 0), HostedHookRun("", False, 1)]) == 0
+    assert host_exit_code([]) == 0

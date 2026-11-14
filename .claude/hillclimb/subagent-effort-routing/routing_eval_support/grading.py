@@ -67,7 +67,7 @@ def is_allowed_pair(model: object, effort: object) -> bool:
 
     ::
 
-        ("claude-opus-5-5", "medium") -> True     ("opus", "high") -> False
+        ("claude-opus-5-5", "high") -> True       ("opus", "max") -> False
         ("claude-haiku-5-5", "max") -> True       ("gpt-5", "low") -> False
 
     Args:
@@ -211,7 +211,7 @@ def grade_case(
 
         no spawn                            -> in_rule 1, spawned 0, named_in_rule 0, routed 0
         one Opus child at medium, routed    -> in_rule 1, spawned 1, named_in_rule 0, routed 1
-        one Opus child at high              -> in_rule 0, spawned 1
+        one Opus child at max               -> in_rule 0, spawned 1
 
     Args:
         all_spawns: The session's Agent and Task calls.

@@ -2,9 +2,6 @@
 
 HOOK_EVENT_NAME = "Stop"
 TRANSCRIPT_PATH_KEY = "transcript_path"
-DECISION_KEY = "decision"
-BLOCK_DECISION = "block"
-REASON_KEY = "reason"
 ALLOW_EXIT_CODE = 0
 STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
 UTF8_ENCODING = "utf-8"
@@ -33,7 +30,6 @@ TODO_MERGE_KEY = "merge"
 ROLE_KEY = "role"
 ASSISTANT_ROLE = "assistant"
 CURSOR_CONVERSATION_ID_KEY = "conversation_id"
-CURSOR_FOLLOWUP_MESSAGE_KEY = "followup_message"
 CURSOR_STATUS_KEY = "status"
 CURSOR_COMPLETED_STATUS = "completed"
 CURSOR_LOOP_COUNT_KEY = "loop_count"

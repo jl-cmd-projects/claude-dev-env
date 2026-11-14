@@ -12,8 +12,11 @@ import os
 import pathlib
 import subprocess
 import sys
+import time
 
 import pytest
+
+from lifecycle import nested_project_hooks
 
 HOOK_SCRIPT_PATH = pathlib.Path(__file__).parent / "nested_project_hooks.py"
 BLOCKING_EXIT_CODE = 2
@@ -495,3 +498,52 @@ def test_should_skip_a_child_whose_settings_cannot_be_read(
     completed_process = _run_hook(tmp_path, _pre_tool_use_payload("Bash"))
 
     assert completed_process.returncode == 0
+
+
+def test_should_end_inside_the_run_budget_when_every_child_hook_hangs(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for each_name in ("alpha", "beta", "gamma"):
+        _make_checkout(
+            tmp_path,
+            each_name,
+            {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "sleep 5", "timeout": 1}]}]},
+        )
+    monkeypatch.setattr(
+        nested_project_hooks, "ALL_RUN_BUDGET_SECONDS_BY_EVENT", {"PreToolUse": 1.5}, raising=False
+    )
+    started_at = time.monotonic()
+
+    verdict = nested_project_hooks.forward_nested_hooks(
+        tmp_path, json.dumps(_pre_tool_use_payload("Bash"))
+    )
+
+    assert verdict.exit_code == 0
+    assert time.monotonic() - started_at < 2.2
+
+
+def test_should_allow_and_write_one_line_for_each_child_the_time_limit_cuts_off(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    deny_command = f"sleep 5; echo '{json.dumps(_deny_output('too late'))}'"
+    for each_name in ("alpha", "beta", "gamma"):
+        _make_checkout(
+            tmp_path,
+            each_name,
+            {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": deny_command, "timeout": 1}]}]},
+        )
+    monkeypatch.setattr(
+        nested_project_hooks, "ALL_RUN_BUDGET_SECONDS_BY_EVENT", {"PreToolUse": 1.5}, raising=False
+    )
+
+    verdict = nested_project_hooks.forward_nested_hooks(
+        tmp_path, json.dumps(_pre_tool_use_payload("Bash"))
+    )
+
+    all_diagnostic_lines = capsys.readouterr().err.splitlines()
+    assert (verdict.exit_code, verdict.stdout_text) == (0, "")
+    assert [each_line.split(":")[1].strip() for each_line in all_diagnostic_lines] == [
+        "alpha",
+        "beta",
+        "gamma",
+    ]

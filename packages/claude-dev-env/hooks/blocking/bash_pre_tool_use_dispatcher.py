@@ -11,6 +11,8 @@ A deny short-circuits the remaining chain: once any hosted hook denies, the
 dispatcher aggregates what has run so far, emits that deny immediately, and
 returns so a later process timeout cannot drop an already-known denial. Ask and
 allow continue through the full roster because a later hook may still deny.
+A hosted hook that exits 2 short-circuits the chain the same way, and the
+dispatcher exits 2, so the host blocks the tool call with that hook's stderr.
 
 A single hosted hook crash fails open: it contributes no decision and does not
 stop the remaining hooks, matching a standalone hook whose uncaught exception
@@ -36,6 +38,7 @@ from hooks_constants.bash_pre_tool_use_dispatcher_constants import (
     BashHostedHookEntry,
 )
 from hooks_constants.hosted_hook_runner import (
+    host_exit_code,
     run_dispatcher_main,
     run_hook_capturing_output,
     HostedHookRun,
@@ -251,11 +254,13 @@ def _run_is_deny(hook_run: HostedHookRun) -> bool:
     return parsed_decision.decision == DENY_DECISION
 
 
-def dispatch(payload_text: str, tool_name: str) -> None:
-    """Run applicable hosted hooks and emit the aggregated decision.
+def dispatch(payload_text: str, tool_name: str) -> int:
+    """Run applicable hosted hooks, emit the aggregated decision, and return the exit code.
 
-    Emits and returns as soon as any hosted hook denies so a process timeout
-    later in the chain cannot fail-open past an already-known denial.
+    Emits and returns as soon as any hosted hook denies or exits 2, so a
+    process timeout later in the chain cannot fail-open past an already-known
+    denial. Returns 2 when a hosted hook exited 2, so the host blocks the call
+    with that hook's stderr, and 0 otherwise.
     """
     applicable_entries = select_applicable_entries(tool_name)
     all_runs: list[HostedHookRun] = []
@@ -263,12 +268,11 @@ def dispatch(payload_text: str, tool_name: str) -> None:
         script_path = resolved_hook_script_path(each_entry.script_relative_path)
         hook_run = run_hook_capturing_output(script_path, payload_text)
         all_runs.append(hook_run)
-        if _run_is_deny(hook_run):
-            aggregated_decision = aggregate_bash_hook_results(all_runs)
-            _emit_decision(aggregated_decision)
-            return
+        if _run_is_deny(hook_run) or host_exit_code([hook_run]):
+            break
     aggregated_decision = aggregate_bash_hook_results(all_runs)
     _emit_decision(aggregated_decision)
+    return host_exit_code(all_runs)
 
 
 def main() -> None:

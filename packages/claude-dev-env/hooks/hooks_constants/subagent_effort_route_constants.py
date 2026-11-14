@@ -1,29 +1,30 @@
 """Constants for the subagent effort route.
 
-Groups: the allowed effort for each Anthropic model family, the effort a spawn
-gets when it names none or names one outside its family's list, the tool
-input keys, and the hook output text.
+Groups: where the hand-edited effort levels file lives and the keys it uses,
+the built-in levels used when that file is missing or invalid, the tool input
+keys, and the hook output text.
 """
 
 from __future__ import annotations
 
-OPUS_MODEL_FAMILY = "opus"
-SONNET_MODEL_FAMILY = "sonnet"
-FABLE_MODEL_FAMILY = "fable"
-HAIKU_MODEL_FAMILY = "haiku"
+from pathlib import Path
 
-ALL_ALLOWED_EFFORTS_BY_FAMILY: dict[str, tuple[str, ...]] = {
-    OPUS_MODEL_FAMILY: ("medium",),
-    SONNET_MODEL_FAMILY: ("high",),
-    FABLE_MODEL_FAMILY: ("low", "medium", "high"),
-    HAIKU_MODEL_FAMILY: ("low", "medium", "high", "xhigh", "max"),
-}
+EFFORT_LEVELS_PATH = Path(__file__).resolve().parent / "subagent_effort_levels.json"
+ALLOWED_EFFORTS_KEY = "allowed"
+DEFAULT_EFFORT_KEY = "default"
+EFFORT_LEVELS_FALLBACK_DIAGNOSTIC = (
+    "subagent effort route: {path} is missing or invalid ({problem}); using the built-in effort levels.\n"
+)
+ALL_KNOWN_EFFORT_NAMES = ("low", "medium", "high", "xhigh", "max")
 
-ALL_ROUTED_EFFORT_BY_FAMILY: dict[str, str] = {
-    OPUS_MODEL_FAMILY: "medium",
-    SONNET_MODEL_FAMILY: "high",
-    FABLE_MODEL_FAMILY: "high",
-    HAIKU_MODEL_FAMILY: "medium",
+ALL_BUILT_IN_EFFORT_LEVELS_BY_FAMILY: dict[str, dict[str, object]] = {
+    "opus": {ALLOWED_EFFORTS_KEY: ("medium", "high"), DEFAULT_EFFORT_KEY: "medium"},
+    "sonnet": {ALLOWED_EFFORTS_KEY: ("high",), DEFAULT_EFFORT_KEY: "high"},
+    "fable": {ALLOWED_EFFORTS_KEY: ("low", "medium", "high"), DEFAULT_EFFORT_KEY: "high"},
+    "haiku": {
+        ALLOWED_EFFORTS_KEY: ("low", "medium", "high", "xhigh", "max"),
+        DEFAULT_EFFORT_KEY: "medium",
+    },
 }
 
 MODEL_INPUT_KEY = "model"

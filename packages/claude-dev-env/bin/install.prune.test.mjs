@@ -1615,6 +1615,98 @@ test('a full reinstall removes a retired hook entry under an event type the curr
     }
 });
 
+const RETIRED_TITLE_GATE_RELATIVE_SEGMENTS = ['blocking', 'session_title_turn_gate.py'];
+const TITLE_HOOK_NAME_FRAGMENT = 'session_title';
+
+
+/**
+ * List the hook commands the settings file holds under one event type.
+ *
+ * @param {object} settings The parsed settings object.
+ * @param {string} eventType The hook event type, such as Stop.
+ * @returns {string[]} Each hook command under that event type.
+ */
+function hookCommandsForEvent(settings, eventType) {
+    return (settings.hooks?.[eventType] ?? [])
+        .flatMap(group => group.hooks || [])
+        .map(hook => hook.command ?? '');
+}
+
+/**
+ * Put back the session title Stop entry an earlier install wrote.
+ *
+ * @param {object} sandbox The sandbox a first install already ran in.
+ * @param {string[]} allUserStopCommands Stop commands the user wrote, each added as its own group.
+ */
+function seedRetiredTitleStopEntry(sandbox, allUserStopCommands) {
+    const retiredGatePath = join(
+        sandbox.claudeDirectory, HOOKS_DIRECTORY_NAME, ...RETIRED_TITLE_GATE_RELATIVE_SEGMENTS,
+    );
+    writeFileWithParents(retiredGatePath, RETIRED_HOOK_SEEDED_CONTENTS);
+    appendManifestFiles(sandbox.manifestPath, [retiredGatePath]);
+    const retiredGateCommand = `python3 "${retiredGatePath.replace(/\\/g, '/')}"`;
+    const settings = readSettings(sandbox.claudeDirectory);
+    settings.hooks.Stop[0].hooks.push({ type: 'command', command: retiredGateCommand, timeout: 10 });
+    for (const eachUserCommand of allUserStopCommands) {
+        settings.hooks.Stop.push({ hooks: [{ type: 'command', command: eachUserCommand }] });
+    }
+    writeFileSync(
+        join(sandbox.claudeDirectory, SETTINGS_FILE_NAME),
+        JSON.stringify(settings, null, 4) + '\n',
+    );
+}
+
+test('an uninstall removes the session title Stop entry an earlier install wrote and keeps a user Stop entry', () => {
+    const sandbox = createSandbox();
+    try {
+        runInstaller(sandbox.homeDirectory, []);
+        seedRetiredTitleStopEntry(sandbox, [USER_HOOK_COMMAND]);
+
+        runInstaller(sandbox.homeDirectory, ['--uninstall']);
+
+        assert.deepEqual(
+            hookCommandsForEvent(readSettings(sandbox.claudeDirectory), 'Stop'),
+            [USER_HOOK_COMMAND],
+            'only the Stop entry the user wrote stays',
+        );
+    } finally {
+        rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
+test('a full reinstall registers no session title Stop hook and removes the one an earlier install wrote', () => {
+    const sandbox = createSandbox();
+    try {
+        runInstaller(sandbox.homeDirectory, []);
+        const titleStopCommands = () => hookCommandsForEvent(
+            readSettings(sandbox.claudeDirectory), 'Stop',
+        ).filter(command => command.includes(TITLE_HOOK_NAME_FRAGMENT));
+        assert.deepEqual(titleStopCommands(), [], 'a fresh install registers no session title Stop hook');
+
+        seedRetiredTitleStopEntry(sandbox, []);
+
+        runInstaller(sandbox.homeDirectory, []);
+
+        const reinstalledSettings = readSettings(sandbox.claudeDirectory);
+        assert.deepEqual(titleStopCommands(), [], 'the reinstall removes the earlier session title Stop entry');
+        const allStopCommands = hookCommandsForEvent(reinstalledSettings, 'Stop');
+        for (const eachKeptStopScript of ['final_reply_gate.py', 'open_tasks_stop_gate.py']) {
+            assert.ok(
+                allStopCommands.some(command => command.includes(eachKeptStopScript)),
+                `the ${eachKeptStopScript} Stop entry stays`,
+            );
+        }
+        assert.ok(
+            hookCommandsForEvent(reinstalledSettings, 'PreToolUse').some(
+                command => command.includes('session_title_format_gate.py'),
+            ),
+            'the title format gate stays on PreToolUse',
+        );
+    } finally {
+        rmSync(sandbox.homeDirectory, { recursive: true, force: true });
+    }
+});
+
 const UNSHIPPED_GATE_RELATIVE_SEGMENTS = ['blocking', 'merge_over_review_offer_gate.py'];
 const UNSHIPPED_GATE_MATCHER = 'AskUserQuestion|mcp__.*__ask_decision';
 const USER_AUTHORED_HOOK_RELATIVE_SEGMENTS = ['blocking', 'codemap_first_redirector.py'];

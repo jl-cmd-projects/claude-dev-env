@@ -19,6 +19,13 @@ so no child widens permissions for the session. The ``additionalContext`` of
 every child, at SessionStart, UserPromptSubmit, and PreToolUse, joins into one
 ``additionalContext``.
 
+All children of one event share a run budget 2 seconds under that event's
+registration: 118 seconds at PreToolUse and UserPromptSubmit, 1798 at
+SessionStart. A child gets the smaller of its own timeout and the time left,
+and a child with no time left does not start. Each child that does not start
+or is stopped writes one line to stderr and adds nothing, so a spent budget
+never denies a call by itself.
+
 When the session directory is itself a checkout or holds its own settings,
 Claude Code already runs those hooks, and this hook exits at once.
 """
@@ -57,6 +64,10 @@ from hooks_constants.nested_project_hooks_constants import (
     MATCHER_KEY,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
+    ALL_RUN_BUDGET_SECONDS_BY_EVENT,
+    CUT_OFF_CHILD_LINE_TEMPLATE,
+    NOT_STARTED_OUTCOME,
+    STOPPED_OUTCOME_TEMPLATE,
     SESSION_START_EVENT,
     SETTINGS_DIRECTORY_NAME,
     SETTINGS_ENCODING,
@@ -71,6 +82,7 @@ from hooks_constants.hook_specific_output_keys import (
     PERMISSION_DECISION_KEY,
     PERMISSION_DECISION_REASON_KEY,
 )
+from hooks_constants.hook_time_budget import call_timeout, time_budget
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 
 
@@ -241,10 +253,14 @@ def run_nested_hook(
 
     Returns:
         The completed process, or None when no shell exists, the command
-        cannot start, or it outlives its timeout.
+        cannot start, it outlives its timeout, or the run budget is spent.
     """
     shell_program = _shell_program()
     if shell_program is None:
+        return None
+    timeout_seconds = call_timeout(nested_hook.timeout_seconds)
+    if timeout_seconds is None:
+        _write_cut_off_line(nested_hook, NOT_STARTED_OUTCOME)
         return None
     try:
         return subprocess.run(
@@ -254,12 +270,25 @@ def run_nested_hook(
             text=True,
             cwd=nested_hook.project_directory,
             env=_hook_environment(nested_hook.project_directory),
-            timeout=nested_hook.timeout_seconds,
+            timeout=timeout_seconds,
             check=False,
             creationflags=hidden_window_creation_flags(),
         )
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired:
+        _write_cut_off_line(nested_hook, STOPPED_OUTCOME_TEMPLATE.format(seconds=timeout_seconds))
         return None
+    except OSError:
+        return None
+
+
+def _write_cut_off_line(nested_hook: NestedHook, outcome: str) -> None:
+    sys.stderr.write(
+        CUT_OFF_CHILD_LINE_TEMPLATE.format(
+            checkout=nested_hook.project_directory.name,
+            command=nested_hook.command,
+            outcome=outcome,
+        )
+    )
 
 
 def _parsed_hook_output(stdout_text: str) -> dict[str, object] | None:
@@ -448,7 +477,8 @@ def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerd
     all_nested_hooks = collect_nested_hooks(
         session_directory, event_name, match_target if isinstance(match_target, str) else ""
     )
-    all_results = _completed_results(all_nested_hooks, payload_text)
+    with time_budget(ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]):
+        all_results = _completed_results(all_nested_hooks, payload_text)
     if event_name == PRE_TOOL_USE_EVENT:
         return pre_tool_use_verdict(all_results)
     return additional_context_verdict(all_results, event_name)

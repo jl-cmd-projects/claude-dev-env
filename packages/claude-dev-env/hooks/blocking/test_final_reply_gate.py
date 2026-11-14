@@ -108,8 +108,9 @@ def test_should_block_a_windows_path_markdown_mangles(
     reply_text: str,
     quoted_text: str,
 ) -> None:
-    _, stdout_text = run_gate(monkeypatch, capsys, reply_text)
+    exit_code, stdout_text = run_gate(monkeypatch, capsys, reply_text)
     decision = json.loads(stdout_text)
+    assert exit_code == 2
     assert decision["decision"] == "block"
     assert quoted_text in decision["reason"]
 
@@ -254,8 +255,9 @@ def test_should_block_a_closing_question_no_question_tool_sent(
     all_turn_records: list[dict[str, object]],
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", all_turn_records)
-    _, stdout_text = run_gate(monkeypatch, capsys, reply_text, transcript_path)
+    exit_code, stdout_text = run_gate(monkeypatch, capsys, reply_text, transcript_path)
     decision = json.loads(stdout_text)
+    assert exit_code == 2
     assert decision["decision"] == "block"
     assert "AskUserQuestion" in decision["reason"]
     assert "Rewrite the reply without it." not in decision["reason"]
@@ -343,3 +345,25 @@ def test_should_pass_a_closing_question_when_the_transcript_cannot_be_read(
 ) -> None:
     _, stdout_text = run_gate(monkeypatch, capsys, BARE_QUESTION_REPLY, tmp_path / "missing.jsonl")
     assert stdout_text == ""
+
+
+def test_should_block_a_closing_question_when_the_transcript_holds_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_bytes(b"\xff\n")
+    exit_code, stdout_text = run_gate(monkeypatch, capsys, BARE_QUESTION_REPLY, transcript_path)
+    assert exit_code == 2
+    assert "AskUserQuestion" in json.loads(stdout_text)["reason"]
+
+
+def test_should_write_the_block_reason_to_stderr_as_well(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    hook_input = {"hook_event_name": "Stop", "last_assistant_message": INSIGHTS_REPLY}
+    monkeypatch.setattr(
+        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+    )
+    assert final_reply_gate.main() == 2
+    captured = capsys.readouterr()
+    assert captured.err == json.loads(captured.out)["reason"]
