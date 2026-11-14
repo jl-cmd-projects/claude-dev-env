@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.4...claude-dev-env-v8.117.5) (2026-11-14)
+
+
+### Bug Fixes
+
+* **advisor:** skip the advisor prompt for a session on the advisor model ([#2363](https://github.com/jl-cmd-projects/claude-dev-env/issues/2363)) ([a787646](https://github.com/jl-cmd-projects/claude-dev-env/commit/a787646f61b50a85dc43b0e6d1b776c79488f42f))
+
 ## [8.117.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.3...claude-dev-env-v8.117.4) (2026-11-14)
 
 
