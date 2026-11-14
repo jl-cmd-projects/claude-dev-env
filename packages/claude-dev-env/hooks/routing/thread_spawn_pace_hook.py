@@ -56,14 +56,14 @@ from hooks_constants.thread_spawn_pace_hook_constants import (
     USAGE_PACE_SCRIPT_FILE_NAME,
     USAGE_PACE_TIMEOUT_SECONDS,
 )
-from hooks_constants.subagent_effort_route_constants import ROUTED_CONTEXT_TEMPLATE
+from hooks_constants.subagent_effort_route_constants import EFFORT_LEVELS_PATH, ROUTED_CONTEXT_TEMPLATE
 from hooks_constants.usage_pace_constants import (
     EXIT_CODE_UNDER_PACE,
     EXIT_CODE_UNREADABLE,
     RESULT_KEY_ERROR,
     RESULT_KEY_OVER_PACE,
 )
-from subagent_effort_route import route_spawn_input
+from subagent_effort_route import load_effort_levels, route_spawn_input
 
 
 class SpawnNotReshapable(Exception):
@@ -126,7 +126,7 @@ def decide_hook_output(
         None to pass the call through unchanged, else the hook JSON output.
     """
     if pace_exit_code == EXIT_CODE_UNDER_PACE:
-        routed = route_spawn_input(tool_input, None)
+        routed = route_spawn_input(tool_input, None, load_effort_levels(EFFORT_LEVELS_PATH))
         if routed is None:
             return None
         routed_input, family, effort = routed

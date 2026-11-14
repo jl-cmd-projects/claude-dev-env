@@ -37,7 +37,7 @@ This table adapts [Which Claude model should you build with](https://claude.dev/
 ## Move up
 
 - Move to Fable for the hardest coding, finance and science work.
-- Move to Fable when Opus medium falls short on a task. The article says "when Opus at high falls short". Here Opus runs at medium only.
+- Move to Fable when Opus falls short on a task at the highest effort the [effort levels file](../../hooks/hooks_constants/subagent_effort_levels.json) allows it. The article says "when Opus at high falls short".
 - Move to Fable for long runs with no one watching.
 - Before you move up, follow the [escalation ladder](escalation.md).
 

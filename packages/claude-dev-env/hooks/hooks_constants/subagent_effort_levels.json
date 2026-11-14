@@ -1,0 +1,6 @@
+{
+  "opus": {"allowed": ["medium", "high"], "default": "medium"},
+  "sonnet": {"allowed": ["high"], "default": "high"},
+  "fable": {"allowed": ["low", "medium", "high"], "default": "high"},
+  "haiku": {"allowed": ["low", "medium", "high", "xhigh", "max"], "default": "medium"}
+}

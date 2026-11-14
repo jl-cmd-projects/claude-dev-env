@@ -121,6 +121,7 @@ def test_should_run_the_worker_at_an_allowed_effort(
     ("model", "effort", "expected_effort"),
     [
         ("opus", "xhigh", "medium"),
+        ("opus", "high", "high"),
         ("sonnet", None, "high"),
         ("haiku", "max", "max"),
         ("gpt-5", "xhigh", "xhigh"),
