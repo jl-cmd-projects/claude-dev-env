@@ -27,3 +27,18 @@ def test_should_return_the_subcommand_tokens_past_global_options(
     all_arguments: list[str], all_expected_tokens: list[str]
 ) -> None:
     assert shell_command_segments.git_subcommand_tokens(all_arguments) == all_expected_tokens
+
+
+@pytest.mark.parametrize(
+    ("all_segment_tokens", "expected_program"),
+    [
+        (["GIT_TRACE=1", "git", "push"], "git"),
+        (["GIT_TRACE+=1", "git", "push"], "git"),
+        (["GIT_TRACE+=1"], None),
+        (["a+b=1", "git", "push"], "a+b=1"),
+    ],
+)
+def test_should_step_over_set_and_append_assignments_to_the_program(
+    all_segment_tokens: list[str], expected_program: str | None
+) -> None:
+    assert shell_command_segments.effective_leading_program(all_segment_tokens) == expected_program

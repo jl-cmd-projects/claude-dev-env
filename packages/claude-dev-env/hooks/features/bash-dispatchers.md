@@ -4,7 +4,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 
 ## Checks
 
-- `blocking/bash_pre_tool_use_dispatcher.py` combines hosted shell decisions and forwards an updated command when a hosted rewriter allows it.
+- `blocking/bash_pre_tool_use_dispatcher.py` combines hosted shell decisions and forwards an updated command when a hosted rewriter allows it. When no hosted hook decides but one prints a top-level `systemMessage`, such as the warning `transcript_root_search_gate.py` prints when its check raises, the dispatcher prints that `systemMessage` alone, with no `permissionDecision`.
 - `blocking/msys_rev_path_rewriter.py` adds a narrow `MSYS2_ARG_CONV_EXCL` prefix for affected revision and path tokens.
 - `blocking/headless_claude_broker_gate.py` denies a headless `claude -p` or `claude --print` call and names the broker command to run instead.
 - `blocking/gh_global_account_switch_gate.py` denies `gh auth switch`, `gh auth login`, and `gh auth logout` and names the per-command `GH_TOKEN` form to run instead.

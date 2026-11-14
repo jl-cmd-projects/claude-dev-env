@@ -41,6 +41,7 @@ from pre_tool_use_dispatcher import (  # noqa: E402, I001
     _emit_allow_decision,
     _emit_deny_decision,
     aggregate_hosted_hook_results,
+    dispatch,
     run_hosted_hook,
     unique_first_seen_strings,
 )
@@ -832,3 +833,66 @@ def test_hosted_hook_set_retains_boundaries_and_excludes_replaced_file_checks() 
     assert not all_hosted_script_paths.intersection(ALL_RETIRED_PATHS)
     for each_relative_path in ALL_RETIRED_PATHS:
         assert (_HOOKS_ROOT / each_relative_path).is_file()
+
+
+WRITE_FAULT_SYSTEM_MESSAGE = "fault_hook.py hit a fault and did not check this call"
+
+
+def _hosted_entry_for(script_path: Path) -> HostedHookEntry:
+    return HostedHookEntry(
+        script_relative_path=str(script_path), applicable_tool_names=frozenset({WRITE_TOOL_NAME})
+    )
+
+
+def test_dispatch_prints_a_system_message_alone_when_no_hook_decides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A hosted hook's message with no deny and no allow reaches the user with no permissionDecision."""
+    fault_hook = tmp_path / "fault_hook.py"
+    fault_hook.write_text(
+        "import json\nprint(json.dumps({'systemMessage': " + repr(WRITE_FAULT_SYSTEM_MESSAGE) + "}))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "pre_tool_use_dispatcher._select_applicable_hooks", lambda tool_name: [_hosted_entry_for(fault_hook)]
+    )
+    payload_text = _write_payload(str(tmp_path / "a.py"), "x = 1\n")
+    dispatch(payload_text, WRITE_TOOL_NAME, json.loads(payload_text))
+    all_lines = capsys.readouterr().out.splitlines()
+    assert [json.loads(each_line) for each_line in all_lines] == [{"systemMessage": WRITE_FAULT_SYSTEM_MESSAGE}]
+
+
+def test_dispatch_prints_nothing_when_no_hook_decides_or_speaks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A silent hosted hook leaves the dispatcher silent."""
+    silent_hook = tmp_path / "silent_hook.py"
+    silent_hook.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        "pre_tool_use_dispatcher._select_applicable_hooks", lambda tool_name: [_hosted_entry_for(silent_hook)]
+    )
+    payload_text = _write_payload(str(tmp_path / "a.py"), "x = 1\n")
+    dispatch(payload_text, WRITE_TOOL_NAME, json.loads(payload_text))
+    assert capsys.readouterr().out == ""
+
+
+def test_dispatch_denies_with_the_fault_reason_when_the_proof_edit_gate_check_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A fault in the proof edit gate still refuses the write, as a crash did, and names the fault."""
+
+    def raise_transcript_fault(all_payload_fields: dict[str, object]) -> list[str]:
+        raise RuntimeError("transcript list broke")
+
+    monkeypatch.setattr("blocking.pr_lifecycle_skill_gate.transcript_paths", raise_transcript_fault)
+    proof_edit_entry = HostedHookEntry(
+        script_relative_path="blocking/pull_request_proof_edit_gate.py",
+        applicable_tool_names=frozenset({WRITE_TOOL_NAME}),
+    )
+    monkeypatch.setattr("pre_tool_use_dispatcher._select_applicable_hooks", lambda tool_name: [proof_edit_entry])
+    payload_text = _write_payload(str(tmp_path / "pull_request_proof.py"), "x = 1\n")
+    dispatch(payload_text, WRITE_TOOL_NAME, json.loads(payload_text))
+    hook_specific = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert hook_specific["permissionDecision"] == DENY_DECISION
+    assert hook_specific["permissionDecisionReason"].startswith("The pull request proof edit gate hit a fault")
+    assert "RuntimeError: transcript list broke" in hook_specific["permissionDecisionReason"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 HOOK_EVENT_NAME = "PreToolUse"
+GATE_NAME = "merge review"
 DENY_DECISION = "deny"
 PERMISSION_DECISION_REASON_KEY = "permissionDecisionReason"
 
@@ -20,10 +21,99 @@ EXPECTED_HEAD_FIELD = "expectedHeadSha"
 HEAD_BRANCH_FIELD = "head"
 CWD_FIELD = "cwd"
 
+ALL_HEAD_OPTIONS = frozenset({"-H", "--head"})
+ALL_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
+LONG_REPOSITORY_OPTION = "--repo"
+REPOSITORY_SHORT_LETTER = "R"
+HEAD_SHORT_LETTER = "H"
+SHORT_OPTION_PREFIX = "-"
+OPTION_AND_VALUE_WIDTH = 2
+GH_PROGRAM_NAME = "gh"
+ALL_VALUELESS_LONG_CREATE_OPTIONS = frozenset(
+    {
+        "--draft",
+        "--dry-run",
+        "--editor",
+        "--fill",
+        "--fill-first",
+        "--fill-verbose",
+        "--help",
+        "--no-maintainer-edit",
+        "--web",
+    }
+)
+ALL_VALUELESS_SHORT_CREATE_LETTERS = frozenset({"d", "e", "f", "h", "w"})
+ALL_CHANGE_FOLDER_PROGRAMS = frozenset({"cd", "chdir", "set-location", "sl"})
+ALL_HOME_DEFAULT_PROGRAMS = frozenset({"cd", "chdir"})
+ALL_PUSH_FOLDER_PROGRAMS = frozenset({"pushd", "push-location"})
+ALL_POP_FOLDER_PROGRAMS = frozenset({"popd", "pop-location"})
+ALL_FOLDER_CHANGE_WORDS = (
+    ALL_CHANGE_FOLDER_PROGRAMS | ALL_PUSH_FOLDER_PROGRAMS | ALL_POP_FOLDER_PROGRAMS
+)
+ALL_PATH_PARAMETER_NAMES = frozenset({"-path", "-literalpath"})
+ALL_UNFOLLOWED_FOLDER_CHARACTERS = frozenset("$`*?[{%")
+PREVIOUS_FOLDER_ARGUMENT = "-"
+HOME_FOLDER = "~"
+OPTION_PREFIX = "-"
+SUBSHELL_OPEN_OPERATOR = "("
+SUBSHELL_CLOSE_TOKEN = ")"
+ALL_PIPE_OPERATORS = frozenset({"|", "|&"})
+ALL_BACKGROUND_OPERATORS = frozenset({"&"})
+BRACE_OPEN_OPERATOR = "{"
+BRACE_CLOSE_TOKEN = "}"
+ALL_COMPOUND_OPEN_WORDS = frozenset({"if", "while", "until", "for", "case", "select"})
+ALL_COMPOUND_CLOSE_WORDS = frozenset({"fi", "done", "esac"})
+ALL_COMPOUND_BODY_WORDS = frozenset({"then", "elif", "else", "do"})
+ALL_COMMAND_PREFIX_WORDS = frozenset({"builtin", "command"})
+SEGMENT_TOKEN_JOIN = " "
+IS_POSIX_TOKENIZATION = True
+ALL_UNBALANCED_TOKENIZATION_MODES = (True, False)
+ANSI_C_QUOTE_OPENER = "$'"
+GROUP_OPEN_CHARACTER = "("
+GROUP_CLOSE_CHARACTER = ")"
+COMMENT_START_CHARACTER = "#"
+HEREDOC_START_CHARACTER = "<"
+CARRIAGE_RETURN_LINE_BREAK = "\r\n"
+CARRIAGE_RETURN = "\r"
+LINE_FEED = "\n"
+END_OF_OPTIONS_PREFIX = "-- "
+NESTED_LINE_BREAK_JOIN = ";"
+ALL_CLOSING_CHARACTERS = SUBSHELL_CLOSE_TOKEN + NESTED_LINE_BREAK_JOIN
+SUBSTITUTION_KEY_IGNORED_PATTERN = re.compile(r"[\s\\\"']")
+SINGLE_QUOTE_INSIDE_SINGLE_QUOTES = "'\\''"
+ALL_ANSI_C_ESCAPES = {
+    "n": "\n",
+    "t": "\t",
+    "r": "\r",
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
+    "v": "\v",
+    "e": "\x1b",
+    "E": "\x1b",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+    "?": "?",
+}
+DOUBLE_QUOTED_ESCAPE_PATTERN = re.compile(r'[\\"]')
+DOUBLE_QUOTED_ESCAPE_REPLACEMENT = r"\\\g<0>"
+DOUBLE_QUOTED_SPECIAL_PATTERN = re.compile(r'[\\"]|\$\(')
+ESCAPED_PAIR_LENGTH = 2
+ESCAPED_SUBSTITUTION_OPENER = "\\$("
+ESCAPED_SUBSTITUTION_WORD = "\\$\\("
+SHORT_HEAD_OPTION = "-H"
+LONG_HEAD_OPTION = "--head"
+LONG_OPTION_PREFIX = "--"
+OPTION_VALUE_SEPARATOR = "="
 GH_PR_CREATE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+create\b(?P<rest>[^;&|]*)")
 PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
     r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
 )
+LOOSE_GH_PROGRAM_PATTERN = re.compile(r"(?<![\w.-])gh(?:\.exe)?(?![\w.-])")
+LOOSE_OPEN_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new)(?![\w-])")
+LOOSE_OPEN_OR_MERGE_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new|merge)(?![\w-])")
+LOOSE_PULL_REQUEST_SCRIPT_PATTERN = re.compile(r"pull_request\.py")
 HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
 CHANGE_FOLDER_PATTERN = re.compile(
     r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"
@@ -43,6 +133,7 @@ REMOTE_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 LS_REMOTE_FIELD_SEPARATOR = "\t"
 ALL_NON_INTERACTIVE_GIT_SETTINGS = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 ALL_ORIGIN_URL_ARGUMENTS = ("remote", "get-url", "origin")
+ORIGIN_URL_QUESTION = "merge review origin url"
 OPEN_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
@@ -69,7 +160,9 @@ RULING_SEPARATOR = ","
 RULING_LOOKUP_TIMEOUT_SECONDS = 10
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
-API_SHA_FIELD_PATTERN = re.compile(r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})")
+API_SHA_FIELD_PATTERN = re.compile(
+    r"(?:-f|-F|--field|--raw-field)[\s=]sha=(?P<sha>[0-9a-fA-F]{7,40})"
+)
 ALL_OPTIONS_WITH_VALUE = (
     "-R",
     "--repo",

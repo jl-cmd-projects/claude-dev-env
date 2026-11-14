@@ -510,6 +510,22 @@ def _emit_allow_decision(decision: DispatcherDecision) -> None:
     sys.stdout.flush()
 
 
+def _emit_system_message_only(decision: DispatcherDecision) -> None:
+    """Write one JSON object that carries only the hooks' systemMessage lines.
+
+    A hosted gate whose check raised prints a warning and no decision. This
+    payload shows that warning to the user and carries no permissionDecision,
+    so the call goes on to the normal permission flow.
+
+    Args:
+        decision: The aggregated dispatcher decision with no deny and no allow.
+    """
+    all_unique_system_messages = unique_first_seen_strings(decision.all_system_messages)
+    message_payload = {"systemMessage": SYSTEM_MESSAGE_JOIN_SEPARATOR.join(all_unique_system_messages)}
+    sys.stdout.write(json.dumps(message_payload) + "\n")
+    sys.stdout.flush()
+
+
 def _select_applicable_hooks(tool_name: str) -> list[HostedHookEntry]:
     """Return the ordered hosted hook entries applicable to the given tool name.
 
@@ -573,9 +589,12 @@ def dispatch(
 
     Selects the applicable hosted hooks for tool_name, runs each one in-process
     (natively when the entry names a native module, otherwise via runpy),
-    aggregates the results, and emits a deny JSON object when any hook denied, an
-    explicit allow JSON object when a hook allowed explicitly and none denied, or
-    exits zero with no output when no hook decided.
+    aggregates the results, and emits one of four outcomes::
+
+        any hook denied                                -> deny JSON object
+        a hook allowed explicitly and none denied      -> allow JSON object
+        no hook decided, a hook printed systemMessage  -> {"systemMessage": ...} alone
+        no hook decided or spoke                       -> no output
 
     Args:
         payload_text: The raw JSON payload text to replay to each runpy hook.
@@ -594,6 +613,9 @@ def dispatch(
         return
     if aggregated_decision.should_allow:
         _emit_allow_decision(aggregated_decision)
+        return
+    if aggregated_decision.all_system_messages:
+        _emit_system_message_only(aggregated_decision)
 
 
 def main() -> None:

@@ -6,8 +6,13 @@ compound shells. No pytest-specific classification runs here.
 
 from __future__ import annotations
 
+import itertools
 import pathlib
+import shlex
 import sys
+import time
+
+import pytest
 
 _HOOKS_ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(_HOOKS_ROOT) not in sys.path:
@@ -17,6 +22,7 @@ from hooks_constants.shell_command_pipeline import (  # noqa: E402
     all_operator_aware_tokenizations,
     join_line_continuations,
     live_command_lines,
+    operator_aware_tokens,
     pipeline_segments_for_command,
     scannable_command_lines,
     segments_with_following_operator,
@@ -133,3 +139,52 @@ def test_compound_shell_if_fi_tokens_survive_tokenization() -> None:
     assert "if" in flat_tokens
     assert "then" in flat_tokens
     assert "fi" in flat_tokens
+
+
+def test_operator_aware_tokens_should_read_one_mode_at_a_time() -> None:
+    command = 'cd "a b" && git push'
+    assert operator_aware_tokens(command, True) == ["cd", "a b", "&&", "git", "push"]
+    assert operator_aware_tokens(command, False) == ["cd", '"a b"', "&&", "git", "push"]
+    assert operator_aware_tokens('echo "open', True) is None
+    assert operator_aware_tokens('echo "open', False) is None
+
+
+def _fastest_tokenizing_seconds(command: str, is_posix: bool) -> float:
+    all_seconds = []
+    for _each_attempt in range(3):
+        started = time.perf_counter()
+        operator_aware_tokens(command, is_posix)
+        all_seconds.append(time.perf_counter() - started)
+    return min(all_seconds)
+
+
+@pytest.mark.parametrize("is_posix", [True, False])
+def test_operator_aware_tokens_should_take_linear_time_on_a_long_quoted_word(is_posix: bool) -> None:
+    short_command = "tool --body '" + "ab cd; " * 8_000 + "'"
+    long_command = "tool --body '" + "ab cd; " * 32_000 + "'"
+    _fastest_tokenizing_seconds(short_command, is_posix)
+    growth = _fastest_tokenizing_seconds(long_command, is_posix) / _fastest_tokenizing_seconds(short_command, is_posix)
+    assert growth < 8
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "tool --body '" + "ab cd; " * 2_000 + "' && next \"x\\\"y\" ; z",
+        'a "b c"d \'e f\' g\\ h|i&&j||k;l(m)n>o<p',
+        "a ''b \"\" c$'d' \\",
+        "cut 'open",
+    ],
+)
+def test_operator_aware_tokens_should_give_the_words_shlex_gives(command: str) -> None:
+    for each_command, each_is_posix in itertools.product([command, "w" * 5_000 + " " + command], (True, False)):
+        lexer = shlex.shlex(each_command, posix=each_is_posix, punctuation_chars=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        try:
+            expected = list(lexer)
+        except ValueError:
+            expected = None
+        all_tokens = operator_aware_tokens(each_command, each_is_posix)
+        assert all_tokens == expected
+        assert all(type(each_token) is str for each_token in all_tokens or [])
