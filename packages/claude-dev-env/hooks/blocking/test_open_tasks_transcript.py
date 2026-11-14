@@ -276,8 +276,23 @@ def test_should_list_the_files_a_send_user_file_call_sends() -> None:
 def test_should_tell_a_codex_read_call_from_a_codex_write_call() -> None:
     shell_call = {"type": "response_item", "payload": {"type": "function_call", "name": "shell", "arguments": "{}"}}
     patch_call = {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch"}}
+    local_shell_call = {"type": "response_item", "payload": {"type": "local_shell_call", "action": {"command": ["git", "status"]}}}
     assert is_codex_read_call(shell_call) is True
+    assert is_codex_read_call(local_shell_call) is True
     assert is_codex_read_call(patch_call) is False
+
+
+def test_should_note_a_codex_local_shell_call_as_a_read_of_the_turn(tmp_path: Path) -> None:
+    codex_prompt = {
+        "type": "response_item",
+        "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "what needs me?"}]},
+    }
+    local_shell_call = {"type": "response_item", "payload": {"type": "local_shell_call", "action": {"command": ["git", "status"]}}}
+    patch_call = {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch"}}
+    read_replay = replayed_transcript(str(write_transcript(tmp_path / "read.jsonl", [codex_prompt, local_shell_call])))
+    write_replay = replayed_transcript(str(write_transcript(tmp_path / "write.jsonl", [codex_prompt, patch_call])))
+    assert (read_replay.has_turn_work_tool, read_replay.has_turn_read_tool) == (True, True)
+    assert (write_replay.has_turn_work_tool, write_replay.has_turn_read_tool) == (True, False)
 
 
 def assistant_call_record(tool_name: str, all_input_fields: dict[str, object]) -> dict[str, object]:

@@ -110,7 +110,8 @@ ALL_QUESTION_TOOL_NAMES = frozenset(
     }
 )
 SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
-ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", "local_shell_call"})
+CODEX_LOCAL_SHELL_CALL_TYPE = "local_shell_call"
+ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", CODEX_LOCAL_SHELL_CALL_TYPE})
 UNTRACKED_WORK_REASON = (
     "This turn worked on the user's ask and left the task list unchanged. The user follows your work"
     " there. Update it now: TaskCreate the ask if it has no item, and TaskUpdate each item to its"

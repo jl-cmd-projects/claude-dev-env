@@ -71,6 +71,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CCD_PLAN_TOOL_NAME,
     CODEX_ARGUMENTS_KEY,
     CODEX_FUNCTION_CALL_TYPE,
+    CODEX_LOCAL_SHELL_CALL_TYPE,
     CODEX_MESSAGE_TYPE,
     CODEX_PAYLOAD_KEY,
     CODEX_PLAN_KEY,
@@ -236,10 +237,12 @@ def is_codex_work_call(all_record_fields: dict[str, object]) -> bool:
 
 
 def is_codex_read_call(all_record_fields: dict[str, object]) -> bool:
-    """Return True for a Codex tool call record whose tool can read state."""
+    """Return True for a Codex tool call record whose tool can read state; a ``local_shell_call`` carries no name and counts."""
     payload_body = _codex_payload(all_record_fields)
     if payload_body is None or payload_body.get(RECORD_TYPE_KEY) not in ALL_CODEX_TOOL_CALL_TYPES:
         return False
+    if payload_body.get(RECORD_TYPE_KEY) == CODEX_LOCAL_SHELL_CALL_TYPE:
+        return True
     return is_read_tool_name(payload_body.get(TOOL_NAME_KEY))
 
 

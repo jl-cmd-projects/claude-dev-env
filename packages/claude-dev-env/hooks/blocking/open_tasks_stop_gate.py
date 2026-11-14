@@ -79,6 +79,7 @@ if blocking_directory not in sys.path:
 from hooks_constants.final_reply_gate_constants import LAST_ASSISTANT_MESSAGE_KEY
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.session_title_constants import SESSION_ID_KEY
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
@@ -120,7 +121,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
 
 def _task_file_item(task_file: Path) -> TaskItem | None:
     try:
-        task_text = task_file.read_text(encoding=UTF8_ENCODING)
+        task_text = task_file.read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
     except OSError:
         return None
     all_task_fields = parsed_object(task_text)

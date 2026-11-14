@@ -53,6 +53,7 @@ def run_gate(
     transcript_path: Path | None,
     is_stop_hook_active: bool = False,
     reply_text: str = "Done.",
+    working_directory: Path | None = None,
 ) -> dict[str, str]:
     hook_input: dict[str, object] = {
         "hook_event_name": "Stop",
@@ -60,6 +61,8 @@ def run_gate(
         "stop_hook_active": is_stop_hook_active,
         "last_assistant_message": reply_text,
     }
+    if working_directory is not None:
+        hook_input["cwd"] = str(working_directory)
     if transcript_path is not None:
         hook_input["transcript_path"] = str(transcript_path)
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
@@ -481,6 +484,31 @@ def test_should_block_a_sent_status_file_that_says_something_waits_on_the_user(
     assert open_tasks_stop_gate.turn_waiting_phrase(
         {"last_assistant_message": "The status list is attached."}, replayed_transcript(str(transcript_path))
     ) == "needs you"
+
+
+def test_should_read_a_relative_sent_path_from_the_working_directory_of_the_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    sent_directory = tmp_path / "reports"
+    sent_directory.mkdir()
+    (sent_directory / "status.md").write_text("Two items need you.", encoding="utf-8")
+    send_call = tool_call_record("SendUserFile", {"files": ["status.md"]})
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("what needs me?"), TRACKER_CALL, send_call])
+    block_output = run_gate(
+        monkeypatch, capsys, transcript_path, reply_text="The status list is attached.", working_directory=sent_directory
+    )
+    assert '"need you"' in block_output["reason"]
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text="The status list is attached.") == {}
+
+
+def test_should_read_a_task_file_that_holds_a_byte_outside_utf8(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_task_store(tmp_path, [OPEN_TASK])
+    task_directory = tmp_path / ".claude" / "tasks" / SESSION_ID
+    (task_directory / "1.json").write_bytes(b'{"id": "1", "subject": "caf\xe9", "status": "completed"}')
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("status?")])
+    assert "1 of 2 items are completed" in run_gate(monkeypatch, capsys, transcript_path)["reason"]
 
 
 def test_should_give_no_step_reason_when_the_transcript_cannot_be_read(tmp_path: Path) -> None:

@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,8 @@ import user_step_wording
         ("Let me know when the key is in place.", "Let me know when"),
         ("Action required: rotate the deploy key.", "Action required"),
         ("The build is not merged; it needs you to approve it.", "needs you"),
+        ("It isn't merged yet and needs your approval.", "needs your"),
+        ("The pull request is not merged and needs your review.", "needs your"),
     ],
 )
 def test_should_find_the_phrase_that_says_something_waits_on_the_user(
@@ -42,14 +45,15 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "The label reads `needs you`.",
         "> What needs you?",
         "```\necho 'this needs you'\n```",
-        "You do not need to restart the session.",
+        "None of the open items needs you.",
+        "No step on this long list of six open items is waiting on you.",
     ],
 )
 def test_should_find_no_phrase_in_text_that_hands_the_user_nothing(shown_text: str) -> None:
     assert user_step_wording.waiting_phrase(shown_text) is None
 
 
-def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_sentence() -> None:
+def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clause() -> None:
     assert (
         user_step_wording.waiting_phrase_in_prose("Nothing is open. One item needs you.")
         == "needs you"
@@ -57,10 +61,27 @@ def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_sent
     assert user_step_wording.waiting_phrase_in_prose("No step here needs you.") is None
 
 
+def test_should_read_a_long_text_of_negated_phrases_in_linear_time() -> None:
+    long_text = "No action needed.\n" * 60000
+    started_at = time.perf_counter()
+    assert user_step_wording.waiting_phrase_in_prose(long_text) is None
+    assert time.perf_counter() - started_at < 5
+
+
+def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_page() -> None:
+    page_markup = "<p>Status</p><code>needs you</code><pre>waiting on you</pre><blockquote>say when</blockquote>"
+    assert user_step_wording.waiting_phrase_in_prose(user_step_wording.html_visible_text(page_markup)) is None
+    started_at = time.perf_counter()
+    user_step_wording.html_visible_text("<script " * 30000)
+    assert time.perf_counter() - started_at < 5
+
+
 def test_should_read_an_html_page_as_its_visible_text() -> None:
     page_markup = "<style>.a{color:red}</style><h2>What needs you</h2><script>var needsYou = 1</script><p>Merge&nbsp;it.</p>"
     visible_text = user_step_wording.html_visible_text(page_markup)
     assert "What needs you" in visible_text
+    assert "Merge\xa0it." in visible_text
+    assert user_step_wording.html_visible_text("<p>Nothing <b>here</b> needs you.</p>").strip() == "Nothing here needs you."
     assert "color:red" not in visible_text
     assert "needsYou" not in visible_text
 
@@ -99,3 +120,15 @@ def test_should_skip_a_sent_file_that_is_no_text_file_is_too_large_or_is_missing
     assert user_step_wording.file_waiting_phrase(str(tmp_path / "status.png"), None) is None
     assert user_step_wording.file_waiting_phrase(str(tmp_path / "large.md"), None) is None
     assert user_step_wording.file_waiting_phrase(str(tmp_path / "missing.md"), None) is None
+
+
+def test_should_never_open_a_sent_path_that_is_no_regular_file_or_cannot_be_a_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    folder_path = tmp_path / "folder.md"
+    folder_path.mkdir()
+    all_opened_paths: list[Path] = []
+    monkeypatch.setattr(Path, "open", lambda opened_path, *all_arguments, **all_options: all_opened_paths.append(opened_path))
+    assert user_step_wording.file_waiting_phrase(str(folder_path), None) is None
+    assert user_step_wording.file_waiting_phrase("status\x00.md", str(tmp_path)) is None
+    assert all_opened_paths == []
