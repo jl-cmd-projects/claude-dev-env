@@ -27,8 +27,12 @@ and while, and at most 240 characters back. Three shapes negate a match:
 - not, never, without, "no longer", or a word ending in n't, up to three words
   before the match.
 
-A match followed by none, nothing, no, or n/a is skipped too, also across a
-colon, a dash, and Markdown emphasis marks, as in ``**Action required:** none.``
+A match followed by none, nothing, n/a, "no action", or "no step" is skipped
+too, and so is one followed by a bare no that ends its line or its sentence.
+The word may sit across a colon or a dash and up to eight spaces or Markdown
+emphasis marks on each side of it, as in ``**Action required:** none.`` A word
+that runs on, as in "Action required: NO_PROXY must list the host" or
+"No-reply inbox", negates nothing.
 "Say when" counts only at the start of its clause, where it is an instruction.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
@@ -67,7 +71,6 @@ from hooks_constants.user_step_wording_constants import (
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
     NEGATED_TAIL_PATTERN,
-    PHRASE_TAIL_WINDOW_CHARACTERS,
     USER_STEP_PATTERN,
 )
 
@@ -88,14 +91,14 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     for each_match in USER_STEP_PATTERN.finditer(prose_text):
         window_start = max(0, each_match.start() - CLAUSE_LEAD_WINDOW_CHARACTERS)
         clause_lead = CLAUSE_BREAK_PATTERN.split(prose_text[window_start : each_match.start()])[-1]
-        phrase_tail = prose_text[each_match.end() : each_match.end() + PHRASE_TAIL_WINDOW_CHARACTERS]
-        if _hands_over_a_step(each_match.group(), clause_lead, phrase_tail):
+        is_tail_negated = NEGATED_TAIL_PATTERN.match(prose_text, each_match.end()) is not None
+        if not is_tail_negated and _hands_over_a_step(each_match.group(), clause_lead):
             return each_match.group()
     return None
 
 
-def _hands_over_a_step(phrase: str, clause_lead: str, phrase_tail: str) -> bool:
-    if NEGATED_CLAUSE_PATTERN.search(clause_lead) or NEGATED_TAIL_PATTERN.match(phrase_tail):
+def _hands_over_a_step(phrase: str, clause_lead: str) -> bool:
+    if NEGATED_CLAUSE_PATTERN.search(clause_lead):
         return False
     if BARE_IMPERATIVE_PATTERN.match(phrase):
         return CLAUSE_OPENER_PATTERN.fullmatch(clause_lead) is not None

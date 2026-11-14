@@ -20,12 +20,16 @@ NEGATED_CLAUSE_PATTERN = re.compile(
     r"|(?:\b(?:not|never|without|no\s+longer)|n['’]t)(?:\s+[\w-]+){0,3}\s*$",
     re.IGNORECASE,
 )
-NEGATED_TAIL_PATTERN = re.compile(r"[\s*_]*[:\-–—]?[\s*_]*(?:none|nothing|no|n/a)(?![a-z0-9])", re.IGNORECASE)
+NEGATED_TAIL_PATTERN = re.compile(
+    r"[\s*_]{0,8}[:\-–—]?[\s*_]{0,8}"
+    r"(?:(?:none|nothing|n/a|no\s+(?:action|step)s?)[*_]{0,3}(?![\w-])"
+    r"|no[*_]{0,3}[^\S\n]*(?:[.!?,;)]|$))",
+    re.IGNORECASE | re.MULTILINE,
+)
 CLAUSE_BREAK_PATTERN = re.compile(
     r"[.!?,;:|]|\n\s*\n|\n\s*[-*+#]+\s|\b(?:and|but|so|then|while)\b", re.IGNORECASE
 )
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
-PHRASE_TAIL_WINDOW_CHARACTERS = 16
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
 CLAUSE_OPENER_PATTERN = re.compile(r"[\s\-*+#>\d.)]*(?:please|just)?\s*", re.IGNORECASE)
 ALL_HTML_HIDDEN_TAGS = frozenset(

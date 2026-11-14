@@ -29,6 +29,12 @@ import user_step_wording
         ("Pull request 12 (not urgent) needs your approval.", "needs your"),
         ("- Say when the demo sessions may be archived.", "Say when"),
         ("- Nothing is blocked on the runner\n- Pull request 12 needs your approval", "needs your"),
+        ("Action required: NO_PROXY must list the new host before the rerun.", "Action required"),
+        ("Needs you: Noël has to sign the access form.", "Needs you"),
+        ("Action required: No-reply inbox needs a DNS record.", "Action required"),
+        ("Action required: **No-reply** inbox needs a DNS record.", "Action required"),
+        ("Action required: no later than Friday, rotate the key.", "Action required"),
+        ("Needs you:              no later than Friday.", "Needs you"),
     ],
 )
 def test_should_find_the_phrase_that_says_something_waits_on_the_user(
@@ -60,6 +66,9 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "**Action required**: nothing",
         "Needs you: **none**",
         "Needs you — _n/a_",
+        "Action required: no action.",
+        "Action required: no",
+        "Needs you: no.\nBoth builds passed.",
         "There were no items that need you.",
         "Neither build needs you.",
         "The runner no longer needs you.",
