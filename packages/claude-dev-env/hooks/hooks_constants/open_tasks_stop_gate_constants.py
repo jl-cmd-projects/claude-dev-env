@@ -106,16 +106,69 @@ ALL_QUESTION_TOOL_NAMES = frozenset(
     }
 )
 SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
-ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", "local_shell_call"})
-BLOCK_REASON = (
+CODEX_LOCAL_SHELL_CALL_TYPE = "local_shell_call"
+ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", CODEX_LOCAL_SHELL_CALL_TYPE})
+UNTRACKED_WORK_REASON = (
     "This turn worked on the user's ask and left the task list unchanged. The user follows your work"
     " there. Update it now: TaskCreate the ask if it has no item, and TaskUpdate each item to its"
-    " current status (TodoWrite or update_plan where that is the tracker). Then end the turn. Leave"
-    " the reply as it stands."
+    " current status (TodoWrite or update_plan where that is the tracker)."
 )
+COMPLETED_ITEMS_REASON_TEMPLATE = (
+    "The task list shows completed work beside open items ({completed_count} of {item_count} items"
+    " are completed). The user reads that list to see what is open. Remove each completed item now:"
+    " TaskUpdate with status deleted (TodoWrite or update_plan: send the list without it)."
+)
+KEEP_REPLY_INSTRUCTION = "Then end the turn. Leave the reply as it stands."
+USER_STEP_LEAD_TEMPLATE = (
+    'This turn tells the user that something waits on them ("{phrase}"). An item can close while it'
+    " sits on a list, so in this turn read the live state of each item you show as open: the pull"
+    " request, the session, the setting, or the log. Drop each one that is done, and show the user"
+    " only what still stands open."
+)
+UNREAD_STEP_REASON = "The turn ran no read call."
+UNASKED_STEP_REASON = (
+    "The turn sent no question through the native question tool. Hand over each step on its own"
+    " through AskUserQuestion (Codex: request_user_input), one step per question: one short sentence"
+    " on what the step does, with the command block to paste or the link to open inside the"
+    " question. Keep long guides out of it. Where the host has no question tool, give each step its"
+    " own short paragraph with its block or link."
+)
+NO_STEP_INSTRUCTION = "When the wording hands the user no step, end the turn and leave the reply as it stands."
+WORKING_DIRECTORY_KEY = "cwd"
+SENT_FILES_KEY = "files"
+ALL_READ_TOOL_NAMES = frozenset(
+    {
+        "Bash",
+        "PowerShell",
+        "Shell",
+        "shell",
+        "shell_command",
+        "exec_command",
+        "Read",
+        "Grep",
+        "Glob",
+        "WebFetch",
+        "WebSearch",
+        "Agent",
+        "Task",
+    }
+)
+ALL_READ_WORDS = frozenset(
+    {"get", "list", "read", "view", "search", "fetch", "query", "describe", "status", "log", "logs", "diff", "show"}
+)
+ALL_WRITE_WORDS = frozenset(
+    {
+        "update", "set", "create", "delete", "write", "append", "add", "remove", "send", "post", "edit",
+        "put", "patch", "save", "insert", "reset", "apply", "replace",
+    }
+)
+TOOL_NAME_SERVER_SEPARATOR = "__"
+RECORD_SEPARATOR = "\n"
+TOOL_NAME_WORD_BREAK_PATTERN = r"[_\-]+|(?<=[a-z0-9])(?=[A-Z])"
 PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 TASK_LIST_NUDGE = (
     "The user follows your work in the task list. Give each ask an item in the session's task list"
-    " tool and keep each item's status current as the work moves."
+    " tool and keep each item's status current as the work moves. Remove completed items before the"
+    " turn ends, so the list shows only open work."
 )
 TASK_LIST_NUDGE_ONCE_MARKER_NAME = "tracking_nudge"

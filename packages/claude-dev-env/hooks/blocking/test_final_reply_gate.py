@@ -347,6 +347,20 @@ def test_should_pass_a_closing_question_when_the_transcript_cannot_be_read(
     assert stdout_text == ""
 
 
+def test_should_list_each_prose_paragraph_without_fences_quotes_or_code_spans() -> None:
+    reply_text = "Both builds passed.\n\n```\nmake test\n```\n\n> Keep it or revert it?\n\nThe flag is `--fast`."
+    assert final_reply_gate.prose_paragraphs(reply_text) == ["Both builds passed.", "The flag is  ."]
+    assert final_reply_gate.closing_paragraph(reply_text) == "The flag is  ."
+
+
+def test_should_put_the_given_text_in_place_of_each_code_span() -> None:
+    assert final_reply_gate.code_spans_masked("Not`-`e and `x`", masked_code_text="\ufffc") == "Not\ufffce and \ufffc"
+    assert final_reply_gate.prose_paragraphs_with_code_as("Not`-`e\n\nThe flag is `x`.", "\ufffc") == [
+        "Not\ufffce",
+        "The flag is \ufffc.",
+    ]
+
+
 def test_should_block_a_closing_question_when_the_transcript_holds_an_undecodable_byte(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
