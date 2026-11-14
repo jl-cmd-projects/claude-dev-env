@@ -29,8 +29,8 @@ The replay also notes what the current turn did::
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
-message do not start a turn; these are the flags session_title_turn_gate.py
-skips, and its tests model Stop hook feedback as an ``isMeta`` user record.
+message do not start a turn. Tests model Stop hook feedback as an ``isMeta``
+user record.
 A Codex ``response_item`` user message starts a Codex turn.
 
 The Cursor CLI can also reach TodoWrite through ``CallDynamicTool``, with the

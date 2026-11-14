@@ -140,7 +140,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
-        hooks/blocking/session_title_turn_gate.py        -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
         hooks/blocking/turn_review_gate.py               -> exempt
         hooks/blocking/wakeup_cap_gate.py                -> exempt
@@ -173,10 +172,8 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The verify-before-acting hook runs after a mutating call has finished. It
     asks the model to check a hedged claim, and the call it reads stays in place.
 
-    The session title gates keep the session title in its status format. One
-    denies a malformed title, and the other asks for a new title when the
-    shown status stops fitting. They decide the shape of a title and no code
-    or safety policy.
+    The session title format gate denies a malformed title. It decides the
+    shape of a title and no code or safety policy.
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.

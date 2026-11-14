@@ -6,6 +6,7 @@ import pytest
 
 from once_per_session import (
     claim_first_showing,
+    claim_only_showing,
     clear_showings,
     compaction_count,
 )
@@ -107,3 +108,12 @@ def test_should_show_every_time_when_the_marker_cannot_be_written(
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "absent_directory"))
     assert claim_first_showing("hook", {"session_id": "s1"}) is True
     assert claim_first_showing("hook", {"session_id": "s1"}) is True
+
+
+def test_should_show_only_once_in_a_session_across_compactions(transcript_path: Path) -> None:
+    assert claim_only_showing("hook", _fields(transcript_path)) is True
+    _append(transcript_path, CLAUDE_COMPACTION_LINE)
+    assert claim_only_showing("hook", _fields(transcript_path)) is False
+    assert claim_only_showing("hook", _fields(transcript_path, session_id="s2")) is True
+    clear_showings("s1")
+    assert claim_only_showing("hook", _fields(transcript_path)) is True
