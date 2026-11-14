@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.116.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.2...claude-dev-env-v8.116.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** keep the pull request gate importable on Python 3.11 ([#2341](https://github.com/jl-cmd-projects/claude-dev-env/issues/2341)) ([6236e77](https://github.com/jl-cmd-projects/claude-dev-env/commit/6236e776416f91c86d969fe2ad69b8f3c47b94f8))
+
 ## [8.116.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.1...claude-dev-env-v8.116.2) (2026-11-14)
 
 
