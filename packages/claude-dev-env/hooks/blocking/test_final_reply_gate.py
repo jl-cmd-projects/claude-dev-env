@@ -353,7 +353,7 @@ def test_should_list_each_prose_paragraph_without_fences_quotes_or_code_spans() 
 
 def test_should_put_the_given_text_in_place_of_each_code_span() -> None:
     assert final_reply_gate.code_spans_masked("Not`-`e and `x`", masked_code_text="\ufffc") == "Not\ufffce and \ufffc"
-    assert final_reply_gate.prose_paragraphs("Not`-`e\n\nThe flag is `x`.", masked_code_text="\ufffc") == [
+    assert final_reply_gate.prose_paragraphs_with_code_as("Not`-`e\n\nThe flag is `x`.", "\ufffc") == [
         "Not\ufffce",
         "The flag is \ufffc.",
     ]

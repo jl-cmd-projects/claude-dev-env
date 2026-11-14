@@ -116,7 +116,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from final_reply_gate import prose_paragraphs
+from final_reply_gate import prose_paragraphs_with_code_as
 from hooks_constants.open_tasks_stop_gate_constants import UTF8_ENCODING
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.user_step_wording_constants import (
@@ -204,7 +204,7 @@ def _holds_a_negator(all_clause_words: list[str]) -> bool:
     ):
         return True
     all_no_longer_reach = all_clause_words[-(MAXIMUM_WORDS_AFTER_LATE_NEGATOR + len(ALL_NO_LONGER_WORDS)) :]
-    return ALL_NO_LONGER_WORDS in zip(all_no_longer_reach, all_no_longer_reach[1:])
+    return ALL_NO_LONGER_WORDS in itertools.pairwise(all_no_longer_reach)
 
 
 def _opens_with_a_negator(all_clause_words: list[str]) -> bool:
@@ -241,7 +241,7 @@ def _hands_over_a_step(clause_text: str, phrase_text: str, phrase_match: re.Matc
 def waiting_phrase(shown_text: str) -> str | None:
     """Return the first phrase in Markdown or plain text that says something waits on the user, or None."""
     line_fed_text = LINE_ENDING_PATTERN.sub(LINE_BREAK, shown_text)
-    return _first_waiting_phrase(prose_paragraphs(line_fed_text, CODE_SPAN_STAND_IN))
+    return _first_waiting_phrase(prose_paragraphs_with_code_as(line_fed_text, CODE_SPAN_STAND_IN))
 
 
 def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:
