@@ -3,6 +3,8 @@
 Each sentence in ``ALL_ADVISOR_RULE_SENTENCES`` is copied word for word from
 ``docs/references/advisor-tool.md``, which stays the one source. A
 synchronization test fails when a sentence drifts from that document.
+``ADVISOR_RULES_PROMPT_TEMPLATE`` takes the configured advisor model as
+``advisor_model``.
 """
 
 from __future__ import annotations
@@ -10,28 +12,34 @@ from __future__ import annotations
 __all__ = [
     "ADVISOR_DISABLE_ENV_VAR",
     "ADVISOR_MODEL_SETTINGS_KEY",
-    "ADVISOR_RULES_HEADER",
-    "ADVISOR_RULES_PROMPT",
+    "ADVISOR_RULES_HEADER_TEMPLATE",
+    "ADVISOR_RULES_PROMPT_TEMPLATE",
     "ALL_ADVISOR_RULE_SENTENCES",
     "ALL_ADVISOR_DISABLE_ENV_TRUE_VALUES",
+    "ALL_MODEL_FAMILY_NAMES",
     "CLAUDE_CONFIG_DIR_ENV_VAR",
     "DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME",
+    "SESSION_MODEL_PAYLOAD_KEY",
     "USER_SETTINGS_FILE_NAME",
 ]
 
 ADVISOR_MODEL_SETTINGS_KEY = "advisorModel"
+SESSION_MODEL_PAYLOAD_KEY = "model"
+ALL_MODEL_FAMILY_NAMES = ("fable", "opus", "sonnet", "haiku")
 ADVISOR_DISABLE_ENV_VAR = "CLAUDE_CODE_DISABLE_ADVISOR_TOOL"
 ALL_ADVISOR_DISABLE_ENV_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 CLAUDE_CONFIG_DIR_ENV_VAR = "CLAUDE_CONFIG_DIR"
 DEFAULT_CLAUDE_CONFIG_DIRECTORY_NAME = ".claude"
 USER_SETTINGS_FILE_NAME = "settings.json"
 
-ADVISOR_RULES_HEADER = (
-    "ADVISOR, when `advisor` is in your tool list. Use your own judgment on when a"
-    " consult helps. Starting points from ~/.claude/docs/references/advisor-tool.md:"
+ADVISOR_RULES_HEADER_TEMPLATE = (
+    "ADVISOR, when `advisor` is in your tool list. The advisor runs on `{advisor_model}`."
+    " Use your own judgment on when a consult helps."
+    " Starting points from ~/.claude/docs/references/advisor-tool.md:"
 )
 
 ALL_ADVISOR_RULE_SENTENCES = (
+    "A session that runs on the advisor model itself plans no advisor consults.",
     "Call for design, architecture, and risk questions where you will not touch a file.",
     "On tasks longer than a few steps, aim for an early approach consult and a completion review.",
     "This cadence guides planning and leaves the task free to follow its evidence.",
@@ -41,4 +49,4 @@ ALL_ADVISOR_RULE_SENTENCES = (
     "Give the advice serious weight.",
 )
 
-ADVISOR_RULES_PROMPT = " ".join((ADVISOR_RULES_HEADER, *ALL_ADVISOR_RULE_SENTENCES))
+ADVISOR_RULES_PROMPT_TEMPLATE = " ".join((ADVISOR_RULES_HEADER_TEMPLATE, *ALL_ADVISOR_RULE_SENTENCES))
