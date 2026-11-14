@@ -1,0 +1,42 @@
+{
+  "base_commit": "00fd6e8341aa37508f08e2bf774bdca7efcd5cd4",
+  "delta_from_tree": null,
+  "excluded_directories": [
+    ".git",
+    ".claude",
+    ".github"
+  ],
+  "finished_at": "2026-11-14T18:20:15.935085+00:00",
+  "model": "haiku",
+  "passes": [
+    {
+      "command": "/simplify origin/main",
+      "served_models": [
+        "claude-haiku-5-5"
+      ],
+      "token_count_by_kind": {
+        "cache_creation": 330623,
+        "cache_read": 1152321,
+        "input": 18714,
+        "output": 84132
+      },
+      "wall_seconds": 189.4
+    },
+    {
+      "command": "/code-review high --max-findings all origin/main",
+      "served_models": [
+        "claude-haiku-5-5"
+      ],
+      "token_count_by_kind": {
+        "cache_creation": 91848,
+        "cache_read": 370556,
+        "input": 21618,
+        "output": 50949
+      },
+      "wall_seconds": 245.6
+    }
+  ],
+  "refused_read_calls": 0,
+  "review_scope": "source_tree",
+  "tree": "cd1b170b2b24ed566c68b3afa24d3b0ca11acd32"
+}
