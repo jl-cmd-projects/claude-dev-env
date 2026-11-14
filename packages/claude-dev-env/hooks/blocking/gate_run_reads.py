@@ -38,7 +38,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import cast
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
@@ -50,8 +50,6 @@ from hooks_constants.gate_run_reads_constants import (
     PROOF_AND_LOOK_READS_SECONDS,
 )
 from hooks_constants.subprocess_window import hidden_window_creation_flags
-
-AnswerType = TypeVar("AnswerType")
 
 
 class ReadSlice(Enum):
@@ -122,7 +120,7 @@ def read_deadlines_started(clock: Callable[[], float] = time.monotonic) -> Itera
         started_read_deadlines.reset(token)
 
 
-def answer_once(question: Hashable, read: Callable[[], AnswerType]) -> AnswerType:
+def answer_once[AnswerType](question: Hashable, read: Callable[[], AnswerType]) -> AnswerType:
     """Return the open run's answer to ``question``, reading it the first time it is asked.
 
     Args:
@@ -236,7 +234,7 @@ def _answer_within(child: subprocess.Popen[str], allowance: float, own_timeout_s
     return printed_text if child.returncode == 0 else None
 
 
-def _answers_in_a_daemon_thread(
+def _answers_in_a_daemon_thread[AnswerType](
     read: Callable[[float], AnswerType], allowance: float
 ) -> tuple[list[AnswerType], list[Exception]]:
     all_answers: list[AnswerType] = []
@@ -254,7 +252,7 @@ def _answers_in_a_daemon_thread(
     return all_answers, all_errors
 
 
-def answer_within_allowance(
+def answer_within_allowance[AnswerType](
     read: Callable[[float], AnswerType], own_timeout_seconds: float, read_slice: ReadSlice
 ) -> AnswerType | None:
     """Run one read in a daemon thread and return its answer, or None when the allowance runs out first.
