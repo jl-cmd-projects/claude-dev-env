@@ -12,6 +12,8 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
+from blocking.gate_run_reads import gate_run
+from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_STATUS_QUERY,
@@ -20,6 +22,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
     MISSING_EXISTING_WORK_REASON,
     MISSING_FLOWCHART_REASON,
+    MISSING_LOOK_REASON,
     MISSING_PROOF_REASON,
     TEST_ONLY_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
@@ -764,7 +767,7 @@ def test_should_deny_a_visible_file_on_a_full_compare_page(
     assert "module_0.py" not in reason
 
 
-def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artifact(
+def test_should_allow_a_page_whose_proof_links_an_artifact_without_a_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_endpoints: list[str] = []
@@ -777,7 +780,7 @@ def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artif
         tmp_path,
     )
     assert gate.missing_look_reason(payload) is None
-    assert all_endpoints == [compare_endpoint]
+    assert all_endpoints == []
 
 
 def test_should_skip_the_compare_api_without_a_named_repository(
@@ -1110,6 +1113,66 @@ def test_remote_added_workflow_files_should_report_none_when_a_full_page_lists_n
     )
     assert gate.remote_added_workflow_files("o/r", "main", "feature") == []
     assert gate.remote_added_workflow_files(None, "main", "feature") is None
+
+
+WAIVER_BODY = (
+    "## What this does\nAdds a guard to the tool.\n\n"
+    "```mermaid\nflowchart LR\n  A[call] --> B[guard]\n```\n\n"
+    "## Existing work\nNothing found; I searched `hooks/` and open pull requests.\n\n"
+    "## Proof in practice\nRan `python3 tool.py --check` and it printed `ok`.\n"
+    "Not run: the first GitHub Actions workflow run.\n\n"
+    "## After merge\nThe session records the run link for `new.yml`.\n"
+)
+
+
+def test_quoted_shell_create_should_look_up_the_added_workflows_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/owner/name/compare/main...some-branch"
+    all_responses = {compare_endpoint: _workflow_compare_lines(1, [f"{WORKFLOW_DIRECTORY}/new.yml"])}
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
+    (tmp_path / "body.md").write_text(WAIVER_BODY, encoding="utf-8")
+    payload = _shell(
+        'gh pr create --title "fix: quoted title" --body-file body.md'
+        " --head some-branch --base main --repo owner/name",
+        tmp_path,
+    )
+    assert gate.missing_proof_reason(payload) is None
+    assert all_endpoints.count(compare_endpoint) == 1
+
+
+def test_look_check_should_read_nothing_when_every_body_shows_a_picture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, all_endpoints))
+    body = PROVEN_BODY + "![after](https://example.com/after.png)\n"
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature", body)
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == []
+    no_picture_payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.missing_look_reason(no_picture_payload) == UNREADABLE_CHANGES_REASON
+    assert all_endpoints == ["repos/o/r/compare/main...feature"]
+
+
+def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _repository_with_workflow_change(tmp_path, "new.yml")
+    all_head_references: list[str] = []
+    original_first_merge_base = gate._first_merge_base
+
+    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+        all_head_references.append(head_reference)
+        return original_first_merge_base(working_directory, head_reference)
+
+    monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
+    payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
+    assert decision_for(payload) is None
+    assert all_head_references == ["HEAD"]
+    assert decision_for(payload) is None
+    assert all_head_references == ["HEAD", "HEAD"]
 
 
 def test_unproven_line_should_stay_denied_when_it_is_about_something_other_than_a_run(tmp_path: Path) -> None:
@@ -1601,3 +1664,68 @@ def test_create_calls_and_other_tools_should_pass_the_edit_check(tmp_path: Path)
     unrun_body = "## Proof in practice\nRan `python run.py`.\nNot run: x.\n"
     assert gate.edit_proof_reason(_mcp_create(unrun_body)) is None
     assert gate.edit_proof_reason(_shell("git push -u origin b", tmp_path)) is None
+
+
+def _chained_creates(tmp_path: Path, all_flags_and_bodies: list[tuple[str, str]]) -> str:
+    all_creates = []
+    for each_index, (each_flags, each_body) in enumerate(all_flags_and_bodies):
+        body_path = tmp_path / f"body_{each_index}.md"
+        body_path.write_text(each_body, encoding="utf-8")
+        all_creates.append(f'gh pr create --title "fix: {each_index}" --body-file "{body_path}" {each_flags}')
+    return " && ".join(all_creates)
+
+
+def _clone_with_quiet_branch(tmp_path: Path) -> Path:
+    clone_path = _repository_with_change(tmp_path / "repository", "page.html")
+    subprocess.run(["git", "-C", str(clone_path), "branch", "quiet", "main"], check=True)
+    return clone_path
+
+
+def test_chained_creates_should_deny_when_only_the_second_branch_changes_a_page(tmp_path: Path) -> None:
+    clone_path = _clone_with_quiet_branch(tmp_path)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
+    command = _chained_creates(tmp_path, [("--head quiet", PROVEN_BODY), ("--head feature", PROVEN_BODY)])
+    reason = gate.missing_look_reason(_shell(command, clone_path))
+    assert reason == MISSING_LOOK_REASON.format(changed_files="page.html")
+
+
+def test_chained_create_without_a_head_should_read_its_own_checkout(tmp_path: Path) -> None:
+    clone_path = _clone_with_quiet_branch(tmp_path)
+    picture_body = PROVEN_BODY + "![after](https://example.com/after.png)\n"
+    command = _chained_creates(tmp_path, [("", PROVEN_BODY), ("--head quiet", picture_body)])
+    reason = gate.missing_look_reason(_shell(command, clone_path))
+    assert reason == MISSING_LOOK_REASON.format(changed_files="page.html")
+
+
+def test_chained_creates_should_check_each_waiver_against_its_own_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    all_responses = {
+        "repos/o/r/compare/main...x": _workflow_compare_lines(1, ["tool.py"]),
+        "repos/o/r/compare/main...y": _workflow_compare_lines(1, [f"{WORKFLOW_DIRECTORY}/new.yml"]),
+    }
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
+    shared_flags = "--repo o/r --base main"
+    command = _chained_creates(
+        tmp_path, [(f"--head x {shared_flags}", PROVEN_BODY), (f"--head y {shared_flags}", WAIVER_BODY)]
+    )
+    assert gate.missing_proof_reason(_shell(command, tmp_path)) is None
+    assert all_endpoints == ["repos/o/r/compare/main...y"]
+
+
+def test_chained_creates_should_read_the_compare_api_once_per_distinct_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    python_only = [_compare_line("M", "", "tool.py")]
+    all_responses = {"repos/o/r/compare/main...x": python_only, "repos/o/r/compare/main...y": python_only}
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api(all_responses, all_endpoints))
+    shared_flags = "--repo o/r --base main"
+    command = _chained_creates(
+        tmp_path,
+        [(f"--head {each_head} {shared_flags}", PROVEN_BODY) for each_head in ("x", "y", "x")],
+    )
+    with gate_run():
+        assert gate.missing_look_reason(_shell(command, tmp_path)) is None
+    assert all_endpoints == ["repos/o/r/compare/main...x", "repos/o/r/compare/main...y"]

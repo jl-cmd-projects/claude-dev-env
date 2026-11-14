@@ -7,17 +7,24 @@ from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import followup_pr_dedupe as gate_dedupe
+from blocking import gate_run_reads
 from blocking import pr_lifecycle_skill_gate as gate
+from blocking.gate_run_reads import read_deadlines_started
+from hooks_constants.followup_pr_dedupe_constants import ALL_GIT_REMOTE_COMMAND_WORDS
+from hooks_constants.gate_run_reads_constants import PROOF_AND_LOOK_READS_SECONDS, READS_RAN_OUT_SENTENCE
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import (
     MISSING_BUILD_EVAL_REASON,
     MISSING_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
+    UNREADABLE_CHANGES_REASON,
 )
 
 WHAT_THIS_DOES_SECTION = (
@@ -309,7 +316,7 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
                 {
                     "type": "command",
                     "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/pr_lifecycle_skill_gate.py",
-                    "timeout": 10,
+                    "timeout": 30,
                 }
             ],
         }
@@ -352,6 +359,125 @@ def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> N
     }
     with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=OSError("offline")):
         assert gate.decision_for(payload) is None
+
+
+PICTURE_LINE = "![after](https://example.com/after.png)\n"
+CREATE_WORDS = " ".join(("gh", "pr", "create"))
+
+
+def _unstarted_children(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    all_asked_commands: list[list[str]] = []
+
+    def refuse_to_start(all_command_words: list[str], **all_options: object) -> None:
+        all_asked_commands.append(list(all_command_words))
+        raise OSError("this test starts no child")
+
+    monkeypatch.setattr(gate_run_reads.subprocess, "Popen", refuse_to_start)
+    return all_asked_commands
+
+
+def _origin_reads(all_asked_commands: list[list[str]]) -> int:
+    return sum(each_command == list(ALL_GIT_REMOTE_COMMAND_WORDS) for each_command in all_asked_commands)
+
+
+def _quoted_shell_create_without_repository(tmp_path: Path, body: str) -> dict[str, object]:
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    return {
+        "tool_name": "Bash",
+        "tool_input": {"command": CREATE_WORDS + ' --title "fix: quoted title" --body-file body.md'},
+        "cwd": str(tmp_path),
+    }
+
+
+def test_one_gate_run_should_read_the_origin_once_for_a_followup_body(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_asked_commands = _unstarted_children(monkeypatch)
+    payload = _quoted_shell_create_without_repository(tmp_path, PROVEN_FOLLOWUP_BODY + PICTURE_LINE)
+    assert gate.decision_for(payload) is None
+    assert _origin_reads(all_asked_commands) == 1
+
+
+def test_gate_should_not_read_the_origin_when_no_body_names_a_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_asked_commands = _unstarted_children(monkeypatch)
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.") + PICTURE_LINE
+    payload = _quoted_shell_create_without_repository(tmp_path, body)
+    assert gate.decision_for(payload) is None
+    assert _origin_reads(all_asked_commands) == 0
+
+
+class LateClock:
+    """Reads zero at the start, then the end of the proof and look slice on every later read."""
+
+    def __init__(self) -> None:
+        self.read_count = 0
+
+    def __call__(self) -> float:
+        self.read_count += 1
+        return 0.0 if self.read_count == 1 else float(PROOF_AND_LOOK_READS_SECONDS)
+
+
+def _mcp_create_without_repository(tmp_path: Path) -> dict[str, object]:
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    return {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"title": "fix: x", "body": body, "head": "feature"},
+        "cwd": str(tmp_path),
+    }
+
+
+def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cut_a_read(tmp_path: Path) -> None:
+    payload = _mcp_create_without_repository(tmp_path)
+    with read_deadlines_started(LateClock()):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON + READS_RAN_OUT_SENTENCE
+
+
+class SettableClock:
+    """Reads the seconds it was last set to, starting at zero."""
+
+    def __init__(self) -> None:
+        self.seconds = 0.0
+
+    def __call__(self) -> float:
+        return self.seconds
+
+
+def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cuts_the_second_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_asked_commands = _unstarted_children(monkeypatch)
+    clock = SettableClock()
+    original_gh_api_lines = gate.proof._gh_api_lines
+
+    def compare_that_spends_the_slice(endpoint: str, query: str) -> list[str] | None:
+        if endpoint.endswith("...x"):
+            clock.seconds = PROOF_AND_LOOK_READS_SECONDS + 1.0
+            return [json.dumps(["M", "", "tool.py"])]
+        return original_gh_api_lines(endpoint, query)
+
+    monkeypatch.setattr(gate.proof, "_gh_api_lines", compare_that_spends_the_slice)
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    all_creates = [
+        CREATE_WORDS + f' --title "fix: {each_head}" --body-file body.md --repo o/r --base main --head {each_head}'
+        for each_head in ("x", "y")
+    ]
+    payload = {"tool_name": "Bash", "tool_input": {"command": " && ".join(all_creates)}, "cwd": str(tmp_path)}
+    with read_deadlines_started(clock):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON + READS_RAN_OUT_SENTENCE
+    assert not any(each_command[:1] == ["gh"] for each_command in all_asked_commands)
+
+
+def test_deny_should_keep_its_reason_when_every_read_had_time(tmp_path: Path) -> None:
+    decision = gate.decision_for(_mcp_create_without_repository(tmp_path))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON
 
 
 def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:

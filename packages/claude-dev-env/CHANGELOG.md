@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.116.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.4...claude-dev-env-v8.116.5) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** start a staged copy's native ruff run in the target's folder ([#2346](https://github.com/jl-cmd-projects/claude-dev-env/issues/2346)) ([014070e](https://github.com/jl-cmd-projects/claude-dev-env/commit/014070ecedb42ccd9a6b048a74a2655af7fba8a1))
+
+## [8.116.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.3...claude-dev-env-v8.116.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** check every create in a chained command ([#2343](https://github.com/jl-cmd-projects/claude-dev-env/issues/2343)) ([d7d1276](https://github.com/jl-cmd-projects/claude-dev-env/commit/d7d1276d7eaa6231f9fcbb19e12d784ffa3445e2))
+
+## [8.116.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.2...claude-dev-env-v8.116.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** keep the pull request gate importable on Python 3.11 ([#2341](https://github.com/jl-cmd-projects/claude-dev-env/issues/2341)) ([6236e77](https://github.com/jl-cmd-projects/claude-dev-env/commit/6236e776416f91c86d969fe2ad69b8f3c47b94f8))
+
+## [8.116.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.1...claude-dev-env-v8.116.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** keep the pull request gate inside its registered timeout ([#2339](https://github.com/jl-cmd-projects/claude-dev-env/issues/2339)) ([12ca36c](https://github.com/jl-cmd-projects/claude-dev-env/commit/12ca36c5e197cfdc965e931db196625e46f77961))
+
 ## [8.116.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.0...claude-dev-env-v8.116.1) (2026-11-13)
 
 

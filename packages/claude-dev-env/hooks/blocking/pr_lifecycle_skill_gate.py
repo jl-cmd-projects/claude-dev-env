@@ -1,4 +1,8 @@
-"""Deny pull request lifecycle actions until their skill appears in the transcript."""
+"""Deny pull request lifecycle actions until their skill appears in the transcript.
+
+A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its git and GitHub reads end by 21 s.
+``blocking/gate_run_reads.py`` draws that budget. A deny from a run it cut short says a second run may pass.
+"""
 
 from __future__ import annotations
 
@@ -75,15 +79,9 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
-from blocking.pull_request_proof import (
-    edit_proof_reason,
-    is_feature_pull_request,
-    missing_eval_section_reason,
-    missing_existing_work_reason,
-    missing_flowchart_reason,
-    missing_look_reason,
-    missing_proof_reason,
-)
+from blocking.gate_run_reads import gate_run, read_deadlines_started
+from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
+from blocking import pull_request_proof as proof
 from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
     invokes_skill_with_argument,
@@ -383,33 +381,34 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+        any deny above in a run whose deadline cut a read -> that reason + READS_RAN_OUT_SENTENCE
+
+    The checks share one gate run, so two checks that ask git or GitHub one question read it once.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not _is_governed_action(all_payload_fields):
         return None
-    if _is_skill_unloaded(all_payload_fields):
-        return deny_decision(DENY_REASON)
-    proof_reason = missing_proof_reason(all_payload_fields) or edit_proof_reason(all_payload_fields)
-    if proof_reason is not None:
-        return deny_decision(proof_reason)
-    search_reason = missing_existing_work_reason(all_payload_fields)
-    if search_reason is not None:
-        return deny_decision(search_reason)
-    flowchart_reason = missing_flowchart_reason(all_payload_fields)
-    if flowchart_reason is not None:
-        return deny_decision(flowchart_reason)
-    eval_reason = missing_eval_section_reason(all_payload_fields)
-    if eval_reason is not None:
-        return deny_decision(eval_reason)
-    look_reason = missing_look_reason(all_payload_fields)
-    if look_reason is not None:
-        return deny_decision(look_reason)
-    if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
-        return deny_decision(MISSING_BUILD_EVAL_REASON)
-    duplicate_reason = duplicate_followup_reason(all_payload_fields)
-    return None if duplicate_reason is None else deny_decision(duplicate_reason)
+    with gate_run() as run:
+        reason = _first_broken_rule_reason(all_payload_fields)
+    note = READS_RAN_OUT_SENTENCE if run.was_read_cut_short else ""
+    return None if reason is None else deny_decision(reason + note)
+
+
+def _first_broken_rule_reason(all_fields: dict[str, object]) -> str | None:
+    if _is_skill_unloaded(all_fields):
+        return DENY_REASON
+    return (
+        proof.missing_proof_reason(all_fields)
+        or proof.edit_proof_reason(all_fields)
+        or proof.missing_existing_work_reason(all_fields)
+        or proof.missing_flowchart_reason(all_fields)
+        or proof.missing_eval_section_reason(all_fields)
+        or proof.missing_look_reason(all_fields)
+        or (MISSING_BUILD_EVAL_REASON if proof.is_feature_pull_request(all_fields) and is_build_eval_missing(all_fields) else None)
+        or duplicate_followup_reason(all_fields)
+    )
 
 
 def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
@@ -482,8 +481,9 @@ def deny_decision(reason: str) -> dict[str, object]:
 
 
 def main() -> int:
-    """Read one payload, print a deny when needed, and exit zero."""
-    return print_decision_from_stdin(decision_for)
+    """Start the read deadlines, read one payload, print a deny when needed, and exit zero."""
+    with read_deadlines_started():
+        return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

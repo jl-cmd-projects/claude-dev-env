@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from .ruff_integration import (
     RuffResult,
     _config_relative_stdin_filename,
@@ -72,29 +74,89 @@ def test_run_ruff_check_returns_passed_for_empty_files() -> None:
 
 
 def test_run_ruff_check_applies_config_resolved_from_config_source_path(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A given config_source_path resolves the ruff config for a staged copy.
 
     A ``[tool.ruff.lint]`` selecting B flags an ``assert False`` (B011) only when
     ``config_source_path`` — the original ``.py`` target — resolves it; native
-    discovery from the detached staged copy finds no ruff config and passes.
+    discovery from the detached staged copy, started in a folder with no ruff
+    config, finds none and passes.
     """
+    monkeypatch.chdir(tmp_path)
     ruff_repo = tmp_path / "ruff_repo"
     ruff_repo.mkdir()
     (ruff_repo / "pyproject.toml").write_text(
         "[tool.ruff.lint]\nselect = ['B']\n", encoding="utf-8"
     )
     original_target = ruff_repo / "asserts.py"
-    staged_copy = tmp_path / "detached" / "asserts.py"
-    staged_copy.parent.mkdir(parents=True)
-    staged_copy.write_text("def probe() -> None:\n    assert False\n", encoding="utf-8")
+    staged_copy = _write_detached_assert_false_copy(tmp_path)
 
     without_source = run_ruff_check([staged_copy])
     with_source = run_ruff_check([staged_copy], config_source_path=original_target)
 
     assert "B011" not in without_source.output
     assert "B011" in with_source.output
+
+
+def _write_detached_assert_false_copy(tmp_path: Path) -> Path:
+    """Write a staged copy holding ``assert False`` under a folder with no ruff config."""
+    staged_copy = tmp_path / "detached" / "asserts.py"
+    staged_copy.parent.mkdir(parents=True)
+    staged_copy.write_text("def probe() -> None:\n    assert False\n", encoding="utf-8")
+    return staged_copy
+
+
+def test_run_ruff_check_should_not_grade_a_staged_copy_under_the_working_folder_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The working folder's ruff config never grades a staged copy of an unconfigured target.
+
+    The original target sits in a folder with no ruff config, so the staged run
+    does not apply and ruff checks the copy natively. The working folder selects
+    B; the copy is still graded under ruff's defaults, which omit B011.
+    """
+    session_folder = tmp_path / "session_folder"
+    session_folder.mkdir()
+    (session_folder / "pyproject.toml").write_text(
+        "[tool.ruff.lint]\nselect = ['B']\n", encoding="utf-8"
+    )
+    unconfigured_repo = tmp_path / "unconfigured_repo"
+    unconfigured_repo.mkdir()
+    staged_copy = _write_detached_assert_false_copy(tmp_path)
+    monkeypatch.chdir(session_folder)
+
+    result = run_ruff_check(
+        [staged_copy], config_source_path=unconfigured_repo / "asserts.py"
+    )
+
+    assert "All checks passed" in result.output
+
+
+def test_run_ruff_check_should_grade_a_staged_copy_under_a_ruff_toml_beside_the_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ``ruff.toml`` above the original target grades its staged copy.
+
+    The pyproject walk finds no ``[tool.ruff]`` table, so ruff checks the copy
+    natively. Started from a folder with no ruff config, it still reads the
+    target's ``ruff.toml``, which selects B and reports B011. The target's
+    ``new_package`` folder does not exist yet, as for a Write that creates it.
+    """
+    session_folder = tmp_path / "session_folder"
+    session_folder.mkdir()
+    ruff_toml_repo = tmp_path / "ruff_toml_repo"
+    ruff_toml_repo.mkdir()
+    (ruff_toml_repo / "ruff.toml").write_text("[lint]\nselect = ['B']\n", encoding="utf-8")
+    staged_copy = _write_detached_assert_false_copy(tmp_path)
+    monkeypatch.chdir(session_folder)
+
+    result = run_ruff_check(
+        [staged_copy],
+        config_source_path=ruff_toml_repo / "new_package" / "asserts.py",
+    )
+
+    assert "B011" in result.output
 
 
 def test_run_ruff_check_grades_a_staged_copy_holding_non_ascii_text(
