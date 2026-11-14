@@ -232,6 +232,17 @@ def test_should_add_nothing_about_titles_in_a_session_without_a_title_tool(tmp_p
     assert "title" not in context_text
 
 
+def test_should_add_nothing_about_titles_once_a_later_tool_listing_leaves_out_the_title_tool(
+    tmp_path: Path,
+) -> None:
+    later_listing = {"type": "attachment", "attachment": {"tools": [{"name": "Bash"}]}}
+    context_text = script_context(
+        run_nudge_script(tmp_path, "Export the APKs", [TOOL_LISTING, later_listing])
+    )
+    assert TASK_LIST_NUDGE in context_text
+    assert "title" not in context_text
+
+
 @pytest.mark.parametrize("earlier_title", ["\U0001f6a9 Merge approval", "✅ Gate"])
 def test_should_keep_the_stale_title_note_through_the_script(
     tmp_path: Path, earlier_title: str
