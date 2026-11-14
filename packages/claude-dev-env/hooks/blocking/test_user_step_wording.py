@@ -234,7 +234,6 @@ def test_should_find_a_phrase_with_emphasis_or_a_link_bracket_between_its_words(
         ("The docs **say** when the token expires.", "say** when"),
         ("The docs [say](https://example.com/docs) when the token expires.", "say](https://example.com/docs) when"),
         ("- [x] [Say](https://example.com/form) when the demo may be archived.", "Say](https://example.com/form) when"),
-        ("Pull request 12 [needs](https://example.com/A_(b)) your approval.", "needs](https://example.com/A_(b)) your"),
         ("Pull request 12 [needs](" + "a" * 256 + ") your approval.", "needs](" + "a" * 256 + ") your"),
         ("Pull request 12 [needs][" + "a" * 256 + "] your approval.", "needs][" + "a" * 256 + "] your"),
     ],
@@ -252,10 +251,12 @@ def test_should_find_a_phrase_with_a_link_around_one_of_its_words(
         "Pull request 12 [needs](" + "a" * 257 + ") your approval.",
         "Pull request 12 [needs][" + "a" * 257 + "] your approval.",
         "Pull request 12 [needs][the page] your approval.",
+        "Pull request 12 [needs](https://example.com/A_(b)) your approval.",
+        "Pull request 12 [needs][a[b]] your approval.",
         "Pull request 12 needs](https://example.com/12)your approval.",
     ],
 )
-def test_should_find_no_phrase_across_a_link_target_with_white_space_or_past_the_limit(
+def test_should_find_no_phrase_across_a_link_target_or_label_outside_its_stated_form(
     shown_text: str,
 ) -> None:
     assert user_step_wording.waiting_phrase(shown_text) is None
@@ -268,6 +269,8 @@ def test_should_find_no_phrase_across_a_link_target_with_white_space_or_past_the
         "Done:`x`a No item needs you.",
         "Done,`x`a No item needs you.",
         "Done and`x`a No item needs you.",
+        "Done.ab`x`a No item needs you.",
+        "Done.abc`x`a No item needs you.",
     ],
 )
 def test_should_hold_a_match_when_a_clause_break_cuts_a_word_that_holds_a_code_span(
@@ -275,6 +278,27 @@ def test_should_hold_a_match_when_a_clause_break_cuts_a_word_that_holds_a_code_s
 ) -> None:
     assert user_step_wording.waiting_phrase(shown_text) == "needs you"
     assert user_step_wording.waiting_phrase(shown_text.replace("`x`a", "")) is None
+
+
+def test_should_hold_a_match_that_a_word_with_a_code_span_touches() -> None:
+    assert user_step_wording.waiting_phrase("It isn't a b c d`x`needs you.") == "needs you"
+    assert user_step_wording.waiting_phrase("It isn't a b c `x`needs you.") is None
+
+
+def test_should_skip_a_negated_match_when_only_emphasis_marks_join_a_code_span() -> None:
+    assert user_step_wording.waiting_phrase("No **`x`** item needs you.") is None
+    assert user_step_wording.waiting_phrase("No **`x`**a item needs you.") == "needs you"
+
+
+def test_should_read_the_label_form_before_a_joined_code_span() -> None:
+    assert user_step_wording.waiting_phrase("a`x`b Action required: none.") is None
+    assert user_step_wording.waiting_phrase("a`x`b Nothing here is an action required.") == "action required"
+
+
+def test_should_read_joined_code_spans_only_in_the_text_a_match_looks_back_over() -> None:
+    negated_tail = " nothing here needs you."
+    assert user_step_wording.waiting_phrase("y" * 300 + "`x`" + "z" * 20 + negated_tail) == "needs you"
+    assert user_step_wording.waiting_phrase("y" * 20 + "`x`" + "z" * 300 + negated_tail) is None
 
 
 def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clause() -> None:

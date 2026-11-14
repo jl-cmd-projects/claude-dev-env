@@ -95,10 +95,12 @@ space too. That part is a closing square bracket, alone or with a target in
 parentheses or a label in square brackets after it, and then up to three
 asterisks or underscores. So "[needs](link) your approval", "[needs][1] your
 approval", and "**[You](link)** need to" count. The target or label holds no
-white space and at most 256 characters. A target may hold parentheses of its
-own, and a label ends at its first closing square bracket. So a link with a
-title, as in ``[needs](link "title") your``, breaks the phrase, and so does a
-label with square brackets inside it. Every place a phrase can
+white space and at most 256 characters. A target ends at its first closing
+parenthesis, and a label at its first closing square bracket. So a link with
+a title, as in ``[needs](link "title") your``, breaks the phrase, and so does
+a target with parentheses inside it, as in
+``[needs](https://example.com/A_(b)) your``, or a label with square brackets
+inside it. Every place a phrase can
 start is read, also inside another phrase. In Markdown an inline HTML tag or a
 character entity between two words of a phrase breaks it.
 
@@ -111,12 +113,19 @@ Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
 and plain text first, and each paragraph is read on its own. A code span reads
 as a space between the words of a phrase. Everywhere else it reads as U+FFFC,
 a character that is no letter and no white space, and one in the text itself
-reads the same way. A match is held when a word of its clause holds that
-character joined to others, as in ``Not`-`e`` and "api`/`web". The part of a
-word after a full stop, a comma, or another clause break counts as a word
-there, so ``Done.`x`a No item needs you.`` is held. The label form
-does not reach across it, so "Action required: none." with a code span after
-it is held.
+reads the same way. A match is held when a run of characters with no white
+space holds that character joined to others, as in ``Not`-`e`` and "api`/`web".
+That rule comes before the three negating shapes and the "say when" rule, so
+it holds a match they would skip. The label form is read first, so a joined
+run before "Action required: none." leaves it skipped. The runs are read in
+the text the match looks back over: from the last clause break, or from 240
+characters back when no break is that near, up to the match. So the part of a
+word after a full stop counts, as in ``Done.`x`a No item needs you.``, and so
+does a word that touches the match, as in ``It isn't a b c d`x`needs you.``
+The asterisks and underscores at the two ends of a run are removed first, so
+``No **`x`** item needs you.`` is skipped. The label form does not reach
+across a code span, so "Action required: none." with a code span after it is
+held.
 
 An HTML file is read as its text, one block at a time, with every tag removed
 and the contents of script, style, template, title, textarea, noscript, code,
@@ -162,7 +171,6 @@ from hooks_constants.user_step_wording_constants import (
     CLAUSE_WORD_PATTERN,
     CODE_SPAN_SPACE,
     CODE_SPAN_STAND_IN,
-    CUT_WORD_PATTERN,
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
@@ -181,6 +189,7 @@ from hooks_constants.user_step_wording_constants import (
     ALL_NO_LONGER_WORDS,
     THERE_WORD,
     USER_STEP_PATTERN,
+    WORD_RUN_PATTERN,
 )
 
 
@@ -224,11 +233,6 @@ def _clause_words(prose_text: str, clause_start: int, phrase_start: int) -> list
     ]
 
 
-def _cut_word(prose_text: str, clause_start: int, phrase_start: int) -> str:
-    cut_word = CUT_WORD_PATTERN.match(prose_text, clause_start, phrase_start)
-    return cut_word.group() if cut_word else ""
-
-
 def _holds_a_negator(all_clause_words: list[str]) -> bool:
     if not ALL_ABSENCE_WORDS.isdisjoint(all_clause_words):
         return True
@@ -256,10 +260,11 @@ def _opens_an_instruction(all_clause_words: list[str]) -> bool:
     return all_lettered_words in ALL_INSTRUCTION_OPENERS
 
 
-def _holds_a_joined_code_span(all_clause_words: list[str]) -> bool:
-    return any(
-        CODE_SPAN_STAND_IN in each_word and each_word.strip(CODE_SPAN_STAND_IN) for each_word in all_clause_words
+def _holds_a_joined_code_span(prose_text: str, clause_start: int, phrase_start: int) -> bool:
+    all_word_runs = (
+        each_run.strip(EMPHASIS_MARKS) for each_run in WORD_RUN_PATTERN.findall(prose_text, clause_start, phrase_start)
     )
+    return any(CODE_SPAN_STAND_IN in each_run and each_run.strip(CODE_SPAN_STAND_IN) for each_run in all_word_runs)
 
 
 def _hands_over_a_step(clause_text: str, phrase_match: re.Match[str]) -> bool:
@@ -269,10 +274,9 @@ def _hands_over_a_step(clause_text: str, phrase_match: re.Match[str]) -> bool:
     if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(clause_text, phrase_match.end(PHRASE_GROUP)):
         return False
     clause_start, is_clause_start_in_view = _clause_start(clause_text, phrase_start)
-    all_clause_words = _clause_words(clause_text, clause_start, phrase_start)
-    cut_word = _cut_word(clause_text, clause_start, phrase_start)
-    if _holds_a_joined_code_span([cut_word, *all_clause_words]):
+    if _holds_a_joined_code_span(clause_text, clause_start, phrase_start):
         return True
+    all_clause_words = _clause_words(clause_text, clause_start, phrase_start)
     if _holds_a_negator(all_clause_words):
         return False
     is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase) is not None
