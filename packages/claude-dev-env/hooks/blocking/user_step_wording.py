@@ -22,13 +22,14 @@ a blank line, a list or heading line, or one of the words and, but, so, then,
 and while, and at most 240 characters back. Three shapes negate a match:
 
 - nothing, none, or nobody anywhere in the clause;
-- no, neither, or nor at the start of the clause, also after "there is" or
-  "there are";
+- no, neither, or nor at the start of the clause, also after "there is",
+  "there are", "there was", or "there were";
 - not, never, without, "no longer", or a word ending in n't, up to three words
   before the match.
 
-A match followed by none, nothing, no, or n/a is skipped too. "Say when"
-counts only at the start of its clause, where it is an instruction.
+A match followed by none, nothing, no, or n/a is skipped too, also across a
+colon, a dash, and Markdown emphasis marks, as in ``**Action required:** none.``
+"Say when" counts only at the start of its clause, where it is an instruction.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
 and plain text first. An HTML file is read as its text, with every tag removed

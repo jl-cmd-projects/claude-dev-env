@@ -501,6 +501,23 @@ def test_should_read_a_relative_sent_path_from_the_working_directory_of_the_stop
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text="The status list is attached.") == {}
 
 
+def test_should_read_a_path_the_turn_sent_twice_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    status_path = tmp_path / "status.md"
+    status_path.write_text("Both builds passed.", encoding="utf-8")
+    send_call = tool_call_record("SendUserFile", {"files": [str(status_path), str(status_path)]})
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record("status?"), send_call, send_call])
+    all_read_paths: list[str] = []
+
+    def record_read(file_path_text: str, working_directory: object) -> None:
+        all_read_paths.append(file_path_text)
+
+    monkeypatch.setattr(open_tasks_stop_gate, "file_waiting_phrase", record_read)
+    assert open_tasks_stop_gate.turn_waiting_phrase(
+        {"last_assistant_message": "The status list is attached."}, replayed_transcript(str(transcript_path))
+    ) is None
+    assert all_read_paths == [str(status_path)]
+
+
 def test_should_read_a_task_file_that_holds_a_byte_outside_utf8(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

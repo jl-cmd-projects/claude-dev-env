@@ -56,6 +56,13 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "There are no items that need you.",
         "I have not found anything that needs you.",
         "No step on this long list of six open items is waiting on you.",
+        "**Action required:** none.",
+        "**Action required**: nothing",
+        "Needs you: **none**",
+        "Needs you — _n/a_",
+        "There were no items that need you.",
+        "Neither build needs you.",
+        "The runner no longer needs you.",
     ],
 )
 def test_should_find_no_phrase_in_text_that_hands_the_user_nothing(shown_text: str) -> None:
@@ -75,6 +82,14 @@ def test_should_read_a_long_text_of_negated_phrases_in_linear_time() -> None:
     started_at = time.perf_counter()
     assert user_step_wording.waiting_phrase_in_prose(long_text) is None
     assert time.perf_counter() - started_at < 5
+
+
+def test_should_read_a_last_line_of_tildes_with_no_line_end_in_linear_time() -> None:
+    started_at = time.perf_counter()
+    assert user_step_wording.waiting_phrase("Both builds passed.\n" + "~" * 200000) is None
+    assert time.perf_counter() - started_at < 5
+    assert user_step_wording.waiting_phrase("~~~~\nTwo items need you.\n~~~~\nBoth builds passed.") is None
+    assert user_step_wording.waiting_phrase("~~~ text\nlog line\n~~~\nTwo items need you.") == "need you"
 
 
 def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_page() -> None:

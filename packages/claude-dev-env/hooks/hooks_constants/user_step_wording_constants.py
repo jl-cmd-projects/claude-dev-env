@@ -20,7 +20,7 @@ NEGATED_CLAUSE_PATTERN = re.compile(
     r"|(?:\b(?:not|never|without|no\s+longer)|n['’]t)(?:\s+[\w-]+){0,3}\s*$",
     re.IGNORECASE,
 )
-NEGATED_TAIL_PATTERN = re.compile(r"\s*[:\-–—]?\s*(?:none|nothing|no|n/a)\b", re.IGNORECASE)
+NEGATED_TAIL_PATTERN = re.compile(r"[\s*_]*[:\-–—]?[\s*_]*(?:none|nothing|no|n/a)(?![a-z0-9])", re.IGNORECASE)
 CLAUSE_BREAK_PATTERN = re.compile(
     r"[.!?,;:|]|\n\s*\n|\n\s*[-*+#]+\s|\b(?:and|but|so|then|while)\b", re.IGNORECASE
 )
