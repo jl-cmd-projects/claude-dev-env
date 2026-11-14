@@ -315,7 +315,7 @@ def test_hook_has_its_own_pre_tool_use_registration() -> None:
                 {
                     "type": "command",
                     "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/pr_lifecycle_skill_gate.py",
-                    "timeout": 10,
+                    "timeout": 30,
                 }
             ],
         }

@@ -1,4 +1,8 @@
-"""Deny pull request lifecycle actions until their skill appears in the transcript."""
+"""Deny pull request lifecycle actions until their skill appears in the transcript.
+
+A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its reads end by 20 s.
+``blocking/gate_run_reads.py`` draws that budget. A deny from a run it cut short says a second run may pass.
+"""
 
 from __future__ import annotations
 
@@ -77,15 +81,7 @@ from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, 
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
 from blocking.gate_run_reads import gate_run, read_deadlines_started
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
-from blocking.pull_request_proof import (
-    edit_proof_reason,
-    is_feature_pull_request,
-    missing_eval_section_reason,
-    missing_existing_work_reason,
-    missing_flowchart_reason,
-    missing_look_reason,
-    missing_proof_reason,
-)
+from blocking import pull_request_proof as proof
 from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
     invokes_skill_with_argument,
@@ -387,9 +383,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         any deny above in a run whose deadline cut a read -> that reason + READS_RAN_OUT_SENTENCE
 
-    The checks share one gate run, so a git or GitHub question two checks
-    ask is read once. A read the deadline cut short counts as unanswered,
-    and each check keeps its rule for an unanswered read.
+    The checks share one gate run, so two checks that ask git or GitHub one question read it once.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -398,32 +392,23 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         return None
     with gate_run() as run:
         reason = _first_broken_rule_reason(all_payload_fields)
-    if reason is None:
-        return None
-    return deny_decision(reason + READS_RAN_OUT_SENTENCE if run.was_read_cut_short else reason)
+    note = READS_RAN_OUT_SENTENCE if run.was_read_cut_short else ""
+    return None if reason is None else deny_decision(reason + note)
 
 
-def _first_broken_rule_reason(all_payload_fields: dict[str, object]) -> str | None:
-    if _is_skill_unloaded(all_payload_fields):
+def _first_broken_rule_reason(all_fields: dict[str, object]) -> str | None:
+    if _is_skill_unloaded(all_fields):
         return DENY_REASON
-    proof_reason = missing_proof_reason(all_payload_fields) or edit_proof_reason(all_payload_fields)
-    if proof_reason is not None:
-        return proof_reason
-    search_reason = missing_existing_work_reason(all_payload_fields)
-    if search_reason is not None:
-        return search_reason
-    flowchart_reason = missing_flowchart_reason(all_payload_fields)
-    if flowchart_reason is not None:
-        return flowchart_reason
-    eval_reason = missing_eval_section_reason(all_payload_fields)
-    if eval_reason is not None:
-        return eval_reason
-    look_reason = missing_look_reason(all_payload_fields)
-    if look_reason is not None:
-        return look_reason
-    if is_feature_pull_request(all_payload_fields) and is_build_eval_missing(all_payload_fields):
-        return MISSING_BUILD_EVAL_REASON
-    return duplicate_followup_reason(all_payload_fields)
+    return (
+        proof.missing_proof_reason(all_fields)
+        or proof.edit_proof_reason(all_fields)
+        or proof.missing_existing_work_reason(all_fields)
+        or proof.missing_flowchart_reason(all_fields)
+        or proof.missing_eval_section_reason(all_fields)
+        or proof.missing_look_reason(all_fields)
+        or (MISSING_BUILD_EVAL_REASON if proof.is_feature_pull_request(all_fields) and is_build_eval_missing(all_fields) else None)
+        or duplicate_followup_reason(all_fields)
+    )
 
 
 def transcript_paths(all_payload_fields: dict[str, object]) -> list[str]:
