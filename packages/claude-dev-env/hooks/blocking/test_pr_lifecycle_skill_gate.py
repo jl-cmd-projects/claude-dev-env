@@ -1,7 +1,6 @@
 """Behavior tests for the pull request lifecycle PreToolUse gate."""
 
 import json
-import os
 import subprocess
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
@@ -15,8 +14,10 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import followup_pr_dedupe as gate_dedupe
+from blocking import gate_run_reads
 from blocking import pr_lifecycle_skill_gate as gate
 from blocking.gate_run_reads import read_deadlines_started
+from hooks_constants.followup_pr_dedupe_constants import ALL_GIT_REMOTE_COMMAND_WORDS
 from hooks_constants.gate_run_reads_constants import PROOF_AND_LOOK_READS_SECONDS, READS_RAN_OUT_SENTENCE
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import (
@@ -364,26 +365,19 @@ PICTURE_LINE = "![after](https://example.com/after.png)\n"
 CREATE_WORDS = " ".join(("gh", "pr", "create"))
 
 
-def _git_logging_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    stub_directory = tmp_path / "stub-bin"
-    stub_directory.mkdir()
-    log_path = tmp_path / "git-calls.log"
-    stub_path = stub_directory / "git"
-    stub_path.write_text(
-        f"#!{sys.executable}\n"
-        "import sys\n"
-        f"open({str(log_path)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')\n"
-        "sys.exit(1)\n",
-        encoding="utf-8",
-    )
-    stub_path.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{stub_directory}{os.pathsep}{os.environ.get('PATH', '')}")
-    log_path.write_text("", encoding="utf-8")
-    return log_path
+def _unstarted_children(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    all_asked_commands: list[list[str]] = []
+
+    def refuse_to_start(all_command_words: list[str], **all_options: object) -> None:
+        all_asked_commands.append(list(all_command_words))
+        raise OSError("this test starts no child")
+
+    monkeypatch.setattr(gate_run_reads.subprocess, "Popen", refuse_to_start)
+    return all_asked_commands
 
 
-def _origin_reads(log_path: Path) -> int:
-    return sum(each_line.startswith("remote get-url") for each_line in log_path.read_text(encoding="utf-8").splitlines())
+def _origin_reads(all_asked_commands: list[list[str]]) -> int:
+    return sum(each_command == list(ALL_GIT_REMOTE_COMMAND_WORDS) for each_command in all_asked_commands)
 
 
 def _quoted_shell_create_without_repository(tmp_path: Path, body: str) -> dict[str, object]:
@@ -398,20 +392,20 @@ def _quoted_shell_create_without_repository(tmp_path: Path, body: str) -> dict[s
 def test_one_gate_run_should_read_the_origin_once_for_a_followup_body(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    log_path = _git_logging_path(tmp_path, monkeypatch)
+    all_asked_commands = _unstarted_children(monkeypatch)
     payload = _quoted_shell_create_without_repository(tmp_path, PROVEN_FOLLOWUP_BODY + PICTURE_LINE)
     assert gate.decision_for(payload) is None
-    assert _origin_reads(log_path) == 1
+    assert _origin_reads(all_asked_commands) == 1
 
 
 def test_gate_should_not_read_the_origin_when_no_body_names_a_parent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    log_path = _git_logging_path(tmp_path, monkeypatch)
+    all_asked_commands = _unstarted_children(monkeypatch)
     body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.") + PICTURE_LINE
     payload = _quoted_shell_create_without_repository(tmp_path, body)
     assert gate.decision_for(payload) is None
-    assert _origin_reads(log_path) == 0
+    assert _origin_reads(all_asked_commands) == 0
 
 
 class LateClock:

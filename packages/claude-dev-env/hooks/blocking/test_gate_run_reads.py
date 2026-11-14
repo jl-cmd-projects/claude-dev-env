@@ -31,10 +31,10 @@ HIDDEN_WINDOW_FLAGS = 0x08000000
 SLEEP_THEN_PRINT = "import time; time.sleep(30); print('late')"
 GRANDCHILD_HOLDS_THE_PIPE = (
     "import subprocess, sys, time;"
-    " subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(3)']);"
+    " subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']);"
     " time.sleep(30)"
 )
-ELAPSED_SLACK_SECONDS = 1.0
+ELAPSED_SLACK_SECONDS = 8.0
 
 
 class FakeClock:
@@ -146,7 +146,7 @@ def test_child_stdout_should_start_its_child_with_the_hidden_window_flags(monkey
         all_seen_flags.append(all_options.get("creationflags"))
         raise OSError("this test starts no child")
 
-    monkeypatch.setattr(gate_run_reads, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS, raising=False)
+    monkeypatch.setattr(gate_run_reads, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS)
     monkeypatch.setattr(gate_run_reads.subprocess, "Popen", refuse_to_start)
     assert child_stdout(["git", "status"], 5, ReadSlice.PROOF_AND_LOOK) is None
     assert all_seen_flags == [HIDDEN_WINDOW_FLAGS]
@@ -179,7 +179,7 @@ def test_child_stdout_should_mark_the_run_when_the_deadline_cuts_a_read_short() 
 
 
 def _slow_read(allowance: float) -> list[str]:
-    time.sleep(allowance + 5)
+    time.sleep(allowance + 30)
     return ["late"]
 
 

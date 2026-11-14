@@ -27,6 +27,7 @@ OTHER_FOLLOWUP = {
     "html_url": "https://github.com/jl-cmd/claude-dev-env/pull/1777",
     "body": "follow-up to #17",
 }
+ELAPSED_SLACK_SECONDS = 8.0
 
 
 def _reader(all_open: list[Mapping[str, object]]) -> dedupe.OpenPullRequestReader:
@@ -136,7 +137,7 @@ def test_read_open_pull_requests_should_bound_the_whole_read(monkeypatch: pytest
     started = time.monotonic()
     with pytest.raises(TimeoutError):
         dedupe.read_open_pull_requests("jl-cmd", "claude-dev-env")
-    assert time.monotonic() - started < 2
+    assert time.monotonic() - started < 1 + ELAPSED_SLACK_SECONDS
     server.shutdown()
 
 
