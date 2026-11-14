@@ -75,6 +75,8 @@ class TestAdvisorRulesPrompt:
             ("claude-fable-5-2", "claude-fable-5-2"),
             ("opus", "claude-opus-5-5[1m]"),
             ("claude-opus-4-7", "claude-opus-5"),
+            ("claude-mythos-1", "claude-mythos-1"),
+            ("Custom-Advisor", "custom-advisor"),
         ],
     )
     def test_should_emit_nothing_when_session_runs_on_the_advisor_model(

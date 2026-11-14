@@ -6,9 +6,9 @@ adds the team-advisor starting points, such as a consult on a design question,
 and leaves each call to the session's judgment. It emits them only when the user settings carry an
 ``advisorModel`` value and ``CLAUDE_CODE_DISABLE_ADVISOR_TOOL`` is not set, so a
 session without the advisor is never told to call it.
-It also stays silent when the SessionStart payload's ``model`` belongs to the
-same model family as ``advisorModel``, so a session is never told to consult
-itself. When the payload has no ``model``, the guidance names the advisor model
+It also stays silent when the SessionStart payload's ``model`` is the
+``advisorModel`` value or belongs to its model family, so a session is never
+told to consult itself. When the payload has no ``model``, the guidance names the advisor model
 so the session can tell for itself.
 The hook writes nothing and runs no tools itself.
 """
@@ -84,15 +84,23 @@ def model_family(model_name: str) -> str | None:
 
 
 def runs_on_advisor_model(session_model: object, advisor_model: str) -> bool:
-    """Return True when the session model and the advisor model share a known family."""
+    """Return True when the session model is the advisor model or shares its known family.
+
+    ::
+
+        "claude-fable-5-2", "fable" -> True     "claude-mythos-1", "claude-mythos-1" -> True
+        "claude-opus-5-5", "fable" -> False     "claude-mythos-1", "custom-advisor" -> False
+    """
     if not isinstance(session_model, str):
         return False
+    if session_model.strip().lower() == advisor_model.lower():
+        return True
     session_family = model_family(session_model)
     return session_family is not None and session_family == model_family(advisor_model)
 
 
 def main() -> None:
-    """Emit the advisor guidance as SessionStart additionalContext when the advisor is on, runs on another model family, and the session-prompts mod is off."""
+    """Emit the advisor guidance as SessionStart additionalContext when the advisor is on, the session runs on another model, and the session-prompts mod is off."""
     if is_mod_plugin_enabled(SESSION_PROMPTS_PLUGIN_NAME):
         return
     if is_advisor_disabled_by_environment():
