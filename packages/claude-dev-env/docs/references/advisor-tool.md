@@ -26,7 +26,7 @@ On tasks longer than a few steps, aim for an early approach consult and a comple
 
 Call for design, architecture, and risk questions where you will not touch a file. If the response would be analysis or a recommendation with no other tool calls, call first. That judgment is where a second opinion is highest value. Simple factual lookups and arithmetic do not need a call.
 
-A session that runs on the advisor model itself plans no advisor consults. A consult there would ask the same model for a second opinion. The rules on this page, the hard rule included, apply only to a session on another model. The SessionStart hook `session/advisor_rules_prompt.py` stays silent when its payload names a model of the advisor's family. Claude Code leaves `model` out of that payload in some launches, such as `claude -p` and the desktop app, so the prompt also names the advisor model.
+A session that runs on the advisor model itself plans no advisor consults. A consult there would ask the same model for a second opinion. The rules on this page, the hard rule included, apply only to a session on another model. [Session context hooks](../../hooks/features/session-context.md) covers how the SessionStart prompt tells the two apart.
 
 ## Hard rule
 
