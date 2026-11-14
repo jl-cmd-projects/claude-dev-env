@@ -183,6 +183,7 @@ def _started_child(all_command_words: Sequence[str], working_directory: str | No
 
 
 def _stop_child(child: subprocess.Popen[str]) -> None:
+    """Kill the child, then wait a bounded grace, so a grandchild that keeps the output pipe open cannot hold the gate."""
     child.kill()
     try:
         child.communicate(timeout=KILL_GRACE_SECONDS)
@@ -205,9 +206,6 @@ def child_stdout(
         child outlives its allowance                -> None, after a kill and a short pipe grace
         the slice has no time left                  -> None, and the child never starts
 
-    The wait after the kill is bounded too, so a grandchild that keeps the
-    output pipe open cannot hold the gate.
-
     Args:
         all_command_words: The program and its arguments.
         own_timeout_seconds: The timeout the read carries on its own.
@@ -221,6 +219,10 @@ def child_stdout(
     child = _started_child(all_command_words, working_directory)
     if child is None:
         return None
+    return _answer_within(child, allowance, own_timeout_seconds)
+
+
+def _answer_within(child: subprocess.Popen[str], allowance: float, own_timeout_seconds: float) -> str | None:
     try:
         printed_text = child.communicate(timeout=allowance)[0]
     except subprocess.TimeoutExpired:
