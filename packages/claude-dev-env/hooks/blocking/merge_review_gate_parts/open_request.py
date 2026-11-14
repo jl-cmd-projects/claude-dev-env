@@ -242,6 +242,16 @@ def _placed_heads(placed_create: PlacedCreate) -> list[str]:
 
 
 def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
+    """Read the first create the way the gate read it before it walked every create.
+
+    The repository comes from a ``--repo`` flag or the origin remote, never
+    from a ``GH_REPO=`` prefix::
+
+        GH_REPO=o/r env -u GH_REPO gh pr create --fill  -> origin, HEAD
+
+    There gh opens in origin and the walk reads ``o/r``, so this call is the
+    one that asks for a clean pass on origin.
+    """
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
     create_match = GH_PR_CREATE_PATTERN.search(
         options_only

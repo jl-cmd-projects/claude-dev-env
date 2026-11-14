@@ -396,6 +396,8 @@ ALL_MAIN_FLOOR_READINGS = [
     ("bash <<'EOF'\ngh pr create --head two\nEOF", None, "two", "/work/main"),
     ("export GH_REPO=other/thing; gh pr create --head two", None, "two", "/work/main"),
     ("GH_REPO=other/thing gh pr create --head two", None, "two", "/work/main"),
+    ("GH_REPO=other/thing env -u GH_REPO gh pr create --head two", None, "two", "/work/main"),
+    ("GH_REPO=other/thing env -i gh pr create --head two", None, "two", "/work/main"),
     ("git commit -m 'x; gh pr create --head two'", None, "two", "/work/main"),
     ("gh.exe pr create --head two", None, "two", "/work/main"),
     ("cd $WORK && gh pr create --fill", None, "HEAD", "/work/main/$WORK"),

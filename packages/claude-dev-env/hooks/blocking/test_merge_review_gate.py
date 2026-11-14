@@ -1052,6 +1052,24 @@ def test_should_read_the_repository_gh_repo_names(
     assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "GH_REPO=acme/other gh pr create --head feature",
+        "GH_REPO=acme/other env -u GH_REPO gh pr create --head feature",
+        "GH_REPO=acme/other env -i gh pr create --head feature",
+    ],
+)
+def test_should_ask_for_an_origin_review_of_a_first_create_behind_a_gh_repo_prefix(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.main(["acme/other", "open", head, "0"], io.StringIO())
+    assert f"acme/tools has no clean review for head {head}" in _deny_reason(
+        _bash_in(folder, command)
+    )
+
+
 def _git_on_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script_body: str) -> None:
     bin_folder = tmp_path / "fake-bin"
     bin_folder.mkdir()
