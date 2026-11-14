@@ -24,37 +24,29 @@ A match is skipped when its clause negates it. The clause is the text before
 the match on the same line, back to a sentence mark, a comma, a semicolon, a
 colon, a table bar, or one of the words and, but, so, then, and while. The read
 looks 240 characters back for it. A line break always ends a clause, so
-"Nothing on this list" wrapped onto "needs you." is held. Three shapes negate a
-match:
+"Nothing on this list" wrapped onto "needs you." is held. A carriage return
+counts as a line break.
+
+The clause is read as words. A word is a run of characters with white space,
+or an end of the paragraph, on each side. It counts only when all of it sits
+inside the clause and it ends before the match. The asterisks and underscores
+at its two ends are removed, and the rest must equal a negating word. So
+"**No** item needs you." is skipped, and "No-reply inbox needs your record",
+"(Nothing here needs you.)", and "Nothing*needs you." are held. Three shapes
+negate a match:
 
 - nothing, none, or nobody anywhere in the clause;
-- no, neither, or nor at the start of the clause, also after "there is",
+- no, neither, or nor as the first word of the clause, also after "there is",
   "there are", "there was", or "there were";
-- not, never, without, "no longer", or a word ending in n't, up to three words
-  before the match, where a word is a run of letters, digits, underscores,
-  hyphens, apostrophes, and asterisks.
+- not, never, without, "no longer", or a word ending in n't (with a straight
+  or a curly apostrophe), with up to three words between it and the match.
 
-Each of these words counts as a whole word, and so does each of the words and,
-but, so, then, and while that end a clause. Asterisk emphasis may wrap it, as
-in "does **not** need you". A word joined to a letter, a digit, an underscore,
-or a hyphen on either side is another word, so "No-reply inbox needs your
-record", "NO_PROXY needs your value", "The do-nothing job needs your
-approval", "The yes-and-no question needs your answer", and "_Nothing_ here
-needs you" are held. The asterisks around a word do not part it from what
-they touch, so "**No**-reply inbox needs your record" and "The do-**nothing**
-job needs your approval" are held too. A phrase counts inside emphasis marks
-too, as in "_needs your_ merge".
-
-The start of a clause may carry markers: white space, a list, heading, or quote
-mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
-mark, as in "- No open item needs you." and "**No** item needs you." A marker
-before no, neither, or nor belongs to the clause start and is no part of that
-word, so "_No open item_ needs you." is skipped. When the 240 characters hold
-no clause break and do not reach the start of the paragraph, the clause start
-is out of view. Then the second shape does not apply and "say when" does not
-count. Each pattern reads the whole paragraph, so a word that begins before
-the 240 characters, such as "do-nothing" or "minor", is still read whole and
-no piece of it counts.
+The first word of a clause is the first one after its markers. A marker is a
+word made only of hyphens, plus signs, hash marks, greater-than signs, digits,
+parentheses, and square brackets, or only of emphasis marks, as in
+"- [ ] No open item needs you." When the 240 characters hold no clause break
+and do not reach the start of the paragraph, the clause start is out of view.
+Then the second shape does not apply and "say when" does not count.
 
 A match is skipped too when it is a label with nothing under it. The label
 form is closed, it sits on one line, and it reads in this order::
@@ -82,9 +74,11 @@ required: no", where a bare no can be an answer or an abbreviation, a
 that a line break splits, as in "Action" on one line and "required: none." on
 the next.
 
-"Say when" counts only at the start of its clause, where it is an instruction:
-after the same markers, and after the word please, the word just, or both in
-that order.
+"Say when" counts only at the start of its clause, where it is an instruction.
+Before it the clause may hold white space, the marker characters above, full
+stops, and emphasis marks, then the word please, the word just, or both in
+that order. A phrase counts inside emphasis marks too, as in "_needs your_
+merge".
 
 These shapes read words. They do not read grammar, so a line can hold a
 negating word in the same clause and still hand over a step, and that line is
@@ -102,6 +96,7 @@ an element are not read, so that text still counts.
 
 from __future__ import annotations
 
+import itertools
 import re
 import sys
 from collections.abc import Iterable
@@ -116,25 +111,35 @@ from final_reply_gate import prose_paragraphs
 from hooks_constants.open_tasks_stop_gate_constants import UTF8_ENCODING
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.user_step_wording_constants import (
+    ALL_ABSENCE_WORDS,
+    ALL_CLAUSE_OPENING_NEGATORS,
+    ALL_CONTRACTED_NEGATOR_ENDINGS,
     ALL_HTML_FILE_SUFFIXES,
     ALL_HTML_HIDDEN_TAGS,
     ALL_HTML_INLINE_TAGS,
+    ALL_LATE_NEGATORS,
     ALL_SENT_TEXT_FILE_SUFFIXES,
+    ALL_THERE_VERBS,
     BARE_IMPERATIVE_PATTERN,
     BINARY_READ_MODE,
     CLAUSE_BREAK_PATTERN,
     CLAUSE_LEAD_WINDOW_CHARACTERS,
     CLAUSE_OPENER_PATTERN,
+    CLAUSE_WORD_PATTERN,
+    EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
     HTML_LINE_BREAK_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
     LINE_BREAK,
+    LINE_ENDING_PATTERN,
+    MARKER_WORD_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
-    NEGATED_CLAUSE_PATTERN,
-    NEGATED_CLAUSE_START_PATTERN,
+    MAXIMUM_WORDS_AFTER_LATE_NEGATOR,
     NEGATED_TAIL_PATTERN,
+    ALL_NO_LONGER_WORDS,
+    THERE_WORD,
     USER_STEP_PATTERN,
 )
 
@@ -152,8 +157,9 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     Each match looks back over a fixed window for its clause, so a long text
     reads in time that grows with its length.
     """
-    for each_match in USER_STEP_PATTERN.finditer(prose_text):
-        if _hands_over_a_step(prose_text, each_match):
+    line_fed_text = LINE_ENDING_PATTERN.sub(LINE_BREAK, prose_text)
+    for each_match in USER_STEP_PATTERN.finditer(line_fed_text):
+        if _hands_over_a_step(line_fed_text, each_match):
             return each_match.group()
     return None
 
@@ -168,18 +174,48 @@ def _clause_start(prose_text: str, phrase_start: int) -> tuple[int, bool]:
     return window_start, window_start == 0
 
 
+def _clause_words(prose_text: str, clause_start: int, phrase_start: int) -> list[str]:
+    return [
+        each_word.group().strip(EMPHASIS_MARKS).lower()
+        for each_word in CLAUSE_WORD_PATTERN.finditer(prose_text, clause_start, phrase_start)
+        if each_word.end() < phrase_start
+    ]
+
+
+def _holds_a_negator(all_clause_words: list[str]) -> bool:
+    if not ALL_ABSENCE_WORDS.isdisjoint(all_clause_words):
+        return True
+    all_late_words = all_clause_words[-(MAXIMUM_WORDS_AFTER_LATE_NEGATOR + 1) :]
+    if any(
+        each_word in ALL_LATE_NEGATORS or each_word.endswith(ALL_CONTRACTED_NEGATOR_ENDINGS)
+        for each_word in all_late_words
+    ):
+        return True
+    all_no_longer_reach = all_clause_words[-(MAXIMUM_WORDS_AFTER_LATE_NEGATOR + len(ALL_NO_LONGER_WORDS)) :]
+    return ALL_NO_LONGER_WORDS in zip(all_no_longer_reach, all_no_longer_reach[1:])
+
+
+def _opens_with_a_negator(all_clause_words: list[str]) -> bool:
+    all_lead_words = itertools.dropwhile(MARKER_WORD_PATTERN.fullmatch, all_clause_words)
+    first_word = next(all_lead_words, None)
+    if first_word == THERE_WORD and next(all_lead_words, None) in ALL_THERE_VERBS:
+        first_word = next(all_lead_words, None)
+    return first_word in ALL_CLAUSE_OPENING_NEGATORS
+
+
 def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
     phrase_start = phrase_match.start()
     is_phrase_on_one_line = LINE_BREAK not in phrase_match.group()
     if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(prose_text, phrase_match.end()):
         return False
     clause_start, is_clause_start_in_view = _clause_start(prose_text, phrase_start)
-    if NEGATED_CLAUSE_PATTERN.search(prose_text, clause_start, phrase_start):
+    all_clause_words = _clause_words(prose_text, clause_start, phrase_start)
+    if _holds_a_negator(all_clause_words):
         return False
     is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase_match.group()) is not None
     if not is_clause_start_in_view:
         return not is_bare_imperative
-    if NEGATED_CLAUSE_START_PATTERN.match(prose_text, clause_start, phrase_start):
+    if _opens_with_a_negator(all_clause_words):
         return False
     if is_bare_imperative:
         return CLAUSE_OPENER_PATTERN.fullmatch(prose_text, clause_start, phrase_start) is not None
@@ -188,7 +224,7 @@ def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
 
 def waiting_phrase(shown_text: str) -> str | None:
     """Return the first phrase in Markdown or plain text that says something waits on the user, or None."""
-    return _first_waiting_phrase(prose_paragraphs(shown_text))
+    return _first_waiting_phrase(prose_paragraphs(LINE_ENDING_PATTERN.sub(LINE_BREAK, shown_text)))
 
 
 def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:

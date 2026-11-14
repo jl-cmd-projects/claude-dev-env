@@ -1,3 +1,4 @@
+import string
 import time
 from pathlib import Path
 
@@ -46,7 +47,18 @@ import user_step_wording
         ("Action required: no", "Action required"),
         ("SKIP_NONE needs your value.", "needs your"),
         ("The status__none filter needs your review.", "needs your"),
-        ("_Nothing_ here needs you.", "needs you"),
+        ("Nothing*needs you.", "needs you"),
+        ("No**needs your approval**.", "needs your"),
+        ("It does not*need you*.", "need you"),
+        ("This isn't**needs you**", "needs you"),
+        ("Nothing changed--and the deploy needs your approval.", "needs your"),
+        ("Nothing on this list\rneeds you.", "needs you"),
+        ("Action\rrequired: none.", "Action\nrequired"),
+        ("Action required:\rnone.", "Action required"),
+        ("(Nothing here needs you.)", "needs you"),
+        ("|No item needs you|", "needs you"),
+        ("-No item needs you.", "needs you"),
+        ("Done.Nothing here needs you.", "needs you"),
         ("Done. No" + " " * 238 + "needs you.", "needs you"),
         ("The do-nothing job " + "x " * 114 + "needs your approval.", "needs your"),
         ("A minor" + " x" * 118 + " needs your approval.", "needs your"),
@@ -100,6 +112,11 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "```\necho 'this needs you'\n```",
         "None of the open items needs you.",
         "**Nothing** here needs you.",
+        "_Nothing_ here needs you.",
+        "_No open item_ needs you.",
+        "- [ ] No open item needs you.",
+        "| No item needs you |",
+        "It has never been blocked on you.",
         "This is not something that's waiting on you.",
         "y " * 150 + "and no" + " " * 234 + "needs you.",
         "alpha nothing " + "x" * 231 + " needs you.",
@@ -144,6 +161,38 @@ def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clau
         == "needs you"
     )
     assert user_step_wording.waiting_phrase_in_prose("No step here needs you.") is None
+
+
+def test_should_hold_a_negating_word_with_any_other_character_joined_to_it() -> None:
+    all_sentence_frames = {
+        "nothing": "{word} here needs you.",
+        "none": "{word} of these needs you.",
+        "nobody": "{word} here needs you.",
+        "no": "{word} open item needs you.",
+        "neither": "{word} build needs you.",
+        "nor": "{word} this build needs you.",
+        "not": "It does {word} need you.",
+        "never": "It is {word} blocked on you.",
+        "without": "It runs {word} waiting on you.",
+    }
+    all_joined_characters = [each_character for each_character in string.punctuation + "a0" if each_character not in "*_"]
+    all_plain_texts = [each_frame.format(word=each_negator) for each_negator, each_frame in all_sentence_frames.items()]
+    assert [user_step_wording.waiting_phrase_in_prose(each_text) for each_text in all_plain_texts] == [None] * len(
+        all_plain_texts
+    )
+    all_joined_texts = [
+        each_frame.format(word=each_joined_word)
+        for each_negator, each_frame in all_sentence_frames.items()
+        for each_character in all_joined_characters
+        for each_joined_word in (each_character + each_negator, each_negator + each_character)
+    ]
+    all_skipped_texts = [
+        each_text for each_text in all_joined_texts if user_step_wording.waiting_phrase_in_prose(each_text) is None
+    ]
+    assert len(all_joined_texts) > len(all_plain_texts) * len(all_joined_characters)
+    assert all_skipped_texts == []
+    assert user_step_wording.waiting_phrase_in_prose("It isn't waiting on you.") is None
+    assert user_step_wording.waiting_phrase_in_prose("It isn't- waiting on you.") == "waiting on you"
 
 
 def test_should_read_a_long_text_of_negated_phrases_in_linear_time() -> None:

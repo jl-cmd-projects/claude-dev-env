@@ -18,23 +18,17 @@ USER_STEP_PATTERN = re.compile(
     re.IGNORECASE,
 )
 CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
-CLAUSE_WORD_START = r"(?<![\w*-])\**"
-CLAUSE_WORD_END = r"\**(?![\w*-])"
-NEGATED_CLAUSE_PATTERN = re.compile(
-    CLAUSE_WORD_START
-    + r"(?:nothing|none|nobody)"
-    + CLAUSE_WORD_END
-    + r"|(?:"
-    + CLAUSE_WORD_START
-    + r"(?:not|never|without|no\s+longer)|n['’]t)"
-    + CLAUSE_WORD_END
-    + r"(?:\s+[\w*'’-]+){0,3}\s*$",
-    re.IGNORECASE,
-)
-NEGATED_CLAUSE_START_PATTERN = re.compile(
-    CLAUSE_MARKERS + r"(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)" + CLAUSE_WORD_END,
-    re.IGNORECASE,
-)
+CLAUSE_WORD_PATTERN = re.compile(r"(?<!\S)\S+")
+EMPHASIS_MARKS = "*_"
+MARKER_WORD_PATTERN = re.compile(r"[-+#>\d)(\[\]]*")
+ALL_ABSENCE_WORDS = frozenset({"nothing", "none", "nobody"})
+ALL_CLAUSE_OPENING_NEGATORS = frozenset({"no", "neither", "nor"})
+THERE_WORD = "there"
+ALL_THERE_VERBS = frozenset({"is", "are", "was", "were"})
+ALL_LATE_NEGATORS = frozenset({"not", "never", "without"})
+ALL_CONTRACTED_NEGATOR_ENDINGS = ("n't", "n’t")
+ALL_NO_LONGER_WORDS = ("no", "longer")
+MAXIMUM_WORDS_AFTER_LATE_NEGATOR = 3
 NEGATED_TAIL_PATTERN = re.compile(
     r"(?:[^\S\n]|[*_]){0,8}[:\-–—](?:[^\S\n]|[*_]){0,8}"
     r"(?:none|nothing|n/a|no[^\S\n]+(?:action|step)s?)"
@@ -42,10 +36,9 @@ NEGATED_TAIL_PATTERN = re.compile(
     r"[*_]{0,3}[.!?]?[*_]{0,3}[^\S\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
-CLAUSE_BREAK_PATTERN = re.compile(
-    r"[.!?,;:|\n]|" + CLAUSE_WORD_START + r"(?:and|but|so|then|while)" + CLAUSE_WORD_END, re.IGNORECASE
-)
+CLAUSE_BREAK_PATTERN = re.compile(r"[.!?,;:|\n]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
 LINE_BREAK = "\n"
+LINE_ENDING_PATTERN = re.compile(r"\r\n?")
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
 CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please\s+)?(?:just\s+)?", re.IGNORECASE)
