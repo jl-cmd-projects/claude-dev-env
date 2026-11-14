@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.116.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.4...claude-dev-env-v8.116.5) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** start a staged copy's native ruff run in the target's folder ([#2346](https://github.com/jl-cmd-projects/claude-dev-env/issues/2346)) ([014070e](https://github.com/jl-cmd-projects/claude-dev-env/commit/014070ecedb42ccd9a6b048a74a2655af7fba8a1))
+
 ## [8.116.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.3...claude-dev-env-v8.116.4) (2026-11-14)
 
 
