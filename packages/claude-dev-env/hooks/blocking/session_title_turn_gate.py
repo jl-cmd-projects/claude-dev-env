@@ -23,15 +23,20 @@ A title the format gate denied does not count either.
 The task list comes from ``open_tasks_stop_gate.session_task_items``. Whether
 a prompt asks for work comes from ``open_task_asks.is_ask``.
 
-The session has the title tool when a transcript record names it::
+The session has the title tool when the latest record of its tools names it::
 
-    attachment.tools[].name / attachment.entries[].name   (tool listing)
-    attachment.addedNames / attachment.readdedNames       (deferred tools)
+    attachment.tools[].name                               (full inline listing)
     assistant tool_use name                               (an earlier call)
+    attachment.addedNames / attachment.readdedNames /
+    attachment.entries[].name                             (deferred tools)
 
-A later ``removedNames`` entry takes the name away again. With no such record,
-or with an unreadable transcript, the hook lets the turn end, so Codex,
-Cursor and sessions without the tool keep working.
+A ``tools`` listing is the whole inline tool set, so a later listing replaces
+the inline names an earlier listing or call gave. A session that changes its
+tool set mid-run, such as one that leaves a remote connection, stops holding a
+title tool its new listing leaves out. Deferred names stay until a later
+``removedNames`` entry takes them away. With no such record, or with an
+unreadable transcript, the hook lets the turn end, so Codex, Cursor and
+sessions without the tool keep working.
 
 A block writes ``{"decision": "block", "reason": ...}`` to stdout. The reason
 names the shown title, why it does not fit, and the four status emoji.
@@ -59,8 +64,7 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.session_title_constants import (
     ALL_ITEMS_COMPLETED_REASON,
     ALL_SKIPPED_PROMPT_FLAGS,
-    ALL_TOOL_LISTING_NAME_KEYS,
-    ALL_TOOL_LISTING_RECORD_KEYS,
+    ALL_DEFERRED_TOOL_KEYS,
     ALLOW_EXIT_CODE,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_KEY,
@@ -73,6 +77,7 @@ from hooks_constants.session_title_constants import (
     DECISION_KEY,
     DECODE_ERRORS_POLICY,
     ENTRY_TYPE_KEY,
+    FULL_TOOL_LISTING_KEY,
     HOURGLASS_STATUS,
     IS_ERROR_KEY,
     MESSAGE_KEY,
@@ -153,33 +158,47 @@ def available_title_tools(all_entries: list[dict[str, object]]) -> list[str]:
     ::
 
         attachment {"tools": [{"name": "mcp__x__set_session_title"}]}   -> ["mcp__x__set_session_title"]
+        then attachment {"tools": [{"name": "Bash"}]}                   -> []
         then attachment {"removedNames": ["mcp__x__set_session_title"]} -> []
+        attachment {"addedNames": [...]}, then {"tools": [Bash]}        -> the deferred name
         no listing and no call                                          -> []
+
+    A ``tools`` listing is the full inline tool set, so it replaces the inline
+    names an earlier listing or call gave. Deferred names change only through
+    ``addedNames``, ``readdedNames``, ``entries`` and ``removedNames``.
 
     Args:
         all_entries: The transcript entries, oldest first.
 
     Returns:
-        The title tool names, in the order the transcript first named them.
+        The title tool names, inline names first.
     """
-    available_names: dict[str, None] = {}
+    inline_names: dict[str, None] = {}
+    deferred_names: dict[str, None] = {}
     for each_entry in all_entries:
         attachment = each_entry.get(ATTACHMENT_KEY)
         if isinstance(attachment, dict):
-            _apply_tool_listing(available_names, attachment)
-        available_names.update(dict.fromkeys(_title_names(_tool_use_blocks(each_entry))))
-    return list(available_names)
+            _apply_tool_listing(inline_names, deferred_names, attachment)
+        inline_names.update(dict.fromkeys(_title_names(_tool_use_blocks(each_entry))))
+    return list(dict.fromkeys([*inline_names, *deferred_names]))
 
 
 def _apply_tool_listing(
-    all_available_names: dict[str, None], all_attachment_fields: dict[str, object]
+    all_inline_names: dict[str, None],
+    all_deferred_names: dict[str, None],
+    all_attachment_fields: dict[str, object],
 ) -> None:
-    for each_key in (*ALL_TOOL_LISTING_NAME_KEYS, *ALL_TOOL_LISTING_RECORD_KEYS):
-        all_available_names.update(
+    full_tool_listing = all_attachment_fields.get(FULL_TOOL_LISTING_KEY)
+    if isinstance(full_tool_listing, list):
+        all_inline_names.clear()
+        all_inline_names.update(dict.fromkeys(_title_names(full_tool_listing)))
+    for each_key in ALL_DEFERRED_TOOL_KEYS:
+        all_deferred_names.update(
             dict.fromkeys(_title_names(all_attachment_fields.get(each_key)))
         )
     for each_removed_name in _title_names(all_attachment_fields.get(REMOVED_NAMES_KEY)):
-        all_available_names.pop(each_removed_name, None)
+        all_inline_names.pop(each_removed_name, None)
+        all_deferred_names.pop(each_removed_name, None)
 
 
 def _last_prompt_index(all_entries: list[dict[str, object]]) -> int:

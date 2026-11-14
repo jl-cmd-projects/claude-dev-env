@@ -20,6 +20,13 @@ DEFERRED_LISTING = {
     "type": "attachment",
     "attachment": {"type": "deferred_tools_delta", "addedNames": [DESKTOP_TITLE_TOOL]},
 }
+LATER_TOOL_LISTING_WITHOUT_TITLE_TOOL = {
+    "type": "attachment",
+    "attachment": {
+        "type": "prompt_snapshot",
+        "tools": [{"name": "Bash"}, {"name": "ToolSearch"}],
+    },
+}
 PROMPT = {"type": "user", "message": {"role": "user", "content": "Fix the gate"}}
 WORK_CALL = {
     "type": "assistant",
@@ -328,6 +335,45 @@ def test_should_pass_a_session_without_the_title_tool(
     all_entries: list[dict[str, object]],
 ) -> None:
     assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "all_earlier_entries",
+    [
+        [TOOL_LISTING],
+        earlier_turn("✅ Gate"),
+    ],
+)
+def test_should_pass_once_a_later_tool_listing_no_longer_offers_the_title_tool(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_earlier_entries: list[dict[str, object]],
+) -> None:
+    write_task_store(tmp_path, ["pending"])
+    all_entries = [
+        *all_earlier_entries,
+        LATER_TOOL_LISTING_WITHOUT_TITLE_TOOL,
+        PROMPT,
+        WORK_CALL,
+        WORK_RESULT,
+        REPLY,
+    ]
+    assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
+
+
+def test_should_keep_a_deferred_title_tool_across_a_later_tool_listing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_entries = [
+        DEFERRED_LISTING,
+        LATER_TOOL_LISTING_WITHOUT_TITLE_TOOL,
+        PROMPT,
+        WORK_CALL,
+        WORK_RESULT,
+        REPLY,
+    ]
+    assert DESKTOP_TITLE_TOOL in block_reason(monkeypatch, capsys, tmp_path, all_entries)
 
 
 def test_should_pass_when_the_transcript_cannot_be_read(
