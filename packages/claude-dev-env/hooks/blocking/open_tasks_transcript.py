@@ -29,8 +29,8 @@ The replay also notes what the current turn did::
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
-message do not start a turn; these are the flags session_title_turn_gate.py
-skips, and its tests model Stop hook feedback as an ``isMeta`` user record.
+message do not start a turn. Tests model Stop hook feedback as an ``isMeta``
+user record.
 A Codex ``response_item`` user message starts a Codex turn.
 
 The Cursor CLI can also reach TodoWrite through ``CallDynamicTool``, with the
@@ -49,6 +49,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_SKIPPED_PROMPT_FLAGS,
     ASSISTANT_RECORD_TYPE,
@@ -144,7 +145,11 @@ def _transcript_records(transcript_path: object) -> list[dict[str, object]]:
     if not isinstance(transcript_path, str):
         return []
     try:
-        all_lines = Path(transcript_path).read_text(encoding=UTF8_ENCODING).splitlines()
+        all_lines = (
+            Path(transcript_path)
+            .read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
+            .splitlines()
+        )
     except OSError:
         return []
     all_records = (parsed_object(each_line) for each_line in all_lines)

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 _HOOKS_DIR = str(Path(__file__).resolve().parent.parent)
 if _HOOKS_DIR not in sys.path:
@@ -368,3 +371,43 @@ def test_live_roster_contains_only_nonblocking_hooks() -> None:
         "workflow/auto_formatter.py",
         "advisory/edit_lint_context.py",
     )
+
+
+_EXIT_PROBE_SOURCE = "import sys\nsys.stderr.write('probe child says stop\\n')\nsys.exit({exit_code})\n"
+
+
+def _write_exit_probe(tmp_path: Path, exit_code: int) -> str:
+    probe_path = tmp_path / f"exit_{exit_code}_probe.py"
+    probe_path.write_text(_EXIT_PROBE_SOURCE.format(exit_code=exit_code), encoding="utf-8")
+    return str(probe_path)
+
+
+@pytest.mark.parametrize(("child_exit_code", "expected_exit_code"), [(2, 2), (1, 0), (0, 0)])
+def test_should_pass_a_hosted_hook_exit_two_to_the_host_with_its_stderr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    child_exit_code: int,
+    expected_exit_code: int,
+) -> None:
+    dispatcher_module = sys.modules[aggregate_post_hosted_hook_results.__module__]
+    later_marker = tmp_path / "later_hook_ran.txt"
+    later_probe = tmp_path / "later_probe.py"
+    later_probe.write_text(
+        f"from pathlib import Path\nPath({str(later_marker)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    all_entries = (
+        PostHostedHookEntry(script_relative_path=_write_exit_probe(tmp_path, child_exit_code)),
+        PostHostedHookEntry(script_relative_path=str(later_probe)),
+    )
+    monkeypatch.setattr(dispatcher_module, "ALL_POST_HOSTED_HOOK_ENTRIES", all_entries)
+    monkeypatch.setattr(sys, "argv", [_DISPATCHER_SCRIPT])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"tool_name": _WRITE_TOOL_NAME})))
+
+    with pytest.raises(SystemExit) as raised_exit:
+        dispatcher_module.main()
+
+    assert (raised_exit.value.code or 0) == expected_exit_code
+    assert "probe child says stop" in capsys.readouterr().err
+    assert later_marker.exists()

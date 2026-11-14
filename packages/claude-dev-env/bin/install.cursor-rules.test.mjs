@@ -102,6 +102,35 @@ test('--only journal is rejected before the policy is seeded; --only core seeds 
 });
 
 
+test('registers the turn review Stop hook in the background on Claude Code only', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-turn-review-install-'));
+    try {
+        const resolution = resolveInstallRoot({ homeDirectory, environment: {}, explicitTarget: null });
+
+        runInstaller(homeDirectory, ['--only', 'core']);
+
+        const claudeSettings = JSON.parse(readFileSync(join(resolution.managedRoot, 'settings.json'), 'utf8'));
+        const turnReviewHooks = eventName => claudeSettings.hooks[eventName].flatMap(
+            group => group.hooks.filter(hook => String(hook.command).includes('blocking/turn_review_gate.py')),
+        );
+        const [stopHook] = turnReviewHooks('Stop');
+        assert.equal(turnReviewHooks('Stop').length, 1);
+        assert.equal(stopHook.asyncRewake, true);
+        assert.equal(stopHook.timeout, 300);
+        assert.equal(typeof stopHook.rewakeSummary, 'string');
+        const [promptHook] = turnReviewHooks('UserPromptSubmit');
+        assert.equal(promptHook.asyncRewake, undefined);
+        const codexHooksText = readFileSync(join(homeDirectory, '.codex', 'hooks.json'), 'utf8');
+        assert.equal(codexHooksText.includes('turn_review_gate.py'), false, 'Codex gets no turn review');
+        const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+        const cursorHooksText = existsSync(cursorHooksPath) ? readFileSync(cursorHooksPath, 'utf8') : '';
+        assert.equal(cursorHooksText.includes('turn_review_gate.py'), false, 'Cursor gets no turn review');
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+
 test('seeds one editable policy and one native Codex routing hook', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-routing-install-'));
     try {
@@ -142,9 +171,8 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         assert.equal(allCodexPostToolUseCommands.length, 1, 'Codex gets the owned PR review loop and no other PostToolUse hook');
         assert.match(allCodexPostToolUseCommands[0], /advisory\/owned_pr_review_loop\.py/);
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
-        assert.equal(allCodexStopCommands.length, 2, 'Codex gets the open tasks and owned PR merge Stop gates and no other Stop hook');
+        assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
-        assert.match(allCodexStopCommands[1], /owned_pr_merge_stop_gate\.py/);
         const allCodexSessionStartGroups = firstCodexHooks.hooks.SessionStart;
         assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
@@ -160,6 +188,33 @@ test('seeds one editable policy and one native Codex routing hook', () => {
             firstCodexHooks.hooks.PreToolUse.some(group => group.matcher === 'Write|Edit|MultiEdit|apply_patch'),
             false,
         );
+        const allFirstCodexPromptCommands = firstCodexHooks.hooks.UserPromptSubmit.flatMap(
+            group => group.hooks.map(hook => String(hook.command)),
+        );
+        assert.ok(allFirstCodexPromptCommands.length > 0);
+        assert.equal(allFirstCodexPromptCommands.some(command => command.includes('turn_review_gate.py')), false);
+        const claudeSettings = JSON.parse(readFileSync(join(resolution.managedRoot, 'settings.json'), 'utf8'));
+        for (const eachEvent of ['UserPromptSubmit', 'Stop']) {
+            assert.equal(
+                claudeSettings.hooks[eachEvent].some(group =>
+                    group.hooks.some(hook => String(hook.command).includes('blocking/turn_review_gate.py')),
+                ),
+                true,
+                `Claude Code keeps the turn review gate on ${eachEvent}`,
+            );
+        }
+        const managedPromptCommand = firstCodexHooks.hooks.UserPromptSubmit[0].hooks[0].command;
+        const managedPromptScriptPath = managedPromptCommand.match(/\S+\.py/)[0];
+        firstCodexHooks.hooks.UserPromptSubmit.push({
+            matcher: '',
+            hooks: [{
+                type: 'command',
+                command: managedPromptCommand.replace(
+                    managedPromptScriptPath,
+                    join(dirname(dirname(managedPromptScriptPath)), 'blocking', 'turn_review_gate.py'),
+                ),
+            }],
+        });
 
         const editedPolicy = '{"schemaVersion":1,"edited":true}\n';
         writeFileSync(policyPath, editedPolicy);
@@ -173,6 +228,13 @@ test('seeds one editable policy and one native Codex routing hook', () => {
 
         assert.equal(readFileSync(policyPath, 'utf8'), editedPolicy);
         const secondCodexHooks = JSON.parse(readFileSync(codexHooksPath, 'utf8'));
+        assert.equal(
+            secondCodexHooks.hooks.UserPromptSubmit.some(group =>
+                group.hooks.some(hook => String(hook.command).includes('turn_review_gate.py')),
+            ),
+            false,
+            'an update strips the turn review gate from the Codex prompt hooks',
+        );
         assert.equal(
             secondCodexHooks.hooks.PreToolUse.filter(
                 group => group.matcher === 'multi_agent_v1__spawn_agent',

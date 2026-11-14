@@ -77,6 +77,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'blocking/pyautogui-scroll-blocker.py',
     'blocking/pyautogui_scroll_blocker.py',
     'blocking/pytest_testpaths_orphan_blocker.py',
+    'blocking/question_brief_gate.py',
     'blocking/question_to_user_enforcer.py',
     'blocking/reply_length_gate.py',
     'blocking/resolve_thread_reply_gate.py',

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """PreToolUse hook: give an Agent or Task spawn an allowed effort.
 
-Registered on ``Agent|Task``. It applies the Subagent model and effort rule:
-Opus runs at medium, Sonnet at high, Fable at low to high, and Haiku at any
-effort. A spawn that names no model takes the family of the session's last
-assistant model from the transcript.
+Registered on ``Agent|Task``. It applies the Subagent model and effort rule
+with the effort levels in ``hooks_constants/subagent_effort_levels.json``,
+read on every run. A spawn that names no model takes the family of the
+session's last assistant model from the transcript. With the shipped file::
 
-::
-
-    model "opus", effort "xhigh"        -> updatedInput with effort "medium"
+    model "opus", effort "max"          -> updatedInput with effort "medium"
+    model "opus", effort "high"         -> no output
     model "sonnet", no effort           -> updatedInput with effort "high"
     model "haiku", effort "max"         -> no output
     subagent_type "fork"                -> no output
@@ -37,6 +36,7 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.subagent_effort_route_constants import (
     ADDITIONAL_CONTEXT_KEY,
+    EFFORT_LEVELS_PATH,
     MODEL_INPUT_KEY,
     ROUTED_CONTEXT_TEMPLATE,
     TOOL_INPUT_KEY,
@@ -47,7 +47,7 @@ from hooks_constants.subagent_effort_route_constants import (
     SEEK_FROM_FILE_END,
     TRANSCRIPT_TAIL_BYTES,
 )
-from subagent_effort_route import route_spawn_input
+from subagent_effort_route import load_effort_levels, route_spawn_input
 
 
 def last_assistant_model(transcript_path: object) -> str | None:
@@ -109,6 +109,7 @@ def decide_hook_output(all_hook_payload: dict[str, object] | None) -> dict[str, 
     routed = route_spawn_input(
         all_hook_payload.get(TOOL_INPUT_KEY),
         last_assistant_model(all_hook_payload.get(TRANSCRIPT_PATH_KEY)),
+        load_effort_levels(EFFORT_LEVELS_PATH),
     )
     if routed is None:
         return None

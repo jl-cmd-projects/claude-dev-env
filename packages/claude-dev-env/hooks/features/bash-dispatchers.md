@@ -12,9 +12,9 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/python_windows_invocation_gate.py` denies, on a Windows host, `python`, `python3` or `py` run with `-I` and without `-X utf8`, because `-I` ignores `PYTHONUTF8` and non-ASCII output then stops with `UnicodeEncodeError: 'charmap'`. Under the PowerShell tool it also denies a `python -c "..."` argument that holds `\"`, because PowerShell ends the string at that quote, and names a script file or a single-quoted here-string to use instead.
 - `blocking/transcript_root_search_gate.py` denies a recursive walk or content search that starts at a Claude transcript root, a `projects` folder directly under `.claude`, `.claude-<name>` or `.claude-profiles/<profile>`, with no project folder after it, or with a bare `*` or `**` segment that descends into every project folder. It reads `find`, `grep -r`, `rg`, `ls -R`, `Get-ChildItem -Recurse` or `-Depth`, `Select-String`, and the Grep and Glob tools, and expands variables the command assigns, such as `$p="..."`. A one-level name listing, such as `Get-ChildItem <root> -Directory -Filter "*id*"`, passes. The deny reason names the fix: list the project folders by name, then read the one transcript. The gate reads the root path as the command spells it, so a walk that starts above the root, or a glob that spells the root name or a project-name prefix such as `pro*` or `C--*`, passes.
 - `blocking/bash_post_call_dispatcher.py` runs hosted observers and joins their context output without blocking the call.
+- When a hosted hook exits 2, both dispatchers exit 2. Its stderr reaches the host as written. Before a call, exit 2 blocks the call. After a call, exit 2 shows that stderr to Claude.
 - `advisory/pr_done_reminder.py` adds a pull request checklist after a successful push or pull request creation.
 - `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run efficient-review until clean, mark the pull request ready, babysit it, and ship it to merge. It also records the pull request for the session in `owned_pr_session_record.py`.
-- `blocking/owned_pr_merge_stop_gate.py` holds the end of a turn while a recorded pull request reads open on GitHub and the closing reply has no `Blocked:` line that names it. It holds once per pull request head in a session, so a later stop passes until a push moves the head. A failed state lookup passes.
 
 ## When it fires
 
@@ -28,7 +28,6 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/bash_post_call_dispatcher.py` runs on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds in `hooks.json`.
 - `advisory/pr_done_reminder.py` runs inside that dispatcher on `PostToolUse`, matcher `Bash|PowerShell`, timeout `60` seconds. `ALL_BASH_POST_TOOL_USE_HOSTED_HOOK_ENTRIES` selects `Bash` and `PowerShell`.
 - `advisory/owned_pr_review_loop.py` runs on `PostToolUse`, matcher `Bash|PowerShell|exec_command|shell_command|mcp__.*__(create_pull_request|github_create_pull_request)`, timeout `10` seconds in `hooks.json`. It wakes on `gh pr create`, `gh pr new`, a POST to `gh api repos/<owner>/<repo>/pulls`, a `pull_request.py create` call to the pull request publisher, and an MCP pull request creation. The installer also registers it on Codex `PostToolUse` through `ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES`.
-- `blocking/owned_pr_merge_stop_gate.py` runs on `Stop`, timeout `60` seconds in `hooks.json`. The installer also registers it on Codex `Stop` through `ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES`.
 
 ## Proving it
 
@@ -45,7 +44,6 @@ Preconditions:
 - **Post-call dispatch.** Input is a Bash call that yields hosted context. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_bash_post_call_dispatcher.py -q`. The adjacent test observes a joined context payload and exit code zero.
 - **Pull request reminder.** Input is a completed push or pull request creation. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_pr_done_reminder.py -q`. The adjacent test checks the reminder trigger and checklist verdict.
 - **Owned pull request review loop.** Input is a pull request creation result on an owned repository. Run `python -m pytest packages/claude-dev-env/hooks/advisory/test_owned_pr_review_loop.py -q`. The adjacent test observes the review-loop block for owned repositories and silence for the preset and foreign repositories.
-- **Owned pull request merge gate.** Input is a `session_record_path` file that lists `jl-cmd/snake-game#9` and a `gh` stub that reports `open` and a head sha. Run `python -m pytest packages/claude-dev-env/hooks/blocking/test_owned_pr_merge_stop_gate.py packages/claude-dev-env/hooks/test_owned_pr_session_record.py -q`. The adjacent test observes a `block` decision that names the pull request; `closed` and a `Blocked: jl-cmd/snake-game#9 - ...` line pass, and a second stop on the same head passes.
 
 ## Gotchas
 

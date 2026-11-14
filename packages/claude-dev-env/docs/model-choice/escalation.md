@@ -13,8 +13,8 @@ When a result is not good enough, first give the agent a way to check its own wo
 The order comes from [Which Claude model should you build with](https://claude.dev/blog/which-claude-model-should-you-build-with/). The rungs are adapted to the allowed pairs.
 
 1. Add self-verification. Give the agent a test, a build or a script that tells it when the work is done.
-2. Raise effort one level, where the model has a step. Haiku steps up through low, medium, high, xhigh and max. Fable steps up from low to medium to high.
-3. Move up one model, at a lower effort. Opus and Sonnet have one effort each here, so for them step 2 is this step.
+2. Raise effort one level, where the [effort levels file](../../hooks/hooks_constants/subagent_effort_levels.json) allows the model a higher effort.
+3. Move up one model, at a lower effort. For a model the file allows only one effort, step 2 is this step.
 
 The model rungs, in order:
 
@@ -34,7 +34,7 @@ The article says to try effort before you change models. Past high, one more eff
 - In the article's FrontierCode 2.0 run, Fable at high scored 45.3%. Opus at max scored 45.5% at about twice the cost per task.
 - In the article's Terminal-Bench 3.0 run, Opus at high scored 58.9%. Fable 5.1 at max scored 58.0% and used about twice the tokens. Max effort added cost and no score.
 
-These numbers fit the allowed pairs, which cap Opus at medium. Medium keeps most of the score for less spend. Past that point, Fable at high gives the same score for less cost.
+Choose the effort from the allowed pairs in the [effort levels file](../../hooks/hooks_constants/subagent_effort_levels.json). Opus at medium keeps most of the score for less spend. Past Opus at high, Fable at high gives about the same score for less cost.
 
 ## Low first, then retry the failures
 

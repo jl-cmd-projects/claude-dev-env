@@ -15,6 +15,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from hooks_constants.hook_time_budget import time_budget
 from pii_prevention_blocker_parts.repository_exemption import (
     _is_repository_exempt_from_pii_scan,
     _owner_repo_slug_from_origin_url,
@@ -110,3 +111,13 @@ def test_repository_origin_slug_reads_the_origin_remote(tmp_path: Path) -> None:
     repository_root = tmp_path / "repo"
     _init_repo_with_github_origin(repository_root, "SlugOwner/slug-repo")
     assert repository_origin_slug(repository_root) == "slugowner/slug-repo"
+
+
+def test_should_read_no_origin_slug_once_the_time_budget_is_spent(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin", "https://github.com/Owner/Repo.git"], cwd=tmp_path, check=True
+    )
+    with time_budget(0):
+        assert repository_origin_slug(tmp_path) is None
+    assert repository_origin_slug(tmp_path) == "owner/repo"

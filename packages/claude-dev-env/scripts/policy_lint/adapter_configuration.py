@@ -136,11 +136,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
+        hooks/blocking/question_brief_gate.py            -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
-        hooks/blocking/owned_pr_merge_stop_gate.py       -> exempt
-        hooks/blocking/session_title_turn_gate.py        -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
         hooks/blocking/turn_review_gate.py               -> exempt
         hooks/blocking/wakeup_cap_gate.py                -> exempt
@@ -173,10 +172,8 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The verify-before-acting hook runs after a mutating call has finished. It
     asks the model to check a hedged claim, and the call it reads stays in place.
 
-    The session title gates keep the session title in its status format. One
-    denies a malformed title, and the other asks for a new title when the
-    shown status stops fitting. They decide the shape of a title and no code
-    or safety policy.
+    The session title format gate denies a malformed title. It decides the
+    shape of a title and no code or safety policy.
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.
@@ -185,6 +182,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     working directory, which the desktop file pane cannot open. It decides
     where a sent file sits and no code or safety policy.
 
+    The question brief gate denies a question call when the chat text before
+    it in the same turn is too long to read at a glance. It decides the shape
+    of a brief and no code or safety policy.
+
     The eval write gate denies a write to an eval file until the session
     invokes ``/claude-api build-eval``. It holds eval writes until a skill
     loads, and it judges no code or safety content.
@@ -192,11 +193,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The open tasks Stop gate holds the end of a turn once when the turn worked
     on an ask and made no task list call. It decides when a turn may end and
     no code or safety policy.
-
-    The owned pull request Stop gate holds the end of a turn while a pull
-    request the session opened on an owned repository is still open and the
-    closing reply names no ``Blocked:`` line for it. It decides when a turn may
-    end and no code or safety policy.
 
     The resolve reply gate denies a review thread resolve until a reply on the
     thread has posted. It decides the order of two review calls and no code or

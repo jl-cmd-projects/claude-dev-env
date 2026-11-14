@@ -1,5 +1,8 @@
 import io
 import json
+import os
+import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -259,3 +262,26 @@ def test_should_allow_a_call_whose_message_outgrows_the_tail_window(
     exit_code, _ = run_gate(monkeypatch, capsys, transcript, "call_1")
 
     assert exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "stdin_text",
+    ["", "{not json", "[1]", '{"tool_use_id": "call_1", "transcript_path": 7}'],
+)
+def test_should_exit_zero_silently_on_unreadable_stdin_while_the_on_flag_is_set(
+    tmp_path: Path, stdin_text: str
+) -> None:
+    home_directory = tmp_path / "home"
+    (home_directory / ".claude").mkdir(parents=True)
+    (home_directory / ".claude" / ".step-notes-on").write_text("", encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, step_note_gate.__file__],
+        input=stdin_text,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(home_directory), "USERPROFILE": str(home_directory)},
+        timeout=30,
+        check=False,
+    )
+
+    assert (completed.returncode, completed.stdout, completed.stderr) == (0, "", "")

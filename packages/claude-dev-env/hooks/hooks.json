@@ -260,6 +260,16 @@
         ]
       },
       {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/question_brief_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Artifact|Skill",
         "hooks": [
           {
@@ -452,18 +462,11 @@
           },
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/owned_pr_merge_stop_gate.py",
-            "timeout": 60
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/session_title_turn_gate.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/turn_review_gate.py",
-            "timeout": 300
+            "timeout": 300,
+            "asyncRewake": true,
+            "rewakeMessage": "The background review of your last reply's changes finished after that reply ended. Act on it, then continue with the user's request or keep waiting for their reply:",
+            "rewakeSummary": "Turn review found problems"
           }
         ]
       }

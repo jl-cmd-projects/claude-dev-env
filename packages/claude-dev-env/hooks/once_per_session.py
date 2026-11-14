@@ -13,6 +13,9 @@ gives a new name, and the next event shows the text again::
 
 Claude Code marks a compaction with a ``compact_boundary`` system entry, and a
 Codex rollout with a ``compacted`` entry.
+
+``claim_only_showing`` leaves the compaction count out of the marker name, so
+its text shows once in the whole session, compactions included.
 """
 
 from __future__ import annotations
@@ -31,12 +34,13 @@ from hooks_constants.once_per_session_constants import (
     ONCE_MARKER_FILE_SUFFIX,
     ONCE_MARKER_NAME_SEPARATOR,
     SESSION_ID_KEY,
+    WHOLE_SESSION_MARKER_PART,
     TRANSCRIPT_PATH_KEY,
     TRANSCRIPT_READ_MODE,
 )
 from hooks_constants.session_file_id import session_file_id
 
-__all__ = ["claim_first_showing", "clear_showings", "compaction_count"]
+__all__ = ["claim_first_showing", "claim_only_showing", "clear_showings", "compaction_count"]
 
 
 def _is_compaction_entry(transcript_line: bytes) -> bool:
@@ -63,12 +67,14 @@ def compaction_count(transcript_path: object) -> int:
         return 0
 
 
-def _marker_path(hook_name: str, session_id: str, all_hook_fields: Mapping[str, object]) -> Path:
+def _marker_path(
+    hook_name: str, session_id: str, all_hook_fields: Mapping[str, object], showing_part: str
+) -> Path:
     all_name_parts = [hook_name, session_file_id(session_id)]
     agent_id = all_hook_fields.get(AGENT_ID_KEY)
     if isinstance(agent_id, str) and agent_id:
         all_name_parts.append(session_file_id(agent_id))
-    all_name_parts.append(str(compaction_count(all_hook_fields.get(TRANSCRIPT_PATH_KEY))))
+    all_name_parts.append(showing_part)
     marker_name = ONCE_MARKER_NAME_SEPARATOR.join(all_name_parts)
     return (
         Path(tempfile.gettempdir())
@@ -84,11 +90,34 @@ def claim_first_showing(hook_name: str, all_hook_fields: Mapping[str, object]) -
         all_hook_fields: The hook payload, read for its session id, agent id,
             and transcript path.
     """
+    showing_part = str(compaction_count(all_hook_fields.get(TRANSCRIPT_PATH_KEY)))
+    return _claim_marker(hook_name, all_hook_fields, showing_part)
+
+
+def claim_only_showing(hook_name: str, all_hook_fields: Mapping[str, object]) -> bool:
+    """Return True the first time in the whole session, compactions included, and record it.
+
+    ::
+
+        session s1, first event                 -> True
+        session s1, event after a compaction    -> False
+        payload with no session id              -> True on every event
+
+    Args:
+        hook_name: A short name that keeps each hook's marker apart.
+        all_hook_fields: The hook payload, read for its session id and agent id.
+    """
+    return _claim_marker(hook_name, all_hook_fields, WHOLE_SESSION_MARKER_PART)
+
+
+def _claim_marker(hook_name: str, all_hook_fields: Mapping[str, object], showing_part: str) -> bool:
     session_id = all_hook_fields.get(SESSION_ID_KEY)
     if not isinstance(session_id, str) or not session_id:
         return True
     try:
-        with _marker_path(hook_name, session_id, all_hook_fields).open(EXCLUSIVE_CREATE_MODE):
+        with _marker_path(hook_name, session_id, all_hook_fields, showing_part).open(
+            EXCLUSIVE_CREATE_MODE
+        ):
             return True
     except FileExistsError:
         return False

@@ -52,6 +52,7 @@ import {
     WINDOWS_PYTHON_LAUNCHER_COMMAND,
     PYTHON_PROBE_TIMEOUT_MILLISECONDS,
     CODEX_NATIVE_ROUTING_MATCHER,
+    ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -1332,6 +1333,7 @@ export const RETIRED_HOOK_REGISTRATION_RELATIVE_PATHS = new Set([
     'blocking/session_handoff_blocker.py',
     'blocking/artifact_look_gate.py',
     'blocking/session_title_stop_gate.py',
+    'blocking/session_title_turn_gate.py',
     'session/issue_tracker_session_starter.py',
     'session/deepen_first_prompt.py',
     'workflow/investigation_tracker_reset.py',
@@ -2344,16 +2346,27 @@ function selectCodexNativeGroupsByScriptName(groups, allScriptNames) {
         .filter(group => group.hooks.length > 0);
 }
 
+function withoutCodexExcludedPromptHooks(groups) {
+    if (!Array.isArray(groups)) return [];
+    return groups
+        .map(group => ({
+            ...group,
+            hooks: (group?.hooks ?? []).filter(
+                hook => !ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES.has(hookScriptName(hook)),
+            ),
+        }))
+        .filter(group => group.hooks.length > 0);
+}
+
 function selectCodexNativeHooksConfig(hooksConfig) {
     const preToolUseGroups = hooksConfig.hooks?.PreToolUse;
-    const userPromptSubmitGroups = hooksConfig.hooks?.UserPromptSubmit;
     return {
         ...hooksConfig,
         hooks: {
             PreToolUse: Array.isArray(preToolUseGroups)
                 ? preToolUseGroups.filter(group => group?.matcher === CODEX_NATIVE_ROUTING_MATCHER)
                 : [],
-            UserPromptSubmit: Array.isArray(userPromptSubmitGroups) ? userPromptSubmitGroups : [],
+            UserPromptSubmit: withoutCodexExcludedPromptHooks(hooksConfig.hooks?.UserPromptSubmit),
             PostToolUse: selectCodexNativeGroupsByScriptName(
                 hooksConfig.hooks?.PostToolUse,
                 ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,

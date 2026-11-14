@@ -10,14 +10,17 @@ on the first ask after each compaction::
     "Export the APKs", first ask             -> task list note
     "Export the APKs", title shows a red flag or a check mark
                                              -> task list note + title note
+    "Export the APKs", title tool and no title yet, first time in the session
+                                             -> task list note + no title note
     "Sign the APKs", a later ask             -> nothing, or the title note
     "did the export fail?"                   -> nothing
     "<task-notification>...</task-notification>"
                                              -> nothing
 
-The note never blocks. The Stop gates ``open_tasks_stop_gate.py`` and
-``session_title_turn_gate.py`` hold the turn once only when the agent skipped it.
-The title note needs the title tool in the transcript, as the title gate does.
+The note never blocks. The Stop gate ``open_tasks_stop_gate.py`` holds the turn
+once only when the agent skipped the task list. No hook holds a turn for the
+title. Both title notes need the title tool in the transcript, and the no title
+note shows at most once in a session, compactions included.
 """
 
 from __future__ import annotations
@@ -46,12 +49,14 @@ from hooks_constants.open_tasks_stop_gate_constants import (
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_title_constants import (
     ALL_STALE_AT_START_STATUSES,
+    NO_TITLE_NUDGE_ONCE_MARKER_NAME,
+    NO_TITLE_NUDGE_TEMPLATE,
     TITLE_NUDGE_TEMPLATE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
 )
-from once_per_session import claim_first_showing
+from once_per_session import claim_first_showing, claim_only_showing
 from open_task_asks import is_ask
-from session_title_turn_gate import (
+from session_title_transcript import (
     available_title_tools,
     read_transcript_entries,
     shown_title,
@@ -59,32 +64,36 @@ from session_title_turn_gate import (
 )
 
 
-def title_nudge(all_entries: list[dict[str, object]]) -> str | None:
-    """Return the title note when the shown title says the session waits or is done, else None.
+def title_nudge(
+    all_entries: list[dict[str, object]], all_hook_fields: Mapping[str, object]
+) -> str | None:
+    """Return the title note when the session has no title or a stale one, else None.
 
     ::
 
         title tool listed, shows "\U0001f6a9 Merge approval"   -> note naming that title
-        title tool listed, shows "⏳ Export"               -> None
+        title tool listed, no title                             -> no title note, once a session
+        title tool listed, shows "⏳ Export"                     -> None
         no title tool in the transcript                         -> None
 
     Args:
         all_entries: The transcript entries, oldest first.
+        all_hook_fields: The hook payload, read for the once-per-session marker.
 
     Returns:
         The note text, or None.
     """
     all_title_tools = available_title_tools(all_entries)
-    title = shown_title(all_entries)
-    if (
-        not all_title_tools
-        or title is None
-        or title_status(title) not in ALL_STALE_AT_START_STATUSES
-    ):
+    if not all_title_tools:
         return None
-    return TITLE_NUDGE_TEMPLATE.format(
-        title=title, tool_name=TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools)
-    )
+    tool_name = TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools)
+    title = shown_title(all_entries)
+    if title is None:
+        is_first_showing = claim_only_showing(NO_TITLE_NUDGE_ONCE_MARKER_NAME, all_hook_fields)
+        return NO_TITLE_NUDGE_TEMPLATE.format(tool_name=tool_name) if is_first_showing else None
+    if title_status(title) not in ALL_STALE_AT_START_STATUSES:
+        return None
+    return TITLE_NUDGE_TEMPLATE.format(title=title, tool_name=tool_name)
 
 
 def ask_tracking_context(
@@ -95,7 +104,8 @@ def ask_tracking_context(
     """Return the note for a prompt that asks for work, or None for any other prompt.
 
     The task list note shows on the session's first ask and on the first ask
-    after each compaction. The title note shows on every ask while the title is stale.
+    after each compaction. The title note shows on every ask while the title is stale,
+    and the no title note on the first ask in the session that finds no title.
     """
     if not is_ask(prompt_text):
         return None
@@ -104,7 +114,7 @@ def ask_tracking_context(
         if claim_first_showing(TASK_LIST_NUDGE_ONCE_MARKER_NAME, all_hook_fields)
         else None
     )
-    all_notes = [tracker_note, title_nudge(all_entries)]
+    all_notes = [tracker_note, title_nudge(all_entries, all_hook_fields)]
     return WORD_SEPARATOR.join(each_note for each_note in all_notes if each_note) or None
 
 

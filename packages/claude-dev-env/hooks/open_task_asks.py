@@ -1,6 +1,6 @@
 """Tell a prompt that asks for work from one that does not.
 
-The open tasks Stop gate, the session title gate, and the ask tracking nudge
+The open tasks Stop gate and the ask tracking nudge
 read a prompt through ``is_ask``. A question-only prompt, an acknowledgement
 such as ``thanks!``, an empty prompt, a prompt of only ``<system-reminder>``
 blocks, and an envelope such as ``<agent-message>`` or ``<task-notification>``

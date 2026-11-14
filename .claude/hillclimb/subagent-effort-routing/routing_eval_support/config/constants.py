@@ -33,7 +33,7 @@ EFFORT_INPUT_KEY = "effort"
 SUBAGENT_TYPE_INPUT_KEY = "subagent_type"
 
 ALL_ALLOWED_EFFORTS_BY_FAMILY: dict[str, frozenset[str]] = {
-    "opus": frozenset({"medium"}),
+    "opus": frozenset({"medium", "high"}),
     "sonnet": frozenset({"high"}),
     "fable": frozenset({"low", "medium", "high"}),
     "haiku": frozenset({"low", "medium", "high", "xhigh", "max"}),

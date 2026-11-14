@@ -1,4 +1,4 @@
-"""Constants for session_title_format_gate.py and session_title_turn_gate.py."""
+"""Constants for session_title_format_gate.py, session_title_transcript.py and tracking_nudge.py."""
 
 import re
 
@@ -33,12 +33,6 @@ FORMAT_RETRY_INSTRUCTION = (
     " '\u23f3 Broker gate + replay rule'."
 )
 
-TURN_GATE_EVENT_NAME = "Stop"
-TRANSCRIPT_PATH_KEY = "transcript_path"
-STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
-DECISION_KEY = "decision"
-REASON_KEY = "reason"
-BLOCK_DECISION = "block"
 UTF8_ENCODING = "utf-8"
 DECODE_ERRORS_POLICY = "replace"
 ENTRY_TYPE_KEY = "type"
@@ -54,36 +48,21 @@ BLOCK_NAME_KEY = "name"
 TOOL_USE_ID_KEY = "tool_use_id"
 IS_ERROR_KEY = "is_error"
 SIDECHAIN_FLAG_KEY = "isSidechain"
-ALL_SKIPPED_PROMPT_FLAGS = ("isMeta", SIDECHAIN_FLAG_KEY, "isCompactSummary")
 ALL_TOOL_LISTING_NAME_KEYS = ("addedNames", "readdedNames")
 ALL_TOOL_LISTING_RECORD_KEYS = ("tools", "entries")
 REMOVED_NAMES_KEY = "removedNames"
 TITLE_TOOL_DISPLAY_SEPARATOR = " or "
 
-SESSION_ID_KEY = "session_id"
 BLOCK_INPUT_KEY = "input"
 RED_FLAG_STATUS = "\U0001f6a9"
 CHECK_MARK_STATUS = "\u2705"
-HOURGLASS_STATUS = "\u23f3"
-NO_TITLE_REASON = "This session has no title yet."
-STALE_FLAG_REASON = (
-    "The title '{title}' still shows the red flag from before the user's last message,"
-    " and that message gave you work."
-)
-OPEN_ITEMS_REASON = "The title '{title}' shows the work as done, and the task list has open items."
-ALL_ITEMS_COMPLETED_REASON = "The title '{title}' shows work running, and every task list item is completed or deleted."
-
-TURN_BLOCK_REASON = (
-    "{why} Call {tool_name} now with '<emoji> <name>' for the current status:"
-    " \U0001f6a9 the user must act, \U0001f6a7 an outside dependency blocks the work,"
-    " \u2705 the work is done, \u23f3 work runs and nothing waits on the user."
-    " When the tool is deferred, load its schema with ToolSearch first."
-    " When it asks for a session id, get it from get_session with no session_id."
-    " After the call, end the turn with one short closing sentence."
-    " Leave the earlier reply as it stands and do not repeat it."
-)
 ALL_STALE_AT_START_STATUSES = frozenset({RED_FLAG_STATUS, CHECK_MARK_STATUS})
 TITLE_NUDGE_TEMPLATE = (
     "The session title shows '{title}' from before this message. Set it with {tool_name} to"
     " '⏳ <name>' before other work, so the user sees the session working."
 )
+NO_TITLE_NUDGE_TEMPLATE = (
+    "This session has no title yet. Set it with {tool_name} to"
+    " '⏳ <name>' before other work, so the user sees the session working."
+)
+NO_TITLE_NUDGE_ONCE_MARKER_NAME = "no_title_nudge"

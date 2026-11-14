@@ -27,17 +27,17 @@ The reply text is never checked. One tracker call releases the turn, and a
 turn the gate already held ends on the next stop, so the gate costs at most one
 extra step per turn.
 
-Claude Code marks a held stop with ``stop_hook_active``. Codex turns the reason
-into a continuation prompt. A Cursor payload (it carries ``conversation_id``)
-gets the reason as ``followup_message``, which Cursor submits as the next user
-message; a Cursor stop whose ``loop_count`` shows a follow-up already sent
+A hold exits with code 2 and writes the reason to stdout and stderr. Claude
+Code marks a held stop with ``stop_hook_active``. Codex turns the reason into
+a continuation prompt. A Cursor payload (it carries ``conversation_id``) exits
+with code 0 and gets the reason as ``followup_message``, which Cursor submits
+as the next user message; a Cursor stop whose ``loop_count`` shows a follow-up already sent
 passes, and so does one whose ``status`` is ``aborted`` or ``error``. A TodoWrite
 call that a Cursor ``CallDynamicTool`` call wraps counts as a TodoWrite call.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -51,20 +51,18 @@ if blocking_directory not in sys.path:
 
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
+from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
+from hooks_constants.stop_hook_hold import hold_stop
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
-    BLOCK_DECISION,
     BLOCK_REASON,
     CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
-    CURSOR_FOLLOWUP_MESSAGE_KEY,
     CURSOR_LOOP_COUNT_KEY,
     CURSOR_STATUS_KEY,
-    DECISION_KEY,
     HOOK_EVENT_NAME,
-    REASON_KEY,
     STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
@@ -80,7 +78,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
 
 def _task_file_item(task_file: Path) -> TaskItem | None:
     try:
-        task_text = task_file.read_text(encoding=UTF8_ENCODING)
+        task_text = task_file.read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
     except OSError:
         return None
     all_task_fields = parsed_object(task_text)
@@ -145,14 +143,6 @@ def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
     return has_sent_followup or (stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS)
 
 
-def block_output_for(all_hook_input_fields: dict[str, object], block_reason: str) -> dict[str, str]:
-    """Return the block output; a Cursor payload also gets the reason as ``followup_message``."""
-    block_output = {DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}
-    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
-        block_output[CURSOR_FOLLOWUP_MESSAGE_KEY] = block_reason
-    return block_output
-
-
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None or is_held_stop(hook_input):
@@ -160,8 +150,7 @@ def main() -> int:
     if not is_untracked_work_turn(replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY))):
         return ALLOW_EXIT_CODE
     log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, BLOCK_REASON)
-    sys.stdout.write(json.dumps(block_output_for(hook_input, BLOCK_REASON)))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, BLOCK_REASON)
 
 
 if __name__ == "__main__":
