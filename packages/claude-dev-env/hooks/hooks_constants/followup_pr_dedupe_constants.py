@@ -4,7 +4,6 @@ FOLLOWUP_PARENT_PATTERN = r"follow[- ]?up to #(\d+)(?!\d)"
 GITHUB_API_ROOT = "https://api.github.com"
 OPEN_PULL_REQUESTS_PATH_TEMPLATE = "/repos/{owner}/{repo}/pulls?state=open&per_page=100"
 READ_TIMEOUT_SECONDS = 4
-ALL_GH_CREATE_WORDS = ["pr", "create"]
 ALL_BODY_OPTIONS = frozenset({"-b", "--body"})
 ALL_BODY_FILE_OPTIONS = frozenset({"-F", "--body-file"})
 ALL_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
@@ -16,6 +15,16 @@ DUPLICATE_FOLLOWUP_REASON_TEMPLATE = (
     "Pull request #{open_number} already holds the follow-up findings for parent #{parent_number}"
     " ({open_url}). Add this finding to the open follow-up pull request #{open_number}."
     " One combined follow-up pull request per parent pull request."
+)
+UNANSWERED_FOLLOWUP_REASON_TEMPLATE = (
+    "The gate could not read the open pull requests of {owner}/{repo} in time, so it cannot tell"
+    " whether parent #{parent_number} already has an open follow-up pull request."
+    " Run the create again."
+)
+UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE = (
+    "The gate could not read the origin remote, so it cannot tell which repository to check"
+    " for an open follow-up pull request to parent #{parent_number}."
+    " Name the repository with --repo and run the create again."
 )
 ALL_TITLE_OPTIONS = frozenset({"-t", "--title"})
 WORKFLOW_DISPATCH_TOOL_SUFFIX = "__actions_run_trigger"

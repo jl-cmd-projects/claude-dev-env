@@ -15,7 +15,8 @@ if hooks_directory not in sys.path:
 
 from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
 from blocking.followup_pr_dedupe import (
-    all_command_segments,
+    all_create_argument_lists,
+    all_pull_request_argument_lists,
     body_from_arguments,
     create_tool_fields,
     shell_command,
@@ -34,9 +35,7 @@ from hooks_constants.pull_request_proof_constants import (
     AFTER_MERGE_NO_RECORDER_PATTERN,
     AFTER_MERGE_RECORDER_PATTERN,
     AFTER_MERGE_SENTENCE_SEPARATOR_PATTERN,
-    ALL_GH_CREATE_WORDS,
     ALL_GH_EDIT_WORDS,
-    ALL_PYTHON_PROGRAM_NAMES,
     ALL_VISIBLE_FILE_SUFFIXES,
     CHANGED_FILES_SEPARATOR,
     COMMAND_MARKER,
@@ -79,9 +78,7 @@ from hooks_constants.pull_request_proof_constants import (
     RAW_RENAME_STATUS_LETTER,
     ALL_RAW_TWO_PATH_STATUS_LETTERS,
     PROOF_IMAGE_PATTERN,
-    PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_EDIT_WORD,
-    PULL_REQUEST_SCRIPT_NAME,
     ALL_TEST_RUNNER_COMMAND_PREFIXES,
     CODE_FENCE_MARKER,
     FENCED_COMMAND_PROMPT,
@@ -107,7 +104,6 @@ from hooks_constants.pytest_invocation import (
     unquoted_token,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
-from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
@@ -191,50 +187,8 @@ def section_under_existing_work(body: str) -> str | None:
     return _section_text(body, EXISTING_WORK_HEADING_PATTERN)
 
 
-def _script_arguments(program: str, all_arguments: list[str]) -> list[str] | None:
-    if program == PULL_REQUEST_SCRIPT_NAME:
-        return all_arguments
-    if program not in ALL_PYTHON_PROGRAM_NAMES or not all_arguments:
-        return None
-    script_name = token_basename(unquoted_token(all_arguments[0]))
-    return all_arguments[1:] if script_name == PULL_REQUEST_SCRIPT_NAME else None
-
-
-def _script_word_arguments(program: str, all_arguments: list[str], word: str) -> list[str] | None:
-    all_script_arguments = _script_arguments(program, all_arguments)
-    if all_script_arguments is None or all_script_arguments[:1] != [word]:
-        return None
-    return all_script_arguments[1:]
-
-
-def _command_arguments(
-    all_segment_tokens: list[str], all_gh_words: list[str], script_word: str
-) -> list[str] | None:
-    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
-    if program == "gh" and all_arguments[: len(all_gh_words)] == all_gh_words:
-        return all_arguments[len(all_gh_words) :]
-    return _script_word_arguments(program, all_arguments, script_word)
-
-
-def _all_argument_lists(command: str, all_gh_words: list[str], script_word: str) -> Iterator[list[str]]:
-    all_seen_arguments: set[tuple[str, ...]] = set()
-    for each_segment in all_command_segments(command):
-        all_arguments = _command_arguments(each_segment, all_gh_words, script_word)
-        if all_arguments is None:
-            continue
-        all_unquoted_arguments = tuple(_unquoted_arguments(all_arguments))
-        if all_unquoted_arguments in all_seen_arguments:
-            continue
-        all_seen_arguments.add(all_unquoted_arguments)
-        yield all_arguments
-
-
-def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
-    return _all_argument_lists(command, ALL_GH_CREATE_WORDS, PULL_REQUEST_SCRIPT_CREATE_WORD)
-
-
 def _all_edit_argument_lists(command: str) -> Iterator[list[str]]:
-    return _all_argument_lists(command, ALL_GH_EDIT_WORDS, PULL_REQUEST_SCRIPT_EDIT_WORD)
+    return all_pull_request_argument_lists(command, ALL_GH_EDIT_WORDS, PULL_REQUEST_SCRIPT_EDIT_WORD)
 
 
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
@@ -246,7 +200,7 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
             _flag_value(all_create_arguments, ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX) or None,
             _flag_value(all_create_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None,
         )
-        for all_create_arguments in _all_create_argument_lists(command)
+        for all_create_arguments in all_create_argument_lists(command)
     ]
 
 
@@ -305,7 +259,7 @@ def is_create_call(all_payload_fields: Mapping[str, object]) -> bool:
     """
     command = shell_command(all_payload_fields)
     return create_tool_fields(all_payload_fields) is not None or (
-        command is not None and next(_all_create_argument_lists(command), None) is not None
+        command is not None and next(all_create_argument_lists(command), None) is not None
     )
 
 
