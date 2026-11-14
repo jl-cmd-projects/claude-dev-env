@@ -547,3 +547,44 @@ def test_should_allow_and_write_one_line_for_each_child_the_time_limit_cuts_off(
         "beta",
         "gamma",
     ]
+
+
+def test_should_run_a_collected_hook_in_its_checkout_and_return_its_output(
+    tmp_path: pathlib.Path,
+) -> None:
+    checkout_directory = _make_checkout(
+        tmp_path,
+        "alpha",
+        {"PreToolUse": [_command_group("Bash", 'read -r payload; echo "$CLAUDE_PROJECT_DIR|$payload"')]},
+    )
+    (nested_hook,) = nested_project_hooks.collect_nested_hooks(tmp_path, "PreToolUse", "Bash")
+
+    completed_process = nested_project_hooks.run_nested_hook(nested_hook, '{"tool_name": "Bash"}')
+
+    assert completed_process is not None
+    project_directory, payload_text = completed_process.stdout.strip().split("|")
+    assert pathlib.Path(project_directory).resolve() == checkout_directory.resolve()
+    assert payload_text == '{"tool_name": "Bash"}'
+
+
+def test_should_join_plain_and_json_session_start_output_into_one_context() -> None:
+    all_results = [
+        subprocess.CompletedProcess(["alpha"], 0, "alpha is ready\n", "alpha warned\n"),
+        subprocess.CompletedProcess(
+            ["beta"],
+            0,
+            json.dumps({"hookSpecificOutput": {"additionalContext": "beta loaded its rules"}}),
+            "",
+        ),
+    ]
+
+    verdict = nested_project_hooks.session_start_verdict(all_results)
+
+    assert verdict.exit_code == 0
+    assert json.loads(verdict.stdout_text) == {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": "alpha is ready\n\nbeta loaded its rules",
+        }
+    }
+    assert verdict.stderr_text == "alpha warned"
