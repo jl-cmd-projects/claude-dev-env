@@ -425,11 +425,7 @@ class _ChildRun:
 
 
 def _child_stdout(child_run: _ChildRun, remaining_seconds: float) -> str | None:
-    all_stdin_options: dict[str, object] = (
-        {"stdin": subprocess.DEVNULL}
-        if child_run.prompt_text is None
-        else {"input": child_run.prompt_text}
-    )
+    closed_stdin = subprocess.DEVNULL if child_run.prompt_text is None else None
     try:
         completed_process = subprocess.run(
             child_run.all_command_parts,
@@ -442,7 +438,8 @@ def _child_stdout(child_run: _ChildRun, remaining_seconds: float) -> str | None:
             cwd=str(child_run.repository_root),
             env=_review_environment(),
             creationflags=hidden_window_creation_flags(),
-            **all_stdin_options,
+            stdin=closed_stdin,
+            input=child_run.prompt_text,
         )
     except subprocess.TimeoutExpired:
         child_run.write_failure("timed out")

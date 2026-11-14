@@ -291,7 +291,7 @@ def count_list_items(brief_text: str) -> int:
     all_lines = _lines_outside_code_fences(brief_text)
     return sum(
         _is_item_line(each_line, each_next_line)
-        for each_line, each_next_line in zip(all_lines, [*all_lines[1:], ""])
+        for each_line, each_next_line in zip(all_lines, [*all_lines[1:], ""], strict=False)
     )
 
 

@@ -39,6 +39,7 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass
+from typing import TypeGuard
 
 from hooks_constants.turn_review_gate_constants import (
     ALL_JUDGE_ENTRY_KEYS,
@@ -194,7 +195,9 @@ def _decoded_answer(result_text: str) -> object | None:
         return None
 
 
-def _is_verdict_array(decoded_answer: object, all_requested_ids: list[str]) -> bool:
+def _is_verdict_array(
+    decoded_answer: object, all_requested_ids: list[str]
+) -> TypeGuard[list[dict[str, object]]]:
     return (
         isinstance(decoded_answer, list)
         and bool(decoded_answer)
@@ -248,7 +251,12 @@ def judge_verdicts(
     all_entry_counts = Counter(each_entry[JUDGE_ID_KEY] for each_entry in decoded_answer)
     all_verdicts: dict[str, JudgeVerdict] = {}
     for each_entry in decoded_answer:
+        entry_id = each_entry[JUDGE_ID_KEY]
         entry_verdict = _entry_verdict(each_entry)
-        if entry_verdict is not None and all_entry_counts[each_entry[JUDGE_ID_KEY]] == 1:
-            all_verdicts[each_entry[JUDGE_ID_KEY]] = entry_verdict
+        if (
+            isinstance(entry_id, str)
+            and entry_verdict is not None
+            and all_entry_counts[entry_id] == 1
+        ):
+            all_verdicts[entry_id] = entry_verdict
     return all_verdicts

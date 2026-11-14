@@ -149,6 +149,8 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     tool_use_id = hook_input.get("tool_use_id")
     transcript_path = hook_input.get("transcript_path")
+    if not isinstance(tool_use_id, str) or not isinstance(transcript_path, str):
+        return ALLOW_EXIT_CODE
     if not tool_use_id or not transcript_path:
         return ALLOW_EXIT_CODE
     if wait_for_note_check(Path(transcript_path), tool_use_id) is NoteCheck.MISSING:

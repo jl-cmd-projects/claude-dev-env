@@ -264,7 +264,10 @@ def test_should_allow_a_call_whose_message_outgrows_the_tail_window(
     assert exit_code == 0
 
 
-@pytest.mark.parametrize("stdin_text", ["", "{not json", "[1]"])
+@pytest.mark.parametrize(
+    "stdin_text",
+    ["", "{not json", "[1]", '{"tool_use_id": "call_1", "transcript_path": 7}'],
+)
 def test_should_exit_zero_silently_on_unreadable_stdin_while_the_on_flag_is_set(
     tmp_path: Path, stdin_text: str
 ) -> None:
