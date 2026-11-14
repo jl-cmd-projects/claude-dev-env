@@ -265,6 +265,14 @@ def test_should_build_the_note_only_under_silence() -> None:
     )
 
 
+def test_should_read_the_transcript_with_the_session_title_reader() -> None:
+    session_title_transcript = importlib.import_module("session_title_transcript")
+    assert (
+        background_silence_prompt.read_transcript_entries
+        is session_title_transcript.read_transcript_entries
+    )
+
+
 def test_should_print_the_documented_output_through_a_subprocess(tmp_path: Path) -> None:
     transcript_path = tmp_path / "session.jsonl"
     transcript_path.write_text(json.dumps(typed_entry(SILENCE_REQUEST)), encoding="utf-8")

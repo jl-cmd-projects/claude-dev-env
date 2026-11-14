@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 
+import thread_spawn_pace_hook
+from hooks_constants.usage_pace_constants import EXIT_CODE_UNDER_PACE
+
 HOOK_SCRIPT = Path(__file__).resolve().parent / "thread_spawn_pace_hook.py"
 SPAWN_INPUT = {
     "thread_id": "cmsg_example",
@@ -109,6 +112,35 @@ def test_should_pass_an_allowed_pair_through_when_usage_is_under_pace(
         _run_hook(_write_pace_stub(tmp_path, 1, {"over_pace": False}), spawn_input)
         == ""
     )
+
+
+def test_should_route_with_the_levels_read_from_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    levels_path = tmp_path / "subagent_effort_levels.json"
+    levels_path.write_text(
+        json.dumps(
+            {
+                "opus": {"allowed": ["low"], "default": "low"},
+                "sonnet": {"allowed": ["high"], "default": "high"},
+                "fable": {"allowed": ["high"], "default": "high"},
+                "haiku": {"allowed": ["medium"], "default": "medium"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(thread_spawn_pace_hook, "EFFORT_LEVELS_PATH", levels_path)
+    spawn_input = {**SPAWN_INPUT, "model": "claude-opus-5-5", "effort": "medium"}
+
+    decision = thread_spawn_pace_hook.decide_hook_output(
+        spawn_input, EXIT_CODE_UNDER_PACE, ""
+    )
+
+    assert decision is not None
+    assert _hook_specific_output(json.dumps(decision))["updatedInput"] == {
+        **spawn_input,
+        "effort": "low",
+    }
 
 
 def test_should_reshape_the_spawn_when_usage_is_unreadable(tmp_path: Path) -> None:
