@@ -165,7 +165,9 @@ def available_title_tools(all_entries: list[dict[str, object]]) -> list[str]:
 
     A ``tools`` listing is the full inline tool set, so it replaces the inline
     names an earlier listing or call gave. Deferred names change only through
-    ``addedNames``, ``readdedNames``, ``entries`` and ``removedNames``.
+    ``addedNames``, ``readdedNames``, ``entries`` and ``removedNames``. Only
+    main-chain entries count, because a sidechain entry records a subagent's
+    tools.
 
     Args:
         all_entries: The transcript entries, oldest first.
@@ -175,7 +177,7 @@ def available_title_tools(all_entries: list[dict[str, object]]) -> list[str]:
     """
     inline_names: dict[str, None] = {}
     deferred_names: dict[str, None] = {}
-    for each_entry in all_entries:
+    for each_entry in _main_chain(all_entries):
         attachment = each_entry.get(ATTACHMENT_KEY)
         if isinstance(attachment, dict):
             _apply_tool_listing(inline_names, deferred_names, attachment)

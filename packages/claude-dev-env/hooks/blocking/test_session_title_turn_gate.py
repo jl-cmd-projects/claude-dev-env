@@ -362,6 +362,14 @@ def test_should_pass_once_a_later_tool_listing_no_longer_offers_the_title_tool(
     assert run_gate(monkeypatch, capsys, tmp_path, all_entries) == (0, "")
 
 
+def test_should_ignore_a_tool_listing_on_a_sidechain(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    sidechain_listing = {**LATER_TOOL_LISTING_WITHOUT_TITLE_TOOL, "isSidechain": True}
+    all_entries = [TOOL_LISTING, sidechain_listing, PROMPT, WORK_CALL, WORK_RESULT, REPLY]
+    assert "no title yet" in block_reason(monkeypatch, capsys, tmp_path, all_entries)
+
+
 def test_should_keep_a_deferred_title_tool_across_a_later_tool_listing(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
