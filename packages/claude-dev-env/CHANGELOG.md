@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.116.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.3...claude-dev-env-v8.116.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** check every create in a chained command ([#2343](https://github.com/jl-cmd-projects/claude-dev-env/issues/2343)) ([d7d1276](https://github.com/jl-cmd-projects/claude-dev-env/commit/d7d1276d7eaa6231f9fcbb19e12d784ffa3445e2))
+
 ## [8.116.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.2...claude-dev-env-v8.116.3) (2026-11-14)
 
 
