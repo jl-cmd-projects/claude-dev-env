@@ -73,6 +73,21 @@ function planInput(packageRoot, managedRoot, overrides = {}) {
     };
 }
 
+test('preflight without a Python at the floor names the 3.11 floor in its message', () => {
+    const { root, managedRoot, packageRoot } = sandbox();
+    try {
+        assert.throws(
+            () => buildInstallPlan(planInput(packageRoot, managedRoot, {
+                detectPythonCommand: () => null,
+            })),
+            (error) => error.code === PREFLIGHT_ERROR_CODES.MISSING_PYTHON
+                && error.message.includes('Install Python 3.11+ from python.org'),
+        );
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test('planShouldInstallHooks covers full, core, and journal', () => {
     assert.equal(planShouldInstallHooks(null, GROUPS), true);
     assert.equal(planShouldInstallHooks(['core'], GROUPS), true);

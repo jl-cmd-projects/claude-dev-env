@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.3...claude-dev-env-v8.117.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** close seven gaps in the pull request gates ([#2360](https://github.com/jl-cmd-projects/claude-dev-env/issues/2360)) ([ae0076e](https://github.com/jl-cmd-projects/claude-dev-env/commit/ae0076ed089f8dd693b62a3f35ec5f9f49b7780b))
+
 ## [8.117.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.2...claude-dev-env-v8.117.3) (2026-11-14)
 
 

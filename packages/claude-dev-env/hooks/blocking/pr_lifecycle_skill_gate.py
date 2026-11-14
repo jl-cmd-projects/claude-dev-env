@@ -1,7 +1,10 @@
 """Deny pull request lifecycle actions until their skill appears in the transcript.
 
-A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its git and GitHub reads end by 21 s.
-``blocking/gate_run_reads.py`` draws that budget. A deny from a run it cut short says a second run may pass.
+A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its git and GitHub reads
+and its transcript scans end by 21 s. ``blocking/gate_run_reads.py`` draws that budget.
+A deny from a run that cut a read short says a second run may pass.
+Each transcript scan reads the newest line first, so a recent skill load answers early.
+A deny from a scan the deadline stopped says to load the skill, or call build-eval, again.
 """
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     DOUBLE_QUOTED_ESCAPE_PATTERN,
     ENVIRONMENT_ASSIGNMENT_PATTERN,
     ESCAPED_CHARACTER_GROUP,
+    GATE_NAME,
     GH_API_COMMAND,
     GH_PULL_REQUEST_COMMAND,
     GIT_ACTIONS,
@@ -57,6 +61,7 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     PATH_SEPARATOR_PATTERN,
     PERMISSION_DECISION_REASON_KEY,
     PULL_REQUEST_SCRIPT_NAME,
+    SCAN_RAN_OUT_SENTENCE,
     ALL_NESTED_PROGRAM_NAMES,
     ALL_NESTED_PROGRAM_WRAPPER_NAMES,
     EVAL_ARGUMENT_SEPARATOR,
@@ -78,14 +83,21 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
-from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
-from blocking.gate_run_reads import gate_run, read_deadlines_started
+from blocking.followup_pr_dedupe import all_create_argument_lists, create_tool_fields, duplicate_followup_reason
+from blocking.gate_run_reads import (
+    GateRun,
+    ReadSlice,
+    gate_run,
+    read_deadlines_started,
+    transcript_lines_within_slice,
+)
+from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking import pull_request_proof as proof
 from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
     invokes_skill_with_argument,
-    is_skill_loaded_after_last_compaction,
+    is_skill_loaded_after_last_compaction_newest_first,
 )
 
 
@@ -302,6 +314,8 @@ def _wrapped_word_lists(all_command_words: list[str]) -> list[list[str]]:
 
 
 def _matches_shell_command(command: str) -> bool:
+    if next(all_create_argument_lists(command), None) is not None:
+        return True
     for each_command_words in executable_word_lists(command):
         executable = file_name(each_command_words[0])
         if executable == PULL_REQUEST_SCRIPT_NAME:
@@ -327,17 +341,17 @@ def _is_governed_action(all_payload_fields: dict[str, object]) -> bool:
     return isinstance(tool_input, dict) and isinstance(tool_input.get("command"), str) and _matches_shell_command(tool_input["command"])
 
 
-def _scanned_transcript(path: str, scan: Callable[[Iterable[str]], bool]) -> bool | None:
+def _scanned_transcript(path: str, scan: Callable[[Iterable[str]], bool], read_slice: ReadSlice) -> bool | None:
     try:
-        with open(path, encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY) as transcript:
-            return scan(transcript)
+        with open(path, "rb") as transcript:
+            return scan(transcript_lines_within_slice(transcript, UTF8_ENCODING, DECODE_ERRORS_POLICY, read_slice))
     except OSError:
         return None
 
 
-def _shows_skill_load(all_transcript_lines: Iterable[str]) -> bool:
-    return is_skill_loaded_after_last_compaction(
-        all_transcript_lines, (SKILL_NAME,), ALL_SLASH_COMMAND_MARKERS
+def _shows_skill_load(all_lines_newest_first: Iterable[str]) -> bool:
+    return is_skill_loaded_after_last_compaction_newest_first(
+        all_lines_newest_first, (SKILL_NAME,), ALL_SLASH_COMMAND_MARKERS
     )
 
 
@@ -381,9 +395,14 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+        follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
+        follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
+        skill or build-eval deny from a scan the deadline stopped -> that reason + SCAN_RAN_OUT_SENTENCE
         any deny above in a run whose deadline cut a read -> that reason + READS_RAN_OUT_SENTENCE
+        a check raises once the call is known governed   -> gate_fault_reason naming the error
 
     The checks share one gate run, so two checks that ask git or GitHub one question read it once.
+    A fault while the gate decides whether the call is governed still raises, so it never refuses an unrelated call.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -391,14 +410,31 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     if not _is_governed_action(all_payload_fields):
         return None
     with gate_run() as run:
-        reason = _first_broken_rule_reason(all_payload_fields)
+        try:
+            reason = _first_broken_rule_reason(all_payload_fields, run)
+        except Exception as error:
+            return deny_decision(gate_fault_reason(GATE_NAME, error))
     note = READS_RAN_OUT_SENTENCE if run.was_read_cut_short else ""
     return None if reason is None else deny_decision(reason + note)
 
 
-def _first_broken_rule_reason(all_fields: dict[str, object]) -> str | None:
+def _scan_note(run: GateRun, cut_scan_count_before: int) -> str:
+    return SCAN_RAN_OUT_SENTENCE if run.cut_scan_count > cut_scan_count_before else ""
+
+
+def _missing_build_eval_reason(all_fields: dict[str, object], run: GateRun) -> str | None:
+    if not proof.is_feature_pull_request(all_fields):
+        return None
+    cut_scan_count_before = run.cut_scan_count
+    if not is_build_eval_missing(all_fields):
+        return None
+    return MISSING_BUILD_EVAL_REASON + _scan_note(run, cut_scan_count_before)
+
+
+def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> str | None:
+    cut_scan_count_before = run.cut_scan_count
     if _is_skill_unloaded(all_fields):
-        return DENY_REASON
+        return DENY_REASON + _scan_note(run, cut_scan_count_before)
     return (
         proof.missing_proof_reason(all_fields)
         or proof.edit_proof_reason(all_fields)
@@ -406,7 +442,7 @@ def _first_broken_rule_reason(all_fields: dict[str, object]) -> str | None:
         or proof.missing_flowchart_reason(all_fields)
         or proof.missing_eval_section_reason(all_fields)
         or proof.missing_look_reason(all_fields)
-        or (MISSING_BUILD_EVAL_REASON if proof.is_feature_pull_request(all_fields) and is_build_eval_missing(all_fields) else None)
+        or _missing_build_eval_reason(all_fields, run)
         or duplicate_followup_reason(all_fields)
     )
 
@@ -431,11 +467,13 @@ def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
     readable_paths = transcript_paths(all_payload_fields)
     if not readable_paths:
         return False
-    statuses = [_scanned_transcript(path, _shows_skill_load) for path in readable_paths]
+    statuses = [_scanned_transcript(path, _shows_skill_load, ReadSlice.PROOF_AND_LOOK) for path in readable_paths]
     return not any(status is None or status for status in statuses)
 
 
-def eval_skill_call_status(all_payload_fields: dict[str, object]) -> bool | None:
+def eval_skill_call_status(
+    all_payload_fields: dict[str, object], read_slice: ReadSlice = ReadSlice.FOLLOWUP
+) -> bool | None:
     """Return whether the session's transcripts show a /claude-api build-eval call.
 
     ::
@@ -443,13 +481,18 @@ def eval_skill_call_status(all_payload_fields: dict[str, object]) -> bool | None
         one transcript shows the call         -> True
         transcripts read, none shows the call -> False
         no transcript could be read           -> None
+        the slice's deadline stopped a scan   -> False, unless another transcript shows the call
+
+    Each scan reads the newest line first and stops at the slice's deadline
+    once the gate process started its read deadlines.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
+        read_slice: The slice whose deadline each scan answers to.
     """
     has_read_transcript = False
     for each_path in transcript_paths(all_payload_fields):
-        status = _scanned_transcript(each_path, _shows_build_eval)
+        status = _scanned_transcript(each_path, _shows_build_eval, read_slice)
         if status:
             return True
         has_read_transcript = has_read_transcript or status is not None
