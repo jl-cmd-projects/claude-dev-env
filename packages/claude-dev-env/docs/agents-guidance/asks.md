@@ -47,7 +47,7 @@ The gate holds a turn once when all three hold:
 
 The gate never reads the reply text. A held turn passes, so the gate adds at most one step to a turn.
 
-In Claude Code, `task_subject_outcome_gate.py` runs on `PreToolUse` for TaskCreate, TaskUpdate, and TodoWrite. It denies a subject that starts with a procedure step label such as `Step 3:` or `Feature 6-8:`, or that holds a backtick, and the reason asks for an outcome name.
+In Claude Code, `task_subject_outcome_gate.py` denies a task list item named as a procedure step. [Conduct gates](../../hooks/features/conduct-gates.md) lists what it matches.
 
 In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For the session's first prompt that asks for work, and the first after each compaction, it adds one note that asks for an item in the session's task list tool, so the agent tracks the ask before it starts. The note never blocks.
 

@@ -17,7 +17,7 @@ TODOS_KEY = "todos"
 TODO_CONTENT_KEY = "content"
 
 PROCEDURE_STEP_PREFIX_PATTERN = re.compile(
-    r"^\s*(?:step|phase|stage|part|feature|bug fix|refactoring|playbook)"
+    r"^\s*(?:step|phase|stage|part|feature|bug\s+fix|refactoring|playbook)"
     r"\s*\d{1,2}(?:\s*[-–]\s*\d{1,2})?\s*[:.)]",
     re.IGNORECASE,
 )

@@ -58,6 +58,7 @@ def test_should_allow_a_plain_outcome_subject(
         "Step 3: run the tests",
         "phase 2) migrate callers",
         "Bug fix 4. Reproduce first",
+        "Bug  fix 5: Reproduce first",
     ],
 )
 def test_should_deny_a_subject_that_starts_with_a_procedure_step_label(

@@ -37,7 +37,7 @@ This family stops a chat reply, edited message, or tool call when its payload br
 - `blocking/edit_marker_gate.py` runs on `PreToolUse`, matcher `mcp__.*__update_message`, timeout `10` seconds in `hooks.json`.
 - `blocking/issue_close_handoff_gate.py` runs on `PreToolUse`, matcher `mcp__.*__(add_issue_comment|issue_write|update_issue_comment)`, timeout `10` seconds in `hooks.json`.
 - `blocking/session_title_format_gate.py` runs on `PreToolUse`, matcher `mcp__.*__set_session_title`, timeout `10` seconds in `hooks.json`.
-- `blocking/task_subject_outcome_gate.py` runs on `PreToolUse`, matcher `TaskCreate|TaskUpdate|TodoWrite`, timeout `10` seconds in `hooks.json`, after the length gate in the same group.
+- `blocking/task_subject_outcome_gate.py` runs on `PreToolUse`, matcher `TaskCreate|TaskUpdate|TodoWrite`, timeout `10` seconds in `hooks.json`, after the length gate in the same group. Like the length gate, it runs in Claude Code only.
 - `blocking/task_subject_length_gate.py` runs on `PreToolUse`, matcher `TaskCreate|TaskUpdate|TodoWrite`, timeout `10` seconds in `hooks.json`. It runs in Claude Code only: the installer gives Codex only the PreToolUse group whose matcher is `multi_agent_v1__spawn_agent`, and gives Cursor only the hooks `bin/install-constants.mjs` names.
 - `blocking/step_note_gate.py` runs on `PreToolUse`, matcher `*`, timeout `15` seconds in `hooks.json`.
 - `blocking/question_brief_gate.py` runs on `PreToolUse`, matcher `AskUserQuestion`, timeout `10` seconds in `hooks.json`. Its transcript poll stops at 3 seconds.
