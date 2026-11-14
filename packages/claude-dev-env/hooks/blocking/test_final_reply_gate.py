@@ -343,3 +343,9 @@ def test_should_pass_a_closing_question_when_the_transcript_cannot_be_read(
 ) -> None:
     _, stdout_text = run_gate(monkeypatch, capsys, BARE_QUESTION_REPLY, tmp_path / "missing.jsonl")
     assert stdout_text == ""
+
+
+def test_should_list_each_prose_paragraph_without_fences_quotes_or_code_spans() -> None:
+    reply_text = "Both builds passed.\n\n```\nmake test\n```\n\n> Keep it or revert it?\n\nThe flag is `--fast`."
+    assert final_reply_gate.prose_paragraphs(reply_text) == ["Both builds passed.", "The flag is  ."]
+    assert final_reply_gate.closing_paragraph(reply_text) == "The flag is  ."

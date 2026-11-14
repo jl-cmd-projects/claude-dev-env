@@ -8,10 +8,13 @@ from open_tasks_transcript import (
     claude_prompt_text,
     codex_prompt_text,
     is_assistant_record,
+    is_codex_read_call,
     is_codex_work_call,
+    is_read_tool_name,
     is_work_tool_name,
     parsed_object,
     replayed_transcript,
+    send_call_file_paths,
     unwrapped_tool_call,
 )
 
@@ -249,3 +252,49 @@ def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path)
         ],
     )
     assert plan_statuses(transcript_path) == [("Beta", "completed"), ("alpha", "completed")]
+
+
+@pytest.mark.parametrize(
+    "tool_name",
+    ["Bash", "Read", "WebFetch", "Agent", "shell", "mcp__github__pull_request_read", "mcp__claude-code-remote__get_session"],
+)
+def test_should_call_a_tool_that_can_read_state_a_read_tool(tool_name: str) -> None:
+    assert is_read_tool_name(tool_name) is True
+
+
+@pytest.mark.parametrize("tool_name", ["Write", "Edit", "SendUserFile", "TaskList", "TaskUpdate", "AskUserQuestion", None])
+def test_should_not_call_a_write_a_tracker_or_a_question_tool_a_read_tool(tool_name: object) -> None:
+    assert is_read_tool_name(tool_name) is False
+
+
+def test_should_list_the_files_a_send_user_file_call_sends() -> None:
+    assert send_call_file_paths("SendUserFile", {"files": ["a.md", 3, "b.html"]}) == ["a.md", "b.html"]
+    assert send_call_file_paths("Write", {"files": ["a.md"]}) == []
+    assert send_call_file_paths("SendUserFile", {"files": "a.md"}) == []
+
+
+def test_should_tell_a_codex_read_call_from_a_codex_write_call() -> None:
+    shell_call = {"type": "response_item", "payload": {"type": "function_call", "name": "shell", "arguments": "{}"}}
+    patch_call = {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch"}}
+    assert is_codex_read_call(shell_call) is True
+    assert is_codex_read_call(patch_call) is False
+
+
+def assistant_call_record(tool_name: str, all_input_fields: dict[str, object]) -> dict[str, object]:
+    tool_use = {"type": "tool_use", "id": tool_name, "name": tool_name, "input": all_input_fields}
+    return {"type": "assistant", "message": {"role": "assistant", "content": [tool_use]}}
+
+
+def test_should_note_the_read_calls_and_sent_files_of_the_current_turn_only(tmp_path: Path) -> None:
+    first_prompt = {"type": "user", "message": {"role": "user", "content": "status?"}}
+    second_prompt = {"type": "user", "message": {"role": "user", "content": "what needs me?"}}
+    all_earlier_records = [
+        first_prompt,
+        assistant_call_record("Read", {}),
+        assistant_call_record("SendUserFile", {"files": ["old.md"]}),
+    ]
+    earlier_replay = replayed_transcript(str(write_transcript(tmp_path / "a.jsonl", all_earlier_records)))
+    all_later_records = [*all_earlier_records, second_prompt, assistant_call_record("SendUserFile", {"files": ["status.md"]})]
+    later_replay = replayed_transcript(str(write_transcript(tmp_path / "b.jsonl", all_later_records)))
+    assert (earlier_replay.has_turn_read_tool, earlier_replay.turn_sent_file_paths) == (True, ["old.md"])
+    assert (later_replay.has_turn_read_tool, later_replay.turn_sent_file_paths) == (False, ["status.md"])

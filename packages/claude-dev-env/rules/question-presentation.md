@@ -6,6 +6,6 @@ Ask one short, self-contained question with two or three choices. Give each a sh
 
 Find the native question tool and schema. Claude may use `AskUserQuestion`; Codex may use `request_user_input_async` or `request_user_input`. Honor mode rules. Put the question in its title or question field and choices in string or object fields. If unusable, ask in chat.
 
-When the user asks for option cards, or for a Codex visual comparison, read the full text first.
+To hand the user a step, or when asked for option cards or a Codex visual comparison, read the full text first.
 
 **Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).

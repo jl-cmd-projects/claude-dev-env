@@ -217,17 +217,22 @@ def windows_path_violation(reply_text: str) -> str | None:
     return None
 
 
-def closing_paragraph(reply_text: str) -> str:
-    """Return the last prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+def prose_paragraphs(reply_text: str) -> list[str]:
+    """Return each prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
     unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
     unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
     unquoted_text = QUOTED_LINE_PATTERN.sub("", unfenced_text)
-    all_prose_paragraphs = [
+    return [
         code_spans_masked(each_paragraph).strip()
         for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unquoted_text)
         if each_paragraph.strip()
     ]
+
+
+def closing_paragraph(reply_text: str) -> str:
+    """Return the last prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+    all_prose_paragraphs = prose_paragraphs(reply_text)
     return all_prose_paragraphs[-1] if all_prose_paragraphs else ""
 
 

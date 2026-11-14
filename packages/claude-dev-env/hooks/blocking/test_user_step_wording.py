@@ -1,0 +1,101 @@
+from pathlib import Path
+
+import pytest
+
+import user_step_wording
+
+
+@pytest.mark.parametrize(
+    ("shown_text", "expected_phrase"),
+    [
+        ("The key is set. Two items need you.", "need you"),
+        ("## What needs you\n\nThe vault key goes into each environment.", "needs you"),
+        ("The docs pull request is green and needs your merge.", "needs your"),
+        ("Here is what I need from you today.", "need from you"),
+        ("The release is waiting on you.", "waiting on you"),
+        ("The deploy waits for your approval.", "waits for your"),
+        ("The rollout is blocked on you.", "blocked on you"),
+        ("You still need to add the key.", "You still need to"),
+        ("You'll need to sign in first.", "You'll need to"),
+        ("The pull request is ready for you to merge.", "for you to merge"),
+        ("Two demo sessions are running, so say when they may be archived.", "say when"),
+        ("Let me know when the key is in place.", "Let me know when"),
+        ("Action required: rotate the deploy key.", "Action required"),
+        ("The build is not merged; it needs you to approve it.", "needs you"),
+    ],
+)
+def test_should_find_the_phrase_that_says_something_waits_on_the_user(
+    shown_text: str, expected_phrase: str
+) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) == expected_phrase
+
+
+@pytest.mark.parametrize(
+    "shown_text",
+    [
+        "Both builds passed.",
+        "Nothing here needs you.",
+        "Nothing else is waiting on you.",
+        "None of these need you.",
+        "This change does not need you.",
+        "No action needed.",
+        "The label reads `needs you`.",
+        "> What needs you?",
+        "```\necho 'this needs you'\n```",
+        "You do not need to restart the session.",
+    ],
+)
+def test_should_find_no_phrase_in_text_that_hands_the_user_nothing(shown_text: str) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) is None
+
+
+def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_sentence() -> None:
+    assert (
+        user_step_wording.waiting_phrase_in_prose("Nothing is open. One item needs you.")
+        == "needs you"
+    )
+    assert user_step_wording.waiting_phrase_in_prose("No step here needs you.") is None
+
+
+def test_should_read_an_html_page_as_its_visible_text() -> None:
+    page_markup = "<style>.a{color:red}</style><h2>What needs you</h2><script>var needsYou = 1</script><p>Merge&nbsp;it.</p>"
+    visible_text = user_step_wording.html_visible_text(page_markup)
+    assert "What needs you" in visible_text
+    assert "color:red" not in visible_text
+    assert "needsYou" not in visible_text
+
+
+@pytest.mark.parametrize(
+    ("file_name", "file_text"),
+    [
+        ("status.md", "## What needs you\n\nAdd the key."),
+        ("status.txt", "What needs you: add the key."),
+        ("status.html", "<h2>What needs you</h2><p>Add the key.</p>"),
+    ],
+)
+def test_should_find_the_phrase_in_a_sent_text_file(tmp_path: Path, file_name: str, file_text: str) -> None:
+    (tmp_path / file_name).write_text(file_text, encoding="utf-8")
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / file_name), None) == "needs you"
+
+
+def test_should_leave_a_markdown_html_block_out_and_read_the_same_markup_in_an_html_file(tmp_path: Path) -> None:
+    page_markup = "<div>\nWhat needs you\n</div>"
+    (tmp_path / "status.md").write_text(page_markup, encoding="utf-8")
+    (tmp_path / "status.html").write_text(page_markup, encoding="utf-8")
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "status.md"), None) is None
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "status.html"), None) == "needs you"
+
+
+def test_should_read_a_relative_sent_file_from_the_working_directory(tmp_path: Path) -> None:
+    (tmp_path / "status.md").write_text("Two items need you.", encoding="utf-8")
+    assert user_step_wording.file_waiting_phrase("status.md", str(tmp_path)) == "need you"
+
+
+def test_should_skip_a_sent_file_that_is_no_text_file_is_too_large_or_is_missing(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "status.png").write_text("Two items need you.", encoding="utf-8")
+    (tmp_path / "large.md").write_text("Two items need you. " * 20000, encoding="utf-8")
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "status.png"), None) is None
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "large.md"), None) is None
+    assert user_step_wording.file_waiting_phrase(str(tmp_path / "missing.md"), None) is None

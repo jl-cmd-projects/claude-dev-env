@@ -26,6 +26,10 @@ The replay also notes what the current turn did::
                              TaskList, TaskGet, and the Codex request_user_input card
     has_turn_question_tool   an AskUserQuestion, hearthbot decision card, or Codex
                              request_user_input call ran
+    has_turn_read_tool       a call ran that can read state: a shell, a file or web
+                             read, a subagent, or a tool whose name carries a read
+                             word such as ``get``, ``list`` or ``read``
+    turn_sent_file_paths     the paths the turn's SendUserFile calls sent
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -55,6 +59,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_CODEX_TOOL_CALL_TYPES,
     ALL_NON_WORK_TOOL_NAMES,
     ALL_QUESTION_TOOL_NAMES,
+    ALL_READ_TOOL_NAMES,
     ALL_TRACKER_TOOL_NAMES,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
@@ -83,8 +88,11 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     IN_PROGRESS_STATUS,
     MESSAGE_KEY,
     PENDING_STATUS,
+    READ_TOOL_NAME_PATTERN,
     RECORD_TYPE_KEY,
     ROLE_KEY,
+    SEND_FILE_TOOL_NAME,
+    SENT_FILES_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
@@ -227,6 +235,14 @@ def is_codex_work_call(all_record_fields: dict[str, object]) -> bool:
     return tool_name != CODEX_PLAN_TOOL_NAME and is_work_tool_name(tool_name)
 
 
+def is_codex_read_call(all_record_fields: dict[str, object]) -> bool:
+    """Return True for a Codex tool call record whose tool can read state."""
+    payload_body = _codex_payload(all_record_fields)
+    if payload_body is None or payload_body.get(RECORD_TYPE_KEY) not in ALL_CODEX_TOOL_CALL_TYPES:
+        return False
+    return is_read_tool_name(payload_body.get(TOOL_NAME_KEY))
+
+
 def is_codex_question_call(all_record_fields: dict[str, object]) -> bool:
     """Return True for a Codex tool call record that sends a question card."""
     payload_body = _codex_payload(all_record_fields)
@@ -241,6 +257,29 @@ def is_work_tool_name(tool_name: object) -> bool:
         isinstance(tool_name, str)
         and (tool_name in ALL_NON_WORK_TOOL_NAMES or tool_name.endswith(SESSION_TITLE_TOOL_SUFFIX))
     )
+
+
+def is_read_tool_name(tool_name: object) -> bool:
+    """Return True for a tool that can read state.
+
+    ::
+
+        Bash, Read, WebFetch, Agent, shell         -> True
+        mcp__github__pull_request_read             -> True
+        mcp__claude-code-remote__get_session       -> True
+        Write, SendUserFile, TaskList, TaskUpdate  -> False
+    """
+    if not isinstance(tool_name, str):
+        return False
+    return tool_name in ALL_READ_TOOL_NAMES or re.search(READ_TOOL_NAME_PATTERN, tool_name.lower()) is not None
+
+
+def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) -> list[str]:
+    """Return the file paths a SendUserFile call sends, or an empty list for any other call."""
+    all_sent_files = all_input_fields.get(SENT_FILES_KEY)
+    if tool_name != SEND_FILE_TOOL_NAME or not isinstance(all_sent_files, list):
+        return []
+    return [each_path for each_path in all_sent_files if isinstance(each_path, str)]
 
 
 def is_assistant_record(all_record_fields: dict[str, object]) -> bool:
@@ -344,12 +383,16 @@ class TranscriptReplay:
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
+        self.has_turn_read_tool = False
+        self.turn_sent_file_paths: list[str] = []
 
     def start_turn(self, prompt_text: str) -> None:
         self.turn_prompt_text = prompt_text
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
+        self.has_turn_read_tool = False
+        self.turn_sent_file_paths = []
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
@@ -368,6 +411,7 @@ class TranscriptReplay:
             return
         if is_codex_work_call(all_record_fields):
             self.has_turn_work_tool = True
+            self.has_turn_read_tool = self.has_turn_read_tool or is_codex_read_call(all_record_fields)
             return
         is_typed_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         is_from_assistant = is_assistant_record(all_record_fields)
@@ -418,12 +462,15 @@ class TranscriptReplay:
             self.apply_tool_use(tool_name, str(all_block_fields.get(TASK_ID_KEY)), all_tool_arguments)
             if is_from_assistant:
                 self.note_turn_tool(tool_name)
+                self.turn_sent_file_paths.extend(send_call_file_paths(tool_name, all_tool_arguments))
         elif block_type == TOOL_RESULT_BLOCK_TYPE:
             self.apply_tool_result(all_block_fields)
 
     def note_turn_tool(self, tool_name: str) -> None:
         if tool_name in ALL_QUESTION_TOOL_NAMES:
             self.has_turn_question_tool = True
+        if is_read_tool_name(tool_name):
+            self.has_turn_read_tool = True
         if tool_name in ALL_TRACKER_TOOL_NAMES:
             self.has_turn_tracker_write = True
         elif is_work_tool_name(tool_name):
