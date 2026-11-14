@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import sys
+import traceback
 from collections.abc import Callable
+from pathlib import Path
 
+from hooks_constants.context_budget_constants import SYSTEM_MESSAGE_KEY
+from hooks_constants.gate_fault import gate_fault_system_message
 from hooks_constants.setup_project_paths_constants import (
     DECODE_ERRORS_POLICY,
     UTF8_BYTE_ORDER_MARK,
@@ -54,6 +58,17 @@ def print_decision_from_stdin(
 ) -> int:
     """Read one payload, print the decision the gate returns, and return zero.
 
+    ::
+
+        decision_for returns a deny  -> that deny on one stdout line
+        decision_for returns None    -> nothing on stdout
+        decision_for raises          -> {"systemMessage": "<gate>.py hit a fault ..."} on stdout,
+                                        the traceback on stderr
+
+    A check that raises neither denies nor allows the call. The user sees a
+    warning that names the gate script and the error, and the call goes on to
+    the normal permission flow.
+
     Args:
         decision_for: The gate's function from a payload to its hook output, or None.
 
@@ -61,8 +76,13 @@ def print_decision_from_stdin(
         Zero, so the hook never fails the tool call on its own.
     """
     payload = read_hook_input_dictionary_from_stdin()
-    if payload is not None:
+    if payload is None:
+        return 0
+    try:
         decision = decision_for(payload)
-        if decision is not None:
-            sys.stdout.write(json.dumps(decision) + "\n")
+    except Exception as error:
+        traceback.print_exc(file=sys.stderr)
+        decision = {SYSTEM_MESSAGE_KEY: gate_fault_system_message(Path(sys.argv[0]).name, error)}
+    if decision is not None:
+        sys.stdout.write(json.dumps(decision) + "\n")
     return 0

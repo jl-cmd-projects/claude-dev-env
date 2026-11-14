@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import traceback
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from blocking.codex_apply_patch import payload_patch_target_paths
 from blocking.pr_lifecycle_skill_gate import transcript_paths
 from blocking.pull_request_proof import is_create_call
 from blocking.step_note_gate import entry_content_blocks
+from hooks_constants.gate_fault import gate_fault_reason
+from hooks_constants.gate_fault_constants import PROOF_EDIT_GATE_NAME
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
     HOOK_SPECIFIC_OUTPUT_KEY,
@@ -158,10 +161,7 @@ def gate_edit_reason(all_payload_fields: Mapping[str, object]) -> str | None:
     return None
 
 
-def _gate_edit_decision(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
-    reason = gate_edit_reason(all_payload_fields)
-    if reason is None:
-        return None
+def _deny_decision(reason: str) -> dict[str, object]:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             HOOK_EVENT_NAME_KEY: HOOK_EVENT_NAME,
@@ -171,8 +171,22 @@ def _gate_edit_decision(all_payload_fields: dict[str, object]) -> dict[str, obje
     }
 
 
+def _gate_edit_decision(all_payload_fields: dict[str, object]) -> dict[str, object] | None:
+    try:
+        reason = gate_edit_reason(all_payload_fields)
+    except Exception as error:
+        traceback.print_exc(file=sys.stderr)
+        return _deny_decision(gate_fault_reason(PROOF_EDIT_GATE_NAME, error))
+    if reason is None:
+        return None
+    return _deny_decision(reason)
+
+
 def main() -> int:
-    """Read one Write, Edit, MultiEdit or apply_patch payload and print a deny when it edits the proof gate too soon."""
+    """Read one Write, Edit, MultiEdit or apply_patch payload and print a deny when it edits the proof gate too soon.
+
+    A check that raises also prints a deny, whose reason names the fault.
+    """
     return print_decision_from_stdin(_gate_edit_decision)
 
 
