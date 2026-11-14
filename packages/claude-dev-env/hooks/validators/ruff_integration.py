@@ -12,11 +12,17 @@ _validators_directory = str(Path(__file__).resolve().parent)
 _hooks_directory = str(Path(__file__).resolve().parent.parent)
 
 try:
-    from pyproject_config_discovery import find_pyproject_configuring_tool
+    from pyproject_config_discovery import (
+        ancestor_directories,
+        find_pyproject_configuring_tool,
+    )
 except ModuleNotFoundError:
     if _validators_directory not in sys.path:
         sys.path.insert(0, _validators_directory)
-    from pyproject_config_discovery import find_pyproject_configuring_tool
+    from pyproject_config_discovery import (
+        ancestor_directories,
+        find_pyproject_configuring_tool,
+    )
 
 try:
     from hooks_constants.blocking_check_limits import RUFF_STDIN_ENCODING
@@ -239,10 +245,45 @@ def _run_staged_ruff_check(
     return _staged_ruff_result(resolved_pyproject, stdin_filename, staged_content)
 
 
+def _native_ruff_working_directory(config_source_path: Path | None) -> str | None:
+    """Return the folder a native ruff run starts in, or None for the caller's folder.
+
+    ::
+
+        config_source_path .../repo/pkg/module.py, pkg exists -> ".../repo/pkg"
+        config_source_path .../repo/new_pkg/module.py, new_pkg missing -> ".../repo"
+        config_source_path None -> None (the caller's working folder)
+
+    Ruff grades a file with no config above it under the config found from its
+    working folder. A staged copy has no config above it, so starting ruff
+    beside the original target makes that fallback the target's own config.
+
+    Args:
+        config_source_path: The original target path the staged copy stands in
+            for, or ``None`` for a run over files checked in place.
+
+    Returns:
+        The nearest existing folder at or above the target, or ``None``.
+    """
+    if config_source_path is None:
+        return None
+    return next(
+        (
+            str(each_candidate_directory)
+            for each_candidate_directory in ancestor_directories(config_source_path)
+            if each_candidate_directory.is_dir()
+        ),
+        None,
+    )
+
+
 def _run_native_ruff_check(
     all_python_files: list[str], config_source_path: Path | None
 ) -> RuffResult:
-    """Run ruff over *all_python_files* directly, resolving ``--config`` from the path."""
+    """Run ruff over *all_python_files* directly, resolving config from the path.
+
+    Ruff starts in the folder ``_native_ruff_working_directory`` picks.
+    """
     config_argument = _ruff_config_argument(config_source_path)
     concise_output_arguments = ["--output-format", "concise"]
     result = subprocess.run(
@@ -250,6 +291,7 @@ def _run_native_ruff_check(
         check=False,
         capture_output=True,
         text=True,
+        cwd=_native_ruff_working_directory(config_source_path),
         env=_ruff_subprocess_environment(),
         creationflags=hidden_window_creation_flags(),
     )
@@ -267,7 +309,7 @@ def run_ruff_check(
 
     A given ``config_source_path`` grades the single staged copy under the project
     config resolved from the original target, applying its path-scoped
-    per-file-ignores. Without it, the files are checked natively."""
+    per-file-ignores. Otherwise the files are checked natively."""
     if not all_files:
         return RuffResult(passed=True, output="No files to check", fixed_count=0)
 
