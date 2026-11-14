@@ -157,7 +157,9 @@ def aggregate_bash_hook_results(
 ) -> BashDispatcherDecision:
     """Aggregate hosted-hook runs into one deny>ask>allow decision.
 
-    Crashed hooks fail open: they contribute no decision. Reasons are collected
+    Crashed hooks fail open: they contribute no decision. When no hook decides,
+    the result still keeps every systemMessage, such as the warning a gate
+    prints when its check raised. Reasons are collected
     from deny and ask outputs. When the winning decision is allow, the first
     non-empty updatedInput among allow results is carried through so rewriters
     keep their contract. systemMessage, additionalContext, and suppressOutput
@@ -177,9 +179,6 @@ def aggregate_bash_hook_results(
             winning_decision = each_candidate
             break
 
-    if not winning_decision:
-        return BashDispatcherDecision(decision="")
-
     all_reasons = [
         each_parsed.reason
         for each_parsed in all_parsed
@@ -195,6 +194,8 @@ def aggregate_bash_hook_results(
     all_system_messages = [
         each_parsed.system_message for each_parsed in all_parsed if each_parsed.system_message
     ]
+    if not winning_decision:
+        return BashDispatcherDecision(decision="", all_system_messages=all_system_messages)
     all_additional_context = [
         each_parsed.additional_context
         for each_parsed in all_parsed
@@ -219,8 +220,14 @@ def _emit_decision(decision: BashDispatcherDecision) -> None:
 
     A rewrite carries updatedInput with no permissionDecision, so the harness
     applies the rewritten command and then runs its normal permission prompt.
+    With no decision, the hooks' systemMessage lines go out alone, with no
+    permissionDecision. With no decision and no message, nothing is written.
     """
     if not decision.decision:
+        if decision.all_system_messages:
+            message_payload = {_SYSTEM_MESSAGE_KEY: CONTEXT_JOIN_SEPARATOR.join(decision.all_system_messages)}
+            sys.stdout.write(json.dumps(message_payload) + "\n")
+            sys.stdout.flush()
         return
     hook_specific: dict[str, object] = {"hookEventName": HOOK_EVENT_NAME}
     is_rewrite = decision.decision == ALLOW_DECISION and decision.updated_input is not None

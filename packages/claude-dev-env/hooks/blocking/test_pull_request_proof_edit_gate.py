@@ -1,14 +1,18 @@
 """Behavior tests for the gate that holds an edit to the proof gate until its named route is taken."""
 
+import io
 import json
 import sys
 from pathlib import Path
+
+import pytest
 
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof_edit_gate as gate
+from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.pull_request_proof_constants import (
     GATE_EDIT_BEFORE_ROUTE_REASON,
     UNREADABLE_CHANGES_REASON,
@@ -197,3 +201,59 @@ def test_should_allow_an_apply_patch_the_patch_parser_cannot_resolve(tmp_path: P
         "transcript_path": _transcript(tmp_path, DENIED_CREATE_ENTRIES),
     }
     assert gate.gate_edit_reason(payload) is None
+
+
+def _run_gate_main(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], payload: dict[str, object]
+) -> tuple[int, str, str]:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    exit_code = gate.main()
+    captured_streams = capsys.readouterr()
+    return exit_code, captured_streams.out, captured_streams.err
+
+
+def test_should_deny_with_the_fault_reason_when_the_transcript_read_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def raise_transcript_fault(all_payload_fields: dict[str, object]) -> list[str]:
+        raise RuntimeError("transcript list broke")
+
+    monkeypatch.setattr(gate, "transcript_paths", raise_transcript_fault)
+    exit_code, standard_output, standard_error = _run_gate_main(
+        monkeypatch, capsys, _edit_payload(_transcript(tmp_path, []), GATE_FILE_PATH)
+    )
+    decision = json.loads(standard_output)["hookSpecificOutput"]
+    assert exit_code == 0
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"] == gate_fault_reason(
+        "pull request proof edit", RuntimeError("transcript list broke")
+    )
+    assert standard_error.rstrip().splitlines()[-1] == "RuntimeError: transcript list broke"
+
+
+def test_should_deny_with_the_fault_reason_when_the_target_detection_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def raise_patch_fault(all_payload_fields: dict[str, object], tool_input: dict[str, object]) -> tuple[str, ...]:
+        raise KeyError("patch body")
+
+    monkeypatch.setattr(gate, "payload_patch_target_paths", raise_patch_fault)
+    payload = {
+        "tool_name": "apply_patch",
+        "tool_input": {"command": "*** Begin Patch\n*** End Patch\n"},
+        "cwd": str(tmp_path),
+        "transcript_path": _transcript(tmp_path, []),
+    }
+    _, standard_output, _ = _run_gate_main(monkeypatch, capsys, payload)
+    decision = json.loads(standard_output)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"] == gate_fault_reason("pull request proof edit", KeyError("patch body"))
+
+
+def test_should_print_nothing_for_an_edit_to_another_file_without_a_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code, standard_output, standard_error = _run_gate_main(
+        monkeypatch, capsys, _edit_payload(_transcript(tmp_path, DENIED_CREATE_ENTRIES), "/w/app.py")
+    )
+    assert (exit_code, standard_output, standard_error) == (0, "", "")

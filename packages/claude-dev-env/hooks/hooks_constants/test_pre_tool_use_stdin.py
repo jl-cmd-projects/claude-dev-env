@@ -6,9 +6,11 @@ import inspect
 import io
 import json
 import sys
+from collections.abc import Callable
 from unittest.mock import patch
 
 from hooks_constants import pre_tool_use_stdin
+from hooks_constants.gate_fault_constants import GATE_FAULT_TEXT_CHARACTER_LIMIT
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 
 
@@ -95,3 +97,98 @@ def test_print_decision_from_stdin_writes_nothing_on_allow() -> None:
     with patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')), patch("sys.stdout", output):
         assert pre_tool_use_stdin.print_decision_from_stdin(lambda payload: None) == 0
     assert output.getvalue() == ""
+
+
+def _raise_from_check(payload: dict[str, object]) -> dict[str, object] | None:
+    raise RuntimeError("probe broke on " + str(payload["tool_name"]))
+
+
+def _run_with_raising_check(
+    error_check: Callable[[dict[str, object]], dict[str, object] | None] = _raise_from_check,
+) -> tuple[int, str, str]:
+    captured_stdout = io.StringIO()
+    error_output = io.StringIO()
+    with (
+        patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')),
+        patch("sys.stdout", captured_stdout),
+        patch("sys.stderr", error_output),
+        patch("sys.argv", ["/plugin/hooks/blocking/verify_before_commit_gate.py"]),
+    ):
+        exit_code = pre_tool_use_stdin.print_decision_from_stdin(error_check)
+    return exit_code, captured_stdout.getvalue(), error_output.getvalue()
+
+
+def test_print_decision_from_stdin_returns_zero_when_the_check_raises() -> None:
+    exit_code, _, _ = _run_with_raising_check()
+    assert exit_code == 0
+
+
+def test_print_decision_from_stdin_prints_one_system_message_line_when_the_check_raises() -> None:
+    _, standard_output, _ = _run_with_raising_check()
+    all_lines = standard_output.splitlines()
+    assert len(all_lines) == 1
+    decision = json.loads(all_lines[0])
+    assert set(decision) == {"systemMessage"}
+    assert "hookSpecificOutput" not in decision
+    assert "permissionDecision" not in standard_output
+
+
+def test_print_decision_from_stdin_fault_message_names_the_script_file_and_the_error() -> None:
+    _, standard_output, _ = _run_with_raising_check()
+    message = json.loads(standard_output)["systemMessage"]
+    assert "verify_before_commit_gate.py" in message
+    assert "/plugin/hooks/blocking" not in message
+    assert "RuntimeError: probe broke on Bash" in message
+    assert "did not check this call" in message
+
+
+def test_print_decision_from_stdin_fault_message_caps_the_error_text() -> None:
+    long_text = "z" * (GATE_FAULT_TEXT_CHARACTER_LIMIT * 3)
+
+    def raise_long_error(payload: dict[str, object]) -> dict[str, object] | None:
+        raise ValueError(long_text)
+
+    _, standard_output, _ = _run_with_raising_check(raise_long_error)
+    message = json.loads(standard_output)["systemMessage"]
+    assert "z" * GATE_FAULT_TEXT_CHARACTER_LIMIT in message
+    assert "z" * (GATE_FAULT_TEXT_CHARACTER_LIMIT + 1) not in message
+
+
+def test_print_decision_from_stdin_writes_the_traceback_to_standard_error() -> None:
+    _, _, standard_error = _run_with_raising_check()
+    assert "Traceback" in standard_error
+    assert standard_error.rstrip().splitlines()[-1] == "RuntimeError: probe broke on Bash"
+
+
+def test_print_decision_from_stdin_writes_a_returned_deny_unchanged() -> None:
+    deny_decision = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "blocked",
+        }
+    }
+    captured_stdout = io.StringIO()
+    error_output = io.StringIO()
+    with (
+        patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')),
+        patch("sys.stdout", captured_stdout),
+        patch("sys.stderr", error_output),
+    ):
+        exit_code = pre_tool_use_stdin.print_decision_from_stdin(lambda payload: deny_decision)
+    assert exit_code == 0
+    assert captured_stdout.getvalue().splitlines() == [json.dumps(deny_decision)]
+    assert error_output.getvalue() == ""
+
+
+def test_print_decision_from_stdin_stays_silent_on_both_streams_for_none() -> None:
+    captured_stdout = io.StringIO()
+    error_output = io.StringIO()
+    with (
+        patch("sys.stdin", io.StringIO('{"tool_name": "Bash"}')),
+        patch("sys.stdout", captured_stdout),
+        patch("sys.stderr", error_output),
+    ):
+        assert pre_tool_use_stdin.print_decision_from_stdin(lambda payload: None) == 0
+    assert captured_stdout.getvalue() == ""
+    assert error_output.getvalue() == ""

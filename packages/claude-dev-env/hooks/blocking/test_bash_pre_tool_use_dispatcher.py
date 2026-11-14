@@ -35,6 +35,7 @@ from bash_pre_tool_use_dispatcher import (  # noqa: E402
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import (  # noqa: E402
     BASH_TOOL_NAME,
     POWERSHELL_TOOL_NAME,
+    BashHostedHookEntry,
 )
 from hooks_constants.hosted_hook_runner import HostedHookRun  # noqa: E402
 
@@ -302,3 +303,56 @@ def test_should_deny_a_headless_claude_command_while_no_mod_is_on(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     completed = _run_process(_DISPATCHER_SCRIPT, _bash_payload("claude -p 'say hello'"))
     assert _decision_from_stdout(completed.stdout)[0] == "deny"
+
+
+FAULT_SYSTEM_MESSAGE = "transcript_root_search_gate.py hit a fault and did not check this call"
+
+
+def test_a_system_message_with_no_decision_is_kept() -> None:
+    """A hosted gate fault prints a systemMessage alone, and aggregation keeps it."""
+    fault_run = HostedHookRun(
+        captured_stdout=json.dumps({"systemMessage": FAULT_SYSTEM_MESSAGE}) + "\n", did_crash=False
+    )
+    aggregated = aggregate_bash_hook_results([_run(""), fault_run])
+    assert aggregated.decision == ""
+    assert aggregated.all_system_messages == [FAULT_SYSTEM_MESSAGE]
+
+
+def test_dispatch_prints_a_system_message_alone_when_no_hook_decides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The dispatcher passes a fault message to the user with no permissionDecision."""
+    fault_hook = tmp_path / "fault_hook.py"
+    fault_hook.write_text(
+        "import json\nprint(json.dumps({'systemMessage': " + repr(FAULT_SYSTEM_MESSAGE) + "}))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "bash_pre_tool_use_dispatcher.select_applicable_entries",
+        lambda tool_name: [
+            BashHostedHookEntry(
+                script_relative_path=str(fault_hook), applicable_tool_names=frozenset({BASH_TOOL_NAME})
+            )
+        ],
+    )
+    dispatch(_bash_payload("ls"), BASH_TOOL_NAME)
+    all_lines = capsys.readouterr().out.splitlines()
+    assert [json.loads(each_line) for each_line in all_lines] == [{"systemMessage": FAULT_SYSTEM_MESSAGE}]
+
+
+def test_dispatch_prints_nothing_when_every_hook_is_silent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A chain with no decision and no message stays silent."""
+    silent_hook = tmp_path / "silent_hook.py"
+    silent_hook.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        "bash_pre_tool_use_dispatcher.select_applicable_entries",
+        lambda tool_name: [
+            BashHostedHookEntry(
+                script_relative_path=str(silent_hook), applicable_tool_names=frozenset({BASH_TOOL_NAME})
+            )
+        ],
+    )
+    dispatch(_bash_payload("ls"), BASH_TOOL_NAME)
+    assert capsys.readouterr().out == ""
