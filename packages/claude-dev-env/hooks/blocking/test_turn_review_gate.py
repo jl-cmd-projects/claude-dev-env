@@ -11,6 +11,7 @@ import pytest
 
 import turn_review_gate
 import turn_review_snapshot
+import turn_review_state
 from pii_prevention_blocker_parts import repository_exemption
 
 GATE_PATH = Path(turn_review_gate.__file__)
@@ -1018,6 +1019,24 @@ def test_should_pass_the_stop_quietly_when_the_lock_stays_busy_after_the_review(
     assert (captured.out, captured.err) == ("", "")
     assert len(all_lock_calls) == 2
     assert "Stop left the review state alone" in turn_review_log(isolated_home)
+
+
+def test_should_keep_the_review_state_in_the_file_the_state_module_names(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(turn_review_state, "STATE_FILE_TEMPLATE", "moved-review-{session_id}.json")
+    state_directory = Path(gate_environment["TMPDIR"])
+    _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+
+    stop_exit_code = _run_gate_in_process(monkeypatch, gate_environment, "Stop")
+
+    assert list(state_directory.glob("turn-review-*.json")) == []
+    [moved_state_file] = state_directory.glob("moved-review-*.json")
+    moved_state = json.loads(moved_state_file.read_text())
+    assert stop_exit_code == 2
+    assert moved_state["blocks_in_a_row"] == 1
+    assert moved_state["findings"]["TR-1"]["status"] == "open"
 
 
 def test_should_review_both_turns_when_two_prompts_in_a_row_beat_their_stops(
