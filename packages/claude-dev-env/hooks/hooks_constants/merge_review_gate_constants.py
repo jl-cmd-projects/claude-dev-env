@@ -23,6 +23,26 @@ CWD_FIELD = "cwd"
 
 ALL_HEAD_OPTIONS = frozenset({"-H", "--head"})
 ALL_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
+LONG_REPOSITORY_OPTION = "--repo"
+REPOSITORY_SHORT_LETTER = "R"
+HEAD_SHORT_LETTER = "H"
+SHORT_OPTION_PREFIX = "-"
+OPTION_AND_VALUE_WIDTH = 2
+GH_PROGRAM_NAME = "gh"
+ALL_VALUELESS_LONG_CREATE_OPTIONS = frozenset(
+    {
+        "--draft",
+        "--dry-run",
+        "--editor",
+        "--fill",
+        "--fill-first",
+        "--fill-verbose",
+        "--help",
+        "--no-maintainer-edit",
+        "--web",
+    }
+)
+ALL_VALUELESS_SHORT_CREATE_LETTERS = frozenset({"d", "e", "f", "h", "w"})
 ALL_CHANGE_FOLDER_PROGRAMS = frozenset({"cd", "chdir", "set-location", "sl"})
 ALL_HOME_DEFAULT_PROGRAMS = frozenset({"cd", "chdir"})
 ALL_PUSH_FOLDER_PROGRAMS = frozenset({"pushd", "push-location"})
@@ -47,6 +67,35 @@ ALL_COMPOUND_BODY_WORDS = frozenset({"then", "elif", "else", "do"})
 ALL_COMMAND_PREFIX_WORDS = frozenset({"builtin", "command"})
 SEGMENT_TOKEN_JOIN = " "
 IS_POSIX_TOKENIZATION = True
+ALL_UNBALANCED_TOKENIZATION_MODES = (True, False)
+ANSI_C_QUOTE_OPENER = "$'"
+GROUP_OPEN_CHARACTER = "("
+GROUP_CLOSE_CHARACTER = ")"
+COMMENT_START_CHARACTER = "#"
+HEREDOC_START_CHARACTER = "<"
+CARRIAGE_RETURN_LINE_BREAK = "\r\n"
+CARRIAGE_RETURN = "\r"
+LINE_FEED = "\n"
+END_OF_OPTIONS_PREFIX = "-- "
+NESTED_LINE_BREAK_JOIN = ";"
+SINGLE_QUOTE_INSIDE_SINGLE_QUOTES = "'\\''"
+ALL_ANSI_C_ESCAPES = {
+    "n": "\n",
+    "t": "\t",
+    "r": "\r",
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
+    "v": "\v",
+    "e": "\x1b",
+    "E": "\x1b",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+    "?": "?",
+}
+DOUBLE_QUOTED_ESCAPE_PATTERN = re.compile(r'[\\"]')
+DOUBLE_QUOTED_ESCAPE_REPLACEMENT = r"\\\g<0>"
 SHORT_HEAD_OPTION = "-H"
 LONG_HEAD_OPTION = "--head"
 LONG_OPTION_PREFIX = "--"

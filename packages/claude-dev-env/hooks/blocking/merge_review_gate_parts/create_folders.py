@@ -16,16 +16,17 @@ it. A folder change the walk does not model leaves each later create in that
 scope unfollowed: one in a pipeline member, a brace group, ``if``, ``case``,
 a loop or a function body, one after a redirect, or a folder word anywhere
 but the program place. So does a folder it cannot name, such as one a
-variable holds. ``followup_pr_dedupe.create_arguments`` decides what counts
-as a create. Shell variables, aliases and functions that hold a program name
-are not followed.
+variable holds. ``quoted_lines.quote_aware_lines`` cuts each text into the
+lines bash reads, and ``followup_pr_dedupe.create_arguments`` decides what
+counts as a create. Shell variables, aliases and functions that hold a program
+name are not followed.
 """
 
 from __future__ import annotations
 
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
@@ -33,6 +34,8 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from blocking.followup_pr_dedupe import create_arguments
+from blocking.merge_review_gate_parts.quoted_lines import quote_aware_lines
+from blocking.merge_review_gate_parts.wrapped_creates import unplaced_creates
 from hooks_constants.merge_review_gate_constants import (
     ALL_BACKGROUND_OPERATORS,
     ALL_CHANGE_FOLDER_PROGRAMS,
@@ -46,9 +49,11 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_PIPE_OPERATORS,
     ALL_POP_FOLDER_PROGRAMS,
     ALL_PUSH_FOLDER_PROGRAMS,
+    ALL_UNBALANCED_TOKENIZATION_MODES,
     ALL_UNFOLLOWED_FOLDER_CHARACTERS,
     BRACE_CLOSE_TOKEN,
     BRACE_OPEN_OPERATOR,
+    END_OF_OPTIONS_PREFIX,
     HOME_FOLDER,
     IS_POSIX_TOKENIZATION,
     OPTION_PREFIX,
@@ -70,7 +75,6 @@ from hooks_constants.shell_command_pipeline import (
 )
 from hooks_constants.shell_command_wrappers import (
     all_command_substitution_texts,
-    all_wrapped_command_texts,
     evaluated_inner_command,
     quoted_line_breaks_joined,
     segment_program_and_arguments,
@@ -85,11 +89,14 @@ class PlacedCreate:
         all_arguments: The create's options, as ``create_arguments`` gives them.
         folder: The folder in effect at the create, or None for the gate's own.
         is_folder_followed: False when a folder change before it could not be followed.
+        all_command_words: The words of the simple command that runs it, in the order bash
+            passes them, or empty when the create was read without them.
     """
 
     all_arguments: tuple[str, ...]
     folder: str | None
     is_folder_followed: bool
+    all_command_words: tuple[str, ...] = field(default=(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -107,9 +114,11 @@ class _Walk:
 @dataclass
 class _Scope:
     state: _FolderState
+    is_posix: bool = IS_POSIX_TOKENIZATION
     previous_operator: str = ""
     brace_depth: int = 0
     compound_depth: int = 0
+    all_saved: list[_FolderState] = field(default_factory=list)
 
 
 def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
@@ -120,9 +129,14 @@ def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
         "cd sub && gh pr create --fill", "/w"   -> [PlacedCreate(("--fill",), "/w/sub", True)]
         "cd $X && gh pr create --fill", "/w"    -> [PlacedCreate(("--fill",), None, False)]
 
-    The command is walked as bash reads its quotes, once as written and once
-    with its quoted line breaks joined. A create that a POSIX reading of each
-    wrapped command text finds, and no walk placed, comes back unfollowed.
+    Each text is cut into lines and words as bash reads its quotes, so a line
+    break inside ``bash -c "..."`` or ``eval '...'`` starts a command while one
+    inside ``--body "..."`` does not. ``eval`` runs its words joined by spaces,
+    and the words after a ``)`` in a segment, such as a ``case`` arm's command,
+    are read for a wrapper too. A text whose quotes do not close is read as
+    written and with its quoted line breaks joined, each in POSIX and raw
+    words. ``wrapped_creates.unplaced_creates`` gives each create the
+    walk did not place, and it comes back unfollowed.
 
     Args:
         command: The shell command text.
@@ -130,64 +144,81 @@ def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
     """
     start = _FolderState(folder, True)
     all_creates: list[PlacedCreate] = []
-    for each_text in dict.fromkeys([command, quoted_line_breaks_joined(command)]):
-        _walk_text(_Walk(all_creates), each_text, start, 0)
-    all_creates.extend(_unplaced_creates(command, all_creates))
+    _walk_text(_Walk(all_creates), command, start, 0)
+    all_placed_arguments = [each_create.all_arguments for each_create in all_creates]
+    all_creates.extend(
+        PlacedCreate(each_arguments, None, False, each_words)
+        for each_arguments, each_words in unplaced_creates(command, all_placed_arguments)
+    )
     return list(dict.fromkeys(all_creates))
-
-
-def _normalized(all_arguments: tuple[str, ...] | list[str]) -> tuple[str, ...]:
-    all_words = [unquoted_token(each_argument) for each_argument in all_arguments]
-    while all_words and all_words[-1] == SUBSHELL_CLOSE_TOKEN:
-        all_words.pop()
-    return tuple(all_words)
-
-
-def _unplaced_creates(command: str, all_placed: list[PlacedCreate]) -> list[PlacedCreate]:
-    all_known = {_normalized(each_create.all_arguments) for each_create in all_placed}
-    return [
-        PlacedCreate(tuple(all_arguments), None, False)
-        for all_arguments in _wrapped_create_argument_lists(command)
-        if _normalized(all_arguments) not in all_known
-    ]
-
-
-def _wrapped_create_argument_lists(command: str) -> list[list[str]]:
-    all_argument_lists: list[list[str]] = []
-    for each_text in all_wrapped_command_texts(command):
-        for each_segment in _posix_segments(each_text):
-            all_arguments = create_arguments(each_segment)
-            if all_arguments is not None:
-                all_argument_lists.append(all_arguments)
-    return all_argument_lists
-
-
-def _posix_segments(text: str) -> list[list[str]]:
-    return [
-        each_segment
-        for each_line in scannable_command_lines(join_line_continuations(text))
-        for each_segment, _each_operator in segments_with_following_operator(
-            operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION) or []
-        )
-    ]
 
 
 def _walk_text(walk: _Walk, text: str, state: _FolderState, depth: int) -> _FolderState:
     if depth > MAXIMUM_UNWRAP_DEPTH:
         return state
-    scope = _Scope(state)
-    all_saved: list[_FolderState] = []
-    for each_line in scannable_command_lines(join_line_continuations(text)):
-        all_tokens = operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION)
-        for each_segment, each_operator in segments_with_following_operator(all_tokens or []):
-            _walk_segment(walk, scope, each_segment, each_operator, depth)
-            for _each_close in range(_closing_count(each_segment)):
-                scope.state = all_saved.pop() if all_saved else scope.state
-            if each_operator == SUBSHELL_OPEN_OPERATOR:
-                all_saved.append(scope.state)
-            scope.brace_depth += each_operator == BRACE_OPEN_OPERATOR
-            scope.previous_operator = each_operator
+    all_token_lines = _posix_token_lines(text)
+    if all_token_lines is None:
+        return _walk_unbalanced_text(walk, text, state, depth)
+    return _walk_token_lines(walk, all_token_lines, _Scope(state), depth)
+
+
+def _posix_token_lines(text: str) -> list[list[str]] | None:
+    all_lines = quote_aware_lines(text)
+    if all_lines is None:
+        return None
+    all_token_lines = [
+        each_tokens
+        for each_line in all_lines
+        if (each_tokens := operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION)) is not None
+    ]
+    return all_token_lines if len(all_token_lines) == len(all_lines) else None
+
+
+def _walk_unbalanced_text(
+    walk: _Walk, text: str, state: _FolderState, depth: int
+) -> _FolderState:
+    all_end_states: set[_FolderState] = set()
+    for each_text in dict.fromkeys([text, quoted_line_breaks_joined(text)]):
+        for each_is_posix in ALL_UNBALANCED_TOKENIZATION_MODES:
+            all_token_lines = _line_tokens(each_text, each_is_posix)
+            scope = _Scope(state, each_is_posix)
+            all_end_states.add(_walk_token_lines(walk, all_token_lines, scope, depth))
+    return state if all_end_states == {state} else _FolderState(None, False)
+
+
+def _line_tokens(text: str, is_posix: bool) -> list[list[str]]:
+    return [
+        operator_aware_tokens(each_line, is_posix) or []
+        for each_line in scannable_command_lines(join_line_continuations(text))
+    ]
+
+
+def _walk_token_lines(
+    walk: _Walk, all_token_lines: list[list[str]], scope: _Scope, depth: int
+) -> _FolderState:
+    for each_tokens in all_token_lines:
+        for each_segment, each_operator in segments_with_following_operator(each_tokens):
+            _walk_step(walk, scope, each_segment, each_operator, depth)
     return scope.state
+
+
+def _walk_step(
+    walk: _Walk, scope: _Scope, all_segment_tokens: list[str], operator: str, depth: int
+) -> None:
+    _walk_segment(walk, scope, all_segment_tokens, operator, depth)
+    _restore_closed_subshells(scope, _closing_count(all_segment_tokens))
+    if operator == SUBSHELL_OPEN_OPERATOR:
+        scope.all_saved.append(scope.state)
+    scope.brace_depth += operator == BRACE_OPEN_OPERATOR
+    scope.previous_operator = operator
+
+
+def _restore_closed_subshells(scope: _Scope, closing_count: int) -> None:
+    if closing_count == 0 or not scope.all_saved:
+        return
+    kept_count = max(0, len(scope.all_saved) - closing_count)
+    scope.state = scope.all_saved[kept_count]
+    del scope.all_saved[kept_count:]
 
 
 def _walk_segment(
@@ -206,7 +237,7 @@ def _walk_segment(
         and scope.compound_depth == 0
         and first_word not in ALL_COMPOUND_BODY_WORDS
     )
-    next_state = _segment_step(walk, all_tokens, scope.state, depth, is_modeled)
+    next_state = _segment_step(walk, scope, all_tokens, depth, is_modeled)
     if operator not in ALL_BACKGROUND_OPERATORS:
         scope.state = next_state
     if first_word in ALL_COMPOUND_CLOSE_WORDS:
@@ -225,23 +256,52 @@ def _without_closing_tokens(all_segment_tokens: list[str]) -> list[str]:
 
 
 def _segment_step(
-    walk: _Walk, all_tokens: list[str], state: _FolderState, depth: int, is_modeled: bool
+    walk: _Walk, scope: _Scope, all_tokens: list[str], depth: int, is_modeled: bool
 ) -> _FolderState:
+    state = scope.state
     all_arguments = create_arguments(all_tokens)
     if all_arguments is not None:
-        walk.all_creates.append(PlacedCreate(tuple(all_arguments), state.folder, state.is_followed))
-    for each_child_text in _child_shell_texts(all_tokens):
+        walk.all_creates.append(PlacedCreate(tuple(all_arguments), state.folder, state.is_followed, tuple(all_tokens)))
+    all_readings = _wrapper_readings(all_tokens)
+    for each_child_text in dict.fromkeys(
+        each_text for each_reading in all_readings for each_text in _child_shell_texts(each_reading)
+    ):
         _walk_text(walk, each_child_text, state, depth + 1)
-    next_state = state
-    evaluated_text = evaluated_inner_command(all_tokens)
-    if evaluated_text is not None:
-        evaluated_state = _walk_text(walk, evaluated_text, state, depth + 1)
-        if segment_program_and_arguments(all_tokens)[0] in ALL_STRING_EVALUATING_PROGRAM_NAMES:
-            next_state = evaluated_state
+    next_state = _state_after_evaluation(walk, scope, all_readings, depth)
     next_state = _state_after_folder_change(_without_command_prefixes(all_tokens), next_state)
     if (next_state != state and not is_modeled) or _has_unmodeled_folder_word(all_tokens):
         return _FolderState(None, False)
     return next_state
+
+
+def _state_after_evaluation(
+    walk: _Walk, scope: _Scope, all_readings: list[list[str]], depth: int
+) -> _FolderState:
+    for each_reading in all_readings:
+        evaluated_text = _evaluated_text(each_reading, scope.is_posix)
+        if evaluated_text is None:
+            continue
+        evaluated_state = _walk_text(walk, evaluated_text, scope.state, depth + 1)
+        is_same_shell = (
+            segment_program_and_arguments(each_reading)[0] in ALL_STRING_EVALUATING_PROGRAM_NAMES
+        )
+        return evaluated_state if is_same_shell else scope.state
+    return scope.state
+
+
+def _wrapper_readings(all_tokens: list[str]) -> list[list[str]]:
+    if SUBSHELL_CLOSE_TOKEN not in all_tokens:
+        return [all_tokens]
+    last_close_index = len(all_tokens) - 1 - all_tokens[::-1].index(SUBSHELL_CLOSE_TOKEN)
+    all_after_pattern = all_tokens[last_close_index + 1 :]
+    return [all_tokens, all_after_pattern] if all_after_pattern else [all_tokens]
+
+
+def _evaluated_text(all_tokens: list[str], is_posix: bool) -> str | None:
+    program, all_arguments = segment_program_and_arguments(all_tokens)
+    if is_posix and program.lower() in ALL_STRING_EVALUATING_PROGRAM_NAMES:
+        return SEGMENT_TOKEN_JOIN.join(all_arguments)
+    return evaluated_inner_command(all_tokens)
 
 
 def _without_command_prefixes(all_tokens: list[str]) -> list[str]:
@@ -264,6 +324,8 @@ def _has_unmodeled_folder_word(all_tokens: list[str]) -> bool:
 
 def _child_shell_texts(all_tokens: list[str]) -> list[str]:
     string_exec_text = string_exec_inner_command(all_tokens)
+    if string_exec_text is not None:
+        string_exec_text = string_exec_text.removeprefix(END_OF_OPTIONS_PREFIX)
     all_substitution_texts = all_command_substitution_texts(SEGMENT_TOKEN_JOIN.join(all_tokens))
     return [*([string_exec_text] if string_exec_text is not None else []), *all_substitution_texts]
 

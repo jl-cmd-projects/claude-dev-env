@@ -8,8 +8,6 @@ gh pr create --body-file - <<'EOF' ...    -> one create; the body names none
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from blocking.merge_review_gate_parts import create_folders
@@ -116,10 +114,9 @@ def test_should_follow_a_powershell_path_parameter() -> None:
     ]
 
 
-def test_should_go_home_for_a_bare_cd() -> None:
-    assert _placements("cd && gh pr create --fill") == [
-        (("--fill",), os.path.expanduser("~"), True)
-    ]
+def test_should_go_home_for_a_bare_cd(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", "/home/tester")
+    assert _placements("cd && gh pr create --fill") == [(("--fill",), "/home/tester", True)]
 
 
 def test_should_read_no_create_in_a_heredoc_body() -> None:
@@ -140,17 +137,93 @@ def test_should_read_a_create_inside_a_substitution() -> None:
     }
 
 
-def test_should_leave_a_create_only_a_wrapped_text_holds_unfollowed() -> None:
-    assert _placements("x=$(true\ngh pr create --head two)") == [(("--head", "two"), None, False)]
+def test_should_place_a_create_after_a_line_break_inside_a_substitution() -> None:
+    assert _placements("x=$(true\ngh pr create --head two)") == [(("--head", "two"), START, True)]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh pr create --head one && bash -c "true\ngh pr create --head two"',
+        "gh pr create --head one && eval 'true\ngh pr create --head two'",
+        "cd sub && gh pr create --head one --body $'it\\'s' ; gh pr create --head two",
+        "gh pr create --head one --body \"$(echo '\"')\" ; gh pr create --head two",
+    ],
+)
+def test_should_place_each_create_bash_runs(command: str) -> None:
+    assert ("--head", "two") in {each_placement[0][-2:] for each_placement in _placements(command)}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd sub && eval 'gh pr create --head two --body \"a b\"'",
+        "cd sub && eval \"gh pr create --head two --body 'a b'\"",
+    ],
+)
+def test_should_read_a_create_eval_runs_with_a_quoted_value(command: str) -> None:
+    assert _placements(command) == [(("--head", "two", "--body", "a b"), "/work/main/sub", True)]
+
+
+def test_should_read_a_create_a_wrapper_runs_in_a_case_arm() -> None:
+    command = (
+        "case x in x) eval 'gh pr create --head two';; "
+        "(y) bash -c 'gh pr create --head three';; esac"
+    )
+    assert {each_placement[0] for each_placement in _placements(command)} == {
+        ("--head", "two"),
+        ("--head", "three"),
+    }
+
+
+def test_should_read_a_create_in_a_subshell_a_redirect_follows() -> None:
+    assert [
+        (each_placement[0][:2], each_placement[1], each_placement[2])
+        for each_placement in _placements("cd sub && (gh pr create --head two) > log")
+    ] == [(("--head", "two"), "/work/main/sub", True)]
+
+
+@pytest.mark.parametrize(
+    ("command", "all_arguments"),
+    [
+        ("bash -c \"gh pr create --head one --body 'a\nb'\"", ("--head", "one", "--body", "a\nb")),
+        (
+            "gh pr create --head one --body 'a\ngh pr create --head two\nb'",
+            ("--head", "one", "--body", "a\ngh pr create --head two\nb"),
+        ),
+    ],
+)
+def test_should_place_only_the_create_bash_runs_when_a_quoted_value_spans_lines(
+    command: str, all_arguments: tuple[str, ...]
+) -> None:
+    assert _placements(command) == [(all_arguments, START, True)]
+
+
+def test_should_read_an_ansi_c_quoted_value_as_one_word() -> None:
+    assert _placements("gh pr create --head one --body $'it\\'s\\n; x'") == [
+        (("--head", "one", "--body", "it's\n; x"), START, True)
+    ]
 
 
 def test_should_leave_a_create_only_the_wrapped_reading_finds_unfollowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(create_folders, "_walk_text", lambda _walk, _text, state, _depth: state)
-    assert all_placed_creates("cd sub && gh pr create --fill", START) == [
+    assert all_placed_creates('bash -c "cd sub && gh pr create --fill"', START) == [
         PlacedCreate(("--fill",), None, False)
     ]
+
+
+def test_should_read_an_unbalanced_command_both_ways() -> None:
+    assert ("--head", "two") in {
+        each_placement[0][-2:]
+        for each_placement in _placements('gh pr create --head one --body "a\\" ; gh pr create --head two')
+    }
+
+
+def test_should_read_no_create_in_a_heredoc_inside_a_substitution_body() -> None:
+    command = "gh pr create --head one --body \"$(cat <<'B'\nsee gh pr create --head two \"q\"\nB\n)\""
+    assert {each_placement[0][:2] for each_placement in _placements(command)} == {("--head", "one")}
 
 
 @pytest.mark.parametrize(
