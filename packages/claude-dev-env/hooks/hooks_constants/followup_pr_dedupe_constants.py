@@ -27,10 +27,18 @@ UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE = (
     " for an open follow-up pull request to parent #{parent_number}."
     " Name the repository with --repo and run the create again."
 )
+GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE = (
+    "The command sets GH_REPO, so the gate cannot tell which repository a create with no"
+    " --repo opens in, or which one to check for an open follow-up pull request to parent"
+    " #{parent_number}. Name the repository with --repo and run the create again."
+)
 ALL_TITLE_OPTIONS = frozenset({"-t", "--title"})
 GH_PROGRAM_NAME = "gh"
 ALL_GH_ACTION_WORDS_BY_ALIAS = {"new": "create"}
 GH_REPOSITORY_ENVIRONMENT_PREFIX = "GH_REPO="
+GH_REPOSITORY_ENVIRONMENT_NAME = "GH_REPO"
+ALL_VARIABLE_SETTING_PROGRAM_NAMES = frozenset({"export", "declare", "typeset", "local", "readonly"})
+ASSIGNMENT_SEPARATOR = "="
 REPOSITORY_OPTION = "--repo"
 OPTION_PREFIX = "-"
 LONG_OPTION_PREFIX = "--"

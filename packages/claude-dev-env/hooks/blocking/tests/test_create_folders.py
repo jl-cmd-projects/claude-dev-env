@@ -36,6 +36,28 @@ def test_should_keep_a_subshell_folder_change_inside_the_subshell() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd sub ; (cd ../rco && (true)) ; gh pr create --fill",
+        "cd sub ; (cd ../rco && (true)\n) ; gh pr create --fill",
+        "cd sub ; (cd ../rco && ( true ) ) ; gh pr create --fill",
+        "cd sub ; ((cd ../rco)) ; gh pr create --fill",
+        "cd sub ; (true && (cd ../rco)) ; gh pr create --fill",
+        "cd sub && (cd ../rco && (cd x)) && gh pr create --fill",
+    ],
+)
+def test_should_return_to_the_folder_before_the_outer_subshell_when_nested_subshells_close(command: str) -> None:
+    assert _placements(command) == [(("--fill",), "/work/main/sub", True)]
+
+
+def test_should_return_to_the_inner_subshell_start_when_only_the_inner_one_closes() -> None:
+    assert _placements("cd sub ; (cd ../rco ; (cd x) ; gh pr create --fill) ; gh pr create --fill") == [
+        (("--fill",), "/work/main/sub/../rco", True),
+        (("--fill",), "/work/main/sub", True),
+    ]
+
+
 def test_should_return_to_the_pushed_folder_at_popd() -> None:
     assert _placements("pushd ../rsub && gh pr create --fill && popd && gh pr create --fill") == [
         (("--fill",), "/work/main/../rsub", True),
@@ -249,3 +271,20 @@ def test_should_return_placed_creates() -> None:
     assert all_placed_creates("gh pr create --fill", START) == [
         PlacedCreate(("--fill",), START, True)
     ]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "eval " * 18 + "'gh pr create --head two'",
+        "bash -c '" + "eval " * 18 + "gh pr create --head two'",
+        "eval " * 18 + "'python3 pull_request.py create'",
+    ],
+)
+def test_should_leave_unread_a_create_past_the_unwrap_depth(command: str) -> None:
+    assert _placements(command) == [((), None, False)]
+
+
+def test_should_read_no_create_in_text_past_the_unwrap_depth_that_holds_none() -> None:
+    assert _placements("eval " * 18 + "'echo hi'") == []
+

@@ -9,7 +9,8 @@
 
 A line break ends a logical line only outside every quote, subshell and
 substitution. Inside a subshell or a substitution outside quotes it becomes
-``;``. A ``$'...'`` word becomes a single-quoted word. Inside a substitution
+``;``. A ``$'...'`` word becomes a single-quoted word. An escaped
+``\\$(`` outside quotes keeps its ``(`` in the word. Inside a substitution
 in a double-quoted word, each quote and backslash gets a backslash. So a POSIX
 ``shlex`` split of each line gives the words bash gives. Comments and heredoc
 bodies are dropped.
@@ -33,6 +34,10 @@ from hooks_constants.merge_review_gate_constants import (
     COMMENT_START_CHARACTER,
     DOUBLE_QUOTED_ESCAPE_PATTERN,
     DOUBLE_QUOTED_ESCAPE_REPLACEMENT,
+    DOUBLE_QUOTED_SPECIAL_PATTERN,
+    ESCAPED_PAIR_LENGTH,
+    ESCAPED_SUBSTITUTION_OPENER,
+    ESCAPED_SUBSTITUTION_WORD,
     GROUP_CLOSE_CHARACTER,
     GROUP_OPEN_CHARACTER,
     HEREDOC_START_CHARACTER,
@@ -100,12 +105,14 @@ def _step(scan: _Scan) -> None:
     frame = scan.all_frames[-1]
     if frame.quote == SINGLE_QUOTE:
         _step_in_single_quotes(scan, frame)
-    elif frame.quote == ANSI_C_QUOTE_OPENER:
+        return
+    if frame.quote == ANSI_C_QUOTE_OPENER:
         _step_in_ansi_c_quotes(scan, frame)
-    elif frame.quote == DOUBLE_QUOTE:
+        return
+    if frame.quote == DOUBLE_QUOTE:
         _step_in_double_quotes(scan, frame)
-    else:
-        _step_unquoted(scan, frame)
+        return
+    _step_unquoted(scan, frame)
 
 
 def _is_inside_double_quoted_word(scan: _Scan) -> bool:
@@ -124,9 +131,12 @@ def _source(scan: _Scan, length: int) -> str:
 
 
 def _step_in_single_quotes(scan: _Scan, frame: _Frame) -> None:
-    if _source(scan, 1) == SINGLE_QUOTE:
-        frame.quote = ""
-    _emit(scan, _source(scan, 1), 1)
+    close_index = scan.text.find(SINGLE_QUOTE, scan.index)
+    if close_index < 0:
+        _emit(scan, scan.text[scan.index :], len(scan.text) - scan.index)
+        return
+    frame.quote = ""
+    _emit(scan, scan.text[scan.index : close_index + 1], close_index + 1 - scan.index)
 
 
 def _step_in_ansi_c_quotes(scan: _Scan, frame: _Frame) -> None:
@@ -139,52 +149,63 @@ def _step_in_ansi_c_quotes(scan: _Scan, frame: _Frame) -> None:
         _emit(scan, character, 1)
         return
     if _is_inside_double_quoted_word(scan):
-        _emit(scan, _source(scan, 2), 2)
+        _emit(scan, _source(scan, ESCAPED_PAIR_LENGTH), ESCAPED_PAIR_LENGTH)
         return
-    escaped = _source(scan, 2)[1:]
+    escaped = _source(scan, ESCAPED_PAIR_LENGTH)[1:]
     decoded = ALL_ANSI_C_ESCAPES.get(escaped, SHELL_ESCAPE_CHARACTER + escaped)
-    _emit(scan, decoded.replace(SINGLE_QUOTE, SINGLE_QUOTE_INSIDE_SINGLE_QUOTES), 2)
+    _emit(scan, decoded.replace(SINGLE_QUOTE, SINGLE_QUOTE_INSIDE_SINGLE_QUOTES), ESCAPED_PAIR_LENGTH)
 
 
 def _step_in_double_quotes(scan: _Scan, frame: _Frame) -> None:
-    character = _source(scan, 1)
-    if character == SHELL_ESCAPE_CHARACTER:
+    special_match = DOUBLE_QUOTED_SPECIAL_PATTERN.search(scan.text, scan.index)
+    if special_match is None or special_match.start() > scan.index:
+        run_end = len(scan.text) if special_match is None else special_match.start()
+        _emit(scan, scan.text[scan.index : run_end], run_end - scan.index)
+        return
+    if _source(scan, 1) == SHELL_ESCAPE_CHARACTER:
         _step_past_escape(scan)
         return
     if scan.text.startswith(COMMAND_SUBSTITUTION_OPENER, scan.index):
         _emit(scan, COMMAND_SUBSTITUTION_OPENER, len(COMMAND_SUBSTITUTION_OPENER))
         scan.all_frames.append(_Frame())
         return
-    if character == DOUBLE_QUOTE:
-        frame.quote = ""
-    _emit(scan, character, 1)
+    frame.quote = ""
+    _emit(scan, DOUBLE_QUOTE, 1)
 
 
 def _step_past_escape(scan: _Scan) -> None:
-    if _source(scan, 2)[1:] in ALL_LINE_BREAK_CHARACTERS:
-        scan.index += 2
+    if _source(scan, ESCAPED_PAIR_LENGTH)[1:] in ALL_LINE_BREAK_CHARACTERS:
+        scan.index += ESCAPED_PAIR_LENGTH
         return
-    _emit(scan, _source(scan, 2), 2)
+    _emit(scan, _source(scan, ESCAPED_PAIR_LENGTH), ESCAPED_PAIR_LENGTH)
 
 
 def _step_unquoted(scan: _Scan, frame: _Frame) -> None:
     character = _source(scan, 1)
     if character in ALL_LINE_BREAK_CHARACTERS:
         _step_past_line_break(scan)
-    elif character == SHELL_ESCAPE_CHARACTER:
+        return
+    if scan.text.startswith(ESCAPED_SUBSTITUTION_OPENER, scan.index):
+        _emit(scan, ESCAPED_SUBSTITUTION_WORD, len(ESCAPED_SUBSTITUTION_OPENER))
+        return
+    if character == SHELL_ESCAPE_CHARACTER:
         _step_past_escape(scan)
-    elif scan.text.startswith(ANSI_C_QUOTE_OPENER, scan.index):
+        return
+    if scan.text.startswith(ANSI_C_QUOTE_OPENER, scan.index):
         _open_ansi_c_quotes(scan, frame)
-    elif scan.text.startswith(COMMAND_SUBSTITUTION_OPENER, scan.index):
+        return
+    if scan.text.startswith(COMMAND_SUBSTITUTION_OPENER, scan.index):
         _emit(scan, COMMAND_SUBSTITUTION_OPENER, len(COMMAND_SUBSTITUTION_OPENER))
         scan.all_frames.append(_Frame())
-    elif character in (SINGLE_QUOTE, DOUBLE_QUOTE):
+        return
+    if character in (SINGLE_QUOTE, DOUBLE_QUOTE):
         frame.quote = character
         _emit(scan, character, 1)
-    elif character == COMMENT_START_CHARACTER and _is_word_start(scan):
+        return
+    if character == COMMENT_START_CHARACTER and _is_word_start(scan):
         _skip_to_line_end(scan)
-    else:
-        _step_plain_character(scan, frame, character)
+        return
+    _step_plain_character(scan, frame, character)
 
 
 def _open_ansi_c_quotes(scan: _Scan, frame: _Frame) -> None:
@@ -203,15 +224,20 @@ def _skip_to_line_end(scan: _Scan) -> None:
 
 
 def _step_plain_character(scan: _Scan, frame: _Frame, character: str) -> None:
-    if character == HEREDOC_START_CHARACTER:
-        scan.all_heredoc_starts.append(scan.index)
-    elif character == GROUP_OPEN_CHARACTER:
-        frame.group_depth += 1
-    elif character == GROUP_CLOSE_CHARACTER and frame.group_depth:
-        frame.group_depth -= 1
-    elif character == GROUP_CLOSE_CHARACTER and len(scan.all_frames) > 1:
-        scan.all_frames.pop()
     _emit(scan, character, 1)
+    if character == HEREDOC_START_CHARACTER:
+        scan.all_heredoc_starts.append(scan.index - 1)
+        return
+    if character == GROUP_OPEN_CHARACTER:
+        frame.group_depth += 1
+        return
+    if character != GROUP_CLOSE_CHARACTER:
+        return
+    if frame.group_depth:
+        frame.group_depth -= 1
+        return
+    if len(scan.all_frames) > 1:
+        scan.all_frames.pop()
 
 
 def _step_past_line_break(scan: _Scan) -> None:

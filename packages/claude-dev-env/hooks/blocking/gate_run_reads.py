@@ -35,11 +35,8 @@ counts each scan the deadline stopped, apart from the reads it cut short.
 
 from __future__ import annotations
 
-import ctypes
 import functools
 import math
-import os
-import signal
 import subprocess
 import sys
 import threading
@@ -50,26 +47,18 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, BinaryIO, TypeVar, cast
+from typing import BinaryIO, TypeVar, cast
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.gate_child_process import close_job, job_holding, started_child, stop_child
 from hooks_constants.gate_run_reads_constants import (
-    ALL_WINDOWS_TREE_KILL_WORDS,
-    CLOSE_HANDLE_CALL,
     EVAL_WRITE_SCAN_SECONDS,
     FOLLOWUP_READS_SECONDS,
-    KERNEL32_LIBRARY_NAME,
-    KILL_GRACE_SECONDS,
-    PROCESS_HANDLE_ATTRIBUTE,
     PROOF_AND_LOOK_READS_SECONDS,
-    STOPPED_JOB_EXIT_CODE,
-    TERMINATE_JOB_CALL,
-    WINDOWS_TREE_KILL_SECONDS,
 )
-from hooks_constants.subprocess_window import hidden_window_creation_flags
 from hooks_constants.transcript_skill_scan_constants import TRANSCRIPT_BLOCK_BYTES, TRANSCRIPT_LINE_BYTE_CAP
 from transcript_skill_scan import ScanCaps, transcript_lines_newest_first
 
@@ -276,118 +265,6 @@ def transcript_lines_within_slice(
     return lines_within_slice(all_lines, read_slice)
 
 
-def _started_child(
-    all_command_words: Sequence[str],
-    working_directory: str | None,
-    all_environment_variables: Mapping[str, str] | None,
-) -> subprocess.Popen[str] | None:
-    try:
-        return subprocess.Popen(
-            list(all_command_words),
-            cwd=working_directory or None,
-            env=dict(all_environment_variables) if all_environment_variables is not None else None,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            start_new_session=sys.platform != "win32",
-            creationflags=hidden_window_creation_flags(),
-        )
-    except OSError:
-        return None
-
-
-def _drain_within(child: subprocess.Popen[str], grace_seconds: float) -> None:
-    try:
-        child.communicate(timeout=grace_seconds)
-    except subprocess.TimeoutExpired:
-        return
-
-
-def _kernel32() -> Any:
-    if sys.platform != "win32":
-        raise OSError("kernel32 exists only on Windows")
-    kernel32 = ctypes.WinDLL(KERNEL32_LIBRARY_NAME, use_last_error=True)
-    kernel32.CreateJobObjectW.restype = ctypes.c_void_p
-    kernel32.CreateJobObjectW.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p)
-    kernel32.AssignProcessToJobObject.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
-    kernel32.TerminateJobObject.argtypes = (ctypes.c_void_p, ctypes.c_uint)
-    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
-    return kernel32
-
-
-def _job_holding(child: subprocess.Popen[str]) -> int | None:
-    if sys.platform != "win32":
-        return None
-    try:
-        kernel32 = _kernel32()
-        job = kernel32.CreateJobObjectW(None, None)
-        if job and kernel32.AssignProcessToJobObject(job, int(getattr(child, PROCESS_HANDLE_ATTRIBUTE))):
-            return int(job)
-        if job:
-            kernel32.CloseHandle(job)
-    except (OSError, AttributeError, TypeError, ValueError, ctypes.ArgumentError):
-        return None
-    return None
-
-
-def _job_call_succeeded(job: int | None, call_name: str, *all_arguments: int) -> bool:
-    if job is None:
-        return False
-    try:
-        return bool(getattr(_kernel32(), call_name)(job, *all_arguments))
-    except (OSError, AttributeError, TypeError, ValueError, ctypes.ArgumentError):
-        return False
-
-
-def _stop_windows_tree(child: subprocess.Popen[str], job: int | None) -> None:
-    if not _job_call_succeeded(job, TERMINATE_JOB_CALL, STOPPED_JOB_EXIT_CODE):
-        _run_taskkill(child)
-    if child.poll() is None:
-        child.kill()
-    _drain_within(child, KILL_GRACE_SECONDS - WINDOWS_TREE_KILL_SECONDS)
-
-
-def _run_taskkill(child: subprocess.Popen[str]) -> None:
-    try:
-        subprocess.run(
-            [*ALL_WINDOWS_TREE_KILL_WORDS, str(child.pid)],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=WINDOWS_TREE_KILL_SECONDS,
-            creationflags=hidden_window_creation_flags(),
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return
-
-
-def _stop_child(child: subprocess.Popen[str], job: int | None) -> None:
-    """End the child and every process it started, inside ``KILL_GRACE_SECONDS`` in all.
-
-    ::
-
-        POSIX     the child leads its own process group  -> SIGKILL to the group, then the pipe grace
-        Windows   the child's job object                 -> end the job, then the pipe grace
-        Windows   no job could be made                   -> bounded hidden taskkill /T /F, then the pipe grace
-
-    A grandchild that holds the output pipe dies with the child, so the pipe
-    closes, even when the child itself already exited. Should one escape, the
-    grace still ends the wait.
-    """
-    if sys.platform == "win32":
-        _stop_windows_tree(child, job)
-        return
-    try:
-        os.killpg(child.pid, signal.SIGKILL)
-    except OSError:
-        child.kill()
-    _drain_within(child, KILL_GRACE_SECONDS)
-
-
 def child_stdout(
     all_command_words: Sequence[str],
     own_timeout_seconds: float,
@@ -415,14 +292,14 @@ def child_stdout(
     if allowance is None:
         _note_read_cut_short()
         return None
-    child = _started_child(all_command_words, working_directory, all_environment_variables)
+    child = started_child(all_command_words, working_directory, all_environment_variables)
     if child is None:
         return None
-    job = _job_holding(child)
+    job = job_holding(child)
     try:
         return _answer_within(child, allowance, own_timeout_seconds, job)
     finally:
-        _job_call_succeeded(job, CLOSE_HANDLE_CALL)
+        close_job(job)
 
 
 def _answer_within(
@@ -431,7 +308,7 @@ def _answer_within(
     try:
         printed_text = child.communicate(timeout=allowance)[0]
     except subprocess.TimeoutExpired:
-        _stop_child(child, job)
+        stop_child(child, job)
         _note_read_timed_out()
         if allowance < own_timeout_seconds:
             _note_read_cut_short()

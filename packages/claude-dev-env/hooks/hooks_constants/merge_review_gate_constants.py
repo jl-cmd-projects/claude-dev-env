@@ -78,6 +78,8 @@ CARRIAGE_RETURN = "\r"
 LINE_FEED = "\n"
 END_OF_OPTIONS_PREFIX = "-- "
 NESTED_LINE_BREAK_JOIN = ";"
+ALL_CLOSING_CHARACTERS = SUBSHELL_CLOSE_TOKEN + NESTED_LINE_BREAK_JOIN
+SUBSTITUTION_KEY_IGNORED_PATTERN = re.compile(r"[\s\\\"']")
 SINGLE_QUOTE_INSIDE_SINGLE_QUOTES = "'\\''"
 ALL_ANSI_C_ESCAPES = {
     "n": "\n",
@@ -96,6 +98,10 @@ ALL_ANSI_C_ESCAPES = {
 }
 DOUBLE_QUOTED_ESCAPE_PATTERN = re.compile(r'[\\"]')
 DOUBLE_QUOTED_ESCAPE_REPLACEMENT = r"\\\g<0>"
+DOUBLE_QUOTED_SPECIAL_PATTERN = re.compile(r'[\\"]|\$\(')
+ESCAPED_PAIR_LENGTH = 2
+ESCAPED_SUBSTITUTION_OPENER = "\\$("
+ESCAPED_SUBSTITUTION_WORD = "\\$\\("
 SHORT_HEAD_OPTION = "-H"
 LONG_HEAD_OPTION = "--head"
 LONG_OPTION_PREFIX = "--"
@@ -104,6 +110,10 @@ GH_PR_CREATE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+create\b(?
 PULL_REQUEST_SCRIPT_CREATE_PATTERN = re.compile(
     r"pull_request\.py[\"']?\s+create\b(?P<rest>[^;&|]*)"
 )
+LOOSE_GH_PROGRAM_PATTERN = re.compile(r"(?<![\w.-])gh(?:\.exe)?(?![\w.-])")
+LOOSE_OPEN_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new)(?![\w-])")
+LOOSE_OPEN_OR_MERGE_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new|merge)(?![\w-])")
+LOOSE_PULL_REQUEST_SCRIPT_PATTERN = re.compile(r"pull_request\.py")
 HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
 CHANGE_FOLDER_PATTERN = re.compile(
     r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"

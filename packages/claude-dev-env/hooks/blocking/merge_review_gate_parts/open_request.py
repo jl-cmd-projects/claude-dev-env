@@ -12,8 +12,9 @@ hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
-from blocking.followup_pr_dedupe import named_repository, option_value
+from blocking.followup_pr_dedupe import named_repository, prefix_repository, sets_gh_repository
 from blocking.merge_review_gate_parts.create_folders import PlacedCreate, all_placed_creates
+from blocking.merge_review_gate_parts.create_options import all_option_values
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -22,10 +23,7 @@ from blocking.gate_run_reads import (
 from hooks_constants.merge_review_gate_constants import (
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
-    ALL_REPOSITORY_OPTIONS,
     ALL_SHELL_TOOL_NAMES,
-    ALL_VALUELESS_LONG_CREATE_OPTIONS,
-    ALL_VALUELESS_SHORT_CREATE_LETTERS,
     CHANGE_FOLDER_PATTERN,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
@@ -39,11 +37,8 @@ from hooks_constants.merge_review_gate_constants import (
     HEAD_OPTION_PATTERN,
     HEAD_SHORT_LETTER,
     LONG_HEAD_OPTION,
-    LONG_OPTION_PREFIX,
     LONG_REPOSITORY_OPTION,
     LS_REMOTE_FIELD_SEPARATOR,
-    OPTION_AND_VALUE_WIDTH,
-    OPTION_VALUE_SEPARATOR,
     ORIGIN_URL_PATTERN,
     ORIGIN_URL_QUESTION,
     OWNER_FIELD,
@@ -54,10 +49,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPO_FIELD,
     REPO_OPTION_PATTERN,
     REPOSITORY_SHORT_LETTER,
-    SHORT_HEAD_OPTION,
-    SHORT_OPTION_PREFIX,
 )
-from hooks_constants.pytest_invocation import unquoted_token
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
@@ -106,7 +98,8 @@ class ShellOpenCall:
         repository: The ``(owner, repo)`` its ``--repo``, root ``-R`` or ``GH_REPO`` names, or None to read ``origin``.
         branch: The branch its ``--head`` names, or ``HEAD``.
         folder: The folder in effect at the create, after each folder change before it.
-        is_folder_followed: False when a folder change before it could not be followed.
+        is_folder_followed: False when a folder change before it could not be followed,
+            or when the create names no repository in a command that sets ``GH_REPO``.
     """
 
     repository: tuple[str, str] | None
@@ -209,21 +202,24 @@ def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) ->
 
 def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     all_calls: list[OpenCall] = []
+    is_gh_repository_set = sets_gh_repository(command)
     for each_create in all_placed_creates(command, folder):
-        all_calls.extend(_placed_open_calls(each_create))
+        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set))
     floor_call = _floor_open_call(command, folder)
     if floor_call is not None:
         all_calls.append(floor_call)
     return list(dict.fromkeys(all_calls))
 
 
-def _placed_open_calls(placed_create: PlacedCreate) -> list[ShellOpenCall]:
+def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) -> list[ShellOpenCall]:
+    repository = _placed_repository(placed_create)
+    is_repository_read = repository is not None or not is_gh_repository_set
     return [
         ShellOpenCall(
-            repository=_placed_repository(placed_create),
+            repository=repository,
             branch=each_head,
             folder=placed_create.folder,
-            is_folder_followed=placed_create.is_folder_followed,
+            is_folder_followed=placed_create.is_folder_followed and is_repository_read,
         )
         for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]
     ]
@@ -235,76 +231,14 @@ def _option_words(placed_create: PlacedCreate) -> list[str]:
 
 
 def _placed_repository(placed_create: PlacedCreate) -> tuple[str, str] | None:
-    all_arguments = list(placed_create.all_arguments)
-    all_words = _option_words(placed_create)
-    flag_value = _last_option_value(all_words, LONG_REPOSITORY_OPTION, REPOSITORY_SHORT_LETTER)
-    if flag_value is None:
-        flag_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
+    all_values = all_option_values(_option_words(placed_create), LONG_REPOSITORY_OPTION, REPOSITORY_SHORT_LETTER)
+    flag_value = all_values[-1] if all_values else prefix_repository(list(placed_create.all_command_words))
     return named_repository(flag_value) if flag_value is not None else None
 
 
 def _placed_heads(placed_create: PlacedCreate) -> list[str]:
-    all_heads = _named_heads(list(placed_create.all_arguments))
-    last_head = _last_option_value(_option_words(placed_create), LONG_HEAD_OPTION, HEAD_SHORT_LETTER)
-    if last_head and last_head not in all_heads:
-        all_heads.append(last_head)
-    return all_heads
-
-
-def _last_option_value(all_words: list[str], long_option: str, short_letter: str) -> str | None:
-    last_value: str | None = None
-    index = 0
-    while index < len(all_words) and unquoted_token(all_words[index]) != LONG_OPTION_PREFIX:
-        following = all_words[index + 1] if index + 1 < len(all_words) else None
-        flag_value, width = _option_reading(unquoted_token(all_words[index]), following, long_option, short_letter)
-        if flag_value is not None:
-            last_value = unquoted_token(flag_value)
-        index += width
-    return last_value
-
-
-def _option_reading(word: str, following: str | None, long_option: str, short_letter: str) -> tuple[str | None, int]:
-    if not word.startswith(SHORT_OPTION_PREFIX) or word == SHORT_OPTION_PREFIX:
-        return None, 1
-    if not word.startswith(LONG_OPTION_PREFIX):
-        return _short_cluster_reading(word[len(SHORT_OPTION_PREFIX) :], following, short_letter)
-    option_name, separator, inline_value = word.partition(OPTION_VALUE_SEPARATOR)
-    if option_name == long_option:
-        return (inline_value, 1) if separator else (following, OPTION_AND_VALUE_WIDTH)
-    if separator or option_name in ALL_VALUELESS_LONG_CREATE_OPTIONS:
-        return None, 1
-    return None, OPTION_AND_VALUE_WIDTH
-
-
-def _short_cluster_reading(all_letters: str, following: str | None, short_letter: str) -> tuple[str | None, int]:
-    for each_index, each_letter in enumerate(all_letters):
-        if each_letter in ALL_VALUELESS_SHORT_CREATE_LETTERS:
-            continue
-        inline_value = all_letters[each_index + 1 :].removeprefix(OPTION_VALUE_SEPARATOR)
-        flag_value, width = (inline_value, 1) if inline_value else (following, OPTION_AND_VALUE_WIDTH)
-        return (flag_value if each_letter == short_letter else None), width
-    return None, 1
-
-
-def _named_heads(all_arguments: list[str]) -> list[str]:
-    all_heads: list[str] = []
-    all_words = [unquoted_token(each_argument) for each_argument in all_arguments]
-    for each_index, each_word in enumerate(all_words):
-        following = all_words[each_index + 1] if each_index + 1 < len(all_words) else None
-        head = _head_from_word(each_word, following)
-        if head:
-            all_heads.append(head)
-    return all_heads
-
-
-def _head_from_word(word: str, following: str | None) -> str | None:
-    if word in (SHORT_HEAD_OPTION, LONG_HEAD_OPTION):
-        return following
-    if word.startswith(LONG_HEAD_OPTION + OPTION_VALUE_SEPARATOR):
-        return word[len(LONG_HEAD_OPTION + OPTION_VALUE_SEPARATOR) :]
-    if word.startswith(SHORT_HEAD_OPTION) and not word.startswith(LONG_OPTION_PREFIX):
-        return word[len(SHORT_HEAD_OPTION) :].removeprefix(OPTION_VALUE_SEPARATOR)
-    return None
+    all_heads = all_option_values(_option_words(placed_create), LONG_HEAD_OPTION, HEAD_SHORT_LETTER)
+    return list(dict.fromkeys(each_head for each_head in all_heads if each_head))
 
 
 def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
