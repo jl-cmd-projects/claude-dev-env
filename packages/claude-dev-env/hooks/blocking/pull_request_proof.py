@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
@@ -15,8 +14,15 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from blocking.body_flowchart import fenced_line_flags, section_has_flowchart
-from blocking.followup_pr_dedupe import body_from_arguments, create_tool_fields, title_from_arguments
-from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES, UPDATE_PULL_REQUEST_TOOL_SUFFIX
+from blocking.followup_pr_dedupe import (
+    all_command_segments,
+    body_from_arguments,
+    create_tool_fields,
+    shell_command,
+    title_from_arguments,
+)
+from blocking.gate_run_reads import ReadSlice, answer_once, child_stdout
+from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     GIT_URL_SUFFIX,
@@ -102,10 +108,7 @@ from hooks_constants.pytest_invocation import (
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_segments import token_basename
-from hooks_constants.shell_command_wrappers import (
-    all_wrapped_command_texts,
-    segment_program_and_arguments,
-)
+from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
 class CreateCall(NamedTuple):
@@ -206,21 +209,17 @@ def _command_arguments(
     return _script_word_arguments(program, all_arguments, script_word)
 
 
-def _shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
-    tool_input = all_payload_fields.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if all_payload_fields.get("tool_name") not in SHELL_TOOL_NAMES or not isinstance(command, str):
-        return None
-    return command
-
-
 def _all_argument_lists(command: str, all_gh_words: list[str], script_word: str) -> Iterator[list[str]]:
-    return (
-        all_arguments
-        for each_text in all_wrapped_command_texts(command)
-        for each_segment, _each_following_operator in pipeline_segments_for_command(each_text)
-        if (all_arguments := _command_arguments(each_segment, all_gh_words, script_word)) is not None
-    )
+    all_seen_arguments: set[tuple[str, ...]] = set()
+    for each_segment in all_command_segments(command):
+        all_arguments = _command_arguments(each_segment, all_gh_words, script_word)
+        if all_arguments is None:
+            continue
+        all_unquoted_arguments = tuple(_unquoted_arguments(all_arguments))
+        if all_unquoted_arguments in all_seen_arguments:
+            continue
+        all_seen_arguments.add(all_unquoted_arguments)
+        yield all_arguments
 
 
 def _all_create_argument_lists(command: str) -> Iterator[list[str]]:
@@ -253,7 +252,7 @@ def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assi
 def _shell_flag_value(
     all_payload_fields: Mapping[str, object], all_flags: frozenset[str], assignment_prefix: str
 ) -> str | None:
-    command = _shell_command(all_payload_fields)
+    command = shell_command(all_payload_fields)
     if command is None:
         return None
     all_flag_values = [
@@ -303,7 +302,7 @@ def _create_calls(all_payload_fields: Mapping[str, object]) -> list[CreateCall]:
                 body if isinstance(body, str) else "",
             )
         ]
-    command = _shell_command(all_payload_fields)
+    command = shell_command(all_payload_fields)
     if command is None:
         return []
     working_directory = all_payload_fields.get("cwd")
@@ -324,7 +323,7 @@ def is_create_call(all_payload_fields: Mapping[str, object]) -> bool:
     Args:
         all_payload_fields: A tool name and input, shaped like a PreToolUse payload.
     """
-    command = _shell_command(all_payload_fields)
+    command = shell_command(all_payload_fields)
     return create_tool_fields(all_payload_fields) is not None or (
         command is not None and next(_all_create_argument_lists(command), None) is not None
     )
@@ -650,7 +649,7 @@ def _edit_bodies(all_payload_fields: Mapping[str, object]) -> list[str]:
     if isinstance(tool_name, str) and tool_name.endswith(UPDATE_PULL_REQUEST_TOOL_SUFFIX):
         body = tool_input.get("body") if isinstance(tool_input, dict) else None
         return [body] if isinstance(body, str) else []
-    command = _shell_command(all_payload_fields)
+    command = shell_command(all_payload_fields)
     if command is None:
         return []
     working_directory = all_payload_fields.get("cwd")
@@ -736,19 +735,9 @@ class ChangedFile(NamedTuple):
 
 
 def _git_output(working_directory: str, *all_git_arguments: str) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["git", "-C", working_directory, *all_git_arguments],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GIT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return completed.stdout if completed.returncode == 0 else None
+    return child_stdout(
+        ["git", "-C", working_directory, *all_git_arguments], GIT_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK
+    )
 
 
 def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
@@ -810,6 +799,14 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
 
 
 def _merge_base_and_head(working_directory: str, head_branch: object) -> tuple[str, str] | None:
+    named_head = head_branch if isinstance(head_branch, str) else None
+    return answer_once(
+        ("merge base and head", working_directory, named_head),
+        lambda: _read_merge_base_and_head(working_directory, named_head),
+    )
+
+
+def _read_merge_base_and_head(working_directory: str, head_branch: str | None) -> tuple[str, str] | None:
     if not working_directory:
         return None
     head_reference = _head_reference(working_directory, head_branch)
@@ -899,19 +896,8 @@ def added_workflow_files(working_directory: str, head_branch: object) -> list[st
 
 
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
-    try:
-        completed = subprocess.run(
-            ["gh", "api", endpoint, "--jq", query],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return completed.stdout.splitlines() if completed.returncode == 0 else None
+    printed_text = child_stdout(["gh", "api", endpoint, "--jq", query], GH_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK)
+    return None if printed_text is None else printed_text.splitlines()
 
 
 def _compare_base_branch(repository: str, base_branch: str | None) -> str | None:
@@ -1010,13 +996,21 @@ def _added_workflow_files_for_create(all_payload_fields: Mapping[str, object]) -
     working_directory = str(all_payload_fields.get("cwd") or "")
     head_branch = _named_head_branch(all_payload_fields)
     repository = _named_repository(all_payload_fields)
+    base_branch = _named_base_branch(all_payload_fields)
+    return answer_once(
+        ("added workflow files", working_directory, repository, base_branch, head_branch),
+        lambda: _read_added_workflow_files(working_directory, repository, base_branch, head_branch),
+    )
+
+
+def _read_added_workflow_files(
+    working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
+) -> list[str]:
     all_workflow_paths = None
     if _local_checkout_may_answer(working_directory, repository, head_branch):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
     if all_workflow_paths is None:
-        all_workflow_paths = remote_added_workflow_files(
-            repository, _named_base_branch(all_payload_fields), head_branch
-        )
+        all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
     return all_workflow_paths or []
 
 
@@ -1131,11 +1125,18 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         git cannot read the branch, compare API returns 300 .py files     -> UNREADABLE_CHANGES_REASON
         neither git nor the compare API can read it, no picture           -> UNREADABLE_CHANGES_REASON
 
+    Every body is checked for a picture first. When each one shows a picture,
+    the check passes and reads neither git nor the compare API.
+
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    all_bodies = [each_body for each_body in _create_bodies(all_payload_fields) if each_body is not None]
-    if not all_bodies:
+    all_bodies_without_picture = [
+        each_body
+        for each_body in _create_bodies(all_payload_fields)
+        if each_body is not None and not re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE)
+    ]
+    if not all_bodies_without_picture:
         return None
     working_directory = all_payload_fields.get("cwd")
     head_branch = _named_head_branch(all_payload_fields)
@@ -1146,10 +1147,6 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         )
     if all_visible_files == []:
         return None
-    for each_body in all_bodies:
-        if re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE):
-            continue
-        if all_visible_files is None:
-            return UNREADABLE_CHANGES_REASON
-        return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
-    return None
+    if all_visible_files is None:
+        return UNREADABLE_CHANGES_REASON
+    return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
