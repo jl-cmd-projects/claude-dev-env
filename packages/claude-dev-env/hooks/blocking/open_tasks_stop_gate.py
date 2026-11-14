@@ -226,9 +226,6 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
     transcript_path = all_hook_input_fields.get(TRANSCRIPT_PATH_KEY)
     if not isinstance(transcript_path, str) or not Path(transcript_path).is_file():
         return []
-    phrase = turn_waiting_phrase(all_hook_input_fields, replay)
-    if phrase is None:
-        return []
     all_reasons = [
         each_reason
         for each_reason, has_turn_call in (
@@ -237,7 +234,10 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
         )
         if not has_turn_call
     ]
-    return [USER_STEP_LEAD_TEMPLATE.format(phrase=phrase), *all_reasons] if all_reasons else []
+    if not all_reasons:
+        return []
+    phrase = turn_waiting_phrase(all_hook_input_fields, replay)
+    return [] if phrase is None else [USER_STEP_LEAD_TEMPLATE.format(phrase=phrase), *all_reasons]
 
 
 def tracker_reasons(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[str]:

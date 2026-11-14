@@ -90,6 +90,14 @@ import user_step_wording
         ("NO_PROXY needs your value before the rerun.", "needs your"),
         ("The docs pull request _needs your_ merge.", "needs your"),
         ("__Action required__: rotate the deploy key.", "Action required"),
+        ("Nothing on this list\u2028needs you.", "needs you"),
+        ("Action\u2028required: none.", "Action\nrequired"),
+        ("\ufeffSay when the demo sessions may be archived.", "Say when"),
+        ("\u2022 Say when the demo sessions may be archived.", "Say when"),
+        ("(Please say when the demo sessions may be archived.)", "say when"),
+        ("**Please** say when the demo sessions may be archived.", "say when"),
+        ("Not`-`e PR 5 needs your merge.", "needs your"),
+        ("Item 5 needs `the merge command` your run.", "needs   your"),
     ],
 )
 def test_should_find_the_phrase_that_says_something_waits_on_the_user(
@@ -149,6 +157,9 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "There were no items that need you.",
         "Neither build needs you.",
         "The runner no longer needs you.",
+        "**1)** No reviewer needs your approval.",
+        "Nothing in `deploy.yml` needs you.",
+        "This change does not `yet` need you.",
     ],
 )
 def test_should_find_no_phrase_in_text_that_hands_the_user_nothing(shown_text: str) -> None:
@@ -193,6 +204,13 @@ def test_should_hold_a_negating_word_with_any_other_character_joined_to_it() -> 
     assert all_skipped_texts == []
     assert user_step_wording.waiting_phrase_in_prose("It isn't waiting on you.") is None
     assert user_step_wording.waiting_phrase_in_prose("It isn't- waiting on you.") == "waiting on you"
+
+
+@pytest.mark.parametrize("line_end", ["\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
+def test_should_end_a_clause_at_every_character_that_ends_a_line(line_end: str) -> None:
+    assert "a\nb".splitlines() == ("a" + line_end + "b").splitlines()
+    assert user_step_wording.waiting_phrase_in_prose("Nothing on this list" + line_end + "needs you.") == "needs you"
+    assert user_step_wording.waiting_phrase_in_prose("Action" + line_end + "required: none.") == "Action\nrequired"
 
 
 def test_should_read_a_long_text_of_negated_phrases_in_linear_time() -> None:

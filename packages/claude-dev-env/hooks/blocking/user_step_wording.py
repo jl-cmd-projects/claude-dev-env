@@ -25,7 +25,8 @@ the match on the same line, back to a sentence mark, a comma, a semicolon, a
 colon, a table bar, or one of the words and, but, so, then, and while. The read
 looks 240 characters back for it. A line break always ends a clause, so
 "Nothing on this list" wrapped onto "needs you." is held. A carriage return
-counts as a line break.
+counts as a line break, and so does every other character that ends a line
+for ``str.splitlines``.
 
 The clause is read as words. A word is a run of characters with white space,
 or an end of the paragraph, on each side. It counts only when all of it sits
@@ -42,9 +43,10 @@ negate a match:
   or a curly apostrophe), with up to three words between it and the match.
 
 The first word of a clause is the first one after its markers. A marker is a
-word made only of hyphens, plus signs, hash marks, greater-than signs, digits,
-parentheses, and square brackets, or only of emphasis marks, as in
-"- [ ] No open item needs you." When the 240 characters hold no clause break
+word that holds only hyphens, plus signs, hash marks, greater-than signs,
+digits, parentheses, and square brackets, or nothing, once the emphasis marks
+at its ends are removed, as in "- [ ] No open item needs you." and
+"**1)** No reviewer needs your approval." When the 240 characters hold no clause break
 and do not reach the start of the paragraph, the clause start is out of view.
 Then the second shape does not apply and "say when" does not count.
 
@@ -75,9 +77,11 @@ that a line break splits, as in "Action" on one line and "required: none." on
 the next.
 
 "Say when" counts only at the start of its clause, where it is an instruction.
-Before it the clause may hold white space, the marker characters above, full
-stops, and emphasis marks, then the word please, the word just, or both in
-that order. A phrase counts inside emphasis marks too, as in "_needs your_
+The words before it are read with the marker characters, full stops, and
+emphasis marks at their ends removed. A word with no letter left is passed
+over, and the rest must be nothing, the word please, the word just, or both
+in that order. So "- [ ] Say when" counts, and "- [x] Say when" and "The docs
+say when" do not. A phrase counts inside emphasis marks too, as in "_needs your_
 merge".
 
 These shapes read words. They do not read grammar, so a line can hold a
@@ -86,7 +90,12 @@ skipped. The gate reads the whole reply and every sent file, and one phrase
 outside the shapes is enough to hold the turn.
 
 Fences, HTML blocks, quoted paragraphs, and code spans are left out of Markdown
-and plain text first, and each paragraph is read on its own. An HTML file is
+and plain text first, and each paragraph is read on its own. A code span reads
+as a space between the words of a phrase. In a clause it reads as a character
+that is no letter, so the "Not" in ``Not`-`e`` is no word on its own. That
+character is U+FFFC, and one in the text itself reads the same way.
+
+An HTML file is
 read as its text, one block at a time, with every tag removed and the contents
 of script, style, template, title, textarea, noscript, code, pre, and
 blockquote elements left out. White space in the HTML source counts as one
@@ -117,6 +126,7 @@ from hooks_constants.user_step_wording_constants import (
     ALL_HTML_FILE_SUFFIXES,
     ALL_HTML_HIDDEN_TAGS,
     ALL_HTML_INLINE_TAGS,
+    ALL_INSTRUCTION_OPENERS,
     ALL_LATE_NEGATORS,
     ALL_SENT_TEXT_FILE_SUFFIXES,
     ALL_THERE_VERBS,
@@ -124,12 +134,12 @@ from hooks_constants.user_step_wording_constants import (
     BINARY_READ_MODE,
     CLAUSE_BREAK_PATTERN,
     CLAUSE_LEAD_WINDOW_CHARACTERS,
-    CLAUSE_OPENER_PATTERN,
     CLAUSE_WORD_PATTERN,
+    CODE_SPAN_SPACE,
+    CODE_SPAN_STAND_IN,
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
-    HTML_LINE_BREAK_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
     LINE_BREAK,
@@ -137,6 +147,7 @@ from hooks_constants.user_step_wording_constants import (
     MARKER_WORD_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
     MAXIMUM_WORDS_AFTER_LATE_NEGATOR,
+    OPENER_MARKER_CHARACTERS,
     NEGATED_TAIL_PATTERN,
     ALL_NO_LONGER_WORDS,
     THERE_WORD,
@@ -157,9 +168,10 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     Each match looks back over a fixed window for its clause, so a long text
     reads in time that grows with its length.
     """
-    line_fed_text = LINE_ENDING_PATTERN.sub(LINE_BREAK, prose_text)
-    for each_match in USER_STEP_PATTERN.finditer(line_fed_text):
-        if _hands_over_a_step(line_fed_text, each_match):
+    clause_text = LINE_ENDING_PATTERN.sub(LINE_BREAK, prose_text)
+    phrase_text = clause_text.replace(CODE_SPAN_STAND_IN, CODE_SPAN_SPACE)
+    for each_match in USER_STEP_PATTERN.finditer(phrase_text):
+        if _hands_over_a_step(clause_text, phrase_text, each_match):
             return each_match.group()
     return None
 
@@ -203,13 +215,19 @@ def _opens_with_a_negator(all_clause_words: list[str]) -> bool:
     return first_word in ALL_CLAUSE_OPENING_NEGATORS
 
 
-def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
+def _opens_an_instruction(all_clause_words: list[str]) -> bool:
+    all_bare_words = (each_word.strip(OPENER_MARKER_CHARACTERS) for each_word in all_clause_words)
+    all_lettered_words = tuple(each_word for each_word in all_bare_words if any(map(str.isalpha, each_word)))
+    return all_lettered_words in ALL_INSTRUCTION_OPENERS
+
+
+def _hands_over_a_step(clause_text: str, phrase_text: str, phrase_match: re.Match[str]) -> bool:
     phrase_start = phrase_match.start()
     is_phrase_on_one_line = LINE_BREAK not in phrase_match.group()
-    if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(prose_text, phrase_match.end()):
+    if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(phrase_text, phrase_match.end()):
         return False
-    clause_start, is_clause_start_in_view = _clause_start(prose_text, phrase_start)
-    all_clause_words = _clause_words(prose_text, clause_start, phrase_start)
+    clause_start, is_clause_start_in_view = _clause_start(clause_text, phrase_start)
+    all_clause_words = _clause_words(clause_text, clause_start, phrase_start)
     if _holds_a_negator(all_clause_words):
         return False
     is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase_match.group()) is not None
@@ -217,14 +235,13 @@ def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
         return not is_bare_imperative
     if _opens_with_a_negator(all_clause_words):
         return False
-    if is_bare_imperative:
-        return CLAUSE_OPENER_PATTERN.fullmatch(prose_text, clause_start, phrase_start) is not None
-    return True
+    return not is_bare_imperative or _opens_an_instruction(all_clause_words)
 
 
 def waiting_phrase(shown_text: str) -> str | None:
     """Return the first phrase in Markdown or plain text that says something waits on the user, or None."""
-    return _first_waiting_phrase(prose_paragraphs(LINE_ENDING_PATTERN.sub(LINE_BREAK, shown_text)))
+    line_fed_text = LINE_ENDING_PATTERN.sub(LINE_BREAK, shown_text)
+    return _first_waiting_phrase(prose_paragraphs(line_fed_text, CODE_SPAN_STAND_IN))
 
 
 def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:
@@ -242,7 +259,7 @@ class _VisibleTextParser(HTMLParser):
         if tag in ALL_HTML_HIDDEN_TAGS:
             self.hidden_depth += 1
         if tag == HTML_LINE_BREAK_TAG:
-            self.all_text_runs.append(HTML_LINE_BREAK_TEXT)
+            self.all_text_runs.append(LINE_BREAK)
         elif tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
 

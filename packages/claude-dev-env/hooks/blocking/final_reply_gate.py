@@ -82,8 +82,8 @@ def _unescaped_start(paragraph_text: str, run_start: int) -> int:
     return run_start + (run_start - backslash_start) % BACKSLASHES_PER_LITERAL
 
 
-def code_spans_masked(paragraph_text: str) -> str:
-    """Return the paragraph with one space where each code span sat.
+def code_spans_masked(paragraph_text: str, masked_code_text: str = MASKED_CODE_TEXT) -> str:
+    """Return the paragraph with one space, or the given text, where each code span sat.
 
     A backtick run opens a span unless an odd run of backslashes escapes its
     first backtick. The span closes at the next run of the same length::
@@ -107,7 +107,7 @@ def code_spans_masked(paragraph_text: str) -> str:
             run_index += 1
             continue
         closer_index = same_length_indexes[closer_position]
-        all_masked_pieces.extend((paragraph_text[copied_up_to:opener_start], MASKED_CODE_TEXT))
+        all_masked_pieces.extend((paragraph_text[copied_up_to:opener_start], masked_code_text))
         copied_up_to = all_runs[closer_index][1]
         run_index = closer_index + 1
     all_masked_pieces.append(paragraph_text[copied_up_to:])
@@ -217,14 +217,17 @@ def windows_path_violation(reply_text: str) -> str | None:
     return None
 
 
-def prose_paragraphs(reply_text: str) -> list[str]:
-    """Return each prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out."""
+def prose_paragraphs(reply_text: str, masked_code_text: str = MASKED_CODE_TEXT) -> list[str]:
+    """Return each prose paragraph, with fences, HTML blocks, quoted paragraphs, and code spans left out.
+
+    One space, or the given text, stands where each code span sat.
+    """
     line_feed_text = reply_text.replace(CARRIAGE_RETURN_LINE_BREAK, LINE_BREAK)
     unfenced_text = blocks_masked(line_feed_text, FENCE_OPENER_PATTERN, _fence_closer_for)
     unfenced_text = blocks_masked(unfenced_text, HTML_BLOCK_OPENER_PATTERN, _html_block_closer_for)
     unquoted_text = QUOTED_LINE_PATTERN.sub("", unfenced_text)
     return [
-        code_spans_masked(each_paragraph).strip()
+        code_spans_masked(each_paragraph, masked_code_text).strip()
         for each_paragraph in BLOCK_BOUNDARY_PATTERN.split(unquoted_text)
         if each_paragraph.strip()
     ]

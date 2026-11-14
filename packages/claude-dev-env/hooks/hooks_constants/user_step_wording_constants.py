@@ -17,7 +17,6 @@ USER_STEP_PATTERN = re.compile(
     r"|action\s+(?:needed|required))" + WORD_END,
     re.IGNORECASE,
 )
-CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
 CLAUSE_WORD_PATTERN = re.compile(r"(?<!\S)\S+")
 EMPHASIS_MARKS = "*_"
 MARKER_WORD_PATTERN = re.compile(r"[-+#>\d)(\[\]]*")
@@ -38,10 +37,13 @@ NEGATED_TAIL_PATTERN = re.compile(
 )
 CLAUSE_BREAK_PATTERN = re.compile(r"[.!?,;:|\n]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
 LINE_BREAK = "\n"
-LINE_ENDING_PATTERN = re.compile(r"\r\n?")
+LINE_ENDING_PATTERN = re.compile(r"\r\n?|[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
+CODE_SPAN_STAND_IN = "\ufffc"
+CODE_SPAN_SPACE = " "
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
-CLAUSE_OPENER_PATTERN = re.compile(CLAUSE_MARKERS + r"(?:please\s+)?(?:just\s+)?", re.IGNORECASE)
+OPENER_MARKER_CHARACTERS = "-+#>.)([]*_0123456789"
+ALL_INSTRUCTION_OPENERS = frozenset({(), ("please",), ("just",), ("please", "just")})
 ALL_HTML_HIDDEN_TAGS = frozenset(
     {"script", "style", "template", "title", "textarea", "noscript", "code", "pre", "blockquote"}
 )
@@ -53,7 +55,6 @@ ALL_HTML_INLINE_TAGS = frozenset(
     }
 )
 HTML_LINE_BREAK_TAG = "br"
-HTML_LINE_BREAK_TEXT = LINE_BREAK
 HTML_SOURCE_SPACE_PATTERN = re.compile(r"[ \t\r\n\f]+")
 HTML_SOURCE_SPACE = " "
 HTML_BLOCK_SEPARATOR = "\n\n"
