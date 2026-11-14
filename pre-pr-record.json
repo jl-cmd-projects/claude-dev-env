@@ -1,0 +1,27 @@
+{
+  "base_commit": "ea268cb75f1e89e87297010821a22f7f54a02556",
+  "excluded_directories": [
+    ".git",
+    ".claude",
+    ".github"
+  ],
+  "finished_at": "2026-11-14T04:16:27.798541+00:00",
+  "model": "haiku",
+  "passes": [
+    {
+      "command": "/simplify origin/main",
+      "served_models": [
+        "claude-haiku-5-5"
+      ]
+    },
+    {
+      "command": "/code-review high --max-findings all origin/main",
+      "served_models": [
+        "claude-haiku-5-5"
+      ]
+    }
+  ],
+  "refused_read_calls": 0,
+  "review_scope": "source_tree",
+  "tree": "d60083adbe6582336860af72fe415aaf66060c2d"
+}
