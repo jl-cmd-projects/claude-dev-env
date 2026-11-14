@@ -42,7 +42,7 @@ def read_hook_input_dictionary_from_stdin() -> dict[str, object] | None:
         return None
     try:
         parsed_payload = json.loads(normalized_text)
-    except json.JSONDecodeError:
+    except ValueError:
         return None
     if not isinstance(parsed_payload, dict):
         return None

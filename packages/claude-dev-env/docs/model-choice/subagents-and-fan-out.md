@@ -40,7 +40,7 @@ The article sets `model: haiku` in agent frontmatter, defines a custom Explore a
 For work bigger than one context window, a top-tier lead splits the task across many cheaper workers and merges the results.
 
 - In the article's defect search over about 22M tokens, an Opus lead with up to 25 parallel Sonnet workers cost about a third less than Opus alone. The score was the same.
-- The article ran both at default effort. Here the lead is Opus medium or Fable, and the workers are Sonnet high or Haiku.
+- The article ran both at default effort. Here the lead is Opus or Fable, and the workers are Sonnet or Haiku, each at an effort the [effort levels file](../../hooks/hooks_constants/subagent_effort_levels.json) allows.
 - Skip fan-out for one chain of dependent steps, or for work that fits one context.
 - The lead stays open until every worker's result is merged. Read [Workers done before complete](../rule-guides/workers-done-before-complete.md).
 - For a long run with no one watching, read [Long-horizon autonomy](../rule-guides/long-horizon-autonomy.md).
@@ -49,7 +49,7 @@ For work bigger than one context window, a top-tier lead splits the task across 
 ## Advisor pairs
 
 - In the article, none of four advisor pairings clearly beat the executor alone.
-- An Opus high executor with a Fable 5.1 advisor scored 90.1% at $2.92 an attempt. That is 1.7 points above Opus alone, for about 2.1 times the cost. Here an Opus executor runs at medium.
+- An Opus high executor with a Fable 5.1 advisor scored 90.1% at $2.92 an attempt. That is 1.7 points above Opus alone, for about 2.1 times the cost.
 - Measure how often the executor consults the advisor before you add one.
 
 The call rules are in [Advisor tool](../references/advisor-tool.md). The advisor exception is in [Subagent model and effort](../rule-guides/subagent-model-effort.md).

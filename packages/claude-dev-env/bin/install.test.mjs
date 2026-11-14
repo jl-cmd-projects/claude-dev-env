@@ -1244,6 +1244,7 @@ test('retired hook registrations stay managed so reinstall removes them', () => 
         'blocking/session_handoff_blocker.py',
         'blocking/artifact_look_gate.py',
         'blocking/session_title_stop_gate.py',
+        'blocking/session_title_turn_gate.py',
         'session/issue_tracker_session_starter.py',
         'session/deepen_first_prompt.py',
         'workflow/investigation_tracker_reset.py',

@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from hooks_constants.hook_time_budget import call_timeout
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 
 try:
@@ -179,14 +180,18 @@ def repository_origin_slug(repository_root: Path) -> str | None:
 
     Returns:
         The ``owner/repo`` slug in lowercase, or None when the repository has no
-        readable origin remote or the URL carries no owner/repo tail.
+        readable origin remote, the URL carries no owner/repo tail, or the
+        hook's time budget is spent.
     """
+    timeout_seconds = call_timeout(GIT_COMMAND_TIMEOUT_SECONDS)
+    if timeout_seconds is None:
+        return None
     try:
         completed_process = subprocess.run(
             list(ALL_GIT_ORIGIN_URL_COMMAND),
             check=False, capture_output=True,
             text=True,
-            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
             cwd=str(repository_root),
             creationflags=hidden_window_creation_flags(),
         )

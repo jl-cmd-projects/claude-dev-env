@@ -70,7 +70,7 @@ from hooks_constants.spawn_readiness_hook_constants import (
 )
 from open_task_asks import prompt_without_reminders
 from open_tasks_transcript import claude_prompt_text
-from session_title_turn_gate import read_transcript_entries
+from session_title_transcript import read_transcript_entries
 
 
 def _is_user_typed_text(prompt_text: str) -> bool:

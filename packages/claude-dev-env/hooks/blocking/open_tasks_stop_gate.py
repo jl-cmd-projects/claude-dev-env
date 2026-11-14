@@ -54,17 +54,17 @@ open, and to end the turn when the wording hands the user no step.
 One reason carries every finding. A turn the gate already held ends on the next
 stop, so the gate costs at most one extra step per turn.
 
-Claude Code marks a held stop with ``stop_hook_active``. Codex turns the reason
-into a continuation prompt. A Cursor payload (it carries ``conversation_id``)
-gets the reason as ``followup_message``, which Cursor submits as the next user
-message; a Cursor stop whose ``loop_count`` shows a follow-up already sent
+A hold exits with code 2 and writes the reason to stdout and stderr. Claude
+Code marks a held stop with ``stop_hook_active``. Codex turns the reason into
+a continuation prompt. A Cursor payload (it carries ``conversation_id``) exits
+with code 0 and gets the reason as ``followup_message``, which Cursor submits
+as the next user message; a Cursor stop whose ``loop_count`` shows a follow-up already sent
 passes, and so does one whose ``status`` is ``aborted`` or ``error``. A TodoWrite
 call that a Cursor ``CallDynamicTool`` call wraps counts as a TodoWrite call.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -80,26 +80,23 @@ from hooks_constants.final_reply_gate_constants import LAST_ASSISTANT_MESSAGE_KE
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
-from hooks_constants.session_title_constants import SESSION_ID_KEY
+from hooks_constants.once_per_session_constants import SESSION_ID_KEY
+from hooks_constants.stop_hook_hold import hold_stop
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
-    BLOCK_DECISION,
     COMPLETED_ITEMS_REASON_TEMPLATE,
     COMPLETED_STATUS,
     CURSOR_COMPLETED_STATUS,
     CURSOR_CONVERSATION_ID_KEY,
-    CURSOR_FOLLOWUP_MESSAGE_KEY,
     CURSOR_LOOP_COUNT_KEY,
     CURSOR_STATUS_KEY,
-    DECISION_KEY,
     HOOK_EVENT_NAME,
     INCOMPLETE_STATUSES,
     KEEP_REPLY_INSTRUCTION,
     NO_STEP_INSTRUCTION,
-    REASON_KEY,
     STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
@@ -271,14 +268,6 @@ def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
     return has_sent_followup or (stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS)
 
 
-def block_output_for(all_hook_input_fields: dict[str, object], block_reason: str) -> dict[str, str]:
-    """Return the block output; a Cursor payload also gets the reason as ``followup_message``."""
-    block_output = {DECISION_KEY: BLOCK_DECISION, REASON_KEY: block_reason}
-    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
-        block_output[CURSOR_FOLLOWUP_MESSAGE_KEY] = block_reason
-    return block_output
-
-
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None or is_held_stop(hook_input):
@@ -287,8 +276,7 @@ def main() -> int:
     if block_reason is None:
         return ALLOW_EXIT_CODE
     log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, block_reason)
-    sys.stdout.write(json.dumps(block_output_for(hook_input, block_reason)))
-    return ALLOW_EXIT_CODE
+    return hold_stop(hook_input, block_reason)
 
 
 if __name__ == "__main__":

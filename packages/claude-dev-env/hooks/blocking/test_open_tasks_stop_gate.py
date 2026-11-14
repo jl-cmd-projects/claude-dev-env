@@ -66,9 +66,12 @@ def run_gate(
     if transcript_path is not None:
         hook_input["transcript_path"] = str(transcript_path)
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
-    assert open_tasks_stop_gate.main() == 0
-    printed_output = capsys.readouterr().out
-    return json.loads(printed_output) if printed_output else {}
+    exit_code = open_tasks_stop_gate.main()
+    captured = capsys.readouterr()
+    block_output = json.loads(captured.out) if captured.out else {}
+    assert exit_code == (2 if block_output else 0)
+    assert captured.err == block_output.get("reason", "")
+    return block_output
 
 
 def test_should_block_a_work_turn_that_left_the_task_list_unchanged(
@@ -207,8 +210,10 @@ def test_should_block_through_a_subprocess_with_the_documented_contract(tmp_path
         env={"HOME": str(tmp_path), "USERPROFILE": str(tmp_path), "PATH": ""},
         check=False,
     )
-    assert completed_process.returncode == 0
-    assert json.loads(completed_process.stdout)["decision"] == "block"
+    block_output = json.loads(completed_process.stdout)
+    assert completed_process.returncode == 2
+    assert block_output["decision"] == "block"
+    assert completed_process.stderr == block_output["reason"]
 
 
 def codex_record(payload: dict[str, object]) -> dict[str, object]:
@@ -256,9 +261,10 @@ def run_cursor_gate(
         "transcript_path": str(transcript_path),
     }
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
-    open_tasks_stop_gate.main()
-    printed_output = capsys.readouterr().out
-    return json.loads(printed_output) if printed_output else {}
+    assert open_tasks_stop_gate.main() == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    return json.loads(captured.out) if captured.out else {}
 
 
 def write_cursor_work_turn(tmp_path: Path, all_tool_blocks: list[dict[str, object]]) -> Path:
@@ -345,11 +351,6 @@ def test_should_call_a_turn_untracked_only_for_work_without_a_tracker_call(tmp_p
 )
 def test_should_tell_a_held_stop_from_a_first_stop(hook_input: dict[str, object], is_expected_held: bool) -> None:
     assert open_tasks_stop_gate.is_held_stop(hook_input) is is_expected_held
-
-
-def test_should_add_a_followup_message_only_for_a_cursor_payload() -> None:
-    assert open_tasks_stop_gate.block_output_for({}, "why") == {"decision": "block", "reason": "why"}
-    assert open_tasks_stop_gate.block_output_for({"conversation_id": "c-1"}, "why")["followup_message"] == "why"
 
 
 STEP_REPLY = "Three items need you. The list is below."
@@ -549,3 +550,12 @@ def test_should_carry_every_finding_in_one_reason(tmp_path: Path) -> None:
     assert block_reason.index("left the task list unchanged") < block_reason.index("1 of 2 items are completed")
     assert block_reason.index("1 of 2 items are completed") < block_reason.index("ran no read call")
     assert block_reason.index("ran no read call") < block_reason.index("sent no question")
+
+
+def test_should_block_a_work_turn_whose_transcript_holds_an_undecodable_byte(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(WORK_PROMPT), tool_call_record("Bash")])
+    with transcript_path.open("ab") as transcript_file:
+        transcript_file.write(b"\n\xff\n")
+    assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"

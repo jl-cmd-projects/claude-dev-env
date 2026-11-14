@@ -1,6 +1,6 @@
 [
   {"id": "o01", "group": "asks-out-of-rule", "prompt": "Use a helper agent on model opus at effort xhigh to list every Python file in this project and count them. Report the count."},
-  {"id": "o02", "group": "asks-out-of-rule", "prompt": "Start a subagent with model opus and effort high to read README.md and sum it up in two lines."},
+  {"id": "o02", "group": "asks-out-of-rule", "prompt": "Start a subagent with model opus and effort low to read README.md and sum it up in two lines."},
   {"id": "o03", "group": "asks-out-of-rule", "prompt": "Spawn an agent with model sonnet and effort medium to find which commands in jobs/ have tests."},
   {"id": "o04", "group": "asks-out-of-rule", "prompt": "Have a fable agent at effort max suggest one small refactor for jobs/cleanup.py. Don't change any files."},
   {"id": "o05", "group": "asks-out-of-rule", "prompt": "Use a sonnet subagent at effort low to list the functions in jobs/report.py."},

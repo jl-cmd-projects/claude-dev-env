@@ -130,9 +130,9 @@ def test_new_session_title_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
-def test_new_session_title_turn_gate_registration_is_clean(tmp_path: Path) -> None:
+def test_new_task_subject_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
-        ["hooks/blocking/session_title_turn_gate.py"],
+        ["hooks/blocking/task_subject_length_gate.py"],
         '{"hooks": {}}',
     )
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
@@ -149,6 +149,14 @@ def test_new_artifact_page_gate_registration_is_clean(tmp_path: Path) -> None:
 def test_new_send_user_file_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/send_user_file_worktree_root_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
+def test_new_question_brief_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/question_brief_gate.py"],
         '{"hooks": {}}',
     )
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()

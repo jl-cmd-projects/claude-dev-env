@@ -1,8 +1,7 @@
 """Constants for the thread spawn pace PreToolUse hook.
 
 Groups: the usage-pace script it runs, the reshape values for an over-pace
-spawn, and the hook output keys and messages. Opus runs at medium only,
-per the Subagent model and effort rule.
+spawn, and the hook output keys and messages.
 """
 
 from __future__ import annotations
