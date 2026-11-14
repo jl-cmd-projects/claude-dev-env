@@ -8,6 +8,7 @@ Use the feature file that matches the changed user path:
 - [Cross-tool projection](cross-tool-projection.md)
 - [Claude configuration surfaces](claude-configuration-surfaces.md)
 - [Hook lifecycle](hook-lifecycle.md)
+- [Repository `.claude/hooks`](repository-claude-hooks.md)
 - [Merge readiness](merge-readiness.md)
 - [Second Claude account](second-claude-account.md)
 - [Codex accounts](codex-accounts.md)
