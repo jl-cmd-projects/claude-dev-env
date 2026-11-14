@@ -48,8 +48,8 @@ BLOCK_NAME_KEY = "name"
 TOOL_USE_ID_KEY = "tool_use_id"
 IS_ERROR_KEY = "is_error"
 SIDECHAIN_FLAG_KEY = "isSidechain"
-ALL_TOOL_LISTING_NAME_KEYS = ("addedNames", "readdedNames")
-ALL_TOOL_LISTING_RECORD_KEYS = ("tools", "entries")
+FULL_TOOL_LISTING_KEY = "tools"
+ALL_DEFERRED_TOOL_KEYS = ("addedNames", "readdedNames", "entries")
 REMOVED_NAMES_KEY = "removedNames"
 TITLE_TOOL_DISPLAY_SEPARATOR = " or "
 

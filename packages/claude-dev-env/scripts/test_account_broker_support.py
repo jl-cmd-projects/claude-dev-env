@@ -285,13 +285,54 @@ def test_should_read_claude_meters_from_a_fresh_published_reading_without_a_prob
     assert meters.weekly_resets_at == datetime(2026, 10, 10, 6, tzinfo=timezone.utc)
 
 
+def _read_published_account(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, published_at: datetime, now: datetime
+) -> tuple[object, dict[str, object]]:
+    readings_folder = tmp_path / "readings"
+    _write_published_reading(readings_folder, "alpha", published_at)
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
+    monkeypatch.setattr(support, "probe_account_meters", lambda *_: pytest.fail("probe despite a fresh published reading"))
+    account = Account(Product.CLAUDE, "one", tmp_path / "alpha")
+    adapter = ProductAdapter(lambda: (account,), support.read_claude_meters, "CLAUDE_CONFIG_DIR", ())
+    state = support._load_state(support.broker_state_path())
+    reading = support.read_accounts(Product.CLAUDE, adapter, all_state=state, now=now)[0]
+    return reading, state["meters"][support._state_key(account)]
+
+
+def test_should_report_a_published_reading_with_its_own_read_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    published_at = now - timedelta(minutes=29)
+
+    reading, saved_entry = _read_published_account(monkeypatch, tmp_path, published_at, now)
+
+    assert reading.meters.weekly_percent_left == 45.0
+    assert reading.measured_at == published_at
+    assert saved_entry["measured_at"] == published_at.timestamp()
+    assert saved_entry["read_at"] == now.timestamp()
+
+
+def test_should_not_date_a_published_reading_after_the_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    reading, saved_entry = _read_published_account(monkeypatch, tmp_path, now + timedelta(minutes=2), now)
+
+    assert reading.meters.weekly_percent_left == 45.0
+    assert reading.measured_at == now
+    assert saved_entry["measured_at"] == now.timestamp()
+
+
 def test_should_use_the_newest_of_two_published_readings_for_one_account(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     readings_folder = tmp_path / "readings"
     _write_published_reading(readings_folder, "alpha", datetime.now(timezone.utc) - timedelta(minutes=20))
     newer = json.loads((readings_folder / "meters-ALPHA.json").read_text(encoding="utf-8"))
-    newer["read_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    newer_read_at = datetime.now(timezone.utc).replace(microsecond=0)
+    newer["read_at"] = newer_read_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     newer["accounts"][0]["meters"]["weekly_percent_left"] = 12.0
     (readings_folder / "meters-ZULU.json").write_text(json.dumps(newer), encoding="utf-8")
     monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(readings_folder))
@@ -299,6 +340,7 @@ def test_should_use_the_newest_of_two_published_readings_for_one_account(
     meters = support.read_published_meters(Account(Product.CLAUDE, "one", tmp_path / "alpha"))
 
     assert meters.weekly_percent_left == 12.0
+    assert meters.measured_at == newer_read_at
 
 
 def test_should_find_no_published_meters_when_no_readings_folder_is_named(
