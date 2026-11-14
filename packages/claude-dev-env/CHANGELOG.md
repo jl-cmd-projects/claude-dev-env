@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.0...claude-dev-env-v8.117.1) (2026-11-14)
+
+
+### Refactoring
+
+* **hooks:** clear the policy lint follow-ups of the hooks audit ([#2352](https://github.com/jl-cmd-projects/claude-dev-env/issues/2352)) ([2046844](https://github.com/jl-cmd-projects/claude-dev-env/commit/2046844f0deee657c8dcd0378927fb7a0b474f26))
+
 ## [8.117.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.5...claude-dev-env-v8.117.0) (2026-11-14)
 
 
