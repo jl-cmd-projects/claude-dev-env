@@ -218,10 +218,9 @@ def test_child_stdout_should_stop_waiting_when_a_grandchild_holds_the_pipe(tmp_p
         str(release_path),
     ]
     answer = child_stdout(command, 1, ReadSlice.PROOF_AND_LOOK)
-    has_grandchild_given_up = gave_up_path.exists()
     release_path.touch()
     assert answer is None
-    assert not has_grandchild_given_up
+    assert not gave_up_path.exists()
 
 
 def test_child_stdout_should_mark_the_run_when_the_deadline_cuts_a_read_short(
@@ -247,8 +246,10 @@ def test_answer_within_allowance_should_bound_the_whole_read() -> None:
 
     with read_deadlines_started(clock), gate_run() as run:
         clock.now = CLOCK_START + PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS - 0.3
-        answer = answer_within_allowance(held_read, 4, ReadSlice.FOLLOWUP)
-    release.set()
+        try:
+            answer = answer_within_allowance(held_read, 4, ReadSlice.FOLLOWUP)
+        finally:
+            release.set()
     assert answer is None
     assert run.was_read_cut_short
 
