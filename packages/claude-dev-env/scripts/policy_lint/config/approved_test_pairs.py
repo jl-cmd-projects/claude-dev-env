@@ -14,6 +14,15 @@ APPROVED_TEST_PATHS_BY_PRODUCTION_PATH: dict[
             ),
         }
     ),
+    PurePosixPath(
+        ".claude/hillclimb/subagent-effort-routing/routing_eval_support/config/constants.py"
+    ): frozenset(
+        {
+            PurePosixPath(
+                ".claude/hillclimb/subagent-effort-routing/test_grading.py"
+            ),
+        }
+    ),
     PurePosixPath("packages/claude-dev-env/bin/install-constants.mjs"): frozenset(
         {
             PurePosixPath("packages/claude-dev-env/bin/install.cursor-rules.test.mjs"),
@@ -72,11 +81,29 @@ APPROVED_TEST_PATHS_BY_PRODUCTION_PATH: dict[
         }
     ),
     PurePosixPath(
+        "packages/claude-dev-env/hooks/hooks_constants/once_per_session_constants.py"
+    ): frozenset(
+        {
+            PurePosixPath(
+                "packages/claude-dev-env/hooks/test_once_per_session.py"
+            ),
+        }
+    ),
+    PurePosixPath(
         "packages/claude-dev-env/hooks/hooks_constants/post_tool_use_dispatcher_constants.py"
     ): frozenset(
         {
             PurePosixPath(
                 "packages/claude-dev-env/hooks/validation/test_post_tool_use_dispatcher.py"
+            ),
+        }
+    ),
+    PurePosixPath(
+        "packages/claude-dev-env/hooks/hooks_constants/subagent_effort_route_constants.py"
+    ): frozenset(
+        {
+            PurePosixPath(
+                "packages/claude-dev-env/hooks/routing/test_subagent_effort_route.py"
             ),
         }
     ),
