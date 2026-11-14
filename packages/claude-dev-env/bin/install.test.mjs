@@ -52,6 +52,7 @@ import {
     commandNamesOwnedHookScript,
     hookCommandComparisonSpelling,
     detectPython,
+    pythonVersionMeetsFloor,
     pythonFileAndPrefixArguments,
     retainNewestRunBackupOnly,
     unshippedEverRegisteredHookRelativePaths,
@@ -353,6 +354,66 @@ test('pythonCandidatesForPlatform keeps python3 first on non-Windows platforms',
 test('pythonCandidatesForPlatform still offers python as a win32 fallback when py -3 is absent', () => {
     const commands = pythonCandidatesForPlatform('win32').map(candidate => candidate.command);
     assert.ok(commands.includes('python'));
+});
+
+
+test('pythonVersionMeetsFloor accepts 3.11 and newer and refuses older minors by number', () => {
+    assert.equal(pythonVersionMeetsFloor('Python 3.11.0'), true);
+    assert.equal(pythonVersionMeetsFloor('Python 3.13.5'), true);
+    assert.equal(pythonVersionMeetsFloor('Python 3.10.14'), false);
+    assert.equal(pythonVersionMeetsFloor('Python 3.8.10'), false);
+    assert.equal(pythonVersionMeetsFloor('Python 3.9.18'), false);
+    assert.equal(pythonVersionMeetsFloor('Python 2.7.18'), false);
+    assert.equal(pythonVersionMeetsFloor(''), false);
+});
+
+
+function probeRunnerFromVersions(versionByCommand) {
+    const allProbedCommandLines = [];
+    const runProbe = (commandLine) => {
+        allProbedCommandLines.push(commandLine);
+        const matchedCommand = Object.keys(versionByCommand).find(
+            (eachCommand) => commandLine === `${eachCommand} --version`,
+        );
+        if (matchedCommand === undefined) throw new Error(`no stub for ${commandLine}`);
+        return versionByCommand[matchedCommand];
+    };
+    return { runProbe, allProbedCommandLines };
+}
+
+
+test('detectPython skips a candidate below the floor and takes the next one at the floor', () => {
+    const { runProbe, allProbedCommandLines } = probeRunnerFromVersions({
+        python3: 'Python 3.8.10',
+        python: 'Python 3.11.9',
+    });
+    assert.equal(detectPython(runProbe, 'linux'), 'python');
+    assert.deepEqual(allProbedCommandLines, ['python3 --version', 'python --version']);
+});
+
+
+test('detectPython takes the first candidate when it is at the floor', () => {
+    const { runProbe } = probeRunnerFromVersions({ python3: 'Python 3.11.0' });
+    assert.equal(detectPython(runProbe, 'linux'), 'python3');
+});
+
+
+test('detectPython finds no interpreter when every candidate is below the floor', () => {
+    const { runProbe } = probeRunnerFromVersions({
+        python3: 'Python 3.8.10',
+        python: 'Python 3.10.12',
+        'py -3': 'Python 3.9.2',
+    });
+    assert.equal(detectPython(runProbe, 'linux'), null);
+});
+
+
+test('detectPython on win32 never resolves the path of a candidate below the floor', () => {
+    const { runProbe, allProbedCommandLines } = probeRunnerFromVersions({
+        'py -3': 'Python 3.8.10',
+    });
+    assert.equal(detectPython(runProbe, 'win32'), null);
+    assert.deepEqual(allProbedCommandLines, ['py -3 --version', 'python --version']);
 });
 
 
