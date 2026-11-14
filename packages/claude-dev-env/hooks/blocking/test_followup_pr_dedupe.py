@@ -16,6 +16,8 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import followup_pr_dedupe as dedupe
+from blocking.gate_run_reads import gate_run
+from hooks_constants.followup_pr_dedupe_constants import DUPLICATE_FOLLOWUP_REASON_TEMPLATE
 
 OPEN_FOLLOWUP = {
     "number": 1769,
@@ -181,3 +183,82 @@ def test_create_tool_fields_should_read_a_pull_request_dispatch_as_a_create() ->
 def test_create_tool_fields_should_skip_a_call_that_opens_no_pull_request() -> None:
     assert dedupe.create_tool_fields(_dispatch_payload({"work_order": "wo-1"})) is None
     assert dedupe.create_tool_fields({"tool_name": "Bash", "tool_input": {"command": "gh pr list"}}) is None
+
+
+def _open_followup(number: int, parent_number: int) -> dict[str, object]:
+    return {
+        "number": number,
+        "html_url": f"https://github.com/o/r/pull/{number}",
+        "body": f"Follow-up to #{parent_number}",
+    }
+
+
+def _duplicate_reason(open_followup: Mapping[str, object], parent_number: int) -> str:
+    return DUPLICATE_FOLLOWUP_REASON_TEMPLATE.format(
+        open_number=open_followup["number"], parent_number=parent_number, open_url=open_followup["html_url"]
+    )
+
+
+def _keyed_reader(
+    all_open_by_repository: Mapping[tuple[str, str], list[Mapping[str, object]] | Exception],
+    all_asked_repositories: list[tuple[str, str]],
+) -> dedupe.OpenPullRequestReader:
+    def read(owner: str, repo: str) -> list[Mapping[str, object]]:
+        all_asked_repositories.append((owner, repo))
+        answer = all_open_by_repository[(owner, repo)]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    return read
+
+
+def _chained_inline_creates(all_repositories_and_bodies: list[tuple[str, str]]) -> dict[str, object]:
+    all_creates = [
+        f'gh pr create --repo {each_repository} --title "fix: {each_index}" --body "{each_body}"'
+        for each_index, (each_repository, each_body) in enumerate(all_repositories_and_bodies)
+    ]
+    return {"tool_name": "Bash", "tool_input": {"command": " && ".join(all_creates)}}
+
+
+def test_chained_creates_should_deny_when_only_the_second_body_repeats_an_open_followup() -> None:
+    open_followup = _open_followup(9, 7)
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _chained_inline_creates([("o/r", "Adds a hook."), ("o/r", "Follow-up to #7")])
+    reason = dedupe.duplicate_followup_reason(
+        payload, _keyed_reader({("o", "r"): [open_followup]}, all_asked_repositories)
+    )
+    assert reason == _duplicate_reason(open_followup, 7)
+
+
+def test_followup_drafts_should_count_a_quoted_create_once() -> None:
+    payload = _chained_inline_creates([("o/r", "Follow-up to #7"), ("o/r", "Follow-up to #8")])
+    assert dedupe.followup_drafts(payload) == [
+        dedupe.PullRequestDraft("o", "r", "Follow-up to #7"),
+        dedupe.PullRequestDraft("o", "r", "Follow-up to #8"),
+    ]
+
+
+def test_chained_followups_should_read_one_open_list_per_repository() -> None:
+    open_followup = _open_followup(11, 8)
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _chained_inline_creates([("o/r", "Follow-up to #7"), ("o/r", "Follow-up to #8")])
+    with gate_run():
+        reason = dedupe.duplicate_followup_reason(
+            payload, _keyed_reader({("o", "r"): [open_followup]}, all_asked_repositories)
+        )
+    assert reason == _duplicate_reason(open_followup, 8)
+    assert all_asked_repositories == [("o", "r")]
+
+
+def test_followup_read_failure_should_skip_only_that_create() -> None:
+    open_followup = _open_followup(9, 7)
+    all_asked_repositories: list[tuple[str, str]] = []
+    all_open_by_repository: dict[tuple[str, str], list[Mapping[str, object]] | Exception] = {
+        ("a", "r"): OSError("network down"),
+        ("b", "r"): [open_followup],
+    }
+    payload = _chained_inline_creates([("a/r", "Follow-up to #5"), ("b/r", "Follow-up to #7")])
+    reason = dedupe.duplicate_followup_reason(payload, _keyed_reader(all_open_by_repository, all_asked_repositories))
+    assert reason == _duplicate_reason(open_followup, 7)
+    assert all_asked_repositories == [("a", "r"), ("b", "r")]

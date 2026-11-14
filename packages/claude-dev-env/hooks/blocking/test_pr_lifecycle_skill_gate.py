@@ -436,6 +436,44 @@ def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cut_a_read
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON + READS_RAN_OUT_SENTENCE
 
 
+class SettableClock:
+    """Reads the seconds it was last set to, starting at zero."""
+
+    def __init__(self) -> None:
+        self.seconds = 0.0
+
+    def __call__(self) -> float:
+        return self.seconds
+
+
+def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cuts_the_second_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_asked_commands = _unstarted_children(monkeypatch)
+    clock = SettableClock()
+    original_gh_api_lines = gate.proof._gh_api_lines
+
+    def compare_that_spends_the_slice(endpoint: str, query: str) -> list[str] | None:
+        if endpoint.endswith("...x"):
+            clock.seconds = PROOF_AND_LOOK_READS_SECONDS + 1.0
+            return [json.dumps(["M", "", "tool.py"])]
+        return original_gh_api_lines(endpoint, query)
+
+    monkeypatch.setattr(gate.proof, "_gh_api_lines", compare_that_spends_the_slice)
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    all_creates = [
+        CREATE_WORDS + f' --title "fix: {each_head}" --body-file body.md --repo o/r --base main --head {each_head}'
+        for each_head in ("x", "y")
+    ]
+    payload = {"tool_name": "Bash", "tool_input": {"command": " && ".join(all_creates)}, "cwd": str(tmp_path)}
+    with read_deadlines_started(clock):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON + READS_RAN_OUT_SENTENCE
+    assert not any(each_command[:1] == ["gh"] for each_command in all_asked_commands)
+
+
 def test_deny_should_keep_its_reason_when_every_read_had_time(tmp_path: Path) -> None:
     decision = gate.decision_for(_mcp_create_without_repository(tmp_path))
     assert decision is not None
