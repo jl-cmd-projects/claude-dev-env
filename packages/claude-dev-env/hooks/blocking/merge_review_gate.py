@@ -79,11 +79,13 @@ from hooks_constants.merge_review_gate_constants import (
     GATE_NAME,
     GH_API_MERGE_PATTERN,
     GH_PR_MERGE_CALL_PATTERN,
-    GH_PR_CREATE_PATTERN,
     GH_PR_MERGE_PATTERN,
     ALL_GH_PR_MERGE_SUBCOMMAND_WORDS,
     GH_PROGRAM_WORD_PATTERN,
     HOOK_EVENT_NAME,
+    LOOSE_GH_PROGRAM_PATTERN,
+    LOOSE_OPEN_OR_MERGE_WORD_PATTERN,
+    LOOSE_PULL_REQUEST_SCRIPT_PATTERN,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
     NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
@@ -94,7 +96,6 @@ from hooks_constants.merge_review_gate_constants import (
     PERMISSION_DECISION_REASON_KEY,
     PR_NUMBER_PATTERN,
     PR_URL_PATTERN,
-    PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     RECEIPT_HEAD_KEY,
     REPO_FIELD,
     REPO_OPTION_PATTERN,
@@ -463,13 +464,8 @@ def _is_open_or_merge_text(all_payload_fields: dict[str, object]) -> bool:
     command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if tool_name not in ALL_SHELL_TOOL_NAMES or not isinstance(command, str):
         return False
-    all_patterns = (
-        GH_PR_CREATE_PATTERN,
-        PULL_REQUEST_SCRIPT_CREATE_PATTERN,
-        GH_PR_MERGE_PATTERN,
-        GH_API_MERGE_PATTERN,
-    )
-    return any(each_pattern.search(command) for each_pattern in all_patterns)
+    is_gh_action = bool(LOOSE_GH_PROGRAM_PATTERN.search(command) and LOOSE_OPEN_OR_MERGE_WORD_PATTERN.search(command))
+    return is_gh_action or LOOSE_PULL_REQUEST_SCRIPT_PATTERN.search(command) is not None
 
 
 def _checked_reason(

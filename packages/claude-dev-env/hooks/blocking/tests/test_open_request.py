@@ -478,13 +478,15 @@ def test_should_not_read_a_create_only_a_shell_input_variable_or_alias_holds(com
     assert "two" not in _branches(command)
 
 
-def test_should_not_read_a_repository_an_earlier_export_names() -> None:
+def test_should_leave_unfollowed_a_create_with_no_repository_after_an_export_of_gh_repo() -> None:
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": "export GH_REPO=other/thing; gh pr create --head two"},
         "cwd": MAIN_FLOOR_START,
     }
-    assert {each_call.repository for each_call in open_calls_from(payload)} == {None}
+    all_calls = open_calls_from(payload)
+    assert {each_call.repository for each_call in all_calls} == {None}
+    assert False in {getattr(each_call, "is_folder_followed", True) for each_call in all_calls}
 
 
 def _repositories(command: str) -> set[tuple[str, str] | None]:

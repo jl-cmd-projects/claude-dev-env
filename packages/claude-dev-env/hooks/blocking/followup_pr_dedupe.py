@@ -28,10 +28,14 @@ from hooks_constants.followup_pr_dedupe_constants import (
     ALL_PYTHON_OPTIONS_WITH_VALUE,
     ALL_REPOSITORY_OPTIONS,
     ALL_TITLE_OPTIONS,
+    ALL_VARIABLE_SETTING_PROGRAM_NAMES,
+    ASSIGNMENT_SEPARATOR,
     CREATE_PULL_REQUEST_TOOL_SUFFIX,
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     FOLLOWUP_PARENT_PATTERN,
     GH_PROGRAM_NAME,
+    GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE,
+    GH_REPOSITORY_ENVIRONMENT_NAME,
     GH_REPOSITORY_ENVIRONMENT_PREFIX,
     GITHUB_API_ROOT,
     GITHUB_REMOTE_PATTERN,
@@ -57,7 +61,7 @@ from hooks_constants.pull_request_proof_constants import (
     PULL_REQUEST_SCRIPT_CREATE_WORD,
     PULL_REQUEST_SCRIPT_NAME,
 )
-from hooks_constants.pytest_invocation import unquoted_token
+from hooks_constants.pytest_invocation import all_tokens_after_wrappers, unquoted_token
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
 from hooks_constants.shell_command_segments import token_basename
@@ -78,9 +82,16 @@ class PullRequestDraft:
 
 @dataclass(frozen=True)
 class UnreadOriginDraft:
-    """The body of a create that names no repository, run where the origin remote gave no answer."""
+    """The body of a create whose repository the gate cannot read.
+
+    Attributes:
+        body: The create's body.
+        reason_template: The deny reason, for the origin remote that gave no
+            answer or for a command that sets ``GH_REPO``.
+    """
 
     body: str
+    reason_template: str = UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
 
 
 class UnreadOpenPullRequests(Enum):
@@ -296,7 +307,17 @@ def _gh_action_arguments(all_arguments: list[str], all_gh_words: list[str]) -> l
     return [*all_arguments[index + len(all_gh_words) :], *all_arguments[:index]]
 
 
-def _environment_repository(all_segment_tokens: list[str]) -> str | None:
+def prefix_repository(all_segment_tokens: list[str]) -> str | None:
+    """Return the value a ``GH_REPO=`` prefix gives a gh command, or None when it has none.
+
+    ::
+
+        ["GH_REPO=o/r", "gh", "pr", "create"]  -> "o/r"
+        ["gh", "pr", "create", "GH_REPO=o/r"]  -> None
+
+    Args:
+        all_segment_tokens: The tokens of one simple command.
+    """
     for each_token in all_segment_tokens:
         unquoted_word = unquoted_token(each_token)
         if token_basename(unquoted_word).removesuffix(WINDOWS_EXECUTABLE_SUFFIX) == GH_PROGRAM_NAME:
@@ -310,7 +331,7 @@ def _gh_arguments(all_segment_tokens: list[str], all_arguments: list[str], all_g
     all_action_arguments = _gh_action_arguments(all_arguments, all_gh_words)
     if all_action_arguments is None:
         return None
-    environment_repository = _environment_repository(all_segment_tokens)
+    environment_repository = prefix_repository(all_segment_tokens)
     if environment_repository and option_value(all_action_arguments, ALL_REPOSITORY_OPTIONS) is None:
         return [*all_action_arguments, REPOSITORY_OPTION, environment_repository]
     return all_action_arguments
@@ -396,12 +417,14 @@ def all_create_argument_lists(command: str) -> Iterator[list[str]]:
 
 
 def _arguments_draft(
-    all_arguments: list[str], working_directory: str
+    all_arguments: list[str], working_directory: str, is_gh_repository_set: bool
 ) -> PullRequestDraft | UnreadOriginDraft | None:
     body = body_from_arguments(all_arguments, working_directory)
     if body is None or followup_parent_number(body) is None:
         return None
     repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
+    if repository_value is None and is_gh_repository_set:
+        return UnreadOriginDraft(body, GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE)
     if repository_value is not None:
         repository = named_repository(repository_value)
     else:
@@ -412,9 +435,48 @@ def _arguments_draft(
     return None if repository is None else PullRequestDraft(repository[0], repository[1], body)
 
 
+def sets_gh_repository(command: str) -> bool:
+    """Return True when a command sets or exports ``GH_REPO`` outside a create's own prefix.
+
+    ::
+
+        export GH_REPO=o/r ; gh pr create    -> True
+        GH_REPO=o/r bash -c 'gh pr create'   -> True
+        declare -x GH_REPO                   -> True
+        GH_REPO=o/r gh pr create             -> False
+        echo GH_REPO=o/r                     -> False
+
+    An ``export``, ``declare``, ``typeset``, ``local`` or ``readonly`` that
+    names ``GH_REPO`` counts, and so does a ``GH_REPO=`` assignment before any
+    program but a create, in the command or in a text a wrapper runs. The gate
+    does not follow the value, so a create that names no repository of its
+    own cannot be read.
+
+    Args:
+        command: The shell command text.
+    """
+    return any(_segment_sets_gh_repository(each_segment) for each_segment in all_command_segments(command))
+
+
+def _segment_sets_gh_repository(all_segment_tokens: list[str]) -> bool:
+    if create_arguments(all_segment_tokens) is not None:
+        return False
+    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if program in ALL_VARIABLE_SETTING_PROGRAM_NAMES:
+        all_names = [unquoted_token(each_argument).partition(ASSIGNMENT_SEPARATOR)[0] for each_argument in all_arguments]
+        return GH_REPOSITORY_ENVIRONMENT_NAME in all_names
+    all_unwrapped_tokens = all_tokens_after_wrappers(all_segment_tokens)
+    program_index = len(all_unwrapped_tokens) - len(all_arguments) - (1 if program else 0)
+    return any(
+        unquoted_token(each_token).startswith(GH_REPOSITORY_ENVIRONMENT_PREFIX)
+        for each_token in all_unwrapped_tokens[:program_index]
+    )
+
+
 def _shell_followup_drafts(command: str, working_directory: str) -> list[PullRequestDraft | UnreadOriginDraft]:
+    is_gh_repository_set = sets_gh_repository(command)
     all_drafts = (
-        _arguments_draft(all_arguments, working_directory)
+        _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
         for all_arguments in all_create_argument_lists(command)
     )
     return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
@@ -583,7 +645,7 @@ def duplicate_followup_reason(
         if parent_number is None:
             continue
         if isinstance(each_draft, UnreadOriginDraft):
-            return UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE.format(parent_number=parent_number)
+            return each_draft.reason_template.format(parent_number=parent_number)
         answer = _open_pull_requests_once(each_draft.owner, each_draft.repo, reader)
         if answer is UnreadOpenPullRequests.UNANSWERED:
             return UNANSWERED_FOLLOWUP_REASON_TEMPLATE.format(

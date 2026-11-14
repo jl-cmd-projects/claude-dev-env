@@ -23,6 +23,7 @@ from blocking.gate_run_reads import gate_run
 from hooks_constants.followup_pr_dedupe_constants import (
     DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
     UNANSWERED_FOLLOWUP_REASON_TEMPLATE,
+    GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE,
     UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE,
 )
 from hooks_constants.pytest_invocation import unquoted_token
@@ -499,6 +500,19 @@ def test_option_value_should_read_spaced_and_assigned_values() -> None:
     assert dedupe.option_value(["--fill"], frozenset({"--head"})) is None
 
 
+@pytest.mark.parametrize(
+    ("all_tokens", "expected"),
+    [
+        (["GH_REPO=o/r", "gh", "pr", "view"], "o/r"),
+        (["X=1", "GH_REPO=o/r", "gh.exe", "pr", "view"], "o/r"),
+        (["gh", "pr", "view", "GH_REPO=o/r"], None),
+        (["gh", "pr", "view"], None),
+    ],
+)
+def test_prefix_repository_should_read_only_a_prefix_before_gh(all_tokens: list[str], expected: str | None) -> None:
+    assert dedupe.prefix_repository(all_tokens) == expected
+
+
 def test_named_repository_should_read_owner_and_name_past_a_host() -> None:
     assert dedupe.named_repository("github.com/o/r") == ("o", "r")
     assert dedupe.named_repository("o/r") == ("o", "r")
@@ -545,6 +559,52 @@ def _checkout_with_origin(tmp_path: Path, origin_url: str) -> Path:
 
 def _unasked_reader(all_asked_repositories: list[tuple[str, str]]) -> dedupe.OpenPullRequestReader:
     return _keyed_reader({}, all_asked_repositories)
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [
+        ("export GH_REPO=o/r ; gh pr create", True),
+        ("GH_REPO=o/r && gh pr create", True),
+        ("declare -x GH_REPO", True),
+        ("typeset -x GH_REPO=o/r", True),
+        ("bash -c 'export GH_REPO=o/r'", True),
+        ("env GH_REPO=o/r bash -c 'gh pr create'", True),
+        ("GH_REPO=o/r gh pr create", False),
+        ("echo GH_REPO=o/r ; gh pr create", False),
+        ("gh pr create --body 'export GH_REPO=o/r'", False),
+        ("export PATH=/bin ; gh pr create", False),
+    ],
+)
+def test_sets_gh_repository_should_find_a_gh_repo_set_outside_a_create_prefix(command: str, expected: bool) -> None:
+    assert dedupe.sets_gh_repository(command) is expected
+
+
+@pytest.mark.parametrize("operator", [";", "&&", "\n"])
+def test_create_with_no_repository_should_be_refused_when_the_command_sets_gh_repo(
+    tmp_path: Path, operator: str
+) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    checkout = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    create = 'gh pr create --title "fix: a" --body "Follow-up to #7"'
+    payload = {
+        "tool_name": "Bash",
+        "cwd": str(checkout),
+        "tool_input": {"command": f"export GH_REPO=o/r {operator} {create}"},
+    }
+    reason = dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories))
+    assert reason == GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE.format(parent_number=7)
+    assert all_asked_repositories == []
+
+
+def test_create_with_its_own_repository_should_be_read_when_the_command_sets_gh_repo(tmp_path: Path) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    open_followup = _open_followup(9, 7)
+    command = 'export GH_REPO=x/y ; gh pr create --repo o/r --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(tmp_path), "tool_input": {"command": command}}
+    reader = _keyed_reader({("o", "r"): [open_followup]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(open_followup, 7)
+    assert all_asked_repositories == [("o", "r")]
 
 
 def test_origin_read_that_outlives_its_allowance_should_refuse_the_create(

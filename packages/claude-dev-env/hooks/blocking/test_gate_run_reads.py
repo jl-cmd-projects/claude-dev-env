@@ -18,7 +18,7 @@ HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
-from blocking import gate_run_reads
+from blocking import gate_child_process, gate_run_reads
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -229,7 +229,7 @@ def test_child_stdout_should_start_its_child_with_the_hidden_window_flags(monkey
         all_seen_flags.append(all_options.get("creationflags"))
         raise OSError("this test starts no child")
 
-    monkeypatch.setattr(gate_run_reads, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS)
+    monkeypatch.setattr(gate_child_process, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS)
     monkeypatch.setattr(gate_run_reads.subprocess, "Popen", refuse_to_start)
     assert child_stdout(["git", "status"], 5, ReadSlice.PROOF_AND_LOOK) is None
     assert all_seen_flags == [HIDDEN_WINDOW_FLAGS]
@@ -361,7 +361,7 @@ def test_child_stdout_should_stop_a_windows_child_with_a_hidden_bounded_tree_kil
         return start_on_this_platform(*all_arguments, **all_options)
 
     monkeypatch.setattr(gate_run_reads.sys, "platform", "win32")
-    monkeypatch.setattr(gate_run_reads, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS)
+    monkeypatch.setattr(gate_child_process, "hidden_window_creation_flags", lambda: HIDDEN_WINDOW_FLAGS)
     monkeypatch.setattr(gate_run_reads.subprocess, "Popen", start_without_windows_flags)
     monkeypatch.setattr(gate_run_reads.subprocess, "run", record_stop)
     started_at = time.monotonic()
@@ -417,7 +417,7 @@ def _windows_read_with_fake_kernel(
         return subprocess.CompletedProcess(all_command_words, 0)
 
     monkeypatch.setattr(gate_run_reads.sys, "platform", "win32")
-    monkeypatch.setattr(gate_run_reads, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(gate_child_process, "_kernel32", lambda: kernel)
     monkeypatch.setattr(gate_run_reads.subprocess, "Popen", start_with_a_handle)
     monkeypatch.setattr(gate_run_reads.subprocess, "run", record_taskkill)
     answer = child_stdout([sys.executable, "-c", script], own_timeout_seconds, ReadSlice.PROOF_AND_LOOK)

@@ -16,7 +16,7 @@ program verdict compose on top of these segments.
 from __future__ import annotations
 
 import shlex
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 from hooks_constants.piped_pytest_blocker_constants import (
     ALL_OPERATOR_TOKENS_LONGEST_FIRST,
@@ -39,6 +39,7 @@ from hooks_constants.piped_pytest_blocker_constants import (
     HEREDOC_TERMINATOR_GROUP,
     LINE_CONTINUATION_JOIN,
     LINE_CONTINUATION_PATTERN,
+    LINEAR_TIME_LEXER_MINIMUM_LENGTH,
     NO_FOLLOWING_OPERATOR,
     PAREN_GROUP_LINE_JOIN,
     PUNCTUATION_ONLY_TOKEN_PATTERN,
@@ -62,6 +63,47 @@ __all__ = [
     "scannable_command_lines",
     "segments_with_following_operator",
 ]
+
+
+class _TokenPieces:
+    """The characters of the token ``shlex`` is reading, kept as a list so each addition costs one step."""
+
+    def __init__(self, first_piece: str) -> None:
+        self.all_pieces = [first_piece]
+        self.length = len(first_piece)
+
+    def __iadd__(self, piece: str) -> _TokenPieces:
+        self.all_pieces.append(piece)
+        self.length += len(piece)
+        return self
+
+    def __bool__(self) -> bool:
+        return self.length > 0
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, str) and str(self) == other
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return "".join(self.all_pieces)
+
+
+class _LinearTimeLexer(shlex.shlex):
+    """The stdlib lexer with its token held as ``_TokenPieces``, so a long quoted word reads in linear time."""
+
+    @property
+    def token(self) -> str:
+        return cast(str, self.token_pieces)
+
+    @token.setter
+    def token(self, value: str) -> None:
+        self.token_pieces = value if isinstance(value, _TokenPieces) else _TokenPieces(value)
+
+    def read_token(self) -> str | None:
+        token = super().read_token()
+        return None if token is None else str(token)
 
 
 class PendingHeredoc(NamedTuple):
@@ -128,7 +170,8 @@ def operator_aware_tokens(command: str, is_posix: bool) -> list[str] | None:
         command: One logical Bash command line (continuations already joined).
         is_posix: True for the POSIX reading, False for the raw one that keeps quotes and backslashes.
     """
-    lexer = shlex.shlex(command, posix=is_posix, punctuation_chars=True)
+    lexer_type = _LinearTimeLexer if len(command) > LINEAR_TIME_LEXER_MINIMUM_LENGTH else shlex.shlex
+    lexer = lexer_type(command, posix=is_posix, punctuation_chars=True)
     lexer.whitespace_split = True
     lexer.commenters = DISABLED_LEXER_COMMENTERS
     try:

@@ -31,6 +31,8 @@ def test_should_cut_at_a_line_break_outside_quotes() -> None:
         ('bash -c "true\ngh pr create"', "true\ngh pr create"),
         ("bash -c 'true\ngh pr create'", "true\ngh pr create"),
         ("bash -c $'true\\ngh pr create'", "true\ngh pr create"),
+        ("bash -c '\ngh pr create'", "\ngh pr create"),
+        ('bash -c "\ngh pr create"', "\ngh pr create"),
     ],
 )
 def test_should_keep_a_quoted_line_break_inside_its_word(text: str, word: str) -> None:
@@ -69,6 +71,10 @@ def test_should_drop_comments_and_heredoc_bodies() -> None:
 
 def test_should_skip_no_lines_after_a_quoted_heredoc_word() -> None:
     assert quote_aware_lines('x --body "a <<EOF"\nls\nEOF') == ['x --body "a <<EOF"', "ls", "EOF"]
+
+
+def test_should_keep_an_escaped_substitution_opener_in_one_word() -> None:
+    assert _words("echo \\$(ls) ; y") == [["echo", "$(ls)", ";", "y"]]
 
 
 def test_should_join_a_line_continuation() -> None:
