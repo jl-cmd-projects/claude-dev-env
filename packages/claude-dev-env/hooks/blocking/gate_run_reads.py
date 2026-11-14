@@ -20,8 +20,9 @@ host's timeout. Two deadlines are fixed points from that start::
 A read gets the smaller of its own timeout and the time left in its
 slice. A read with no time left is skipped and comes back unanswered. A
 child that outlives its allowance is killed, its pipes get a short grace,
-and it comes back unanswered. Either way the run notes that the deadline
-cut a read short. With no deadlines started, as in a library call or a
+and it comes back unanswered. The run notes each read the deadline cut
+short: a skipped read, and a stopped read whose allowance was below its
+own timeout. With no deadlines started, as in a library call or a
 unit test, each read keeps its own timeout.
 """
 

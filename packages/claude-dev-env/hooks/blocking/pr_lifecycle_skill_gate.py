@@ -1,6 +1,6 @@
 """Deny pull request lifecycle actions until their skill appears in the transcript.
 
-A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its reads end by 20 s.
+A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its git and GitHub reads end by 21 s.
 ``blocking/gate_run_reads.py`` draws that budget. A deny from a run it cut short says a second run may pass.
 """
 
