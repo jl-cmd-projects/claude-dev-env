@@ -134,6 +134,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/issue_close_handoff_gate.py       -> exempt
         hooks/blocking/verify_before_acting.py           -> exempt
         hooks/blocking/session_title_format_gate.py      -> exempt
+        hooks/blocking/task_subject_outcome_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
@@ -177,6 +178,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     denies a malformed title, and the other asks for a new title when the
     shown status stops fitting. They decide the shape of a title and no code
     or safety policy.
+
+    The task subject gate denies a task list subject that starts with a
+    procedure step label or holds a code-formatted name. It decides the
+    wording the user reads and no code or safety policy.
 
     The artifact page gate denies a page publish whose text is unreadable in
     dark mode. It decides how a page renders and no code or safety policy.

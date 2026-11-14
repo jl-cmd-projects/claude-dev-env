@@ -130,6 +130,14 @@ def test_new_session_title_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_task_subject_outcome_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/task_subject_outcome_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_session_title_turn_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/session_title_turn_gate.py"],

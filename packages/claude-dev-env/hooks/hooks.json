@@ -230,6 +230,16 @@
         ]
       },
       {
+        "matcher": "TaskCreate|TaskUpdate|TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/task_subject_outcome_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "ScheduleWakeup|CronCreate|mcp__.*__(send_later|create_trigger|update_trigger)",
         "hooks": [
           {
