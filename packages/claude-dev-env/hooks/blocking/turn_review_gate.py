@@ -3,7 +3,7 @@
 
 The agent edits ``src/service.py`` and drops a retry. The turn ends at once.
 In the background, a separate ``claude -p`` run reviews only that turn's edits
-with ``/code-review low``. A finding exits 2 and wakes the agent with it::
+with ``/code-review low``, on Sonnet at high effort. A finding exits 2 and wakes the agent with it::
 
     prompt arrives  ->  snapshot A of the working tree
     agent edits     ->  src/service.py loses @with_retry
@@ -212,6 +212,7 @@ from hooks_constants.turn_review_gate_constants import (
     REVIEW_EFFORT,
     REVIEW_FAILURE_DIAGNOSTIC_TEMPLATE,
     REVIEW_MODEL_ALIAS,
+    REVIEW_MODEL_EFFORT,
     REVIEW_PROMPT_TEMPLATE,
     REVIEW_RESULT_KEY,
     REVIEW_EXECUTABLE_NAME,
@@ -363,6 +364,8 @@ def _review_command(base_commit: str, turn_commit: str) -> list[str]:
         review_prompt,
         "--model",
         REVIEW_MODEL_ALIAS,
+        "--effort",
+        REVIEW_MODEL_EFFORT,
         *_read_only_child_options(),
     ]
 

@@ -26,7 +26,7 @@ import sys
 import time
 from pathlib import Path
 
-if "--effort" in sys.argv[1:]:
+if not sys.argv[2].startswith("/code-review "):
     judge_log_path = Path(os.environ["STUB_JUDGE_LOG"])
     judge_calls = json.loads(judge_log_path.read_text()) if judge_log_path.exists() else []
     judge_calls.append(
@@ -283,6 +283,19 @@ def test_should_review_only_the_edits_made_after_the_prompt(
     assert git(repository, "diff", "--name-only", base_commit, turn_commit) == "src/service.py"
     assert git(repository, "rev-parse", f"{turn_commit}^") == base_commit
     assert Path(str(review_call["cwd"])).resolve() == repository.resolve()
+
+
+def test_should_run_the_review_on_sonnet_at_high_effort_with_the_low_recipe(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    run_hook(gate_environment, "Stop")
+    [review_call] = review_calls(gate_environment)
+    all_arguments = [str(each) for each in review_call["argv"]]
+    assert all_arguments[1].startswith("/code-review low ")
+    assert all_arguments[2:6] == ["--model", "sonnet", "--effort", "high"]
+    assert judge_calls(gate_environment) == []
 
 
 def test_should_run_the_review_outside_the_parent_session(
