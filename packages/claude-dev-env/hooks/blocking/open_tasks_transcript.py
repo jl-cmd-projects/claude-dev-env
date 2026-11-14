@@ -276,8 +276,9 @@ def is_read_tool_name(tool_name: object) -> bool:
         TaskList, TaskGet                          -> False
 
     A name counts when one of its words is a read word. Words are split at
-    underscores, hyphens, and a lower-case letter followed by a capital.
-    TaskList and TaskGet read the task list itself, which is no live state.
+    underscores, hyphens, and a capital that follows a lower-case letter or a
+    digit. A tool that is no work tool never counts: TaskList and TaskGet read
+    the task list itself, and ToolSearch and the question tools read no state.
     """
     if not isinstance(tool_name, str) or tool_name in ALL_NON_WORK_TOOL_NAMES:
         return False

@@ -22,15 +22,17 @@ match is skipped only in the shapes this text names.
 
 A match is skipped when its clause negates it. The clause is the text before
 the match on the same line, back to a sentence mark, a comma, a semicolon, a
-colon, a table bar, or one of the words and, but, so, then, and while, and at
-most 240 characters back. A line break always ends a clause, so "Nothing on
-this list" wrapped onto "needs you." is held. Three shapes negate a match:
+colon, a table bar, or one of the words and, but, so, then, and while. The read
+looks 240 characters back for it. A line break always ends a clause, so
+"Nothing on this list" wrapped onto "needs you." is held. Three shapes negate a
+match:
 
 - nothing, none, or nobody anywhere in the clause;
 - no, neither, or nor at the start of the clause, also after "there is",
   "there are", "there was", or "there were";
 - not, never, without, "no longer", or a word ending in n't, up to three words
-  before the match.
+  before the match, where a word is a run of letters, digits, underscores,
+  hyphens, apostrophes, and asterisks.
 
 Each of these words counts as a whole word. Asterisk emphasis may wrap it, as
 in "does **not** need you". A word joined to a letter, a digit, an underscore,
@@ -42,10 +44,11 @@ emphasis marks too, as in "_needs your_ merge".
 The start of a clause may carry markers: white space, a list, heading, or quote
 mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
 mark, as in "- No open item needs you." and "**No** item needs you." A marker
-before the word belongs to the clause start and is no part of the word, so
-"_No open item_ needs you." is skipped. When the clause is 240 characters or
-longer, its start is out of view. Then the first word in the window is
-dropped, the second shape does not apply, and "say when" does not count.
+before no, neither, or nor belongs to the clause start and is no part of that
+word, so "_No open item_ needs you." is skipped. When the 240 characters hold
+no clause break and do not reach the start of the paragraph, the clause start
+is out of view. Then a word the window cuts in two is dropped, the second
+shape does not apply, and "say when" does not count.
 
 A match is skipped too when it is a label with nothing under it. The label
 form is closed, it sits on one line, and it reads in this order::
@@ -119,6 +122,7 @@ from hooks_constants.user_step_wording_constants import (
     HTML_LINE_BREAK_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
+    LEADING_WORD_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
     NEGATED_CLAUSE_START_PATTERN,
@@ -151,8 +155,8 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
 def _clause_lead(prose_text: str, phrase_start: int) -> tuple[str, bool]:
     window_start = max(0, phrase_start - CLAUSE_LEAD_WINDOW_CHARACTERS)
     lead_window = prose_text[window_start:phrase_start]
-    if window_start:
-        lead_window = CUT_WORD_PATTERN.sub("", lead_window, count=1)
+    if window_start and CUT_WORD_PATTERN.match(prose_text, window_start - 1):
+        lead_window = LEADING_WORD_PATTERN.sub("", lead_window, count=1)
     all_lead_clauses = CLAUSE_BREAK_PATTERN.split(lead_window)
     return all_lead_clauses[-1], window_start == 0 or len(all_lead_clauses) > 1
 

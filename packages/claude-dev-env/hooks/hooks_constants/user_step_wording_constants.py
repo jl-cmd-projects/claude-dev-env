@@ -28,14 +28,15 @@ NEGATED_CLAUSE_PATTERN = re.compile(
     + NEGATION_WORD_START
     + r"(?:not|never|without|no\s+longer)|n['’]t)"
     + NEGATION_WORD_END
-    + r"(?:\s+[\w*-]+){0,3}\s*$",
+    + r"(?:\s+[\w*'’-]+){0,3}\s*$",
     re.IGNORECASE,
 )
 NEGATED_CLAUSE_START_PATTERN = re.compile(
     CLAUSE_MARKERS + r"(?:there\s+(?:is|are|was|were)\s+)?(?:no|neither|nor)" + NEGATION_WORD_END,
     re.IGNORECASE,
 )
-CUT_WORD_PATTERN = re.compile(r"\A\w+")
+CUT_WORD_PATTERN = re.compile(r"\w\w")
+LEADING_WORD_PATTERN = re.compile(r"\A\w+")
 NEGATED_TAIL_PATTERN = re.compile(
     r"(?:[^\S\n]|[*_]){0,8}[:\-–—](?:[^\S\n]|[*_]){0,8}"
     r"(?:none|nothing|n/a|no[^\S\n]+(?:action|step)s?)"
