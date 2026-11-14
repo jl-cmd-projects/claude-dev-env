@@ -1,8 +1,15 @@
 """Behavior tests for the one-follow-up-pull-request-per-parent check."""
 
+import json
+import os
 import sys
+import threading
+import time
 from collections.abc import Mapping
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import pytest
 
 HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
 if str(HOOKS_DIRECTORY) not in sys.path:
@@ -92,6 +99,60 @@ def test_body_from_arguments_reads_inline_text_and_body_files(tmp_path: Path) ->
     assert dedupe.body_from_arguments(["--body-file", "body.md"], str(tmp_path)) == "From the file."
     assert dedupe.body_from_arguments(["--body-file", "-"], str(tmp_path)) is None
     assert dedupe.body_from_arguments(["--fill"], str(tmp_path)) is None
+
+
+def test_body_from_arguments_should_read_only_a_regular_body_file(tmp_path: Path) -> None:
+    fifo_path = tmp_path / "body.fifo"
+    os.mkfifo(fifo_path)
+
+    def write_when_a_reader_waits() -> None:
+        time.sleep(0.5)
+        try:
+            descriptor = os.open(fifo_path, os.O_WRONLY | os.O_NONBLOCK)
+        except OSError:
+            return
+        os.write(descriptor, b"Follow-up to #1731\n")
+        os.close(descriptor)
+
+    writer = threading.Thread(target=write_when_a_reader_waits, daemon=True)
+    writer.start()
+    assert dedupe.body_from_arguments(["--body-file", "body.fifo"], str(tmp_path)) is None
+    assert dedupe.body_from_arguments(["--body-file", "."], str(tmp_path)) is None
+    writer.join()
+
+
+def _trickling_server() -> ThreadingHTTPServer:
+    class TrickleHandler(BaseHTTPRequestHandler):
+        def log_message(self, *all_arguments: object) -> None:
+            return
+
+        def do_GET(self) -> None:
+            payload = json.dumps([OPEN_FOLLOWUP]).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            for each_byte in payload:
+                self.wfile.write(bytes([each_byte]))
+                self.wfile.flush()
+                time.sleep(0.3)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), TrickleHandler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_read_open_pull_requests_should_bound_the_whole_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    server = _trickling_server()
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+    monkeypatch.setattr(dedupe, "GITHUB_API_ROOT", f"http://127.0.0.1:{server.server_address[1]}")
+    monkeypatch.setattr(dedupe, "READ_TIMEOUT_SECONDS", 1)
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        dedupe.read_open_pull_requests("jl-cmd", "claude-dev-env")
+    assert time.monotonic() - started < 2
+    server.shutdown()
 
 
 def test_shell_command_should_return_only_a_shell_tool_command() -> None:

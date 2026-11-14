@@ -765,7 +765,7 @@ def test_should_deny_a_visible_file_on_a_full_compare_page(
     assert "module_0.py" not in reason
 
 
-def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artifact(
+def test_should_allow_a_page_whose_proof_links_an_artifact_without_a_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_endpoints: list[str] = []
@@ -778,7 +778,7 @@ def test_should_allow_a_page_the_compare_api_lists_when_the_proof_links_an_artif
         tmp_path,
     )
     assert gate.missing_look_reason(payload) is None
-    assert all_endpoints == [compare_endpoint]
+    assert all_endpoints == []
 
 
 def test_should_skip_the_compare_api_without_a_named_repository(
@@ -1138,6 +1138,20 @@ def test_quoted_shell_create_should_look_up_the_added_workflows_once(
     )
     assert gate.missing_proof_reason(payload) is None
     assert all_endpoints.count(compare_endpoint) == 1
+
+
+def test_look_check_should_read_nothing_when_every_body_shows_a_picture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_endpoints: list[str] = []
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, all_endpoints))
+    body = PROVEN_BODY + "![after](https://example.com/after.png)\n"
+    payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature", body)
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == []
+    no_picture_payload = _shell_create_elsewhere(tmp_path, "--repo o/r --base main --head feature")
+    assert gate.missing_look_reason(no_picture_payload) == UNREADABLE_CHANGES_REASON
+    assert all_endpoints == ["repos/o/r/compare/main...feature"]
 
 
 def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look_checks(

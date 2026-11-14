@@ -75,7 +75,8 @@ from hooks_constants.hook_specific_output_keys import (
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
 from blocking.followup_pr_dedupe import create_tool_fields, duplicate_followup_reason
-from blocking.gate_run_reads import gate_run
+from blocking.gate_run_reads import gate_run, read_deadlines_started
+from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking.pull_request_proof import (
     edit_proof_reason,
     is_feature_pull_request,
@@ -384,18 +385,22 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+        any deny above in a run whose deadline cut a read -> that reason + READS_RAN_OUT_SENTENCE
 
     The checks share one gate run, so a git or GitHub question two checks
-    ask is read once.
+    ask is read once. A read the deadline cut short counts as unanswered,
+    and each check keeps its rule for an unanswered read.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
     if not _is_governed_action(all_payload_fields):
         return None
-    with gate_run():
+    with gate_run() as run:
         reason = _first_broken_rule_reason(all_payload_fields)
-    return None if reason is None else deny_decision(reason)
+    if reason is None:
+        return None
+    return deny_decision(reason + READS_RAN_OUT_SENTENCE if run.was_read_cut_short else reason)
 
 
 def _first_broken_rule_reason(all_payload_fields: dict[str, object]) -> str | None:
@@ -491,8 +496,9 @@ def deny_decision(reason: str) -> dict[str, object]:
 
 
 def main() -> int:
-    """Read one payload, print a deny when needed, and exit zero."""
-    return print_decision_from_stdin(decision_for)
+    """Start the read deadlines, read one payload, print a deny when needed, and exit zero."""
+    with read_deadlines_started():
+        return print_decision_from_stdin(decision_for)
 
 
 if __name__ == "__main__":

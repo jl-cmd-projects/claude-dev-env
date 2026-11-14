@@ -16,11 +16,14 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import pr_lifecycle_skill_gate as gate
+from blocking.gate_run_reads import read_deadlines_started
+from hooks_constants.gate_run_reads_constants import PROOF_AND_LOOK_READS_SECONDS, READS_RAN_OUT_SENTENCE
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import (
     MISSING_BUILD_EVAL_REASON,
     MISSING_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
+    UNREADABLE_CHANGES_REASON,
 )
 
 WHAT_THIS_DOES_SECTION = (
@@ -409,6 +412,40 @@ def test_gate_should_not_read_the_origin_when_no_body_names_a_parent(
     payload = _quoted_shell_create_without_repository(tmp_path, body)
     assert gate.decision_for(payload) is None
     assert _origin_reads(log_path) == 0
+
+
+class LateClock:
+    """Reads zero at the start, then the end of the proof and look slice on every later read."""
+
+    def __init__(self) -> None:
+        self.read_count = 0
+
+    def __call__(self) -> float:
+        self.read_count += 1
+        return 0.0 if self.read_count == 1 else float(PROOF_AND_LOOK_READS_SECONDS)
+
+
+def _mcp_create_without_repository(tmp_path: Path) -> dict[str, object]:
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    return {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"title": "fix: x", "body": body, "head": "feature"},
+        "cwd": str(tmp_path),
+    }
+
+
+def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cut_a_read(tmp_path: Path) -> None:
+    payload = _mcp_create_without_repository(tmp_path)
+    with read_deadlines_started(LateClock()):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON + READS_RAN_OUT_SENTENCE
+
+
+def test_deny_should_keep_its_reason_when_every_read_had_time(tmp_path: Path) -> None:
+    decision = gate.decision_for(_mcp_create_without_repository(tmp_path))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == UNREADABLE_CHANGES_REASON
 
 
 def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping
@@ -34,7 +33,7 @@ from hooks_constants.followup_pr_dedupe_constants import (
     STANDARD_INPUT_PATH,
     WORKFLOW_DISPATCH_TOOL_SUFFIX,
 )
-from blocking.gate_run_reads import answer_once
+from blocking.gate_run_reads import ReadSlice, answer_once, answer_within_allowance, child_stdout
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pytest_invocation import unquoted_token
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, UTF8_ENCODING
@@ -64,12 +63,29 @@ def followup_parent_number(body: str) -> int | None:
 
 
 def read_open_pull_requests(owner: str, repo: str) -> list[Mapping[str, object]]:
-    """Read one page of a repository's open pull requests from the GitHub API."""
+    """Read one page of a repository's open pull requests from the GitHub API.
+
+    The whole read, connect and headers included, fits in its allowance:
+    READ_TIMEOUT_SECONDS, or less when the follow-up deadline is nearer.
+
+    Raises:
+        TimeoutError: The read did not finish inside its allowance.
+        OSError: The request failed.
+    """
     url = GITHUB_API_ROOT + OPEN_PULL_REQUESTS_PATH_TEMPLATE.format(owner=owner, repo=repo)
-    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
-    with urllib.request.urlopen(request, timeout=READ_TIMEOUT_SECONDS) as reply:
-        answer = json.loads(reply.read())
+    answer = answer_within_allowance(
+        lambda allowance: _fetched_json(url, allowance), READ_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP
+    )
+    if answer is None:
+        raise TimeoutError(url)
     return [each_entry for each_entry in answer if isinstance(each_entry, dict)]
+
+
+def _fetched_json(url: str, timeout_seconds: float) -> list[object]:
+    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as reply:
+        answer = json.loads(reply.read())
+    return answer if isinstance(answer, list) else []
 
 
 def _option_value(all_arguments: list[str], all_option_names: frozenset[str]) -> str | None:
@@ -88,7 +104,9 @@ def body_from_arguments(all_arguments: list[str], working_directory: str) -> str
     """Return the body a gh-style argument list passes, or None when it passes none.
 
     ``--body`` text comes back as given. A ``--body-file`` path is read from
-    the working directory. Standard input and an unreadable file give None.
+    the working directory only when it names a regular file. Standard input,
+    a directory, a named pipe, any other special file, and an unreadable file
+    give None.
     """
     inline_body = _option_value(all_arguments, ALL_BODY_OPTIONS)
     if inline_body is not None:
@@ -96,10 +114,11 @@ def body_from_arguments(all_arguments: list[str], working_directory: str) -> str
     body_path = _option_value(all_arguments, ALL_BODY_FILE_OPTIONS)
     if body_path is None or body_path == STANDARD_INPUT_PATH:
         return None
+    body_file = Path(working_directory) / body_path
     try:
-        return (Path(working_directory) / body_path).read_text(
-            encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY
-        )
+        if not body_file.is_file():
+            return None
+        return body_file.read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
     except OSError:
         return None
 
@@ -123,18 +142,12 @@ def _origin_repository(working_directory: str) -> tuple[str, str] | None:
 
 
 def _read_origin_repository(working_directory: str) -> tuple[str, str] | None:
-    try:
-        completed = subprocess.run(
-            ALL_GIT_REMOTE_COMMAND_WORDS,
-            cwd=working_directory or None,
-            capture_output=True,
-            text=True,
-            timeout=READ_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
+    printed_text = child_stdout(
+        ALL_GIT_REMOTE_COMMAND_WORDS, READ_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, working_directory
+    )
+    if printed_text is None:
         return None
-    match = re.search(GITHUB_REMOTE_PATTERN, completed.stdout.strip())
+    match = re.search(GITHUB_REMOTE_PATTERN, printed_text.strip())
     return (match.group(1), match.group(2)) if match else None
 
 

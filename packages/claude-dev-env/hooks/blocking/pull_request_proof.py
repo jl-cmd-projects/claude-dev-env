@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
@@ -22,7 +21,7 @@ from blocking.followup_pr_dedupe import (
     shell_command,
     title_from_arguments,
 )
-from blocking.gate_run_reads import answer_once
+from blocking.gate_run_reads import ReadSlice, answer_once, child_stdout
 from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
@@ -736,19 +735,9 @@ class ChangedFile(NamedTuple):
 
 
 def _git_output(working_directory: str, *all_git_arguments: str) -> str | None:
-    try:
-        completed = subprocess.run(
-            ["git", "-C", working_directory, *all_git_arguments],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GIT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return completed.stdout if completed.returncode == 0 else None
+    return child_stdout(
+        ["git", "-C", working_directory, *all_git_arguments], GIT_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK
+    )
 
 
 def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | None:
@@ -907,19 +896,8 @@ def added_workflow_files(working_directory: str, head_branch: object) -> list[st
 
 
 def _gh_api_lines(endpoint: str, query: str) -> list[str] | None:
-    try:
-        completed = subprocess.run(
-            ["gh", "api", endpoint, "--jq", query],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return completed.stdout.splitlines() if completed.returncode == 0 else None
+    printed_text = child_stdout(["gh", "api", endpoint, "--jq", query], GH_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK)
+    return None if printed_text is None else printed_text.splitlines()
 
 
 def _compare_base_branch(repository: str, base_branch: str | None) -> str | None:
@@ -1147,11 +1125,18 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         git cannot read the branch, compare API returns 300 .py files     -> UNREADABLE_CHANGES_REASON
         neither git nor the compare API can read it, no picture           -> UNREADABLE_CHANGES_REASON
 
+    Every body is checked for a picture first. When each one shows a picture,
+    the check passes and reads neither git nor the compare API.
+
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    all_bodies = [each_body for each_body in _create_bodies(all_payload_fields) if each_body is not None]
-    if not all_bodies:
+    all_bodies_without_picture = [
+        each_body
+        for each_body in _create_bodies(all_payload_fields)
+        if each_body is not None and not re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE)
+    ]
+    if not all_bodies_without_picture:
         return None
     working_directory = all_payload_fields.get("cwd")
     head_branch = _named_head_branch(all_payload_fields)
@@ -1162,10 +1147,6 @@ def missing_look_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         )
     if all_visible_files == []:
         return None
-    for each_body in all_bodies:
-        if re.search(PROOF_IMAGE_PATTERN, proof_section(each_body) or "", re.IGNORECASE):
-            continue
-        if all_visible_files is None:
-            return UNREADABLE_CHANGES_REASON
-        return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
-    return None
+    if all_visible_files is None:
+        return UNREADABLE_CHANGES_REASON
+    return MISSING_LOOK_REASON.format(changed_files=CHANGED_FILES_SEPARATOR.join(all_visible_files))
