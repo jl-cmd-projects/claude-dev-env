@@ -1,8 +1,10 @@
 """Behavior tests for the answers one pull request lifecycle gate run remembers."""
 
+import ast
 import json
+import subprocess
 import sys
-import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -31,14 +33,25 @@ from hooks_constants.gate_run_reads_constants import (
 )
 
 CLOCK_START = 100.0
+OLDEST_SUPPORTED_PYTHON = (3, 11)
 HIDDEN_WINDOW_FLAGS = 0x08000000
 SLEEP_THEN_PRINT = "import time; time.sleep(30); print('late')"
-GRANDCHILD_HOLDS_THE_PIPE = (
+HELD_READ_GIVES_UP_SECONDS = 30
+GRANDCHILD_WAITS_FOR_RELEASE = (
+    "import os, sys, time\n"
+    "gave_up_path, release_path = sys.argv[1], sys.argv[2]\n"
+    "polls_left = 300\n"
+    "while polls_left and not os.path.exists(release_path):\n"
+    "    time.sleep(0.1)\n"
+    "    polls_left -= 1\n"
+    "if not os.path.exists(release_path):\n"
+    "    open(gave_up_path, 'w').close()\n"
+)
+CHILD_STARTS_A_GRANDCHILD = (
     "import subprocess, sys, time;"
-    " subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']);"
+    " subprocess.Popen([sys.executable, '-c', *sys.argv[1:]]);"
     " time.sleep(30)"
 )
-ELAPSED_SLACK_SECONDS = 8.0
 GATE_COMMAND_SUFFIX = "hooks/blocking/pr_lifecycle_" + "skill_gate.py"
 
 
@@ -48,6 +61,31 @@ class FakeClock:
 
     def __call__(self) -> float:
         return self.now
+
+
+class RecordedChild(subprocess.Popen[str]):
+    """A child that notes the timeout of each wait its caller makes."""
+
+    def __init__(self, *all_arguments: object, **all_options: object) -> None:
+        self.all_wait_timeouts: list[object] = []
+        super().__init__(*all_arguments, **all_options)
+
+    def communicate(self, *all_arguments: object, **all_options: object) -> tuple[str, str]:
+        self.all_wait_timeouts.append(all_options.get("timeout"))
+        return super().communicate(*all_arguments, **all_options)
+
+
+@pytest.fixture
+def all_started_children(monkeypatch: pytest.MonkeyPatch) -> list[RecordedChild]:
+    all_children: list[RecordedChild] = []
+
+    def start(*all_arguments: object, **all_options: object) -> RecordedChild:
+        child = RecordedChild(*all_arguments, **all_options)
+        all_children.append(child)
+        return child
+
+    monkeypatch.setattr(gate_run_reads.subprocess, "Popen", start)
+    return all_children
 
 
 def _counting_read(all_reads: list[str], answer: str | None):
@@ -157,46 +195,61 @@ def test_child_stdout_should_start_its_child_with_the_hidden_window_flags(monkey
     assert all_seen_flags == [HIDDEN_WINDOW_FLAGS]
 
 
-def test_child_stdout_should_kill_a_child_that_outlives_its_own_timeout() -> None:
+def test_child_stdout_should_kill_a_child_that_outlives_its_own_timeout(
+    all_started_children: list[RecordedChild],
+) -> None:
     with gate_run() as run:
-        started = time.monotonic()
         assert child_stdout([sys.executable, "-c", SLEEP_THEN_PRINT], 0.5, ReadSlice.PROOF_AND_LOOK) is None
-        elapsed = time.monotonic() - started
-    assert elapsed < 0.5 + ELAPSED_SLACK_SECONDS
+    (child,) = all_started_children
+    assert child.all_wait_timeouts == [0.5, KILL_GRACE_SECONDS]
+    assert child.wait() != 0
     assert not run.was_read_cut_short
 
 
-def test_child_stdout_should_stop_waiting_when_a_grandchild_holds_the_pipe() -> None:
-    started = time.monotonic()
-    assert child_stdout([sys.executable, "-c", GRANDCHILD_HOLDS_THE_PIPE], 0.5, ReadSlice.PROOF_AND_LOOK) is None
-    assert time.monotonic() - started < 0.5 + KILL_GRACE_SECONDS + ELAPSED_SLACK_SECONDS
+def test_child_stdout_should_stop_waiting_when_a_grandchild_holds_the_pipe(tmp_path: Path) -> None:
+    gave_up_path = tmp_path / "gave-up"
+    release_path = tmp_path / "release"
+    command = [
+        sys.executable,
+        "-c",
+        CHILD_STARTS_A_GRANDCHILD,
+        GRANDCHILD_WAITS_FOR_RELEASE,
+        str(gave_up_path),
+        str(release_path),
+    ]
+    answer = child_stdout(command, 1, ReadSlice.PROOF_AND_LOOK)
+    has_grandchild_given_up = gave_up_path.exists()
+    release_path.touch()
+    assert answer is None
+    assert not has_grandchild_given_up
 
 
-def test_child_stdout_should_mark_the_run_when_the_deadline_cuts_a_read_short() -> None:
+def test_child_stdout_should_mark_the_run_when_the_deadline_cuts_a_read_short(
+    all_started_children: list[RecordedChild],
+) -> None:
     clock = FakeClock()
     with read_deadlines_started(clock), gate_run() as run:
         clock.now = CLOCK_START + PROOF_AND_LOOK_READS_SECONDS - 0.4
-        started = time.monotonic()
         assert child_stdout([sys.executable, "-c", SLEEP_THEN_PRINT], 5, ReadSlice.PROOF_AND_LOOK) is None
-        elapsed = time.monotonic() - started
-    assert elapsed < 0.4 + ELAPSED_SLACK_SECONDS
+    (child,) = all_started_children
+    assert child.all_wait_timeouts == [pytest.approx(0.4), KILL_GRACE_SECONDS]
+    assert child.wait() != 0
     assert run.was_read_cut_short
-
-
-def _slow_read(allowance: float) -> list[str]:
-    time.sleep(allowance + 30)
-    return ["late"]
 
 
 def test_answer_within_allowance_should_bound_the_whole_read() -> None:
     clock = FakeClock()
+    release = threading.Event()
+
+    def held_read(allowance: float) -> list[str]:
+        release.wait(HELD_READ_GIVES_UP_SECONDS)
+        return ["late"]
+
     with read_deadlines_started(clock), gate_run() as run:
         clock.now = CLOCK_START + PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS - 0.3
-        started = time.monotonic()
-        answer = answer_within_allowance(_slow_read, 4, ReadSlice.FOLLOWUP)
-        elapsed = time.monotonic() - started
+        answer = answer_within_allowance(held_read, 4, ReadSlice.FOLLOWUP)
+    release.set()
     assert answer is None
-    assert elapsed < 0.3 + ELAPSED_SLACK_SECONDS
     assert run.was_read_cut_short
 
 
@@ -239,3 +292,8 @@ def test_registered_timeout_should_outlast_every_read_deadline_and_kill_grace() 
         + KILL_GRACE_SECONDS * MOST_CUT_READS_PER_RUN
     )
     assert _registered_gate_timeout_seconds() >= last_read_ends_at + STARTUP_AND_SCAN_MARGIN_SECONDS
+
+
+def test_gate_run_reads_should_parse_under_the_oldest_supported_python() -> None:
+    source = Path(gate_run_reads.__file__).read_text(encoding="utf-8")
+    assert ast.parse(source, feature_version=OLDEST_SUPPORTED_PYTHON).body
