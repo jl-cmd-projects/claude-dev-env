@@ -147,10 +147,13 @@ def normalized_text(text: str) -> str:
 
 
 def parsed_object(json_text: str) -> dict[str, object] | None:
-    """Return the JSON object in the text, or None for anything else."""
+    """Return the JSON object in the text, or None for anything else.
+
+    Text that is no JSON, or JSON nested too deep to parse, is None.
+    """
     try:
         parsed_value = json.loads(json_text)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     return parsed_value if isinstance(parsed_value, dict) else None
 

@@ -31,8 +31,9 @@ def read_hook_input_dictionary_from_stdin() -> dict[str, object] | None:
     """Return the hook payload dict, or None when stdin is empty or not a JSON object.
 
     Reads the full stdin stream, strips a UTF-8 BOM and surrounding whitespace, then
-    parses JSON. Malformed JSON, non-object roots, and empty payloads yield None so
-    callers can exit zero without treating the hook as a hard failure.
+    parses JSON. Malformed JSON, JSON nested too deep to parse, non-object roots, and
+    empty payloads yield None so callers can exit zero without treating the hook as a
+    hard failure.
     """
     decoded_text = _read_stdin_text()
     if decoded_text is None:
@@ -42,7 +43,7 @@ def read_hook_input_dictionary_from_stdin() -> dict[str, object] | None:
         return None
     try:
         parsed_payload = json.loads(normalized_text)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(parsed_payload, dict):
         return None

@@ -189,6 +189,11 @@ def test_should_parse_only_json_objects() -> None:
     assert parsed_object("not json") is None
 
 
+def test_should_parse_text_nested_past_the_recursion_limit_as_no_object() -> None:
+    assert parsed_object("[" * 100_000) is None
+    assert parsed_object('{"a": ' * 100_000) is None
+
+
 def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assistant") -> dict[str, object]:
     tool_use = {"type": "tool_use", "id": "p1", "name": "mcp__ccd_turn__update_plan", "input": all_plan_input}
     return {"type": record_type, "timestamp": "2026-01-01T00:00:00.000Z", "message": {"content": [tool_use]}}

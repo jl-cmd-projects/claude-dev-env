@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 import user_step_wording
-from hooks_constants.user_step_wording_constants import LINK_TARGET_LIMIT
 
 
 @pytest.mark.parametrize(
@@ -235,6 +234,9 @@ def test_should_find_a_phrase_with_emphasis_or_a_link_bracket_between_its_words(
         ("The docs **say** when the token expires.", "say** when"),
         ("The docs [say](https://example.com/docs) when the token expires.", "say](https://example.com/docs) when"),
         ("- [x] [Say](https://example.com/form) when the demo may be archived.", "Say](https://example.com/form) when"),
+        ("Pull request 12 [needs](https://example.com/A_(b)) your approval.", "needs](https://example.com/A_(b)) your"),
+        ("Pull request 12 [needs](" + "a" * 256 + ") your approval.", "needs](" + "a" * 256 + ") your"),
+        ("Pull request 12 [needs][" + "a" * 256 + "] your approval.", "needs][" + "a" * 256 + "] your"),
     ],
 )
 def test_should_find_a_phrase_with_a_link_around_one_of_its_words(
@@ -247,7 +249,9 @@ def test_should_find_a_phrase_with_a_link_around_one_of_its_words(
     "shown_text",
     [
         'Pull request 12 [needs](https://example.com/12 "the page") your approval.',
-        "Pull request 12 [needs](" + "a" * (LINK_TARGET_LIMIT + 1) + ") your approval.",
+        "Pull request 12 [needs](" + "a" * 257 + ") your approval.",
+        "Pull request 12 [needs][" + "a" * 257 + "] your approval.",
+        "Pull request 12 [needs][the page] your approval.",
         "Pull request 12 needs](https://example.com/12)your approval.",
     ],
 )
@@ -255,6 +259,22 @@ def test_should_find_no_phrase_across_a_link_target_with_white_space_or_past_the
     shown_text: str,
 ) -> None:
     assert user_step_wording.waiting_phrase(shown_text) is None
+
+
+@pytest.mark.parametrize(
+    "shown_text",
+    [
+        "Done.`x`a No item needs you.",
+        "Done:`x`a No item needs you.",
+        "Done,`x`a No item needs you.",
+        "Done and`x`a No item needs you.",
+    ],
+)
+def test_should_hold_a_match_when_a_clause_break_cuts_a_word_that_holds_a_code_span(
+    shown_text: str,
+) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) == "needs you"
+    assert user_step_wording.waiting_phrase(shown_text.replace("`x`a", "")) is None
 
 
 def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clause() -> None:
