@@ -18,13 +18,14 @@ USER_STEP_PATTERN = re.compile(
     re.IGNORECASE,
 )
 CLAUSE_MARKERS = r"[\s\-*+#>\d.)(\[\]_]*"
+NEGATION_WORD_START = r"(?<![^\W_])(?<![^\W_]_)(?<!-)"
 NEGATION_WORD_END = r"[*_]{0,3}(?![\w-])"
 NEGATED_CLAUSE_PATTERN = re.compile(
-    WORD_START
+    NEGATION_WORD_START
     + r"(?:nothing|none|nobody)"
     + NEGATION_WORD_END
     + r"|(?:"
-    + WORD_START
+    + NEGATION_WORD_START
     + r"(?:not|never|without|no\s+longer)|n['’]t)"
     + NEGATION_WORD_END
     + r"(?:\s+[\w*-]+){0,3}\s*$",
@@ -37,7 +38,7 @@ NEGATED_CLAUSE_START_PATTERN = re.compile(
 CUT_WORD_PATTERN = re.compile(r"\A\w+")
 NEGATED_TAIL_PATTERN = re.compile(
     r"[\s*_]{0,8}[:\-–—][\s*_]{0,8}"
-    r"(?:none|nothing|n/a|no(?:[^\S\n]+(?:action|step)s?)?)"
+    r"(?:none|nothing|n/a|no[^\S\n]+(?:action|step)s?)"
     r"(?:[^\S\n]+(?:needed|required|for[^\S\n]+now|at[^\S\n]+this[^\S\n]+time|right[^\S\n]+now))?"
     r"[*_]{0,3}[^\S\n]*(?:[.!?]|$)",
     re.IGNORECASE | re.MULTILINE,

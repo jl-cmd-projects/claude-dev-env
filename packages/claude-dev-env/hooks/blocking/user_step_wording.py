@@ -28,13 +28,14 @@ and while, and at most 240 characters back. Three shapes negate a match:
   before the match.
 
 Each of these words counts as a whole word. Emphasis marks may wrap it, as in
-"does **not** need you". A letter, a digit, an underscore, or a hyphen that
-runs on after it ends the shape, so "No-reply inbox needs your record" and
-"NO_PROXY needs your value" are held. A phrase counts inside emphasis marks
+"does **not** need you". A word joined to a letter, a digit, an underscore, or
+a hyphen on either side is another word, so "No-reply inbox needs your
+record", "NO_PROXY needs your value", and "The do-nothing job needs your
+approval" are held. A phrase counts inside emphasis marks
 too, as in "_needs your_ merge".
 
 The start of a clause may carry markers: white space, a list, heading, or quote
-mark, a number, a full stop, a parenthesis, a checkbox bracket, or an emphasis
+mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
 mark, as in "- No open item needs you." and "**No** item needs you." When the
 clause runs past the 240 characters, its start is out of view. Then the word
 the window cuts is dropped, the second shape does not apply, and "say when"
@@ -45,7 +46,7 @@ form is closed, and it reads in this order::
 
     the match                         Action required
     a colon or a dash                 :
-    none, nothing, n/a, no,           none
+    none, nothing, n/a,               none
       "no action", "no actions",
       "no step", or "no steps"
     then, when present: needed,       at this time
@@ -58,7 +59,8 @@ emphasis marks may sit on each side of the colon or dash, and up to three
 emphasis marks before the end, as in
 ``**Action required:** none.`` Every other wording after a match is held, by
 design: "Action required: NO_PROXY must list the host", "blocked on you -
-nothing else is holding it", "Action required: no, approve item 12 first", and
+nothing else is holding it", "Action required: no" and "Action required: No.
+12 is ready", where a bare no can be an answer or an abbreviation, and
 a "What needs you" heading over a paragraph that says "Nothing." A wrong hold
 costs the agent one step, and a wrong skip hides a step from the user.
 
