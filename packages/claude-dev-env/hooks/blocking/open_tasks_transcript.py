@@ -61,6 +61,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_NON_WORK_TOOL_NAMES,
     ALL_QUESTION_TOOL_NAMES,
     ALL_READ_TOOL_NAMES,
+    ALL_READ_WORDS,
     ALL_TRACKER_TOOL_NAMES,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
@@ -90,7 +91,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     IN_PROGRESS_STATUS,
     MESSAGE_KEY,
     PENDING_STATUS,
-    READ_TOOL_NAME_PATTERN,
     RECORD_TYPE_KEY,
     ROLE_KEY,
     SENT_FILES_KEY,
@@ -110,6 +110,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TODO_MERGE_KEY,
     TODO_WRITE_TOOL_NAME,
     TOOL_INPUT_KEY,
+    TOOL_NAME_WORD_BREAK_PATTERN,
     TOOL_NAME_KEY,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -270,11 +271,20 @@ def is_read_tool_name(tool_name: object) -> bool:
         Bash, Read, WebFetch, Agent, shell         -> True
         mcp__github__pull_request_read             -> True
         mcp__claude-code-remote__get_session       -> True
-        Write, SendUserFile, TaskList, TaskUpdate  -> False
+        ReadMcpResourceTool, mcp__x__getIssue      -> True
+        Write, SendUserFile, TaskUpdate            -> False
+        TaskList, TaskGet                          -> False
+
+    A name counts when one of its words is a read word. Words are split at
+    underscores, hyphens, and a lower-case letter followed by a capital.
+    TaskList and TaskGet read the task list itself, which is no live state.
     """
-    if not isinstance(tool_name, str):
+    if not isinstance(tool_name, str) or tool_name in ALL_NON_WORK_TOOL_NAMES:
         return False
-    return tool_name in ALL_READ_TOOL_NAMES or re.search(READ_TOOL_NAME_PATTERN, tool_name.lower()) is not None
+    if tool_name in ALL_READ_TOOL_NAMES:
+        return True
+    all_name_words = re.split(TOOL_NAME_WORD_BREAK_PATTERN, tool_name)
+    return any(each_word.lower() in ALL_READ_WORDS for each_word in all_name_words)
 
 
 def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) -> list[str]:

@@ -256,13 +256,28 @@ def test_should_let_a_later_list_close_a_carried_item_by_subject(tmp_path: Path)
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["Bash", "Read", "WebFetch", "Agent", "shell", "mcp__github__pull_request_read", "mcp__claude-code-remote__get_session"],
+    [
+        "Bash",
+        "Read",
+        "WebFetch",
+        "Agent",
+        "shell",
+        "mcp__github__pull_request_read",
+        "mcp__claude-code-remote__get_session",
+        "ReadMcpResourceTool",
+        "ListMcpResourcesTool",
+        "mcp__Context7__get-library-docs",
+        "mcp__tracker__getIssue",
+    ],
 )
 def test_should_call_a_tool_that_can_read_state_a_read_tool(tool_name: str) -> None:
     assert is_read_tool_name(tool_name) is True
 
 
-@pytest.mark.parametrize("tool_name", ["Write", "Edit", "SendUserFile", "TaskList", "TaskUpdate", "AskUserQuestion", None])
+@pytest.mark.parametrize(
+    "tool_name",
+    ["Write", "Edit", "SendUserFile", "TaskList", "TaskGet", "TaskUpdate", "AskUserQuestion", "mcp__notes__getaway", None],
+)
 def test_should_not_call_a_write_a_tracker_or_a_question_tool_a_read_tool(tool_name: object) -> None:
     assert is_read_tool_name(tool_name) is False
 

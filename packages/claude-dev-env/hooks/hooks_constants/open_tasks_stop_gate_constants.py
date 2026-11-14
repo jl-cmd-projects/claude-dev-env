@@ -157,9 +157,10 @@ ALL_READ_TOOL_NAMES = frozenset(
         "Task",
     }
 )
-READ_TOOL_NAME_PATTERN = (
-    r"(?:^|_)(?:get|list|read|view|search|fetch|query|describe|status|logs?|diff|show)(?:_|$)"
+ALL_READ_WORDS = frozenset(
+    {"get", "list", "read", "view", "search", "fetch", "query", "describe", "status", "log", "logs", "diff", "show"}
 )
+TOOL_NAME_WORD_BREAK_PATTERN = r"[_\-]+|(?<=[a-z0-9])(?=[A-Z])"
 PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 TASK_LIST_NUDGE = (
     "The user follows your work in the task list. Give each ask an item in the session's task list"

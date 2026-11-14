@@ -41,10 +41,11 @@ emphasis marks too, as in "_needs your_ merge".
 
 The start of a clause may carry markers: white space, a list, heading, or quote
 mark, a number, a full stop, a parenthesis, an empty checkbox, or an emphasis
-mark, as in "- No open item needs you." and "**No** item needs you." When the
-clause runs past the 240 characters, its start is out of view. Then the word
-the window cuts is dropped, the second shape does not apply, and "say when"
-does not count.
+mark, as in "- No open item needs you." and "**No** item needs you." A marker
+before the word belongs to the clause start and is no part of the word, so
+"_No open item_ needs you." is skipped. When the clause is 240 characters or
+longer, its start is out of view. Then the first word in the window is
+dropped, the second shape does not apply, and "say when" does not count.
 
 A match is skipped too when it is a label with nothing under it. The label
 form is closed, it sits on one line, and it reads in this order::
