@@ -17,7 +17,11 @@ from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import gate_run_reads
 from blocking import pr_lifecycle_skill_gate as gate
 from blocking.gate_run_reads import read_deadlines_started
-from hooks_constants.followup_pr_dedupe_constants import ALL_GIT_REMOTE_COMMAND_WORDS
+from hooks_constants.followup_pr_dedupe_constants import (
+    ALL_GIT_REMOTE_COMMAND_WORDS,
+    UNANSWERED_FOLLOWUP_REASON_TEMPLATE,
+    UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE,
+)
 from hooks_constants.gate_run_reads_constants import PROOF_AND_LOOK_READS_SECONDS, READS_RAN_OUT_SENTENCE
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON
 from hooks_constants.pull_request_proof_constants import (
@@ -361,6 +365,21 @@ def test_loaded_skill_allows_a_followup_when_the_read_fails(tmp_path: Path) -> N
         assert gate.decision_for(payload) is None
 
 
+def test_loaded_skill_denies_a_followup_when_the_read_gives_no_answer(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "jl-cmd", "repo": "claude-dev-env", "body": PROVEN_FOLLOWUP_BODY},
+        "transcript_path": str(_transcript(tmp_path, "pr-lifecycle")),
+        "cwd": _checkout_without_visible_changes(tmp_path),
+    }
+    with patch.object(gate_dedupe, "read_open_pull_requests", side_effect=TimeoutError("no answer")):
+        decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
+        UNANSWERED_FOLLOWUP_REASON_TEMPLATE.format(owner="jl-cmd", repo="claude-dev-env", parent_number=1731)
+    )
+
+
 PICTURE_LINE = "![after](https://example.com/after.png)\n"
 CREATE_WORDS = " ".join(("gh", "pr", "create"))
 
@@ -394,7 +413,11 @@ def test_one_gate_run_should_read_the_origin_once_for_a_followup_body(
 ) -> None:
     all_asked_commands = _unstarted_children(monkeypatch)
     payload = _quoted_shell_create_without_repository(tmp_path, PROVEN_FOLLOWUP_BODY + PICTURE_LINE)
-    assert gate.decision_for(payload) is None
+    decision = gate.decision_for(payload)
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
+        UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE.format(parent_number=1731)
+    )
     assert _origin_reads(all_asked_commands) == 1
 
 

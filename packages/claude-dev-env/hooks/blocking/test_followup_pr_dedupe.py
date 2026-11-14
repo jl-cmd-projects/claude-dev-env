@@ -2,10 +2,13 @@
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
+import urllib.error
 from collections.abc import Mapping
+from email.message import Message
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -17,7 +20,12 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 
 from blocking import followup_pr_dedupe as dedupe
 from blocking.gate_run_reads import gate_run
-from hooks_constants.followup_pr_dedupe_constants import DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+from hooks_constants.followup_pr_dedupe_constants import (
+    DUPLICATE_FOLLOWUP_REASON_TEMPLATE,
+    UNANSWERED_FOLLOWUP_REASON_TEMPLATE,
+    UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE,
+)
+from hooks_constants.pytest_invocation import unquoted_token
 
 OPEN_FOLLOWUP = {
     "number": 1769,
@@ -262,3 +270,276 @@ def test_followup_read_failure_should_skip_only_that_create() -> None:
     reason = dedupe.duplicate_followup_reason(payload, _keyed_reader(all_open_by_repository, all_asked_repositories))
     assert reason == _duplicate_reason(open_followup, 7)
     assert all_asked_repositories == [("a", "r"), ("b", "r")]
+
+
+def _unanswered_reason(owner: str, repo: str, parent_number: int) -> str:
+    return UNANSWERED_FOLLOWUP_REASON_TEMPLATE.format(owner=owner, repo=repo, parent_number=parent_number)
+
+
+def _raising_reader(error: Exception) -> dedupe.OpenPullRequestReader:
+    def read(owner: str, repo: str) -> list[Mapping[str, object]]:
+        raise error
+
+    return read
+
+
+@pytest.mark.parametrize(
+    "unanswered_error",
+    [TimeoutError("read timed out"), urllib.error.URLError(TimeoutError("connect timed out"))],
+)
+def test_unanswered_read_should_refuse_the_create(unanswered_error: Exception) -> None:
+    reason = dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"), _raising_reader(unanswered_error))
+    assert reason == _unanswered_reason("jl-cmd", "claude-dev-env", 1731)
+
+
+@pytest.mark.parametrize(
+    "answered_error",
+    [
+        urllib.error.HTTPError("https://api.github.com/x", 404, "Not Found", Message(), None),
+        urllib.error.URLError(ConnectionRefusedError("refused")),
+        urllib.error.URLError(OSError("Name or service not known")),
+        json.JSONDecodeError("Expecting value", "<html>", 0),
+    ],
+)
+def test_answered_read_failure_should_skip_the_create(answered_error: Exception) -> None:
+    assert dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"), _raising_reader(answered_error)) is None
+
+
+def test_read_with_no_time_left_should_refuse_the_create(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dedupe, "answer_within_allowance", lambda *all_arguments: None)
+    reason = dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"))
+    assert reason == _unanswered_reason("jl-cmd", "claude-dev-env", 1731)
+
+
+def _silent_server() -> ThreadingHTTPServer:
+    class SilentHandler(BaseHTTPRequestHandler):
+        def log_message(self, *all_arguments: object) -> None:
+            return
+
+        def do_GET(self) -> None:
+            time.sleep(5)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), SilentHandler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_hung_web_read_should_refuse_the_create(monkeypatch: pytest.MonkeyPatch) -> None:
+    server = _silent_server()
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+    monkeypatch.setattr(dedupe, "GITHUB_API_ROOT", f"http://127.0.0.1:{server.server_address[1]}")
+    monkeypatch.setattr(dedupe, "READ_TIMEOUT_SECONDS", 1)
+    reason = dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"))
+    server.shutdown()
+    assert reason == _unanswered_reason("jl-cmd", "claude-dev-env", 1731)
+
+
+def test_web_read_answering_404_should_skip_the_create(monkeypatch: pytest.MonkeyPatch) -> None:
+    class NotFoundHandler(BaseHTTPRequestHandler):
+        def log_message(self, *all_arguments: object) -> None:
+            return
+
+        def do_GET(self) -> None:
+            self.send_error(404)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), NotFoundHandler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+    monkeypatch.setattr(dedupe, "GITHUB_API_ROOT", f"http://127.0.0.1:{server.server_address[1]}")
+    reason = dedupe.duplicate_followup_reason(_mcp_payload("Follow-up to #1731"))
+    server.shutdown()
+    assert reason is None
+
+
+def test_unanswered_read_should_refuse_every_draft_on_that_repository_after_one_read() -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    reader = _keyed_reader({("o", "r"): TimeoutError("read timed out")}, all_asked_repositories)
+    with gate_run():
+        first_reason = dedupe.duplicate_followup_reason(_chained_inline_creates([("o/r", "Follow-up to #7")]), reader)
+        second_reason = dedupe.duplicate_followup_reason(_chained_inline_creates([("o/r", "Follow-up to #8")]), reader)
+    assert first_reason == _unanswered_reason("o", "r", 7)
+    assert second_reason == _unanswered_reason("o", "r", 8)
+    assert all_asked_repositories == [("o", "r")]
+
+
+def test_answered_failure_should_stay_remembered_as_a_skip() -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    reader = _keyed_reader({("o", "r"): OSError("network down")}, all_asked_repositories)
+    with gate_run():
+        first_reason = dedupe.duplicate_followup_reason(_chained_inline_creates([("o/r", "Follow-up to #7")]), reader)
+        second_reason = dedupe.duplicate_followup_reason(_chained_inline_creates([("o/r", "Follow-up to #8")]), reader)
+    assert (first_reason, second_reason) == (None, None)
+    assert all_asked_repositories == [("o", "r")]
+
+
+def test_first_unanswered_or_duplicate_draft_in_command_order_should_refuse() -> None:
+    open_followup = _open_followup(9, 7)
+    all_open_by_repository: dict[tuple[str, str], list[Mapping[str, object]] | Exception] = {
+        ("a", "r"): TimeoutError("read timed out"),
+        ("b", "r"): [open_followup],
+    }
+    all_asked_repositories: list[tuple[str, str]] = []
+    unanswered_first = _chained_inline_creates([("a/r", "Follow-up to #5"), ("b/r", "Follow-up to #7")])
+    reader = _keyed_reader(all_open_by_repository, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(unanswered_first, reader) == _unanswered_reason("a", "r", 5)
+    assert all_asked_repositories == [("a", "r")]
+    duplicate_first = _chained_inline_creates([("b/r", "Follow-up to #7"), ("a/r", "Follow-up to #5")])
+    assert dedupe.duplicate_followup_reason(duplicate_first, reader) == _duplicate_reason(open_followup, 7)
+
+
+def _script_create(command: str, tmp_path: Path, body: str) -> dict[str, object]:
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    return {"tool_name": "Bash", "cwd": str(tmp_path), "tool_input": {"command": command}}
+
+
+def test_script_create_whose_body_file_names_an_open_parent_should_be_denied(tmp_path: Path) -> None:
+    payload = _script_create(
+        "python3 .agents/skills/pull-request/scripts/pull_request.py create --repo jl-cmd/claude-dev-env"
+        ' --base main --head fix-b --title "fix: b" --body-file body.md',
+        tmp_path,
+        "Follow-up to #1731\n",
+    )
+    reason = dedupe.duplicate_followup_reason(payload, _reader([OPEN_FOLLOWUP]))
+    assert reason == _duplicate_reason(OPEN_FOLLOWUP, 1731)
+
+
+def test_followup_drafts_should_read_a_script_create_once_with_its_assigned_options(tmp_path: Path) -> None:
+    payload = _script_create(
+        'python pull_request.py create --repo=o/r --base=main --head=b --title="fix: b" --body-file=body.md',
+        tmp_path,
+        "Follow-up to #7\n",
+    )
+    assert dedupe.followup_drafts(payload) == [dedupe.PullRequestDraft("o", "r", "Follow-up to #7\n")]
+
+
+def test_all_create_argument_lists_should_list_gh_and_script_creates_once_each() -> None:
+    command = (
+        'gh pr create --title "fix: a" --body x'
+        ' && python3 pull_request.py create --repo o/r --title "fix: b" --body-file b.md'
+        " && python3 pull_request.py edit --repo o/r --number 7 && gh pr view 7"
+    )
+    all_argument_lists = [
+        [unquoted_token(each_argument) for each_argument in each_list]
+        for each_list in dedupe.all_create_argument_lists(command)
+    ]
+    assert all_argument_lists == [
+        ["--title", "fix: a", "--body", "x"],
+        ["--repo", "o/r", "--title", "fix: b", "--body-file", "b.md"],
+    ]
+
+
+def test_all_pull_request_argument_lists_should_list_the_named_action_only() -> None:
+    command = "gh pr edit 7 --body x && python pull_request.py edit --number 8 && gh pr create --body y"
+    all_argument_lists = list(dedupe.all_pull_request_argument_lists(command, ["pr", "edit"], "edit"))
+    assert all_argument_lists == [["7", "--body", "x"], ["--number", "8"]]
+
+
+def _unread_origin_reason(parent_number: int) -> str:
+    return UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE.format(parent_number=parent_number)
+
+
+def _create_without_repository(working_directory: Path, body: str) -> dict[str, object]:
+    return {
+        "tool_name": "Bash",
+        "cwd": str(working_directory),
+        "tool_input": {"command": f'gh pr create --title "fix: a" --body "{body}"'},
+    }
+
+
+def _checkout_with_origin(tmp_path: Path, origin_url: str) -> Path:
+    checkout_path = tmp_path / "checkout"
+    subprocess.run(["git", "init", "-q", str(checkout_path)], check=True)
+    subprocess.run(["git", "-C", str(checkout_path), "remote", "add", "origin", origin_url], check=True)
+    return checkout_path
+
+
+def _unasked_reader(all_asked_repositories: list[tuple[str, str]]) -> dedupe.OpenPullRequestReader:
+    return _keyed_reader({}, all_asked_repositories)
+
+
+def test_origin_read_that_outlives_its_allowance_should_refuse_the_create(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(dedupe, "ALL_GIT_REMOTE_COMMAND_WORDS", (sys.executable, "-c", "import time; time.sleep(5)"))
+    monkeypatch.setattr(dedupe, "READ_TIMEOUT_SECONDS", 1)
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _create_without_repository(tmp_path, "Follow-up to #1731")
+    reason = dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories))
+    assert reason == _unread_origin_reason(1731)
+    assert all_asked_repositories == []
+
+
+def test_origin_read_that_exits_non_zero_should_refuse_the_create(tmp_path: Path) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _create_without_repository(tmp_path, "Follow-up to #1731")
+    reason = dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories))
+    assert reason == _unread_origin_reason(1731)
+    assert all_asked_repositories == []
+
+
+def test_origin_that_prints_a_url_off_github_should_skip_the_create(tmp_path: Path) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "https://gitlab.com/o/r.git")
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _create_without_repository(checkout_path, "Follow-up to #1731")
+    assert dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories)) is None
+    assert all_asked_repositories == []
+
+
+def test_origin_on_github_should_name_the_repository_to_read(tmp_path: Path) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "git@github.com:o/r.git")
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = _create_without_repository(checkout_path, "Follow-up to #7")
+    reader = _keyed_reader({("o", "r"): [_open_followup(9, 7)]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(_open_followup(9, 7), 7)
+    assert all_asked_repositories == [("o", "r")]
+
+
+def test_unread_origin_should_be_read_once_per_run_and_refuse_every_draft_without_a_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_origin_reads: list[tuple[object, ...]] = []
+
+    def unanswered_child(*all_arguments: object) -> None:
+        all_origin_reads.append(all_arguments)
+
+    monkeypatch.setattr(dedupe, "child_stdout", unanswered_child)
+    all_asked_repositories: list[tuple[str, str]] = []
+    with gate_run():
+        first_reason = dedupe.duplicate_followup_reason(
+            _create_without_repository(tmp_path, "Follow-up to #7"), _unasked_reader(all_asked_repositories)
+        )
+        second_reason = dedupe.duplicate_followup_reason(
+            _create_without_repository(tmp_path, "Follow-up to #8"), _unasked_reader(all_asked_repositories)
+        )
+    assert (first_reason, second_reason) == (_unread_origin_reason(7), _unread_origin_reason(8))
+    assert len(all_origin_reads) == 1
+
+
+def test_command_order_should_decide_between_an_unread_origin_and_a_duplicate(tmp_path: Path) -> None:
+    open_followup = _open_followup(9, 7)
+    with_repository = 'gh pr create --repo b/r --title "fix: b" --body "Follow-up to #7"'
+    without_repository = 'gh pr create --title "fix: a" --body "Follow-up to #5"'
+    reader = _keyed_reader({("b", "r"): [open_followup]}, [])
+
+    def payload(command: str) -> dict[str, object]:
+        return {"tool_name": "Bash", "cwd": str(tmp_path), "tool_input": {"command": command}}
+
+    unread_first = payload(without_repository + " && " + with_repository)
+    duplicate_first = payload(with_repository + " && " + without_repository)
+    assert dedupe.duplicate_followup_reason(unread_first, reader) == _unread_origin_reason(5)
+    assert dedupe.duplicate_followup_reason(duplicate_first, reader) == _duplicate_reason(open_followup, 7)
+
+
+def test_repository_value_gh_rejects_should_skip_the_create(tmp_path: Path) -> None:
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = {
+        "tool_name": "Bash",
+        "cwd": str(tmp_path),
+        "tool_input": {"command": 'gh pr create --repo notaslug --title "fix: a" --body "Follow-up to #7"'},
+    }
+    assert dedupe.duplicate_followup_reason(payload, _unasked_reader(all_asked_repositories)) is None
+    assert all_asked_repositories == []
