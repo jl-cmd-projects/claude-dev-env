@@ -60,6 +60,25 @@ __all__ = [
     "TOO_MANY_FILES_DIAGNOSTIC_TEMPLATE",
     "REVIEW_FAILURE_DIAGNOSTIC_TEMPLATE",
     "STATE_SAVE_FAILURE_DIAGNOSTIC_TEMPLATE",
+    "STATE_TURN_OPEN_KEY",
+    "STATE_LAST_WAKE_KEY",
+    "STATE_OPEN_TURN_PROMPT_KEY",
+    "RACING_STOP_WINDOW_SECONDS",
+    "WAKE_PROMPT_WINDOW_SECONDS",
+    "PROMPT_KEY",
+    "MACHINE_PROMPT_PREFIX",
+    "STATE_LOCK_FILE_TEMPLATE",
+    "STATE_LOCK_FILE_MODE",
+    "STATE_LOCK_WAIT_SECONDS",
+    "STATE_LOCK_OUTCOME_WAIT_SECONDS",
+    "STATE_LOCK_RETRY_SECONDS",
+    "STATE_LOCK_BYTE_COUNT",
+    "STATE_LOCK_BUSY_DIAGNOSTIC_TEMPLATE",
+    "STOP_HOOK_ACTIVE_KEY",
+    "RUN_DIAGNOSTIC_TEMPLATE",
+    "ALL_LOG_PATH_PARTS",
+    "LOG_LINE_TEMPLATE",
+    "LOG_TEXT_ENCODING",
 ]
 
 REPOSITORIES_ENVIRONMENT_VARIABLE = "CLAUDE_TURN_REVIEW_REPOSITORIES"
@@ -147,8 +166,8 @@ REPOSITORY_FINDINGS_TEMPLATE = "{repository}:\n{findings}"
 FINDING_LINE_SEPARATOR = "\n"
 REPOSITORY_FINDINGS_SEPARATOR = "\n\n"
 BLOCK_REASON_TEMPLATE = (
-    "A fresh-context review of this turn's changes found these problems. "
-    "Fix each one before you end the turn. Code the user pasted or described is not a "
+    "A fresh-context review of the changes you made since the last review found these "
+    "problems. Fix each one. Code the user pasted or described is not a "
     "request for the problem it causes. Keep a finding's behavior only when the user's own "
     "words ask for that behavior, and quote those words in your reply. When a finding is "
     "wrong, say in your reply why:\n\n"
@@ -164,3 +183,24 @@ REVIEW_FAILURE_DIAGNOSTIC_TEMPLATE = (
 STATE_SAVE_FAILURE_DIAGNOSTIC_TEMPLATE = (
     "[turn_review_gate] the review state was not saved: {detail}\n"
 )
+STATE_TURN_OPEN_KEY = "turn_open"
+STATE_LAST_WAKE_KEY = "last_wake_at"
+STATE_OPEN_TURN_PROMPT_KEY = "open_turn_prompt_at"
+RACING_STOP_WINDOW_SECONDS = 10
+WAKE_PROMPT_WINDOW_SECONDS = 10
+PROMPT_KEY = "prompt"
+MACHINE_PROMPT_PREFIX = "<task-notification"
+STATE_LOCK_FILE_TEMPLATE = "turn-review-{session_id}.lock"
+STATE_LOCK_FILE_MODE = 0o600
+STATE_LOCK_WAIT_SECONDS = 3
+STATE_LOCK_OUTCOME_WAIT_SECONDS = 35
+STATE_LOCK_RETRY_SECONDS = 0.05
+STATE_LOCK_BYTE_COUNT = 1
+STATE_LOCK_BUSY_DIAGNOSTIC_TEMPLATE = (
+    "[turn_review_gate] {event} left the review state alone: another run held its lock\n"
+)
+STOP_HOOK_ACTIVE_KEY = "stop_hook_active"
+RUN_DIAGNOSTIC_TEMPLATE = "[turn_review_gate] {event} stop_hook_active={stop_hook_active}\n"
+ALL_LOG_PATH_PARTS = (".claude", "logs", "turn-review.log")
+LOG_LINE_TEMPLATE = "{timestamp} {text}"
+LOG_TEXT_ENCODING = "utf-8"

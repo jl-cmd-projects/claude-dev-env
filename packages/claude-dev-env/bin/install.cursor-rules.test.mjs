@@ -102,6 +102,35 @@ test('--only journal is rejected before the policy is seeded; --only core seeds 
 });
 
 
+test('registers the turn review Stop hook in the background on Claude Code only', () => {
+    const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-turn-review-install-'));
+    try {
+        const resolution = resolveInstallRoot({ homeDirectory, environment: {}, explicitTarget: null });
+
+        runInstaller(homeDirectory, ['--only', 'core']);
+
+        const claudeSettings = JSON.parse(readFileSync(join(resolution.managedRoot, 'settings.json'), 'utf8'));
+        const turnReviewHooks = eventName => claudeSettings.hooks[eventName].flatMap(
+            group => group.hooks.filter(hook => String(hook.command).includes('blocking/turn_review_gate.py')),
+        );
+        const [stopHook] = turnReviewHooks('Stop');
+        assert.equal(turnReviewHooks('Stop').length, 1);
+        assert.equal(stopHook.asyncRewake, true);
+        assert.equal(stopHook.timeout, 300);
+        assert.equal(typeof stopHook.rewakeSummary, 'string');
+        const [promptHook] = turnReviewHooks('UserPromptSubmit');
+        assert.equal(promptHook.asyncRewake, undefined);
+        const codexHooksText = readFileSync(join(homeDirectory, '.codex', 'hooks.json'), 'utf8');
+        assert.equal(codexHooksText.includes('turn_review_gate.py'), false, 'Codex gets no turn review');
+        const cursorHooksPath = join(homeDirectory, DEFAULT_CURSOR_DIRECTORY_NAME, 'hooks.json');
+        const cursorHooksText = existsSync(cursorHooksPath) ? readFileSync(cursorHooksPath, 'utf8') : '';
+        assert.equal(cursorHooksText.includes('turn_review_gate.py'), false, 'Cursor gets no turn review');
+    } finally {
+        rmSync(homeDirectory, { recursive: true, force: true });
+    }
+});
+
+
 test('seeds one editable policy and one native Codex routing hook', () => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cdev-routing-install-'));
     try {

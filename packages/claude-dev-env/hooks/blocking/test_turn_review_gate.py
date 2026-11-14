@@ -104,8 +104,15 @@ def gate_environment(tmp_path: Path, project: Path) -> dict[str, str]:
     return environment
 
 
-def run_hook(environment: dict[str, str], hook_event_name: str) -> dict[str, object]:
-    hook_input = {"hook_event_name": hook_event_name, "session_id": SESSION_ID, "cwd": "/"}
+def run_hook(
+    environment: dict[str, str], hook_event_name: str, prompt_text: str = "next task"
+) -> dict[str, object]:
+    hook_input = {
+        "hook_event_name": hook_event_name,
+        "session_id": SESSION_ID,
+        "cwd": "/",
+        "prompt": prompt_text,
+    }
     completed_process = subprocess.run(
         [sys.executable, str(GATE_PATH)],
         input=json.dumps(hook_input),
@@ -117,10 +124,68 @@ def run_hook(environment: dict[str, str], hook_event_name: str) -> dict[str, obj
     hook_output = json.loads(completed_process.stdout) if completed_process.stdout.strip() else {}
     if not hook_output:
         assert completed_process.returncode == 0, completed_process.stderr
+        assert completed_process.stdout == ""
+        assert completed_process.stderr == ""
         return hook_output
     assert completed_process.returncode == 2, completed_process.stderr
-    assert completed_process.stderr.endswith(str(hook_output["reason"]))
+    assert completed_process.stderr == str(hook_output["reason"])
     return hook_output
+
+
+def start_hook(environment: dict[str, str], hook_event_name: str) -> subprocess.Popen[str]:
+    hook_input = {"hook_event_name": hook_event_name, "session_id": SESSION_ID, "cwd": "/"}
+    running_hook = subprocess.Popen(
+        [sys.executable, str(GATE_PATH)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=environment,
+    )
+    assert running_hook.stdin is not None
+    running_hook.stdin.write(json.dumps(hook_input))
+    running_hook.stdin.close()
+    return running_hook
+
+
+def wait_for_review_calls(environment: dict[str, str], expected_count: int) -> None:
+    deadline = time.monotonic() + 20
+    while len(review_calls(environment)) < expected_count:
+        assert time.monotonic() < deadline, "the review never started"
+        time.sleep(0.05)
+
+
+def saved_state(environment: dict[str, str]) -> dict[str, object]:
+    [state_file] = Path(environment["TMPDIR"]).glob("turn-review-*.json")
+    return json.loads(state_file.read_text())
+
+
+def age_last_wake(environment: dict[str, str], seconds: float) -> None:
+    [state_file] = Path(environment["TMPDIR"]).glob("turn-review-*.json")
+    state = json.loads(state_file.read_text())
+    state["last_wake_at"] = state["last_wake_at"] - seconds
+    state_file.write_text(json.dumps(state))
+
+
+def edit_service(project: Path, round_number: int) -> None:
+    (project / "app" / "src" / "service.py").write_text(
+        f"def update():\n    call({round_number})\n"
+    )
+
+
+def turn_review_log(home_directory: Path) -> str:
+    log_path = home_directory / ".claude" / "logs" / "turn-review.log"
+    return log_path.read_text() if log_path.exists() else ""
+
+
+def registered_turn_review_hooks(event_name: str) -> list[dict[str, object]]:
+    all_events = json.loads((GATE_PATH.parent.parent / "hooks.json").read_text())["hooks"]
+    return [
+        each_hook
+        for each_group in all_events[event_name]
+        for each_hook in each_group["hooks"]
+        if str(each_hook.get("command", "")).endswith("/hooks/blocking/turn_review_gate.py")
+    ]
 
 
 def review_calls(environment: dict[str, str]) -> list[dict[str, object]]:
@@ -169,7 +234,8 @@ def test_should_tell_the_agent_to_fix_a_finding_unless_the_user_asked_for_it(
     run_hook(gate_environment, "UserPromptSubmit")
     drop_retry(project)
     block_reason = str(run_hook(gate_environment, "Stop")["reason"])
-    assert "Fix each one before you end the turn." in block_reason
+    assert "Fix each one." in block_reason
+    assert "before you end the turn" not in block_reason
     assert "is not a request for the problem it causes" in block_reason
     assert "quote those words in your reply" in block_reason
 
@@ -425,7 +491,7 @@ def test_should_share_one_review_time_budget_across_the_checkouts(
     all_roots = turn_review_gate._opted_in_repository_roots(
         turn_review_gate._opted_in_repository_slugs()
     )
-    turn_review_gate._record_prompt_baselines(SESSION_ID, all_roots)
+    turn_review_gate._record_prompt_baselines(SESSION_ID, all_roots, "next task")
     drop_retry(project)
     (second_repository / "notes.txt").write_text("new\n")
     turn_review_gate._turn_block_reason(SESSION_ID, all_roots)
@@ -458,18 +524,88 @@ def test_should_stop_blocking_after_three_blocks_in_a_row(
     assert len(review_calls(gate_environment)) == 3
 
 
-def test_should_reset_the_block_count_on_a_new_prompt(
+def test_should_reset_the_block_count_on_a_user_prompt_after_a_capped_stop(
     project: Path, gate_environment: dict[str, str]
 ) -> None:
     run_hook(gate_environment, "UserPromptSubmit")
     for each_round in range(3):
-        (project / "app" / "src" / "service.py").write_text(
-            f"def update():\n    call({each_round})\n"
-        )
+        edit_service(project, each_round)
         run_hook(gate_environment, "Stop")
+    assert run_hook(gate_environment, "Stop") == {}
+    age_last_wake(gate_environment, 60)
     run_hook(gate_environment, "UserPromptSubmit")
     drop_retry(project)
     assert run_hook(gate_environment, "Stop")["decision"] == "block"
+
+
+def test_should_reset_the_block_count_on_a_user_prompt_after_two_wakes(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    all_decisions = []
+    for each_round in range(2):
+        edit_service(project, each_round)
+        all_decisions.append(run_hook(gate_environment, "Stop").get("decision"))
+    age_last_wake(gate_environment, 60)
+    run_hook(gate_environment, "UserPromptSubmit")
+    for each_round in range(2, 6):
+        edit_service(project, each_round)
+        all_decisions.append(run_hook(gate_environment, "Stop").get("decision"))
+    assert all_decisions == ["block", "block", "block", "block", "block", None]
+
+
+def test_should_keep_the_block_count_on_a_task_notification_prompt(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    for each_round in range(3):
+        edit_service(project, each_round)
+        run_hook(gate_environment, "Stop")
+    age_last_wake(gate_environment, 60)
+    run_hook(
+        gate_environment,
+        "UserPromptSubmit",
+        "<task-notification>review done</task-notification>",
+    )
+    drop_retry(project)
+    assert run_hook(gate_environment, "Stop") == {}
+    assert len(review_calls(gate_environment)) == 3
+
+
+def test_should_reset_the_block_count_on_a_stop_that_changed_nothing(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    edit_service(project, 0)
+    all_decisions = [run_hook(gate_environment, "Stop").get("decision")]
+    all_decisions.append(run_hook(gate_environment, "Stop").get("decision"))
+    for each_round in range(1, 4):
+        edit_service(project, each_round)
+        all_decisions.append(run_hook(gate_environment, "Stop").get("decision"))
+    assert all_decisions == ["block", None, "block", "block", "block"]
+
+
+def test_should_review_the_turn_when_the_next_prompt_runs_before_its_stop(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    run_hook(gate_environment, "UserPromptSubmit")
+    stop_output = run_hook(gate_environment, "Stop")
+    assert stop_output["decision"] == "block"
+    assert FINDING_TEXT in str(stop_output["reason"])
+
+
+def test_should_take_a_new_baseline_on_the_prompt_after_a_stop_claimed_the_turn(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    run_hook(gate_environment, "Stop")
+    (project / "app" / "notes.txt").write_text("the user's own edit between the turns\n")
+    run_hook(gate_environment, "UserPromptSubmit")
+    assert run_hook(gate_environment, "Stop") == {}
+    assert len(review_calls(gate_environment)) == 1
 
 
 def test_should_skip_a_turn_that_changed_more_than_thirty_files(
@@ -583,3 +719,257 @@ def test_should_end_the_prompt_inside_its_run_budget_when_git_add_hangs(
 
     assert _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit") == 0
     assert time.monotonic() - started_at < 1.5
+
+
+def test_should_keep_counting_holds_when_each_wake_fires_a_prompt_event(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    all_decisions = []
+    for each_round in range(4):
+        (project / "app" / "src" / "service.py").write_text(
+            f"def update():\n    call({each_round})\n"
+        )
+        all_decisions.append(run_hook(gate_environment, "Stop").get("decision"))
+        run_hook(gate_environment, "UserPromptSubmit")
+    assert all_decisions == ["block", "block", "block", None]
+    assert len(review_calls(gate_environment)) == 3
+
+
+def test_should_stay_capped_on_a_prompt_that_comes_right_after_the_third_hold(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    for each_round in range(3):
+        (project / "app" / "src" / "service.py").write_text(
+            f"def update():\n    call({each_round})\n"
+        )
+        run_hook(gate_environment, "Stop")
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    assert run_hook(gate_environment, "Stop") == {}
+    assert len(review_calls(gate_environment)) == 3
+
+
+def test_should_review_a_range_once_when_a_second_stop_comes_during_the_review(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    first_stop = start_hook({**gate_environment, "STUB_REVIEW_SECONDS": "3"}, "Stop")
+    wait_for_review_calls(gate_environment, 1)
+    second_stop_output = run_hook(gate_environment, "Stop")
+    first_stdout, first_stderr = first_stop.communicate(timeout=30)
+    assert second_stop_output == {}
+    assert first_stop.returncode == 2, first_stderr
+    assert json.loads(first_stdout)["decision"] == "block"
+    assert len(review_calls(gate_environment)) == 1
+
+
+def test_should_keep_the_baselines_a_prompt_saves_during_a_review(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    first_stop = start_hook({**gate_environment, "STUB_REVIEW_SECONDS": "3"}, "Stop")
+    wait_for_review_calls(gate_environment, 1)
+    (project / "app" / "notes.txt").write_text("the user's own edit before the next prompt\n")
+    run_hook(gate_environment, "UserPromptSubmit")
+    prompt_baselines = saved_state(gate_environment)["baselines"]
+    first_stop.communicate(timeout=30)
+    assert saved_state(gate_environment)["baselines"] == prompt_baselines
+    assert saved_state(gate_environment)["blocks_in_a_row"] == 1
+
+
+def test_should_pass_the_stop_quietly_while_another_run_holds_the_state_lock(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    state_before = saved_state(gate_environment)
+    drop_retry(project)
+    monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
+    with turn_review_gate._state_lock(SESSION_ID, turn_review_gate.STATE_LOCK_WAIT_SECONDS) as is_locked:
+        assert is_locked
+        assert run_hook(gate_environment, "Stop") == {}
+    assert review_calls(gate_environment) == []
+    assert saved_state(gate_environment) == state_before
+
+
+def test_should_print_nothing_when_the_review_times_out(
+    project: Path,
+    gate_environment: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    isolated_home: Path,
+) -> None:
+    _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    monkeypatch.setenv("STUB_REVIEW_SECONDS", "5")
+    monkeypatch.setattr(turn_review_gate, "REVIEW_TIMEOUT_SECONDS", 2)
+    capsys.readouterr()
+    assert _run_gate_in_process(monkeypatch, gate_environment, "Stop") == 0
+    assert capsys.readouterr() == ("", "")
+    assert "did not finish: timed out" in turn_review_log(isolated_home)
+
+
+def test_should_log_a_failed_review_to_the_turn_review_log(
+    project: Path, gate_environment: dict[str, str], isolated_home: Path
+) -> None:
+    gate_environment["STUB_REVIEW_EXIT_CODE"] = "1"
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    assert run_hook(gate_environment, "Stop") == {}
+    assert "did not finish: exit 1" in turn_review_log(isolated_home)
+
+
+def test_should_log_a_turn_over_the_file_limit_to_the_turn_review_log(
+    project: Path, gate_environment: dict[str, str], isolated_home: Path
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    for each_index in range(31):
+        (project / "app" / "src" / f"module_{each_index}.py").write_text("value = 1\n")
+    assert run_hook(gate_environment, "Stop") == {}
+    assert "31 files changed this turn" in turn_review_log(isolated_home)
+
+
+def test_should_log_each_stop_with_its_stop_hook_active_flag(
+    gate_environment: dict[str, str], isolated_home: Path
+) -> None:
+    hook_input = {
+        "hook_event_name": "Stop",
+        "session_id": SESSION_ID,
+        "cwd": "/",
+        "stop_hook_active": True,
+    }
+    subprocess.run(
+        [sys.executable, str(GATE_PATH)],
+        input=json.dumps(hook_input),
+        capture_output=True,
+        text=True,
+        env=gate_environment,
+        check=True,
+    )
+    assert "Stop stop_hook_active=True" in turn_review_log(isolated_home)
+
+
+def test_should_register_the_stop_review_to_run_in_the_background() -> None:
+    [stop_registration] = registered_turn_review_hooks("Stop")
+    assert stop_registration["asyncRewake"] is True
+    assert stop_registration["timeout"] > turn_review_gate.STOP_RUN_BUDGET_SECONDS
+    assert str(stop_registration["rewakeSummary"]).strip()
+
+
+def test_should_keep_the_prompt_snapshot_in_the_foreground() -> None:
+    [prompt_registration] = registered_turn_review_hooks("UserPromptSubmit")
+    assert "asyncRewake" not in prompt_registration
+    assert "async" not in prompt_registration
+
+
+def test_should_hold_a_headless_stop_through_the_decision_and_the_exit_code(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    hook_input = {"hook_event_name": "Stop", "session_id": SESSION_ID, "cwd": "/"}
+    completed_process = subprocess.run(
+        [sys.executable, str(GATE_PATH)],
+        input=json.dumps(hook_input),
+        capture_output=True,
+        text=True,
+        env=gate_environment,
+        check=False,
+    )
+    assert completed_process.returncode == 2
+    hold_output = json.loads(completed_process.stdout)
+    assert hold_output["decision"] == "block"
+    assert hold_output["reason"] == completed_process.stderr
+    assert FINDING_TEXT in completed_process.stderr
+
+
+def test_should_wait_for_the_state_lock_before_it_claims_the_turn(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
+    with turn_review_gate._state_lock(SESSION_ID, turn_review_gate.STATE_LOCK_WAIT_SECONDS) as is_locked:
+        assert is_locked
+        running_stop = start_hook(gate_environment, "Stop")
+        time.sleep(0.5)
+    stop_stdout, stop_stderr = running_stop.communicate(timeout=30)
+    assert running_stop.returncode == 2, stop_stderr
+    assert json.loads(stop_stdout)["decision"] == "block"
+
+
+def test_should_count_the_hold_when_the_lock_frees_late_after_the_review(
+    project: Path, gate_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    monkeypatch.setattr(tempfile, "tempdir", gate_environment["TMPDIR"])
+    running_stop = start_hook({**gate_environment, "STUB_REVIEW_SECONDS": "1"}, "Stop")
+    wait_for_review_calls(gate_environment, 1)
+    with turn_review_gate._state_lock(SESSION_ID, turn_review_gate.STATE_LOCK_WAIT_SECONDS) as is_locked:
+        assert is_locked
+        time.sleep(turn_review_gate.STATE_LOCK_WAIT_SECONDS + 1.5)
+    stop_stdout, stop_stderr = running_stop.communicate(timeout=30)
+    assert running_stop.returncode == 2, stop_stderr
+    assert json.loads(stop_stdout)["decision"] == "block"
+    assert saved_state(gate_environment)["blocks_in_a_row"] == 1
+
+
+def test_should_pass_the_stop_quietly_when_the_lock_stays_busy_after_the_review(
+    project: Path,
+    gate_environment: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    isolated_home: Path,
+) -> None:
+    _run_gate_in_process(monkeypatch, gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    original_acquire = turn_review_gate._acquire_with_wait
+    all_lock_calls: list[int] = []
+
+    def acquire_only_the_first_time(file_descriptor: int, wait_seconds: float) -> bool:
+        all_lock_calls.append(file_descriptor)
+        if len(all_lock_calls) > 1:
+            return False
+        return original_acquire(file_descriptor, wait_seconds)
+
+    monkeypatch.setattr(turn_review_gate, "_acquire_with_wait", acquire_only_the_first_time)
+    capsys.readouterr()
+    assert _run_gate_in_process(monkeypatch, gate_environment, "Stop") == 0
+    captured = capsys.readouterr()
+    assert (captured.out, captured.err) == ("", "")
+    assert len(all_lock_calls) == 2
+    assert "Stop left the review state alone" in turn_review_log(isolated_home)
+
+
+def test_should_review_both_turns_when_two_prompts_in_a_row_beat_their_stops(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    edit_service(project, 0)
+    run_hook(gate_environment, "UserPromptSubmit")
+    assert run_hook(gate_environment, "Stop")["decision"] == "block"
+    edit_service(project, 1)
+    run_hook(gate_environment, "UserPromptSubmit")
+    assert run_hook(gate_environment, "Stop")["decision"] == "block"
+    assert len(review_calls(gate_environment)) == 2
+
+
+def test_should_close_the_turn_on_a_stop_long_after_the_prompt_that_found_it_open(
+    project: Path, gate_environment: dict[str, str]
+) -> None:
+    run_hook(gate_environment, "UserPromptSubmit")
+    drop_retry(project)
+    run_hook(gate_environment, "UserPromptSubmit")
+    [state_file] = Path(gate_environment["TMPDIR"]).glob("turn-review-*.json")
+    state = json.loads(state_file.read_text())
+    state["open_turn_prompt_at"] = state["open_turn_prompt_at"] - 60
+    state_file.write_text(json.dumps(state))
+    run_hook(gate_environment, "Stop")
+    (project / "app" / "notes.txt").write_text("the user's own edit between the turns\n")
+    run_hook(gate_environment, "UserPromptSubmit")
+    assert run_hook(gate_environment, "Stop") == {}
+    assert len(review_calls(gate_environment)) == 1
