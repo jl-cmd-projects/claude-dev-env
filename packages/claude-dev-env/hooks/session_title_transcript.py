@@ -11,11 +11,11 @@ The prompt hooks use this module to learn two facts about a session::
     main-chain title call whose result came back without an error
         -> the title the session shows
 
-A ``tools`` listing is the whole inline tool set, so a later listing replaces
-the inline names an earlier listing or call gave. A session that changes its
-tool set mid-run, such as one that leaves a remote connection, stops holding a
-title tool its new listing leaves out. A later ``removedNames`` entry takes a
-title tool away again. Only main-chain entries count: a sidechain entry
+A ``tools`` listing is the whole inline tool set, so the inline title names
+come from the latest listing and the title calls after it. A session whose
+tool set changes mid-run, such as one that leaves a remote connection, holds
+no title tool its latest listing leaves out. A ``removedNames`` entry takes a
+title tool away. Only main-chain entries count: a sidechain entry
 records a subagent's tools and title calls, and a title the format gate denied
 does not count either.
 """
@@ -110,8 +110,8 @@ def available_title_tools(all_entries: list[dict[str, object]]) -> list[str]:
         attachment {"addedNames": [...]}, then {"tools": [Bash]}        -> the deferred name
         no listing and no call                                          -> []
 
-    A ``tools`` listing is the full inline tool set, so it replaces the inline
-    names an earlier listing or call gave. Deferred names change only through
+    A ``tools`` listing is the full inline tool set, so the inline names come
+    from the latest listing and the title calls after it. Deferred names change only through
     ``addedNames``, ``readdedNames``, ``entries`` and ``removedNames``. Only
     main-chain entries count, because a sidechain entry records a subagent's
     tools.
