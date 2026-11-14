@@ -167,6 +167,7 @@ ALL_WRITE_WORDS = frozenset(
     }
 )
 TOOL_NAME_SERVER_SEPARATOR = "__"
+RECORD_SEPARATOR = "\n"
 TOOL_NAME_WORD_BREAK_PATTERN = r"[_\-]+|(?<=[a-z0-9])(?=[A-Z])"
 PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 TASK_LIST_NUDGE = (

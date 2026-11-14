@@ -82,8 +82,14 @@ The words before it are read with the marker characters, full stops, and
 emphasis marks at their ends removed. A word with no letter left is passed
 over, and the rest must be nothing, the word please, the word just, or both
 in that order, read with case folding. So "- [ ] Say when" counts, and "- [x] Say when" and "The docs
-say when" do not. A phrase counts inside emphasis marks too, as in "_needs your_
-merge".
+say when" do not.
+
+The words of a phrase are joined by white space. Up to three asterisks,
+underscores, or opening square brackets may sit on each side of that white
+space, so "needs **your** approval" and "waiting on [you](link)" count, and so
+does "_needs your_ merge". Every place a phrase can start is read, also inside
+another phrase. In Markdown an inline HTML tag or a character entity between
+two words of a phrase breaks it.
 
 These shapes read words. They do not read grammar, so a line can hold a
 negating word in the same clause and still hand over a step, and that line is
@@ -103,7 +109,9 @@ An HTML file is read as its text, one block at a time, with every tag removed
 and the contents of script, style, template, title, textarea, noscript, code,
 pre, and blockquote elements left out. White space in the HTML source counts
 as one space, a ``br`` as a line break, and an inline ``code`` element as
-U+FFFC. A hidden attribute and a style that hides an element are not read, so
+U+FFFC. Each block is read a second time with that character removed, so a
+phrase that a ``code`` element splits still counts. A U+FFFC in the page text
+itself is read as U+FFFD, which no reading removes. A hidden attribute and a style that hides an element are not read, so
 that text still counts.
 """
 
@@ -144,6 +152,7 @@ from hooks_constants.user_step_wording_constants import (
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
+    HTML_LITERAL_STAND_IN_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
     LINE_BREAK,
@@ -154,6 +163,7 @@ from hooks_constants.user_step_wording_constants import (
     OPENER_MARKER_CHARACTERS,
     NEGATED_TAIL_PATTERN,
     ODD_LINE_END_PATTERN,
+    PHRASE_GROUP,
     ALL_NO_LONGER_WORDS,
     THERE_WORD,
     USER_STEP_PATTERN,
@@ -178,7 +188,7 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     has_odd_line_end = ODD_LINE_END_PATTERN.search(clause_text) is not None
     for each_match in USER_STEP_PATTERN.finditer(phrase_text):
         if has_odd_line_end or _hands_over_a_step(clause_text, each_match):
-            return each_match.group()
+            return each_match.group(PHRASE_GROUP)
     return None
 
 
@@ -234,9 +244,10 @@ def _holds_a_joined_code_span(all_clause_words: list[str]) -> bool:
 
 
 def _hands_over_a_step(clause_text: str, phrase_match: re.Match[str]) -> bool:
-    phrase_start = phrase_match.start()
-    is_phrase_on_one_line = LINE_BREAK not in phrase_match.group()
-    if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(clause_text, phrase_match.end()):
+    phrase_start = phrase_match.start(PHRASE_GROUP)
+    phrase = phrase_match.group(PHRASE_GROUP)
+    is_phrase_on_one_line = LINE_BREAK not in phrase
+    if is_phrase_on_one_line and NEGATED_TAIL_PATTERN.match(clause_text, phrase_match.end(PHRASE_GROUP)):
         return False
     clause_start, is_clause_start_in_view = _clause_start(clause_text, phrase_start)
     all_clause_words = _clause_words(clause_text, clause_start, phrase_start)
@@ -244,7 +255,7 @@ def _hands_over_a_step(clause_text: str, phrase_match: re.Match[str]) -> bool:
         return True
     if _holds_a_negator(all_clause_words):
         return False
-    is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase_match.group()) is not None
+    is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase) is not None
     if not is_clause_start_in_view:
         return not is_bare_imperative
     if _opens_with_a_negator(all_clause_words):
@@ -287,7 +298,8 @@ class _VisibleTextParser(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         if not self.hidden_depth:
-            self.all_text_runs.append(HTML_SOURCE_SPACE_PATTERN.sub(HTML_SOURCE_SPACE, data))
+            shown_data = data.replace(CODE_SPAN_STAND_IN, HTML_LITERAL_STAND_IN_TEXT)
+            self.all_text_runs.append(HTML_SOURCE_SPACE_PATTERN.sub(HTML_SOURCE_SPACE, shown_data))
 
 
 def html_visible_text(page_markup: str) -> str:
@@ -341,5 +353,8 @@ def file_waiting_phrase(file_path_text: str, working_directory: object) -> str |
         return None
     file_text = file_bytes.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
     if file_suffix in ALL_HTML_FILE_SUFFIXES:
-        return _first_waiting_phrase(_html_text_with_code_marks(file_text).split(HTML_BLOCK_SEPARATOR))
+        all_blocks = _html_text_with_code_marks(file_text).split(HTML_BLOCK_SEPARATOR)
+        return _first_waiting_phrase(
+            each_reading for each_block in all_blocks for each_reading in (each_block, each_block.replace(CODE_SPAN_STAND_IN, ""))
+        )
     return waiting_phrase(file_text)

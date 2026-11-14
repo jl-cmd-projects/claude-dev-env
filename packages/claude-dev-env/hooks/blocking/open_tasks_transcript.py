@@ -28,7 +28,8 @@ The replay also notes what the current turn did::
                              request_user_input call ran
     has_turn_read_tool       a call ran that can read state: a shell, a file or web
                              read, a subagent, or a tool whose name carries a read
-                             word such as ``get``, ``list`` or ``read``
+                             word such as ``get``, ``list`` or ``read`` and no
+                             write word such as ``update``
     turn_sent_file_paths     the paths the turn's SendUserFile calls sent
 
 A turn starts at the last user prompt record. A tool result, a record flagged
@@ -54,6 +55,7 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from hooks_constants.send_user_file_worktree_root_gate_constants import SEND_USER_FILE_TOOL_NAME
+from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_SKIPPED_PROMPT_FLAGS,
     ASSISTANT_RECORD_TYPE,
@@ -111,6 +113,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TODO_MERGE_KEY,
     TODO_WRITE_TOOL_NAME,
     TOOL_INPUT_KEY,
+    RECORD_SEPARATOR,
     TOOL_NAME_SERVER_SEPARATOR,
     TOOL_NAME_WORD_BREAK_PATTERN,
     TOOL_NAME_KEY,
@@ -156,10 +159,10 @@ def _transcript_records(transcript_path: object) -> list[dict[str, object]]:
     if not isinstance(transcript_path, str):
         return []
     try:
-        all_lines = Path(transcript_path).read_text(encoding=UTF8_ENCODING).splitlines()
-    except OSError:
+        transcript_text = Path(transcript_path).read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
+    except (OSError, ValueError):
         return []
-    all_records = (parsed_object(each_line) for each_line in all_lines)
+    all_records = (parsed_object(each_line) for each_line in transcript_text.split(RECORD_SEPARATOR))
     return [each_record for each_record in all_records if each_record is not None]
 
 

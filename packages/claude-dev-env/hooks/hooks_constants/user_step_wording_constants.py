@@ -4,17 +4,24 @@ import re
 
 WORD_START = r"(?<![^\W_])"
 WORD_END = r"(?![^\W_])"
+PHRASE_GAP = r"[*_\[]{0,3}\s+[*_\[]{0,3}"
+PHRASE_GROUP = "phrase"
 USER_STEP_PATTERN = re.compile(
     WORD_START
-    + r"(?:needs?\s+your?"
-    r"|need(?:ed|s)?\s+from\s+you"
-    r"|wait(?:s|ing)?\s+(?:on|for)\s+your?"
-    r"|blocked\s+on\s+you"
-    r"|you(?:\s+still)?\s+need\s+to"
-    r"|you(?:['’]ll|\s+will)\s+need\s+to"
-    r"|for\s+you\s+to\s+(?:do|run|merge|approve|add|paste|click|decide|confirm|archive|sign|set)"
-    r"|(?:let\s+me\s+know|tell\s+me|say)\s+when"
-    r"|action\s+(?:needed|required))" + WORD_END,
+    + "(?=(?P<" + PHRASE_GROUP + ">"
+    + (
+        r"(?:needs?\s+your?"
+        r"|need(?:ed|s)?\s+from\s+you"
+        r"|wait(?:s|ing)?\s+(?:on|for)\s+your?"
+        r"|blocked\s+on\s+you"
+        r"|you(?:\s+still)?\s+need\s+to"
+        r"|you(?:['’]ll|\s+will)\s+need\s+to"
+        r"|for\s+you\s+to\s+(?:do|run|merge|approve|add|paste|click|decide|confirm|archive|sign|set)"
+        r"|(?:let\s+me\s+know|tell\s+me|say)\s+when"
+        r"|action\s+(?:needed|required))"
+    ).replace(r"\s+", PHRASE_GAP)
+    + WORD_END
+    + "))",
     re.IGNORECASE,
 )
 CLAUSE_WORD_PATTERN = re.compile(r"(?<!\S)\S+")
@@ -41,6 +48,7 @@ LINE_ENDING_PATTERN = re.compile(r"\r\n?")
 ODD_LINE_END_PATTERN = re.compile(r"[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 CODE_SPAN_STAND_IN = "\ufffc"
 CODE_SPAN_SPACE = " "
+HTML_LITERAL_STAND_IN_TEXT = "\ufffd"
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
 BARE_IMPERATIVE_PATTERN = re.compile(r"say\s", re.IGNORECASE)
 OPENER_MARKER_CHARACTERS = "-+#>.)([]*_0123456789"

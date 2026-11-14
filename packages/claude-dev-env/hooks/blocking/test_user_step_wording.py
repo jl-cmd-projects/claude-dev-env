@@ -173,6 +173,9 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
         "There were no items that need you.",
         "Neither build needs you.",
         "The runner no longer needs you.",
+        "Nothing here needs **you**.",
+        "Action **required**: none.",
+        "No item is waiting on [you](https://example.com/you).",
         "**1)** No reviewer needs your approval.",
         "Nothing in `deploy.yml` needs you.",
         "This change does not `yet` need you.",
@@ -180,6 +183,28 @@ def test_should_find_the_phrase_that_says_something_waits_on_the_user(
 )
 def test_should_find_no_phrase_in_text_that_hands_the_user_nothing(shown_text: str) -> None:
     assert user_step_wording.waiting_phrase(shown_text) is None
+
+
+@pytest.mark.parametrize(
+    ("shown_text", "expected_phrase"),
+    [
+        ("Pull request 12 needs **your** approval.", "needs **your"),
+        ("Pull request 12 needs *your* approval.", "needs *your"),
+        ("Pull request 12 **needs** your approval.", "needs** your"),
+        ("Three items are waiting on **you**.", "waiting on **you"),
+        ("The rollout is blocked on _you_.", "blocked on _you"),
+        ("You **still** need to merge pull request 12.", "You **still** need to"),
+        ("Let me know **when** the key is set.", "Let me know **when"),
+        ("Action **required**: merge pull request 12.", "Action **required"),
+        ("Pull request 12 needs [your approval](https://example.com/12).", "needs [your"),
+        ("The release is waiting on [you](https://example.com/you).", "waiting on [you"),
+        ("It does not a b c needs **you need to merge it.", "you need to"),
+    ],
+)
+def test_should_find_a_phrase_with_emphasis_or_a_link_bracket_between_its_words(
+    shown_text: str, expected_phrase: str
+) -> None:
+    assert user_step_wording.waiting_phrase(shown_text) == expected_phrase
 
 
 def test_should_skip_a_match_only_when_a_negating_word_leads_it_in_the_same_clause() -> None:
@@ -282,6 +307,9 @@ def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_pag
         ("<p>Action required: none.&#x2028;Merge item 12 first.</p>", "Action required"),
         ("<p>Item 5 is ready&#x2028;no later than Friday it needs your merge.</p>", "needs your"),
         ("<p>Item 5 needs <code>the merge command</code> your run.</p>", "needs   your"),
+        ("<p>Pull request 12 need<code></code>s your approval.</p>", "needs your"),
+        ("<p>Three items ne<code>x</code>ed you.</p>", "need you"),
+        ("<p>A<code>x</code>ction required: none.\ufffc</p>", "Action required"),
     ],
 )
 def test_should_find_the_phrase_in_each_block_of_a_sent_html_page(

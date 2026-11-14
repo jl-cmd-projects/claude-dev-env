@@ -64,6 +64,30 @@ def test_should_replay_cursor_dynamic_todo_writes_as_tracker_calls(tmp_path: Pat
     assert replay.has_turn_work_tool is False
 
 
+def test_should_keep_a_record_whose_text_holds_an_unescaped_line_separator(tmp_path: Path) -> None:
+    bash_call = {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "ls"}}
+    all_records = [
+        {"type": "user", "message": {"role": "user", "content": "Check the open pull requests"}},
+        {"type": "assistant", "message": {"content": [bash_call]}},
+        {"type": "user", "message": {"role": "user", "content": "Now list what is left\u2028and\x85thanks"}},
+    ]
+    transcript_path = tmp_path / "claude.jsonl"
+    transcript_path.write_text(
+        "\n".join(json.dumps(each_record, ensure_ascii=False) for each_record in all_records), encoding="utf-8"
+    )
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Now list what is left\u2028and\x85thanks"
+    assert replay.has_turn_read_tool is False
+
+
+def test_should_read_a_transcript_that_ends_in_half_a_character(tmp_path: Path) -> None:
+    prompt_record = {"type": "user", "message": {"role": "user", "content": "Export the APKs"}}
+    transcript_path = tmp_path / "claude.jsonl"
+    transcript_path.write_bytes(json.dumps(prompt_record).encode("utf-8") + b"\n{\"type\": \"assistant\", \"text\": \"\xc3")
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.turn_prompt_text == "Export the APKs"
+
+
 def test_should_start_a_new_turn_at_each_prompt_and_reset_its_flags(tmp_path: Path) -> None:
     bash_call = {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "ls"}}
     transcript_path = write_transcript(
