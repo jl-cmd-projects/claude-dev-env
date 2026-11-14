@@ -48,6 +48,8 @@ import user_step_wording
         ("The status__none filter needs your review.", "needs your"),
         ("_Nothing_ here needs you.", "needs you"),
         ("Done. No" + " " * 238 + "needs you.", "needs you"),
+        ("The do-nothing job " + "x " * 114 + "needs your approval.", "needs your"),
+        ("A minor" + " x" * 118 + " needs your approval.", "needs your"),
         ("y " * 150 + "and no" + " " * 235 + "needs you.", "needs you"),
         ("1) Nothing failed\n2) PR 12 needs your merge.", "needs your"),
         ("## Nothing failed in CI\nPR 12 needs your merge.", "needs your"),

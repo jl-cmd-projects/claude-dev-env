@@ -47,8 +47,10 @@ mark, as in "- No open item needs you." and "**No** item needs you." A marker
 before no, neither, or nor belongs to the clause start and is no part of that
 word, so "_No open item_ needs you." is skipped. When the 240 characters hold
 no clause break and do not reach the start of the paragraph, the clause start
-is out of view. Then a word the window cuts in two is dropped, the second
-shape does not apply, and "say when" does not count.
+is out of view. Then the second shape does not apply and "say when" does not
+count. Each pattern reads the whole paragraph, so a word that begins before
+the 240 characters, such as "do-nothing" or "minor", is still read whole and
+no piece of it counts.
 
 A match is skipped too when it is a label with nothing under it. The label
 form is closed, it sits on one line, and it reads in this order::
@@ -94,6 +96,7 @@ an element are not read, so that text still counts.
 
 from __future__ import annotations
 
+import re
 import sys
 from collections.abc import Iterable
 from html.parser import HTMLParser
@@ -116,13 +119,11 @@ from hooks_constants.user_step_wording_constants import (
     CLAUSE_BREAK_PATTERN,
     CLAUSE_LEAD_WINDOW_CHARACTERS,
     CLAUSE_OPENER_PATTERN,
-    CUT_WORD_PATTERN,
     HTML_BLOCK_SEPARATOR,
     HTML_LINE_BREAK_TAG,
     HTML_LINE_BREAK_TEXT,
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
-    LEADING_WORD_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
     NEGATED_CLAUSE_PATTERN,
     NEGATED_CLAUSE_START_PATTERN,
@@ -145,31 +146,35 @@ def waiting_phrase_in_prose(prose_text: str) -> str | None:
     reads in time that grows with its length.
     """
     for each_match in USER_STEP_PATTERN.finditer(prose_text):
-        clause_lead, is_clause_start_in_view = _clause_lead(prose_text, each_match.start())
-        is_tail_negated = NEGATED_TAIL_PATTERN.match(prose_text, each_match.end()) is not None
-        if not is_tail_negated and _hands_over_a_step(each_match.group(), clause_lead, is_clause_start_in_view):
+        if _hands_over_a_step(prose_text, each_match):
             return each_match.group()
     return None
 
 
-def _clause_lead(prose_text: str, phrase_start: int) -> tuple[str, bool]:
+def _clause_start(prose_text: str, phrase_start: int) -> tuple[int, bool]:
     window_start = max(0, phrase_start - CLAUSE_LEAD_WINDOW_CHARACTERS)
-    lead_window = prose_text[window_start:phrase_start]
-    if window_start and CUT_WORD_PATTERN.match(prose_text, window_start - 1):
-        lead_window = LEADING_WORD_PATTERN.sub("", lead_window, count=1)
-    all_lead_clauses = CLAUSE_BREAK_PATTERN.split(lead_window)
-    return all_lead_clauses[-1], window_start == 0 or len(all_lead_clauses) > 1
+    all_break_ends = [
+        each_break.end() for each_break in CLAUSE_BREAK_PATTERN.finditer(prose_text, window_start, phrase_start)
+    ]
+    if all_break_ends:
+        return all_break_ends[-1], True
+    return window_start, window_start == 0
 
 
-def _hands_over_a_step(phrase: str, clause_lead: str, is_clause_start_in_view: bool) -> bool:
-    if NEGATED_CLAUSE_PATTERN.search(clause_lead):
+def _hands_over_a_step(prose_text: str, phrase_match: re.Match[str]) -> bool:
+    phrase_start = phrase_match.start()
+    if NEGATED_TAIL_PATTERN.match(prose_text, phrase_match.end()):
         return False
+    clause_start, is_clause_start_in_view = _clause_start(prose_text, phrase_start)
+    if NEGATED_CLAUSE_PATTERN.search(prose_text, clause_start, phrase_start):
+        return False
+    is_bare_imperative = BARE_IMPERATIVE_PATTERN.match(phrase_match.group()) is not None
     if not is_clause_start_in_view:
-        return not BARE_IMPERATIVE_PATTERN.match(phrase)
-    if NEGATED_CLAUSE_START_PATTERN.match(clause_lead):
+        return not is_bare_imperative
+    if NEGATED_CLAUSE_START_PATTERN.match(prose_text, clause_start, phrase_start):
         return False
-    if BARE_IMPERATIVE_PATTERN.match(phrase):
-        return CLAUSE_OPENER_PATTERN.fullmatch(clause_lead) is not None
+    if is_bare_imperative:
+        return CLAUSE_OPENER_PATTERN.fullmatch(prose_text, clause_start, phrase_start) is not None
     return True
 
 
