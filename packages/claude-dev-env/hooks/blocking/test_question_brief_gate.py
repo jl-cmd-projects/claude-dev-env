@@ -21,6 +21,10 @@ EARLIER_QUESTION_ID = "toolu_question_earlier"
 SHORT_POLL_LIMIT_SECONDS = 0.3
 LATE_WRITE_DELAY_SECONDS = 0.1
 FIFO_RUN_TIMEOUT_SECONDS = 5
+BASH_CALL_ID = "toolu_bash"
+REVIEW_ITEM_COUNT = MAXIMUM_BRIEF_LIST_ITEM_COUNT + 15
+EARLIER_TURN_ITEM_COUNT = MAXIMUM_BRIEF_LIST_ITEM_COUNT + 5
+CURRENT_TURN_ITEM_COUNT = MAXIMUM_BRIEF_LIST_ITEM_COUNT + 1
 
 
 def prompt_entry(prompt_text: str) -> dict[str, object]:
@@ -81,6 +85,46 @@ def result_entry(tool_use_id: object, is_error: bool) -> dict[str, object]:
     return {"type": "user", "message": {"role": "user", "content": [result_block]}}
 
 
+def tool_call_entry(tool_use_id: str, tool_name: str) -> dict[str, object]:
+    return {
+        "type": "assistant",
+        "message": {
+            "id": "msg_b",
+            "role": "assistant",
+            "stop_reason": "tool_use",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": tool_use_id,
+                    "name": tool_name,
+                    "input": {"command": "git status"},
+                }
+            ],
+        },
+    }
+
+
+def held_stop_feedback_entry() -> dict[str, object]:
+    return meta_entry("Stop hook feedback:\nThe reply ends with a question in plain text.")
+
+
+def stop_hook_error_entry() -> dict[str, object]:
+    return {
+        "type": "attachment",
+        "attachment": {
+            "type": "hook_blocking_error",
+            "hookEvent": "Stop",
+            "hookName": "Stop",
+            "toolUseID": "toolu_stop",
+            "blockingError": {"blockingError": "The reply ends with a question in plain text."},
+        },
+    }
+
+
+def task_notification_entry() -> dict[str, object]:
+    return prompt_entry("<task-notification>\n<task-id>a1</task-id>\n</task-notification>")
+
+
 def words(count: int) -> str:
     return " ".join(["word"] * count) + "."
 
@@ -128,6 +172,21 @@ def run_main(
     monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(stdin_bytes), encoding="utf-8"))
     exit_code = question_brief_gate.main()
     return exit_code, capsys.readouterr().err
+
+
+def run_gate_on(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    all_entries: list[dict[str, object]],
+) -> tuple[int, str]:
+    transcript_path = write_transcript(tmp_path, all_entries)
+    payload_bytes = json.dumps(question_payload(str(transcript_path))).encode()
+    return run_main(monkeypatch, capsys, payload_bytes)
+
+
+def item_count_refusal(item_count: int) -> str:
+    return f"runs {item_count} list or table items"
 
 
 def refuse_to_wait(seconds: float) -> None:
@@ -396,6 +455,280 @@ def test_should_pass_when_the_call_never_appears(
         monkeypatch, capsys, json.dumps(question_payload(str(transcript_path))).encode()
     )
     assert (exit_code, error_text) == (0, "")
+
+
+def test_should_keep_counting_through_a_user_entry_with_no_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        prompt_entry("   "),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_through_an_attachment_that_is_not_a_queued_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        {"type": "attachment", "attachment": {"type": "hook_context", "prompt": "Fix"}},
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_end_a_turn_at_a_stop_hook_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(EARLIER_TURN_ITEM_COUNT)),
+        stop_summary_entry(),
+        task_notification_entry(),
+        text_entry(table(CURRENT_TURN_ITEM_COUNT)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(CURRENT_TURN_ITEM_COUNT) in error_text
+
+
+def test_should_end_a_turn_only_at_an_assistant_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        {"type": "progress", "message": {"stop_reason": "end_turn"}},
+        task_notification_entry(),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_through_the_hook_attachment_of_a_held_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT), stop_reason="end_turn"),
+        held_stop_feedback_entry(),
+        stop_hook_error_entry(),
+        stop_summary_entry(),
+        text_entry(words(10)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_across_a_tool_call_in_a_turn_a_task_notification_started(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(words(10), stop_reason="end_turn"),
+        stop_summary_entry(),
+        task_notification_entry(),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        tool_call_entry(BASH_CALL_ID, "Bash"),
+        result_entry(BASH_CALL_ID, False),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_across_a_tool_call_after_a_held_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT), stop_reason="end_turn"),
+        held_stop_feedback_entry(),
+        stop_summary_entry(),
+        tool_call_entry(BASH_CALL_ID, "Bash"),
+        result_entry(BASH_CALL_ID, False),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_count_only_a_tool_use_block_as_a_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "server_tool_use", "id": "srvtoolu_1", "name": "AskUserQuestion"}
+                ]
+            },
+        },
+        result_entry("srvtoolu_1", False),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_across_a_tool_call_that_is_not_a_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        tool_call_entry(BASH_CALL_ID, "Bash"),
+        result_entry(BASH_CALL_ID, False),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_count_only_text_blocks_in_the_brief(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "thinking", "text": table(EARLIER_TURN_ITEM_COUNT)}]},
+        },
+        text_entry(table(CURRENT_TURN_ITEM_COUNT)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(CURRENT_TURN_ITEM_COUNT) in error_text
+
+
+def test_should_start_a_new_count_at_a_prompt_the_user_types_after_an_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(EARLIER_TURN_ITEM_COUNT)),
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "[Request interrupted by user]"}],
+            },
+        },
+        prompt_entry("Use the other file."),
+        text_entry(table(CURRENT_TURN_ITEM_COUNT)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(CURRENT_TURN_ITEM_COUNT) in error_text
+
+
+def test_should_start_a_new_count_at_a_question_result_that_shares_an_entry_with_another_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    parallel_calls = {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "stop_reason": "tool_use",
+            "content": [
+                {"type": "tool_use", "id": EARLIER_QUESTION_ID, "name": "AskUserQuestion"},
+                {"type": "tool_use", "id": BASH_CALL_ID, "name": "Bash"},
+            ],
+        },
+    }
+    parallel_results = {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": EARLIER_QUESTION_ID, "content": "answer"},
+                {"type": "tool_result", "tool_use_id": BASH_CALL_ID, "content": "ok"},
+            ],
+        },
+    }
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(EARLIER_TURN_ITEM_COUNT)),
+        parallel_calls,
+        parallel_results,
+        text_entry(table(CURRENT_TURN_ITEM_COUNT)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(CURRENT_TURN_ITEM_COUNT) in error_text
+
+
+def test_should_keep_counting_through_a_compaction_mid_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(REVIEW_ITEM_COUNT)),
+        {"type": "system", "subtype": "compact_boundary", "content": "Conversation compacted"},
+        {
+            "type": "user",
+            "isCompactSummary": True,
+            "message": {"role": "user", "content": "This session is being continued."},
+        },
+        text_entry(words(10)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+
+
+def test_should_keep_a_turn_ended_through_the_queue_entries_written_after_a_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_entries = [
+        prompt_entry("Fix it."),
+        text_entry(table(EARLIER_TURN_ITEM_COUNT), stop_reason="end_turn"),
+        stop_summary_entry(),
+        {"type": "queue-operation", "operation": "enqueue", "content": "Done."},
+        meta_entry(
+            'Another Claude session sent a message: <agent-message from="a1">Done.</agent-message>'
+        ),
+        text_entry(table(CURRENT_TURN_ITEM_COUNT)),
+        question_entry(QUESTION_ID),
+    ]
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, all_entries)
+    assert exit_code == 2
+    assert item_count_refusal(CURRENT_TURN_ITEM_COUNT) in error_text
+
+
+def test_should_not_wait_when_the_question_is_already_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    all_requested_waits: list[float] = []
+    monkeypatch.setattr(question_brief_gate.time, "sleep", all_requested_waits.append)
+    exit_code, error_text = run_gate_on(tmp_path, monkeypatch, capsys, long_brief_entries())
+    assert exit_code == 2
+    assert item_count_refusal(REVIEW_ITEM_COUNT) in error_text
+    assert all_requested_waits == []
 
 
 @pytest.mark.parametrize(
