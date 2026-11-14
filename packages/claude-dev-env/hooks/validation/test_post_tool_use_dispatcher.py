@@ -411,3 +411,54 @@ def test_should_pass_a_hosted_hook_exit_two_to_the_host_with_its_stderr(
     assert (raised_exit.value.code or 0) == expected_exit_code
     assert "probe child says stop" in capsys.readouterr().err
     assert later_marker.exists()
+
+
+@pytest.mark.parametrize(
+    ("probe_source", "expected_outcome"),
+    [
+        ("import sys\nsys.exit(2)\n", (False, 2)),
+        ("marker = 1\n", (False, 0)),
+        ("import sys\nsys.exit('stop')\n", (False, 0)),
+        ("raise ValueError('probe broke')\n", (True, 0)),
+    ],
+)
+def test_should_report_the_crash_flag_and_exit_code_of_a_hosted_hook(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    probe_source: str,
+    expected_outcome: tuple[bool, int],
+) -> None:
+    dispatcher_module = sys.modules[aggregate_post_hosted_hook_results.__module__]
+    probe_path = tmp_path / "probe.py"
+    probe_path.write_text(probe_source, encoding="utf-8")
+
+    hosted_result = dispatcher_module.run_hosted_hook(
+        str(probe_path), [], "", is_blocking=True
+    )
+
+    assert (hosted_result.did_crash, hosted_result.exit_code) == expected_outcome
+    did_crash = expected_outcome[0]
+    assert ("probe broke" in capsys.readouterr().err) is did_crash
+
+
+def test_should_restore_stdin_stdout_and_argv_after_a_hosted_hook_crashes(
+    tmp_path: Path,
+) -> None:
+    dispatcher_module = sys.modules[aggregate_post_hosted_hook_results.__module__]
+    probe_path = tmp_path / "crash_probe.py"
+    probe_path.write_text(
+        "import sys\nprint(sys.argv[1] + sys.stdin.read())\nraise ValueError('probe broke')\n",
+        encoding="utf-8",
+    )
+    stdin_before, stdout_before, argv_before = sys.stdin, sys.stdout, sys.argv
+
+    hosted_result = dispatcher_module.run_hosted_hook(
+        str(probe_path), ["tail"], "payload", is_blocking=True
+    )
+
+    assert sys.stdin is stdin_before
+    assert sys.stdout is stdout_before
+    assert sys.argv is argv_before
+    assert hosted_result == PostHostedHookResult(
+        captured_stdout="tailpayload\n", did_crash=True, is_blocking=True, exit_code=0
+    )
