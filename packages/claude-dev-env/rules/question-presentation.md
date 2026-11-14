@@ -6,6 +6,6 @@ Ask one short question per item, never a chat list, with two or three choices, e
 
 Find the native question tool. Claude may use `AskUserQuestion`; Codex may use `request_user_input_async` or `request_user_input`. Honor mode rules. Put the question and choices in its fields. If unusable, ask in chat.
 
-When the user asks for option cards or a Codex visual comparison, read the full text first.
+To hand over a step, option cards, or a Codex visual comparison, read the full text first.
 
 **Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).

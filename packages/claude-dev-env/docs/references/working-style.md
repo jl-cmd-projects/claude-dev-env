@@ -6,6 +6,8 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 
 - Document each task in a location that remains easy to find later.
 - Keep a running scratch text ledger as you work.
+- Remove completed items from the task list before the turn ends, so the list shows only open work.
+- Read an open item's live state before you show it to the user as open.
 - Keep each task list subject to 80 characters or fewer, start it with who acts (Me, You, or Handed off), and say what is left; put detail in the description.
 
 ## Presentation
@@ -39,3 +41,4 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 - Ask one focused clarification question when the ambiguity changes the outcome, scope, audience, format, or risk.
 - Use a clearly stated low-risk assumption when the intended result remains stable.
 - Pause for the user's choice before making a high-impact decision.
+- Hand the user a step as its own question, with the command block to paste or the link to open inside it. Leave long guides out.

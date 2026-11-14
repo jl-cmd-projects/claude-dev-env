@@ -248,6 +248,30 @@ def test_cursor_verifier_constants_require_the_changed_driver_suite(
     ) == ()
 
 
+def test_constants_behind_a_differently_named_suite_require_that_changed_suite(
+    tmp_path: Path,
+) -> None:
+    all_suite_paths_by_constants_path = {
+        PurePosixPath(
+            ".claude/hillclimb/subagent-effort-routing/routing_eval_support/config/constants.py"
+        ): PurePosixPath(".claude/hillclimb/subagent-effort-routing/test_grading.py"),
+        PurePosixPath(
+            "packages/claude-dev-env/hooks/hooks_constants/once_per_session_constants.py"
+        ): PurePosixPath("packages/claude-dev-env/hooks/test_once_per_session.py"),
+        PurePosixPath(
+            "packages/claude-dev-env/hooks/hooks_constants/subagent_effort_route_constants.py"
+        ): PurePosixPath(
+            "packages/claude-dev-env/hooks/routing/test_subagent_effort_route.py"
+        ),
+    }
+    for each_constants_path, each_suite_path in all_suite_paths_by_constants_path.items():
+        constants_change = _body_change_at(each_constants_path)
+        assert _diagnostic_paths(tmp_path, constants_change) == (each_constants_path,)
+        assert _diagnostic_paths(
+            tmp_path, constants_change, _body_change_at(each_suite_path)
+        ) == ()
+
+
 def test_pairing_rejects_an_unrelated_module_beside_a_changed_approved_suite(
     tmp_path: Path,
 ) -> None:

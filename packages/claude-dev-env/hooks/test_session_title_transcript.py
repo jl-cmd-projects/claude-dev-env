@@ -23,6 +23,13 @@ DEFERRED_LISTING = {
     "type": "attachment",
     "attachment": {"type": "deferred_tools_delta", "addedNames": [DESKTOP_TITLE_TOOL]},
 }
+LATER_LISTING_WITHOUT_TITLE_TOOL = {
+    "type": "attachment",
+    "attachment": {
+        "type": "prompt_snapshot",
+        "tools": [{"name": "Bash"}, {"name": "ToolSearch"}],
+    },
+}
 REMOVAL_LISTING = {
     "type": "attachment",
     "attachment": {"type": "deferred_tools_delta", "removedNames": [DESKTOP_TITLE_TOOL]},
@@ -76,6 +83,30 @@ def test_should_find_the_title_tool_in_a_listing_a_deferred_delta_or_a_call() ->
 
 def test_should_drop_a_title_tool_a_later_delta_removes() -> None:
     assert available_title_tools([DEFERRED_LISTING, REMOVAL_LISTING]) == []
+
+
+@pytest.mark.parametrize(
+    "all_earlier_entries",
+    [
+        [SNAPSHOT_LISTING],
+        [SNAPSHOT_LISTING, title_call("t1", HOURGLASS_TITLE), title_result("t1")],
+    ],
+)
+def test_should_drop_an_inline_title_tool_a_later_full_listing_leaves_out(
+    all_earlier_entries: list[dict[str, object]],
+) -> None:
+    all_entries = [*all_earlier_entries, LATER_LISTING_WITHOUT_TITLE_TOOL]
+    assert available_title_tools(all_entries) == []
+
+
+def test_should_keep_a_deferred_title_tool_across_a_later_full_listing() -> None:
+    all_entries = [DEFERRED_LISTING, LATER_LISTING_WITHOUT_TITLE_TOOL]
+    assert available_title_tools(all_entries) == [DESKTOP_TITLE_TOOL]
+
+
+def test_should_ignore_a_tool_listing_on_a_sidechain() -> None:
+    sidechain_listing = {**LATER_LISTING_WITHOUT_TITLE_TOOL, "isSidechain": True}
+    assert available_title_tools([SNAPSHOT_LISTING, sidechain_listing]) == [REMOTE_TITLE_TOOL]
 
 
 def test_should_return_the_last_main_chain_title_that_came_back_without_an_error() -> None:

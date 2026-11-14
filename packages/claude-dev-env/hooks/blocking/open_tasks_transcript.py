@@ -26,6 +26,11 @@ The replay also notes what the current turn did::
                              TaskList, TaskGet, and the Codex request_user_input card
     has_turn_question_tool   an AskUserQuestion, hearthbot decision card, or Codex
                              request_user_input call ran
+    has_turn_read_tool       a call ran that can read state: a shell, a file or web
+                             read, a subagent, or a tool whose name carries a read
+                             word such as ``get``, ``list`` or ``read`` and no
+                             write word such as ``update``
+    turn_sent_file_paths     the paths the turn's SendUserFile calls sent
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -49,6 +54,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from hooks_constants.send_user_file_worktree_root_gate_constants import SEND_USER_FILE_TOOL_NAME
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_SKIPPED_PROMPT_FLAGS,
@@ -56,7 +62,10 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_CODEX_TOOL_CALL_TYPES,
     ALL_NON_WORK_TOOL_NAMES,
     ALL_QUESTION_TOOL_NAMES,
+    ALL_READ_TOOL_NAMES,
+    ALL_READ_WORDS,
     ALL_TRACKER_TOOL_NAMES,
+    ALL_WRITE_WORDS,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
     CCD_PLAN_CONTENT_KEY,
@@ -67,6 +76,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CCD_PLAN_TOOL_NAME,
     CODEX_ARGUMENTS_KEY,
     CODEX_FUNCTION_CALL_TYPE,
+    CODEX_LOCAL_SHELL_CALL_TYPE,
     CODEX_MESSAGE_TYPE,
     CODEX_PAYLOAD_KEY,
     CODEX_PLAN_KEY,
@@ -86,6 +96,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     PENDING_STATUS,
     RECORD_TYPE_KEY,
     ROLE_KEY,
+    SENT_FILES_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
@@ -102,6 +113,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TODO_MERGE_KEY,
     TODO_WRITE_TOOL_NAME,
     TOOL_INPUT_KEY,
+    RECORD_SEPARATOR,
+    TOOL_NAME_SERVER_SEPARATOR,
+    TOOL_NAME_WORD_BREAK_PATTERN,
     TOOL_NAME_KEY,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -133,10 +147,13 @@ def normalized_text(text: str) -> str:
 
 
 def parsed_object(json_text: str) -> dict[str, object] | None:
-    """Return the JSON object in the text, or None for anything else."""
+    """Return the JSON object in the text, or None for anything else.
+
+    Text that is no JSON, or JSON nested too deep to parse, is None.
+    """
     try:
         parsed_value = json.loads(json_text)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     return parsed_value if isinstance(parsed_value, dict) else None
 
@@ -145,14 +162,10 @@ def _transcript_records(transcript_path: object) -> list[dict[str, object]]:
     if not isinstance(transcript_path, str):
         return []
     try:
-        all_lines = (
-            Path(transcript_path)
-            .read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
-            .splitlines()
-        )
-    except OSError:
+        transcript_text = Path(transcript_path).read_text(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
+    except (OSError, ValueError):
         return []
-    all_records = (parsed_object(each_line) for each_line in all_lines)
+    all_records = (parsed_object(each_line) for each_line in transcript_text.split(RECORD_SEPARATOR))
     return [each_record for each_record in all_records if each_record is not None]
 
 
@@ -232,6 +245,16 @@ def is_codex_work_call(all_record_fields: dict[str, object]) -> bool:
     return tool_name != CODEX_PLAN_TOOL_NAME and is_work_tool_name(tool_name)
 
 
+def is_codex_read_call(all_record_fields: dict[str, object]) -> bool:
+    """Return True for a Codex tool call record whose tool can read state; a ``local_shell_call`` carries no name and counts."""
+    payload_body = _codex_payload(all_record_fields)
+    if payload_body is None or payload_body.get(RECORD_TYPE_KEY) not in ALL_CODEX_TOOL_CALL_TYPES:
+        return False
+    if payload_body.get(RECORD_TYPE_KEY) == CODEX_LOCAL_SHELL_CALL_TYPE:
+        return True
+    return is_read_tool_name(payload_body.get(TOOL_NAME_KEY))
+
+
 def is_codex_question_call(all_record_fields: dict[str, object]) -> bool:
     """Return True for a Codex tool call record that sends a question card."""
     payload_body = _codex_payload(all_record_fields)
@@ -246,6 +269,43 @@ def is_work_tool_name(tool_name: object) -> bool:
         isinstance(tool_name, str)
         and (tool_name in ALL_NON_WORK_TOOL_NAMES or tool_name.endswith(SESSION_TITLE_TOOL_SUFFIX))
     )
+
+
+def is_read_tool_name(tool_name: object) -> bool:
+    """Return True for a tool that can read state.
+
+    ::
+
+        Bash, Read, WebFetch, Agent, shell         -> True
+        mcp__github__pull_request_read             -> True
+        mcp__claude-code-remote__get_session       -> True
+        ReadMcpResourceTool, mcp__x__getIssue      -> True
+        Write, SendUserFile, TaskUpdate            -> False
+        TaskList, TaskGet                          -> False
+        mcp__tracker__update_status, AppendLog     -> False
+        mcp__logs__write_entry                     -> False
+
+    A name counts when one of its words is a read word and none is a write
+    word. Only the part after the last double underscore is read, so a server
+    name never decides it. Words are split at underscores, hyphens, and a
+    capital that follows a lower-case letter or a digit. A tool that is no work tool never counts: TaskList and TaskGet read
+    the task list itself, and ToolSearch and the question tools read no state.
+    """
+    if not isinstance(tool_name, str) or tool_name in ALL_NON_WORK_TOOL_NAMES:
+        return False
+    if tool_name in ALL_READ_TOOL_NAMES:
+        return True
+    action_name = tool_name.rsplit(TOOL_NAME_SERVER_SEPARATOR, 1)[-1]
+    all_name_words = {each_word.lower() for each_word in re.split(TOOL_NAME_WORD_BREAK_PATTERN, action_name)}
+    return not ALL_READ_WORDS.isdisjoint(all_name_words) and ALL_WRITE_WORDS.isdisjoint(all_name_words)
+
+
+def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) -> list[str]:
+    """Return the file paths a SendUserFile call sends, or an empty list for any other call."""
+    all_sent_files = all_input_fields.get(SENT_FILES_KEY)
+    if tool_name != SEND_USER_FILE_TOOL_NAME or not isinstance(all_sent_files, list):
+        return []
+    return [each_path for each_path in all_sent_files if isinstance(each_path, str)]
 
 
 def is_assistant_record(all_record_fields: dict[str, object]) -> bool:
@@ -349,12 +409,16 @@ class TranscriptReplay:
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
+        self.has_turn_read_tool = False
+        self.turn_sent_file_paths: list[str] = []
 
     def start_turn(self, prompt_text: str) -> None:
         self.turn_prompt_text = prompt_text
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
+        self.has_turn_read_tool = False
+        self.turn_sent_file_paths = []
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
@@ -373,6 +437,7 @@ class TranscriptReplay:
             return
         if is_codex_work_call(all_record_fields):
             self.has_turn_work_tool = True
+            self.has_turn_read_tool = self.has_turn_read_tool or is_codex_read_call(all_record_fields)
             return
         is_typed_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         is_from_assistant = is_assistant_record(all_record_fields)
@@ -423,12 +488,15 @@ class TranscriptReplay:
             self.apply_tool_use(tool_name, str(all_block_fields.get(TASK_ID_KEY)), all_tool_arguments)
             if is_from_assistant:
                 self.note_turn_tool(tool_name)
+                self.turn_sent_file_paths.extend(send_call_file_paths(tool_name, all_tool_arguments))
         elif block_type == TOOL_RESULT_BLOCK_TYPE:
             self.apply_tool_result(all_block_fields)
 
     def note_turn_tool(self, tool_name: str) -> None:
         if tool_name in ALL_QUESTION_TOOL_NAMES:
             self.has_turn_question_tool = True
+        if is_read_tool_name(tool_name):
+            self.has_turn_read_tool = True
         if tool_name in ALL_TRACKER_TOOL_NAMES:
             self.has_turn_tracker_write = True
         elif is_work_tool_name(tool_name):
