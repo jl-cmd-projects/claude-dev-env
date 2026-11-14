@@ -1,5 +1,6 @@
 """Behavior tests for the answers one pull request lifecycle gate run remembers."""
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -20,10 +21,13 @@ from blocking.gate_run_reads import (
     read_allowance,
     read_deadlines_started,
 )
+from hooks_constants.followup_pr_dedupe_constants import READ_TIMEOUT_SECONDS
 from hooks_constants.gate_run_reads_constants import (
     FOLLOWUP_READS_SECONDS,
     KILL_GRACE_SECONDS,
+    MOST_CUT_READS_PER_RUN,
     PROOF_AND_LOOK_READS_SECONDS,
+    STARTUP_AND_SCAN_MARGIN_SECONDS,
 )
 
 CLOCK_START = 100.0
@@ -35,6 +39,7 @@ GRANDCHILD_HOLDS_THE_PIPE = (
     " time.sleep(30)"
 )
 ELAPSED_SLACK_SECONDS = 8.0
+GATE_COMMAND_SUFFIX = "hooks/blocking/pr_lifecycle_" + "skill_gate.py"
 
 
 class FakeClock:
@@ -209,3 +214,28 @@ def test_answer_within_allowance_should_return_the_answer_and_raise_the_read_err
     assert all_allowances == [4]
     with pytest.raises(OSError, match="offline"):
         answer_within_allowance(failing_read, 4, ReadSlice.FOLLOWUP)
+
+
+def _registered_gate_timeout_seconds() -> int:
+    all_registration_fields = json.loads((HOOKS_DIRECTORY / "hooks.json").read_text(encoding="utf-8"))
+    all_timeouts = [
+        each_hook["timeout"]
+        for each_group in all_registration_fields["hooks"]["PreToolUse"]
+        for each_hook in each_group["hooks"]
+        if each_hook.get("command", "").endswith(GATE_COMMAND_SUFFIX)
+    ]
+    assert len(all_timeouts) == 1
+    return all_timeouts[0]
+
+
+def test_both_followup_reads_should_fit_inside_their_reserved_slice() -> None:
+    assert READ_TIMEOUT_SECONDS * 2 <= FOLLOWUP_READS_SECONDS
+
+
+def test_registered_timeout_should_outlast_every_read_deadline_and_kill_grace() -> None:
+    last_read_ends_at = (
+        PROOF_AND_LOOK_READS_SECONDS
+        + FOLLOWUP_READS_SECONDS
+        + KILL_GRACE_SECONDS * MOST_CUT_READS_PER_RUN
+    )
+    assert _registered_gate_timeout_seconds() >= last_read_ends_at + STARTUP_AND_SCAN_MARGIN_SECONDS
