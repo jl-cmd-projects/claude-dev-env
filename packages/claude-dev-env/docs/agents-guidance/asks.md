@@ -14,6 +14,8 @@ Work every ask from the user now, without pause, until it is done with proof you
 - Record each ask as one item in the session tracker: `TaskCreate`, `TodoWrite`, or the Codex `update_plan` tool. The user follows your work there.
 - Keep each item's status current as the work moves: in progress when you start it, completed only after you saw the proof. A long turn updates the list at each step, so the list never lags the work.
 - An item blocked on the user stays open, and the reply says what the user must give.
+- Name each item by its outcome in the user's words, so the user sees at a glance where the work stands and what is left. Keep internal procedure steps, playbook step names, and skill names out of the list the user follows. Put them in a private checklist file, such as `todo.md` in the work folder.
+- When the user asks where things stand, answer with what is done, what is being built, what is left, and what needs the user.
 
 ## Completion reports
 
@@ -44,6 +46,8 @@ The gate holds a turn once when all three hold:
 - The turn made no tracker call: TaskCreate, TaskUpdate, TodoWrite, the Codex `update_plan`, or the Claude Code desktop `mcp__ccd_turn__update_plan`.
 
 The gate never reads the reply text. A held turn passes, so the gate adds at most one step to a turn.
+
+In Claude Code, `task_subject_outcome_gate.py` runs on `PreToolUse` for TaskCreate, TaskUpdate, and TodoWrite. It denies a subject that starts with a procedure step label such as `Step 3:` or `Feature 6-8:`, or that holds a backtick, and the reason asks for an outcome name.
 
 In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For the session's first prompt that asks for work, and the first after each compaction, it adds one note that asks for an item in the session's task list tool, so the agent tracks the ask before it starts. The note never blocks.
 
