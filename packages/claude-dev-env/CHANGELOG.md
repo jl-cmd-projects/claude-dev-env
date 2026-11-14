@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.117.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.1...claude-dev-env-v8.117.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** hold a turn that shows a stale task list or hands over a step with no question ([#2348](https://github.com/jl-cmd-projects/claude-dev-env/issues/2348)) ([ab2c3bd](https://github.com/jl-cmd-projects/claude-dev-env/commit/ab2c3bda97a8a366cb9cfae1935cd38a20886281))
+
 ## [8.117.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.0...claude-dev-env-v8.117.1) (2026-11-14)
 
 
