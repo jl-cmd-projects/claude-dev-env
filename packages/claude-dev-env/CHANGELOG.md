@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.116.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.1...claude-dev-env-v8.116.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **hooks:** keep the pull request gate inside its registered timeout ([#2339](https://github.com/jl-cmd-projects/claude-dev-env/issues/2339)) ([12ca36c](https://github.com/jl-cmd-projects/claude-dev-env/commit/12ca36c5e197cfdc965e931db196625e46f77961))
+
 ## [8.116.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.116.0...claude-dev-env-v8.116.1) (2026-11-13)
 
 
