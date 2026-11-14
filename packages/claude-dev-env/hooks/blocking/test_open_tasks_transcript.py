@@ -276,7 +276,22 @@ def test_should_call_a_tool_that_can_read_state_a_read_tool(tool_name: str) -> N
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["Write", "Edit", "SendUserFile", "TaskList", "TaskGet", "TaskUpdate", "AskUserQuestion", "mcp__notes__getaway", None],
+    [
+        "Write",
+        "Edit",
+        "SendUserFile",
+        "TaskList",
+        "TaskGet",
+        "TaskUpdate",
+        "AskUserQuestion",
+        "mcp__notes__getaway",
+        "mcp__tracker__update_status",
+        "mcp__store__update_auth_logs_export",
+        "AppendLog",
+        "mcp__logs__write_entry",
+        "mcp__status-page__publish",
+        None,
+    ],
 )
 def test_should_not_call_a_write_a_tracker_or_a_question_tool_a_read_tool(tool_name: object) -> None:
     assert is_read_tool_name(tool_name) is False

@@ -63,6 +63,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_READ_TOOL_NAMES,
     ALL_READ_WORDS,
     ALL_TRACKER_TOOL_NAMES,
+    ALL_WRITE_WORDS,
     ASSISTANT_ROLE,
     CCD_PLAN_ADVANCE_KEY,
     CCD_PLAN_CONTENT_KEY,
@@ -110,6 +111,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TODO_MERGE_KEY,
     TODO_WRITE_TOOL_NAME,
     TOOL_INPUT_KEY,
+    TOOL_NAME_SERVER_SEPARATOR,
     TOOL_NAME_WORD_BREAK_PATTERN,
     TOOL_NAME_KEY,
     TOOL_RESULT_BLOCK_TYPE,
@@ -274,18 +276,22 @@ def is_read_tool_name(tool_name: object) -> bool:
         ReadMcpResourceTool, mcp__x__getIssue      -> True
         Write, SendUserFile, TaskUpdate            -> False
         TaskList, TaskGet                          -> False
+        mcp__tracker__update_status, AppendLog     -> False
+        mcp__logs__write_entry                     -> False
 
-    A name counts when one of its words is a read word. Words are split at
-    underscores, hyphens, and a capital that follows a lower-case letter or a
-    digit. A tool that is no work tool never counts: TaskList and TaskGet read
+    A name counts when one of its words is a read word and none is a write
+    word. Only the part after the last double underscore is read, so a server
+    name never decides it. Words are split at underscores, hyphens, and a
+    capital that follows a lower-case letter or a digit. A tool that is no work tool never counts: TaskList and TaskGet read
     the task list itself, and ToolSearch and the question tools read no state.
     """
     if not isinstance(tool_name, str) or tool_name in ALL_NON_WORK_TOOL_NAMES:
         return False
     if tool_name in ALL_READ_TOOL_NAMES:
         return True
-    all_name_words = re.split(TOOL_NAME_WORD_BREAK_PATTERN, tool_name)
-    return any(each_word.lower() in ALL_READ_WORDS for each_word in all_name_words)
+    action_name = tool_name.rsplit(TOOL_NAME_SERVER_SEPARATOR, 1)[-1]
+    all_name_words = {each_word.lower() for each_word in re.split(TOOL_NAME_WORD_BREAK_PATTERN, action_name)}
+    return not ALL_READ_WORDS.isdisjoint(all_name_words) and ALL_WRITE_WORDS.isdisjoint(all_name_words)
 
 
 def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) -> list[str]:

@@ -160,6 +160,13 @@ ALL_READ_TOOL_NAMES = frozenset(
 ALL_READ_WORDS = frozenset(
     {"get", "list", "read", "view", "search", "fetch", "query", "describe", "status", "log", "logs", "diff", "show"}
 )
+ALL_WRITE_WORDS = frozenset(
+    {
+        "update", "set", "create", "delete", "write", "append", "add", "remove", "send", "post", "edit",
+        "put", "patch", "save", "insert", "reset", "apply", "replace",
+    }
+)
+TOOL_NAME_SERVER_SEPARATOR = "__"
 TOOL_NAME_WORD_BREAK_PATTERN = r"[_\-]+|(?<=[a-z0-9])(?=[A-Z])"
 PROMPT_SUBMIT_EVENT_NAME = "UserPromptSubmit"
 TASK_LIST_NUDGE = (

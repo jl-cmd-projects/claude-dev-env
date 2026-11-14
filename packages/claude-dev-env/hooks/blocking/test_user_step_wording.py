@@ -91,7 +91,23 @@ import user_step_wording
         ("The docs pull request _needs your_ merge.", "needs your"),
         ("__Action required__: rotate the deploy key.", "Action required"),
         ("Nothing on this list\u2028needs you.", "needs you"),
-        ("Action\u2028required: none.", "Action\nrequired"),
+        ("Action\u2028required: none.", "Action\u2028required"),
+        ("Done.\u2028> Two items need you.", "need you"),
+        ("Status\u2028~~~\u2028Item 12 needs your merge.\u2028~~~", "needs your"),
+        ("Status\x0b<div>\x0bItem 12 needs your merge.", "needs your"),
+        ("Action required: none.\u2028Merge item 12 first.", "Action required"),
+        ("Action required:\x0cnone.", "Action required"),
+        ("Item 5 is ready\x85no later than Friday it needs your merge.", "needs your"),
+        ("The deploy did not start because api`/`web needs your token.", "needs your"),
+        ("It is not a`x`b c that needs your merge.", "needs your"),
+        ("It isn't a`x`b c that needs your merge.", "needs your"),
+        ("Action required: none. `run merge 12`", "Action required"),
+        ("**Action required:** none `run merge 12`", "Action required"),
+        ("Action required: none.\ufffc", "Action required"),
+        ("Action required `now`: none.", "Action required"),
+        ("No`-reply` inbox needs your record.", "needs your"),
+        ("Plea\u017fe say when the demo sessions may be archived.", "say when"),
+        ("Ju\u017ft say when the demo sessions may be archived.", "say when"),
         ("\ufeffSay when the demo sessions may be archived.", "Say when"),
         ("\u2022 Say when the demo sessions may be archived.", "Say when"),
         ("(Please say when the demo sessions may be archived.)", "say when"),
@@ -206,11 +222,22 @@ def test_should_hold_a_negating_word_with_any_other_character_joined_to_it() -> 
     assert user_step_wording.waiting_phrase_in_prose("It isn't- waiting on you.") == "waiting on you"
 
 
-@pytest.mark.parametrize("line_end", ["\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
-def test_should_end_a_clause_at_every_character_that_ends_a_line(line_end: str) -> None:
+@pytest.mark.parametrize("line_end", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
+def test_should_hold_every_match_in_a_paragraph_with_an_odd_line_end(line_end: str) -> None:
     assert "a\nb".splitlines() == ("a" + line_end + "b").splitlines()
-    assert user_step_wording.waiting_phrase_in_prose("Nothing on this list" + line_end + "needs you.") == "needs you"
-    assert user_step_wording.waiting_phrase_in_prose("Action" + line_end + "required: none.") == "Action\nrequired"
+    all_negated_texts = [
+        "Nothing on this list" + line_end + "needs you.",
+        "Nothing here needs you." + line_end,
+        line_end + "No open item needs you.",
+        "Action required: none." + line_end + "Merge item 12 first.",
+        "Action required:" + line_end + "none.",
+        "The docs" + line_end + "say when the token expires.",
+    ]
+    all_skipped_texts = [
+        each_text for each_text in all_negated_texts if user_step_wording.waiting_phrase_in_prose(each_text) is None
+    ]
+    assert all_skipped_texts == []
+    assert user_step_wording.waiting_phrase("Nothing here needs you.\n\nBoth builds passed." + line_end) is None
 
 
 def test_should_read_a_long_text_of_negated_phrases_in_linear_time() -> None:
@@ -250,6 +277,11 @@ def test_should_leave_code_quotes_and_unclosed_script_openers_out_of_an_html_pag
         ("<h2>Action required</h2><p>None of the items below can ship until you approve item 12.</p>", "Action required"),
         ("<table><tr><td>Needs you</td><td>none</td></tr></table>", "Needs you"),
         ("<p>Action required: <b>none</b>.</p>", None),
+        ("<p>No<code>-reply</code> inbox needs your record.</p>", "needs your"),
+        ("<p>Action required: none.<code>run merge 12</code></p>", "Action required"),
+        ("<p>Action required: none.&#x2028;Merge item 12 first.</p>", "Action required"),
+        ("<p>Item 5 is ready&#x2028;no later than Friday it needs your merge.</p>", "needs your"),
+        ("<p>Item 5 needs <code>the merge command</code> your run.</p>", "needs   your"),
     ],
 )
 def test_should_find_the_phrase_in_each_block_of_a_sent_html_page(

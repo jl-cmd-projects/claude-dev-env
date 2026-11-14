@@ -37,7 +37,8 @@ NEGATED_TAIL_PATTERN = re.compile(
 )
 CLAUSE_BREAK_PATTERN = re.compile(r"[.!?,;:|\n]|\b(?:and|but|so|then|while)\b", re.IGNORECASE)
 LINE_BREAK = "\n"
-LINE_ENDING_PATTERN = re.compile(r"\r\n?|[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
+LINE_ENDING_PATTERN = re.compile(r"\r\n?")
+ODD_LINE_END_PATTERN = re.compile(r"[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 CODE_SPAN_STAND_IN = "\ufffc"
 CODE_SPAN_SPACE = " "
 CLAUSE_LEAD_WINDOW_CHARACTERS = 240
