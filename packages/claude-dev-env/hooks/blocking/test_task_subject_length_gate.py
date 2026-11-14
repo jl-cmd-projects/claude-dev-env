@@ -25,9 +25,9 @@ LONG_STATUS_SUBJECT = (
     " on fifteen named cases and twenty thousand random ones"
 )
 ALL_SHORT_SUBJECTS = [
-    "Me: open the automation scripts pull request (last check running)",
-    "You: one live try on your PC, then claude-dev-env pull request 2345 can merge",
-    "Handed off: three end-of-reply checks left to build (card is ready)",
+    "Turn review quick eval: last check running, then open the pull request",
+    "Usage meter fix: merged, one live try on your PC left",
+    "End-of-reply checks: handed off, three of five left to build",
 ]
 
 
@@ -68,22 +68,23 @@ def test_should_deny_a_task_create_subject_that_carries_status_detail() -> None:
 
     assert f"{len(LONG_STATUS_SUBJECT)} characters" in reason
     assert str(SUBJECT_LIMIT) in reason
-    for each_actor in ("Me", "You", "Handed off"):
-        assert each_actor in reason
+    for each_part in ("name the goal", "where it stands", "what is left"):
+        assert each_part in reason
+    assert "who acts" not in reason
     assert "description" in reason
 
 
 @pytest.mark.parametrize("subject", ALL_SHORT_SUBJECTS)
-def test_should_pass_a_short_subject_that_starts_with_who_acts(subject: str) -> None:
+def test_should_pass_a_short_subject_named_for_the_goal(subject: str) -> None:
     _assert_silent_pass(_run_hook("TaskCreate", {"subject": subject, "description": "x" * 900}))
 
 
 def test_should_pass_a_subject_at_the_limit() -> None:
-    _assert_silent_pass(_run_hook("TaskCreate", {"subject": "Me: " + "x" * (SUBJECT_LIMIT - 4)}))
+    _assert_silent_pass(_run_hook("TaskCreate", {"subject": "x" * SUBJECT_LIMIT}))
 
 
 def test_should_deny_a_subject_one_character_over_the_limit() -> None:
-    reason = _deny_reason(_run_hook("TaskCreate", {"subject": "Me: " + "x" * (SUBJECT_LIMIT - 3)}))
+    reason = _deny_reason(_run_hook("TaskCreate", {"subject": "x" * (SUBJECT_LIMIT + 1)}))
 
     assert f"{SUBJECT_LIMIT + 1} characters" in reason
 
@@ -115,8 +116,9 @@ def test_should_deny_a_todo_write_with_one_long_item_and_name_it() -> None:
     assert ALL_SHORT_SUBJECTS[0] not in reason
     assert f"{len(LONG_STATUS_SUBJECT)} characters" in reason
     assert "item 2 " in reason
-    for each_actor in ("Me", "You", "Handed off"):
-        assert each_actor in reason
+    for each_part in ("name the goal", "where it stands", "what is left"):
+        assert each_part in reason
+    assert "who acts" not in reason
     assert "description" in reason
 
 

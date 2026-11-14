@@ -30,9 +30,9 @@ MAXIMUM_SUBJECT_CHARACTERS = 80
 
 _SHORTEN_INSTRUCTION = (
     " The user reads the task list to see where things stand and what is left."
-    " Write a short subject: start with who acts (Me, You, or Handed off) and say what is left,"
-    ' for example "You: one live try on your PC, then the pull request can merge".'
-    " Put status detail, evidence and steps in the description."
+    " Write a short subject: name the goal, then say where it stands and what is left,"
+    ' for example "Usage meter fix: merged, one live try on your PC left".'
+    " Put evidence and steps in the description."
 )
 LONG_SUBJECT_REASON_TEMPLATE = (
     "This task subject is {length} characters and the limit is {maximum}." + _SHORTEN_INSTRUCTION

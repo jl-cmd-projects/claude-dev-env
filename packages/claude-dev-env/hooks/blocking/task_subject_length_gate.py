@@ -2,11 +2,11 @@
 """PreToolUse hook: refuse a task list item whose name is longer than 80 characters.
 
 The user reads the task list to see where things stand and what is left. A
-subject that carries status detail turns that list into a wall of words, so
-the gate refuses it and says how to shorten it::
+subject that carries evidence and steps turns that list into a wall of words,
+so the gate refuses it and says how to shorten it::
 
     TaskCreate subject of 220 characters          -> refused, names the length
-    TaskCreate "Me: open the pull request"        -> allowed
+    TaskCreate "Gate gaps: review left, then merge" -> allowed
     TaskUpdate with only taskId and status        -> allowed
     TodoWrite with one item over 80 characters    -> refused, names that item
 
