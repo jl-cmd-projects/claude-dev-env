@@ -106,6 +106,52 @@ test(
 
 
 test(
+    'writeFileAtomically should create the missing file at the end of a chain of links and keep every link',
+    { skip: isPosixPlatform ? false : 'creating a file link on Windows needs a privilege the runner may lack' },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const profileDirectory = join(sandboxRoot, 'profile');
+            const dotfilesDirectory = join(sandboxRoot, 'dotfiles');
+            const storeDirectory = join(sandboxRoot, 'store');
+            mkdirSync(profileDirectory);
+            mkdirSync(dotfilesDirectory);
+            mkdirSync(storeDirectory);
+            const profileSettingsPath = join(profileDirectory, 'settings.json');
+            const dotfilesSettingsPath = join(dotfilesDirectory, 'settings.json');
+            const storedSettingsPath = join(storeDirectory, 'settings.json');
+            symlinkSync(dotfilesSettingsPath, profileSettingsPath);
+            symlinkSync(join('..', 'store', 'settings.json'), dotfilesSettingsPath);
+
+            writeFileAtomically(profileSettingsPath, NEW_SETTINGS_TEXT);
+
+            assert.equal(lstatSync(profileSettingsPath).isSymbolicLink(), true, 'the profile entry is still a link');
+            assert.equal(lstatSync(dotfilesSettingsPath).isSymbolicLink(), true, 'the middle entry is still a link');
+            assert.equal(readFileSync(storedSettingsPath, 'utf8'), NEW_SETTINGS_TEXT);
+            assert.deepEqual(readdirSync(storeDirectory), ['settings.json']);
+            assert.deepEqual(readdirSync(dotfilesDirectory), ['settings.json']);
+        });
+    },
+);
+
+
+test(
+    'writeFileAtomically should refuse a link that loops back to itself and leave the link in place',
+    { skip: isPosixPlatform ? false : 'creating a file link on Windows needs a privilege the runner may lack' },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const settingsPath = join(sandboxRoot, 'settings.json');
+            symlinkSync('settings.json', settingsPath);
+
+            assert.throws(() => writeFileAtomically(settingsPath, NEW_SETTINGS_TEXT), { code: 'ELOOP' });
+
+            assert.equal(lstatSync(settingsPath).isSymbolicLink(), true, 'the looping entry is still a link');
+            assert.deepEqual(readdirSync(sandboxRoot), ['settings.json']);
+        });
+    },
+);
+
+
+test(
     'writeFileAtomically should keep the prior file whole and remove its temporary file when the write fails part way',
     { skip: isFileSizeLimitAvailable ? false : `${FILE_SIZE_LIMIT_COMMAND} is not on PATH` },
     () => {

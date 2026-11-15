@@ -26,6 +26,7 @@ const TEMPORARY_NAME_RANDOM_BYTE_COUNT = 6;
 const PERMISSION_BITS_MASK = 0o7777;
 const STALE_TEMPORARY_FILE_AGE_MS = 10 * 60 * 1000;
 const REGULAR_EXPRESSION_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
+const MAXIMUM_LINK_COUNT = 40;
 
 
 /**
@@ -92,8 +93,14 @@ function removeStaleTemporaryFiles(writeTargetPath) {
 /**
  * Resolve the file a write to this path lands on.
  *
+ * A chain of links is followed to its last entry, which may not exist yet::
+ *
+ *     profile/settings.json -> dotfiles/settings.json -> store/settings.json (missing)
+ *     -> store/settings.json
+ *
  * @param {string} targetPath The path the caller names.
- * @returns {string} The path itself, or the file its link resolves to.
+ * @returns {string} The path itself, or the file its chain of links ends at.
+ * @throws {Error} With code ELOOP when the chain is longer than the link limit.
  */
 function resolveWriteTargetPath(targetPath) {
     if (!lstatSync(targetPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
@@ -102,7 +109,14 @@ function resolveWriteTargetPath(targetPath) {
     try {
         return realpathSync(targetPath);
     } catch {
-        return resolve(dirname(targetPath), readlinkSync(targetPath));
+        let currentPath = targetPath;
+        for (let linkCount = 0; linkCount < MAXIMUM_LINK_COUNT; linkCount += 1) {
+            if (!lstatSync(currentPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
+                return currentPath;
+            }
+            currentPath = resolve(dirname(currentPath), readlinkSync(currentPath));
+        }
+        throw Object.assign(new Error(`ELOOP: too many links to resolve '${targetPath}'`), { code: 'ELOOP' });
     }
 }
 
