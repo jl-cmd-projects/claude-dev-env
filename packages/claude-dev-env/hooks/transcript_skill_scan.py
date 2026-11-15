@@ -17,14 +17,33 @@ from typing import BinaryIO, NamedTuple
 from hooks_constants.transcript_skill_scan_constants import (
     ALL_LINE_BREAK_BYTES,
     ASSISTANT_ENTRY_TYPE,
+    ALL_BACKGROUND_SHELL_TOOL_NAMES,
+    ATTACHMENT_ENTRY_TYPE,
+    ATTACHMENT_FIELD,
     CARRIAGE_RETURN_BYTE,
     COMMAND_ARGUMENTS_PATTERN,
     COMPACT_BOUNDARY_SUBTYPE,
     FORWARD_COPY_BYTE_CAP,
     IS_ERROR_FIELD,
     META_ENTRY_FIELD,
+    MOVED_TO_BACKGROUND_RESULT_PATTERN,
     NEWLINE_BYTE,
+    ORIGIN_FIELD,
+    ORIGIN_KIND_FIELD,
+    QUEUED_COMMAND_ATTACHMENT_TYPE,
+    QUEUED_COMMAND_PROMPT_FIELD,
+    RESULT_TEXT_FIELD,
+    RESULT_TEXT_SEPARATOR,
+    RUN_IN_BACKGROUND_INPUT_KEY,
     SKILL_TOOL_NAME,
+    TASK_NOTIFICATION_ORIGIN_KIND,
+    TASK_NOTIFICATION_ANY_STATUS_PATTERN,
+    TASK_NOTIFICATION_CLOSING_TAG,
+    TASK_NOTIFICATION_COMPLETED_STATUS_PATTERN,
+    TASK_NOTIFICATION_EXIT_ZERO_ENDING_PATTERN,
+    TASK_NOTIFICATION_OPENING_TAG,
+    TASK_NOTIFICATION_SUMMARY_OPENING_TAG,
+    TASK_NOTIFICATION_TOOL_USE_ID_PATTERN,
     TOOL_RESULT_BLOCK_TYPE,
     TRANSCRIPT_BLOCK_BYTES,
     TRANSCRIPT_LINE_BYTE_CAP,
@@ -523,6 +542,83 @@ def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
     }
 
 
+def _queued_command(all_entry_fields: dict[str, object]) -> dict[str, object] | None:
+    attachment = all_entry_fields.get(ATTACHMENT_FIELD)
+    if all_entry_fields.get("type") != ATTACHMENT_ENTRY_TYPE or not isinstance(attachment, dict):
+        return None
+    return attachment if attachment.get("type") == QUEUED_COMMAND_ATTACHMENT_TYPE else None
+
+
+def _is_task_notification_origin(all_fields: dict[str, object]) -> bool:
+    origin = all_fields.get(ORIGIN_FIELD)
+    return isinstance(origin, dict) and origin.get(ORIGIN_KIND_FIELD) == TASK_NOTIFICATION_ORIGIN_KIND
+
+
+def _task_notification_text(all_entry_fields: dict[str, object]) -> str | None:
+    queued_command = _queued_command(all_entry_fields)
+    if queued_command is not None:
+        if not _is_task_notification_origin(queued_command):
+            return None
+        queued_text = queued_command.get(QUEUED_COMMAND_PROMPT_FIELD)
+        return queued_text if isinstance(queued_text, str) else ""
+    if not _is_task_notification_origin(all_entry_fields):
+        return None
+    return _user_command_text(all_entry_fields) or ""
+
+
+def _result_block_text(result_content: object) -> str:
+    if isinstance(result_content, str):
+        return result_content
+    all_parts = result_content if isinstance(result_content, list) else []
+    return RESULT_TEXT_SEPARATOR.join(
+        each_part[RESULT_TEXT_FIELD]
+        for each_part in all_parts
+        if isinstance(each_part, dict) and isinstance(each_part.get(RESULT_TEXT_FIELD), str)
+    )
+
+
+def _moved_to_background_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
+    return {
+        each_block.get(TOOL_USE_ID_FIELD)
+        for each_block in _content_blocks(all_entry_fields, USER_ENTRY_TYPE)
+        if each_block.get("type") == TOOL_RESULT_BLOCK_TYPE
+        and re.search(MOVED_TO_BACKGROUND_RESULT_PATTERN, _result_block_text(each_block.get("content"))) is not None
+    }
+
+
+def _background_ids_finished_without_error(notification_text: str) -> set[object]:
+    """Return the tool use id of a notice that reports exit code 0, as a set of one, else an empty set.
+
+    ::
+
+        one notice, status completed, summary ends "(exit code 0)"   -> {its id}
+        one notice, status failed, summary ends "(exit code 3)"      -> {}
+        two notices in one text, either outcome                      -> {}
+        a failed notice whose summary quotes "(exit code 0)"         -> {}
+        a failed notice whose summary quotes a whole passing notice  -> {}
+
+    The harness writes the id and the status before the summary, and the exit
+    code as the last words of the summary. The summary also quotes the
+    command's description, which the agent wrote, so only the text before the
+    summary and the very end of the notice are read.
+    """
+    if (
+        notification_text.count(TASK_NOTIFICATION_OPENING_TAG) != 1
+        or notification_text.count(TASK_NOTIFICATION_CLOSING_TAG) != 1
+    ):
+        return set()
+    harness_header = notification_text.partition(TASK_NOTIFICATION_SUMMARY_OPENING_TAG)[0]
+    all_tool_use_ids = re.findall(TASK_NOTIFICATION_TOOL_USE_ID_PATTERN, harness_header)
+    if (
+        len(all_tool_use_ids) != 1
+        or len(re.findall(TASK_NOTIFICATION_ANY_STATUS_PATTERN, harness_header)) != 1
+        or re.search(TASK_NOTIFICATION_COMPLETED_STATUS_PATTERN, harness_header) is None
+        or re.search(TASK_NOTIFICATION_EXIT_ZERO_ENDING_PATTERN, notification_text) is None
+    ):
+        return set()
+    return set(all_tool_use_ids)
+
+
 def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[TranscriptToolCall]:
     """Return the tool calls after the last user prompt, in order, each marked by whether it succeeded.
 
@@ -532,23 +628,61 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
         prompt, reply call, its result with is_error     -> [reply failed]
         prompt, resolve call with no result yet          -> [resolve failed]
         reply call and result, then a new prompt         -> []
+        reply call and result, then a queued prompt      -> []
+        background call, started                          -> [call failed]
+        background call, notice of exit code 0            -> [call succeeded]
+        background call, notice of exit code 3            -> [call failed]
+        shell call whose result is the harness's own line -> [call failed] until its notice
+        any other call whose result holds those words     -> [call succeeded]
 
     A hook that denies a call leaves an errored result, so a denied call does
-    not count as a success. A tool result leaves the turn open.
+    not count as a success. A tool result leaves the turn open. A background
+    task notice is no user prompt, so it leaves the turn open too, whether it
+    is a user entry or a queued command attachment. Any other queued command
+    attachment, such as a prompt the user sent mid-turn, ends the turn as a
+    user prompt does. A call runs in the background when its
+    ``run_in_background`` input is truthy, or when it is a ``Bash`` or
+    ``PowerShell`` call whose result holds a line the harness writes for a
+    command in the background, starting ``Command running in background with
+    ID:``, ``Command was manually backgrounded by user with ID:`` or ``Command
+    did not complete within``. The same words in the result of any other tool,
+    or elsewhere in a line, change nothing. Such a call succeeds only
+    when the notice that names its tool use id reports a completed status
+    with exit code 0.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
     """
     all_calls: list[tuple[object, str, dict[str, object]]] = []
     all_succeeded_ids: set[object] = set()
+    all_finished_background_ids: set[object] = set()
+    all_moved_to_background_ids: set[object] = set()
     all_entries = (each_entry for each_entry in map(_parsed_entry, all_transcript_lines) if each_entry is not None)
     for each_entry_fields in all_entries:
-        if _is_user_prompt(each_entry_fields):
-            all_calls, all_succeeded_ids = [], set()
+        notification_text = _task_notification_text(each_entry_fields)
+        if notification_text is not None:
+            all_finished_background_ids.update(_background_ids_finished_without_error(notification_text))
+            continue
+        if _is_user_prompt(each_entry_fields) or _queued_command(each_entry_fields) is not None:
+            all_calls, all_succeeded_ids, all_finished_background_ids = [], set(), set()
+            all_moved_to_background_ids = set()
             continue
         all_calls.extend(_tool_use_calls(each_entry_fields))
         all_succeeded_ids.update(_succeeded_result_ids(each_entry_fields))
+        all_moved_to_background_ids.update(_moved_to_background_result_ids(each_entry_fields))
     return [
-        TranscriptToolCall(each_name, each_input, each_id is not None and each_id in all_succeeded_ids)
+        TranscriptToolCall(
+            each_name,
+            each_input,
+            each_id is not None
+            and each_id in all_succeeded_ids
+            and (
+                each_id in all_finished_background_ids
+                or not (
+                    each_input.get(RUN_IN_BACKGROUND_INPUT_KEY)
+                    or (each_name in ALL_BACKGROUND_SHELL_TOOL_NAMES and each_id in all_moved_to_background_ids)
+                )
+            ),
+        )
         for each_id, each_name, each_input in all_calls
     ]

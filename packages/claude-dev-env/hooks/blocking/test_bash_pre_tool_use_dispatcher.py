@@ -274,6 +274,7 @@ def test_should_drop_the_gates_the_shell_guards_mod_holds_while_it_is_on(
     all_script_paths = [each_entry.script_relative_path for each_entry in select_applicable_entries(BASH_TOOL_NAME)]
     assert all_script_paths == [
         "blocking/msys_rev_path_rewriter.py",
+        "blocking/gh_api_budget_gate.py",
         "blocking/cloud_graphql_gate.py",
         "blocking/python_windows_invocation_gate.py",
         "blocking/transcript_root_search_gate.py",

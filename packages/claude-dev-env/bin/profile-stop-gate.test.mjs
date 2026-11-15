@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -87,6 +87,31 @@ test('a profile whose settings.json links to the main settings is left out', (co
     }
 
     assert.deepEqual(otherProfileSettingsPaths({ homeDirectory, environment: {}, mainSettingsPath }), []);
+});
+
+test('removal through a linked profile settings.json updates the shared file and keeps the link', (context) => {
+    const { homeDirectory, claudeHome, gateCommand } = makeHome(context);
+    const sharedSettingsPath = join(homeDirectory, 'shared', 'settings.json');
+    mkdirSync(join(homeDirectory, 'shared'));
+    writeFileSync(sharedSettingsPath, JSON.stringify({
+        hooks: { Stop: [{ hooks: [
+            { type: 'command', command: 'python3 /opt/own/stop.py' },
+            { type: 'command', command: gateCommand },
+        ] }] },
+    }, null, 4));
+    const linkedPath = writeProfile(homeDirectory, 'linked');
+    try {
+        symlinkSync(sharedSettingsPath, linkedPath, 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create symlinks');
+        throw error;
+    }
+
+    const allChangedPaths = removeStopGatesFromProfiles({ claudeHome, allProfileSettingsPaths: [linkedPath] });
+
+    assert.deepEqual(allChangedPaths, [linkedPath]);
+    assert.equal(lstatSync(linkedPath).isSymbolicLink(), true, 'the profile entry is still a link');
+    assert.deepEqual(stopCommands(sharedSettingsPath), ['python3 /opt/own/stop.py']);
 });
 
 test('a second run adds nothing, and an older interpreter spelling is replaced', (context) => {

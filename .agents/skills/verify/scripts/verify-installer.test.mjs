@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +101,60 @@ test('parseCommand returns the first command token', () => {
     assert.equal(parseCommand([RUN_COMMAND, 'extra']), RUN_COMMAND);
     assert.equal(parseCommand([]), '');
 });
+
+function copyHelperIntoRepository(repositoryRoot) {
+    const copiedScriptsDirectory = join(repositoryRoot, '.agents', 'skills', 'verify', 'scripts');
+    cpSync(dirname(fileURLToPath(import.meta.url)), copiedScriptsDirectory, { recursive: true });
+    mkdirSync(join(repositoryRoot, 'packages', 'claude-dev-env'), { recursive: true });
+    return copiedScriptsDirectory;
+}
+
+
+function listRepositoryFiles(repositoryRoot) {
+    return readdirSync(repositoryRoot, { recursive: true }).map(eachPath => String(eachPath).replaceAll('\\', '/')).sort();
+}
+
+
+test('the doctor command should leave the checkout unchanged', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'verify-doctor-checkout-'));
+    try {
+        const copiedScriptsDirectory = copyHelperIntoRepository(repositoryRoot);
+        const filesBefore = listRepositoryFiles(repositoryRoot);
+
+        const doctorRun = spawnSync(process.execPath, [join(copiedScriptsDirectory, 'verify-installer.mjs'), DOCTOR_COMMAND], {
+            encoding: 'utf8',
+        });
+
+        assert.equal(doctorRun.status, SUCCESS_EXIT_STATUS, doctorRun.stderr);
+        assert.match(doctorRun.stdout, /Doctor command: ready/);
+        assert.deepEqual(listRepositoryFiles(repositoryRoot), filesBefore, 'the doctor wrote a file into the checkout');
+    } finally {
+        rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+});
+
+
+test('the run command should record the doctor evidence beside the transcript', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'verify-run-evidence-'));
+    try {
+        const copiedScriptsDirectory = copyHelperIntoRepository(repositoryRoot);
+        rmSync(join(copiedScriptsDirectory, 'driver.mjs'));
+
+        const installerRun = spawnSync(process.execPath, [join(copiedScriptsDirectory, 'verify-installer.mjs'), RUN_COMMAND], {
+            encoding: 'utf8',
+        });
+
+        assert.equal(installerRun.status, DRIVER_FAILURE_EXIT_STATUS);
+        const evidenceRoot = join(repositoryRoot, 'tests', 'audit', 'data', 'hook-linter-conversion', 'evidence');
+        const doctorRecord = JSON.parse(readFileSync(join(evidenceRoot, 'installer-doctor.json'), 'utf8'));
+        assert.equal(doctorRecord.checks.driverExists, false);
+        assert.equal(doctorRecord.isReady, false);
+        assert.equal(existsSync(join(evidenceRoot, 'installer-transcript.json')), true);
+    } finally {
+        rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+});
+
 
 test('the helper should run when started through a directory pointer', () => {
     const pointerRoot = mkdtempSync(join(tmpdir(), 'verify-pointer-'));

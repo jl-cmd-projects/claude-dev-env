@@ -8,6 +8,7 @@ import {
     mergeProfileSettingsFile,
 } from './merge_profile_settings.mjs';
 import { normalizePathForComparison } from './resolve-install-root.mjs';
+import { writeFileAtomically } from './write-file-atomically.mjs';
 
 const STOP_EVENT_NAME = 'Stop';
 const MANAGED_HOOKS_DIRECTORY_NAME = 'hooks';
@@ -266,7 +267,7 @@ export function removeStopGatesFromProfiles(options) {
         );
         if (settings.hooks[STOP_EVENT_NAME].length === 0) delete settings.hooks[STOP_EVENT_NAME];
         if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
-        writeFileSync(eachPath, JSON.stringify(settings, null, hostConfigurationIndent(settingsText, SETTINGS_INDENT)) + '\n');
+        writeFileAtomically(eachPath, JSON.stringify(settings, null, hostConfigurationIndent(settingsText, SETTINGS_INDENT)) + '\n');
         allChangedPaths.push(eachPath);
     }
     return allChangedPaths;

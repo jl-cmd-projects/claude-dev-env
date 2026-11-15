@@ -102,6 +102,10 @@ def test_npx_pele_commands_match(command_text: str) -> None:
     assert npx_pele_guidance.is_npx_pele_command({"command": command_text})
 
 
+def test_should_match_npx_pele_behind_a_launcher_and_env_unset() -> None:
+    assert npx_pele_guidance.is_npx_pele_command({"command": "nohup env -u FOO npx pele a.mmd"})
+
+
 @pytest.mark.parametrize(
     "command_text",
     [

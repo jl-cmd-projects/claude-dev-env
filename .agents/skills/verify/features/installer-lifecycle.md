@@ -24,12 +24,12 @@ Preconditions:
 - `node` and `python3` are on `PATH`.
 - Every run sets `HOME`, `USERPROFILE`, and `GIT_CONFIG_GLOBAL` to a scratch home. The helpers below do this.
 
-- **Help, install, uninstall.** Run `node .agents/skills/verify/scripts/verify-installer.mjs run` from the repository root. The transcript reports `21/21 checks passed`, `ALL CHECKS PASSED`, and `Sandbox removed`.
+- **Help, install, uninstall.** Run `node .agents/skills/verify/scripts/verify-installer.mjs run` from the repository root. The transcript reports `23/23 checks passed`, `ALL CHECKS PASSED`, and `Sandbox removed`.
 - **Playtest.** Run `node packages/claude-dev-env/scripts/ci/install-playtest.mjs --home <scratch> --evidence <scratch>-evidence`. Exit code `0` and three `[PASS] playtest` lines for `install`, `session_start_hook`, and `blocking_hook`.
 - **Codex hooks file.** Open `<scratch>/.codex/hooks.json`. `hooks.PreToolUse` holds exactly the `multi_agent_v1__spawn_agent` group, and no command runs `skill_loaded_reminder.py`. Its commands point into `<scratch>/.codex/hooks/`.
 - **Broken install.** Overwrite `<scratch>/.claude/hooks/session/working_style_prompt.py` with `print("")`, then run the playtest again with `--home <scratch> --skip-install`. Exit code `1` and the line `[FAIL] playtest session_start_hook The hook wrote no SessionStart envelope`.
 - **Red direction.** Run `node --test packages/claude-dev-env/scripts/ci/install-playtest.test.mjs`. It passes when the driver exits `0` on a fresh install and `1` after it writes a script that prints an empty line over the installed `working_style_prompt.py`.
-- **Proof.** Keep `tests/audit/data/hook-linter-conversion/evidence/installer-transcript.json` and `<scratch>-evidence`. Remove `<scratch>` after the run.
+- **Proof.** Keep `tests/audit/data/hook-linter-conversion/evidence/installer-transcript.json`, `installer-doctor.json` beside it, and `<scratch>-evidence`. The `run` helper writes both evidence files; `doctor` writes nothing. Remove `<scratch>` after the run.
 
 ## Gotchas
 

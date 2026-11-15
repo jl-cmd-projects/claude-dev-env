@@ -12,6 +12,7 @@ import {
     readFileSync,
     realpathSync,
     rmSync,
+    symlinkSync,
     writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -142,6 +143,39 @@ test('capture and restore recover settings, manifest, files, and hooksPath', () 
     discardInstallTransactionJournal(snapshot);
     rmSync(box.root, { recursive: true, force: true });
 });
+
+test(
+    'restore should write the prior settings through a linked settings.json and keep the link',
+    { skip: process.platform === 'win32' ? 'creating a file link on Windows needs a privilege the runner may lack' : false },
+    () => {
+        const box = sandbox();
+        const gitConfigPath = join(box.root, '.gitconfig');
+        writeFileSync(gitConfigPath, '');
+        const io = { env: { ...process.env, HOME: box.root, USERPROFILE: box.root, GIT_CONFIG_GLOBAL: gitConfigPath }, execFileSync };
+        const sharedSettingsPath = join(box.root, 'shared', 'settings.json');
+        writeFileWithParents(sharedSettingsPath, '{"prior":true}\n');
+        symlinkSync(sharedSettingsPath, box.settingsPath);
+        try {
+            const snapshot = capturePriorInstallSnapshot({
+                managedRoot: box.managedRoot,
+                manifestFilePath: box.manifestFilePath,
+                settingsPath: box.settingsPath,
+                priorManifestFiles: [],
+                journalParentDirectory: box.journalParent,
+                io,
+            });
+            writeFileSync(sharedSettingsPath, '{"hooks":{"broken":true}}\n');
+
+            restorePriorInstallSnapshot(snapshot, { allWrittenPaths: [box.settingsPath], io });
+
+            assert.equal(lstatSync(box.settingsPath).isSymbolicLink(), true, 'settings.json is still a link');
+            assert.equal(readFileSync(sharedSettingsPath, 'utf8'), '{"prior":true}\n');
+            discardInstallTransactionJournal(snapshot);
+        } finally {
+            rmSync(box.root, { recursive: true, force: true });
+        }
+    },
+);
 
 test('capture and restore recover an additional host settings file', () => {
     const box = sandbox();
