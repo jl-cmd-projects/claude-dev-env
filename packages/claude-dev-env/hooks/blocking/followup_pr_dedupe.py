@@ -523,8 +523,10 @@ def _shell_followup_drafts(command: str, working_directory: str) -> list[PullReq
 
     A create whose repository comes only from a ``GH_REPO=`` prefix also
     gets an origin draft, since a wrapper such as ``env -u GH_REPO`` can drop
-    the prefix before gh runs. That origin draft is left out when the origin
-    remote gives no GitHub repository, since gh then has none to open in.
+    the prefix before gh runs. A prefix value that names no repository, such
+    as ``GH_REPO=nonsense``, still gets the origin draft. That origin draft is
+    left out when the origin remote gives no GitHub repository, since gh then
+    has none to open in.
 
     Args:
         command: The shell command text.
@@ -538,14 +540,19 @@ def _shell_followup_drafts(command: str, working_directory: str) -> list[PullReq
             continue
         draft = _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
         all_drafts.append(draft)
-        if isinstance(draft, PullRequestDraft) and _is_prefix_named_create(each_segment):
-            origin_draft = _origin_draft(draft.body, working_directory)
-            all_drafts.append(
-                PullRequestDraft(origin_draft.owner, origin_draft.repo, origin_draft.body, is_prefix_origin_check=True)
-                if isinstance(origin_draft, PullRequestDraft)
-                else None
-            )
+        if not isinstance(draft, UnreadOriginDraft) and _is_prefix_named_create(each_segment):
+            all_drafts.append(_prefix_origin_draft(all_arguments, working_directory))
     return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
+
+
+def _prefix_origin_draft(all_arguments: list[str], working_directory: str) -> PullRequestDraft | None:
+    body = body_from_arguments(all_arguments, working_directory)
+    if body is None or followup_parent_number(body) is None:
+        return None
+    origin_draft = _origin_draft(body, working_directory)
+    if not isinstance(origin_draft, PullRequestDraft):
+        return None
+    return PullRequestDraft(origin_draft.owner, origin_draft.repo, body, is_prefix_origin_check=True)
 
 
 def shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -689,7 +696,7 @@ def duplicate_followup_reason(
     ::
 
         open pull request #9 says "Follow-up to #7"      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
-        that #9 is in origin, found for a GH_REPO= prefix -> the same, + PREFIX_ORIGIN_FOLLOWUP_SENTENCE
+        that #9 is in origin, found for a GH_REPO= prefix -> PREFIX_ORIGIN_FOLLOWUP_SENTENCE + the same
         the read gives no answer inside its allowance   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         the read answers with a GitHub server error     -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         no --repo, and the origin read gives nothing    -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -722,7 +729,7 @@ def duplicate_followup_reason(
             continue
         reason = _reason_for_parent(parent_number, answer)
         if reason is not None and each_draft.is_prefix_origin_check:
-            return reason + PREFIX_ORIGIN_FOLLOWUP_SENTENCE
+            return PREFIX_ORIGIN_FOLLOWUP_SENTENCE + reason
         if reason is not None:
             return reason
     return None
