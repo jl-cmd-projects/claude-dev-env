@@ -24,7 +24,7 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
-from blocking.artifact_current_page_gate import link_record_path, page_title
+from blocking.artifact_current_page_gate import is_artifact_link, link_record_path, page_title
 from blocking.artifact_dark_mode_gate import published_page_path
 from hooks_constants.artifact_current_page_gate_constants import (
     ARTIFACT_LINK_PATTERN,
@@ -61,11 +61,11 @@ def published_link(all_tool_input: dict[str, object], tool_response: object) -> 
         The link, or an empty string when neither place names one.
     """
     link_in_call = all_tool_input.get(ARTIFACT_URL_INPUT_KEY)
-    if isinstance(link_in_call, str) and ARTIFACT_LINK_PATTERN.fullmatch(link_in_call):
+    if isinstance(link_in_call, str) and is_artifact_link(link_in_call):
         return link_in_call
     if isinstance(tool_response, dict):
         link_in_result = tool_response.get(ARTIFACT_URL_INPUT_KEY)
-        if isinstance(link_in_result, str) and ARTIFACT_LINK_PATTERN.fullmatch(link_in_result):
+        if isinstance(link_in_result, str) and is_artifact_link(link_in_result):
             return link_in_result
     response_text = (
         tool_response if isinstance(tool_response, str) else json.dumps(tool_response, default=str)

@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import NamedTuple
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
@@ -49,6 +50,7 @@ from hooks_constants.artifact_current_page_gate_constants import (
     LINK_RECORD_URL_KEY,
     LINK_SOURCE_JOINER,
     LINK_SOURCE_WITH_OTHER_LINK_TEMPLATE,
+    MALFORMED_CALL_URL_TEMPLATE,
     META_CONTENT_ATTRIBUTE,
     META_NAME_ATTRIBUTE,
     META_TAG_PATTERN,
@@ -124,6 +126,27 @@ def page_source_after_edits(page_source: str, all_edits: object) -> str:
     return edited_source
 
 
+class _FolderRecord(NamedTuple):
+    source: str
+    page_exists: bool
+    link: str
+    title: str
+
+
+def is_artifact_link(candidate: object) -> bool:
+    """Return whether ``candidate`` is a whole claude.ai artifact link.
+
+    >>> is_artifact_link("https://claude.ai/artifact/Ab_12")
+    True
+    >>> is_artifact_link("https://claude.ai/artifact/Ab_12/")
+    False
+
+    Args:
+        candidate: A call ``url``, a record ``url``, or a meta tag's content.
+    """
+    return isinstance(candidate, str) and ARTIFACT_LINK_PATTERN.fullmatch(candidate) is not None
+
+
 def page_title(page_source: str) -> str:
     """Return the text of the page's ``<title>``, or an empty string.
 
@@ -173,16 +196,15 @@ def _meta_page_link(page_source: str) -> str:
                 each_name.lower(), (each_double_quoted or each_single_quoted).strip()
             )
         meta_link = all_attributes.get(META_CONTENT_ATTRIBUTE, "")
-        if all_attributes.get(
-            META_NAME_ATTRIBUTE, ""
-        ).lower() == LINK_META_NAME and ARTIFACT_LINK_PATTERN.fullmatch(meta_link):
+        is_link_meta = all_attributes.get(META_NAME_ATTRIBUTE, "").lower() == LINK_META_NAME
+        if is_link_meta and is_artifact_link(meta_link):
             return meta_link
     return ""
 
 
 def _record_link(all_record_fields: dict[str, str]) -> str:
     recorded_link = all_record_fields.get(LINK_RECORD_URL_KEY, "")
-    return recorded_link if ARTIFACT_LINK_PATTERN.fullmatch(recorded_link) else ""
+    return recorded_link if is_artifact_link(recorded_link) else ""
 
 
 def _renamed_page_records(page_path: Path, title: str) -> list[tuple[str, str]]:
@@ -191,28 +213,27 @@ def _renamed_page_records(page_path: Path, title: str) -> list[tuple[str, str]]:
     all_folder_records = []
     for each_record_path in sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX)):
         each_page_path = page_path.parent / each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
+        if each_page_path == page_path:
+            continue
         each_record = _link_record(each_record_path)
         all_folder_records.append(
-            (
-                str(each_record_path),
-                each_page_path,
-                each_page_path.exists(),
-                _record_link(each_record),
-                each_record.get(LINK_RECORD_TITLE_KEY),
+            _FolderRecord(
+                source=str(each_record_path),
+                page_exists=each_page_path.exists(),
+                link=_record_link(each_record),
+                title=each_record.get(LINK_RECORD_TITLE_KEY, ""),
             )
         )
     links_of_other_present_pages = {
-        each_link
-        for _, each_page_path, each_page_exists, each_link, _ in all_folder_records
-        if each_page_exists and each_page_path != page_path
+        each_record.link for each_record in all_folder_records if each_record.page_exists
     }
     return [
-        (each_link, each_source)
-        for each_source, _, each_page_exists, each_link, each_title in all_folder_records
-        if not each_page_exists
-        and each_title == title
-        and each_link
-        and each_link not in links_of_other_present_pages
+        (each_record.link, each_record.source)
+        for each_record in all_folder_records
+        if not each_record.page_exists
+        and each_record.title == title
+        and each_record.link
+        and each_record.link not in links_of_other_present_pages
     ]
 
 
@@ -346,6 +367,17 @@ def _block(block_reason: str, page_path: Path) -> int:
     return BLOCK_EXIT_CODE
 
 
+def _second_link_reason(link_in_call: object, recorded_link: str, link_source: str) -> str:
+    malformed_url_line = (
+        MALFORMED_CALL_URL_TEMPLATE.format(url=link_in_call)
+        if isinstance(link_in_call, str) and link_in_call
+        else ""
+    )
+    return malformed_url_line + SECOND_LINK_REASON_TEMPLATE.format(
+        link=recorded_link, link_source=link_source
+    )
+
+
 def _republish_note_output() -> dict[str, dict[str, str]]:
     return {
         HOOK_SPECIFIC_OUTPUT_KEY: {
@@ -368,15 +400,10 @@ def main() -> int:
         tool_input.get(ARTIFACT_EDITS_INPUT_KEY),
     )
     link_in_call = tool_input.get(ARTIFACT_URL_INPUT_KEY)
-    has_link_in_call = isinstance(link_in_call, str) and bool(
-        ARTIFACT_LINK_PATTERN.fullmatch(link_in_call)
-    )
+    has_link_in_call = is_artifact_link(link_in_call)
     recorded_link, link_source = _page_link_and_source(page_path, page_source)
     if recorded_link and not has_link_in_call:
-        return _block(
-            SECOND_LINK_REASON_TEMPLATE.format(link=recorded_link, link_source=link_source),
-            page_path,
-        )
+        return _block(_second_link_reason(link_in_call, recorded_link, link_source), page_path)
     all_repeats, renderer_problem = repeated_items(page_source)
     if all_repeats is None:
         return _block(REPEAT_RENDERER_MISSING_HEADER + renderer_problem, page_path)
