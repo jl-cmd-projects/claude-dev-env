@@ -259,7 +259,7 @@ def should_leave_a_current_install_in_place(tmp_path: Path) -> None:
         tmp_path, remote=True, installed_version="2.12.0", registry_version="2.12.0"
     )
     assert "npm view claude-dev-env version" in tool_log
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
 
 
 def should_fail_open_when_the_registry_probe_fails(tmp_path: Path) -> None:
@@ -270,7 +270,7 @@ def should_fail_open_when_the_registry_probe_fails(tmp_path: Path) -> None:
         registry_version="2.12.0",
         registry_failure=True,
     )
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
 
 
 def should_stay_quiet_when_the_registry_output_is_not_a_version(
@@ -282,7 +282,7 @@ def should_stay_quiet_when_the_registry_output_is_not_a_version(
         installed_version="2.9.0",
         registry_version='"2.12.0"',
     )
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
 
 
 def should_reinstall_on_a_prerelease_and_build_registry_version(
@@ -346,7 +346,7 @@ def should_read_the_manifest_from_a_config_dir_override(tmp_path: Path) -> None:
         config_dir_version="2.12.0",
     )
     assert "npm view claude-dev-env version" in tool_log
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
 
 
 def should_import_constants_when_the_hook_directory_is_off_sys_path(
@@ -364,7 +364,7 @@ def should_import_constants_when_the_hook_directory_is_off_sys_path(
     environment["PYTHONPATH"] = str(REPOSITORY_ROOT)
     tool_log = _run_hook_script(tmp_path, environment)
     assert "npm view claude-dev-env version" in tool_log
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
 
 
 def should_anchor_a_relative_config_dir_override_to_the_home_directory(
@@ -384,4 +384,4 @@ def should_anchor_a_relative_config_dir_override_to_the_home_directory(
     environment["CLAUDE_CONFIG_DIR"] = "profile"
     tool_log = _run_hook_script(tmp_path, environment)
     assert "npm view claude-dev-env version" in tool_log
-    assert "npx" not in tool_log
+    assert "npx -y" not in tool_log
