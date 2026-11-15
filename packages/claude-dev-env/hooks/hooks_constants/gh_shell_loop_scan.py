@@ -31,8 +31,10 @@ from hooks_constants.gh_api_budget_gate_constants import (
     LOOP_END_KEYWORD,
     LOOP_HEADER_CHARACTERS,
     LOOP_HEADER_OPENER,
+    ALL_SECONDS_BY_TIMESPAN_FIELD,
     MILLISECONDS_PER_SECOND,
     MINIMUM_POLL_INTERVAL_SECONDS,
+    MINIMUM_START_SLEEP_DURATION_PARAMETER_LENGTH,
     MINIMUM_START_SLEEP_PARAMETER_LENGTH,
     OPTION_PREFIX,
     SECONDS_BY_SLEEP_UNIT,
@@ -40,6 +42,9 @@ from hooks_constants.gh_api_budget_gate_constants import (
     SLEEP_DURATION_PATTERN,
     SLEEP_DURATION_UNIT_GROUP,
     SLEEP_PARAMETER_VALUE_SEPARATOR,
+    SLEEP_TIMESPAN_FIELD_SEPARATOR,
+    SLEEP_TIMESPAN_PATTERN,
+    START_SLEEP_DURATION_PARAMETER,
     START_SLEEP_MILLISECONDS_PARAMETER,
     START_SLEEP_SECONDS_PARAMETER,
     WATCH_PROGRAM_NAME,
@@ -250,10 +255,14 @@ def _sleep_seconds(all_arguments: list[str]) -> float | None:
 
     ::
 
-        sleep 30 / sleep 1m / sleep 0.5          30.0 / 60.0 / 0.5
-        Start-Sleep -Seconds 30                  30.0
+        sleep 30 / sleep 1m / sleep .5           30.0 / 60.0 / 0.5
+        Start-Sleep -Seconds 30 -Verbose         30.0
         Start-Sleep -Milliseconds 500            0.5
+        Start-Sleep -Duration 00:01:30           90.0
         sleep $delay                             None
+
+    A parameter that names no time unit, such as ``-Verbose`` or
+    ``-ErrorAction Stop``, is skipped together with its value.
     """
     total_seconds = 0.0
     seconds_per_unit: float | None = 1.0
@@ -264,26 +273,42 @@ def _sleep_seconds(all_arguments: list[str]) -> float | None:
         if argument.startswith(OPTION_PREFIX):
             parameter, _separator, argument = argument.partition(SLEEP_PARAMETER_VALUE_SEPARATOR)
             seconds_per_unit = _start_sleep_unit_seconds(parameter)
-        duration_seconds = _duration_seconds(argument) if argument else 0.0
-        if seconds_per_unit is None or duration_seconds is None:
+        if seconds_per_unit is None or not argument:
+            continue
+        duration_seconds = _duration_seconds(argument)
+        if duration_seconds is None:
             return None
         total_seconds += duration_seconds * seconds_per_unit
     return total_seconds
 
 
 def _start_sleep_unit_seconds(parameter: str) -> float | None:
-    """Return the seconds per unit a ``Start-Sleep`` parameter such as ``-Seconds`` or ``-m`` names."""
+    """Return the seconds per unit a ``Start-Sleep`` parameter such as ``-Seconds``, ``-m`` or ``-Duration`` names.
+
+    ``-Duration`` takes a ``hh:mm:ss`` value already in seconds, so its unit
+    is one second. Any other parameter names no unit and returns None.
+    """
     if len(parameter) < MINIMUM_START_SLEEP_PARAMETER_LENGTH:
         return None
     if START_SLEEP_MILLISECONDS_PARAMETER.startswith(parameter):
         return 1.0 / MILLISECONDS_PER_SECOND
     if START_SLEEP_SECONDS_PARAMETER.startswith(parameter):
         return 1.0
+    if len(parameter) >= MINIMUM_START_SLEEP_DURATION_PARAMETER_LENGTH and (
+        START_SLEEP_DURATION_PARAMETER.startswith(parameter)
+    ):
+        return 1.0
     return None
 
 
 def _duration_seconds(duration_text: str) -> float | None:
-    """Return the seconds a ``sleep`` duration such as ``30``, ``0.5`` or ``1m`` waits, or None."""
+    """Return the seconds a duration such as ``30``, ``.5``, ``1m`` or ``00:01:30`` waits, or None."""
+    if SLEEP_TIMESPAN_PATTERN.fullmatch(duration_text):
+        all_fields = duration_text.split(SLEEP_TIMESPAN_FIELD_SEPARATOR)
+        return sum(
+            float(each_field) * each_field_seconds
+            for each_field, each_field_seconds in zip(all_fields, ALL_SECONDS_BY_TIMESPAN_FIELD, strict=False)
+        )
     duration = SLEEP_DURATION_PATTERN.fullmatch(duration_text)
     if duration is None:
         return None
