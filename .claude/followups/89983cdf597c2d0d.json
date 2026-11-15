@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": ".claude/hooks/config/session_start_refresh_constants.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "7cfe8434078606c5ae93be457c73fe6b568ffdb3"
+}

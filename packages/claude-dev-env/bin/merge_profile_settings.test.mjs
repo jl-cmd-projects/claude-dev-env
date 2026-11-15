@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -71,6 +71,30 @@ test('a missing settings.json is created with every declared entry and no Stop h
     assert.equal(outcome.files[0].backupPath, null);
     assert.deepEqual(backupFiles(claudeDirectory), []);
     assert.deepEqual(outcome.gate.removedPaths, []);
+});
+
+test('a linked profile settings.json keeps its link and the shared file gets every declared entry', (context) => {
+    const homeDirectory = makeHome();
+    const claudeDirectory = join(homeDirectory, '.claude');
+    mkdirSync(claudeDirectory);
+    const sharedSettingsPath = join(homeDirectory, 'shared', 'settings.json');
+    writeSettings(sharedSettingsPath, { outputStyle: 'plain' });
+    const linkedPath = join(claudeDirectory, 'settings.json');
+    try {
+        symlinkSync(sharedSettingsPath, linkedPath, 'file');
+    } catch (error) {
+        if (error.code === 'EPERM') return context.skip('this account cannot create symlinks');
+        throw error;
+    }
+
+    mergeProfileSettings([linkedPath], { dryRun: false, homeDirectory, now: FIXED_NOW });
+
+    assert.equal(lstatSync(linkedPath).isSymbolicLink(), true, 'the profile entry is still a link');
+    assert.deepEqual(readSettings(sharedSettingsPath), {
+        outputStyle: 'plain',
+        permissions: { allow: PERMISSION_ALLOW_ITEMS },
+        autoMode: { allow: AUTO_MODE_ALLOW_ITEMS },
+    });
 });
 
 test('the retired profile gate leaves settings.json and ~/.claude, and another Stop hook stays', () => {
