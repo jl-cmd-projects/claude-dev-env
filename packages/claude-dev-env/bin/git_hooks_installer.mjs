@@ -18,12 +18,23 @@ export const SHIM_DOCSTRING = (
 const RENAME_RETRY_DELAYS_MS = Object.freeze([50, 100, 200]);
 
 
-function renameSyncWithWindowsRetry(sourcePath, destinationPath) {
+/**
+ * Rename a file, retrying while Windows reports the destination as busy.
+ *
+ * A scanner or reader that holds the file open makes a Windows rename fail
+ * with EPERM or EBUSY for a moment. Each retry waits a little longer, and the
+ * last busy error is thrown once the waits run out.
+ *
+ * @param {string} sourcePath The file to move.
+ * @param {string} destinationPath The path it replaces.
+ * @returns {void}
+ */
+export function renameSyncRetryingWhileBusy(sourcePath, destinationPath) {
     let lastError;
     for (const delayMs of [0, ...RENAME_RETRY_DELAYS_MS]) {
         if (delayMs > 0) {
             const deadline = Date.now() + delayMs;
-            while (Date.now() < deadline) { /* spin */ }
+            while (Date.now() < deadline) { }
         }
         try {
             renameSync(sourcePath, destinationPath);
@@ -33,6 +44,19 @@ function renameSyncWithWindowsRetry(sourcePath, destinationPath) {
                 throw renameError;
             }
             lastError = renameError;
+        }
+    }
+    throw lastError;
+}
+
+
+function renameSyncWithWindowsRetry(sourcePath, destinationPath) {
+    try {
+        renameSyncRetryingWhileBusy(sourcePath, destinationPath);
+        return;
+    } catch (renameError) {
+        if (renameError.code !== 'EPERM' && renameError.code !== 'EBUSY') {
+            throw renameError;
         }
     }
     try {

@@ -27,7 +27,7 @@ Run the read-only environment check first:
 node .agents/skills/verify/scripts/verify-installer.mjs doctor
 ```
 
-Continue only when the command prints `Doctor command: ready`.
+Continue only when the command prints `Doctor command: ready`. The doctor prints its checks and writes no file.
 
 ## Drive
 
@@ -55,9 +55,9 @@ Do not run `node packages/claude-dev-env/bin/install.mjs` without an isolated ho
 
 ## Evidence
 
-Store evidence in `tests/audit/data/hook-linter-conversion/evidence/`.
+`verify-installer.mjs run` is the one command that writes evidence. It refreshes both tracked files in `tests/audit/data/hook-linter-conversion/evidence/`, so `git status` shows them changed after a run.
 
-- `installer-doctor.json` records tool availability.
+- `installer-doctor.json` records tool availability when the run started.
 - `installer-transcript.json` records the command, exit status, actions, and results.
 
 The transcript must show each installer step and its result. Inspect installed settings, Codex hooks, Git configuration, and manifests when a change affects them.

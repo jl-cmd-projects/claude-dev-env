@@ -2514,6 +2514,70 @@ test('pruneRetiredHookEntriesFromSettings leaves settings.json byte-identical wh
 });
 
 
+const FILE_SIZE_LIMIT_COMMAND = 'prlimit';
+const isFileSizeLimitAvailable = spawnSync(FILE_SIZE_LIMIT_COMMAND, ['--version']).status === 0;
+
+
+test(
+    'a settings.json write that fails part way through leaves the prior settings.json whole',
+    { skip: isFileSizeLimitAvailable ? false : `${FILE_SIZE_LIMIT_COMMAND} is not on PATH` },
+    () => {
+        const settings = settingsRegisteringRetiredAndUserHooks(RETIRED_HOOK_RELATIVE_PATH);
+        settings.userNotes = 'n'.repeat(8192);
+        const { settingsPath, sandboxRoot } = createSettingsFixture(settings, 4);
+        const pruneScriptPath = join(sandboxRoot, 'prune-under-limit.mjs');
+        writeFileSync(pruneScriptPath, [
+            `import { ownedHookRootComparisonKeys, pruneRetiredHookEntriesFromSettings } from ${JSON.stringify(new URL('./install.mjs', import.meta.url).href)};`,
+            `const sandboxRoot = ${JSON.stringify(sandboxRoot)};`,
+            `pruneRetiredHookEntriesFromSettings(${JSON.stringify(settingsPath)}, new Set([${JSON.stringify(RETIRED_HOOK_RELATIVE_PATH)}]), {`,
+            `    allOwnedHookRootKeys: ownedHookRootComparisonKeys([${JSON.stringify(join(sandboxRoot, '.claude', 'hooks'))}]),`,
+            '    homeDirectory: sandboxRoot,',
+            '});',
+        ].join('\n'));
+        try {
+            const settingsTextBefore = readFileSync(settingsPath, 'utf8');
+            const fileSizeLimitBytes = Math.floor(settingsTextBefore.length / 2);
+
+            const limitedRun = spawnSync(
+                FILE_SIZE_LIMIT_COMMAND,
+                [`--fsize=${fileSizeLimitBytes}`, process.execPath, pruneScriptPath],
+                { encoding: 'utf8', env: { ...process.env, HOME: sandboxRoot, USERPROFILE: sandboxRoot } },
+            );
+
+            assert.notEqual(limitedRun.status, 0, 'the write past the file size limit fails the run');
+            assert.match(limitedRun.stderr, /EFBIG/, 'the run fails on the file size limit');
+            const settingsTextAfter = readFileSync(settingsPath, 'utf8');
+            assert.equal(
+                settingsTextAfter,
+                settingsTextBefore,
+                `expected settings.json to keep its prior ${settingsTextBefore.length} bytes after the failed write, found ${settingsTextAfter.length} bytes`,
+            );
+            assert.deepEqual(
+                readdirSync(sandboxRoot).sort(),
+                ['prune-under-limit.mjs', 'settings.json'],
+                'the failed write leaves no temporary file beside settings.json',
+            );
+
+            const unlimitedRun = spawnSync(process.execPath, [pruneScriptPath], {
+                encoding: 'utf8',
+                env: { ...process.env, HOME: sandboxRoot, USERPROFILE: sandboxRoot },
+            });
+
+            assert.equal(unlimitedRun.status, 0, unlimitedRun.stderr);
+            const prunedSettings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+            assert.deepEqual(
+                prunedSettings.hooks.PreToolUse[0].hooks.map(hook => hook.command),
+                ['python3 my_own_gate.py --user-authored'],
+                'the next write completes and drops the retired entry',
+            );
+            assert.equal(prunedSettings.userNotes, settings.userNotes, 'the user key survives whole');
+        } finally {
+            rmSync(sandboxRoot, { recursive: true, force: true });
+        }
+    },
+);
+
+
 const ALL_HOST_CONFIGURATION_INDENT_WIDTHS = [2, 4];
 
 
@@ -3787,6 +3851,31 @@ test('a full install clears a retired session-continuity registration from every
             `the install leaves no registration in ${configurationPath} pointing at a removed script`,
         );
     }
+});
+
+test('should install over an empty settings.json and leave a settings object', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const settingsPath = join(sandbox.homeDirectory, '.claude', 'settings.json');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, '');
+
+    runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
+
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    assert.equal(typeof settings.hooks, 'object');
+});
+
+test('should refuse a settings.json that holds malformed JSON and leave it unchanged', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const settingsPath = join(sandbox.homeDirectory, '.claude', 'settings.json');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, '{ "hooks": ');
+
+    assert.throws(
+        () => runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment),
+        error => error.status === 1,
+    );
+    assert.equal(readFileSync(settingsPath, 'utf8'), '{ "hooks": ');
 });
 
 function installWithGlobalPrefix(context, globalPrefix) {
