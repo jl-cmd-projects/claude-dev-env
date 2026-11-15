@@ -49,7 +49,7 @@ The gate never reads the reply text. A held turn passes, so the gate adds at mos
 
 In Claude Code, `task_subject_outcome_gate.py` denies a task list item named as a procedure step. [Conduct gates](../../hooks/features/conduct-gates.md) lists what it matches.
 
-In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For the session's first prompt that asks for work, and the first after each compaction, it adds one note that asks for an item in the session's task list tool, so the agent tracks the ask before it starts. The note never blocks.
+In Claude Code, `tracking_nudge.py` runs on `UserPromptSubmit`. For the session's first prompt that asks for work, and the first after each compaction, it adds one note that asks for an item in the session's task list tool, so the agent tracks the ask before it starts. On a turn that an event starts, such as a `<task-notification>` or a queued `<agent-message>` with no message from the user, it adds one note while the session title shows the red flag, so the agent clears the flag when the event leaves the user nothing to do. The hook runs only when a prompt starts a turn, so a notification that arrives in the middle of a turn gets no note. These prompts get no wake note: a `<wake reason="external-event">` envelope, a plain `[SYSTEM NOTIFICATION - NOT USER INPUT]` prompt, a body that quotes its own closing tag, two envelopes in one prompt, an envelope with a lead line before it, and an agent message whose sender is empty or `human` in any letter case. The note never blocks.
 
 ## Cursor
 
