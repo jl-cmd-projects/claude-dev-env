@@ -47,10 +47,12 @@ Before matching, each run of two or more spaces, line breaks, or hyphens
 reads as one character: a hyphen for a run of hyphens alone, a space for any
 other run. No marker match is then longer than 128 characters. A paragraph
 is matched in windows of 1 Mi characters that overlap by 128, so the clock
-is read between windows. A match that ends at the end of a window before the
-paragraph's end is dropped, and the next window reads it whole. A marker reads as a whole word,
-and an underscore around it counts as emphasis, so ``_untested_`` is a marker
-and ``retry_untested_flag`` is none.
+is read between windows. Each window also reads the 4 characters after it,
+so the whole-word check sees past the window's end. A match that ends at the
+end of a window before the paragraph's end is dropped, and the next window
+reads it whole. A marker reads as a whole word, and one to three underscores
+around it count as emphasis, so ``_untested_`` and ``__untested__`` are
+markers, and ``retry_untested_flag`` and ``retry__untested__flag`` are none.
 """
 
 from __future__ import annotations
@@ -75,6 +77,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     INDENTED_CODE_LINE_PATTERN,
     LIST_ITEM_LINE_PATTERN,
     HYPHEN_CHARACTER,
+    MARKER_SCAN_LOOKAHEAD_CHARACTERS,
     MARKER_SCAN_OVERLAP_CHARACTERS,
     MARKER_SCAN_WINDOW_CHARACTERS,
     OPEN_ITEM_MARKER_PATTERN,
@@ -158,13 +161,14 @@ def _collapsed_marker_spans(collapsed_text: str, deadline_at: float) -> Iterator
     all_window_starts = range(0, max(len(collapsed_text), 1), MARKER_SCAN_WINDOW_CHARACTERS)
     for each_window_start in before_deadline(all_window_starts, deadline_at):
         window_end = each_window_start + MARKER_SCAN_WINDOW_CHARACTERS + MARKER_SCAN_OVERLAP_CHARACTERS
+        scan_end = window_end + MARKER_SCAN_LOOKAHEAD_CHARACTERS
         all_window_matches = OPEN_ITEM_MARKER_PATTERN.finditer(
-            collapsed_text, each_window_start, window_end
+            collapsed_text, each_window_start, scan_end
         )
         yield from (
             each_match.span()
             for each_match in all_window_matches
-            if each_match.end() < window_end or window_end >= len(collapsed_text)
+            if each_match.end() < window_end or scan_end >= len(collapsed_text)
         )
 
 

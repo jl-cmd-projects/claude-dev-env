@@ -32,7 +32,7 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
 - the payload cannot be read, or it carries a non-empty ``agent_id`` (a
   subagent) or a ``conversation_id`` (Cursor);
 - ``CLAUDE_CODE_SESSION_ATTENDED`` is ``0`` (a headless run);
-- the payload's ``background_tasks`` is a list with an entry;
+- the payload's ``background_tasks`` is a non-empty list, object, or string;
 - the transcript is missing or cannot be read;
 - no person started the session. A record that carries ``turnOrigin`` equal to
   ``human`` and starts a turn, as ``claude_prompt_text`` reads it, is a prompt
@@ -49,6 +49,8 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
   a child process, which is killed then, and a watchdog thread ends a stdin
   read that never finishes at 8.5 seconds;
 - the child exits with a code other than 0 or 2;
+- stdin, stdout, or stderr is closed;
+- the output write has not finished 9 seconds after the start;
 - any step raises.
 
 A transcript line over 16 MiB or a text over 2 MiB is skipped. The gate does
@@ -104,6 +106,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     MAXIMUM_QUOTED_LINE_COUNT,
     MAXIMUM_QUOTED_LINE_LENGTH,
     OPEN_ITEM_LINES_LABEL,
+    OUTPUT_WATCHDOG_SECONDS,
     QUOTED_LINE_TEMPLATE,
     REASON_PART_SEPARATOR,
     REMAINING_LINES_TEMPLATE,
@@ -143,7 +146,7 @@ def is_exempt_stop(all_hook_input_fields: dict[str, object]) -> bool:
     if os.environ.get(SESSION_ATTENDED_ENVIRONMENT_VARIABLE) == HEADLESS_SESSION_ATTENDED_TEXT:
         return True
     all_background_tasks = all_hook_input_fields.get(BACKGROUND_TASKS_KEY)
-    return isinstance(all_background_tasks, list) and bool(all_background_tasks)
+    return isinstance(all_background_tasks, (list, dict, str)) and bool(all_background_tasks)
 
 
 def _record_text(all_record_fields: dict[str, object]) -> str:
@@ -330,11 +333,13 @@ def supervised_main() -> int:
     deadline, and a watchdog thread here ends a stdin read that never finishes
     at 8.5 seconds. A child that exits with a code other than 0 or 2 allows
     the stop with no output, and so do a closed standard stream and output
-    that cannot be written.
+    that cannot be written. A write that has not finished 9 seconds after the
+    start, such as one to a full pipe nobody reads, ends the process with 0.
     """
     if sys.stdin is None or sys.stdout is None or sys.stderr is None:
         return ALLOW_EXIT_CODE
-    deadline_at = time.monotonic() + STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS
+    started_at = time.monotonic()
+    deadline_at = started_at + STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS
     output_lock = threading.Lock()
     watchdog = threading.Timer(STDIN_WATCHDOG_SECONDS, _allow_now, args=(output_lock,))
     watchdog.daemon = True
@@ -352,12 +357,18 @@ def supervised_main() -> int:
         return ALLOW_EXIT_CODE
     if not output_lock.acquire(blocking=False):
         return ALLOW_EXIT_CODE
+    output_watchdog_seconds = max(started_at + OUTPUT_WATCHDOG_SECONDS - time.monotonic(), 0.0)
+    output_watchdog = threading.Timer(output_watchdog_seconds, os._exit, args=(ALLOW_EXIT_CODE,))
+    output_watchdog.daemon = True
+    output_watchdog.start()
     try:
         sys.stdout.buffer.write(completed_decision.stdout)
         sys.stdout.buffer.flush()
         sys.stderr.buffer.write(completed_decision.stderr)
     except (OSError, ValueError):
         return ALLOW_EXIT_CODE
+    finally:
+        output_watchdog.cancel()
     return completed_decision.returncode
 
 

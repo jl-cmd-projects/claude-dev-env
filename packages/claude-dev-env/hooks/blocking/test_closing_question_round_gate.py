@@ -1,7 +1,9 @@
 import io
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -659,6 +661,9 @@ def test_is_exempt_stop_reads_the_payload_and_the_environment(
     assert closing_question_round_gate.is_exempt_stop({"agent_id": "agent-1"})
     assert closing_question_round_gate.is_exempt_stop({"conversation_id": "conversation-1"})
     assert closing_question_round_gate.is_exempt_stop({"background_tasks": [{"id": "task-1"}]})
+    assert closing_question_round_gate.is_exempt_stop({"background_tasks": {"task-1": {}}})
+    assert closing_question_round_gate.is_exempt_stop({"background_tasks": "task-1"})
+    assert not closing_question_round_gate.is_exempt_stop({"background_tasks": {}})
     assert not closing_question_round_gate.is_exempt_stop({"agent_id": "", "background_tasks": []})
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "0")
     assert closing_question_round_gate.is_exempt_stop({})
@@ -871,3 +876,56 @@ def test_supervised_main_should_allow_with_no_output_when_a_standard_stream_is_c
     assert closing_question_round_gate.supervised_main() == 0
     captured = capsys.readouterr()
     assert (captured.out, captured.err) == ("", "")
+
+
+def test_should_hold_work_whose_record_spells_its_type_with_a_json_escape(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    escaped_work_line = json.dumps(tool_call_record("Edit")).replace(
+        '"assistant"', '"\\u0061ssistant"'
+    )
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text(
+        "\n".join(
+            [
+                json.dumps(typed_prompt_record()),
+                escaped_work_line,
+                json.dumps(tool_result_record("Edit", "The file was updated.")),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    block_output = run_gate(
+        monkeypatch, capsys, transcript_path, {"last_assistant_message": "Done."}
+    )
+    assert block_output["reason"].startswith(WORK_REASON_LEAD)
+
+
+def test_should_allow_the_stop_before_the_host_timeout_when_the_output_pipe_is_full(
+    tmp_path: Path,
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [typed_prompt_record(), reply_record(DEFERRAL_LINE)]
+    )
+    hook_input = json.dumps({"hook_event_name": "Stop", "transcript_path": str(transcript_path)})
+    read_end, write_end = os.pipe()
+    os.set_blocking(write_end, False)
+    try:
+        while True:
+            os.write(write_end, b"x" * 4096)
+    except BlockingIOError:
+        os.set_blocking(write_end, True)
+    started_at = time.monotonic()
+    completed_gate = subprocess.run(
+        [sys.executable, str(GATE_PATH)],
+        input=hook_input.encode("utf-8"),
+        stdout=write_end,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "HOME": str(tmp_path), "CLAUDE_CODE_SESSION_ATTENDED": "1"},
+        timeout=20,
+        check=False,
+    )
+    os.close(write_end)
+    os.close(read_end)
+    assert completed_gate.returncode == 0
+    assert time.monotonic() - started_at < 10

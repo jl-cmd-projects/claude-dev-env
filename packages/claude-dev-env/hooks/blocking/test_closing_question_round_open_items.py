@@ -122,8 +122,21 @@ def test_marked_open_lines_should_read_a_marker_inside_underscore_emphasis(
     assert marked_open_lines([emphasized_line], NO_DEADLINE) == [emphasized_line]
 
 
-def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name() -> None:
-    assert marked_open_lines(["The retry_untested_flag is set."], NO_DEADLINE) == []
+@pytest.mark.parametrize(
+    "snake_case_line", ["The retry_untested_flag is set.", "The retry__untested__flag is set."]
+)
+def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name(
+    snake_case_line: str,
+) -> None:
+    assert marked_open_lines([snake_case_line], NO_DEADLINE) == []
+
+
+def test_marked_open_lines_should_not_read_a_snake_case_name_whose_underscore_ends_a_window() -> None:
+    window_end = MARKER_SCAN_WINDOW_CHARACTERS + 128
+    edge_text = "w" * (window_end - len(" deferred") - 1) + " deferred_flag is set."
+    assert edge_text.index("_") == window_end - 1
+    assert marked_open_lines([edge_text], NO_DEADLINE) == []
+    assert marked_open_lines([edge_text.replace("_flag", " flag")], NO_DEADLINE) != []
 
 
 def test_marked_open_lines_should_find_a_window_edge_marker_followed_only_by_hyphens() -> None:

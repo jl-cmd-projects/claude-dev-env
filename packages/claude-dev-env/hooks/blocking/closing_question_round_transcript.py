@@ -28,6 +28,7 @@ newest text of the stretch, once when the transcript already ends with it.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
@@ -47,6 +48,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
     ASSISTANT_SCAN_TEXT,
     ATTENDED_SESSION_TEXT,
+    ESCAPED_ASCII_TEXT,
+    ESCAPED_PRINTABLE_ASCII_PATTERN,
     HUMAN_TURN_ORIGIN,
     IS_ERROR_KEY,
     IS_SIDECHAIN_KEY,
@@ -71,7 +74,10 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_USE_ID_KEY,
     UTF8_ENCODING,
 )
-from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
+from hooks_constants.setup_project_paths_constants import (
+    DECODE_ERRORS_POLICY,
+    UTF8_BYTE_ORDER_MARK,
+)
 from open_tasks_transcript_records import (
     _content_blocks,
     claude_prompt_text,
@@ -111,8 +117,13 @@ def transcript_lines(transcript_path: object, deadline_at: float) -> list[str]:
 
     The file is read as bytes and cut at each line feed. Each line of 16 MiB or
     less is decoded as UTF-8 with bad bytes replaced, and the empty stand-in
-    keeps the positions of the lines after it. The clock is read before each
-    line, and TimeoutError is raised once it reaches ``deadline_at``.
+    keeps the positions of the lines after it. A byte order mark at the start
+    of a line is dropped. A line that holds an escape of a printable ASCII
+    character, ``\\u0020`` to ``\\u007f``, and parses as a JSON object is
+    written out again without escapes for printable characters,
+    so ``"\\u0074urnOrigin"`` reads as ``"turnOrigin"`` for the substring
+    checks that run before each parse. The clock is read before each line, and
+    TimeoutError is raised once it reaches ``deadline_at``.
     """
     if not isinstance(transcript_path, str):
         return []
@@ -121,11 +132,26 @@ def transcript_lines(transcript_path: object, deadline_at: float) -> list[str]:
     except (OSError, ValueError):
         return []
     return [
-        each_line.decode(UTF8_ENCODING, DECODE_ERRORS_POLICY)
-        if len(each_line) <= MAXIMUM_SCANNED_BYTES
-        else ""
+        _scannable_line(each_line)
         for each_line in before_deadline(transcript_bytes.split(LINE_FEED_BYTES), deadline_at)
     ]
+
+
+def _scannable_line(line_bytes: bytes) -> str:
+    if len(line_bytes) > MAXIMUM_SCANNED_BYTES:
+        return ""
+    line_text = line_bytes.decode(UTF8_ENCODING, DECODE_ERRORS_POLICY).removeprefix(
+        UTF8_BYTE_ORDER_MARK
+    )
+    if ESCAPED_ASCII_TEXT not in line_text or not ESCAPED_PRINTABLE_ASCII_PATTERN.search(line_text):
+        return line_text
+    each_record = parsed_object(line_text)
+    if each_record is None:
+        return line_text
+    try:
+        return json.dumps(each_record, ensure_ascii=False)
+    except (RecursionError, ValueError):
+        return line_text
 
 
 def _top_level_record(transcript_line: str) -> dict[str, object] | None:

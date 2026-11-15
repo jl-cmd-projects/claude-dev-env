@@ -272,3 +272,27 @@ def test_closing_reply_texts_sets_aside_the_question_calls_that_share_the_last_r
             closing_reply_texts({"last_assistant_message": question_line}, all_lines, NO_DEADLINE)
             == all_expected_texts
         )
+
+
+def test_transcript_lines_should_spell_out_json_escapes_and_drop_a_byte_order_mark(
+    tmp_path: Path,
+) -> None:
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_bytes(
+        b'\xef\xbb\xbf{"type": "user"}\n{"\\u0074urnOrigin": "sdk", "text": "caf\\u00e9"}\n{"a": "\\u0062"'
+    )
+    all_lines = transcript_lines(str(transcript_path), NO_DEADLINE)
+    assert all_lines[0] == '{"type": "user"}'
+    assert json.loads(all_lines[1]) == {"turnOrigin": "sdk", "text": "caf\u00e9"}
+    assert '"turnOrigin"' in all_lines[1]
+    assert all_lines[2] == '{"a": "\\u0062"'
+
+
+def test_transcript_lines_should_keep_a_line_whose_only_escapes_are_control_characters(
+    tmp_path: Path,
+) -> None:
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_bytes(b'{"content":"\\u001b[31mred\\u001b[0m"}')
+    assert transcript_lines(str(transcript_path), NO_DEADLINE) == [
+        '{"content":"\\u001b[31mred\\u001b[0m"}'
+    ]

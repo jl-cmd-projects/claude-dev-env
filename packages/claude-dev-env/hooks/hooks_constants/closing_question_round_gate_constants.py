@@ -39,17 +39,21 @@ STOP_DEADLINE_SECONDS = 7.0
 WATCHDOG_GRACE_SECONDS = 1.0
 DECISION_PROCESS_FLAG = "--decide"
 STDIN_WATCHDOG_SECONDS = 8.5
+OUTPUT_WATCHDOG_SECONDS = 9.0
 MAXIMUM_SCANNED_BYTES = 16 * 1024 * 1024
 MAXIMUM_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAXIMUM_SCANNED_TEXT_BYTES = 2 * 1024 * 1024
 LINE_FEED_BYTES = b"\n"
+ESCAPED_ASCII_TEXT = "\\u00"
+ESCAPED_PRINTABLE_ASCII_PATTERN = re.compile(r"\\u00[2-7][0-9a-fA-F]")
 MARKER_SCAN_WINDOW_CHARACTERS = 1024 * 1024
 MARKER_SCAN_OVERLAP_CHARACTERS = 128
+MARKER_SCAN_LOOKAHEAD_CHARACTERS = 4
 SEPARATOR_RUN_PATTERN = re.compile(r"[\s-]{2,}")
 HYPHEN_CHARACTER = "-"
 
 OPEN_ITEM_MARKER_PATTERN = re.compile(
-    r"(?<![^\W_])(?<![^\W_]_)(?:"
+    r"(?<![^\W_])(?<![^\W_]_)(?<![^\W_]__)(?<![^\W_]___)(?:"
     r"deferred|defer|defers|deferring|deferrals?"
     r"|follow-?ups?"
     r"|(?:a|the|another|one)\s+follow\s+ups?"
@@ -95,7 +99,7 @@ OPEN_ITEM_MARKER_PATTERN = re.compile(
     r"|left\s+(?:it|this|that|them|these)\s+for\s+you"
     r"|for\s+you\s+to\s+decide"
     r"|(?:waiting|waits)\s+on\s+you"
-    r")(?![^\W_])(?!_[^\W_])",
+    r")(?![^\W_])(?!_{1,3}[^\W_])",
     re.IGNORECASE,
 )
 INDENTED_CODE_LINE_PATTERN = re.compile(r"^(?: {4}|\t)")
