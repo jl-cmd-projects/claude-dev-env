@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.118.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.118.0...claude-dev-env-v8.118.1) (2026-11-15)
+
+
+### Refactoring
+
+* **hooks:** split two long hook modules and shorten one function ([#2367](https://github.com/jl-cmd-projects/claude-dev-env/issues/2367)) ([4d00882](https://github.com/jl-cmd-projects/claude-dev-env/commit/4d008827e0c1a4e06f4c734e4351b1df855dc2f7))
+
 ## [8.118.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.5...claude-dev-env-v8.118.0) (2026-11-15)
 
 
