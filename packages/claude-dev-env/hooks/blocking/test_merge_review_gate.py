@@ -1070,6 +1070,77 @@ def test_should_ask_for_an_origin_review_of_a_first_create_behind_a_gh_repo_pref
     )
 
 
+ALL_LATER_PREFIXED_CREATES = [
+    'gh pr create --head feature --label "see gh pr create" --repo acme/other ; '
+    "GH_REPO=acme/other env -u GH_REPO gh pr create --head feature",
+    *(
+        f"gh pr create --head feature --repo acme/other {separator} "
+        f"GH_REPO=acme/other {wrapper} gh pr create --head feature"
+        for separator in (";", "&&")
+        for wrapper in (
+            "env -u GH_REPO",
+            "env -i",
+            "sudo",
+            "env --unset=GH_REPO",
+            "env -uGH_REPO",
+            "env -",
+            "env --ignore-environment",
+            "sudo --preserve-env",
+        )
+    ),
+    "echo 'gh pr create --head feature --label \"see gh pr create\" --repo acme/other' ; "
+    "GH_REPO=acme/other env -u GH_REPO gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; GH_REPO=acme/other gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; env GH_REPO=acme/other gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; "
+    "env -u GH_REPO GH_REPO=acme/other gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; "
+    "GH_REPO=acme/other env -u GH_REPO python3 pull_request.py create --head feature",
+]
+
+
+@pytest.mark.parametrize("command", ALL_LATER_PREFIXED_CREATES)
+def test_should_ask_for_an_origin_review_of_any_create_behind_a_gh_repo_prefix_with_the_prefix_repository_exempt(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/other")
+    assert f"acme/tools has no clean review for head {head}" in _deny_reason(
+        _bash_in(folder, command)
+    )
+
+
+@pytest.mark.parametrize("command", ALL_LATER_PREFIXED_CREATES)
+def test_should_ask_for_an_origin_review_of_any_create_behind_a_gh_repo_prefix_with_the_prefix_repository_reviewed(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.main(["acme/other", "open", head, "0"], io.StringIO())
+    assert f"acme/tools has no clean review for head {head}" in _deny_reason(
+        _bash_in(folder, command)
+    )
+
+
+def test_should_tell_a_create_behind_a_gh_repo_prefix_to_name_its_repository_with_the_repo_flag(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, _head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/other")
+    reason = _deny_reason(
+        _bash_in(folder, "GH_REPO=acme/other env -u GH_REPO gh pr create --head feature")
+    )
+    assert "GH_REPO=" in reason
+    assert "--repo owner/name" in reason
+
+
+def test_should_allow_a_create_that_names_an_exempt_repository_with_its_own_repo_flag(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, _head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/other")
+    assert _reason(_bash_in(folder, "gh pr create --head feature --repo acme/other")) is None
+
+
 def _git_on_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script_body: str) -> None:
     bin_folder = tmp_path / "fake-bin"
     bin_folder.mkdir()
