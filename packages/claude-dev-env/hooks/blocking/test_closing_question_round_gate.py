@@ -901,13 +901,38 @@ def test_should_hold_work_whose_record_spells_its_type_with_a_json_escape(
     assert block_output["reason"].startswith(WORK_REASON_LEAD)
 
 
-def test_should_allow_the_stop_before_the_host_timeout_when_the_output_pipe_is_full(
-    tmp_path: Path,
-) -> None:
+def _held_gate_run(
+    tmp_path: Path, all_stream_targets: dict[str, int]
+) -> tuple[subprocess.CompletedProcess[bytes], float]:
     transcript_path = write_records(
         tmp_path / "s.jsonl", [typed_prompt_record(), reply_record(DEFERRAL_LINE)]
     )
     hook_input = json.dumps({"hook_event_name": "Stop", "transcript_path": str(transcript_path)})
+    buffered_environment = {
+        **{
+            each_name: each_value
+            for each_name, each_value in os.environ.items()
+            if each_name != "PYTHONUNBUFFERED"
+        },
+        "HOME": str(tmp_path),
+        "CLAUDE_CODE_SESSION_ATTENDED": "1",
+    }
+    started_at = time.monotonic()
+    completed_gate = subprocess.run(
+        [sys.executable, str(GATE_PATH)],
+        input=hook_input.encode("utf-8"),
+        env=buffered_environment,
+        timeout=20,
+        check=False,
+        **{"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, **all_stream_targets},
+    )
+    return completed_gate, time.monotonic() - started_at
+
+
+@pytest.mark.parametrize("stream_name", ["stdout", "stderr"])
+def test_should_allow_the_stop_soon_after_the_write_starts_when_the_output_pipe_is_full(
+    tmp_path: Path, stream_name: str
+) -> None:
     read_end, write_end = os.pipe()
     os.set_blocking(write_end, False)
     try:
@@ -915,17 +940,23 @@ def test_should_allow_the_stop_before_the_host_timeout_when_the_output_pipe_is_f
             os.write(write_end, b"x" * 4096)
     except BlockingIOError:
         os.set_blocking(write_end, True)
-    started_at = time.monotonic()
-    completed_gate = subprocess.run(
-        [sys.executable, str(GATE_PATH)],
-        input=hook_input.encode("utf-8"),
-        stdout=write_end,
-        stderr=subprocess.DEVNULL,
-        env={**os.environ, "HOME": str(tmp_path), "CLAUDE_CODE_SESSION_ATTENDED": "1"},
-        timeout=20,
-        check=False,
-    )
-    os.close(write_end)
-    os.close(read_end)
+    try:
+        completed_gate, elapsed_seconds = _held_gate_run(tmp_path, {stream_name: write_end})
+    finally:
+        os.close(write_end)
+        os.close(read_end)
     assert completed_gate.returncode == 0
-    assert time.monotonic() - started_at < 10
+    assert elapsed_seconds < 5
+
+
+@pytest.mark.parametrize("stream_name", ["stdout", "stderr"])
+def test_should_allow_the_stop_when_the_output_pipe_has_no_reader(
+    tmp_path: Path, stream_name: str
+) -> None:
+    read_end, write_end = os.pipe()
+    os.close(read_end)
+    try:
+        completed_gate, _ = _held_gate_run(tmp_path, {stream_name: write_end})
+    finally:
+        os.close(write_end)
+    assert completed_gate.returncode == 0

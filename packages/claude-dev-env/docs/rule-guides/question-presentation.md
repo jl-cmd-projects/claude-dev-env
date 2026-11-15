@@ -51,7 +51,7 @@ A call reached the user when the transcript holds its tool result, matched by `t
 - A stop while background work runs: a non-empty `background_tasks` list, object, or string. The session stops again when that work ends, and what it left open carries over.
 - A session whose transcript cannot be read.
 - A stop the gate cannot finish within 7 seconds by its own clock checks. The check runs in a child process, which is killed 8 seconds after the payload read starts, so one long step, such as a JSON parse, cannot keep the stop waiting. A watchdog thread ends a payload read that never finishes at 8.5 seconds. It reads the clock between lines, texts, and windows of each marker scan. A single regular expression pass over one text cannot be cut short, which is why a text over 2 MiB is skipped. In local runs, a 190 MB transcript of short prompt lines took 4.5 seconds, and 160 to 180 MB transcripts that hold many 2 MiB texts of code spans reached the deadline and passed in 7.3 to 7.4 seconds.
-- A stop where the gate itself fails, or where a standard stream is closed. It passes with no output. A hold whose output write has not finished 9 seconds after the start, such as a write to a full pipe nobody reads, ends with exit code 0.
+- A stop where the gate itself fails, or where a standard stream is closed or cannot be written. It passes with exit code 0. A hold whose output write has not finished 1 second after it starts, such as a write to a full pipe nobody reads, ends with exit code 0.
 
 ### Two holds
 
@@ -79,6 +79,9 @@ When the lines name nothing that is still open, send one question that says so a
 - A payload over 16 MiB passes unread. A transcript line over 16 MiB or a text over 2 MiB is skipped, and a stop the gate cannot finish within 7 seconds passes.
 - The gate counts one of its holds only when the feedback record starts with "Stop hook feedback" and carries the first sentence of the reason in its first 200 characters. A host that writes the feedback in another shape gets a hold on every stop, up to its own limit.
 - Text inside an HTML block is not read.
+- A marker joined to a word by four or more underscores still reads as a marker.
+- Text the masking misses reads as prose and can hold, such as an unclosed fence or a quote indented four spaces inside a nested list item.
+- A question call whose id holds a character the transcript escapes outside printable ASCII, such as `"` or `é`, is not matched to its result, so the stretch does not end there. Claude Code writes ids of letters, digits, and underscores.
 - The gate runs on Claude Code only.
 
 ## Codex visual comparisons

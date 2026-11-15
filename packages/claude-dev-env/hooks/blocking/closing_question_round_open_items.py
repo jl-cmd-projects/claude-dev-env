@@ -70,7 +70,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
-from closing_question_round_transcript import before_deadline, is_within_scan_cap
+from closing_question_round_lines import before_deadline, is_within_scan_cap
 from final_reply_gate import prose_paragraphs_with_code_as
 from hooks_constants.closing_question_round_gate_constants import (
     DECLARATION_LINE_PATTERN,

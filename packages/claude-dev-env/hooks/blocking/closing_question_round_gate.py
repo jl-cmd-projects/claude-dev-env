@@ -50,7 +50,8 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
   read that never finishes at 8.5 seconds;
 - the child exits with a code other than 0 or 2;
 - stdin, stdout, or stderr is closed;
-- the output write has not finished 9 seconds after the start;
+- stdout or stderr cannot be written, or the write has not finished 1
+  second after it starts;
 - any step raises.
 
 A transcript line over 16 MiB or a text over 2 MiB is skipped. The gate does
@@ -78,6 +79,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
+from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
 from closing_question_round_transcript import (
     assistant_texts,
@@ -87,7 +89,6 @@ from closing_question_round_transcript import (
     last_typed_prompt_position,
     stretch_start,
     top_level_records,
-    transcript_lines,
 )
 from open_tasks_transcript_records import is_assistant_record
 
@@ -325,6 +326,25 @@ def _decision_run(payload_bytes: bytes, deadline_at: float) -> subprocess.Comple
     )
 
 
+def _relayed_exit_code(completed_decision: subprocess.CompletedProcess[bytes]) -> int:
+    output_watchdog = threading.Timer(OUTPUT_WATCHDOG_SECONDS, os._exit, args=(ALLOW_EXIT_CODE,))
+    output_watchdog.daemon = True
+    output_watchdog.start()
+    all_outputs = (
+        (sys.stdout, completed_decision.stdout),
+        (sys.stderr, completed_decision.stderr),
+    )
+    try:
+        for each_stream, each_output in all_outputs:
+            each_stream.buffer.write(each_output)
+            each_stream.buffer.flush()
+    except (OSError, ValueError):
+        return ALLOW_EXIT_CODE
+    finally:
+        output_watchdog.cancel()
+    return completed_decision.returncode
+
+
 def supervised_main() -> int:
     """Run ``main`` in a child process and allow the stop when it outlasts 8 seconds.
 
@@ -333,13 +353,13 @@ def supervised_main() -> int:
     deadline, and a watchdog thread here ends a stdin read that never finishes
     at 8.5 seconds. A child that exits with a code other than 0 or 2 allows
     the stop with no output, and so do a closed standard stream and output
-    that cannot be written. A write that has not finished 9 seconds after the
-    start, such as one to a full pipe nobody reads, ends the process with 0.
+    that cannot be written. Both streams are written and flushed here, and a
+    write that has not finished 1 second after it starts, such as one to a
+    full pipe nobody reads, ends the process with 0.
     """
     if sys.stdin is None or sys.stdout is None or sys.stderr is None:
         return ALLOW_EXIT_CODE
-    started_at = time.monotonic()
-    deadline_at = started_at + STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS
+    deadline_at = time.monotonic() + STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS
     output_lock = threading.Lock()
     watchdog = threading.Timer(STDIN_WATCHDOG_SECONDS, _allow_now, args=(output_lock,))
     watchdog.daemon = True
@@ -357,20 +377,10 @@ def supervised_main() -> int:
         return ALLOW_EXIT_CODE
     if not output_lock.acquire(blocking=False):
         return ALLOW_EXIT_CODE
-    output_watchdog_seconds = max(started_at + OUTPUT_WATCHDOG_SECONDS - time.monotonic(), 0.0)
-    output_watchdog = threading.Timer(output_watchdog_seconds, os._exit, args=(ALLOW_EXIT_CODE,))
-    output_watchdog.daemon = True
-    output_watchdog.start()
-    try:
-        sys.stdout.buffer.write(completed_decision.stdout)
-        sys.stdout.buffer.flush()
-        sys.stderr.buffer.write(completed_decision.stderr)
-    except (OSError, ValueError):
-        return ALLOW_EXIT_CODE
-    finally:
-        output_watchdog.cancel()
-    return completed_decision.returncode
+    return _relayed_exit_code(completed_decision)
 
 
 if __name__ == "__main__":
-    sys.exit(main() if DECISION_PROCESS_FLAG in sys.argv[1:] else supervised_main())
+    if DECISION_PROCESS_FLAG in sys.argv[1:]:
+        sys.exit(main())
+    os._exit(supervised_main())

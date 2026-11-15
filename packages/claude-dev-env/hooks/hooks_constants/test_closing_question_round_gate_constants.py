@@ -6,6 +6,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     ESCAPED_PRINTABLE_ASCII_PATTERN,
     NO_OPEN_ITEMS_DECLARATION,
     OPEN_ITEM_MARKER_PATTERN,
+    OUTPUT_WATCHDOG_SECONDS,
+    STDIN_WATCHDOG_SECONDS,
     WORK_INSTRUCTION,
 )
 
@@ -50,3 +52,7 @@ def test_escaped_printable_ascii_pattern_should_find_only_printable_ascii_escape
     json_text: str, is_escaped_printable: bool
 ) -> None:
     assert bool(ESCAPED_PRINTABLE_ASCII_PATTERN.search(json_text)) is is_escaped_printable
+
+
+def test_watchdogs_should_end_a_held_stop_inside_the_host_timeout_of_ten_seconds() -> None:
+    assert STDIN_WATCHDOG_SECONDS + OUTPUT_WATCHDOG_SECONDS < 10
