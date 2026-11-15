@@ -151,6 +151,18 @@ def _prompt_asks_for_report(prompt_text: str) -> bool:
     )
 
 
+def prompt_asks_for_list(prompt_text: str) -> bool:
+    """Return True when the typed prompt asks for a list, by the ask rules above.
+
+    ::
+
+        "list the deferred items as bullets"   -> True
+        "don't list them, just fix them"       -> False
+        "Fix the build"                        -> False
+    """
+    return _prompt_asks_for(prompt_text, LIST_ASK_PATTERN)
+
+
 def _sentence_before(paragraph_text: str, match_start: int) -> str:
     all_sentence_ends = list(REPLY_SENTENCE_END_PATTERN.finditer(paragraph_text, 0, match_start))
     sentence_start = all_sentence_ends[-1].end() if all_sentence_ends else 0
@@ -306,7 +318,7 @@ def open_item_list(reply_text: str, prompt_text: str) -> OpenItemList | None:
     Returns:
         The lead and the item count, or None when no run qualifies or the prompt asked for a list.
     """
-    if _prompt_asks_for(prompt_text, LIST_ASK_PATTERN):
+    if prompt_asks_for_list(prompt_text):
         return None
     all_lines = _reply_lines(reply_text)
     line_index = 0

@@ -18,6 +18,7 @@ Codex rollout with a ``compacted`` entry.
 its text shows once in the whole session, compactions included.
 ``claim_turn_showing`` puts a turn key in the marker name and reports a marker
 it cannot keep as None, so a caller can fall back to its own behavior.
+``is_turn_claimed`` reads whether that turn marker exists and creates nothing.
 """
 
 from __future__ import annotations
@@ -42,7 +43,14 @@ from hooks_constants.once_per_session_constants import (
 )
 from hooks_constants.session_file_id import session_file_id
 
-__all__ = ["claim_first_showing", "claim_only_showing", "claim_turn_showing", "clear_showings", "compaction_count"]
+__all__ = [
+    "claim_first_showing",
+    "claim_only_showing",
+    "claim_turn_showing",
+    "clear_showings",
+    "compaction_count",
+    "is_turn_claimed",
+]
 
 
 def _is_compaction_entry(transcript_line: bytes) -> bool:
@@ -138,6 +146,30 @@ def claim_turn_showing(hook_name: str, all_hook_fields: Mapping[str, object], tu
             return True
     except FileExistsError:
         return False
+    except OSError:
+        return None
+
+
+def is_turn_claimed(hook_name: str, all_hook_fields: Mapping[str, object], turn_key: str) -> bool | None:
+    """Return whether ``claim_turn_showing`` already claimed this turn, without claiming it.
+
+    ::
+
+        session s1, turn t1, before any claim   -> False
+        session s1, turn t1, after a claim      -> True
+        payload with no session id              -> None
+        marker cannot be read                   -> None
+
+    Args:
+        hook_name: The name the hook passes to ``claim_turn_showing``.
+        all_hook_fields: The hook payload, read for its session id and agent id.
+        turn_key: The turn key the hook passes to ``claim_turn_showing``.
+    """
+    session_id = all_hook_fields.get(SESSION_ID_KEY)
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    try:
+        return _marker_path(hook_name, session_id, all_hook_fields, session_file_id(turn_key)).is_file()
     except OSError:
         return None
 

@@ -1,6 +1,6 @@
 import pytest
 
-from closing_reply_shapes import OpenItemList, open_item_list, promised_report_phrase
+from closing_reply_shapes import OpenItemList, open_item_list, promised_report_phrase, prompt_asks_for_list
 
 BED_PROMPT = "heading out now. handle whatever the nightly job returns"
 PROMISE_REPLY = (
@@ -211,3 +211,16 @@ def test_should_pass_a_lead_that_ends_in_a_completion_word(lead: str) -> None:
 )
 def test_should_hold_a_promise_when_the_prompt_names_a_report_as_a_noun(prompt_text: str) -> None:
     assert promised_report_phrase(PROMISE_REPLY, prompt_text) == "when you get back"
+
+
+@pytest.mark.parametrize(
+    ("prompt_text", "is_list_ask"),
+    [
+        ("list the deferred items as bullets", True),
+        ("put the open calls in a table", True),
+        ("don't list them, just fix them", False),
+        ("Fix the build", False),
+    ],
+)
+def test_should_report_whether_the_prompt_asks_for_a_list(prompt_text: str, is_list_ask: bool) -> None:
+    assert prompt_asks_for_list(prompt_text) is is_list_ask

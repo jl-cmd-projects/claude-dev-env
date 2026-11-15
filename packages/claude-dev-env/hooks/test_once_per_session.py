@@ -10,6 +10,7 @@ from once_per_session import (
     claim_turn_showing,
     clear_showings,
     compaction_count,
+    is_turn_claimed,
 )
 
 CLAUDE_COMPACTION_LINE = json.dumps({"type": "system", "subtype": "compact_boundary"})
@@ -134,3 +135,20 @@ def test_should_report_no_claim_when_the_turn_marker_cannot_be_kept(
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "absent_directory"))
     assert claim_turn_showing("hook", {"session_id": "s1"}, "turn-1") is None
     assert claim_turn_showing("hook", {}, "turn-1") is None
+
+
+def test_is_turn_claimed_should_report_a_claim_without_making_one(transcript_path: Path) -> None:
+    assert is_turn_claimed("hook", _fields(transcript_path), "turn-1") is False
+    assert claim_turn_showing("hook", _fields(transcript_path), "turn-1") is True
+    assert is_turn_claimed("hook", _fields(transcript_path), "turn-1") is True
+    assert is_turn_claimed("hook", _fields(transcript_path), "turn-2") is False
+
+
+def test_is_turn_claimed_should_not_create_the_marker(transcript_path: Path) -> None:
+    assert is_turn_claimed("hook", _fields(transcript_path), "turn-1") is False
+    assert is_turn_claimed("hook", _fields(transcript_path), "turn-1") is False
+    assert claim_turn_showing("hook", _fields(transcript_path), "turn-1") is True
+
+
+def test_is_turn_claimed_should_report_none_without_a_session_id(transcript_path: Path) -> None:
+    assert is_turn_claimed("hook", {}, "turn-1") is None
