@@ -12,7 +12,7 @@ An item can close while it sits on a list. Before a reply or a sent file says so
 
 Remove completed items from the task list before the turn ends, so the list shows only open work.
 
-The `open_tasks_stop_gate.py` Stop hook holds the turn once when completed items sit beside open ones on the session's own task list. It also holds the turn once when the closing reply, or a Markdown, text, or HTML file the turn sent, says something waits on the user and the turn ran no read call or sent no question tool call.
+The `open_tasks_stop_gate.py` Stop hook holds the turn once when completed items sit beside open ones on the session's own task list. It also holds the turn once when the closing reply, or a Markdown, text, or HTML file the turn sent, says something waits on the user and the turn ran no read call or sent no question tool call. It also holds the turn once when the closing reply lists 3 or more open items, such as a deferred list or next steps, under a lead that names open work, and the turn sent no question tool call. The hold tells the agent to act on each item it can settle and to send each item that needs the user's judgment through the question tool. It holds the turn once, too, when the closing reply promises the user a later report that no typed prompt asked for. A held reply's text counts toward the limits below, so the first question call after such a hold can be refused once; the same call sent again passes.
 
 ## Several items, one question at a time
 
