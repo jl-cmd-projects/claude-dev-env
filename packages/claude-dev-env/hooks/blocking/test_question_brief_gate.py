@@ -914,3 +914,25 @@ def test_should_state_the_limits_the_gate_enforces_in_each_rule_file(rule_path: 
     rule_text = (PACKAGE_ROOT / rule_path).read_text(encoding="utf-8")
     assert f"{MAXIMUM_BRIEF_WORD_COUNT} words" in rule_text
     assert f"{MAXIMUM_BRIEF_LIST_ITEM_COUNT} list" in rule_text
+
+
+def test_should_keep_only_the_lines_outside_code_fences() -> None:
+    brief_text = "Lead:\n```\n- inside\n```\n- outside\n~~~\n| a | b |\n~~~\nTail"
+    assert question_brief_gate.lines_outside_code_fences(brief_text) == ["Lead:", "- outside", "Tail"]
+
+
+@pytest.mark.parametrize(
+    ("line", "next_line", "is_expected_item"),
+    [
+        ("- a bullet", "", True),
+        ("12) a numbered line", "", True),
+        ("| 1 | body row |", "", True),
+        ("| # | header row |", "|---|---|", False),
+        ("|---|---|", "| 1 | x |", False),
+        ("A plain sentence.", "", False),
+    ],
+)
+def test_should_tell_an_item_line_from_a_header_separator_or_prose_line(
+    line: str, next_line: str, is_expected_item: bool
+) -> None:
+    assert question_brief_gate.is_item_line(line, next_line) is is_expected_item

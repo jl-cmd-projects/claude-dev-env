@@ -254,7 +254,8 @@ def brief_before_question(all_entries: Iterable[dict], tool_use_id: str) -> str 
     return None
 
 
-def _lines_outside_code_fences(brief_text: str) -> list[str]:
+def lines_outside_code_fences(brief_text: str) -> list[str]:
+    """Return each line of the text that sits outside a code fence; the fence lines themselves are left out."""
     all_outside_lines: list[str] = []
     is_inside_fence = False
     for each_line in brief_text.splitlines():
@@ -266,7 +267,8 @@ def _lines_outside_code_fences(brief_text: str) -> list[str]:
     return all_outside_lines
 
 
-def _is_item_line(line: str, next_line: str) -> bool:
+def is_item_line(line: str, next_line: str) -> bool:
+    """Return True for a bullet, a numbered line, or a table body row; a table header or separator row is no item."""
     if LIST_ITEM_LINE_PATTERN.match(line):
         return True
     return bool(
@@ -288,9 +290,9 @@ def count_list_items(brief_text: str) -> int:
         "| # | What |\\n|---|---|\\n| 1 | x |" -> 1
         "```\\n- a\\n- b\\n```"            -> 0
     """
-    all_lines = _lines_outside_code_fences(brief_text)
+    all_lines = lines_outside_code_fences(brief_text)
     return sum(
-        _is_item_line(each_line, each_next_line)
+        is_item_line(each_line, each_next_line)
         for each_line, each_next_line in zip(all_lines, [*all_lines[1:], ""], strict=False)
     )
 
