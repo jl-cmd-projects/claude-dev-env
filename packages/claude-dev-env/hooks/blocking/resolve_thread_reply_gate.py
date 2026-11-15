@@ -18,6 +18,7 @@ from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.resolve_thread_reply_gate_constants import (
     ALL_REPLY_SCRIPT_FLAG_OPTIONS,
     ALL_REPLY_SCRIPT_VALUE_OPTIONS,
+    ABSOLUTE_LAUNCHER_FOLDER_PATTERN,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     REPLY_SCRIPT_LAUNCHER_NAME_PATTERN,
     ALL_THREAD_ID_INPUT_KEYS,
@@ -134,7 +135,7 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
 def _is_reply_script_launcher(word: str) -> bool:
     folder, separator, name = word.rpartition(SHELL_PATH_SEPARATOR)
     return REPLY_SCRIPT_LAUNCHER_NAME_PATTERN.fullmatch(name) is not None and (
-        not separator or folder.startswith(SHELL_PATH_SEPARATOR)
+        not separator or ABSOLUTE_LAUNCHER_FOLDER_PATTERN.match(folder + separator) is not None
     )
 
 
@@ -193,7 +194,8 @@ def reply_script_targets(command: str) -> tuple[frozenset[str], frozenset[str]] 
 
     The command must be one plain call: an optional launcher, the script, then
     ``request``. The launcher is ``python``, ``python3``, ``python3.<n>`` or
-    ``py``, with or without ``.exe``, bare or by an absolute path. The script's parser accepts any prefix of an option
+    ``py``, with or without ``.exe``, bare or by an absolute path, which
+    starts with ``/`` or with a drive letter and ``:/``. The script's parser accepts any prefix of an option
     name, so every word after ``request`` must be an option the gate knows by
     its full name, each given once, with its value: ``--pull``,
     ``--comment-id``, ``--thread-id``, ``--body-file``, ``--wait-seconds``, or

@@ -699,6 +699,8 @@ def should_not_count_a_reply_script_call_the_parser_can_read_another_way() -> No
         f"bin/{plain_call}",
         "python3 -u review_reply_post.py request --comment-id 9",
         "py -3 review_reply_post.py request --comment-id 9",
+        "C:Python312/python.exe review_reply_post.py request --comment-id 9",
+        "CD:/Python312/python.exe review_reply_post.py request --comment-id 9",
         ".venv/bin/python review_reply_post.py request --comment-id 9",
         "python2 review_reply_post.py request --comment-id 9",
         "python3.12x review_reply_post.py request --comment-id 9",
@@ -898,6 +900,8 @@ def should_read_a_versioned_or_exe_launcher_and_a_bare_script_path() -> None:
         "python.exe review_reply_post.py request --comment-id 9",
         "py.exe ci/review_reply_post.py request --comment-id 9",
         "/usr/bin/python3.13 review_reply_post.py request --comment-id 9",
+        "/python3 review_reply_post.py request --comment-id 9",
+        "C:/Python312/python.exe review_reply_post.py request --comment-id 9",
         "ci/review_reply_post.py request --comment-id 9",
     ]
     for each_command in all_plain_commands:

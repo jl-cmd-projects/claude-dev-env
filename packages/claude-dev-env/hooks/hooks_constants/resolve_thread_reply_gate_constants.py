@@ -28,6 +28,7 @@ SHELL_OPTION_PREFIX = "-"
 SHELL_UNREADABLE_CHARACTER_PATTERN = re.compile(r"[;&|<>()`$#{}*?\[\]~!\\\n\r]")
 SHELL_OPTION_VALUE_SEPARATOR = "="
 SHELL_PATH_SEPARATOR = "/"
+ABSOLUTE_LAUNCHER_FOLDER_PATTERN = re.compile(r"(?:[A-Za-z]:)?/")
 SHELL_RESOLVE_COMMAND_PATTERN = re.compile(r"\bgh\s+api\s+graphql\b.*\bresolveReviewThread\b", re.DOTALL)
 SHELL_RESOLVE_COMMENT_ID_PATTERN = re.compile(r"/pulls/\d+/ccr/comments/(\d+)/resolve\b")
 ALL_THREAD_ID_INPUT_KEYS = ("threadID", "threadId")
