@@ -565,9 +565,11 @@ def should_tell_the_user_when_the_install_runs_past_the_time_limit(
     assert completed.returncode == 0, completed.stderr
     message = _user_message(completed)
     assert "ran past 1 seconds and was stopped" in message
-    assert "manifest shows 2.9.0" in message
+    assert (
+        "manifest shows 2.9.0. To install it now, run `npx -y claude-dev-env@2.12.0`"
+        in message
+    )
     assert "booted with" not in message
-    assert "npx -y claude-dev-env@2.12.0" in message
     npx_process_id = int((tmp_path / "tool-log.txt.npx-pid").read_text())
     assert _process_is_gone(npx_process_id)
     assert _all_in_progress_records(tmp_path) == []
@@ -580,9 +582,11 @@ def should_tell_the_user_when_the_install_ends_on_a_signal(tmp_path: Path) -> No
     environment["FAKE_NPX_SIGNAL"] = "1"
     message = _user_message(_run_hook_process(environment))
     assert "stopped by signal 9" in message
-    assert "manifest shows 2.9.0" in message
+    assert (
+        "manifest shows 2.9.0. To install it now, run `npx -y claude-dev-env@2.12.0`"
+        in message
+    )
     assert "booted with" not in message
-    assert "npx -y claude-dev-env@2.12.0" in message
 
 
 def should_tell_the_user_when_the_install_exits_zero_and_leaves_the_old_version(
@@ -751,6 +755,32 @@ def should_stay_quiet_when_an_install_left_by_a_stopped_hook_finished(
     completed = _run_hook_process(environment)
     assert completed.stdout == ""
     assert not in_progress_record.exists()
+
+
+def should_install_quietly_over_an_in_progress_record_that_is_not_utf8(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    unreadable_record = _config_directory(tmp_path) / f"{IN_PROGRESS_RECORD_NAME}.123"
+    unreadable_record.write_bytes(b"\xff\xfe")
+    completed = _run_hook_process(environment)
+    assert completed.stdout == ""
+    assert "npx -y claude-dev-env@2.12.0" in (tmp_path / "tool-log.txt").read_text(
+        encoding="utf-8"
+    )
+    assert not unreadable_record.exists()
+
+
+def should_install_quietly_over_a_failed_record_that_is_not_utf8(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    (_config_directory(tmp_path) / FAILED_RECORD_NAME).write_bytes(b"\xff\xfe")
+    completed = _run_hook_process(environment)
+    assert completed.stdout == ""
+    assert "npx -y claude-dev-env@2.12.0" in (tmp_path / "tool-log.txt").read_text(
+        encoding="utf-8"
+    )
 
 
 def should_tell_the_user_when_the_hook_stops_on_an_error(tmp_path: Path) -> None:

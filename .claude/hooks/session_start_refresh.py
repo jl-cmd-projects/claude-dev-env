@@ -35,17 +35,22 @@ user, named by a ``RefreshOutcome`` member, with the command to run by hand::
 
 The failed record makes later starts skip that version until the registry
 moves to another one. Every other failed end leaves no failed record, so the
-next start runs the install again. Before the install starts, the hook writes
-an in-progress record of its own, named by its process id, and it removes that
-record when the install call returns. A hook killed from outside leaves its
-record behind. A later start reads every in-progress record and leaves alone
-the ones whose run still goes on::
+next start runs the install again unless the manifest already shows the
+registry version. A failed record the hook cannot read as UTF-8 reads as
+empty. Before the install starts, the hook writes an in-progress record of its
+own, named by its process id, and it removes that record when the install call
+returns. A hook killed from outside leaves its record behind. A later start
+reads every in-progress record::
 
     process id alive, record younger than the run limit -> still running, left
     process gone, or record older than the run limit    -> stopped, removed
+    file not UTF-8, or not a record                     -> removed, not reported
+    path the hook cannot read, such as a directory      -> left
 
 For each stopped run, the start adds ``LAST_REFRESH_UNFINISHED`` to the message,
-unless the manifest then shows that version or a later one.
+unless the manifest then shows that version or a later one. The order reads
+major, minor and patch, and puts a pre-release below its release. Two
+pre-releases of one release compare equal.
 """
 
 from __future__ import annotations
@@ -231,7 +236,7 @@ def _record_path(record_file_name: str) -> Path:
 def _read_record(record_file_name: str) -> str:
     try:
         return _record_path(record_file_name).read_text(encoding="utf-8").strip()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -332,9 +337,12 @@ def _take_stopped_runs() -> list[InProgressRecord]:
         claude_config_directory().glob(IN_PROGRESS_INSTALL_RECORD_FILE_NAME + "*")
     ):
         try:
-            record = _parse_in_progress_record(each_record_path.read_text(encoding="utf-8"))
+            record_text = each_record_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            record_text = ""
         except OSError:
             continue
+        record = _parse_in_progress_record(record_text)
         if record is not None and _is_still_running(record):
             continue
         each_record_path.unlink(missing_ok=True)
