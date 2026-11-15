@@ -8,7 +8,7 @@ import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from http import HTTPStatus
 from pathlib import Path
@@ -45,6 +45,7 @@ from hooks_constants.followup_pr_dedupe_constants import (
     OPEN_PULL_REQUESTS_PATH_TEMPLATE,
     OPTION_AND_VALUE_WIDTH,
     OPTION_PREFIX,
+    PREFIX_ORIGIN_FOLLOWUP_SENTENCE,
     PYTHON_PROGRAM_NAME_PATTERN,
     READ_TIMEOUT_SECONDS,
     REPOSITORY_OPTION,
@@ -75,11 +76,20 @@ from hooks_constants.shell_command_wrappers import (
 
 @dataclass(frozen=True)
 class PullRequestDraft:
-    """The repository and body of a pull request about to be opened."""
+    """The repository and body of a pull request about to be opened.
+
+    Attributes:
+        owner: Repository owner.
+        repo: Repository name.
+        body: The create's body.
+        is_prefix_origin_check: True for the origin draft a create gets when only a
+            ``GH_REPO=`` prefix names its repository. Equal drafts compare equal either way.
+    """
 
     owner: str
     repo: str
     body: str
+    is_prefix_origin_check: bool = field(default=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -530,7 +540,11 @@ def _shell_followup_drafts(command: str, working_directory: str) -> list[PullReq
         all_drafts.append(draft)
         if isinstance(draft, PullRequestDraft) and _is_prefix_named_create(each_segment):
             origin_draft = _origin_draft(draft.body, working_directory)
-            all_drafts.append(origin_draft if isinstance(origin_draft, PullRequestDraft) else None)
+            all_drafts.append(
+                PullRequestDraft(origin_draft.owner, origin_draft.repo, origin_draft.body, is_prefix_origin_check=True)
+                if isinstance(origin_draft, PullRequestDraft)
+                else None
+            )
     return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
 
 
@@ -675,6 +689,7 @@ def duplicate_followup_reason(
     ::
 
         open pull request #9 says "Follow-up to #7"      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+        that #9 is in origin, found for a GH_REPO= prefix -> the same, + PREFIX_ORIGIN_FOLLOWUP_SENTENCE
         the read gives no answer inside its allowance   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         the read answers with a GitHub server error     -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         no --repo, and the origin read gives nothing    -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -706,6 +721,8 @@ def duplicate_followup_reason(
         if answer is UnreadOpenPullRequests.FAILED:
             continue
         reason = _reason_for_parent(parent_number, answer)
+        if reason is not None and each_draft.is_prefix_origin_check:
+            return reason + PREFIX_ORIGIN_FOLLOWUP_SENTENCE
         if reason is not None:
             return reason
     return None
