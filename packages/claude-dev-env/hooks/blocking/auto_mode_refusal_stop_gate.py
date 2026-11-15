@@ -44,8 +44,7 @@ import auto_mode_refusal_ledger
 from auto_mode_question_transcript import (
     AskedQuestions,
     TranscriptCall,
-    read_asked_questions,
-    read_tool_calls,
+    read_transcript,
 )
 from auto_mode_refusal_ledger_files import (
     JsonObject,
@@ -149,12 +148,11 @@ def _card_offset_by_id(
 def _asked_entry_ids(
     ledger_directory: Path,
     all_entries: list[LedgerEntry],
-    transcript_path: Path | None,
+    all_asked: list[AskedQuestions],
     all_calls: list[TranscriptCall],
 ) -> dict[str, int | None]:
     all_known_ids = {each.entry_id for each in all_entries}
     all_records = auto_mode_refusal_ledger.load_question_records(ledger_directory)
-    all_asked = read_asked_questions(transcript_path)
     card_offset_by_id: dict[str, int | None] = {
         each_id: None
         for each_record in all_records
@@ -332,12 +330,18 @@ def hold_reason_for_stop(all_stop_fields: dict[str, object]) -> str | None:
     playbook_path, ledger_directory = flow_folders
     raw_transcript_path = all_stop_fields.get("transcript_path")
     transcript_path = Path(raw_transcript_path) if isinstance(raw_transcript_path, str) else None
-    auto_mode_refusal_ledger.apply_transcript_answers(ledger_directory, transcript_path)
+    all_entries = auto_mode_refusal_ledger.load_entries(ledger_directory)
+    if not any(each.answer is None or _could_hold(each) for each in all_entries):
+        return None
+    transcript_reading = read_transcript(transcript_path)
+    auto_mode_refusal_ledger.apply_asked_answers(ledger_directory, transcript_reading.all_asked)
     all_entries = auto_mode_refusal_ledger.load_entries(ledger_directory)
     if not any(_could_hold(each) for each in all_entries):
         return None
-    all_calls = read_tool_calls(transcript_path)
-    all_asked_ids = _asked_entry_ids(ledger_directory, all_entries, transcript_path, all_calls)
+    all_calls = transcript_reading.all_calls
+    all_asked_ids = _asked_entry_ids(
+        ledger_directory, all_entries, transcript_reading.all_asked, all_calls
+    )
     all_groups, all_rule_entries = _entries_to_hold(all_entries, all_asked_ids, all_calls)
     if all_groups:
         auto_mode_refusal_ledger.write_question_records(

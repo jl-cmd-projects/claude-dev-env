@@ -6,12 +6,15 @@ One session's ledger is a folder of JSON files::
         3f9a0c1d2e4b5a6c.json            one refused step, "answer": null
         question-8d7e6f5a4b3c2d1e.json   one question text and the ids it covers
 
-A step's id comes from its tool name and full ``tool_input``, so the same
-refusal twice is one entry and two edits of one file are two. Pending entries
+A step's id comes from its tool name and its ``tool_input`` without the
+``description`` key, so the same refusal twice is one entry, a retry with a
+new description is the same entry, and two edits of one file are two. Pending entries
 group by tool name and exact rule label, and one question covers up to the
 five oldest of a group. An answer counts only when an ``AskUserQuestion``
 call that starts at or after the record's ``transcript_offset`` asks the
-record's exact question text and gets ``Allow it`` or ``Keep refusing``.
+record's exact question text and gets ``Allow it`` or ``Keep refusing``. A
+call that asks the card question for the record's tool counts too, when no
+other record of that tool was written at or before the call.
 ``auto_mode_refusal_ledger_files.py`` reads each file into a typed entry or
 record and skips a file that does not parse.
 """
@@ -52,6 +55,7 @@ from hooks_constants.auto_mode_refusal_ledger_constants import (
     SINGLE_STEP_QUESTION_TEMPLATE,
     TIMESTAMP_FORMAT,
 )
+from hooks_constants.auto_mode_refusal_stop_gate_constants import CARD_QUESTION_TEMPLATE
 
 
 @dataclass(frozen=True)
@@ -272,11 +276,30 @@ def write_question_records(
         )
 
 
-def _answer_for(record: QuestionRecord, all_asked: list[AskedQuestions]) -> str | None:
+def _is_sole_card_owner(
+    record: QuestionRecord, all_records: list[QuestionRecord], call_offset: int
+) -> bool:
+    all_candidate_records = [
+        each
+        for each in all_records
+        if each.tool_name == record.tool_name and each.transcript_offset <= call_offset
+    ]
+    return bool(record.tool_name) and all_candidate_records == [record]
+
+
+def _answer_for(
+    record: QuestionRecord, all_records: list[QuestionRecord], all_asked: list[AskedQuestions]
+) -> str | None:
+    card_question = CARD_QUESTION_TEMPLATE.format(tool_name=record.tool_name)
     for each_asked in all_asked:
         if each_asked.call_offset < record.transcript_offset:
             continue
-        answer = ANSWER_BY_OPTION_LABEL.get(each_asked.answer_by_question.get(record.question, ""))
+        answer_label = each_asked.answer_by_question.get(record.question)
+        if answer_label is None and _is_sole_card_owner(
+            record, all_records, each_asked.call_offset
+        ):
+            answer_label = each_asked.answer_by_question.get(card_question)
+        answer = ANSWER_BY_OPTION_LABEL.get(answer_label or "")
         if answer is not None:
             return answer
     return None
@@ -291,6 +314,9 @@ def apply_transcript_answers(ledger_directory: Path, transcript_path: Path | Non
         ask at offset 1200 with that exact text, answer "Allow it" -> a: "allowed"
         ask at offset 400 with that exact text                     -> ignored
         ask with other text, or answer "allow it"                  -> ignored
+        ask "Should auto mode have refused this Bash step?" at 1200,
+            and this is the only Bash record at or before 1200     -> a: "allowed"
+        the same ask with a second Bash record at or before it     -> ignored
 
     Only ids a record names change, and only while their answer is null.
 
@@ -298,12 +324,26 @@ def apply_transcript_answers(ledger_directory: Path, transcript_path: Path | Non
         ledger_directory: One session's ledger folder.
         transcript_path: The session transcript, or None.
     """
-    all_records = load_question_records(ledger_directory)
-    if not all_records:
+    if not load_question_records(ledger_directory):
         return
-    all_asked = read_asked_questions(transcript_path)
+    apply_asked_answers(ledger_directory, read_asked_questions(transcript_path))
+
+
+def apply_asked_answers(ledger_directory: Path, all_asked: list[AskedQuestions]) -> None:
+    """Set pending answers from asks the caller already read.
+
+    ::
+
+        record ids [a], ask with its text answered "Keep refusing" -> a: "kept"
+
+    Args:
+        ledger_directory: One session's ledger folder.
+        all_asked: The answered asks from ``read_asked_questions`` or
+            ``read_transcript``.
+    """
+    all_records = load_question_records(ledger_directory)
     for each_record in all_records:
-        answer = _answer_for(each_record, all_asked)
+        answer = _answer_for(each_record, all_records, all_asked)
         if answer is not None:
             _set_pending_answers(ledger_directory, each_record.all_entry_ids, answer)
 

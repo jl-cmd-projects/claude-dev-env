@@ -274,6 +274,46 @@ def test_should_set_answers_only_from_asks_after_the_record(tmp_path: Path) -> N
     assert _answers(ledger_directory) == ["allowed"]
 
 
+def _write_records(ledger_directory: Path, transcript_path: Path) -> None:
+    ledger.write_question_records(
+        ledger_directory,
+        ledger.question_groups(ledger.load_entries(ledger_directory)),
+        transcript_path,
+    )
+
+
+def test_should_take_a_card_text_answer_only_when_one_record_of_the_tool_could_own_it(
+    tmp_path: Path,
+) -> None:
+    ledger_directory = tmp_path / "ledger"
+    transcript_path = tmp_path / "transcript.jsonl"
+    card_question = "Should auto mode have refused this Bash step?"
+    _add(ledger_directory, "git push -f")
+    _write_records(ledger_directory, transcript_path)
+    _append_ask(transcript_path, card_question, "Allow it", "toolu_card_one")
+    ledger.apply_transcript_answers(ledger_directory, transcript_path)
+    assert _answers(ledger_directory) == ["allowed"]
+    other_directory = tmp_path / "other-ledger"
+    other_transcript_path = tmp_path / "other-transcript.jsonl"
+    _add(other_directory, "git push -f")
+    _add(other_directory, "rm -rf build", rule_label="Irreversible Local Destruction")
+    _write_records(other_directory, other_transcript_path)
+    _append_ask(other_transcript_path, card_question, "Allow it", "toolu_card_two")
+    ledger.apply_transcript_answers(other_directory, other_transcript_path)
+    assert _answers(other_directory) == [None, None]
+
+
+def test_should_apply_answers_from_asks_already_read(tmp_path: Path) -> None:
+    ledger_directory = tmp_path / "ledger"
+    transcript_path = tmp_path / "transcript.jsonl"
+    question = ledger.question_text_for("Bash", "Git Destructive", 1)
+    _add(ledger_directory, "git push -f")
+    _write_records(ledger_directory, transcript_path)
+    _append_ask(transcript_path, question, "Keep refusing", "toolu_kept")
+    ledger.apply_asked_answers(ledger_directory, ledger.read_asked_questions(transcript_path))
+    assert _answers(ledger_directory) == ["kept"]
+
+
 def test_should_merge_fields_into_entries_and_keep_their_other_fields(tmp_path: Path) -> None:
     first_id = _add(tmp_path, "git push -f")
     second_id = _add(tmp_path, "git reset --hard")

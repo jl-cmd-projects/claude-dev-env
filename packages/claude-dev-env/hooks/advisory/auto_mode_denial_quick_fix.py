@@ -9,8 +9,9 @@ proposal as ``additionalContext``; the user receives a one-line
 ``systemMessage``.
 
 A ``reason`` that says auto mode could not evaluate the action, that the
-classifier was unavailable, or that is not text has no verdict. It gets a
-short note and no block, because an allow entry cannot clear it.
+classifier was unavailable or gave no verdict, that a hook changed the input
+after review, or that is not text has no verdict. It gets a short note and no
+block, because an allow entry cannot clear it.
 
 The ``reason`` can echo text from a web page or a file. A rule label keeps
 only ASCII letters, digits, spaces, ``-``, ``_`` and ``/``, and every quote
@@ -122,6 +123,8 @@ def parse_denial_reason(reason: str) -> DenialReason:
         "Unauthorized Persistence, because" -> label "Unauthorized Persistence", verdict
         "the command cancels runs."         -> no label, verdict
         "Classifier unavailable"            -> no label, no verdict
+        "The server-side auto mode classifier
+         gave no verdict (timed out)"       -> no label, no verdict
         "Reason: [Git Destructive] force"   -> label "Git Destructive", verdict
         "The server-side auto mode classifier judged this action dangerous
          (it gave no explanation)"          -> label "Unexplained", verdict
@@ -135,9 +138,10 @@ def parse_denial_reason(reason: str) -> DenialReason:
     period, spaced dash, or the end of the text. A label keeps only ASCII
     letters, digits, spaces, ``-``, ``_`` and ``/``, with whitespace
     collapsed. A label left with none of them is no label, and the whole
-    text is the prose. An empty reason, a reason that starts ``Auto mode
-    could not evaluate this action``, and a reason that starts ``Classifier
-    unavailable`` have no verdict.
+    text is the prose. An empty reason has no verdict, and so has a reason
+    that starts ``Auto mode could not evaluate this action``, ``Classifier
+    unavailable``, ``The server-side auto mode classifier gave no verdict``
+    or ``a hook changed this call's input after auto mode reviewed it``.
 
     Args:
         reason: The ``reason`` text from the hook input.

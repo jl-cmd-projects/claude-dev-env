@@ -103,32 +103,32 @@ def _accepted_shape_of(all_words: list[str]) -> AcceptedShape | None:
     )
 
 
-def _real_path(path: Path) -> Path:
+def _resolved_path(path: Path) -> Path:
     return Path(os.path.realpath(path))
 
 
 def _rule_git_directory_of(folder: Path, repository_root: Path) -> Path | None:
-    repository_git_directory = _real_path(repository_root / GIT_DIRECTORY_NAME)
-    if _real_path(folder) == _real_path(repository_root):
+    repository_git_directory = _resolved_path(repository_root / GIT_DIRECTORY_NAME)
+    if _resolved_path(folder) == _resolved_path(repository_root):
         return repository_git_directory
-    git_file = _real_path(folder) / GIT_DIRECTORY_NAME
+    git_file = _resolved_path(folder) / GIT_DIRECTORY_NAME
     if not git_file.is_file():
         return None
     git_file_text = git_file.read_text(encoding=TEXT_ENCODING).strip()
     if not git_file_text.startswith(GIT_FILE_PREFIX):
         return None
-    linked_git_directory = _real_path(folder / git_file_text[len(GIT_FILE_PREFIX) :].strip())
+    linked_git_directory = _resolved_path(folder / git_file_text[len(GIT_FILE_PREFIX) :].strip())
     common_directory_file = linked_git_directory / COMMON_DIRECTORY_FILE_NAME
     if not common_directory_file.is_file():
         return None
     common_text = common_directory_file.read_text(encoding=TEXT_ENCODING).strip()
-    if _real_path(linked_git_directory / common_text) != repository_git_directory:
+    if _resolved_path(linked_git_directory / common_text) != repository_git_directory:
         return None
     back_pointer_file = linked_git_directory / GITDIR_FILE_NAME
     if not back_pointer_file.is_file():
         return None
     back_pointer_text = back_pointer_file.read_text(encoding=TEXT_ENCODING).strip()
-    if _real_path(linked_git_directory / back_pointer_text) != git_file:
+    if _resolved_path(linked_git_directory / back_pointer_text) != git_file:
         return None
     return linked_git_directory
 

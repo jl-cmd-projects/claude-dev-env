@@ -9,7 +9,8 @@ and by where the call sits in the transcript::
 
 A call whose result is error text has no ``answers`` object and is left out.
 ``read_tool_calls`` reads every finished call of any tool, with its input and
-error flag, for the Stop gate's card and rule tool checks.
+error flag, for the Stop gate's card and rule tool checks. ``read_transcript``
+returns both from one read, so the Stop gate parses the file once.
 """
 
 from __future__ import annotations
@@ -101,25 +102,33 @@ def _answers_of(record: JsonObject) -> dict[str, str] | None:
     }
 
 
-def read_asked_questions(transcript_path: Path | None) -> list[AskedQuestions]:
-    """Return every answered ``AskUserQuestion`` call in a transcript.
+@dataclass(frozen=True)
+class TranscriptReading:
+    """Everything the refusal hooks read from one pass over a transcript.
 
-    Args:
-        transcript_path: The session transcript JSONL file, or None.
-
-    Returns:
-        One item per call whose result holds an ``answers`` object, in the
-        order the results appear.
+    Attributes:
+        all_asked: The answered ``AskUserQuestion`` calls.
+        all_calls: Every finished tool call.
     """
+
+    all_asked: list[AskedQuestions]
+    all_calls: list[TranscriptCall]
+
+
+def _transcript_records(transcript_path: Path | None) -> list[tuple[int, JsonObject]]:
     if transcript_path is None:
         return []
     try:
         transcript_bytes = transcript_path.read_bytes()
     except OSError:
         return []
+    return list(_records_with_offsets(transcript_bytes))
+
+
+def _asked_from(all_records: list[tuple[int, JsonObject]]) -> list[AskedQuestions]:
     call_offset_by_id: dict[str, int] = {}
     all_asked: list[AskedQuestions] = []
-    for each_offset, each_record in _records_with_offsets(transcript_bytes):
+    for each_offset, each_record in all_records:
         call_offset_by_id.update(dict.fromkeys(_ask_call_ids(each_record), each_offset))
         answer_by_question = _answers_of(each_record)
         if answer_by_question is None:
@@ -130,6 +139,60 @@ def read_asked_questions(transcript_path: Path | None) -> list[AskedQuestions]:
             if each_id in call_offset_by_id
         )
     return all_asked
+
+
+def _calls_from(all_records: list[tuple[int, JsonObject]]) -> list[TranscriptCall]:
+    call_by_id: dict[str, tuple[int, str, object]] = {}
+    all_calls: list[TranscriptCall] = []
+    for each_offset, each_record in all_records:
+        all_blocks = _all_content_blocks(each_record)
+        call_by_id.update(
+            (str(each.get("id")), (each_offset, str(each.get("name")), each.get("input")))
+            for each in all_blocks
+            if each.get("type") == "tool_use"
+        )
+        all_calls.extend(
+            TranscriptCall(
+                *call_by_id[str(each.get("tool_use_id"))], is_error=each.get("is_error") is True
+            )
+            for each in all_blocks
+            if each.get("type") == "tool_result" and str(each.get("tool_use_id")) in call_by_id
+        )
+    return all_calls
+
+
+def read_transcript(transcript_path: Path | None) -> TranscriptReading:
+    """Read the answered asks and the finished calls in one pass.
+
+    ::
+
+        transcript with one answered AskUserQuestion call
+            -> TranscriptReading(all_asked=[AskedQuestions(0, {...})],
+                                 all_calls=[TranscriptCall(0, "AskUserQuestion", ...)])
+        missing file -> TranscriptReading([], [])
+
+    Args:
+        transcript_path: The session transcript JSONL file, or None.
+
+    Returns:
+        What ``read_asked_questions`` and ``read_tool_calls`` return, from
+        one read and one parse of the file.
+    """
+    all_records = _transcript_records(transcript_path)
+    return TranscriptReading(all_asked=_asked_from(all_records), all_calls=_calls_from(all_records))
+
+
+def read_asked_questions(transcript_path: Path | None) -> list[AskedQuestions]:
+    """Return every answered ``AskUserQuestion`` call in a transcript.
+
+    Args:
+        transcript_path: The session transcript JSONL file, or None.
+
+    Returns:
+        One item per call whose result holds an ``answers`` object, in the
+        order the results appear.
+    """
+    return _asked_from(_transcript_records(transcript_path))
 
 
 def read_tool_calls(transcript_path: Path | None) -> list[TranscriptCall]:
@@ -149,26 +212,4 @@ def read_tool_calls(transcript_path: Path | None) -> list[TranscriptCall]:
         One item per call whose result is in the transcript, in the order
         the results appear.
     """
-    if transcript_path is None:
-        return []
-    try:
-        transcript_bytes = transcript_path.read_bytes()
-    except OSError:
-        return []
-    call_by_id: dict[str, tuple[int, str, object]] = {}
-    all_calls: list[TranscriptCall] = []
-    for each_offset, each_record in _records_with_offsets(transcript_bytes):
-        all_blocks = _all_content_blocks(each_record)
-        call_by_id.update(
-            (str(each.get("id")), (each_offset, str(each.get("name")), each.get("input")))
-            for each in all_blocks
-            if each.get("type") == "tool_use"
-        )
-        all_calls.extend(
-            TranscriptCall(
-                *call_by_id[str(each.get("tool_use_id"))], is_error=each.get("is_error") is True
-            )
-            for each in all_blocks
-            if each.get("type") == "tool_result" and str(each.get("tool_use_id")) in call_by_id
-        )
-    return all_calls
+    return _calls_from(_transcript_records(transcript_path))

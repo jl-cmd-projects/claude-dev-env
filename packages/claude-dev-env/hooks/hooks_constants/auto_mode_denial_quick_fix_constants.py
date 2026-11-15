@@ -43,6 +43,8 @@ DEFAULT_TOOL_NAME = "tool"
 ALL_NO_VERDICT_REASON_PREFIXES = (
     "auto mode could not evaluate this action",
     "classifier unavailable",
+    "the server-side auto mode classifier gave no verdict",
+    "a hook changed this call's input after auto mode reviewed it",
 )
 UNEXPLAINED_VERDICT_REASON_PREFIX = "the server-side auto mode classifier judged this action dangerous"
 UNEXPLAINED_RULE_LABEL = "Unexplained"
@@ -120,6 +122,6 @@ CLASSIFIER_REASON_PREFIX_PATTERN = (
 QUESTION_CONTEXT_TEMPLATE = """
 
 === AUTO MODE QUESTION ===
-Before you end the turn, ask the user this question with one AskUserQuestion call. Copy the question word for word, use the header `Auto mode`, and give the options `Keep refusing` and `Allow it`:
+Ask this question in place of the two fixes above, and do not write them out. Before you end the turn, ask the user this question with one AskUserQuestion call. Copy the question word for word, use the header `Auto mode`, and give the options `Keep refusing` and `Allow it`:
 {question}
 On Allow it, follow {playbook_path}: retry the step once and add one allow rule for this kind of step. On Keep refusing, go on with other work."""

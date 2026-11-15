@@ -8,8 +8,10 @@ from pathlib import Path
 from auto_mode_question_transcript import (
     AskedQuestions,
     TranscriptCall,
+    TranscriptReading,
     read_asked_questions,
     read_tool_calls,
+    read_transcript,
 )
 
 
@@ -93,3 +95,19 @@ def test_should_read_each_finished_call_with_its_input_offset_and_error_flag(
             second_call_offset, "mcp__hearthbot__ask_decision", {"question": "Q?"}, is_error=True
         ),
     ]
+
+
+def test_should_read_asks_and_calls_in_one_pass_equal_to_the_two_readers(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "transcript.jsonl"
+    all_records = _ask_records("toolu_one", {"answers": {"Q?": "Keep refusing"}})
+    transcript_path.write_text(
+        "".join(json.dumps(each_record) + "\n" for each_record in all_records), encoding="utf-8"
+    )
+    reading = read_transcript(transcript_path)
+    assert reading == TranscriptReading(
+        all_asked=read_asked_questions(transcript_path),
+        all_calls=read_tool_calls(transcript_path),
+    )
+    assert reading.all_asked == [AskedQuestions(0, {"Q?": "Keep refusing"})]
+    assert [each.tool_name for each in reading.all_calls] == ["AskUserQuestion"]
+    assert read_transcript(tmp_path / "missing.jsonl") == TranscriptReading([], [])

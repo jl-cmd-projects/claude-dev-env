@@ -229,9 +229,25 @@ def test_should_parse_an_unexplained_danger_reason_as_the_unexplained_rule() -> 
     )
 
 
-def test_should_parse_a_timed_out_server_reason_with_no_label() -> None:
-    timed_out_reason = "The server-side auto mode classifier gave no verdict (timed out)"
-    assert auto_mode_denial_quick_fix.parse_denial_reason(timed_out_reason).rule_label is None
+@pytest.mark.parametrize(
+    "no_verdict_reason",
+    [
+        "The server-side auto mode classifier gave no verdict (timed out)",
+        "a hook changed this call's input after auto mode reviewed it",
+    ],
+)
+def test_should_parse_a_reason_with_no_classifier_verdict_as_no_verdict(
+    no_verdict_reason: str,
+) -> None:
+    assert auto_mode_denial_quick_fix.parse_denial_reason(no_verdict_reason) == (
+        auto_mode_denial_quick_fix.DenialReason(
+            rule_label=None, has_verdict=False, prose=no_verdict_reason
+        )
+    )
+    context_text = auto_mode_denial_quick_fix.build_hook_output(
+        {"tool_name": "Bash", "tool_input": {"command": "ls"}, "reason": no_verdict_reason}
+    )["hookSpecificOutput"]["additionalContext"]
+    assert "```powershell" not in context_text
 
 
 def test_should_record_an_unexplained_refusal_and_ask_its_question(
@@ -248,6 +264,7 @@ def test_should_record_an_unexplained_refusal_and_ask_its_question(
     assert "Unexplained exception: Bash calls like `git push -f origin claude/x`" in context_text
     assert "Find the matching rule with: claude auto-mode defaults" in context_text
     assert "--label" not in context_text
+    assert "Ask this question in place of the two fixes above" in context_text
     ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
     all_entry_files = [
         each_path

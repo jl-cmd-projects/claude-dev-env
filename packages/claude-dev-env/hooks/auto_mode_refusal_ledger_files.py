@@ -82,11 +82,14 @@ class QuestionRecord:
         question: The exact question text.
         all_entry_ids: The ids the question covers.
         transcript_offset: The transcript size when the record was written.
+        tool_name: The tool the covered steps used, or empty when the file
+            names none.
     """
 
     question: str
     all_entry_ids: tuple[str, ...]
     transcript_offset: int
+    tool_name: str = ""
 
 
 def ledger_directory_for(session_id: str) -> Path:
@@ -216,7 +219,8 @@ def parse_question_record(json_object: JsonObject | None) -> QuestionRecord | No
     Returns:
         The record when the object is a question record with text
         ``question``, a list of text ``entry_ids`` and an integer
-        ``transcript_offset``.
+        ``transcript_offset``. A ``tool_name`` that is not text reads as
+        empty.
     """
     if json_object is None or json_object.get("record") != QUESTION_RECORD_KIND:
         return None
@@ -230,7 +234,13 @@ def parse_question_record(json_object: JsonObject | None) -> QuestionRecord | No
         and _is_integer(transcript_offset)
     ):
         return None
-    return QuestionRecord(question, tuple(all_entry_ids), transcript_offset)
+    tool_name = json_object.get("tool_name")
+    return QuestionRecord(
+        question,
+        tuple(all_entry_ids),
+        transcript_offset,
+        tool_name if isinstance(tool_name, str) else "",
+    )
 
 
 def write_json_object(file_path: Path, json_object: JsonObject) -> None:

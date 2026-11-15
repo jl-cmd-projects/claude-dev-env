@@ -114,6 +114,12 @@ def test_should_parse_a_question_record_and_reject_a_bad_offset() -> None:
         ledger_files.parse_question_record({**record_fields, "transcript_offset": "late"}) is None
     )
     assert ledger_files.parse_question_record({**record_fields, "entry_ids": [1]}) is None
+    assert ledger_files.parse_question_record(
+        {**record_fields, "tool_name": "Bash"}
+    ) == ledger_files.QuestionRecord("Q?", ("a", "b"), 900, "Bash")
+    assert ledger_files.parse_question_record({**record_fields, "tool_name": 7}) == (
+        ledger_files.QuestionRecord("Q?", ("a", "b"), 900, "")
+    )
 
 
 def test_should_write_and_read_back_one_object(tmp_path: Path) -> None:
