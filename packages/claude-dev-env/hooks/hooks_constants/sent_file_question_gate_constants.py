@@ -18,9 +18,13 @@ __all__ = [
     "ARTIFACT_PUBLISH_ACTION",
     "ARTIFACT_TOOL_NAME",
     "BINARY_READ_MODE",
+    "BLOCK_BREAK",
     "BLOCK_EXIT_CODE",
     "BOLD_MARK_COUNT",
+    "CHECK_OPENER_PATTERN",
+    "CLOSING_TAG_MARK",
     "CWD_KEY",
+    "DECISION_WORD_PATTERN",
     "EMPHASIS_CHARACTERS",
     "EMPHASIS_PATTERN",
     "FILE_PARTS_SEPARATOR",
@@ -35,12 +39,16 @@ __all__ = [
     "LIST_MARKER_PATTERN",
     "MAXIMUM_CHOICE_WORDS",
     "MAXIMUM_QUOTED_CHARACTERS",
+    "MAXIMUM_SENTENCE_CHARACTERS",
     "MAXIMUM_UTF8_CONTINUATION_BYTES",
     "MAXIMUM_WHOLE_FILE_BYTES",
     "NUL_BYTE",
     "OPEN_ASK_PATTERN",
+    "PARSED_READ_BUDGET_SECONDS",
     "PARTIAL_READ_MESSAGE",
     "PARTIAL_READ_NOTE",
+    "PLAIN_HEADING_BREAK",
+    "PLAIN_READ_BUDGET_SECONDS",
     "QUESTION_FOUND_MESSAGE",
     "QUESTION_LABEL_PATTERN",
     "QUESTION_MARK",
@@ -50,16 +58,19 @@ __all__ = [
     "READER_ADDRESS_PATTERN",
     "READER_CHOICE_PATTERN",
     "READER_WISH_PATTERN",
+    "REPLY_REQUEST_PATTERN",
     "REQUEST_OPENER_PATTERN",
     "RESPONSE_PROMPT_PATTERN",
-    "SCAN_BUDGET_SECONDS",
     "SCAN_TIMEOUT_MESSAGE",
     "SENTENCE_PATTERN",
+    "SPACE",
     "SPACE_RUN_PATTERN",
     "SYSTEM_MESSAGE_KEY",
     "TABLE_CELL_SEPARATOR",
     "TABLE_DIVIDER_CELL_PATTERN",
     "TABLE_ROW_PATTERN",
+    "TAG_CLOSE",
+    "TAG_OPEN",
     "TASK_BOX_PATTERN",
     "TOOL_INPUT_KEY",
     "TOOL_NAME_KEY",
@@ -155,11 +166,37 @@ WH_CHOICE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TASK_BOX_PATTERN = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+\[[ xX]\]\s")
-SCAN_BUDGET_SECONDS = 6
+PARSED_READ_BUDGET_SECONDS = 4
+PLAIN_READ_BUDGET_SECONDS = 4
+MAXIMUM_SENTENCE_CHARACTERS = 2000
+TAG_OPEN = "<"
+TAG_CLOSE = ">"
+CLOSING_TAG_MARK = "/"
+BLOCK_BREAK = "\n\n"
+PLAIN_HEADING_BREAK = "\n\n# "
+SPACE = " "
+CHECK_OPENER_PATTERN = re.compile(
+    r"^(?:did|have|has|is|are|was|were)\s+"
+    r"(?:you|we|it|they|the|this|that|these|those|all|every|each|both|any)\b",
+    re.IGNORECASE,
+)
+DECISION_WORD_PATTERN = re.compile(
+    r"\b(?:confirm|prefer|preferred|preference|decide|decision|choose|choice|approve|approval"
+    r"|agree|want|like|think|ok|okay|rather|pick)\b",
+    re.IGNORECASE,
+)
+REPLY_REQUEST_PATTERN = re.compile(
+    r"^(?:please\s+)?(?:let\s+(?:me|us)\s+know|get\s+back\s+to\s+(?:me|us)"
+    r"|advise\s+(?:me|us|which|whether|if|on|how|when)"
+    r"|tell\s+(?:me|us)\s+(?:which|what|whether|if|how|when|where|who))\b"
+    r"|^please\s+(?:advise|confirm|choose|pick|select|decide|approve|reply|respond)\b",
+    re.IGNORECASE,
+)
 SYSTEM_MESSAGE_KEY = "systemMessage"
 FILE_PATH_SEPARATOR = ", "
 SCAN_TIMEOUT_MESSAGE = (
     "sent_file_question_gate could not finish reading {file_paths} within {budget_seconds} s, "
+    "with the HTML parser or with the plain tag-stripping read, "
     "so it did not check them for questions for the user. "
     "Ask any question through AskUserQuestion (Codex: request_user_input), not inside the file."
 )

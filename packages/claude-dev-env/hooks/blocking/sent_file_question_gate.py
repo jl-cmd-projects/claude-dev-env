@@ -23,13 +23,21 @@ one) and names the reader (you, your), opens with a request (should I, want
 me, okay to, proceed, merge, thoughts, are we good, would it make sense,
 ...), opens with "can I", "could we", or "may I", asks which or what works
 best or should be done ("What release date works best?"), or offers a choice
-with "or" in ten words or fewer. A list marker and a task box ("- [ ]")
-before it are skipped. A checklist item, a list item with a task box or next
-to another question item, passes when it only checks the reader's work ("Did
-you run the tests?") and asks for no wish, go-ahead, or choice. Headings, a ``summary`` or ``dt`` label, quotes, fenced and
-indented code, and preformatted text are not read as questions, except a
-heading that opens a question or decision section, such as "Open
-questions", "Decisions needed from you", or "Need your input".
+with "or" in ten words or fewer. A sentence that asks for a reply on its own
+("Let me know which you prefer.", "Please advise which one to apply.") counts
+too. A list marker and a task box ("- [ ]") before it are skipped. A
+checklist item, a list item with a task box or next to another question
+item, passes when it only checks the reader's work ("Did you run the
+tests?", "Is the build done?") and names no decision, confirmation, or
+preference.
+
+Quotes, fenced and indented code, and preformatted text are not read. A
+heading, a ``summary`` label, or a ``dt`` label is refused when it opens a
+question or decision section, such as "Open questions", "Decisions needed
+from you", or "Need your input", or when it asks the reader something and no
+paragraph follows to answer it ("## Should I delete the old logs?" at the end
+of the file or above a list of options). "## Why does this exist?" and "##
+How does it work?" pass.
 
 A question the next sentence answers with "Yes," "No." and the like passes;
 "Yes or no." and "No rush." are no answers. A question that asks for no
@@ -43,10 +51,13 @@ cell with an answer cell after it, pass.
 A file over 256 KB is read through its first and last 128 KB, and the
 refusal, or a system message when the gate lets the call run, says so. A file
 that holds a NUL byte or is not UTF-8, and a file the gate cannot read, pass.
-The refusal quotes at most 160 characters of the question. The read runs on a
-worker thread with a 6 s budget, under the hook's 10 s timeout; when the
-budget runs out, the call runs and a system message says the files went
-unchecked.
+The refusal quotes at most 160 characters of the question. A sentence over
+2,000 characters is not read. The read runs on a worker thread with a 4 s
+budget. When the HTML parser does not finish in that time, a second read
+strips the tags in one pass with no parser and applies the same rules, with
+another 4 s. Only when that read also runs out does the call run, with a
+system message that the files went unchecked. Both budgets stay under the
+hook's 10 s timeout.
 """
 
 from __future__ import annotations
@@ -66,6 +77,8 @@ if blocking_directory not in sys.path:
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.sent_file_question_gate_constants import (
+    PLAIN_READ_BUDGET_SECONDS,
+    PARSED_READ_BUDGET_SECONDS,
     ALLOW_EXIT_CODE,
     ALL_ANSWER_SAVING_CAPABILITIES,
     ALL_SKIPPED_PUBLISH_INPUT_KEYS,
@@ -83,14 +96,13 @@ from hooks_constants.sent_file_question_gate_constants import (
     PARTIAL_READ_NOTE,
     QUESTION_FOUND_MESSAGE,
     QUOTE_CUT_MARK,
-    SCAN_BUDGET_SECONDS,
     SCAN_TIMEOUT_MESSAGE,
     SYSTEM_MESSAGE_KEY,
     TOOL_INPUT_KEY,
     TOOL_NAME_KEY,
 )
 from open_tasks_transcript_records import send_call_file_paths
-from sent_file_question_detector import question_for_user
+from sent_file_question_detector import plain_page_text, question_for_user
 from sent_file_scan import sent_file_is_partly_read, sent_file_scan_text
 from user_step_wording import is_html_file_path
 
@@ -146,15 +158,21 @@ def sent_file_paths(tool_name: str, all_tool_input_fields: dict[str, object]) ->
     return send_call_file_paths(tool_name, all_tool_input_fields)
 
 
+def _file_question(file_path_text: str, file_text: str, is_plain_page_read: bool) -> str | None:
+    if is_plain_page_read and is_html_file_path(file_path_text):
+        return question_for_user(plain_page_text(file_text), is_html=False)
+    return question_for_user(file_text, is_html_file_path(file_path_text))
+
+
 def _sent_file_findings(
-    all_file_paths: list[str], working_directory: object
+    all_file_paths: list[str], working_directory: object, is_plain_page_read: bool
 ) -> list[tuple[str, str | None, bool]]:
     all_findings: list[tuple[str, str | None, bool]] = []
     for each_path in all_file_paths:
         file_text = sent_file_scan_text(each_path, working_directory)
         if file_text is None:
             continue
-        question = question_for_user(file_text, is_html_file_path(each_path))
+        question = _file_question(each_path, file_text, is_plain_page_read)
         is_partly_read = sent_file_is_partly_read(each_path, working_directory)
         all_findings.append((each_path, question, is_partly_read))
         if question is not None:
@@ -163,7 +181,10 @@ def _sent_file_findings(
 
 
 def findings_within_budget(
-    all_file_paths: list[str], working_directory: object, budget_seconds: float
+    all_file_paths: list[str],
+    working_directory: object,
+    budget_seconds: float,
+    is_plain_page_read: bool = False,
 ) -> list[tuple[str, str | None, bool]] | None:
     """Read the sent files on a worker thread, and give up when the budget runs out.
 
@@ -180,6 +201,8 @@ def findings_within_budget(
         all_file_paths: The paths the call sends.
         working_directory: The session's ``cwd`` from the hook payload.
         budget_seconds: How long the read may take.
+        is_plain_page_read: True to read an HTML page through
+            ``plain_page_text``, with no HTML parser.
 
     Returns:
         One (path, question or None, read only in part) entry per readable
@@ -187,7 +210,9 @@ def findings_within_budget(
     """
     all_results: list[list[tuple[str, str | None, bool]]] = []
     worker = threading.Thread(
-        target=lambda: all_results.append(_sent_file_findings(all_file_paths, working_directory)),
+        target=lambda: all_results.append(
+            _sent_file_findings(all_file_paths, working_directory, is_plain_page_read)
+        ),
         daemon=True,
     )
     worker.start()
@@ -240,14 +265,19 @@ def main() -> int:
     all_file_paths = sent_file_paths(tool_name, tool_input)
     if not all_file_paths:
         return ALLOW_EXIT_CODE
+    working_directory = hook_input.get(CWD_KEY)
     all_findings = findings_within_budget(
-        all_file_paths, hook_input.get(CWD_KEY), SCAN_BUDGET_SECONDS
+        all_file_paths, working_directory, PARSED_READ_BUDGET_SECONDS
     )
+    if all_findings is None:
+        all_findings = findings_within_budget(
+            all_file_paths, working_directory, PLAIN_READ_BUDGET_SECONDS, is_plain_page_read=True
+        )
     if all_findings is None:
         _write_system_message(
             SCAN_TIMEOUT_MESSAGE.format(
                 file_paths=FILE_PATH_SEPARATOR.join(all_file_paths),
-                budget_seconds=SCAN_BUDGET_SECONDS,
+                budget_seconds=PARSED_READ_BUDGET_SECONDS + PLAIN_READ_BUDGET_SECONDS,
             )
         )
         return ALLOW_EXIT_CODE

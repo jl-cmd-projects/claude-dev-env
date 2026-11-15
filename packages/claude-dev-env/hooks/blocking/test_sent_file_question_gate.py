@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import sent_file_question_detector
 import sent_file_question_gate
 
 GATE_SCRIPT_PATH = Path(sent_file_question_gate.__file__)
@@ -103,6 +104,33 @@ ASKING_FILES = [
         "What release date works best?",
     ),
     ("lone_check.md", "The run is done.\n\n- Did you run the tests?\n", "Did you run the tests?"),
+    (
+        "box_confirm.md",
+        "- [ ] Can you confirm the release date?\n",
+        "Can you confirm the release date?",
+    ),
+    ("box_prefer.md", "- [ ] Do you have a preferred date?\n", "Do you have a preferred date?"),
+    (
+        "box_decision.md",
+        "- [ ] Have you got a decision on the launch?\n",
+        "Have you got a decision on the launch?",
+    ),
+    (
+        "let_me_know.md",
+        "Two layouts fit. Let me know which you prefer.\n",
+        "Let me know which you prefer.",
+    ),
+    (
+        "please_advise.md",
+        "Both patches apply. Please advise which one to apply.\n",
+        "Please advise which one to apply.",
+    ),
+    ("heading_should_i.md", "## Should I delete the old logs?\n", "Should I delete the old logs?"),
+    (
+        "heading_prefer.md",
+        "## Which option do you prefer?\n\n- Option A\n- Option B\n",
+        "Which option do you prefer?",
+    ),
 ]
 
 CLEAN_FILES = [
@@ -111,6 +139,9 @@ CLEAN_FILES = [
     ("checklist.md", "## Checklist\n\n- Did you run the tests?\n- Did you update the changelog?\n"),
     ("task_box_check.md", "- [ ] Did you run the tests?\n"),
     ("which_version.md", "Which Python version works best? Python 3.12.\n"),
+    ("box_work_check.md", "- [ ] Have you saved the file?\n- [ ] Is the build done?\n"),
+    ("why_heading.md", "## Why does this exist?\n\nIt keeps questions in cards.\n"),
+    ("how_heading.md", "## How does it work?\n"),
     ("troubleshooting.md", "## Troubleshooting\n\nDid you set `HOME`? Set it before the run.\n"),
     ("q_and_a_split.md", "Q: Can you run it offline?\n\nA: Yes.\n"),
     ("heading_question.md", "## Should I pin the version?\n\nPin it in the lock file.\n"),
@@ -501,7 +532,8 @@ def test_should_say_so_when_the_read_runs_past_its_budget(
 ) -> None:
     written_file(tmp_path, "page.html", "<p>Which option do you prefer?</p>")
     monkeypatch.setattr(sent_file_question_gate, "question_for_user", slow_question_for_user)
-    monkeypatch.setattr(sent_file_question_gate, "SCAN_BUDGET_SECONDS", 0.2)
+    monkeypatch.setattr(sent_file_question_gate, "PARSED_READ_BUDGET_SECONDS", 0.1)
+    monkeypatch.setattr(sent_file_question_gate, "PLAIN_READ_BUDGET_SECONDS", 0.1)
     hook_input = {
         "hook_event_name": "PreToolUse",
         "tool_name": "SendUserFile",
@@ -515,3 +547,21 @@ def test_should_say_so_when_the_read_runs_past_its_budget(
     system_message = json.loads(capsys.readouterr().out)["systemMessage"]
     assert "could not finish reading page.html within 0.2 s" in system_message
     assert "AskUserQuestion" in system_message
+
+
+def slow_html_text_blocks(page_markup: str, heading_mark: str) -> list[str]:
+    time.sleep(2)
+    return []
+
+
+def test_should_read_a_page_without_the_parser_when_the_parser_runs_long(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    written_file(tmp_path, "page.html", "<h2>Plan</h2><p>Checks passed. Should I merge it?</p>")
+    monkeypatch.setattr(sent_file_question_detector, "html_text_blocks", slow_html_text_blocks)
+    monkeypatch.setattr(sent_file_question_gate, "PARSED_READ_BUDGET_SECONDS", 0.2)
+    exit_code, reason = run_gate(
+        monkeypatch, capsys, "SendUserFile", {"files": ["page.html"]}, tmp_path
+    )
+    assert exit_code == 2
+    assert "Should I merge it?" in reason
