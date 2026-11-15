@@ -1177,6 +1177,24 @@ def test_should_tell_a_create_behind_a_gh_repo_prefix_to_name_its_repository_wit
     assert "--repo owner/name" in reason
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "GH_REPO=nonsense gh pr create --head feature",
+        "gh pr create --head feature --repo acme/other ; "
+        "GH_REPO=nonsense env -u GH_REPO gh pr create --head feature",
+    ],
+)
+def test_should_tell_a_create_behind_an_unreadable_gh_repo_prefix_to_name_its_repository_with_the_repo_flag(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/other")
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has no clean review for head {head}" in reason
+    assert "--repo owner/name" in reason
+
+
 def test_should_allow_a_create_that_names_an_exempt_repository_with_its_own_repo_flag(
     branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
