@@ -28,8 +28,12 @@ from hooks_constants.auto_mode_refusal_ledger_constants import (
     ENTRY_FILE_SUFFIX,
     ID_HEX_CHARACTERS,
     JSON_INDENT_SPACES,
+    QUESTION_ASKED_FIELD,
+    QUESTION_CARD_OFFSET_FIELD,
     QUESTION_FILE_PREFIX,
+    QUESTION_HOLDS_FIELD,
     QUESTION_RECORD_KIND,
+    RULE_HOLDS_FIELD,
     TEMPORARY_FILE_PREFIX,
     TEMPORARY_FILE_SUFFIX,
     TEXT_ENCODING,
@@ -50,6 +54,11 @@ class LedgerEntry:
         action_summary: One short line that names the step.
         sequence: The step's place in refusal order.
         answer: ``allowed``, ``kept``, or None while the step is pending.
+        question_holds: How many turns the Stop gate held to ask about it.
+        rule_holds: How many turns the Stop gate held for its rule.
+        is_question_asked: Whether the Stop gate saw its question asked.
+        question_card_offset: The transcript offset of the decision card
+            that asked it, or None when no card asked it.
     """
 
     entry_id: str
@@ -58,6 +67,10 @@ class LedgerEntry:
     action_summary: str
     sequence: int
     answer: str | None
+    question_holds: int = 0
+    rule_holds: int = 0
+    is_question_asked: bool = False
+    question_card_offset: int | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +128,10 @@ def _is_integer(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _is_count(value: object) -> bool:
+    return _is_integer(value) and value >= 0
+
+
 def read_json_object(file_path: Path) -> JsonObject | None:
     """Return the JSON object a file holds, or None.
 
@@ -142,25 +159,37 @@ def parse_entry(json_object: JsonObject | None) -> LedgerEntry | None:
         The entry when the object has an ``answer`` key, text ``id``,
         ``tool_name``, ``rule_label`` and ``action_summary``, an integer
         ``sequence``, and an answer that is null, ``allowed`` or ``kept``.
+        The Stop gate's ``question_holds`` and ``rule_holds`` default to 0
+        and must be integers of 0 or more, ``question_asked`` defaults to
+        false and must be a boolean, and ``question_card_offset`` defaults
+        to null and must be null or an integer of 0 or more.
     """
     if json_object is None or "answer" not in json_object:
         return None
-    entry_id = json_object.get("id")
-    tool_name = json_object.get("tool_name")
-    rule_label = json_object.get("rule_label")
-    action_summary = json_object.get("action_summary", "")
+    all_text_fields = [json_object.get(each) for each in ("id", "tool_name", "rule_label")]
+    all_text_fields.append(json_object.get("action_summary", ""))
     sequence = json_object.get("sequence", 0)
+    all_hold_counts = [
+        json_object.get(each_name, 0) for each_name in (QUESTION_HOLDS_FIELD, RULE_HOLDS_FIELD)
+    ]
     answer = json_object["answer"]
+    is_question_asked = json_object.get(QUESTION_ASKED_FIELD, False)
+    question_card_offset = json_object.get(QUESTION_CARD_OFFSET_FIELD)
     if not (
-        isinstance(entry_id, str)
-        and isinstance(tool_name, str)
-        and isinstance(rule_label, str)
-        and isinstance(action_summary, str)
+        all(isinstance(each, str) for each in all_text_fields)
         and _is_integer(sequence)
+        and all(_is_count(each) for each in all_hold_counts)
         and (answer is None or answer in ALL_ANSWERS)
+        and isinstance(is_question_asked, bool)
+        and (question_card_offset is None or _is_count(question_card_offset))
     ):
         return None
-    return LedgerEntry(entry_id, tool_name, rule_label, action_summary, sequence, answer)
+    entry_id, tool_name, rule_label, action_summary = all_text_fields
+    question_holds, rule_holds = all_hold_counts
+    return LedgerEntry(
+        entry_id, tool_name, rule_label, action_summary, sequence, answer,
+        question_holds, rule_holds, is_question_asked, question_card_offset,
+    )
 
 
 def parse_question_record(json_object: JsonObject | None) -> QuestionRecord | None:
@@ -244,7 +273,8 @@ def load_entries(ledger_directory: Path) -> list[LedgerEntry]:
 
     Returns:
         The entries that parse, sorted by their ``sequence`` number. A file
-        that ``parse_entry`` rejects is skipped.
+        that ``parse_entry`` rejects, or whose name is not ``<id>.json`` for
+        the id it holds, is skipped.
     """
     if not ledger_directory.is_dir():
         return []
@@ -252,6 +282,7 @@ def load_entries(ledger_directory: Path) -> list[LedgerEntry]:
         each_entry
         for each_path in ledger_directory.glob(f"*{ENTRY_FILE_SUFFIX}")
         if (each_entry := parse_entry(read_json_object(each_path))) is not None
+        and each_path == entry_file_path(ledger_directory, each_entry.entry_id)
     ]
     return sorted(all_entries, key=lambda each_entry: each_entry.sequence)
 

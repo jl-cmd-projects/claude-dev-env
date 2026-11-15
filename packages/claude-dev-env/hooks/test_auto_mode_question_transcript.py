@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from auto_mode_question_transcript import AskedQuestions, read_asked_questions
+from auto_mode_question_transcript import (
+    AskedQuestions,
+    TranscriptCall,
+    read_asked_questions,
+    read_tool_calls,
+)
 
 
 def _ask_records(tool_use_id: str, tool_use_result: object) -> list[dict[str, object]]:
@@ -40,3 +45,51 @@ def test_should_read_each_answered_ask_with_the_offset_of_its_call(tmp_path: Pat
 def test_should_read_nothing_from_a_missing_transcript(tmp_path: Path) -> None:
     assert read_asked_questions(tmp_path / "missing.jsonl") == []
     assert read_asked_questions(None) == []
+    assert read_tool_calls(tmp_path / "missing.jsonl") == []
+    assert read_tool_calls(None) == []
+
+
+def _call_records(
+    tool_use_id: str, tool_name: str, tool_input: object, is_error: bool
+) -> list[dict[str, object]]:
+    result_block: dict[str, object] = {"type": "tool_result", "tool_use_id": tool_use_id}
+    if is_error:
+        result_block["is_error"] = True
+    return [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": tool_use_id, "name": tool_name, "input": tool_input}
+                ]
+            },
+        },
+        {"type": "user", "message": {"content": [result_block]}},
+    ]
+
+
+def test_should_read_each_finished_call_with_its_input_offset_and_error_flag(
+    tmp_path: Path,
+) -> None:
+    transcript_path = tmp_path / "transcript.jsonl"
+    all_records = (
+        _call_records("toolu_1", "Bash", {"command": "ls"}, is_error=False)
+        + _call_records("toolu_2", "mcp__hearthbot__ask_decision", {"question": "Q?"}, True)
+        + [
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "tool_use", "id": "toolu_3", "name": "Bash", "input": {}}]
+                },
+            }
+        ]
+    )
+    all_lines = [json.dumps(each_record) for each_record in all_records]
+    transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
+    second_call_offset = sum(len(each_line) + 1 for each_line in all_lines[:2])
+    assert read_tool_calls(transcript_path) == [
+        TranscriptCall(0, "Bash", {"command": "ls"}, is_error=False),
+        TranscriptCall(
+            second_call_offset, "mcp__hearthbot__ask_decision", {"question": "Q?"}, is_error=True
+        ),
+    ]

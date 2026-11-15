@@ -52,9 +52,26 @@ def test_should_parse_an_entry_with_every_field_typed() -> None:
     )
 
 
+def test_should_parse_the_stop_gate_counts_and_asked_mark() -> None:
+    parsed_entry = ledger_files.parse_entry(
+        _entry_fields(question_holds=2, rule_holds=1, question_asked=True)
+    )
+    assert parsed_entry is not None
+    assert (parsed_entry.question_holds, parsed_entry.rule_holds) == (2, 1)
+    assert parsed_entry.is_question_asked
+
+
 @pytest.mark.parametrize(
     "overrides",
-    [{"id": 7}, {"sequence": "first"}, {"sequence": True}, {"answer": "maybe"}],
+    [
+        {"id": 7},
+        {"sequence": "first"},
+        {"sequence": True},
+        {"answer": "maybe"},
+        {"question_holds": "2"},
+        {"rule_holds": None},
+        {"question_asked": 1},
+    ],
 )
 def test_should_reject_an_entry_with_a_field_of_the_wrong_type(
     overrides: dict[str, object],

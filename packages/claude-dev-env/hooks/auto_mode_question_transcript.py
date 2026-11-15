@@ -8,6 +8,8 @@ and by where the call sits in the transcript::
         -> AskedQuestions(call_offset=0, answer_by_question={"Q?": "Allow it"})
 
 A call whose result is error text has no ``answers`` object and is left out.
+``read_tool_calls`` reads every finished call of any tool, with its input and
+error flag, for the Stop gate's card and rule tool checks.
 """
 
 from __future__ import annotations
@@ -33,6 +35,23 @@ class AskedQuestions:
 
     call_offset: int
     answer_by_question: dict[str, str]
+
+
+@dataclass(frozen=True)
+class TranscriptCall:
+    """One finished tool call read from the transcript.
+
+    Attributes:
+        call_offset: The byte offset where the call's transcript line starts.
+        tool_name: The tool the call used.
+        tool_input: The call's input as the transcript stores it.
+        is_error: Whether the call's result is marked as an error.
+    """
+
+    call_offset: int
+    tool_name: str
+    tool_input: object
+    is_error: bool
 
 
 def _records_with_offsets(transcript_bytes: bytes) -> Iterator[tuple[int, JsonObject]]:
@@ -111,3 +130,45 @@ def read_asked_questions(transcript_path: Path | None) -> list[AskedQuestions]:
             if each_id in call_offset_by_id
         )
     return all_asked
+
+
+def read_tool_calls(transcript_path: Path | None) -> list[TranscriptCall]:
+    """Return every tool call in a transcript that has a result.
+
+    ::
+
+        byte 0    {"type": "assistant", ... Bash call toolu_1 {"command": "ls"} ...}
+        byte 300  {"type": "user", ... tool_result toolu_1 ...}
+            -> TranscriptCall(0, "Bash", {"command": "ls"}, is_error=False)
+        a call with no result yet -> left out
+
+    Args:
+        transcript_path: The session transcript JSONL file, or None.
+
+    Returns:
+        One item per call whose result is in the transcript, in the order
+        the results appear.
+    """
+    if transcript_path is None:
+        return []
+    try:
+        transcript_bytes = transcript_path.read_bytes()
+    except OSError:
+        return []
+    call_by_id: dict[str, tuple[int, str, object]] = {}
+    all_calls: list[TranscriptCall] = []
+    for each_offset, each_record in _records_with_offsets(transcript_bytes):
+        all_blocks = _all_content_blocks(each_record)
+        call_by_id.update(
+            (str(each.get("id")), (each_offset, str(each.get("name")), each.get("input")))
+            for each in all_blocks
+            if each.get("type") == "tool_use"
+        )
+        all_calls.extend(
+            TranscriptCall(
+                *call_by_id[str(each.get("tool_use_id"))], is_error=each.get("is_error") is True
+            )
+            for each in all_blocks
+            if each.get("type") == "tool_result" and str(each.get("tool_use_id")) in call_by_id
+        )
+    return all_calls

@@ -272,3 +272,14 @@ def test_should_set_answers_only_from_asks_after_the_record(tmp_path: Path) -> N
     _append_ask(transcript_path, question, "Allow it (Recommended)", "toolu_late")
     ledger.apply_transcript_answers(ledger_directory, transcript_path)
     assert _answers(ledger_directory) == ["allowed"]
+
+
+def test_should_merge_fields_into_entries_and_keep_their_other_fields(tmp_path: Path) -> None:
+    first_id = _add(tmp_path, "git push -f")
+    second_id = _add(tmp_path, "git reset --hard")
+    ledger.merge_entry_fields(tmp_path, {first_id: {"question_holds": 1}, "missing": {"x": 1}})
+    first_entry, second_entry = ledger.load_entries(tmp_path)
+    assert (first_entry.question_holds, first_entry.action_summary) == (1, "git push -f")
+    assert second_entry.question_holds == 0
+    assert second_entry.entry_id == second_id
+    assert not (tmp_path / "missing.json").exists()

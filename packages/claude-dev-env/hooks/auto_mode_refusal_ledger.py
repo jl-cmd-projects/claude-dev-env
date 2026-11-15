@@ -319,6 +319,27 @@ def _set_pending_answers(
             write_json_object(entry_path, {**raw_entry, "answer": answer})
 
 
+def merge_entry_fields(
+    ledger_directory: Path, fields_by_entry_id: dict[str, JsonObject]
+) -> None:
+    """Merge new fields into existing entry files and keep every other field.
+
+    ::
+
+        {"3f9a...": {"question_holds": 1}} -> 3f9a....json gains question_holds 1
+        an id with no file, or a file that does not parse -> nothing written
+
+    Args:
+        ledger_directory: One session's ledger folder.
+        fields_by_entry_id: The fields to set, by entry id.
+    """
+    for each_entry_id, each_fields in fields_by_entry_id.items():
+        entry_path = entry_file_path(ledger_directory, each_entry_id)
+        raw_entry = read_json_object(entry_path)
+        if raw_entry is not None and parse_entry(raw_entry) is not None:
+            write_json_object(entry_path, {**raw_entry, **each_fields})
+
+
 def _entry_fields_for(step: RefusedStep, rule_label: str) -> JsonObject:
     return {
         "id": entry_id_for(step.tool_name, step.tool_input),
